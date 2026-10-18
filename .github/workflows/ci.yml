@@ -163,6 +163,11 @@ jobs:
           unshare -Ur true && echo 'user namespaces: available' || echo 'user namespaces: refused'
           sysctl kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true
           LOCUST_SMOKE_PORT=9334 xvfb-run -a -s '-screen 0 1920x1080x24' node _smoke/posix-stop-smoke.mjs --launch-only "$image"
+      - name: Update itself on Linux
+        if: runner.os == 'Linux'
+        run: |
+          image="$(ls apps/desktop/release/*.AppImage | head -1)"
+          LOCUST_SMOKE_PORT=9335 xvfb-run -a -s '-screen 0 1920x1080x24' node _smoke/linux-update-smoke.mjs "$image"
       - name: Keep the Linux frames
         if: runner.os == 'Linux' && always()
         uses: actions/upload-artifact@v4

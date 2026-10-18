@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { linuxInstallOf, linuxPackageUrl } from './linux-install.js'
+import { linuxInstallOf, linuxPackageUrl, linuxUpdateTestOf } from './linux-install.js'
 import { createUpdateService } from './updates.js'
 import type { UpdaterLike } from './updates.js'
 
@@ -36,6 +36,34 @@ describe('how a Linux copy was installed', () => {
     expect(linuxPackageUrl('rpm', files, 'https://dl.locust.lol/')).toBe('https://dl.locust.lol/Locust-0.790.0-linux-x86_64.rpm')
     expect(linuxPackageUrl('deb', [{ url: 7 }], 'https://dl.locust.lol/')).toBeUndefined()
     expect(linuxPackageUrl('deb', undefined, 'https://dl.locust.lol/')).toBeUndefined()
+  })
+
+  it('leaves the Linux update test seam off by default, and activates it only on an AppImage copy', () => {
+    expect(linuxUpdateTestOf('appimage', {})).toBeUndefined()
+    expect(linuxUpdateTestOf('appimage', { LOCUST_LINUX_UPDATE_TEST_FEED: '', LOCUST_LINUX_UPDATE_TEST_VERSION: '' })).toBeUndefined()
+    expect(linuxUpdateTestOf('appimage', { LOCUST_LINUX_UPDATE_TEST_VERSION: '9.9.9' })).toBeUndefined()
+    const env = {
+      LOCUST_LINUX_UPDATE_TEST_FEED: 'http://127.0.0.1:41999',
+      LOCUST_LINUX_UPDATE_TEST_VERSION: '9.9.9',
+      APPIMAGE_SILENT_INSTALL: 'true'
+    }
+    expect(linuxUpdateTestOf(undefined, env)).toBeUndefined()
+    expect(linuxUpdateTestOf('deb', env)).toBeUndefined()
+    expect(linuxUpdateTestOf('rpm', env)).toBeUndefined()
+    expect(linuxUpdateTestOf('appimage', { LOCUST_LINUX_UPDATE_TEST_FEED: 'http://127.0.0.1:41999', LOCUST_LINUX_UPDATE_TEST_VERSION: '9.9.9' })).toEqual({
+      feedUrl: 'http://127.0.0.1:41999'
+    })
+    expect(linuxUpdateTestOf('appimage', env)).toEqual({
+      feedUrl: 'http://127.0.0.1:41999',
+      version: '9.9.9'
+    })
+  })
+
+  it('reads a test feed only from this machine, never from anywhere else', () => {
+    for (const feed of ['https://dl.example.test/', 'http://192.168.1.20:8080/', 'http://user:pass@127.0.0.1:41999/', 'file:///tmp/feed', 'not a url']) {
+      expect(linuxUpdateTestOf('appimage', { LOCUST_LINUX_UPDATE_TEST_FEED: feed }), feed).toBeUndefined()
+    }
+    expect(linuxUpdateTestOf('appimage', { LOCUST_LINUX_UPDATE_TEST_FEED: 'http://localhost:41999/' })).toEqual({ feedUrl: 'http://localhost:41999/' })
   })
 })
 

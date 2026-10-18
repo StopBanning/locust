@@ -1,8 +1,8 @@
 #!/bin/bash
 # linux-attach-dl.sh VERSION [RUN_ID] (0.789): VERSION's Linux packages from the public ci.yml run that built its Mac
 # images (mac-attach-dl.sh starts it; one is started here only if there is none), required to have PASSED their checks
-# in the Linux job's log -- the .deb installed with apt and stopped mid-turn, the AppImage opened on a stock Ubuntu --
-# then uploaded to dl.locust.lol with their feed, and promoted. publish-dl.sh runs it after the Mac images.
+# in the Linux job's log -- the .deb installed with apt and stopped mid-turn, the AppImage opened on a stock Ubuntu and
+# updated itself -- then uploaded to dl.locust.lol with their feed, and promoted. publish-dl.sh runs it after the Mac images.
 V="$1"; RUN="$2"
 PUB=StopBanning/locust
 R=/c/work/locust
@@ -41,7 +41,7 @@ LOG="$TEMP/linux-$V.log"
 # The job's own log (0.789): `gh run view --log` answers only once the WHOLE run is done, and the run also
 # builds the other systems, so it read "still in progress" here and failed a job that had passed.
 gh api --allow-escape-sequences "repos/$PUB/actions/jobs/$JOB/logs" > "$LOG" 2>&1
-if ! grep -q "LINUX STOP SMOKE PASSED" "$LOG" || ! grep -q "LINUX LAUNCH SMOKE PASSED" "$LOG"; then echo "LINUX: a Linux check did not pass (see $LOG)"; exit 1; fi
+if ! grep -q "LINUX STOP SMOKE PASSED" "$LOG" || ! grep -q "LINUX LAUNCH SMOKE PASSED" "$LOG" || ! grep -q "LINUX UPDATE SMOKE PASSED" "$LOG"; then echo "LINUX: a Linux check did not pass (see $LOG)"; exit 1; fi
 echo "LINUX: $(grep -c '\[PASS\]' "$LOG") checks PASS on Linux, $(grep -c '\[FAIL\]' "$LOG") FAIL"
 # C:, not D: -- D: damages files at rest (memory d-drive-ntfs-corruption); these are deleted as soon as they are up.
 D=/c/work/scratch/linux-$V

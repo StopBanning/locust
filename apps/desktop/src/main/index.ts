@@ -94,7 +94,7 @@ import { randomInt } from 'node:crypto'
 import { basename, dirname, isAbsolute, join, resolve as resolvePath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { shellPath } from './shell-path.js'
-import { linuxInstallOf, linuxPackageUrl } from './linux-install.js'
+import { linuxInstallOf, linuxPackageUrl, linuxUpdateTestOf } from './linux-install.js'
 import { DOWNLOADS, SITE } from '../shared/locust-home.js'
 import { readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeTheme } from './appearance.js'
 import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, THEME_ARGUMENT } from '../shared/appearance.js'
@@ -1686,6 +1686,10 @@ if (!ownsSingleInstanceLock) {
     // A slot at or before this is missed. Taken before the window, so a
     // routine whose time already passed does not start at launch.
     const appOpenedAt = new Date()
+    // On Linux (0.789): an AppImage, or a .deb or .rpm the package manager installed (linux-install.ts).
+    const linuxInstall = process.platform === 'linux' && app.isPackaged ? linuxInstallOf(process.env, process.resourcesPath) : undefined
+    const linuxUpdateTest = linuxUpdateTestOf(linuxInstall, process.env)
+    const appVersion = linuxUpdateTest?.version ?? app.getVersion()
     /*
      * The first line of every run.
      *
@@ -1693,7 +1697,7 @@ if (!ownsSingleInstanceLock) {
      * a question, and by the time we ask, the person has usually updated.
      */
     note('start', startupDetail({
-      version: app.getVersion(),
+      version: linuxUpdateTest?.version ?? app.getVersion(),
       platform: process.platform,
       release: release(),
       electron: process.versions.electron ?? 'unknown',
@@ -7923,7 +7927,7 @@ if (!ownsSingleInstanceLock) {
       // The version electron-builder stamped, which is the one on the installer.
       return {
         name: 'Locust',
-        version: app.getVersion(),
+        version: appVersion,
         packaged: app.isPackaged,
         platform: process.platform,
         workspaceName: workspaceChosen ? basename(workspacePath) || workspacePath : '',
@@ -7948,8 +7952,6 @@ if (!ownsSingleInstanceLock) {
         return TESTER_LANE
       }
     })()
-    // On Linux (0.789): an AppImage, or a .deb or .rpm the package manager installed (linux-install.ts).
-    const linuxInstall = process.platform === 'linux' && app.isPackaged ? linuxInstallOf(process.env, process.resourcesPath) : undefined
     const installedCopy = existsSync(join(dirname(process.execPath), 'Uninstall Locust.exe')) || linuxInstall !== undefined
     // locust:// links open the installed copy (0.770, locust-links.ts `claimLinks`); a test's copy never claims them.
     try {
@@ -7968,11 +7970,13 @@ if (!ownsSingleInstanceLock) {
     const macTestImage = process.env.LOCUST_MAC_UPDATE_TEST_DMG !== undefined && process.env.LOCUST_MAC_UPDATE_TEST_VERSION !== undefined
       ? { path: process.env.LOCUST_MAC_UPDATE_TEST_DMG, version: process.env.LOCUST_MAC_UPDATE_TEST_VERSION }
       : undefined
+    // The Linux CI's check of an AppImage update (linux-update-smoke.mjs): a local generic feed, never set by the app.
+    if (linuxUpdateTest?.feedUrl !== undefined) autoUpdater.setFeedURL(linuxUpdateTest.feedUrl)
     const updates = createUpdateService({
       updater: macBundle === undefined
         ? autoUpdater
         : createMacUpdater({
-            currentVersion: app.getVersion(),
+            currentVersion: appVersion,
             arch: process.arch,
             bundle: macBundle,
             cacheFolder: join(app.getPath('userData'), 'mac-updates'),
@@ -7980,7 +7984,7 @@ if (!ownsSingleInstanceLock) {
             ...(macTestImage === undefined ? {} : { testImage: macTestImage })
           }),
       everyBuild: lane.everyBuild,
-      currentVersion: app.getVersion(),
+      currentVersion: appVersion,
       // A .deb or .rpm is the package manager's to replace: the new package is handed over instead (0.789).
       ...(linuxInstall === 'deb' || linuxInstall === 'rpm'
         ? { packageUrl: (files: readonly { readonly url?: unknown }[] | undefined) => linuxPackageUrl(linuxInstall, files, DOWNLOADS) ?? SITE }
