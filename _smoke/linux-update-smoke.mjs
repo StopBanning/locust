@@ -238,16 +238,20 @@ try {
   for (let i = 0; i < 60 && child.exitCode === null; i += 1) await sleep(500)
   check('Locust quits for the install', child.exitCode !== null, `exit ${String(child.exitCode)}`)
 
+  // The first line of every run, as diagnostics.ts writes it: `<when> start: Locust 9.9.9 · linux ...`.
+  const startedAs = / start: Locust 9\.9\.9 /
   let again = []
   let startupLogs = ''
-  for (let i = 0; i < 60 && (again.length === 0 || !/\tstart\t9\.9\.9\b/.test(startupLogs)); i += 1) {
+  for (let i = 0; i < 60 && (again.length === 0 || !startedAs.test(startupLogs)); i += 1) {
     await sleep(1_000)
     again = appImagePids(true)
     startupLogs = readStartupLogs(xdgConfig)
   }
   const replaced = existsSync(APP) && statSync(APP).ino !== firstIno && statSync(OLD).nlink === 1 && statSync(APP).size === size
   check('the AppImage on disk was replaced with the new file', replaced, `ino ${String(firstIno)} -> ${String(existsSync(APP) ? statSync(APP).ino : 'missing')}, old nlink=${String(statSync(OLD).nlink)}`)
-  check('and Locust is running again from the replaced AppImage as 9.9.9', again.length > 0 && /\tstart\t9\.9\.9\b/.test(startupLogs), `pids=${again.join(',')}`)
+  const backAs = startedAs.test(startupLogs)
+  check('and Locust is running again from the replaced AppImage as 9.9.9', again.length > 0 && backAs, `pids=${again.join(',')}`)
+  if (!backAs) console.log(`  the relaunched copy's log:\n${startupLogs.split('\n').filter((line) => line.trim() !== '').slice(-12).join('\n') || '  (no locust-errors.log under XDG_CONFIG_HOME)'}`)
 } catch (error) {
   failures += 1
   console.log(`smoke failed: ${error instanceof Error ? error.message : String(error)}`)
