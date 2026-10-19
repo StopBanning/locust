@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css'
 import type { TerminalContext, TerminalEvent, TerminalShell, TerminalTab } from '../../../shared/terminal.js'
 import { terminalInputChunks } from '../../../shared/terminal.js'
 import { useDrawnTheme } from '../drawnTheme.js'
+import { useDismissOnOutsidePress } from '../useDismissOnOutsidePress.js'
 import { Icon } from './Icon.js'
 
 function colors() {
@@ -26,6 +27,11 @@ export default function TerminalPanel({ visible, context, onClose }: { readonly 
   const [shells, setShells] = useState<readonly TerminalShell[]>([])
   const [message, setMessage] = useState<string>()
   const [opening, setOpening] = useState(false)
+  // The other shells, as VS Code's + and its arrow: one menu of Locust's own, not the browser's dropdown.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuAnchor = useRef<HTMLSpanElement>(null)
+  const closeMenu = useCallback(() => setMenuOpen(false), [])
+  useDismissOnOutsidePress(menuOpen, closeMenu, menuAnchor)
   const sinks = useRef(new Map<string, (event: TerminalEvent) => void>())
   const pending = useRef(new Map<string, TerminalEvent[]>())
   const closed = useRef(new Set<string>())
@@ -67,10 +73,13 @@ export default function TerminalPanel({ visible, context, onClose }: { readonly 
     <div className="lc-viewer__head">
       <span className="lc-viewer__name">Terminal</span>
       <span className="lc-viewer__spacer" />
-      <button className="lc-viewer__action" type="button" disabled={opening || tabs.length >= 8} aria-label="New terminal" onClick={() => void create()}>+</button>
-      <select className="lc-terminal__shells" aria-label="New terminal with shell" value="" disabled={opening || tabs.length >= 8} onChange={event => void create(event.target.value)}>
-        <option value="" disabled>Shell…</option>{shells.map(shell => <option key={shell.id} value={shell.id}>{shell.name}</option>)}
-      </select>
+      <button className="lc-viewer__action" type="button" disabled={opening || tabs.length >= 8} aria-label="New terminal" title={`New terminal${shells[0] === undefined ? '' : ` (${shells[0].name})`}`} onClick={() => void create()}><Icon name="plus" size={13} /></button>
+      {shells.length > 1 && <span className="lc-terminal__menuwrap" ref={menuAnchor}>
+        <button className="lc-viewer__action" type="button" disabled={opening || tabs.length >= 8} aria-label="New terminal with a shell" aria-haspopup="menu" aria-expanded={menuOpen} title="Choose a shell" onClick={() => setMenuOpen(!menuOpen)}><Icon name="chevron-down" size={13} /></button>
+        {menuOpen && <span className="lc-terminal__menu" role="menu" aria-label="Shells">{shells.map(shell =>
+          <button key={shell.id} type="button" role="menuitem" className="lc-terminal__menuitem" onClick={() => { setMenuOpen(false); void create(shell.id) }}>{shell.name}</button>)}
+        </span>}
+      </span>}
       <button className="lc-viewer__close" type="button" aria-label="Hide terminal" title="Hide terminal (shells keep running)" onClick={onClose}><Icon name="close" size={13} /></button>
     </div>
     <div className="lc-terminal__tabs" role="tablist" aria-label="Terminals">{tabs.map(tab => <div className="lc-terminal__tab" key={tab.id}>

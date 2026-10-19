@@ -7339,11 +7339,14 @@ textarea {
   color: var(--lc-text-primary);
   background: var(--lc-bg-control);
 }
-.lc-changes__menuwrap {
+/* The Changes panel's ⋯ menu; the terminal's shell menu is the same menu. */
+.lc-changes__menuwrap,
+.lc-terminal__menuwrap {
   position: relative;
   display: inline-flex;
 }
-.lc-changes__menu {
+.lc-changes__menu,
+.lc-terminal__menu {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
@@ -7357,7 +7360,8 @@ textarea {
   background: var(--lc-bg-raised);
   box-shadow: var(--lc-shadow-dropdown);
 }
-.lc-changes__menuitem {
+.lc-changes__menuitem,
+.lc-terminal__menuitem {
   padding: 6px 10px;
   border: 0;
   border-radius: var(--lc-radius-control);
@@ -7369,7 +7373,9 @@ textarea {
   cursor: pointer;
 }
 .lc-changes__menuitem:hover,
-.lc-changes__menuitem:focus-visible {
+.lc-changes__menuitem:focus-visible,
+.lc-terminal__menuitem:hover,
+.lc-terminal__menuitem:focus-visible {
   background: var(--lc-bg-control);
   color: var(--lc-text-primary);
 }
@@ -23120,5 +23126,4 @@ textarea.lc-compare__judgecriteria {
 .lc-terminal__tab [role='tab'] { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lc-terminal__tab [aria-selected='true'] { background: var(--lc-bg-selected); color: var(--lc-text-primary); }
 .lc-terminal__screen { flex: 1; min-height: 0; overflow: hidden; padding: 8px; }
-.lc-terminal__shells { max-width: 150px; color: var(--lc-text-primary); background: var(--lc-bg-chrome); border: 1px solid var(--lc-border-hairline); border-radius: 4px; padding: 4px; }
 .lc-terminal__message { padding: 12px; color: var(--lc-text-secondary); font-size: 13px; }
