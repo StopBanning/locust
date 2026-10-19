@@ -2,6 +2,11 @@ packages:
   - apps/*
   - packages/*
 
+# The Mac job packages both CPUs from one install. Each image needs its own PTY prebuild, without a compiler.
+supportedArchitectures:
+  os: [current]
+  cpu: [x64, arm64]
+
 allowBuilds:
   electron: true
   # Squirrel-target helper. We package with NSIS, so its build script is

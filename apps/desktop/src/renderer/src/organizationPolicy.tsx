@@ -16,7 +16,7 @@ export function OrganizationPolicyNotice() {
 const NAMES: Readonly<Record<string, string>> = {
   allowedAgents: 'Allowed AI agents', allowedModels: 'Allowed models', highestMode: 'Highest permission mode',
   monthlyLimitUsd: 'Maximum monthly limit per teammate (USD)', otherApps: 'Access from other AI apps, the locust command and editors',
-  phone: 'Phone pairing', cloud: 'Cloud computers and tasks'
+  phone: 'Phone pairing', cloud: 'Cloud computers and tasks', terminal: 'Terminal panel'
 }
 
 export function OrganizationPolicySettings({ heading }: { readonly heading?: ReactNode }) {

@@ -3655,6 +3655,7 @@ export type MissionDeleteResponse =
     }
 
 export interface DesktopApi {
+  readonly terminal: import('./terminal.js').TerminalApi
   readonly voice?: import('./voice.js').VoiceApi
   /** A voice call: ChatGPT's voice, placed by Codex (0.737). */
   readonly voiceCall?: import('./voice-call.js').VoiceCallApi

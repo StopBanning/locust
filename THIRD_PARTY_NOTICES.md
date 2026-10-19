@@ -2,6 +2,15 @@
 
 Locust includes work from the projects below, under their licences.
 
+## Terminal
+
+- xterm.js (`@xterm/xterm` 6.0.0, `@xterm/addon-fit` 0.11.0, `@xterm/addon-web-links` 0.12.0), MIT.
+  https://github.com/xtermjs/xterm.js
+- node-pty prebuilt distribution (`@lydell/node-pty` 1.2.0-beta.15), MIT.
+  https://github.com/lydell/node-pty
+  https://github.com/microsoft/node-pty
+- Native binaries and their licences ship outside app.asar; xterm's licence ships with its package.
+
 ## Optional local voice typing
 
 The Windows microphone's first-use Download retrieves whisper.cpp build b5454

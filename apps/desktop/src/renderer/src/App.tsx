@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { TerminalToggle } from './components/TerminalToggle.js'
+import { isTerminalToggle } from './terminalKeys.js'
+import { policyTerminalRefusal } from '../../shared/organization-policy.js'
+const TerminalPanel = lazy(() => import('./components/TerminalPanel.js'))
 import { BOT_SIZE } from './botSizes.js'
 import { OrganizationPolicyContext, OrganizationPolicyNotice } from './organizationPolicy.js'
 import { POLICY_MODE_ORDER, policyModeAllowed } from '../../shared/organization-policy.js'
@@ -1928,6 +1932,33 @@ export default function App(): ReactElement {
   const [reviewingId, setReviewingId] = useState<string>()
   /** The folder's changes, in one panel beside the conversation (0.732, ChangesPanel.tsx). */
   const [changesOpen, setChangesOpen] = useState(false)
+  const [terminalOpen, setTerminalOpen] = useState(false)
+  const [terminalMounted, setTerminalMounted] = useState(false)
+  const terminalRefusal = policyTerminalRefusal(build?.organizationPolicy)
+  const toggleTerminal = () => {
+    if (terminalRefusal !== undefined) return
+    setTerminalMounted(true)
+    setTerminalOpen(open => !open)
+    setScreen('workroom')
+    setChangesOpen(false)
+    setInspectorOpen(false)
+    setReviewingId(undefined)
+    setBesideId(undefined)
+    setViewingFile(undefined)
+    setViewerRefusal(undefined)
+    setSideChat(undefined)
+    setCloudPanel(false)
+    setBackgroundPanel(false)
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!isTerminalToggle(event) || event.repeat) return
+      event.preventDefault()
+      toggleTerminal()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [terminalRefusal])
   // Commits made from the Commit button: the Changes panel reads the folder again on each.
   const [commits, setCommits] = useState(0)
   /*
@@ -8335,6 +8366,10 @@ export default function App(): ReactElement {
 
   // Here, once every helper it reads is defined: computed above them it read one before its line had run.
   const benchmarkEntries = listBenchmarks()
+  useEffect(() => {
+    // A file or another panel explicitly opened takes this slot; the terminals keep their shells and screens.
+    if (viewingFile !== undefined || viewerRefusal !== undefined || besideId !== undefined || reviewingId !== undefined || sideChat !== undefined || cloudPanel || backgroundPanel) setTerminalOpen(false)
+  }, [viewingFile, viewerRefusal, besideId, reviewingId, sideChat, cloudPanel, backgroundPanel])
   /*
    * `has-inspector` is what insets the workroom so the drawer does not cover
    * the composer -- which cost a release to get right at 1120x720 (0.187.0).
@@ -8345,7 +8380,7 @@ export default function App(): ReactElement {
     <CallTodosContext.Provider value={callTodos}>
     <OrganizationPolicyContext.Provider value={build?.organizationPolicy}>
     <ApprovalRuleContext.Provider value={ruleOfCard}>
-    <div className={`lc-shell${layoutMode === 'compact' ? ' is-compact' : ''}${changesOpen && changesAvailable && screen === 'workroom' && viewingFile === undefined && viewerRefusal === undefined && besideRun === undefined && reviewing === undefined ? ' has-viewer has-changes' : ''}${(viewingFile !== undefined || viewerRefusal !== undefined || besideRun !== undefined || reviewing !== undefined) && screen === 'workroom' ? ' has-viewer' :inspectorOpen && liveRun !== undefined && screen === 'workroom' ? ' has-inspector' : ''}`}>
+    <div className={`lc-shell${layoutMode === 'compact' ? ' is-compact' : ''}${terminalOpen && screen === 'workroom' ? ' has-viewer has-changes' : ''}${!terminalOpen && changesOpen && changesAvailable && screen === 'workroom' && viewingFile === undefined && viewerRefusal === undefined && besideRun === undefined && reviewing === undefined ? ' has-viewer has-changes' : ''}${!terminalOpen && (viewingFile !== undefined || viewerRefusal !== undefined || besideRun !== undefined || reviewing !== undefined) && screen === 'workroom' ? ' has-viewer' :!terminalOpen && inspectorOpen && liveRun !== undefined && screen === 'workroom' ? ' has-inspector' : ''}`}>
       <TitleBar
         // With no folder the composer chip already says so; the bar shows the
         // build instead (Colin, 2026-09-05).
@@ -8354,6 +8389,7 @@ export default function App(): ReactElement {
         swarm={swarm}
         needsYou={needsYouItems.length}
         onNeedsYou={openNeedsYou}
+        terminal={liveRun === undefined ? <TerminalToggle open={terminalOpen} refusal={terminalRefusal} onToggle={toggleTerminal} /> : undefined}
       />
       <div className="lc-body">
         {rowMenu !== undefined && (
@@ -9301,6 +9337,7 @@ export default function App(): ReactElement {
                       <Icon name="diff" size={13} /> Review changes
                     </button>
                   )}
+                  <TerminalToggle open={terminalOpen} refusal={terminalRefusal} onToggle={toggleTerminal} />
                   {/* The folder's changes, as Claude Code's Changes panel (0.732); a branch of a teammate's own has Review changes. */}
                   {workspacePath !== undefined && pickedTeammate?.worktree !== true && changesAvailable && (
                     <button
@@ -9312,6 +9349,7 @@ export default function App(): ReactElement {
                         setReviewingId(undefined)
                         setInspectorOpen(false)
                         setChangesOpen(!changesOpen)
+                        setTerminalOpen(false)
                       }}
                     >
                       <Icon name="diff" size={13} /> Changes
@@ -9326,6 +9364,7 @@ export default function App(): ReactElement {
                       setReviewingId(undefined)
                       setChangesOpen(false)
                       setInspectorOpen(!inspectorOpen)
+                      setTerminalOpen(false)
                     }}
                   >
                     <Icon name="activity" size={13} /> Activity
@@ -9922,7 +9961,10 @@ export default function App(): ReactElement {
           * toggle. The more specific intent is the one to honour, and the
           * inspector is one press away again the moment the file is closed.
           */}
-        {viewerRefusal !== undefined && screen === 'workroom' && viewingFile === undefined && (
+        {terminalMounted && <Suspense fallback={null}><TerminalPanel visible={terminalOpen && screen === 'workroom'}
+          context={{ ...(terminalMissionId === undefined ? {} : { missionId: terminalMissionId }), ...(pickedTeammate === undefined ? {} : { teammateId: pickedTeammate.teammateId }) }}
+          onClose={() => setTerminalOpen(false)} /></Suspense>}
+        {!terminalOpen && viewerRefusal !== undefined && screen === 'workroom' && viewingFile === undefined && (
           <aside className="lc-viewer lc-viewer--refused" role="status">
             <div className="lc-viewer__head">
               <span className="lc-viewer__name">{refusedName === undefined || refusedName.length === 0 ? 'Could not open that file' : `Could not open ${refusedName}`}</span>

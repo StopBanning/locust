@@ -1,5 +1,10 @@
 # What Locust sends over the network
 
+**Links in the terminal.** Clicking a web link in the person's terminal opens it in their browser, through the
+main process, for HTTP and HTTPS only. Terminal output stays in this window and is never sent to a model or
+written into a conversation. Commands the person types use their own environment and can make their own
+connections, as they can in any terminal; Locust does not proxy or audit those connections.
+
 Locust sends no analytics or automatic uploads of your work. Optional OpenAI
 voice typing sends recordings only after you choose it and allow it. It has no
 analytics and no usage counts, and when it crashes, the crash dump stays on

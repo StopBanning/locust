@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { FREE_ROUTE, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
+const terminalOnly = process.argv.includes('--terminal-only')
 const packaged = arg('--packaged')
 // A short quiet slot can still measure the streaming budget. Same launch,
 // route, prompt and five-second sample; skip the unrelated Home rest waits.
@@ -90,6 +91,8 @@ if (buddyProfile !== undefined) {
   buddyEnv.CODEX_HOME = await mkdtemp(join(tmpdir(), 'locust-cpu-buddy-codex-'))
 }
 const drive = await startDrive({
+  sendsNothing: terminalOnly,
+  focused: terminalOnly,
   name: 'cpu-by-state', port, workspace, outPath: OUT, spends: codex || fakeClaude, env: { ...fakeEnv, ...buddyEnv },
   ...(buddyProfile === undefined ? {} : { profilePath: buddyProfile }),
   ...(packaged === undefined ? {} : { packaged }),
@@ -102,6 +105,7 @@ const cpu = (seconds) => {
   const key = drive.profile.replace(/'/g, "''")
   const script = `
 $ps = @(Get-CimInstance Win32_Process -Filter "Name='Locust.exe' OR Name='electron.exe'" | Where-Object { $_.CommandLine -like ('*' + '${key}' + '*') })
+${terminalOnly ? `$all = @(Get-CimInstance Win32_Process); $ids = @{}; $ids[${String(drive.pid)}] = $true; do { $added = $false; foreach ($p in $all) { if ($ids.ContainsKey([int]$p.ParentProcessId) -and !$ids.ContainsKey([int]$p.ProcessId)) { $ids[[int]$p.ProcessId] = $true; $added = $true } } } while ($added); $ps = @($all | Where-Object { $ids.ContainsKey([int]$_.ProcessId) })` : ''}
 $a = @{}; foreach ($p in $ps) { $g = Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue; if ($g) { $a[[int]$p.ProcessId] = $g.TotalProcessorTime.TotalMilliseconds } }
 Start-Sleep -Seconds ${String(seconds)}
 $cores = [Environment]::ProcessorCount
@@ -222,6 +226,30 @@ const measure = async (state) => {
 const cards = async () => JSON.parse(String(await drive.evaluate(`JSON.stringify([...document.querySelectorAll('.lc-hometeam__card')].map((card) => ({ name: card.querySelector('.lc-hometeam__name')?.firstChild?.textContent?.trim() ?? '', word: card.querySelector('.lc-hometeam__state')?.innerText.trim() ?? null })))`)))
 try {
   await drive.ready()
+  if (terminalOnly) {
+    const guardIdle = async (withTerminal) => {
+      assertQuiet()
+      if (await drive.evaluate(`document.hasFocus() && !document.hidden`) !== true) throw new Error('The CPU sample needs a focused, visible window')
+      if (withTerminal && await drive.evaluate(`(() => { const text = document.querySelector('.lc-terminal:not([hidden]) .xterm-accessibility-tree')?.innerText ?? ''; return text.trim().length > 0 && !text.includes('[Shell exited:') })()`) !== true) throw new Error('The CPU sample needs an open, live terminal')
+    }
+    await drive.resize(1200, 720)
+    await drive.send('Page.bringToFront', {})
+    await sleep(restMs)
+    await guardIdle(false)
+    const before = cpu(SAMPLE_SECONDS)
+    await guardIdle(false)
+    await drive.evaluate(`document.querySelector('button[aria-label="Terminal"]').click()`)
+    await drive.waitFor(`Boolean(document.querySelector('.lc-terminal__screen .xterm-helper-textarea'))`, { timeoutMs: 20000, what: 'idle terminal' })
+    await sleep(restMs)
+    await guardIdle(true)
+    const after = cpu(SAMPLE_SECONDS)
+    await guardIdle(true)
+    results.push({ state: 'Home at rest, no terminal', ...before }, { state: 'Home at rest, terminal open', ...after })
+    await drive.capture('idle terminal CPU', async () => JSON.stringify(results))
+    if (before.total >= 1 || after.total >= 1) throw new Error('Home or idle terminal exceeded 1% CPU')
+    console.log(JSON.stringify(results, null, 2))
+    // Runs no model turns; the finally below records and ends this instance.
+  } else {
   await drive.resize(longTurn ? 1200 : 1440, longTurn ? 720 : 900)
   await drive.send('Page.bringToFront', {})
   await drive.waitFor(`document.hasFocus() && !document.hidden`, { timeoutMs: 15_000, what: 'probe window in front' })
@@ -319,6 +347,7 @@ try {
     await drive.evaluate(`document.querySelector('.lc-brand__lockup')?.click()`)
     await sleep(restMs)
     await measure('home, idle after')
+  }
   }
 } catch (error) {
   say(`  probe failed: ${error instanceof Error ? error.message : String(error)}`)

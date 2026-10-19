@@ -35,6 +35,7 @@ const code = (text: string): string[] => text.split('\n').filter((line) => !/^\s
 
 /** Each file that reaches the network, how many places in it do, and the document's words for them. */
 const LISTED: Readonly<Record<string, { readonly places: number; readonly said: readonly string[] }>> = {
+  'terminal-ipc.ts': { places: 1, said: ['Links in the terminal', 'HTTP and HTTPS only'] },
   // The updater (Windows), the Mac release list, the pet gallery's fetch, and five openings of the person's browser.
   'index.ts': { places: 8, said: ['Its own updates (Windows)', 'Its own updates (Mac)', 'The pet gallery', 'A link inside a previewed page asks you first', 'open a public GitHub issue', 'open your mail app', 'Locust opens that page in your browser'] },
   'mac-self-update.ts': { places: 2, said: ['Its own updates (Mac)', 'then the disk image you choose'] },

@@ -23111,3 +23111,14 @@ textarea.lc-compare__judgecriteria {
 .lc-phone__qr { width: 176px; height: 176px; flex: none; border-radius: 10px; }
 .lc-phone__side { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .lc-phone__side .lc-settings__note { margin: 0; }
+
+/* The person's terminals keep their screens while this panel is hidden. */
+.lc-terminal[hidden], .lc-terminal__screen[hidden] { display: none; }
+.lc-terminal__tabs { display: flex; overflow-x: auto; flex: none; border-bottom: 1px solid var(--lc-border-hairline); }
+.lc-terminal__tab { display: flex; flex: none; min-width: 0; }
+.lc-terminal__tab button { background: transparent; color: var(--lc-text-muted); border: 0; padding: 8px; cursor: pointer; font: inherit; }
+.lc-terminal__tab [role='tab'] { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-terminal__tab [aria-selected='true'] { background: var(--lc-bg-selected); color: var(--lc-text-primary); }
+.lc-terminal__screen { flex: 1; min-height: 0; overflow: hidden; padding: 8px; }
+.lc-terminal__shells { max-width: 150px; color: var(--lc-text-primary); background: var(--lc-bg-chrome); border: 1px solid var(--lc-border-hairline); border-radius: 4px; padding: 4px; }
+.lc-terminal__message { padding: 12px; color: var(--lc-text-secondary); font-size: 13px; }

@@ -177,6 +177,24 @@ continue; report exact validation results, and say what was not run.
 
 ## Handoff log
 
+### 2026-10-18 — terminal beside the conversation
+
+- Scope: `exec/terminal-panel`, based on `226c38ef`. The incoming untracked `HANDOFF-terminal-panel.md` stays out
+  of the commit. No version, changelog, installer, site or global configuration change; no model turn or push.
+- Main owns personal pseudo-terminals (`terminal-host.ts`), identity-to-folder resolution (`terminal-folder.ts`)
+  and window-only validated IPC (`terminal-ipc.ts`). Terminal text never enters a mission or a model. Shells and
+  xterm screens remain while the panel is hidden; tab close and app quit end owned process trees.
+- `@lydell/node-pty` is pinned to 1.2.0-beta.15, xterm to 6.0.0. Prebuilds ship unpacked, with no dependency rebuild.
+  Both CPUs are installed on the build OS for the two Mac images. Public CI loads the packaged native module.
+- `terminal: false` joins organization policy. A personal shell also refuses policy restrictions it cannot enforce.
+  New tabs resolve only the displayed conversation, selected teammate's known folder/worktree, or current project.
+- Observed: repository typecheck and full gate passed; the gate's one existing pinning timeout passed its prescribed
+  isolated retry. All 12 controls caught their named failures with 21 terminal tests collected; packaged Windows
+  native loading and 14 UI checks passed, with zero captured renderer errors and no captured process left after
+  ordinary quit. Focused Home CPU: 0.1% at rest, 0.0% with an idle terminal, rounded to one decimal.
+- Not run: Mac/Linux execution or remote CI, other shell variants, native OS clipboard round trips. Packaged
+  native-module checks are prepared in the public CI workflow.
+
 ### 2026-10-18 — machine-wide organization policy
 
 - Scope: `exec/org-policy`, based on `c3174add`. No version, changelog,

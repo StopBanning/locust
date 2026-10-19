@@ -112,6 +112,11 @@ import { chosenLeaveOut, howTurnEnded } from './handoff.js'
 import { officeWordsSection } from './office-words.js'
 import { createRoutineCopies } from './routine-copy.js'
 import { openInTerminal, openProgramInTerminal, terminalRequestFor } from './open-in-terminal.js'
+import { createTerminalHost } from './terminal-host.js'
+import { registerTerminalIpc } from './terminal-ipc.js'
+import { terminalFolder } from './terminal-folder.js'
+import { TERMINAL_EVENT } from '../shared/terminal.js'
+import { policyTerminalRefusal } from '../shared/organization-policy.js'
 import { catchUpTerminal, createTerminalCatchUp, createTerminalImports, createTranscriptReader, transcriptPathFor } from './terminal-catch-up.js'
 import type { CatchUpFacts } from './terminal-catch-up.js'
 import { importSession, listImportableSessions } from './session-import.js'
@@ -1144,6 +1149,7 @@ const ownsSingleInstanceLock = app.requestSingleInstanceLock()
 if (ownsSingleInstanceLock) void clearClaudeSkillCopies(claudeSkillCopies)
 let missionServiceForShutdown: CodexMissionService | undefined
 let remoteControlForShutdown: ReturnType<typeof createRemoteControl> | undefined
+let terminalForShutdown: ReturnType<typeof createTerminalHost> | undefined
 let queuedMessagesForShutdown: ReturnType<typeof createQueuedMessageStore> | undefined
 /** Antigravity's watches too: never disposed, they polled and wrote on through the flush (B4 lead). */
 let antigravityServiceForShutdown: { dispose(): Promise<void> } | undefined
@@ -4671,6 +4677,20 @@ if (!ownsSingleInstanceLock) {
       }
       return result
     })
+
+    const terminalHost = createTerminalHost({
+      refusal: () => policyTerminalRefusal(organizationPolicy),
+      folder: context => terminalFolder(context, {
+        current: () => workspaceChosen ? workspacePath : undefined,
+        mission: async id => (await missionLedger.getMission(id))?.metadata,
+        folderOf: workableFolderOf,
+        ownerOf: async id => (await teammates.missionOwners())[id],
+        teammates: () => teammates.list()
+      }),
+      emit: event => { if (approvalWindow !== undefined && !approvalWindow.isDestroyed()) approvalWindow.webContents.send(TERMINAL_EVENT, event) }
+    })
+    terminalForShutdown = terminalHost
+    registerTerminalIpc(terminalHost, fromOwnWindow)
 
     ipcMain.handle(OPEN_IN_TERMINAL_CHANNEL, async (event, requested: unknown) => {
       if (!fromOwnWindow(event) || typeof requested !== 'string' || requested.length === 0 || requested.length > 128) {
@@ -9447,6 +9467,7 @@ if (ownsSingleInstanceLock) {
     boundedShutdown({
       deadlineMs: SHUTDOWN_DEADLINE_MS,
       work: async () => {
+        await terminalForShutdown?.dispose()
         await mcpForShutdown?.dispose()
         await voiceForShutdown?.dispose()
         await remoteControlForShutdown?.dispose()

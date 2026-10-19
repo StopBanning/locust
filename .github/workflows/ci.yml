@@ -70,6 +70,12 @@ jobs:
       - name: Package
         working-directory: apps/desktop
         run: pnpm exec electron-builder --config electron-builder.yml --publish never
+      - name: Load the packaged terminal native module (Windows)
+        if: runner.os == 'Windows'
+        run: node _smoke/terminal-native-smoke.mjs apps/desktop/release/win-unpacked/Locust.exe
+      - name: Load the packaged terminal native module (Mac)
+        if: runner.os == 'macOS'
+        run: node _smoke/terminal-native-smoke.mjs apps/desktop/release/mac-arm64/Locust.app/Contents/MacOS/Locust
       - uses: actions/upload-artifact@v4
         with:
           name: locust-${{ matrix.os }}
@@ -145,6 +151,7 @@ jobs:
           desktop-file-validate /usr/share/applications/locust.desktop
           grep -E '^(Name|Exec|Icon|MimeType|StartupWMClass|Categories)=' /usr/share/applications/locust.desktop
           ls -l /opt/Locust/chrome-sandbox
+          node _smoke/terminal-native-smoke.mjs /opt/Locust/locust
           rpm -qpi "$(ls apps/desktop/release/*.rpm | head -1)" | grep -E '^(Name|Version|Architecture|Summary)'
       - name: Install OpenCode for the Linux launch check
         if: runner.os == 'Linux'

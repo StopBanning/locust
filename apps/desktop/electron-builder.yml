@@ -32,7 +32,7 @@ electronLanguages:
   - en-GB
 
 # `out` is what electron-vite produced; the workspace packages are already
-# bundled into it, so nothing from node_modules needs to ship.
+# bundled into it. The terminal's PTY is a runtime dependency; its native files are unpacked below.
 files:
   - out/**/*
   - package.json
@@ -47,6 +47,7 @@ files:
 # npm has to be real files on disk: it spawns, reads its own package.json and
 # writes shims, none of which works from inside the archive.
 asarUnpack:
+  - node_modules/@lydell/**/*
   - resources/npm/**/*
   - '!resources/npm/node_modules/.bin/**/*'
 
@@ -113,6 +114,8 @@ extraResources:
 
 # Never ship the caller's mission ledger, smoke profiles, or source maps.
 asar: true
+# @lydell/node-pty supplies Node-API prebuilds for each packaged CPU. Never invoke a compiler on the build machine.
+npmRebuild: false
 
 # locust:// links open Locust with a message ready, never sent (0.770, src/shared/locust-link.ts). macOS reads this
 # from the app's Info.plist; Windows has no installer step for it, so the installed copy claims the scheme itself

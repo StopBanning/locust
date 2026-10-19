@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { TERMINAL_SHELLS, TERMINAL_CREATE, TERMINAL_INPUT, TERMINAL_RESIZE, TERMINAL_CLOSE, TERMINAL_EVENT, TERMINAL_LINK, TERMINAL_COPY, type TerminalApi } from '../shared/terminal.js'
 import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, themeFromArguments } from '../shared/appearance.js'
 import type { AppearanceState, ThemeChoice } from '../shared/appearance.js'
 import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
@@ -439,6 +440,20 @@ export type {
 import type { CloudAgent, CloudFolderState, PublicCloudTurn } from '../shared/cloud-computer.js'
 
 const desktopApi: DesktopApi = {
+  terminal: {
+    shells: () => ipcRenderer.invoke(TERMINAL_SHELLS),
+    create: (context, shell) => ipcRenderer.invoke(TERMINAL_CREATE, context, shell),
+    input: (id, data) => ipcRenderer.invoke(TERMINAL_INPUT, id, data),
+    resize: (id, cols, rows) => ipcRenderer.invoke(TERMINAL_RESIZE, id, cols, rows),
+    close: id => ipcRenderer.invoke(TERMINAL_CLOSE, id),
+    openLink: url => ipcRenderer.invoke(TERMINAL_LINK, url),
+    copy: text => ipcRenderer.invoke(TERMINAL_COPY, text),
+    onEvent: listener => {
+      const receive = (_event: Electron.IpcRendererEvent, event: Parameters<Parameters<TerminalApi['onEvent']>[0]>[0]) => listener(event)
+      ipcRenderer.on(TERMINAL_EVENT, receive)
+      return () => { ipcRenderer.removeListener(TERMINAL_EVENT, receive) }
+    }
+  },
   acpAgents: {
     list: () => ipcRenderer.invoke(ACP_AGENTS_LIST_CHANNEL),
     test: (commandLine) => ipcRenderer.invoke(ACP_AGENTS_TEST_CHANNEL, commandLine),

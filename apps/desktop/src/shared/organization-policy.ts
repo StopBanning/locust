@@ -19,6 +19,7 @@ export interface OrganizationPolicy {
   readonly otherApps?: boolean
   readonly phone?: boolean
   readonly cloud?: boolean
+  readonly terminal?: boolean
 }
 
 /** A launch-time snapshot. An error is a closed gate, never an empty policy. */
@@ -40,10 +41,10 @@ export function policyRefusal(state: OrganizationPolicyState, setting: keyof Org
   return `${why} Set by your organization (${setting} in ${state.path}). Nothing was started.`
 }
 
-export function policyFeatureRefusal(state: OrganizationPolicyState | undefined, setting: 'otherApps' | 'phone' | 'cloud'): string | undefined {
+export function policyFeatureRefusal(state: OrganizationPolicyState | undefined, setting: 'otherApps' | 'phone' | 'cloud' | 'terminal'): string | undefined {
   if (state?.error !== undefined) return state.error
   if (state?.policy[setting] !== false) return undefined
-  const name = { otherApps: 'Access from other AI apps, the locust command and editors is off.', phone: 'Phone pairing is off.', cloud: 'Cloud computers and cloud tasks are off.' }[setting]
+  const name = { otherApps: 'Access from other AI apps, the locust command and editors is off.', phone: 'Phone pairing is off.', cloud: 'Cloud computers and cloud tasks are off.', terminal: 'The terminal panel is off.' }[setting]
   return policyRefusal(state, setting, name)
 }
 
@@ -115,6 +116,7 @@ export function policySettingWords(key: string, value: unknown): string {
     case 'otherApps':
     case 'phone':
     case 'cloud':
+    case 'terminal':
       return value === false ? 'Off' : 'Allowed'
     default:
       return String(value)
@@ -139,6 +141,17 @@ export function policyCloudTerminalRefusal(state: OrganizationPolicyState | unde
   if (state?.policy.allowedAgents !== undefined) return policyRefusal(state, 'allowedAgents', 'A cloud terminal cannot enforce the allowed AI agents. Use a conversation in Locust.')
   if (state?.policy.allowedModels !== undefined) return policyRefusal(state, 'allowedModels', 'A cloud terminal cannot enforce the allowed models. Use a conversation in Locust.')
   return policyUnmeteredRefusal(state, { runtime: 'opencode', mode: 'auto' })
+}
+
+/** A person's unrestricted shell cannot enforce an agent, mode, model or spending restriction. */
+export function policyTerminalRefusal(state: OrganizationPolicyState | undefined): string | undefined {
+  const refused = policyFeatureRefusal(state, 'terminal')
+  if (refused !== undefined || state === undefined) return refused
+  for (const key of ['allowedAgents', 'allowedModels', 'monthlyLimitUsd'] as const) {
+    if (state.policy[key] !== undefined) return policyRefusal(state, key, 'An interactive shell cannot enforce this organization restriction. Use a conversation in Locust.')
+  }
+  if (state.policy.highestMode !== undefined && state.policy.highestMode !== 'auto') return policyRefusal(state, 'highestMode', 'An interactive shell cannot enforce the highest permission mode. Use a conversation in Locust.')
+  return undefined
 }
 
 /** Keep only selectable ids, including each effort variant; no synthetic default escapes the allowlist. */

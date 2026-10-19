@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 import { Icon } from './Icon.js'
 import { needsYouChip } from '../needsYou.js'
@@ -14,7 +14,8 @@ export function TitleBar({
   runningCount,
   swarm,
   needsYou = 0,
-  onNeedsYou
+  onNeedsYou,
+  terminal
 }: {
   readonly workspaceName: string
   readonly runningCount: number
@@ -23,12 +24,14 @@ export function TitleBar({
   readonly needsYou?: number
   /** Opens the list under the chip. */
   readonly onNeedsYou?: (anchor: HTMLElement) => void
+  readonly terminal?: ReactNode
 }): ReactElement {
   return (
     <header className="lc-titlebar" onDoubleClick={() => window.desktop?.toggleMaximize()}>
       <span />
       <span className="lc-titlebar__title">{workspaceName}</span>
       <div className="lc-titlebar__right" onDoubleClick={(event) => event.stopPropagation()}>
+        {terminal}
         {/* A workspace-wide setting deserves a persistent, visible statement. */}
         {swarm && <span className="lc-swarmchip">Swarm · every run at max effort</span>}
         {/* What waits on the person, before what is merely running: the list is one press away. */}
