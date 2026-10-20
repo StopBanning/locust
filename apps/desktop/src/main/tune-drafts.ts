@@ -1,7 +1,7 @@
 import { MAX_TEAMMATE_INSTRUCTIONS } from '../shared/ipc.js'
 
 /**
- * TUNE THIS TEAMMATE (0.808): two deliberately different edits, with the unchanged setup still in the trial.
+ * TUNE THIS TEAMMATE (0.809): two deliberately different edits, with the unchanged setup still in the trial.
  * Inspired by Google Research's Harness² (https://github.com/google-research/harness2), Apache-2.0.
  * Locust asks the person to judge the outputs; no model decides what becomes their standing instructions.
  */

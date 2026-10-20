@@ -147,7 +147,7 @@ import type { ComparePick, ComparePicking, RouteChoice } from './components/Rout
 import { CompareView, joinedNames } from './components/CompareView.js'
 import { comparisonOf, foldComparisons } from './compareRows.js'
 import type { CompareColumnView, JudgeView } from './components/CompareView.js'
-import { blindName, changesLine, compareMembership, compareRecord, compareNeedsCopy, compareRefusalOf, judgeMissionIds, judgePickOf, MAX_COMPARE_SLOTS, MIN_COMPARE_SLOTS, rerunMissionIds, rerunRefusalOf } from '../../shared/compare.js'
+import { blindName, changesLine, compareMembership, hasColumnInstructions, setupName, compareRecord, compareNeedsCopy, compareRefusalOf, judgeMissionIds, judgePickOf, MAX_COMPARE_SLOTS, MIN_COMPARE_SLOTS, rerunMissionIds, rerunRefusalOf } from '../../shared/compare.js'
 import { criteriaLines, criteriaWeights, panelPick, panelVote, parseScorecard, scoreOf, weighted, withoutScorecard } from '../../shared/compare-score.js'
 import type { CompareRoute, CompareSlotId, PublicCompare, RerunProgress } from '../../shared/compare.js'
 import { benchmarkChart, benchmarkRows, type BenchmarkRow, type BenchmarkRunInput } from './benchmark.js'
@@ -5226,7 +5226,7 @@ export default function App(): ReactElement {
       return {
         slot: column.slot,
         // Blind until one is kept (0.449): Model A, Model B.
-        name: compare.blind === true && compare.kept === undefined ? blindName(column.slot) : column.route.label ?? column.route.model,
+        name: compare.blind === true && compare.kept === undefined ? blindName(column.slot, hasColumnInstructions(compare)) : column.route.label ?? column.route.model,
         runtime: column.route.runtime as MissionRuntimeId,
         runtimeName: runtimeNameOf(column.route.runtime),
         ...(compareNeedsCopy(column.route.runtime, build?.platform) ? { copy: true } : {}),
@@ -9819,10 +9819,17 @@ export default function App(): ReactElement {
                   )
                 }
                 const others = compare.slots.filter((column) => column.slot !== compare.kept!.slot).map((column) => column.route.label ?? column.route.model)
+                // A tune (0.809) is one model three ways: "Compared with Deepseek and Deepseek" named the model twice
+                // and never the setup that won.
+                const keptRoute = compare.slots.find((column) => column.slot === compare.kept!.slot)?.route
+                const keptSetup = keptRoute === undefined ? undefined : setupName(keptRoute)
+                const tunedOn = keptRoute?.label?.split(' · ')[0] ?? keptRoute?.model
                 return (
                   <div className="lc-compared">
                     <span>
-                      Compared with {others.join(' and ')}.
+                      {keptSetup !== undefined
+                        ? `You tried ${String(compare.slots.length)} sets of instructions on ${tunedOn ?? 'this model'} and kept ${keptSetup}.`
+                        : `Compared with ${others.join(' and ')}.`}
                       {compare.kept.brought !== undefined &&
                         (compare.kept.brought.length === 0
                           ? ' It changed nothing, so nothing came into your folder.'
@@ -10329,7 +10336,7 @@ export default function App(): ReactElement {
                 })}
             {...(comparing === undefined || comparing.kept !== undefined
               ? {}
-              : { asking: { label: comparing.slots.map((column) => (comparing.blind === true ? blindName(column.slot) : column.route.label ?? column.route.model)).join(' vs '), columns: comparing.slots.filter((column) => column.missionIds.length > 0).length, ...(comparing.changes === true ? { changes: true } : {}), ...(comparing.blind === true ? { blind: true } : {}) } })}
+              : { asking: { label: comparing.slots.map((column) => (comparing.blind === true ? blindName(column.slot, hasColumnInstructions(comparing)) : column.route.label ?? column.route.model)).join(' vs '), columns: comparing.slots.filter((column) => column.missionIds.length > 0).length, ...(comparing.changes === true ? { changes: true } : {}), ...(comparing.blind === true ? { blind: true } : {}) } })}
             // Tag a teammate from any conversation (0.438).
             team={teammates}
             {...(pickedTeammate === undefined ? {} : { currentTeammateId: pickedTeammate.teammateId })}

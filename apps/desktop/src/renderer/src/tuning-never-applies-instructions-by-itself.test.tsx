@@ -102,7 +102,10 @@ describe('tuning a teammate', () => {
     const onUse = vi.fn(async () => undefined)
     const kept = { ...comparison, kept: { slot: 'b' as const, at: mate.createdAt } }
     const element = KeptInstructions({ compare: kept, teammate: mate, onUse })!
-    const buttons = (element.props as { children: unknown[] }).children.filter((child): child is ReactElement<{ onClick: () => void; children: unknown }> => typeof child === 'object' && child !== null && 'type' in child && child.type === 'button')
+    // The two choices sit together in their own group (0.809).
+    const children = (node: unknown): unknown[] => [((node as ReactElement<{ children?: unknown }>).props.children ?? [])].flat()
+    const group = children(element).find((child): child is ReactElement => typeof child === 'object' && child !== null && 'props' in child && (child.props as { className?: string }).className === 'lc-tuneoffer__actions')
+    const buttons = children(group).filter((child): child is ReactElement<{ onClick: () => void; children: unknown }> => typeof child === 'object' && child !== null && 'type' in child && child.type === 'button')
     expect(onUse).not.toHaveBeenCalled()
     expect(buttons).toHaveLength(2)
     buttons[1]!.props.onClick()

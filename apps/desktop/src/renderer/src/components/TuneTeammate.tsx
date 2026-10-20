@@ -20,7 +20,7 @@ export interface TuneCard {
   readonly problem?: string
 }
 
-/** TUNE THIS TEAMMATE (0.808): review the edits before three trials, and never save instructions here. */
+/** TUNE THIS TEAMMATE (0.809): review the edits before three trials, and never save instructions here. */
 export function TuneTeammate({ card, onChange, onRun, onCancel }: {
   readonly card: TuneCard
   readonly onChange: (edit: (current: TuneCard) => TuneCard) => void
