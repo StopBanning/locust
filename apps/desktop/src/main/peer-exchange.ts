@@ -137,6 +137,8 @@ export function createTranscriptTracker(): TranscriptTracker {
  * The briefing slot walks back from here to find the group, if any.
  */
 export interface ConversationHint {
+  /** Compare's per-run replacement, never saved on the teammate. Empty withdraws their standing words. */
+  readonly instructions?: string
   readonly previousMissionId?: string
   /** The folder the run stands in: its conversation's, which may not be the window's (0.458). */
   readonly folder?: string

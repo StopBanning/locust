@@ -10,6 +10,8 @@ import { compareSlotKey } from '../shared/compare.js'
 import { createBriefSessions } from './brief-sessions.js'
 import { createCodexMissionService } from './codex-mission.js'
 import type { MissionPeerContext } from './workroom-briefing.js'
+import type { MemoryBriefing } from './peer-exchange.js'
+import { columnInstructions } from './compare-instructions.js'
 
 /**
  * ONE TEAMMATE, TWO MODELS AT ONCE -- ONLY IN A COMPARISON (0.441).
@@ -70,7 +72,7 @@ describe('a comparison', () => {
     read: async () => ({ messages: [], deliveries: [], issues: [] }),
     flush: async () => undefined
   }
-  const service = () => {
+  const service = (memory?: MemoryBriefing) => {
     let nextId = 0
     return createCodexMissionService({
       workspacePath: process.platform === 'win32' ? 'C:\\safe-workspace' : '/safe-workspace',
@@ -87,6 +89,7 @@ describe('a comparison', () => {
         flush: async () => undefined
       } as unknown as MissionLedger,
       workroom,
+      ...(memory === undefined ? {} : { memory }),
       briefSessions: createBriefSessions({ rootDirectory: folder }),
       createId: () => String(++nextId),
       now: () => new Date(NOW),
@@ -100,6 +103,23 @@ describe('a comparison', () => {
     const second = await missions.start('Add a discount code field.', 'codex', 'ask', { model: 'gpt-6-astra' }, () => undefined, undefined, WREN, undefined, undefined, undefined, undefined, slotOf('b'))
     expect(first.ok).toBe(true)
     expect(second.ok).toBe(true)
+  })
+
+  it('passes each column’s own instructions to its brief, including empty, without changing an ordinary turn', async () => {
+    const seen: (string | undefined)[] = []
+    const missions = service({ section: async (_peer, conversation) => {
+      const instructions = columnInstructions('Saved standing words.', conversation?.instructions)
+      seen.push(instructions)
+      return instructions
+    } })
+    for (const [index, instructions] of ['Check the result.', '', undefined].entries()) {
+      const answer = await missions.start('One ask.', 'codex', 'ask', {}, () => undefined, undefined, WREN, undefined, undefined, undefined, undefined,
+        { key: `compare:trial:${index}`, ...(instructions === undefined ? {} : { instructions }) })
+      expect(answer.ok).toBe(true)
+    }
+    const normal = await missions.start('An ordinary turn.', 'codex', 'ask', {}, () => undefined, undefined, WREN)
+    expect(normal.ok).toBe(true)
+    expect(seen).toEqual(['Check the result.', '', 'Saved standing words.', 'Saved standing words.'])
   })
 
   it('starts a second conversation with the same teammate while one is going (0.551)', async () => {

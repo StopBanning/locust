@@ -1,4 +1,5 @@
 import type { CompareRoute, CompareSlotId, PublicCompare } from '../../shared/compare.js'
+import { hasColumnInstructions } from '../../shared/compare.js'
 import { costLine } from './cost.js'
 import type { RunCost } from './cost.js'
 import { durationText } from './missionView.js'
@@ -49,7 +50,7 @@ export function compareRecordRows(
   const rows = new Map<string, { name: string; kept: number; compared: number; times: number[]; costs: RunCost[] }>()
   for (const compare of compares) {
     // Only decided comparisons, and only columns that answered: the same rule as the picker's "kept 2 of 3".
-    if (compare.kept === undefined) continue
+    if (compare.kept === undefined || hasColumnInstructions(compare)) continue
     for (const column of compare.slots) {
       if (column.missionIds.length === 0) continue
       const key = `${column.route.runtime}:${column.route.model}`

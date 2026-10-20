@@ -21,6 +21,7 @@ import { CompareBenchmark, type BenchmarkView } from './CompareBenchmark.js'
 import { scoreOf } from '../../../shared/compare-score.js'
 import type { Scorecard } from '../../../shared/compare-score.js'
 import { keptSentence } from '../status.js'
+import { KeptInstructions } from './KeptInstructions.js'
 
 /**
  * COMPARE, SIDE BY SIDE (0.441, shared/compare.ts,
@@ -112,6 +113,7 @@ export function CompareView({
   onKeep,
   onRetry,
   onBack,
+  onUseInstructions,
   decidingIds,
   onDecide,
   onAnswer,
@@ -152,6 +154,7 @@ export function CompareView({
   readonly onAnswer?: (approvalId: string, answers: Readonly<Record<string, readonly string[]>>) => void
   /** Kept already: back to the conversation it carries on in. */
   readonly onBack: (() => void) | undefined
+  readonly onUseInstructions?: (teammate: PublicTeammate, instructions: string) => Promise<string | undefined>
   /** Once one is kept: every model's record across your decided comparisons (0.519). */
   readonly record?: readonly CompareRecordRow[]
   /** The judge's view, when one was asked (0.520): its model, and what it said or is saying. */
@@ -277,6 +280,7 @@ export function CompareView({
           </button>
         )}
       </div>
+      {onUseInstructions !== undefined && <KeptInstructions key={`${compare.compareId}:${compare.kept?.slot ?? ''}`} compare={compare} teammate={owner} onUse={onUseInstructions} />}
       <div className="lc-compare__scroll" ref={scrollRef}>
         <div className="lc-compare__grid">
           {columns.map((column) => railed(column.slot) ? (

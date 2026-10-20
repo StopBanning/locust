@@ -1,5 +1,6 @@
 import { AGENT_ACCOUNTS_CHANNEL, type AccountAction, type AgentAccountsState } from '../shared/agent-accounts.js'
 import { contextBridge, ipcRenderer } from 'electron'
+import { TUNE_DRAFT_CHANNEL } from '../shared/tune.js'
 import { TERMINAL_SHELLS, TERMINAL_CREATE, TERMINAL_INPUT, TERMINAL_RESIZE, TERMINAL_CLOSE, TERMINAL_EVENT, TERMINAL_LINK, TERMINAL_COPY, type TerminalApi } from '../shared/terminal.js'
 import { OWN_COMMAND_ALLOW, OWN_COMMAND_DONE, OWN_COMMAND_EXPAND, OWN_COMMAND_LIST, OWN_COMMAND_OPEN, OWN_COMMAND_RUN, OWN_COMMAND_STOP, type OwnCommandResult, type OwnCommandsApi } from '../shared/own-commands.js'
 import {
@@ -819,6 +820,7 @@ const desktopApi: DesktopApi = {
   confirmWorkspace: () => ipcRenderer.invoke(WORKSPACE_CONFIRM_CHANNEL) as Promise<boolean>,
   listFolders: () => ipcRenderer.invoke(FOLDER_LIST_CHANNEL) as Promise<FolderListResponse>,
   askOnTheSide: (of: string, question: string, count: number) => ipcRenderer.invoke(SIDE_ASK_CHANNEL, of, question, count) as Promise<SideAskResponse>,
+  draftTune: (of: string) => ipcRenderer.invoke(TUNE_DRAFT_CHANNEL, of) as Promise<SideAskResponse>,
   switchFolder: (id: string) => ipcRenderer.invoke(FOLDER_SWITCH_CHANNEL, id) as Promise<FolderSwitchResponse>,
   cloudWhere: () => ipcRenderer.invoke(CLOUD_WHERE_CHANNEL) as Promise<PublicCloudWhere>,
   startCloudTask: (prompt: string, teammateId?: string) => ipcRenderer.invoke(CLOUD_START_CHANNEL, prompt, teammateId) as Promise<CloudStartResponse>,

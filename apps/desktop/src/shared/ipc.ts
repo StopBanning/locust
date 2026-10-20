@@ -1336,7 +1336,7 @@ export interface CompareStartRequest {
   /** Whose conversation; absent to compare with nobody. */
   readonly teammateId?: string
   readonly prompt: string
-  readonly routes: readonly { readonly runtime: MissionRuntimeId; readonly model: string; readonly effort?: string; readonly label?: string; readonly mode?: 'auto' }[]
+  readonly routes: readonly { readonly runtime: MissionRuntimeId; readonly model: string; readonly account?: string; readonly effort?: string; readonly label?: string; readonly mode?: 'auto'; readonly instructions?: string }[]
   /** Each model changes its own copy of the project (0.445); absent, they only answer. */
   readonly changes?: boolean
   /** The names hidden until one is kept (0.449). */
@@ -3916,6 +3916,7 @@ export interface DesktopApi {
   listFolders(): Promise<FolderListResponse>
   /** `of` is the conversation's (or the side chat's) latest turn; `question` counts from 1. */
   askOnTheSide(of: string, question: string, count: number): Promise<SideAskResponse>
+  draftTune(of: string): Promise<SideAskResponse>
   switchFolder(id: string): Promise<FolderSwitchResponse>
   /** Cloud tasks (0.503): this folder's standing, start, follow, show, apply. */
   cloudWhere(): Promise<PublicCloudWhere>

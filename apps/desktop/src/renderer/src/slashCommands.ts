@@ -32,6 +32,7 @@ export type SlashAction =
   | { readonly kind: 'own'; readonly source: 'global' | 'project' }
   /** Open the folder's GitHub issues. Choosing one fills the box, and nothing is sent. */
   | { readonly kind: 'issues' }
+  | { readonly kind: 'tune' }
 
 export interface SlashCommand {
   /** Typed after the slash, lowercase. */
@@ -73,6 +74,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: 'swarm', detail: 'Every run at its model maximum.', action: { kind: 'swarm' } },
   { name: 'stop', detail: 'Stop the running mission.', action: { kind: 'stop' } },
   { name: 'issue', detail: 'Start from an open GitHub issue in this folder.', action: { kind: 'issues' } },
+  { name: 'tune', detail: 'Try this teammate’s instructions three ways on your last ask, and keep the one that worked best.', action: { kind: 'tune' } },
   { name: 'auto', detail: 'Runs without asking, and may change anything on this machine.', action: { kind: 'mode', mode: 'auto' }, weighted: true }
 ]
 
@@ -123,6 +125,7 @@ export function availableCommands(input: {
   readonly canSwarm: boolean
   /** The folder is a GitHub repository gh can read. Otherwise `/issue` is absent. */
   readonly issues?: boolean
+  readonly tune?: boolean
   /** The runtime's own, after Locust's; a name Locust already uses stays Locust's. */
   readonly runtimeCommands?: readonly SlashCommand[]
 }): readonly SlashCommand[] {
@@ -138,6 +141,8 @@ export function availableCommands(input: {
         return input.canSwarm
       case 'issues':
         return input.issues === true
+      case 'tune':
+        return input.tune === true && !input.running
       default:
         return true
     }

@@ -6,6 +6,7 @@ import { isAbsolute, join } from 'node:path'
 
 import { cleanAvatar, isAvatarSpec, seedAvatar } from '../shared/avatar.js'
 import { MAX_TEAMMATE_INSTRUCTIONS } from '../shared/ipc.js'
+import { instructionsText } from '../shared/teammate-instructions.js'
 import type { PublicTeammate, TeammateHue, TeammateRole, TeammateRoute, WorkspaceSettings, MemoryMode, LayoutPreference, TubePreference, ReplyTextSize } from '../shared/ipc.js'
 import { DEFAULT_RELAY_HOP_CAP, MAX_RELAY_HOP_CAP, MIN_RELAY_HOP_CAP, DEFAULT_MEMORY_MODE } from '../shared/ipc.js'
 import { isMissionRuntime } from '../shared/runtimes.js'
@@ -334,9 +335,8 @@ function parsedStarters(value: unknown): readonly string[] | undefined {
 /** Only a Custom role keeps a title, and only a valid one. Anything else is dropped, never rejected. */
 /** A teammate's own instructions (0.706): trimmed text up to the cap, or nothing. */
 function parsedInstructions(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const text = value.trim()
-  return text.length > 0 && text.length <= MAX_TEAMMATE_INSTRUCTIONS && !text.includes('\0') ? text : undefined
+  const text = instructionsText(value)
+  return text === undefined || text.length === 0 ? undefined : text
 }
 
 function roleTitleFor(role: TeammateRole, value: unknown): string | undefined {

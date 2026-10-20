@@ -33,6 +33,11 @@ describe('recognising a command being typed', () => {
 })
 
 describe('which commands are offered', () => {
+  it('offers /tune only with a finished teammate conversation', () => {
+    expect(availableCommands({ modes: ['ask'], running: false, canSwarm: false }).some((row) => row.name === 'tune')).toBe(false)
+    expect(availableCommands({ modes: ['ask'], running: false, canSwarm: false, tune: true }).some((row) => row.name === 'tune')).toBe(true)
+    expect(availableCommands({ modes: ['ask'], running: true, canSwarm: false, tune: true }).some((row) => row.name === 'tune')).toBe(false)
+  })
   it('offers only modes this runtime can honour', () => {
     // A command listed and then refused is the dead control this app keeps
     // removing. The filter is the reason it cannot happen.
@@ -105,7 +110,7 @@ describe("a runtime's own commands (0.426)", () => {
   it("sit under the runtime, after Locust's own, with what goes after them", () => {
     const offered = availableCommands({ modes: ALL_MODES, running: false, canSwarm: true, runtimeCommands: claude })
     const names = offered.map((command) => command.name)
-    expect(names.slice(0, names.indexOf('auto') + 1)).toEqual(SLASH_COMMANDS.filter((c) => c.name !== 'stop' && c.action.kind !== 'issues').map((c) => c.name))
+    expect(names.slice(0, names.indexOf('auto') + 1)).toEqual(SLASH_COMMANDS.filter((c) => c.name !== 'stop' && c.action.kind !== 'issues' && c.action.kind !== 'tune').map((c) => c.name))
     expect(names.slice(names.indexOf('auto') + 1)).toEqual(['compact', 'security-review', 'plugin:skill'])
     const compact = offered.find((command) => command.name === 'compact')
     expect(compact).toMatchObject({ group: 'Claude Code', hint: '<optional custom summarization instructions>', action: { kind: 'runtime' } })

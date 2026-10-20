@@ -298,7 +298,7 @@ export interface CodexMissionService {
      * in place of its owner's, so one teammate -- or nobody -- answers on two
      * models at once. Only the compare handler supplies it.
      */
-    slot?: { readonly key: string; readonly cwd?: string },
+    slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string },
     /**
      * A question ON THE SIDE of a conversation (0.461, Devin's side chats):
      * read-only, on a FORK of the session of `of` -- the conversation's
@@ -1463,7 +1463,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       relay?: RelayOrigin,
       startedBy?: MissionStarter,
       asCommand?: boolean,
-      slot?: { readonly key: string; readonly cwd?: string },
+      slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string },
       side?: { readonly of: string; readonly question: number },
       rewind?: boolean,
       leaveOut?: readonly string[],
@@ -2560,6 +2560,7 @@ ${sentPrompt.trim()}`
           // a follow-up in `resumedMissionId`; a first turn has none.
           const prepared = await peerExchange.prepare(sentPrompt, peer, runtime, {
             folder: runFolder,
+            ...(slot?.instructions === undefined ? {} : { instructions: slot.instructions }),
             ...(ownFolder === undefined ? {} : { ownFolder }),
             ...((continuation?.missionId ?? resumedMissionId ?? followUpOf) === undefined
               ? {}

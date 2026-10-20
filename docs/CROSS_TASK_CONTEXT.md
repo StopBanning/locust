@@ -653,3 +653,19 @@ Entries since 2026-10-03, newest first. Earlier entries (2026-08-30 to
   are excluded from profile backups.
 - `_tools/drive-conversation-references.mjs` uses one free OpenCode Ask turn and a separate reference folder.
   Its `holdCursor: false` option avoids reading or changing Cursor's global defaults.
+
+## Instruction trials for a teammate
+
+- `/tune` in a finished teammate conversation authorizes one side turn to suggest two edits: procedure and
+  domain knowledge, each tied to a moment in that conversation. The card discloses that turn. Invalid output or
+  an unsupported side conversation leaves editable copies of Current. No three-way comparison starts until
+  Run all three is pressed, and no saved teammate instructions change when a column is kept.
+- `CompareRoute.instructions` is a bounded, per-column replacement; an empty string explicitly removes the
+  teammate's own instructions for that column. It travels through the run slot into `ConversationHint`, not a
+  mutable global or a compare-store lookup from the brief builder. Follow-ups, retries, restarts and reruns keep
+  the column's snapshot. Ordinary duplicate-model picker rules remain; explicit instruction trials may share a
+  model, including copies of Current when an angle recommends no edit. Blind letters are shuffled in main.
+  Instruction trials do not count as model-against-model votes in the model records.
+- The kept output offers Review instructions, Use these instructions for the teammate, and Not now. Only the
+  explicit Use button calls the existing teammate update path; empty clears, and the change briefs future turns.
+  `_tools/drive-tune-a-teammate.mjs` uses a free route and does not hold or change Cursor's global default.

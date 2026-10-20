@@ -19,6 +19,8 @@ export const COMPARE_SLOTS = ['a', 'b', 'c'] as const
 export type CompareSlotId = (typeof COMPARE_SLOTS)[number]
 
 export interface CompareRoute {
+  /** A column's standing words in place of the teammate's; empty explicitly means none. */
+  readonly instructions?: string
   readonly account?: string
   readonly runtime: string
   readonly model: string
@@ -258,7 +260,8 @@ export function compareRefusalOf(runtime: string, antigravityCli = false): strin
 export function compareRecord(compares: readonly PublicCompare[]): ReadonlyMap<string, { readonly kept: number; readonly compared: number }> {
   const record = new Map<string, { kept: number; compared: number }>()
   for (const compare of compares) {
-    if (compare.kept === undefined) continue
+    // An instruction trial compares setups, not models: a model cannot earn votes against itself.
+    if (compare.kept === undefined || hasColumnInstructions(compare)) continue
     for (const column of compare.slots) {
       if (column.missionIds.length === 0) continue
       const key = `${column.route.runtime}:${column.route.model}`
@@ -269,6 +272,10 @@ export function compareRecord(compares: readonly PublicCompare[]): ReadonlyMap<s
     }
   }
   return record
+}
+
+export function hasColumnInstructions(compare: PublicCompare): boolean {
+  return compare.slots.some((column) => column.route.instructions !== undefined)
 }
 
 /** A column's name while a blind comparison is undecided: "Model A". */

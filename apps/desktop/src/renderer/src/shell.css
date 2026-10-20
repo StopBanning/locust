@@ -24148,3 +24148,20 @@ textarea.lc-compare__judgecriteria {
 .lc-contextbreakdown__row.is-free .lc-contextbreakdown__track > span { background: var(--lc-text-muted); opacity: .4; }
 .lc-contextbreakdown__advice { font-size: var(--lc-text-mono-label); color: var(--lc-text-muted); line-height: 1.5; }
 
+/* TUNE THIS TEAMMATE (0.808): the three setups are reviewed together; the
+   comparison itself is the existing screen, not another results surface. */
+.lc-tune { width: min(1040px, calc(100vw - 48px)); }
+.lc-tune__body { display: flex; flex-direction: column; gap: var(--lc-space-5); }
+.lc-tune__ask { display: flex; flex-direction: column; gap: var(--lc-space-2); color: var(--lc-text-secondary); font-size: var(--lc-text-control); }
+.lc-tune__columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lc-space-5); }
+.lc-tune__column { display: grid; grid-template-rows: subgrid; grid-row: span 4; min-width: 0; gap: var(--lc-space-3); }
+.lc-tune__title { color: var(--lc-text-primary); font-size: var(--lc-text-control); font-weight: 500; }
+.lc-tune__column > .lc-dialog__note { margin: 0; }
+.lc-tune__why { min-height: 3em; overflow-wrap: anywhere; }
+.lc-tune__instructions { min-height: 180px; resize: vertical; line-height: 1.5; }
+.lc-tune__cost { margin: 0; font-size: var(--lc-text-control); line-height: 1.5; color: var(--lc-text-secondary); }
+.lc-tuneoffer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-3); padding: var(--lc-space-4) var(--lc-space-6); flex-shrink: 0; border-bottom: 1px solid var(--lc-border-hairline); color: var(--lc-text-secondary); font-size: var(--lc-text-control); }
+.lc-tuneoffer pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.lc-tuneoffer summary { cursor: pointer; }
+@media (max-width: 760px) { .lc-tune__columns { grid-template-columns: minmax(0, 1fr); } }
+

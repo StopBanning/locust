@@ -453,6 +453,8 @@ export interface ComposerProps {
   readonly issues?: boolean
   /** Open the issue list. Choosing one fills the box, and nothing is sent. */
   readonly onPickIssue?: () => void
+  readonly canTune?: boolean
+  readonly onTune?: () => void
   /** The open list, drawn above the field. */
   readonly issueList?: { readonly issues: readonly ListedIssue[]; readonly empty?: string; readonly onChoose: (number: number) => void; readonly onClose: () => void }
 }
@@ -597,6 +599,8 @@ export function Composer({
   commandAsk,
   issues,
   onPickIssue,
+  canTune,
+  onTune,
   issueList
 }: ComposerProps): ReactElement {
   const policy = useOrganizationPolicy()
@@ -854,7 +858,8 @@ export function Composer({
           modes: modesFor(route.runtime, platform).filter((value) => policyModeAllowed(policy, value)),
           running,
           canSwarm: !running,
-          issues
+          issues,
+          tune: canTune
         }),
         ...yours,
         ...runtimeRows
@@ -952,6 +957,11 @@ export function Composer({
     if (command.action.kind === 'own') {
       const choice = ownCommandChoice(command.name, command.action.source, argumentsOfOwnCommand(value, [command.name])?.args ?? '')
       onChooseOwnCommand?.(choice.fill.name, choice.fill.source, choice.fill.args)
+      return
+    }
+    if (command.action.kind === 'tune') {
+      setValue('')
+      onTune?.()
       return
     }
     // The issue list. Choosing one fills the box. Nothing is sent.

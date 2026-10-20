@@ -1,5 +1,8 @@
 // H1: first, before any import can spawn -- no bare name is found in its working folder.
 import './no-planted-executables.js'
+import { columnInstructions, compareInstructionsRefusal, shuffledColumns } from './compare-instructions.js'
+import { tuneDraftPrompt } from './tune-drafts.js'
+import { TUNE_DRAFT_CHANNEL } from '../shared/tune.js'
 import { createClaudeContextReader, prepareClaudeContextLaunch, recordedClaudeContextLaunch, type ClaudeContextReader } from './claude-context.js'
 import { CONTEXT_BREAKDOWN_CHANNEL } from '../shared/context-breakdown.js'
 import { AGENT_ACCOUNTS_CHANNEL, accountFromRoute, supportsAccounts, type AccountAction } from '../shared/agent-accounts.js'
@@ -2032,7 +2035,8 @@ if (!ownsSingleInstanceLock) {
         // This teammate's own instructions (0.706), after the group's: the
         // narrower word comes later, as the folder's comes before the group's.
         const own = peer === undefined ? undefined : (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === peer.self.teammateId)
-        if (own?.instructions !== undefined) sections.push(teammateSection(own.name, own.instructions))
+        const instructions = columnInstructions(own?.instructions, conversation?.instructions)
+        if (own !== undefined && instructions !== undefined && instructions.length > 0) sections.push(teammateSection(own.name, instructions))
         const settings = await teammates.readSettings()
         // About you (0.423): the person's own standing note, before memory
         // and whatever the memory mode says -- switching teammate memory off
@@ -5066,16 +5070,15 @@ if (!ownsSingleInstanceLock) {
      * conversation keeps going. The conversation never sees it
      * (codex-mission.ts, `side`).
      */
-    ipcMain.handle(SIDE_ASK_CHANNEL, async (event, of: unknown, question: unknown, count: unknown) => {
+    const askOnTheSide = async (of: unknown, question: unknown, count: unknown, effortOverride?: { readonly effort?: string }) => {
       const refuse = (message: string) => ({ ok: false, message }) as const
-      if (!fromOwnWindow(event)) return refuse('That request was rejected.')
       if (typeof of !== 'string' || typeof question !== 'string' || question.trim().length === 0) return refuse('Write the question first.')
       const asked = typeof count === 'number' && Number.isSafeInteger(count) && count >= 1 ? count : 1
       const turn = await missionLedger.getMission(of).catch(() => undefined)
       if (turn === undefined) return refuse('That conversation is not in the record.')
       const owner = (await teammates.missionOwners().catch(() => ({} as Record<string, string>)))[of]
       const peer = owner === undefined ? undefined : await peerContextFor(owner)
-      const effort = (turn.metadata as { readonly effort?: unknown }).effort
+      const effort = effortOverride === undefined ? (turn.metadata as { readonly effort?: unknown }).effort : effortOverride.effort
       const response = await codexMissions.start(
         question.trim(),
         turn.metadata.runtime,
@@ -5102,6 +5105,22 @@ if (!ownsSingleInstanceLock) {
         startedBy: { kind: 'side', of, question: asked }
       })
       return { ok: true, data: { runId: response.data.runId, missionId: response.data.missionId } } as const
+    }
+    ipcMain.handle(SIDE_ASK_CHANNEL, async (event, of: unknown, question: unknown, count: unknown) => {
+      if (!fromOwnWindow(event)) return { ok: false, message: 'That request was rejected.' } as const
+      return askOnTheSide(of, question, count)
+    })
+    // /tune explicitly authorizes this one side turn; the card gates the three trials separately.
+    ipcMain.handle(TUNE_DRAFT_CHANNEL, async (event, of: unknown) => {
+      const refuse = (message: string) => ({ ok: false, message }) as const
+      if (!fromOwnWindow(event) || typeof of !== 'string') return refuse('That request was rejected.')
+      const turn = await missionLedger.getMission(of).catch(() => undefined)
+      if (turn === undefined || !turn.events.some((entry) => ['run.completed', 'run.failed', 'run.cancelled'].includes(entry.type))) return refuse('Finish a turn in this conversation first. Nothing was started.')
+      const owner = (await teammates.missionOwners())[of]
+      const teammate = (await teammates.list()).find((entry) => entry.teammateId === owner)
+      if (teammate === undefined) return refuse('Open a teammate’s conversation first. Nothing was started.')
+      if (teammate.route === undefined || teammate.route.runtime !== turn.metadata.runtime || teammate.route.model !== turn.metadata.model || teammate.route.account !== accountFromRoute(turn.metadata.resolvedRouteId)) return refuse('This conversation uses another model or account. Drafts were not requested; you can write the two alternatives yourself.')
+      return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? ''), 1, teammate.route)
     })
 
     // Every folder worked in, newest first, and the one the window is in (0.458).
@@ -7133,7 +7152,7 @@ if (!ownsSingleInstanceLock) {
         undefined,
         undefined,
         undefined,
-        { key: compareSlotKey(compare.teammateId, compare.compareId, column.slot), ...(copy === undefined ? {} : { cwd: copy }) }
+        { key: compareSlotKey(compare.teammateId, compare.compareId, column.slot), ...(copy === undefined ? {} : { cwd: copy }), ...(column.route.instructions === undefined ? {} : { instructions: column.route.instructions }) }
       )
       if (!response.ok) return response.error.code === 'RUN_ALREADY_ACTIVE' ? 'This column is still answering. Ask again when it has finished.' : response.error.message
       if (compare.rerunOf !== undefined) rerunRunIds.set(response.data.missionId, response.data.runId)
@@ -7179,21 +7198,20 @@ if (!ownsSingleInstanceLock) {
           model: typeof route.model === 'string' && route.model.length > 0 ? route.model : 'account-default',
           ...(typeof route.account === 'string' ? { account: route.account } : {}), ...(typeof route.effort === 'string' ? { effort: route.effort } : {}),
           ...(typeof route.label === 'string' && route.label.trim().length > 0 ? { label: route.label.trim() } : {}),
-          ...(route.mode === 'auto' ? { mode: 'auto' as const } : {})
+          ...(route.mode === 'auto' ? { mode: 'auto' as const } : {}),
+          ...(route.instructions === undefined ? {} : { instructions: route.instructions as string })
         }))
         .filter((route) => route.runtime.length > 0)
       const changes = input.changes === true
       const blind = input.blind === true
       // Blind: the person picked the models, so which column is which must be chance, not pick order.
       if (blind) {
-        for (let index = routes.length - 1; index > 0; index -= 1) {
-          const other = randomInt(index + 1)
-          ;[routes[index], routes[other]] = [routes[other]!, routes[index]!]
-        }
+        routes.splice(0, routes.length, ...shuffledColumns(routes, (upper) => randomInt(upper)))
       }
-      const distinct = new Set(routes.map((route) => `${route.runtime}\n${route.model}`))
+      const instructionRefusal = compareInstructionsRefusal(routes, teammateId)
+      if (instructionRefusal !== undefined) return compareRefused(instructionRefusal)
       if (prompt.length === 0) return compareRefused('There is nothing to compare yet. Write the ask first.')
-      if (routes.length < MIN_COMPARE_SLOTS || routes.length > MAX_COMPARE_SLOTS || distinct.size !== routes.length) {
+      if (routes.length < MIN_COMPARE_SLOTS || routes.length > MAX_COMPARE_SLOTS) {
         return compareRefused(`Pick ${String(MIN_COMPARE_SLOTS)} or ${String(MAX_COMPARE_SLOTS)} different models to compare.`)
       }
       if (teammateId !== undefined && !(await teammates.list()).some((entry) => entry.teammateId === teammateId)) return compareRefused('That teammate is no longer on the team.')

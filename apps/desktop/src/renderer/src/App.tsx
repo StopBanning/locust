@@ -173,6 +173,10 @@ import { GroupSettingsDialog } from './components/GroupSettingsDialog.js'
 import { TeammateBot } from './components/TeammateBot.js'
 import { BesideConversation } from './components/BesideConversation.js'
 import { SideChat } from './components/SideChat.js'
+import { TuneTeammate, type TuneCard } from './components/TuneTeammate.js'
+import { KeptInstructions } from './components/KeptInstructions.js'
+import { currentDrafts, parseTuneDrafts, tuneRefusal, tuneRoutes } from '../../shared/tune.js'
+import { assistantMessages } from './missionView.js'
 import { CloudTasks } from './components/CloudTasks.js'
 import { CloudSetupDialog, type CloudSetupState } from './components/CloudSetupDialog.js'
 import { CLOUD_AGENT_NAMES, type CloudAgent, type PublicCloudTurn } from '../../shared/cloud-computer.js'
@@ -2048,6 +2052,15 @@ export default function App(): ReactElement {
    * model that answers -- the conversation's own.
    */
   const [sideChat, setSideChat] = useState<{ readonly of: string; readonly runIds: readonly string[]; readonly model: string }>()
+  const [tuning, setTuning] = useState<TuneCard>()
+  const tuneGeneration = useRef(0)
+  useEffect(() => {
+    if (tuning?.draftRunId === undefined || !tuning.drafting) return
+    const run = runs.get(tuning.draftRunId)
+    if (run === undefined || !isTerminal(run.phase)) return
+    const raw = run.phase === 'completed' ? assistantMessages(run.events).filter((message) => message.final).at(-1)?.text ?? '' : ''
+    setTuning((current) => current?.id !== tuning.id ? current : { ...current, drafting: false, drafts: parseTuneDrafts(raw, current.current) })
+  }, [runs, tuning])
   /*
    * CLOUD TASKS (0.503, main/cloud-tasks.ts): Cloud picked in the chat-type
    * menu, this folder's tasks, and the panel beside the conversation.
@@ -4637,7 +4650,67 @@ export default function App(): ReactElement {
     setCompares((current) => [...current.filter((one) => one.compareId !== next.compareId), next])
 
   /** The send, when a comparison is ticked or on screen; otherwise the ordinary one. */
+  const openTune = (): string | undefined => {
+    if (window.desktop === undefined) return 'Locust is not ready. Nothing was started.'
+    if (tuning !== undefined) return 'The tune card is already open. Nothing else was started.'
+    const teammate = liveRun === undefined ? undefined : teammates.find((mate) => mate.teammateId === ownerOf(liveRun))
+    const of = liveRun?.data?.missionId
+    const why = tuneRefusal(teammate, of, liveRun !== undefined && isTerminal(liveRun.phase) && comparing === undefined)
+    if (why !== undefined || teammate?.route === undefined || of === undefined) return why ?? 'Open a finished teammate conversation first. Nothing was started.'
+    const id = ++tuneGeneration.current
+    const current = teammate.instructions ?? ''
+    const route = teammate.route
+    setTuning({ id, teammateId: teammate.teammateId, route, name: teammate.name, model: routeModelName(route.runtime, route.model), free: route.runtime === 'opencode' && /(^|[-/])free$/i.test(route.model), prompt: liveRun!.prompt, current, drafts: currentDrafts(current, 'Drafting an alternative on this teammate’s model…'), drafting: true })
+    void window.desktop?.draftTune(of).then((answer) => {
+      if (tuneGeneration.current !== id) {
+        if (answer.ok) void window.desktop?.cancelCodexMission({ runId: answer.data.runId })
+        return
+      }
+      setTuning((card) => card?.id !== id ? card : answer.ok
+        ? { ...card, draftRunId: answer.data.runId }
+        : { ...card, drafting: false, drafts: currentDrafts(card.current), problem: answer.message })
+    }).catch(() => setTuning((card) => card?.id !== id ? card : { ...card, drafting: false, drafts: currentDrafts(card.current) }))
+    return undefined
+  }
+  const closeTune = (): void => {
+    if (tuning?.starting) return
+    tuneGeneration.current += 1
+    if (tuning?.draftRunId !== undefined && tuning.drafting) void window.desktop?.cancelCodexMission({ runId: tuning.draftRunId })
+    setTuning(undefined)
+  }
+  const runTune = async (): Promise<void> => {
+    const card = tuning
+    const bridge = window.desktop
+    if (card === undefined || card.drafting || card.starting || bridge === undefined) return
+    const teammate = teammates.find((mate) => mate.teammateId === card.teammateId)
+    if (teammate?.route === undefined || JSON.stringify(teammate.route) !== JSON.stringify(card.route)) { setTuning({ ...card, problem: 'That teammate’s model changed. Cancel and open /tune again to review it. Nothing was started.' }); return }
+    setTuning({ ...card, starting: true })
+    const route = teammate.route
+    const answer = await bridge.startCompare({ teammateId: teammate.teammateId, prompt: card.prompt,
+      routes: tuneRoutes({ runtime: route.runtime, model: route.model, ...(route.account === undefined ? {} : { account: route.account }), ...(route.effort === undefined ? {} : { effort: route.effort }), label: card.model }, card.current, card.drafts), changes: true, blind: true }).catch(() => undefined)
+    if (answer?.ok !== true) { setTuning({ ...card, starting: false, problem: answer?.ok === false ? answer.error.message : 'The trials could not be started. Nothing was changed.' }); return }
+    replaceCompare(answer.data.compare)
+    setComparingId(answer.data.compare.compareId)
+    setCompareOn(false)
+    setTuning(undefined)
+  }
+  const useTunedInstructions = async (teammate: PublicTeammate, instructions: string): Promise<string | undefined> => {
+    const bridge = window.desktop
+    if (bridge === undefined) return 'Locust is not ready. The teammate is unchanged.'
+    // Read identity fresh: saving only standing words must not undo a concurrent edit to the teammate.
+    const listed = await bridge.listTeammates()
+    const latest = listed.ok ? listed.data.teammates.find((mate) => mate.teammateId === teammate.teammateId) : undefined
+    if (latest === undefined) return 'That teammate is no longer available. Nothing was changed.'
+    const answer = await bridge.updateTeammate({ teammateId: latest.teammateId, name: latest.name, hue: latest.hue, role: latest.role,
+      ...(latest.roleTitle === undefined ? {} : { roleTitle: latest.roleTitle }), ...(latest.worktree === undefined ? {} : { worktree: latest.worktree }), avatar: latest.avatar, instructions: instructions.length === 0 ? null : instructions })
+    if (!answer.ok) return answer.error.message
+    const refreshed = await bridge.listTeammates()
+    if (refreshed.ok) { setTeammates(refreshed.data.teammates); setMissionOwners(refreshed.data.missionOwners); rememberRosterNames(refreshed.data) }
+    return undefined
+  }
+
   const sendOrCompare = async (prompt: string, sendOptions?: { readonly leaveOut?: readonly string[]; readonly referenceIds?: readonly string[] }): Promise<boolean | string> => {
+    if (prompt.trim().toLowerCase() === '/tune') return openTune() ?? true
     const bridge = window.desktop
     // Background (W10): Claude Code's own session takes the turn; the panel follows it.
     if (backgroundOn && comparing === undefined && composerRoute.runtime === 'claude') {
@@ -9147,7 +9220,8 @@ export default function App(): ReactElement {
                   changeLines={compareChangeLines?.compareId === comparing.compareId ? compareChangeLines.columns : {}}
                   prompts={prompts}
                   columns={columns}
-                  owner={pickedTeammate}
+                  owner={teammates.find((mate) => mate.teammateId === comparing.teammateId)}
+                  onUseInstructions={useTunedInstructions}
                   workspacePath={workspacePath}
                   keeping={keepingCompare}
                   conversationMode={mode}
@@ -9760,6 +9834,10 @@ export default function App(): ReactElement {
                   </div>
                 )
               })()}
+              {(() => {
+                const compare = comparisonOf([...turnsOfConversation(liveRun.data?.missionId, sidebarMissions)], compares)
+                return compare === undefined ? null : <KeptInstructions key={compare.compareId} compare={compare} teammate={teammates.find((mate) => mate.teammateId === compare.teammateId)} onUse={useTunedInstructions} />
+              })()}
               <DiffNotesContext.Provider value={diffNotesPlace}>
               <Thread
                 findRequest={findRequest}
@@ -10032,6 +10110,8 @@ export default function App(): ReactElement {
             {...(commandAsk === undefined ? {} : { commandAsk: { lines: commandAsk.lines, onAllow: allowCommandAsk, onNotNow: () => setCommandAsk(undefined) } })}
             issues={githubReady}
             onPickIssue={openIssueList}
+            canTune={tuneRefusal(missionOwner, liveRun?.data?.missionId, liveRun !== undefined && isTerminal(liveRun.phase) && comparing === undefined) === undefined}
+            onTune={() => { openTune() }}
             {...(issuePicker === undefined ? {} : { issueList: { issues: issuePicker, onChoose: chooseIssue, onClose: () => setIssuePicker(undefined), ...(issueEmpty === undefined ? {} : { empty: issueEmpty }) } })}
             // Talk in a teammate's conversation is a call with them, into it (0.746).
             // With the call drawn in this conversation, a connector's question is a card in it (0.749).
@@ -10773,6 +10853,7 @@ export default function App(): ReactElement {
           }}
         />
       )}
+      {tuning !== undefined && <TuneTeammate card={tuning} onChange={(edit) => setTuning((current) => current?.id !== tuning.id ? current : edit(current))} onCancel={closeTune} onRun={() => void runTune()} />}
       {newTeammateOpen && (
         <NewTeammateDialog
           error={teammateError}
