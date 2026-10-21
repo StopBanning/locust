@@ -29,12 +29,12 @@ export interface JudgedAnswer {
    * past the 8,000 a run's message may hold, and the start was refused.
    */
   readonly file?: string
-  /** What the person's own check said in this column's copy after its turn (0.811); absent when none ran anywhere. */
+  /** What the person's own check said in this column's copy after its turn (0.810); absent when none ran anywhere. */
   readonly check?: JudgedCheck
 }
 
 /**
- * THE PERSON'S CHECK, BESIDE EACH ANSWER (0.811): the folder's check command (Settings > Project folder, A3.3), run in
+ * THE PERSON'S CHECK, BESIDE EACH ANSWER (0.810): the folder's check command (Settings > Project folder, A3.3), run in
  * each column's copy after its turn. In the API benchmark of 10/21 every judge gave a refactor that crashed its own
  * tests full marks, and one wrote that the test run "cannot be verified from the material". Now it can.
  */
@@ -79,7 +79,7 @@ export function judgeAnswerText(answer: JudgedAnswer, whole = false): string {
 }
 
 /**
- * Every answer's check failed with the same words (0.811): it tells them apart on nothing, and a copy leaves out what
+ * Every answer's check failed with the same words (0.810): it tells them apart on nothing, and a copy leaves out what
  * is installed rather than written (compare-copies.ts LEFT_OUT), so a check that needs node_modules fails in each.
  */
 export function sameFailureEverywhere(answers: readonly JudgedAnswer[]): boolean {
@@ -92,7 +92,7 @@ export function judgePrompt(input: {
   readonly answers: readonly JudgedAnswer[]
   readonly criteria?: string
   readonly changes?: 'copies' | 'folder'
-  /** The person's check ran in the copies (0.811): its command, as Settings holds it. */
+  /** The person's check ran in the copies (0.810): its command, as Settings holds it. */
   readonly check?: { readonly command: string }
 }): string {
   const criteria = input.criteria?.trim()

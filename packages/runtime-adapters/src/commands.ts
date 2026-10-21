@@ -1832,6 +1832,33 @@ export interface OpenCodeProvider {
    * model answers. Absent means it takes tools, as every model did before.
    */
   readonly toolCalls?: boolean;
+  /**
+   * What a model costs, by its id, as its provider lists it (0.810). Given,
+   * OpenCode prices each step of a run with it, as it prices its own models,
+   * and the run reports dollars; absent, it reports tokens only.
+   */
+  readonly prices?: Readonly<Record<string, OpenCodePrice>>;
+}
+
+/**
+ * A model's price in dollars a million tokens, in models.dev's own words,
+ * which are the ones OpenCode's config takes. A tier is a dearer price for a
+ * request whose context is over its size; OpenCode 1.18 picks it per step
+ * (MEASURED in its binary 2026-10-21), and an older OpenCode ignores it.
+ */
+export interface OpenCodePrice {
+  readonly input: number;
+  readonly output: number;
+  readonly cache_read?: number;
+  readonly cache_write?: number;
+  readonly tiers?: readonly {
+    readonly input: number;
+    readonly output: number;
+    readonly cache_read?: number;
+    readonly cache_write?: number;
+    readonly tier: { readonly type: "context"; readonly size: number };
+  }[];
+  readonly context_over_200k?: { readonly input: number; readonly output: number; readonly cache_read?: number; readonly cache_write?: number };
 }
 
 const PROVIDER_ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
@@ -1858,7 +1885,12 @@ export function withOpenCodeProviders(config: string | undefined, providers: Rea
       npm: "@ai-sdk/openai-compatible",
       name: provider.name,
       options: { baseURL: provider.baseUrl, apiKey: provider.apiKey ?? "not-needed" },
-      models: Object.fromEntries(provider.models.map((model) => [model, { name: model }])),
+      models: Object.fromEntries(
+        provider.models.map((model) => {
+          const price = provider.prices?.[model];
+          return [model, { name: model, ...(price === undefined ? {} : { cost: price }) }];
+        }),
+      ),
     };
   }
   // A run on a model that only chats is a run with no tools at all: it can

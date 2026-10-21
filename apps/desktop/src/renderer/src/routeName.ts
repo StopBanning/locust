@@ -124,7 +124,7 @@ const OWN_ROUTE_MODEL = /^own-[a-f0-9]{8}\/(.+)$/
 const SPELLABLE_ID = /^[A-Za-z0-9.]+(?:-[A-Za-z0-9.]+)+$/
 
 /**
- * A NAME THAT IS ONLY AN ID (0.811). A model added with its own id as its name -- "claude-haiku-5-5", as the API
+ * A NAME THAT IS ONLY AN ID (0.810). A model added with its own id as its name -- "claude-haiku-5-5", as the API
  * benchmark of 10/21 added three -- read as the id on every row of Compare and the benchmark (Colin's screenshot).
  * Like a catalog's id (rememberOwnModels), it is an identifier, not a spelling: it reads "Claude Haiku 5.5". Any
  * other name stands as the person wrote it.

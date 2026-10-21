@@ -1,9 +1,10 @@
-// JUDGES SEE THE CHECK (0.811): a real file-changing comparison of two free OpenCode models in a folder whose check
+// JUDGES SEE THE CHECK (0.810): a real file-changing comparison of two free OpenCode models in a folder whose check
 // command is set (Settings > Project folder), then Ask a judge on a free model. Each column's copy must run the check
 // after its turn, the column and the judges' table must say what it said, and the judge's saved brief must carry each
 // copy's result under its letter. A build without the change fails on the brief even when both copies pass.
 // node _tools/drive-judges-see-the-check.mjs [--packaged <exe>] [--tag <name>]
 import { readFile, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import { FREE_ROUTE, git, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
@@ -125,6 +126,9 @@ try {
   check('the judge read the folder\'s command and how to weigh it', material.includes(`The person's own check, \`${COMMAND}\`, ran in each answer's copy after its turn`) && material.includes('weigh it above anything the answer claims'))
   check('each blind answer carries its own copy\'s result', judged.slots.every((column, index) => material.includes(`The person's check of Answer ${column.slot.toUpperCase()}'s copy, after its turn: ${words[checked[index]?.outcome] ?? '?'}`)), checked.map((one) => one?.outcome))
   check('the work evidence does not identify the copies or comparison', !material.includes(compareId) && !material.includes('locust-judges-check-ws-'))
+  // What the check printed names its files from the copy ("./sum.test.mjs"), never by a path that carries the person's.
+  const home = homedir().toLowerCase()
+  check('the check\'s output reaches the judge without the person\'s own paths', ![home, home.replaceAll('\\', '/'), home.replaceAll('\\', '\\\\')].some((spelling) => material.toLowerCase().includes(spelling)))
   await drive.waitFor(`(document.querySelector('.lc-compare__judgesaid')?.innerText.length ?? 0) > 0`, { what: 'the judge view rendered' })
   const after = JSON.parse(String(await drive.evaluate(view)))
   check('the judges\' table puts your check beside the score', /Your check/.test(after.text))

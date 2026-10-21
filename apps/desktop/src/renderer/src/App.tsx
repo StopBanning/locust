@@ -5211,7 +5211,8 @@ export default function App(): ReactElement {
     const add = (runtime: MissionRuntimeId, model: string, own?: PublicModel): void => {
       const key = `${runtime}:${model}`
       if (picked.some((one) => one.key === key) || !ready(runtime)) return
-      const short = own?.displayName ?? routeModelName(runtime, model, resolvedModels.get(key))
+      // A model of your own by the name you gave it, an id-as-name spelled out (0.810): "Claude Haiku 5.5", as its column reads.
+      const short = own === undefined ? routeModelName(runtime, model, resolvedModels.get(key)) : shownRouteLabel({ model: own.id, label: own.displayName }) ?? own.displayName
       const group = own === undefined ? runtimeNameOf(runtime) : 'Your models'
       picked.push({ key, runtime, model, label: `${group} / ${short}`, group, short })
     }
@@ -5291,7 +5292,7 @@ export default function App(): ReactElement {
         ...(spanMs > 0 ? { span: durationText(spanMs), spanMs } : {}),
         ...(cost === undefined ? {} : { cost }),
         ...(runCost === undefined ? {} : { runCost }),
-        // What your check said in its copy after its newest turn (A3.3), as its judges read it (0.811).
+        // What your check said in its copy after its newest turn (A3.3), as its judges read it (0.810).
         ...(check === undefined ? {} : { check })
       }
     })

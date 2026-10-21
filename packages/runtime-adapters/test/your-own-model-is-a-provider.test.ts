@@ -70,6 +70,14 @@ describe("your own model", () => {
     expect(withTools.tools).toBeUndefined();
   });
 
+  it("declares a model's listed price, which OpenCode prices each step with, and none where none is given (0.810)", () => {
+    const price = { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 };
+    const priced = JSON.parse(withOpenCodeProviders("{}", { "own-a1b2": { ...acme, prices: { "acme-70b": price } } }) ?? "{}");
+    expect(priced.provider["own-a1b2"].models).toEqual({ "acme-70b": { name: "acme-70b", cost: price } });
+    const unpriced = JSON.parse(withOpenCodeProviders("{}", { "own-a1b2": acme }) ?? "{}");
+    expect(unpriced.provider["own-a1b2"].models).toEqual({ "acme-70b": { name: "acme-70b" } });
+  });
+
   it("changes nothing when there is no model of your own", () => {
     expect(withOpenCodeProviders('{"permission":{}}', undefined)).toBe('{"permission":{}}');
     expect(withOpenCodeProviders(undefined, {})).toBeUndefined();

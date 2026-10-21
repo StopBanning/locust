@@ -4,7 +4,7 @@ import { JUDGED_CHECK_LINES, judgeAnswerText, judgePrompt, sameFailureEverywhere
 import type { JudgedAnswer } from './compare-judge.js'
 
 /**
- * JUDGES SEE THE CHECK (0.811). In the API benchmark of 10/21 every judge gave a refactor that crashed its own tests
+ * JUDGES SEE THE CHECK (0.810). In the API benchmark of 10/21 every judge gave a refactor that crashed its own tests
  * full marks, and one wrote that the test run "cannot be verified from the material". The person's check command now
  * runs in each column's copy, and each judge reads its result beside the answer.
  */

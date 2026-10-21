@@ -43,7 +43,7 @@ export interface BenchmarkView {
 }
 
 /**
- * Where a run again is (0.811). It said "Run 1 of 1" beside "YOUR BENCHMARK · 2 RUNS" (Colin's screenshot, 10/21): the
+ * Where a run again is (0.810). It said "Run 1 of 1" beside "YOUR BENCHMARK · 2 RUNS" (Colin's screenshot, 10/21): the
  * batch's own count read as the benchmark's. Three judges read as three.
  */
 export const stepWords = (progress: RerunProgress, threeJudges = false): string => {
@@ -99,7 +99,7 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
   const alone = scores.filter((score) => score === best).length === 1
   const scoredRuns = view.runs.filter((run) => run.state === 'scored').length
   const doneRuns = view.runs.filter((run) => run.done).length
-  // Your check in each copy (0.811): a column only once a run of it was checked.
+  // Your check in each copy (0.810): a column only once a run of it was checked.
   const checked = view.rows.some((row) => row.checked > 0)
   return (
     <div className="lc-benchmark" aria-label="Your benchmark" ref={place}>

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { OpenCodeProvider } from '@teammate/runtime-adapters'
 
 import type { PublicModel, PublicOwnModel } from '../shared/ipc.js'
+import type { PriceList } from './listed-prices.js'
 import { replaceFile } from './replace-file.js'
 
 /**
@@ -145,6 +146,8 @@ export function createOwnModelStore(options: {
   readonly secrets: SecretBox
   readonly now?: () => Date
   readonly createId?: () => string
+  /** A model's listed price at its address (0.810): a run of one its provider lists reports dollars. */
+  readonly prices?: PriceList
 }): OwnModelStore {
   const path = join(options.rootDirectory, 'own-models.json')
   const now = options.now ?? (() => new Date())
@@ -238,6 +241,7 @@ export function createOwnModelStore(options: {
         const kept = (await read()).models.find((model) => model.ownId === ownId)
         if (kept === undefined) return undefined
         const apiKey = decryptKey(kept)
+        const price = await options.prices?.priceAt(kept.baseUrl, kept.model)
         return {
           id: `${OWN_PREFIX}${kept.ownId}`,
           provider: {
@@ -245,7 +249,8 @@ export function createOwnModelStore(options: {
             baseUrl: kept.baseUrl,
             models: [kept.model],
             ...(apiKey === undefined ? {} : { apiKey }),
-            ...(kept.chatOnly === true ? { toolCalls: false } : {})
+            ...(kept.chatOnly === true ? { toolCalls: false } : {}),
+            ...(price === undefined ? {} : { prices: { [kept.model]: price } })
           }
         }
       }),

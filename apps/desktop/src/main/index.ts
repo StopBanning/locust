@@ -247,6 +247,7 @@ import { REFERENCES_CHANNEL, type ReferenceRequest } from '../shared/references.
 import { isUsageRange, usageSummary } from '../shared/usage.js'
 import { monthOf } from '../shared/spend.js'
 import { createOwnModelStore, OwnModelRefusal, ownModelAddress, ownModelId, testOwnEndpoint } from './own-models.js'
+import { createPriceList, openCodePriceListPath } from './listed-prices.js'
 import { changelogPaths, entries as changelogEntries, readChangelog, splashEntries } from './changelog.js'
 import type { ChangelogEntry } from './changelog.js'
 import type { CodexMissionService } from './codex-mission.js'
@@ -1976,7 +1977,9 @@ if (!ownsSingleInstanceLock) {
         available: () => safeStorage.isEncryptionAvailable(),
         encrypt: (text) => safeStorage.encryptString(text),
         decrypt: (cipher) => safeStorage.decryptString(cipher)
-      }
+      },
+      // Priced from OpenCode's own copy of models.dev's list (0.810), where the model is its provider's own.
+      prices: createPriceList({ path: openCodePriceListPath(process.env, homedir()) })
     })
     let memoryWorkspaceId = workspaceChosen ? workspaceIdFor(workspacePath) : 'ws_none'
     let memoryWorkspaceName = workspaceChosen ? basename(workspacePath) || workspacePath : 'no folder'
@@ -7477,7 +7480,7 @@ if (!ownsSingleInstanceLock) {
       if (panel.length > 0 && criteriaLines(criteria).length === 0) return refused('Three judges vote on the points you write: say what a good answer does, one point a line.')
       const answers: JudgedAnswer[] = []
       /*
-       * JUDGES SEE THE CHECK (0.811, edit-check.ts): each column's copy ran the person's check after its turn, and a
+       * JUDGES SEE THE CHECK (0.810, edit-check.ts): each column's copy ran the person's check after its turn, and a
        * judge waits for it -- first for the turn's slot, since the check is asked for just before that is released.
        */
       let checkCommand: string | undefined

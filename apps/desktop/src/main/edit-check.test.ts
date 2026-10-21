@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { comparableLines, createEditCheck, runCheckCommand } from './edit-check.js'
+import { comparableLines, createEditCheck, runCheckCommand, withoutFolder } from './edit-check.js'
 import type { CheckRun } from './edit-check.js'
 
 /** A3.3: what a check says after a teammate's turn changed files. */
@@ -38,7 +38,7 @@ describe('the check after an edit', () => {
     expect(await check.after('C:/work/b')).toMatchObject({ first: true, newLines: ['broken'] })
   })
 
-  // JUDGES SEE THE CHECK (0.811): a comparison's judge waits for each column's check before it reads the column.
+  // JUDGES SEE THE CHECK (0.810): a comparison's judge waits for each column's check before it reads the column.
   it('lets a judge wait for the check after one turn, and says when none ran after it', async () => {
     let finish: ((run: CheckRun) => void) | undefined
     const check = createEditCheck({ commandFor: async () => 'npm test', run: () => new Promise<CheckRun>((done) => { finish = done }) })
@@ -61,6 +61,36 @@ describe('the check after an edit', () => {
     const check = createEditCheck({ commandFor: async () => undefined, run: async () => { throw new Error('must not run') } })
     void check.after('C:/copies/cmp_x-c', 'mission-c')
     expect(await check.afterTurn('mission-c')).toBeUndefined()
+  })
+
+  it('reads the folder\'s own path as ".", however the check spelled it, so each copy fails in the same words (0.810)', async () => {
+    const copy = String.raw`C:\Users\someone\.locust\compare\cmp_1a2b\a`
+    const printed = [
+      'not ok 1 - adds two numbers',
+      "  location: 'file:///C:/Users/someone/.locust/compare/cmp_1a2b/a/sum.test.mjs:3:1'",
+      String.raw`Error: Cannot find module 'c:\users\someone\.locust\compare\cmp_1a2b\a\node_modules\vitest'`,
+      'sh: /c/Users/someone/.locust/compare/cmp_1a2b/a/node_modules/.bin/vitest: No such file or directory',
+      String.raw`beside it, C:\Users\someone\.locust\compare\cmp_1a2b\ab\x.mjs is another folder`
+    ].join('\n')
+    expect(withoutFolder(printed, copy, 'win32').split('\n')).toEqual([
+      'not ok 1 - adds two numbers',
+      "  location: './sum.test.mjs:3:1'",
+      String.raw`Error: Cannot find module '.\node_modules\vitest'`,
+      'sh: ./node_modules/.bin/vitest: No such file or directory',
+      String.raw`beside it, C:\Users\someone\.locust\compare\cmp_1a2b\ab\x.mjs is another folder`
+    ])
+    // Escaped inside JSON, as a reporter writes a path into it.
+    expect(withoutFolder(String.raw`{"file":"C:\\Users\\someone\\.locust\\compare\\cmp_1a2b\\a\\sum.test.mjs"}`, copy, 'win32')).toBe(String.raw`{"file":".\\sum.test.mjs"}`)
+    expect(withoutFolder('at file:///home/me/My%20Work/t.mjs and /home/me/My Work/t.mjs', '/home/me/My Work/', 'linux')).toBe('at ./t.mjs and ./t.mjs')
+    // Case matters off Windows, and a root too short to be a folder is left alone.
+    expect(withoutFolder('/Home/me/t.mjs', '/home/me', 'linux')).toBe('/Home/me/t.mjs')
+    expect(withoutFolder('/t.mjs', '/', 'linux')).toBe('/t.mjs')
+    // Two copies, one failure: the same words in each.
+    const failing = (cwd: string): CheckRun => ({ exitCode: 1, timedOut: false, output: `not ok 1\n  location: 'file:///${cwd.replace(/\\/g, '/')}/sum.test.mjs:3:1'` })
+    const check = createEditCheck({ commandFor: async () => 'node --test', run: async (_command, cwd) => failing(cwd) })
+    const [a, b] = await Promise.all([check.after(String.raw`C:\copies\a`), check.after(String.raw`C:\copies\b`)])
+    expect(a?.newLines).toEqual(['not ok 1', "location: './sum.test.mjs:3:1'"])
+    expect(b?.newLines).toEqual(a?.newLines)
   })
 
   it('drops colour codes and timings from what it compares', () => {

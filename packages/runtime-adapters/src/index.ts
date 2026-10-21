@@ -151,7 +151,7 @@ export type {
   RuntimeReadiness,
 } from "./types.js";
 export { parseClaudeModelHints } from "./commands.js";
-export type { OpenCodeProvider } from "./commands.js";
+export type { OpenCodePrice, OpenCodeProvider } from "./commands.js";
 export type { RuntimeModelHints } from "./types.js";
 export {
   createCursorPrintCommand,

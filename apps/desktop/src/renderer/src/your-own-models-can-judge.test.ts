@@ -13,7 +13,8 @@ describe('the models a judge can be', () => {
   it('offers the person’s own models that take tools, under Your models and by their own names', () => {
     expect(choices).toContain('models.filter((one) => one.own === true && one.chatOnly !== true)')
     expect(choices).toContain("own === undefined ? runtimeNameOf(runtime) : 'Your models'")
-    expect(choices).toContain('own?.displayName ??')
+    // A name that is only the model's id reads spelled out, as its column does (0.810).
+    expect(choices).toContain('shownRouteLabel({ model: own.id, label: own.displayName }) ?? own.displayName')
   })
 
   it('still offers a free model first, and the catalogue before any model of the person’s own', () => {

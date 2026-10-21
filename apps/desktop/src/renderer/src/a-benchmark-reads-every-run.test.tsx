@@ -147,7 +147,7 @@ describe('your benchmark, in the comparison', () => {
 
   it('says which run it is on, and what that run is doing, with a way to stop', () => {
     const html = renderToStaticMarkup(<CompareBenchmark view={{ ...base, runs: [...base.runs, { compareId: 'cmp_2', state: 'answering…', done: false }], progress: { originId: 'cmp_1', run: 1, of: 3, step: 'answering', compareId: 'cmp_2' } }} />)
-    // The batch's count, said as the batch's (0.811): "Run 1 of 1" read as the benchmark's beside "2 RUNS".
+    // The batch's count, said as the batch's (0.810): "Run 1 of 1" read as the benchmark's beside "2 RUNS".
     expect(html).toContain('Running it again, 1 of 3: the models are answering')
     expect(html).toContain('>Stop</button>')
     expect(html).toContain('answering…')

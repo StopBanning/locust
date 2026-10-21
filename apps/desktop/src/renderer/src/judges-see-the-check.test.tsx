@@ -11,7 +11,7 @@ import type { EditCheckShown } from './components/EditCheckCard.js'
 import { shownRouteLabel } from './routeName.js'
 
 /*
- * JUDGES SEE THE CHECK (0.811). Each column of a comparison that edits ran your check in its copy after its turn
+ * JUDGES SEE THE CHECK (0.810). Each column of a comparison that edits ran your check in its copy after its turn
  * (A3.3); what it said is shown in the column and in the judges' table, and every judge reads the same. Beside it, the
  * benchmark fixes from Colin's screenshot of 10/21: the batch's count, names that were ids, and loose chart labels.
  */

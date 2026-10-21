@@ -71,7 +71,7 @@ export interface CompareColumnView {
    * waited under the title bar's "4 need you" -- a column never drew its card.
    */
   readonly approvals?: readonly MissionApprovalRequest[]
-  /** What the person's check said in its copy after its newest turn (A3.3); its judges read it too (0.811). */
+  /** What the person's check said in its copy after its newest turn (A3.3); its judges read it too (0.810). */
   readonly check?: EditCheckShown
 }
 
@@ -82,7 +82,7 @@ export function checkWord(check: EditCheckShown | undefined): string {
 }
 
 /**
- * Every column's check failed with the same words (0.811): it tells them apart on nothing. A copy leaves out what is
+ * Every column's check failed with the same words (0.810): it tells them apart on nothing. A copy leaves out what is
  * installed rather than written, so a check that needs node_modules fails the same way in each.
  */
 export function checkFailedEverywhere(columns: readonly CompareColumnView[]): boolean {
@@ -202,7 +202,7 @@ export function CompareView({
   readonly benchmark?: BenchmarkView
   /** What the back button says: a run again goes back to the comparison it runs again (0.763). */
   readonly backLabel?: string
-  /** This folder's check command (Settings > Project folder), when one is set: each copy runs it (0.811). */
+  /** This folder's check command (Settings > Project folder), when one is set: each copy runs it (0.810). */
   readonly checkCommand?: string
 }): ReactElement {
   const kept = compare.kept?.slot
@@ -210,7 +210,7 @@ export function CompareView({
   const veiled = compare.blind === true && kept === undefined
   const keptName = columns.find((column) => column.slot === kept)?.name
   /*
-   * JUDGES SEE THE CHECK (0.811): in copies, each column ran your check after its turn, and every judge reads what it
+   * JUDGES SEE THE CHECK (0.810): in copies, each column ran your check after its turn, and every judge reads what it
    * said. Without a check command there is nothing to read, and where to set one is said once, by the judge.
    */
   const inCopies = compare.changes === true && compare.changesIn !== 'folder'
@@ -449,7 +449,7 @@ export function CompareView({
                               onAnswer={(answers) => onAnswer(request.approvalId, answers)}
                             />
                           ))}
-                        {/* What your check said in its copy after that turn (0.811): its judges read the same. */}
+                        {/* What your check said in its copy after that turn (0.810): its judges read the same. */}
                         {turn === column.turns.length - 1 && cell !== undefined && !cell.running && column.check !== undefined && (
                           <EditCheckCard check={column.check} teammateName={undefined} />
                         )}
@@ -673,7 +673,7 @@ function modelMenuOptions(choices: readonly ModelChoice[]): readonly SelectOptio
 function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints, checkNote }: {
   /** Draft the points from the question on this model (0.766): the points, or why there are none. */
   readonly onDraftPoints?: (choiceKey: string) => Promise<readonly string[] | string>
-  /** What its judges read of your check, or where to set one (0.811). */
+  /** What its judges read of your check, or where to set one (0.810). */
   readonly checkNote?: string
   readonly choices: readonly ModelChoice[]
   /** The compared models' keys: a judge is never one of them while another model can judge. */
@@ -889,7 +889,7 @@ function JudgeScorecard({ scorecard, columns, veiled }: {
               </td>
             ))}
           </tr>
-          {/* Your check in each copy (0.811), beside their score: what the judges read, you see. */}
+          {/* Your check in each copy (0.810), beside their score: what the judges read, you see. */}
           {shown.some((column) => column.check !== undefined) && (
             <tr>
               <th scope="row">Your check</th>

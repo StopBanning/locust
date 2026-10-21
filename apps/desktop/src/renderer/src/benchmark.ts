@@ -23,7 +23,7 @@ export interface BenchmarkAnswer {
   readonly of?: number
   readonly spanMs?: number
   readonly cost?: RunCost
-  /** What your check said in its copy after its turn (0.811), when one ran. */
+  /** What your check said in its copy after its turn (0.810), when one ran. */
   readonly check?: 'passed' | 'failed' | 'timed-out' | 'could-not-run'
 }
 
@@ -50,7 +50,7 @@ export interface BenchmarkRow {
   readonly spanMs?: number
   /** What a run cost on average, in the unit its runtime reports. */
   readonly cost?: RunCost
-  /** Runs your check ran in its copy after (0.811), and of those, the runs it passed. */
+  /** Runs your check ran in its copy after (0.810), and of those, the runs it passed. */
   readonly checked: number
   readonly checkPassed: number
 }

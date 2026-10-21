@@ -79,6 +79,27 @@ export function runCheckCommand(command: string, cwd: string, timeoutMs = CHECK_
 }
 
 /**
+ * The check's output with the folder's own path read as "." (0.810), however
+ * the check spelled it: as Windows writes it, with forward slashes, as Git
+ * Bash does (/c/...), escaped inside JSON, or as a file:// address, which
+ * Node's test runner prints. A comparison's copies each have a path of their own, so one failure
+ * read as a different one in each; and a judge reads these lines, which are
+ * never to carry a copy's path or the person's.
+ */
+export function withoutFolder(output: string, cwd: string, platform: NodeJS.Platform = process.platform): string {
+  const root = cwd.replace(/[\\/]+$/, '')
+  if (root.length < 3) return output
+  const forward = root.replace(/\\/g, '/')
+  const slash = forward.startsWith('/') ? '' : '/'
+  const spellings = new Set([`file://${slash}${encodeURI(forward)}`, `file://${slash}${forward}`, root, root.replace(/\\/g, '\\\\'), forward])
+  const drive = /^([A-Za-z]):\//.exec(forward)
+  if (drive !== null) spellings.add(`/${drive[1]!.toLowerCase()}${forward.slice(2)}`)
+  // Longest first, so an address is read whole rather than the path inside it; and never part of a longer name.
+  const alternatives = [...spellings].sort((left, right) => right.length - left.length).map((spelling) => spelling.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return output.replace(new RegExp(`(?<![\\w.\\\\/-])(?:${alternatives.join('|')})(?![\\w.-])`, platform === 'win32' ? 'gi' : 'g'), '.')
+}
+
+/**
  * The check's output as lines worth comparing. Colour codes and timings are
  * dropped -- "Duration 3.21s" differs on every run and says nothing about
  * what broke -- and the rest is compared exactly.
@@ -98,7 +119,7 @@ export function comparableLines(output: string): readonly string[] {
   return lines
 }
 
-/** The newest turns' checks kept in memory for a judge (0.811); an older one is read from its mission's record. */
+/** The newest turns' checks kept in memory for a judge (0.810); an older one is read from its mission's record. */
 const KEPT_TURN_CHECKS = 200
 
 export function createEditCheck(options: {
@@ -110,7 +131,7 @@ export function createEditCheck(options: {
   const last = new Map<string, ReadonlySet<string>>()
   const busy = new Set<string>()
   /*
-   * JUDGES SEE THE CHECK (0.811). A comparison's columns each run the check in their own copy after their turn, and a
+   * JUDGES SEE THE CHECK (0.810). A comparison's columns each run the check in their own copy after their turn, and a
    * judge asked to read them waits for it first: in the API benchmark of 10/21 every judge gave a refactor that
    * crashed its own tests full marks, and one said the test run "cannot be verified from the material".
    */
@@ -123,12 +144,12 @@ export function createEditCheck(options: {
     busy.add(cwd)
     try {
       const result = await run(command, cwd)
-      const lines = comparableLines(result.output)
+      const lines = comparableLines(withoutFolder(result.output, cwd))
       const before = last.get(cwd)
       last.set(cwd, new Set(lines))
       const first = before === undefined
       const bounded = (list: readonly string[]) => list.slice(-MAX_NEW_LINES).map((line) => (line.length > MAX_LINE ? `${line.slice(0, MAX_LINE - 1)}…` : line))
-      if (result.error !== undefined) return { command, outcome: 'could-not-run', newLines: bounded([result.error]), unchanged: false, first }
+      if (result.error !== undefined) return { command, outcome: 'could-not-run', newLines: bounded([withoutFolder(result.error, cwd)]), unchanged: false, first }
       if (result.timedOut) return { command, outcome: 'timed-out', newLines: [], unchanged: false, first }
       if (result.exitCode === 0) return { command, outcome: 'passed', newLines: [], unchanged: false, first }
       const fresh = first ? lines : lines.filter((line) => !before.has(line))
