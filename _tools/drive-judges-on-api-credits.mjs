@@ -129,9 +129,14 @@ try {
   await drive.waitFor(`document.querySelectorAll('.lc-compare__judgepick').length === 3`, { what: 'three judge pickers' })
   // By each picker's own name, never its place on the page: picked by place, the first run's panel came out Opus,
   // Haiku and a free model (2026-10-21).
-  const PICKERS = ['The first judge', 'The second judge', 'The third judge']
+  // Written out whole, so harness-selectors.test.ts can find each one in the app.
+  const PICKERS = [
+    '.lc-compare__judgepick[aria-label="The first judge"]',
+    '.lc-compare__judgepick[aria-label="The second judge"]',
+    '.lc-compare__judgepick[aria-label="The third judge"]'
+  ]
   for (const [index, judge] of JUDGES.entries()) {
-    await drive.evaluate(`document.querySelector('.lc-compare__judgepick[aria-label=${JSON.stringify(PICKERS[index])}]').click(); 1`)
+    await drive.evaluate(`document.querySelector(${JSON.stringify(PICKERS[index])}).click(); 1`)
     await drive.waitForSelector('.lc-select__menu [role="option"]')
     const picked = await drive.evaluate(`(() => {
       const option = [...document.querySelectorAll('.lc-select__menu [role="option"]')].find((item) => item.innerText.includes(${JSON.stringify(judge.name)}))
@@ -141,7 +146,7 @@ try {
     if (!picked) throw new Error(`${judge.name} is not offered as a judge`)
     await sleep(300)
   }
-  const shown = JSON.parse(String(await drive.evaluate(`JSON.stringify(${JSON.stringify(PICKERS)}.map((label) => document.querySelector('.lc-compare__judgepick[aria-label="' + label + '"]')?.innerText.trim() ?? ''))`)))
+  const shown = JSON.parse(String(await drive.evaluate(`JSON.stringify(${JSON.stringify(PICKERS)}.map((selector) => document.querySelector(selector)?.innerText.trim() ?? ''))`)))
   check('the three pickers show Haiku, Sonnet and Opus on the API before Judge is pressed', JUDGES.every((judge, index) => shown[index]?.includes(judge.name)), shown)
   if (!JUDGES.every((judge, index) => shown[index]?.includes(judge.name))) throw new Error('The panel is not the three Claude judges; nothing was asked.')
   await drive.evaluate(`(() => {
