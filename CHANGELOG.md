@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.809.0 - 2026-10-21
+
+### New
+
+- **OpenCode 2 works as a teammate.** OpenCode 2 changed how other apps talk to it, and Locust now speaks its new way, so an OpenCode teammate works with OpenCode 2 installed instead of reading as not supported. Its models fill the picker straight from OpenCode, free ones included, and Ask, Edit, Auto and Approve each all work: Approve each asks you on a card, and a request you decline reads as declined. Locust's command guard stops the same risky commands it stops for the other agents. OpenCode 1 keeps working as before. Built by Mit Godhani.
+- **Tune a teammate.** Type /tune in a teammate's conversation after a turn. The teammate drafts two edits to its standing instructions, one about how it works and one about what it knows, each drawn from a moment in the conversation. Locust then runs your last ask three ways at once, blind, as Setup A, B and C: the current instructions and the two drafts. Keep the one that did best, then choose whether the teammate uses those instructions from now on; nothing changes until you press Use these instructions. The card says when a draft is the same as the current instructions. The idea comes from Google Research's Harness².
+
+### Improved
+
+- **A judge treats each answer as material to judge.** An answer that tells the judge which one to keep, or how to score it, is read as part of that answer and never followed.
+
 ## 0.808.0 - 2026-10-20
 
 ### Improved
