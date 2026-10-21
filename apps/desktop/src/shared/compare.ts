@@ -23,6 +23,12 @@ export interface CompareRoute {
   readonly instructions?: string
   /** Why this draft was written (/tune, 0.810), read only when noting what a tune showed. */
   readonly why?: string
+  /**
+   * A skill this column's run is given on top of its instructions (/tune, 0.811, shared/tune.ts tuneSkillOf): a Claude
+   * Code teammate's "What it knows" drafted as a skill, handed to this column's run alone and saved for the teammate
+   * only when the person keeps it and says so.
+   */
+  readonly skill?: { readonly name: string; readonly description: string; readonly body: string }
   readonly account?: string
   readonly runtime: string
   readonly model: string

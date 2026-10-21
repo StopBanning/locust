@@ -5,9 +5,13 @@ import {
   combineSetups,
   isKeptTune,
   keptInstructions,
+  keptSkill,
+  otherSkill,
+  skillReview,
   tuneLessonLine,
   TUNE_COMBINE_FALLBACK,
   TUNE_LESSON_COST,
+  type PublicTeammateSkill,
   type PublicTuneLesson
 } from '../../../shared/tune.js'
 
@@ -35,7 +39,9 @@ export function KeptInstructions({
   free,
   onNote,
   onRemoveLesson,
-  onCombine
+  onCombine,
+  skills,
+  onUseSkill
 }: {
   readonly compare: PublicCompare
   readonly teammate: PublicTeammate | undefined
@@ -47,6 +53,9 @@ export function KeptInstructions({
   readonly onNote?: ((compare: PublicCompare, usedInstructions: boolean) => Promise<NoteTuneOutcome | undefined>) | undefined
   readonly onRemoveLesson?: ((lessonId: string) => Promise<string | undefined>) | undefined
   readonly onCombine?: ((compare: PublicCompare) => Promise<CombineTuneOutcome>) | undefined
+  /** The teammate's own skills (0.811), so a skill already used from this tune is not offered again. */
+  readonly skills?: readonly PublicTeammateSkill[] | undefined
+  readonly onUseSkill?: ((compare: PublicCompare, which: 'kept' | 'other') => Promise<string | undefined>) | undefined
 }): ReactElement | null {
   const [dismissed, setDismissed] = useState(false)
   const [applied, setApplied] = useState(false)
@@ -58,6 +67,8 @@ export function KeptInstructions({
   const [combining, setCombining] = useState(false)
   const [combined, setCombined] = useState<{ readonly instructions: string; readonly note: string }>()
   const [combineMessage, setCombineMessage] = useState<string>()
+  const [skillDismissed, setSkillDismissed] = useState(false)
+  const [skillApplied, setSkillApplied] = useState(false)
   if (!isKeptTune(compare, teammate)) return null
   // COMBINE BOTH EDITS (0.811): the kept draft's edit with the other draft's, written by one side turn, offered as
   // the kept instructions are -- read, then used or not; nothing is saved until Use is pressed.
@@ -76,6 +87,32 @@ export function KeptInstructions({
     free ?? (teammate.route?.runtime === 'opencode' && /(^|[-/])free$/i.test(teammate.route.model))
   // Either side turn holds the other: one at a time on the teammate's route.
   const sideBusy = busy || isNoting || combining
+  // WHAT IT KNOWS, AS A SKILL (0.811): the kept setup's skill, or -- with How it works kept -- the other setup's, added
+  // beside it. Offered as the instructions are; nothing is kept until Use is pressed, and once used it is not offered.
+  const fromKept = keptSkill(compare)
+  const fromOther = fromKept === undefined ? otherSkill(compare) : undefined
+  const offered = fromKept !== undefined ? { which: 'kept' as const, skill: fromKept } : fromOther === undefined ? undefined : { which: 'other' as const, skill: fromOther.skill, setup: fromOther.setup }
+  const own = (skills ?? []).filter((one) => one.teammateId === teammate.teammateId)
+  const usedHere = offered !== undefined && own.some((one) => one.name === offered.skill.name && one.compareId === compare.compareId)
+  const replaces = offered !== undefined && !usedHere && own.some((one) => one.name === offered.skill.name)
+  const offerSkill = offered !== undefined && !usedHere && !skillApplied && !skillDismissed && teammate.route?.runtime === 'claude'
+  const useSkill = (): void => {
+    if (busy || offered === undefined) return
+    setBusy(true)
+    setProblem(undefined)
+    const run = onUseSkill
+      ? onUseSkill(compare, offered.which)
+      : window.desktop === undefined
+        ? Promise.resolve('Locust is not ready. The teammate is unchanged.')
+        : window.desktop.useTuneSkill(compare.compareId, offered.which).then((res) => (res.ok ? undefined : res.message))
+    void run
+      .then((why) => {
+        if (why === undefined) setSkillApplied(true)
+        else setProblem(why)
+      })
+      .catch(() => setProblem('That skill could not be saved. The teammate is unchanged.'))
+      .finally(() => setBusy(false))
+  }
   const combine = (): void => {
     if (sideBusy) return
     setCombining(true)
@@ -155,6 +192,35 @@ export function KeptInstructions({
         <details className="lc-tuneoffer__review">
           <summary>Review the instructions</summary>
           <pre>{instructions.length === 0 ? 'No standing instructions.' : instructions}</pre>
+        </details>
+      )}
+      {skillApplied && (
+        <span className="lc-tuneoffer__say" role="status">
+          {`${teammate.name} has this skill from the next turn. You can remove it in Edit teammate.`}
+        </span>
+      )}
+      {offerSkill && (
+        <span className="lc-tuneoffer__say">
+          {offered.which === 'kept'
+            ? `The setup you kept adds a skill, ${offered.skill.name}.`
+            : `${offered.setup} added a skill, ${offered.skill.name}, which can go beside the setup you kept.`}
+          {replaces ? ` It replaces the skill of that name ${teammate.name} has.` : ''}
+        </span>
+      )}
+      {offerSkill && (
+        <span className="lc-tuneoffer__actions">
+          <button type="button" className="lc-ghostbutton" disabled={busy} onClick={useSkill}>
+            {`Use this skill for ${teammate.name}`}
+          </button>
+          <button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => setSkillDismissed(true)}>
+            Not now
+          </button>
+        </span>
+      )}
+      {offerSkill && (
+        <details className="lc-tuneoffer__review">
+          <summary>Review the skill</summary>
+          <pre>{skillReview(offered.skill)}</pre>
         </details>
       )}
       {shownLesson !== undefined ? (

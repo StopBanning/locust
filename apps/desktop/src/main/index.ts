@@ -1,10 +1,10 @@
 // H1: first, before any import can spawn -- no bare name is found in its working folder.
 import './no-planted-executables.js'
-import { columnInstructions, compareInstructionsRefusal, shuffledColumns } from './compare-instructions.js'
+import { columnInstructions, compareInstructionsRefusal, compareSkillRefusal, shuffledColumns } from './compare-instructions.js'
 import { tuneDraftPrompt } from './tune-drafts.js'
 import { columnChangesSummary, parseTuneLesson, tuneLessonPrompt, type TuneLessonSetup } from './tune-lessons.js'
 import { createTuneLessonStore } from './tune-lesson-store.js'
-import { combineSetups, parseTuneCombine, tuneMeasuredOf, TUNE_COMBINE_CHANNEL, TUNE_COMBINE_FALLBACK, TUNE_DRAFT_CHANNEL, TUNE_LESSON_FALLBACK, TUNE_LESSON_LIST_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL } from '../shared/tune.js'
+import { combineSetups, keptSkill, otherSkill, parseTuneCombine, tuneMeasuredOf, tuneSkillOf, TEAMMATE_SKILL_LIST_CHANNEL, TEAMMATE_SKILL_REMOVE_CHANNEL, TEAMMATE_SKILL_USE_CHANNEL, TUNE_COMBINE_CHANNEL, TUNE_COMBINE_FALLBACK, TUNE_DRAFT_CHANNEL, TUNE_LESSON_FALLBACK, TUNE_LESSON_LIST_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL } from '../shared/tune.js'
 import { tuneCombinePrompt } from './tune-combine.js'
 import { createClaudeContextReader, prepareClaudeContextLaunch, recordedClaudeContextLaunch, type ClaudeContextReader } from './claude-context.js'
 import { CONTEXT_BREAKDOWN_CHANNEL } from '../shared/context-breakdown.js'
@@ -249,6 +249,7 @@ import { isUsageRange, usageSummary } from '../shared/usage.js'
 import { monthOf } from '../shared/spend.js'
 import { createOwnModelStore, OwnModelRefusal, ownModelAddress, ownModelId, testOwnEndpoint } from './own-models.js'
 import { createPriceList, openCodePriceListPath } from './listed-prices.js'
+import { createTeammateSkillStore } from './teammate-skills.js'
 import { changelogPaths, entries as changelogEntries, readChangelog, splashEntries } from './changelog.js'
 import type { ChangelogEntry } from './changelog.js'
 import type { CodexMissionService } from './codex-mission.js'
@@ -1982,6 +1983,8 @@ if (!ownsSingleInstanceLock) {
       // Priced from OpenCode's own copy of models.dev's list (0.810), where the model is its provider's own.
       prices: createPriceList({ path: openCodePriceListPath(process.env, homedir()) })
     })
+    // Each teammate's own skills (0.811), kept from its tunes: handed to its Claude Code runs as the `teammate` plugin.
+    const teammateSkills = createTeammateSkillStore({ rootDirectory: app.getPath('userData') })
     let memoryWorkspaceId = workspaceChosen ? workspaceIdFor(workspacePath) : 'ws_none'
     let memoryWorkspaceName = workspaceChosen ? basename(workspacePath) || workspacePath : 'no folder'
     /** A folder by path, with the id and name memory and the brief know it by (0.458). */
@@ -2738,7 +2741,13 @@ if (!ownsSingleInstanceLock) {
           workspacePath: workspace,
           ownSkills: (await teammates.readSettings()).claudeOwnSkills === true,
           libraryFolder: skillLibrary.skillsFolder,
-          auto: run.auto
+          auto: run.auto,
+          // The run's teammate's own skills, and a tune column's one skill for this run alone (0.811).
+          ...(run.teammateId === undefined ? {} : {
+            teammateFolder: teammateSkills.folderOf(run.teammateId),
+            teammateSkills: (await teammateSkills.list(run.teammateId).catch(() => [])).map((skill) => skill.name)
+          }),
+          ...(run.skill === undefined ? {} : { candidate: run.skill })
         }),
       readyConnectors: cursorReadyConnectors,
       // Each runtime's own slash commands (0.426, runtime-commands.ts).
@@ -5135,7 +5144,8 @@ if (!ownsSingleInstanceLock) {
       const teammate = (await teammates.list()).find((entry) => entry.teammateId === owner)
       if (teammate === undefined) return refuse('Open a teammate’s conversation first. Nothing was started.')
       if (teammate.route === undefined || teammate.route.runtime !== turn.metadata.runtime || teammate.route.model !== turn.metadata.model || teammate.route.account !== accountFromRoute(turn.metadata.resolvedRouteId)) return refuse('This conversation uses another model or account. Drafts were not requested; you can write the two alternatives yourself.')
-      return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId)), 1, teammate.route)
+      // A Claude Code teammate's "What it knows" is drafted as a skill (0.811): the one runtime a run can be handed one.
+      return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId), { skills: teammate.route.runtime === 'claude' }), 1, teammate.route)
     })
     // Note what a kept tune showed (0.810): one side turn on the teammate's own route, only when pressed.
     ipcMain.handle(TUNE_LESSON_NOTE_CHANNEL, async (event, compareId: unknown, usedInstructions: unknown, measured: unknown) => {
@@ -5169,6 +5179,7 @@ if (!ownsSingleInstanceLock) {
           setup,
           instructions: column.route.instructions ?? '',
           ...(column.route.why === undefined ? {} : { why: column.route.why }),
+          ...(column.route.skill === undefined ? {} : { skill: column.route.skill }),
           answer: tracker.latestFinal?.trim() ?? '',
           ...(compare.changes === true ? { changes: columnChangesSummary(recorded?.events ?? [], column.slot === compare.kept.slot ? compare.kept.brought : undefined) } : {}),
           ...(measuredBySlot.get(column.slot) === undefined ? {} : { measured: measuredBySlot.get(column.slot)! })
@@ -5274,6 +5285,41 @@ if (!ownsSingleInstanceLock) {
         return { ok: true, data: { lessons: await tuneLessons.list() } } as const
       } catch {
         return { ok: false, message: 'That tune lesson could not be removed.' } as const
+      }
+    })
+    // A TEAMMATE'S OWN SKILLS (0.811, teammate-skills.ts): every teammate's, for Edit teammate and the kept strip.
+    ipcMain.handle(TEAMMATE_SKILL_LIST_CHANNEL, async (event) => {
+      if (!fromOwnWindow(event)) return { ok: false, message: 'That request was rejected.' } as const
+      try {
+        return { ok: true, data: { skills: await teammateSkills.list() } } as const
+      } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : 'The teammate skills could not be read.' } as const
+      }
+    })
+    // Use this skill: the skill is read from the kept tune itself, never taken from the window.
+    ipcMain.handle(TEAMMATE_SKILL_USE_CHANNEL, async (event, compareId: unknown, which: unknown) => {
+      const refuse = (message: string) => ({ ok: false, message }) as const
+      if (!fromOwnWindow(event) || typeof compareId !== 'string' || (which !== 'kept' && which !== 'other')) return refuse('That request was rejected.')
+      const compare = await compares.get(compareId).catch(() => undefined)
+      const skill = compare === undefined ? undefined : which === 'kept' ? keptSkill(compare) : otherSkill(compare)?.skill
+      if (compare?.teammateId === undefined || skill === undefined) return refuse('Keep a setup in a teammate’s tune first. The teammate is unchanged.')
+      const teammate = (await teammates.list()).find((entry) => entry.teammateId === compare.teammateId)
+      if (teammate === undefined) return refuse('That teammate is no longer on the team. Nothing was changed.')
+      if (teammate.route?.runtime !== 'claude') return refuse(`${teammate.name} no longer runs on Claude Code, so a skill would not reach it. The teammate is unchanged.`)
+      try {
+        await teammateSkills.add(teammate.teammateId, skill, compare.compareId)
+        return { ok: true, data: { skills: await teammateSkills.list() } } as const
+      } catch (error) {
+        return refuse(error instanceof Error ? error.message : 'That skill could not be saved. The teammate is unchanged.')
+      }
+    })
+    ipcMain.handle(TEAMMATE_SKILL_REMOVE_CHANNEL, async (event, teammateId: unknown, name: unknown) => {
+      if (!fromOwnWindow(event) || typeof teammateId !== 'string' || typeof name !== 'string') return { ok: false, message: 'That request was rejected.' } as const
+      try {
+        await teammateSkills.remove(teammateId, name)
+        return { ok: true, data: { skills: await teammateSkills.list() } } as const
+      } catch {
+        return { ok: false, message: 'That skill could not be removed. The teammate’s skills are unchanged.' } as const
       }
     })
 
@@ -6767,6 +6813,7 @@ if (!ownsSingleInstanceLock) {
         // And they leave every room; a room left empty goes with them.
         await rooms.removeTeammate(teammateId).catch(() => undefined)
         await tuneLessons.removeForTeammate(teammateId).catch(() => undefined)
+        await teammateSkills.removeForTeammate(teammateId).catch(() => undefined)
         return { ok: true, data: {} } as const
       } catch {
         return teammateRejected('That teammate could not be removed.')
@@ -7307,7 +7354,7 @@ if (!ownsSingleInstanceLock) {
         undefined,
         undefined,
         undefined,
-        { key: compareSlotKey(compare.teammateId, compare.compareId, column.slot), ...(copy === undefined ? {} : { cwd: copy }), ...(column.route.instructions === undefined ? {} : { instructions: column.route.instructions }) }
+        { key: compareSlotKey(compare.teammateId, compare.compareId, column.slot), ...(copy === undefined ? {} : { cwd: copy }), ...(column.route.instructions === undefined ? {} : { instructions: column.route.instructions }), ...(column.route.skill === undefined ? {} : { skill: column.route.skill }) }
       )
       if (!response.ok) return response.error.code === 'RUN_ALREADY_ACTIVE' ? 'This column is still answering. Ask again when it has finished.' : response.error.message
       if (compare.rerunOf !== undefined) rerunRunIds.set(response.data.missionId, response.data.runId)
@@ -7346,8 +7393,13 @@ if (!ownsSingleInstanceLock) {
       const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : ''
       // No teammate is needed to compare (Colin, 2026-09-28): absent is nobody's conversation.
       const teammateId = typeof input.teammateId === 'string' && input.teammateId.length > 0 ? input.teammateId : undefined
-      const routes = (Array.isArray(input.routes) ? input.routes : [])
+      const offered = (Array.isArray(input.routes) ? input.routes : [])
         .filter((route): route is Record<string, unknown> => typeof route === 'object' && route !== null)
+      // What it knows, as a skill (0.811): one that will not read whole is refused in words, never dropped quietly.
+      if (offered.some((route) => route.skill !== undefined && tuneSkillOf(route.skill) === undefined)) {
+        return compareRefused('That skill could not be read whole: it needs a name of lower-case words joined by hyphens, one line on when to use it, and what it says. Nothing was started.')
+      }
+      const routes = offered
         .map((route) => ({
           runtime: typeof route.runtime === 'string' ? route.runtime : '',
           model: typeof route.model === 'string' && route.model.length > 0 ? route.model : 'account-default',
@@ -7355,7 +7407,9 @@ if (!ownsSingleInstanceLock) {
           ...(typeof route.label === 'string' && route.label.trim().length > 0 ? { label: route.label.trim() } : {}),
           ...(route.mode === 'auto' ? { mode: 'auto' as const } : {}),
           ...(route.instructions === undefined ? {} : { instructions: route.instructions as string }),
-          ...(typeof route.why === 'string' && route.why.trim().length > 0 ? { why: route.why.trim().slice(0, 400) } : {})
+          ...(typeof route.why === 'string' && route.why.trim().length > 0 ? { why: route.why.trim().slice(0, 400) } : {}),
+          // Refused below unless it is a Claude Code tune column (compareSkillRefusal).
+          ...(route.skill === undefined ? {} : { skill: tuneSkillOf(route.skill)! })
         }))
         .filter((route) => route.runtime.length > 0)
       const changes = input.changes === true
@@ -7366,6 +7420,8 @@ if (!ownsSingleInstanceLock) {
       }
       const instructionRefusal = compareInstructionsRefusal(routes, teammateId)
       if (instructionRefusal !== undefined) return compareRefused(instructionRefusal)
+      const skillRefusal = compareSkillRefusal(routes)
+      if (skillRefusal !== undefined) return compareRefused(skillRefusal)
       if (prompt.length === 0) return compareRefused('There is nothing to compare yet. Write the ask first.')
       if (routes.length < MIN_COMPARE_SLOTS || routes.length > MAX_COMPARE_SLOTS) {
         return compareRefused(`Pick ${String(MIN_COMPARE_SLOTS)} or ${String(MAX_COMPARE_SLOTS)} different models to compare.`)

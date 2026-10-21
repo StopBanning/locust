@@ -24181,6 +24181,18 @@ textarea.lc-compare__judgecriteria {
 .lc-tune__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--lc-space-1) var(--lc-space-3); min-width: 0; }
 .lc-tune__foot > .lc-dialog__note { margin: 0; }
 .lc-tune__same { color: var(--lc-text-primary); }
+/* WHAT IT KNOWS, AS A SKILL (0.811): its three fields share the column's third row, the last one growing. */
+.lc-tune__skill { display: flex; flex-direction: column; gap: var(--lc-space-3); min-width: 0; }
+.lc-tune__skill > .lc-dialog__note { margin: 0; }
+.lc-tune__skillfield { display: flex; flex-direction: column; gap: var(--lc-space-1); min-width: 0; }
+.lc-tune__skillfield--grow { flex: 1 1 auto; }
+.lc-tune__skillfield--grow > .lc-tune__instructions { flex: 1 1 auto; min-height: 120px; }
+.lc-tune__skilllabel { color: var(--lc-text-secondary); font-size: var(--lc-text-description); }
+/* The skill's fields make the row taller (0.811 drive): the instruction boxes beside it fill the row, not stop short.
+   `.lc-input` fixes a height, and a fixed height never stretches. */
+.lc-tune__column > .lc-tune__instructions { height: auto; align-self: stretch; }
+/* When to use it is one sentence: one line high, growing with it up to four, then it scrolls -- as the judge's points. */
+textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4 * 18px + 16px); padding: 7px 11px; line-height: 18px; field-sizing: content; resize: none; }
 .lc-tuneoffer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-2) var(--lc-space-3); padding: var(--lc-space-3) var(--lc-space-6); flex-shrink: 0; border-bottom: 1px solid var(--lc-border-hairline); color: var(--lc-text-secondary); font-size: var(--lc-text-control); }
 .lc-tuneoffer__say { flex: 1 1 320px; min-width: 0; }
 .lc-tuneoffer__actions { display: flex; gap: var(--lc-space-2); flex-shrink: 0; }
@@ -24196,5 +24208,7 @@ textarea.lc-compare__judgecriteria {
 .lc-tunelessons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--lc-space-2); }
 .lc-tunelessons__row { display: flex; align-items: center; justify-content: space-between; gap: var(--lc-space-3); padding: var(--lc-space-2) var(--lc-space-3); border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); min-width: 0; }
 .lc-tunelessons__text { flex: 1 1 0; min-width: 0; color: var(--lc-text-primary); font-size: var(--lc-text-control); line-height: 1.5; overflow-wrap: anywhere; }
+/* A kept skill (0.811): its name, then when it is used, beneath. */
+.lc-tunelessons__when { display: block; color: var(--lc-text-secondary); }
 @media (max-width: 760px) { .lc-tune__columns { grid-template-columns: minmax(0, 1fr); } }
 

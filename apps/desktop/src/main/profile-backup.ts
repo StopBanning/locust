@@ -68,10 +68,11 @@ export const BACKED_UP_FILES = [
 ] as const
 
 /**
- * The folders a backup carries: the conversations, the rooms' messages, the pets taken in, and the skills kept
- * from GitHub (0.710) -- chosen by the person, and a repository can move or vanish after.
+ * The folders a backup carries: the conversations, the rooms' messages, the pets taken in, the skills kept
+ * from GitHub (0.710) -- chosen by the person, and a repository can move or vanish after -- and each teammate's own
+ * skills, kept from its tunes (0.811).
  */
-export const BACKED_UP_FOLDERS = ['mission-ledger', 'workroom', 'pets', 'skill-library'] as const
+export const BACKED_UP_FOLDERS = ['mission-ledger', 'workroom', 'pets', 'skill-library', 'teammate-skills'] as const
 
 /** Never copied out of a folder a backup carries: the ledger's write probe. */
 const NEVER_COPIED = new Set(['.writable'])

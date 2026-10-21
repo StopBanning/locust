@@ -68,6 +68,7 @@ import type {
 import type { StartPhase } from '../shared/ipc.js'
 import { acpAnswerFor, acpPermissionRequest, openCodePermissionRequest, openCodeReplyFor, withDeclines, withFileChanges } from './approval-channel.js'
 import type { EditCheckResult } from './edit-check.js'
+import type { TuneSkill } from '../shared/tune.js'
 import type { ApprovalChannel } from './approval-channel.js'
 import { fileChangesOf, itemOf } from './approval-patch.js'
 import type { FileChangeRecord } from './approval-patch.js'
@@ -298,7 +299,7 @@ export interface CodexMissionService {
      * in place of its owner's, so one teammate -- or nobody -- answers on two
      * models at once. Only the compare handler supplies it.
      */
-    slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string },
+    slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string; readonly skill?: TuneSkill },
     /**
      * A question ON THE SIDE of a conversation (0.461, Devin's side chats):
      * read-only, on a FORK of the session of `of` -- the conversation's
@@ -598,7 +599,7 @@ interface CodexMissionServiceOptions {
    * built for it alone (0.679, claude-skills.ts); `dispose` removes them when
    * the run's process ends. Absent: no skills beyond Claude Code's own.
    */
-  readonly claudeSkills?: (workspacePath: string, run: { readonly auto: boolean }) => Promise<PreparedSkills>
+  readonly claudeSkills?: (workspacePath: string, run: { readonly auto: boolean; readonly teammateId?: string; readonly skill?: TuneSkill }) => Promise<PreparedSkills>
   /** Connectors a Cursor teammate can call, by name, for its briefing. */
   readonly readyConnectors?: () => Promise<string | undefined>
   /**
@@ -1473,7 +1474,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       relay?: RelayOrigin,
       startedBy?: MissionStarter,
       asCommand?: boolean,
-      slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string },
+      slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string; readonly skill?: TuneSkill },
       side?: { readonly of: string; readonly question: number; readonly freshSession?: boolean },
       rewind?: boolean,
       leaveOut?: readonly string[],
@@ -2264,7 +2265,12 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
          */
         const skills =
           runtime === 'claude' && cloud === undefined && options.claudeSkills !== undefined
-            ? await options.claudeSkills(runCwd, { auto: effectiveSandbox === 'full-access' }).catch(() => undefined)
+            ? await options.claudeSkills(runCwd, {
+              auto: effectiveSandbox === 'full-access',
+              // The teammate's own skills (0.811), and a tune column's one skill for this run alone.
+              ...(peer?.self.teammateId === undefined ? {} : { teammateId: peer.self.teammateId }),
+              ...(slot?.skill === undefined ? {} : { skill: slot.skill })
+            }).catch(() => undefined)
             : undefined
         const skillPlugins = skills?.plugins.map((plugin) => plugin.dir) ?? []
         if (skills !== undefined && skills.plugins.length > 0) {

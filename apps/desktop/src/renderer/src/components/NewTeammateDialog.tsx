@@ -29,7 +29,7 @@ import { CHATGPT_VOICES, isChatGptVoice, voiceName } from '../../../shared/voice
 import { Select } from './Select.js'
 import { VoicePlay } from './VoicePlay.js'
 import { Icon } from './Icon.js'
-import { tuneLessonLine, type PublicTuneLesson } from '../../../shared/tune.js'
+import { tuneLessonLine, type PublicTeammateSkill, type PublicTuneLesson } from '../../../shared/tune.js'
 
 /** What the dialog hands back. A limit is `null` when an edit removes one. */
 export interface TeammateDraft {
@@ -212,7 +212,9 @@ export function NewTeammateDialog({
   picker,
   platform,
   lessons,
-  onRemoveLesson
+  onRemoveLesson,
+  skills,
+  onRemoveSkill
 }: {
   readonly onCancel: () => void
   /** Resolves when the save has landed; the button is held until then (L22). */
@@ -267,6 +269,10 @@ export function NewTeammateDialog({
   /** What earlier tunes of this teammate noted (0.810), each removable here. */
   readonly lessons?: readonly PublicTuneLesson[]
   readonly onRemoveLesson?: (lessonId: string) => void | Promise<unknown>
+  /** The skills it kept from tunes (0.811), each removable here. */
+  readonly skills?: readonly PublicTeammateSkill[]
+  /** Resolves with why the skill stayed, or nothing when it went. */
+  readonly onRemoveSkill?: (name: string) => Promise<string | undefined>
 }): ReactElement {
   const editing = initial !== undefined
   const policy = useOrganizationPolicy()
@@ -274,6 +280,9 @@ export function NewTeammateDialog({
   const [name, setName] = useState(initial?.name ?? '')
   // A save in flight (L22): the button is held until it lands.
   const [saving, setSaving] = useState(false)
+  // Removing a kept skill (0.811) takes effect at once, as Remove does for a tune lesson; one at a time.
+  const [removingSkill, setRemovingSkill] = useState<string>()
+  const [skillProblem, setSkillProblem] = useState<string>()
   const pressed = useRef(false)
   const [hue, setHue] = useState<TeammateHue>(initial?.hue ?? freshHue(takenHues))
   const [avatar, setAvatar] = useState<AvatarSpec>(
@@ -914,6 +923,45 @@ export function NewTeammateDialog({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {editing && skills !== undefined && skills.length > 0 && (
+            <div className="lc-field lc-field--lessons">
+              <span className="lc-fieldlabel lc-mono">Skills</span>
+              <ul className="lc-tunelessons" aria-label={`Skills for ${trimmed.length === 0 ? 'this teammate' : trimmed}`}>
+                {skills.map((skill) => (
+                  <li key={skill.name} className="lc-tunelessons__row">
+                    <span className="lc-tunelessons__text">
+                      <span className="lc-mono">{skill.name}</span>
+                      <span className="lc-tunelessons__when">{skill.description}</span>
+                    </span>
+                    {onRemoveSkill !== undefined && (
+                      <button
+                        type="button"
+                        className="lc-ghostbutton"
+                        disabled={removingSkill !== undefined}
+                        onClick={() => {
+                          setRemovingSkill(skill.name)
+                          setSkillProblem(undefined)
+                          void onRemoveSkill(skill.name)
+                            .then((why) => setSkillProblem(why))
+                            .catch(() => setSkillProblem('That skill could not be removed. The teammate’s skills are unchanged.'))
+                            .finally(() => setRemovingSkill(undefined))
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <span className="lc-field__hint">
+                {shownRoute?.runtime === 'claude'
+                  ? 'Kept from tunes. A run loads one only when the work matches when to use it.'
+                  : 'Kept from tunes. Only a Claude Code run is handed these, so they wait until this teammate runs on Claude Code again.'}
+              </span>
+              {skillProblem !== undefined && <span className="lc-field__hint lc-tone-red" role="alert">{skillProblem}</span>}
             </div>
           )}
 

@@ -3933,6 +3933,11 @@ export interface DesktopApi {
   combineTuneEdits(compareId: string): Promise<import('./tune.js').TuneCombineResponse>
   listTuneLessons(teammateId?: string): Promise<import('./tune.js').TuneLessonListResponse>
   removeTuneLesson(lessonId: string): Promise<import('./tune.js').TuneLessonListResponse>
+  /** A teammate's own skills (0.811), every teammate's: kept from tunes, listed in Edit teammate. */
+  listTeammateSkills(): Promise<import('./tune.js').TeammateSkillListResponse>
+  /** Use a kept tune's skill for its teammate: `kept` is the kept setup's, `other` the one a setup not kept added. */
+  useTuneSkill(compareId: string, which: 'kept' | 'other'): Promise<import('./tune.js').TeammateSkillListResponse>
+  removeTeammateSkill(teammateId: string, name: string): Promise<import('./tune.js').TeammateSkillListResponse>
   switchFolder(id: string): Promise<FolderSwitchResponse>
   /** Cloud tasks (0.503): this folder's standing, start, follow, show, apply. */
   cloudWhere(): Promise<PublicCloudWhere>

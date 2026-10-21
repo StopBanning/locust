@@ -7,6 +7,7 @@ import { isAbsolute, join } from 'node:path'
 import { COMPARE_SLOTS, compareTreeId, MAX_COMPARE_SLOTS, MAX_JUDGE_CRITERIA, MIN_COMPARE_SLOTS, PANEL_JUDGES } from '../shared/compare.js'
 import type { CompareRoute, CompareSlotId, PublicCompare, PublicCompareSlot } from '../shared/compare.js'
 import { instructionsText } from '../shared/teammate-instructions.js'
+import { tuneSkillOf } from '../shared/tune.js'
 import { replaceFile } from './replace-file.js'
 
 /**
@@ -101,12 +102,15 @@ function parsedSlot(value: unknown): PublicCompareSlot | undefined {
   const instructions = instructionsText(route.instructions)
   if (route.instructions !== undefined && instructions === undefined) return undefined
   const why = text(route.why, 400)
+  // A tune column's skill (0.811): kept only as a tune's, whole, or the column is not read at all.
+  const skill = route.skill === undefined ? undefined : tuneSkillOf(route.skill)
+  if (route.skill !== undefined && (skill === undefined || instructions === undefined)) return undefined
   const missionIds = Array.isArray(record.missionIds) ? record.missionIds.filter((id): id is string => typeof id === 'string' && id.length > 0 && id.length <= 200).slice(-MAX_TURNS_PER_SLOT) : []
   const refused = text(record.refused, 1_000)
   const retried = Array.isArray(record.retried) ? record.retried.filter((id): id is string => typeof id === 'string' && id.length > 0 && id.length <= 200).slice(-MAX_RETRIED_PER_SLOT) : []
   return {
     slot: record.slot,
-    route: { runtime, model, ...(account === undefined ? {} : { account }), ...(effort === undefined ? {} : { effort }), ...(label === undefined ? {} : { label }), ...(mode === undefined ? {} : { mode }), ...(instructions === undefined ? {} : { instructions }), ...(why === undefined ? {} : { why }) },
+    route: { runtime, model, ...(account === undefined ? {} : { account }), ...(effort === undefined ? {} : { effort }), ...(label === undefined ? {} : { label }), ...(mode === undefined ? {} : { mode }), ...(instructions === undefined ? {} : { instructions }), ...(why === undefined ? {} : { why }), ...(skill === undefined ? {} : { skill }) },
     missionIds,
     ...(refused === undefined ? {} : { refused }),
     ...(retried.length === 0 ? {} : { retried })
@@ -279,6 +283,7 @@ export function createCompareStore(options: {
         const prompt = input.prompt.trim()
         for (const route of input.routes) {
           if (route.instructions !== undefined && (input.teammateId === undefined || instructionsText(route.instructions) === undefined)) throw new Error('Choose a teammate and valid column instructions. Nothing was started.')
+          if (route.skill !== undefined && (route.instructions === undefined || tuneSkillOf(route.skill) === undefined)) throw new Error('A skill goes with a tune’s column, whole and valid. Nothing was started.')
         }
         if (prompt.length === 0 || prompt.length > MAX_PROMPT) throw new Error('There is nothing to compare.')
         if (input.routes.length < MIN_COMPARE_SLOTS || input.routes.length > MAX_COMPARE_SLOTS) {
@@ -303,6 +308,7 @@ export function createCompareStore(options: {
               ...(route.effort === undefined ? {} : { effort: route.effort }),
               ...(route.instructions === undefined ? {} : { instructions: instructionsText(route.instructions)! }),
               ...(typeof route.why === 'string' && route.why.trim().length > 0 ? { why: route.why.trim().slice(0, 400) } : {}),
+              ...(route.skill === undefined ? {} : { skill: tuneSkillOf(route.skill)! }),
               ...(route.label === undefined ? {} : { label: route.label.slice(0, 120) }),
               ...(route.mode === 'auto' && input.changes === true ? { mode: 'auto' as const } : {})
             },

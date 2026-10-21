@@ -1,11 +1,15 @@
 import { AGENT_ACCOUNTS_CHANNEL, type AccountAction, type AgentAccountsState } from '../shared/agent-accounts.js'
 import { contextBridge, ipcRenderer } from 'electron'
 import {
+  TEAMMATE_SKILL_LIST_CHANNEL,
+  TEAMMATE_SKILL_REMOVE_CHANNEL,
+  TEAMMATE_SKILL_USE_CHANNEL,
   TUNE_COMBINE_CHANNEL,
   TUNE_DRAFT_CHANNEL,
   TUNE_LESSON_LIST_CHANNEL,
   TUNE_LESSON_NOTE_CHANNEL,
   TUNE_LESSON_REMOVE_CHANNEL,
+  type TeammateSkillListResponse,
   type TuneCombineResponse,
   type TuneLessonListResponse,
   type TuneLessonNoteResponse,
@@ -836,6 +840,9 @@ const desktopApi: DesktopApi = {
   combineTuneEdits: (compareId: string) => ipcRenderer.invoke(TUNE_COMBINE_CHANNEL, compareId) as Promise<TuneCombineResponse>,
   listTuneLessons: (teammateId?: string) => ipcRenderer.invoke(TUNE_LESSON_LIST_CHANNEL, teammateId) as Promise<TuneLessonListResponse>,
   removeTuneLesson: (lessonId: string) => ipcRenderer.invoke(TUNE_LESSON_REMOVE_CHANNEL, lessonId) as Promise<TuneLessonListResponse>,
+  listTeammateSkills: () => ipcRenderer.invoke(TEAMMATE_SKILL_LIST_CHANNEL) as Promise<TeammateSkillListResponse>,
+  useTuneSkill: (compareId: string, which: 'kept' | 'other') => ipcRenderer.invoke(TEAMMATE_SKILL_USE_CHANNEL, compareId, which) as Promise<TeammateSkillListResponse>,
+  removeTeammateSkill: (teammateId: string, name: string) => ipcRenderer.invoke(TEAMMATE_SKILL_REMOVE_CHANNEL, teammateId, name) as Promise<TeammateSkillListResponse>,
   switchFolder: (id: string) => ipcRenderer.invoke(FOLDER_SWITCH_CHANNEL, id) as Promise<FolderSwitchResponse>,
   cloudWhere: () => ipcRenderer.invoke(CLOUD_WHERE_CHANNEL) as Promise<PublicCloudWhere>,
   startCloudTask: (prompt: string, teammateId?: string) => ipcRenderer.invoke(CLOUD_START_CHANNEL, prompt, teammateId) as Promise<CloudStartResponse>,

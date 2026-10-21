@@ -6,8 +6,68 @@ export const TUNE_DRAFT_CHANNEL = 'teammate:tune-drafts'
 export const TUNE_LESSON_NOTE_CHANNEL = 'teammate:tune-lesson-note'
 export const TUNE_LESSON_LIST_CHANNEL = 'teammate:tune-lesson-list'
 export const TUNE_LESSON_REMOVE_CHANNEL = 'teammate:tune-lesson-remove'
+export const TEAMMATE_SKILL_LIST_CHANNEL = 'teammate:skills-list'
+export const TEAMMATE_SKILL_USE_CHANNEL = 'teammate:skills-use'
+export const TEAMMATE_SKILL_REMOVE_CHANNEL = 'teammate:skills-remove'
 
-export interface TuneEdit { readonly instructions: string; readonly why: string }
+/** A skill a teammate keeps (0.811, main/teammate-skills.ts): what Edit teammate lists, and what its Remove names. */
+export interface PublicTeammateSkill {
+  readonly teammateId: string
+  readonly name: string
+  readonly description: string
+  readonly compareId?: string
+  readonly createdAt: string
+}
+
+export type TeammateSkillListResponse =
+  | { readonly ok: true; readonly data: { readonly skills: readonly PublicTeammateSkill[] } }
+  | { readonly ok: false; readonly message: string }
+
+/**
+ * WHAT IT KNOWS, AS A SKILL (0.811). Harness² finds a teammate's skills the strongest of its levers, and standing
+ * instructions the weakest; a practitioner's checks belong in a skill, loaded when the work matches its description,
+ * not in words read on every turn. For a Claude Code teammate -- the one runtime Locust can hand a skill to for a single
+ * run (claude-skills.ts) -- a tune's "What it knows" is drafted as one.
+ */
+export type TuneSkill = NonNullable<CompareRoute['skill']>
+/** A name Claude Code gives a skill: lower case words and digits, joined by single hyphens. */
+export const TUNE_SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+export const MAX_SKILL_NAME = 64
+export const MAX_SKILL_DESCRIPTION = 1_024
+export const MAX_SKILL_BODY = 8_000
+
+/** A skill read defensively: a name Claude Code takes, a one-line description of when to use it, and what it says. */
+export function tuneSkillOf(value: unknown): TuneSkill | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  const row = value as Record<string, unknown>
+  const name = typeof row.name === 'string' ? row.name.trim() : ''
+  const description = typeof row.description === 'string' ? row.description.replace(/\s+/g, ' ').trim() : ''
+  const body = typeof row.body === 'string' ? row.body.replace(/\r\n?/g, '\n').trim() : ''
+  if (name.length > MAX_SKILL_NAME || !TUNE_SKILL_NAME.test(name)) return undefined
+  if (description.length === 0 || description.length > MAX_SKILL_DESCRIPTION || /[\u0000-\u001f\u007f]/.test(description)) return undefined
+  if (body.length === 0 || body.length > MAX_SKILL_BODY || body.includes('\0')) return undefined
+  return { name, description, body }
+}
+
+/** Its SKILL.md as Claude Code reads one: the name and description up top -- a JSON string is a YAML one -- then the rest. */
+export function skillMarkdown(skill: TuneSkill): string {
+  return `---\nname: ${skill.name}\ndescription: ${JSON.stringify(skill.description)}\n---\n\n${skill.body}\n`
+}
+
+/** A draft's edit: its instructions, why it was written, and -- for "What it knows" on Claude Code -- the skill it adds. */
+export interface TuneEdit { readonly instructions: string; readonly why: string; readonly skill?: TuneSkill }
+/** What the card says when a skill will not read whole, and Run all three waits for it. */
+export const TUNE_SKILL_INCOMPLETE = 'A skill needs a name of lower-case words joined by hyphens, one sentence on when to use it, and what it says.'
+
+/** A setup's standing instructions: a skill's setup keeps Current's, as Current reads on the card when it runs. */
+export function setupInstructions(edit: TuneEdit, current: string): string {
+  return edit.skill === undefined ? edit.instructions : current
+}
+
+/** What a skill says, for the person to review before keeping it: when it applies, then its checks. */
+export function skillReview(skill: TuneSkill): string {
+  return `When to use it: ${skill.description}\n\n${skill.body}`
+}
 export interface TuneDrafts { readonly how: TuneEdit; readonly knows: TuneEdit }
 export const TUNE_FALLBACK = 'The drafts could not be written. These are copies of Current; you can write your own.'
 export const TUNE_DRAFT_COST = 'Opening /tune starts one side turn on this model to draft the edits. The three comparison runs start only when you press Run all three.'
@@ -106,25 +166,38 @@ export function currentDrafts(current: string, why = TUNE_FALLBACK): TuneDrafts 
   return { how: { instructions: current, why }, knows: { instructions: current, why } }
 }
 
-/** Only the two bounded edits cross into the card, never arbitrary fields or executable output. */
-export function parseTuneDrafts(raw: string, current: string): TuneDrafts {
+/**
+ * Only the two bounded edits cross into the card, never arbitrary fields or executable output. With `skills` (a Claude
+ * Code teammate, 0.811) "knows" may be a skill instead: its setup keeps Current's instructions and adds the skill. A
+ * "knows" that keeps Current and drafts no skill stays a valid outcome, as either angle's always was.
+ */
+export function parseTuneDrafts(raw: string, current: string, options: { readonly skills?: boolean } = {}): TuneDrafts {
   try {
     if (raw.length > 32_000) return currentDrafts(current)
     const body = raw.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i, '$1')
     const value: unknown = JSON.parse(body)
     if (typeof value !== 'object' || value === null) return currentDrafts(current)
+    const whyOf = (row: Record<string, unknown>): string | undefined => {
+      const why = typeof row.why === 'string' ? row.why.replace(/\s+/g, ' ').trim() : ''
+      return why.length === 0 || why.length > 400 || /[\u0000-\u001f\u007f]/.test(why) ? undefined : why
+    }
     const edit = (input: unknown): TuneEdit | undefined => {
       if (typeof input !== 'object' || input === null) return undefined
       const row = input as Record<string, unknown>
+      const why = whyOf(row)
+      if (why === undefined) return undefined
+      if (options.skills === true && row.skill !== undefined && row.skill !== null) {
+        const skill = tuneSkillOf(row.skill)
+        return skill === undefined ? undefined : { instructions: current, why, skill }
+      }
       const instructions = instructionsText(row.instructions)
-      const why = typeof row.why === 'string' ? row.why.replace(/\s+/g, ' ').trim() : ''
-      return instructions === undefined || why.length === 0 || why.length > 400 || /[\u0000-\u001f\u007f]/.test(why)
-        ? undefined : { instructions, why }
+      return instructions === undefined ? undefined : { instructions, why }
     }
     const row = value as Record<string, unknown>
     const how = edit(row.how)
     const knows = edit(row.knows)
-    return how === undefined || knows === undefined ? currentDrafts(current) : { how, knows }
+    // A skill is only ever "What it knows": a "how" that drafted one is read as no edit at all.
+    return how === undefined || knows === undefined || how.skill !== undefined ? currentDrafts(current) : { how, knows }
   } catch { return currentDrafts(current) }
 }
 
@@ -274,7 +347,9 @@ export function parseTuneLesson(raw: string): ParsedTuneLesson {
  * counts the different setups among the three.
  */
 export function repeatsOf(current: string, drafts: TuneDrafts): { readonly how?: string; readonly knows?: string; readonly distinct: number } {
-  const setups = [['Current', current.trim()], ['How it works', drafts.how.instructions.trim()], ['What it knows', drafts.knows.instructions.trim()]] as const
+  // A setup is its instructions and the skill it adds (0.811): Current's words with a skill are not Current.
+  const of = (edit: TuneEdit): string => (edit.skill === undefined ? edit.instructions.trim() : JSON.stringify([current.trim(), edit.skill]))
+  const setups = [['Current', current.trim()], ['How it works', of(drafts.how)], ['What it knows', of(drafts.knows)]] as const
   const earlier = (index: number): string | undefined => setups.slice(0, index).find(([, words]) => words === setups[index]![1])?.[0]
   const how = earlier(1)
   const knows = earlier(2)
@@ -282,9 +357,34 @@ export function repeatsOf(current: string, drafts: TuneDrafts): { readonly how?:
 }
 
 /** Each trial keeps the same route. Identical copies remain valid when an angle recommends no change. */
-export function tuneRoutes<R extends CompareRoute>(route: R, current: string, drafts: TuneDrafts): readonly (Omit<R, 'label'> & { readonly label: string; readonly instructions: string })[] {
+export function tuneRoutes<R extends CompareRoute>(route: R, current: string, drafts: TuneDrafts): readonly (Omit<R, 'label'> & { readonly label: string; readonly instructions: string; readonly skill?: TuneSkill })[] {
   const angles = ['Current', 'How it works', 'What it knows']
-  return [current, drafts.how.instructions, drafts.knows.instructions].map((instructions, index) => ({ ...route, label: `${route.label ?? route.model} · ${angles[index]}`, instructions }))
+  return [{ instructions: current, why: '' }, drafts.how, drafts.knows].map((edit: TuneEdit, index) => ({
+    ...route,
+    label: `${route.label ?? route.model} · ${angles[index]}`,
+    instructions: setupInstructions(edit, current),
+    // What it knows, as a skill (0.811): its column's run alone is handed it.
+    ...(edit.skill === undefined ? {} : { skill: edit.skill })
+  }))
+}
+
+/** The skill the kept setup adds (0.811), to offer for the teammate as the kept instructions are offered. */
+export function keptSkill(compare: PublicCompare): TuneSkill | undefined {
+  if (compare.kept === undefined || !hasColumnInstructions(compare)) return undefined
+  return compare.slots.find((column) => column.slot === compare.kept?.slot)?.route.skill
+}
+
+/**
+ * The skill a setup not kept adds (0.811): with How it works kept, What it knows' skill may be added beside it -- a
+ * skill is added, not merged. Not when Current was kept: then the person chose the run without it.
+ */
+export function otherSkill(compare: PublicCompare): { readonly setup: string; readonly skill: TuneSkill } | undefined {
+  if (compare.kept === undefined || !hasColumnInstructions(compare) || keptSkill(compare) !== undefined) return undefined
+  const kept = compare.slots.find((column) => column.slot === compare.kept?.slot)
+  if (kept === undefined || setupName(kept.route) === 'Current') return undefined
+  const column = compare.slots.find((one) => one.slot !== compare.kept?.slot && one.route.skill !== undefined)
+  const setup = column === undefined ? undefined : setupName(column.route)
+  return column?.route.skill === undefined || setup === undefined ? undefined : { setup, skill: column.route.skill }
 }
 
 export const TUNE_COMBINE_CHANNEL = 'teammate:tune-combine'
@@ -308,7 +408,8 @@ export interface TuneCombineSetups {
  * own -- different from Current and from the kept one; the kept one must itself have changed something.
  */
 export function combineSetups(compare: PublicCompare): TuneCombineSetups | undefined {
-  if (compare.kept === undefined || !hasColumnInstructions(compare)) return undefined
+  // A skill is added, not merged (0.811): the kept strip offers the other setup's skill as it is, so no side turn.
+  if (compare.kept === undefined || !hasColumnInstructions(compare) || compare.slots.some((column) => column.route.skill !== undefined)) return undefined
   const named = compare.slots.map((column) => ({ slot: column.slot, name: setupName(column.route), words: (column.route.instructions ?? '').trim(), why: column.route.why }))
   const current = named.find((column) => column.name === 'Current')
   const kept = named.find((column) => column.slot === compare.kept?.slot)

@@ -23,7 +23,7 @@ import { scoreOf } from '../../../shared/compare-score.js'
 import type { Scorecard } from '../../../shared/compare-score.js'
 import { keptSentence } from '../status.js'
 import { KeptInstructions, type NoteTuneOutcome } from './KeptInstructions.js'
-import type { PublicTuneLesson } from '../../../shared/tune.js'
+import type { PublicTeammateSkill, PublicTuneLesson } from '../../../shared/tune.js'
 
 /**
  * COMPARE, SIDE BY SIDE (0.441, shared/compare.ts,
@@ -137,6 +137,8 @@ export function CompareView({
   notingLesson,
   onNoteLesson,
   onRemoveLesson,
+  teammateSkills,
+  onUseSkill,
   decidingIds,
   onDecide,
   onAnswer,
@@ -183,6 +185,9 @@ export function CompareView({
   readonly notingLesson?: boolean | undefined
   readonly onNoteLesson?: (compare: PublicCompare, usedInstructions: boolean) => Promise<NoteTuneOutcome | undefined>
   readonly onRemoveLesson?: (lessonId: string) => Promise<string | undefined>
+  /** Every teammate's own skills (0.811), and Use this skill, for the kept strip. */
+  readonly teammateSkills?: readonly PublicTeammateSkill[]
+  readonly onUseSkill?: (compare: PublicCompare, which: 'kept' | 'other') => Promise<string | undefined>
   /** Once one is kept: every model's record across your decided comparisons (0.519). */
   readonly record?: readonly CompareRecordRow[]
   /** The judge's view, when one was asked (0.520): its model, and what it said or is saying. */
@@ -333,6 +338,8 @@ export function CompareView({
           noting={notingLesson}
           onNote={onNoteLesson}
           onRemoveLesson={onRemoveLesson}
+          skills={teammateSkills}
+          onUseSkill={onUseSkill}
         />
       )}
       <div className="lc-compare__scroll" ref={scrollRef}>

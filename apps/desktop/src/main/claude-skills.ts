@@ -3,6 +3,8 @@ import { cp, lstat, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+import { skillMarkdown, type TuneSkill } from '../shared/tune.js'
+
 /**
  * SKILLS FOR A CLAUDE CODE TEAMMATE (0.679).
  *
@@ -26,6 +28,9 @@ import { join } from 'node:path'
  *     for their own sessions; a teammate gets them when asked, not by default.
  *   - `library`, the skills the person kept from a GitHub repository
  *     (0.710, skill-library.ts) -- always: keeping one is the asking.
+ *   - `teammate`, the run's teammate's own skills (0.811, teammate-skills.ts),
+ *     kept from a tune -- always, Auto included -- and a tune column's one
+ *     candidate skill, written into that column's run alone.
  *
  * COPIED, never linked. A junction would always be current, but the run's
  * folder is removed when the run ends, and a removal that followed a link
@@ -47,12 +52,13 @@ const MOST_BYTES_A_SKILL = 5 * 1024 * 1024
 const MOST_BYTES_ALL = 40 * 1024 * 1024
 const MOST_SKILLS = 200
 
-export type SkillPluginName = 'project' | 'personal' | 'library'
+export type SkillPluginName = 'project' | 'personal' | 'library' | 'teammate'
 
 const PLUGIN_DESCRIPTION: Record<SkillPluginName, string> = {
   project: "This folder's own skills",
   personal: 'Your own Claude Code skills',
-  library: 'Skills you kept from GitHub'
+  library: 'Skills you kept from GitHub',
+  teammate: "This teammate's own skills"
 }
 
 export interface SkillPlugin {
@@ -117,9 +123,15 @@ export async function skillFoldersIn(root: string): Promise<readonly string[]> {
   return found
 }
 
-async function buildPlugin(base: string, name: SkillPluginName, from: string): Promise<SkillPlugin | undefined> {
-  const names = await skillFoldersIn(from)
-  if (names.length === 0) return undefined
+async function buildPlugin(
+  base: string,
+  name: SkillPluginName,
+  from: string | undefined,
+  { extra, only }: { readonly extra?: TuneSkill; readonly only?: readonly string[] } = {}
+): Promise<SkillPlugin | undefined> {
+  // A tune column's skill (0.811) stands in for a kept one of its name, for this run alone.
+  const names = (from === undefined ? [] : await skillFoldersIn(from)).filter((skill) => skill !== extra?.name && (only === undefined || only.includes(skill)))
+  if (names.length === 0 && extra === undefined) return undefined
   const dir = join(base, name)
   await mkdir(join(dir, '.claude-plugin'), { recursive: true })
   await writeFile(
@@ -127,11 +139,16 @@ async function buildPlugin(base: string, name: SkillPluginName, from: string): P
     `${JSON.stringify({ name, description: PLUGIN_DESCRIPTION[name], version: '1.0.0' })}\n`
   )
   const copied: string[] = []
+  if (extra !== undefined) {
+    await mkdir(join(dir, 'skills', extra.name), { recursive: true })
+    await writeFile(join(dir, 'skills', extra.name, SKILL_FILE), skillMarkdown(extra))
+    copied.push(`${name}:${extra.name}`)
+  }
   for (const skill of names) {
     try {
       // A link inside a skill is left out, not copied: the copy holds only
       // real files, so removing it can never reach past it.
-      await cp(join(from, skill), join(dir, 'skills', skill), {
+      await cp(join(from!, skill), join(dir, 'skills', skill), {
         recursive: true,
         filter: async (source) => !(await lstat(source)).isSymbolicLink()
       })
@@ -156,6 +173,14 @@ export async function prepareClaudeSkills(options: {
   readonly libraryFolder?: string
   /** An Auto run: it finds the folder's skills and the person's itself, so only the library is built. */
   readonly auto?: boolean
+  /**
+   * The run's teammate's own skills (0.811, teammate-skills.ts), and a tune column's one skill for this run alone:
+   * both live where Claude Code never looks, so Auto is handed them as well.
+   */
+  readonly teammateFolder?: string
+  /** Only these of its skills: the ones the teammate's record lists, so what Edit teammate shows is what a run gets. */
+  readonly teammateSkills?: readonly string[]
+  readonly candidate?: TuneSkill
 }): Promise<PreparedSkills> {
   const base = join(options.scratchRoot, randomUUID())
   const dispose = async (): Promise<void> => {
@@ -174,6 +199,13 @@ export async function prepareClaudeSkills(options: {
     if (options.libraryFolder !== undefined) {
       const library = await buildPlugin(base, 'library', options.libraryFolder)
       if (library !== undefined) plugins.push(library)
+    }
+    if (options.teammateFolder !== undefined || options.candidate !== undefined) {
+      const teammate = await buildPlugin(base, 'teammate', options.teammateFolder, {
+        ...(options.candidate === undefined ? {} : { extra: options.candidate }),
+        ...(options.teammateSkills === undefined ? {} : { only: options.teammateSkills })
+      })
+      if (teammate !== undefined) plugins.push(teammate)
     }
     if (plugins.length === 0) await dispose()
     return { plugins, dispose }

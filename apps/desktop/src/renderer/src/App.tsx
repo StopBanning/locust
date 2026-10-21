@@ -173,9 +173,9 @@ import { GroupSettingsDialog } from './components/GroupSettingsDialog.js'
 import { TeammateBot } from './components/TeammateBot.js'
 import { BesideConversation } from './components/BesideConversation.js'
 import { SideChat } from './components/SideChat.js'
-import { TuneTeammate, type TuneCard } from './components/TuneTeammate.js'
+import { TuneTeammate, tuneSkillReady, type TuneCard } from './components/TuneTeammate.js'
 import { KeptInstructions } from './components/KeptInstructions.js'
-import { currentDrafts, parseTuneDrafts, tuneRefusal, tuneRoutes, type PublicTuneLesson } from '../../shared/tune.js'
+import { currentDrafts, parseTuneDrafts, tuneRefusal, tuneRoutes, TUNE_SKILL_INCOMPLETE, type PublicTeammateSkill, type PublicTuneLesson } from '../../shared/tune.js'
 import { assistantMessages } from './missionView.js'
 import { CloudTasks } from './components/CloudTasks.js'
 import { CloudSetupDialog, type CloudSetupState } from './components/CloudSetupDialog.js'
@@ -1942,12 +1942,17 @@ export default function App(): ReactElement {
   }>()
   const [tuneLessons, setTuneLessons] = useState<readonly PublicTuneLesson[]>([])
   const [notingCompareId, setNotingCompareId] = useState<string>()
+  /** Every teammate's own skills (0.811), kept from tunes: the kept strip and Edit teammate read them. */
+  const [teammateSkills, setTeammateSkills] = useState<readonly PublicTeammateSkill[]>([])
   useEffect(() => {
     void window.desktop?.listCompares().then((answer) => {
       if (answer.ok) setCompares(answer.data.compares)
     }).catch(() => undefined)
     void window.desktop?.listTuneLessons().then((answer) => {
       if (answer.ok) setTuneLessons(answer.data.lessons)
+    }).catch(() => undefined)
+    void window.desktop?.listTeammateSkills().then((answer) => {
+      if (answer.ok) setTeammateSkills(answer.data.skills)
     }).catch(() => undefined)
   }, [])
   /** Review changes (0.439): the teammate whose own branch is open beside the thread. */
@@ -2065,7 +2070,8 @@ export default function App(): ReactElement {
     const run = runs.get(tuning.draftRunId)
     if (run === undefined || !isTerminal(run.phase)) return
     const raw = run.phase === 'completed' ? assistantMessages(run.events).filter((message) => message.final).at(-1)?.text ?? '' : ''
-    setTuning((current) => current?.id !== tuning.id ? current : { ...current, drafting: false, drafts: parseTuneDrafts(raw, current.current) })
+    // A Claude Code teammate's "What it knows" may come back as a skill (0.811).
+    setTuning((current) => current?.id !== tuning.id ? current : { ...current, drafting: false, drafts: parseTuneDrafts(raw, current.current, { skills: current.route.runtime === 'claude' }) })
   }, [runs, tuning])
   /*
    * CLOUD TASKS (0.503, main/cloud-tasks.ts): Cloud picked in the chat-type
@@ -4698,6 +4704,7 @@ export default function App(): ReactElement {
     if (card === undefined || card.drafting || card.starting || bridge === undefined) return
     const teammate = teammates.find((mate) => mate.teammateId === card.teammateId)
     if (teammate?.route === undefined || JSON.stringify(teammate.route) !== JSON.stringify(card.route)) { setTuning({ ...card, problem: 'That teammate’s model changed. Cancel and open /tune again to review it. Nothing was started.' }); return }
+    if (!tuneSkillReady(card)) { setTuning({ ...card, problem: `${TUNE_SKILL_INCOMPLETE} Nothing was started.` }); return }
     setTuning({ ...card, starting: true })
     const route = teammate.route
     const routes = tuneRoutes({ runtime: route.runtime, model: route.model, ...(route.account === undefined ? {} : { account: route.account }), ...(route.effort === undefined ? {} : { effort: route.effort }), label: card.model }, card.current, card.drafts).map((entry, index) => ({
@@ -4745,6 +4752,23 @@ export default function App(): ReactElement {
     } finally {
       setNotingCompareId((current) => (current === compare.compareId ? undefined : current))
     }
+  }
+  /** Use a kept tune's skill for its teammate (0.811): main reads the skill from the tune itself. */
+  const useTuneSkill = async (compare: PublicCompare, which: 'kept' | 'other'): Promise<string | undefined> => {
+    const bridge = window.desktop
+    if (bridge === undefined) return 'Locust is not ready. The teammate is unchanged.'
+    const answer = await bridge.useTuneSkill(compare.compareId, which).catch(() => undefined)
+    if (answer === undefined || !answer.ok) return answer?.ok === false ? answer.message : 'That skill could not be saved. The teammate is unchanged.'
+    setTeammateSkills(answer.data.skills)
+    return undefined
+  }
+  const removeTeammateSkill = async (teammateId: string, name: string): Promise<string | undefined> => {
+    const bridge = window.desktop
+    if (bridge === undefined) return 'Locust is not ready. The teammate’s skills are unchanged.'
+    const answer = await bridge.removeTeammateSkill(teammateId, name).catch(() => undefined)
+    if (answer === undefined || !answer.ok) return answer?.ok === false ? answer.message : 'That skill could not be removed. The teammate’s skills are unchanged.'
+    setTeammateSkills(answer.data.skills)
+    return undefined
   }
   const removeTuneLesson = async (lessonId: string): Promise<string | undefined> => {
     const bridge = window.desktop
@@ -6719,6 +6743,7 @@ export default function App(): ReactElement {
         rememberRosterNames(listed.data)
         // Their routines went with them; the host drops those, so re-read.
         setTuneLessons((current) => current.filter((lesson) => lesson.teammateId !== teammateId))
+        setTeammateSkills((current) => current.filter((skill) => skill.teammateId !== teammateId))
         await reloadRoutines()
       })
       .catch(() => undefined)
@@ -9296,6 +9321,8 @@ export default function App(): ReactElement {
                   notingLesson={notingCompareId === comparing.compareId}
                   onNoteLesson={noteTuneLesson}
                   onRemoveLesson={removeTuneLesson}
+                  teammateSkills={teammateSkills}
+                  onUseSkill={useTuneSkill}
                   workspacePath={workspacePath}
                   {...(checkCommand.trim().length === 0 ? {} : { checkCommand })}
                   keeping={keepingCompare}
@@ -9902,8 +9929,9 @@ export default function App(): ReactElement {
                 return (
                   <div className="lc-compared">
                     <span>
+                      {/* A setup with a skill (0.811) is Current's instructions and the skill: three setups, not three sets of instructions. */}
                       {keptSetup !== undefined
-                        ? `You tried ${String(compare.slots.length)} sets of instructions on ${tunedOn ?? 'this model'} and kept ${keptSetup}.`
+                        ? `You tried ${String(compare.slots.length)} ${compare.slots.some((column) => column.route.skill !== undefined) ? 'setups' : 'sets of instructions'} on ${tunedOn ?? 'this model'} and kept ${keptSetup}.`
                         : `Compared with ${others.join(' and ')}.`}
                       {compare.kept.brought !== undefined &&
                         (compare.kept.brought.length === 0
@@ -9928,6 +9956,8 @@ export default function App(): ReactElement {
                     noting={notingCompareId === compare.compareId}
                     onNote={noteTuneLesson}
                     onRemoveLesson={removeTuneLesson}
+                    skills={teammateSkills}
+                    onUseSkill={useTuneSkill}
                   />
                 )
               })()}
@@ -10982,6 +11012,8 @@ export default function App(): ReactElement {
           {...(folderNotice === undefined ? {} : { folderNotice })}
           lessons={tuneLessons.filter((lesson) => lesson.teammateId === editingTeammate.teammateId)}
           onRemoveLesson={removeTuneLesson}
+          skills={teammateSkills.filter((skill) => skill.teammateId === editingTeammate.teammateId)}
+          onRemoveSkill={(name) => removeTeammateSkill(editingTeammate.teammateId, name)}
         />
       )}
       {feedbackFor !== undefined && (

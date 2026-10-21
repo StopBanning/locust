@@ -29,7 +29,8 @@ describe('a tune names its setups', () => {
   })
   it('says which setup was kept, in the bar over the conversation', () => {
     const source = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
-    expect(source).toContain('`You tried ${String(compare.slots.length)} sets of instructions on ${tunedOn ?? \'this model\'} and kept ${keptSetup}.`')
+    // With a skill in the tune (0.811) its setups are not all instructions: "3 setups".
+    expect(source).toContain('`You tried ${String(compare.slots.length)} ${compare.slots.some((column) => column.route.skill !== undefined) ? \'setups\' : \'sets of instructions\'} on ${tunedOn ?? \'this model\'} and kept ${keptSetup}.`')
     expect(source).toContain('blindName(column.slot, hasColumnInstructions(compare))')
     expect(source).toContain('blindName(column.slot, hasColumnInstructions(comparing))')
   })
