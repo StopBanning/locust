@@ -127,8 +127,11 @@ try {
   await drive.waitForSelector('.lc-compare__judgeask')
   await drive.evaluate(`[...document.querySelectorAll('.lc-compare__judgeask button, .lc-compare__judgenote button')].find((b) => b.textContent.trim() === 'Ask three judges to vote')?.click(); 1`)
   await drive.waitFor(`document.querySelectorAll('.lc-compare__judgepick').length === 3`, { what: 'three judge pickers' })
+  // By each picker's own name, never its place on the page: picked by place, the first run's panel came out Opus,
+  // Haiku and a free model (2026-10-21).
+  const PICKERS = ['The first judge', 'The second judge', 'The third judge']
   for (const [index, judge] of JUDGES.entries()) {
-    await drive.evaluate(`document.querySelectorAll('.lc-compare__judgepick')[${String(index)}].click(); 1`)
+    await drive.evaluate(`document.querySelector('.lc-compare__judgepick[aria-label=${JSON.stringify(PICKERS[index])}]').click(); 1`)
     await drive.waitForSelector('.lc-select__menu [role="option"]')
     const picked = await drive.evaluate(`(() => {
       const option = [...document.querySelectorAll('.lc-select__menu [role="option"]')].find((item) => item.innerText.includes(${JSON.stringify(judge.name)}))
@@ -136,8 +139,11 @@ try {
       option.click(); return true
     })()`)
     if (!picked) throw new Error(`${judge.name} is not offered as a judge`)
-    await sleep(250)
+    await sleep(300)
   }
+  const shown = JSON.parse(String(await drive.evaluate(`JSON.stringify(${JSON.stringify(PICKERS)}.map((label) => document.querySelector('.lc-compare__judgepick[aria-label="' + label + '"]')?.innerText.trim() ?? ''))`)))
+  check('the three pickers show Haiku, Sonnet and Opus on the API before Judge is pressed', JUDGES.every((judge, index) => shown[index]?.includes(judge.name)), shown)
+  if (!JUDGES.every((judge, index) => shown[index]?.includes(judge.name))) throw new Error('The panel is not the three Claude judges; nothing was asked.')
   await drive.evaluate(`(() => {
     const box = document.querySelector('.lc-compare__judgecriteria')
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, ${JSON.stringify(criteria)})
@@ -160,7 +166,10 @@ try {
   const judged = (await comparisons()).data?.compares.find((item) => item.compareId === compareId)
   const judgeIds = [judged.judge.missionIds.at(-1), ...(judged.judge.panel ?? []).map((one) => one.missionId)]
   const records = await Promise.all(judgeIds.map(async (id) => (await mission(id)).data?.mission))
-  check('all three judges complete, read-only, each on its own Claude model', records.every((record) => record?.phase === 'completed' && record.sandbox === 'read-only') && new Set(records.map((record) => record?.model)).size === 3, records.map((record) => ({ model: record?.model, phase: record?.phase, sandbox: record?.sandbox })))
+  // Each model is one of the three added on the API -- not merely three different models (the first run's check
+  // passed a free model in Sonnet's place).
+  const claudeModels = records.map((record) => /^own-[a-z0-9]+\/(claude-[a-z0-9-]+)$/.exec(record?.model ?? '')?.[1])
+  check('all three judges complete, read-only, on Haiku, Sonnet and Opus via the API', records.every((record) => record?.phase === 'completed' && record.sandbox === 'read-only') && JUDGES.every((judge) => claudeModels.includes(judge.model)), records.map((record) => ({ model: record?.model, phase: record?.phase, sandbox: record?.sandbox })))
   let material = records[0]?.prompt ?? ''
   for (const match of material.matchAll(/is in the file (\.locust\/attachments\/judge-[^\s]+\.md)/g)) {
     const path = resolve(workspace, match[1])
