@@ -13897,9 +13897,11 @@ textarea {
   white-space: nowrap;
 }
 
-/* The judge (0.520): its view, then the line to ask one, in the record's column. */
+/* The judge (0.520): its view, then the line to ask one, in the record's column; and, above them, a check that failed
+   the same way in every copy (0.810), which drew flush to the panel's edge outside that column (the failing drive). */
 .lc-compare__judge,
-.lc-compare__judgeask {
+.lc-compare__judgeask,
+.lc-compare__checkacross {
   display: flex;
   flex-direction: column;
   gap: var(--lc-space-2);

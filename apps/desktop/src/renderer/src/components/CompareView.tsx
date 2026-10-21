@@ -462,9 +462,11 @@ export function CompareView({
           ))}
         </div>
         {inCopies && checkFailedEverywhere(columns) && (
-          <p className="lc-compare__judgenote" role="note">
-            {'Your check failed the same way in every copy, so it tells them apart on nothing. It may need something a copy leaves out, such as installed dependencies: a check that installs them first, such as npm ci && npm test, runs in a copy too.'}
-          </p>
+          <div className="lc-compare__checkacross">
+            <p className="lc-compare__judgenote" role="note">
+              {'Your check failed the same way in every copy, so it tells them apart on nothing. It may need something a copy leaves out, such as installed dependencies: a check that installs them first, such as npm ci && npm test, runs in a copy too.'}
+            </p>
+          </div>
         )}
         {judge !== undefined && (
           /*
