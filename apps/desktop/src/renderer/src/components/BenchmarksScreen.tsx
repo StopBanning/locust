@@ -108,7 +108,7 @@ export function AcrossBenchmarks({ rows }: { readonly rows: readonly AcrossRow[]
         </table>
       </div>
       <p className="lc-compare__judgenote">
-        {`A score here is the average of a model's scores in the benchmarks it ran in, each benchmark counted once, so a question run fifteen times does not outweigh one run three. Met every point${checked ? ' and Check passed count' : ' counts'} its runs in all of them. A model in fewer benchmarks was asked fewer questions.`}
+        {`Each model's score is the average of its scores in the benchmarks it ran in, each benchmark counted once. Met every point${checked ? ' and Check passed count' : ' counts'} its runs in all of them.`}
       </p>
     </div>
   )
