@@ -113,7 +113,7 @@ import { carriedStartPhase, startingLabelOf, withStartPhase } from './startPhase
 import { lastWorkedPhrase, teamCardState, waitingLine } from './homeTeamState.js'
 import { glassStatus } from './homeCoverStatus.js'
 import { reviewPairOf } from './review-pair.js'
-import type { EditCheckShown } from './components/EditCheckCard.js'
+import { runningCheck, type EditCheckShown } from './components/EditCheckCard.js'
 import { imageMediaType } from '../../shared/image-files.js'
 import { signInCommand } from '../../shared/runtime-install.js'
 import { SIGN_IN_OPENED_EVENT } from './signInEvents.js'
@@ -465,6 +465,7 @@ function applyMissionUpdate(run: LiveRunState, update: CodexMissionUpdate): Live
     const { kind: _kind, runId: _runId, missionId: _missionId, ...shown } = update
     return { ...live, editCheck: shown }
   }
+  if (update.kind === 'edit-check-started') return { ...live, editCheck: runningCheck(update.command) }
   // A host-started run is adopted by the listener, never applied to a run.
   if (update.kind === 'mission-started') return live
   if (update.kind === 'start-phase') return live
@@ -3087,6 +3088,11 @@ export default function App(): ReactElement {
         const { kind: _kind, runId: _runId, missionId, ...shown } = update
         setEditChecks((current) => new Map(current).set(missionId, shown))
       }
+      // Running from the moment it starts (0.811); the result above replaces it.
+      if (update.kind === 'edit-check-started') {
+        const { missionId, command } = update
+        setEditChecks((current) => new Map(current).set(missionId, runningCheck(command)))
+      }
       // A finished mission hops once; a message that just arrived earns a
       // glance. Both are moments, so both clear themselves.
       if (update.kind === 'event') {
@@ -4585,6 +4591,9 @@ export default function App(): ReactElement {
   // Above the comparison's default picks, which read both while rendering (0.460).
   // What each route's model turned out to be, from missions that already ran.
   const resolvedModels = useMemo(() => resolvedModelNames(history), [history])
+  /** A compared model by name (0.811): the person's name for it, else the picker's spelling of its id, never the raw id. */
+  const compareRouteName = (route: CompareRoute): string =>
+    shownRouteLabel(route) ?? routeModelName(route.runtime as MissionRuntimeId, route.model, resolvedModels.get(`${route.runtime}:${route.model}`))
   const recentRoutes = useMemo(() => recentlyUsedRoutes(history), [history])
   // A comparison answers read-only; a model that cannot be held read-only here answers in a copy (0.443).
   // One that edits runs in Edit, in its own copy (0.445).
@@ -5057,12 +5066,12 @@ export default function App(): ReactElement {
             runtime: slot.route.runtime as MissionRuntimeId, ...(slot.route.account === undefined ? {} : { account: slot.route.account }),
             model: slot.route.model,
             ...(slot.route.effort === undefined ? {} : { effort: slot.route.effort }),
-            name: shownRouteLabel(slot.route) ?? routeModelName(slot.route.runtime as MissionRuntimeId, slot.route.model, resolvedModels.get(key)),
+            name: compareRouteName(slot.route),
             answered: column?.keepable === true,
             ...(score === undefined ? {} : { met: score.met, of: score.of }),
             ...(column?.spanMs === undefined ? {} : { spanMs: column.spanMs }),
             ...(column?.runCost === undefined ? {} : { cost: column.runCost }),
-            ...(column?.check === undefined ? {} : { check: column.check.outcome })
+            ...(column?.check === undefined || column.check.outcome === 'running' ? {} : { check: column.check.outcome })
           }
         })
       })
@@ -5110,7 +5119,7 @@ export default function App(): ReactElement {
     if (origin.rerunOf !== undefined || (origin.reruns ?? []).length === 0) return []
     const view = benchmarkOf(origin)
     if (view === undefined) return []
-    const nameOf = (route: CompareRoute): string => route.label ?? routeModelName(route.runtime as MissionRuntimeId, route.model, resolvedModels.get(`${route.runtime}:${route.model}`))
+    const nameOf = compareRouteName
     const runsOfIt = [origin, ...(origin.reruns ?? []).flatMap((id) => compares.filter((one) => one.compareId === id))]
     const lastAt = runsOfIt.map((run) => run.createdAt).reduce((newest, at) => (Date.parse(at) > Date.parse(newest) ? at : newest))
     const owner = origin.teammateId === undefined ? undefined : teammates.find((one) => one.teammateId === origin.teammateId)
@@ -5158,7 +5167,7 @@ export default function App(): ReactElement {
         .join('\n\n')
       return { running, items, answer }
     }
-    const nameOf = (route: CompareRoute): string => route.label ?? routeModelName(route.runtime as MissionRuntimeId, route.model, resolvedModels.get(`${route.runtime}:${route.model}`))
+    const nameOf = compareRouteName
     // Its words without its scorecard lines, which the table says.
     const saidOf = (items: readonly ThreadItem[]): readonly ThreadItem[] => items.flatMap((item): ThreadItem[] => {
       if (item.type !== 'agent-message') return [item]
@@ -5270,7 +5279,7 @@ export default function App(): ReactElement {
       return {
         slot: column.slot,
         // Blind until one is kept (0.449): Model A, Model B.
-        name: compare.blind === true && compare.kept === undefined ? blindName(column.slot, hasColumnInstructions(compare)) : shownRouteLabel(column.route) ?? column.route.model,
+        name: compare.blind === true && compare.kept === undefined ? blindName(column.slot, hasColumnInstructions(compare)) : compareRouteName(column.route),
         runtime: column.route.runtime as MissionRuntimeId,
         runtimeName: runtimeNameOf(column.route.runtime),
         ...(compareNeedsCopy(column.route.runtime, build?.platform) ? { copy: true } : {}),
@@ -9334,7 +9343,7 @@ export default function App(): ReactElement {
                         const cost = sumCosts(runs.map((run) => missionCost(run)))
                         return { ...(ms > 0 ? { ms } : {}), ...(cost === undefined ? {} : { cost }) }
                       },
-                      (route) => route.label ?? route.model
+                      compareRouteName
                     )
                   })}
                 />
@@ -9870,7 +9879,7 @@ export default function App(): ReactElement {
                     </div>
                   )
                 }
-                const others = compare.slots.filter((column) => column.slot !== compare.kept!.slot).map((column) => column.route.label ?? column.route.model)
+                const others = compare.slots.filter((column) => column.slot !== compare.kept!.slot).map((column) => compareRouteName(column.route))
                 // A tune (0.809) is one model three ways: "Compared with Deepseek and Deepseek" named the model twice
                 // and never the setup that won.
                 const keptRoute = compare.slots.find((column) => column.slot === compare.kept!.slot)?.route
@@ -10399,7 +10408,7 @@ export default function App(): ReactElement {
                 })}
             {...(comparing === undefined || comparing.kept !== undefined
               ? {}
-              : { asking: { label: comparing.slots.map((column) => (comparing.blind === true ? blindName(column.slot, hasColumnInstructions(comparing)) : column.route.label ?? column.route.model)).join(' vs '), columns: comparing.slots.filter((column) => column.missionIds.length > 0).length, ...(comparing.changes === true ? { changes: true } : {}), ...(comparing.blind === true ? { blind: true } : {}) } })}
+              : { asking: { label: comparing.slots.map((column) => (comparing.blind === true ? blindName(column.slot, hasColumnInstructions(comparing)) : compareRouteName(column.route))).join(' vs '), columns: comparing.slots.filter((column) => column.missionIds.length > 0).length, ...(comparing.changes === true ? { changes: true } : {}), ...(comparing.blind === true ? { blind: true } : {}) } })}
             // Tag a teammate from any conversation (0.438).
             team={teammates}
             {...(pickedTeammate === undefined ? {} : { currentTeammateId: pickedTeammate.teammateId })}

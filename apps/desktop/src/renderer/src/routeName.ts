@@ -127,13 +127,15 @@ const SPELLABLE_ID = /^[A-Za-z0-9.]+(?:-[A-Za-z0-9.]+)+$/
  * A NAME THAT IS ONLY AN ID (0.810). A model added with its own id as its name -- "claude-haiku-5-5", as the API
  * benchmark of 10/21 added three -- read as the id on every row of Compare and the benchmark (Colin's screenshot).
  * Like a catalog's id (rememberOwnModels), it is an identifier, not a spelling: it reads "Claude Haiku 5.5". Any
- * other name stands as the person wrote it.
+ * other name stands as the person wrote it. A label that is the route's whole id -- "opencode/deepseek-v4.1-flash-free",
+ * as the packaged 0.810 benchmark's columns read -- is no name at all (0.811): undefined, so the caller names the model
+ * as the picker does, "Deepseek V4.1 Flash Free".
  */
 export function shownRouteLabel(route: { readonly model: string; readonly label?: string }): string | undefined {
   const label = route.label?.trim()
-  if (label === undefined || label.length === 0) return undefined
-  const bare = OWN_ROUTE_MODEL.exec(route.model)?.[1] ?? route.model
-  return label === bare && SPELLABLE_ID.test(label) ? spellOut(label) : label
+  if (label === undefined || label.length === 0 || label === route.model) return undefined
+  const bare = OWN_ROUTE_MODEL.exec(route.model)?.[1]
+  return bare !== undefined && label === bare && SPELLABLE_ID.test(label) ? spellOut(label) : label
 }
 
 /**

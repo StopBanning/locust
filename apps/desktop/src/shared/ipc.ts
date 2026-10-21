@@ -3317,6 +3317,13 @@ export type CodexMissionUpdate =
       readonly unchanged: boolean
       readonly first: boolean
     }
+  /** That check has started (0.811): its command, until `edit-check` says how it ended. */
+  | {
+      readonly kind: 'edit-check-started'
+      readonly runId: string
+      readonly missionId: string
+      readonly command: string
+    }
   /**
    * The host has decided on a reply and is starting it.
    *

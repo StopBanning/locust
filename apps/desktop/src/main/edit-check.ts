@@ -139,13 +139,19 @@ export function createEditCheck(options: {
    * crashed its own tests full marks, and one said the test run "cannot be verified from the material".
    */
   const byTurn = new Map<string, Promise<EditCheckResult | undefined>>()
-  const check = async (cwd: string): Promise<EditCheckResult | undefined> => {
+  const check = async (cwd: string, onStart?: (command: string) => void): Promise<EditCheckResult | undefined> => {
     const command = await options.commandFor().catch(() => undefined)
     if (command === undefined || command.length === 0) return undefined
     // One at a time per folder: two at once would each see the other's files.
     if (busy.has(cwd)) return undefined
     busy.add(cwd)
     try {
+      // Said as it starts (0.811): a check can take minutes, and a card that says nothing until then reads as none.
+      try {
+        onStart?.(command)
+      } catch {
+        // The window's word is not the check's: it runs all the same.
+      }
       const result = await run(command, cwd)
       const lines = comparableLines(withoutFolder(result.output, cwd))
       const before = last.get(cwd)
@@ -163,8 +169,8 @@ export function createEditCheck(options: {
   }
   return {
     /** The check after a turn. Called before the turn's slot is released, so a reader that waits for that finds it. */
-    after(cwd: string, missionId?: string): Promise<EditCheckResult | undefined> {
-      const job = check(cwd)
+    after(cwd: string, missionId?: string, onStart?: (command: string) => void): Promise<EditCheckResult | undefined> {
+      const job = check(cwd, onStart)
       if (missionId !== undefined) {
         byTurn.delete(missionId)
         byTurn.set(missionId, job)

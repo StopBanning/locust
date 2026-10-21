@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 
 import { Icon } from './Icon.js'
+import { WorkingSpark } from './WorkingSpark.js'
 
 /**
  * A3.3: what the person's check said after this turn changed files.
@@ -12,11 +13,15 @@ import { Icon } from './Icon.js'
  */
 export interface EditCheckShown {
   readonly command: string
-  readonly outcome: 'passed' | 'failed' | 'timed-out' | 'could-not-run'
+  /** `running` from the moment it starts until it says how it ended (0.811); never recorded. */
+  readonly outcome: 'passed' | 'failed' | 'timed-out' | 'could-not-run' | 'running'
   readonly newLines: readonly string[]
   readonly unchanged: boolean
   readonly first: boolean
 }
+
+/** The check as it starts (0.811): its command, and nothing said about the turn yet. */
+export const runningCheck = (command: string): EditCheckShown => ({ command, outcome: 'running', newLines: [], unchanged: false, first: false })
 
 /** What the teammate is sent when the person presses Send. */
 export function editCheckFollowUp(check: EditCheckShown): string {
@@ -43,6 +48,14 @@ export function EditCheckCard({
   readonly onSend?: (text: string) => void
 }): ReactElement {
   const command = <code className="lc-mono">{check.command}</code>
+  if (check.outcome === 'running') {
+    return (
+      <div className="lc-diagnostic lc-tone-muted lc-editcheck" role="status">
+        <WorkingSpark />
+        <span>Running the check {command} after this turn…</span>
+      </div>
+    )
+  }
   if (check.outcome === 'passed') {
     return (
       <div className="lc-diagnostic lc-tone-muted lc-editcheck">

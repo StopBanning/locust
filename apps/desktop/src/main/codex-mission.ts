@@ -490,9 +490,10 @@ interface CodexMissionServiceOptions {
   /**
    * A3.3: the person's check, after a turn that changed files -- in the
    * folder the run changed. Its answer goes to that run's thread; nothing
-   * is sent to the teammate from here.
+   * is sent to the teammate from here. `onStart` is told its command as it
+   * starts, so the thread can say it is running (0.811).
    */
-  readonly afterEdits?: (cwd: string, missionId: string) => Promise<EditCheckResult | undefined>
+  readonly afterEdits?: (cwd: string, missionId: string, onStart?: (command: string) => void) => Promise<EditCheckResult | undefined>
   /**
    * 0.439: commit what a turn in a teammate's own worktree changed, to its
    * branch (turn-checkpoint.ts). Called for runs in a worktree only, however
@@ -1291,7 +1292,16 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
     // A3.3: the person's check, only after a turn that may write and did.
     // Not awaited: a check can take minutes, and the slot is not its to hold.
     if (observed !== undefined && observed.length > 0 && mission.sandbox !== 'read-only' && options.afterEdits !== undefined) {
-      void options.afterEdits(mission.cwd, mission.missionId)
+      // Said as it starts (0.811), so the thread can show it running; one that then throws is ended in words.
+      let started: string | undefined
+      void options.afterEdits(mission.cwd, mission.missionId, (command) => {
+        started = command
+        safelyEmit(mission, { kind: 'edit-check-started', runId: mission.runId, missionId: mission.missionId, command })
+      })
+        .catch(() => {
+          if (started === undefined) return undefined
+          return { command: started, outcome: 'could-not-run' as const, newLines: ['The check stopped before it said how it ended.'], unchanged: false, first: false }
+        })
         .then(async (result) => {
           if (result === undefined) return
           safelyEmit(mission, { kind: 'edit-check', runId: mission.runId, missionId: mission.missionId, ...result })

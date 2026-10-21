@@ -22,12 +22,17 @@ const failing = process.argv.includes('--failing')
 if (failing) await writeFile(join(workspace, 'deps.test.mjs'), "import { test } from 'node:test'\nimport leftPad from 'left-pad'\ntest('pads', () => { if (leftPad('1', 2, '0') !== '01') throw new Error('bad pad') })\n")
 await git(['add', '.'], workspace)
 await git(['commit', '-q', '-m', 'A small addition bug'], workspace)
-const COMMAND = failing ? 'node --test' : 'node --test sum.test.mjs'
+/*
+ * --slow (0.811): the check first waits 25 seconds, as a real suite can, so the drive sees it running in a copy: the
+ * card under the turn says so, and Ask a judge says a judge asked now waits for it.
+ */
+const slow = process.argv.includes('--slow')
+const COMMAND = (slow ? 'node -e "setTimeout(() => {}, 25000)" && ' : '') + (failing ? 'node --test' : 'node --test sum.test.mjs')
 const ask = 'Fix the integer addition bug in sum.mjs. Do not change other files, install anything or commit. Final message: one short sentence.'
 const criteria = 'Fixes sum.mjs addition\nChanges nothing else'
 const drive = await startDrive({
   name: 'judges-see-the-check', port: 9806, workspace, holdCursor: false,
-  outPath: join(recordRoot('judges-see-the-check-2026-10-21'), arg('--tag') ?? (failing ? 'failing' : 'live')),
+  outPath: join(recordRoot('judges-see-the-check-2026-10-21'), arg('--tag') ?? (failing ? 'failing' : slow ? 'slow' : 'live')),
   ...(arg('--packaged') === undefined ? {} : { packaged: arg('--packaged') }),
   seed: { schemaVersion: 1, teammates: [{ teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', route: FREE_ROUTE, createdAt: '2026-10-21T12:00:00.000Z' }], missionOwners: {}, settings: { memoryMode: 'off', swarm: false, relay: false, autoMode: false, relayHopCap: 2 } }
 })
@@ -75,6 +80,14 @@ try {
   const columns = await Promise.all(compare.slots.map((column) => mission(column.missionIds.at(-1))))
   check('both free columns complete', columns.every((column) => column?.phase === 'completed'), columns.map((column) => ({ model: column?.model, phase: column?.phase })))
   if (!columns.every((column) => column?.phase === 'completed')) throw new Error('A column did not complete; no judge was asked.')
+  if (slow) {
+    // Both turns are over, and a copy's check is still in its 25 seconds.
+    const shown = await drive.waitFor(`(document.querySelector('.lc-compare')?.innerText ?? '').includes('Running the check')`, { timeoutMs: 20_000, what: 'a check shown running' }).then(() => true).catch(() => false)
+    const during = JSON.parse(String(await drive.evaluate(view)))
+    check('a check still running says so under its turn', shown && during.text.includes('Running the check'), during.text.slice(0, 600))
+    check('Ask a judge says a judge asked now waits for it', during.text.includes(`Your check, ${COMMAND}, is still running in a copy. A judge asked now waits for it to finish`), during.text.slice(-700))
+    await drive.capture('a check still running in a copy', () => drive.evaluate(view))
+  }
   // The check runs after each turn that changed files, in that column's copy, and lands on its mission.
   await drive.waitFor(`(async () => {
     const listed = await window.desktop.listCompares()

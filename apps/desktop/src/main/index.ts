@@ -2691,7 +2691,7 @@ if (!ownsSingleInstanceLock) {
       // 0.777: the agents the person added, each by its own command line.
       acpAgents: { resolve: (agentId) => acpAgents.resolve(agentId) },
       // A3.3: the person's check for THIS folder, after a turn that changed files.
-      afterEdits: (cwd, missionId) => editCheck.after(cwd, missionId),
+      afterEdits: (cwd, missionId, onStart) => editCheck.after(cwd, missionId, onStart),
       // 0.439: a commit per turn on the teammate's own branch (turn-checkpoint.ts).
       checkpointTurn: ({ repositoryRoot, teammateId, message }) => createWorktreeManager({ workspacePath: repositoryRoot, note: detail => note('worktree-add', detail) }).checkpoint(teammateId, message),
       /*

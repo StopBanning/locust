@@ -215,7 +215,10 @@ export function CompareView({
    */
   const inCopies = compare.changes === true && compare.changesIn !== 'folder'
   const checkedCommand = columns.find((column) => column.check !== undefined)?.check?.command
+  // A judge asked while a copy's check still runs waits for it (0.811): the button's "Asking…" says why it takes long.
+  const checkRunning = columns.some((column) => column.check?.outcome === 'running')
   const checkNote = !inCopies ? undefined
+    : checkRunning && checkedCommand !== undefined ? `Your check, ${checkedCommand}, is still running in a copy. A judge asked now waits for it to finish, then reads what it said in each copy.`
     : checkedCommand !== undefined ? `Each judge also reads what your check, ${checkedCommand}, said in each copy.`
     : checkCommand === undefined || checkCommand.trim().length === 0 ? 'Set a check command in Settings > Project folder, and each judge also reads whether every copy passes it.'
     : undefined
@@ -896,7 +899,7 @@ function JudgeScorecard({ scorecard, columns, veiled }: {
             <tr>
               <th scope="row">Your check</th>
               {shown.map((column) => (
-                <td key={column.slot} className={`lc-compare__recordnum${column.check === undefined ? '' : column.check.outcome === 'passed' ? ' lc-tone-green' : ' lc-tone-amber'}`}>
+                <td key={column.slot} className={`lc-compare__recordnum${column.check === undefined || column.check.outcome === 'running' ? '' : column.check.outcome === 'passed' ? ' lc-tone-green' : ' lc-tone-amber'}`}>
                   {checkWord(column.check)}
                 </td>
               ))}

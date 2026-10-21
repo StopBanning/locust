@@ -7,7 +7,7 @@ import { benchmarkRows, type BenchmarkAnswer } from './benchmark.js'
 import { CompareBenchmark, ScoreChart, stepWords, type BenchmarkView } from './components/CompareBenchmark.js'
 import { CompareView, checkFailedEverywhere, checkWord } from './components/CompareView.js'
 import type { CompareColumnView } from './components/CompareView.js'
-import type { EditCheckShown } from './components/EditCheckCard.js'
+import { EditCheckCard, runningCheck, type EditCheckShown } from './components/EditCheckCard.js'
 import { shownRouteLabel } from './routeName.js'
 
 /*
@@ -109,6 +109,24 @@ describe('your check, in a comparison that edits', () => {
   })
 })
 
+describe('your check, while it runs (0.811)', () => {
+  it('says so under the turn, with nothing to send yet', () => {
+    const html = renderToStaticMarkup(<EditCheckCard check={runningCheck('npm test')} teammateName="Wren" onSend={() => undefined} />)
+    expect(html).toContain('role="status"')
+    expect(html).toContain('Running the check <code class="lc-mono">npm test</code> after this turn…')
+    expect(html).not.toContain('Send to')
+  })
+
+  it('tells the person a judge asked now waits for it, and reads it as running, in no colour', () => {
+    const columns = [column('a', runningCheck('npm test')), column('b', passed)]
+    expect(render(columns, { checkCommand: 'npm test' })).toContain('Your check, npm test, is still running in a copy. A judge asked now waits for it to finish, then reads what it said in each copy.')
+    expect(checkWord(runningCheck('npm test'))).toBe('running')
+    expect(render(columns, { checkCommand: 'npm test', judged: true })).toContain('<th scope="row">Your check</th><td class="lc-compare__recordnum">running</td><td class="lc-compare__recordnum lc-tone-green">passed</td>')
+    // Still running is no failure, the same or otherwise.
+    expect(checkFailedEverywhere([column('a', runningCheck('npm test')), column('b', runningCheck('npm test'))])).toBe(false)
+  })
+})
+
 describe('your check, in your benchmark', () => {
   const answer = (key: string, extra: Partial<BenchmarkAnswer>): BenchmarkAnswer => ({ key, runtime: 'opencode', model: key, name: key, answered: true, met: 1, of: 1, ...extra })
   const rows = benchmarkRows([
@@ -162,10 +180,27 @@ describe('the benchmark, as Colin\'s screenshot of 10/21 found it', () => {
     expect(html.match(/class="lc-benchmark__leader"/g)?.length).toBe(2)
   })
 
+  it('moves a label that would run into another from the other side, though their points are far apart (0.811)', () => {
+    // The packaged 0.810 benchmark: one at 30s reads to the right, one at 1m 44s to the left, and both at 100 met.
+    const chart = (second: number) => renderToStaticMarkup(<ScoreChart chart={{
+      axis: 'time',
+      because: 'unpriced',
+      points: [
+        { key: 'deepseek', name: 'Deepseek V4.1 Flash Free', score: 100, x: 30_000, free: true },
+        { key: 'nemotron', name: 'Nemotron 3 Ultra Free', score: second, x: 104_000, free: true }
+      ],
+      left: []
+    }} />)
+    expect(chart(100).match(/class="lc-benchmark__leader"/g)?.length).toBe(1)
+    // A line apart already: nothing moves.
+    expect(chart(50).match(/class="lc-benchmark__leader"/g)).toBeNull()
+  })
+
   it('reads a model added under its own id by its name, and leaves a name the person wrote alone', () => {
     expect(shownRouteLabel({ model: 'own-0a1b2c3d/claude-haiku-5-5', label: 'claude-haiku-5-5' })).toBe('Claude Haiku 5.5')
     expect(shownRouteLabel({ model: 'own-0a1b2c3d/claude-sonnet-5-5', label: 'Sonnet at work' })).toBe('Sonnet at work')
-    expect(shownRouteLabel({ model: 'opencode/deepseek-v4.1-flash-free', label: 'opencode/deepseek-v4.1-flash-free' })).toBe('opencode/deepseek-v4.1-flash-free')
+    // A label that is the route's whole id is no name (0.811): the caller spells the model, as the picker does.
+    expect(shownRouteLabel({ model: 'opencode/deepseek-v4.1-flash-free', label: 'opencode/deepseek-v4.1-flash-free' })).toBeUndefined()
     expect(shownRouteLabel({ model: 'gpt-6-sol' })).toBeUndefined()
   })
 })

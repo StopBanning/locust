@@ -57,6 +57,27 @@ describe('the check after an edit', () => {
     expect(await check.afterTurn('mission-b', 20)).toBe('running')
   })
 
+  it('says its command as it starts, before it has run, and only when it runs (0.811)', async () => {
+    const said: string[] = []
+    let finish: ((run: CheckRun) => void) | undefined
+    const check = createEditCheck({ commandFor: async () => 'npm test', run: () => new Promise<CheckRun>((done) => { finish = done }) })
+    const first = check.after('C:/copies/cmp_y-a', 'mission-a', (command) => said.push(command))
+    while (finish === undefined) await new Promise((done) => setTimeout(done, 1))
+    expect(said).toEqual(['npm test'])
+    // A second turn in the same folder while the first is checked runs no check, so it says none started.
+    expect(await check.after('C:/copies/cmp_y-a', 'mission-b', (command) => said.push(`again ${command}`))).toBeUndefined()
+    finish({ exitCode: 0, output: '', timedOut: false })
+    expect(await first).toMatchObject({ outcome: 'passed' })
+    expect(said).toEqual(['npm test'])
+    // No command for the folder: nothing starts and nothing is said.
+    const none = createEditCheck({ commandFor: async () => undefined, run: async () => { throw new Error('must not run') } })
+    await none.after('C:/work', 'mission-c', (command) => said.push(command))
+    expect(said).toEqual(['npm test'])
+    // A window that throws on the word does not stop the check.
+    const loud = createEditCheck({ commandFor: async () => 'npm test', run: async () => ({ exitCode: 0, output: '', timedOut: false }) })
+    expect(await loud.after('C:/work', 'mission-d', () => { throw new Error('window gone') })).toMatchObject({ outcome: 'passed' })
+  })
+
   it('is found by a judge even when no command is set, as no check at all', async () => {
     const check = createEditCheck({ commandFor: async () => undefined, run: async () => { throw new Error('must not run') } })
     void check.after('C:/copies/cmp_x-c', 'mission-c')

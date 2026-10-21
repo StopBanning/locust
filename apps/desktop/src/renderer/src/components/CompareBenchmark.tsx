@@ -185,6 +185,8 @@ const LEFT = 40
 const RIGHT = 20
 const TOP = 16
 const BOTTOM = 44
+/** A label's character at its 12px, a little wide on purpose: a label measured short is one printed over another. */
+const LABEL_CHAR = 6.8
 
 /**
  * SCORE AGAINST COST A TASK (0.763), Optima's chart: up is better, left is cheaper -- or, where too few runs were
@@ -199,15 +201,22 @@ export function ScoreChart({ chart }: { readonly chart: BenchmarkChart }): React
   const yAt = (score: number): number => TOP + (1 - score / 100) * plotHeight
   const cost = chart.axis === 'cost'
   const tick = (value: number): string => (cost ? dollarTick(value) : durationText(value))
-  // Labels beside their points, turned to the left near the right edge, and a line apart when two would touch.
-  const placed: { x: number; y: number }[] = []
+  /*
+   * Labels beside their points, turned to the left near the right edge, and a line apart when two would touch -- by
+   * the width each label's words take, not by how far apart its points are (0.811): two models at 100, one label
+   * running right and the other left, met in the middle and printed over each other (the packaged 0.810 benchmark).
+   */
+  const placed: { left: number; right: number; y: number }[] = []
   const labels = chart.points.map((point) => {
     const x = xAt(point.x)
     let y = yAt(point.score)
     const right = x < LEFT + plotWidth * 0.62
-    while (placed.some((other) => Math.abs(other.y - y) < 14 && Math.abs(other.x - x) < 180)) y += 14
-    placed.push({ x, y })
-    return { point, x, y, right }
+    const text = `${point.name} · ${String(point.score)}${point.free ? ' · free' : ''}`
+    const width = text.length * LABEL_CHAR
+    const reach = right ? { left: x - 6, right: x + 10 + width } : { left: x - 10 - width, right: x + 6 }
+    while (placed.some((other) => Math.abs(other.y - y) < 14 && other.left < reach.right && reach.left < other.right)) y += 14
+    placed.push({ ...reach, y })
+    return { point, x, y, right, text }
   })
   const summary = chart.points.map((point) => `${point.name} ${String(point.score)} at ${point.free ? 'free' : tick(point.x)}`).join('; ')
   // The corner's name gives way to a point's: a free model stands at the left edge, and a strong one at the top.
@@ -228,13 +237,13 @@ export function ScoreChart({ chart }: { readonly chart: BenchmarkChart }): React
         {maxX > 0 && <text className="lc-benchmark__tick" x={xAt(maxX)} y={TOP + plotHeight + 18} textAnchor="middle">{tick(maxX)}</text>}
         {/* The axis's name a line under its ticks: beside them, the far tick ran into it ("34stime a task"). */}
         <text className="lc-benchmark__tick" x={WIDTH - RIGHT} y={HEIGHT - 4} textAnchor="end">{cost ? 'cost a task' : 'time a task'}</text>
-        {labels.map(({ point, x, y, right }) => (
+        {labels.map(({ point, x, y, right, text }) => (
           <g key={point.key}>
             {/* Moved down to clear another label, it is joined to its point: three at 100 read as three loose names. */}
             {y !== yAt(point.score) && <line className="lc-benchmark__leader" x1={right ? x + 8 : x - 8} y1={y} x2={x} y2={yAt(point.score)} />}
             <circle className="lc-benchmark__point" cx={x} cy={yAt(point.score)} r={5} />
             <text className="lc-benchmark__label" x={right ? x + 10 : x - 10} y={y + 4} textAnchor={right ? 'start' : 'end'}>
-              {`${point.name} · ${String(point.score)}${point.free ? ' · free' : ''}`}
+              {text}
             </text>
           </g>
         ))}
