@@ -109,7 +109,14 @@ for (const taskId of opts.tasks) {
   const charge = (record, model) => {
     if (!record || charged.has(record.missionId)) return
     charged.add(record.missionId)
-    meta.charges.push(receipt(record, model).estimatedDollars)
+    const dollars = receipt(record, model).estimatedDollars
+    // NEVER REACHED THE API, SO $0 (2026-10-21). OpenCode's server can die on its own "database is locked" while three
+    // start at once, before it listens: no prompt was ever sent. Read as unknown spend, that stopped the first paid run
+    // after one round. Anything else without usage still stops the run.
+    const failed = [...(record.events ?? [])].reverse().find((event) => event.type === 'run.failed')?.payload
+    const neverListened = record.phase === 'failed' && failed?.process?.recordCount === 0 && /server exited before the turn finished/.test(failed?.process?.stderr ?? '') && /database is locked/.test(failed?.process?.stderr ?? '')
+    if (dollars === null && neverListened) { meta.unsentFailures = (meta.unsentFailures ?? 0) + 1; meta.charges.push(0); return }
+    meta.charges.push(dollars)
   }
   try {
     await drive.ready()
