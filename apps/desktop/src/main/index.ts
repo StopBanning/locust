@@ -469,6 +469,7 @@ import {
   COMPARE_RETRY_CHANNEL,
   COMPARE_JUDGE_CHANNEL,
   COMPARE_RERUN_CHANNEL,
+  COMPARE_RERUN_CHECKED_CHANNEL,
   COMPARE_DRAFT_POINTS_CHANNEL,
   COMPARE_RERUN_STOP_CHANNEL,
   COMPARE_RERUNS_CHANNEL,
@@ -7627,12 +7628,16 @@ if (!ownsSingleInstanceLock) {
     })
     // A run again Locust closed on is over now (0.764): its chip said "waiting" for good.
     void compareReruns.settleLeftover().catch(() => undefined)
-    ipcMain.handle(COMPARE_RERUN_CHANNEL, async (event, compareId: unknown, times: unknown) => {
+    ipcMain.handle(COMPARE_RERUN_CHANNEL, async (event, compareId: unknown, times: unknown, waitForChecks: unknown) => {
       if (!fromOwnWindow(event)) return { ok: false, message: 'The request was rejected.' }
       if (typeof compareId !== 'string' || typeof times !== 'number') return { ok: false, message: 'That comparison cannot be run again.' }
       const noFolder = noWorkspaceRefusal()
       if (noFolder !== undefined) return { ok: false, message: noFolder.error.message }
-      return compareReruns.start(compareId, times)
+      if (waitForChecks !== undefined && typeof waitForChecks !== 'boolean') return { ok: false, message: 'That comparison cannot be run again.' }
+      return compareReruns.start(compareId, times, waitForChecks === true)
+    })
+    ipcMain.handle(COMPARE_RERUN_CHECKED_CHANNEL, async (event, originId: unknown, compareId: unknown) => {
+      return fromOwnWindow(event) && typeof originId === 'string' && typeof compareId === 'string' && compareReruns.checked(originId, compareId)
     })
     ipcMain.handle(COMPARE_RERUN_STOP_CHANNEL, async (event, compareId: unknown) => {
       if (fromOwnWindow(event) && typeof compareId === 'string') compareReruns.stop(compareId)

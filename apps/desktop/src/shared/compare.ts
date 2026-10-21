@@ -136,7 +136,7 @@ export interface RerunProgress {
   readonly run: number
   readonly of: number
   /** Its models are answering, or its judge is reading them. */
-  readonly step: 'answering' | 'judging'
+  readonly step: 'answering' | 'checking' | 'judging'
   /** The run under way. */
   readonly compareId?: string
 }

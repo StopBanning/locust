@@ -90,7 +90,7 @@ describe('a comparison run again', { timeout: 20_000 }, () => {
         calls.push(`tidy:${compare.compareId}`)
       },
       tell: (update) => told.push(update),
-      sleep: async () => undefined,
+      sleep: async () => { await new Promise((done) => setTimeout(done, 1)) },
       pollMs: 1,
       runTimeoutMs: 60_000
     })
@@ -100,6 +100,37 @@ describe('a comparison run again', { timeout: 20_000 }, () => {
     }
     return { compares, origin, reruns, calls, live, told, finished }
   }
+
+  it('holds a measured runs copies before judging, accepts only that run once, and skips automatic retries', async () => {
+    const { origin, reruns, calls, finished } = await setUp({ failFirst: true })
+    expect(reruns.checked(origin.compareId, 'cmp_wrong')).toBe(false)
+    await reruns.start(origin.compareId, 1, true)
+    for (let tries = 0; tries < 2_000 && reruns.progress()[0]?.step !== 'checking'; tries += 1) await new Promise((done) => setTimeout(done, 5))
+    const waiting = reruns.progress()[0]!
+    expect(waiting.step).toBe('checking')
+    expect(calls.some((call) => /^(judge|tidy|retry):/.test(call))).toBe(false)
+    expect(reruns.checked('cmp_wrong', waiting.compareId!)).toBe(false)
+    expect(reruns.checked(origin.compareId, 'cmp_wrong')).toBe(false)
+    expect(reruns.checked(origin.compareId, waiting.compareId!)).toBe(true)
+    expect(reruns.checked(origin.compareId, waiting.compareId!)).toBe(false)
+    await finished()
+    expect(calls.some((call) => call.startsWith('judge:'))).toBe(true)
+    expect(calls.some((call) => call.startsWith('tidy:'))).toBe(true)
+  })
+
+  it('stops a measured run waiting for checks without starting its judge or the next run', async () => {
+    const { origin, reruns, calls, finished } = await setUp()
+    await reruns.start(origin.compareId, 3, true)
+    for (let tries = 0; tries < 2_000 && reruns.progress()[0]?.step !== 'checking'; tries += 1) await new Promise((done) => setTimeout(done, 5))
+    expect(reruns.progress()[0]?.step).toBe('checking')
+    const id = reruns.progress()[0]!.compareId!
+    reruns.stop(origin.compareId)
+    expect(reruns.checked(origin.compareId, id)).toBe(false)
+    await finished()
+    expect(calls.filter((call) => call.startsWith('begin:'))).toHaveLength(1)
+    expect(calls.some((call) => call.startsWith('judge:'))).toBe(false)
+    expect(calls).toContain(`tidy:${id}`)
+  })
 
   it('runs it again as new comparisons of the same models and question, each judged by the same judge on the same points', async () => {
     const { compares, origin, reruns, calls, finished } = await setUp()

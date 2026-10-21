@@ -1315,6 +1315,7 @@ export const COMPARE_JUDGE_CHANNEL = 'compare:judge'
 export const COMPARE_ADD_MODEL_CHANNEL = 'compare:add-model'
 /** Your own benchmark (0.763): a comparison run again, its runs stopped, and where every batch is. */
 export const COMPARE_RERUN_CHANNEL = 'compare:rerun'
+export const COMPARE_RERUN_CHECKED_CHANNEL = 'compare:rerun-checked'
 export const COMPARE_RERUN_STOP_CHANNEL = 'compare:rerun-stop'
 export const COMPARE_RERUNS_CHANNEL = 'compare:reruns'
 /** Draft the points a judge scores (0.766): one short read-only run on the model asked. */
@@ -4073,7 +4074,8 @@ export interface DesktopApi {
   /** Put the comparison's question to one more model (0.523). */
   addCompareModel(request: CompareAddModelRequest): Promise<CompareResponse>
   /** Your own benchmark (0.763): it runs again once or three times more, unattended, each run scored by its judge. */
-  rerunCompare(compareId: string, times: number): Promise<CompareRerunResponse>
+  rerunCompare(compareId: string, times: number, waitForChecks?: boolean): Promise<CompareRerunResponse>
+  checkedCompareRerun(originId: string, compareId: string): Promise<boolean>
   draftJudgePoints(request: CompareAddModelRequest): Promise<CompareDraftPointsResponse>
   stopCompareRerun(compareId: string): Promise<void>
   compareReruns(): Promise<readonly RerunProgress[]>

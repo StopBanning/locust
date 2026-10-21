@@ -150,5 +150,8 @@ describe('your benchmark, in the comparison', () => {
     expect(html).toContain('Run 1 of 3: the models are answering')
     expect(html).toContain('>Stop</button>')
     expect(html).toContain('answering…')
+    const checking = renderToStaticMarkup(<CompareBenchmark view={{ ...base, progress: { originId: 'cmp_1', run: 1, of: 1, step: 'checking', compareId: 'cmp_2' } }} />)
+    expect(checking).toContain('waiting for checks before judging')
+    expect(checking).toContain('>Stop</button>')
   })
 })

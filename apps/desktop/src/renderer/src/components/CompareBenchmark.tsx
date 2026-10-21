@@ -43,7 +43,7 @@ export interface BenchmarkView {
 }
 
 const stepWords = (progress: RerunProgress): string =>
-  `Run ${String(progress.run)} of ${String(progress.of)}: ${progress.step === 'judging' ? 'the judge is reading the answers' : 'the models are answering'}`
+  `Run ${String(progress.run)} of ${String(progress.of)}: ${progress.step === 'checking' ? 'waiting for checks before judging' : progress.step === 'judging' ? 'the judge is reading the answers' : 'the models are answering'}`
 
 const sameStart = (base: string | undefined): string => (base === undefined ? '' : `, from commit ${base.slice(0, 7)}`)
 

@@ -99,7 +99,7 @@ export function BenchmarksScreen({ entries, onOpen }: { readonly entries: readon
                 {entry.progress !== undefined ? (
                   <span className="lc-benchmarks__chip is-running lc-mono" role="status">
                     <WorkingSpark />
-                    {`run ${String(entry.progress.run)} of ${String(entry.progress.of)} · ${entry.progress.step === 'judging' ? 'judging' : 'answering'}`}
+                    {`run ${String(entry.progress.run)} of ${String(entry.progress.of)} · ${entry.progress.step === 'checking' ? 'waiting for checks' : entry.progress.step === 'judging' ? 'judging' : 'answering'}`}
                   </span>
                 ) : leader === undefined ? (
                   <span className="lc-benchmarks__chip lc-mono">not scored yet</span>

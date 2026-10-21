@@ -19,7 +19,9 @@ type RerunStep = RerunProgress['step']
 
 export interface CompareReruns {
   /** Runs it again `times` more (one of RERUN_TIMES); answers at once, while the runs go on. */
-  start(originId: string, times: number): Promise<{ readonly ok: true; readonly compare: PublicCompare } | { readonly ok: false; readonly message: string }>
+  start(originId: string, times: number, waitForChecks?: boolean): Promise<{ readonly ok: true; readonly compare: PublicCompare } | { readonly ok: false; readonly message: string }>
+  /** Release only this measured run to its saved judge, never a new route. */
+  checked(originId: string, compareId: string): boolean
   /** The runs stop: the one under way is stopped where it is, and no more begin. */
   stop(originId: string): void
   progress(): readonly RerunProgress[]
@@ -59,7 +61,8 @@ export function createCompareReruns(options: {
   const runTimeoutMs = options.runTimeoutMs ?? 45 * 60_000
   const now = options.now ?? (() => Date.now())
   const store = options.compares
-  const batches = new Map<string, { progress: RerunProgress; stopped: boolean }>()
+  type Batch = { progress: RerunProgress; stopped: boolean; waitForChecks: boolean; checked: boolean }
+  const batches = new Map<string, Batch>()
 
   const progress = (): readonly RerunProgress[] => [...batches.values()].map((batch) => batch.progress)
   const tell = (compares: readonly PublicCompare[]): void => {
@@ -83,7 +86,7 @@ export function createCompareReruns(options: {
     }
   }
 
-  const runOnce = async (origin: PublicCompare, run: number, times: number, batch: { progress: RerunProgress; stopped: boolean }): Promise<void> => {
+  const runOnce = async (origin: PublicCompare, run: number, times: number, batch: Batch): Promise<void> => {
     const rerun = await store.create({
       ...(origin.teammateId === undefined ? {} : { teammateId: origin.teammateId }),
       prompt: origin.prompt,
@@ -110,7 +113,8 @@ export function createCompareReruns(options: {
        * drive: two OpenCode columns in one folder at once, and one died on OpenCode's own "Failed to execute
        * statement" -- its storage, not the model.
        */
-      if (answered && !batch.stopped) {
+      // A measured run is one attempt, not an unbudgeted retry hiding a failed turn.
+      if (answered && !batch.stopped && !batch.waitForChecks) {
         const failed: PublicCompare['slots'][number]['slot'][] = []
         for (const column of (await current()).slots) {
           const id = column.missionIds.at(-1)
@@ -118,6 +122,13 @@ export function createCompareReruns(options: {
         }
         for (const slot of failed) await options.retry(await current(), slot).catch(() => undefined)
         if (failed.length > 0) answered = await settled(newest, batch, until)
+      }
+      if (answered && !batch.stopped && batch.waitForChecks) {
+        batch.checked = false
+        batch.progress = { ...batch.progress, step: 'checking' }
+        tell([await current()])
+        while (!batch.checked && !batch.stopped && now() <= until) await sleep(pollMs)
+        if (!batch.checked || batch.stopped || now() > until) answered = false
       }
       const judge = origin.judge
       if (answered && !batch.stopped && judge !== undefined) {
@@ -138,14 +149,14 @@ export function createCompareReruns(options: {
   }
 
   return {
-    start: async (originId, times) => {
+    start: async (originId, times, waitForChecks = false) => {
       if (!(RERUN_TIMES as readonly number[]).includes(times)) return { ok: false, message: 'Run it again once, or three times.' }
       const origin = await store.get(originId).catch(() => undefined)
       if (origin === undefined) return { ok: false, message: 'That comparison is no longer here.' }
       const why = rerunRefusalOf(origin)
       if (why !== undefined) return { ok: false, message: why }
       if (batches.has(origin.compareId)) return { ok: false, message: 'It is running again already. Stop it, or wait for it to finish.' }
-      const batch = { progress: { originId: origin.compareId, run: 1, of: times, step: 'answering' as RerunStep }, stopped: false }
+      const batch: Batch = { progress: { originId: origin.compareId, run: 1, of: times, step: 'answering' as RerunStep }, stopped: false, waitForChecks, checked: false }
       batches.set(origin.compareId, batch)
       tell([])
       void (async () => {
@@ -157,6 +168,12 @@ export function createCompareReruns(options: {
         tell([])
       })
       return { ok: true, compare: origin }
+    },
+    checked: (originId, compareId) => {
+      const batch = batches.get(originId)
+      if (batch === undefined || batch.stopped || batch.progress.step !== 'checking' || batch.progress.compareId !== compareId || batch.checked) return false
+      batch.checked = true
+      return true
     },
     stop: (originId) => {
       const batch = batches.get(originId)
