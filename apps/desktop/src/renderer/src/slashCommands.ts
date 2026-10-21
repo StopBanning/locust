@@ -33,6 +33,8 @@ export type SlashAction =
   /** Open the folder's GitHub issues. Choosing one fills the box, and nothing is sent. */
   | { readonly kind: 'issues' }
   | { readonly kind: 'tune' }
+  /** What shapes this teammate's turns (0.811): a card that changes nothing. */
+  | { readonly kind: 'setup' }
 
 export interface SlashCommand {
   /** Typed after the slash, lowercase. */
@@ -75,6 +77,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: 'stop', detail: 'Stop the running mission.', action: { kind: 'stop' } },
   { name: 'issue', detail: 'Start from an open GitHub issue in this folder.', action: { kind: 'issues' } },
   { name: 'tune', detail: 'Try this teammate’s instructions three ways on your last ask, and keep the one that worked best.', action: { kind: 'tune' } },
+  { name: 'setup', detail: 'See what shapes this teammate’s turns: its instructions, files, memory, skills and connectors.', action: { kind: 'setup' } },
   { name: 'auto', detail: 'Runs without asking, and may change anything on this machine.', action: { kind: 'mode', mode: 'auto' }, weighted: true }
 ]
 
@@ -126,6 +129,8 @@ export function availableCommands(input: {
   /** The folder is a GitHub repository gh can read. Otherwise `/issue` is absent. */
   readonly issues?: boolean
   readonly tune?: boolean
+  /** A teammate's conversation is open: `/setup` reads its setup, running or not (0.811). */
+  readonly setup?: boolean
   /** The runtime's own, after Locust's; a name Locust already uses stays Locust's. */
   readonly runtimeCommands?: readonly SlashCommand[]
 }): readonly SlashCommand[] {
@@ -143,6 +148,8 @@ export function availableCommands(input: {
         return input.issues === true
       case 'tune':
         return input.tune === true && !input.running
+      case 'setup':
+        return input.setup === true
       default:
         return true
     }

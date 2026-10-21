@@ -24208,6 +24208,17 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-tunelessons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--lc-space-2); }
 .lc-tunelessons__row { display: flex; align-items: center; justify-content: space-between; gap: var(--lc-space-3); padding: var(--lc-space-2) var(--lc-space-3); border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); min-width: 0; }
 .lc-tunelessons__text { flex: 1 1 0; min-width: 0; color: var(--lc-text-primary); font-size: var(--lc-text-control); line-height: 1.5; overflow-wrap: anywhere; }
+/* A TEAMMATE'S SETUP (0.811): /setup's card -- a label column and a value column, a section a layer. */
+.lc-setup { width: min(620px, calc(100vw - 48px)); }
+.lc-setup__body { display: flex; flex-direction: column; gap: var(--lc-space-5); }
+.lc-setup__section { display: flex; flex-direction: column; gap: var(--lc-space-2); min-width: 0; }
+.lc-setup__title { margin: 0; font-weight: 400; }
+.lc-setup__note { margin: 0; }
+.lc-setup__rows { display: flex; flex-direction: column; margin: 0; border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); }
+.lc-setup__row { display: grid; grid-template-columns: minmax(120px, 34%) minmax(0, 1fr); gap: var(--lc-space-3); padding: var(--lc-space-2) var(--lc-space-3); font-size: var(--lc-text-control); line-height: 1.5; }
+.lc-setup__row + .lc-setup__row { border-top: 1px solid var(--lc-border-hairline); }
+.lc-setup__row dt { color: var(--lc-text-secondary); }
+.lc-setup__row dd { margin: 0; min-width: 0; color: var(--lc-text-primary); overflow-wrap: anywhere; }
 /* A kept skill (0.811): its name, then when it is used, beneath. */
 .lc-tunelessons__when { display: block; color: var(--lc-text-secondary); }
 @media (max-width: 760px) { .lc-tune__columns { grid-template-columns: minmax(0, 1fr); } }

@@ -250,6 +250,8 @@ import { monthOf } from '../shared/spend.js'
 import { createOwnModelStore, OwnModelRefusal, ownModelAddress, ownModelId, testOwnEndpoint } from './own-models.js'
 import { createPriceList, openCodePriceListPath } from './listed-prices.js'
 import { createTeammateSkillStore } from './teammate-skills.js'
+import { gatherTeammateSetup } from './teammate-setup.js'
+import { TEAMMATE_SETUP_CHANNEL } from '../shared/teammate-setup.js'
 import { changelogPaths, entries as changelogEntries, readChangelog, splashEntries } from './changelog.js'
 import type { ChangelogEntry } from './changelog.js'
 import type { CodexMissionService } from './codex-mission.js'
@@ -5311,6 +5313,37 @@ if (!ownsSingleInstanceLock) {
         return { ok: true, data: { skills: await teammateSkills.list() } } as const
       } catch (error) {
         return refuse(error instanceof Error ? error.message : 'That skill could not be saved. The teammate is unchanged.')
+      }
+    })
+    // A TEAMMATE'S SETUP (0.811, teammate-setup.ts): what shapes its turns, read fresh; nothing is written or started.
+    ipcMain.handle(TEAMMATE_SETUP_CHANNEL, async (event, teammateId: unknown, missionId: unknown) => {
+      if (!fromOwnWindow(event) || typeof teammateId !== 'string') return { ok: false, message: 'That request was rejected.' } as const
+      try {
+        const teammate = (await teammates.list()).find((entry) => entry.teammateId === teammateId)
+        if (teammate === undefined) return { ok: false, message: 'That teammate is no longer on the team.' } as const
+        // The open conversation, only when it is this teammate's: its group, and what its last turn loaded.
+        const owned = typeof missionId === 'string' && (await teammates.missionOwners())[missionId] === teammateId ? missionId : undefined
+        const turn = owned === undefined ? undefined : await missionLedger.getMission(owned).catch(() => undefined)
+        const listedGroups = owned === undefined ? undefined : await groups.list().catch(() => undefined)
+        const group = listedGroups === undefined ? undefined : groupBriefFor(await conversationChain.keysBefore(owned), listedGroups)
+        const settings = await teammates.readSettings()
+        return {
+          ok: true,
+          data: await gatherTeammateSetup({
+            teammate,
+            projectPath: workspacePath,
+            ...(group === undefined ? {} : { group: { name: group.name, instructions: group.instructions } }),
+            settings: { ...(settings.aboutYou === undefined ? {} : { aboutYou: settings.aboutYou }), memoryMode: settings.memoryMode, ...(settings.claudeOwnSkills === undefined ? {} : { claudeOwnSkills: settings.claudeOwnSkills }) },
+            memoryCount: async (folder) => (await memories.briefed(workspaceIdFor(folder))).length,
+            ownSkills: async () => (await teammateSkills.list(teammateId)).map((skill) => skill.name),
+            lessons: async () => (await tuneLessons.list(teammateId)).length,
+            libraryFolder: skillLibrary.skillsFolder,
+            homeDirectory: homedir(),
+            ...(turn === undefined ? {} : { lastTurn: turn.events })
+          })
+        } as const
+      } catch {
+        return { ok: false, message: 'This teammate’s setup could not be read. Nothing was changed.' } as const
       }
     })
     ipcMain.handle(TEAMMATE_SKILL_REMOVE_CHANNEL, async (event, teammateId: unknown, name: unknown) => {

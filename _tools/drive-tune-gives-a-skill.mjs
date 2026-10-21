@@ -100,7 +100,13 @@ try {
   const draftPrompt = (await missions()).filter((m) => m.startedBy?.kind === 'side').map((m) => m.prompt).find((prompt) => prompt.includes('Suggest two short alternatives'))
   check('the draft side turn asked a Claude Code teammate for "What it knows" as a skill', draftPrompt?.includes('This teammate runs on Claude Code') === true && draftPrompt.includes('"knows":{"skill":{"name":'), draftPrompt?.slice(-900))
   const drafted = await cardState()
-  if (drafted.skill === undefined) say('[NOTE] Haiku drafted no skill for What it knows (instructions, or the fallback); the card is switched to a skill by hand, as a person may.')
+  if (drafted.skill === undefined) {
+    say('[NOTE] Haiku drafted no skill for What it knows (instructions, or the fallback); the card is switched to a skill by hand, as a person may.')
+    // What it wrote, so a reply Locust could not read says why.
+    const side = (await missions()).find((m) => m.startedBy?.kind === 'side' && m.prompt.includes('Suggest two short alternatives'))
+    const reply = side === undefined ? '' : (await answerOf(side.missionId)).match(/"text":"(?:[^"\\]|\\.)*"/g)?.at(-1) ?? ''
+    say(`[NOTE] The draft reply, last text: ${reply.slice(0, 1200)}`)
+  }
   else {
     say(`[NOTE] Haiku drafted a skill: ${JSON.stringify(drafted.skill)}`)
     check('a drafted skill reads whole, so Run all three is open', drafted.runEnabled, drafted.skill)
@@ -203,6 +209,36 @@ try {
   say(`[NOTE] The next turn ${/"name":"Skill"/.test(nextRecord) && nextRecord.includes('evidence-first') ? 'called' : 'did not call'} the skill, and ${nextRecord.includes('Checked: evidence first.') ? 'carries' : 'does not carry'} its line.`)
   // A new turn draws the strip afresh: a skill used from this tune is not offered again.
   check('once used, the kept strip offers the skill no more', !String(await strip()).includes('Use this skill for Ada'), String(await strip()))
+  /*
+   * A TEAMMATE'S SETUP (0.811): /setup in Ada's conversation -- what shapes her turns, read fresh, and what this
+   * conversation's last turn loaded, as Claude Code said when it started. It changes nothing.
+   */
+  await drive.evaluate(`(() => {
+    const field = document.querySelector('form.command-dock textarea')
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, '/setup')
+    field.dispatchEvent(new Event('input', { bubbles: true }))
+  })()`)
+  await drive.waitFor(`[...document.querySelectorAll('.lc-slash__item')].some((item) => item.textContent.includes('/setup'))`, { what: '/setup in the slash menu' })
+  await drive.evaluate(`[...document.querySelectorAll('.lc-slash__item')].find((item) => item.textContent.includes('/setup')).click()`)
+  await drive.waitFor(`(document.querySelector('.lc-setup')?.innerText ?? '').includes('ITS LAST TURN HERE')`, { timeoutMs: 30_000, what: 'Ada’s setup, read' })
+  const setupText = String(await drive.evaluate(`document.querySelector('.lc-setup').innerText`))
+  check('/setup says the model, then every layer, with her kept skill and what her last turn loaded', ['Claude Code / Haiku', 'EVERY TURN', 'Its instructions', `${String(baseline.length)} characters`, 'WHEN THE WORK MATCHES', skill.name, 'ONLY WHEN YOU TUNE IT', 'ITS LAST TURN HERE', `${String(after)} skills`].every((part) => setupText.includes(part)), setupText)
+  check('/setup changed nothing', (await kept()).length === 1)
+  for (const theme of ['dark', 'light']) {
+    await drive.evaluate(`window.desktop.setTheme(${JSON.stringify(theme)})`)
+    for (const [width, height] of SIZES) {
+      await drive.resize(width, height); await sleep(300)
+      const fits = await drive.evaluate(`(() => { const box = document.querySelector('.lc-setup').getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight + 1 && box.left >= 0 && box.right <= innerWidth + 1 })()`)
+      check(`${theme} ${width}: the setup card fits the window`, fits === true)
+      await drive.capture(`${theme} setup ${width} by ${height}`, () => drive.evaluate(`document.querySelector('.lc-setup').innerText`))
+    }
+  }
+  await drive.resize(1440, 900)
+  await press('.lc-setup', 'Edit teammate')
+  await drive.waitFor(`!document.querySelector('.lc-setup') && Boolean(document.querySelector('.lc-dialog'))`, { what: 'Edit teammate from /setup' })
+  check('Edit teammate opens from /setup', String(await drive.evaluate(`document.querySelector('.lc-dialog')?.innerText ?? ''`)).includes('Edit teammate'))
+  await drive.evaluate(`document.querySelector('.lc-dialog__close').click()`)
+  await drive.waitFor(`!document.querySelector('.lc-dialog')`, { what: 'Edit teammate closed' })
   await drive.capture('the next turn, with the skill kept', () => drive.evaluate(`document.querySelector('.lc-thread')?.innerText.slice(-1200) ?? ''`))
   await drive.evaluate(`(() => {
     const face = [...document.querySelectorAll('.lc-faces__one')].find((el) => (el.getAttribute('aria-label') ?? '').startsWith('Ada — '))

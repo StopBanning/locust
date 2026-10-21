@@ -175,6 +175,8 @@ import { BesideConversation } from './components/BesideConversation.js'
 import { SideChat } from './components/SideChat.js'
 import { TuneTeammate, tuneSkillReady, type TuneCard } from './components/TuneTeammate.js'
 import { KeptInstructions } from './components/KeptInstructions.js'
+import { TeammateSetup } from './components/TeammateSetup.js'
+import type { TeammateSetup as SetupFacts } from '../../shared/teammate-setup.js'
 import { currentDrafts, parseTuneDrafts, tuneRefusal, tuneRoutes, TUNE_SKILL_INCOMPLETE, type PublicTeammateSkill, type PublicTuneLesson } from '../../shared/tune.js'
 import { assistantMessages } from './missionView.js'
 import { CloudTasks } from './components/CloudTasks.js'
@@ -2064,6 +2066,8 @@ export default function App(): ReactElement {
    */
   const [sideChat, setSideChat] = useState<{ readonly of: string; readonly runIds: readonly string[]; readonly model: string }>()
   const [tuning, setTuning] = useState<TuneCard>()
+  /** `/setup` (0.811): whose setup is on screen, and what the host read of it. */
+  const [setupCard, setSetupCard] = useState<{ readonly teammateId: string; readonly setup?: SetupFacts; readonly problem?: string }>()
   const tuneGeneration = useRef(0)
   useEffect(() => {
     if (tuning?.draftRunId === undefined || !tuning.drafting) return
@@ -4692,6 +4696,19 @@ export default function App(): ReactElement {
     }).catch(() => setTuning((card) => card?.id !== id ? card : { ...card, drafting: false, drafts: currentDrafts(card.current) }))
     return undefined
   }
+  /** `/setup` in a teammate's conversation (0.811): read fresh each time it opens; nothing is written. */
+  const openSetup = (): string | undefined => {
+    const bridge = window.desktop
+    const teammate = liveRun === undefined ? undefined : teammates.find((mate) => mate.teammateId === ownerOf(liveRun))
+    if (bridge === undefined) return 'Locust is not ready. Nothing was opened.'
+    if (teammate === undefined) return 'Open a teammate’s conversation to see its setup.'
+    const of = liveRun?.data?.missionId
+    setSetupCard({ teammateId: teammate.teammateId })
+    void bridge.readTeammateSetup(teammate.teammateId, of).then((answer) => {
+      setSetupCard((card) => card?.teammateId !== teammate.teammateId ? card : answer.ok ? { teammateId: teammate.teammateId, setup: answer.data } : { teammateId: teammate.teammateId, problem: answer.message })
+    }).catch(() => setSetupCard((card) => card?.teammateId !== teammate.teammateId ? card : { teammateId: teammate.teammateId, problem: 'This teammate’s setup could not be read. Nothing was changed.' }))
+    return undefined
+  }
   const closeTune = (): void => {
     if (tuning?.starting) return
     tuneGeneration.current += 1
@@ -4781,6 +4798,7 @@ export default function App(): ReactElement {
 
   const sendOrCompare = async (prompt: string, sendOptions?: { readonly leaveOut?: readonly string[]; readonly referenceIds?: readonly string[] }): Promise<boolean | string> => {
     if (prompt.trim().toLowerCase() === '/tune') return openTune() ?? true
+    if (prompt.trim().toLowerCase() === '/setup') return openSetup() ?? true
     const bridge = window.desktop
     // Background (W10): Claude Code's own session takes the turn; the panel follows it.
     if (backgroundOn && comparing === undefined && composerRoute.runtime === 'claude') {
@@ -10235,6 +10253,8 @@ export default function App(): ReactElement {
             onPickIssue={openIssueList}
             canTune={tuneRefusal(missionOwner, liveRun?.data?.missionId, liveRun !== undefined && isTerminal(liveRun.phase) && comparing === undefined) === undefined}
             onTune={() => { openTune() }}
+            canSetup={missionOwner !== undefined}
+            onSetup={() => { openSetup() }}
             {...(issuePicker === undefined ? {} : { issueList: { issues: issuePicker, onChoose: chooseIssue, onClose: () => setIssuePicker(undefined), ...(issueEmpty === undefined ? {} : { empty: issueEmpty }) } })}
             // Talk in a teammate's conversation is a call with them, into it (0.746).
             // With the call drawn in this conversation, a connector's question is a card in it (0.749).
@@ -10976,6 +10996,15 @@ export default function App(): ReactElement {
           }}
         />
       )}
+      {setupCard !== undefined && (() => {
+        const teammate = teammates.find((mate) => mate.teammateId === setupCard.teammateId)
+        if (teammate === undefined) return null
+        const own = teammate.route
+        const runtime = (own?.runtime ?? composerRoute.runtime) as MissionRuntimeId
+        const model = `${runtimeDisplayName(runtime)} / ${routeModelName(runtime, own?.model ?? composerRoute.model)}${own?.mode === undefined ? '' : ` · ${modeFacts(own.mode).name}`}${own === undefined ? ' — the chat box’s, as it has none of its own' : ''}`
+        return <TeammateSetup name={teammate.name} runtime={runtimeDisplayName(runtime)} model={model} setup={setupCard.setup} problem={setupCard.problem}
+          onClose={() => setSetupCard(undefined)} onEdit={() => { setSetupCard(undefined); setEditingTeammate(teammate) }} />
+      })()}
       {tuning !== undefined && <TuneTeammate card={tuning} onChange={(edit) => setTuning((current) => current?.id !== tuning.id ? current : edit(current))} onCancel={closeTune} onRun={() => void runTune()} />}
       {newTeammateOpen && (
         <NewTeammateDialog

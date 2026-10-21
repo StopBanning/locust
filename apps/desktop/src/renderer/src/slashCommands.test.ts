@@ -110,7 +110,7 @@ describe("a runtime's own commands (0.426)", () => {
   it("sit under the runtime, after Locust's own, with what goes after them", () => {
     const offered = availableCommands({ modes: ALL_MODES, running: false, canSwarm: true, runtimeCommands: claude })
     const names = offered.map((command) => command.name)
-    expect(names.slice(0, names.indexOf('auto') + 1)).toEqual(SLASH_COMMANDS.filter((c) => c.name !== 'stop' && c.action.kind !== 'issues' && c.action.kind !== 'tune').map((c) => c.name))
+    expect(names.slice(0, names.indexOf('auto') + 1)).toEqual(SLASH_COMMANDS.filter((c) => c.name !== 'stop' && c.action.kind !== 'issues' && c.action.kind !== 'tune' && c.action.kind !== 'setup').map((c) => c.name))
     expect(names.slice(names.indexOf('auto') + 1)).toEqual(['compact', 'security-review', 'plugin:skill'])
     const compact = offered.find((command) => command.name === 'compact')
     expect(compact).toMatchObject({ group: 'Claude Code', hint: '<optional custom summarization instructions>', action: { kind: 'runtime' } })
@@ -133,5 +133,17 @@ describe("a runtime's own commands (0.426)", () => {
     expect(matchingCommands('security-r', offered).map((command) => command.name)).toEqual(['security-review'])
     expect(matchingCommands('plugin:', offered).map((command) => command.name)).toEqual(['plugin:skill'])
     expect(matchingCommands('co', offered).map((command) => command.name)).toEqual(['compact'])
+  })
+})
+
+// A TEAMMATE'S SETUP (0.811): reading changes nothing, so /setup is there while a run goes too.
+describe('/setup', () => {
+  const names = (setupOpen: boolean, running: boolean): readonly string[] =>
+    availableCommands({ modes: ['ask'], running, canSwarm: false, setup: setupOpen }).map((command) => command.name)
+
+  it('is offered in a teammate’s conversation, while it runs too, and not elsewhere', () => {
+    expect(names(true, false)).toContain('setup')
+    expect(names(true, true)).toContain('setup')
+    expect(names(false, false)).not.toContain('setup')
   })
 })

@@ -3938,6 +3938,8 @@ export interface DesktopApi {
   /** Use a kept tune's skill for its teammate: `kept` is the kept setup's, `other` the one a setup not kept added. */
   useTuneSkill(compareId: string, which: 'kept' | 'other'): Promise<import('./tune.js').TeammateSkillListResponse>
   removeTeammateSkill(teammateId: string, name: string): Promise<import('./tune.js').TeammateSkillListResponse>
+  /** What shapes a teammate's turns (0.811); `missionId`, its open conversation's latest turn, when it is the teammate's. */
+  readTeammateSetup(teammateId: string, missionId?: string): Promise<import('./teammate-setup.js').TeammateSetupResponse>
   switchFolder(id: string): Promise<FolderSwitchResponse>
   /** Cloud tasks (0.503): this folder's standing, start, follow, show, apply. */
   cloudWhere(): Promise<PublicCloudWhere>

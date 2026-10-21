@@ -15,6 +15,7 @@ import {
   type TuneLessonNoteResponse,
   type TuneMeasured
 } from '../shared/tune.js'
+import { TEAMMATE_SETUP_CHANNEL, type TeammateSetupResponse } from '../shared/teammate-setup.js'
 import { TERMINAL_SHELLS, TERMINAL_CREATE, TERMINAL_INPUT, TERMINAL_RESIZE, TERMINAL_CLOSE, TERMINAL_EVENT, TERMINAL_LINK, TERMINAL_COPY, type TerminalApi } from '../shared/terminal.js'
 import { OWN_COMMAND_ALLOW, OWN_COMMAND_DONE, OWN_COMMAND_EXPAND, OWN_COMMAND_LIST, OWN_COMMAND_OPEN, OWN_COMMAND_RUN, OWN_COMMAND_STOP, type OwnCommandResult, type OwnCommandsApi } from '../shared/own-commands.js'
 import {
@@ -843,6 +844,7 @@ const desktopApi: DesktopApi = {
   listTeammateSkills: () => ipcRenderer.invoke(TEAMMATE_SKILL_LIST_CHANNEL) as Promise<TeammateSkillListResponse>,
   useTuneSkill: (compareId: string, which: 'kept' | 'other') => ipcRenderer.invoke(TEAMMATE_SKILL_USE_CHANNEL, compareId, which) as Promise<TeammateSkillListResponse>,
   removeTeammateSkill: (teammateId: string, name: string) => ipcRenderer.invoke(TEAMMATE_SKILL_REMOVE_CHANNEL, teammateId, name) as Promise<TeammateSkillListResponse>,
+  readTeammateSetup: (teammateId: string, missionId?: string) => ipcRenderer.invoke(TEAMMATE_SETUP_CHANNEL, teammateId, missionId) as Promise<TeammateSetupResponse>,
   switchFolder: (id: string) => ipcRenderer.invoke(FOLDER_SWITCH_CHANNEL, id) as Promise<FolderSwitchResponse>,
   cloudWhere: () => ipcRenderer.invoke(CLOUD_WHERE_CHANNEL) as Promise<PublicCloudWhere>,
   startCloudTask: (prompt: string, teammateId?: string) => ipcRenderer.invoke(CLOUD_START_CHANNEL, prompt, teammateId) as Promise<CloudStartResponse>,
