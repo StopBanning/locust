@@ -92,6 +92,14 @@ export interface OpenCodeServeRunOptions {
 }
 
 const LISTENING = /listening on (http:\/\/127\.0\.0\.1:\d+)/;
+/*
+ * A server that dies before it listens, its last words "database is locked", lost a race for its storage with another
+ * OpenCode starting on this computer (0.810: a panel of three judges started three servers at once, and one died so).
+ * Nothing had been sent to it, so it starts again: later each time, at a jittered moment, at most three times.
+ */
+const STORAGE_BUSY = /database is locked|SQLITE_BUSY/i;
+const STORAGE_RESTARTS = 3;
+const EXITED = "OpenCode's server exited before the turn finished.";
 
 type JsonObject = Record<string, unknown>;
 const isObject = (value: unknown): value is JsonObject => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -233,7 +241,7 @@ export function startOpenCodeServeRun(options: OpenCodeServeRunOptions): Runtime
     for (const id of parts.keys()) sendPartial(id, true);
   };
 
-  const child = options.spawn(
+  const spawnServer = (): AppServerRunProcess => options.spawn(
     options.command.executablePath,
     options.command.args,
     {
@@ -242,6 +250,7 @@ export function startOpenCodeServeRun(options: OpenCodeServeRunOptions): Runtime
     },
     options.command.cwd,
   );
+  let child = spawnServer();
 
   const finish = (): void => {
     if (settled) return;
@@ -250,6 +259,7 @@ export function startOpenCodeServeRun(options: OpenCodeServeRunOptions): Runtime
     if (checkTimeout !== undefined) clearTimeout(checkTimeout);
     if (streamCloseTimeout !== undefined) clearTimeout(streamCloseTimeout);
     if (stopTimeout !== undefined) clearTimeout(stopTimeout);
+    if (restartTimer !== undefined) clearTimeout(restartTimer);
     events.abort();
     records.end();
     try {
@@ -337,6 +347,7 @@ export function startOpenCodeServeRun(options: OpenCodeServeRunOptions): Runtime
   let streamClosed = false;
   let streamCloseTimeout: ReturnType<typeof setTimeout> | undefined;
   let stopTimeout: ReturnType<typeof setTimeout> | undefined;
+  let restartTimer: ReturnType<typeof setTimeout> | undefined;
   let checking = false;
   let busy = false;
   const closedReason = "OpenCode's event stream closed before the turn finished.";
@@ -617,20 +628,60 @@ export function startOpenCodeServeRun(options: OpenCodeServeRunOptions): Runtime
   };
 
   let stdout = "";
+  let restarts = 0;
   const startup = setTimeout(() => lose("OpenCode's server did not say where it was listening."), options.startupTimeoutMs ?? 30_000);
-  child.onData((chunk) => {
-    if (base !== undefined) return;
-    stdout = `${stdout}${chunk}`.slice(-4_000);
-    const found = LISTENING.exec(stdout);
-    if (found === null) return;
-    clearTimeout(startup);
-    base = found[1];
-    void begin().catch((error: unknown) => lose(error instanceof Error ? error.message : "OpenCode's server could not be reached."));
-  });
-  child.onExit(() => {
-    clearTimeout(startup);
-    lose("OpenCode's server exited before the turn finished.");
-  });
+  const restart = (): void => {
+    restarts += 1;
+    restartTimer = setTimeout(() => {
+      restartTimer = undefined;
+      if (settled) return;
+      stdout = "";
+      try {
+        child = spawnServer();
+      } catch (error) {
+        lose(error instanceof Error ? error.message : "OpenCode's server could not be started again.");
+        return;
+      }
+      attach(child);
+    }, 400 * 2 ** (restarts - 1) + Math.floor(Math.random() * 400));
+  };
+  const attach = (server: AppServerRunProcess): void => {
+    server.onData((chunk) => {
+      if (server !== child || base !== undefined) return;
+      stdout = `${stdout}${chunk}`.slice(-4_000);
+      const found = LISTENING.exec(stdout);
+      if (found === null) return;
+      clearTimeout(startup);
+      base = found[1];
+      void begin().catch((error: unknown) => lose(error instanceof Error ? error.message : "OpenCode's server could not be reached."));
+    });
+    server.onExit(() => {
+      if (server !== child) return;
+      const busyStorage = (): boolean => STORAGE_BUSY.test(server.stderrTail?.() ?? "");
+      const mayRestart = base === undefined && !settled && restarts < STORAGE_RESTARTS;
+      if (mayRestart && busyStorage()) {
+        restart();
+        return;
+      }
+      if (!mayRestart) {
+        clearTimeout(startup);
+        lose(EXITED);
+        return;
+      }
+      // Its last words can trail the exit by a moment, so they are read once more before it counts as a plain failure.
+      restartTimer = setTimeout(() => {
+        restartTimer = undefined;
+        if (settled) return;
+        if (busyStorage()) {
+          restart();
+          return;
+        }
+        clearTimeout(startup);
+        lose(EXITED);
+      }, 100);
+    });
+  };
+  attach(child);
 
   const stop = (): void => {
     if (settled) return;
