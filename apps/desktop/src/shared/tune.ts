@@ -48,6 +48,21 @@ export function keptInstructions(compare: PublicCompare, teammate: PublicTeammat
   return instructions === undefined || instructions === (teammate.instructions ?? '') ? undefined : instructions
 }
 
+/**
+ * A SETUP THAT REPEATS ONE BEFORE IT (0.809). An angle may keep the instructions as they are, and drafts that could
+ * not be written start as copies of Current, so two columns can run the same words. That stays allowed -- after
+ * Harness², the same setup run twice shows how much one run changes by chance -- but the card says so before the
+ * runs start, since each run counts against a paid plan. Each draft names the first setup it matches; `distinct`
+ * counts the different setups among the three.
+ */
+export function repeatsOf(current: string, drafts: TuneDrafts): { readonly how?: string; readonly knows?: string; readonly distinct: number } {
+  const setups = [['Current', current.trim()], ['How it works', drafts.how.instructions.trim()], ['What it knows', drafts.knows.instructions.trim()]] as const
+  const earlier = (index: number): string | undefined => setups.slice(0, index).find(([, words]) => words === setups[index]![1])?.[0]
+  const how = earlier(1)
+  const knows = earlier(2)
+  return { ...(how === undefined ? {} : { how }), ...(knows === undefined ? {} : { knows }), distinct: new Set(setups.map(([, words]) => words)).size }
+}
+
 /** Each trial keeps the same route. Identical copies remain valid when an angle recommends no change. */
 export function tuneRoutes<R extends CompareRoute>(route: R, current: string, drafts: TuneDrafts): readonly (Omit<R, 'label'> & { readonly label: string; readonly instructions: string })[] {
   const angles = ['Current', 'How it works', 'What it knows']

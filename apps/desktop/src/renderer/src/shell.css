@@ -24160,6 +24160,10 @@ textarea.lc-compare__judgecriteria {
 .lc-tune__why { min-height: 3em; overflow-wrap: anywhere; }
 .lc-tune__instructions { min-height: 180px; resize: vertical; line-height: 1.5; }
 .lc-tune__cost { margin: 0; font-size: var(--lc-text-control); line-height: 1.5; color: var(--lc-text-secondary); }
+/* The counter row also says when a draft repeats an earlier setup (0.809): one row, so the three columns stay aligned. */
+.lc-tune__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--lc-space-1) var(--lc-space-3); min-width: 0; }
+.lc-tune__foot > .lc-dialog__note { margin: 0; }
+.lc-tune__same { color: var(--lc-text-primary); }
 .lc-tuneoffer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-2) var(--lc-space-3); padding: var(--lc-space-3) var(--lc-space-6); flex-shrink: 0; border-bottom: 1px solid var(--lc-border-hairline); color: var(--lc-text-secondary); font-size: var(--lc-text-control); }
 .lc-tuneoffer__say { flex: 1 1 320px; min-width: 0; }
 .lc-tuneoffer__actions { display: flex; gap: var(--lc-space-2); flex-shrink: 0; }

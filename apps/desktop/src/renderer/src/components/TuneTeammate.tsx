@@ -1,7 +1,7 @@
 import { useRef, type ReactElement } from 'react'
 import { MAX_TEAMMATE_INSTRUCTIONS } from '../../../shared/ipc.js'
 import type { TeammateRoute } from '../../../shared/ipc.js'
-import { TUNE_DRAFT_COST, type TuneDrafts } from '../../../shared/tune.js'
+import { repeatsOf, TUNE_DRAFT_COST, type TuneDrafts } from '../../../shared/tune.js'
 import { useModal } from '../useModal.js'
 
 export interface TuneCard {
@@ -29,6 +29,8 @@ export function TuneTeammate({ card, onChange, onRun, onCancel }: {
 }): ReactElement {
   const box = useRef<HTMLDivElement>(null)
   useModal(box, onCancel)
+  // While the drafts are being written they are placeholders, so nothing repeats yet.
+  const repeats: ReturnType<typeof repeatsOf> = card.drafting ? { distinct: 3 } : repeatsOf(card.current, card.drafts)
   return (
     <div className="lc-scrim">
       <div ref={box} className="lc-dialog lc-tune" role="dialog" aria-modal="true" aria-label={`Tune ${card.name}`}>
@@ -53,11 +55,17 @@ export function TuneTeammate({ card, onChange, onRun, onCancel }: {
                 <textarea className="lc-input lc-tune__instructions" aria-label={`${title} instructions`} rows={8} maxLength={MAX_TEAMMATE_INSTRUCTIONS}
                   value={text} disabled={card.starting || (key !== 'current' && card.drafting)}
                   onChange={(event) => { const text = event.target.value; onChange((current) => key === 'current' ? { ...current, current: text } : { ...current, drafts: { ...current.drafts, [key]: { ...current.drafts[key], instructions: text } } }) }} />
-                <span className="lc-dialog__note lc-mono">{text.length} / {MAX_TEAMMATE_INSTRUCTIONS}</span>
+                <span className="lc-tune__foot">
+                  <span className="lc-dialog__note lc-mono">{text.length} / {MAX_TEAMMATE_INSTRUCTIONS}</span>
+                  {key !== 'current' && repeats[key] !== undefined && <span className="lc-dialog__note lc-tune__same">Same as {repeats[key]}</span>}
+                </span>
               </label>
             })}
           </div>
           <p className="lc-tune__cost">Three runs of {card.model}{card.free ? ' — free.' : ' — counts against your plan three times.'} Each works in its own copy where Compare supports one; you choose what to keep.</p>
+          {repeats.distinct < 3 && <p className="lc-tune__cost">{repeats.distinct === 1
+            ? 'All three setups are the same, so the runs only show how much one run changes by chance. Edit a draft to try something different.'
+            : 'Two of the three setups are the same, so those two runs also show how much one run changes by chance.'}</p>}
           {card.problem !== undefined && <p className="lc-dialog__error" role="alert">{card.problem}</p>}
         </div>
         <div className="lc-dialog__foot">
