@@ -177,6 +177,45 @@ continue; report exact validation results, and say what was not run.
 
 ## Handoff log
 
+### 2026-10-21 — OpenCode 2 desktop ACP routing
+
+- Scope: `feat/opencode-2-desktop-wiring`, based on upstream `602606e`
+  (0.808.0). No dependency, version, changelog, release or credential changes.
+- OpenCode 2 discovery checks its ACP help before any V1 probe. The desktop
+  selects the existing ACP profile for exact major 2; OpenCode 1 keeps its
+  serve/run routes and original guard. Future majors stay unsupported.
+  V1 setup warmup and command-list probes are skipped for V2, clearing stale
+  command suggestions instead of starting a server that V2 no longer has.
+- The model picker opens a bounded, prompt-free ACP session in an empty
+  folder and reads its advertised model options, including grouped/free rows.
+  It never substitutes V1 hints for a failed V2 list or assigns one model's
+  effort options to another. An explicitly saved effort is validated after
+  selecting the model using the updated session advertisement.
+- Each V2 turn selects a host-owned `locust` mode with native permission
+  rules. Approve each uses the existing cards and only sends allow-once;
+  unattended modes preserve the existing allow/refuse policy. The separate
+  V2 guard is a directory plugin using native tool and shell hooks.
+- Ask/Plan disable project configuration and Claude compatibility roots and
+  use an empty host-owned config directory, keeping credentials in OpenCode's
+  own data store. Per-run plugin policy allows the exact guard directory.
+  System/organization and well-known policies remain OpenCode's authority;
+  this is native permission enforcement, not an OS sandbox. A model configured
+  only in the excluded personal/project config may therefore be unavailable
+  in Ask/Plan; a requested model is refused rather than silently replaced.
+- Owned V2 sessions continue over ACP. A protocol change or imported session
+  is briefed into a fresh session to avoid inheriting outside permissions.
+  A side question also uses a freshly briefed session, never the parent's.
+  The cloud route remains V1-only and a V2 cloud start is refused before work.
+- Validation: focused discovery, catalog, permission, route, cancellation and
+  guard tests; dedicated mutation controls; a real OpenCode 2.1.1 prompt-free
+  handshake in an isolated home (including registered guard hooks and excluded
+  repository/personal plugin fixtures). Final full-gate results and logs are
+  recorded in the desktop wiring handoff outside the source checkout.
+- Not claimed: a live/paid provider turn, packaged UI drive, older V2 binary
+  execution, macOS/Linux execution or V2 cloud support. No message to the owner
+  or pull request is part of this task; the requested feature branch is pushed
+  after the local gate passes.
+
 ### 2026-10-19 — point at a part of the browser page
 
 - Scope: `exec/page-point`, based on `18702215`. The incoming `docs/HANDOFF-page-point.md` and the drive captures in

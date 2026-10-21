@@ -1,10 +1,11 @@
-import { createAppServerClient, MUSE_EFFORTS, usageWindowFromSnapshot } from '@teammate/runtime-adapters'
+import { createAppServerClient, MUSE_EFFORTS, openCodeUsesAcp, usageWindowFromSnapshot } from '@teammate/runtime-adapters'
 import type { ClaudeListedModel, MissionRuntimeId, RuntimeDiscovery } from '@teammate/runtime-adapters'
 
 import type { PublicModel, ModelCatalogResponse } from '../shared/ipc.js'
 import { CLAUDE_ALIAS_DEFAULTS, CLAUDE_OLDER_MODELS, claudeModelName } from '../shared/claude-models.js'
 import type { AppServerRunProcess as AppServerProcess } from '@teammate/runtime-adapters'
 import { antigravityUsageText, readAntigravityUsage } from './antigravity-usage.js'
+import { readOpenCodeAcpModels } from './opencode-acp-models.js'
 
 /**
  * The model catalog.
@@ -36,7 +37,9 @@ const ACCOUNT_DEFAULT_MODEL = 'account-default'
 
 export interface ModelCatalogOptions {
   readonly discover: () => Promise<readonly RuntimeDiscovery[]>
-  readonly spawn: (executablePath: string, args: readonly string[], env?: Readonly<Record<string, string>>) => AppServerProcess
+  readonly spawn: (executablePath: string, args: readonly string[], env?: Readonly<Record<string, string>>, cwd?: string) => AppServerProcess
+  /** A new empty temporary directory, only for OpenCode 2's no-prompt catalog session. */
+  readonly opencodeScratch?: () => Promise<string>
   readonly now?: () => number
   /** The models Claude Code's own handshake listed this session, when it has (0.697). */
   readonly claudeListed?: () => readonly ClaudeListedModel[] | undefined
@@ -460,6 +463,7 @@ export function cursorChoiceFor(
  */
 export function opencodeModelsFrom(runtimes: readonly RuntimeDiscovery[]): readonly PublicModel[] {
   const opencode = runtimes.find((entry) => entry.id === 'opencode')
+  if (openCodeUsesAcp(opencode?.version)) return []
   const listed = opencode?.modelHints?.models
   if (opencode?.readiness !== 'ready' || listed === undefined) return []
   return listed.map((model) => {
@@ -582,6 +586,12 @@ export function createModelCatalog(options: ModelCatalogOptions): ModelCatalog {
   const probe = async (): Promise<ModelCatalogResponse> => {
     const runtimes = await options.discover()
     missingAList = listsItsModelsButListedNone(runtimes)
+    const opencode = runtimes.find((entry) => entry.id === 'opencode')
+    // Start independently of Codex's own model read. A slow ACP handshake
+    // must not put another twenty-second probe behind it.
+    const opencodeAsked = openCodeUsesAcp(opencode?.version) && opencode?.readiness === 'ready'
+      ? readOpenCodeAcpModels(opencode, { spawn: options.spawn, ...(options.opencodeScratch === undefined ? {} : { scratch: options.opencodeScratch }) })
+      : Promise.resolve([])
     // Each runtime's models come from its own source and fail on their own:
     // Claude's and Cursor's from what their CLIs advertised at discovery,
     // Codex's from a live server read.
@@ -606,9 +616,20 @@ export function createModelCatalog(options: ModelCatalogOptions): ModelCatalog {
       : Promise.resolve()
     // Independent of Codex: a missing server or an older method loses no other reading.
     const withUsage = async (response: ModelCatalogResponse): Promise<ModelCatalogResponse> => {
+      const opencodeAcpModels = await opencodeAsked
+      if (openCodeUsesAcp(opencode?.version) && opencode?.readiness === 'ready') {
+        missingAList = listsItsModelsButListedNone(runtimes.filter((entry) => entry.id !== 'opencode')) || opencodeAcpModels.length === 0
+      }
+      const combined: ModelCatalogResponse = opencodeAcpModels.length === 0 ? response : {
+        ok: true,
+        data: {
+          ...(response.ok ? response.data : {}),
+          models: withAccountDefaults([...(response.ok ? response.data.models : []), ...opencodeAcpModels])
+        }
+      }
       await Promise.race([usage, new Promise<void>((resolve) => setTimeout(resolve, USAGE_WAIT_MS))])
       answered = true
-      return withAntigravity(response)
+      return withAntigravity(combined)
     }
     const codex = runtimes.find((entry) => entry.id === 'codex')
     if (codex?.readiness !== 'ready' || codex.executable === undefined) {
@@ -640,7 +661,7 @@ export function createModelCatalog(options: ModelCatalogOptions): ModelCatalog {
       // levels have somewhere to hang whichever runtime discovery settled on.
       const models = withAccountDefaults([...parseModels(result), ...advertisedModels])
       if (models.length === 0) {
-        return { ok: false, error: { code: 'MODELS_UNAVAILABLE', message: 'No models were reported.' } }
+        return withUsage({ ok: false, error: { code: 'MODELS_UNAVAILABLE', message: 'No models were reported.' } })
       }
       /*
        * AND WHAT THE ACCOUNT HAS USED (0.390), in the same server session: no

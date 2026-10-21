@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createOpenCodeRunCommand, createOpenCodeServeCommand } from "../src/commands.js";
 import { readOpenCodeCommands } from "../src/opencode-commands.js";
@@ -39,6 +39,14 @@ function fakeServer(answer: () => Response) {
 }
 
 describe("OpenCode's own commands, listed", () => {
+  it("never starts the V1 command server when OpenCode 2 is installed", async () => {
+    const spawn = vi.fn(() => { throw new Error("A V1 server must not start for V2"); });
+    const fetcher = vi.fn();
+    const command = createOpenCodeServeCommand(EXECUTABLE, { workspacePath: "C:/work/pebble" });
+    await expect(readOpenCodeCommands({ spawn, command, version: { version: "2.1.1" }, fetch: fetcher as typeof fetch })).resolves.toEqual([]);
+    expect(spawn).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it("are read from a server started in the folder, with a password and no plugins, which is then stopped", async () => {
     const server = fakeServer(() => Response.json(LISTED));
     const command = createOpenCodeServeCommand(EXECUTABLE, { workspacePath: "C:/work/pebble" });

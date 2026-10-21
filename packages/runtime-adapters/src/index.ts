@@ -10,7 +10,7 @@ export {
   MUSE_EFFORTS,
   OMNIROUTE_REQUIRED_FEATURES,
 } from "./commands.js";
-export { discoverInstalledRuntimes, discoverInstalledRuntimesEach } from "./discovery.js";
+export { discoverInstalledRuntimes, discoverInstalledRuntimesEach, openCodeUsesAcp } from "./discovery.js";
 export type { RuntimeCheck } from "./discovery.js";
 export type { RuntimeBinaryFacts, RuntimeFactsCache, StatFile } from "./discovery.js";
 export {

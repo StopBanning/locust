@@ -213,6 +213,104 @@ export async function writeOpenCodeCommandGuard(folder: string, options: { reado
   }
 }
 
+/**
+ * OpenCode 2 loads a default plugin definition and registers hooks in setup;
+ * the V1 hook object is not accepted by that API. Keep the entrypoints separate
+ * so writing a V2 plugin never replaces a V1 run's plugin. Both hooks ask the
+ * existing guard about shell commands: tool execution and shells created by
+ * plugins. As on V1, only an explicit refusal denies a command; this is not a
+ * sandbox. A broken guard is bounded and lets the command proceed.
+ */
+export function openCode2CommandGuardPlugin(options: { readonly node: string; readonly guardPath: string; readonly parent: number; readonly log?: string }): string {
+  const parent = Number.isInteger(options.parent) && options.parent > 0 ? options.parent : 0
+  const env = { ELECTRON_RUN_AS_NODE: '1', LOCUST_GUARD_PARENT: String(parent), ...(options.log === undefined || options.log.length === 0 ? {} : { LOCUST_GUARD_LOG: options.log }) }
+  return [
+    '// Written by Locust (command-guard.ts): OpenCode 2 asks the same command guard as the other agents.',
+    "import { spawn } from 'node:child_process'",
+    '',
+    `const NODE = ${JSON.stringify(options.node)}`,
+    `const GUARD = ${JSON.stringify(options.guardPath)}`,
+    `const ENV = ${JSON.stringify(env)}`,
+    '',
+    'const refusal = (command) =>',
+    '  new Promise((resolve) => {',
+    "    let out = ''",
+    '    let bytes = 0',
+    '    let child',
+    '    let timer',
+    '    let settled = false',
+    '    const finish = (reason, stop = false) => {',
+    '      if (settled) return',
+    '      settled = true',
+    '      clearTimeout(timer)',
+    '      if (stop) {',
+    '        try { child?.kill() } catch {}',
+    '      }',
+    '      resolve(reason)',
+    '    }',
+    '    try {',
+    "      child = spawn(NODE, [GUARD], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true, env: { ...process.env, ...ENV } })",
+    '    } catch {',
+    '      return finish(undefined)',
+    '    }',
+    '    timer = setTimeout(() => finish(undefined, true), 15000)',
+    "    child.once('error', () => finish(undefined, true))",
+    "    child.stdout.once('error', () => finish(undefined, true))",
+    "    child.stdout.setEncoding('utf8')",
+    "    child.stdout.on('data', (chunk) => {",
+    '      if (settled) return',
+    '      bytes += Buffer.byteLength(chunk)',
+    '      if (bytes > 64 * 1024) return finish(undefined, true)',
+    '      out += chunk',
+    '    })',
+    "    child.once('close', () => {",
+    '      if (settled) return',
+    '      try {',
+    '        const answer = JSON.parse(out)?.hookSpecificOutput',
+    "        finish(answer?.permissionDecision === 'deny' && typeof answer.permissionDecisionReason === 'string' ? answer.permissionDecisionReason : undefined)",
+    '      } catch {',
+    '        finish(undefined)',
+    '      }',
+    '    })',
+    "    child.stdin.on('error', () => finish(undefined, true))",
+    '    try {',
+    "      child.stdin.end(JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command } }))",
+    '    } catch {',
+    '      finish(undefined, true)',
+    '    }',
+    '  })',
+    '',
+    'const check = async (command) => {',
+    "  if (typeof command !== 'string') return",
+    '  const reason = await refusal(command)',
+    '  if (reason !== undefined) throw new Error(reason)',
+    '}',
+    '',
+    'export default {',
+    "  id: 'locust.command-guard',",
+    '  async setup(ctx) {',
+    "    await ctx.tool.hook('execute.before', (event) => check(event?.tool === 'shell' || event?.tool === 'bash' ? event.input?.command : undefined))",
+    "    await ctx.shell.hook('create.before', (event) => check(event?.command))",
+    '  }',
+    '}',
+    ''
+  ].join('\n')
+}
+
+/** V2 configured plugins must be directories; its loader resolves this package's index. */
+export async function writeOpenCode2CommandGuard(folder: string, options: { readonly node: string; readonly guardPath: string; readonly parent: number; readonly log?: string }): Promise<string | undefined> {
+  try {
+    const plugin = join(folder, 'opencode-2-command-guard')
+    await mkdir(plugin, { recursive: true })
+    await mkdir(join(plugin, 'config'), { recursive: true })
+    await writeFile(join(plugin, 'index.js'), openCode2CommandGuardPlugin(options), 'utf8')
+    await writeFile(join(plugin, 'package.json'), `${JSON.stringify({ name: 'locust-command-guard', private: true, type: 'module', main: './index.js', exports: './index.js' }, null, 2)}\n`, 'utf8')
+    return pathToFileURL(plugin).href
+  } catch {
+    return undefined
+  }
+}
+
 /** Copilot's plugin folder, written once at start in the profile; undefined if it could not be, and runs go without it. */
 export async function writeCopilotCommandGuard(folder: string, options: { readonly node: string; readonly guardPath: string; readonly parent: number; readonly log?: string }): Promise<string | undefined> {
   try {

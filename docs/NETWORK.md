@@ -275,6 +275,13 @@ reads of your folder stays on this machine.
 
 ## The AI agents' own connections
 
+OpenCode 1 uses its existing local server connection. OpenCode 2 uses its
+Agent Client Protocol subprocess over standard input and output. To fill the
+model picker, Locust opens an empty temporary session, reads the models it
+advertises and stops the process; it sends no prompt and offers no filesystem,
+terminal or MCP access during that read. OpenCode may make its own startup
+connections to discover providers and models. Its sign-ins stay with OpenCode.
+
 Each AI agent connects to its own service with the account you signed it in
 with, and sends what that service needs to do the work: your messages, and the
 files and command output the agent reads. Codex CLI talks to OpenAI, Claude

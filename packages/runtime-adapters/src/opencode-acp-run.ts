@@ -4,9 +4,9 @@ import { createAcpAgentCommand } from "./commands.js";
 import { NotificationQueue } from "./codex-app-server-run.js";
 import type { AppServerRunProcess } from "./codex-app-server-run.js";
 import type { RuntimeJsonlRecord, RuntimeProcessCompletion } from "./process-runner.js";
-import type { ExecutableLaunch, RuntimeCommandSpec } from "./types.js";
+import type { ExecutableLaunch, MissionSandbox, RuntimeCommandSpec } from "./types.js";
 
-/** Opt-in only: the existing OpenCode HTTP/SSE route is unchanged. */
+/** OpenCode 2's ACP profile; OpenCode 1 keeps its existing HTTP/SSE route. */
 export const OPENCODE_ACP_PROFILE = Object.freeze({
   runtime: "opencode",
   transport: "stdio",
@@ -14,13 +14,21 @@ export const OPENCODE_ACP_PROFILE = Object.freeze({
 } as const);
 
 /** OpenCode 2's ACP CLI uses the same command name, not an HTTP socket. */
-export function createOpenCodeAcpCommand(executable: ExecutableLaunch, workspacePath: string): RuntimeCommandSpec {
-  return { ...createAcpAgentCommand(executable, ["acp"], workspacePath), runtime: "opencode" };
+export function createOpenCodeAcpCommand(executable: ExecutableLaunch, workspacePath: string, launch?: { readonly env?: Readonly<Record<string, string>>; readonly sandbox?: MissionSandbox }): RuntimeCommandSpec {
+  const base = createAcpAgentCommand(executable, ["acp"], workspacePath);
+  return {
+    ...base,
+    runtime: "opencode",
+    ...(launch?.sandbox === undefined ? {} : { sandbox: launch.sandbox }),
+    ...(launch?.env === undefined ? {} : { env: { ...base.env, ...launch.env } }),
+  };
 }
 
 export interface OpenCodeAcpRunOptions extends Omit<AcpRunOptions, "command"> {
   readonly executable: ExecutableLaunch;
   readonly workspacePath: string;
+  /** Per-run host configuration, including the permission mode and command guard. */
+  readonly launch?: { readonly env?: Readonly<Record<string, string>>; readonly sandbox?: MissionSandbox };
   /** Transport restarts before any prompt write. Capped at three. */
   readonly maxStartupRetries?: number;
   readonly retryDelayMs?: number;
@@ -49,7 +57,7 @@ function bound(value: number | undefined, fallback: number, maximum: number, min
  * neither that prompt nor any of its tool calls can safely be replayed.
  */
 export function startOpenCodeAcpRun(options: OpenCodeAcpRunOptions): OpenCodeAcpRun {
-  const command = createOpenCodeAcpCommand(options.executable, options.workspacePath);
+  const command = createOpenCodeAcpCommand(options.executable, options.workspacePath, options.launch);
   const now = options.now ?? (() => new Date());
   const startedAt = now().toISOString();
   const queueLimit = bound(options.maxQueuedRecords, 20_000, 20_000);

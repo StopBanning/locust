@@ -2,12 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { publicStatus } from './runtime-discovery.js'
 
-/*
- * OPENCODE 2 REACHES THE WINDOW AS UNSUPPORTED (0.805), with why and what to do -- not as a check that did not
- * answer, which the window would offer to ask again. (The window's half:
- * renderer/src/opencode-2-reads-as-not-supported-yet.test.ts.)
- */
-const NOTE = 'OpenCode 2.0.32 is installed, and Locust runs OpenCode 1 for now: OpenCode 2 changed how other apps talk to it. Support for it is on its way.'
+/* A future OpenCode protocol is refused in discovery and remains unavailable in the window. */
+const NOTE = 'OpenCode 3.0.0 is installed; this Locust supports OpenCode 1 and OpenCode 2.'
 
 describe('an OpenCode version Locust does not run yet', () => {
   it('reaches the window as unsupported, with why and what to do', () => {
@@ -16,12 +12,12 @@ describe('an OpenCode version Locust does not run yet', () => {
       displayName: 'OpenCode',
       availability: 'available',
       readiness: 'unsupported',
-      version: { raw: 'opencode v2.0.32', version: '2.0.32', major: 2, minor: 0, patch: 32 },
-      diagnostics: [{ code: 'version-unsupported', severity: 'error', message: NOTE, resolution: 'To use OpenCode teammates today, use OpenCode 1 (npm install -g opencode-ai) as the opencode command.' }]
+      version: { raw: 'opencode v3.0.0', version: '3.0.0', major: 3, minor: 0, patch: 0 },
+      diagnostics: [{ code: 'version-unsupported', severity: 'error', message: NOTE, resolution: 'Use a supported OpenCode 1 or OpenCode 2 release, or update Locust for this version.' }]
     } as never)
     expect(shown).toMatchObject({ status: 'unsupported', ready: false })
     expect(shown.unsupportedNote).toContain(NOTE)
-    expect(shown.unsupportedNote).toContain('npm install -g opencode-ai')
+    expect(shown.unsupportedNote).toContain('OpenCode 1 or OpenCode 2')
   })
 
   it('leaves every other runtime as it was (control)', () => {

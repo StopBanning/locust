@@ -198,17 +198,13 @@ const DEFINITIONS: readonly IntegrationDefinition[] = [
     listAnswersReadiness: true,
     parseModels: parseOpenCodeModelList,
     requiredFeatures: OPENCODE_REQUIRED_FEATURES,
-    /*
-     * OPENCODE 2 IS NOT RUN YET (0.805). It keeps the `opencode` command but has no `opencode serve` and a new server
-     * API, so every turn Locust started on it ended "OpenCode's event stream closed before the turn finished" while
-     * the runtime read as ready (MEASURED 2026-10-19 on 2.0.32 first on PATH). It is said plainly instead, until the
-     * `opencode acp` route (runtime-adapters/src/opencode-acp-run.ts) is wired in.
-     */
+    // Version 2 is checked separately against its ACP command, before any of
+    // these legacy probes can run. A future major is not assumed compatible.
     unsupportedVersion: (version) =>
-      version.major >= 2
+      version.major >= 3
         ? {
-            message: `OpenCode ${version.version} is installed, and Locust runs OpenCode 1 for now: OpenCode 2 changed how other apps talk to it. Support for it is on its way.`,
-            resolution: "To use OpenCode teammates today, use OpenCode 1 (npm install -g opencode-ai) as the opencode command.",
+            message: `OpenCode ${version.version} is installed; this Locust supports OpenCode 1 and OpenCode 2.`,
+            resolution: "Use a supported OpenCode 1 or OpenCode 2 release, or update Locust for this version.",
           }
         : undefined,
     readyWhen: (result) =>
@@ -598,6 +594,54 @@ function notInstalled(definition: IntegrationDefinition): RuntimeDiscovery {
   };
 }
 
+/** Only the supported OpenCode 2 protocol uses ACP; unknown and future versions do not. */
+export function openCodeUsesAcp(version: { readonly version: string } | undefined): boolean {
+  return version !== undefined && parseRuntimeVersion(version.version)?.major === 2;
+}
+
+async function discoverOpenCodeAcp(
+  definition: IntegrationDefinition,
+  runner: CommandRunner,
+  executable: ExecutableLaunch,
+  version: ParsedRuntimeVersion,
+): Promise<RuntimeDiscovery> {
+  // A help command spends no provider quota. Models and permissions are
+  // learned from the actual ACP session, never from V1 CLI flags or lists.
+  const capability = await runProbe(runner, executable, "capabilities", ["acp", "--help"]);
+  const requiredFeatures: readonly RuntimeFeature[] = ["acp-stdio"];
+  const advertised = succeeded(capability)
+    && /\bagent[\s-]*client[\s-]*protocol\b/i.test(`${capability.result.stdout}\n${capability.result.stderr}`);
+  const diagnostics: RuntimeDiagnostic[] = [];
+  if (!succeeded(capability)) {
+    diagnostics.push({
+      code: "capability-probe-failed",
+      severity: "error",
+      message: `OpenCode ACP capability detection ${failureMessage(capability)}.`,
+    });
+  }
+  if (!advertised) {
+    diagnostics.push({
+      code: "required-capability-missing",
+      severity: "error",
+      message: "OpenCode 2 did not advertise the Agent Client Protocol on its acp command.",
+      resolution: "Update OpenCode to a release whose opencode acp command supports Agent Client Protocol.",
+    });
+  }
+  return {
+    id: definition.id,
+    kind: definition.kind,
+    displayName: definition.displayName,
+    optional: definition.optional,
+    availability: "available",
+    readiness: advertised ? "ready" : "unsupported",
+    executable,
+    version,
+    supportedFeatures: advertised ? ["acp-stdio"] : [],
+    requiredFeatures,
+    diagnostics,
+  };
+}
+
 async function discoverOne(
   definition: IntegrationDefinition,
   runner: CommandRunner,
@@ -643,6 +687,35 @@ async function discoverOne(
     remembered === undefined
       ? runProbe(runner, executable, "version", definition.versionArgs)
       : Promise.resolve({ result: { stdout: remembered.versionText, stderr: "", exitCode: 0 } } as ProbeOutcome);
+  if (definition.id === "opencode") {
+    // V2 removed the serve protocol. Decide before starting any V1 probes,
+    // including the model-list command which V1 also uses for readiness.
+    const outcome = await versionAsked;
+    const version = succeeded(outcome)
+      ? parseRuntimeVersion(`${outcome.result.stdout}\n${outcome.result.stderr}`)
+      : undefined;
+    if (version !== undefined && openCodeUsesAcp(version)) {
+      // Legacy cached facts do not record which help command produced them.
+      // Never reuse them for ACP, or cache ACP help under the legacy key.
+      return discoverOpenCodeAcp(definition, runner, executable, version);
+    }
+    const refused = version === undefined ? undefined : definition.unsupportedVersion?.(version);
+    if (version !== undefined && refused !== undefined) {
+      return {
+        id: definition.id,
+        kind: definition.kind,
+        displayName: definition.displayName,
+        optional: definition.optional,
+        availability: "available",
+        readiness: "unsupported",
+        executable,
+        version,
+        supportedFeatures: [],
+        requiredFeatures: [],
+        diagnostics: [{ code: "version-unsupported", severity: "error", ...refused }],
+      };
+    }
+  }
   /*
    * WHEN THE READINESS QUESTION IS THE VERSION QUESTION, ASK IT ONCE.
    *

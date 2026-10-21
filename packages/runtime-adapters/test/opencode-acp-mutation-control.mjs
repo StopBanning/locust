@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const PROFILE = join(ROOT, 'src', 'opencode-acp-run.ts')
 const ACP = join(ROOT, 'src', 'acp-run.ts')
+const COMMANDS = join(ROOT, 'src', 'opencode-commands.ts')
 const DESKTOP = join(ROOT, '..', '..', 'apps', 'desktop')
 const BRIDGE = join(DESKTOP, 'src', 'main', 'app-server-process.ts')
 const VITEST = join(ROOT, '..', '..', 'node_modules', 'vitest', 'vitest.mjs')
@@ -18,10 +19,18 @@ const REPORT = join(tmpdir(), `locust-opencode-acp-mutations-${process.pid}-${ra
 const FILES = [
   'test/opencode-acp-profile.test.ts',
   'test/acp-run.test.ts',
+  'test/opencode-commands.test.ts',
   'test/an-acp-output-stream-closing-ends-the-turn.test.ts'
 ]
 
 const MUTATIONS = [
+  {
+    file: COMMANDS,
+    name: 'the V2 command menu starts the removed V1 server',
+    from: 'if (openCodeUsesAcp(options.version)) return Promise.resolve([]);',
+    to: 'if (false) return Promise.resolve([]);',
+    expect: 'never starts the V1 command server when OpenCode 2 is installed'
+  },
   {
     suite: 'native', file: BRIDGE,
     name: 'native: the pending UTF8 decoder is not flushed before EOF',
@@ -51,9 +60,23 @@ const MUTATIONS = [
   {
     file: PROFILE,
     name: 'the ACP command drifts to another runtime identity',
-    from: 'return { ...createAcpAgentCommand(executable, ["acp"], workspacePath), runtime: "opencode" };',
-    to: 'return { ...createAcpAgentCommand(executable, ["acp"], workspacePath), runtime: "copilot" };',
+    from: '...base,\n    runtime: "opencode",',
+    to: '...base,\n    runtime: "copilot",',
     expect: 'keeps OpenCode identity, launch prefix and environment on the stdio command'
+  },
+  {
+    file: PROFILE,
+    name: 'the desktop permission environment is lost at spawn',
+    from: 'createOpenCodeAcpCommand(options.executable, options.workspacePath, options.launch)',
+    to: 'createOpenCodeAcpCommand(options.executable, options.workspacePath)',
+    expect: 'passes the desktop launch environment and permission receipt through the profile'
+  },
+  {
+    file: ACP,
+    name: 'a model selection retains stale session config options',
+    from: 'session = { ...session, ...set };',
+    to: 'void set;',
+    expect: 'reads effort options advertised after switching the selected model'
   },
   {
     file: PROFILE,

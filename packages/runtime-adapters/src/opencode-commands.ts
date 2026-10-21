@@ -4,6 +4,7 @@ import type { AppServerRunProcess } from "./codex-app-server-run.js";
 import { runtimeCommandsFrom } from "./claude-events.js";
 import type { RuntimeCommandInfo } from "./claude-events.js";
 import type { RuntimeCommandSpec } from "./types.js";
+import { openCodeUsesAcp } from "./discovery.js";
 
 /**
  * OPENCODE'S OWN COMMANDS, FOR THE `/` MENU (0.427).
@@ -29,6 +30,8 @@ export interface OpenCodeCommandsOptions {
   ) => AppServerRunProcess;
   /** `createOpenCodeServeCommand`'s spec for the folder. */
   readonly command: RuntimeCommandSpec;
+  /** V2 has no serve command. Its ACP command advertisement is separate. */
+  readonly version?: { readonly version: string };
   readonly timeoutMs?: number;
   /** Test seam. */
   readonly fetch?: typeof fetch;
@@ -44,6 +47,7 @@ function hintOf(hints: unknown): string {
 }
 
 export function readOpenCodeCommands(options: OpenCodeCommandsOptions): Promise<readonly RuntimeCommandInfo[]> {
+  if (openCodeUsesAcp(options.version)) return Promise.resolve([]);
   const request = options.fetch ?? fetch;
   const password = randomBytes(24).toString("base64url");
   const auth = { authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}` };

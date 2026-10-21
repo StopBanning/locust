@@ -130,6 +130,31 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 describe("the opt-in OpenCode ACP profile", () => {
+  it("passes the desktop launch environment and permission receipt through the profile", async () => {
+    const launch = { sandbox: "read-only" as const, env: { OPENCODE_CONFIG_CONTENT: '{"agents":{"locust":{}}}', OPENCODE_CONFIG_PROJECT_DISABLE: "1" } };
+    expect(createOpenCodeAcpCommand(EXECUTABLE, FOLDER, launch)).toMatchObject({ sandbox: "read-only", env: { ...EXECUTABLE.env, ...launch.env } });
+    const f = fixture(ordinary((prompt, agent) => agent.answer(prompt, { stopReason: "end_turn" })), { launch });
+    await flush();
+    await expect(f.run.completion).resolves.toMatchObject({ exitCode: 0 });
+    expect(f.spawned[0]!.env).toEqual({ ...EXECUTABLE.env, ...launch.env });
+  });
+
+  it("reads effort options advertised after switching the selected model", async () => {
+    const f = fixture((message, agent) => {
+      if (message.method === "initialize") agent.answer(message, INIT);
+      else if (message.method === "session/new") agent.answer(message, { ...SESSION, configOptions: [{ id: "model", currentValue: "provider/old" }] });
+      else if (message.method === "session/set_config_option") agent.answer(message, { configOptions: [
+        { id: "model", currentValue: "provider/new" },
+        { id: "effort", currentValue: message.params?.configId === "effort" ? "high" : "low" },
+      ] });
+      else if (message.method === "session/prompt") agent.answer(message, { stopReason: "end_turn" });
+    }, { requiredConfig: { model: "provider/new", effort: "high" } });
+    await flush();
+    await expect(f.run.completion).resolves.toMatchObject({ exitCode: 0 });
+    expect(f.agents[0]!.sent.filter((message) => message.method === "session/set_config_option").map((message) => message.params?.configId)).toEqual(["model", "effort"]);
+    expect(f.prompts()).toHaveLength(1);
+  });
+
   it("keeps OpenCode identity, launch prefix and environment on the stdio command", async () => {
     const command = createOpenCodeAcpCommand(EXECUTABLE, FOLDER);
     expect(OPENCODE_ACP_PROFILE).toEqual({ runtime: "opencode", transport: "stdio", protocolVersion: 1 });

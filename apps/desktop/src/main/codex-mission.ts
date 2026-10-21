@@ -26,12 +26,15 @@ import {
   createOpenCodeEventNormalizer,
   createOpenCodeRunCommand,
   createOpenCodeServeCommand,
+  createOpenCodeAcpCommand,
+  openCodeUsesAcp,
   cursorCanEnforceReadOnly,
   notificationOfRecord,
   startAcpRun,
   createNodeRuntimeProcessRunner,
   startCodexAppServerRun,
-  startOpenCodeServeRun
+  startOpenCodeServeRun,
+  startOpenCodeAcpRun
 } from '@teammate/runtime-adapters'
 import type {
   AppServerRunProcess,
@@ -98,6 +101,7 @@ import { MAX_LIVE_MISSIONS } from '../shared/live-missions.js'
 import { hostReadsEventsOf, runtimeDisplayName } from '../shared/runtimes.js'
 import { parsedAcpRouteModel, type AcpAgent } from '../shared/acp-agents.js'
 import type { AcpLaunch } from './acp-agents.js'
+import { openCode2Launch, OPENCODE_2_MODE } from './opencode-2-launch.js'
 
 /**
  * The model and effort to hand `agy` (0.540). The app route chose a TIER
@@ -471,7 +475,7 @@ interface CodexMissionServiceOptions {
    * the folder it is told. Absent: Copilot has no Approve-each.
    */
   /** What an ACP agent said it can do, at the start of its run (W12): kept for Settings. */
-  readonly onAcpCapabilities?: (runtime: 'copilot', capabilities: AcpCapabilities) => void
+  readonly onAcpCapabilities?: (runtime: 'copilot' | 'opencode', capabilities: AcpCapabilities) => void
   /** The agents the person added (0.777, main/acp-agents.ts): an agent's command, found by the rule its Test used. */
   readonly acpAgents?: { readonly resolve: (agentId: string) => Promise<{ readonly agent: AcpAgent; readonly found: AcpLaunch } | { readonly message: string }> }
   readonly acpSpawn?: (
@@ -668,6 +672,8 @@ interface CodexMissionServiceOptions {
    * undefined when it could not be written, and runs go without it.
    */
   readonly openCodeCommandGuard?: () => Promise<string | undefined>
+  /** The directory-based V2 plugin, distinct from the V1 hook file. */
+  readonly openCode2CommandGuard?: () => Promise<string | undefined>
   /**
    * Whether this runtime's next start sets itself up first (0.780, opencode-first-start.ts): OpenCode installs
    * its plugin package on its first start, a minute or more, and the start line says so instead of "Starting".
@@ -1679,6 +1685,13 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
             notReadyRefusal(runtime, runtimes.find((entry) => entry.id === runtime))
           ) as CodexMissionStartResponse
         }
+        const opencodeAcp = runtime === 'opencode' && cloud === undefined && openCodeUsesAcp(chosen.version)
+        if (runtime === 'opencode' && cloud !== undefined && openCodeUsesAcp(chosen.version)) {
+          return error('RUNTIME_START_FAILED', 'OpenCode 2 runs on this computer through ACP. Turn Cloud off for this conversation, or choose an OpenCode 1 installation for the cloud route.') as CodexMissionStartResponse
+        }
+        if (opencodeAcp && options.acpSpawn === undefined) {
+          return error('RUNTIME_START_FAILED', 'OpenCode 2 needs its ACP connection. Your message has not been sent; reopen Locust and try again.') as CodexMissionStartResponse
+        }
         if (runtime === 'cursor') {
           const picked = cursorChoiceFor(cursorModelsFrom(runtimes), chosenModel, route.effort)
           const managedVariant = policyTurnRefusal(options.organizationPolicy, { runtime, mode, model: picked.model })
@@ -1780,6 +1793,17 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         let resumedCompacted = false
         /** A reply this runtime cannot resume: the conversation so far goes with it (0.495). */
         let coldEarlier: readonly EarlierTurn[] | undefined
+        if (opencodeAcp && side !== undefined) {
+          // ACP's portable turn path does not fork. Brief a fresh session so
+          // a side question can never append to the live parent's session.
+          const prior = await options.ledger.getMission(side.of)
+          if (prior !== undefined) {
+            const said = createTranscriptTracker()
+            said.track(prior.events)
+            coldEarlier = [...(await earlierTurnsOf(prior)), { asked: prior.metadata.prompt, answered: said.latestFinal }]
+          }
+          resumeThreadId = undefined
+        }
         // What the person did in the runtime's own terminal on this
         // conversation lands first (0.391), so this turn continues from the
         // last of it. After the busy check above, which knows the settled
@@ -1917,6 +1941,10 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           if (rewind !== true) {
           const priorMode = prior.metadata.mode
           const modeChanged = priorMode !== undefined && priorMode !== mode
+          const protocolChanged = runtime === 'opencode' && openCodeUsesAcp(typeof prior.metadata.cliVersion === 'string' ? { version: prior.metadata.cliVersion } : undefined) !== openCodeUsesAcp(chosen.version)
+          // Imported sessions may hold permissions granted outside Locust.
+          // Only this host's ACP turns are known to have used allow-once.
+          const unverifiedAcpSession = opencodeAcp && (priorMode === undefined || prior.metadata.command?.args.at(-1) !== 'acp')
           /*
            * A TURN STOPPED BEFORE IT NAMED ITS SESSION (0.496) was itself a
            * resume of the turn before it, so that session is still the
@@ -1926,7 +1954,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
            * same walk the side question makes; recorded only when the stopped
            * turn really did resume one.
            */
-          resumeThreadId = modeChanged ? undefined : resumableThreadOf(prior, runtime)
+          resumeThreadId = modeChanged || protocolChanged || unverifiedAcpSession ? undefined : resumableThreadOf(prior, runtime)
           resumedMissionId = prior.metadata.missionId
           resumedRunId = prior.metadata.runId
           resumedCompacted = compactedDuring(prior.events)
@@ -2037,7 +2065,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
          * as `run` did: Auto approves what the config does not deny, the rest refuse. A side question forks its
          * session, which only `run` does here, so it stays there.
          */
-        const opencodeServes = runtime === 'opencode' && options.opencodeServeSpawn !== undefined && (mode === 'approve-each' || side === undefined)
+        const opencodeServes = runtime === 'opencode' && !opencodeAcp && options.opencodeServeSpawn !== undefined && (mode === 'approve-each' || side === undefined)
         // Copilot asks only over the Agent Client Protocol (0.377); every
         // other Copilot mode stays on `-p`, which is what they were measured on.
         const copilotAcp = runtime === 'copilot' && mode === 'approve-each' && options.acpSpawn !== undefined
@@ -2075,6 +2103,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           ? createClaudeEventNormalizer(normalizerContext)
           : runtime === 'cursor'
             ? createCursorEventNormalizer(normalizerContext)
+            : opencodeAcp
+              ? createAcpEventNormalizer({ ...normalizerContext, runtime: 'opencode', ...(resumeThreadId === undefined ? {} : { sessionId: resumeThreadId }) })
             : runtime === 'opencode'
               ? createOpenCodeEventNormalizer(normalizerContext)
               : copilotAcp || ownAcp
@@ -2127,7 +2157,12 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         const commandGuardPath = runtime === 'claude' && cloud === undefined ? await options.commandGuard?.() : undefined
         const copilotGuardPlugin = runtime === 'copilot' ? await options.copilotCommandGuard?.().catch(() => undefined) : undefined
         // A cloud turn's guard is the computer it runs on: nothing there reaches GitHub (cloud-computer.ts).
-        const openCodeGuardPlugin = runtime === 'opencode' && cloud === undefined ? await options.openCodeCommandGuard?.().catch(() => undefined) : undefined
+        const openCodeGuardPlugin = runtime === 'opencode' && cloud === undefined
+          ? await (opencodeAcp ? options.openCode2CommandGuard?.() : options.openCodeCommandGuard?.())?.catch(() => undefined)
+          : undefined
+        if (opencodeAcp && openCodeGuardPlugin === undefined) {
+          return error('RUNTIME_START_FAILED', 'OpenCode 2 could not prepare the command guard. Your message has not been sent; reopen Locust and try again.') as CodexMissionStartResponse
+        }
         const codexGuardConfig = runtime === 'codex' && cloud === undefined ? await options.codexCommandGuard?.(runCwd, chosen.executable.env?.CODEX_HOME).catch(() => undefined) : undefined
         // The person's connectors are this computer's: a turn there has none to ask about.
         const permissionBridge =
@@ -2198,6 +2233,15 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           ) as CodexMissionStartResponse
         }
         const providers = own === undefined ? undefined : { [own.id]: own.provider }
+        const openCodeAcpLaunch = !opencodeAcp ? undefined : openCode2Launch(executable, {
+          workspacePath: runCwd,
+          sandbox: effectiveSandbox,
+          approveEach: mode === 'approve-each',
+          referenceFolders,
+          ...(repositoryRoot === undefined ? {} : { repositoryRoot }),
+          ...(providers === undefined ? {} : { providers }),
+          ...(openCodeGuardPlugin === undefined ? {} : { guardPlugin: openCodeGuardPlugin })
+        })
         /*
          * SKILLS (0.679). `--restricted` keeps a Claude run from finding the
          * folder's skills or the person's, so they are handed to it as
@@ -2239,6 +2283,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
             ...(resumeThreadId === undefined ? {} : { resumeThreadId }),
             ...(side === undefined ? {} : { forkSession: true })
           }
+          if (opencodeAcp) return createOpenCodeAcpCommand(executable, runCwd, openCodeAcpLaunch)
           if (runtime === 'opencode' && opencodeServes) {
             return createOpenCodeServeCommand(executable, {
               referenceFolders,
@@ -2472,7 +2517,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         // that does not arrive is left as named: the agent's own read says it is missing, as for a worktree (M16).
         if (cloudDir !== undefined && placed.files.length > 0) await options.cloud?.carry(missionId, runCwd, placed.files).catch(() => undefined)
         // Cold, not a command and not a side question: told what was said before (0.495).
-        const sentPrompt = coldEarlier === undefined || bare || side !== undefined ? attached : composeColdFollowUp(coldEarlier, attached, rewind === true)
+        const sentPrompt = coldEarlier === undefined || bare || (side !== undefined && !opencodeAcp) ? attached : composeColdFollowUp(coldEarlier, attached, rewind === true)
         let runtimePrompt = sentPrompt
         let delivered: readonly WorkroomMessage[] = []
         let peerDeliveryFailed = false
@@ -2793,6 +2838,36 @@ ${sentPrompt.trim()}`
             })
             process = streamed
             steer = streamed.steer
+          } else if (opencodeAcp) {
+            say('starting-runtime')
+            const handler = mode === 'approve-each' ? options.approvals?.requestHandlerFor({ runId, missionId, cwd: runCwd, changesByItem, runtime: 'opencode' }) : undefined
+            const acp = startOpenCodeAcpRun({
+              spawn: options.acpSpawn!,
+              executable,
+              workspacePath: runCwd,
+              launch: openCodeAcpLaunch!,
+              prompt: runtimePrompt,
+              ...(resumeThreadId === undefined ? {} : { resumeSessionId: resumeThreadId }),
+              requiredConfig: {
+                mode: OPENCODE_2_MODE,
+                ...(chosenModel === undefined ? {} : { model: chosenModel }),
+                ...(route.effort === undefined ? {} : { effort: route.effort })
+              },
+              ...(browserMcp === undefined ? {} : { mcpServers: [{
+                name: 'locust_browser', command: browserMcp.command, args: browserMcp.args,
+                env: Object.entries(browserMcp.env).map(([name, value]) => ({ name, value }))
+              }] }),
+              onCapabilities: (capabilities) => options.onAcpCapabilities?.('opencode', capabilities),
+              onPermission: async (asked) => {
+                if (handler === undefined) return effectiveSandbox === 'full-access' ? 'allow_once' : 'reject_once'
+                await flushBeforeApproval()
+                return acpAnswerFor(await handler(acpPermissionRequest(asked, runCwd)))
+              },
+              signal: controller.signal,
+              now
+            })
+            process = acp
+            steer = acp.steer
           } else if (opencodeServes) {
             say('starting-runtime')
             // Each thing OpenCode asks becomes the same card Codex's do, and

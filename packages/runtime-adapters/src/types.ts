@@ -78,6 +78,7 @@ export type RuntimeReadiness =
   | "unknown";
 
 export type RuntimeFeature =
+  | "acp-stdio"
   | "non-interactive"
   | "jsonl-events"
   | "stdin-prompt"

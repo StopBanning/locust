@@ -86,6 +86,7 @@ import {
   cursorCanEnforceReadOnly,
   discoverInstalledRuntimes,
   discoverInstalledRuntimesEach,
+  openCodeUsesAcp,
   killSpawnedTree,
   releaseProcessTree
 } from '@teammate/runtime-adapters'
@@ -251,7 +252,7 @@ import { createRelay } from './relay.js'
 import { createAttention, finishFrom } from './attention.js'
 import { boundedShutdown } from './bounded-shutdown.js'
 import { createPermissionHost } from './permission-host.js'
-import { codexCommandGuardConfig, otherCodexHooks, writeCommandGuard, writeCopilotCommandGuard, writeOpenCodeCommandGuard } from './command-guard.js'
+import { codexCommandGuardConfig, otherCodexHooks, writeCommandGuard, writeCopilotCommandGuard, writeOpenCodeCommandGuard, writeOpenCode2CommandGuard } from './command-guard.js'
 import { chooseFolderCaution, isInsideDirectory, notATeammateFolder, readConfirmedFolders, readRememberedWorkspace, resolveWorkspacePath, sameFolder, WORKSPACE_ARGUMENT, writeConfirmedFolders, writeRememberedWorkspace, workspaceIdFor } from './workspace.js'
 import { createUnwrittenAnswers } from './approval-record-note.js'
 import { createRaisedApprovals } from './raised-approvals.js'
@@ -2384,6 +2385,12 @@ if (!ownsSingleInstanceLock) {
       parent: process.pid,
       ...(process.env.LOCUST_GUARD_LOG === undefined ? {} : { log: process.env.LOCUST_GUARD_LOG })
     })
+    const openCode2GuardWritten = writeOpenCode2CommandGuard(app.getPath('userData'), {
+      node: process.execPath,
+      guardPath: app.isPackaged ? join(process.resourcesPath, 'locust-command-guard.mjs') : join(__dirname, '../../resources/locust-command-guard.mjs'),
+      parent: process.pid,
+      ...(process.env.LOCUST_GUARD_LOG === undefined ? {} : { log: process.env.LOCUST_GUARD_LOG })
+    })
     // OpenCode's first-start setup names the same guard a run does (0.780).
     void openCodeGuardWritten.then(markOpenCodeGuard)
 
@@ -2633,7 +2640,8 @@ if (!ownsSingleInstanceLock) {
       commandGuard: () => commandGuardWritten,
       copilotCommandGuard: () => copilotGuardWritten,
       openCodeCommandGuard: () => openCodeGuardWritten,
-      setsItselfUp: (runtime) => runtime === 'opencode' && openCodeFirstStart.willSetUp(),
+      openCode2CommandGuard: () => openCode2GuardWritten,
+      setsItselfUp: (runtime) => runtime === 'opencode' && discoveryCache?.value.find((entry) => entry.id === 'opencode')?.version?.major === 1 && openCodeFirstStart.willSetUp(),
       // The same guard for Codex (0.720), only when it is the one hook Codex would load.
       codexCommandGuard: async (folder, codexHome) => {
         if ((await otherCodexHooks({ codexHome: codexHome ?? process.env.CODEX_HOME ?? join(homedir(), '.codex'), folder })).length > 0) return undefined
@@ -4295,7 +4303,7 @@ if (!ownsSingleInstanceLock) {
       // work-path sweep runs only when a turn starts, so warming there left the first turn waiting.
       if (answer.ok && answer.data.runtimes.some((runtime) => runtime.id === 'cursor' && runtime.ready)) warmCursorConnectors()
       // And OpenCode's first-start setup, for the same reason (0.780): as the window finds it, not when a turn starts.
-      if (answer.ok && process.env.LOCUST_HIDE_RUNTIMES !== '1' && answer.data.runtimes.some((runtime) => runtime.id === 'opencode' && runtime.ready)) void openCodeFirstStart.ensure()
+      if (answer.ok && process.env.LOCUST_HIDE_RUNTIMES !== '1' && answer.data.runtimes.some((runtime) => runtime.id === 'opencode' && runtime.ready && runtime.version?.startsWith('1.'))) void openCodeFirstStart.ensure()
       return answer
     })
 
@@ -6079,9 +6087,16 @@ if (!ownsSingleInstanceLock) {
           commandsAsked.delete(runtime)
           return
         }
+        if (runtime === 'opencode' && openCodeUsesAcp(found.version)) {
+          // V2 has no serve endpoint. Clear a previous V1 list and let a
+          // later version change be checked again instead of caching a skip.
+          commandsAsked.delete(runtime)
+          if (await runtimeCommands.set(runtime, [])) sendToWindow({ kind: 'runtime-commands-changed' })
+          return
+        }
         const commands = runtime === 'claude'
           ? await readClaudeCommands({ spawn: spawnAppServer, command: createClaudeCommandListCommand(found.executable, { workspacePath }), onModels: adoptClaudeListed })
-          : await readOpenCodeCommands({ spawn: spawnAppServer, command: createOpenCodeServeCommand(found.executable, { workspacePath }) })
+          : await readOpenCodeCommands({ spawn: spawnAppServer, command: createOpenCodeServeCommand(found.executable, { workspacePath }), ...(found.version === undefined ? {} : { version: found.version }) })
         if (await runtimeCommands.set(runtime, commands)) sendToWindow({ kind: 'runtime-commands-changed' })
       })().catch((error: unknown) => note('runtime-commands', `could not list ${runtime}'s commands: ${error instanceof Error ? error.message : String(error)}`))
     }

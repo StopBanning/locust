@@ -442,6 +442,8 @@ export function startAcpRun(options: AcpRunOptions): AcpRun {
       const set = objectOf(await client.request("session/set_config_option", { sessionId, configId, value }));
       requireLive();
       if (configValue(set.configOptions, configId) !== value) throw new Error(`The agent would not set ${configId} to ${value}, so it was not started.`);
+      // Selecting a model can change the advertised effort/mode options.
+      session = { ...session, ...set };
     }
   };
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { discoverInstalledRuntimes } from "./discovery.js";
 
@@ -95,16 +95,25 @@ describe("discovery as it happens", () => {
   });
 
   it("does not make the total the sum of every probe", async () => {
-    const began = Date.now();
-    await discoverInstalledRuntimes({
-      runner: slowRunner(50),
-      locator: foundLocator as never,
-      staggerMs: 2,
-      watch: { started: () => undefined, finished: () => undefined },
-    });
-    // Seven definitions at 50ms each is 350ms sequentially; overlapping it
-    // is about one probe plus the stagger.
-    expect(Date.now() - began).toBeLessThan(250);
+    vi.useFakeTimers();
+    try {
+      let completed = false;
+      const discovery = discoverInstalledRuntimes({
+        runner: slowRunner(50),
+        locator: foundLocator as never,
+        staggerMs: 2,
+        watch: { started: () => undefined, finished: () => undefined },
+      }).then(() => { completed = true; });
+      // OpenCode checks its version before selecting its protocol's probes.
+      // That extra phase still overlaps the other runtimes. Keep the same
+      // strict boundary without measuring the test machine's scheduling load.
+      await vi.advanceTimersByTimeAsync(249);
+      expect(completed).toBe(true);
+      await discovery;
+    } finally {
+      await vi.runAllTimersAsync();
+      vi.useRealTimers();
+    }
   });
 
   it("names the binary it is about to run, and its id, which are not the same", async () => {
