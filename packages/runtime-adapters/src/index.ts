@@ -39,7 +39,7 @@ export { readClaudeCommands } from "./claude-commands.js";
 export { claudeListedModelsFrom } from "./claude-commands.js";
 export type { ClaudeCommandsOptions, ClaudeListedModel } from "./claude-commands.js";
 export type { OpenCodeCommandsOptions } from "./opencode-commands.js";
-export { ACP_DECLINED, ACP_PROMPT_RESULT, ACP_SESSION, acpToolNaming, createAcpEventNormalizer } from "./acp-events.js";
+export { ACP_DECLINED, ACP_PROMPT_RESULT, ACP_SESSION, acpCallIsShell, acpShownTool, acpToolNaming, createAcpEventNormalizer } from "./acp-events.js";
 export type { AcpEventNormalizer, AcpInvocationContext } from "./acp-events.js";
 export { ACP_PROTOCOL_VERSION, acpCapabilitiesOf, acpPermissionRequestOf, startAcpRun } from "./acp-run.js";
 export type { AcpCapabilities, AcpMcpServer, AcpPermissionAnswer, AcpPermissionOption, AcpPermissionRequest, AcpRun, AcpRunOptions } from "./acp-run.js";

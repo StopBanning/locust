@@ -128,6 +128,54 @@ export function acpToolNaming(kind: string | undefined): { readonly toolKind: st
   }
 }
 
+/**
+ * A title that is one tool word (`read`, `glob`, `grep`, `list`, `shell`),
+ * not a sentence about the call. Copilot's titles are sentences ("Run
+ * requested probe"); those stay the kind the call already named.
+ */
+const PLAIN_TOOL_WORD = /^[a-z][a-z0-9_-]*$/;
+
+export function plainAcpToolWord(title: string | undefined): string | undefined {
+  if (title === undefined) return undefined;
+  const word = title.trim().toLowerCase();
+  return PLAIN_TOOL_WORD.test(word) ? word : undefined;
+}
+
+/**
+ * How the row is named.
+ *
+ * Measured 2026-10-21 against OpenCode 2 (`opencode acp`, free model
+ * `opencode/deepseek-v4.1-flash-free`), one prompt that read `note.txt` and
+ * ran `echo hi`, in `C:\work\scratch\oc2-tool-rows-probe`:
+ *
+ * - the read arrived as `{"kind":"read","title":"read","rawInput":{},"locations":[]}`,
+ *   then an update `{"kind":"read","title":"read","rawInput":{"path":"...\\note.txt"},"locations":[{"path":"...\\note.txt"}]}`,
+ *   then a completion `{"kind":null,"title":null,"rawInput":null,"locations":[{"path":"...\\note.txt"}]}`.
+ * - the shell arrived as `{"kind":"execute","title":"shell","rawInput":{"cwd":"..."},"locations":[{"path":"..."}]}`,
+ *   then `{"kind":"execute","title":"echo hi","rawInput":{"command":"echo hi","workdir":"..."},"locations":[{"path":"..."}]}`,
+ *   then a completion `{"kind":null,"title":null,"rawInput":null,"locations":[{"path":"..."}]}`.
+ *
+ * The frames beside this (kind `other` titled with the tool word; a footer
+ * that ran the folder) are the same two shapes: a kind of `other` or none
+ * is named from that tool word, and a completion that kept only `locations`
+ * must not replace a command the earlier update already gave.
+ */
+export function acpShownTool(kind: string | undefined, title: string | undefined): { readonly toolKind: string; readonly name: string } {
+  const word = plainAcpToolWord(title);
+  if ((kind === undefined || kind === "other") && word !== undefined) return acpToolNaming(word);
+  return acpToolNaming(kind);
+}
+
+const SHELL_WORDS = /^(bash|shell|powershell|pwsh|cmd|execute)$/i;
+
+/** A shell call. Its `locations` entry is the folder it runs in, never the command. */
+export function acpCallIsShell(kind: string | undefined, title: string | undefined, named: { readonly toolKind: string; readonly name: string }): boolean {
+  if (kind === "execute" || named.toolKind === "command_execution") return true;
+  if (/^(bash|shell|powershell|pwsh|cmd)$/i.test(named.name)) return true;
+  const word = plainAcpToolWord(title);
+  return (kind === undefined || kind === "other") && word !== undefined && SHELL_WORDS.test(word);
+}
+
 /** The text of an ACP content block, or of every text block in a list. */
 /** Usage keys kept from one run; an agent's own names beyond this are dropped. */
 const MAX_USAGE_KEYS = 32;
@@ -163,17 +211,18 @@ function patchOf(content: unknown): ToolPatch | undefined {
   return unified.length === 0 ? undefined : toolPatchFrom(unified);
 }
 
-/**
- * What a tool call acted on: a command's own text, or the paths a file tool
- * named. A command's `locations` are only the folder it runs in -- OpenCode's
- * first report of a shell call carries that and nothing else -- so a shell row
- * waits for the command rather than showing the folder as one.
- */
-function targetOf(update: JsonObject): string | undefined {
+/** The shell command, only when `rawInput.command` itself says it. */
+function commandText(update: JsonObject): string | undefined {
   const input = isObject(update.rawInput) ? update.rawInput : {};
-  const command = stringValue(input.command);
-  if (command !== undefined) return command;
-  if (stringValue(update.kind) === "execute") return undefined;
+  return stringValue(input.command);
+}
+
+/**
+ * The files a tool named. Never a shell command: a shell's `locations` path
+ * is the folder it runs in, and OpenCode 2's completion often arrives with
+ * that path and no `rawInput` at all.
+ */
+function fileTarget(update: JsonObject): string | undefined {
   const locations = Array.isArray(update.locations) ? update.locations : [];
   const paths = locations.map((location) => (isObject(location) ? stringValue(location.path) : undefined)).filter((path): path is string => path !== undefined);
   return paths.length === 0 ? undefined : paths.join("\n");
@@ -316,12 +365,17 @@ export function createAcpEventNormalizer(context: AcpInvocationContext): AcpEven
       if (itemId === undefined) return [];
       const events: NormalizedRuntimeEvent[] = [...start(evidence), ...closeReasoning(evidence)];
       let open = openTools.get(itemId);
-      const target = targetOf(update);
+      const incomingKind = stringValue(update.kind);
       const title = stringValue(update.title);
+      const saidCommand = commandText(update);
       if (open === undefined) {
         // What was said before the call is a message of its own.
         events.push(...closeMessage(evidence));
-        open = { ...acpToolNaming(stringValue(update.kind)), command: target, title };
+        const naming = acpShownTool(incomingKind, title);
+        const shell = acpCallIsShell(incomingKind, title, naming);
+        // A folder in `locations` is not a command. A file tool may still be named by the path.
+        const target = saidCommand ?? (shell ? undefined : fileTarget(update));
+        open = { ...naming, command: target, title };
         openTools.set(itemId, open);
         events.push(
           emit("tool.started", {
@@ -335,9 +389,21 @@ export function createAcpEventNormalizer(context: AcpInvocationContext): AcpEven
             evidence,
           }),
         );
-      } else if (target !== undefined) {
-        // The command often arrives on the update, not the first report.
-        open.command = target;
+      } else {
+        const shell = acpCallIsShell(incomingKind, title ?? open.title, open);
+        if (saidCommand !== undefined) open = { ...open, command: saidCommand };
+        else if (!shell) {
+          const files = fileTarget(update);
+          if (files !== undefined) open = { ...open, command: files };
+        }
+        // A later update can replace a bare tool word (`shell`) with what it ran (`echo hi`).
+        if (title !== undefined && title !== open.title && plainAcpToolWord(open.title) !== undefined) open = { ...open, title };
+        // Kind `other` until the title arrives: take the tool word once it does.
+        if ((open.name === "other" || open.name === "tool" || open.toolKind === "other") && (incomingKind === undefined || incomingKind === "other")) {
+          const naming = acpShownTool(incomingKind, title ?? open.title);
+          if (naming.name !== "other" && naming.name !== "tool") open = { ...open, toolKind: naming.toolKind, name: naming.name };
+        }
+        openTools.set(itemId, open);
       }
       const status = stringValue(update.status);
       if (status !== "completed" && status !== "failed") return events;

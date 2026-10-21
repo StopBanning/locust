@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { toolPatchFrom } from '@teammate/runtime-adapters'
+import { acpCallIsShell, acpShownTool, toolPatchFrom } from '@teammate/runtime-adapters'
 import type {
   AcpPermissionAnswer,
   AcpPermissionRequest,
@@ -404,7 +404,9 @@ export function acpPermissionRequest(asked: AcpPermissionRequest, cwd: string): 
    * or the same files, again -- what the run used to remember itself
    * (acp-run.ts) before the saved rules were read. Said on the card too.
    */
-  const target = asked.command ?? (asked.paths.length === 0 ? undefined : asked.paths.join('\n'))
+  // A shell's locations path is the folder, not the command an Always would remember.
+  const shell = acpCallIsShell(asked.kind, asked.title, acpShownTool(asked.kind, asked.title))
+  const target = asked.command ?? (shell || asked.paths.length === 0 ? undefined : asked.paths.join('\n'))
   const request = acpRequestOf(asked, cwd)
   if (target === undefined) return request
   const params = (request.params ?? {}) as Record<string, JsonValue>
@@ -416,7 +418,8 @@ export function acpPermissionRequest(asked: AcpPermissionRequest, cwd: string): 
 function acpRequestOf(asked: AcpPermissionRequest, cwd: string): AppServerRequest {
   const base = { cwd, ...(asked.toolCallId === undefined ? {} : { itemId: asked.toolCallId }) }
   const files = asked.paths.map((path) => relativeToFolder(path, cwd)).join(', ')
-  if (asked.kind === 'execute') {
+  // Kind `execute`, or a plain tool word that is a shell (`shell`, `bash`). The folder in locations is not the command.
+  if (asked.kind === 'execute' || acpCallIsShell(asked.kind, asked.title, acpShownTool(asked.kind, asked.title))) {
     return { id: 0, method: 'item/commandExecution/requestApproval', params: { ...base, command: asked.command ?? '' } }
   }
   if (asked.kind === 'edit' || asked.kind === 'delete' || asked.kind === 'move') {

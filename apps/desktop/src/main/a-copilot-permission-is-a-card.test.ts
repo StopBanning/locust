@@ -47,6 +47,17 @@ describe("a Copilot permission request, over ACP", () => {
     expect(acpAnswerFor(await answer)).toBe('allow_once')
   })
 
+  it("a shell that only names its folder is a card with no command -- the folder is not what would run", () => {
+    const { raised, handler } = channelFor('2b')
+    const asked = {
+      ...MEASURED,
+      toolCall: { toolCallId: 't2b', title: 'shell', kind: 'other', rawInput: {}, locations: [{ path: 'C:\\work\\scratch\\oc2-tool-rows-probe' }] }
+    }
+    void handler(acpPermissionRequest(acpPermissionRequestOf(asked), 'C:\\work'))
+    expect(raised[0]).toMatchObject({ kind: 'command', detail: '' })
+    expect(raised[0]?.detail).not.toContain('oc2-tool-rows-probe')
+  })
+
   it("a shell call that did not say its command is a card that says so -- its description is not passed off as the command", () => {
     const { raised, handler } = channelFor('2')
     const asked = { ...MEASURED, toolCall: { toolCallId: 't2', title: 'Tidy the build folder', kind: 'execute' } }

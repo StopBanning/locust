@@ -112,6 +112,9 @@ try {
   check('an Edit turn writes the file, in the workspace', existsSync(written) && /hi/.test(readFileSync(written, 'utf8')), edit)
   const reply = String(await drive.evaluate(lastReply))
   check('and its reply reaches the thread', /done/i.test(reply), reply)
+  const thread = String(await drive.evaluate(`document.querySelector('.lc-thread')?.innerText ?? ''`))
+  check('no step reads Used other', !thread.includes('Used other'), thread.slice(-500))
+  check('a folder is not the command the footer says ran', !thread.includes(`ran ${workspace}`), thread.slice(-500))
 
   const follow = String(await drive.capture('a follow-up, in the same conversation', () => drive.evaluate(sendAndWaitScript('What is the name of the file you just created? Answer with the file name only.', { waitSeconds: 180 }))))
   check('a follow-up continues OpenCode 2’s own session', /hello\.txt/i.test(String(await drive.evaluate(lastReply))), follow)
