@@ -174,8 +174,13 @@ export function currentDrafts(current: string, why = TUNE_FALLBACK): TuneDrafts 
 export function parseTuneDrafts(raw: string, current: string, options: { readonly skills?: boolean } = {}): TuneDrafts {
   try {
     if (raw.length > 32_000) return currentDrafts(current)
-    const body = raw.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i, '$1')
-    const value: unknown = JSON.parse(body)
+    // Read as the lesson and the combine are (0.811): past a think block, a fence, or a line before the object.
+    const stripped = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+    const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(stripped)
+    const candidate = (fenced !== null ? fenced[1]! : stripped).trim()
+    const first = candidate.indexOf('{')
+    const last = candidate.lastIndexOf('}')
+    const value: unknown = JSON.parse(first >= 0 && last > first ? candidate.slice(first, last + 1) : candidate)
     if (typeof value !== 'object' || value === null) return currentDrafts(current)
     const whyOf = (row: Record<string, unknown>): string | undefined => {
       const why = typeof row.why === 'string' ? row.why.replace(/\s+/g, ' ').trim() : ''

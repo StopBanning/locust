@@ -89,6 +89,10 @@ describe('the drafts of a tune of a Claude Code teammate', () => {
     // A skill that will not read whole, or a skill under "how", is read as no edits.
     expect(parseTuneDrafts(JSON.stringify({ how, knows: { skill: { ...skill, name: 'Bad Name' }, why: knows.why } }), current, { skills: true }).knows.skill).toBeUndefined()
     expect(parseTuneDrafts(JSON.stringify({ how: { skill, why: 'x' }, knows: { skill, why: knows.why } }), current, { skills: true }).how.instructions).toBe(current)
+    // Read past a think block, a fence, or a line before the object, as the lesson and the combine are.
+    const fence = '```'
+    expect(parseTuneDrafts(`<think>hm</think>Here are the drafts:\n${fence}json\n${raw}\n${fence}`, current, { skills: true })).toEqual({ how, knows })
+    expect(parseTuneDrafts(`Here are the drafts: ${raw}`, current, { skills: true })).toEqual({ how, knows })
     // Keeping things as they are stays a valid "knows".
     expect(parseTuneDrafts(JSON.stringify({ how, knows: { instructions: current, why: 'Nothing to add.' } }), current, { skills: true }).knows).toEqual({ instructions: current, why: 'Nothing to add.' })
   })
