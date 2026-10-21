@@ -6,21 +6,14 @@ export PNPM_CONFIG_STORE_DIR=C:/work/pnpm-store
 # Run after `node _tools/ship.mjs --marker "<a string the release adds>"` passed, with TEMP set as it was for ship:
 #   TEMP=<the folder ship used> TMP=<the same> bash _tools/publish-dl.sh 0.784.0 0.783.0
 #
-# A QUIET GITHUB (2026-10-20). Each release is a push, its test and guard runs, a dispatched package run and, with a
-# Releases page, a second push for the tag: six releases in a day is dozens of automated runs. So, unless asked:
-#   - one release a day: this refuses within 20 hours of PREV's tag (LOCUST_RELEASE_ANYWAY=1 overrides);
-#   - no Releases page: dl.locust.lol serves every file (LOCUST_GITHUB_RELEASE=1 makes one, as before).
+# A QUIET GITHUB (2026-10-20). With a Releases page each release is a second push for the tag, so unless asked there
+# is none: dl.locust.lol serves every file (LOCUST_GITHUB_RELEASE=1 makes one, as before). The one-release-a-day gate
+# it began with is gone (Colin, 2026-10-21: "Doesn't need to be one release a day anymore"); a release goes when ready.
 NEW="$1"; PREV="$2"
 [ -n "$NEW" ] && [ -n "$PREV" ] || { echo "usage: publish-dl.sh NEW PREV"; exit 1; }
 R=/c/work/locust
 G='credential.helper=!gh auth git-credential'
 cd "$R" || exit 1
-if [ "$LOCUST_RELEASE_ANYWAY" != 1 ]; then
-  PREV_AT=$(git log -1 --format=%ct "refs/tags/$PREV" 2>/dev/null)
-  [ -n "$PREV_AT" ] || { echo "no tag $PREV to measure a day from; LOCUST_RELEASE_ANYWAY=1 publishes anyway"; exit 1; }
-  HOURS=$(( ($(date +%s) - PREV_AT) / 3600 ))
-  [ "$HOURS" -ge 20 ] || { echo "REFUSED: $PREV went out ${HOURS}h ago; one release a day (LOCUST_RELEASE_ANYWAY=1 overrides)"; exit 1; }
-fi
 node _tools/publish-downloads.mjs "$NEW" > "$TEMP/pub.log" 2>&1 || { echo "publish FAILED"; tail -5 "$TEMP/pub.log"; exit 1; }
 tail -1 "$TEMP/pub.log"
 node _tools/publish-downloads.mjs "$NEW" --promote > "$TEMP/promote.log" 2>&1 || { echo "promote FAILED"; tail -5 "$TEMP/promote.log"; exit 1; }
