@@ -265,7 +265,8 @@ export function createOwnModelStore(options: {
             displayName: model.name,
             description: `Your model · ${hostOf(model.baseUrl)}${model.chatOnly === true ? ' · chat only' : ''}`,
             supportedEfforts: [],
-            own: true
+            own: true,
+            ...(model.chatOnly === true ? { chatOnly: true as const } : {})
           })
         )
       )

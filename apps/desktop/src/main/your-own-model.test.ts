@@ -78,6 +78,8 @@ describe('a model of your own', () => {
     expect(plain.chatOnly).toBe(true)
     expect((await models.providerFor(ownRouteModel(plain)))?.provider.toolCalls).toBe(false)
     expect((await models.catalog())[0]?.description).toBe('Your model · llm.acme.example · chat only')
+    // Marked as such too, so a judge is never one that cannot read a file (0.810).
+    expect((await models.catalog())[0]?.chatOnly).toBe(true)
     // And back: a model found to take tools after all.
     expect((await models.setChatOnly(plain.ownId, false)).chatOnly).toBe(false)
     expect((await models.providerFor(ownRouteModel(plain)))?.provider.toolCalls).toBeUndefined()

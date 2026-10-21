@@ -5174,16 +5174,24 @@ export default function App(): ReactElement {
     const compared = new Set(compare.slots.map((column) => `${column.route.runtime}:${column.route.model}`))
     const ready = (runtime: string): boolean => runtimes.some((status) => status.id === runtime && status.ready) && compareRefusalOf(runtime, antigravityCli) === undefined
     const picked: { key: string; label: string; runtime: MissionRuntimeId; model: string; group: string; short: string }[] = []
-    const add = (runtime: MissionRuntimeId, model: string): void => {
+    const add = (runtime: MissionRuntimeId, model: string, own?: PublicModel): void => {
       const key = `${runtime}:${model}`
       if (picked.some((one) => one.key === key) || !ready(runtime)) return
-      const short = routeModelName(runtime, model, resolvedModels.get(key))
-      picked.push({ key, runtime, model, label: `${runtimeNameOf(runtime)} / ${short}`, group: runtimeNameOf(runtime), short })
+      const short = own?.displayName ?? routeModelName(runtime, model, resolvedModels.get(key))
+      const group = own === undefined ? runtimeNameOf(runtime) : 'Your models'
+      picked.push({ key, runtime, model, label: `${group} / ${short}`, group, short })
     }
     for (const model of freeAnswered) add('opencode', model)
     add(composerRoute.runtime, composerRoute.model)
     const catalogue = models.filter((model) => model.older !== true && model.own !== true)
     for (const model of [...catalogue.filter((one) => one.id.endsWith('-free')), ...catalogue.filter((one) => !one.id.endsWith('-free'))]) add(model.runtime, model.id)
+    /*
+     * YOUR OWN MODELS JUDGE TOO (0.810). A model the person added with their own key -- their company's, or Claude on
+     * their API credits -- was never offered here, so a panel of Claude judges on the API could not be asked (the
+     * credits drive, 2026-10-21). One that only chats is still left out: its runs get no tools, and a long brief is
+     * handed to a judge as files to read.
+     */
+    for (const model of models.filter((one) => one.own === true && one.chatOnly !== true)) add(model.runtime, model.id, model)
     const others = picked.filter((one) => !compared.has(one.key))
     const ordered = [...others, ...picked.filter((one) => compared.has(one.key))]
     // Every one (0.554): the offered one first, the rest under their agent in the catalogue's order.

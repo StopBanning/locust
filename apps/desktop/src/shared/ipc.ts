@@ -2555,6 +2555,8 @@ export interface PublicModel {
    * a group of their own, first.
    */
   readonly own?: true
+  /** One of the person's own models that only chats (0.358): its runs get no tools, so it cannot read a file (0.810). */
+  readonly chatOnly?: true
   /** An agent the person added (0.777, shared/acp-agents.ts): its name, which is its group in the picker. */
   readonly agentName?: string
 }
