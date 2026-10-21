@@ -16881,6 +16881,15 @@ textarea.lc-compare__judgecriteria {
   margin: var(--lc-space-4) var(--lc-space-7) 0;
 }
 
+/* Across your benchmarks (0.811): one table over the list, in its margins, read as a benchmark's own table reads. */
+.lc-benchmarks__across {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lc-space-2);
+  margin: var(--lc-space-4) var(--lc-space-7) 0;
+  padding: var(--lc-space-4);
+}
+
 .lc-benchmarks__row {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto auto auto;

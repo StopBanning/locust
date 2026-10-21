@@ -144,6 +144,13 @@ try {
   // CRM: Space Bunny met 2, 2, 1 of 2 -> 83; Muse Spark 0, 1, 0 -> 17. FIX: Bunny and Muse 2, 1 -> 75 each.
   check('a row names who leads and by how much, a tie as a tie', list.rows[0]?.chip === 'Space Bunny 83' && list.rows[0]?.fill === '83%' && list.rows[1]?.chip === 'Space Bunny and Muse Spark tie 75', JSON.stringify(list.rows.map((r) => `${r.chip} / ${r.fill}`)))
   check('a row says when it last ran', list.rows[0]?.at === '30m' && list.rows[1]?.at === '2d', JSON.stringify(list.rows.map((r) => r.at)))
+  // ACROSS YOUR BENCHMARKS (0.811): the two models in both, each benchmark counted once -- Bunny (83 + 75) / 2 = 79 and
+  // Muse (17 + 75) / 2 = 46, their runs that met every point counted over all five -- and Ling, in one, left out.
+  const across = JSON.parse(String(await drive.evaluate(`JSON.stringify({
+    rows: [...document.querySelectorAll('.lc-benchmarks__across tbody tr')].map((tr) => [...tr.children].slice(0, 4).map((cell) => cell.textContent.trim())),
+    before: (() => { const table = document.querySelector('.lc-benchmarks__across'); const list = document.querySelector('.lc-benchmarks__list'); return table !== null && list !== null && table.getBoundingClientRect().bottom <= list.getBoundingClientRect().top + 1 })()
+  })`)))
+  check('across your benchmarks, the models both ran in, each benchmark counted once, over the list', JSON.stringify(across.rows) === JSON.stringify([['Space Bunny', '2', '79', '3 of 5'], ['Muse Spark', '2', '46', '1 of 5']]) && across.before, across)
 
   say(`  open the CRM benchmark: ${String(await press('.lc-benchmarks__row', ''))}`)
   await sleep(1500)
@@ -171,6 +178,10 @@ try {
     await drive.resize(width, height)
     await sleep(600)
     const sized = await drive.capture(`the list at ${String(width)} by ${String(height)}`, () => read())
+    check(`at ${String(width)} by ${String(height)} the table across them stays inside the window`, await drive.evaluate(`(() => {
+      const table = document.querySelector('.lc-benchmarks__across')
+      return table !== null && table.getBoundingClientRect().right <= innerWidth && document.documentElement.scrollWidth <= innerWidth
+    })()`))
     check(`at ${String(width)} by ${String(height)} every row holds its parts on one line, inside the window`, sized.rows.length === 2 && sized.rows.every((r) => !r.overflowing && r.height < 70) && !sized.pageScrollsSideways, JSON.stringify(sized.rows.map((r) => `${String(r.width)}x${String(r.height)}${r.overflowing ? ' over' : ''}`)))
   }
 } catch (error) {

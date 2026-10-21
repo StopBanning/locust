@@ -136,6 +136,53 @@ export function benchmarkLeader(rows: readonly BenchmarkRow[]): { readonly names
   return { names: scored.filter((row) => row.score === score).map((row) => row.name), score }
 }
 
+/** One model across the benchmarks it ran in (0.811): `runs` and `scored` are over all of them. */
+export interface AcrossRow extends BenchmarkRow {
+  /** How many of the benchmarks it ran in. */
+  readonly benchmarks: number
+}
+
+/**
+ * ACROSS YOUR BENCHMARKS (0.811). Each benchmark answers one question; a person who ran the same models on five read
+ * five tables to tell which to use (the API benchmark of 10/21 ran three Claude models on five tasks). One row a model
+ * in at least two benchmarks: its score the average of its benchmarks' scores, each benchmark counted once, so a
+ * question run fifteen times does not outweigh one run three; its runs that met every point and passed the check
+ * counted over all of them; its time the middle of theirs; its cost their average. Fewer than two such models, none.
+ */
+export function acrossBenchmarks(benchmarks: readonly { readonly rows: readonly BenchmarkRow[] }[]): readonly AcrossRow[] {
+  const byKey = new Map<string, BenchmarkRow[]>()
+  for (const benchmark of benchmarks) {
+    for (const row of benchmark.rows) byKey.set(row.key, [...(byKey.get(row.key) ?? []), row])
+  }
+  const rows: AcrossRow[] = []
+  for (const [key, held] of byKey) {
+    if (held.length < 2) continue
+    const first = held[0]!
+    const scores = held.flatMap((row) => (row.score === undefined ? [] : [row.score]))
+    const spanMs = median(held.flatMap((row) => (row.spanMs === undefined ? [] : [row.spanMs])))
+    const cost = averageCost(held.map((row) => row.cost))
+    const sum = (pick: (row: BenchmarkRow) => number): number => held.reduce((total, row) => total + pick(row), 0)
+    rows.push({
+      key,
+      runtime: first.runtime,
+      model: first.model,
+      ...(first.effort === undefined ? {} : { effort: first.effort }),
+      name: first.name,
+      benchmarks: held.length,
+      runs: sum((row) => row.runs),
+      scored: sum((row) => row.scored),
+      ...(scores.length === 0 ? {} : { score: Math.round(scores.reduce((total, score) => total + score, 0) / scores.length) }),
+      everyPoint: sum((row) => row.everyPoint),
+      ...(spanMs === undefined ? {} : { spanMs }),
+      ...(cost === undefined ? {} : { cost }),
+      checked: sum((row) => row.checked),
+      checkPassed: sum((row) => row.checkPassed)
+    })
+  }
+  if (rows.length < 2) return []
+  return rows.sort((left, right) => (right.score ?? -1) - (left.score ?? -1) || (left.spanMs ?? Infinity) - (right.spanMs ?? Infinity))
+}
+
 /** What a dollar figure there is for a row: its average, or nothing when its runtime does not price its runs. */
 const dollarsOf = (row: BenchmarkRow): number | undefined => (row.cost?.usd !== undefined ? row.cost.usd : undefined)
 
