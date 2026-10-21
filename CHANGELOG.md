@@ -11,6 +11,27 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.810.0 - 2026-10-21
+
+### New
+
+- **A comparison's judges read the work.** When the columns changed files, each judge now sees what each one changed, beside its answer and still without names. A claim about the changes is checked against them, and a column that changed nothing is said to have changed nothing. The idea comes from Google Research's Harness².
+- **Judges see your check.** In a comparison that changes files, the check you set for the folder (Settings > Project folder) runs in each copy after its turn. Its result now shows under each answer and beside the judges' score, and every judge reads it before scoring: a failed check counts against an answer, whatever the answer says it did. What the check printed reaches the judge with your folders' paths left out. When the check fails the same way in every copy, for example because it needs dependencies a copy leaves out, Locust says so, and the judges are told it tells the answers apart on nothing.
+- **Your own models can judge.** A model you added with your own key is offered as a judge, under Your models. A model that only chats is not, since a long comparison reaches a judge as files.
+- **Your own models are priced.** A model you added at its provider's own address, such as Anthropic's or OpenAI's, under the name that provider lists, is now priced from the model list OpenCode keeps, including the higher rate some models charge for a long context. Its runs, your benchmark and the benchmark's chart show dollars instead of tokens, and its runs count toward a teammate's monthly spend limit. A model on a gateway or a server of your own is still counted in tokens.
+- **A tune can leave a lesson.** After you keep a setup, Note what this tune showed asks which edit made the difference, judged from what the runs did, and may write one lesson, such as "When a teammate gives a short answer, add a line capping its length." Lessons are read only when you tune that teammate again, never in its everyday work, and Edit teammate lists them under Tune lessons, where you can remove one. Often there is no lesson, and that is normal.
+
+### Improved
+
+- **Your benchmark reads more plainly.** Running it again says "Running it once more" or "Running it again, 2 of 3" instead of "Run 1 of 1" beside the benchmark's own count, three judges are called judges, a chart label moved to clear another is joined to its point by a line, and a Check passed column counts the runs whose copy passed your check.
+- **A model added under its own id reads by its name.** A model you added with its id as its name, such as claude-haiku-5-5, reads as Claude Haiku 5.5 in Compare, your benchmark and the judge picker.
+- **OpenCode 2 steps say what they did.** A step is named from the tool it ran, and a folder is never shown as if it were the command.
+- **A teammate's brief is shorter.** With nothing remembered yet, it no longer explains how to read memories, about 1,100 characters less on every new project's first turn, and the line for suggesting an About-you sentence is taught once instead of twice.
+
+### Fixed
+
+- **OpenCode teammates starting at the same moment no longer lose one.** When several started together, one could stop with "database is locked" before it began. It now starts again a moment later.
+
 ## 0.809.0 - 2026-10-21
 
 ### New
