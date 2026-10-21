@@ -64,6 +64,44 @@ export type TuneLessonListResponse =
   | { readonly ok: true; readonly data: { readonly lessons: readonly PublicTuneLesson[] } }
   | { readonly ok: false; readonly message: string }
 
+/**
+ * A SETUP, MEASURED (0.811): what its tune's benchmark counted for it over every run -- the first and each run again,
+ * scored by the same judge on the same points -- as the table shows it. Handed to Note what this tune showed, which
+ * otherwise has one run of each setup to stand on and rightly finds nothing in it.
+ */
+export interface TuneMeasured {
+  readonly slot: 'a' | 'b' | 'c'
+  readonly runs: number
+  readonly scored: number
+  /** 0-100, over its scored runs. */
+  readonly score?: number
+  readonly everyPoint: number
+  readonly checked: number
+  readonly checkPassed: number
+}
+
+/** The measured records the window sends, read defensively: whole counts that add up, one a column, or none at all. */
+export function tuneMeasuredOf(value: unknown): readonly TuneMeasured[] | undefined {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 3) return undefined
+  const count = (input: unknown): number | undefined => (typeof input === 'number' && Number.isInteger(input) && input >= 0 && input <= 50 ? input : undefined)
+  const records: TuneMeasured[] = []
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return undefined
+    const row = entry as Record<string, unknown>
+    const slot = row.slot === 'a' || row.slot === 'b' || row.slot === 'c' ? row.slot : undefined
+    const runs = count(row.runs)
+    const scored = count(row.scored)
+    const everyPoint = count(row.everyPoint)
+    const checked = count(row.checked)
+    const checkPassed = count(row.checkPassed)
+    const score = row.score === undefined ? undefined : typeof row.score === 'number' && Number.isFinite(row.score) && row.score >= 0 && row.score <= 100 ? Math.round(row.score) : null
+    if (slot === undefined || runs === undefined || scored === undefined || everyPoint === undefined || checked === undefined || checkPassed === undefined || score === null) return undefined
+    if (scored > runs || everyPoint > scored || checked > runs || checkPassed > checked || records.some((one) => one.slot === slot)) return undefined
+    records.push({ slot, runs, scored, ...(score === undefined ? {} : { score }), everyPoint, checked, checkPassed })
+  }
+  return records
+}
+
 export function currentDrafts(current: string, why = TUNE_FALLBACK): TuneDrafts {
   return { how: { instructions: current, why }, knows: { instructions: current, why } }
 }

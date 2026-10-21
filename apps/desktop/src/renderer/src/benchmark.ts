@@ -1,4 +1,5 @@
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
+import type { CompareSlotId } from '../../shared/compare.js'
 import type { RunCost } from './cost.js'
 
 /**
@@ -25,6 +26,8 @@ export interface BenchmarkAnswer {
   readonly cost?: RunCost
   /** What your check said in its copy after its turn (0.810), when one ran. */
   readonly check?: 'passed' | 'failed' | 'timed-out' | 'could-not-run'
+  /** A tune's setup (0.811): its column, one model under its own instructions. */
+  readonly slot?: CompareSlotId
 }
 
 export interface BenchmarkRunInput {
@@ -53,6 +56,8 @@ export interface BenchmarkRow {
   /** Runs your check ran in its copy after (0.810), and of those, the runs it passed. */
   readonly checked: number
   readonly checkPassed: number
+  /** A tune's setup (0.811): its column, one model under its own instructions. */
+  readonly slot?: CompareSlotId
 }
 
 /** The middle of a list of numbers: the mean of the two middle ones for an even count. */
@@ -111,6 +116,7 @@ export function benchmarkRows(runs: readonly BenchmarkRunInput[]): readonly Benc
       runtime: first.runtime,
       model: first.model,
       ...(first.effort === undefined ? {} : { effort: first.effort }),
+      ...(first.slot === undefined ? {} : { slot: first.slot }),
       name: first.name,
       runs: finished.length,
       scored: scored.length,
@@ -152,7 +158,8 @@ export interface AcrossRow extends BenchmarkRow {
 export function acrossBenchmarks(benchmarks: readonly { readonly rows: readonly BenchmarkRow[] }[]): readonly AcrossRow[] {
   const byKey = new Map<string, BenchmarkRow[]>()
   for (const benchmark of benchmarks) {
-    for (const row of benchmark.rows) byKey.set(row.key, [...(byKey.get(row.key) ?? []), row])
+    // A tune's rows are its own setups (0.811): one tune's Setup A is not another's, so a tune is read on its own.
+    for (const row of benchmark.rows) if (row.slot === undefined) byKey.set(row.key, [...(byKey.get(row.key) ?? []), row])
   }
   const rows: AcrossRow[] = []
   for (const [key, held] of byKey) {

@@ -18,6 +18,8 @@ export interface BenchmarkView {
   readonly refusal?: string
   /** Three judges vote on it (0.765): each run again is scored by the same three. */
   readonly threeJudges?: boolean
+  /** A tune's (0.811): its rows are one model's setups, by their columns, measured before one is kept. */
+  readonly setups?: true
   readonly rows: readonly BenchmarkRow[]
   readonly chart?: BenchmarkChart
   /** Every run, this comparison first; `done` once its models and its judge have finished. */
@@ -85,7 +87,9 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
       <div className="lc-benchmark" aria-label="Your benchmark" ref={place}>
         <span className="lc-compare__recordlabel lc-mono">YOUR BENCHMARK</span>
         <p className="lc-benchmark__lead">
-          {`One run can be luck. Run this comparison again and see whether the scores hold: the same models, the same question${sameStart(view.base)}, scored by ${view.threeJudges === true ? 'the same three judges' : 'the same judge'} on the same points.`}
+          {view.setups === true
+            ? `One run can be luck. Run the three setups again and keep the one whose scores hold: the same model and the same question${sameStart(view.base)}, each setup with its own instructions, scored by ${view.threeJudges === true ? 'the same three judges' : 'the same judge'} on the same points.`
+            : `One run can be luck. Run this comparison again and see whether the scores hold: the same models, the same question${sameStart(view.base)}, scored by ${view.threeJudges === true ? 'the same three judges' : 'the same judge'} on the same points.`}
         </p>
         {actions}
         {view.problem !== undefined && <p className="lc-compare__problem" role="status">{view.problem}</p>}
@@ -112,7 +116,7 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
         <table className="lc-table lc-benchmark__table">
           <thead>
             <tr>
-              <th scope="col">Model</th>
+              <th scope="col">{view.setups === true ? 'Setup' : 'Model'}</th>
               <th scope="col">Score</th>
               <th scope="col">Met every point</th>
               {checked && <th scope="col">Check passed</th>}
@@ -168,7 +172,7 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
           </button>
         ))}
       </div>
-      <p className="lc-compare__judgenote">{`Each run asks the same models the same question${sameStart(view.base)}, and ${view.threeJudges === true ? 'the same three judges score' : 'the same judge scores'} it on the same points.`}</p>
+      <p className="lc-compare__judgenote">{`Each run asks ${view.setups === true ? 'the same model the same question under each setup’s instructions' : 'the same models the same question'}${sameStart(view.base)}, and ${view.threeJudges === true ? 'the same three judges score' : 'the same judge scores'} it on the same points.`}</p>
     </div>
   )
 }

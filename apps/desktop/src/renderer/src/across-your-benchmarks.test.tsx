@@ -44,6 +44,11 @@ describe('your benchmarks, read across', () => {
     expect(across[1]).toMatchObject({ benchmarks: 2, score: 85, everyPoint: 5 })
   })
 
+  it('leaves a tune\'s setups out: one tune\'s Setup A is not another\'s (0.811)', () => {
+    const setup = (slot: 'a' | 'b'): BenchmarkRow => row('Example', { key: `opencode:example#${slot}`, slot, name: `Setup ${slot.toUpperCase()}`, score: 100 })
+    expect(acrossBenchmarks([{ rows: [setup('a'), setup('b')] }, { rows: [setup('a'), setup('b')] }])).toEqual([])
+  })
+
   it('reads nothing across until two models have each run in two benchmarks', () => {
     expect(acrossBenchmarks([{ rows: [row('Haiku', { score: 100 }), row('Opus', { score: 90 })] }])).toEqual([])
     expect(acrossBenchmarks([{ rows: [row('Haiku', { score: 100 }), row('Opus', { score: 90 })] }, { rows: [row('Haiku', { score: 100 }), row('Sonnet', { score: 90 })] }])).toEqual([])

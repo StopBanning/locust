@@ -94,15 +94,18 @@ export function judgePrompt(input: {
   readonly changes?: 'copies' | 'folder'
   /** The person's check ran in the copies (0.810): its command, as Settings holds it. */
   readonly check?: { readonly command: string }
+  /** A tune's (0.811): the answers are one model's, each under its own standing instructions, not different models'. */
+  readonly setups?: boolean
 }): string {
   const criteria = input.criteria?.trim()
   const points = criteriaLines(criteria)
   const inFiles = input.answers.some((answer) => answer.file !== undefined)
   const checked = input.check !== undefined && input.answers.some((answer) => answer.check !== undefined)
+  const who = input.setups === true ? 'one AI model gave to the same request, each under a different set of standing instructions' : 'different AI models gave to the same request'
   return [
     inFiles
-      ? 'You are judging answers that different AI models gave to the same request. Read each answer\'s file below in full; use no other tools and do not change any files. Then give your view.'
-      : 'You are judging answers that different AI models gave to the same request. Do not use any tools and do not change any files: read, and give your view.',
+      ? `You are judging answers that ${who}. Read each answer's file below in full; use no other tools and do not change any files. Then give your view.`
+      : `You are judging answers that ${who}. Do not use any tools and do not change any files: read, and give your view.`,
     `The request was:\n\n${input.ask.trim()}`,
     ...input.answers.map((answer) => (answer.file === undefined ? judgeAnswerText(answer) : `Answer ${answer.letter} is in the file ${answer.file}`)),
     ...(input.changes === 'folder' ? ['Judge the answers only. These columns worked in the same folder, so no change can be attributed to one answer; their claims about files are not verified here.'] : []),

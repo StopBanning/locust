@@ -90,6 +90,49 @@ try {
       await drive.capture(`${theme} blind comparison ${width} by ${height}`, () => drive.evaluate(`document.querySelector('.lc-compare').innerText`))
     }
   }
+  /*
+   * A TUNE, MEASURED (0.811): before Keep, a free judge scores the three setups and the tune runs once more. Its
+   * benchmark is a row a setup -- Setup A, B and C -- never the model all three share, and names no setup before Keep.
+   */
+  check('Ask a judge says it reads setups, and that one run of each can be luck', await drive.evaluate(`(() => {
+    const text = document.querySelector('.lc-compare__judgeask')?.innerText ?? ''
+    return text.includes('without the setups’ names') && text.includes('One run of each setup can be luck')
+  })()`))
+  await drive.evaluate(`document.querySelector('.lc-compare__judgeask .lc-compare__judgepick').click()`)
+  await drive.waitForSelector('.lc-select__menu [role="option"]')
+  const judgeKey = await drive.evaluate(`(() => {
+    const option = [...document.querySelectorAll('.lc-select__menu [role="option"]')].find((item) => !item.disabled && /^opencode:.*-free$/.test(item.dataset.value ?? '') && item.dataset.value !== ${JSON.stringify(`opencode:${FREE_ROUTE.model}`)})
+    if (!option) return ''
+    option.click(); return option.dataset.value
+  })()`)
+  if (!judgeKey) throw new Error('No other free model is offered as a judge; no other route will be used.')
+  await drive.evaluate(`(() => {
+    const box = document.querySelector('.lc-compare__judgecriteria')
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, ${JSON.stringify('Says why checking assumptions matters\nAnswers in two sentences')})
+    box.dispatchEvent(new Event('input', { bubbles: true }))
+  })()`)
+  await sleep(150)
+  await drive.evaluate(`[...document.querySelector('.lc-compare__judgeask').querySelectorAll('button')].find((item) => item.textContent.trim() === 'Judge').click()`)
+  await drive.waitFor(`(document.querySelector('.lc-benchmark')?.innerText ?? '').includes('Run once more')`, { timeoutMs: 300_000, what: 'the free judge to score the three setups' })
+  await drive.evaluate(`[...document.querySelectorAll('.lc-benchmark button')].find((button) => button.textContent.trim() === 'Run once more').click()`)
+  await drive.waitFor(`(async () => {
+    const listed = await window.desktop.listCompares()
+    if (!listed.ok) return false
+    const origin = listed.data.compares.find((item) => item.compareId === ${JSON.stringify(trial.compareId)})
+    const reruns = (origin?.reruns ?? []).map((id) => listed.data.compares.find((item) => item.compareId === id))
+    return reruns.length === 1 && reruns.every((run) => run?.settled === true)
+  })()`, { timeoutMs: 900_000, what: 'the tune run once more, judged' })
+  await drive.waitFor(`(document.querySelector('.lc-benchmark')?.innerText ?? '').includes('2 RUNS')`, { timeoutMs: 60_000, what: 'the benchmark of both runs' })
+  const measured = JSON.parse(String(await drive.evaluate(`JSON.stringify({
+    rows: [...document.querySelectorAll('.lc-benchmark__table tbody th[scope="row"]')].map((cell) => cell.childNodes[0]?.textContent.trim() ?? ''),
+    head: document.querySelector('.lc-benchmark__table thead th')?.textContent.trim(),
+    text: document.querySelector('.lc-benchmark')?.innerText ?? ''
+  })`)))
+  check('the tune is measured blind: a row a setup, Setup A, B and C, over both runs', measured.head === 'Setup' && JSON.stringify([...measured.rows].sort()) === JSON.stringify(['Setup A', 'Setup B', 'Setup C']), measured)
+  check('its benchmark names no setup and no model before Keep, and offers no model to use', !/Current|How it works|What it knows|Deepseek|opencode\//i.test(measured.text) && !measured.text.includes('Use for'), measured.text.slice(0, 600))
+  await drive.evaluate(`document.querySelector('.lc-benchmark')?.scrollIntoView({ block: 'start' })`)
+  await sleep(250)
+  await drive.capture('the tune measured over two runs, before Keep', () => drive.evaluate(`document.querySelector('.lc-benchmark').innerText`))
   const index = trial.slots.findIndex((slot) => slot.route.instructions === how)
   if (index < 0) throw new Error('the edited draft is missing')
   await drive.evaluate(`document.querySelectorAll('.lc-compare__foot')[${index}].querySelector('button.lc-primarybutton').click()`)
@@ -160,6 +203,13 @@ try {
       check(`note ${String(attempt)}: no lesson is saved, and the strip says why in one line`, NO_LESSON.includes(said), said)
     }
   }
+  // The tune was run again before Keep (0.811): each note read every setup's record over both runs.
+  const notePrompts = JSON.parse(String(await drive.evaluate(`(async () => {
+    const h = await window.desktop.getMissionHistory()
+    const missions = h.ok ? h.data.missions : []
+    return JSON.stringify(missions.filter((m) => m.prompt.includes("Note what this tune of a teammate's standing instructions showed")).map((m) => m.prompt))
+  })()`)))
+  check('each note read every setup\'s record over both runs', notePrompts.length > 0 && notePrompts.every((prompt) => (prompt.match(/"measured":\{"runs":2,/g) ?? []).length === 3), notePrompts.map((prompt) => prompt.slice(prompt.indexOf('"measured"'), prompt.indexOf('"measured"') + 160)))
   const savedLesson = savedLessons[0]
   if (savedLesson === undefined) {
     say('[NOTE] Three notes and no lesson: the free model found none to keep each time, as the strip said. The saved lesson, its Remove and the second /tune were not exercised in this run.')

@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
-import type { CompareSlotId, PublicCompare } from '../../../shared/compare.js'
+import { hasColumnInstructions, type CompareSlotId, type PublicCompare } from '../../../shared/compare.js'
 import type { PublicTeammate } from '../../../shared/ipc.js'
 import { activityEntries } from '../missionView.js'
 import type { ThreadItem } from '../missionView.js'
@@ -520,7 +520,7 @@ export function CompareView({
         {/* Your own benchmark (0.763): under the judge's view, once it has scored the answers. */}
         {benchmark !== undefined && <CompareBenchmark view={benchmark} />}
         {onJudge !== undefined && compare.rerunOf === undefined && (compare.reruns ?? []).length === 0 && judgeChoices.length > 0 && judge?.running !== true && columns.filter((column) => column.keepable).length >= 2 && !columns.some((column) => column.running) && (
-          <JudgeAsk choices={judgeChoices} compared={compare.slots.map((column) => `${column.route.runtime}:${column.route.model}`)} again={judge !== undefined} busy={judging} onJudge={onJudge} {...(onDraftPoints === undefined ? {} : { onDraftPoints })} {...(checkNote === undefined ? {} : { checkNote })} />
+          <JudgeAsk choices={judgeChoices} compared={compare.slots.map((column) => `${column.route.runtime}:${column.route.model}`)} again={judge !== undefined} busy={judging} onJudge={onJudge} {...(onDraftPoints === undefined ? {} : { onDraftPoints })} {...(checkNote === undefined ? {} : { checkNote })} setups={hasColumnInstructions(compare) && compare.kept === undefined} />
         )}
         {onAddModel !== undefined && compare.rerunOf === undefined && addChoices.length > 0 && columns.length < 3 && compare.changes !== true && !columns.some((column) => column.running) && columns.every((column) => column.turns.length <= 1) && (
           <AddModelAsk choices={addChoices} busy={adding} onAdd={onAddModel} />
@@ -675,7 +675,9 @@ function modelMenuOptions(choices: readonly ModelChoice[]): readonly SelectOptio
  * does if the person wants to say. One line under the answers, once at
  * least two have finished; nothing runs until Judge is pressed.
  */
-function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints, checkNote }: {
+function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints, checkNote, setups = false }: {
+  /** A blind tune's (0.811): the answers are one model's setups, to measure before one is kept. */
+  readonly setups?: boolean
   /** Draft the points from the question on this model (0.766): the points, or why there are none. */
   readonly onDraftPoints?: (choiceKey: string) => Promise<readonly string[] | string>
   /** What its judges read of your check, or where to set one (0.810). */
@@ -760,8 +762,8 @@ function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints,
       )}
       <p className="lc-compare__judgenote">
         {three
-          ? 'Each reads the answers without the models’ names and scores every point on its own; a point counts when two of the three agree. They vote on the points you write. Nothing is kept.'
-          : 'It reads the answers without the models’ names, scores each on every point, and says which it would keep. With no points written, it sets three from your request. It keeps nothing itself.'}
+          ? `Each reads the answers without the ${setups ? 'setups’' : 'models’'} names and scores every point on its own; a point counts when two of the three agree. They vote on the points you write. Nothing is kept.`
+          : `It reads the answers without the ${setups ? 'setups’' : 'models’'} names, scores each on every point, and says which it would keep. With no points written, it sets three from your request. It keeps nothing itself.`}
         {pointsWritten && ' End a point with ×2 to count it twice.'}
         {!three && choices.length >= 3 && (
           <>
@@ -787,6 +789,8 @@ function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints,
       )}
       {draftProblem !== undefined && !drafting && <p className="lc-compare__problem" role="status">{draftProblem}</p>}
       {checkNote !== undefined && <p className="lc-compare__judgenote">{checkNote}</p>}
+      {/* A TUNE, MEASURED (0.811): one run of each setup can be luck, and its benchmark can run them again before one is kept. */}
+      {setups && <p className="lc-compare__judgenote">One run of each setup can be luck. Once the judge has scored them, run the three again, and keep the setup whose scores hold up.</p>}
     </div>
   )
 }

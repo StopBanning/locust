@@ -8,7 +8,8 @@ import {
   TUNE_LESSON_REMOVE_CHANNEL,
   type TuneCombineResponse,
   type TuneLessonListResponse,
-  type TuneLessonNoteResponse
+  type TuneLessonNoteResponse,
+  type TuneMeasured
 } from '../shared/tune.js'
 import { TERMINAL_SHELLS, TERMINAL_CREATE, TERMINAL_INPUT, TERMINAL_RESIZE, TERMINAL_CLOSE, TERMINAL_EVENT, TERMINAL_LINK, TERMINAL_COPY, type TerminalApi } from '../shared/terminal.js'
 import { OWN_COMMAND_ALLOW, OWN_COMMAND_DONE, OWN_COMMAND_EXPAND, OWN_COMMAND_LIST, OWN_COMMAND_OPEN, OWN_COMMAND_RUN, OWN_COMMAND_STOP, type OwnCommandResult, type OwnCommandsApi } from '../shared/own-commands.js'
@@ -831,7 +832,7 @@ const desktopApi: DesktopApi = {
   listFolders: () => ipcRenderer.invoke(FOLDER_LIST_CHANNEL) as Promise<FolderListResponse>,
   askOnTheSide: (of: string, question: string, count: number) => ipcRenderer.invoke(SIDE_ASK_CHANNEL, of, question, count) as Promise<SideAskResponse>,
   draftTune: (of: string) => ipcRenderer.invoke(TUNE_DRAFT_CHANNEL, of) as Promise<SideAskResponse>,
-  noteTuneLesson: (compareId: string, usedInstructions?: boolean) => ipcRenderer.invoke(TUNE_LESSON_NOTE_CHANNEL, compareId, usedInstructions) as Promise<TuneLessonNoteResponse>,
+  noteTuneLesson: (compareId: string, usedInstructions?: boolean, measured?: readonly TuneMeasured[]) => ipcRenderer.invoke(TUNE_LESSON_NOTE_CHANNEL, compareId, usedInstructions, measured) as Promise<TuneLessonNoteResponse>,
   combineTuneEdits: (compareId: string) => ipcRenderer.invoke(TUNE_COMBINE_CHANNEL, compareId) as Promise<TuneCombineResponse>,
   listTuneLessons: (teammateId?: string) => ipcRenderer.invoke(TUNE_LESSON_LIST_CHANNEL, teammateId) as Promise<TuneLessonListResponse>,
   removeTuneLesson: (lessonId: string) => ipcRenderer.invoke(TUNE_LESSON_REMOVE_CHANNEL, lessonId) as Promise<TuneLessonListResponse>,

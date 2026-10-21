@@ -4,7 +4,7 @@ import { columnInstructions, compareInstructionsRefusal, shuffledColumns } from 
 import { tuneDraftPrompt } from './tune-drafts.js'
 import { columnChangesSummary, parseTuneLesson, tuneLessonPrompt, type TuneLessonSetup } from './tune-lessons.js'
 import { createTuneLessonStore } from './tune-lesson-store.js'
-import { combineSetups, parseTuneCombine, TUNE_COMBINE_CHANNEL, TUNE_COMBINE_FALLBACK, TUNE_DRAFT_CHANNEL, TUNE_LESSON_FALLBACK, TUNE_LESSON_LIST_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL } from '../shared/tune.js'
+import { combineSetups, parseTuneCombine, tuneMeasuredOf, TUNE_COMBINE_CHANNEL, TUNE_COMBINE_FALLBACK, TUNE_DRAFT_CHANNEL, TUNE_LESSON_FALLBACK, TUNE_LESSON_LIST_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL } from '../shared/tune.js'
 import { tuneCombinePrompt } from './tune-combine.js'
 import { createClaudeContextReader, prepareClaudeContextLaunch, recordedClaudeContextLaunch, type ClaudeContextReader } from './claude-context.js'
 import { CONTEXT_BREAKDOWN_CHANNEL } from '../shared/context-breakdown.js'
@@ -5138,7 +5138,7 @@ if (!ownsSingleInstanceLock) {
       return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId)), 1, teammate.route)
     })
     // Note what a kept tune showed (0.810): one side turn on the teammate's own route, only when pressed.
-    ipcMain.handle(TUNE_LESSON_NOTE_CHANNEL, async (event, compareId: unknown, usedInstructions: unknown) => {
+    ipcMain.handle(TUNE_LESSON_NOTE_CHANNEL, async (event, compareId: unknown, usedInstructions: unknown, measured: unknown) => {
       const refuse = (message: string) => ({ ok: false, message }) as const
       if (!fromOwnWindow(event) || typeof compareId !== 'string') return refuse('That request was rejected.')
       const compare = await compares.get(compareId).catch(() => undefined)
@@ -5157,6 +5157,8 @@ if (!ownsSingleInstanceLock) {
         return refuse('This teammate’s model or account changed since the tune. Nothing was started.')
       }
       const setups: TuneLessonSetup[] = []
+      // A TUNE, MEASURED (0.811): each setup's record over every run, as its benchmark shows it, when it was run again.
+      const measuredBySlot = new Map((tuneMeasuredOf(measured) ?? []).map(({ slot, ...record }) => [slot, record] as const))
       for (const column of compare.slots) {
         const newest = column.missionIds.at(-1)
         const recorded = newest === undefined ? undefined : await missionLedger.getMission(newest).catch(() => undefined)
@@ -5168,7 +5170,8 @@ if (!ownsSingleInstanceLock) {
           instructions: column.route.instructions ?? '',
           ...(column.route.why === undefined ? {} : { why: column.route.why }),
           answer: tracker.latestFinal?.trim() ?? '',
-          ...(compare.changes === true ? { changes: columnChangesSummary(recorded?.events ?? [], column.slot === compare.kept.slot ? compare.kept.brought : undefined) } : {})
+          ...(compare.changes === true ? { changes: columnChangesSummary(recorded?.events ?? [], column.slot === compare.kept.slot ? compare.kept.brought : undefined) } : {}),
+          ...(measuredBySlot.get(column.slot) === undefined ? {} : { measured: measuredBySlot.get(column.slot)! })
         })
       }
       const keptName = (keptColumn === undefined ? undefined : setupName(keptColumn.route)) ?? blindName(compare.kept.slot, true)
@@ -7573,7 +7576,9 @@ if (!ownsSingleInstanceLock) {
         ask,
         ...(criteria === undefined || criteria.length === 0 ? {} : { criteria }),
         ...(compare.changes === true ? { changes: compare.changesIn === 'folder' ? 'folder' as const : 'copies' as const } : {}),
-        ...(checkCommand === undefined ? {} : { check: { command: checkCommand } })
+        ...(checkCommand === undefined ? {} : { check: { command: checkCommand } }),
+        // A tune (0.811): one model's setups, judged as such.
+        ...(hasColumnInstructions(compare) ? { setups: true } : {})
       }
       let brief = judgePrompt({ ...asked, answers })
       // Too long for one message (0.553, 0.810): the whole answers AND their bounded diffs, filed under blind letters.

@@ -4731,7 +4731,11 @@ export default function App(): ReactElement {
     if (bridge === undefined) return { lesson: null, message: 'Locust is not ready. No lesson was saved.' }
     setNotingCompareId(compare.compareId)
     try {
-      const answer = await bridge.noteTuneLesson(compare.compareId, usedInstructions).catch(() => undefined)
+      // A tune run again (0.811): what its benchmark counted for each setup, so the note has more than one run to read.
+      const measured = (compare.reruns ?? []).length === 0 ? [] : (benchmarkOf(compare)?.rows ?? []).flatMap((row) =>
+        row.slot === undefined ? [] : [{ slot: row.slot, runs: row.runs, scored: row.scored, ...(row.score === undefined ? {} : { score: row.score }), everyPoint: row.everyPoint, checked: row.checked, checkPassed: row.checkPassed }]
+      )
+      const answer = await bridge.noteTuneLesson(compare.compareId, usedInstructions, measured.length === 0 ? undefined : measured).catch(() => undefined)
       if (answer === undefined) return { lesson: null, message: 'That reflection could not be read as JSON. Nothing was saved.' }
       if (!answer.ok) return { lesson: null, message: answer.message }
       const listed = await bridge.listTuneLessons().catch(() => undefined)
@@ -5048,6 +5052,13 @@ export default function App(): ReactElement {
     const first = judgeViewOf(origin)
     if ((first?.scorecard === undefined || first.running) && (origin.reruns ?? []).length === 0) return undefined
     const runsOfIt = [origin, ...(origin.reruns ?? []).flatMap((id) => compares.filter((one) => one.compareId === id))]
+    /*
+     * A TUNE, MEASURED (0.811): its columns are one model under three sets of instructions, so a row is a setup, by
+     * its column -- "Setup A" while the tune is blind, its own name once one is kept -- never the model, which all
+     * three share and which would fold them into one row.
+     */
+    const setups = hasColumnInstructions(origin)
+    const setupLabel = (slot: PublicCompare['slots'][number]): string => (origin.kept === undefined ? blindName(slot.slot, true) : setupName(slot.route) ?? blindName(slot.slot, true))
     const inputs: BenchmarkRunInput[] = []
     const runList: { readonly compareId: string; readonly state: string; readonly done: boolean }[] = []
     for (const run of runsOfIt) {
@@ -5060,13 +5071,14 @@ export default function App(): ReactElement {
           const column = columns[index]
           const verdicts = scorecard?.verdicts[slot.slot]
           const score = verdicts === undefined ? undefined : scoreOf(verdicts, scorecard?.weights)
-          const key = `${slot.route.runtime}:${slot.route.model}`
+          const key = `${slot.route.runtime}:${slot.route.model}${setups ? `#${slot.slot}` : ''}`
           return {
             key,
             runtime: slot.route.runtime as MissionRuntimeId, ...(slot.route.account === undefined ? {} : { account: slot.route.account }),
             model: slot.route.model,
             ...(slot.route.effort === undefined ? {} : { effort: slot.route.effort }),
-            name: compareRouteName(slot.route),
+            ...(setups ? { slot: slot.slot } : {}),
+            name: setups ? setupLabel(slot) : compareRouteName(slot.route),
             answered: column?.keepable === true,
             ...(score === undefined ? {} : { met: score.met, of: score.of }),
             ...(column?.spanMs === undefined ? {} : { spanMs: column.spanMs }),
@@ -5103,14 +5115,15 @@ export default function App(): ReactElement {
       runs: runList,
       ...(progress === undefined ? {} : { progress }),
       ...(origin.base === undefined ? {} : { base: origin.base }),
-      ...(teammate === undefined ? {} : { teammateName: teammate.name, ...(teammate.route === undefined ? {} : { teammateKey: `${teammate.route.runtime}:${teammate.route.model}` }) }),
+      // A tune's rows are one model three ways: its choice is Keep, not a model to use for the teammate.
+      ...(setups ? { setups: true as const } : teammate === undefined ? {} : { teammateName: teammate.name, ...(teammate.route === undefined ? {} : { teammateKey: `${teammate.route.runtime}:${teammate.route.model}` }) }),
       busy: startingRerun,
       ...(usingBenchmarkRow === undefined ? {} : { using: usingBenchmarkRow }),
       ...(benchmarkProblem === undefined ? {} : { problem: benchmarkProblem }),
       onRun: (times: number) => void rerunCompare(origin, times),
       onStop: () => void window.desktop?.stopCompareRerun(origin.compareId).catch(() => undefined),
       onOpenRun: (compareId: string) => setComparingId(compareId),
-      ...(teammate === undefined ? {} : { onUse: (row: BenchmarkRow) => void useBenchmarkModel(teammate, row) })
+      ...(teammate === undefined || setups ? {} : { onUse: (row: BenchmarkRow) => void useBenchmarkModel(teammate, row) })
     }
   }
 
@@ -5127,7 +5140,8 @@ export default function App(): ReactElement {
       compareId: origin.compareId,
       question: origin.prompt,
       ...(owner === undefined ? {} : { owner }),
-      models: origin.slots.map((slot) => nameOf(slot.route)),
+      // A tune's are its setups (0.811), as its rows name them: Setup A, B and C until one is kept.
+      models: view.setups === true ? [...view.rows].sort((left, right) => (left.slot ?? '').localeCompare(right.slot ?? '')).map((row) => row.name) : origin.slots.map((slot) => nameOf(slot.route)),
       runs: view.runs.length,
       ...(origin.judge === undefined ? {} : { judgeName: nameOf(origin.judge.route) }),
       lastAt,

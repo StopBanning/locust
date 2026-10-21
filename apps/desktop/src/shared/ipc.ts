@@ -3927,7 +3927,8 @@ export interface DesktopApi {
   /** `of` is the conversation's (or the side chat's) latest turn; `question` counts from 1. */
   askOnTheSide(of: string, question: string, count: number): Promise<SideAskResponse>
   draftTune(of: string): Promise<SideAskResponse>
-  noteTuneLesson(compareId: string, usedInstructions?: boolean): Promise<import('./tune.js').TuneLessonNoteResponse>
+  /** `measured` (0.811): each setup's record over every run, when its tune was run again before one was kept. */
+  noteTuneLesson(compareId: string, usedInstructions?: boolean, measured?: readonly import('./tune.js').TuneMeasured[]): Promise<import('./tune.js').TuneLessonNoteResponse>
   /** One side turn writes one set of instructions with both of a kept tune's edits (0.811); nothing is saved by it. */
   combineTuneEdits(compareId: string): Promise<import('./tune.js').TuneCombineResponse>
   listTuneLessons(teammateId?: string): Promise<import('./tune.js').TuneLessonListResponse>

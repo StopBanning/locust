@@ -157,8 +157,13 @@ export function rerunMissionIds(compares: readonly PublicCompare[]): ReadonlySet
 export function rerunRefusalOf(compare: PublicCompare): string | undefined {
   if (compare.rerunOf !== undefined) return 'This is a run of another comparison. Run that one again instead.'
   if (compare.judge === undefined) return 'Ask a judge first: each run again is scored by the same judge, on the same points.'
-  // Blind until one is kept (0.449): a benchmark names every model, so it waits for that.
-  if (compare.blind === true && compare.kept === undefined) return 'Keep one first: the names stay hidden until you do, and a benchmark shows them.'
+  /*
+   * Blind until one is kept (0.449): a benchmark names every model, so it waits for that -- except a tune's (0.811),
+   * whose columns are one model under different instructions. Its benchmark names them as Setup A, B and C until one
+   * is kept, and measuring them before that is the point: a tune's choice rested on one run of each, and the note on
+   * what it showed found nothing in a single run to stand on (no lesson in six notes, the drives of 10/21).
+   */
+  if (compare.blind === true && compare.kept === undefined && !hasColumnInstructions(compare)) return 'Keep one first: the names stay hidden until you do, and a benchmark shows them.'
   if (compare.slots.some((column) => column.missionIds.length > 1)) return 'This comparison went on past its first question, so it cannot be run again as one task. Start a new comparison with the question you want to measure.'
   // A copy of a folder that is not git, or the folder itself, is not the same start twice.
   if (compare.changes === true && compare.base === undefined) return 'A comparison that changes files can be run again only in a git project, from the commit it started on.'
