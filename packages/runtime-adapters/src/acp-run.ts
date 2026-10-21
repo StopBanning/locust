@@ -223,6 +223,8 @@ export function startAcpRun(options: AcpRunOptions): AcpRun {
   let recordCount = 0;
   let settled = false;
   let cancelled = false;
+  /** Whether the host refused something during the prompt now running. */
+  let declinedThisPrompt = false;
   let lost = false;
   let why = "";
   let sessionId: string | undefined;
@@ -326,6 +328,7 @@ export function startAcpRun(options: AcpRunOptions): AcpRun {
       if ((option === undefined || kind === "reject_once") && asked.toolCallId !== undefined) {
         push(ACP_DECLINED, { toolCallId: asked.toolCallId });
       }
+      if (option === undefined || kind === "reject_once") declinedThisPrompt = true;
       return option === undefined ? { outcome: { outcome: "cancelled" } } : { outcome: { outcome: "selected", optionId: option.optionId } };
     };
     return await oneAtATime(signature, async (): Promise<JsonValue> => {
@@ -452,12 +455,20 @@ export function startAcpRun(options: AcpRunOptions): AcpRun {
     while (next !== undefined && !settled && !cancelled && !transportEnded) {
       recording = true;
       prompting = true;
+      declinedThisPrompt = false;
       const ended = objectOf(await client.request("session/prompt", { sessionId: sessionId!, prompt: [{ type: "text", text: next }] }));
       if (settled) return;
       prompting = false;
-      push(ACP_PROMPT_RESULT, { stopReason: text(ended.stopReason) ?? null, ...(isObject(ended.usage) ? { usage: ended.usage } : {}) });
+      /*
+       * DECLINED, NOT STOPPED (2026-10-20). OpenCode 2 ends a turn whose request was refused with "cancelled", the
+       * reason ACP keeps for a stop (MEASURED on 2.1.0: Reject, then `stopReason: "cancelled"`). Unasked by the host,
+       * after its own refusal, that is a turn that ended on the person's No -- said as such, and what was queued still
+       * goes.
+       */
+      const endedOnDecline = ended.stopReason === "cancelled" && !cancelled && declinedThisPrompt;
+      push(ACP_PROMPT_RESULT, { stopReason: text(ended.stopReason) ?? null, ...(endedOnDecline ? { endedOnDecline: true } : {}), ...(isObject(ended.usage) ? { usage: ended.usage } : {}) });
       // A turn cut off at a limit still sends what was queued during it: steer() said it would (2026-10-10 sweep).
-      if (cancelled || (ended.stopReason !== "end_turn" && ended.stopReason !== "max_tokens" && ended.stopReason !== "max_turn_requests")) break;
+      if (cancelled || (!endedOnDecline && ended.stopReason !== "end_turn" && ended.stopReason !== "max_tokens" && ended.stopReason !== "max_turn_requests")) break;
       next = queued.length === 0 ? undefined : queued.splice(0).join("\n\n");
     }
     finish();

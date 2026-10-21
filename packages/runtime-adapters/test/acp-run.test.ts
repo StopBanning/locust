@@ -220,6 +220,36 @@ describe("an ACP run", () => {
     expect(declinedAt).toBeLessThan(failedAt);
   });
 
+  it("a turn the agent ends 'cancelled' on the host's own refusal finished, declined -- it was not stopped (OpenCode 2.1.0)", async () => {
+    const { acp } = run(
+      agentWith((prompt, agent) => {
+        agent.say(update({ sessionUpdate: "tool_call", toolCallId: "t1", kind: "execute", status: "pending", rawInput: { command: "echo hi" } }));
+        agent.say({ id: 7, method: "session/request_permission", params: { sessionId: "s1", toolCall: { toolCallId: "t1", kind: "execute", rawInput: { command: "echo hi" } }, options: OPTIONS } });
+      }, (message, agent) => {
+        if (message.id !== 7 || message.result === undefined) return false;
+        agent.say(update({ sessionUpdate: "tool_call_update", toolCallId: "t1", status: "failed", rawOutput: { error: "The user declined this tool call" } }));
+        agent.say({ id: 3, result: { stopReason: "cancelled" } });
+        return true;
+      }),
+      { onPermission: async () => "reject_once" },
+    );
+    await expect(acp.completion).resolves.toMatchObject({ cancelled: false, exitCode: 0 });
+    const records = await recordsOf(acp);
+    const normalizer = createAcpEventNormalizer({ runId: "run_1", runtime: "opencode" });
+    records.forEach((record) => normalizer.accept(record));
+    const types = normalizer.finish(await acp.completion).map((event) => event.type);
+    expect(types).not.toContain("run.cancelled");
+    expect(types).toContain("run.completed");
+  });
+
+  it("a turn the agent ends 'cancelled' with nothing refused still reads as stopped (control)", async () => {
+    const { acp } = run(agentWith((prompt, agent) => ended(agent, prompt, "cancelled")));
+    const records = await recordsOf(acp);
+    const normalizer = createAcpEventNormalizer({ runId: "run_1", runtime: "opencode" });
+    records.forEach((record) => normalizer.accept(record));
+    expect(normalizer.finish(await acp.completion).map((event) => event.type)).toContain("run.cancelled");
+  });
+
   it("refuses anything else the agent asks -- files, a terminal -- as a method it was never offered", async () => {
     const { acp, agent } = run(agentWith((prompt, agent) => {
       agent.say({ id: 50, method: "fs/read_text_file", params: { sessionId: "s1", path: "C:\\Users\\person\\.ssh\\id_rsa" } });

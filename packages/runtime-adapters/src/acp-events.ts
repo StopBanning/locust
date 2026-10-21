@@ -192,6 +192,8 @@ export function createAcpEventNormalizer(context: AcpInvocationContext): AcpEven
   /** How many prompts ended, the last one's reason, and what they cost together. */
   let prompts = 0;
   let stopReason: string | undefined;
+  /** The last prompt ended "cancelled" on the host's own refusal, not on a stop (acp-run.ts). */
+  let endedOnDecline = false;
   const usage: Record<string, number> = {};
   const declined = new Set<string>();
   const openTools = new Map<string, { readonly toolKind: string; readonly name: string; command: string | undefined; readonly title: string | undefined }>();
@@ -381,6 +383,7 @@ export function createAcpEventNormalizer(context: AcpInvocationContext): AcpEven
     if (method === ACP_PROMPT_RESULT) {
       prompts += 1;
       stopReason = stringValue(params.stopReason);
+      endedOnDecline = params.endedOnDecline === true;
       if (isObject(params.usage)) {
         for (const [key, amount] of Object.entries(params.usage)) {
           if (typeof amount !== "number" || !Number.isFinite(amount)) continue;
@@ -435,7 +438,7 @@ export function createAcpEventNormalizer(context: AcpInvocationContext): AcpEven
       finalized = true;
       const process = processEvidence(completion);
       const thread = runtimeThreadId === undefined ? {} : { runtimeThreadId };
-      if (completion.cancelled || stopReason === "cancelled") {
+      if (completion.cancelled || (stopReason === "cancelled" && !endedOnDecline)) {
         return [emit("run.cancelled", { ...thread, process })];
       }
       // No prompt ended, or the run was lost during a later one (acp-run.ts
