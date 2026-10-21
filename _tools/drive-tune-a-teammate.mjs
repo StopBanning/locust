@@ -79,7 +79,8 @@ try {
   const trial = (await comparisons()).data?.compares?.at(-1)
   check('one blind, file-changing comparison starts on the teammate’s same model', trial?.blind === true && trial?.changes === true && trial.slots.length === 3 && trial.slots.every((slot) => slot.route.runtime === FREE_ROUTE.runtime && slot.route.model === FREE_ROUTE.model), trial?.slots.map((slot) => slot.route))
   check('the exact three instruction texts reach the saved columns', JSON.stringify(trial?.slots.map((slot) => slot.route.instructions).sort()) === JSON.stringify([baseline, how, knows].sort()))
-  check('the column heads show only blind letters before Keep', await drive.evaluate(`[...document.querySelectorAll('.lc-compare__head')].every((head) => /^Model [ABC]/.test(head.innerText.trim()))`))
+  // A tune's blind columns are Setup A, B and C (0.809): one model, three sets of instructions.
+  check('the column heads show only blind letters before Keep', await drive.evaluate(`[...document.querySelectorAll('.lc-compare__head')].every((head) => /^Setup [ABC]/.test(head.innerText.trim()))`))
   check('the teammate still has Current before Keep', (await roster()).data?.teammates?.[0]?.instructions === baseline)
   for (const theme of ['dark', 'light']) {
     await drive.evaluate(`window.desktop.setTheme(${JSON.stringify(theme)})`)
