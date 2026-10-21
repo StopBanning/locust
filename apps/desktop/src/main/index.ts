@@ -2144,6 +2144,8 @@ if (!ownsSingleInstanceLock) {
             at: lastWritten(memory)
           })),
           askFirst: settings.memoryMode === 'ask',
+          // Its section, just before this one, teaches the `about you ::` line (shared/memory.ts).
+          ...(settings.aboutYou === undefined ? {} : { aboutYouGiven: true }),
           // By meaning when this machine's recall answers in time; the
           // keyword order otherwise (memory-recall.ts).
           ...(await recallSimilarity(query, listed.map((memory) => memory.text)))

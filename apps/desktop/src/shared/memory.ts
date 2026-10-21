@@ -496,6 +496,8 @@ export function memorySection(input: {
   readonly query?: string
   /** How close each memory is in meaning to `query`, when recall answered (see briefedMemories). */
   readonly similarity?: readonly number[]
+  /** The person's About-you note is in the same brief, and its section teaches the `about you ::` line. */
+  readonly aboutYouGiven?: boolean
 }): string {
   /*
    * BOUNDED, and it was not.
@@ -576,7 +578,9 @@ export function memorySection(input: {
     'remember as <name> :: the same, for a fact that will change -- a status, a version, a current owner',
     'remember everywhere :: only for something true in every project, like how the person likes to work',
     'forget :: quote a remembered line that is now wrong',
-    ABOUT_YOU_OP,
+    // Taught once (0.810): with the person's note in the brief, its section teaches the line, with the example that
+    // fixed Haiku (0.424), and this one said it again.
+    ...(input.aboutYouGiven === true ? [] : [ABOUT_YOU_OP]),
     `</${MEMORY_TAG}>`,
     'Never remember file contents, secrets, credentials, or anything you can re-read from the workspace -- a value a file holds (a status, a colour, a version in README.md) is the file\'s to say. Do not remember what CLAUDE.md, AGENTS.md or a rules file already says.',
     // The instruction that stops the store filling with near-copies. Measured
