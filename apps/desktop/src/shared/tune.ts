@@ -109,11 +109,17 @@ export function isKeptTune(compare: PublicCompare, teammate: PublicTeammate | un
   return compare.kept !== undefined && teammate !== undefined && compare.teammateId === teammate.teammateId && hasColumnInstructions(compare)
 }
 
-/** One line in the kept strip and Edit teammate ("When … do …", 0.810). */
+/** A field's first word in lower case, unless it is an acronym such as "API": two fields become one sentence. */
+const midSentence = (text: string): string => (/^[A-Z](?=[a-z\s'’])/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text)
+
+/**
+ * One line in the kept strip and Edit teammate ("When …, …", 0.810). The model writes each field as a sentence of its
+ * own, so the 0.810 drive read "When A teammate's standing instructions …, do Add a line …"; joined, it reads as one.
+ */
 export function tuneLessonLine(lesson: Pick<TuneLessonDraft, 'when' | 'do'>): string {
-  const cue = lesson.when.trim().replace(/^when\s+/i, '').replace(/[.,;:]+$/, '')
-  const action = lesson.do.trim().replace(/^do[:\s]+/i, '').replace(/\.$/, '')
-  return `When ${cue}, do ${action}.`
+  const cue = midSentence(lesson.when.trim().replace(/^when\s+/i, '').replace(/[.,;:]+$/, ''))
+  const action = midSentence(lesson.do.trim().replace(/^do[:\s]+/i, '').replace(/\.$/, ''))
+  return `When ${cue}, ${action}.`
 }
 
 const cleanLine = (value: unknown): string | undefined => {

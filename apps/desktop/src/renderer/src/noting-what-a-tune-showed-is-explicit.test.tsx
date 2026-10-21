@@ -95,7 +95,7 @@ describe('noting what a tune showed in the UI', () => {
     const stripTree = KeptInstructions({ compare: kept, teammate: mate, onUse: async () => undefined, lesson, onRemoveLesson: onRemove })!
     const stripHtml = renderToStaticMarkup(stripTree)
     expect(stripHtml).toContain(tuneLessonLine(lesson))
-    expect(stripHtml).toContain('When explaining a cause, do check assumptions before concluding.')
+    expect(stripHtml).toContain('When explaining a cause, check assumptions before concluding.')
     expect(stripHtml).toContain('Remove')
 
     const removeInStrip = flatChildren(stripTree).find(
@@ -116,7 +116,7 @@ describe('noting what a tune showed in the UI', () => {
       />
     )
     expect(dialogHtml).toContain('Tune lessons')
-    expect(dialogHtml).toContain('When explaining a cause, do check assumptions before concluding.')
+    expect(dialogHtml).toContain('When explaining a cause, check assumptions before concluding.')
     expect(dialogHtml).toContain('Remove')
   })
 })
