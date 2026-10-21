@@ -163,14 +163,18 @@ const manifestPath = (root: string, ref: CopyRef): string => join(root, `${nameO
 const hashOf = async (path: string): Promise<string> => createHash('sha256').update(await readFile(path)).digest('hex')
 
 /** Every file under a tree, by its path inside it (forward slashes), with its content's hash. */
-async function hashTree(tree: string): Promise<Record<string, string>> {
+async function hashTree(tree: string, nameLargeFiles = false): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
   const walk = async (directory: string): Promise<void> => {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       if (LEFT_OUT.has(entry.name)) continue
       const path = join(directory, entry.name)
       if (entry.isDirectory()) await walk(path)
-      else if (entry.isFile() && (await stat(path)).size <= MAX_COPIED_FILE_BYTES) out[relative(tree, path).split(sep).join('/')] = await hashOf(path)
+      else if (entry.isFile()) {
+        const size = (await stat(path)).size
+        if (size <= MAX_COPIED_FILE_BYTES) out[relative(tree, path).split(sep).join('/')] = await hashOf(path)
+        else if (nameLargeFiles) out[relative(tree, path).split(sep).join('/')] = 'too-large-to-inline'
+      }
     }
   }
   await walk(tree)
@@ -293,4 +297,98 @@ export async function copyLineChanges(input: CopyRef & {
   for (const path of deleted) await count(resolve(input.folder, ...path.split('/')), empty)
   // Git counted nothing (not installed, or refused): the files, and no invented numbers.
   return counted ? { files: changed.length + deleted.length, added, removed } : { files: changed.length + deleted.length }
+}
+
+/** Each column's evidence, not an unbounded second prompt (0.810). */
+export const COPY_DIFF_CHARS = 6_000
+export const COPY_DIFF_CUT = '[Changes cut here; the rest of this column\'s diff is not shown.]'
+
+export function boundedCopyDiff(text: string): string {
+  return text.length <= COPY_DIFF_CHARS ? text : `${text.slice(0, COPY_DIFF_CHARS)}\n${COPY_DIFF_CUT}`
+}
+
+/**
+ * WHAT THE COLUMN PRODUCED (0.810): a blind, read-only diff for its judge. Git's saved base, not HEAD or the
+ * person's now-moving branch, includes committed, staged and unsaved work. Plain copies kept hashes rather than
+ * before-content: use the source only while it still matches, and refuse instead of attributing the person's edits
+ * to a column. Never stage files here. Headers are ours so no absolute copy paths or branch names reach the judge.
+ */
+export async function copyDiff(input: CopyRef & {
+  readonly folder: string
+  readonly root?: string
+  readonly base?: string
+  readonly runGit: (args: readonly string[], cwd: string) => Promise<string>
+}): Promise<string> {
+  const target = join(input.root ?? compareRoot(), nameOf(input))
+  if (!(await lstat(target)).isDirectory()) throw new Error('The column\'s copy is no longer here.')
+  const flags = ['--no-color', '--no-ext-diff', '--no-textconv', '--no-renames', '--no-relative']
+  const empty = process.platform === 'win32' ? 'NUL' : '/dev/null'
+  const git = (args: readonly string[]) => input.runGit(args, target)
+  const before = input.base === undefined
+    ? JSON.parse(await readFile(manifestPath(input.root ?? compareRoot(), input), 'utf8')) as Record<string, string>
+    : undefined
+  if (input.base !== undefined && !/^[a-f0-9]{40}$/i.test(input.base)) throw new Error('The comparison\'s starting point is missing.')
+  const files = new Map<string, { added: boolean; deleted: boolean }>()
+  if (input.base !== undefined) {
+    const entries = (await git(['diff', ...flags, '--name-status', '-z', input.base, '--'])).split('\0')
+    for (let index = 0; index < entries.length - 1; index += 2) {
+      const [kind, path] = entries.slice(index, index + 2)
+      if (!/^[AMDT]$/.test(kind ?? '') || !path) throw new Error('The column\'s changes could not be read.')
+      files.set(path, { added: kind === 'A', deleted: kind === 'D' })
+    }
+    for (const path of (await git(['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean)) {
+      files.set(path, { added: true, deleted: false })
+    }
+  } else {
+    const now = await hashTree(target, true)
+    for (const path of Object.keys(now).filter((path) => before![path] !== now[path])) files.set(path, { added: before![path] === undefined, deleted: false })
+    for (const path of Object.keys(before!).filter((path) => now[path] === undefined)) files.set(path, { added: false, deleted: true })
+  }
+  // Do not follow a column's symlink out to someone else's file, even for a new file in git.
+  const localFile = async (root: string, path: string): Promise<string> => {
+    const parts = path.split('/')
+    if (parts.some((part) => part === '' || part === '.' || part === '..' || part.includes('\\') || part.includes(':'))) throw new Error('A change names a file outside the copy.')
+    let full = root
+    for (const part of parts) {
+      full = join(full, part)
+      if ((await lstat(full).catch(() => undefined))?.isSymbolicLink() === true) throw new Error('A changed file is a link, not a local file.')
+    }
+    return full
+  }
+  let text = ''
+  for (const [path, change] of [...files].sort(([a], [b]) => a.localeCompare(b))) {
+    if (text.length > COPY_DIFF_CHARS) break
+    const file = await localFile(target, path)
+    const source = before === undefined || change.added ? empty : await localFile(resolve(input.folder), path)
+    const checkSource = async (): Promise<void> => {
+      if (before !== undefined && !change.added && await hashOf(source).catch(() => undefined) !== before[path]) {
+        throw new Error('The source changed after the column was copied, so its original diff cannot be read.')
+      }
+    }
+    await checkSource()
+    let patch: string
+    if (((await stat(file).catch(() => undefined))?.size ?? 0) > MAX_COPIED_FILE_BYTES) {
+      patch = 'File too large; contents not shown.'
+    } else if (input.base !== undefined && !change.added) {
+      patch = await git(['diff', ...flags, input.base, '--', `:(literal)${path}`])
+    } else {
+      // Plain files are byte snapshots, not checkouts. Per-command only: no inherited CRLF conversion or warnings.
+      patch = await git(['-c', 'core.autocrlf=false', '-c', 'core.safecrlf=false', 'diff', ...flags, '--no-index', '--', change.added ? empty : source, change.deleted ? empty : file]).catch((error: unknown) => {
+        // --no-index returns 1 for a difference AND some failed reads. Require a patch and no diagnostic before
+        // treating it as evidence; a missing file must not become an empty-looking change.
+        const failed = error as { exitCode?: number; stdout?: string; stderr?: string }
+        if (failed.exitCode === 1 && typeof failed.stdout === 'string' && failed.stdout.length > 0 && (failed.stderr ?? '').trim().length === 0) return failed.stdout
+        throw error
+      })
+    }
+    await checkSource()
+    const hunk = patch.search(/^@@ /m)
+    const modes = patch.split('\n').filter((line) => /^(old mode|new mode|new file mode|deleted file mode) /.test(line)).join('\n')
+    const body = patch.includes('\0') || /^(?:Binary files |GIT binary patch|Binary file;)/m.test(patch)
+      ? 'Binary file; contents not shown.'
+      : patch === 'File too large; contents not shown.' ? patch
+        : [modes, hunk >= 0 ? patch.slice(hunk) : ''].filter(Boolean).join('\n')
+    text += `File ${JSON.stringify(path)}${change.added ? ' (added)' : change.deleted ? ' (deleted)' : ''}:\n${body}\n\n`
+  }
+  return boundedCopyDiff(text.trim())
 }

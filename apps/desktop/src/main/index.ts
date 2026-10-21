@@ -62,7 +62,7 @@ import { registerRemoteControlIpc } from './remote-control-ipc.js'
 import { runInPseudoTerminal } from './pseudo-terminal.js'
 import type { Runner } from './cloud-tasks.js'
 import type { ReverseChange } from '../shared/reverse-diff.js'
-import { bringInCopy, compareRoot, copyLineChanges, copyRefusal, makeCompareCopy, removeCompareCopies } from './compare-copies.js'
+import { bringInCopy, compareRoot, copyDiff, copyLineChanges, copyRefusal, makeCompareCopy, removeCompareCopies } from './compare-copies.js'
 import { comparePagePath } from './compare-page-path.js'
 import type { CompareRoute, CompareSlotId, PublicCompare, PublicCompareSlot } from '../shared/compare.js'
 import { createCompareStore } from './compare-store.js'
@@ -71,7 +71,7 @@ import { createApprovalRuleStore } from './approval-rule-store.js'
 import { createFileArrivals, POLL_MS } from './routine-file-watch.js'
 import { enforcedAnswer, ruleCandidateOf, ruledActionOf, ruleRefusalFor, ruleSentence } from '../shared/approval-rules.js'
 import { createRunAlways, decide } from '../shared/who-decides.js'
-import { judgePrompt } from './compare-judge.js'
+import { judgeAnswerText, judgePrompt } from './compare-judge.js'
 import { keepOutOfGit } from './attachments-for-run.js'
 import { REPLY_PAGE_ROOT, writeReplyPage } from './reply-page.js'
 import type { JudgedAnswer } from './compare-judge.js'
@@ -7370,23 +7370,42 @@ if (!ownsSingleInstanceLock) {
         const tracker = createTranscriptTracker()
         tracker.track(recorded.events)
         const said = tracker.latestFinal?.trim()
-        if (said !== undefined && said.length > 0) answers.push({ letter: column.slot.toUpperCase(), text: said })
+        if (said === undefined || said.length === 0) continue
+        let diff: string | undefined
+        if (compare.changes === true && compare.changesIn !== 'folder') {
+          try {
+            // THE COLUMN'S ACTUAL WORK (0.810): never its route or copy path in the material a judge reads.
+            // Old worktrees lived under the project. Read that copy if present, never fall back to the person's HEAD.
+            const root = compareRoot()
+            const present = await stat(join(root, compareTreeId(compare.compareId, column.slot))).then(() => true, () => false)
+            if (compare.changesIn !== 'copy' && compare.base === undefined) throw new Error('No recorded starting point.')
+            diff = await copyDiff({
+              folder: workspacePath, compareId: compare.compareId, slot: column.slot,
+              root: present || compare.changesIn === 'copy' ? root : join(workspacePath, COMPARE_TREES_DIRECTORY),
+              ...(compare.changesIn === 'copy' ? {} : { base: compare.base! }), runGit: defaultRunGit
+            })
+          } catch {
+            return refused(`Answer ${column.slot.toUpperCase()}'s original changes could not be read. Its copy or starting files may no longer be here. Nothing was sent to a judge.`)
+          }
+        }
+        answers.push({ letter: column.slot.toUpperCase(), text: said, ...(diff === undefined ? {} : { diff }) })
       }
       if (answers.length < 2) return refused('A judge needs at least two finished answers to read.')
       const newestAsk = compare.slots.flatMap((column) => column.missionIds.slice(-1))[0]
       const ask = newestAsk === undefined ? compare.prompt : ((await missionLedger.getMission(newestAsk).catch(() => undefined))?.metadata.prompt ?? compare.prompt)
       const runtime = route.runtime
       const model = route.model
-      const asked = { ask, ...(criteria === undefined || criteria.length === 0 ? {} : { criteria }) }
+      const asked = { ask, ...(criteria === undefined || criteria.length === 0 ? {} : { criteria }), ...(compare.changes === true ? { changes: compare.changesIn === 'folder' ? 'folder' as const : 'copies' as const } : {}) }
       let brief = judgePrompt({ ...asked, answers })
-      // Too long for one message (0.553): each answer is written whole, and the judge reads the files.
+      // Too long for one message (0.553, 0.810): the whole answers AND their bounded diffs, filed under blind letters.
       if (brief.length > MAX_PROMPT_LENGTH) {
         try {
           await mkdir(join(workspacePath, ATTACHMENT_DIR), { recursive: true })
           const filed: JudgedAnswer[] = []
+          const receipt = randomUUID()
           for (const answer of answers) {
-            const file = `${ATTACHMENT_DIR}/judge-${compare.compareId}-${answer.letter}.md`
-            await writeFile(join(workspacePath, file), `${answer.text}\n`, 'utf8')
+            const file = `${ATTACHMENT_DIR}/judge-${receipt}-${answer.letter}.md`
+            await writeFile(join(workspacePath, file), `${judgeAnswerText(answer, true)}\n`, 'utf8')
             filed.push({ ...answer, file })
           }
           await keepOutOfGit(workspacePath)

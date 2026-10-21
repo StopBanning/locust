@@ -177,6 +177,25 @@ continue; report exact validation results, and say what was not run.
 
 ## Handoff log
 
+### 2026-10-21 — A comparison judge reads the work
+
+- Scope: `exec/judge-reads-the-work`, based on `9da0a00d` (0.809.0). No changes to runtime routes, tune,
+  dependencies, versions or release files.
+- File-changing comparisons hand each judge the same blind answers and per-column diffs, against the comparison's
+  recorded git base, including committed, staged, unsaved and new files. Reading the work never stages it. Paths
+  are project-relative; copy roots, branch names and comparison ids are not supplied as judge metadata.
+- Each column's diff is capped at 6,000 characters with a cut line. Binary and oversized files are named, not
+  inlined. The long-brief answer files carry the same bounded evidence. No changes is said explicitly; unavailable
+  originals refuse the judge instead of pretending nothing changed. Plain copies have only baseline hashes, so
+  their source files must still match those hashes. Shared-folder comparisons explicitly judge answers only.
+- The prompt checks task, constraints, claims against changes, consistency, usability and completeness in that
+  order. It asks for the decisive point and the runner-up's specific shortfall; the scorecard syntax is unchanged.
+  Google Research's Apache-2.0 Harness² is credited for the approach, with Locust's own wording.
+- Validation: the gate passed with 1,025 adapters tests (five skipped), 168 mission-store, 32 CLI and 11,684
+  desktop tests, plus both type configs and the app build. Fourteen mutation controls were caught. The free
+  two-column/one-judge development drive passed 13/13; all seven successful frames and the three failed initial
+  navigation frames were inspected. No packaged, paid or live three-judge-panel run was made.
+
 ### 2026-10-21 — OpenCode 2 desktop ACP routing
 
 - Scope: `feat/opencode-2-desktop-wiring`, based on upstream `602606e`
