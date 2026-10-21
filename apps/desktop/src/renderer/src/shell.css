@@ -24170,5 +24170,14 @@ textarea.lc-compare__judgecriteria {
 .lc-tuneoffer__review { flex-basis: 100%; color: var(--lc-text-muted); font-size: var(--lc-text-description); }
 .lc-tuneoffer__review summary { cursor: pointer; width: fit-content; }
 .lc-tuneoffer__review pre { margin: var(--lc-space-2) 0 0; padding: var(--lc-space-3); border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); color: var(--lc-text-primary); font-family: var(--lc-font-mono); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+/* WHAT A TUNE SHOWED (0.810): one line in the kept strip, and the list in Edit teammate. */
+.lc-tuneoffer__lesson, .lc-tuneoffer__note-row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--lc-space-2) var(--lc-space-3); min-width: 0; }
+.lc-tuneoffer__cost { flex: 1 1 280px; min-width: 0; color: var(--lc-text-muted); font-size: var(--lc-text-description); }
+.lc-tuneoffer__lesson-text { flex: 1 1 280px; min-width: 0; color: var(--lc-text-primary); overflow-wrap: anywhere; }
+.lc-tuneoffer__note { flex-basis: 100%; color: var(--lc-text-muted); font-size: var(--lc-text-description); }
+.lc-field--lessons { display: flex; flex-direction: column; gap: var(--lc-space-3); margin-top: var(--lc-space-5); }
+.lc-tunelessons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--lc-space-2); }
+.lc-tunelessons__row { display: flex; align-items: center; justify-content: space-between; gap: var(--lc-space-3); padding: var(--lc-space-2) var(--lc-space-3); border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); min-width: 0; }
+.lc-tunelessons__text { flex: 1 1 0; min-width: 0; color: var(--lc-text-primary); font-size: var(--lc-text-control); line-height: 1.5; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .lc-tune__columns { grid-template-columns: minmax(0, 1fr); } }
 

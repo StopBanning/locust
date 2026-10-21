@@ -3919,6 +3919,9 @@ export interface DesktopApi {
   /** `of` is the conversation's (or the side chat's) latest turn; `question` counts from 1. */
   askOnTheSide(of: string, question: string, count: number): Promise<SideAskResponse>
   draftTune(of: string): Promise<SideAskResponse>
+  noteTuneLesson(compareId: string, usedInstructions?: boolean): Promise<import('./tune.js').TuneLessonNoteResponse>
+  listTuneLessons(teammateId?: string): Promise<import('./tune.js').TuneLessonListResponse>
+  removeTuneLesson(lessonId: string): Promise<import('./tune.js').TuneLessonListResponse>
   switchFolder(id: string): Promise<FolderSwitchResponse>
   /** Cloud tasks (0.503): this folder's standing, start, follow, show, apply. */
   cloudWhere(): Promise<PublicCloudWhere>

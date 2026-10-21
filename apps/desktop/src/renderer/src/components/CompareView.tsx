@@ -21,7 +21,8 @@ import { CompareBenchmark, type BenchmarkView } from './CompareBenchmark.js'
 import { scoreOf } from '../../../shared/compare-score.js'
 import type { Scorecard } from '../../../shared/compare-score.js'
 import { keptSentence } from '../status.js'
-import { KeptInstructions } from './KeptInstructions.js'
+import { KeptInstructions, type NoteTuneOutcome } from './KeptInstructions.js'
+import type { PublicTuneLesson } from '../../../shared/tune.js'
 
 /**
  * COMPARE, SIDE BY SIDE (0.441, shared/compare.ts,
@@ -114,6 +115,10 @@ export function CompareView({
   onRetry,
   onBack,
   onUseInstructions,
+  tuneLesson,
+  notingLesson,
+  onNoteLesson,
+  onRemoveLesson,
   decidingIds,
   onDecide,
   onAnswer,
@@ -155,6 +160,10 @@ export function CompareView({
   /** Kept already: back to the conversation it carries on in. */
   readonly onBack: (() => void) | undefined
   readonly onUseInstructions?: (teammate: PublicTeammate, instructions: string) => Promise<string | undefined>
+  readonly tuneLesson?: PublicTuneLesson | undefined
+  readonly notingLesson?: boolean | undefined
+  readonly onNoteLesson?: (compare: PublicCompare, usedInstructions: boolean) => Promise<NoteTuneOutcome | undefined>
+  readonly onRemoveLesson?: (lessonId: string) => Promise<string | undefined>
   /** Once one is kept: every model's record across your decided comparisons (0.519). */
   readonly record?: readonly CompareRecordRow[]
   /** The judge's view, when one was asked (0.520): its model, and what it said or is saying. */
@@ -280,7 +289,18 @@ export function CompareView({
           </button>
         )}
       </div>
-      {onUseInstructions !== undefined && <KeptInstructions key={`${compare.compareId}:${compare.kept?.slot ?? ''}`} compare={compare} teammate={owner} onUse={onUseInstructions} />}
+      {onUseInstructions !== undefined && (
+        <KeptInstructions
+          key={`${compare.compareId}:${compare.kept?.slot ?? ''}`}
+          compare={compare}
+          teammate={owner}
+          onUse={onUseInstructions}
+          lesson={tuneLesson}
+          noting={notingLesson}
+          onNote={onNoteLesson}
+          onRemoveLesson={onRemoveLesson}
+        />
+      )}
       <div className="lc-compare__scroll" ref={scrollRef}>
         <div className="lc-compare__grid">
           {columns.map((column) => railed(column.slot) ? (

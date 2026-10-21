@@ -2,7 +2,9 @@
 import './no-planted-executables.js'
 import { columnInstructions, compareInstructionsRefusal, shuffledColumns } from './compare-instructions.js'
 import { tuneDraftPrompt } from './tune-drafts.js'
-import { TUNE_DRAFT_CHANNEL } from '../shared/tune.js'
+import { columnChangesSummary, parseTuneLesson, tuneLessonPrompt, type TuneLessonSetup } from './tune-lessons.js'
+import { createTuneLessonStore } from './tune-lesson-store.js'
+import { TUNE_DRAFT_CHANNEL, TUNE_LESSON_FALLBACK, TUNE_LESSON_LIST_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL } from '../shared/tune.js'
 import { createClaudeContextReader, prepareClaudeContextLaunch, recordedClaudeContextLaunch, type ClaudeContextReader } from './claude-context.js'
 import { CONTEXT_BREAKDOWN_CHANNEL } from '../shared/context-breakdown.js'
 import { AGENT_ACCOUNTS_CHANNEL, accountFromRoute, supportsAccounts, type AccountAction } from '../shared/agent-accounts.js'
@@ -64,7 +66,7 @@ import type { Runner } from './cloud-tasks.js'
 import type { ReverseChange } from '../shared/reverse-diff.js'
 import { bringInCopy, compareRoot, copyDiff, copyLineChanges, copyRefusal, makeCompareCopy, removeCompareCopies } from './compare-copies.js'
 import { comparePagePath } from './compare-page-path.js'
-import type { CompareRoute, CompareSlotId, PublicCompare, PublicCompareSlot } from '../shared/compare.js'
+import { blindName, hasColumnInstructions, setupName, type CompareRoute, type CompareSlotId, type PublicCompare, type PublicCompareSlot } from '../shared/compare.js'
 import { createCompareStore } from './compare-store.js'
 import { createCompareReruns } from './compare-reruns.js'
 import { createApprovalRuleStore } from './approval-rule-store.js'
@@ -3959,6 +3961,8 @@ if (!ownsSingleInstanceLock) {
     const rooms = createRoomStore({ rootDirectory: app.getPath('userData') })
     // Comparisons (0.441, shared/compare.ts), kept beside the rooms, outside the ledger.
     const compares = createCompareStore({ rootDirectory: app.getPath('userData'), copyRoot: compareRoot() })
+    // Tune lessons (0.810, tune-lesson-store.ts), at most 20 per teammate, read only by /tune and Edit teammate.
+    const tuneLessons = createTuneLessonStore({ rootDirectory: app.getPath('userData') })
     // Folder watchers (0.522): routines that run on a new file, polled, inside the project folder.
     const fileArrivals = createFileArrivals({ get projectFolder() { return workspacePath } })
     const routineCopies = createRoutineCopies()
@@ -5079,6 +5083,9 @@ if (!ownsSingleInstanceLock) {
       const owner = (await teammates.missionOwners().catch(() => ({} as Record<string, string>)))[of]
       const peer = owner === undefined ? undefined : await peerContextFor(owner)
       const effort = effortOverride === undefined ? (turn.metadata as { readonly effort?: unknown }).effort : effortOverride.effort
+      const inRemovedCopy = (await compares.list().catch(() => [])).some(
+        (compare) => compare.changes === true && compare.changesIn !== 'folder' && compare.kept !== undefined && compare.slots.some((slot) => slot.missionIds.includes(of))
+      )
       const response = await codexMissions.start(
         question.trim(),
         turn.metadata.runtime,
@@ -5092,7 +5099,7 @@ if (!ownsSingleInstanceLock) {
         undefined,
         undefined,
         { key: `side:${of}` },
-        { of, question: asked }
+        { of, question: asked, ...(inRemovedCopy ? { freshSession: true } : {}) }
       )
       if (!response.ok) return refuse(response.error.message)
       sendToWindow({
@@ -5120,7 +5127,108 @@ if (!ownsSingleInstanceLock) {
       const teammate = (await teammates.list()).find((entry) => entry.teammateId === owner)
       if (teammate === undefined) return refuse('Open a teammate’s conversation first. Nothing was started.')
       if (teammate.route === undefined || teammate.route.runtime !== turn.metadata.runtime || teammate.route.model !== turn.metadata.model || teammate.route.account !== accountFromRoute(turn.metadata.resolvedRouteId)) return refuse('This conversation uses another model or account. Drafts were not requested; you can write the two alternatives yourself.')
-      return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? ''), 1, teammate.route)
+      return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId)), 1, teammate.route)
+    })
+    // Note what a kept tune showed (0.810): one side turn on the teammate's own route, only when pressed.
+    ipcMain.handle(TUNE_LESSON_NOTE_CHANNEL, async (event, compareId: unknown, usedInstructions: unknown) => {
+      const refuse = (message: string) => ({ ok: false, message }) as const
+      if (!fromOwnWindow(event) || typeof compareId !== 'string') return refuse('That request was rejected.')
+      const compare = await compares.get(compareId).catch(() => undefined)
+      if (compare === undefined || compare.kept === undefined || compare.teammateId === undefined || !hasColumnInstructions(compare)) {
+        return refuse('Keep a setup in a teammate’s tune first. Nothing was started.')
+      }
+      const keptColumn = compare.slots.find((column) => column.slot === compare.kept?.slot)
+      const of = keptColumn?.missionIds.at(-1)
+      const turn = of === undefined ? undefined : await missionLedger.getMission(of).catch(() => undefined)
+      if (of === undefined || turn === undefined || !turn.events.some((entry) => ['run.completed', 'run.failed', 'run.cancelled'].includes(entry.type))) {
+        return refuse('Wait for the kept run to finish first. Nothing was started.')
+      }
+      const teammate = (await teammates.list()).find((entry) => entry.teammateId === compare.teammateId)
+      if (teammate === undefined) return refuse('That teammate is no longer on the team. Nothing was started.')
+      if (teammate.route === undefined || teammate.route.runtime !== turn.metadata.runtime || teammate.route.model !== turn.metadata.model || teammate.route.account !== accountFromRoute(turn.metadata.resolvedRouteId)) {
+        return refuse('This teammate’s model or account changed since the tune. Nothing was started.')
+      }
+      const setups: TuneLessonSetup[] = []
+      for (const column of compare.slots) {
+        const newest = column.missionIds.at(-1)
+        const recorded = newest === undefined ? undefined : await missionLedger.getMission(newest).catch(() => undefined)
+        const tracker = createTranscriptTracker()
+        if (recorded !== undefined) tracker.track(recorded.events)
+        const setup = setupName(column.route) ?? blindName(column.slot, true)
+        setups.push({
+          setup,
+          instructions: column.route.instructions ?? '',
+          ...(column.route.why === undefined ? {} : { why: column.route.why }),
+          answer: tracker.latestFinal?.trim() ?? '',
+          ...(compare.changes === true ? { changes: columnChangesSummary(recorded?.events ?? [], column.slot === compare.kept.slot ? compare.kept.brought : undefined) } : {})
+        })
+      }
+      const keptName = (keptColumn === undefined ? undefined : setupName(keptColumn.route)) ?? blindName(compare.kept.slot, true)
+      const used = usedInstructions === true || (keptName !== 'Current' && keptColumn?.route.instructions !== undefined && (teammate.instructions ?? '') === keptColumn.route.instructions)
+      const side = await askOnTheSide(
+        of,
+        tuneLessonPrompt({
+          ask: compare.prompt,
+          setups,
+          kept: keptName,
+          usedInstructions: used,
+          ...(compare.changes === true ? { changedFiles: true } : {})
+        }),
+        1,
+        teammate.route
+      )
+      if (!side.ok) return side
+      for (let waited = 0; waited < 1_800 && codexMissions.hasMission(side.data.missionId); waited += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      if (codexMissions.hasMission(side.data.missionId)) {
+        codexMissions.cancel(side.data.runId)
+        return refuse(TUNE_LESSON_FALLBACK)
+      }
+      const finished = await missionLedger.getMission(side.data.missionId).catch(() => undefined)
+      const tracker = createTranscriptTracker()
+      if (finished !== undefined) tracker.track(finished.events)
+      const completed = finished?.events.some((entry) => entry.type === 'run.completed') === true
+      const raw = completed ? (tracker.latestFinal ?? '') : ''
+      const parsed = parseTuneLesson(raw)
+      if (!parsed.ok) return refuse(parsed.message)
+      const lesson = parsed.lesson === null
+        ? null
+        : await tuneLessons.add({
+            teammateId: teammate.teammateId,
+            compareId: compare.compareId,
+            when: parsed.lesson.when,
+            do: parsed.lesson.do,
+            because: parsed.lesson.because,
+            confidence: parsed.lesson.confidence
+          })
+      return {
+        ok: true,
+        data: {
+          runId: side.data.runId,
+          missionId: side.data.missionId,
+          edits: parsed.edits,
+          lesson,
+          ...(parsed.message === undefined ? {} : { message: parsed.message })
+        }
+      } as const
+    })
+    ipcMain.handle(TUNE_LESSON_LIST_CHANNEL, async (event, teammateId: unknown) => {
+      if (!fromOwnWindow(event)) return { ok: false, message: 'That request was rejected.' } as const
+      try {
+        return { ok: true, data: { lessons: await tuneLessons.list(teammateId) } } as const
+      } catch {
+        return { ok: false, message: 'Tune lessons could not be read.' } as const
+      }
+    })
+    ipcMain.handle(TUNE_LESSON_REMOVE_CHANNEL, async (event, lessonId: unknown) => {
+      if (!fromOwnWindow(event) || typeof lessonId !== 'string') return { ok: false, message: 'That request was rejected.' } as const
+      try {
+        await tuneLessons.remove(lessonId)
+        return { ok: true, data: { lessons: await tuneLessons.list() } } as const
+      } catch {
+        return { ok: false, message: 'That tune lesson could not be removed.' } as const
+      }
     })
 
     // Every folder worked in, newest first, and the one the window is in (0.458).
@@ -6612,6 +6720,7 @@ if (!ownsSingleInstanceLock) {
         await routines.removeForTeammate(teammateId).catch(() => undefined)
         // And they leave every room; a room left empty goes with them.
         await rooms.removeTeammate(teammateId).catch(() => undefined)
+        await tuneLessons.removeForTeammate(teammateId).catch(() => undefined)
         return { ok: true, data: {} } as const
       } catch {
         return teammateRejected('That teammate could not be removed.')
@@ -7199,7 +7308,8 @@ if (!ownsSingleInstanceLock) {
           ...(typeof route.account === 'string' ? { account: route.account } : {}), ...(typeof route.effort === 'string' ? { effort: route.effort } : {}),
           ...(typeof route.label === 'string' && route.label.trim().length > 0 ? { label: route.label.trim() } : {}),
           ...(route.mode === 'auto' ? { mode: 'auto' as const } : {}),
-          ...(route.instructions === undefined ? {} : { instructions: route.instructions as string })
+          ...(route.instructions === undefined ? {} : { instructions: route.instructions as string }),
+          ...(typeof route.why === 'string' && route.why.trim().length > 0 ? { why: route.why.trim().slice(0, 400) } : {})
         }))
         .filter((route) => route.runtime.length > 0)
       const changes = input.changes === true

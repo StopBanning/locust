@@ -62,7 +62,9 @@ export const BACKED_UP_FILES = [
   // Dark, Light or Match computer (0.789): a restored Locust looks the way its person chose.
   'appearance.json',
   // The folders like home or .claude the person said to work in anyway (0.790): a restore does not ask again.
-  'folder-cautions.json'
+  'folder-cautions.json',
+  // What earlier tunes of a teammate showed (0.810): part of the teammate's tuning history.
+  'tune-lessons.json'
 ] as const
 
 /**

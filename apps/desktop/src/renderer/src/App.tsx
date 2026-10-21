@@ -175,7 +175,7 @@ import { BesideConversation } from './components/BesideConversation.js'
 import { SideChat } from './components/SideChat.js'
 import { TuneTeammate, type TuneCard } from './components/TuneTeammate.js'
 import { KeptInstructions } from './components/KeptInstructions.js'
-import { currentDrafts, parseTuneDrafts, tuneRefusal, tuneRoutes } from '../../shared/tune.js'
+import { currentDrafts, parseTuneDrafts, tuneRefusal, tuneRoutes, type PublicTuneLesson } from '../../shared/tune.js'
 import { assistantMessages } from './missionView.js'
 import { CloudTasks } from './components/CloudTasks.js'
 import { CloudSetupDialog, type CloudSetupState } from './components/CloudSetupDialog.js'
@@ -1939,9 +1939,14 @@ export default function App(): ReactElement {
     readonly setAside: readonly string[]
     readonly putBack: boolean
   }>()
+  const [tuneLessons, setTuneLessons] = useState<readonly PublicTuneLesson[]>([])
+  const [notingCompareId, setNotingCompareId] = useState<string>()
   useEffect(() => {
     void window.desktop?.listCompares().then((answer) => {
       if (answer.ok) setCompares(answer.data.compares)
+    }).catch(() => undefined)
+    void window.desktop?.listTuneLessons().then((answer) => {
+      if (answer.ok) setTuneLessons(answer.data.lessons)
     }).catch(() => undefined)
   }, [])
   /** Review changes (0.439): the teammate whose own branch is open beside the thread. */
@@ -4686,8 +4691,12 @@ export default function App(): ReactElement {
     if (teammate?.route === undefined || JSON.stringify(teammate.route) !== JSON.stringify(card.route)) { setTuning({ ...card, problem: 'That teammate’s model changed. Cancel and open /tune again to review it. Nothing was started.' }); return }
     setTuning({ ...card, starting: true })
     const route = teammate.route
-    const answer = await bridge.startCompare({ teammateId: teammate.teammateId, prompt: card.prompt,
-      routes: tuneRoutes({ runtime: route.runtime, model: route.model, ...(route.account === undefined ? {} : { account: route.account }), ...(route.effort === undefined ? {} : { effort: route.effort }), label: card.model }, card.current, card.drafts), changes: true, blind: true }).catch(() => undefined)
+    const routes = tuneRoutes({ runtime: route.runtime, model: route.model, ...(route.account === undefined ? {} : { account: route.account }), ...(route.effort === undefined ? {} : { effort: route.effort }), label: card.model }, card.current, card.drafts).map((entry, index) => ({
+      ...entry,
+      ...(index === 1 && card.drafts.how.why.trim().length > 0 ? { why: card.drafts.how.why.trim() } : {}),
+      ...(index === 2 && card.drafts.knows.why.trim().length > 0 ? { why: card.drafts.knows.why.trim() } : {})
+    }))
+    const answer = await bridge.startCompare({ teammateId: teammate.teammateId, prompt: card.prompt, routes, changes: true, blind: true }).catch(() => undefined)
     if (answer?.ok !== true) { setTuning({ ...card, starting: false, problem: answer?.ok === false ? answer.error.message : 'The trials could not be started. Nothing was changed.' }); return }
     replaceCompare(answer.data.compare)
     setComparingId(answer.data.compare.compareId)
@@ -4706,6 +4715,30 @@ export default function App(): ReactElement {
     if (!answer.ok) return answer.error.message
     const refreshed = await bridge.listTeammates()
     if (refreshed.ok) { setTeammates(refreshed.data.teammates); setMissionOwners(refreshed.data.missionOwners); rememberRosterNames(refreshed.data) }
+    return undefined
+  }
+  const noteTuneLesson = async (compare: PublicCompare, usedInstructions: boolean): Promise<{ readonly lesson?: PublicTuneLesson | null; readonly message?: string } | undefined> => {
+    const bridge = window.desktop
+    if (bridge === undefined) return { lesson: null, message: 'Locust is not ready. No lesson was saved.' }
+    setNotingCompareId(compare.compareId)
+    try {
+      const answer = await bridge.noteTuneLesson(compare.compareId, usedInstructions).catch(() => undefined)
+      if (answer === undefined) return { lesson: null, message: 'That reflection could not be read as JSON. Nothing was saved.' }
+      if (!answer.ok) return { lesson: null, message: answer.message }
+      const listed = await bridge.listTuneLessons().catch(() => undefined)
+      if (listed?.ok) setTuneLessons(listed.data.lessons)
+      else if (answer.data.lesson !== null) setTuneLessons((current) => [...current.filter((entry) => !(entry.teammateId === answer.data.lesson!.teammateId && entry.compareId === compare.compareId)), answer.data.lesson!])
+      return { lesson: answer.data.lesson, ...(answer.data.message === undefined ? {} : { message: answer.data.message }) }
+    } finally {
+      setNotingCompareId((current) => (current === compare.compareId ? undefined : current))
+    }
+  }
+  const removeTuneLesson = async (lessonId: string): Promise<string | undefined> => {
+    const bridge = window.desktop
+    if (bridge === undefined) return 'Locust is not ready. Your lessons are unchanged.'
+    const answer = await bridge.removeTuneLesson(lessonId).catch(() => undefined)
+    if (answer === undefined || !answer.ok) return answer?.ok === false ? answer.message : 'That tune lesson could not be removed. Your lessons are unchanged.'
+    setTuneLessons(answer.data.lessons)
     return undefined
   }
 
@@ -6657,6 +6690,7 @@ export default function App(): ReactElement {
         setMissionOwners(listed.data.missionOwners)
         rememberRosterNames(listed.data)
         // Their routines went with them; the host drops those, so re-read.
+        setTuneLessons((current) => current.filter((lesson) => lesson.teammateId !== teammateId))
         await reloadRoutines()
       })
       .catch(() => undefined)
@@ -9230,6 +9264,10 @@ export default function App(): ReactElement {
                   columns={columns}
                   owner={teammates.find((mate) => mate.teammateId === comparing.teammateId)}
                   onUseInstructions={useTunedInstructions}
+                  tuneLesson={tuneLessons.find((lesson) => lesson.compareId === comparing.compareId)}
+                  notingLesson={notingCompareId === comparing.compareId}
+                  onNoteLesson={noteTuneLesson}
+                  onRemoveLesson={removeTuneLesson}
                   workspacePath={workspacePath}
                   keeping={keepingCompare}
                   conversationMode={mode}
@@ -9851,7 +9889,18 @@ export default function App(): ReactElement {
               })()}
               {(() => {
                 const compare = comparisonOf([...turnsOfConversation(liveRun.data?.missionId, sidebarMissions)], compares)
-                return compare === undefined ? null : <KeptInstructions key={compare.compareId} compare={compare} teammate={teammates.find((mate) => mate.teammateId === compare.teammateId)} onUse={useTunedInstructions} />
+                return compare === undefined ? null : (
+                  <KeptInstructions
+                    key={compare.compareId}
+                    compare={compare}
+                    teammate={teammates.find((mate) => mate.teammateId === compare.teammateId)}
+                    onUse={useTunedInstructions}
+                    lesson={tuneLessons.find((lesson) => lesson.compareId === compare.compareId)}
+                    noting={notingCompareId === compare.compareId}
+                    onNote={noteTuneLesson}
+                    onRemoveLesson={removeTuneLesson}
+                  />
+                )
               })()}
               <DiffNotesContext.Provider value={diffNotesPlace}>
               <Thread
@@ -10902,6 +10951,8 @@ export default function App(): ReactElement {
           {...(connectorList === undefined ? {} : { connectors: connectorList })}
           onSetConnectors={(names) => setTeammateConnectors(editingTeammate.teammateId, names)}
           {...(folderNotice === undefined ? {} : { folderNotice })}
+          lessons={tuneLessons.filter((lesson) => lesson.teammateId === editingTeammate.teammateId)}
+          onRemoveLesson={removeTuneLesson}
         />
       )}
       {feedbackFor !== undefined && (

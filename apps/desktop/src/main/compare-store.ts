@@ -100,12 +100,13 @@ function parsedSlot(value: unknown): PublicCompareSlot | undefined {
   const mode = route.mode === 'auto' ? ('auto' as const) : undefined
   const instructions = instructionsText(route.instructions)
   if (route.instructions !== undefined && instructions === undefined) return undefined
+  const why = text(route.why, 400)
   const missionIds = Array.isArray(record.missionIds) ? record.missionIds.filter((id): id is string => typeof id === 'string' && id.length > 0 && id.length <= 200).slice(-MAX_TURNS_PER_SLOT) : []
   const refused = text(record.refused, 1_000)
   const retried = Array.isArray(record.retried) ? record.retried.filter((id): id is string => typeof id === 'string' && id.length > 0 && id.length <= 200).slice(-MAX_RETRIED_PER_SLOT) : []
   return {
     slot: record.slot,
-    route: { runtime, model, ...(account === undefined ? {} : { account }), ...(effort === undefined ? {} : { effort }), ...(label === undefined ? {} : { label }), ...(mode === undefined ? {} : { mode }), ...(instructions === undefined ? {} : { instructions }) },
+    route: { runtime, model, ...(account === undefined ? {} : { account }), ...(effort === undefined ? {} : { effort }), ...(label === undefined ? {} : { label }), ...(mode === undefined ? {} : { mode }), ...(instructions === undefined ? {} : { instructions }), ...(why === undefined ? {} : { why }) },
     missionIds,
     ...(refused === undefined ? {} : { refused }),
     ...(retried.length === 0 ? {} : { retried })
@@ -301,6 +302,7 @@ export function createCompareStore(options: {
               model: route.model, ...(route.account === undefined ? {} : { account: route.account }),
               ...(route.effort === undefined ? {} : { effort: route.effort }),
               ...(route.instructions === undefined ? {} : { instructions: instructionsText(route.instructions)! }),
+              ...(typeof route.why === 'string' && route.why.trim().length > 0 ? { why: route.why.trim().slice(0, 400) } : {}),
               ...(route.label === undefined ? {} : { label: route.label.slice(0, 120) }),
               ...(route.mode === 'auto' && input.changes === true ? { mode: 'auto' as const } : {})
             },

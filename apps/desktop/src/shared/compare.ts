@@ -21,6 +21,8 @@ export type CompareSlotId = (typeof COMPARE_SLOTS)[number]
 export interface CompareRoute {
   /** A column's standing words in place of the teammate's; empty explicitly means none. */
   readonly instructions?: string
+  /** Why this draft was written (/tune, 0.810), read only when noting what a tune showed. */
+  readonly why?: string
   readonly account?: string
   readonly runtime: string
   readonly model: string

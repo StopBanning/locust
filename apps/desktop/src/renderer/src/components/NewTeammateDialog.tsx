@@ -29,6 +29,7 @@ import { CHATGPT_VOICES, isChatGptVoice, voiceName } from '../../../shared/voice
 import { Select } from './Select.js'
 import { VoicePlay } from './VoicePlay.js'
 import { Icon } from './Icon.js'
+import { tuneLessonLine, type PublicTuneLesson } from '../../../shared/tune.js'
 
 /** What the dialog hands back. A limit is `null` when an edit removes one. */
 export interface TeammateDraft {
@@ -209,7 +210,9 @@ export function NewTeammateDialog({
   onSetConnectors,
   composerRoute,
   picker,
-  platform
+  platform,
+  lessons,
+  onRemoveLesson
 }: {
   readonly onCancel: () => void
   /** Resolves when the save has landed; the button is held until then (L22). */
@@ -261,6 +264,9 @@ export function NewTeammateDialog({
   }
   /** Which modes a runtime can run turns on it (Cursor cannot be held read-only on Windows). */
   readonly platform?: string
+  /** What earlier tunes of this teammate noted (0.810), each removable here. */
+  readonly lessons?: readonly PublicTuneLesson[]
+  readonly onRemoveLesson?: (lessonId: string) => void | Promise<unknown>
 }): ReactElement {
   const editing = initial !== undefined
   const policy = useOrganizationPolicy()
@@ -888,6 +894,28 @@ export function NewTeammateDialog({
               {`Optional. Every turn ${trimmed.length === 0 ? 'this teammate' : trimmed} takes is given these, after a group's instructions.`}
             </span>
           </label>
+
+          {editing && lessons !== undefined && lessons.length > 0 && (
+            <div className="lc-field lc-field--lessons">
+              <span className="lc-fieldlabel lc-mono">Tune lessons</span>
+              <ul className="lc-tunelessons" aria-label={`Tune lessons for ${trimmed.length === 0 ? 'this teammate' : trimmed}`}>
+                {lessons.map((lesson) => (
+                  <li key={lesson.lessonId} className="lc-tunelessons__row">
+                    <span className="lc-tunelessons__text">{tuneLessonLine(lesson)}</span>
+                    {onRemoveLesson !== undefined && (
+                      <button
+                        type="button"
+                        className="lc-ghostbutton"
+                        onClick={() => void onRemoveLesson(lesson.lessonId)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <label className="lc-field">
             <span className="lc-fieldlabel lc-mono">Voice</span>

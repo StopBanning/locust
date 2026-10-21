@@ -305,7 +305,7 @@ export interface CodexMissionService {
      * latest turn -- which the conversation itself never sees. The caller
      * gives it a slot of its own, so it runs while the conversation does.
      */
-    side?: { readonly of: string; readonly question: number },
+    side?: { readonly of: string; readonly question: number; readonly freshSession?: boolean },
     /**
      * Started again from an edited earlier message (0.498): `followUpOf` is
      * the turn before it, and the run starts cold with the conversation up to
@@ -1464,7 +1464,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       startedBy?: MissionStarter,
       asCommand?: boolean,
       slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string },
-      side?: { readonly of: string; readonly question: number },
+      side?: { readonly of: string; readonly question: number; readonly freshSession?: boolean },
       rewind?: boolean,
       leaveOut?: readonly string[],
       cloud?: { readonly setUp?: boolean },
@@ -1793,9 +1793,10 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         let resumedCompacted = false
         /** A reply this runtime cannot resume: the conversation so far goes with it (0.495). */
         let coldEarlier: readonly EarlierTurn[] | undefined
-        if (opencodeAcp && side !== undefined) {
-          // ACP's portable turn path does not fork. Brief a fresh session so
-          // a side question can never append to the live parent's session.
+        if ((opencodeAcp || side?.freshSession === true) && side !== undefined) {
+          // ACP's portable turn path does not fork, and a kept comparison column whose temporary worktree or copy was
+          // removed on Keep recorded its session in a folder that is no longer there. Brief a fresh session so the side
+          // turn can never append to a live parent or fail on the gone copy directory.
           const prior = await options.ledger.getMission(side.of)
           if (prior !== undefined) {
             const said = createTranscriptTracker()
@@ -2516,8 +2517,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         // On the cloud computer (0.762), the message's own files go to the copy there, which git never gave them. One
         // that does not arrive is left as named: the agent's own read says it is missing, as for a worktree (M16).
         if (cloudDir !== undefined && placed.files.length > 0) await options.cloud?.carry(missionId, runCwd, placed.files).catch(() => undefined)
-        // Cold, not a command and not a side question: told what was said before (0.495).
-        const sentPrompt = coldEarlier === undefined || bare || (side !== undefined && !opencodeAcp) ? attached : composeColdFollowUp(coldEarlier, attached, rewind === true)
+        // Cold, not a command and not a forked side question: told what was said before (0.495).
+        const sentPrompt = coldEarlier === undefined || bare || (side !== undefined && resumeThreadId !== undefined) ? attached : composeColdFollowUp(coldEarlier, attached, rewind === true)
         let runtimePrompt = sentPrompt
         let delivered: readonly WorkroomMessage[] = []
         let peerDeliveryFailed = false
