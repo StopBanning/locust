@@ -9,7 +9,7 @@ import { ASK_TAG } from '../shared/decision.js'
 import type { TeammateRole } from '../shared/ipc.js'
 import { BLOCK_PLACEMENT } from '../shared/trailer.js'
 import { FILE_BLOCK_EXAMPLE_PATH, FILE_TAG } from '../shared/handover.js'
-import { MEMORY_HEADING, MEMORY_RULES, MEMORY_TAG } from '../shared/memory.js'
+import { MEMORY_HEADING, MEMORY_RULES, MEMORY_TAG, MEMORY_WRITE } from '../shared/memory.js'
 import { ABOUT_YOU_HEADING } from '../shared/about-you.js'
 import { agentNamed } from '../shared/runtimes.js'
 import { roomHistorySection } from '../shared/room-history.js'
@@ -705,7 +705,8 @@ export function composeSoloPrompt(input: {
    * folder's instructions and the reply formats are not the part to lose.
    */
   const paragraphs = brief.sections.join(SECTION_GAP).split(SECTION_GAP)
-  const kept = paragraphs.filter((paragraph) => !paragraph.trimStart().startsWith(MEMORY_HEADING) && !paragraph.trimStart().startsWith(MEMORY_RULES))
+  // With nothing remembered, the memory rules paragraph opens on how to write one (0.810, memory.ts).
+  const kept = paragraphs.filter((paragraph) => ![MEMORY_HEADING, MEMORY_RULES, MEMORY_WRITE].some((opening) => paragraph.trimStart().startsWith(opening)))
   const shed = kept.length === paragraphs.length ? brief.sections : kept
   const keptKeys = new Set(kept.map(paragraphKey))
   return {
