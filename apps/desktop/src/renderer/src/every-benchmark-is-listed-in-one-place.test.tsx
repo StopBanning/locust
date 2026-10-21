@@ -16,6 +16,8 @@ const row = (name: string, score?: number): BenchmarkRow => ({
   runs: 2,
   scored: score === undefined ? 0 : 2,
   everyPoint: 0,
+  checked: 0,
+  checkPassed: 0,
   ...(score === undefined ? {} : { score })
 })
 const entry = (compareId: string, lastAt: string, extra: Partial<BenchmarkEntry> = {}): BenchmarkEntry => ({
@@ -68,7 +70,7 @@ describe('every benchmark, listed in one place', () => {
     expect(html).toContain('lc-benchmarks__leader">Space Bunny<')
     expect(html).toContain('width:83%')
     expect(html).toContain('not scored yet')
-    expect(html).toContain('run 2 of 3 · judging')
+    expect(html).toContain('running again, 2 of 3 · judging')
     // One button a row: the whole row opens it.
     expect(html.match(/class="lc-benchmarks__row"/g)).toHaveLength(3)
   })

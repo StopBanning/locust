@@ -492,7 +492,7 @@ interface CodexMissionServiceOptions {
    * folder the run changed. Its answer goes to that run's thread; nothing
    * is sent to the teammate from here.
    */
-  readonly afterEdits?: (cwd: string) => Promise<EditCheckResult | undefined>
+  readonly afterEdits?: (cwd: string, missionId: string) => Promise<EditCheckResult | undefined>
   /**
    * 0.439: commit what a turn in a teammate's own worktree changed, to its
    * branch (turn-checkpoint.ts). Called for runs in a worktree only, however
@@ -1291,7 +1291,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
     // A3.3: the person's check, only after a turn that may write and did.
     // Not awaited: a check can take minutes, and the slot is not its to hold.
     if (observed !== undefined && observed.length > 0 && mission.sandbox !== 'read-only' && options.afterEdits !== undefined) {
-      void options.afterEdits(mission.cwd)
+      void options.afterEdits(mission.cwd, mission.missionId)
         .then(async (result) => {
           if (result === undefined) return
           safelyEmit(mission, { kind: 'edit-check', runId: mission.runId, missionId: mission.missionId, ...result })

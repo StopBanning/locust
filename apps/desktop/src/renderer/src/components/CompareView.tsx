@@ -8,6 +8,7 @@ import type { ThreadItem } from '../missionView.js'
 import { InComparisonCell, PinnedPagesContext } from '../pinnedPages.js'
 import { PagePreview } from './DocPreview.js'
 import { ApprovalCard } from './ApprovalCard.js'
+import { EditCheckCard, type EditCheckShown } from './EditCheckCard.js'
 import type { MissionApprovalDecision, MissionApprovalRequest, MissionMode } from '../../../shared/ipc.js'
 import { Icon } from './Icon.js'
 import { Select } from './Select.js'
@@ -70,6 +71,23 @@ export interface CompareColumnView {
    * waited under the title bar's "4 need you" -- a column never drew its card.
    */
   readonly approvals?: readonly MissionApprovalRequest[]
+  /** What the person's check said in its copy after its newest turn (A3.3); its judges read it too (0.811). */
+  readonly check?: EditCheckShown
+}
+
+/** "passed", "failed": a check's outcome in a cell of a table. */
+export function checkWord(check: EditCheckShown | undefined): string {
+  if (check === undefined) return '—'
+  return check.outcome === 'timed-out' ? 'timed out' : check.outcome === 'could-not-run' ? 'could not run' : check.outcome
+}
+
+/**
+ * Every column's check failed with the same words (0.811): it tells them apart on nothing. A copy leaves out what is
+ * installed rather than written, so a check that needs node_modules fails the same way in each.
+ */
+export function checkFailedEverywhere(columns: readonly CompareColumnView[]): boolean {
+  const said = columns.map((column) => (column.check !== undefined && (column.check.outcome === 'failed' || column.check.outcome === 'could-not-run') ? column.check.newLines.join('\n') : undefined))
+  return said.length >= 2 && said.every((text) => text !== undefined && text.length > 0 && text === said[0])
 }
 
 /** The web page a turn created, if it made one: what its column shows running at the top (0.450). */
@@ -132,6 +150,7 @@ export function CompareView({
   adding = false,
   onAddModel,
   benchmark,
+  checkCommand,
   backLabel = 'Back to the conversation'
 }: {
   readonly compare: PublicCompare
@@ -183,11 +202,23 @@ export function CompareView({
   readonly benchmark?: BenchmarkView
   /** What the back button says: a run again goes back to the comparison it runs again (0.763). */
   readonly backLabel?: string
+  /** This folder's check command (Settings > Project folder), when one is set: each copy runs it (0.811). */
+  readonly checkCommand?: string
 }): ReactElement {
   const kept = compare.kept?.slot
   // A blind comparison hides what would name the model -- its mark, its runtime, its cost -- until one is kept (0.449).
   const veiled = compare.blind === true && kept === undefined
   const keptName = columns.find((column) => column.slot === kept)?.name
+  /*
+   * JUDGES SEE THE CHECK (0.811): in copies, each column ran your check after its turn, and every judge reads what it
+   * said. Without a check command there is nothing to read, and where to set one is said once, by the judge.
+   */
+  const inCopies = compare.changes === true && compare.changesIn !== 'folder'
+  const checkedCommand = columns.find((column) => column.check !== undefined)?.check?.command
+  const checkNote = !inCopies ? undefined
+    : checkedCommand !== undefined ? `Each judge also reads what your check, ${checkedCommand}, said in each copy.`
+    : checkCommand === undefined || checkCommand.trim().length === 0 ? 'Set a check command in Settings > Project folder, and each judge also reads whether every copy passes it.'
+    : undefined
   /*
    * FOCUS (0.444, Arena's Expand): one column wide, the others narrowed to
    * rails that still say who they are and how they are doing. A rail's head
@@ -418,6 +449,10 @@ export function CompareView({
                               onAnswer={(answers) => onAnswer(request.approvalId, answers)}
                             />
                           ))}
+                        {/* What your check said in its copy after that turn (0.811): its judges read the same. */}
+                        {turn === column.turns.length - 1 && cell !== undefined && !cell.running && column.check !== undefined && (
+                          <EditCheckCard check={column.check} teammateName={undefined} />
+                        )}
                       </div>
                     </div>
                   )
@@ -426,6 +461,11 @@ export function CompareView({
             </div>
           ))}
         </div>
+        {inCopies && checkFailedEverywhere(columns) && (
+          <p className="lc-compare__judgenote" role="note">
+            {'Your check failed the same way in every copy, so it tells them apart on nothing. It may need something a copy leaves out, such as installed dependencies: a check that installs them first, such as npm ci && npm test, runs in a copy too.'}
+          </p>
+        )}
         {judge !== undefined && (
           /*
            * THE JUDGE'S VIEW (0.520), after Optima's judge models: a model
@@ -475,7 +515,7 @@ export function CompareView({
         {/* Your own benchmark (0.763): under the judge's view, once it has scored the answers. */}
         {benchmark !== undefined && <CompareBenchmark view={benchmark} />}
         {onJudge !== undefined && compare.rerunOf === undefined && (compare.reruns ?? []).length === 0 && judgeChoices.length > 0 && judge?.running !== true && columns.filter((column) => column.keepable).length >= 2 && !columns.some((column) => column.running) && (
-          <JudgeAsk choices={judgeChoices} compared={compare.slots.map((column) => `${column.route.runtime}:${column.route.model}`)} again={judge !== undefined} busy={judging} onJudge={onJudge} {...(onDraftPoints === undefined ? {} : { onDraftPoints })} />
+          <JudgeAsk choices={judgeChoices} compared={compare.slots.map((column) => `${column.route.runtime}:${column.route.model}`)} again={judge !== undefined} busy={judging} onJudge={onJudge} {...(onDraftPoints === undefined ? {} : { onDraftPoints })} {...(checkNote === undefined ? {} : { checkNote })} />
         )}
         {onAddModel !== undefined && compare.rerunOf === undefined && addChoices.length > 0 && columns.length < 3 && compare.changes !== true && !columns.some((column) => column.running) && columns.every((column) => column.turns.length <= 1) && (
           <AddModelAsk choices={addChoices} busy={adding} onAdd={onAddModel} />
@@ -630,9 +670,11 @@ function modelMenuOptions(choices: readonly ModelChoice[]): readonly SelectOptio
  * does if the person wants to say. One line under the answers, once at
  * least two have finished; nothing runs until Judge is pressed.
  */
-function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints }: {
+function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints, checkNote }: {
   /** Draft the points from the question on this model (0.766): the points, or why there are none. */
   readonly onDraftPoints?: (choiceKey: string) => Promise<readonly string[] | string>
+  /** What its judges read of your check, or where to set one (0.811). */
+  readonly checkNote?: string
   readonly choices: readonly ModelChoice[]
   /** The compared models' keys: a judge is never one of them while another model can judge. */
   readonly compared?: readonly string[]
@@ -739,6 +781,7 @@ function JudgeAsk({ choices, compared = [], again, busy, onJudge, onDraftPoints 
         </p>
       )}
       {draftProblem !== undefined && !drafting && <p className="lc-compare__problem" role="status">{draftProblem}</p>}
+      {checkNote !== undefined && <p className="lc-compare__judgenote">{checkNote}</p>}
     </div>
   )
 }
@@ -846,6 +889,17 @@ function JudgeScorecard({ scorecard, columns, veiled }: {
               </td>
             ))}
           </tr>
+          {/* Your check in each copy (0.811), beside their score: what the judges read, you see. */}
+          {shown.some((column) => column.check !== undefined) && (
+            <tr>
+              <th scope="row">Your check</th>
+              {shown.map((column) => (
+                <td key={column.slot} className={`lc-compare__recordnum${column.check === undefined ? '' : column.check.outcome === 'passed' ? ' lc-tone-green' : ' lc-tone-amber'}`}>
+                  {checkWord(column.check)}
+                </td>
+              ))}
+            </tr>
+          )}
           {/* A row no column has a figure for says nothing: it is left out, not drawn as a line of dashes. */}
           {shown.some((column) => column.span !== undefined) && (
             <tr>

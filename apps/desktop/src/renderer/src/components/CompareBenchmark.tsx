@@ -42,8 +42,16 @@ export interface BenchmarkView {
   readonly reveal?: boolean
 }
 
-const stepWords = (progress: RerunProgress): string =>
-  `Run ${String(progress.run)} of ${String(progress.of)}: ${progress.step === 'checking' ? 'waiting for checks before judging' : progress.step === 'judging' ? 'the judge is reading the answers' : 'the models are answering'}`
+/**
+ * Where a run again is (0.811). It said "Run 1 of 1" beside "YOUR BENCHMARK · 2 RUNS" (Colin's screenshot, 10/21): the
+ * batch's own count read as the benchmark's. Three judges read as three.
+ */
+export const stepWords = (progress: RerunProgress, threeJudges = false): string => {
+  const step = progress.step === 'checking' ? 'waiting for checks before judging'
+    : progress.step === 'judging' ? (threeJudges ? 'the judges are reading the answers' : 'the judge is reading the answers')
+    : 'the models are answering'
+  return progress.of === 1 ? `Running it once more: ${step}` : `Running it again, ${String(progress.run)} of ${String(progress.of)}: ${step}`
+}
 
 const sameStart = (base: string | undefined): string => (base === undefined ? '' : `, from commit ${base.slice(0, 7)}`)
 
@@ -61,7 +69,7 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
     <div className="lc-benchmark__actions">
       <span className="lc-benchmark__progress" role="status">
         <WorkingSpark />
-        {stepWords(view.progress!)}
+        {stepWords(view.progress!, view.threeJudges === true)}
       </span>
       <button type="button" className="lc-button" onClick={view.onStop}>Stop</button>
     </div>
@@ -91,6 +99,8 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
   const alone = scores.filter((score) => score === best).length === 1
   const scoredRuns = view.runs.filter((run) => run.state === 'scored').length
   const doneRuns = view.runs.filter((run) => run.done).length
+  // Your check in each copy (0.811): a column only once a run of it was checked.
+  const checked = view.rows.some((row) => row.checked > 0)
   return (
     <div className="lc-benchmark" aria-label="Your benchmark" ref={place}>
       <div className="lc-benchmark__head">
@@ -105,6 +115,7 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
               <th scope="col">Model</th>
               <th scope="col">Score</th>
               <th scope="col">Met every point</th>
+              {checked && <th scope="col">Check passed</th>}
               <th scope="col">Time a task</th>
               <th scope="col">Cost a task</th>
               {view.teammateName !== undefined && view.onUse !== undefined && <th scope="col"><span className="lc-sr">{`Use for ${view.teammateName}`}</span></th>}
@@ -122,6 +133,11 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
                   {row.score === undefined ? 'not scored' : String(row.score)}
                 </td>
                 <td className="lc-compare__recordnum">{row.scored === 0 ? '—' : `${String(row.everyPoint)} of ${String(row.scored)}`}</td>
+                {checked && (
+                  <td className={`lc-compare__recordnum${row.checked === 0 ? '' : row.checkPassed === row.checked ? ' lc-tone-green' : ' lc-tone-amber'}`}>
+                    {row.checked === 0 ? '—' : `${String(row.checkPassed)} of ${String(row.checked)}`}
+                  </td>
+                )}
                 <td className="lc-compare__recordnum">{row.spanMs === undefined ? '—' : durationText(row.spanMs)}</td>
                 <td className="lc-compare__recordnum">{/-free$/i.test(row.model) && (row.cost?.usd ?? 0) === 0 ? 'free' : costCell(row.cost, row.model)}</td>
                 {view.teammateName !== undefined && view.onUse !== undefined && (
@@ -141,7 +157,7 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
         </table>
       </div>
       <p className="lc-compare__judgenote">
-        {`A score is the judge's points met, out of 100, averaged over the ${scoredRuns === 1 ? 'run' : `${String(scoredRuns)} runs`} it scored. Met every point counts the runs that met all of them. Time and cost are each run's own, as its agent reported them.`}
+        {`A score is the judge's points met, out of 100, averaged over the ${scoredRuns === 1 ? 'run' : `${String(scoredRuns)} runs`} it scored. Met every point counts the runs that met all of them.${checked ? ' Check passed counts the runs whose copy passed your check.' : ''} Time and cost are each run's own, as its agent reported them.`}
       </p>
       {view.chart !== undefined && <ScoreChart chart={view.chart} />}
       <div className="lc-benchmark__runs" aria-label="Its runs">
@@ -214,6 +230,8 @@ export function ScoreChart({ chart }: { readonly chart: BenchmarkChart }): React
         <text className="lc-benchmark__tick" x={WIDTH - RIGHT} y={HEIGHT - 4} textAnchor="end">{cost ? 'cost a task' : 'time a task'}</text>
         {labels.map(({ point, x, y, right }) => (
           <g key={point.key}>
+            {/* Moved down to clear another label, it is joined to its point: three at 100 read as three loose names. */}
+            {y !== yAt(point.score) && <line className="lc-benchmark__leader" x1={right ? x + 8 : x - 8} y1={y} x2={x} y2={yAt(point.score)} />}
             <circle className="lc-benchmark__point" cx={x} cy={yAt(point.score)} r={5} />
             <text className="lc-benchmark__label" x={right ? x + 10 : x - 10} y={y + 4} textAnchor={right ? 'start' : 'end'}>
               {`${point.name} · ${String(point.score)}${point.free ? ' · free' : ''}`}

@@ -98,6 +98,9 @@ export function comparableLines(output: string): readonly string[] {
   return lines
 }
 
+/** The newest turns' checks kept in memory for a judge (0.811); an older one is read from its mission's record. */
+const KEPT_TURN_CHECKS = 200
+
 export function createEditCheck(options: {
   /** This folder's command, read fresh each time, or undefined for none. */
   readonly commandFor: () => Promise<string | undefined>
@@ -106,27 +109,63 @@ export function createEditCheck(options: {
   const run = options.run ?? ((command: string, cwd: string) => runCheckCommand(command, cwd))
   const last = new Map<string, ReadonlySet<string>>()
   const busy = new Set<string>()
+  /*
+   * JUDGES SEE THE CHECK (0.811). A comparison's columns each run the check in their own copy after their turn, and a
+   * judge asked to read them waits for it first: in the API benchmark of 10/21 every judge gave a refactor that
+   * crashed its own tests full marks, and one said the test run "cannot be verified from the material".
+   */
+  const byTurn = new Map<string, Promise<EditCheckResult | undefined>>()
+  const check = async (cwd: string): Promise<EditCheckResult | undefined> => {
+    const command = await options.commandFor().catch(() => undefined)
+    if (command === undefined || command.length === 0) return undefined
+    // One at a time per folder: two at once would each see the other's files.
+    if (busy.has(cwd)) return undefined
+    busy.add(cwd)
+    try {
+      const result = await run(command, cwd)
+      const lines = comparableLines(result.output)
+      const before = last.get(cwd)
+      last.set(cwd, new Set(lines))
+      const first = before === undefined
+      const bounded = (list: readonly string[]) => list.slice(-MAX_NEW_LINES).map((line) => (line.length > MAX_LINE ? `${line.slice(0, MAX_LINE - 1)}…` : line))
+      if (result.error !== undefined) return { command, outcome: 'could-not-run', newLines: bounded([result.error]), unchanged: false, first }
+      if (result.timedOut) return { command, outcome: 'timed-out', newLines: [], unchanged: false, first }
+      if (result.exitCode === 0) return { command, outcome: 'passed', newLines: [], unchanged: false, first }
+      const fresh = first ? lines : lines.filter((line) => !before.has(line))
+      return { command, outcome: 'failed', newLines: bounded(fresh), unchanged: !first && fresh.length === 0, first }
+    } finally {
+      busy.delete(cwd)
+    }
+  }
   return {
-    async after(cwd: string): Promise<EditCheckResult | undefined> {
-      const command = await options.commandFor().catch(() => undefined)
-      if (command === undefined || command.length === 0) return undefined
-      // One at a time per folder: two at once would each see the other's files.
-      if (busy.has(cwd)) return undefined
-      busy.add(cwd)
+    /** The check after a turn. Called before the turn's slot is released, so a reader that waits for that finds it. */
+    after(cwd: string, missionId?: string): Promise<EditCheckResult | undefined> {
+      const job = check(cwd)
+      if (missionId !== undefined) {
+        byTurn.delete(missionId)
+        byTurn.set(missionId, job)
+        if (byTurn.size > KEPT_TURN_CHECKS) {
+          const oldest = byTurn.keys().next()
+          if (oldest.done !== true) byTurn.delete(oldest.value)
+        }
+      }
+      return job
+    },
+    /**
+     * The check after this turn, waited for while it runs, at most `timeoutMs`: undefined when none ran after it
+     * here, 'running' when it is still going at the end.
+     */
+    async afterTurn(missionId: string, timeoutMs = CHECK_TIMEOUT_MS + 10_000): Promise<EditCheckResult | 'running' | undefined> {
+      const job = byTurn.get(missionId)
+      if (job === undefined) return undefined
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const late = new Promise<'running'>((done) => {
+        timer = setTimeout(() => done('running'), timeoutMs)
+      })
       try {
-        const result = await run(command, cwd)
-        const lines = comparableLines(result.output)
-        const before = last.get(cwd)
-        last.set(cwd, new Set(lines))
-        const first = before === undefined
-        const bounded = (list: readonly string[]) => list.slice(-MAX_NEW_LINES).map((line) => (line.length > MAX_LINE ? `${line.slice(0, MAX_LINE - 1)}…` : line))
-        if (result.error !== undefined) return { command, outcome: 'could-not-run', newLines: bounded([result.error]), unchanged: false, first }
-        if (result.timedOut) return { command, outcome: 'timed-out', newLines: [], unchanged: false, first }
-        if (result.exitCode === 0) return { command, outcome: 'passed', newLines: [], unchanged: false, first }
-        const fresh = first ? lines : lines.filter((line) => !before.has(line))
-        return { command, outcome: 'failed', newLines: bounded(fresh), unchanged: !first && fresh.length === 0, first }
+        return await Promise.race([job.catch(() => undefined), late])
       } finally {
-        busy.delete(cwd)
+        if (timer !== undefined) clearTimeout(timer)
       }
     }
   }

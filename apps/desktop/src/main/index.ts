@@ -76,7 +76,7 @@ import { createRunAlways, decide } from '../shared/who-decides.js'
 import { judgeAnswerText, judgePrompt } from './compare-judge.js'
 import { keepOutOfGit } from './attachments-for-run.js'
 import { REPLY_PAGE_ROOT, writeReplyPage } from './reply-page.js'
-import type { JudgedAnswer } from './compare-judge.js'
+import type { JudgedAnswer, JudgedCheck } from './compare-judge.js'
 import electronUpdater from 'electron-updater'
 
 const { autoUpdater } = electronUpdater
@@ -209,6 +209,7 @@ import { WorkbookUnreadable, readXlsx } from './xlsx.js'
 /** A spreadsheet the viewer reads may be this big on disk; the grid it draws is bounded anyway (0.364). */
 const MAX_SHEET_FILE_BYTES = 8 * 1024 * 1024
 import { comparableLines, createEditCheck, runCheckCommand } from './edit-check.js'
+import type { EditCheckResult } from './edit-check.js'
 import { createTeammateStore, parsedCheckCommand, TeammateNameTakenError, isTeammateRoute } from './teammate-store.js'
 import { createRoutineStore } from './routine-store.js'
 import { createRoutineIO } from './routine-io.js'
@@ -2687,7 +2688,7 @@ if (!ownsSingleInstanceLock) {
       // 0.777: the agents the person added, each by its own command line.
       acpAgents: { resolve: (agentId) => acpAgents.resolve(agentId) },
       // A3.3: the person's check for THIS folder, after a turn that changed files.
-      afterEdits: (cwd) => editCheck.after(cwd),
+      afterEdits: (cwd, missionId) => editCheck.after(cwd, missionId),
       // 0.439: a commit per turn on the teammate's own branch (turn-checkpoint.ts).
       checkpointTurn: ({ repositoryRoot, teammateId, message }) => createWorktreeManager({ workspacePath: repositoryRoot, note: detail => note('worktree-add', detail) }).checkpoint(teammateId, message),
       /*
@@ -7475,6 +7476,20 @@ if (!ownsSingleInstanceLock) {
       if (new Set([route, ...panel].map((one) => `${one.runtime}:${one.model}`)).size !== panel.length + 1) return refused('Three judges are three different models: pick another for each.')
       if (panel.length > 0 && criteriaLines(criteria).length === 0) return refused('Three judges vote on the points you write: say what a good answer does, one point a line.')
       const answers: JudgedAnswer[] = []
+      /*
+       * JUDGES SEE THE CHECK (0.811, edit-check.ts): each column's copy ran the person's check after its turn, and a
+       * judge waits for it -- first for the turn's slot, since the check is asked for just before that is released.
+       */
+      let checkCommand: string | undefined
+      const checkOf = async (missionId: string, recorded: { readonly editChecks: readonly EditCheckResult[] }): Promise<JudgedCheck | undefined> => {
+        const until = Date.now() + 30_000
+        while (codexMissions.hasMission(missionId) && Date.now() < until) await new Promise((done) => setTimeout(done, 250))
+        const ran = (await editCheck.afterTurn(missionId)) ?? recorded.editChecks.at(-1)
+        if (ran === undefined) return undefined
+        if (ran === 'running') return { outcome: 'running' }
+        checkCommand ??= ran.command
+        return { outcome: ran.outcome, ...(ran.newLines.length === 0 ? {} : { lines: ran.newLines }), ...(ran.unchanged ? { unchanged: true } : {}) }
+      }
       for (const column of compare.slots) {
         const newest = column.missionIds.at(-1)
         if (newest === undefined) continue
@@ -7485,6 +7500,7 @@ if (!ownsSingleInstanceLock) {
         const said = tracker.latestFinal?.trim()
         if (said === undefined || said.length === 0) continue
         let diff: string | undefined
+        let check: JudgedCheck | undefined
         if (compare.changes === true && compare.changesIn !== 'folder') {
           try {
             // THE COLUMN'S ACTUAL WORK (0.810): never its route or copy path in the material a judge reads.
@@ -7500,15 +7516,26 @@ if (!ownsSingleInstanceLock) {
           } catch {
             return refused(`Answer ${column.slot.toUpperCase()}'s original changes could not be read. Its copy or starting files may no longer be here. Nothing was sent to a judge.`)
           }
+          check = await checkOf(newest, recorded)
         }
-        answers.push({ letter: column.slot.toUpperCase(), text: said, ...(diff === undefined ? {} : { diff }) })
+        answers.push({ letter: column.slot.toUpperCase(), text: said, ...(diff === undefined ? {} : { diff }), ...(check === undefined ? {} : { check }) })
       }
       if (answers.length < 2) return refused('A judge needs at least two finished answers to read.')
+      // Beside answers that were checked, one that was not says so, rather than reading as unchecked by omission.
+      if (answers.some((answer) => answer.check !== undefined)) {
+        for (const [index, answer] of answers.entries()) if (answer.check === undefined) answers[index] = { ...answer, check: { outcome: 'not-run' } }
+        checkCommand ??= workspaceChosen ? (await teammates.readSettings()).checkCommands?.[workspaceIdFor(workspacePath)] : undefined
+      }
       const newestAsk = compare.slots.flatMap((column) => column.missionIds.slice(-1))[0]
       const ask = newestAsk === undefined ? compare.prompt : ((await missionLedger.getMission(newestAsk).catch(() => undefined))?.metadata.prompt ?? compare.prompt)
       const runtime = route.runtime
       const model = route.model
-      const asked = { ask, ...(criteria === undefined || criteria.length === 0 ? {} : { criteria }), ...(compare.changes === true ? { changes: compare.changesIn === 'folder' ? 'folder' as const : 'copies' as const } : {}) }
+      const asked = {
+        ask,
+        ...(criteria === undefined || criteria.length === 0 ? {} : { criteria }),
+        ...(compare.changes === true ? { changes: compare.changesIn === 'folder' ? 'folder' as const : 'copies' as const } : {}),
+        ...(checkCommand === undefined ? {} : { check: { command: checkCommand } })
+      }
       let brief = judgePrompt({ ...asked, answers })
       // Too long for one message (0.553, 0.810): the whole answers AND their bounded diffs, filed under blind letters.
       if (brief.length > MAX_PROMPT_LENGTH) {

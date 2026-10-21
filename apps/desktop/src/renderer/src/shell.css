@@ -14184,6 +14184,12 @@ textarea.lc-compare__judgecriteria {
   fill: var(--lc-text-primary);
 }
 
+/* A label moved off its point's line, joined to it (0.811). */
+.lc-benchmark__leader {
+  stroke: var(--lc-border-control);
+  stroke-width: 1;
+}
+
 .lc-benchmark__label {
   fill: var(--lc-text-secondary);
   font-size: 12px;

@@ -120,6 +120,21 @@ const ownModelNames = new Map<string, string>()
 /** An agent the person added (0.777), by the route's model: its name, and the model picked on it. */
 const acpRouteNames = new Map<string, string>()
 const OWN_ROUTE_MODEL = /^own-[a-f0-9]{8}\/(.+)$/
+/** An id that spells out as a name: words and versions joined by hyphens, no provider, no spaces. */
+const SPELLABLE_ID = /^[A-Za-z0-9.]+(?:-[A-Za-z0-9.]+)+$/
+
+/**
+ * A NAME THAT IS ONLY AN ID (0.811). A model added with its own id as its name -- "claude-haiku-5-5", as the API
+ * benchmark of 10/21 added three -- read as the id on every row of Compare and the benchmark (Colin's screenshot).
+ * Like a catalog's id (rememberOwnModels), it is an identifier, not a spelling: it reads "Claude Haiku 5.5". Any
+ * other name stands as the person wrote it.
+ */
+export function shownRouteLabel(route: { readonly model: string; readonly label?: string }): string | undefined {
+  const label = route.label?.trim()
+  if (label === undefined || label.length === 0) return undefined
+  const bare = OWN_ROUTE_MODEL.exec(route.model)?.[1] ?? route.model
+  return label === bare && SPELLABLE_ID.test(label) ? spellOut(label) : label
+}
 
 /**
  * THE RUNTIME'S OWN SPELLING (0.528). The picker lists a model by the name its
@@ -149,7 +164,7 @@ export function rememberOwnModels(models: readonly { readonly id: string; readon
   claudeAliasNames.clear()
   for (const model of models) {
     if (model.runtime === 'claude' && model.older !== true && !model.id.startsWith('claude-') && model.id !== 'account-default') claudeAliasNames.set(model.id, model.displayName)
-    if (model.own === true) ownModelNames.set(model.id, model.displayName)
+    if (model.own === true) ownModelNames.set(model.id, shownRouteLabel({ model: model.id, label: model.displayName }) ?? model.displayName)
     // A catalog "name" that is the id, or the id without its provider (OpenCode's
     // `nemotron-3-ultra-free`), is an identifier, not a spelling: never taken.
     // Nor is `account-default`, Locust's own word for "send no model": its catalog label

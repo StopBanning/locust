@@ -23,6 +23,8 @@ export interface BenchmarkAnswer {
   readonly of?: number
   readonly spanMs?: number
   readonly cost?: RunCost
+  /** What your check said in its copy after its turn (0.811), when one ran. */
+  readonly check?: 'passed' | 'failed' | 'timed-out' | 'could-not-run'
 }
 
 export interface BenchmarkRunInput {
@@ -48,6 +50,9 @@ export interface BenchmarkRow {
   readonly spanMs?: number
   /** What a run cost on average, in the unit its runtime reports. */
   readonly cost?: RunCost
+  /** Runs your check ran in its copy after (0.811), and of those, the runs it passed. */
+  readonly checked: number
+  readonly checkPassed: number
 }
 
 /** The middle of a list of numbers: the mean of the two middle ones for an even count. */
@@ -100,6 +105,7 @@ export function benchmarkRows(runs: readonly BenchmarkRunInput[]): readonly Benc
     const score = scored.length === 0 ? undefined : Math.round((scored.reduce((sum, answer) => sum + answer.met! / answer.of!, 0) / scored.length) * 100)
     const spanMs = median(finished.flatMap((answer) => (answer.spanMs === undefined ? [] : [answer.spanMs])))
     const cost = averageCost(finished.map((answer) => answer.cost))
+    const checked = finished.filter((answer) => answer.check !== undefined)
     rows.push({
       key,
       runtime: first.runtime,
@@ -111,7 +117,9 @@ export function benchmarkRows(runs: readonly BenchmarkRunInput[]): readonly Benc
       ...(score === undefined ? {} : { score }),
       everyPoint: scored.filter((answer) => answer.met === answer.of).length,
       ...(spanMs === undefined ? {} : { spanMs }),
-      ...(cost === undefined ? {} : { cost })
+      ...(cost === undefined ? {} : { cost }),
+      checked: checked.length,
+      checkPassed: checked.filter((answer) => answer.check === 'passed').length
     })
   }
   return rows.sort((left, right) => (right.score ?? -1) - (left.score ?? -1) || (left.spanMs ?? Infinity) - (right.spanMs ?? Infinity))

@@ -38,6 +38,31 @@ describe('the check after an edit', () => {
     expect(await check.after('C:/work/b')).toMatchObject({ first: true, newLines: ['broken'] })
   })
 
+  // JUDGES SEE THE CHECK (0.811): a comparison's judge waits for each column's check before it reads the column.
+  it('lets a judge wait for the check after one turn, and says when none ran after it', async () => {
+    let finish: ((run: CheckRun) => void) | undefined
+    const check = createEditCheck({ commandFor: async () => 'npm test', run: () => new Promise<CheckRun>((done) => { finish = done }) })
+    void check.after('C:/copies/cmp_x-a', 'mission-a')
+    // Asked for before its command is even read: the judge finds it at once, and waits.
+    const waited = check.afterTurn('mission-a')
+    while (finish === undefined) await new Promise((done) => setTimeout(done, 1))
+    finish({ exitCode: 1, output: 'FAIL totals.test.mjs\n  summarize is not a function\n', timedOut: false })
+    expect(await waited).toMatchObject({ command: 'npm test', outcome: 'failed', newLines: ['FAIL totals.test.mjs', 'summarize is not a function'] })
+    expect(await check.afterTurn('mission-b')).toBeUndefined()
+  })
+
+  it('says a check still running at the end of the wait is running, not passed', async () => {
+    const check = createEditCheck({ commandFor: async () => 'npm test', run: () => new Promise<CheckRun>(() => undefined) })
+    void check.after('C:/copies/cmp_x-b', 'mission-b')
+    expect(await check.afterTurn('mission-b', 20)).toBe('running')
+  })
+
+  it('is found by a judge even when no command is set, as no check at all', async () => {
+    const check = createEditCheck({ commandFor: async () => undefined, run: async () => { throw new Error('must not run') } })
+    void check.after('C:/copies/cmp_x-c', 'mission-c')
+    expect(await check.afterTurn('mission-c')).toBeUndefined()
+  })
+
   it('drops colour codes and timings from what it compares', () => {
     expect(comparableLines('\u001b[31mFAIL\u001b[39m x\n  Duration 3.21s\nTime: 12ms\n12 ms\nok\nok\n')).toEqual(['FAIL x', 'ok'])
   })

@@ -245,7 +245,7 @@ import { ChangesPanel } from './components/ChangesPanel.js'
 import type { PullRequestNews } from '../../shared/pull-request.js'
 import type { SettledEntry } from './settled.js'
 import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effortAfterRouteChange, routeAfterKeep, effortIsInModelId, modelFamily, listedAsMission, modeFacts, modeRunsOn, modesFor, modeUnavailableReason, ownerToSelect, facePresenceFor, keepWhatWasKnown, runtimeOfTeammate, runtimeIsUsable, runtimeReach, teammateStatusView, startRoute, freeStartStillFree, freeStartModel, nextFreeModel, integrationOf, ACCOUNT_DEFAULT_MODEL} from './status.js'
-import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName } from './routeName.js'
+import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName, shownRouteLabel } from './routeName.js'
 import { restoreNoticeLine } from './backupWords.js'
 import { FeedbackDialog } from './components/FeedbackDialog.js'
 import { conversationText } from './feedback.js'
@@ -5057,11 +5057,12 @@ export default function App(): ReactElement {
             runtime: slot.route.runtime as MissionRuntimeId, ...(slot.route.account === undefined ? {} : { account: slot.route.account }),
             model: slot.route.model,
             ...(slot.route.effort === undefined ? {} : { effort: slot.route.effort }),
-            name: slot.route.label ?? routeModelName(slot.route.runtime as MissionRuntimeId, slot.route.model, resolvedModels.get(key)),
+            name: shownRouteLabel(slot.route) ?? routeModelName(slot.route.runtime as MissionRuntimeId, slot.route.model, resolvedModels.get(key)),
             answered: column?.keepable === true,
             ...(score === undefined ? {} : { met: score.met, of: score.of }),
             ...(column?.spanMs === undefined ? {} : { spanMs: column.spanMs }),
-            ...(column?.runCost === undefined ? {} : { cost: column.runCost })
+            ...(column?.runCost === undefined ? {} : { cost: column.runCost }),
+            ...(column?.check === undefined ? {} : { check: column.check.outcome })
           }
         })
       })
@@ -5257,6 +5258,7 @@ export default function App(): ReactElement {
       const spanMs = cells.reduce((total, cell) => total + (runSpanMs(cell.events) ?? 0), 0)
       const runCost = sumCosts(cells.map((cell) => runCostOf(cell.events)))
       const cost = costLine(runCost)
+      const check = last === undefined ? undefined : editChecks.get(last.missionId) ?? historyById.get(last.missionId)?.editCheck
       const state =
         cells.length === 0 ? (column.refused === undefined ? 'waiting' : 'could not start')
         : running ? 'working'
@@ -5267,7 +5269,7 @@ export default function App(): ReactElement {
       return {
         slot: column.slot,
         // Blind until one is kept (0.449): Model A, Model B.
-        name: compare.blind === true && compare.kept === undefined ? blindName(column.slot, hasColumnInstructions(compare)) : column.route.label ?? column.route.model,
+        name: compare.blind === true && compare.kept === undefined ? blindName(column.slot, hasColumnInstructions(compare)) : shownRouteLabel(column.route) ?? column.route.model,
         runtime: column.route.runtime as MissionRuntimeId,
         runtimeName: runtimeNameOf(column.route.runtime),
         ...(compareNeedsCopy(column.route.runtime, build?.platform) ? { copy: true } : {}),
@@ -5288,7 +5290,9 @@ export default function App(): ReactElement {
         state,
         ...(spanMs > 0 ? { span: durationText(spanMs), spanMs } : {}),
         ...(cost === undefined ? {} : { cost }),
-        ...(runCost === undefined ? {} : { runCost })
+        ...(runCost === undefined ? {} : { runCost }),
+        // What your check said in its copy after its newest turn (A3.3), as its judges read it (0.811).
+        ...(check === undefined ? {} : { check })
       }
     })
     // Each ask once, from the column that has taken the most of them.
@@ -9269,6 +9273,7 @@ export default function App(): ReactElement {
                   onNoteLesson={noteTuneLesson}
                   onRemoveLesson={removeTuneLesson}
                   workspacePath={workspacePath}
+                  {...(checkCommand.trim().length === 0 ? {} : { checkCommand })}
                   keeping={keepingCompare}
                   conversationMode={mode}
                   retrying={retryingCompare}
