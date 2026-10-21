@@ -2030,6 +2030,26 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         ) {
           return error('RUNTIME_START_FAILED', CURSOR_READ_ONLY_REFUSAL) as CodexMissionStartResponse
         }
+        /*
+         * A MODEL OF THE PERSON'S OWN (0.357) is declared to OpenCode for this
+         * run only, key and all, in the child's environment. One that has
+         * since been removed is refused in words before anything is written:
+         * OpenCode itself would fail with "model not found" in a log nobody
+         * reads.
+         */
+        const own =
+          runtime === 'opencode' && chosenModel !== undefined && chosenModel.startsWith('own-')
+            ? await options.ownProvider?.(chosenModel).catch(() => undefined)
+            : undefined
+        if (runtime === 'opencode' && chosenModel !== undefined && chosenModel.startsWith('own-') && own === undefined) {
+          return error(
+            'RUNTIME_START_FAILED',
+            'That model is no longer in Your own models (Settings, Runtimes & accounts). Pick another, or add it again.'
+          ) as CodexMissionStartResponse
+        }
+        const providers = own === undefined ? undefined : { [own.id]: own.provider }
+        // A model of your own its provider lists is priced step by step from that list (0.810, listed-prices.ts).
+        const ownPrice = own === undefined ? undefined : own.provider.prices?.[own.provider.models[0] ?? '']
         const resolvedRouteId = `${routeId}-account:${route.account ?? 'default'}`
         const normalizerContext = {
           runId,
@@ -2040,6 +2060,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           ...(chosen.version?.version === undefined ? {} : { cliVersion: chosen.version.version }),
           // A free model's refusal is OpenCode's side, never a sign-in to renew (opencode-error.ts, 2026-10-12).
           ...(runtime === 'opencode' && chosenModel !== undefined ? { model: chosenModel } : {}),
+          ...(ownPrice === undefined ? {} : { price: ownPrice }),
           now,
           // What Antigravity's mode refuses, so only a call it could have refused waits for the result (0.551).
           ...(runtime === 'antigravity' ? { sandbox: effectiveSandbox } : {}),
@@ -2216,24 +2237,6 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                     })
               }).catch(() => undefined)
             : undefined
-        /*
-         * A MODEL OF THE PERSON'S OWN (0.357) is declared to OpenCode for this
-         * run only, key and all, in the child's environment. One that has
-         * since been removed is refused in words before anything is written:
-         * OpenCode itself would fail with "model not found" in a log nobody
-         * reads.
-         */
-        const own =
-          runtime === 'opencode' && chosenModel !== undefined && chosenModel.startsWith('own-')
-            ? await options.ownProvider?.(chosenModel).catch(() => undefined)
-            : undefined
-        if (runtime === 'opencode' && chosenModel !== undefined && chosenModel.startsWith('own-') && own === undefined) {
-          return error(
-            'RUNTIME_START_FAILED',
-            'That model is no longer in Your own models (Settings, Runtimes & accounts). Pick another, or add it again.'
-          ) as CodexMissionStartResponse
-        }
-        const providers = own === undefined ? undefined : { [own.id]: own.provider }
         const openCodeAcpLaunch = !opencodeAcp ? undefined : openCode2Launch(executable, {
           workspacePath: runCwd,
           sandbox: effectiveSandbox,

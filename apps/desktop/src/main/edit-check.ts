@@ -108,10 +108,13 @@ export function comparableLines(output: string): readonly string[] {
   const seen = new Set<string>()
   const lines: string[] = []
   for (const raw of output.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '').split(/\r?\n/)) {
-    const line = raw.replace(/\s+/g, ' ').trim()
-    if (line.length === 0) continue
+    // A time that ends a line differs on every run: it is dropped, and the line kept when more than a word for the
+    // time is left (0.810) -- Node's test runner ends each test's line with one, "✖ adds (1.67ms)", naming the test.
+    const line = raw.replace(/\s+/g, ' ').trim().replace(/\s*\(?\b\d+(?:\.\d+)?\s?(?:ms|s|sec|seconds)\)?$/i, '')
+    if (line.length === 0 || /^(?:time|took|duration|elapsed|done in|finished in|in)\s*:?$/i.test(line)) continue
     if (/^(?:start at|duration|time:|finished in|ran \d+ tests? in)\b/i.test(line)) continue
-    if (/\b\d+(?:\.\d+)?\s?(?:ms|s|sec|seconds)\b\)?$/i.test(line) && line.length < 40) continue
+    // Node's test runner's own total, "ℹ duration_ms 76.857": a different figure in every copy and every run.
+    if (/^\W*duration_ms\b/i.test(line)) continue
     if (seen.has(line)) continue
     seen.add(line)
     lines.push(line)

@@ -10,6 +10,7 @@ import {
   stringValue,
   toolPatchFrom,
 } from "./codex-events.js";
+import type { OpenCodePrice } from "./commands.js";
 import type {
   CodexEventEvidence,
   NormalizedRuntimeEvent,
@@ -80,8 +81,41 @@ export interface OpenCodeInvocationContext {
   readonly cliVersion?: string;
   /** The model the run was asked for (`opencode/space-bunny-free`): a free one's refusal is never a sign-in. */
   readonly model?: string;
+  /**
+   * The model's listed price, for a model of the person's own that its
+   * provider lists (0.810): each step is priced from it here, as OpenCode
+   * prices a step of its own models. Absent: OpenCode's own figure.
+   */
+  readonly price?: OpenCodePrice;
   /** Test seam and host clock. */
   readonly now?: () => Date;
+}
+
+/**
+ * ONE STEP AT ITS LISTED PRICE (0.810), by OpenCode's own sum for its models
+ * (MEASURED in its 1.18.27 binary, 2026-10-21): input, output and reasoning
+ * at the input and output prices, each cache at its own, at the dearest tier
+ * whose size the step's context passed -- the context being its input with
+ * both caches. Locust adds it up itself because OpenCode, told a price in a
+ * provider's config, keeps the base and drops the tiers: a Claude Haiku 5.5
+ * step over 100k of context read at a fifth of its price (the price probe).
+ */
+export function listedStepCost(
+  price: OpenCodePrice,
+  tokens: { readonly input: number; readonly output: number; readonly reasoning: number; readonly cacheRead: number; readonly cacheWrite: number },
+): number {
+  const context = tokens.input + tokens.cacheRead + tokens.cacheWrite;
+  const tier = (price.tiers ?? [])
+    .filter((one) => one.tier.type === "context" && context > one.tier.size)
+    .sort((left, right) => right.tier.size - left.tier.size)[0];
+  const rate = tier ?? (price.context_over_200k !== undefined && context > 200_000 ? price.context_over_200k : price);
+  return (
+    tokens.input * rate.input
+    + tokens.output * rate.output
+    + tokens.reasoning * rate.output
+    + tokens.cacheRead * (rate.cache_read ?? 0)
+    + tokens.cacheWrite * (rate.cache_write ?? 0)
+  ) / 1_000_000;
 }
 
 export interface OpenCodeEventNormalizer {
@@ -377,7 +411,15 @@ export function createOpenCodeEventNormalizer(
       reasoningTokens += counted(tokens.reasoning) ?? 0;
       cacheReadTokens += counted(cache.read) ?? 0;
       cacheWriteTokens += counted(cache.write) ?? 0;
-      costUsd += counted(part.cost) ?? 0;
+      costUsd += context.price === undefined
+        ? counted(part.cost) ?? 0
+        : listedStepCost(context.price, {
+          input: counted(tokens.input) ?? 0,
+          output: counted(tokens.output) ?? 0,
+          reasoning: counted(tokens.reasoning) ?? 0,
+          cacheRead: counted(cache.read) ?? 0,
+          cacheWrite: counted(cache.write) ?? 0,
+        });
       // Each step reports its own counts, so a run's cost is their sum. Taking
       // the last step's numbers would report the cheapest step as the total.
       if (stringValue(part.reason) === "stop") {

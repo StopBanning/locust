@@ -1833,9 +1833,9 @@ export interface OpenCodeProvider {
    */
   readonly toolCalls?: boolean;
   /**
-   * What a model costs, by its id, as its provider lists it (0.810). Given,
-   * OpenCode prices each step of a run with it, as it prices its own models,
-   * and the run reports dollars; absent, it reports tokens only.
+   * What a model costs, by its id, as its provider lists it (0.810). OpenCode
+   * is told it, and the run's steps are priced from it (listedStepCost);
+   * absent, the run reports tokens only.
    */
   readonly prices?: Readonly<Record<string, OpenCodePrice>>;
 }
@@ -1843,8 +1843,9 @@ export interface OpenCodeProvider {
 /**
  * A model's price in dollars a million tokens, in models.dev's own words,
  * which are the ones OpenCode's config takes. A tier is a dearer price for a
- * request whose context is over its size; OpenCode 1.18 picks it per step
- * (MEASURED in its binary 2026-10-21), and an older OpenCode ignores it.
+ * step whose context is over its size. OpenCode 1.18.27 keeps only the base
+ * of a price its config gives (MEASURED 2026-10-21, probe-opencode-own-price),
+ * so the tiers are applied by Locust, which prices each step itself.
  */
 export interface OpenCodePrice {
   readonly input: number;

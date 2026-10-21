@@ -82,4 +82,30 @@ describe('an API benchmark prices and checks each run', () => {
       }
     } finally {for(const root of roots)await rm(root,{recursive:true,force:true})}
   },30_000)
+  it('passes a page that also says whether its details are open, as Opus\'s did on 10/21', async () => {
+    // Six of Opus's fifteen pages set aria-expanded on the button too, on `this` or by name, and failed only because
+    // the check's stand-in button had no setAttribute and its handlers ran with no `this`. These are two of them.
+    const page = (button, script) => `<!doctype html><html lang="en"><head><title>Project notes</title><link rel="stylesheet" href="style.css"></head><body><main><h1>Project notes</h1>${button}<p id="details" hidden>Small steps, real checks.</p></main><script>${script}</script></body></html>\n`
+    const pages = [
+      page('<button type="button" id="toggle" aria-expanded="false" aria-controls="details">Toggle details</button>', 'document.getElementById("toggle").addEventListener("click", function () { var d = document.getElementById("details"); d.hidden = !d.hidden; this.setAttribute("aria-expanded", String(!d.hidden)); });'),
+      page('<button type="button" id="toggle-details" aria-expanded="false">Toggle details</button>', '(function(){ var btn = document.getElementById("toggle-details"); var details = document.getElementById("details"); btn.addEventListener("click", function(){ details.hidden = !details.hidden; btn.setAttribute("aria-expanded", String(!details.hidden)); }); })();'),
+      // The attribute itself, as a browser reflects it into the property.
+      page('<button type="button" id="t">Toggle details</button>', 'document.getElementById("t").addEventListener("click", () => document.getElementById("details").toggleAttribute("hidden"));'),
+      // A page that only says it toggled, and never does, still fails.
+      page('<button type="button" id="t">Toggle details</button>', 'document.getElementById("t").addEventListener("click", function () { this.setAttribute("aria-expanded", "true"); });')
+    ]
+    const roots = []
+    try {
+      const results = []
+      for (const html of pages) {
+        const fixed = await fixture('html')
+        roots.push(fixed.root)
+        await writeFile(join(fixed.root, 'index.html'), html)
+        results.push(await objective('html', fixed.root))
+      }
+      expect(results.map((result) => result.passed), results.map((result) => result.said).join('\n')).toEqual([true, true, true, false])
+    } finally {
+      for (const root of roots) await rm(root, { recursive: true, force: true })
+    }
+  }, 30_000)
 })

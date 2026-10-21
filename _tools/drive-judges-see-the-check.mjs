@@ -13,14 +13,21 @@ if (!FREE_ROUTE.model.endsWith('-free')) throw new Error('This drive uses free m
 const workspace = await scratchRepository('locust-judges-check-ws-')
 await writeFile(join(workspace, 'sum.mjs'), 'export const sum = (a, b) => a - b\n')
 await writeFile(join(workspace, 'sum.test.mjs'), "import { test } from 'node:test'\nimport assert from 'node:assert/strict'\nimport { sum } from './sum.mjs'\ntest('adds two numbers', () => assert.equal(sum(2, 3), 5))\n")
+/*
+ * --failing: the project also has a test that needs a package nobody installed, as a copy leaves out node_modules, so
+ * the check fails in every copy whatever the model does -- and fails the same way only once each copy's own path is
+ * read as "." and each run's timings are dropped (edit-check.ts: withoutFolder, comparableLines).
+ */
+const failing = process.argv.includes('--failing')
+if (failing) await writeFile(join(workspace, 'deps.test.mjs'), "import { test } from 'node:test'\nimport leftPad from 'left-pad'\ntest('pads', () => { if (leftPad('1', 2, '0') !== '01') throw new Error('bad pad') })\n")
 await git(['add', '.'], workspace)
 await git(['commit', '-q', '-m', 'A small addition bug'], workspace)
-const COMMAND = 'node --test sum.test.mjs'
-const ask = 'Fix the integer addition bug in sum.mjs. Do not change other files or commit. Final message: one short sentence.'
+const COMMAND = failing ? 'node --test' : 'node --test sum.test.mjs'
+const ask = 'Fix the integer addition bug in sum.mjs. Do not change other files, install anything or commit. Final message: one short sentence.'
 const criteria = 'Fixes sum.mjs addition\nChanges nothing else'
 const drive = await startDrive({
   name: 'judges-see-the-check', port: 9806, workspace, holdCursor: false,
-  outPath: join(recordRoot('judges-see-the-check-2026-10-21'), arg('--tag') ?? 'live'),
+  outPath: join(recordRoot('judges-see-the-check-2026-10-21'), arg('--tag') ?? (failing ? 'failing' : 'live')),
   ...(arg('--packaged') === undefined ? {} : { packaged: arg('--packaged') }),
   seed: { schemaVersion: 1, teammates: [{ teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', route: FREE_ROUTE, createdAt: '2026-10-21T12:00:00.000Z' }], missionOwners: {}, settings: { memoryMode: 'off', swarm: false, relay: false, autoMode: false, relayHopCap: 2 } }
 })
@@ -79,7 +86,7 @@ try {
   check('each copy ran the folder\'s command after its turn', checked.every((one) => one?.command === COMMAND), checked)
   const sum = await Promise.all(compare.slots.map((column) => readFile(join(column.folder ?? '', 'sum.mjs'), 'utf8').catch(() => '')))
   // Its outcome is the copy's own: a column that fixed sum.mjs passes, one that did not fails.
-  check('each outcome matches what its copy holds', checked.every((one, index) => (one?.outcome === 'passed') === /a\s*\+\s*b/.test(sum[index] ?? '')), { outcomes: checked.map((one) => one?.outcome), sum })
+  check('each outcome matches what its copy holds', checked.every((one, index) => failing ? one?.outcome === 'failed' : (one?.outcome === 'passed') === /a\s*\+\s*b/.test(sum[index] ?? '')), { outcomes: checked.map((one) => one?.outcome), sum, lines: checked.map((one) => one?.newLines) })
   await drive.waitFor(`(document.querySelector('.lc-compare')?.innerText ?? '').includes('after this turn')`, { timeoutMs: 30_000, what: 'the check shown in the columns' })
   const before = JSON.parse(String(await drive.evaluate(view)))
   check('each column shows what the check said after its turn', (before.text.match(/after this turn/g) ?? []).length >= 2, before.text.slice(0, 600))
@@ -129,6 +136,15 @@ try {
   // What the check printed names its files from the copy ("./sum.test.mjs"), never by a path that carries the person's.
   const home = homedir().toLowerCase()
   check('the check\'s output reaches the judge without the person\'s own paths', ![home, home.replaceAll('\\', '/'), home.replaceAll('\\', '\\\\')].some((spelling) => material.toLowerCase().includes(spelling)))
+  if (failing) {
+    check('the failure reaches the judge in what it printed, under each letter', judged.slots.every((column) => material.includes(`The person's check of Answer ${column.slot.toUpperCase()}'s copy, after its turn: failed. The end of what it printed:`)) && material.includes('deps.test.mjs'))
+    // Both models fixed sum.mjs, or neither did: then each copy printed one failure, its path and timings aside.
+    const alike = sum.every((text) => /a\s*\+\s*b/.test(text)) || sum.every((text) => !/a\s*\+\s*b/.test(text))
+    if (alike) {
+      check('the judge is told the check fails the same way in every copy', material.includes('Here it failed the same way in every copy, so it does not tell the answers apart'))
+      check('the comparison says so, and what to do about it', before.text.includes('Your check failed the same way in every copy, so it tells them apart on nothing.'))
+    }
+  }
   await drive.waitFor(`(document.querySelector('.lc-compare__judgesaid')?.innerText.length ?? 0) > 0`, { what: 'the judge view rendered' })
   const after = JSON.parse(String(await drive.evaluate(view)))
   check('the judges\' table puts your check beside the score', /Your check/.test(after.text))

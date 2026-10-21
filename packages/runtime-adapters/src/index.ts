@@ -188,6 +188,7 @@ export {
 export {
   addedFilePatch,
   createOpenCodeEventNormalizer,
+  listedStepCost,
   OPENCODE_COMPACTED,
   openCodeOwnText,
   openCodeToolOutcome,

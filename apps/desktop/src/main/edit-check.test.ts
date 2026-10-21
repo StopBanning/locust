@@ -96,6 +96,11 @@ describe('the check after an edit', () => {
   it('drops colour codes and timings from what it compares', () => {
     expect(comparableLines('\u001b[31mFAIL\u001b[39m x\n  Duration 3.21s\nTime: 12ms\n12 ms\nok\nok\n')).toEqual(['FAIL x', 'ok'])
   })
+
+  it('keeps the name of a test that ends in its time, and drops Node\'s total (0.810)', () => {
+    // As Node's test runner prints a failure: every figure here differs from one copy, and one run, to the next.
+    expect(comparableLines('✖ adds two numbers (1.6709ms)\nℹ tests 1\nℹ duration_ms 76.857\n# duration_ms 12.5\n✓ src/a.test.ts (3 tests) 12ms\n')).toEqual(['✖ adds two numbers', 'ℹ tests 1', '✓ src/a.test.ts (3 tests)'])
+  })
 })
 
 describe('a check the shell cannot be handed (2026-10-10 sweep)', () => {

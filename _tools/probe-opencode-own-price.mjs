@@ -1,16 +1,19 @@
-// Whether OpenCode prices a model of your own from the price Locust gives it.
+// Whether a run of a model of your own reads its listed price.
 //
-//   node _tools/probe-opencode-own-price.mjs
+//   node _tools/probe-opencode-own-price.mjs [--opencode-only]
 //
-// A model the person adds at its provider's own address is told the price
-// models.dev lists for it (listed-prices.ts, 0.810), in the provider config
-// Locust writes. This starts a local OpenAI-compatible endpoint that reports
-// fixed token counts, declares it through Locust's OWN builder with Claude
-// Haiku 5.5's listed price -- a tier included, dearer above 100k of context
-// -- and runs Locust's OpenCode command, process runner and normalizer
-// against it twice: once under the tier, once over it. Each run's dollars
-// must be the price times the tokens the endpoint reported. Build the
-// adapters first (pnpm -C packages/runtime-adapters build). Spends nothing.
+// A model the person adds at its provider's own address is priced from the
+// list models.dev keeps for it (listed-prices.ts, 0.810). This starts a local
+// OpenAI-compatible endpoint that reports fixed token counts, declares it
+// through Locust's OWN builder with Claude Haiku 5.5's listed price -- a tier
+// included, dearer above 100k of context -- and runs Locust's OpenCode
+// command, process runner and normalizer (given the price, as a run of your
+// own model is) against it twice: once under the tier, once over it. Each
+// run's dollars must be the price times the tokens the endpoint reported.
+// With --opencode-only the normalizer is not given the price, and OpenCode's
+// own figure is read: MEASURED 2026-10-21 on 1.18.27, it keeps the base of a
+// price its config gives and drops the tier, so the run over it reads $0.01505
+// for $0.07525. Build the adapters first. Spends nothing.
 
 import { mkdtempSync, rmSync } from 'node:fs'
 import { createServer } from 'node:http'
@@ -18,6 +21,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
+const openCodeOnly = process.argv.includes('--opencode-only')
 const PRICE = { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125, tiers: [{ input: 0.5, output: 2.5, cache_read: 0.05, cache_write: 0.625, tier: { type: 'context', size: 100000 } }] }
 let reported = { prompt: 1000, completion: 100 }
 const server = createServer((request, response) => {
@@ -59,7 +63,7 @@ for (const [prompt, completion, price] of [[1000, 100, PRICE], [150000, 100, PRI
     }
   )
   const run = lib.createNodeRuntimeProcessRunner().start(spec, 'say pong')
-  const normalizer = lib.createOpenCodeEventNormalizer({ runId: 'run_1', missionId: 'mission_1', cliVersion: 'probe' })
+  const normalizer = lib.createOpenCodeEventNormalizer({ runId: 'run_1', missionId: 'mission_1', cliVersion: 'probe', ...(openCodeOnly ? {} : { price: PRICE }) })
   const events = []
   for await (const record of run.records) events.push(...normalizer.accept(record))
   events.push(...normalizer.finish(await run.completion))
@@ -68,7 +72,7 @@ for (const [prompt, completion, price] of [[1000, 100, PRICE], [150000, 100, PRI
   const expected = (prompt * price.input + completion * price.output) / 1_000_000
   const ok = typeof usage?.usd === 'number' && Math.abs(usage.usd - expected) < 1e-9
   if (!ok) failures += 1
-  console.log(`[${ok ? 'PASS' : 'FAIL'}] ${String(prompt)} in, ${String(completion)} out: OpenCode reported ${JSON.stringify(usage)}; the listed price makes it $${expected.toFixed(6)}${done === undefined ? ` (no run.completed: ${events.map((event) => event.type).join(', ')})` : ''}`)
+  console.log(`[${ok ? 'PASS' : 'FAIL'}] ${String(prompt)} in, ${String(completion)} out: the run read ${JSON.stringify(usage)}; the listed price makes it $${expected.toFixed(6)}${done === undefined ? ` (no run.completed: ${events.map((event) => event.type).join(', ')})` : ''}`)
   rmSync(workspace, { recursive: true, force: true })
 }
 server.close()

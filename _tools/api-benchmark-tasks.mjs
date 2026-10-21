@@ -83,26 +83,57 @@ export async function objective(id, folder) {
   } finally { await rm(scratch, { recursive: true, force: true }) }
 }
 
-// A deliberately small DOM for this fixed page, not a browser conformance claim. No network or rendering.
+// A deliberately small DOM for this fixed page, not a browser conformance claim. No network or rendering. Its two
+// elements keep attributes as a browser's do, `hidden` among them, and a click calls each handler on the button with
+// an event, as a browser does: on 10/21 six of Opus's fifteen pages failed here only because they also set
+// aria-expanded on the button, which this stand-in did not have. Self-contained: the oracle is built from its text.
 async function htmlToggle(html) {
   const buttonTag = /<button\b([^>]*)>/i.exec(html)?.[1] ?? ''
   const detailsTag = /<[^>]*\bid=["']details["'][^>]*>/i.exec(html)?.[0] ?? ''
-  const details = { hidden: /\bhidden\b/.test(detailsTag) }
+  const element = (hidden) => {
+    const attributes = new Map(hidden ? [['hidden', '']] : [])
+    const classes = new Set()
+    const key = (name) => String(name).toLowerCase()
+    const turn = (set, name, force) => {
+      const on = force ?? !set.has(name)
+      if (on) set.add(name)
+      else set.delete(name)
+      return on
+    }
+    return {
+      get hidden() { return attributes.has('hidden') },
+      set hidden(value) { if (value) attributes.set('hidden', ''); else attributes.delete('hidden') },
+      getAttribute: (name) => attributes.get(key(name)) ?? null,
+      setAttribute: (name, value) => { attributes.set(key(name), String(value)) },
+      hasAttribute: (name) => attributes.has(key(name)),
+      removeAttribute: (name) => { attributes.delete(key(name)) },
+      toggleAttribute: (name, force) => {
+        const on = force ?? !attributes.has(key(name))
+        if (on) attributes.set(key(name), '')
+        else attributes.delete(key(name))
+        return on
+      },
+      classList: { add: (...names) => names.forEach((name) => classes.add(name)), remove: (...names) => names.forEach((name) => classes.delete(name)), toggle: (name, force) => turn(classes, name, force), contains: (name) => classes.has(name) }
+    }
+  }
+  const details = element(/\bhidden\b/.test(detailsTag))
   const handlers = []
-  const button = { addEventListener: (event, fn) => { if (event === 'click') handlers.push(fn) }, onclick: undefined }
+  const button = Object.assign(element(false), { addEventListener: (event, fn) => { if (event === 'click') handlers.push(fn) }, onclick: undefined })
   const buttonId = /\bid=["']([^"']+)["']/i.exec(buttonTag)?.[1]
   const get = (selector) => selector === '#details' ? details : selector === 'button' || (buttonId && selector === '#' + buttonId) ? button : null
   const document = { getElementById: (id) => get('#' + id), querySelector: get, addEventListener: (event, fn) => { if (event === 'DOMContentLoaded') fn() } }
-  const context = vm.createContext({ document })
+  const context = vm.createContext({ document, __button: button })
   for (const script of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
     assert.ok(!/\bsrc\s*=/.test(script[1]), 'This fixed-page check requires inline JavaScript, not external scripts')
     vm.runInContext(script[2], context, { timeout: 1000 })
   }
   const inline = /\bonclick=(?:"([^"]*)"|'([^']*)')/i.exec(buttonTag)
   const click = () => {
-    if (inline) vm.runInContext('(function(){' + (inline[1] ?? inline[2]) + '}).call(undefined)', context, { timeout: 1000 })
-    if (button.onclick) button.onclick()
-    for (const fn of handlers) fn()
+    const event = { type: 'click', target: button, currentTarget: button, preventDefault() {}, stopPropagation() {} }
+    context.__event = event
+    if (inline) vm.runInContext('(function(event){' + (inline[1] ?? inline[2]) + '}).call(__button, __event)', context, { timeout: 1000 })
+    if (button.onclick) button.onclick.call(button, event)
+    for (const fn of handlers) fn.call(button, event)
   }
   assert.equal(details.hidden, true)
   click(); assert.equal(details.hidden, false)
