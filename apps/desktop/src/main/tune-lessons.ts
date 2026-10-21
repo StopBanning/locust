@@ -103,13 +103,13 @@ Write "edits" with one row per drafted setup ("How it works" and "What it knows"
 - "draft": "how" or "knows";
 - "changed": what that draft changed in the standing instructions compared with Current;
 - "did": what that setup did in its run compared with Current;
-- "verdict": "helped", "hurt", "no clear effect" or "cannot tell". For the setup the person kept (especially when they saved its instructions), use "helped" when its run followed the drafted change better than Current; for unkept drafts or differences where one run is all that stands behind them, prefer "cannot tell"; use "hurt" when a draft's change clearly made its run worse.
+- "verdict": "helped", "hurt", "no clear effect" or "cannot tell". Which setup the person kept says which answer they preferred, not that its edit caused the difference: judge every verdict from what the runs did. Use "helped" or "hurt" only when you can point to the moment in a run where the drafted change made it better or worse than Current; when one run is all that stands behind a difference, prefer "cannot tell".
 Write "lesson" as at most one lesson object, or null:
 - "when": the general shape of situation, never this task's specific facts, file names or numbers;
 - "do": what to change in a teammate's standing instructions, written as a checkable rule;
 - "because": which edit row(s) and run outcome this lesson rests on (name the "helped" or "hurt" row);
 - "confidence": "high", "medium" or "low" (a single comparison is at most "low" or "medium").
-When any edit row is "helped" or "hurt", write one lesson from that row; a lesson resting only on "cannot tell" rows must not be written: if every row is "cannot tell", set "lesson" to null.
+Write a lesson only when a "helped" or "hurt" row shows something that would change how this teammate should work on a different ask; otherwise set "lesson" to null, which is a normal outcome. A lesson resting only on "cannot tell" rows is never written.
 Answer only JSON, with no markdown fence and no prose before or after: {"edits":[{"draft":"how","changed":"one short line","did":"one short line","verdict":"helped"},{"draft":"knows","changed":"one short line","did":"one short line","verdict":"cannot tell"}],"lesson":{"when":"shape of situation","do":"checkable instruction change","because":"which edit row showed this","confidence":"low"}} (or "lesson":null).
 Every text field must be a single line of at most 400 characters.
 Ask (JSON-quoted data): ${JSON.stringify(input.ask.slice(0, 4_000))}
