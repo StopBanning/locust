@@ -2,9 +2,11 @@ import { useState, type ReactElement } from 'react'
 import type { PublicCompare } from '../../../shared/compare.js'
 import type { PublicTeammate } from '../../../shared/ipc.js'
 import {
+  combineSetups,
   isKeptTune,
   keptInstructions,
   tuneLessonLine,
+  TUNE_COMBINE_FALLBACK,
   TUNE_LESSON_COST,
   type PublicTuneLesson
 } from '../../../shared/tune.js'
@@ -13,6 +15,9 @@ export interface NoteTuneOutcome {
   readonly lesson?: PublicTuneLesson | null
   readonly message?: string
 }
+
+/** What Combine both edits came back with (0.811): the combined words and a line on each edit, or why there are none. */
+export type CombineTuneOutcome = { readonly instructions: string; readonly note: string } | { readonly message: string }
 
 /**
  * KEEP IS NOT SAVE (0.809), AND REFLECTION RUNS ONLY ON PRESS (0.810).
@@ -29,7 +34,8 @@ export function KeptInstructions({
   model,
   free,
   onNote,
-  onRemoveLesson
+  onRemoveLesson,
+  onCombine
 }: {
   readonly compare: PublicCompare
   readonly teammate: PublicTeammate | undefined
@@ -40,6 +46,7 @@ export function KeptInstructions({
   readonly free?: boolean | undefined
   readonly onNote?: ((compare: PublicCompare, usedInstructions: boolean) => Promise<NoteTuneOutcome | undefined>) | undefined
   readonly onRemoveLesson?: ((lessonId: string) => Promise<string | undefined>) | undefined
+  readonly onCombine?: ((compare: PublicCompare) => Promise<CombineTuneOutcome>) | undefined
 }): ReactElement | null {
   const [dismissed, setDismissed] = useState(false)
   const [applied, setApplied] = useState(false)
@@ -48,8 +55,15 @@ export function KeptInstructions({
   const [localLesson, setLocalLesson] = useState<PublicTuneLesson | null | undefined>(undefined)
   const [noteMessage, setNoteMessage] = useState<string>()
   const [problem, setProblem] = useState<string>()
+  const [combining, setCombining] = useState(false)
+  const [combined, setCombined] = useState<{ readonly instructions: string; readonly note: string }>()
+  const [combineMessage, setCombineMessage] = useState<string>()
   if (!isKeptTune(compare, teammate)) return null
-  const instructions = keptInstructions(compare, teammate)
+  // COMBINE BOTH EDITS (0.811): the kept draft's edit with the other draft's, written by one side turn, offered as
+  // the kept instructions are -- read, then used or not; nothing is saved until Use is pressed.
+  const setups = combineSetups(compare)
+  const kept = keptInstructions(compare, teammate)
+  const instructions = combined?.instructions ?? kept
   const offerInstructions = !applied && !dismissed && instructions !== undefined
   const shownLesson = localLesson === null ? undefined : (lesson ?? localLesson)
   const isNoting = noting === true || localNoting
@@ -60,8 +74,44 @@ export function KeptInstructions({
     'this model'
   const routeFree =
     free ?? (teammate.route?.runtime === 'opencode' && /(^|[-/])free$/i.test(teammate.route.model))
+  // Either side turn holds the other: one at a time on the teammate's route.
+  const sideBusy = busy || isNoting || combining
+  const combine = (): void => {
+    if (sideBusy) return
+    setCombining(true)
+    setCombineMessage(undefined)
+    setProblem(undefined)
+    const run: Promise<CombineTuneOutcome> = onCombine
+      ? onCombine(compare)
+      : window.desktop === undefined
+        ? Promise.resolve({ message: 'Locust is not ready. Nothing was combined.' })
+        : window.desktop.combineTuneEdits(compare.compareId).then((res) => (res.ok ? { instructions: res.data.instructions, note: res.data.note } : { message: res.message }))
+    void run
+      .then((outcome) => {
+        if ('instructions' in outcome) {
+          setCombined(outcome)
+          setApplied(false)
+          setDismissed(false)
+        } else {
+          setCombineMessage(outcome.message)
+        }
+      })
+      .catch(() => setCombineMessage(TUNE_COMBINE_FALLBACK))
+      .finally(() => setCombining(false))
+  }
+  const combineButton = setups === undefined || combined !== undefined ? null : (
+    <button type="button" className="lc-ghostbutton" disabled={sideBusy} onClick={combine}>
+      {combining ? 'Combining the two edits…' : 'Combine both edits'}
+    </button>
+  )
+  const combineSaid = combineMessage === undefined ? null : (
+    <span className="lc-tuneoffer__note" role="status">
+      {combineMessage}
+    </span>
+  )
   // One row (0.809): what happened, then the two choices side by side; the words themselves fold out beneath.
-  // Beneath it (0.810): Note what this tune showed with its cost on the button's line, or the lesson with Remove.
+  // Beneath it (0.810): Note what this tune showed with its cost on the button's line, or the lesson with Remove;
+  // and Combine both edits (0.811) on that line too, its own when a lesson stands there.
   return (
     <div className="lc-tuneoffer">
       {applied && (
@@ -71,7 +121,9 @@ export function KeptInstructions({
       )}
       {offerInstructions && (
         <span className="lc-tuneoffer__say">
-          The setup you kept uses different instructions from {teammate.name}’s own.
+          {combined !== undefined && setups !== undefined
+            ? `Combined ${setups.kept.name} with ${setups.other.name}: ${combined.note}`
+            : `The setup you kept uses different instructions from ${teammate.name}’s own.`}
         </span>
       )}
       {offerInstructions && (
@@ -92,7 +144,7 @@ export function KeptInstructions({
                 .finally(() => setBusy(false))
             }}
           >
-            Use these instructions for {teammate.name}
+            {combined === undefined ? `Use these instructions for ${teammate.name}` : `Use the combined instructions for ${teammate.name}`}
           </button>
           <button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => setDismissed(true)}>
             Not now
@@ -111,9 +163,9 @@ export function KeptInstructions({
           <button
             type="button"
             className="lc-ghostbutton"
-            disabled={busy || isNoting}
+            disabled={sideBusy}
             onClick={() => {
-              if (busy || isNoting) return
+              if (sideBusy) return
               setBusy(true)
               setProblem(undefined)
               const remove = onRemoveLesson
@@ -137,20 +189,28 @@ export function KeptInstructions({
             Remove
           </button>
         </div>
-      ) : (
+      ) : null}
+      {shownLesson !== undefined && combineButton !== null && (
+        <div className="lc-tuneoffer__note-row">
+          <span className="lc-tuneoffer__cost">{TUNE_LESSON_COST(routeLabel, routeFree)}</span>
+          {combineButton}
+          {combineSaid}
+        </div>
+      )}
+      {shownLesson !== undefined ? null : (
         <div className="lc-tuneoffer__note-row">
           <span className="lc-tuneoffer__cost">{TUNE_LESSON_COST(routeLabel, routeFree)}</span>
           <button
             type="button"
             className="lc-ghostbutton"
-            disabled={busy || isNoting}
+            disabled={sideBusy}
             onClick={() => {
-              if (busy || isNoting) return
+              if (sideBusy) return
               setLocalNoting(true)
               setLocalLesson(undefined)
               setProblem(undefined)
               setNoteMessage(undefined)
-              const used = applied || instructions === undefined
+              const used = applied || kept === undefined
               const run = onNote
                 ? onNote(compare, used)
                 : window.desktop === undefined
@@ -174,11 +234,13 @@ export function KeptInstructions({
           >
             {isNoting ? 'Noting what this tune showed…' : 'Note what this tune showed'}
           </button>
+          {combineButton}
           {noteMessage !== undefined && (
             <span className="lc-tuneoffer__note" role="status">
               {noteMessage}
             </span>
           )}
+          {combineSaid}
         </div>
       )}
       {problem !== undefined && (

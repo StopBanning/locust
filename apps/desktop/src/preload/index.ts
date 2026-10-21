@@ -1,10 +1,12 @@
 import { AGENT_ACCOUNTS_CHANNEL, type AccountAction, type AgentAccountsState } from '../shared/agent-accounts.js'
 import { contextBridge, ipcRenderer } from 'electron'
 import {
+  TUNE_COMBINE_CHANNEL,
   TUNE_DRAFT_CHANNEL,
   TUNE_LESSON_LIST_CHANNEL,
   TUNE_LESSON_NOTE_CHANNEL,
   TUNE_LESSON_REMOVE_CHANNEL,
+  type TuneCombineResponse,
   type TuneLessonListResponse,
   type TuneLessonNoteResponse
 } from '../shared/tune.js'
@@ -830,6 +832,7 @@ const desktopApi: DesktopApi = {
   askOnTheSide: (of: string, question: string, count: number) => ipcRenderer.invoke(SIDE_ASK_CHANNEL, of, question, count) as Promise<SideAskResponse>,
   draftTune: (of: string) => ipcRenderer.invoke(TUNE_DRAFT_CHANNEL, of) as Promise<SideAskResponse>,
   noteTuneLesson: (compareId: string, usedInstructions?: boolean) => ipcRenderer.invoke(TUNE_LESSON_NOTE_CHANNEL, compareId, usedInstructions) as Promise<TuneLessonNoteResponse>,
+  combineTuneEdits: (compareId: string) => ipcRenderer.invoke(TUNE_COMBINE_CHANNEL, compareId) as Promise<TuneCombineResponse>,
   listTuneLessons: (teammateId?: string) => ipcRenderer.invoke(TUNE_LESSON_LIST_CHANNEL, teammateId) as Promise<TuneLessonListResponse>,
   removeTuneLesson: (lessonId: string) => ipcRenderer.invoke(TUNE_LESSON_REMOVE_CHANNEL, lessonId) as Promise<TuneLessonListResponse>,
   switchFolder: (id: string) => ipcRenderer.invoke(FOLDER_SWITCH_CHANNEL, id) as Promise<FolderSwitchResponse>,

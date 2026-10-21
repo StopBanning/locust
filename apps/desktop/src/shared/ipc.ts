@@ -3928,6 +3928,8 @@ export interface DesktopApi {
   askOnTheSide(of: string, question: string, count: number): Promise<SideAskResponse>
   draftTune(of: string): Promise<SideAskResponse>
   noteTuneLesson(compareId: string, usedInstructions?: boolean): Promise<import('./tune.js').TuneLessonNoteResponse>
+  /** One side turn writes one set of instructions with both of a kept tune's edits (0.811); nothing is saved by it. */
+  combineTuneEdits(compareId: string): Promise<import('./tune.js').TuneCombineResponse>
   listTuneLessons(teammateId?: string): Promise<import('./tune.js').TuneLessonListResponse>
   removeTuneLesson(lessonId: string): Promise<import('./tune.js').TuneLessonListResponse>
   switchFolder(id: string): Promise<FolderSwitchResponse>

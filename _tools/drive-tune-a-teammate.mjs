@@ -108,6 +108,35 @@ try {
   await drive.waitFor(`document.querySelector('.lc-tuneoffer')?.textContent.includes('next turn')`, { what: 'the explicit save confirmation' })
   check('the explicit button saves only the chosen draft', (await roster()).data?.teammates?.[0]?.instructions === how)
   await drive.capture('chosen instructions take effect next turn', () => drive.evaluate(`document.querySelector('.lc-tuneoffer').innerText`))
+  /*
+   * COMBINE BOTH EDITS (0.811): How it works was kept and What it knows left, so the strip offers to combine them. One
+   * side turn writes the two as one; nothing changes until its Use is pressed. A reply that will not read is said in a
+   * line and nothing is saved -- the model's to decide -- so it is asked up to twice before the path is called unexercised.
+   */
+  const strip = () => drive.evaluate(`document.querySelector('.lc-tuneoffer')?.innerText ?? ''`)
+  check('the kept strip offers Combine both edits beside the note', String(await strip()).includes('Combine both edits'))
+  let combinedWords
+  for (let attempt = 1; attempt <= 2 && combinedWords === undefined; attempt += 1) {
+    await drive.evaluate(`[...document.querySelectorAll('.lc-tuneoffer button')].find((button) => button.textContent.trim() === 'Combine both edits').click()`)
+    await drive.waitFor(`(document.querySelector('.lc-tuneoffer')?.innerText ?? '').includes('Combining the two edits')`, { timeoutMs: 15_000, what: 'the combine to start' }).catch(() => undefined)
+    await drive.waitFor(`(() => { const text = document.querySelector('.lc-tuneoffer')?.innerText ?? ''; return !text.includes('Combining the two edits') && (text.includes('Combined How it works with What it knows:') || text.includes('Nothing was saved.') || text.includes('nothing new to use')) })()`, { timeoutMs: 180_000, what: 'the combine side turn to finish' })
+    const said = String(await strip())
+    if (said.includes('Combined How it works with What it knows:')) {
+      combinedWords = String(await drive.evaluate(`(() => { document.querySelector('.lc-tuneoffer details')?.setAttribute('open', ''); return document.querySelector('.lc-tuneoffer pre')?.textContent ?? '' })()`))
+    } else {
+      check(`combine ${String(attempt)}: nothing is offered, and the strip says why in one line`, /Nothing was saved\.|nothing new to use/.test(said), said.slice(0, 300))
+    }
+  }
+  if (combinedWords === undefined) {
+    say('[NOTE] Two combines and no combined instructions: the free model did not write them in a form Locust reads. The combined offer was not exercised in this run.')
+  } else {
+    check('the combined instructions are offered to read before use, and differ from the kept setup', combinedWords.length > 0 && combinedWords !== how, combinedWords)
+    check('combining saved nothing by itself', (await roster()).data?.teammates?.[0]?.instructions === how)
+    await drive.capture('the combined instructions offered', () => strip())
+    await drive.evaluate(`[...document.querySelectorAll('.lc-tuneoffer button')].find((button) => button.textContent.trim() === 'Use the combined instructions for Wren').click()`)
+    await drive.waitFor(`document.querySelector('.lc-tuneoffer')?.textContent.includes('next turn')`, { what: 'the combined instructions saved' })
+    check('Use the combined instructions saves exactly those words', (await roster()).data?.teammates?.[0]?.instructions === combinedWords)
+  }
   check('nothing notes a lesson before Note what this tune showed is pressed', (await lessons()).data?.lessons?.length === 0)
   check('the kept strip offers Note what this tune showed and says its cost', await drive.evaluate(`(() => {
     const strip = document.querySelector('.lc-tuneoffer')?.innerText ?? ''

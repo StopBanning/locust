@@ -1,5 +1,5 @@
 import { instructionsText } from './teammate-instructions.js'
-import { hasColumnInstructions, type CompareRoute, type PublicCompare } from './compare.js'
+import { hasColumnInstructions, setupName, type CompareRoute, type PublicCompare } from './compare.js'
 import type { PublicTeammate } from './ipc.js'
 
 export const TUNE_DRAFT_CHANNEL = 'teammate:tune-drafts'
@@ -247,4 +247,59 @@ export function repeatsOf(current: string, drafts: TuneDrafts): { readonly how?:
 export function tuneRoutes<R extends CompareRoute>(route: R, current: string, drafts: TuneDrafts): readonly (Omit<R, 'label'> & { readonly label: string; readonly instructions: string })[] {
   const angles = ['Current', 'How it works', 'What it knows']
   return [current, drafts.how.instructions, drafts.knows.instructions].map((instructions, index) => ({ ...route, label: `${route.label ?? route.model} · ${angles[index]}`, instructions }))
+}
+
+export const TUNE_COMBINE_CHANNEL = 'teammate:tune-combine'
+export const TUNE_COMBINE_FALLBACK = 'The combined instructions could not be read. Nothing was saved.'
+export const TUNE_COMBINE_SAME = 'The combined instructions came back the same as the kept setup’s, so there is nothing new to use.'
+
+export type TuneCombineResponse =
+  | { readonly ok: true; readonly data: { readonly runId: string; readonly missionId: string; readonly instructions: string; readonly note: string } }
+  | { readonly ok: false; readonly message: string }
+
+/** A kept tune's two drafts as they are combined (0.811): the kept one and the other, each an edit of Current. */
+export interface TuneCombineSetups {
+  readonly current: string
+  readonly kept: { readonly name: string; readonly instructions: string; readonly why?: string }
+  readonly other: { readonly name: string; readonly instructions: string; readonly why?: string }
+}
+
+/**
+ * COMBINE BOTH EDITS (0.811), after Harness²'s composition step: a tune keeps one draft and leaves the other, which
+ * may still have changed something worth keeping. Only when a draft was kept and the other draft is an edit of its
+ * own -- different from Current and from the kept one; the kept one must itself have changed something.
+ */
+export function combineSetups(compare: PublicCompare): TuneCombineSetups | undefined {
+  if (compare.kept === undefined || !hasColumnInstructions(compare)) return undefined
+  const named = compare.slots.map((column) => ({ slot: column.slot, name: setupName(column.route), words: (column.route.instructions ?? '').trim(), why: column.route.why }))
+  const current = named.find((column) => column.name === 'Current')
+  const kept = named.find((column) => column.slot === compare.kept?.slot)
+  const other = named.find((column) => column.slot !== compare.kept?.slot && column.name !== undefined && column.name !== 'Current')
+  if (current === undefined || kept?.name === undefined || kept.name === 'Current' || other?.name === undefined) return undefined
+  if (kept.words === current.words || other.words === current.words || other.words === kept.words) return undefined
+  const setup = (column: { readonly name: string; readonly words: string; readonly why: string | undefined }) => ({ name: column.name, instructions: column.words, ...(column.why === undefined ? {} : { why: column.why }) })
+  return { current: current.words, kept: setup({ ...kept, name: kept.name }), other: setup({ ...other, name: other.name }) }
+}
+
+/** What the side turn wrote, read defensively: one set of instructions and one line saying what came from each. */
+export function parseTuneCombine(raw: string, setups: TuneCombineSetups): { readonly ok: true; readonly instructions: string; readonly note: string } | { readonly ok: false; readonly message: string } {
+  const fail = (message = TUNE_COMBINE_FALLBACK) => ({ ok: false, message }) as const
+  try {
+    if (typeof raw !== 'string' || raw.length === 0 || raw.length > 32_000) return fail()
+    const stripped = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+    const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(stripped)
+    const candidate = (fenced !== null ? fenced[1]! : stripped).trim()
+    const first = candidate.indexOf('{')
+    const last = candidate.lastIndexOf('}')
+    const value: unknown = JSON.parse(first >= 0 && last > first ? candidate.slice(first, last + 1) : candidate)
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return fail()
+    const record = value as Record<string, unknown>
+    const instructions = instructionsText(record.instructions)
+    const note = cleanLine(record.note)
+    if (instructions === undefined || instructions.length === 0 || note === undefined) return fail()
+    if (instructions === setups.kept.instructions) return fail(TUNE_COMBINE_SAME)
+    return { ok: true, instructions, note }
+  } catch {
+    return fail()
+  }
 }

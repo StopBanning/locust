@@ -4,7 +4,8 @@ import { columnInstructions, compareInstructionsRefusal, shuffledColumns } from 
 import { tuneDraftPrompt } from './tune-drafts.js'
 import { columnChangesSummary, parseTuneLesson, tuneLessonPrompt, type TuneLessonSetup } from './tune-lessons.js'
 import { createTuneLessonStore } from './tune-lesson-store.js'
-import { TUNE_DRAFT_CHANNEL, TUNE_LESSON_FALLBACK, TUNE_LESSON_LIST_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL } from '../shared/tune.js'
+import { combineSetups, parseTuneCombine, TUNE_COMBINE_CHANNEL, TUNE_COMBINE_FALLBACK, TUNE_DRAFT_CHANNEL, TUNE_LESSON_FALLBACK, TUNE_LESSON_LIST_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL } from '../shared/tune.js'
+import { tuneCombinePrompt } from './tune-combine.js'
 import { createClaudeContextReader, prepareClaudeContextLaunch, recordedClaudeContextLaunch, type ClaudeContextReader } from './claude-context.js'
 import { CONTEXT_BREAKDOWN_CHANNEL } from '../shared/context-breakdown.js'
 import { AGENT_ACCOUNTS_CHANNEL, accountFromRoute, supportsAccounts, type AccountAction } from '../shared/agent-accounts.js'
@@ -5219,6 +5220,41 @@ if (!ownsSingleInstanceLock) {
           ...(parsed.message === undefined ? {} : { message: parsed.message })
         }
       } as const
+    })
+    // COMBINE BOTH EDITS (0.811, tune-combine.ts): one side turn on the teammate's own route; nothing is saved by it.
+    ipcMain.handle(TUNE_COMBINE_CHANNEL, async (event, compareId: unknown) => {
+      const refuse = (message: string) => ({ ok: false, message }) as const
+      if (!fromOwnWindow(event) || typeof compareId !== 'string') return refuse('That request was rejected.')
+      const compare = await compares.get(compareId).catch(() => undefined)
+      const setups = compare === undefined || compare.teammateId === undefined ? undefined : combineSetups(compare)
+      if (compare === undefined || setups === undefined) return refuse('Keep one of a tune’s two drafts first: there is nothing to combine. Nothing was started.')
+      const keptColumn = compare.slots.find((column) => column.slot === compare.kept?.slot)
+      const of = keptColumn?.missionIds.at(-1)
+      const turn = of === undefined ? undefined : await missionLedger.getMission(of).catch(() => undefined)
+      if (of === undefined || turn === undefined || !turn.events.some((entry) => ['run.completed', 'run.failed', 'run.cancelled'].includes(entry.type))) {
+        return refuse('Wait for the kept run to finish first. Nothing was started.')
+      }
+      const teammate = (await teammates.list()).find((entry) => entry.teammateId === compare.teammateId)
+      if (teammate === undefined) return refuse('That teammate is no longer on the team. Nothing was started.')
+      if (teammate.route === undefined || teammate.route.runtime !== turn.metadata.runtime || teammate.route.model !== turn.metadata.model || teammate.route.account !== accountFromRoute(turn.metadata.resolvedRouteId)) {
+        return refuse('This teammate’s model or account changed since the tune. Nothing was started.')
+      }
+      const side = await askOnTheSide(of, tuneCombinePrompt({ ask: compare.prompt, setups }), 1, teammate.route)
+      if (!side.ok) return side
+      for (let waited = 0; waited < 1_800 && codexMissions.hasMission(side.data.missionId); waited += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+      if (codexMissions.hasMission(side.data.missionId)) {
+        codexMissions.cancel(side.data.runId)
+        return refuse(TUNE_COMBINE_FALLBACK)
+      }
+      const finished = await missionLedger.getMission(side.data.missionId).catch(() => undefined)
+      const tracker = createTranscriptTracker()
+      if (finished !== undefined) tracker.track(finished.events)
+      const completed = finished?.events.some((entry) => entry.type === 'run.completed') === true
+      const parsed = parseTuneCombine(completed ? (tracker.latestFinal ?? '') : '', setups)
+      if (!parsed.ok) return refuse(parsed.message)
+      return { ok: true, data: { runId: side.data.runId, missionId: side.data.missionId, instructions: parsed.instructions, note: parsed.note } } as const
     })
     ipcMain.handle(TUNE_LESSON_LIST_CHANNEL, async (event, teammateId: unknown) => {
       if (!fromOwnWindow(event)) return { ok: false, message: 'That request was rejected.' } as const
