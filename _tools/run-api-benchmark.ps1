@@ -13,6 +13,9 @@ $window.Width = 480
 $window.Height = 250
 $window.WindowStartupLocation = 'CenterScreen'
 $window.ResizeMode = 'NoResize'
+# On top and focused: started from another window, it opened behind everything twice (2026-10-21).
+$window.Topmost = $true
+$window.Add_ContentRendered({ $window.Activate() | Out-Null; $keyBox.Focus() | Out-Null })
 $panel = New-Object System.Windows.Controls.StackPanel
 $panel.Margin = 20
 $notice = New-Object System.Windows.Controls.TextBlock
