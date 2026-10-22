@@ -34,7 +34,8 @@ export function openCode2Launch(executable: ExecutableLaunch, options: {
     ...(options.approveEach ? {} : { sandbox: options.sandbox }),
     ...(options.repositoryRoot === undefined ? {} : { repositoryRoot: options.repositoryRoot }),
     ...(options.referenceFolders === undefined ? {} : { referenceFolders: options.referenceFolders }),
-    ...(options.providers === undefined ? {} : { providers: options.providers })
+    ...(options.providers === undefined ? {} : { providers: options.providers }),
+    ...(options.skillsDir === undefined ? {} : { skillsDir: options.skillsDir })
   })
   const config = JSON.parse(legacy.env!.OPENCODE_CONFIG_CONTENT!) as {
     permission: Record<string, Effect | Record<string, Effect>>

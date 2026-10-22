@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { mkdir as mkdirAsync, mkdtemp as mkdtempAsync, rm as rmAsync, writeFile as writeFileAsync } from 'node:fs/promises'
+import { mkdir as mkdirAsync, mkdtemp as mkdtempAsync, rm as rmAsync, symlink, writeFile as writeFileAsync } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -22,6 +22,8 @@ afterEach(async () => {
 const scratch = async (prefix: string): Promise<string> => {
   const dir = await mkdtempAsync(join(tmpdir(), prefix))
   made.push(dir)
+  // A fixture is its own worktree; native ancestor discovery must never count the machine around it.
+  await writeFileAsync(join(dir, '.git'), 'Fixture boundary.')
   return dir
 }
 const skill = async (root: string, name: string): Promise<void> => {
@@ -165,7 +167,7 @@ describe('another runtime’s setup', () => {
     expect(words).toEqual([
       { label: 'Its own skills', value: 'evidence-first' },
       { label: 'Project skills', value: '2 skills in .opencode/skills, .claude/skills and .agents/skills' },
-      { label: 'Your skills', value: '2 skills, found by OpenCode itself' },
+      { label: 'Your skills', value: '2 skills in your skill folders, read by OpenCode itself' },
       { label: 'Kept from GitHub', value: '1 skill' }
     ])
     const none = setupSections({ ...codex, skills: { ...codex.skills!, project: 0 } }, 'Ada', 'Codex')[1]!.rows
@@ -220,6 +222,42 @@ describe('the card’s words', () => {
     expect(sections.map((section) => section.title)).toEqual(['Every turn', 'Only when you tune it'])
     expect(sections[0]!.rows.map((row) => row.label)).toEqual(['Folder', 'LOCUST.md', 'Group', 'Its instructions', 'About you', 'Team memory'])
     expect(sections[0]!.rows[2]).toEqual({ label: 'Group', value: 'Release’s instructions, 16 characters' })
+  })
+})
+
+describe('the skill census follows native discovery without copying', () => {
+  it('counts linked personal skills and ancestor project skills, ignores broken links and stops cycles', async () => {
+    const root = await scratch('locust-setup-linked-')
+    const home = join(root, 'home')
+    const project = join(root, 'project')
+    const cwd = join(project, 'child')
+    const personal = join(home, '.agents', 'skills')
+    const shared = join(root, 'shared')
+    await mkdirAsync(cwd, { recursive: true })
+    await mkdirAsync(personal, { recursive: true })
+    await writeFileAsync(join(project, '.git'), 'Only its existence matters.')
+    await skill(shared, 'linked-review')
+    await skill(join(project, '.agents', 'skills'), 'ancestor-review')
+    await skill(join(project, '.claude', 'skills'), 'not-lent-to-restricted-claude')
+    await symlink(join(shared, 'linked-review'), join(personal, 'linked-review'), 'junction')
+    await symlink(personal, join(personal, 'loop'), 'junction')
+    await symlink(join(root, 'missing'), join(personal, 'broken'), 'junction')
+    const sources = {
+      teammate: mate({ route: { runtime: 'codex', model: 'account-default', mode: 'ask' } }),
+      projectPath: cwd, homeDirectory: home, libraryFolder: join(root, 'no-library'), settings: { memoryMode: 'off' },
+      ownSkills: async () => [], lessons: async () => 0, memoryCount: async () => 0
+    }
+    const setup = await gatherTeammateSetup(sources)
+    expect(setup.skills?.project).toBe(1)
+    expect(setup.skills?.personal.count).toBe(1)
+    const words = setupSections(setup, 'Ada', 'Codex')[1]!.rows.find((row) => row.label === 'Your skills')!.value
+    expect(words).toBe('1 skill in your skill folders, read by Codex itself')
+    expect(words).not.toContain('found by Codex')
+    // The copy path continues to reject these links; the census is the only caller that follows them.
+    const { skillFoldersIn } = await import('./claude-skills.js')
+    expect(await skillFoldersIn(personal)).toEqual([])
+    const restricted = await gatherTeammateSetup({ ...sources, teammate: mate({ route: { runtime: 'claude', model: 'haiku', mode: 'ask' } }) })
+    expect(restricted.skills?.project).toBe(0)
   })
 })
 

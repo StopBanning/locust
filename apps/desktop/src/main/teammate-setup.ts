@@ -7,6 +7,7 @@ import { SKILL_FOLDERS, takesSkills } from '../shared/skill-runtimes.js'
 import { RUNTIME_FILE, type TeammateSetup } from '../shared/teammate-setup.js'
 import { skillFoldersIn } from './claude-skills.js'
 import { readWorkspaceBrief } from './workspace-brief.js'
+import { countedSkillNames, skillProjectFolders } from './skill-discovery.js'
 
 /**
  * A TEAMMATE'S SETUP (0.811, shared/teammate-setup.ts), gathered from the same sources its brief and its run read:
@@ -72,7 +73,11 @@ export async function gatherTeammateSetup(sources: SetupSources): Promise<Teamma
   // The folders this runtime reads skills from, the folder's and the person's (0.813, shared/skill-runtimes.ts).
   const folders = runtime !== undefined && takesSkills(runtime) ? SKILL_FOLDERS[runtime as keyof typeof SKILL_FOLDERS] : undefined
   const namesIn = async (roots: readonly string[]): Promise<number> =>
-    new Set((await Promise.all(roots.map((root) => skillFoldersIn(root).catch(() => [] as readonly string[])))).flat()).size
+    (await countedSkillNames(roots)).size
+  // Restricted Claude gets copies from CWD only; do not count ancestors it was never lent.
+  const projectFolders = folders === undefined ? []
+    : runtime === 'codex' || runtime === 'opencode' || (claude && teammate.route?.mode === 'auto')
+      ? await skillProjectFolders(folderPath) : [folderPath]
   const personal = folders === undefined ? 0 : await namesIn(folders.personal.map((path) => join(sources.homeDirectory, ...path.split('/'))))
   // Auto runs as the person, and Claude Code finds their own skills itself (claude-skills.ts); Codex and OpenCode always do.
   const lent = !claude || sources.settings.claudeOwnSkills === true || teammate.route?.mode === 'auto'
@@ -91,7 +96,7 @@ export async function gatherTeammateSetup(sources: SetupSources): Promise<Teamma
       : {
           skills: {
             own: await sources.ownSkills().catch(() => []),
-            project: await namesIn(folders.project.map((path) => join(folderPath, ...path.split('/')))),
+            project: await namesIn(projectFolders.flatMap((folder) => folders.project.map((path) => join(folder, ...path.split('/'))))),
             projectFolders: folders.project,
             personal: { count: personal, lent, ...(claude ? {} : { foundItself: true as const }) },
             library: (await skillFoldersIn(sources.libraryFolder)).length

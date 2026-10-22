@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { cp, lstat, mkdir, rm, writeFile } from 'node:fs/promises'
+import { cp, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { skillMarkdown, type TuneSkill } from '../shared/tune.js'
 import { skillFoldersIn } from './claude-skills.js'
+import { skillNameIn, skillNameKey } from './skill-discovery.js'
 
 /**
  * SKILLS FOR CODEX, OPENCODE, COPILOT AND ANTIGRAVITY (0.813).
@@ -58,6 +59,10 @@ export async function prepareRunSkills(options: {
   readonly teammateSkills?: readonly string[]
   /** A tune column's one skill, for its run alone. */
   readonly candidate?: TuneSkill
+  /** The target machine's path semantics; explicit in portable collision tests. */
+  readonly platform?: NodeJS.Platform
+  /** The real copy by default; a failing disk copy can be exercised without a platform-specific file lock. */
+  readonly copyFolder?: typeof cp
 }): Promise<PreparedRunSkills | undefined> {
   const dir = join(options.scratchRoot, randomUUID())
   const skillsDir = join(dir, 'skills')
@@ -66,21 +71,36 @@ export async function prepareRunSkills(options: {
   }
   try {
     const taken: string[] = []
+    const names = new Set<string>()
+    const destinations = new Set<string>()
+    const key = (name: string): string => skillNameKey(name, options.platform)
     if (options.candidate !== undefined) {
       await mkdir(join(skillsDir, options.candidate.name), { recursive: true })
       await writeFile(join(skillsDir, options.candidate.name, 'SKILL.md'), skillMarkdown(options.candidate))
       taken.push(options.candidate.name)
+      names.add(key(options.candidate.name))
+      destinations.add(key(options.candidate.name))
     }
     const copy = async (from: string | undefined, only?: readonly string[]): Promise<void> => {
       if (from === undefined) return
       for (const name of await skillFoldersIn(from)) {
-        if (taken.includes(name) || (only !== undefined && !only.includes(name))) continue
+        if (destinations.has(key(name)) || (only !== undefined && !only.includes(name))) continue
+        const staging = join(dir, `.copy-${randomUUID()}`)
         try {
           // A link inside a skill is left out, not copied: the copy holds only real files.
-          await cp(join(from, name), join(skillsDir, name), { recursive: true, filter: async (source) => !(await lstat(source)).isSymbolicLink() })
+          await (options.copyFolder ?? cp)(join(from, name), staging, { recursive: true, filter: async (source) => !(await lstat(source)).isSymbolicLink() })
+          // Read the identity from the completed snapshot, not a source that could change while copying.
+          const identity = skillNameIn(await readFile(join(staging, 'SKILL.md'), 'utf8')) ?? name
+          if (names.has(key(identity))) continue
+          await mkdir(skillsDir, { recursive: true })
+          await rename(staging, join(skillsDir, name))
           taken.push(name)
+          destinations.add(key(name))
+          names.add(key(identity))
         } catch {
           // A skill that cannot be read is left out; the rest still load.
+        } finally {
+          await rm(staging, { recursive: true, force: true }).catch(() => undefined)
         }
       }
     }

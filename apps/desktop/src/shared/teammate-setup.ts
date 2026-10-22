@@ -98,7 +98,7 @@ export function setupSections(setup: TeammateSetup, name: string, runtime: strin
         {
           label: 'Your skills',
           value: setup.skills.personal.foundItself === true
-            ? `${count(setup.skills.personal.count, 'skill')}, found by ${runtime} itself`
+            ? `${count(setup.skills.personal.count, 'skill')} in your skill folders, read by ${runtime} itself`
             : setup.skills.personal.lent ? count(setup.skills.personal.count, 'skill') : 'Not lent; Settings can lend them'
         },
         { label: 'Kept from GitHub', value: setup.skills.library === 0 ? 'None' : count(setup.skills.library, 'skill') }

@@ -18,6 +18,10 @@ import { createRecentEdits } from './recent-edits.js'
 import { createCodexMissionService } from './codex-mission.js'
 import { FREE_ONLY_REFUSAL } from './free-routes.js'
 import { createApprovalChannel } from './approval-channel.js'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { prepareRunSkills } from './run-skills.js'
 import type { MissionPeerContext } from './workroom-briefing.js'
 
 const NOW = '2026-08-31T15:00:00.000Z'
@@ -392,6 +396,81 @@ describe('Codex mission service', () => {
       }
     })
     expect(start).not.toHaveBeenCalled()
+  })
+
+  it('removes the actual skill copy before returning a failed ledger start', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-start-skills-'))
+    try {
+      let copied = false
+      const spawn = vi.fn(() => { throw new Error('No process should start.') })
+      const { service } = scheduledService({ start: vi.fn() }, fakeLedger({ createMission: async () => { throw new Error('Disk full.') } }), {
+        appServerSpawn: spawn,
+        runSkills: async () => {
+          const prepared = await prepareRunSkills({ scratchRoot: root, candidate: { name: 'review', description: 'Review.', body: 'Read twice.' } })
+          expect(await readdir(prepared!.skillsDir)).toEqual(['review'])
+          copied = true
+          return prepared
+        }
+      })
+      const response = await service.start('Read safely.', 'codex', 'ask', {}, () => undefined)
+      expect(copied).toBe(true)
+      expect(response).toMatchObject({ ok: false, error: { code: 'PERSISTENCE_FAILED' } })
+      expect(await readdir(root)).toEqual([])
+      expect(spawn).not.toHaveBeenCalled()
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  it('removes a skill copy if interrupted after preparation but before launch', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-stop-skills-'))
+    try {
+      const spawn = vi.fn(() => { throw new Error('No process should start.') })
+      const { service } = scheduledService({ start: vi.fn() }, fakeLedger(), {
+        appServerSpawn: spawn,
+        runSkills: async () => {
+          const prepared = await prepareRunSkills({ scratchRoot: root, candidate: { name: 'review', description: 'Review.', body: 'Read twice.' } })
+          service.interrupt()
+          return prepared
+        }
+      })
+      expect(await service.start('Read safely.', 'codex', 'ask', {}, () => undefined)).toMatchObject({ ok: false, error: { code: 'RUNTIME_START_FAILED' } })
+      expect(await readdir(root)).toEqual([])
+      expect(spawn).not.toHaveBeenCalled()
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  it('removes prepared skills when the command builder refuses its options', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-refused-skills-'))
+    try {
+      const runSkills = vi.fn(async () => prepareRunSkills({ scratchRoot: root, candidate: { name: 'review', description: 'Review.', body: 'Read twice.' } }))
+      const start = vi.fn() satisfies RuntimeProcessRunner['start']
+      const { service } = scheduledService({ start }, fakeLedger(), {
+        discover: async () => [{ ...codexRuntime(), id: 'copilot' as const }],
+        copilotCommandGuard: async () => '\0',
+        runSkills
+      })
+      expect(await service.start('Read safely.', 'copilot', 'ask', {}, () => undefined)).toMatchObject({ ok: false, error: { code: 'RUNTIME_START_FAILED' } })
+      expect(runSkills).toHaveBeenCalledOnce()
+      expect(await readdir(root)).toEqual([])
+      expect(start).not.toHaveBeenCalled()
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  it('leaves a registered run its skills until process completion owns their cleanup', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-owned-skills-'))
+    try {
+      let finish!: (value: RuntimeProcessCompletion) => void
+      const ended = new Promise<RuntimeProcessCompletion>((resolve) => { finish = resolve })
+      const { service, scheduled } = scheduledService({ start: () => ({ records: records([]), completion: ended }) }, fakeLedger(), {
+        discover: async () => [{ ...codexRuntime(), id: 'copilot' as const }],
+        runSkills: async () => prepareRunSkills({ scratchRoot: root, candidate: { name: 'review', description: 'Review.', body: 'Read twice.' } })
+      })
+      const response = await service.start('Read safely.', 'copilot', 'ask', {}, () => undefined)
+      expect(response.ok).toBe(true)
+      expect(await readdir(root)).toHaveLength(1)
+      finish(completion())
+      scheduled[0]?.()
+      await vi.waitFor(async () => { expect(await readdir(root)).toEqual([]) })
+    } finally { await rm(root, { recursive: true, force: true }) }
   })
 
   it('records that a plan was a plan, while still holding it read-only', async () => {

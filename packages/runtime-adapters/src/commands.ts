@@ -502,6 +502,8 @@ export interface RuntimeCommandOptions {
    * for five minutes.
    */
   readonly skillsDir?: string;
+  /** The person's OpenCode 1 skill paths, read as JSONC by the host; never written back. */
+  readonly skillPaths?: readonly string[];
   /**
    * Copilot's skills for this run (MEASURED 2026-10-22, copilot 1.0.101): one `--plugin-dir`, the run's folder.
    * Its `.plugin/plugin.json` points `skills` at `skills/<name>/SKILL.md`. `copilot skill list` shows those beside
@@ -1608,7 +1610,7 @@ export const OPENCODE_AUTO_CONFIG = JSON.stringify({
  * What OpenCode is told for a mode, as environment: its permission config and, for a read-only run, no plugins.
  * One function for `run` and the server (0.677), so a mode means the same thing on either route.
  */
-export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly referenceFolders?: readonly string[]; readonly skillsDir?: string }): Readonly<Record<string, string>> {
+export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly referenceFolders?: readonly string[]; readonly skillsDir?: string; readonly skillPaths?: readonly string[] }): Readonly<Record<string, string>> {
   const auto = sandboxArgument(options.sandbox) === "full-access";
   const readOnly = sandboxArgument(options.sandbox) === "read-only";
   // A worktree run needs its parent repository; a read-only one still needs
@@ -1645,7 +1647,7 @@ export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOpti
   const configured = withOpenCodeSkills(withOpenCodeBrowserMcp(
     withOpenCodeGuard(withoutOpenCodeQuestionTool(withOpenCodeProviders(JSON.stringify(parsed), options.providers)), options.openCodeGuardPlugin),
     options.browserMcp,
-  ), options.skillsDir);
+  ), options.skillsDir, options.skillPaths);
   return {
     OPENCODE_CONFIG_CONTENT: configured,
     ...(readOnly ? { OPENCODE_PURE: "1" } : {}),
@@ -1653,10 +1655,23 @@ export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOpti
 }
 
 /** A run's own skills for OpenCode 1 (0.813): its folder in the config's `skills.paths`, or the config as it was. */
-export function withOpenCodeSkills(config: string, dir: string | undefined): string {
+export function withOpenCodeSkills(config: string, dir: string | undefined, paths: readonly string[] = []): string {
   if (dir === undefined || dir.length === 0) return config;
   const parsed = JSON.parse(config) as Record<string, unknown>;
-  return JSON.stringify({ ...parsed, skills: { paths: [requireText(dir, "Skills folder")] } });
+  const skills = typeof parsed.skills === "object" && parsed.skills !== null ? parsed.skills as Record<string, unknown> : {};
+  const oldPaths = Array.isArray(skills.paths) ? skills.paths.filter((path): path is string => typeof path === "string") : [];
+  const permission = parsed.permission as Record<string, unknown> | undefined;
+  const external = permission?.external_directory;
+  // The native skill loader can read SKILL.md; the read tool still needs the copy's supporting files.
+  // Grant just this run's subtree, after the default denial, without changing edit or shell permissions.
+  const path = requireText(dir, "Skills folder").replace(/\\/g, "/").replace(/\/+$/, "");
+  const spellings = /^[A-Za-z]:\//.test(path) ? [path, path.replace(/\//g, "\\")] : [path];
+  const allow = Object.fromEntries(spellings.flatMap((spelling) => [[spelling, "allow"], [`${spelling}${spelling.includes("\\") ? "\\" : "/"}**`, "allow"]]));
+  return JSON.stringify({
+    ...parsed,
+    skills: { ...skills, paths: [...new Set([...paths, ...oldPaths, requireText(dir, "Skills folder")])] },
+    ...(permission === undefined || external === "allow" ? {} : { permission: { ...permission, external_directory: { ...(typeof external === "object" && external !== null ? external : { "*": external ?? "ask" }), ...allow } } }),
+  });
 }
 
 /**
@@ -2032,6 +2047,7 @@ export function createOpenCodeServeCommand(
     readonly browserMcp?: BrowserMcpSpec;
     /** The run's own skills (0.813, `RuntimeCommandOptions.skillsDir`). */
     readonly skillsDir?: string;
+    readonly skillPaths?: readonly string[];
   },
 ): RuntimeCommandSpec {
   if (options.sandbox !== undefined) {
@@ -2058,7 +2074,7 @@ export function createOpenCodeServeCommand(
       OPENCODE_CONFIG_CONTENT: withOpenCodeSkills(withOpenCodeBrowserMcp(
         withOpenCodeGuard(withoutOpenCodeQuestionTool(withOpenCodeProviders(config, options.providers) ?? config), options.openCodeGuardPlugin),
         options.browserMcp,
-      ), options.skillsDir),
+      ), options.skillsDir, options.skillPaths),
     },
   });
 }

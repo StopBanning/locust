@@ -1,4 +1,4 @@
-import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
@@ -89,6 +89,56 @@ describe('a run’s own skills folder', () => {
     await prepared!.dispose()
     expect(await readFile(join(elsewhere, 'precious.txt'), 'utf8')).toBe('keep me')
   })
+
+  it('keeps the candidate on Windows when a library folder differs only in case', async () => {
+    const root = await scratch('locust-skill-case-')
+    await skill(join(root, 'library'), 'Review', 'The library must not win.')
+    await skill(join(root, 'library'), 'another-folder')
+    await writeFile(join(root, 'library', 'another-folder', 'SKILL.md'), '---\nname: ReView\ndescription: A case-only identity collision.\n---\nThis must not be offered.\n')
+    const prepared = await prepareRunSkills({ scratchRoot: join(root, 'runs'), libraryFolder: join(root, 'library'), platform: 'win32', candidate: { name: 'review', description: 'Candidate.', body: 'The candidate wins.' } })
+    expect(prepared!.skills).toEqual(['review'])
+    expect(await readFile(join(prepared!.skillsDir, 'review', 'SKILL.md'), 'utf8')).toContain('The candidate wins.')
+    expect(await readdir(prepared!.skillsDir)).toEqual(['review'])
+  })
+
+  it('keeps the first frontmatter name even when the directory names and YAML spellings differ', async () => {
+    const root = await scratch('locust-skill-name-')
+    const teammate = join(root, 'mate')
+    const library = join(root, 'library')
+    await skill(teammate, 'a-different-folder')
+    await writeFile(join(teammate, 'a-different-folder', 'SKILL.md'), '---\nname: "review" # a name, not the directory\ndescription: First.\n---\nThe teammate wins.\n')
+    await skill(library, 'z-library')
+    await writeFile(join(library, 'z-library', 'SKILL.md'), "---\nname: 'review'\ndescription: Later.\n---\nThe library must not win.\n")
+    const first = await prepareRunSkills({ scratchRoot: join(root, 'runs'), teammateFolder: teammate, teammateSkills: ['a-different-folder'], libraryFolder: library })
+    expect(first!.skills).toEqual(['a-different-folder'])
+    const candidate = await prepareRunSkills({ scratchRoot: join(root, 'runs'), teammateFolder: teammate, teammateSkills: ['a-different-folder'], libraryFolder: library, candidate: { name: 'review', description: 'Candidate.', body: 'The candidate wins.' } })
+    expect(candidate!.skills).toEqual(['review'])
+    expect(await readFile(join(candidate!.skillsDir, 'review', 'SKILL.md'), 'utf8')).toContain('The candidate wins.')
+  })
+
+  it('keeps case-distinct skills on a case-sensitive machine', async () => {
+    const root = await scratch('locust-skill-sensitive-')
+    await skill(join(root, 'library'), 'Review')
+    const prepared = await prepareRunSkills({ scratchRoot: join(root, 'runs'), libraryFolder: join(root, 'library'), platform: 'linux', candidate: { name: 'review', description: 'Candidate.', body: 'First.' } })
+    // Windows itself cannot hold both directories; the key's semantics can still be proved on every host.
+    const { skillNameKey } = await import('./skill-discovery.js')
+    expect(skillNameKey('Review', 'linux')).not.toBe(skillNameKey('review', 'linux'))
+    if (process.platform !== 'win32') expect(prepared!.skills).toEqual(['review', 'Review'])
+  })
+
+  it('publishes no part of a skill whose copy fails after SKILL.md arrived', async () => {
+    const root = await scratch('locust-skill-partial-')
+    await skill(join(root, 'library'), 'broken')
+    const prepared = await prepareRunSkills({
+      scratchRoot: join(root, 'runs'), libraryFolder: join(root, 'library'),
+      candidate: { name: 'good', description: 'Good.', body: 'Keep this one.' },
+      copyFolder: async (source, destination, options) => { await cp(source, destination, options); throw new Error('Disk read failed after SKILL.md.') }
+    })
+    expect(prepared!.skills).toEqual(['good'])
+    expect(await readdir(prepared!.skillsDir)).toEqual(['good'])
+    expect(await readdir(join(prepared!.dir, '.agents', 'skills'))).toEqual(['good'])
+    expect((await readdir(prepared!.dir)).sort()).toEqual(['.agents', '.plugin', 'skills'])
+  })
 })
 
 describe('which agents take a skill', () => {
@@ -115,6 +165,16 @@ describe('OpenCode 2', () => {
     expect(withSkills.skills).toEqual(['/profile/run-skills/abc/skills'])
     const without = JSON.parse(openCode2Launch(executable, { workspacePath: '/project', sandbox: 'workspace-write', approveEach: false }).env.OPENCODE_CONFIG_CONTENT!)
     expect(without.skills).toBeUndefined()
+  })
+
+  it('allows the copied skill subtree through native rules without changing edit or shell denials', () => {
+    const config = JSON.parse(openCode2Launch(executable, { workspacePath: '/project', sandbox: 'read-only', approveEach: false, skillsDir: '/profile/run-skills/abc/skills' }).env.OPENCODE_CONFIG_CONTENT!)
+    expect(config.agents.locust.permissions).toEqual(expect.arrayContaining([
+      { action: 'external_directory', resource: '*', effect: 'deny' },
+      { action: 'external_directory', resource: '/profile/run-skills/abc/skills/**', effect: 'allow' },
+      { action: 'edit', resource: '*', effect: 'deny' },
+      { action: 'shell', resource: '*', effect: 'ask' }
+    ]))
   })
 })
 

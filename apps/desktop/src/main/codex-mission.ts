@@ -104,6 +104,7 @@ import { hostReadsEventsOf, runtimeDisplayName } from '../shared/runtimes.js'
 import { parsedAcpRouteModel, type AcpAgent } from '../shared/acp-agents.js'
 import type { AcpLaunch } from './acp-agents.js'
 import { openCode2Launch, OPENCODE_2_MODE } from './opencode-2-launch.js'
+import { openCodeSkillPaths } from './opencode-skill-paths.js'
 
 /**
  * The model and effort to hand `agy` (0.540). The app route chose a TIER
@@ -1658,6 +1659,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       const claimKey = slot !== undefined ? `slot:${owner}` : follows === undefined ? `new:${owner}:${String((freshClaims += 1))}` : `follows:${follows}`
       let claimed = false
       let referenceRun: string | undefined
+      let pendingRunSkills: PreparedRunSkills | undefined
       try {
         if (disposed) {
           return error(
@@ -2339,6 +2341,16 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(slot?.skill === undefined ? {} : { skill: slot.skill })
             }).catch(() => undefined)
             : undefined
+        pendingRunSkills = runSkills
+        let skillPaths: readonly string[] | undefined
+        if (runtime === 'opencode' && !opencodeAcp && runSkills !== undefined) {
+          try {
+            skillPaths = await openCodeSkillPaths({ cwd: runCwd, ...(executable.env === undefined ? {} : { env: { ...globalThis.process.env, ...executable.env } }) })
+          } catch (cause) {
+            // Its own refusals name the file to fix.
+            return error('RUNTIME_START_FAILED', cause instanceof Error ? cause.message : 'OpenCode’s settings couldn’t be read, so nothing was started.') as CodexMissionStartResponse
+          }
+        }
         if (runSkills !== undefined) options.note?.('skills-given', `${missionId} ${runSkills.skills.join(' ')}`)
         const openCodeAcpLaunch = !opencodeAcp ? undefined : openCode2Launch(executable, {
           workspacePath: runCwd,
@@ -2407,7 +2419,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
-              ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir })
+              ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir, skillPaths })
             })
           }
           if (runtime === 'opencode') {
@@ -2422,7 +2434,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
-              ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir }),
+              ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir, skillPaths }),
               ...choice
             })
           }
@@ -3129,7 +3141,6 @@ ${sentPrompt.trim()}`
             if (send !== undefined) steer = async (text) => send(text)
           }
         } catch (startError) {
-          if (runSkills !== undefined) void runSkills.dispose()
           // A refusal this file raised knows WHY; anything else does not, and
           // must not borrow a specific-sounding reason it cannot back.
           const why = startError instanceof Error && startError.message.length > 0
@@ -3159,6 +3170,8 @@ ${sentPrompt.trim()}`
           // The run's copy of its skills goes when the run does, however it ends.
           const clear = (): void => void runSkills.dispose()
           process.completion.then(clear, clear)
+          // Completion owns it now. Every earlier return or exception belongs to the start's finally.
+          pendingRunSkills = undefined
         }
         if (cloudDir !== undefined) {
           // What the turn changed there is read once it ends, for the card under it (cloud-turns.ts), whichever agent.
@@ -3254,6 +3267,7 @@ ${sentPrompt.trim()}`
           }
         }
       } finally {
+        await pendingRunSkills?.dispose().catch(() => undefined)
         if (referenceRun !== undefined && !active.has(referenceRun)) await options.references?.release(referenceRun).catch(() => undefined)
         if (claimed) starting.delete(claimKey)
         contextStarting.delete(claimKey)

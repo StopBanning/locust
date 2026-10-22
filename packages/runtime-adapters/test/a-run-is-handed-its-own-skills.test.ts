@@ -11,6 +11,7 @@ import {
   createOpenCodeRunCommand,
   createOpenCodeServeCommand,
   openCodeModeEnv,
+  withOpenCodeSkills,
 } from "../src/commands.js";
 
 /*
@@ -136,6 +137,33 @@ describe("an OpenCode 1 run is handed its own skills", () => {
     expect(openCodeModeEnv({ sandbox: "workspace-write", skillsDir: "/profile/run-skills/abc/skills" })).not.toHaveProperty("OPENCODE_CONFIG_DIR");
     expect(createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work", skillsDir: "/profile/run-skills/abc/skills" }).env).not.toHaveProperty("OPENCODE_CONFIG_DIR");
     expect(skillsOf(openCodeModeEnv({ sandbox: "workspace-write" }))).toBeUndefined();
+  });
+
+  it("adds to configured paths on both routes and preserves the skill URLs", () => {
+    const config = withOpenCodeSkills(JSON.stringify({ skills: { paths: ["/existing"], urls: ["https://example.com/skills/"] }, permission: { external_directory: "deny", edit: "deny", bash: "ask" } }), "/run/skills", ["/personal", "/existing"]);
+    expect(JSON.parse(config).skills).toEqual({ paths: ["/personal", "/existing", "/run/skills"], urls: ["https://example.com/skills/"] });
+    for (const command of [
+      createOpenCodeRunCommand(OPENCODE, { workspacePath: "/work", sandbox: "read-only", prompt: "go", skillsDir: "/run/skills", skillPaths: ["/personal"] }),
+      createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work", skillsDir: "/run/skills", skillPaths: ["/personal"] }),
+    ]) expect(skillsOf(command.env)).toEqual({ paths: ["/personal", "/run/skills"] });
+  });
+
+  it("allows only the run's skills subtree and leaves every other mode rule in place", () => {
+    for (const sandbox of ["read-only", "workspace-write", "full-access"] as const) {
+      const before = JSON.parse(openCodeModeEnv({ sandbox, referenceFolders: ["C:/reference"] }).OPENCODE_CONFIG_CONTENT!);
+      const after = JSON.parse(openCodeModeEnv({ sandbox, referenceFolders: ["C:/reference"], skillsDir: "C:/profile/run-skills/abc/skills" }).OPENCODE_CONFIG_CONTENT!);
+      const { external_directory: oldExternal, ...oldRules } = before.permission;
+      const { external_directory: external, ...rules } = after.permission;
+      expect(rules).toEqual(oldRules);
+      if (sandbox === "full-access") expect(external).toBe("allow");
+      else {
+        expect(external).toMatchObject({ "*": "deny", "C:/profile/run-skills/abc/skills/**": "allow", "C:\\profile\\run-skills\\abc\\skills\\**": "allow" });
+        expect(external).not.toHaveProperty("C:/profile/**");
+        if (typeof oldExternal === "object") expect(external).toMatchObject(oldExternal);
+      }
+    }
+    const asking = JSON.parse(createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work", skillsDir: "/profile/run/skills" }).env!.OPENCODE_CONFIG_CONTENT!);
+    expect(asking.permission).toMatchObject({ edit: "ask", bash: "ask", external_directory: { "*": "ask", "/profile/run/skills/**": "allow" } });
   });
 });
 
