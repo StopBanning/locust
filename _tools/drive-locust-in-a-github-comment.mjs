@@ -63,7 +63,7 @@ const drive = await startDrive({ name: 'locust-comment', port: 9891, workspace, 
 let failures = 0
 const check = (what, ok) => { if (!ok) failures += 1; say(`[${ok ? 'PASS' : 'FAIL'}] ${what}`) }
 const state = async () => JSON.parse(String(await drive.evaluate('window.desktop.scout.state().then(JSON.stringify)')))
-const home = async () => { await drive.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Home')?.click()`); await sleep(300) }
+const home = async () => { await drive.evaluate(`document.querySelector('button[aria-label="Home"]')?.click()`); await sleep(300) }
 try {
   await drive.ready()
   await drive.evaluate('window.desktop.scout.look()')
