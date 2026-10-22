@@ -9,7 +9,9 @@
 //   2. A goal typed and saved is kept, and read into the next look's prompt (the look's own record says so).
 //   3. With the folder's check on, Look now runs it: a card "The check node check.js fails: ..." waits on Home.
 //   4. answer.txt fixed, Look now again: the card says the check passes again, and the failing card is gone.
-//   5. Settings says what today's looks used, and quiet hours chosen are kept.
+//   5. From 6 AM on, the morning brief comes with the first look, as one card, once a day (0.816).
+//   6. Scout's notes typed in Settings are kept, counted in the heading, and read into the next look (0.816).
+//   7. Settings says what today's looks used, and quiet hours chosen are kept.
 
 import { createHash } from 'node:crypto'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
@@ -143,6 +145,8 @@ try {
   check('the check ran and its failure is a card that needs you now', failed.cards.some((card) => card.said === 'The check node check.js fails: CHECK FAILED: answer.txt must say 42, and it says 41' && card.urgency === 'now'), JSON.stringify(failed.cards.map((card) => card.said)))
   const prompt = await lastLookPrompt()
   check('the look’s prompt carried the goal', prompt.includes(`The person asked you to keep watch for this: ${GOAL}`), prompt.slice(0, 300))
+  // Its model may add a note under its draft (the first 0.816 drive's did); a note never goes out in a draft.
+  check('no draft carries Scout’s note', failed.cards.every((card) => !/^\s*NOTE\s*:/m.test(card.draft?.message ?? '')), JSON.stringify(failed.cards.map((card) => card.draft?.message)))
   await drive.evaluate(CLOSE_SETTINGS)
   await drive.capture('Home: the check fails', async () => { await sleep(500); return drive.evaluate(CARDS) })
 
@@ -168,7 +172,37 @@ try {
     say('  (the morning brief is not driven before 6 AM: its hour has not come)')
   }
 
-  // 6. Today's count, and quiet hours kept.
+  // 6. Scout's notes, as the person writes them.
+  const NOTES = ['The person merges on Fridays', 'Wren owns the Mac build.']
+  const noted = String(await drive.capture('Scout’s notes typed and saved', async () => {
+    await drive.evaluate(`${OPEN_SETTINGS}.then(() => '')`)
+    const typed = String(await drive.evaluate(`(async () => {
+      const box = document.querySelector('textarea[aria-label="Scout’s notes"]')
+      if (!box) return 'no notes box'
+      const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
+      set.call(box, ${JSON.stringify(NOTES.map((note) => `- ${note}`).join('\n'))})
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+      await new Promise((r) => setTimeout(r, 300))
+      const save = [...box.closest('.lc-scout__goalline').querySelectorAll('button')].find((b) => b.innerText.trim() === 'Save')
+      if (!save) return 'no Save'
+      save.click()
+      return 'saved'
+    })()`))
+    check('typing notes offers Save beside them', typed === 'saved', typed)
+    for (let i = 0; i < 20 && JSON.stringify((await state()).notes) !== JSON.stringify(NOTES); i += 1) await sleep(250)
+    for (let i = 0; i < 20 && String(await drive.evaluate(SECTION)).includes(' Save Cancel'); i += 1) await sleep(250)
+    return drive.evaluate(SECTION)
+  }))
+  check('the notes are kept as plain lines, list marks dropped', JSON.stringify((await state()).notes) === JSON.stringify(NOTES), JSON.stringify((await state()).notes))
+  check('the heading counts them, and Save has gone', noted.includes('Scout’s notes · 2') && !noted.includes(' Save Cancel'), noted.slice(0, 500))
+  // A new failure is news, so the next look asks the model, and its prompt carries the notes.
+  await writeFile(join(workspace, 'answer.txt'), '40\n', 'utf8')
+  await drive.evaluate(CLOSE_SETTINGS)
+  await lookAndWait()
+  const notedPrompt = await lastLookPrompt()
+  check('the next look reads the notes', notedPrompt.includes(`Your notes from earlier looks, which the person can read and change:\\n- ${NOTES[0]}\\n- ${NOTES[1]}`), notedPrompt.slice(0, 600))
+
+  // 7. Today's count, and quiet hours kept.
   await drive.evaluate(`window.desktop.scout.set({ quiet: { from: 22, to: 7 } })`)
   const after = String(await drive.capture('settings: today’s looks and quiet hours', async () => {
     await drive.evaluate(`${OPEN_SETTINGS}.then(() => '')`)

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { FolderPullRequest } from '../shared/pull-request.js'
-import { MAX_SCOUT_NOTES, notesFrom, scoutNoteOf, scoutPrompt } from '../shared/scout.js'
+import { MAX_SCOUT_NOTES, notesFrom, scoutAnswers, scoutNoteOf, scoutPrompt } from '../shared/scout.js'
 import { createScout, type ScoutDeps } from './scout.js'
 
 /*
@@ -57,6 +57,17 @@ describe('Scout’s notes', () => {
     expect(scoutNoteOf('ITEM 1\nTAKE: x\nNOTE: Wren owns the Mac build.')).toBe('Wren owns the Mac build.')
     expect(scoutNoteOf('ITEM 1\nTAKE: x\n**NOTE:** none')).toBeUndefined()
     expect(scoutNoteOf('ITEM 1\nTAKE: nothing to keep')).toBeUndefined()
+    // A draft's own "Note:" is the draft's, not Scout's.
+    expect(scoutNoteOf('ITEM 1\nHAND TO: Wren\nDRAFT: Fix it.\nNote: run the check twice.')).toBeUndefined()
+  })
+
+  it('never go out inside a draft: the draft stops where the note starts', () => {
+    const team = [{ teammateId: 'tm_wren', name: 'Wren' }]
+    const answered = scoutAnswers('ITEM 1\nTAKE: The Mac check again.\nHAND TO: Wren\nDRAFT: Fix the Mac timeout.\nThen rerun it.\n\nNOTE: Wren owns the Mac build.', 1, team)
+    expect(answered.get(1)?.draft?.message).toBe('Fix the Mac timeout.\nThen rerun it.')
+    expect(answered.get(1)?.take).toBe('The Mac check again.')
+    const ownNote = scoutAnswers('ITEM 1\nHAND TO: Wren\nDRAFT: Fix it.\nNote: run the check twice.', 1, team)
+    expect(ownNote.get(1)?.draft?.message).toBe('Fix it.\nNote: run the check twice.')
   })
 
   it('are read into a look, which may add one, dated, said once', async () => {
@@ -70,6 +81,7 @@ describe('Scout’s notes', () => {
     h.answers.set('look_1', { text: 'ITEM 1\nTAKE: The Mac check again.\nHAND TO: Wren\nDRAFT: Fix the Mac timeout.\nNOTE: Wren owns the Mac build.' })
     await h.scout.onRunEnded({ missionId: 'look_1' })
     expect((await h.scout.state()).notes).toEqual(['The person merges on Fridays', '2026-10-22: Wren owns the Mac build.'])
+    expect((await h.scout.state()).cards.find((card) => card.draft !== undefined)?.draft?.message).toBe('Fix the Mac timeout.')
     // The same note again is not kept twice.
     h.setPrs([{ ...failing, notPassed: 3 }])
     await h.scout.look()

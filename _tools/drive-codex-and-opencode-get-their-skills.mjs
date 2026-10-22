@@ -99,7 +99,7 @@ try {
   const cedar = String(await drive.capture('Cedar on OpenCode is asked for the probe word', () => ask('Cedar', /OpenCode/)))
   check('OpenCode: the teammate’s own skill gave the word', cedar.includes(WORD), cedar)
   const cedarSetup = String(await drive.capture('/setup: what Cedar’s turns are given', () => drive.evaluate(SETUP('Cedar'))))
-  check('OpenCode: /setup names its own skill and the folders OpenCode reads', /probe-word/.test(cedarSetup) && /\.opencode\/skills/.test(cedarSetup) && /found by OpenCode itself/.test(cedarSetup), cedarSetup)
+  check('OpenCode: /setup names its own skill and the folders OpenCode reads', /probe-word/.test(cedarSetup) && /\.opencode\/skills/.test(cedarSetup) && /in your skill folders, read by OpenCode itself/.test(cedarSetup), cedarSetup)
   if (withCodex) {
     const wren = String(await drive.capture('Wren on Codex is asked for the probe word', () => ask('Wren', /Codex/)))
     check('Codex: the teammate’s own skill gave the word', wren.includes(WORD), wren)
@@ -107,7 +107,7 @@ try {
     await drive.evaluate(openTeammateScript('Wren'))
   }
   const wrenSetup = String(await drive.capture('/setup: what Wren’s turns are given', () => drive.evaluate(SETUP('Wren'))))
-  check('Codex: /setup names its own skill and .agents/skills', /probe-word/.test(wrenSetup) && /\.agents\/skills/.test(wrenSetup) && /found by Codex( CLI)? itself/.test(wrenSetup), wrenSetup)
+  check('Codex: /setup names its own skill and .agents/skills', /probe-word/.test(wrenSetup) && /\.agents\/skills/.test(wrenSetup) && /in your skill folders, read by Codex( CLI)? itself/.test(wrenSetup), wrenSetup)
   if (withAgy) {
     const ash = String(await drive.capture('Ash on Antigravity is asked for the probe word', () => ask('Ash', /Antigravity/)))
     check('Antigravity: the teammate’s own skill gave the word', ash.includes(WORD), ash)

@@ -465,9 +465,15 @@ export function notesFrom(text: string): string[] {
     .slice(-MAX_SCOUT_NOTES)
 }
 
+/**
+ * A note's line starts `NOTE:` in capitals, as the prompt asks. A draft's own "Note: run it twice" is the draft's,
+ * and a note is never part of a draft: the 0.816 drive's model wrote its note under the draft, and it went to Ada.
+ */
+const NOTE_LINE = /^[ \t>*-]*NOTE[ \t]*:[ \t]*(.*)$/m
+
 /** The one note a look's answer adds, from its line `NOTE: ...`; none for "none" or an empty one. */
 export function scoutNoteOf(answer: string): string | undefined {
-  const found = /^[ \t>*-]*NOTE[ \t]*:[ \t]*(.+)$/im.exec(answer.replace(/\*\*/g, ''))?.[1]?.trim()
+  const found = NOTE_LINE.exec(answer.replace(/\*\*/g, ''))?.[1]?.trim()
   if (found === undefined || found.length === 0 || /^(none|nothing|n\/a)\.?$/i.test(found)) return undefined
   return clip(found, MAX_SCOUT_NOTE)
 }
@@ -588,7 +594,8 @@ export function scoutAnswers(text: string, factCount: number, team: readonly { r
   for (let index = 1; index + 1 < blocks.length; index += 2) {
     const item = Number(blocks[index])
     if (!Number.isInteger(item) || item < 1 || item > factCount || answers.has(item)) continue
-    const body = blocks[index + 1] ?? ''
+    // Scout's note ends what it says about the items (NOTE_LINE).
+    const body = (blocks[index + 1] ?? '').split(NOTE_LINE)[0] ?? ''
     const field = (name: string): string | undefined => {
       const found = new RegExp(`^[ \\t-]*${name}[ \\t]*:[ \\t]*(.*)$`, 'im').exec(body)
       return found?.[1]?.trim()
