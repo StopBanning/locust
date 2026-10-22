@@ -234,8 +234,9 @@ describe("OpenCode through its own server (A6.7)", () => {
         edit: "ask",
         bash: "ask",
         webfetch: "ask",
-        websearch: "ask",
-        codesearch: "ask",
+        // Searches are not asked about in any mode ("What Locust can stop").
+        websearch: "allow",
+        codesearch: "allow",
         external_directory: "ask",
       },
     });

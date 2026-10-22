@@ -2128,15 +2128,16 @@ export function createOpenCodeServeCommand(
   const config = JSON.stringify({
     permission: {
       // Every tool not named here asks too (0.821): a person's own MCP tool ran with no card, as it did in Ask
-      // (OPENCODE_READ_ONLY_PERMISSIONS). Reading is never a card; a `.env` file is.
+      // (OPENCODE_READ_ONLY_PERMISSIONS). Reading is never a card; a `.env` file is. A web search stays what
+      // "What Locust can stop" says it is in every mode, not asked about (shared/what-locust-can-stop.ts).
       "*": "ask",
       read: openCodeRead("ask"),
       ...OPENCODE_READING_TOOLS,
       edit: "ask",
       bash: "ask",
       webfetch: "ask",
-      websearch: "ask",
-      codesearch: "ask",
+      websearch: "allow",
+      codesearch: "allow",
       external_directory: options.repositoryRoot === undefined
         ? "ask"
         : { [gitDirPattern(options.repositoryRoot)]: "allow", "*": "ask" },

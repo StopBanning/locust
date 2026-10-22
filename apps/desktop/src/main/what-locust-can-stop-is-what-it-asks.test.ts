@@ -75,11 +75,18 @@ describe('each row is what the run is given', () => {
     expect(source('./codex-mission.ts')).toContain("runtime === 'claude' && effectiveSandbox !== 'full-access' && options.permissionHost !== undefined")
   })
 
-  it('OpenCode: in Approve each action its server asks about commands, changes, web pages and outside paths, not searches', () => {
+  it('OpenCode: in Approve each action its server asks about commands, changes, web pages, outside paths and the person\'s own MCP tools, not searches', () => {
     const permission = (JSON.parse(createOpenCodeServeCommand(launch('opencode'), { workspacePath: 'C:\\work' }).env?.OPENCODE_CONFIG_CONTENT ?? '{}') as { permission: Record<string, unknown> }).permission
     expect([permission.bash, permission.edit, permission.webfetch, permission.external_directory]).toEqual(['ask', 'ask', 'ask', 'ask'])
-    expect(permission.websearch).toBeUndefined()
+    // 0.821: every tool it does not name asks -- a person's own MCP tool among them -- and searches are allowed by name.
+    expect(Object.entries(permission)[0]).toEqual(['*', 'ask'])
+    expect([permission.websearch, permission.codesearch]).toEqual(['allow', 'allow'])
+    expect(row('opencode').asks).toMatch(/your own MCP servers/)
     expect(row('opencode').without).toMatch(/^Web searches, in every mode\./)
+    // And in Ask and Plan the same catch-all is a refusal: none of the person's own MCP tools run there.
+    const ask = (JSON.parse(createOpenCodeServeCommand(launch('opencode'), { workspacePath: 'C:\\work', sandbox: 'read-only' }).env?.OPENCODE_CONFIG_CONTENT ?? '{}') as { permission: Record<string, unknown> }).permission
+    expect(Object.entries(ask)[0]).toEqual(['*', 'ask'])
+    expect(row('opencode').without).toMatch(/In Ask and Plan, no file changes, no commands and none of your own MCP tools/)
   })
 
   it('Antigravity: only its questions reach a card', () => {

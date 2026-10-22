@@ -65,8 +65,8 @@ export const WHAT_LOCUST_CAN_STOP: readonly StopRow[] = [
   {
     runtime: 'opencode',
     reach: 'each-action',
-    asks: 'In Approve each action: every command, file change, web page and place outside this folder, before it runs.',
-    without: 'Web searches, in every mode. In Ask and Plan, no file changes and no commands; in Edit, commands and the web, and nothing outside this folder. In Auto, everything.',
+    asks: 'In Approve each action: every command, file change, web page, place outside this folder and tool from your own MCP servers, before it runs.',
+    without: 'Web searches, in every mode. In Ask and Plan, no file changes, no commands and none of your own MCP tools; in Edit, commands, the web and your own MCP tools, and nothing outside this folder. In Auto, everything.',
     always: KEPT_BY_LOCUST
   },
   {

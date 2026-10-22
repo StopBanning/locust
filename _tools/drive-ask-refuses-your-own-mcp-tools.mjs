@@ -81,14 +81,32 @@ const check = (what, ok, detail) => {
 }
 
 const ASK_FOR_THE_NOTE = 'Call the notes server\'s save_note tool once, with the text "hello from Locust". Then say in one sentence whether it worked.'
-/** Send what is typed, answer every card with Approve once, and wait for the end. */
-const sendAnswering = (text) => `(async () => {
+/** Send what is typed, and wait for the first card -- or for the run to end without one. */
+const sendUntilCard = (text) => `(async () => {
   const field = document.querySelector('form.command-dock textarea')
   const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
   setter.call(field, ${JSON.stringify(text)})
   field.dispatchEvent(new Event('input', { bubbles: true }))
   await new Promise((r) => setTimeout(r, 400))
   document.querySelector('button[aria-label="Send"]')?.click()
+  for (let i = 0; i < 600; i += 1) {
+    await new Promise((r) => setTimeout(r, 400))
+    const approval = document.querySelector('[role=group][aria-label="Approval required"]')
+    if (approval) { await new Promise((r) => setTimeout(r, 700)); return JSON.stringify({ text: approval.innerText.split(/\\s+/).join(' ').slice(0, 400) }) }
+    if (i > 8 && !document.querySelector('button[aria-label^="Stop the running"]')) break
+  }
+  return JSON.stringify({ text: '' })
+})()`
+/** Send what is typed (nothing, to go on with a run already waiting), answer every card with Approve once, and wait for the end. */
+const sendAnswering = (text) => `(async () => {
+  if (${JSON.stringify(text ?? null)} !== null) {
+    const field = document.querySelector('form.command-dock textarea')
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
+    setter.call(field, ${JSON.stringify(text ?? '')})
+    field.dispatchEvent(new Event('input', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 400))
+    document.querySelector('button[aria-label="Send"]')?.click()
+  }
   const cards = []
   for (let i = 0; i < 900; i += 1) {
     await new Promise((r) => setTimeout(r, 400))
@@ -126,8 +144,11 @@ try {
   await rm(note, { force: true })
   await drive.evaluate(openTeammateScript('Bea'))
   await sleep(800)
-  const approved = JSON.parse(String(await drive.capture('Bea in Approve each, asked to call it', () => drive.evaluate(sendAnswering(ASK_FOR_THE_NOTE)))))
-  check('Approve each stopped for it on a card', approved.cards.some((card) => /save_note|notes/i.test(card)), JSON.stringify(approved.cards))
+  // The card is pictured before it is answered: it is new in 0.821, and what it says is the person's to judge.
+  const card = JSON.parse(String(await drive.capture('Bea in Approve each: the card for the person\'s own MCP tool', () => drive.evaluate(sendUntilCard(ASK_FOR_THE_NOTE)))))
+  check('Approve each stopped for it on a card that names the tool', /save_note/i.test(card.text), card.text || 'no card')
+  check('and nothing was written before the press', !existsSync(note), existsSync(note) ? 'WRITTEN' : 'not written')
+  const approved = JSON.parse(String(await drive.capture('approved once, it ran', () => drive.evaluate(sendAnswering(undefined)))))
   check('and it ran once approved: note.txt was written', existsSync(note), approved.thread.slice(-260))
 } catch (error) {
   failures += 1

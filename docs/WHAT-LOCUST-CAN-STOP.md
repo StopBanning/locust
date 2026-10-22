@@ -34,9 +34,9 @@ Locust can stop a run only where its AI agent asks first. Where it asks, a card 
 
 ## OpenCode
 
-**Asks first.** In Approve each action: every command, file change, web page and place outside this folder, before it runs.
+**Asks first.** In Approve each action: every command, file change, web page, place outside this folder and tool from your own MCP servers, before it runs.
 
-**Without asking.** Web searches, in every mode. In Ask and Plan, no file changes and no commands; in Edit, commands and the web, and nothing outside this folder. In Auto, everything.
+**Without asking.** Web searches, in every mode. In Ask and Plan, no file changes, no commands and none of your own MCP tools; in Edit, commands, the web and your own MCP tools, and nothing outside this folder. In Auto, everything.
 
 **Always.** Locust keeps an Always for the rest of the run, and your saved rules come first.
 
