@@ -19,7 +19,7 @@ heading: the home screen then shows it once, as a splash.
 
 ### Fixed
 
-- **A routine input's Required box sits beside its word.** In the routine editor, an input's Required checkbox stood alone in the middle of a row, above the word. It sits beside it now, and a choice input's list shows four lines before it scrolls.
+- **Routine inputs read whole.** In the routine editor, an input's Required checkbox stood alone in the middle of a row, above its word; it sits beside it now. And a box for more than one line, such as a choice input's list or a long text input, showed a line and a half with its words against the top edge. Each shows its lines now, as does the question box in Tune this teammate.
 
 ## 0.819.0 - 2026-10-22
 

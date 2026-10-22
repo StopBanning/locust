@@ -25,7 +25,7 @@ export function RoutineInputEditor({ inputs, onChange }: { readonly inputs: read
       {input.kind === 'choice' && <label>Choices, one per line<textarea className="lc-input" rows={4} aria-label={`Input ${at + 1} choices`} value={(input.choices ?? []).join('\n')} onChange={(event) => change(at, { ...input, choices: event.target.value.split('\n') })} /></label>}
       {input.kind !== 'folder' && <label>Default{input.kind === 'choice'
         ? <Select className="lc-input" aria-label={`Input ${at + 1} default`} value={input.default ?? ''} onChange={(next) => change(at, { ...input, default: next })} options={[{ value: '', label: 'No default' }, ...(input.choices ?? []).map((choice) => ({ value: choice, label: choice }))]} />
-        : input.kind === 'long-text' ? <textarea className="lc-input" aria-label={`Input ${at + 1} default`} maxLength={MAX_INPUT_VALUE} value={input.default ?? ''} onChange={(event) => change(at, { ...input, default: event.target.value })} />
+        : input.kind === 'long-text' ? <textarea className="lc-input" rows={3} aria-label={`Input ${at + 1} default`} maxLength={MAX_INPUT_VALUE} value={input.default ?? ''} onChange={(event) => change(at, { ...input, default: event.target.value })} />
         : <input className="lc-input" aria-label={`Input ${at + 1} default`} maxLength={MAX_INPUT_VALUE} value={input.default ?? ''} onChange={(event) => change(at, { ...input, default: event.target.value })} />}</label>}
       {input.kind === 'folder' && <p className="lc-dialog__note">Chosen with the folder picker when you run; no default.</p>}
       <button type="button" className="lc-ghostbutton" onClick={() => onChange(inputs.filter((_, index) => index !== at))}>Remove input {at + 1}</button>
@@ -57,7 +57,7 @@ export function RoutineRunDialog({ routine, onRun, onCancel }: { readonly routin
           }).catch(() => setError('The folder picker could not be opened. Choose the folder again before running.'))
         }}>Choose {input.label}</button></>
           : input.kind === 'choice' ? <Select className="lc-input" aria-label={`Value for ${input.label}`} value={values[input.key]} onChange={(next) => setValues({ ...values, [input.key]: next })} options={[{ value: '', label: 'Choose an answer' }, ...(input.choices ?? []).map((choice) => ({ value: choice, label: choice }))]} />
-          : input.kind === 'long-text' ? <textarea className="lc-input" aria-label={`Value for ${input.label}`} maxLength={MAX_INPUT_VALUE} value={values[input.key]} onChange={(event) => setValues({ ...values, [input.key]: event.target.value })} />
+          : input.kind === 'long-text' ? <textarea className="lc-input" rows={3} aria-label={`Value for ${input.label}`} maxLength={MAX_INPUT_VALUE} value={values[input.key]} onChange={(event) => setValues({ ...values, [input.key]: event.target.value })} />
           : <input className="lc-input" aria-label={`Value for ${input.label}`} maxLength={MAX_INPUT_VALUE} value={values[input.key]} onChange={(event) => setValues({ ...values, [input.key]: event.target.value })} />}
       </label>)}
       {error !== undefined && <p className="lc-dialog__error">{error}</p>}

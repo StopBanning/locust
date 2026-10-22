@@ -10444,6 +10444,20 @@ textarea {
   outline: none;
 }
 
+/*
+ * A TEXTAREA IN THIS STYLE TAKES THE LINES ITS `rows` ASKS FOR (0.820). The fixed height above is a one-line
+ * field's, and with no padding above the text it held every textarea using it to a line and a half, its words
+ * against the top edge: a routine's "Choices, one per line" showed "Brief" and half of "Detailed" with rows={4}
+ * (the 0.820 drive's frame). `:where` keeps this under a textarea's own rule (Scout's goal, Tune's columns).
+ */
+.lc-input:where(textarea) {
+  height: auto;
+  min-height: 34px;
+  padding: 7px 11px;
+  line-height: 18px;
+  resize: vertical;
+}
+
 .lc-input:focus-visible {
   /* :focus-visible, not :focus -- every other ring in this file uses it, and
    * :focus gave mouse users a ring they did not ask for (sweep A1). */
