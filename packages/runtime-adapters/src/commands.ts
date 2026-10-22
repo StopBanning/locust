@@ -494,6 +494,12 @@ export interface RuntimeCommandOptions {
    */
   readonly copilotMcpServersOff?: readonly string[];
   /**
+   * A read-only run that may use no tool at all (0.824, Scout's look):
+   * OpenCode refuses it every one (OPENCODE_SEALED_CONFIG). OpenCode only;
+   * ignored outside Ask and Plan.
+   */
+  readonly sealed?: boolean;
+  /**
    * The same guard for OpenCode (0.722): the file URL of a plugin whose
    * `tool.execute.before` asks it, added to the `plugin` list of the config
    * every run and server is given (`withOpenCodeGuard`). OpenCode only.
@@ -1561,6 +1567,17 @@ export const OPENCODE_READ_ONLY_CONFIG = JSON.stringify({
 });
 
 /**
+ * A SEALED RUN (0.824, Scout's look; Grok's review #4): it reads only what its prompt gives it, which holds other
+ * people's words, so every tool is refused -- the web's reads too. "ask", not "deny", for the reason the Ask config
+ * above gives: the free tier refuses a run whose tools are gone, and "ask" keeps each one listed while a run with
+ * nobody to ask refuses every use of it.
+ */
+export const OPENCODE_SEALED_CONFIG = JSON.stringify({
+  permission: { "*": "ask", external_directory: "deny" },
+  experimental: OPENCODE_KEEP_GOING,
+});
+
+/**
  * What OpenCode is told about the repository a worktree belongs to.
  *
  * `permission.external_directory` takes "ask" | "allow" | "deny", or a map of
@@ -1651,14 +1668,18 @@ export const OPENCODE_AUTO_CONFIG = JSON.stringify({
  * What OpenCode is told for a mode, as environment: its permission config and, for a read-only run, no plugins.
  * One function for `run` and the server (0.677), so a mode means the same thing on either route.
  */
-export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly workspacePath?: string; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly gitReads?: GitReadsSpec; readonly referenceFolders?: readonly string[]; readonly skillsDir?: string; readonly skillPaths?: readonly string[] }): Readonly<Record<string, string>> {
+export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly workspacePath?: string; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly gitReads?: GitReadsSpec; readonly referenceFolders?: readonly string[]; readonly skillsDir?: string; readonly skillPaths?: readonly string[]; readonly sealed?: boolean }): Readonly<Record<string, string>> {
   const auto = sandboxArgument(options.sandbox) === "full-access";
   const readOnly = sandboxArgument(options.sandbox) === "read-only";
+  // Sealed is read-only with every tool refused (0.824): no folder outside, no git tool, nothing else.
+  const sealed = readOnly && options.sealed === true;
   // A worktree run needs its parent repository; a read-only one still needs
   // the denials. When both apply the config carries both, because the two
   // used to be written into the same environment variable and the second
   // would simply have replaced the first. Auto reaches past both.
-  const config = auto
+  const config = sealed
+    ? OPENCODE_SEALED_CONFIG
+    : auto
     ? OPENCODE_AUTO_CONFIG
     : options.repositoryRoot !== undefined
       ? opencodeWorktreeConfig(options.repositoryRoot, readOnly)
@@ -1673,7 +1694,7 @@ export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOpti
   // the folder, and the person's own plugins are theirs to have there.
   // Read-only mode already refuses edits and shell writes. Auto already has access, so leave its config alone.
   const parsed = JSON.parse(config) as { permission: Record<string, unknown> };
-  if (readOnly && (options.referenceFolders?.length ?? 0) > 0) {
+  if (readOnly && !sealed && (options.referenceFolders?.length ?? 0) > 0) {
     const old = parsed.permission.external_directory;
     parsed.permission.external_directory = {
       "*": "deny",
@@ -1685,13 +1706,15 @@ export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOpti
       })),
     };
   }
-  const configured = withOpenCodeSkills(withOpenCodeBrowserMcp(
-    withOpenCodeGuard(withoutOpenCodeQuestionTool(withOpenCodeProviders(JSON.stringify(parsed), options.providers)), options.openCodeGuardPlugin),
-    options.browserMcp,
-  ), options.skillsDir, options.skillPaths);
+  const configured = sealed
+    ? withoutOpenCodeQuestionTool(withOpenCodeProviders(JSON.stringify(parsed), options.providers))
+    : withOpenCodeSkills(withOpenCodeBrowserMcp(
+      withOpenCodeGuard(withoutOpenCodeQuestionTool(withOpenCodeProviders(JSON.stringify(parsed), options.providers)), options.openCodeGuardPlugin),
+      options.browserMcp,
+    ), options.skillsDir, options.skillPaths);
   return {
-    // Only a run with no shell gets the git tool: any other mode's shell runs git itself.
-    OPENCODE_CONFIG_CONTENT: readOnly && options.workspacePath !== undefined ? withOpenCodeGitReads(configured, options.gitReads, options.workspacePath) : configured,
+    // Only a run with no shell gets the git tool: any other mode's shell runs git itself. A sealed one gets none.
+    OPENCODE_CONFIG_CONTENT: readOnly && !sealed && options.workspacePath !== undefined ? withOpenCodeGitReads(configured, options.gitReads, options.workspacePath) : configured,
     ...(readOnly ? { OPENCODE_PURE: "1" } : {}),
   };
 }
@@ -2134,6 +2157,8 @@ export function createOpenCodeServeCommand(
     /** The run's own skills (0.813, `RuntimeCommandOptions.skillsDir`). */
     readonly skillsDir?: string;
     readonly skillPaths?: readonly string[];
+    /** Read-only with every tool refused (0.824, `RuntimeCommandOptions.sealed`). */
+    readonly sealed?: boolean;
   },
 ): RuntimeCommandSpec {
   if (options.sandbox !== undefined) {

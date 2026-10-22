@@ -92,7 +92,7 @@ export function whatItMayDo(runtime: MissionRuntimeId, sandbox: MissionSandbox, 
           text: sandbox === 'read-only' ? "run commands in Codex's sandbox, which lets them read and change nothing" : "run commands in Codex's sandbox, which keeps their changes in this folder"
         },
         THE_WEB,
-        ...(sandbox === 'read-only' ? [{ verdict: 'deny' as const, text: 'starting the MCP servers and plugins your Codex runs as programs on this computer' }] : [])
+        ...(sandbox === 'read-only' ? [{ verdict: 'deny' as const, text: 'starting the MCP servers and plugins your Codex runs as programs on this computer, or its own browser and computer use' }] : [])
       )
     case 'claude':
       // `--tools` is the whole list: Bash only when the mode may edit;

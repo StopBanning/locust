@@ -183,6 +183,7 @@ export {
   withOpenCodeBrowserMcp,
   withOpenCodeGitReads,
   OPENCODE_READ_ONLY_CONFIG,
+  OPENCODE_SEALED_CONFIG,
   MUSE_REQUIRED_FEATURES,
   OPENCODE_REQUIRED_FEATURES,
   parseOpenCodeModelList,

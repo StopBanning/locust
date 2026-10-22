@@ -20,7 +20,7 @@ Locust can stop a run only where its AI agent asks first. Where it asks, a card 
 
 **Asks first.** In Approve each action: every command that does more than read, and every file change, before it runs.
 
-**Without asking.** In Ask and Plan it works in Codex’s own sandbox, where its commands can read but change nothing; in Edit, where they can also change files in this folder. In Ask and Plan it starts none of the MCP servers or plugins your Codex runs as programs on this computer. It asks nothing in those modes, or in Auto.
+**Without asking.** In Ask and Plan it works in Codex’s own sandbox, where its commands can read but change nothing; in Edit, where they can also change files in this folder. In Ask and Plan it starts none of the MCP servers or plugins your Codex runs as programs on this computer, nor its own browser or computer use. It asks nothing in those modes, or in Auto.
 
 **Always.** Locust keeps an Always for the rest of the run, and your saved rules come first.
 

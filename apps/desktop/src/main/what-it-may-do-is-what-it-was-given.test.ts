@@ -147,8 +147,8 @@ describe('what the panel says a run may do', () => {
     expect(said('codex', 'full-access')).toContain('allow run any command your account can run, and reach any network')
     // 0.824: read-only starts none of the person's Codex programs (codexReadOnlyThreadConfig, given to its run); no
     // other mode says anything about them.
-    expect(codexReadOnlyThreadConfig({ mcp_servers: { notes: { command: 'notes' } } })).toEqual({ ok: true, config: { 'features.plugins': false, 'mcp_servers.notes.enabled': false } })
-    expect(said('codex', 'read-only')).toContain('deny starting the MCP servers and plugins your Codex runs as programs on this computer')
+    expect(codexReadOnlyThreadConfig({ mcp_servers: { notes: { command: 'notes' } } })).toMatchObject({ ok: true, config: { 'features.plugins': false, 'features.computer_use': false, 'mcp_servers.notes.enabled': false } })
+    expect(said('codex', 'read-only')).toContain('deny starting the MCP servers and plugins your Codex runs as programs on this computer, or its own browser and computer use')
     for (const sandbox of ['workspace-write', 'full-access'] as const) expect(said('codex', sandbox).join('\n')).not.toMatch(/MCP/)
   })
 

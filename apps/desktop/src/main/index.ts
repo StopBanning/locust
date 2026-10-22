@@ -8051,7 +8051,8 @@ if (!ownsSingleInstanceLock) {
           undefined,
           undefined,
           // One look at a time on each model: a look moved to the next free model starts while the stopped one ends.
-          { key: `scout:${teammateId}:${chosen}` }
+          // Sealed (0.824): the look reads only what Scout gives it, which holds other people's words; no tool, no memory brief.
+          { key: `scout:${teammateId}:${chosen}`, sealed: true }
         )
         if (!response.ok) return { refused: response.error.code === 'RUN_ALREADY_ACTIVE' ? 'Scout is still reading its last look.' : response.error.message }
         sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, prompt: 'Scout looked', data: response.data, startedBy: { kind: 'scout' } })

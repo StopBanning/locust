@@ -47,7 +47,7 @@ import type {
   RuntimeProcessRun,
   RuntimeProcessRunner, NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 import { workspaceIdFor } from './workspace.js'
-import { codexReadOnlyThreadConfig } from './codex-read-only.js'
+import { codexReadOnlyThreadConfig, codexSealedThreadConfig } from './codex-read-only.js'
 import { cursorChoiceFor, cursorModelsFrom } from './model-catalog.js'
 import { createStreamedEventBatcher } from './streamed-event-batches.js'
 import { deliverWhenRuntimeStarts } from './runtime-delivery.js'
@@ -310,7 +310,7 @@ export interface CodexMissionService {
      * in place of its owner's, so one teammate -- or nobody -- answers on two
      * models at once. Only the compare handler supplies it.
      */
-    slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string; readonly skill?: TuneSkill },
+    slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string; readonly skill?: TuneSkill; readonly sealed?: true },
     /**
      * A question ON THE SIDE of a conversation (0.461, Devin's side chats):
      * read-only, on a FORK of the session of `of` -- the conversation's
@@ -1559,7 +1559,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       relay?: RelayOrigin,
       startedBy?: MissionStarter,
       asCommand?: boolean,
-      slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string; readonly skill?: TuneSkill },
+      slot?: { readonly key: string; readonly cwd?: string; readonly instructions?: string; readonly skill?: TuneSkill; readonly sealed?: true },
       side?: { readonly of: string; readonly question: number; readonly freshSession?: boolean },
       rewind?: boolean,
       leaveOut?: readonly string[],
@@ -2286,6 +2286,13 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           globalThis.process.env.LOCUST_ASK_CONNECTORS === '1' || (await options.askConnectors?.()) === true
         // A cloud turn's guard is the computer it runs on (cloud-computer.ts): the guards below name files on this one.
         const commandGuardPath = runtime === 'claude' && cloud === undefined ? await options.commandGuard?.() : undefined
+        /*
+         * A SEALED RUN READS ONLY WHAT ITS PROMPT GIVES IT (0.824, Scout's look; Grok's review, #4). Its prompt holds
+         * other people's words -- pull request titles, check output, comments -- so the run gets no project-memory
+         * brief, no browser, no skills and no git tool; OpenCode refuses it every tool and Codex starts it with
+         * none (codexSealedThreadConfig). Elsewhere the runtime's own Ask holds it.
+         */
+        const sealed = slot?.sealed === true
         const copilotGuardPlugin = runtime === 'copilot' ? await options.copilotCommandGuard?.().catch(() => undefined) : undefined
         const copilotMcpServersOff = runtime === 'copilot' && effectiveSandbox === 'read-only'
           ? await options.copilotMcpServers?.().catch(() => undefined)
@@ -2298,7 +2305,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           return error('RUNTIME_START_FAILED', 'OpenCode 2 could not prepare the command guard. Your message has not been sent; reopen Locust and try again.') as CodexMissionStartResponse
         }
         // Ask and Plan on OpenCode have no shell, so git reaches them through Locust's git tool (0.818).
-        const openCodeGitReads = runtime === 'opencode' && !opencodeAcp && cloud === undefined && effectiveSandbox === 'read-only'
+        const openCodeGitReads = runtime === 'opencode' && !opencodeAcp && cloud === undefined && effectiveSandbox === 'read-only' && !sealed
           ? await options.openCodeGitReads?.().catch(() => undefined)
           : undefined
         const codexGuardConfig = runtime === 'codex' && cloud === undefined ? await options.codexCommandGuard?.(runCwd, chosen.executable.env?.CODEX_HOME).catch(() => undefined) : undefined
@@ -2314,6 +2321,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
             : undefined
         const browserMcp =
           cloud === undefined &&
+          !sealed &&
           browserRuntime !== undefined &&
           options.browserHost !== undefined &&
           policyFeatureRefusal(options.organizationPolicy, 'browser') === undefined
@@ -2360,7 +2368,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
          * wrong machine.
          */
         const runSkills =
-          cloud === undefined && options.runSkills !== undefined && ((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')
+          cloud === undefined && !sealed && options.runSkills !== undefined && ((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')
             ? await options.runSkills({
               ...(peer?.self.teammateId === undefined ? {} : { teammateId: peer.self.teammateId }),
               ...(slot?.skill === undefined ? {} : { skill: slot.skill })
@@ -2394,7 +2402,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
          * the skills kept from GitHub (0.710), which live in Locust's profile.
          */
         const skills =
-          runtime === 'claude' && cloud === undefined && options.claudeSkills !== undefined
+          runtime === 'claude' && cloud === undefined && !sealed && options.claudeSkills !== undefined
             ? await options.claudeSkills(runCwd, {
               auto: effectiveSandbox === 'full-access',
               // The teammate's own skills (0.811), and a tune column's one skill for this run alone.
@@ -2445,6 +2453,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
               ...(openCodeGitReads === undefined ? {} : { gitReads: openCodeGitReads }),
+              ...(sealed ? { sealed: true } : {}),
               ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir, skillPaths })
             })
           }
@@ -2461,6 +2470,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
               ...(openCodeGitReads === undefined ? {} : { gitReads: openCodeGitReads }),
+              ...(sealed ? { sealed: true } : {}),
               ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir, skillPaths }),
               ...choice
             })
@@ -2736,7 +2746,7 @@ ${sentPrompt.trim()}`
           delivered = prepared.delivered
           peerDeliveryFailed = prepared.failed
           briefGiven = prepared.given
-        } else if (peerExchange !== undefined) {
+        } else if (peerExchange !== undefined && !sealed) {
           /*
            * A run that belongs to nobody still stands in the project folder
            * and still has the project's memory. It used to be briefed with
@@ -2979,7 +2989,7 @@ ${sentPrompt.trim()}`
               ...(codexCommand === 'review' || codexCommand === 'compact' ? { slashCommand: codexCommand } : {}),
               ...(runSkills === undefined ? {} : { skillRoots: [runSkills.skillsDir] }),
               // Ask and Plan start none of the MCP servers the person's Codex runs as programs (0.824).
-              ...(policy.sandbox === 'read-only' ? { threadConfigFromSettings: codexReadOnlyThreadConfig } : {}),
+              ...(policy.sandbox === 'read-only' ? { threadConfigFromSettings: sealed ? codexSealedThreadConfig : codexReadOnlyThreadConfig } : {}),
               // No teammate ends your browser, Codex too (0.720).
               ...(() => {
                 const codexThreadConfig: Record<string, JsonValue> = {
