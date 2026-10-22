@@ -5,25 +5,31 @@ import type { FolderPullRequest } from '../shared/pull-request.js'
 import {
   DEFAULT_SCOUT_SETTINGS,
   MAX_SCOUT_SEEN,
+  SCOUT_WAIT_MOST_MS,
   branchFacts,
   cardOf,
+  checkFacts,
   failedFacts,
+  inQuietHours,
   issueFacts,
   pullRequestFacts,
   reviewFacts,
   scoutAnswers,
+  scoutDay,
   scoutPrompt,
   scoutSettingsFrom,
   waitingFacts,
   withNewCards,
   type BranchRun,
   type FailedTurn,
+  type FolderCheckResult,
   type IssueOpened,
   type ReviewAsked,
   type ScoutCard,
   type ScoutFact,
   type ScoutSettings,
   type ScoutState,
+  type ScoutToday,
   type WaitingCard
 } from '../shared/scout.js'
 import { replaceFile } from './replace-file.js'
@@ -86,13 +92,31 @@ export interface ScoutDeps {
   /** Once, after a while: the first look after a launch, and a look's turn running out of time. */
   readonly later?: (task: () => void, ms: number) => unknown
   readonly cancel?: (handle: unknown) => void
+  /**
+   * The window's folder as it stands -- its last commit and what is changed in it -- or undefined when it is not a
+   * git folder (0.815): the check runs only when this moved since the last look's.
+   */
+  readonly folderMark?: () => Promise<string | undefined>
+  /** Runs the folder's check from Settings > Project folder; undefined when the folder has none. */
+  readonly runCheck?: () => Promise<FolderCheckResult | undefined>
+  /** A turn is working in the window's folder now, so its check would read work half done (0.815). */
+  readonly folderBusy?: () => boolean
+  /** A turn the person started is running: a look on Scout's timer waits for it (0.815). */
+  readonly personBusy?: () => boolean
 }
+
+/** How often a look that is waiting for the person's own turn asks again whether it has ended. */
+const WAIT_STEP_MS = 60_000
 
 interface Kept {
   readonly settings: ScoutSettings
   readonly cards: readonly ScoutCard[]
   readonly seen: readonly string[]
   readonly lookIds: readonly string[]
+  /** The folder as the last check found it, and what the check said then (0.815). */
+  readonly folderMark?: string
+  readonly lastCheck?: { readonly passed: boolean }
+  readonly today?: ScoutToday
   /** Each pull request as the last look saw it, by its address. */
   readonly prs: readonly FolderPullRequest[]
   readonly lastLookAt?: string
@@ -105,6 +129,21 @@ const ANSWER_WAIT_MS = 3 * 60_000
 const MAX_LOOK_IDS = 400
 /** Free models a look tries after Scout's own, each when the one before it would not answer. */
 const MAX_FALLBACKS = 2
+
+/** A day's count as kept; anything else is none. */
+function todayFrom(value: unknown): ScoutToday | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const { day, looks, asked } = value as Record<string, unknown>
+  const count = (one: unknown): one is number => typeof one === 'number' && Number.isInteger(one) && one >= 0
+  return typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) && count(looks) && count(asked) ? { day, looks, asked } : undefined
+}
+
+/** One more look, or one more turn of its model, on the day `at` falls on (0.815). */
+function counted(was: ScoutToday | undefined, at: Date, what: 'looks' | 'asked'): ScoutToday {
+  const day = scoutDay(at)
+  const base = was?.day === day ? was : { day, looks: 0, asked: 0 }
+  return { ...base, [what]: base[what] + 1 }
+}
 
 /** A look's turn under way: what it asked about, of whom, on which run, and which free models it has tried. */
 interface PendingLook {
@@ -126,6 +165,8 @@ export function createScout(deps: ScoutDeps) {
   let kept: Kept | undefined
   let timer: unknown
   let firstLook: unknown
+  /** A due look waiting for the person's own turn to end (0.815). */
+  let deferred: unknown
   let looking = false
   /** Failed turns heard as they ended, for the next look. */
   const failedSince: FailedTurn[] = []
@@ -143,7 +184,10 @@ export function createScout(deps: ScoutDeps) {
         seen: Array.isArray(parsed.seen) ? parsed.seen.filter((key): key is string => typeof key === 'string').slice(-MAX_SCOUT_SEEN) : [],
         lookIds: Array.isArray(parsed.lookIds) ? parsed.lookIds.filter((id): id is string => typeof id === 'string').slice(-MAX_LOOK_IDS) : [],
         prs: Array.isArray(parsed.prs) ? (parsed.prs as FolderPullRequest[]).filter((pr) => typeof pr?.url === 'string' && typeof pr.number === 'number') : [],
-        ...(typeof parsed.lastLookAt === 'string' ? { lastLookAt: parsed.lastLookAt } : {})
+        ...(typeof parsed.lastLookAt === 'string' ? { lastLookAt: parsed.lastLookAt } : {}),
+        ...(typeof parsed.folderMark === 'string' ? { folderMark: parsed.folderMark } : {}),
+        ...(typeof (parsed.lastCheck as { passed?: unknown } | undefined)?.passed === 'boolean' ? { lastCheck: { passed: (parsed.lastCheck as { passed: boolean }).passed } } : {}),
+        ...(todayFrom(parsed.today) === undefined ? {} : { today: todayFrom(parsed.today)! })
       }
     } catch {
       kept = EMPTY
@@ -155,12 +199,20 @@ export function createScout(deps: ScoutDeps) {
     cards: from.cards,
     lookIds: from.lookIds,
     ...(from.lastLookAt === undefined ? {} : { lastLookAt: from.lastLookAt }),
-    ...(from.modelSaid === undefined ? {} : { modelSaid: from.modelSaid })
+    ...(from.modelSaid === undefined ? {} : { modelSaid: from.modelSaid }),
+    // Yesterday's count is not today's: a new day starts at none.
+    ...(from.today === undefined || from.today.day !== scoutDay(now()) ? {} : { today: from.today })
   })
   /** Kept in memory at once, written whole beside the file and moved over it, one write at a time. */
   const keep = async (next: Kept): Promise<ScoutState> => {
     kept = next
-    const body = `${JSON.stringify({ settings: next.settings, cards: next.cards, seen: next.seen, lookIds: next.lookIds, prs: next.prs, ...(next.lastLookAt === undefined ? {} : { lastLookAt: next.lastLookAt }) })}\n`
+    const body = `${JSON.stringify({
+      settings: next.settings, cards: next.cards, seen: next.seen, lookIds: next.lookIds, prs: next.prs,
+      ...(next.lastLookAt === undefined ? {} : { lastLookAt: next.lastLookAt }),
+      ...(next.folderMark === undefined ? {} : { folderMark: next.folderMark }),
+      ...(next.lastCheck === undefined ? {} : { lastCheck: next.lastCheck }),
+      ...(next.today === undefined ? {} : { today: next.today })
+    })}\n`
     const write = writing.then(async () => {
       const temporary = `${deps.file}.${randomBytes(6).toString('hex')}.tmp`
       try {
@@ -189,13 +241,47 @@ export function createScout(deps: ScoutDeps) {
   const restart = (settings: ScoutSettings): void => {
     if (timer !== undefined) clear(timer)
     timer = undefined
-    if (settings.on && settings.teammateId !== undefined) timer = schedule(() => { void look() }, settings.everyMinutes * 60_000)
+    if (settings.on && settings.teammateId !== undefined) timer = schedule(() => { due() }, settings.everyMinutes * 60_000)
+  }
+
+  /*
+   * A LOOK ON SCOUT'S OWN TIMER (0.815). Not in quiet hours, and not beside the person's own turn: one due while a turn
+   * they started is running waits for it to end, asking again every minute, and looks anyway after SCOUT_WAIT_MOST_MS
+   * so a long run never silences Scout. A look the person asks for -- Look now, turning it on -- runs at once.
+   */
+  const due = (since = now().getTime()): void => {
+    if (deferred !== undefined) return
+    const waits = kept?.settings.waitWhileWorking ?? DEFAULT_SCOUT_SETTINGS.waitWhileWorking
+    if (waits && deps.personBusy?.() === true && now().getTime() - since < SCOUT_WAIT_MOST_MS) {
+      deferred = later(() => { deferred = undefined; due(since) }, WAIT_STEP_MS)
+      return
+    }
+    void look(true)
   }
 
   /** Locust's own look: what is new since the last one, as facts. */
-  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[] }> => {
+  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[]; marks: Pick<Kept, 'folderMark' | 'lastCheck'> }> => {
     const facts: ScoutFact[] = []
     let prs = from.prs
+    /*
+     * THE FOLDER'S CHECK (0.815), only when the folder moved since the check last ran -- a commit, or a change to what
+     * is in it -- and never while a turn is working there, whose half-done work would read as broken. Not run, the
+     * mark stays where it was, so the next look runs it.
+     */
+    let marks: Pick<Kept, 'folderMark' | 'lastCheck'> = {
+      ...(from.folderMark === undefined ? {} : { folderMark: from.folderMark }),
+      ...(from.lastCheck === undefined ? {} : { lastCheck: from.lastCheck })
+    }
+    if (from.settings.watches.check && deps.folderMark !== undefined && deps.runCheck !== undefined && deps.folderBusy?.() !== true) {
+      const mark = await deps.folderMark().catch(() => undefined)
+      if (mark !== undefined && mark !== from.folderMark) {
+        const result = await deps.runCheck().catch(() => undefined)
+        if (result !== undefined) {
+          facts.push(...checkFacts(from.lastCheck, result, mark))
+          marks = { folderMark: mark, lastCheck: { passed: result.passed } }
+        }
+      }
+    }
     if (from.settings.watches.github) {
       const github = await deps.github().catch(() => undefined)
       if (github !== undefined) {
@@ -213,12 +299,14 @@ export function createScout(deps: ScoutDeps) {
       failedSince.splice(0)
     }
     const seen = new Set(from.seen)
-    return { facts: facts.filter((fact, index) => !seen.has(fact.key) && facts.findIndex((other) => other.key === fact.key) === index), prs }
+    return { facts: facts.filter((fact, index) => !seen.has(fact.key) && facts.findIndex((other) => other.key === fact.key) === index), prs, marks }
   }
 
-  const look = async (): Promise<ScoutState> => {
+  /** `scheduled`: on Scout's own timer, which keeps quiet hours (0.815); a look the person asked for does not. */
+  const look = async (scheduled = false): Promise<ScoutState> => {
     const from = await load()
     if (looking || !from.settings.on || from.settings.teammateId === undefined) return stateOf(from)
+    if (scheduled && inQuietHours(from.settings.quiet, now())) return stateOf(from)
     looking = true
     try {
       const teammateId = from.settings.teammateId
@@ -230,20 +318,25 @@ export function createScout(deps: ScoutDeps) {
       }
       const at = now()
       const stamp = at.toISOString()
-      const { facts, prs } = await gather(from, stamp)
-      if (facts.length === 0) return await mutate((latest) => ({ ...latest, prs, lastLookAt: stamp }))
+      const { facts, prs, marks } = await gather(from, stamp)
+      if (facts.length === 0) return await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks') }))
       const team = (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== teammateId)
       const cards = facts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, true))
+      // A check that turned says how it stands now: the card of how it stood before goes (0.815).
+      const checkTurned = facts.some((fact) => fact.key.startsWith('check:'))
       let state = await mutate((latest) => ({
         ...latest,
-        cards: withNewCards(latest.cards, cards),
+        ...marks,
+        cards: withNewCards(checkTurned ? latest.cards.filter((card) => !card.key.startsWith('check:')) : latest.cards, cards),
         seen: [...latest.seen, ...facts.map((fact) => fact.key)].slice(-MAX_SCOUT_SEEN),
         prs,
-        lastLookAt: stamp
+        lastLookAt: stamp,
+        today: counted(latest.today, at, 'looks')
       }))
-      if (state.settings.notify) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
+      // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815).
+      if (state.settings.notify && !inQuietHours(state.settings.quiet, at)) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
       // Then Scout's model, for its take and the next step.
-      const prompt = scoutPrompt({ facts, team: team.map((mate) => ({ name: mate.name, role: mate.role })) })
+      const prompt = scoutPrompt({ facts, team: team.map((mate) => ({ name: mate.name, role: mate.role })), ...(state.settings.goal === undefined ? {} : { goal: state.settings.goal }) })
       state = await askFor({ teammateId, prompt, cardIds: cards.map((card) => card.cardId), team, tried: [] }) ?? state
       return state
     } finally {
@@ -261,7 +354,26 @@ export function createScout(deps: ScoutDeps) {
     if ('refused' in asked) return settle(look.cardIds, undefined, asked.refused)
     const expires = later(() => { void gaveUp(asked.missionId, 'Scout’s model took too long to answer.') }, deps.answerWaitMs ?? ANSWER_WAIT_MS)
     pending.set(asked.missionId, { ...look, runId: asked.runId, expires })
-    return mutate((latest) => ({ ...latest, lookIds: [...latest.lookIds, asked.missionId].slice(-MAX_LOOK_IDS) }))
+    return mutate((latest) => ({ ...latest, lookIds: [...latest.lookIds, asked.missionId].slice(-MAX_LOOK_IDS), today: counted(latest.today, now(), 'asked') }))
+  }
+
+  /*
+   * OFF MEANS OFF (0.815). Turned off, the timer stopping was all: a look's turn already started ran on, and a look
+   * waiting for the person's turn still came. Now each is stopped, and its cards stay as Locust wrote them.
+   */
+  const stopLooks = async (why: string): Promise<void> => {
+    if (firstLook !== undefined) cancel(firstLook)
+    firstLook = undefined
+    if (deferred !== undefined) cancel(deferred)
+    deferred = undefined
+    const cardIds: string[] = []
+    for (const look of pending.values()) {
+      cancel(look.expires)
+      try { deps.stop(look.runId) } catch { /* it has ended already */ }
+      cardIds.push(...look.cardIds)
+    }
+    pending.clear()
+    if (cardIds.length > 0) await settle(cardIds, undefined, why)
   }
 
   /*
@@ -323,7 +435,7 @@ export function createScout(deps: ScoutDeps) {
       // A look's cards from before a restart wait on nothing now.
       if (from.cards.some((card) => card.reading === true)) await mutate((latest) => ({ ...latest, cards: latest.cards.map(({ reading: _reading, ...card }) => card) }))
       restart(from.settings)
-      if (from.settings.on) firstLook = later(() => { firstLook = undefined; void look() }, firstLookMs)
+      if (from.settings.on) firstLook = later(() => { firstLook = undefined; due() }, firstLookMs)
     },
     /** On again with its own teammate; a new Scout, on this route, when it has none. */
     async turnOn(route: { readonly runtime: string; readonly model: string; readonly account?: string } | undefined): Promise<ScoutState | { readonly refused: string }> {
@@ -350,6 +462,10 @@ export function createScout(deps: ScoutDeps) {
         return { ...latest, settings: scoutSettingsFrom({ ...(typeof change === 'object' && change !== null ? change : {}), teammateId: latest.settings.teammateId }, latest.settings) }
       })
       if (state.settings.everyMinutes !== before?.everyMinutes || state.settings.on !== before.on) restart(state.settings)
+      if (before?.on === true && !state.settings.on) {
+        await stopLooks('Scout was turned off, so these cards stay in Locust’s words.')
+        return stateOf(await load())
+      }
       return state
     },
     dismiss: (cardId: unknown): Promise<ScoutState> => mutate((latest) => ({ ...latest, cards: latest.cards.filter((card) => card.cardId !== cardId) })),
@@ -387,6 +503,8 @@ export function createScout(deps: ScoutDeps) {
       timer = undefined
       if (firstLook !== undefined) cancel(firstLook)
       firstLook = undefined
+      if (deferred !== undefined) cancel(deferred)
+      deferred = undefined
       for (const look of pending.values()) {
         cancel(look.expires)
         try { deps.stop(look.runId) } catch { /* ended already */ }

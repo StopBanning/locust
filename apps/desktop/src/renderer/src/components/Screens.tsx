@@ -3417,6 +3417,7 @@ export function SettingsScreen({
         {shownPage === 'app' && <TalkShortcutSetting heading={<h2 className="lc-settings__heading">Talk from any app</h2>} />}
         {shownPage === 'app' && <ScoutSetting heading={<h2 className="lc-settings__heading">Scout keeps watch</h2>} state={scout}
           {...(scoutModel === undefined ? {} : { model: scoutModel })} {...(scoutRoute === undefined ? {} : { route: scoutRoute })}
+          {...(checkCommand === undefined || checkCommand.trim().length === 0 ? {} : { checkCommand: checkCommand.trim() })}
           {...(onChangeScoutModel === undefined ? {} : { onChangeModel: onChangeScoutModel })} />}
         {shownPage === 'app' && (
         <section className="lc-settings__section">

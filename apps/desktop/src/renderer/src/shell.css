@@ -24299,3 +24299,7 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-tunelessons__when { display: block; color: var(--lc-text-secondary); }
 @media (max-width: 760px) { .lc-tune__columns { grid-template-columns: minmax(0, 1fr); } }
 
+/* What Scout keeps watch for (0.815): a few lines, as wide as its line, and its Save beneath once it is changed. */
+.lc-scout__goalline .lc-settingline__text { flex: 1; }
+.lc-scout__goal { display: block; width: 100%; height: auto; min-height: 64px; margin-top: var(--lc-space-2); padding: 8px 11px; resize: vertical; font-family: inherit; line-height: 1.5; }
+.lc-scout__goalkeys { display: flex; gap: var(--lc-space-2); margin-top: var(--lc-space-2); }

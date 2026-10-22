@@ -31,6 +31,7 @@ import { createOpenCodeFirstStart, OPENCODE_SETUP_TIMEOUT_MS } from './opencode-
 import { createPlainCheckpoints } from './checkpoints-plain.js'
 import { createTalkShortcut, type TalkShortcut } from './talk-shortcut.js'
 import { createScout, type Scout } from './scout.js'
+import { folderMarkOf } from './scout-folder.js'
 import { readScoutGithub } from './scout-github.js'
 import { SCOUT_CHANGED, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_SET, SCOUT_STATE, SCOUT_TURN_ON } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
@@ -4030,29 +4031,31 @@ if (!ownsSingleInstanceLock) {
     // Folder watchers (0.522): routines that run on a new file, polled, inside the project folder.
     const fileArrivals = createFileArrivals({ get projectFolder() { return workspacePath } })
     const routineCopies = createRoutineCopies()
+    /*
+     * The folder's own check (0.534): this folder's command from Settings, the one the after-edits check runs -- never a
+     * command the project names -- run in `cwd`, with the end of what it printed. A routine's goal and Scout (0.815)
+     * both read it.
+     */
+    const runFolderCheck = async (cwd: string): Promise<{ readonly command: string; readonly passed: boolean; readonly tail: readonly string[] } | undefined> => {
+      if (!workspaceChosen) return undefined
+      const command = (await teammates.readSettings()).checkCommands?.[workspaceIdFor(workspacePath)]
+      if (command === undefined || command.length === 0) return undefined
+      const run = await runCheckCommand(command, cwd)
+      const tail = run.error !== undefined
+        ? [run.error]
+        : run.timedOut
+          ? ['The check ran past its time limit and was stopped.']
+          : comparableLines(run.output).slice(-25).map((line) => (line.length > 300 ? `${line.slice(0, 299)}…` : line))
+      return { command, passed: run.error === undefined && !run.timedOut && run.exitCode === 0, tail }
+    }
     routineRunner = createRoutineRunner({
       folderChosen: (path) => routineFolderChosen(path),
       arrivals: fileArrivals,
       // A routine that works in a copy (0.533): made from the folder the window is in.
       copies: routineCopies,
       folderNow: () => workspacePath,
-      /*
-       * A standing goal's check (0.534): this folder's own command from Settings,
-       * the one the after-edits check runs -- never a command the project names.
-       * The end of what it printed goes to the teammate asked to fix it.
-       */
-      goalCheck: async (cwd) => {
-        if (!workspaceChosen) return undefined
-        const command = (await teammates.readSettings()).checkCommands?.[workspaceIdFor(workspacePath)]
-        if (command === undefined || command.length === 0) return undefined
-        const run = await runCheckCommand(command, cwd)
-        const tail = run.error !== undefined
-          ? [run.error]
-          : run.timedOut
-            ? ['The check ran past its time limit and was stopped.']
-            : comparableLines(run.output).slice(-25).map((line) => (line.length > 300 ? `${line.slice(0, 299)}…` : line))
-        return { command, passed: run.error === undefined && !run.timedOut && run.exitCode === 0, tail }
-      },
+      // A standing goal's check (0.534): the end of what it printed goes to the teammate asked to fix it.
+      goalCheck: (cwd) => runFolderCheck(cwd),
       // Read live (0.458): the folder the window is in now.
       openedAt: appOpenedAt,
       get workspaceId() {
@@ -8050,6 +8053,15 @@ if (!ownsSingleInstanceLock) {
         return made.teammateId
       },
       teammateExists: async (teammateId) => (await teammates.list()).some((mate) => mate.teammateId === teammateId),
+      // The folder's check (0.815, scout-folder.ts): only when the folder moved since the last look, never mid-turn.
+      folderMark: async () => (workspaceChosen ? folderMarkOf(workspacePath) : undefined),
+      runCheck: async () => {
+        const ran = await runFolderCheck(workspacePath)
+        return ran === undefined ? undefined : { command: ran.command, passed: ran.passed, lines: ran.tail }
+      },
+      folderBusy: () => codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length > 0,
+      // A turn the person sent from the chat box, still running: a look on Scout's timer waits for it (0.815).
+      personBusy: () => [...codexMissions.liveMissionIds(), ...antigravityMissions.liveMissionIds()].some((missionId) => sentByPerson.has(missionId)),
       changed: (state) => {
         for (const window of BrowserWindow.getAllWindows()) {
           if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(SCOUT_CHANGED, state)

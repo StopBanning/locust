@@ -30,6 +30,20 @@ export interface ScoutWatches {
   readonly github: boolean
   /** A teammate waiting on them; a turn that failed. */
   readonly teammates: boolean
+  /**
+   * The folder's check (0.815): the command from Settings > Project folder, run when the folder has changed since the
+   * last look and no turn is working in it. Off until chosen: a check can take minutes, and some reach past the folder.
+   */
+  readonly check: boolean
+}
+
+/**
+ * Hours by this computer's clock when Scout neither looks on its own nor notifies (0.815): from `from` up to `to`,
+ * over midnight when `to` comes first. The first look after them tells everything new since the last.
+ */
+export interface ScoutQuietHours {
+  readonly from: number
+  readonly to: number
 }
 
 export interface ScoutSettings {
@@ -40,9 +54,47 @@ export interface ScoutSettings {
   readonly watches: ScoutWatches
   /** A Windows notification for a card that needs the person now, when Locust is out of sight. */
   readonly notify: boolean
+  /** What the person asked Scout to keep watch for (0.815), in their own words: read into every look. */
+  readonly goal?: string
+  readonly quiet?: ScoutQuietHours
+  /** A look due while a turn the person started is running waits for it to end, at most SCOUT_WAIT_MOST_MS (0.815). */
+  readonly waitWhileWorking: boolean
 }
 
-export const DEFAULT_SCOUT_SETTINGS: ScoutSettings = { on: false, everyMinutes: 10, watches: { github: true, teammates: true }, notify: true }
+export const DEFAULT_SCOUT_SETTINGS: ScoutSettings = { on: false, everyMinutes: 10, watches: { github: true, teammates: true, check: false }, notify: true, waitWhileWorking: true }
+
+/** The longest goal kept: a few sentences, read into every look. */
+export const MAX_SCOUT_GOAL = 600
+/** A due look waits at most this long for the person's own turn to end, then looks anyway. */
+export const SCOUT_WAIT_MOST_MS = 30 * 60_000
+/** The quiet hours offered in Settings. */
+export const SCOUT_QUIET_CHOICES: readonly ScoutQuietHours[] = [{ from: 21, to: 7 }, { from: 22, to: 7 }, { from: 22, to: 8 }, { from: 23, to: 8 }, { from: 0, to: 8 }]
+
+/** Whether `at` falls in the quiet hours, by this computer's clock. */
+export function inQuietHours(quiet: ScoutQuietHours | undefined, at: Date): boolean {
+  if (quiet === undefined || quiet.from === quiet.to) return false
+  const hour = at.getHours()
+  return quiet.from < quiet.to ? hour >= quiet.from && hour < quiet.to : hour >= quiet.from || hour < quiet.to
+}
+
+/** An hour as a person reads it: "10 PM", "midnight", "7 AM". */
+export function hourWords(hour: number): string {
+  if (hour === 0) return 'midnight'
+  if (hour === 12) return 'noon'
+  return hour < 12 ? `${String(hour)} AM` : `${String(hour - 12)} PM`
+}
+
+/** What its looks used today, by this computer's clock (0.815): the looks, and how many of them asked its model. */
+export interface ScoutToday {
+  readonly day: string
+  readonly looks: number
+  readonly asked: number
+}
+
+/** A day as `today` keys it: by this computer's clock, not UTC. */
+export function scoutDay(at: Date): string {
+  return `${String(at.getFullYear())}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`
+}
 
 /** How soon the person needs it: now raises the card and, out of sight, notifies; the rest wait for Home. */
 export type ScoutUrgency = 'now' | 'soon' | 'later'
@@ -96,13 +148,18 @@ export interface ScoutState {
   readonly lastLookAt?: string
   /** Why its model did not answer the last time, when it did not: the cards came in Locust's words. */
   readonly modelSaid?: string
+  /** What its looks used today; absent before the first look of the day. */
+  readonly today?: ScoutToday
 }
+
+/** A change to Scout's settings from the window: `quiet: null` turns quiet hours off, `goal: ''` clears the goal. */
+export type ScoutChange = Partial<Pick<ScoutSettings, 'on' | 'everyMinutes' | 'watches' | 'notify' | 'goal' | 'waitWhileWorking'>> & { readonly quiet?: ScoutQuietHours | null }
 
 export interface ScoutApi {
   state(): Promise<ScoutState>
   /** Makes Scout, on this route, and starts it; on again with its teammate when it has one. */
   turnOn(route: { readonly runtime: string; readonly model: string } | undefined): Promise<ScoutState | { readonly refused: string }>
-  set(change: Partial<Pick<ScoutSettings, 'on' | 'everyMinutes' | 'watches' | 'notify'>>): Promise<ScoutState>
+  set(change: ScoutChange): Promise<ScoutState>
   dismiss(cardId: string): Promise<ScoutState>
   look(): Promise<ScoutState>
   onChanged(listener: (state: ScoutState) => void): () => void
@@ -373,9 +430,40 @@ export function failedFacts(turns: readonly FailedTurn[]): readonly ScoutFact[] 
 }
 
 /** What the look asks Scout's model: the new facts, the team, and the one form an answer takes. */
-export function scoutPrompt(input: { readonly facts: readonly ScoutFact[]; readonly team: readonly { readonly name: string; readonly role: string }[] }): string {
+/** What the folder's check said at a look (0.815): its command, whether it passed, and the end of what it printed. */
+export interface FolderCheckResult {
+  readonly command: string
+  readonly passed: boolean
+  readonly lines: readonly string[]
+}
+
+/*
+ * THE FOLDER'S CHECK (0.815): news only when it turns -- failing where it passed, or passing where it failed -- so a
+ * check that stays red is told once, and one that was never run before is told only when it fails. What it printed goes
+ * to Scout's model to read, never onto the card as Locust's claim.
+ */
+export function checkFacts(before: { readonly passed: boolean } | undefined, now: FolderCheckResult, mark: string): readonly ScoutFact[] {
+  // Keyed by where the folder stood: the check runs only when that moved, so each result is its own news.
+  if (now.passed) {
+    if (before === undefined || before.passed) return []
+    return [{ key: `check:${mark}:passes`, urgency: 'later', said: `The check ${clip(now.command, 80)} passes again.`, chips: [{ text: 'check passes', tone: 'green' }] }]
+  }
+  if (before !== undefined && !before.passed) return []
+  const first = now.lines.find((line) => line.trim().length > 0)
+  return [{
+    key: `check:${mark}:fails`,
+    urgency: 'now',
+    said: `The check ${clip(now.command, 80)} fails${before === undefined ? '' : ' since the folder changed'}${first === undefined ? '.' : `: ${clip(first, 160)}`}`,
+    ...(now.lines.length === 0 ? {} : { detail: `What it printed last:\n${now.lines.slice(-12).map((line) => clip(line, 200)).join('\n')}` }),
+    chips: [{ text: 'check fails', tone: 'red' }]
+  }]
+}
+
+export function scoutPrompt(input: { readonly facts: readonly ScoutFact[]; readonly team: readonly { readonly name: string; readonly role: string }[]; readonly goal?: string }): string {
   return [
     'You are Scout, a teammate who keeps watch for the person you work with. Locust found what is below. Use only what is below: do not use any tools, open files, run commands or change anything. Read, and write.',
+    // The person's own words for what to watch for (0.815): what a take weighs an item against.
+    ...(input.goal === undefined ? [] : [`The person asked you to keep watch for this: ${input.goal}\nSay how each item bears on it.`]),
     'What is new:',
     input.facts.map((fact, index) => `${String(index + 1)}. ${fact.said}${fact.detail === undefined ? '' : `\n   ${fact.detail}`}`).join('\n'),
     input.team.length === 0 ? 'The team: nobody else yet.' : `The team:\n${input.team.map((mate) => `- ${mate.name}, ${mate.role}`).join('\n')}`,
@@ -446,14 +534,28 @@ export function scoutSettingsFrom(value: unknown, base: ScoutSettings = DEFAULT_
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return base
   const input = value as Record<string, unknown>
   const watches = typeof input.watches === 'object' && input.watches !== null ? input.watches as Record<string, unknown> : {}
+  const goal = typeof input.goal === 'string' ? input.goal.replace(/\s+/g, ' ').trim().slice(0, MAX_SCOUT_GOAL).trim() : undefined
+  const quiet = input.quiet === null ? null : quietFrom(input.quiet)
   return {
     on: typeof input.on === 'boolean' ? input.on : base.on,
     ...(typeof input.teammateId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(input.teammateId) ? { teammateId: input.teammateId } : base.teammateId === undefined ? {} : { teammateId: base.teammateId }),
     everyMinutes: (SCOUT_EVERY_MINUTES as readonly number[]).includes(input.everyMinutes as number) ? input.everyMinutes as ScoutEvery : base.everyMinutes,
     watches: {
       github: typeof watches.github === 'boolean' ? watches.github : base.watches.github,
-      teammates: typeof watches.teammates === 'boolean' ? watches.teammates : base.watches.teammates
+      teammates: typeof watches.teammates === 'boolean' ? watches.teammates : base.watches.teammates,
+      check: typeof watches.check === 'boolean' ? watches.check : base.watches.check
     },
-    notify: typeof input.notify === 'boolean' ? input.notify : base.notify
+    notify: typeof input.notify === 'boolean' ? input.notify : base.notify,
+    waitWhileWorking: typeof input.waitWhileWorking === 'boolean' ? input.waitWhileWorking : base.waitWhileWorking,
+    ...(goal === undefined ? (base.goal === undefined ? {} : { goal: base.goal }) : goal.length === 0 ? {} : { goal }),
+    ...(quiet === null ? {} : quiet !== undefined ? { quiet } : base.quiet === undefined ? {} : { quiet: base.quiet })
   }
+}
+
+/** Quiet hours as kept: two whole hours of the day, 0 to 23, not the same; anything else is none. */
+function quietFrom(value: unknown): ScoutQuietHours | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const { from, to } = value as Record<string, unknown>
+  const hour = (one: unknown): one is number => typeof one === 'number' && Number.isInteger(one) && one >= 0 && one <= 23
+  return hour(from) && hour(to) && from !== to ? { from, to } : undefined
 }
