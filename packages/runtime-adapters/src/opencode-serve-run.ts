@@ -43,6 +43,8 @@ export interface OpenCodePermission {
 export type OpenCodePermissionReply = "once" | "always" | "reject";
 /** A reply, or a rejection with what the person said about it -- the model reads the message (0.374). */
 export type OpenCodePermissionAnswer = OpenCodePermissionReply | { readonly reply: "reject"; readonly message: string };
+/** A refusal nobody was asked about: the mode's, not the person's (0.822). */
+export const OPENCODE_REFUSED_UNASKED = "Locust refused this without asking anyone: this teammate's mode does not allow it, so nothing was run.";
 
 export interface OpenCodeServeRunOptions {
   /**
@@ -77,6 +79,12 @@ export interface OpenCodeServeRunOptions {
    * not explicitly denied". Only for a run in Auto; never with `onPermission`.
    */
   readonly approveAll?: boolean;
+  /**
+   * What a request refused with nobody asked is told (0.822): the mode's own words, such as Ask's. Absent, the
+   * refusal still says that no one was asked -- never the person's "declined", which the model repeated as "you
+   * declined the permission request" to a person who had seen no card (the 0.821 drive's Ask frame).
+   */
+  readonly refusal?: string;
   readonly signal?: AbortSignal;
   readonly now?: () => Date;
   /** Test seam. */
@@ -315,7 +323,8 @@ export function startOpenCodeServeRun(options: OpenCodeServeRunOptions): Runtime
       ...(text(asked.sessionID) !== undefined && text(asked.sessionID) !== sessionId ? { bySubagent: true } : {}),
     };
     let reply: OpenCodePermissionReply = "reject";
-    let message = "The person declined this in Locust.";
+    // Said only when a person answered; a refusal nobody was asked about says so (opencode-events reads it as refused).
+    let message = options.onPermission !== undefined ? "The person declined this in Locust." : options.refusal ?? OPENCODE_REFUSED_UNASKED;
     try {
       const answered = options.onPermission !== undefined ? await options.onPermission(permission) : options.approveAll === true ? "once" : "reject";
       if (typeof answered === "string") {

@@ -58,6 +58,20 @@ describe("an OpenCode server's permission request", () => {
       .toMatchObject({ params: { command: 'echo SERVED', locustCard: { alwaysCovers: 'anything matching “echo *”' } } })
   })
 
+  // 0.822: a person's own MCP tool asks with the pattern `*` alone, and the card said "Exact *". It names the tool,
+  // shows no exact line, and its Always still covers that tool.
+  it("names a person's own MCP tool, with no exact line where OpenCode gives no details", () => {
+    const raised: MissionApprovalRequest[] = []
+    const channel = createApprovalChannel({ emitApproval: (request) => raised.push(request), createId: () => '3' })
+    const handler = channel.requestHandlerFor({ runId: 'run_3', missionId: 'm_3', cwd: 'C:/work', changesByItem: new Map(), runtime: 'opencode' })
+    const asked = { permission: 'notes_save_note', patterns: ['*'], always: ['*'], metadata: {} }
+    void handler(openCodePermissionRequest(asked, 'C:/work'))
+    expect(raised[0]).toMatchObject({ kind: 'command', summary: 'Use notes_save_note', detail: '' })
+    expect(openCodePermissionRequest(asked, 'C:/work')).toMatchObject({ params: { command: '', locustAlwaysKey: 'opencode:notes_save_note:*', locustCard: { alwaysCovers: 'every “notes_save_note” it asks for' } } })
+    // A tool that does give a pattern keeps it.
+    expect(openCodePermissionRequest({ permission: 'notes_save_note', patterns: ['note.txt'], metadata: {} }, 'C:/work')).toMatchObject({ params: { command: 'note.txt' } })
+  })
+
   // 0.616: "for the rest of the run" is remembered by Locust, after the saved
   // rules (shared/who-decides.ts), so OpenCode is told "once" and keeps asking.
   it('reads "for the rest of the run" as once, Locust keeping the Always, and anything unclear as a refusal', () => {

@@ -9,6 +9,7 @@ import {
   openCodeToolTarget,
 } from "../src/opencode-events.js";
 import type { NormalizedRuntimeEvent } from "../src/codex-events.js";
+import { OPENCODE_REFUSED_UNASKED } from "../src/opencode-serve-run.js";
 import type { RuntimeProcessCompletion } from "../src/process-runner.js";
 
 const NOW = "2026-09-03T07:00:00.000Z";
@@ -216,6 +217,11 @@ describe("what a tool call's status means", () => {
     // mode's word -- because it lacked "in Locust" (fresh-eyes check).
     expect(openCodeToolOutcome({ status: "error", error: "The user rejected permission to use this specific tool call with the following feedback: The person declined this, and said: Keep it as hi, please." }))
       .toEqual({ failed: true, status: "declined" });
+    // 0.822: refused with nobody asked, in the mode's words, is the mode's refusal -- "1 refused", never "declined".
+    expect(openCodeToolOutcome({ status: "error", error: `The user rejected permission to use this specific tool call with the following feedback: ${OPENCODE_REFUSED_UNASKED}` }))
+      .toEqual({ failed: true, status: "refused" });
+    expect(openCodeToolOutcome({ status: "error", error: "The user rejected permission to use this specific tool call with the following feedback: Locust refused this without asking anyone: this teammate is in Ask mode, which reads and changes nothing, so nothing was run." }))
+      .toEqual({ failed: true, status: "refused" });
     for (const shape of [{ status: "pending" }, { status: "" }, {}]) {
       expect(openCodeToolOutcome(shape).failed).toBe(true);
     }

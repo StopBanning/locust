@@ -345,7 +345,9 @@ function openCodeRequestOf(permission: OpenCodeAsked, cwd: string): AppServerReq
     id: 0,
     method: 'item/commandExecution/requestApproval',
     params: {
-      command: permission.patterns.join('\n'),
+      // A tool OpenCode names without details -- a person's own MCP tool asks with the pattern `*` alone -- has nothing
+      // exact to show, and the card said "Exact *" (0.822, the 0.821 drive's frame). Left out, the card names the tool.
+      command: permission.patterns.filter((pattern) => pattern !== '*').join('\n'),
       cwd,
       locustCard: card({
         summary: `Use ${permission.permission}`,

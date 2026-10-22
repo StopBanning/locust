@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { createOpenCodeServeCommand } from "../src/commands.js";
 import { createOpenCodeEventNormalizer } from "../src/opencode-events.js";
-import { runRecordFor, startOpenCodeServeRun } from "../src/opencode-serve-run.js";
+import { OPENCODE_REFUSED_UNASKED, runRecordFor, startOpenCodeServeRun } from "../src/opencode-serve-run.js";
 import type { OpenCodePermission } from "../src/opencode-serve-run.js";
 import type { AppServerRunProcess } from "../src/codex-app-server-run.js";
 import type { NormalizedRuntimeEvent } from "../src/codex-events.js";
@@ -166,6 +166,38 @@ describe("OpenCode through its own server (A6.7)", () => {
       command: createOpenCodeServeCommand(EXECUTABLE, { workspacePath: "C:/work/pebble" }),
       prompt: "go",
       fetch: server.fetcher,
+    });
+    for await (const _record of run.records) { /* drain */ }
+    await run.completion;
+    // Never "the person declined" (0.822): nobody was asked, and the model told a person who saw no card "you declined".
+    expect(server.calls.find((call) => call.url.includes("/permission/"))?.body).toEqual({ reply: "reject", message: OPENCODE_REFUSED_UNASKED });
+    expect(OPENCODE_REFUSED_UNASKED).not.toMatch(/declined/i);
+  });
+
+  it("refuses in the mode's own words when it is given them (0.822)", async () => {
+    const server = fakeServer();
+    const refusal = "Locust refused this without asking anyone: this teammate is in Ask mode, which reads and changes nothing, so nothing was run.";
+    const run = startOpenCodeServeRun({
+      spawn: server.spawn,
+      command: createOpenCodeServeCommand(EXECUTABLE, { workspacePath: "C:/work/pebble", sandbox: "read-only" }),
+      prompt: "go",
+      fetch: server.fetcher,
+      refusal,
+    });
+    for await (const _record of run.records) { /* drain */ }
+    await run.completion;
+    expect(server.calls.find((call) => call.url.includes("/permission/"))?.body).toEqual({ reply: "reject", message: refusal });
+  });
+
+  it("still says the person declined when a person answered with no reason", async () => {
+    const server = fakeServer();
+    const run = startOpenCodeServeRun({
+      spawn: server.spawn,
+      command: createOpenCodeServeCommand(EXECUTABLE, { workspacePath: "C:/work/pebble" }),
+      prompt: "go",
+      fetch: server.fetcher,
+      onPermission: async () => "reject",
+      refusal: "never used where a person answers",
     });
     for await (const _record of run.records) { /* drain */ }
     await run.completion;

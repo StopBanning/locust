@@ -891,6 +891,16 @@ export function resumableThreadOf(prior: RecoveredMission, runtime: string): str
  * mode does -- measured with a test server, 2026-10-03. None when the person
  * asked to be asked about every one. Otherwise the named ones.
  */
+/**
+ * What OpenCode is told when Ask or Plan refuses something nobody was asked about (0.822): the mode, in the words the
+ * person sees, so the model's reply says why. The refusal used to read "The person declined this in Locust", and on
+ * the 0.821 drive the model told a person who had seen no card "you declined the permission request".
+ */
+export function openCodeReadOnlyRefusal(mode: MissionMode): string {
+  const named = mode === 'plan' ? 'Plan mode, which reads and plans' : 'Ask mode, which reads'
+  return `Locust refused this without asking anyone: this teammate is in ${named} and changes nothing, so nothing was run.`
+}
+
 /** Whether a run loads the person's connectors: only for a teammate that has one ticked (0.798). */
 export function connectorsOn(ticked: readonly string[] | undefined): boolean {
   return ticked !== undefined && ticked.length > 0
@@ -3033,6 +3043,8 @@ ${sentPrompt.trim()}`
                   await flushBeforeApproval()
                   return openCodeReplyFor(await handler(openCodePermissionRequest(asked, runCwd)))
                 } }),
+              // A refusal in Ask or Plan names the mode, so the reply says why and not "you declined" (0.822).
+              ...(handler === undefined && effectiveSandbox === 'read-only' ? { refusal: openCodeReadOnlyRefusal(mode) } : {}),
               signal: controller.signal,
               now
             })
