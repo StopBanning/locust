@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.817.0 - 2026-10-22
+
+### New
+
+- **Scout brings a weekly tune-up.** A week after Scout starts counting, its first look brings one card on Home: how many looks it made and how many needed its model, the cards it raised, and what you did with them: sent on, changed first, dismissed or left. When the week shows something worth changing, the card offers it as one button, such as Stop watching GitHub after a week in which you dismissed every GitHub card and sent none on, or Look every 30 minutes after a week that needed nothing. Nothing changes until you press it.
+
 ## 0.816.0 - 2026-10-22
 
 ### New
