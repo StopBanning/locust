@@ -1,11 +1,12 @@
 // SKILLS FOR CODEX AND OPENCODE TEAMMATES (0.813): a teammate's own skill reaches a Codex or an OpenCode run.
 //
-//   node _tools/drive-codex-and-opencode-get-their-skills.mjs [--packaged <exe>] [--tag <name>] [--codex]
+//   node _tools/drive-codex-and-opencode-get-their-skills.mjs [--packaged <exe>] [--tag <name>] [--codex] [--agy]
 //
 // A teammate's own skill (as a tune leaves it: teammate-skills/<teammate>/<name>/SKILL.md, listed in skills.json)
 // holds a word no model could guess. Cedar, on a free OpenCode model, is asked for it; then /setup says what its
 // turns are given, for Cedar and for Wren, on Codex. With --codex, Wren (gpt-6-luna, low effort, Ask) is asked too:
 // a test ABOUT Codex, so it runs on Codex and spends one short turn of its quota (LOCUST_SPEND=1 for that part only).
+// With --agy, Ash on Antigravity (flash, Ask) is asked as well, the same way and for the same reason.
 
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -17,14 +18,16 @@ const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.i
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? 'local'
 const withCodex = process.argv.includes('--codex')
+const withAgy = process.argv.includes('--agy')
 const WORD = 'MARMALADE-7'
 
 const workspace = await scratchRepository('locust-drive-skills-ws-')
 const profilePath = await mkdtemp(join(process.env.LOCUST_SCRATCH ?? tmpdir(), 'locust-drive-skills-profile-'))
 const CEDAR = { teammateId: 'tm_cedar', name: 'Cedar', hue: 'lime', role: 'Custom', roleTitle: 'Words', createdAt: '2026-10-22T05:00:00.000Z', route: { runtime: 'opencode', model: FREE_ROUTE.model, mode: 'accept-edits' } }
 const WREN = { teammateId: 'tm_wren', name: 'Wren', hue: 'blue', role: 'Custom', roleTitle: 'Words', createdAt: '2026-10-22T05:00:00.000Z', route: { runtime: 'codex', model: 'gpt-6-luna', mode: 'ask', effort: 'low' } }
+const ASH = { teammateId: 'tm_ash', name: 'Ash', hue: 'violet', role: 'Custom', roleTitle: 'Words', createdAt: '2026-10-22T05:00:00.000Z', route: { runtime: 'antigravity', model: 'flash', mode: 'ask' } }
 const SKILL = (teammate) => ({ teammateId: teammate.teammateId, name: 'probe-word', description: 'Use when someone asks for the probe word. It gives the probe word.', createdAt: '2026-10-22T05:00:00.000Z' })
-for (const teammate of [CEDAR, WREN]) {
+for (const teammate of [CEDAR, WREN, ASH]) {
   await mkdir(join(profilePath, 'teammate-skills', teammate.teammateId, 'probe-word'), { recursive: true })
   await writeFile(join(profilePath, 'teammate-skills', teammate.teammateId, 'probe-word', 'SKILL.md'), [
     '---',
@@ -36,7 +39,7 @@ for (const teammate of [CEDAR, WREN]) {
     ''
   ].join('\n'), 'utf8')
 }
-await writeFile(join(profilePath, 'teammate-skills', 'skills.json'), JSON.stringify({ schemaVersion: 1, skills: [CEDAR, WREN].map(SKILL) }), 'utf8')
+await writeFile(join(profilePath, 'teammate-skills', 'skills.json'), JSON.stringify({ schemaVersion: 1, skills: [CEDAR, WREN, ASH].map(SKILL) }), 'utf8')
 
 const drive = await startDrive({
   ...(packaged === undefined ? {} : { packaged }),
@@ -44,11 +47,11 @@ const drive = await startDrive({
   port: 9866,
   workspace,
   profilePath,
-  spends: withCodex,
+  spends: withCodex || withAgy,
   outPath: join(recordRoot('codex-and-opencode-get-their-skills-2026-10-22'), tag),
   seed: {
     schemaVersion: 1,
-    teammates: [CEDAR, WREN],
+    teammates: [CEDAR, WREN, ASH],
     missionOwners: {},
     settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
   }
@@ -103,6 +106,11 @@ try {
   }
   const wrenSetup = String(await drive.capture('/setup: what Wren’s turns are given', () => drive.evaluate(SETUP('Wren'))))
   check('Codex: /setup names its own skill and .agents/skills', /probe-word/.test(wrenSetup) && /\.agents\/skills/.test(wrenSetup) && /found by Codex( CLI)? itself/.test(wrenSetup), wrenSetup)
+  if (withAgy) {
+    await drive.evaluate(`document.querySelector('.lc-setup .lc-dialog__close')?.click()`)
+    const ash = String(await drive.capture('Ash on Antigravity is asked for the probe word', () => ask('Ash', /Antigravity/)))
+    check('Antigravity: the teammate’s own skill gave the word', ash.includes(WORD), ash)
+  }
 } catch (error) {
   failures += 1
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)

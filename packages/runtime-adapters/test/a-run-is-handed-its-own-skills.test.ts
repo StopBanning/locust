@@ -1,9 +1,13 @@
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { startCodexAppServerRun } from "../src/codex-app-server-run.js";
 import type { AppServerRunProcess } from "../src/codex-app-server-run.js";
 import {
+  createAgyPrintCommand,
   createCodexAppServerCommand,
+  createCopilotAcpCommand,
+  createCopilotPromptCommand,
   createOpenCodeRunCommand,
   createOpenCodeServeCommand,
   openCodeModeEnv,
@@ -19,6 +23,17 @@ import {
 
 const EXECUTABLE = { executablePath: "/usr/bin/codex", prefixArgs: [] as readonly string[] };
 const OPENCODE = { executablePath: "/usr/bin/opencode", prefixArgs: [] as readonly string[] };
+const COPILOT = { executablePath: "/usr/bin/copilot", prefixArgs: [] as readonly string[] };
+const AGY = { executablePath: "/usr/bin/agy", prefixArgs: [] as readonly string[] };
+const SKILLS = resolve("/locust-run-skills-abc");
+
+function pluginDirs(args: readonly string[]): string[] {
+  return args.flatMap((arg, index) => (arg === "--plugin-dir" ? [args[index + 1]!] : []));
+}
+
+function addedDirs(args: readonly string[]): string[] {
+  return args.flatMap((arg, index) => (arg === "--add-dir" ? [args[index + 1]!] : []));
+}
 
 function fakeServer() {
   const written: Array<Record<string, unknown>> = [];
@@ -121,5 +136,33 @@ describe("an OpenCode 1 run is handed its own skills", () => {
     expect(openCodeModeEnv({ sandbox: "workspace-write", skillsDir: "/profile/run-skills/abc/skills" })).not.toHaveProperty("OPENCODE_CONFIG_DIR");
     expect(createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work", skillsDir: "/profile/run-skills/abc/skills" }).env).not.toHaveProperty("OPENCODE_CONFIG_DIR");
     expect(skillsOf(openCodeModeEnv({ sandbox: "workspace-write" }))).toBeUndefined();
+  });
+});
+
+describe("a Copilot run is handed its own skills", () => {
+  it("names the run's plugin on the print route and the ACP route, beside the command guard, and nowhere when there is none", () => {
+    for (const sandbox of ["read-only", "workspace-write", "full-access"] as const) {
+      const print = createCopilotPromptCommand(COPILOT, { workspacePath: "C:/work", sandbox, prompt: "go", skillPlugin: SKILLS, guardPlugin: "C:/guard" }).args;
+      expect(pluginDirs(print)).toEqual([SKILLS, "C:/guard"]);
+    }
+    const acp = createCopilotAcpCommand(COPILOT, { workspacePath: "C:/work", skillPlugin: SKILLS, guardPlugin: "C:/guard" }).args;
+    expect(pluginDirs(acp)).toEqual([SKILLS, "C:/guard"]);
+    expect(createCopilotPromptCommand(COPILOT, { workspacePath: "C:/work", prompt: "go" }).args).not.toContain("--plugin-dir");
+    expect(createCopilotAcpCommand(COPILOT, { workspacePath: "C:/work" }).args).not.toContain("--plugin-dir");
+  });
+});
+
+describe("an Antigravity run is handed its own skills", () => {
+  it("adds the run's folder on every mode, as an absolute --add-dir, and still only lends a reference folder to a read-only run", () => {
+    for (const sandbox of ["read-only", "workspace-write", "full-access"] as const) {
+      const args = createAgyPrintCommand(AGY, { workspacePath: "C:/work", sandbox, skillWorkspace: SKILLS }).args;
+      expect(addedDirs(args)).toEqual([SKILLS]);
+    }
+    const reading = createAgyPrintCommand(AGY, { workspacePath: "C:/work", sandbox: "read-only", skillWorkspace: SKILLS, referenceFolders: ["C:/refs"] }).args;
+    expect(addedDirs(reading)).toEqual([SKILLS, "C:/refs"]);
+    const writing = createAgyPrintCommand(AGY, { workspacePath: "C:/work", sandbox: "workspace-write", skillWorkspace: SKILLS, referenceFolders: ["C:/refs"] }).args;
+    expect(addedDirs(writing)).toEqual([SKILLS]);
+    expect(createAgyPrintCommand(AGY, { workspacePath: "C:/work", sandbox: "workspace-write" }).args).not.toContain("--add-dir");
+    expect(() => createAgyPrintCommand(AGY, { workspacePath: "C:/work", skillWorkspace: "skills" })).toThrow(/absolute/);
   });
 });

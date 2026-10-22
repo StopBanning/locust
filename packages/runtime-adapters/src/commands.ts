@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 import { allowRuleFor } from "./connectors.js";
 import type { MissionSandbox, RuntimeModelHints, RuntimeModelName } from "./types.js";
 import type {
@@ -153,6 +155,13 @@ const FORBIDDEN_ARGUMENTS = new Set([
 function requireText(value: string, label: string): string {
   if (!value.trim() || value.includes("\0")) throw new Error(`${label} must be non-empty`);
   return value;
+}
+
+/** Antigravity print mode misses a relative `--add-dir` (agy 1.4.4, measured 2026-10-22). */
+function requireAbsolute(value: string, label: string): string {
+  const text = requireText(value, label);
+  if (!isAbsolute(text)) throw new Error(`${label} must be absolute`);
+  return text;
 }
 
 function scan(help: string, token: string): boolean {
@@ -493,6 +502,18 @@ export interface RuntimeCommandOptions {
    * for five minutes.
    */
   readonly skillsDir?: string;
+  /**
+   * Copilot's skills for this run (MEASURED 2026-10-22, copilot 1.0.101): one `--plugin-dir`, the run's folder.
+   * Its `.plugin/plugin.json` points `skills` at `skills/<name>/SKILL.md`. `copilot skill list` shows those beside
+   * the person's own, and nothing is installed. Not `copilot skill add`, which would keep the directory. Copilot only.
+   */
+  readonly skillPlugin?: string;
+  /**
+   * Antigravity's skills for this run (MEASURED 2026-10-22, agy 1.4.4): an absolute `--add-dir`. Print mode reads
+   * `<dir>/.agents/skills/<name>/SKILL.md`, and a one-line prompt answered with the word only that skill held. The
+   * folder was unchanged. A relative directory is not seen. Antigravity only.
+   */
+  readonly skillWorkspace?: string;
   /**
    * One of the runtime's own slash commands, typed by the person (0.427):
    * `opencode run --command <name>`, its arguments being what arrives on
@@ -1224,6 +1245,7 @@ export function createAgyPrintCommand(
 ): RuntimeCommandSpec {
   const sandbox = sandboxArgument(options.sandbox);
   const args = ["--output-format", "stream-json", "--input-format", "stream-json"];
+  if (options.skillWorkspace !== undefined) args.push("--add-dir", requireAbsolute(options.skillWorkspace, "Skills folder"));
   if (sandbox === "read-only") for (const folder of options.referenceFolders ?? []) args.push("--add-dir", requireText(folder, "Reference folder"));
   if (sandbox === "workspace-write") args.push("--mode", "accept-edits");
   if (sandbox === "full-access") args.push("--dangerously-skip-permissions");
@@ -2116,6 +2138,9 @@ export function createCopilotPromptCommand(
     args.push("--session-id", requireText(options.sessionId, "Session id"));
   }
   // No teammate ends the person's browser (0.721, main/command-guard.ts).
+  if (options.skillPlugin !== undefined) {
+    args.push("--plugin-dir", requireText(options.skillPlugin, "Skills plugin"));
+  }
   if (options.guardPlugin !== undefined) {
     args.push("--plugin-dir", requireText(options.guardPlugin, "Command guard plugin"));
   }
@@ -2150,6 +2175,9 @@ export function createCopilotAcpCommand(
     args.push("--effort", requireEffort(options.effort));
   }
   // The hook refuses before anyone is asked (MEASURED over --acp, 1.0.95).
+  if (options.skillPlugin !== undefined) {
+    args.push("--plugin-dir", requireText(options.skillPlugin, "Skills plugin"));
+  }
   if (options.guardPlugin !== undefined) {
     args.push("--plugin-dir", requireText(options.guardPlugin, "Command guard plugin"));
   }

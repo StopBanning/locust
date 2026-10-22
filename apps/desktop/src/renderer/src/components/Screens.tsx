@@ -13,6 +13,7 @@ import { ScoutSetting } from './ScoutSetting.js'
 import type { ScoutState } from '../../../shared/scout.js'
 import type { PlanRunsOut } from '../../../shared/carry-on.js'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
+import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
 import { VoiceSettings } from './VoiceSettings.js'
 import { LocustMcpSettings } from './LocustMcpSettings.js'
 import { PhoneSettings } from './PhoneSettings.js'
@@ -2914,9 +2915,9 @@ export function SettingsScreen({
               finds every skill you have, whichever way this is set.
             </p>
             <p>
-              Codex and OpenCode teammates find your own skills themselves, in .agents/skills in your home
-              folder and their own folders, as they do in your own sessions; this switch is for Claude Code.
-              All three get their own skills from a tune and the ones you keep from GitHub.
+              Codex, OpenCode, Copilot and Antigravity find your own skills themselves, in the folders they
+              already read in your own sessions; this switch is for Claude Code. {SKILL_RUNTIME_NAMES} teammates
+              get their own skills from a tune and the ones you keep from GitHub.
             </p>
           </More>
         </section>
@@ -2925,7 +2926,7 @@ export function SettingsScreen({
         <section className="lc-settings__section" data-setting="skills-from-github">
           <h2 className="lc-settings__heading">Skills from GitHub</h2>
           <p className="lc-settings__lede">
-            Keep skills from a public repository. Claude Code, Codex and OpenCode teammates get them on every run, in
+            Keep skills from a public repository. {SKILL_RUNTIME_NAMES} teammates get them on every run, in
             every mode.
           </p>
           <SkillsFromGitHub />

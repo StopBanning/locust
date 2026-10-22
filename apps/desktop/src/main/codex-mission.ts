@@ -616,9 +616,9 @@ interface CodexMissionServiceOptions {
    */
   readonly claudeSkills?: (workspacePath: string, run: { readonly auto: boolean; readonly teammateId?: string; readonly skill?: TuneSkill }) => Promise<PreparedSkills>
   /**
-   * The same for Codex and OpenCode (0.813, run-skills.ts): what lives in Locust's profile -- the teammate's own
-   * skills, a tune column's one, the ones kept from GitHub -- copied for this run. Both find the folder's skills and
-   * the person's themselves.
+   * The same for Codex, OpenCode, Copilot and Antigravity (0.813, run-skills.ts): what lives in Locust's profile --
+   * the teammate's own skills, a tune column's one, the ones kept from GitHub -- copied for this run. Each finds the
+   * folder's skills and the person's themselves.
    */
   readonly runSkills?: (run: { readonly teammateId?: string; readonly skill?: TuneSkill }) => Promise<PreparedRunSkills | undefined>
   /** Connectors a Cursor teammate can call, by name, for its briefing. */
@@ -2327,12 +2327,13 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               }).catch(() => undefined)
             : undefined
         /*
-         * SKILLS FOR CODEX AND OPENCODE (0.813, run-skills.ts): Codex on its app-server, which takes extra skill folders
-         * for its process; OpenCode in its per-run config's skills list. Not on a cloud computer, where the copy would
-         * be on the wrong machine.
+         * SKILLS FOR CODEX, OPENCODE, COPILOT AND ANTIGRAVITY (0.813, run-skills.ts): Codex on its app-server, which takes
+         * extra skill folders for its process; OpenCode in its per-run config's skills list; Copilot as one plugin
+         * directory; Antigravity as one absolute --add-dir. Not on a cloud computer, where the copy would be on the
+         * wrong machine.
          */
         const runSkills =
-          cloud === undefined && options.runSkills !== undefined && ((runtime === 'codex' && codexStreams) || runtime === 'opencode')
+          cloud === undefined && options.runSkills !== undefined && ((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')
             ? await options.runSkills({
               ...(peer?.self.teammateId === undefined ? {} : { teammateId: peer.self.teammateId }),
               ...(slot?.skill === undefined ? {} : { skill: slot.skill })
@@ -2432,7 +2433,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               workspacePath: runCwd,
               sandbox: effectiveSandbox,
               ...agyRoute(chosenModel, route.effort),
-              ...(resumeThreadId === undefined ? {} : { resumeThreadId })
+              ...(resumeThreadId === undefined ? {} : { resumeThreadId }),
+              ...(runSkills === undefined ? {} : { skillWorkspace: runSkills.dir })
             })
           }
           if (runtime === 'muse') {
@@ -2457,7 +2459,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               workspacePath: runCwd,
               ...(chosenModel === undefined || chosenModel === 'auto' ? {} : { model: chosenModel }),
               ...(chosenEffort === undefined ? {} : { effort: chosenEffort }),
-              ...(copilotGuardPlugin === undefined ? {} : { guardPlugin: copilotGuardPlugin })
+              ...(copilotGuardPlugin === undefined ? {} : { guardPlugin: copilotGuardPlugin }),
+              ...(runSkills === undefined ? {} : { skillPlugin: runSkills.dir })
             })
           }
           if (runtime === 'copilot') {
@@ -2469,7 +2472,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(chosenEffort === undefined ? {} : { effort: chosenEffort }),
               ...(resumeThreadId === undefined ? { sessionId: copilotSessionId } : { resumeThreadId }),
               ...(copilotGuardPlugin === undefined ? {} : { guardPlugin: copilotGuardPlugin }),
-              ...(browserMcp === undefined ? {} : { browserMcp })
+              ...(browserMcp === undefined ? {} : { browserMcp }),
+              ...(runSkills === undefined ? {} : { skillPlugin: runSkills.dir })
             })
           }
           return runtime === 'claude'

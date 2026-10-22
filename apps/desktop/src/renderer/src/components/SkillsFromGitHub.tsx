@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 
 import type { SkillLibraryPreview, SkillLibrarySkill, SkillLibrarySource } from '../../../shared/ipc.js'
+import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
 import { ArmedButton } from './ArmedButton.js'
 
 /**
@@ -224,7 +225,7 @@ export function SkillsFromGitHub(): ReactElement {
                     setPreview(undefined)
                     setLink('')
                     setSaid({
-                      text: `Kept ${plural(chosen.length, 'skill')} from ${preview.source}. Claude Code, Codex and OpenCode teammates get ${chosen.length === 1 ? 'it' : 'them'} from their next run.`,
+                      text: `Kept ${plural(chosen.length, 'skill')} from ${preview.source}. ${SKILL_RUNTIME_NAMES} teammates get ${chosen.length === 1 ? 'it' : 'them'} from their next run.`,
                       good: true
                     })
                   })

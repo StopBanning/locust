@@ -19,7 +19,7 @@ export interface TeammateSetup {
   readonly instructions: number
   readonly aboutYou: boolean
   readonly memory: { readonly on: boolean; readonly count: number }
-  /** Claude Code, Codex and OpenCode (0.813, shared/skill-runtimes.ts): the skills a run is handed or finds. */
+  /** Claude Code, Codex, OpenCode, Copilot and Antigravity (0.813, shared/skill-runtimes.ts): the skills a run is handed or finds. */
   readonly skills?: {
     readonly own: readonly string[]
     readonly project: number

@@ -51,12 +51,15 @@ describe('a run’s own skills folder', () => {
     expect(prepared).toBeDefined()
     expect([...prepared!.skills].sort()).toEqual(['evidence-first', 'review', 'tune-candidate'])
     expect(prepared!.skillsDir).toBe(join(prepared!.dir, 'skills'))
+    expect([...(await readdir(prepared!.dir))].sort()).toEqual(['.agents', '.plugin', 'skills'])
     expect((await readdir(prepared!.skillsDir)).sort()).toEqual(['evidence-first', 'review', 'tune-candidate'])
     // The teammate's own copy, not the library's of the same name.
     expect(await readFile(join(prepared!.skillsDir, 'evidence-first', 'SKILL.md'), 'utf8')).toContain('The teammate’s own.')
     expect(await readFile(join(prepared!.skillsDir, 'tune-candidate', 'SKILL.md'), 'utf8')).toContain('name: tune-candidate')
-    // Nothing else is in it.
-    expect(await readdir(prepared!.dir)).toEqual(['skills'])
+    // Copilot's manifest points at that same folder. Antigravity gets a copy, not a link.
+    expect(JSON.parse(await readFile(join(prepared!.dir, '.plugin', 'plugin.json'), 'utf8'))).toMatchObject({ name: 'locust-run-skills', skills: 'skills' })
+    expect([...(await readdir(join(prepared!.dir, '.agents', 'skills'))).sort()]).toEqual(['evidence-first', 'review', 'tune-candidate'])
+    expect(await readFile(join(prepared!.dir, '.agents', 'skills', 'evidence-first', 'SKILL.md'), 'utf8')).toContain('The teammate’s own.')
     await prepared!.dispose()
     await expect(lstat(prepared!.dir)).rejects.toThrow()
     await prepared!.dispose()
@@ -79,16 +82,19 @@ describe('a run’s own skills folder', () => {
     await skill(library, 'review')
     const linked = await symlink(elsewhere, join(library, 'review', 'outside'), 'junction').then(() => true, () => false)
     const prepared = await prepareRunSkills({ scratchRoot, libraryFolder: library })
-    if (linked) expect(await readdir(join(prepared!.skillsDir, 'review'))).toEqual(['SKILL.md'])
+    if (linked) {
+      expect(await readdir(join(prepared!.skillsDir, 'review'))).toEqual(['SKILL.md'])
+      expect(await readdir(join(prepared!.dir, '.agents', 'skills', 'review'))).toEqual(['SKILL.md'])
+    }
     await prepared!.dispose()
     expect(await readFile(join(elsewhere, 'precious.txt'), 'utf8')).toBe('keep me')
   })
 })
 
 describe('which agents take a skill', () => {
-  it('is Claude Code, Codex and OpenCode, and a comparison says so for any other', () => {
-    expect(['claude', 'codex', 'opencode'].every(takesSkills)).toBe(true)
-    expect(['gemini', 'cursor', 'copilot', 'antigravity', 'muse', 'acp', undefined].some(takesSkills)).toBe(false)
+  it('is Claude Code, Codex, OpenCode, Copilot and Antigravity, and a comparison says so for any other', () => {
+    expect(['claude', 'codex', 'opencode', 'copilot', 'antigravity'].every(takesSkills)).toBe(true)
+    expect(['gemini', 'cursor', 'muse', 'acp', undefined].some(takesSkills)).toBe(false)
     const asked = { name: 'review', description: 'When reviewing.', body: 'Check.' }
     expect(compareSkillRefusal([{ runtime: 'codex', model: 'gpt-6-mini', skill: asked, instructions: 'x' } as never])).toBeUndefined()
     expect(compareSkillRefusal([{ runtime: 'gemini', model: 'account-default', skill: asked, instructions: 'x' } as never])).toBe(`A skill reaches only a ${SKILL_RUNTIME_ANY} teammate for now. Nothing was started.`)
@@ -113,9 +119,11 @@ describe('OpenCode 2', () => {
 })
 
 describe('the mission service', () => {
-  it('hands the folder only to Codex on its app-server and OpenCode, never on a cloud computer, and removes it after', () => {
+  it('hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after', () => {
     const source = readFileSync(new URL('./codex-mission.ts', import.meta.url), 'utf8')
-    expect(source).toContain("((runtime === 'codex' && codexStreams) || runtime === 'opencode')")
+    expect(source).toContain("((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')")
+    expect(source).toContain('skillPlugin: runSkills.dir')
+    expect(source).toContain('skillWorkspace: runSkills.dir')
     expect(source).toContain('cloud === undefined && options.runSkills !== undefined')
     expect(source).toContain('const clear = (): void => void runSkills.dispose()')
   })

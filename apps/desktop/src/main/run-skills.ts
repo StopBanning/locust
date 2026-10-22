@@ -6,7 +6,7 @@ import { skillMarkdown, type TuneSkill } from '../shared/tune.js'
 import { skillFoldersIn } from './claude-skills.js'
 
 /**
- * SKILLS FOR CODEX AND OPENCODE TEAMMATES (0.813).
+ * SKILLS FOR CODEX, OPENCODE, COPILOT AND ANTIGRAVITY (0.813).
  *
  * Claude Code is handed a teammate's skills as plugins (claude-skills.ts). Codex and OpenCode read the same SKILL.md
  * shape from folders of their own -- the folder's `.agents/skills`, the person's `~/.agents/skills` and, for
@@ -25,9 +25,20 @@ import { skillFoldersIn } from './claude-skills.js'
  * `<run>/skills/<name>/SKILL.md`. COPIED, never linked, for claude-skills.ts's reason: removing the copy can only
  * ever remove itself. A name in more than one place is the most particular one's -- a tune column's candidate, then
  * the teammate's own, then the library's -- since the folder is flat where Claude Code's plugins name each.
+ *
+ * The same folder, MEASURED 2026-10-22, also serves two more, and nothing of the person's is written:
+ *
+ *   - Copilot CLI 1.0.101 takes it as one `--plugin-dir`. `<run>/.plugin/plugin.json` points `skills` at `skills/`,
+ *     and `copilot skill list` shows those skills beside the person's own. Nothing is installed. (`copilot skill add`
+ *     would keep the directory, so it is never run.) A prompt on this machine was refused by Copilot's policy before
+ *     a model answered; the listing is what shows the skill is seen.
+ *   - Antigravity CLI 1.4.4 takes `<run>` as an absolute `--add-dir` and reads `<run>/.agents/skills/<name>/SKILL.md`.
+ *     Print mode listed the skill, and a one-line prompt answered with the word only that skill held, in 15 seconds.
+ *     The folder was unchanged. A `.agents/skills.json` entry can point at `skills/` too; the copy is what the prompt
+ *     read. A relative `--add-dir` is not seen.
  */
 export interface PreparedRunSkills {
-  /** `<run>`: the run's own folder, holding nothing but `skills/`. */
+  /** `<run>`: Copilot's `--plugin-dir` and Antigravity's `--add-dir`. Holds `skills/`, `.plugin/` and `.agents/`. */
   readonly dir: string
   /** `<run>/skills`: Codex's extra root, OpenCode 1's `skills.paths` entry and OpenCode 2's `skills` entry. */
   readonly skillsDir: string
@@ -79,6 +90,12 @@ export async function prepareRunSkills(options: {
       await dispose()
       return undefined
     }
+    // Copilot's plugin manifest points at the folder Codex and OpenCode already read.
+    await mkdir(join(dir, '.plugin'), { recursive: true })
+    await writeFile(join(dir, '.plugin', 'plugin.json'), `${JSON.stringify({ name: 'locust-run-skills', description: 'Skills for this run.', version: '0.0.1', skills: 'skills' })}\n`)
+    // Antigravity reads this copy. It is the same files, not a link.
+    await mkdir(join(dir, '.agents'), { recursive: true })
+    await cp(skillsDir, join(dir, '.agents', 'skills'), { recursive: true })
     return { dir, skillsDir, skills: taken, dispose }
   } catch {
     await dispose()

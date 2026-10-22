@@ -697,7 +697,7 @@ const checkpoints = createCheckpoints({ root: join(app.getPath('userData'), 'che
 const turnRecords = createTurnRecords(join(app.getPath('userData'), 'checkpoints', 'turns.json'))
 /** Skills copied for each Claude run outside Auto (0.679); what a crash left is cleared at launch. */
 const claudeSkillCopies = join(app.getPath('userData'), 'claude-skills')
-/** And for each Codex and OpenCode run (0.813, run-skills.ts), cleared the same way. */
+/** And for each Codex, OpenCode, Copilot and Antigravity run (0.813, run-skills.ts), cleared the same way. */
 const runSkillCopies = join(app.getPath('userData'), 'run-skills')
 /** Skills the person kept from a GitHub repository (0.710), handed to every Claude run as the `library` plugin. */
 const skillLibrary = createSkillLibrary({ root: join(app.getPath('userData'), 'skill-library') })
@@ -2784,7 +2784,7 @@ if (!ownsSingleInstanceLock) {
           }),
           ...(run.skill === undefined ? {} : { candidate: run.skill })
         }),
-      // The same for Codex and OpenCode (0.813): the teammate's own, a tune column's one, and the ones kept from GitHub.
+      // The same for Codex, OpenCode, Copilot and Antigravity (0.813): the teammate's own, a tune column's one, and the ones kept from GitHub.
       runSkills: async (run) =>
         prepareRunSkills({
           scratchRoot: runSkillCopies,
@@ -5202,7 +5202,7 @@ if (!ownsSingleInstanceLock) {
       const teammate = (await teammates.list()).find((entry) => entry.teammateId === owner)
       if (teammate === undefined) return refuse('Open a teammate’s conversation first. Nothing was started.')
       if (teammate.route === undefined || teammate.route.runtime !== turn.metadata.runtime || teammate.route.model !== turn.metadata.model || teammate.route.account !== accountFromRoute(turn.metadata.resolvedRouteId)) return refuse('This conversation uses another model or account. Drafts were not requested; you can write the two alternatives yourself.')
-      // "What it knows" is drafted as a skill (0.811) for every agent a run can hand one to (0.813: Codex and OpenCode too).
+      // "What it knows" is drafted as a skill (0.811) for every agent a run can hand one to (0.813: Codex, OpenCode, Copilot and Antigravity too).
       return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId), { skills: takesSkills(teammate.route.runtime), runtimeName: runtimeDisplayName(teammate.route.runtime) ?? teammate.route.runtime }), 1, teammate.route)
     })
     // Note what a kept tune showed (0.810): one side turn on the teammate's own route, only when pressed.
