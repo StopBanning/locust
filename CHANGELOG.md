@@ -11,6 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.812.0 - 2026-10-22
+
+### New
+
+- **Fix until the check passes.** Settings > Project folder now has a choice under Check after edits. When it fails, Show me keeps the card and its Send button, as before. Send it back to fix, at most 1 to 5 times, hands the failure back for you. After a turn you sent, when your check fails with something new, the same teammate gets what the check printed, on the same model, and the check runs again after its fix. It stops when the check passes, when the fixes run out, when a fix changes nothing, or when all that still fails was failing before your turn, and it says why under the turn. In the conversation a fix is Locust's line, such as "npm test failed, so Locust sent it back to Wren · fix 1 of 2", never a message from you, and What Locust sent is one click away. It is off until you choose it, since each fix is one more turn. The idea comes from agent tools such as OpenCode and Aider, which hand errors straight back to the model.
+
+### Improved
+
+- **A check that still fails reads plainly.** When nothing in a failure is new, its card now says it "still fails after this turn, with nothing new in it". It used to say the check failed "the same way it did before", which was wrong when part of the failure had been fixed.
+
 ## 0.811.0 - 2026-10-22
 
 ### New
