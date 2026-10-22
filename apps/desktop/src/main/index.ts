@@ -270,7 +270,7 @@ import { createAttention, finishFrom } from './attention.js'
 import { boundedShutdown } from './bounded-shutdown.js'
 import { createPermissionHost } from './permission-host.js'
 import { codexCommandGuardConfig, otherCodexHooks, writeCommandGuard, writeCopilotCommandGuard, writeOpenCodeCommandGuard, writeOpenCode2CommandGuard } from './command-guard.js'
-import { chooseFolderCaution, isInsideDirectory, notATeammateFolder, readConfirmedFolders, readRememberedWorkspace, resolveWorkspacePath, sameFolder, WORKSPACE_ARGUMENT, writeConfirmedFolders, writeRememberedWorkspace, workspaceIdFor } from './workspace.js'
+import { isInsideDirectory, notATeammateFolder, readConfirmedFolders, readRememberedWorkspace, resolveWorkspacePath, sameFolder, WORKSPACE_ARGUMENT, writeConfirmedFolders, writeRememberedWorkspace, workspaceIdFor } from './workspace.js'
 import { createUnwrittenAnswers } from './approval-record-note.js'
 import { createRaisedApprovals } from './raised-approvals.js'
 import { createOutstandingChecks } from './outstanding-checks.js'
@@ -5100,31 +5100,22 @@ if (!ownsSingleInstanceLock) {
       if (owner === null || !fromOwnWindow(event)) {
         return { ok: false, error: { code: 'INTERNAL_ERROR', message: 'The folder request was rejected.' } } as const
       }
-      let next: string | undefined
-      for (;;) {
-        const picked = await dialog.showOpenDialog(owner, {
-          title: 'Choose the folder your teammates work in',
-          buttonLabel: 'Work here',
-          properties: ['openDirectory', 'createDirectory'],
-          defaultPath: workspaceChosen ? workspacePath : app.getPath('home')
-        })
-        next = picked.filePaths[0]
-        if (picked.canceled || next === undefined) {
-          return { ok: false, error: { code: 'CANCELLED', message: 'No folder chosen.' } } as const
-        }
-        // An agent's own settings folder, home, or Windows' own: asked, not
-        // refused (0.582, chooseFolderCaution). Launch adoption already
-        // declined these; a folder picked here had no word at all.
-        const why = notATeammateFolder(next, app.getPath('home'), process.platform, process.env.SystemRoot)
-        if (why === undefined || folderConfirmed(next)) break
-        const caution = chooseFolderCaution(next, why)
-        const answer = await dialog.showMessageBox(owner, { type: 'warning', message: caution.message, detail: caution.detail, buttons: [...caution.buttons], defaultId: 0, cancelId: 0, noLink: true })
-        // Said yes to here, so its first conversation does not ask again (0.790).
-        if (answer.response === 1) {
-          await confirmFolder(next)
-          break
-        }
+      const picked = await dialog.showOpenDialog(owner, {
+        title: 'Choose the folder your teammates work in',
+        buttonLabel: 'Work here',
+        properties: ['openDirectory', 'createDirectory'],
+        defaultPath: workspaceChosen ? workspacePath : app.getPath('home')
+      })
+      const next = picked.filePaths[0]
+      if (picked.canceled || next === undefined) {
+        return { ok: false, error: { code: 'CANCELLED', message: 'No folder chosen.' } } as const
       }
+      /*
+       * A FOLDER LIKE HOME OR .claude, PICKED HERE (0.816): no Windows dialog. It asked in a message box since 0.582;
+       * the first new conversation in such a folder has asked in the window since 0.790 -- Choose another folder, or
+       * Start here -- and that is the one place it is asked now. Colin, 2026-10-18, of the same question as a Windows
+       * dialog: "maybe make it part of the app?"
+       */
       if (isInsideDirectory(next, installDirectory, process.platform)) {
         return {
           ok: false,

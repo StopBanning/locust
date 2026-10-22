@@ -125,21 +125,6 @@ export function notATeammateFolder(
   return undefined
 }
 
-/**
- * What to ask before working in a folder chosen on purpose that is no place
- * for teammates (0.582): the launch adoption above declines such a folder
- * silently, but a folder PICKED in the window is the person's call -- Colin
- * works in his `.claude` on purpose -- so it is asked, not refused. Button 0
- * picks again (the default and the cancel); button 1 works there anyway.
- */
-export function chooseFolderCaution(folder: string, why: string): { readonly message: string; readonly detail: string; readonly buttons: readonly [string, string] } {
-  const name = folder.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? folder
-  return {
-    message: `Work in ${name}?`,
-    detail: `This is ${why}. A teammate working here reads what is in it as its project -- settings, sign-in files and saved conversations included -- and can change it. A project folder of its own is the safer place.`,
-    buttons: ['Choose another folder', 'Work here anyway']
-  }
-}
 
 /** Whether `candidate` is `directory` or somewhere under it. Case-blind on Windows, where the filesystem is. */
 export function isInsideDirectory(
