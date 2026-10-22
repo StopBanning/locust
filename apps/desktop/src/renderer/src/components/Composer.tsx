@@ -237,6 +237,8 @@ export interface ComposerProps {
   readonly hasConnectors?: boolean
   /** The teammate's connectors are off (0.798): a draft naming one says so. Absent where they are on, or not Claude Code. */
   readonly connectorsOff?: { readonly teammate: string; readonly names: readonly string[] }
+  /** A free model OpenCode no longer lists (0.819, App's droppedOffer): said over the box, with the press off it. */
+  readonly modelDropped?: { readonly text: string; readonly label: string; readonly onPress: () => void }
   readonly runtimes: readonly PublicRuntimeStatus[]
   /** Discovery asked its four times and nobody answered; the rows say NOT ANSWERING. */
   readonly runtimesGaveUp?: boolean
@@ -525,6 +527,7 @@ export function Composer({
   runtimeCommands,
   hasConnectors = false,
   connectorsOff,
+  modelDropped,
   continuationNote,
   continuation,
   workspaceName,
@@ -1732,6 +1735,14 @@ export function Composer({
             </div>
           )
         })()}
+        {/* A free model OpenCode dropped (0.819): said before the send, with the one press that moves off it. */}
+        {refusal === undefined && modelDropped !== undefined && (
+          <div className="lc-notice is-plain is-offer" role="status" aria-live="polite">
+            <Icon name="route" size={13} />
+            <span className="lc-notice__text">{modelDropped.text}</span>
+            <button type="button" className="lc-button" onClick={modelDropped.onPress}>{modelDropped.label}</button>
+          </div>
+        )}
         {refusal !== undefined && (
           <div className={`lc-notice${refusal.plain === true ? ' is-plain' : ''}`} role="status" aria-live="polite">
             {/* The shield says "refused". A note about what the host DID is

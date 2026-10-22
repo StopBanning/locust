@@ -41,6 +41,8 @@ export interface HomeTeammate {
   readonly lastWorked?: string
   /** What they are doing now (0.610): the step under way, or what they wait on you for. Shown in the role's place while they do it. */
   readonly doing?: string
+  /** On a free model OpenCode no longer lists (0.819, status.droppedFreeModel): said on the card before anyone sends. */
+  readonly dropped?: boolean
 }
 
 /**
@@ -146,8 +148,10 @@ export function HomeTeam({
                 * keeps its name, which is the whole of its route anyway.
                 */}
               {/* No fixed model: no line. A line saying so sat on every such card and told nobody anything (declutter, 0.723). */}
+              {/* A model OpenCode dropped reads amber, and its hover says what to do (0.819). */}
               {mate.route !== undefined && (
-                <span className="lc-hometeam__route" title={mate.route}>
+                <span className={`lc-hometeam__route${mate.dropped === true ? ' is-dropped' : ''}`}
+                  title={mate.dropped === true ? `OpenCode no longer offers ${mate.model ?? mate.route}. Open ${mate.name} to switch.` : mate.route}>
                   {mate.runtime !== undefined && mate.model !== undefined ? (
                     <>
                       <RuntimeMark runtime={mate.runtime} size={11} className="is-inline" />

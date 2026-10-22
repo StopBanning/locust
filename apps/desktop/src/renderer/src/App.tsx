@@ -246,7 +246,7 @@ import { PullRequestNewsBanner } from './components/PullRequestNewsBanner.js'
 import { ChangesPanel } from './components/ChangesPanel.js'
 import type { PullRequestNews } from '../../shared/pull-request.js'
 import type { SettledEntry } from './settled.js'
-import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effortAfterRouteChange, routeAfterKeep, effortIsInModelId, modelFamily, listedAsMission, modeFacts, modeRunsOn, modesFor, modeUnavailableReason, ownerToSelect, facePresenceFor, keepWhatWasKnown, runtimeOfTeammate, runtimeIsUsable, runtimeReach, teammateStatusView, startRoute, freeStartStillFree, freeStartModel, nextFreeModel, integrationOf, ACCOUNT_DEFAULT_MODEL} from './status.js'
+import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effortAfterRouteChange, routeAfterKeep, effortIsInModelId, modelFamily, listedAsMission, modeFacts, modeRunsOn, modesFor, modeUnavailableReason, ownerToSelect, facePresenceFor, keepWhatWasKnown, runtimeOfTeammate, runtimeIsUsable, runtimeReach, teammateStatusView, startRoute, freeStartStillFree, freeStartModel, nextFreeModel, droppedFreeModel, integrationOf, ACCOUNT_DEFAULT_MODEL} from './status.js'
 import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName, shownRouteLabel } from './routeName.js'
 import { restoreNoticeLine } from './backupWords.js'
 import { FeedbackDialog } from './components/FeedbackDialog.js'
@@ -5067,33 +5067,36 @@ export default function App(): ReactElement {
       setStartingRerun(false)
     }
   }
+  /** A teammate's own model set, every other part of it kept (0.763): undefined, or why it was not. */
+  const setTeammateModel = async (teammate: PublicTeammate, route: { readonly runtime: MissionRuntimeId; readonly model: string; readonly effort?: string }): Promise<string | undefined> => {
+    const bridge = window.desktop
+    if (bridge === undefined) return 'Locust is not ready. Nothing was changed.'
+    const answer = await bridge.updateTeammate({
+      teammateId: teammate.teammateId,
+      name: teammate.name,
+      hue: teammate.hue,
+      role: teammate.role,
+      ...(teammate.roleTitle === undefined ? {} : { roleTitle: teammate.roleTitle }),
+      ...(teammate.worktree === undefined ? {} : { worktree: teammate.worktree }),
+      avatar: teammate.avatar,
+      route: { runtime: route.runtime, model: route.model, mode: teammate.route?.mode ?? 'accept-edits', ...(route.effort === undefined ? {} : { effort: route.effort }) }
+    }).catch(() => undefined)
+    if (answer === undefined || !answer.ok) return answer?.ok === false ? answer.error.message : `${teammate.name}'s model could not be set. Nothing was changed.`
+    const listed = await bridge.listTeammates().catch(() => undefined)
+    if (listed?.ok === true) {
+      setTeammates(listed.data.teammates)
+      setMissionOwners(listed.data.missionOwners)
+      rememberRosterNames(listed.data)
+    }
+    return undefined
+  }
   /** A row's model, set as its teammate's own (0.763): every other part of the teammate kept as it is. */
   const useBenchmarkModel = async (teammate: PublicTeammate, row: BenchmarkRow): Promise<void> => {
-    const bridge = window.desktop
-    if (bridge === undefined) return
     setUsingBenchmarkRow(row.key)
     setBenchmarkProblem(undefined)
     try {
-      const answer = await bridge.updateTeammate({
-        teammateId: teammate.teammateId,
-        name: teammate.name,
-        hue: teammate.hue,
-        role: teammate.role,
-        ...(teammate.roleTitle === undefined ? {} : { roleTitle: teammate.roleTitle }),
-        ...(teammate.worktree === undefined ? {} : { worktree: teammate.worktree }),
-        avatar: teammate.avatar,
-        route: { runtime: row.runtime, model: row.model, mode: teammate.route?.mode ?? 'accept-edits', ...(row.effort === undefined ? {} : { effort: row.effort }) }
-      }).catch(() => undefined)
-      if (answer === undefined || !answer.ok) {
-        setBenchmarkProblem(answer?.ok === false ? answer.error.message : `${teammate.name}'s model could not be set. Nothing was changed.`)
-        return
-      }
-      const listed = await bridge.listTeammates().catch(() => undefined)
-      if (listed?.ok === true) {
-        setTeammates(listed.data.teammates)
-        setMissionOwners(listed.data.missionOwners)
-        rememberRosterNames(listed.data)
-      }
+      const problem = await setTeammateModel(teammate, { runtime: row.runtime, model: row.model, ...(row.effort === undefined ? {} : { effort: row.effort }) })
+      if (problem !== undefined) setBenchmarkProblem(problem)
     } finally {
       setUsingBenchmarkRow(undefined)
     }
@@ -6202,6 +6205,38 @@ export default function App(): ReactElement {
         const split = splitAttachments(shown.prompt)
         changeRoute({ runtime: next.runtime, model: next.id })
         setHandBack({ text: split.text, attachments: split.attachments })
+      }
+    }
+  })()
+
+  /*
+   * A FREE MODEL OPENCODE DROPPED, SAID BEFORE THE SEND (0.819, status.droppedFreeModel). A teammate saved on one
+   * failed at its next send, and was only then offered another. The chat box says so first, naming the steadiest free
+   * model listed. In a conversation with the teammate whose own model it is, the press moves the teammate too, as a
+   * benchmark row's does (0.763), so the next conversation with them does not meet it again. Nothing is sent.
+   */
+  const [droppedProblem, setDroppedProblem] = useState<{ readonly model: string; readonly text: string }>()
+  // And on their cards, Home's and Team's, before anyone opens them.
+  const droppedTeammates = useMemo(() => new Set(teammates.filter((mate) => mate.route !== undefined && droppedFreeModel(mate.route, models)).map((mate) => mate.teammateId)), [teammates, models])
+  const droppedOffer = ((): { readonly text: string; readonly label: string; readonly onPress: () => void } | undefined => {
+    const dropped = composerRoute.model
+    if (limitOffer !== undefined || dropped === undefined || !droppedFreeModel(composerRoute, models)) return undefined
+    const start = freeStartModel(composerRoute.runtime, models, freeAnswered, freeDown)
+    if (start === undefined) return undefined
+    const runtime = composerRoute.runtime
+    const teammate = pickedTeammate?.route?.runtime === runtime && pickedTeammate.route.model === dropped ? pickedTeammate : undefined
+    const next = modelDisplayName(runtime, start)
+    return {
+      text: droppedProblem?.model === dropped ? droppedProblem.text : `OpenCode no longer offers ${modelDisplayName(runtime, dropped)}.`,
+      label: teammate === undefined ? `Switch to ${next}` : `Switch ${teammate.name} to ${next}`,
+      onPress: () => {
+        setDroppedProblem(undefined)
+        if (teammate === undefined) { changeRoute({ runtime, model: start }); return }
+        // The teammate first: if that is refused, the box stays where it is and says why.
+        void setTeammateModel(teammate, { runtime, model: start }).then((problem) => {
+          if (problem === undefined) changeRoute({ runtime, model: start })
+          else setDroppedProblem({ model: dropped, text: problem })
+        })
       }
     }
   })()
@@ -9123,6 +9158,7 @@ export default function App(): ReactElement {
             />
           ) : screen === 'teammates' ? (
             <TeammatesScreen
+              droppedTeammates={droppedTeammates}
               onShareTeam={() => setSharingTeam(true)}
               onAddTeamFromCard={() => addTeamFromCard()}
               {...(teamNotice === undefined ? {} : { teamNotice })}
@@ -9636,6 +9672,8 @@ export default function App(): ReactElement {
                   avatar: mate.avatar,
                   role: roleLabelOf(mate),
                   ...(mate.route === undefined ? {} : homeRouteOf(mate.route, resolvedModels, models)),
+                  // On a free model OpenCode no longer lists (0.819): the card says so before anyone sends.
+                  ...(droppedTeammates.has(mate.teammateId) ? { dropped: true } : {}),
                   working: [...runs.values()].some((run) => liveRunIsActive(run) && ownerOf(run) === mate.teammateId),
                   // Where they stand, beside the name (0.606): the sidebar face's own fact, worded for the card. Idle says nothing (0.609); what they last did is the card's hover.
                   // And nothing until the agents have been looked for: before that every teammate reads as blocked.
@@ -10366,6 +10404,8 @@ export default function App(): ReactElement {
             {...(composerRoute.runtime === 'claude' && pickedTeammate !== undefined && (pickedTeammate.connectors ?? []).length === 0 && connectorList !== undefined && connectorList.length > 0
               ? { connectorsOff: { teammate: pickedTeammate.name, names: connectorList.map((connector) => connector.name) } }
               : {})}
+            // A free model OpenCode dropped, said before the send, with the one press that moves off it (0.819).
+            {...(droppedOffer === undefined ? {} : { modelDropped: droppedOffer })}
             // Said before the send: a reply on another runtime continues
             // from the stopped run's checkpoint, not from its memory.
             continuationNote={continuationNote ?? newConversationNote}

@@ -7275,6 +7275,12 @@ textarea {
   color: var(--lc-text-muted);
 }
 
+/* A free model OpenCode no longer lists (0.819): the card says so before anyone sends, on Home and on Team. */
+.lc-hometeam__route.is-dropped,
+.lc-rostercard__model.is-dropped {
+  color: var(--lc-amber-text);
+}
+
 /* The way in, said only where the pointer is. */
 .lc-hometeam__go {
   display: grid;
@@ -8358,6 +8364,21 @@ textarea {
   border-color: var(--lc-border-card);
   background: transparent;
   color: var(--lc-text-muted);
+}
+
+/* A notice with its one way out (0.819, a free model OpenCode dropped): the sentence takes the room, the button its own. */
+.lc-notice.is-offer {
+  flex-wrap: wrap;
+}
+
+.lc-notice.is-offer .lc-notice__text {
+  flex: 1 1 16em;
+  min-width: 0;
+}
+
+.lc-notice.is-offer .lc-button {
+  height: 28px;
+  flex: none;
 }
 
 .lc-composer form {

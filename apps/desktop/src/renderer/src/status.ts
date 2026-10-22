@@ -1866,6 +1866,20 @@ const NONE_DOWN: ReadonlySet<string> = new Set()
 // OpenCode's free models, steadiest first (0.712): kept in shared/free-models.ts since 0.756, where Scout reads it too.
 export { FREE_MODELS_BEST_FIRST }
 
+/**
+ * A FREE MODEL OPENCODE NO LONGER LISTS (0.819). OpenCode drops free models on its own clock -- Ling, then Space Bunny
+ * and LongCat by 2026-10-22 -- and a teammate saved on one failed at its next send, "Model not found", before Locust
+ * offered another. Once the catalogue has been read, a free model of the free-start runtime that it no longer lists,
+ * or that failed here as retired (`models` is the window's list less those), is known before the send.
+ *
+ * False before the catalogue is read, and for every other route: a paid model, or one of the person's own, is theirs.
+ */
+export function droppedFreeModel(route: { readonly runtime: string; readonly model?: string }, models: readonly PublicModel[]): boolean {
+  if (route.runtime !== FREE_START_RUNTIME || route.model === undefined || !/^opencode\/.+-free$/.test(route.model)) return false
+  const listed = freeModelsBestFirst(models)
+  return listed.length > 0 && !listed.some((model) => model.id === route.model)
+}
+
 /** The listed free models of the free-start runtime, FREE_MODELS_BEST_FIRST's first, then the rest as listed. */
 export function freeModelsBestFirst(models: readonly PublicModel[]): readonly PublicModel[] {
   const rank = (id: string): number => {

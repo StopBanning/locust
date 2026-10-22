@@ -104,7 +104,9 @@ const sendAnswering = `(async () => {
     await new Promise((r) => setTimeout(r, 400))
     const approval = document.querySelector('[role=group][aria-label="Approval required"]')
     if (approval) {
-      await new Promise((r) => setTimeout(r, 300))
+      // A new card takes no approval for its first half second (ApprovalCard, FRESH_CARD_MS): clicked at 300 ms, the
+      // press was dropped and the same card read twice (the 0.818 drive's six cards for three commands).
+      await new Promise((r) => setTimeout(r, 700))
       cards.push((approval.querySelector('.lc-approval__detail')?.innerText ?? approval.innerText).split(/\\s+/).join(' ').slice(0, 90))
       const button = [...approval.querySelectorAll('button')].find((b) => /^Approve once/.test(b.innerText.trim()))
       if (!button) break

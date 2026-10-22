@@ -603,8 +603,11 @@ export function TeammatesScreen({
   teamNotice,
   finishedUnseen,
   runningMissionIds,
-  needsYou = []
+  needsYou = [],
+  droppedTeammates
 }: {
+  /** Teammates on a free model OpenCode no longer lists (0.819, status.droppedFreeModel): said on their cards. */
+  readonly droppedTeammates?: ReadonlySet<string>
   /**
    * Missions with a live run in this window. The record calls a mission that
    * has not ended `interrupted` -- it has no word for running -- so a live job
@@ -731,7 +734,9 @@ export function TeammatesScreen({
         {/* No fixed model: no row. A row saying so sat on every such card and said nothing (declutter, 0.723). */}
         {teammate.route !== undefined && (
           <div className="lc-rostercard__route lc-mono">
-            <span className="lc-rostercard__model">
+            {/* A free model OpenCode dropped reads amber, and its hover says what to do (0.819), as on Home. */}
+            <span className={`lc-rostercard__model${droppedTeammates?.has(teammate.teammateId) === true ? ' is-dropped' : ''}`}
+              {...(droppedTeammates?.has(teammate.teammateId) === true ? { title: `OpenCode no longer offers ${routeModelName(teammate.route.runtime, teammate.route.model)}. Message ${teammate.name} to switch.` } : {})}>
               {!isOwnRoute(teammate.route.model) && <RuntimeMark runtime={teammate.route.runtime} size={12} className="is-inline" />}
               {routeChrome(teammate.route.runtime, teammate.route.model, routeModelName(teammate.route.runtime, teammate.route.model))}
             </span>

@@ -41,7 +41,10 @@ const CHOOSE = `async (label, option) => {
   if (!box) throw new Error('No dropdown: ' + label)
   box.click()
   await new Promise((r) => setTimeout(r, 250))
-  const item = [...document.querySelectorAll('[role=option]')].find((one) => one.innerText.trim() === option)
+  // Its own list: every dropdown keeps its closed list in the page, hidden, so the first "Choice" anywhere was the
+  // first input's, and pressing it changed that one (the 0.818 drive).
+  const list = document.getElementById(box.getAttribute('aria-controls') ?? '')
+  const item = [...(list?.querySelectorAll('[role=option]') ?? [])].find((one) => one.textContent.trim() === option)
   if (!item) throw new Error('No option ' + option + ' in ' + label)
   item.click()
   await new Promise((r) => setTimeout(r, 250))

@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.819.0 - 2026-10-22
+
+### Improved
+
+- **A teammate on a free model OpenCode dropped is told before you send.** OpenCode retires free models on its own schedule, and a teammate saved on one used to fail at its next message with "Model not found". Now its model reads amber on Home and on the Team screen, and its conversation says "OpenCode no longer offers ..." over the chat box, with one button that moves the teammate to the steadiest free model OpenCode lists. Nothing is sent until you send.
+
 ## 0.818.0 - 2026-10-22
 
 ### Fixed
