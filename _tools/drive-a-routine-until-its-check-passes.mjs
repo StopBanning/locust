@@ -93,13 +93,21 @@ try {
     }
     return 'never finished'
   })()`)))
+  // The fix turn is Locust's line (0.813, CheckFixLine), never a message from the person; what it sent is opened to read.
   const thread = String(await drive.capture('the conversation: the step, the failed check, the fix', () => drive.evaluate(`(async () => {
     ;[...document.querySelectorAll('.lc-convrow button.lc-conv')][0]?.click()
     await new Promise((r) => setTimeout(r, 1500))
-    return document.querySelector('.lc-thread')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''
+    const sent = document.querySelector('.lc-thread .lc-checkfixline details')
+    if (sent) { sent.querySelector('summary').click(); await new Promise((r) => setTimeout(r, 400)) }
+    return JSON.stringify({
+      bubbles: [...document.querySelectorAll('.lc-thread .lc-bubble')].map((bubble) => bubble.innerText.replace(/\\s+/g, ' ').trim()),
+      text: document.querySelector('.lc-thread')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''
+    })
   })()`)))
-  check('the first check failed and the same teammate was asked to fix what it printed', /The check `node check\.js` failed after the work above \(fix 1 of 2\)/.test(thread) && /answer\.txt must say exactly 42, and it says 41/.test(thread), thread.slice(-900))
-  check('it passed after the fix, and the conversation says so', /finished: the check `node check\.js` passed after 1 fix/.test(thread), thread.slice(-500))
+  const shown = JSON.parse(thread)
+  check('the first check failed and the same teammate was asked to fix what it printed, as Locust’s line', /node check\.js failed, so Locust sent it back to Cedar · fix 1 of 2/.test(shown.text) && /The check `node check\.js` failed after the work above \(fix 1 of 2\)/.test(shown.text) && /answer\.txt must say exactly 42, and it says 41/.test(shown.text), shown.text.slice(-900))
+  check('the fix is never drawn as the person’s message', !shown.bubbles.some((bubble) => /failed after the work above/.test(bubble)), JSON.stringify(shown.bubbles))
+  check('it passed after the fix, and the conversation says so', /finished: the check `node check\.js` passed after 1 fix/.test(shown.text), shown.text.slice(-500))
   check('the passing answer waits on the card, in its copy', /^waiting: /.test(ran) && /answer\.txt/.test(ran), ran)
   check('and the folder has no answer.txt until Keep', !(await stat(join(workspace, 'answer.txt')).then(() => true, () => false)))
   const kept = String(await drive.evaluate(`(async () => {
