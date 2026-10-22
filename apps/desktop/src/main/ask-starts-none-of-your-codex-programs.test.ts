@@ -3,10 +3,9 @@ import { codexReadOnlyThreadConfig, codexSealedThreadConfig } from './codex-read
 
 /*
  * 0.824. MEASURED 2026-10-22 on Codex 0.163.0 under Locust's Ask (read-only, approval never): a tool marked
- * `readOnlyHint: true` that wrote a file ran without asking and wrote it, and with its shell off Codex ran a command
- * through the person's node_repl; with `mcp_servers.<name>.enabled = false` neither tool was there. So Ask and Plan
- * switch off, for the turn only, every server the person's Codex runs as a program, its plugins, and its own browser
- * and computer use.
+ * `readOnlyHint: true` that wrote a file ran without asking and wrote it; with `mcp_servers.<name>.enabled = false`
+ * the tool was not there. So Ask and Plan switch off, for the turn only, every server the person's Codex runs as a
+ * program, its plugins, and its own browser and computer use.
  */
 const OFF = {
   'features.plugins': false,
@@ -57,7 +56,7 @@ describe('Ask and Plan start none of the programs your Codex runs as MCP servers
 /*
  * A SEALED LOOK (0.824, Scout; Grok's review #4): no tool at all. MEASURED 2026-10-22 with these switches, asked to read
  * a file and search the web "by any means": "I could do neither". Without `features.apps` it had searched through
- * ChatGPT's apps.
+ * ChatGPT's apps, and with only its shell off it had read the file through node_repl.
  */
 describe('a sealed run is started with no tool', () => {
   it('adds no shell, no web search and no ChatGPT apps, and switches off every server, connectors too', () => {

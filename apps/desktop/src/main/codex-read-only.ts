@@ -7,16 +7,15 @@ import type { JsonValue } from '@teammate/runtime-adapters'
  * brought in for one run by `-c` overrides, so nobody's config.toml was touched: a tool that writes a file was refused
  * ("MCP tool call requires approval, but approval policy is never"), but the same tool marked `readOnlyHint: true`
  * ran without asking and wrote it. Codex takes a server's word for which of its tools only read, and a server this
- * computer runs as a program is outside Codex's sandbox. The same day, told to run a command with its shell switched
- * off, Codex ran it through Colin's node_repl instead (`spawnSync('cmd.exe', ...)` from its `js` tool), outside the
- * sandbox and unasked. With `mcp_servers.<name>.enabled = false` for the run, the tool was not there.
+ * computer runs as a program is outside Codex's sandbox. With `mcp_servers.<name>.enabled = false` for the run, the
+ * tool was not there and nothing was written. (Codex's own node_repl is not such a hole: told to write with it under
+ * the same policy, its `js` tool answered "EPERM: operation not permitted".)
  *
  * So a read-only thread starts none of them: each server in the person's own settings that runs as a program is
- * switched off by name, `features.plugins` off takes every server a plugin brings, whatever its name, and Codex's own
- * browser and computer use go too, which act outside the sandbox as well (the voice call's switches,
- * voiceThreadConfig). A server reached at an address -- a connector, a service somewhere else -- stays as their Codex
- * has it: Codex runs the tools it says only read, and refuses the rest. Read from `config/read`, which starts nothing,
- * as the voice call does.
+ * switched off by name, and `features.plugins` off takes every server a plugin brings, whatever its name. Codex's own
+ * browser and computer use go too, as in a voice call (voiceThreadConfig): both act on things outside the folder. A
+ * server reached at an address -- a connector, a service somewhere else -- stays as their Codex has it: Codex runs the
+ * tools it says only read, and refuses the rest. Read from `config/read`, which starts nothing, as the voice call does.
  *
  * Refused, rather than started with something left on, when the settings do not read as settings or a name cannot be
  * written as a key.
@@ -43,7 +42,7 @@ export function codexReadOnlyThreadConfig(settings: unknown, options: { readonly
      * SEALED (0.824, Scout's look): no tool at all. MEASURED 2026-10-22 on Codex 0.163.0, with these and the person's
      * node_repl off for one run, asked to read a file and search the web "by any means": "I could do neither: no
      * file-reading or web-search tool is available in this session." Without `features.apps` it had searched through
-     * ChatGPT's apps (`search_service.web_run`), and without node_repl off it had run the command there.
+     * ChatGPT's apps (`search_service.web_run`), and with only its shell off it had read the file through node_repl.
      */
     ...(sealed ? { 'features.apps': false, 'features.shell_tool': false, web_search: 'disabled' } : {})
   }
