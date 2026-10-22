@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
-  MAX_SCOUT_GOAL, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
+  MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
   type ScoutApi, type ScoutEvery, type ScoutQuietHours, type ScoutState, type ScoutWatches
 } from '../../../shared/scout.js'
 import { ago } from './ScoutCards.js'
@@ -122,7 +122,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
       <div className="lc-settingline lc-settingline--sub lc-scout__goalline">
         <div className="lc-settingline__text">
           <h3 className="lc-settings__heading">{`Scout’s notes${(state.notes?.length ?? 0) === 0 ? '' : ` · ${String(state.notes?.length ?? 0)}`}`}</h3>
-          <p className="lc-settings__lede">What Scout keeps from its looks, one line each, and reads on every look. Change or clear them here.</p>
+          <p className="lc-settings__lede">{`What Scout keeps from its looks, one line each, and reads on every look. Change or clear them here. It keeps the newest ${String(MAX_SCOUT_NOTES)} lines, each up to ${String(MAX_SCOUT_NOTE)} characters.`}</p>
           <textarea className="lc-input lc-scout__goal" aria-label="Scout’s notes" disabled={busy} rows={4}
             placeholder="Nothing yet. A look that learns something worth keeping adds a line here."
             value={notes ?? savedNotes}

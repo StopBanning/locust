@@ -18,6 +18,8 @@ heading: the home screen then shows it once, as a splash.
 - **Ask and Plan on Codex start none of the programs your Codex runs as MCP servers.** Such a server runs outside Codex's read-only sandbox, and Codex ran its tools without asking whenever the server said they only read: measured, a tool that wrote a file while saying so wrote it in Ask. Locust now switches off, for that turn only, every MCP server your Codex runs as a program and every plugin's, and Codex's own browser and computer use, which act on things outside the folder. Your Codex settings are not changed. Connectors reached at an address stay, and Codex still runs only their tools that say they read. If Locust cannot read your Codex settings, the turn does not start, and says why.
 - **Ask and Plan on Copilot leave your own MCP servers off.** Copilot's Ask allowed every tool it was not told to refuse, an MCP server's among them. Locust now tells Copilot to leave off every server in your Copilot settings in these modes.
 - **Scout reads only what it is given.** Scout's look reads other people's words, like pull request titles, check output and comments, and it ran as an ordinary Ask turn, which on OpenCode could read files and fetch web pages. It now runs sealed: no tools on OpenCode or Codex, and no memory brief, browser or skills on any model.
+- **Scout counts a look on the day it began.** A look that started just before midnight and asked its model just after it counted that turn on the new day, beside no look at all.
+- **Scout's notes say how many it keeps.** Settings now says it keeps the newest 40 lines, each up to 240 characters. Longer notes were cut without a word.
 
 ## 0.823.0 - 2026-10-22
 

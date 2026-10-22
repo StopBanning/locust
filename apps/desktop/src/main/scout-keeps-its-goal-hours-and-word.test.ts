@@ -324,4 +324,22 @@ describe('what today used', () => {
     await h.scout.look()
     expect((await h.scout.state()).today).toMatchObject({ looks: 1, asked: 0 })
   })
+
+  // Grok's review of 0.823: a look from 11:59 PM whose turn started after midnight counted "1 asked" on a day with no
+  // look, and the day before lost it.
+  it('counts a look’s model turn on the day the look began, when its turn starts after midnight (0.824)', async () => {
+    let pastMidnight = (): void => undefined
+    let n = 0
+    const h = await harness({ ask: async () => { n += 1; pastMidnight(); return { missionId: `look_${String(n)}`, runId: `run_${String(n)}` } } })
+    await h.scout.turnOn(ROUTE)
+    h.tick((9 * 60 * 60 + 59 * 60 + 50) * 1000)
+    h.setGithub({ prs: [failing()], reviews: [] })
+    pastMidnight = () => h.tick(20_000)
+    await h.scout.look()
+    // 00:00:10 now: the look and its turn both belong to the 22nd, and the 23rd has nothing yet.
+    expect((await h.scout.state()).today).toBeUndefined()
+    pastMidnight = () => undefined
+    h.tick(-20_000)
+    expect((await h.scout.state()).today).toMatchObject({ day: '2026-10-22', asked: 1 })
+  })
 })

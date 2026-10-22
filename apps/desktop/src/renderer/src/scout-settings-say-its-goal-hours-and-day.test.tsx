@@ -32,6 +32,8 @@ describe('Scout’s settings', () => {
     expect(html).toContain('Scout’s notes · 2')
     expect(html).toContain('The person merges on Fridays\n2026-10-22: Wren owns the Mac build.</textarea>')
     expect(draw(on())).toContain('placeholder="Nothing yet. A look that learns something worth keeping adds a line here."')
+    // Grok's review of 0.823: notes past the limit were cut without a word. The limit is said beside them.
+    expect(html).toContain('It keeps the newest 40 lines, each up to 240 characters.')
   })
 
   it('offer the folder’s check only once the folder has a check command, and say which', () => {

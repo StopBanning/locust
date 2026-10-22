@@ -203,6 +203,8 @@ interface PendingLook {
   readonly team: readonly ScoutTeammate[]
   readonly runId: string
   readonly tried: readonly string[]
+  /** When the look began: its model turn is counted on that day, not the one its turn started on (0.824). */
+  readonly at: Date
   readonly expires: unknown
 }
 
@@ -548,7 +550,7 @@ export function createScout(deps: ScoutDeps) {
         ...(state.settings.goal === undefined ? {} : { goal: state.settings.goal }),
         ...(kept === undefined || kept.notes.length === 0 ? {} : { notes: kept.notes })
       })
-      state = await askFor({ teammateId, prompt, cardIds: asked.map((card) => card.cardId), team, tried: [] }) ?? state
+      state = await askFor({ teammateId, prompt, cardIds: asked.map((card) => card.cardId), team, tried: [], at }) ?? state
       return state
     } finally {
       looking = false
@@ -570,7 +572,9 @@ export function createScout(deps: ScoutDeps) {
     }
     const expires = later(() => { void gaveUp(asked.missionId, 'Scout’s model took too long to answer.') }, deps.answerWaitMs ?? ANSWER_WAIT_MS)
     pending.set(asked.missionId, { ...look, runId: asked.runId, expires })
-    return mutate((latest) => ({ ...latest, lookIds: [...latest.lookIds, asked.missionId].slice(-MAX_LOOK_IDS), today: counted(latest.today, now(), 'asked'), week: weekCounted(latest.week, now(), 'asked') }))
+    // On the day the look began (Grok's review): a look from 11:59 PM that asks after midnight counted a turn of its
+    // model on a day with no look.
+    return mutate((latest) => ({ ...latest, lookIds: [...latest.lookIds, asked.missionId].slice(-MAX_LOOK_IDS), today: counted(latest.today, look.at, 'asked'), week: weekCounted(latest.week, look.at, 'asked') }))
   }
 
   /*
