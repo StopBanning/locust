@@ -3,7 +3,7 @@
 //   node _tools/drive-a-message-that-names-its-project-starts-there.mjs [--packaged <Locust.exe>]
 //
 // Colin, 2026-10-22, on handing work to his teammates: "its honestly a pain to have to switch it to some random
-// fucking folder everytime so i just ignore you and send them the handoff". The window's folder is a new, empty folder
+// folder everytime so i just ignore you and send them the handoff". The window's folder is a new, empty folder
 // inside ~/.config (one where agents keep their own settings, like .claude). A repository `garden` with a worktree
 // `pea`, and an unrelated repository `orchard`, sit in a temporary folder. Then:
 //   1. "Read <pea>\docs\BRIEF.md ..." starts in pea, with no folder question, and the conversation says so.

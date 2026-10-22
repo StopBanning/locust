@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path'
 
 /*
  * A MESSAGE THAT NAMES ITS PROJECT STARTS THERE (0.814). Colin, 2026-10-22, on handing work to his teammates: "its
- * honestly a pain to have to switch it to some random fucking folder everytime so i just ignore you and send them the
+ * honestly a pain to have to switch it to some random folder everytime so i just ignore you and send them the
  * handoff". So the handoffs ran in .claude, the window's folder, while the work they named sat in a project.
  *
  * A new conversation whose message names a file or folder inside a project -- a folder holding `.git`, a checkout --
