@@ -112,6 +112,9 @@ describe('what the panel says a run may do', () => {
     const readOnly = createCopilotPromptCommand(launch('copilot'), options('read-only'))
     expect(readOnly.args).toContain('--deny-tool=write,shell')
     expect(said('copilot', 'read-only')).toContain('deny running commands')
+    // 0.824: and none of the MCP servers in the person's Copilot settings.
+    expect(createCopilotPromptCommand(launch('copilot'), { ...options('read-only'), copilotMcpServersOff: ['notes'] }).args).toContain('--disable-mcp-server')
+    expect(said('copilot', 'read-only')).toContain('deny starting the MCP servers in your Copilot settings')
     const edit = createCopilotPromptCommand(launch('copilot'), options('workspace-write'))
     expect(edit.args.join(' ')).not.toMatch(/--deny-tool|--allow-all-paths/)
     expect(said('copilot', 'workspace-write')).toEqual(expect.arrayContaining(['allow run commands, which can reach anything your account can', 'deny opening files outside this folder, other than by running a command']))

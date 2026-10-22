@@ -142,7 +142,8 @@ export function whatItMayDo(runtime: MissionRuntimeId, sandbox: MissionSandbox, 
       // (_tools/probe-web-search-each-runtime.mjs), every mode fetched
       // releases.electronjs.org.
       if (sandbox === 'full-access') return rows(ANY_COMMAND, THE_WEB)
-      if (sandbox === 'read-only') return rows(NO_COMMANDS, THE_WEB)
+      // Read-only also leaves off every MCP server in the person's own Copilot settings (0.824, --disable-mcp-server).
+      if (sandbox === 'read-only') return rows(NO_COMMANDS, THE_WEB, { verdict: 'deny', text: 'starting the MCP servers in your Copilot settings' })
       return rows(OPEN_COMMANDS, THE_WEB, NOT_OUTSIDE)
     case 'acp':
       // An agent the person added (0.777) runs only in Approve each, and Locust offers it no files and no terminal of

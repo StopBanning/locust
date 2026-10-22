@@ -691,6 +691,8 @@ interface CodexMissionServiceOptions {
    * undefined when it could not be written, and runs go without it.
    */
   readonly copilotCommandGuard?: () => Promise<string | undefined>
+  /** The MCP servers in the person's own Copilot settings, which Ask and Plan on Copilot start none of (0.824). */
+  readonly copilotMcpServers?: () => Promise<readonly string[]>
   /**
    * The same guard for every OpenCode run and server (0.722,
    * `writeOpenCodeCommandGuard`): the plugin file's URL its config names;
@@ -2285,6 +2287,9 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         // A cloud turn's guard is the computer it runs on (cloud-computer.ts): the guards below name files on this one.
         const commandGuardPath = runtime === 'claude' && cloud === undefined ? await options.commandGuard?.() : undefined
         const copilotGuardPlugin = runtime === 'copilot' ? await options.copilotCommandGuard?.().catch(() => undefined) : undefined
+        const copilotMcpServersOff = runtime === 'copilot' && effectiveSandbox === 'read-only'
+          ? await options.copilotMcpServers?.().catch(() => undefined)
+          : undefined
         // A cloud turn's guard is the computer it runs on: nothing there reaches GitHub (cloud-computer.ts).
         const openCodeGuardPlugin = runtime === 'opencode' && cloud === undefined
           ? await (opencodeAcp ? options.openCode2CommandGuard?.() : options.openCodeCommandGuard?.())?.catch(() => undefined)
@@ -2506,6 +2511,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(chosenEffort === undefined ? {} : { effort: chosenEffort }),
               ...(resumeThreadId === undefined ? { sessionId: copilotSessionId } : { resumeThreadId }),
               ...(copilotGuardPlugin === undefined ? {} : { guardPlugin: copilotGuardPlugin }),
+              ...(copilotMcpServersOff === undefined || copilotMcpServersOff.length === 0 ? {} : { copilotMcpServersOff }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
               ...(runSkills === undefined ? {} : { skillPlugin: runSkills.dir })
             })

@@ -1446,6 +1446,26 @@ describe('runtime selection', () => {
     expect(guard).toHaveBeenCalledTimes(1)
   })
 
+  it('starts none of the MCP servers in the person’s Copilot settings in Ask, and asks for them only there (0.824)', async () => {
+    const start = vi.fn((_spec, _prompt, _options): RuntimeProcessRun => ({ records: records([]), completion: Promise.resolve(completion()) })) satisfies RuntimeProcessRunner['start']
+    const servers = vi.fn(async () => ['notes', 'robinhood-trading'] as const)
+    const service = createCodexMissionService({
+      workspacePath: WORKSPACE,
+      discover: async () => [{ ...codexRuntime(), id: 'copilot', displayName: 'Copilot CLI', optional: true }],
+      runner: { start },
+      ledger: fakeLedger(),
+      createId: (() => { let n = 0; return () => String(++n) })(),
+      now: () => new Date(NOW),
+      schedule: () => undefined,
+      copilotMcpServers: servers
+    })
+    await service.start('Say hi.', 'copilot', 'ask', {}, () => undefined)
+    expect(start.mock.calls[0]?.[0]?.args.join(' ')).toContain('--disable-mcp-server notes --disable-mcp-server robinhood-trading')
+    await service.start('Change it.', 'copilot', 'accept-edits', {}, () => undefined)
+    expect(start.mock.calls[1]?.[0]?.args).not.toContain('--disable-mcp-server')
+    expect(servers).toHaveBeenCalledTimes(1)
+  })
+
   it('lets a Cursor mission edit when asked, and never forces its commands', async () => {
     const { service, start } = serviceWith([{ ...codexRuntime(), id: 'cursor', displayName: 'Cursor Agent', optional: true }])
     await service.start('Do work.', 'cursor', 'accept-edits', {}, () => undefined)

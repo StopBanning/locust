@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { readRuntimeSetup } from './runtime-setup.js'
+import { copilotMcpServerNames, readRuntimeSetup } from './runtime-setup.js'
 
 /** A fake disk: paths that exist map to text; anything else is ENOENT. */
 function disk(files: Readonly<Record<string, string>>) {
@@ -101,6 +101,14 @@ describe("what each runtime has set up for itself", () => {
     expect(setup.claude?.unreadable.map((p) => p.replace(/\\/g, '/'))).toEqual(['C:/Users/colin/.claude/settings.json'])
     expect(setup.cursor?.unreadable.map((p) => p.replace(/\\/g, '/'))).toEqual(['C:/Users/colin/.cursor/mcp.json'])
     expect(setup.codex).toEqual({ mcpServers: [], hooks: [], skills: [], agents: [], sources: [], unreadable: [] })
+  })
+
+  // 0.824: the names an Ask or Plan run on Copilot leaves off, from the same file.
+  it('names the MCP servers in the person’s own Copilot settings, and none when there are none to read', async () => {
+    const read = disk({ 'C:/Users/colin/.copilot/mcp-config.json': JSON.stringify({ mcpServers: { notes: { command: 'n' }, 'robinhood-trading': { url: 'https://x' } } }) })
+    expect(await copilotMcpServerNames({ homeDirectory: HOME, read })).toEqual(['notes', 'robinhood-trading'])
+    expect(await copilotMcpServerNames({ homeDirectory: HOME, read: disk({}) })).toEqual([])
+    expect(await copilotMcpServerNames({ homeDirectory: HOME, read: disk({ 'C:/Users/colin/.copilot/mcp-config.json': '{not json' }) })).toEqual([])
   })
 })
 

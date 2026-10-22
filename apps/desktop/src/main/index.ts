@@ -230,7 +230,7 @@ import { createRoutineRunner } from './routine-runner.js'
 import { projectNamedIn } from './named-folder.js'
 import { createMemoryStore } from './memory-store.js'
 import { WorktreeHasChangesError, createWorktreeManager, defaultRunGit } from './worktrees.js'
-import { readRuntimeSetup } from './runtime-setup.js'
+import { copilotMcpServerNames, readRuntimeSetup } from './runtime-setup.js'
 import { folderSentences, readWorkspaceBrief, groupSection, teammateSection } from './workspace-brief.js'
 import { createConversationChain, groupBriefFor } from './conversation-chain.js'
 import { createMemoryReader } from './memory-reader.js'
@@ -2697,6 +2697,7 @@ if (!ownsSingleInstanceLock) {
       browserHost,
       commandGuard: () => commandGuardWritten,
       copilotCommandGuard: () => copilotGuardWritten,
+      copilotMcpServers: () => copilotMcpServerNames(),
       openCodeCommandGuard: () => openCodeGuardWritten,
       openCode2CommandGuard: () => openCode2GuardWritten,
       openCodeGitReads: () => openCodeGitReadsWritten,

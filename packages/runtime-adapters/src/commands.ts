@@ -489,6 +489,11 @@ export interface RuntimeCommandOptions {
    */
   readonly guardPlugin?: string;
   /**
+   * The MCP servers in the person's own Copilot settings, which a read-only
+   * run starts none of (0.824). Copilot only; ignored outside Ask and Plan.
+   */
+  readonly copilotMcpServersOff?: readonly string[];
+  /**
    * The same guard for OpenCode (0.722): the file URL of a plugin whose
    * `tool.execute.before` asks it, added to the `plugin` list of the config
    * every run and server is given (`withOpenCodeGuard`). OpenCode only.
@@ -2214,6 +2219,17 @@ export function createCopilotPromptCommand(
   ];
   if (sandboxArgument(options.sandbox) === "read-only") {
     args.push("--deny-tool=write,shell");
+    /*
+     * NONE OF THE PERSON'S OWN MCP SERVERS (0.824). `--allow-all-tools`
+     * allows every tool the deny above does not name, an MCP server's among
+     * them -- the hole OpenCode had (0.821), where a tool that saves a note
+     * wrote its file in Ask. Each server in the person's Copilot settings is
+     * left off with Copilot's own `--disable-mcp-server`, so it never starts.
+     * NOT MEASURED HERE: every Copilot turn on this machine is refused
+     * ("Access denied by policy settings") before any server starts; the
+     * flag is `copilot --help`'s, and it parses.
+     */
+    for (const server of options.copilotMcpServersOff ?? []) args.push("--disable-mcp-server", requireText(server, "MCP server"));
     for (const folder of options.referenceFolders ?? []) args.push("--add-dir", requireText(folder, "Reference folder"));
   }
   if (sandboxArgument(options.sandbox) === "full-access") {

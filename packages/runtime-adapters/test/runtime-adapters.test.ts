@@ -1363,6 +1363,16 @@ describe("OpenCode and Copilot CLI commands", () => {
     ]);
   });
 
+  it("starts none of the person's own MCP servers in a read-only Copilot mission, and only there (0.824)", () => {
+    // `--allow-all-tools` allows an MCP server's tools too; each server in the person's Copilot settings is left off.
+    const readOnly = createCopilotPromptCommand(copilot, { workspacePath, prompt: PROMPT, copilotMcpServersOff: ["notes", "robinhood-trading"] });
+    expect(readOnly.args.join(" ")).toContain("--deny-tool=write,shell --disable-mcp-server notes --disable-mcp-server robinhood-trading");
+    for (const sandbox of ["workspace-write", "full-access"] as const) {
+      expect(createCopilotPromptCommand(copilot, { workspacePath, prompt: PROMPT, sandbox, copilotMcpServersOff: ["notes"] }).args).not.toContain("--disable-mcp-server");
+    }
+    expect(() => createCopilotPromptCommand(copilot, { workspacePath, prompt: PROMPT, copilotMcpServersOff: [""] })).toThrow(/MCP server/);
+  });
+
   it("never offers a Copilot teammate the machine's other Copilot conversations, on either route (0.378)", () => {
     // `session_store_sql` reads every Copilot session on the machine, and runs
     // without asking: measured answering a cold follow-up from an unrelated one.

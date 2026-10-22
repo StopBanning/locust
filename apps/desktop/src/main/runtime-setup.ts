@@ -261,6 +261,15 @@ async function copilot(options: RuntimeSetupOptions, home: string, ws: string | 
   return found
 }
 
+/**
+ * The MCP servers in the person's own Copilot settings, by name: the ones an Ask or Plan run on Copilot starts none
+ * of (0.824, `--disable-mcp-server`). None when the file is absent or does not read as settings.
+ */
+export async function copilotMcpServerNames(options: Pick<RuntimeSetupOptions, 'homeDirectory' | 'read'> = {}): Promise<readonly string[]> {
+  const config = await readJson(join(options.homeDirectory ?? homedir(), '.copilot', 'mcp-config.json'), { workspacePath: undefined, ...options }, fresh())
+  return keysOf(config?.mcpServers)
+}
+
 /** Every runtime's own MCP servers and hooks, by runtime id. */
 export async function readRuntimeSetup(options: RuntimeSetupOptions): Promise<Readonly<Record<string, PublicRuntimeSetup>>> {
   const home = options.homeDirectory ?? homedir()

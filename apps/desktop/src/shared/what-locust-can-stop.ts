@@ -73,7 +73,7 @@ export const WHAT_LOCUST_CAN_STOP: readonly StopRow[] = [
     runtime: 'copilot',
     reach: 'each-action',
     asks: 'In Approve each action: every command and file change, and each fetch or place outside this folder, before it runs.',
-    without: 'Reading files, in every mode. In Ask and Plan, no file changes and no commands; in Edit, commands and changes in this folder. In Auto, everything.',
+    without: 'Reading files, in every mode. In Ask and Plan, no file changes, no commands and none of the MCP servers in your Copilot settings; in Edit, commands and changes in this folder. In Auto, everything.',
     always: KEPT_BY_LOCUST
   },
   {
