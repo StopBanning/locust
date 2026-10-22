@@ -111,6 +111,7 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   voice: "voice typing's engine and model, downloaded again when it is next used",
   'claude-background.json': "Claude turns running in the background on this computer, which Claude Code keeps",
   'claude-skills': 'skills copied for runs in progress, made again for each run',
+  'run-skills': 'skills copied for Codex and OpenCode runs in progress, made again for each run',
   checkpoints: 'copies of your folders from before each turn, for Undo: they belong to the folders on this machine, and can hold files like .env',
   'queued-messages.json': 'messages waiting to send from here: a restore never sends anything',
   'away.json': 'what happened while this machine was away',
