@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.824.0 - 2026-10-22
+
+### Fixed
+
+- **Ask and Plan on Codex run nothing outside Codex's sandbox.** In these modes Codex could still reach past its read-only sandbox. A tool from an MCP server your Codex runs as a program ran without asking whenever the server said the tool only reads: measured, one that wrote a file while saying so wrote it. And with its shell off, Codex ran a command through a JavaScript server instead. Locust now switches off, for that turn only, every MCP server your Codex runs as a program, every plugin's, and Codex's own browser and computer use. Your Codex settings are not changed. Connectors reached at an address stay, and Codex still runs only their tools that say they read. If Locust cannot read your Codex settings, the turn does not start, and says why.
+- **Ask and Plan on Copilot leave your own MCP servers off.** Copilot's Ask allowed every tool it was not told to refuse, an MCP server's among them. Locust now tells Copilot to leave off every server in your Copilot settings in these modes.
+- **Scout reads only what it is given.** Scout's look reads other people's words, like pull request titles, check output and comments, and it ran as an ordinary Ask turn, which on OpenCode could read files and fetch web pages. It now runs sealed: no tools on OpenCode or Codex, and no memory brief, browser or skills on any model.
+
 ## 0.823.0 - 2026-10-22
 
 ### New
