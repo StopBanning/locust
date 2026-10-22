@@ -15,7 +15,7 @@ heading: the home screen then shows it once, as a splash.
 
 ### New
 
-- **Skills reach Codex and OpenCode teammates.** A teammate's own skills, the ones a tune drafts and the ones you keep from GitHub, now reach Codex and OpenCode teammates as well as Claude Code. Each run is handed its own copy, and nothing of yours is changed: Codex and OpenCode still find the folder's skills and your own themselves, as in your own sessions. /tune now drafts "What it knows" as a skill for them too, and /setup lists the folders each one reads.
+- **Skills reach Codex, OpenCode, Copilot and Antigravity teammates.** A teammate's own skills, the ones a tune drafts and the ones you keep from GitHub, now reach those four as well as Claude Code. Each run is handed its own copy, and nothing of yours is changed: each still finds the folder's skills and your own itself, as in your own sessions. /tune now drafts "What it knows" as a skill for them too, and /setup lists the folders each one reads.
 
 ### Improved
 
