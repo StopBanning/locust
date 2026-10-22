@@ -486,11 +486,13 @@ export interface RuntimeCommandOptions {
    */
   readonly openCodeGuardPlugin?: string;
   /**
-   * A folder holding `skills/<name>/SKILL.md` for this run (0.813, Locust's run-skills.ts), given to OpenCode as
-   * `OPENCODE_CONFIG_DIR`. MEASURED 2026-10-22 on 1.18.27 (`opencode debug skill`): a skill there is listed beside
-   * the person's own, which stay. The folder holds nothing else, so no agent, command or plugin comes with it.
+   * A folder of skills for this run (0.813, Locust's run-skills.ts: `<name>/SKILL.md` in it), named in the per-run
+   * config's `skills.paths`, which OpenCode 1.18.27 scans for every SKILL.md beneath it (read in its own code, 2026-10-22).
+   * NOT `OPENCODE_CONFIG_DIR`: a folder named there is a config folder, and OpenCode installs its 61 MB plugin
+   * package into each one before the run starts -- a new folder every run left the 0.813 drive "Starting OpenCode"
+   * for five minutes.
    */
-  readonly skillsConfigDir?: string;
+  readonly skillsDir?: string;
   /**
    * One of the runtime's own slash commands, typed by the person (0.427):
    * `opencode run --command <name>`, its arguments being what arrives on
@@ -1584,7 +1586,7 @@ export const OPENCODE_AUTO_CONFIG = JSON.stringify({
  * What OpenCode is told for a mode, as environment: its permission config and, for a read-only run, no plugins.
  * One function for `run` and the server (0.677), so a mode means the same thing on either route.
  */
-export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly referenceFolders?: readonly string[]; readonly skillsConfigDir?: string }): Readonly<Record<string, string>> {
+export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly referenceFolders?: readonly string[]; readonly skillsDir?: string }): Readonly<Record<string, string>> {
   const auto = sandboxArgument(options.sandbox) === "full-access";
   const readOnly = sandboxArgument(options.sandbox) === "read-only";
   // A worktree run needs its parent repository; a read-only one still needs
@@ -1618,20 +1620,21 @@ export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOpti
       })),
     };
   }
-  const configured = withOpenCodeBrowserMcp(
+  const configured = withOpenCodeSkills(withOpenCodeBrowserMcp(
     withOpenCodeGuard(withoutOpenCodeQuestionTool(withOpenCodeProviders(JSON.stringify(parsed), options.providers)), options.openCodeGuardPlugin),
     options.browserMcp,
-  );
+  ), options.skillsDir);
   return {
     OPENCODE_CONFIG_CONTENT: configured,
     ...(readOnly ? { OPENCODE_PURE: "1" } : {}),
-    ...openCodeSkillsEnv(options.skillsConfigDir),
   };
 }
 
-/** A run's own skills for OpenCode 1 (0.813): its folder as the extra config folder, or nothing. */
-export function openCodeSkillsEnv(dir: string | undefined): Readonly<Record<string, string>> {
-  return dir === undefined || dir.length === 0 ? {} : { OPENCODE_CONFIG_DIR: requireText(dir, "Skills folder") };
+/** A run's own skills for OpenCode 1 (0.813): its folder in the config's `skills.paths`, or the config as it was. */
+export function withOpenCodeSkills(config: string, dir: string | undefined): string {
+  if (dir === undefined || dir.length === 0) return config;
+  const parsed = JSON.parse(config) as Record<string, unknown>;
+  return JSON.stringify({ ...parsed, skills: { paths: [requireText(dir, "Skills folder")] } });
 }
 
 /**
@@ -2005,8 +2008,8 @@ export function createOpenCodeServeCommand(
     readonly openCodeGuardPlugin?: string;
     /** Per-run browser MCP server (`locust_browser`). */
     readonly browserMcp?: BrowserMcpSpec;
-    /** The run's own skills (0.813, `RuntimeCommandOptions.skillsConfigDir`). */
-    readonly skillsConfigDir?: string;
+    /** The run's own skills (0.813, `RuntimeCommandOptions.skillsDir`). */
+    readonly skillsDir?: string;
   },
 ): RuntimeCommandSpec {
   if (options.sandbox !== undefined) {
@@ -2030,11 +2033,10 @@ export function createOpenCodeServeCommand(
     stdin: "protocol",
     sandbox: "workspace-write",
     env: {
-      OPENCODE_CONFIG_CONTENT: withOpenCodeBrowserMcp(
+      OPENCODE_CONFIG_CONTENT: withOpenCodeSkills(withOpenCodeBrowserMcp(
         withOpenCodeGuard(withoutOpenCodeQuestionTool(withOpenCodeProviders(config, options.providers) ?? config), options.openCodeGuardPlugin),
         options.browserMcp,
-      ),
-      ...openCodeSkillsEnv(options.skillsConfigDir),
+      ), options.skillsDir),
     },
   });
 }

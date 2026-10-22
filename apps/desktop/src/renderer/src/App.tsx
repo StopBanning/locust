@@ -4711,7 +4711,9 @@ export default function App(): ReactElement {
   /** `/setup` in a teammate's conversation (0.811): read fresh each time it opens; nothing is written. */
   const openSetup = (): string | undefined => {
     const bridge = window.desktop
-    const teammate = liveRun === undefined ? undefined : teammates.find((mate) => mate.teammateId === ownerOf(liveRun))
+    // The conversation's own teammate; or, before its first turn, the teammate the box is addressed to (0.813): what a
+    // new teammate will be given is the question worth answering before it is first asked anything.
+    const teammate = liveRun === undefined ? pickedTeammate : teammates.find((mate) => mate.teammateId === ownerOf(liveRun))
     if (bridge === undefined) return 'Locust is not ready. Nothing was opened.'
     if (teammate === undefined) return 'Open a teammate’s conversation to see its setup.'
     const of = liveRun?.data?.missionId
@@ -10270,7 +10272,7 @@ export default function App(): ReactElement {
             onPickIssue={openIssueList}
             canTune={tuneRefusal(missionOwner, liveRun?.data?.missionId, liveRun !== undefined && isTerminal(liveRun.phase) && comparing === undefined) === undefined}
             onTune={() => { openTune() }}
-            canSetup={missionOwner !== undefined}
+            canSetup={missionOwner !== undefined || (liveRun === undefined && pickedTeammate !== undefined)}
             onSetup={() => { openSetup() }}
             {...(issuePicker === undefined ? {} : { issueList: { issues: issuePicker, onChoose: chooseIssue, onClose: () => setIssuePicker(undefined), ...(issueEmpty === undefined ? {} : { empty: issueEmpty }) } })}
             // Talk in a teammate's conversation is a call with them, into it (0.746).

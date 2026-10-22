@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { TeammateSetup as Setup } from '../../shared/teammate-setup.js'
@@ -33,6 +34,12 @@ describe('the setup card', () => {
       expect(html).toContain(text)
     }
     expect(html).toContain('>Edit teammate</button>')
+  })
+
+  it('opens before a teammate’s first turn too, for the teammate the box is addressed to (0.813)', () => {
+    const app = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
+    expect(app).toContain('canSetup={missionOwner !== undefined || (liveRun === undefined && pickedTeammate !== undefined)}')
+    expect(app).toContain('const teammate = liveRun === undefined ? pickedTeammate : teammates.find((mate) => mate.teammateId === ownerOf(liveRun))')
   })
 
   it('says it is reading, or why it could not, and nothing else', () => {

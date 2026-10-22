@@ -55,7 +55,7 @@ describe('a run’s own skills folder', () => {
     // The teammate's own copy, not the library's of the same name.
     expect(await readFile(join(prepared!.skillsDir, 'evidence-first', 'SKILL.md'), 'utf8')).toContain('The teammate’s own.')
     expect(await readFile(join(prepared!.skillsDir, 'tune-candidate', 'SKILL.md'), 'utf8')).toContain('name: tune-candidate')
-    // Nothing else is in it: OpenCode takes the folder as its config folder.
+    // Nothing else is in it.
     expect(await readdir(prepared!.dir)).toEqual(['skills'])
     await prepared!.dispose()
     await expect(lstat(prepared!.dir)).rejects.toThrow()
@@ -115,7 +115,7 @@ describe('OpenCode 2', () => {
 describe('the mission service', () => {
   it('hands the folder only to Codex on its app-server and OpenCode, never on a cloud computer, and removes it after', () => {
     const source = readFileSync(new URL('./codex-mission.ts', import.meta.url), 'utf8')
-    expect(source).toContain("((runtime === 'codex' && codexStreams) || (runtime === 'opencode' && (opencodeAcp || !ownOpenCodeConfigDir)))")
+    expect(source).toContain("((runtime === 'codex' && codexStreams) || runtime === 'opencode')")
     expect(source).toContain('cloud === undefined && options.runSkills !== undefined')
     expect(source).toContain('const clear = (): void => void runSkills.dispose()')
   })

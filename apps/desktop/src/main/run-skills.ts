@@ -16,8 +16,10 @@ import { skillFoldersIn } from './claude-skills.js'
  *
  *   - Codex 0.163.0's app-server lists a skill from any folder named in `skills/extraRoots/set`, for that process
  *     only (`skills/list`, scope user), beside every skill it found itself;
- *   - OpenCode 1.18.27 lists one from `$OPENCODE_CONFIG_DIR/skills/<name>/SKILL.md`, beside the person's own
- *     (`opencode debug skill`); OpenCode 2 takes the same folder in its config's `skills` list.
+ *   - OpenCode 1.18.27 scans every folder in its config's `skills.paths` for each SKILL.md beneath it (its own code), and
+ *     OpenCode 2 takes the same folder in its config's `skills` list. Locust's per-run config carries it. (Not
+ *     `OPENCODE_CONFIG_DIR`, which lists the skill too but makes the folder a config folder that OpenCode installs a
+ *     61 MB plugin package into before every run.)
  *
  * So a run on either is handed one folder, copied for the run and removed when it ends, laid out as both read it:
  * `<run>/skills/<name>/SKILL.md`. COPIED, never linked, for claude-skills.ts's reason: removing the copy can only
@@ -25,9 +27,9 @@ import { skillFoldersIn } from './claude-skills.js'
  * the teammate's own, then the library's -- since the folder is flat where Claude Code's plugins name each.
  */
 export interface PreparedRunSkills {
-  /** `<run>`: what OpenCode 1 is given as its config folder, holding nothing but `skills/`. */
+  /** `<run>`: the run's own folder, holding nothing but `skills/`. */
   readonly dir: string
-  /** `<run>/skills`: Codex's extra root, and OpenCode 2's `skills` entry. */
+  /** `<run>/skills`: Codex's extra root, OpenCode 1's `skills.paths` entry and OpenCode 2's `skills` entry. */
   readonly skillsDir: string
   /** The skills it holds, by name. */
   readonly skills: readonly string[]

@@ -101,19 +101,25 @@ describe("a Codex run is handed its own skills", () => {
 });
 
 describe("an OpenCode 1 run is handed its own skills", () => {
-  it("as its config folder, in every mode and on both routes", () => {
+  const skillsOf = (env: Readonly<Record<string, string>> | undefined): unknown => (JSON.parse(env?.OPENCODE_CONFIG_CONTENT ?? "{}") as { skills?: unknown }).skills;
+
+  it("in its per-run config's skills.paths, in every mode and on both routes, beside the rest of that config", () => {
     for (const sandbox of ["read-only", "workspace-write", "full-access"] as const) {
-      expect(openCodeModeEnv({ sandbox, skillsConfigDir: "/profile/run-skills/abc" }).OPENCODE_CONFIG_DIR).toBe("/profile/run-skills/abc");
+      const env = openCodeModeEnv({ sandbox, skillsDir: "/profile/run-skills/abc/skills" });
+      expect(skillsOf(env)).toEqual({ paths: ["/profile/run-skills/abc/skills"] });
+      // The mode's own config is still there.
+      expect((JSON.parse(env.OPENCODE_CONFIG_CONTENT!) as { permission?: unknown }).permission).toBeDefined();
     }
-    const run = createOpenCodeRunCommand(OPENCODE, { workspacePath: "/work", sandbox: "workspace-write", prompt: "go", skillsConfigDir: "/profile/run-skills/abc" });
-    expect(run.env?.OPENCODE_CONFIG_DIR).toBe("/profile/run-skills/abc");
+    const run = createOpenCodeRunCommand(OPENCODE, { workspacePath: "/work", sandbox: "workspace-write", prompt: "go", skillsDir: "/profile/run-skills/abc/skills" });
+    expect(skillsOf(run.env)).toEqual({ paths: ["/profile/run-skills/abc/skills"] });
     // Approve each builds its own config; the folder still goes with it.
-    const asking = createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work", skillsConfigDir: "/profile/run-skills/abc" });
-    expect(asking.env?.OPENCODE_CONFIG_DIR).toBe("/profile/run-skills/abc");
+    const asking = createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work", skillsDir: "/profile/run-skills/abc/skills" });
+    expect(skillsOf(asking.env)).toEqual({ paths: ["/profile/run-skills/abc/skills"] });
   });
 
-  it("and with none, the person's own config folder is left as it is", () => {
-    expect(openCodeModeEnv({ sandbox: "workspace-write" })).not.toHaveProperty("OPENCODE_CONFIG_DIR");
-    expect(createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work" }).env).not.toHaveProperty("OPENCODE_CONFIG_DIR");
+  it("never as a config folder: OpenCode would install its plugin package into it before every run", () => {
+    expect(openCodeModeEnv({ sandbox: "workspace-write", skillsDir: "/profile/run-skills/abc/skills" })).not.toHaveProperty("OPENCODE_CONFIG_DIR");
+    expect(createOpenCodeServeCommand(OPENCODE, { workspacePath: "/work", skillsDir: "/profile/run-skills/abc/skills" }).env).not.toHaveProperty("OPENCODE_CONFIG_DIR");
+    expect(skillsOf(openCodeModeEnv({ sandbox: "workspace-write" }))).toBeUndefined();
   });
 });

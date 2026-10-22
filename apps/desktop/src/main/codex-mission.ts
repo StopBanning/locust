@@ -933,8 +933,6 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
   // for the child, which shadows Node's global and is in its temporal dead
   // zone at the point this is needed.
   const hostPlatform: NodeJS.Platform = options.platform ?? process.platform
-  // A person who set OpenCode's config folder themselves keeps it (0.813): a run's skills would take its place.
-  const ownOpenCodeConfigDir = (process.env.OPENCODE_CONFIG_DIR ?? '').trim().length > 0
 
   if (!isAbsolute(options.workspacePath)) {
     throw new Error('Codex mission workspace must be an absolute path')
@@ -2310,12 +2308,11 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
             : undefined
         /*
          * SKILLS FOR CODEX AND OPENCODE (0.813, run-skills.ts): Codex on its app-server, which takes extra skill folders
-         * for its process; OpenCode 1 as its config folder, unless the person set one; OpenCode 2 in its config. Not on
-         * a cloud computer, where the copy would be on the wrong machine.
+         * for its process; OpenCode in its per-run config's skills list. Not on a cloud computer, where the copy would
+         * be on the wrong machine.
          */
         const runSkills =
-          cloud === undefined && options.runSkills !== undefined &&
-          ((runtime === 'codex' && codexStreams) || (runtime === 'opencode' && (opencodeAcp || !ownOpenCodeConfigDir)))
+          cloud === undefined && options.runSkills !== undefined && ((runtime === 'codex' && codexStreams) || runtime === 'opencode')
             ? await options.runSkills({
               ...(peer?.self.teammateId === undefined ? {} : { teammateId: peer.self.teammateId }),
               ...(slot?.skill === undefined ? {} : { skill: slot.skill })
@@ -2389,7 +2386,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
-              ...(runSkills === undefined ? {} : { skillsConfigDir: runSkills.dir })
+              ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir })
             })
           }
           if (runtime === 'opencode') {
@@ -2404,7 +2401,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
-              ...(runSkills === undefined ? {} : { skillsConfigDir: runSkills.dir }),
+              ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir }),
               ...choice
             })
           }

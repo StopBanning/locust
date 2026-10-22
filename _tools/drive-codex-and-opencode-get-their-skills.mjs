@@ -4,8 +4,8 @@
 //
 // A teammate's own skill (as a tune leaves it: teammate-skills/<teammate>/<name>/SKILL.md, listed in skills.json)
 // holds a word no model could guess. Cedar, on a free OpenCode model, is asked for it; then /setup says what its
-// turns are given. With --codex, Wren on Codex (gpt-6-luna, low effort, Ask) is asked too: a test ABOUT Codex, so it
-// runs on Codex and spends one short turn of its quota (LOCUST_SPEND=1 for that part only).
+// turns are given, for Cedar and for Wren, on Codex. With --codex, Wren (gpt-6-luna, low effort, Ask) is asked too:
+// a test ABOUT Codex, so it runs on Codex and spends one short turn of its quota (LOCUST_SPEND=1 for that part only).
 
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -24,7 +24,7 @@ const profilePath = await mkdtemp(join(process.env.LOCUST_SCRATCH ?? tmpdir(), '
 const CEDAR = { teammateId: 'tm_cedar', name: 'Cedar', hue: 'lime', role: 'Custom', roleTitle: 'Words', createdAt: '2026-10-22T05:00:00.000Z', route: { runtime: 'opencode', model: FREE_ROUTE.model, mode: 'accept-edits' } }
 const WREN = { teammateId: 'tm_wren', name: 'Wren', hue: 'blue', role: 'Custom', roleTitle: 'Words', createdAt: '2026-10-22T05:00:00.000Z', route: { runtime: 'codex', model: 'gpt-6-luna', mode: 'ask', effort: 'low' } }
 const SKILL = (teammate) => ({ teammateId: teammate.teammateId, name: 'probe-word', description: 'Use when someone asks for the probe word. It gives the probe word.', createdAt: '2026-10-22T05:00:00.000Z' })
-for (const teammate of withCodex ? [CEDAR, WREN] : [CEDAR]) {
+for (const teammate of [CEDAR, WREN]) {
   await mkdir(join(profilePath, 'teammate-skills', teammate.teammateId, 'probe-word'), { recursive: true })
   await writeFile(join(profilePath, 'teammate-skills', teammate.teammateId, 'probe-word', 'SKILL.md'), [
     '---',
@@ -36,7 +36,7 @@ for (const teammate of withCodex ? [CEDAR, WREN] : [CEDAR]) {
     ''
   ].join('\n'), 'utf8')
 }
-await writeFile(join(profilePath, 'teammate-skills', 'skills.json'), JSON.stringify({ schemaVersion: 1, skills: (withCodex ? [CEDAR, WREN] : [CEDAR]).map(SKILL) }), 'utf8')
+await writeFile(join(profilePath, 'teammate-skills', 'skills.json'), JSON.stringify({ schemaVersion: 1, skills: [CEDAR, WREN].map(SKILL) }), 'utf8')
 
 const drive = await startDrive({
   ...(packaged === undefined ? {} : { packaged }),
@@ -48,7 +48,7 @@ const drive = await startDrive({
   outPath: join(recordRoot('codex-and-opencode-get-their-skills-2026-10-22'), tag),
   seed: {
     schemaVersion: 1,
-    teammates: withCodex ? [CEDAR, WREN] : [CEDAR],
+    teammates: [CEDAR, WREN],
     missionOwners: {},
     settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
   }
@@ -60,8 +60,11 @@ const check = (what, ok, detail) => {
   say(`  [${ok ? 'PASS' : 'FAIL'}] ${what}${detail === undefined ? '' : ` -- ${String(detail).slice(0, 700)}`}`)
 }
 const THREAD = `document.querySelector('.lc-thread')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''`
-// /setup the way a person picks it: typed, then chosen from the slash menu (drive-tune-gives-a-skill's way).
-const SETUP = `(async () => {
+// /setup the way a person picks it: typed, then chosen from the slash menu (drive-tune-gives-a-skill's way). The card
+// from an earlier /setup is closed first, and the one read is the one that names this teammate.
+const SETUP = (name) => `(async () => {
+  document.querySelector('.lc-setup .lc-dialog__close')?.click()
+  for (let i = 0; i < 20 && document.querySelector('.lc-setup'); i += 1) await new Promise((r) => setTimeout(r, 100))
   const field = document.querySelector('form.command-dock textarea')
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, '/setup')
   field.dispatchEvent(new Event('input', { bubbles: true }))
@@ -72,7 +75,7 @@ const SETUP = `(async () => {
   }
   for (let i = 0; i < 120; i += 1) {
     const card = document.querySelector('.lc-setup')
-    if (card && /WHEN THE WORK MATCHES/.test(card.innerText)) { card.scrollIntoView({ block: 'center' }); return card.innerText.replace(/\\s+/g, ' ').trim() }
+    if (card && /WHEN THE WORK MATCHES/.test(card.innerText) && card.innerText.includes(${JSON.stringify(name)})) { card.scrollIntoView({ block: 'center' }); return card.innerText.replace(/\\s+/g, ' ').trim() }
     await new Promise((r) => setTimeout(r, 250))
   }
   return 'NO SETUP CARD: ' + (document.querySelector('.lc-setup')?.innerText.replace(/\\s+/g, ' ').slice(0, 300) ?? '')
@@ -90,14 +93,16 @@ try {
   await drive.resize(1209, 770)
   const cedar = String(await drive.capture('Cedar on OpenCode is asked for the probe word', () => ask('Cedar', /OpenCode/)))
   check('OpenCode: the teammate’s own skill gave the word', cedar.includes(WORD), cedar)
-  const cedarSetup = String(await drive.capture('/setup: what Cedar’s turns are given', () => drive.evaluate(SETUP)))
+  const cedarSetup = String(await drive.capture('/setup: what Cedar’s turns are given', () => drive.evaluate(SETUP('Cedar'))))
   check('OpenCode: /setup names its own skill and the folders OpenCode reads', /probe-word/.test(cedarSetup) && /\.opencode\/skills/.test(cedarSetup) && /found by OpenCode itself/.test(cedarSetup), cedarSetup)
   if (withCodex) {
     const wren = String(await drive.capture('Wren on Codex is asked for the probe word', () => ask('Wren', /Codex/)))
     check('Codex: the teammate’s own skill gave the word', wren.includes(WORD), wren)
-    const wrenSetup = String(await drive.capture('/setup: what Wren’s turns are given', () => drive.evaluate(SETUP)))
-    check('Codex: /setup names its own skill and .agents/skills', /probe-word/.test(wrenSetup) && /\.agents\/skills/.test(wrenSetup) && /found by Codex itself/.test(wrenSetup), wrenSetup)
+  } else {
+    await drive.evaluate(openTeammateScript('Wren'))
   }
+  const wrenSetup = String(await drive.capture('/setup: what Wren’s turns are given', () => drive.evaluate(SETUP('Wren'))))
+  check('Codex: /setup names its own skill and .agents/skills', /probe-word/.test(wrenSetup) && /\.agents\/skills/.test(wrenSetup) && /found by Codex( CLI)? itself/.test(wrenSetup), wrenSetup)
 } catch (error) {
   failures += 1
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)
