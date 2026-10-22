@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
@@ -164,6 +165,8 @@ describe('a GitHub answer waits for a press', () => {
     expect(posted).toContain('Posted on GitHub.')
     expect(posted).toContain('>Open the comment<')
     expect(posted).not.toContain('>Post it on')
+    // At its own width (0.825): the packaged 0.823 drive showed it stretched across the card like a text field.
+    expect(readFileSync(new URL('./shell.css', import.meta.url), 'utf8')).toContain('.lc-scoutcard__draft > button { align-self: flex-start; }')
     const failed = draw(state([card({ post: { repository: 'acme/app', number: 212, message: 'Done.', attempted: true, failed: 'Connection lost. Nothing will be retried on its own.' } })]))
     expect(failed).toContain('Connection lost.')
     expect(failed).not.toContain('>Post it on')

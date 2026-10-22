@@ -6827,6 +6827,8 @@ textarea {
 .lc-scoutcard__who { font-weight: 600; color: var(--lc-text-primary); }
 .lc-scoutcard__reading { margin: 0; font-size: var(--lc-text-mono-caption); color: var(--lc-text-muted); }
 .lc-scoutcard__draft { display: flex; flex-direction: column; gap: var(--lc-space-2); padding: var(--lc-space-3) var(--lc-space-4); border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-button); background: var(--lc-bg-terminal); }
+/* Its buttons (Keep this text, Open the comment) at their own width: the column stretched them across the card. */
+.lc-scoutcard__draft > button { align-self: flex-start; }
 .lc-scoutcard__draftlabel { margin: 0; font-size: var(--lc-text-mono-label); letter-spacing: var(--lc-tracking-label); text-transform: uppercase; color: var(--lc-text-muted); }
 .lc-scoutcard__drafttext { margin: 0; font-size: var(--lc-text-body); color: var(--lc-text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
 .lc-scoutcard__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-3); }
