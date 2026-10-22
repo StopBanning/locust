@@ -11,6 +11,19 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.823.0 - 2026-10-22
+
+### New
+
+- **Ask a teammate from a GitHub comment with /locust.** Write a line starting `/locust` in a comment of yours on an issue or pull request in the folder's GitHub repository, and Scout's next look brings it to Home as a card that needs you, with the step drafted: your ask, its link, and the thread's text marked as other people's words. `/locust Ada ...` sends it to Ada; otherwise Scout suggests a teammate. Send starts the turn, and when it ends its answer comes back on another card with "Post it on #212". Nothing is posted until you press that, and only the text the card shows, which you can change first. Only your own comments count, each once, and only ones written after the watch was turned on. It is on by default under Settings > General > Scout keeps watch, as "Your /locust comments", and reads only on Scout's own looks.
+
+### Fixed
+
+- **A plan or quota used up says so once.** When Muse Code's plan or Antigravity's quota ran out, the conversation said it three times over, beside lines like "Unhandled Muse task state". Now a "Usage limit reached" card says when it resets, in your local time, and the turn's error is one sentence that says what to do. Muse Code 1.4.11's newer records no longer show as "Unhandled" lines.
+- **Scout never wipes what it kept.** If Scout's file could not be read when Locust started, Scout began empty and its next save wrote over the file: its settings, cards and notes gone. A file it cannot read is now left alone, and one that is damaged is kept beside the new one.
+- **Turning Scout off, or its quiet hours, stops a look already under way.** A look that was waiting on the folder's check could still raise cards, notify Windows and ask its model after Scout was turned off or quiet hours began. It now stops, and keeps nothing. A check result from while a teammate's turn was starting is dropped and run again later, so half-done work no longer reads as a failure needing you.
+- **The morning brief says what is true.** It names the span it counts ("Since Friday" after a weekend), says "at least" when there were more turns than it read, leaves out pull requests it could not read just then, says when the folder has changed since the check last ran, and counts a check that turned as one card.
+
 ## 0.822.0 - 2026-10-22
 
 ### Fixed
