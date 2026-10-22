@@ -1,5 +1,7 @@
 import { workspaceIdFor } from './workspace.js'
 import type {
+  GitReadsSpec,
+  RuntimeCommandSpec,
   RuntimeDiscovery,
   RuntimeJsonlRecord,
   RuntimeProcessRecordStream,
@@ -1940,6 +1942,7 @@ describe('the workroom around a mission', () => {
     readonly workroom: Workroom
     readonly ledger?: Partial<MissionLedger>
     readonly runtime?: RuntimeDiscovery
+    readonly openCodeGitReads?: () => Promise<GitReadsSpec | undefined>
   }) {
     const start = vi.fn((_spec, _prompt, _options): RuntimeProcessRun => input.run)
     const links: { missionId: string; links: readonly MissionPeerLink[] }[] = []
@@ -1959,7 +1962,8 @@ describe('the workroom around a mission', () => {
       workroom: input.workroom,
       createId: () => String(++nextId),
       now: () => new Date(NOW),
-      schedule: (task) => scheduled.push(task)
+      schedule: (task) => scheduled.push(task),
+      ...(input.openCodeGitReads === undefined ? {} : { openCodeGitReads: input.openCodeGitReads })
     })
     return { service, start, links, scheduled }
   }
@@ -2108,6 +2112,35 @@ describe('the workroom around a mission', () => {
     // read-only commands in its sandbox, so neither is told otherwise.
     expect(await sent(opencode, 'accept-edits')).not.toContain(openCodeReadOnlySection())
     expect(await sent(codex, 'ask')).not.toContain(openCodeReadOnlySection())
+  })
+
+  it('gives a read-only OpenCode run Locust’s git tool, told of in OpenCode’s own instructions rather than the prompt (0.818)', async () => {
+    /*
+     * Ask's shell refuses every command again (commands.ts: OpenCode matched `git status*` with the redirect taken
+     * off, so `git status > status.txt` wrote the file). Git comes through Locust's git tool, and OpenCode's
+     * `instructions` say so to every agent of the run, a /review subagent included.
+     */
+    const { workroom } = fakeWorkroom()
+    const codex = codexRuntime()
+    const opencode: RuntimeDiscovery = { ...codex, id: 'opencode', displayName: 'OpenCode', executable: { ...codex.executable!, commandName: 'opencode' } }
+    const gitReads: GitReadsSpec = { command: 'C:\\Locust\\Locust.exe', args: ['C:\\Locust\\resources\\locust-git-reads.mjs'], env: { ELECTRON_RUN_AS_NODE: '1' }, instructions: 'C:\\profile\\opencode-git-tool.md' }
+    const launched = async (mode: 'ask' | 'plan' | 'accept-edits') => {
+      const one = peerService({ run: transcript('Done.'), workroom, runtime: opencode, openCodeGitReads: async () => gitReads })
+      expect((await one.service.start('What changed?', 'opencode', mode, { model: 'opencode/deepseek-v4.1-flash-free' }, () => undefined, undefined, PEER)).ok).toBe(true)
+      const spec = one.start.mock.calls[0]![0] as RuntimeCommandSpec
+      const prompt = one.start.mock.calls[0]![1] as string
+      return { spec, config: JSON.parse(spec.env?.OPENCODE_CONFIG_CONTENT ?? '{}') as { mcp?: Record<string, { environment: Record<string, string> }>; permission: Record<string, unknown>; instructions?: string[] }, prompt }
+    }
+    for (const mode of ['ask', 'plan'] as const) {
+      const run = await launched(mode)
+      expect(run.config.mcp?.locust_git?.environment.LOCUST_GIT_FOLDER, mode).toBe(run.spec.cwd)
+      expect(run.config.permission.bash, mode).toBe('ask')
+      expect(run.config.instructions, mode).toContain(gitReads.instructions)
+      // Said once, where every agent reads it: not again in the prompt.
+      expect(run.prompt, mode).not.toContain(openCodeReadOnlySection())
+    }
+    // A run that may edit has a shell that runs git: no git tool beside it.
+    expect((await launched('accept-edits')).config.mcp?.locust_git).toBeUndefined()
   })
 
   it('keeps the person\'s own words as the recorded prompt, not the briefing', async () => {

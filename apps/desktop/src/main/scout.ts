@@ -416,11 +416,13 @@ export function createScout(deps: ScoutDeps) {
       if (facts.length === 0) return await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks'), week: weekCounted(weekOf(latest), at, 'looks') }))
       const team = (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== teammateId)
       /*
-       * The weekly tune-up is Locust's own count and rule (0.817), so Scout's model is not asked about it: the first
-       * packaged drive's model drafted a handoff to Ada to review Scout's own dismissed cards, which no teammate can
-       * see. A week with nothing else new asks no model at all.
+       * Locust's own counts and good news are not put to Scout's model. The weekly tune-up (0.817): the first packaged
+       * drive's model drafted a handoff to Ada to review Scout's own dismissed cards, which no teammate can see. The
+       * morning brief and a check that passes again (0.818): on the first live brief, 2026-10-22, the model's take on
+       * the brief was a paragraph on capturing evidence, and the passing check got a draft asking Ada to run it again.
+       * Neither has anything for a teammate to do. A look with nothing else new asks no model at all.
        */
-      const forModel = (fact: ScoutFact): boolean => !fact.key.startsWith('week:')
+      const forModel = (fact: ScoutFact): boolean => !fact.key.startsWith('week:') && !fact.key.startsWith('brief:') && !/^check:.*:passes$/.test(fact.key)
       const cards = facts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, forModel(fact)))
       // A check that turned says how it stands now: the card of how it stood before goes (0.815); so does yesterday's brief.
       const checkTurned = facts.some((fact) => fact.key.startsWith('check:'))

@@ -67,6 +67,9 @@ extraResources:
     to: locust-browser-bridge.mjs
   - from: resources/locust-mcp-bridge.mjs
     to: locust-mcp-bridge.mjs
+  # OpenCode starts this for a run with no shell (Ask, Plan): git that only reads (opencode-git-reads.ts).
+  - from: resources/locust-git-reads.mjs
+    to: locust-git-reads.mjs
   # Claude Code runs this before every command a teammate runs (command-guard.ts), so it too is a real file.
   - from: resources/locust-command-guard.mjs
     to: locust-command-guard.mjs

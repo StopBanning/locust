@@ -1599,8 +1599,25 @@ function withoutEscapes(text: string): string | undefined {
  * a name written for a program, not a person.
  */
 const TOOL_WORDS: readonly { readonly pattern: RegExp; readonly doing: string; readonly did: (count: number) => string }[] = [
-  { pattern: /^(image_?generation|image_?gen|generate_?image)$/i, doing: 'Generating an image', did: (count) => (count === 1 ? 'made an image' : `made ${String(count)} images`) }
+  { pattern: /^(image_?generation|image_?gen|generate_?image)$/i, doing: 'Generating an image', did: (count) => (count === 1 ? 'made an image' : `made ${String(count)} images`) },
+  // OpenCode's answer to a call of a tool it does not have, or with arguments it could not read: the 0.817 sweep's
+  // question card read "Used invalid", a model having reached for the question tool Locust turns off.
+  { pattern: /^invalid$/i, doing: 'Making a tool call', did: (count) => (count === 1 ? 'made a tool call that did not work' : `made ${String(count)} tool calls that did not work`) },
+  ...(['status', 'diff', 'log', 'show', 'blame', 'branch'] as const).map((command) => ({
+    pattern: new RegExp(`^locust_git_${command === 'branch' ? 'branches' : command}$`, 'i'),
+    doing: `Running git ${command}`,
+    did: (count: number) => (count === 1 ? `ran git ${command}` : `ran git ${command} ${String(count)} times`)
+  }))
 ]
+
+/**
+ * Locust's git tool, for a run with no shell (0.818, resources/locust-git-reads.mjs), as OpenCode names its calls
+ * (`locust_git_diff`): the git command it ran, which is how a shell's `git diff` reads too.
+ */
+export function gitToolCommand(tool: string): string | undefined {
+  const command = /^locust_git_(status|diff|log|show|blame|branches)$/i.exec(tool.trim())?.[1]?.toLowerCase()
+  return command === undefined ? undefined : `git ${command === 'branches' ? 'branch' : command}`
+}
 
 export function toolWords(tool: string): (typeof TOOL_WORDS)[number] | undefined {
   return TOOL_WORDS.find((entry) => entry.pattern.test(tool.trim()))
@@ -2382,6 +2399,8 @@ export function stepsLine(details: readonly ActivityDetail[], finished: boolean,
     // A skill reads as the skill it was (0.679), not "used Skill".
     const skill = skillCalled(detail.tool ?? detail.name, detail.tool === undefined || detail.tool === detail.name ? '' : detail.name)
     if (skill !== undefined) { note('skill', skill.length === 0 ? undefined : skill); continue }
+    const git = gitToolCommand(detail.tool ?? detail.name)
+    if (git !== undefined) { note('git', git); continue }
     const looked = toolLooksAt(detail.tool)
     // A search tool may name its pattern or the folder it searched (Cursor's grep names the folder).
     const searchedIn = looked === 'search' && /[\\/]/.test(detail.name) ? fileName(detail.name) : undefined
@@ -2428,6 +2447,18 @@ export function stepsLine(details: readonly ActivityDetail[], finished: boolean,
         break
       }
       case 'helper': word(held.count === 1 ? `asked a helper${named === undefined ? '' : `: ${clip(named)}`}` : `asked ${pluralize(held.count, 'helper')}`, held.count === 1 ? 'asked a helper' : `asked ${pluralize(held.count, 'helper')}`); break
+      case 'git': {
+        // "ran git diff", "ran git diff 2 times", "ran git status, diff and log" -- or, past three, how many.
+        const commands = held.names.map((name) => name.replace(/^git /, ''))
+        const brief = held.count === 1 ? 'ran git' : `ran git ${String(held.count)} times`
+        word(
+          commands.length === 1 ? (held.count === 1 ? `ran git ${commands[0]!}` : `ran git ${commands[0]!} ${String(held.count)} times`)
+          : commands.length <= 3 ? `ran git ${commands.slice(0, -1).join(', ')} and ${commands.at(-1)!}`
+          : brief,
+          brief
+        )
+        break
+      }
       case 'created':
       case 'edited':
       case 'deleted': word(held.names.length === 1 ? `${kind} ${shortName(held.names[0]!)}` : `${kind} ${pluralize(Math.max(held.names.length, 1), 'file')}`, held.names.length === 1 ? `${kind} a file` : `${kind} ${pluralize(Math.max(held.names.length, 1), 'file')}`, held.names.length === 1 ? `${kind} ${held.names[0]!}` : `${kind} ${pluralize(Math.max(held.names.length, 1), 'file')}`); break
@@ -4635,6 +4666,9 @@ export function railToolName(tool: { readonly name: string; readonly toolKind?: 
   if (words.some((word) => word === 'search' || word === 'grep' || word === 'find' || word === 'glob')) return railLabel(shown === undefined ? 'Searched' : `Searched for ${shown}`)
   if (words.some((word) => word === 'read' || word === 'view' || word === 'cat' || word === 'open')) return railLabel(file === undefined ? 'Read a file' : `Read ${file}`)
   if (words.some((word) => word === 'fetch' || word === 'browse')) return railLabel(shown === undefined ? 'Opened a page' : `Opened ${shown}`)
+  // A tool the thread has words for (TOOL_WORDS: an image, Locust's git tool) says them here too.
+  const known = toolWords(tool.name)?.did(1)
+  if (known !== undefined) return railLabel(`${known.charAt(0).toUpperCase()}${known.slice(1)}`)
   return railLabel(shown === undefined ? tool.name : `${tool.name} · ${shown}`)
 }
 

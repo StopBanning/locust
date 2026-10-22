@@ -5,7 +5,7 @@
 //
 // The report: the card said "Change files" and a long absolute path, with no
 // proposed content; a declined edit's row read "edit failed" beside "1
-// refused". Wren on the free Ling, Approve each, asked to edit one line: the
+// refused". Wren on the free model, Approve each, asked to edit one line: the
 // first card is read and declined, then the same edit is asked again and
 // approved.
 //
@@ -15,7 +15,7 @@ import { readFile } from 'node:fs/promises'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { openTeammateScript, say, scratchRepository, startDrive, recordRoot } from './drive-lib.mjs'
+import { FREE_ROUTE, openTeammateScript, say, scratchRepository, startDrive, recordRoot } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -34,7 +34,7 @@ const drive = await startDrive({
   seed: {
     schemaVersion: 1,
     teammates: [
-      { teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: '2026-09-25T05:00:00.000Z', route: { runtime: 'opencode', model: 'opencode/ling-3.0-flash-fin-free', mode: 'accept-edits' } }
+      { teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: '2026-09-25T05:00:00.000Z', route: { runtime: 'opencode', model: FREE_ROUTE.model, mode: 'accept-edits' } }
     ],
     missionOwners: {},
     settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
@@ -86,7 +86,7 @@ const ask = (text, answer) => `(async () => {
 const EDIT = 'Use your edit tool to change the line Status: draft in notes.txt so it reads Status: ready. Do not use the shell. If the edit is declined, stop and say so in one sentence.'
 
 try {
-  await drive.capture('Approve each on the free Ling', async () => {
+  await drive.capture('Approve each on the free model', async () => {
     await drive.ready()
     await drive.evaluate(openTeammateScript('Wren'))
     return drive.evaluate(MODE)
@@ -98,5 +98,5 @@ try {
 } catch (error) {
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)
 } finally {
-  await drive.finish({ intro: `Build: ${packaged ?? 'whatever pnpm build last wrote to out/'}. Wren on OpenCode / the free Ling, Approve each; one line of notes.txt, declined then approved.` })
+  await drive.finish({ intro: `Build: ${packaged ?? 'whatever pnpm build last wrote to out/'}. Wren on OpenCode / ${FREE_ROUTE.model}, Approve each; one line of notes.txt, declined then approved.` })
 }

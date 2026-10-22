@@ -540,6 +540,11 @@ export interface RuntimeCommandOptions {
    * command line or environment and never written to global agent configs.
    */
   readonly browserMcp?: BrowserMcpSpec;
+  /**
+   * Locust's git tool (`locust_git`, 0.818) for an OpenCode run with no shell: Ask and Plan. OpenCode only, and only
+   * for a read-only run; see withOpenCodeGitReads.
+   */
+  readonly gitReads?: GitReadsSpec;
 }
 
 export interface BrowserMcpSpec {
@@ -548,6 +553,15 @@ export interface BrowserMcpSpec {
   readonly command: string;
   readonly args: readonly string[];
   readonly env: Readonly<Record<string, string>>;
+}
+
+/** Locust's git tool's server (resources/locust-git-reads.mjs): its command line, and what tells a run to use it. */
+export interface GitReadsSpec {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly env: Readonly<Record<string, string>>;
+  /** A file for OpenCode's `instructions`, which every agent of the run reads, a /review subagent included. */
+  readonly instructions?: string;
 }
 
 /** A command name as a runtime lists it: `init`, `security-review`, `plugin:skill`. */
@@ -1428,59 +1442,31 @@ export const COPILOT_MODEL_HINTS: RuntimeModelHints = {
 const OPENCODE_KEEP_GOING = { continue_loop_on_deny: true } as const
 
 /**
- * GIT THAT ONLY READS, IN ASK MODE (0.744). The overnight sweep of 0.738 found
- * `/review` in Ask mode on OpenCode could not see the change it was asked to
- * review: every shell command, `git diff` included, was refused. Colin left the
- * call to me (2026-10-11).
+ * GIT THAT ONLY READS, IN ASK MODE -- NOT THROUGH THE SHELL (0.818).
  *
- * MEASURED 2026-10-11 against OpenCode 1.18.27 on the free model, one
- * `opencode run` per case in a throwaway repository:
- * - the LAST matching pattern wins: `{"*": "ask", "git status*": "allow"}` ran
- *   `git status`; the same two the other way round refused it;
- * - a chained command is asked about part by part: `git status && echo hello >
- *   notes.txt` asked about `git status, echo hello` and was refused, nothing
- *   written;
- * - `git diff --output=out.txt` and `git log --output=log.txt` were ALLOWED by
- *   a bare `git diff*` -- `--output` writes a file -- and refused once
- *   `"git *--output*": "ask"` came after the allows;
- * - the free model answered with a map here, as it does with plain "ask".
+ * 0.744 let the read-only shell run the git commands that only read (`git
+ * status*`, `git diff*` and the rest, each flag that writes asked about again),
+ * because the 0.738 sweep's `/review` in Ask mode could not see the change it
+ * was asked to review. MEASURED 2026-10-22 against OpenCode 1.18.27 on
+ * deepseek-v4.1-flash-free, with this file's own Ask config, one `opencode run`
+ * per case in a throwaway repository:
+ * - OpenCode checks a command against the patterns with its redirects taken
+ *   off: `git status > status.txt` was let through and wrote the file, and
+ *   `git log -1 > ../outside.txt` wrote one outside the folder. A pattern
+ *   cannot see a redirect, so any allow here is a way to write;
+ * - an environment prefix IS part of what is checked: `GIT_EXTERNAL_DIFF=touch
+ *   git diff` was asked about whole, and refused;
+ * - review subagents put `echo "---DIFF---"` between their git reads, so the
+ *   0.817 sweep's `/review` was refused all the same.
  *
- * So: ask for everything, allow the git commands that only read, then ask
- * again for each of their flags that writes, runs a program or reads outside
- * the folder. `git branch` is allowed bare and listing only: with a name it
- * makes a branch. "ask" is a refusal in an unattended run.
+ * So the shell refuses everything again ("ask" is a refusal in an unattended
+ * run), and git reaches the model through Locust's own git tool, which runs git
+ * itself with no shell (withOpenCodeGitReads).
  */
-const OPENCODE_READ_ONLY_BASH = {
-  "*": "ask",
-  "git status*": "allow",
-  "git diff*": "allow",
-  "git log*": "allow",
-  "git show*": "allow",
-  "git blame*": "allow",
-  "git grep*": "allow",
-  "git ls-files*": "allow",
-  "git rev-parse*": "allow",
-  "git shortlog*": "allow",
-  "git describe*": "allow",
-  "git branch": "allow",
-  "git branch -a": "allow",
-  "git branch -r": "allow",
-  "git branch -v": "allow",
-  "git branch -vv": "allow",
-  "git branch --show-current": "allow",
-  "git branch --list*": "allow",
-  "git stash list*": "allow",
-  "git *--output*": "ask",
-  "git *--ext-diff*": "ask",
-  "git *--no-index*": "ask",
-  "git grep *-O*": "ask",
-  "git grep *--open-files-in-pager*": "ask",
-} as const;
-
 const OPENCODE_READ_ONLY_PERMISSIONS = {
   edit: "deny",
   write: "deny",
-  bash: OPENCODE_READ_ONLY_BASH,
+  bash: "ask",
   patch: "deny",
 } as const;
 
@@ -1610,7 +1596,7 @@ export const OPENCODE_AUTO_CONFIG = JSON.stringify({
  * What OpenCode is told for a mode, as environment: its permission config and, for a read-only run, no plugins.
  * One function for `run` and the server (0.677), so a mode means the same thing on either route.
  */
-export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly referenceFolders?: readonly string[]; readonly skillsDir?: string; readonly skillPaths?: readonly string[] }): Readonly<Record<string, string>> {
+export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOptions["sandbox"]; readonly workspacePath?: string; readonly repositoryRoot?: string; readonly providers?: RuntimeCommandOptions["providers"]; readonly openCodeGuardPlugin?: string; readonly browserMcp?: BrowserMcpSpec; readonly gitReads?: GitReadsSpec; readonly referenceFolders?: readonly string[]; readonly skillsDir?: string; readonly skillPaths?: readonly string[] }): Readonly<Record<string, string>> {
   const auto = sandboxArgument(options.sandbox) === "full-access";
   const readOnly = sandboxArgument(options.sandbox) === "read-only";
   // A worktree run needs its parent repository; a read-only one still needs
@@ -1649,9 +1635,52 @@ export function openCodeModeEnv(options: { readonly sandbox?: RuntimeCommandOpti
     options.browserMcp,
   ), options.skillsDir, options.skillPaths);
   return {
-    OPENCODE_CONFIG_CONTENT: configured,
+    // Only a run with no shell gets the git tool: any other mode's shell runs git itself.
+    OPENCODE_CONFIG_CONTENT: readOnly && options.workspacePath !== undefined ? withOpenCodeGitReads(configured, options.gitReads, options.workspacePath) : configured,
     ...(readOnly ? { OPENCODE_PURE: "1" } : {}),
   };
+}
+
+/**
+ * LOCUST'S GIT TOOL, FOR A RUN WITH NO SHELL (0.818): `locust_git`, a stdio MCP
+ * server OpenCode starts for this run alone, in its folder
+ * (resources/locust-git-reads.mjs). It runs git with no shell and checks every
+ * argument, so nothing a model sends can redirect, chain or add an option.
+ *
+ * MEASURED 2026-10-22 on OpenCode 1.18.27, deepseek-v4.1-flash-free, this Ask
+ * config with the shell refusing everything:
+ * - OPENCODE_PURE leaves an MCP server alone (it drops plugins only), and the
+ *   free tier answered with the tool listed;
+ * - asked what the uncommitted change was, the model called
+ *   `locust_git_status` and `locust_git_diff` and tried no shell command;
+ * - `/review`'s subagent tried the shell first, as OpenCode's review prompt
+ *   says to, and fell back to reading the file. With one line in
+ *   `instructions`, which every agent of a run reads, the subagent and the
+ *   main agent both went to `locust_git_*` and tried no shell command;
+ * - a config's `instructions` are added to the person's and the project's
+ *   (`opencode debug config`: global, project, then this one), not put in
+ *   their place.
+ */
+export function withOpenCodeGitReads(config: string, gitReads: GitReadsSpec | undefined, folder: string): string {
+  if (gitReads === undefined) return config;
+  const parsed = JSON.parse(config) as Record<string, unknown>;
+  const mcp = (parsed.mcp as Record<string, unknown> | undefined) ?? {};
+  const permission = (parsed.permission as Record<string, unknown> | undefined) ?? {};
+  const instructions = Array.isArray(parsed.instructions) ? parsed.instructions : [];
+  return JSON.stringify({
+    ...parsed,
+    mcp: {
+      ...mcp,
+      locust_git: {
+        type: "local",
+        command: [requireText(gitReads.command, "Git tool command"), ...gitReads.args],
+        environment: { ...gitReads.env, LOCUST_GIT_FOLDER: requireText(folder, "Folder") },
+        enabled: true,
+      },
+    },
+    permission: { ...permission, "locust_git_*": "allow" },
+    ...(gitReads.instructions === undefined ? {} : { instructions: [...instructions, gitReads.instructions] }),
+  });
 }
 
 /** A run's own skills for OpenCode 1 (0.813): its folder in the config's `skills.paths`, or the config as it was. */
@@ -2045,6 +2074,8 @@ export function createOpenCodeServeCommand(
     readonly openCodeGuardPlugin?: string;
     /** Per-run browser MCP server (`locust_browser`). */
     readonly browserMcp?: BrowserMcpSpec;
+    /** Locust's git tool, for a mode with no shell (0.818, `RuntimeCommandOptions.gitReads`). */
+    readonly gitReads?: GitReadsSpec;
     /** The run's own skills (0.813, `RuntimeCommandOptions.skillsDir`). */
     readonly skillsDir?: string;
     readonly skillPaths?: readonly string[];

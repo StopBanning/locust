@@ -32,7 +32,8 @@ describe('references never widen a mode', () => {
     expect(after.permission.external_directory).toMatchObject({ '*': 'deny', [folder]: 'allow', [`${folder}/**`]: 'allow', [`${folder}/*`]: 'allow', 'C:\\references\\design kit\\*': 'allow' })
     for (const key of ['edit', 'write', 'patch', 'bash']) expect(after.permission[key]).toEqual(before.permission[key])
     expect(after.permission.edit).toBe('deny')
-    expect(after.permission.bash['*']).toBe('ask')
+    // Every shell command refused, git included (0.818).
+    expect(after.permission.bash).toBe('ask')
     expect(openCodeModeEnv({ sandbox: 'read-only', referenceFolders: [folder] }).OPENCODE_PURE).toBe('1')
   })
   it('OpenCode Edit and Auto permissions are unchanged, not silently narrowed', () => {

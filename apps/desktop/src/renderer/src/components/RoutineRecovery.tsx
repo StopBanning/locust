@@ -79,9 +79,16 @@ export function RoutineRecovery({ routine, recover, onOpenMission, now = new Dat
         * it cannot go on, and Keep puts the attempt down with the routine
         * left as it was.
         */}
+      {/*
+        * A hold the start itself answered (0.818, settledAtDispatch) is not an unconfirmed step: the 0.817 sweep's
+        * routine read "Continue waits for step 1 to be confirmed finished. It was not" under "Step 2 is too long to
+        * send", step 1 having answered. Its reason is the whole story, and a Continue would meet it again.
+        */}
       {lastStep
         ? <span className="lc-recovery__line">This was the last step, so there is nothing left to continue.</span>
-        : !execution.canContinue && <span className="lc-recovery__line">{`Continue waits for step ${String(execution.step)} to be confirmed finished. It was not, so step ${String(execution.step + 1)} would build on work that may not be there.`}</span>}
+        : !execution.canContinue && <span className="lc-recovery__line">{execution.settledAtDispatch === true
+          ? 'Continue would be refused the same way, so it is off until that changes.'
+          : `Continue waits for step ${String(execution.step)} to be confirmed finished. It was not, so step ${String(execution.step + 1)} would build on work that may not be there.`}</span>}
       {/*
         * WHEN KEEP RUNS IT NEXT, said before the click (0.404). Keep starts
         * the routine's clock at the decision, so the next run is one

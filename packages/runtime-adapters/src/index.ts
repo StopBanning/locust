@@ -75,6 +75,7 @@ export {
 export { parseRuntimeVersion } from "./version.js";
 export type {
   BrowserMcpSpec,
+  GitReadsSpec,
   MissionSandbox,
   RuntimeCommandOptions,
 } from "./commands.js";
@@ -180,6 +181,7 @@ export {
   withoutOpenCodeQuestionTool,
   withOpenCodeGuard,
   withOpenCodeBrowserMcp,
+  withOpenCodeGitReads,
   OPENCODE_READ_ONLY_CONFIG,
   MUSE_REQUIRED_FEATURES,
   OPENCODE_REQUIRED_FEATURES,

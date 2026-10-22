@@ -101,6 +101,15 @@ describe('recovery where a person looks for routines', () => {
     expect(renderToStaticMarkup(<RoutineRecovery routine={unscheduled} recover={async () => ({ ok: true })} />)).toContain('Keep the routine')
   })
 
+  it('says a refused start would be refused again, not that the step before it never finished (0.818)', () => {
+    const tooLong = 'Step 2 is too long to send: 439 characters too long. Shorten it in Edit, then run the routine again. Nothing was started.'
+    const refused = { ...routine, execution: { ...routine.execution!, step: 1, reason: tooLong, settledAtDispatch: true } }
+    const html = renderToStaticMarkup(<RoutineRecovery routine={refused} recover={async () => ({ ok: true })} />)
+    expect(html).toContain(tooLong)
+    expect(html).toContain('Continue would be refused the same way, so it is off until that changes.')
+    expect(html).not.toContain('to be confirmed finished')
+  })
+
   it('an unresolved dispatch has the same visible protection; no optimistic next-run promise', () => {
     const dispatching = { ...routine, execution: { ...routine.execution!, status: 'dispatching' as const } }
     expect(renderToStaticMarkup(<RoutineRecovery routine={dispatching} />)).toContain('Waiting for your review')

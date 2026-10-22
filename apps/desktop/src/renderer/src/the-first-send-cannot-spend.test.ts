@@ -30,9 +30,9 @@ describe('the first send cannot spend', () => {
     const listed = [
       model('opencode/paid-thing'),
       model('opencode/ling-3.0-flash-fin-free'),
-      model('opencode/space-bunny-free')
+      model('opencode/glm-5.3-flash-free')
     ]
-    expect(freeStartModel('opencode', listed)).toBe('opencode/space-bunny-free')
+    expect(freeStartModel('opencode', listed)).toBe('opencode/glm-5.3-flash-free')
     expect(freeStartModel('opencode', [model('opencode/paid-thing'), model('opencode/zz-one-free'), model('opencode/aa-two-free')])).toBe('opencode/zz-one-free')
   })
 

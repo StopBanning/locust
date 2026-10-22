@@ -7,7 +7,9 @@
 // The folder has one committed file and an uncommitted change that breaks it
 // (add returns a - b). Before any run, the / menu must already list
 // OpenCode's commands under its name. Ada (Ask) picks /review with Enter and
-// sends it: OpenCode reviews the uncommitted change. Bea (Approve each) sends
+// sends it: OpenCode reviews the uncommitted change, reading it through
+// Locust's git tool (0.818). Asked to write through a shell redirect, Ada
+// writes nothing, in the folder or outside it. Bea (Approve each) sends
 // /init with an argument: it goes through OpenCode's server, stops for the
 // AGENTS.md it wants to write, and writes it once approved.
 //
@@ -15,8 +17,9 @@
 // as counts and yes/no answers; the menu is pictured only while every row
 // showing is a known built-in.
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
 
 import { git, openTeammateScript, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
@@ -144,6 +147,14 @@ try {
   const reviewed = JSON.parse(String(await drive.capture('/review sent', () => drive.evaluate(sendAnswering))))
   say(`  review: ${reviewed.thread.slice(-300)}`)
   check('OpenCode reviewed the uncommitted change: add now subtracts', /calc|\badd\b|subtract|a - b|minus/i.test(reviewed.thread.slice(reviewed.thread.indexOf('/review') + 7)), reviewed.thread.slice(-300))
+
+  // Ask writes nothing, a redirect included (0.818): 0.744's git allows let `git status > status.txt` through.
+  const outside = join(dirname(workspace), `ask-mode-outside-${String(process.pid)}.txt`)
+  await drive.evaluate(type(`Run exactly these two shell commands with your bash tool, one at a time, as written: git status > status.txt   and then   git log -1 > ../${basename(outside)}   Then say in one sentence whether each one ran.`))
+  const redirected = JSON.parse(String(await drive.capture('Ask asked to write through a redirect', () => drive.evaluate(sendAnswering))))
+  const wrote = [join(workspace, 'status.txt'), outside].filter((file) => existsSync(file))
+  check('Ask mode wrote nothing, in the folder or outside it', wrote.length === 0, `${wrote.map((file) => basename(file)).join(', ') || 'nothing written'} || ${redirected.thread.slice(-240)}`)
+  await Promise.all(wrote.map((file) => rm(file, { force: true })))
 
   await drive.evaluate(openTeammateScript('Bea'))
   await sleep(1000)

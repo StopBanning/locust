@@ -60,15 +60,15 @@ describe('the two a comparison starts on', () => {
   })
 
   it('take, as the second free one, a free model that has answered here over the first listed (0.517)', () => {
-    const models = [model('opencode', 'opencode/mimo-v2.6-flash-free'), model('opencode', 'opencode/ling-3.0-flash-fin-free'), model('opencode', 'opencode/space-bunny-free')]
+    const models = [model('opencode', 'opencode/mimo-v2.6-flash-free'), model('opencode', 'opencode/ling-3.0-flash-fin-free'), model('opencode', 'opencode/glm-5.3-flash-free')]
     const current = { runtime: 'opencode', model: 'opencode/mimo-v2.6-flash-free' } as const
-    // Ling was tried (and failed) most recently; Space Bunny is the one that answered.
-    const picks = defaultComparePicks({ ...base, models, current, recent: ['opencode:opencode/ling-3.0-flash-fin-free'], answered: ['opencode/space-bunny-free'] })
-    expect(picks.map((pick) => pick.model)).toEqual(['opencode/mimo-v2.6-flash-free', 'opencode/space-bunny-free'])
+    // Ling was tried (and failed) most recently; GLM 5.3 Flash is the one that answered.
+    const picks = defaultComparePicks({ ...base, models, current, recent: ['opencode:opencode/ling-3.0-flash-fin-free'], answered: ['opencode/glm-5.3-flash-free'] })
+    expect(picks.map((pick) => pick.model)).toEqual(['opencode/mimo-v2.6-flash-free', 'opencode/glm-5.3-flash-free'])
     // Nothing answered yet: the steadiest other free one (0.712, status.FREE_MODELS_BEST_FIRST names Space
     // Bunny, not Ling 3.0) -- it was the next one listed.
     const fresh = defaultComparePicks({ ...base, models, current, recent: [] })
-    expect(fresh.map((pick) => pick.model)).toEqual(['opencode/mimo-v2.6-flash-free', 'opencode/space-bunny-free'])
+    expect(fresh.map((pick) => pick.model)).toEqual(['opencode/mimo-v2.6-flash-free', 'opencode/glm-5.3-flash-free'])
     // And one that answered here still comes before that order.
     const answeredLing = defaultComparePicks({ ...base, models, current, recent: [], answered: ['opencode/ling-3.0-flash-fin-free'] })
     expect(answeredLing.map((pick) => pick.model)).toEqual(['opencode/mimo-v2.6-flash-free', 'opencode/ling-3.0-flash-fin-free'])

@@ -24,20 +24,20 @@ const model = (id: string, extra: Partial<PublicModel> = {}): PublicModel =>
 const CATALOGUE = [
   model('opencode/big-pickle'),
   model('opencode/ling-3.0-flash-fin-free', { displayName: 'Ling 3.0 Flash Fin Free' }),
-  model('opencode/longcat-2.5-preview-free', { displayName: 'LongCat 2.5 Preview Free' }),
+  model('opencode/beam-free', { displayName: 'Beam Free' }),
   model('mine/cheap-free', { own: true }),
-  model('opencode/space-bunny-free', { displayName: 'Space Bunny Free' })
+  model('opencode/glm-5.3-flash-free', { displayName: 'GLM 5.3 Flash Free' })
 ]
 
-// Best first (0.712, status.FREE_MODELS_BEST_FIRST): Space Bunny, LongCat, then Ling 3.0 where it is listed.
+// Best first (0.712, status.FREE_MODELS_BEST_FIRST): GLM 5.3 Flash, Beam, then Ling 3.0 where it is listed.
 describe('the free model to offer', () => {
   it('is the next of OpenCode\'s free models after the one the run is on', () => {
-    expect(nextFreeModel('opencode', 'opencode/space-bunny-free', CATALOGUE)?.id).toBe('opencode/longcat-2.5-preview-free')
+    expect(nextFreeModel('opencode', 'opencode/glm-5.3-flash-free', CATALOGUE)?.id).toBe('opencode/beam-free')
   })
 
   it('skips a model of the person\'s own, and goes round after the last', () => {
-    expect(nextFreeModel('opencode', 'opencode/longcat-2.5-preview-free', CATALOGUE)?.id).toBe('opencode/ling-3.0-flash-fin-free')
-    expect(nextFreeModel('opencode', 'opencode/ling-3.0-flash-fin-free', CATALOGUE)?.id).toBe('opencode/space-bunny-free')
+    expect(nextFreeModel('opencode', 'opencode/beam-free', CATALOGUE)?.id).toBe('opencode/ling-3.0-flash-fin-free')
+    expect(nextFreeModel('opencode', 'opencode/ling-3.0-flash-fin-free', CATALOGUE)?.id).toBe('opencode/glm-5.3-flash-free')
   })
 
   it('is nothing for a paid route, a model of their own, another runtime, or a lone free model', () => {
@@ -70,7 +70,7 @@ describe('a busy notice in the thread', () => {
   })
 
   it('carries the offer as a button under its words, and only the busy one does', () => {
-    const offer = { label: 'Stop and switch to LongCat 2.5 Preview Free', onPress: () => undefined }
+    const offer = { label: 'Stop and switch to Beam Free', onPress: () => undefined }
     const draw = (code: string, withOffer: boolean) =>
       renderToStaticMarkup(
         <ThreadItems
@@ -82,7 +82,7 @@ describe('a busy notice in the thread', () => {
           {...(withOffer ? { busyModel: offer } : {})}
         />
       )
-    expect(draw('opencode.provider_busy.runtime_error', true)).toContain('class="lc-diagnostic__action">Stop and switch to LongCat 2.5 Preview Free</button>')
+    expect(draw('opencode.provider_busy.runtime_error', true)).toContain('class="lc-diagnostic__action">Stop and switch to Beam Free</button>')
     expect(draw('opencode.provider_busy.runtime_error', false)).not.toContain('lc-diagnostic__action')
     expect(draw('opencode.runtime_error', true)).not.toContain('lc-diagnostic__action')
   }, 10_000)

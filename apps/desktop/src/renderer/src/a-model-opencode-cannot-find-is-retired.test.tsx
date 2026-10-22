@@ -19,7 +19,7 @@ const SAID = 'OpenCode stopped: Model not found: opencode/fledge-alpha-free. Did
 const model = (id: string): PublicModel =>
   ({ id, runtime: 'opencode', displayName: id, description: '', supportedEfforts: [] }) as unknown as PublicModel
 // The fresh install's list, in its order.
-const catalog = ['opencode/exo-free', 'opencode/fledge-alpha-free', 'opencode/ling-3.0-flash-fin-free', 'opencode/longcat-2.5-preview-free'].map(model)
+const catalog = ['opencode/exo-free', 'opencode/fledge-alpha-free', 'opencode/ling-3.0-flash-fin-free', 'opencode/beam-free'].map(model)
 const failedWith = (message: string): NormalizedRuntimeEvent =>
   ({ type: 'run.failed', payload: { message } }) as unknown as NormalizedRuntimeEvent
 const run = (id: string, phase: 'completed' | 'failed', at: string, message?: string) => ({
@@ -44,18 +44,18 @@ describe('a model OpenCode cannot find is retired', () => {
     expect(retired.has('opencode/fledge-alpha-free')).toBe(true)
     expect(shown(retired).map((entry) => entry.id)).not.toContain('opencode/fledge-alpha-free')
     // The steadiest listed (status.FREE_MODELS_BEST_FIRST); and without it, still not Fledge Alpha.
-    expect(freeStartModel('opencode', shown(retired), [])).toBe('opencode/longcat-2.5-preview-free')
-    expect(freeStartModel('opencode', shown(retired).filter((entry) => !entry.id.startsWith('opencode/longcat')), [])).toBe('opencode/ling-3.0-flash-fin-free')
+    expect(freeStartModel('opencode', shown(retired), [])).toBe('opencode/beam-free')
+    expect(freeStartModel('opencode', shown(retired).filter((entry) => !entry.id.startsWith('opencode/beam')), [])).toBe('opencode/ling-3.0-flash-fin-free')
   })
 
   it('the next model OpenCode drops is learned from its first failure, and is back once it answers', () => {
-    const lost = 'OpenCode stopped: Model not found: opencode/longcat-2.5-preview-free. Did you mean: ling-3.1-flash-free?'
-    expect(retiredFreeModels([run('opencode/longcat-2.5-preview-free', 'failed', '2026-10-10T01:00:00Z', lost)]).has('opencode/longcat-2.5-preview-free')).toBe(true)
+    const lost = 'OpenCode stopped: Model not found: opencode/beam-free. Did you mean: ling-3.1-flash-free?'
+    expect(retiredFreeModels([run('opencode/beam-free', 'failed', '2026-10-10T01:00:00Z', lost)]).has('opencode/beam-free')).toBe(true)
     expect(
       retiredFreeModels([
-        run('opencode/longcat-2.5-preview-free', 'failed', '2026-10-10T01:00:00Z', lost),
-        run('opencode/longcat-2.5-preview-free', 'completed', '2026-10-11T01:00:00Z')
-      ]).has('opencode/longcat-2.5-preview-free')
+        run('opencode/beam-free', 'failed', '2026-10-10T01:00:00Z', lost),
+        run('opencode/beam-free', 'completed', '2026-10-11T01:00:00Z')
+      ]).has('opencode/beam-free')
     ).toBe(false)
   })
 })

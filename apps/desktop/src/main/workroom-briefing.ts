@@ -545,11 +545,26 @@ function answerSection(): string {
  * `git status && git log`, and none of 9 "quote what your team remembers"
  * (drive-ask-mode-reads, three runs). "Read files instead" alone offers
  * nothing in place of `git log`, so the line says what to answer from.
+ *
+ * 0.818: git reaches a read-only run through Locust's git tool, and the run is
+ * told so by OPENCODE_GIT_TOOL_RULE in OpenCode's own `instructions`, which
+ * every agent of the run reads. This line is for a run without the tool.
  */
 export function openCodeReadOnlySection(): string {
-  // 0.744: git that only reads runs (commands.ts, OPENCODE_READ_ONLY_BASH); every other shell command is still refused.
-  return 'Your shell in this mode runs only git commands that read -- git status, git diff, git log, git show, git blame, git grep, git ls-files, git branch -- each on its own: no &&, no pipes, no redirects, no --output. Any other shell command, cat and ls included, is refused. For everything else use your read, grep, glob and list tools, and answer from what the files show.'
+  return 'You have no shell in this mode -- not git, not cat, not ls: every shell command is refused. Use your read, grep, glob and list tools, and answer from what the files show.'
 }
+
+/**
+ * What a read-only OpenCode run with Locust's git tool is told (0.818), as a
+ * file in OpenCode's `instructions` (commands.ts withOpenCodeGitReads): every
+ * agent of the run reads those, a /review subagent included, which a line in
+ * the prompt never reaches. MEASURED 2026-10-22 on deepseek-v4.1-flash-free:
+ * with this line, /review's subagent went to `locust_git_*` and tried no shell
+ * command; without it, it tried the shell first and fell back to reading the
+ * file.
+ */
+export const OPENCODE_GIT_TOOL_RULE =
+  'This run has no shell: every shell command is refused, git included. For git, use the locust_git tools (status, diff, log, show, blame, branches); for files, your read, grep, glob and list tools.'
 
 /**
  * Plan first: work the problem out and write down what you WOULD do, without

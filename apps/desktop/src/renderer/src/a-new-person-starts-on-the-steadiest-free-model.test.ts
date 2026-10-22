@@ -15,11 +15,11 @@ import { FREE_MODELS_BEST_FIRST, freeModelsBestFirst, freeStartModel, nextFreeMo
  */
 const model = (id: string): PublicModel =>
   ({ id, runtime: 'opencode', displayName: id, description: '', supportedEfforts: [] }) as unknown as PublicModel
-// What OpenCode Zen listed on 2026-10-18, in its order (shared/free-models.ts).
+// What OpenCode listed as free on 2026-10-22, as the picker showed it (shared/free-models.ts).
 const FRESH = [
-  'opencode/beam-free', 'opencode/mimo-v2.6-flash-free', 'opencode/nemotron-3.5-super-vl-free',
-  'opencode/nemotron-3.5-lightning-free', 'opencode/jev-1.13-free', 'opencode/longcat-2.5-preview-free',
-  'opencode/deepseek-v4.1-flash-free', 'opencode/glm-5.3-flash-free', 'opencode/space-bunny-free'
+  'opencode/beam-free', 'opencode/deepseek-v4.1-flash-free', 'opencode/flint-40b-free',
+  'opencode/glm-5.3-flash-free', 'opencode/mimo-v2.6-flash-free', 'opencode/minimax-m3.1-flash-free',
+  'opencode/nemotron-3-ultra-free', 'opencode/nemotron-3.5-lightning-free', 'opencode/nemotron-3.5-super-vl-free'
 ].map(model)
 const retired = retiredFreeModels([])
 const shown = FRESH.filter((entry) => !retired.has(entry.id))
@@ -31,11 +31,11 @@ describe('a new person starts on the steadiest free model', () => {
   })
 
   it('and a failure there offers the next steadiest, with the unnamed after all of them', () => {
-    expect(nextFreeModel('opencode', 'opencode/deepseek-v4.1-flash-free', shown)?.id).toBe('opencode/space-bunny-free')
+    expect(nextFreeModel('opencode', 'opencode/deepseek-v4.1-flash-free', shown)?.id).toBe('opencode/nemotron-3.5-lightning-free')
     const order = freeModelsBestFirst(shown).map((entry) => entry.id)
     expect(order.slice(0, FREE_MODELS_BEST_FIRST.length)).toEqual(FREE_MODELS_BEST_FIRST)
-    // Jev 1.13 is not named (it answered nothing on 2026-10-18): after the named ones, in the order OpenCode lists them.
-    expect(order.slice(FREE_MODELS_BEST_FIRST.length)).toEqual(['opencode/jev-1.13-free'])
+    // Not yet asked, so not named: after the named ones, in the order OpenCode lists them.
+    expect(order.slice(FREE_MODELS_BEST_FIRST.length)).toEqual(['opencode/flint-40b-free', 'opencode/minimax-m3.1-flash-free', 'opencode/nemotron-3-ultra-free'])
   })
 
   it('and Compare puts the next steadiest beside it', () => {

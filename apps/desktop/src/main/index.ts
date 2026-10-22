@@ -270,6 +270,7 @@ import { createAttention, finishFrom } from './attention.js'
 import { boundedShutdown } from './bounded-shutdown.js'
 import { createPermissionHost } from './permission-host.js'
 import { codexCommandGuardConfig, otherCodexHooks, writeCommandGuard, writeCopilotCommandGuard, writeOpenCodeCommandGuard, writeOpenCode2CommandGuard } from './command-guard.js'
+import { writeOpenCodeGitReads } from './opencode-git-reads.js'
 import { isInsideDirectory, notATeammateFolder, readConfirmedFolders, readRememberedWorkspace, resolveWorkspacePath, sameFolder, WORKSPACE_ARGUMENT, writeConfirmedFolders, writeRememberedWorkspace, workspaceIdFor } from './workspace.js'
 import { createUnwrittenAnswers } from './approval-record-note.js'
 import { createRaisedApprovals } from './raised-approvals.js'
@@ -2439,6 +2440,11 @@ if (!ownsSingleInstanceLock) {
     })
     // OpenCode's first-start setup names the same guard a run does (0.780).
     void openCodeGuardWritten.then(markOpenCodeGuard)
+    // Ask and Plan on OpenCode have no shell: git reaches them through Locust's git tool (0.818), beside app.asar.
+    const openCodeGitReadsWritten = writeOpenCodeGitReads(app.getPath('userData'), {
+      node: process.execPath,
+      scriptPath: app.isPackaged ? join(process.resourcesPath, 'locust-git-reads.mjs') : join(__dirname, '../../resources/locust-git-reads.mjs')
+    })
 
     /*
      * What answers a run that stops to ask. Approve-each used to have a whole
@@ -2692,6 +2698,7 @@ if (!ownsSingleInstanceLock) {
       copilotCommandGuard: () => copilotGuardWritten,
       openCodeCommandGuard: () => openCodeGuardWritten,
       openCode2CommandGuard: () => openCode2GuardWritten,
+      openCodeGitReads: () => openCodeGitReadsWritten,
       setsItselfUp: (runtime) => runtime === 'opencode' && discoveryCache?.value.find((entry) => entry.id === 'opencode')?.version?.major === 1 && openCodeFirstStart.willSetUp(),
       // The same guard for Codex (0.720), only when it is the one hook Codex would load.
       codexCommandGuard: async (folder, codexHome) => {

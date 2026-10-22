@@ -215,6 +215,8 @@ describe('the folder’s check', () => {
     const cards = (await h.scout.state()).cards.filter((card) => card.key.startsWith('check:'))
     expect(cards.map((card) => card.said)).toEqual(['The check npm test passes again.'])
     expect(cards[0]?.urgency).toBe('later')
+    // Good news, with nothing for a teammate to do: not put to Scout's model (0.818).
+    expect(cards[0]).not.toHaveProperty('reading')
   })
 })
 

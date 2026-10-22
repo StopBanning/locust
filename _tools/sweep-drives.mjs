@@ -30,7 +30,8 @@ if (packaged === undefined || out === undefined) {
 const only = arg('--only')?.split(',').map((name) => name.trim())
 const from = arg('--from')
 /*
- * THE FREE MODELS, IN TURN (2026-10-06; list refreshed 2026-10-18). One free
+ * THE FREE MODELS, IN TURN (2026-10-06; list refreshed 2026-10-18, and on
+ * 2026-10-22 without Space Bunny and LongCat, gone from OpenCode). One free
  * model for a whole sweep is a provider asked hundreds of times in a row:
  * Ling 3.0 went "Endpoint is unavailable" and Muse Spark "Rate limit
  * exceeded" under it, and every drive after failed for the provider's
@@ -47,13 +48,11 @@ const from = arg('--from')
  */
 const FREE_MODELS = [
   'opencode/deepseek-v4.1-flash-free',
-  'opencode/space-bunny-free',
   'opencode/nemotron-3.5-lightning-free',
   'opencode/nemotron-3.5-super-vl-free',
   'opencode/glm-5.3-flash-free',
   'opencode/mimo-v2.6-flash-free',
-  'opencode/beam-free',
-  'opencode/longcat-2.5-preview-free'
+  'opencode/beam-free'
 ]
 let freeTurn = 0
 const nextFreeModel = () => FREE_MODELS[freeTurn++ % FREE_MODELS.length]
@@ -124,6 +123,13 @@ const PAID_REFUSAL = /refusing to run "[^"]+": it spends a paid account/
 /** A drive that reaches a site outside GitHub only when told to (drive-pet-picks: LOCUST_NETWORK=1). */
 const NETWORK_REFUSAL = /Re-run with LOCUST_NETWORK=1 if you mean it/
 const PROVIDER_REFUSED = /Rate limit exceeded|rate[- ]limited|Endpoint is unavailable|provider answered "(?:Too Many Requests|Service Unavailable)/i
+/*
+ * A drive's own verdict: `[PASS]`/`[FAIL]` on a check, or `PASS:`/`FAIL:` starting a line. Not the word anywhere:
+ * the 0.817 sweep counted 2 failures in a drive that passed every check, because the check it planted printed
+ * "FAIL report total" and the drive quoted it.
+ */
+const PASS_LINE = /\[PASS\]|^\s*PASS:/
+const FAIL_LINE = /\[FAIL\]|^\s*FAIL:/
 async function runDrive(name, model, attempt = 0) {
   const child = spawn(process.execPath, [join(tools, name), '--packaged', packaged], {
     cwd: new URL('../', import.meta.url).pathname.slice(1),
@@ -151,8 +157,8 @@ async function runDrive(name, model, attempt = 0) {
     text,
     code,
     timedOut,
-    passes: lines.filter((line) => /\bPASS\b/.test(line)).length,
-    fails: lines.filter((line) => /\bFAIL\b/.test(line)).length,
+    passes: lines.filter((line) => PASS_LINE.test(line)).length,
+    fails: lines.filter((line) => FAIL_LINE.test(line)).length,
     failedLines: lines.filter((line) => /(drive|probe) failed:|Error:|TypeError|ReferenceError/.test(line))
   }
 }
@@ -216,7 +222,7 @@ for (const name of drives.slice(start)) {
   const passedLater = fails === 0 && code === 0 && (refusedBy.length > 0 || failedOn.length > 0)
   const note = (refusedBy.length > 0 ? `refused by ${refusedBy.join(', ')}; ` : '')
     + (failedOn.length > 0 ? `${passedLater ? 'passed after failing' : 'also failed'} on ${failedOn.join(', ')}; ` : '')
-    + (failedLines[0] ?? run.text.split(/\r?\n/).filter((line) => /\bFAIL\b/.test(line))[0] ?? '')
+    + (failedLines[0] ?? run.text.split(/\r?\n/).filter((line) => FAIL_LINE.test(line))[0] ?? '')
   results.push({ name: name.replace(/\.mjs$/, ''), code, timedOut, passes, fails, failedLines: failedLines.slice(0, 5), ms: Date.now() - began, note })
   await summarise()
   console.log(`${name}: code ${String(code)}${timedOut ? ' TIMED OUT' : ''}, ${String(passes)} PASS, ${String(fails)} FAIL ${note.slice(0, 120)}`)

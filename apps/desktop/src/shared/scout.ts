@@ -543,8 +543,8 @@ const waitedFor = (minutes: number): string => (minutes < 60 ? `${String(minutes
 
 /*
  * THE MORNING BRIEF (0.816). Duet's best-liked habit, from the 10/22 deep dive: one short note each morning, then quiet.
- * Every line is Locust's, counted with no model; Scout's model may add its take, as on any card. A morning with nothing
- * to tell says so in one sentence.
+ * Every line is Locust's, counted with no model, and Scout's model is not asked about it (0.818: its take on the first
+ * live brief added nothing the lines had not said). A morning with nothing to tell says so in one sentence.
  */
 export function briefFact(brief: ScoutBrief, day: string): ScoutFact {
   const lines: string[] = []

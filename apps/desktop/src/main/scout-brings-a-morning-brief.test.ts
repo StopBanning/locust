@@ -97,8 +97,10 @@ describe('the morning brief', () => {
     expect(first[0]?.lines).toEqual(['Waiting on you: Ada, 30 min.', 'Since yesterday: 4 turns finished, 1 failed.'])
     // Scout's own looks are named, so they are never counted as turns that ran.
     expect(h.since.at(-1)?.looks).toEqual([])
-    // Its model reads it like any news, against the goal when there is one.
-    expect(h.asked.at(-1)).toContain('Good morning. Here is where things stand.')
+    // Locust's own count: its model is asked about the turn waiting on you, never about the brief (0.818).
+    expect(h.asked.at(-1)).toContain('Ada has waited 30 minutes for your OK.')
+    expect(h.asked.at(-1)).not.toContain('Good morning.')
+    expect(first[0]).not.toHaveProperty('reading')
     await h.scout.look()
     expect(await briefs(h.scout)).toHaveLength(1)
     // The next day: a new brief, in yesterday's place, counting from yesterday's.

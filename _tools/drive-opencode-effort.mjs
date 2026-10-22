@@ -4,13 +4,14 @@
 //
 // A6.5. OpenCode's run takes `--variant`, "provider-specific reasoning
 // effort", and `opencode models --verbose` lists each model's variants --
-// the free Ling 3.0 Flash Fin lists low, medium and high. Locust refused
+// the free DeepSeek V4.1 Flash lists low, high and max (Ling, this drive's
+// first model, left OpenCode by 2026-10-22). Locust refused
 // every OpenCode effort and the composer said "Fixed". Measured from a shell
 // on 2026-09-25, the variant reaches the provider: `high` reasoned more than
 // `low` in four runs of four.
 //
-// So: what does the picker offer on Ling, can High be chosen, and is
-// `--variant high` on the command line of the process the run starts? The
+// So: what does the picker offer on it, can the top stop be chosen, and is
+// its `--variant` on the command line of the process the run starts? The
 // argv is read off the live process, not inferred from the ledger.
 //
 // Free model only.
@@ -75,7 +76,7 @@ async function watchArgv(until) {
   while (!until.done) {
     try {
       const { stdout } = await run('powershell', ['-NoProfile', '-Command',
-        "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--title Locust*' -and $_.CommandLine -like '*ling-3.0-flash-fin-free*' } | ForEach-Object { $_.CommandLine }"])
+        "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--title Locust*' -and $_.CommandLine -like '*deepseek-v4.1-flash-free*' } | ForEach-Object { $_.CommandLine }"])
       for (const line of stdout.split(/\r?\n/)) if (line.trim() && !line.includes('Get-CimInstance')) seen.add(line.trim().replace(/^.*?\srun\s/, 'run '))
     } catch {}
     await new Promise((r) => setTimeout(r, 400))
@@ -84,10 +85,10 @@ async function watchArgv(until) {
 }
 
 try {
-  await drive.capture('Ling picked: what the effort control offers', async () => {
+  await drive.capture('DeepSeek picked: what the effort control offers', async () => {
     await drive.ready()
     await drive.evaluate(`(async () => { ${teammateFace('Wren')}.click(); await new Promise((r) => setTimeout(r, 900)) })()`)
-    const route = await drive.evaluate(pickRouteScript({ group: '/opencode/i', search: 'ling', row: '/ling/i' }))
+    const route = await drive.evaluate(pickRouteScript({ group: '/opencode/i', search: 'deepseek v4.1 flash', row: '/deepseek.*v4.1.*flash/i' }))
     const picker = await drive.evaluate(EFFORT)
     await drive.evaluate(CLOSE)
     return `${route} || effort control: ${picker.chip} || effort notches: ${picker.notches.length === 0 ? 'NONE' : picker.notches.join(' ')} || composer label: ${await fixedLabel()}`
@@ -123,6 +124,6 @@ try {
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)
 } finally {
   await drive.finish({
-    intro: 'OpenCode / Ling 3.0 Flash Fin Free, which lists low, medium and high as its variants. The argv is read off the live OpenCode process while the run is going.'
+    intro: 'OpenCode / DeepSeek V4.1 Flash Free, which lists low, high and max as its variants. The argv is read off the live OpenCode process while the run is going.'
   })
 }

@@ -18,9 +18,9 @@ import { freeStartModel, nextFreeModel } from './status.js'
 const model = (id: string): PublicModel =>
   ({ id, runtime: 'opencode', displayName: id, description: '', supportedEfforts: [] }) as unknown as PublicModel
 const LING = 'opencode/ling-3.0-flash-fin-free'
-const LONGCAT = 'opencode/longcat-2.5-preview-free'
+const BEAM = 'opencode/beam-free'
 const MIMO = 'opencode/mimo-v2.6-flash-free'
-const catalog = [LING, MIMO, LONGCAT].map(model)
+const catalog = [LING, MIMO, BEAM].map(model)
 const failedWith = (message: string): NormalizedRuntimeEvent =>
   ({ type: 'run.failed', payload: { message } }) as unknown as NormalizedRuntimeEvent
 const run = (id: string, phase: 'completed' | 'failed', at: string, message?: string) => ({
@@ -48,19 +48,19 @@ describe('a free model that is down is passed over', () => {
     expect(freeStartModel('opencode', catalog, [LING])).toBe(LING)
     expect(freeStartModel('opencode', catalog, [LING], down)).toBe(MIMO)
     // Every free model down: still the first of them, best first since 0.712 (Mimo), never nothing.
-    expect(freeStartModel('opencode', catalog, [], new Set([LING, MIMO, LONGCAT]))).toBe(MIMO)
+    expect(freeStartModel('opencode', catalog, [], new Set([LING, MIMO, BEAM]))).toBe(MIMO)
   })
 
   it('the card after a failure offers the next one that is up', () => {
     const down = new Set([MIMO])
     expect(nextFreeModel('opencode', LING, catalog)?.id).toBe(MIMO)
-    expect(nextFreeModel('opencode', LING, catalog, down)?.id).toBe(LONGCAT)
+    expect(nextFreeModel('opencode', LING, catalog, down)?.id).toBe(BEAM)
   })
 
   it("Compare's second column is not one that is down", () => {
     const picks = (down?: ReadonlySet<string>) =>
       defaultComparePicks({
-        current: { runtime: 'opencode', model: LONGCAT },
+        current: { runtime: 'opencode', model: BEAM },
         recent: [],
         models: catalog,
         ...(down === undefined ? {} : { down }),
@@ -68,8 +68,8 @@ describe('a free model that is down is passed over', () => {
         refusal: () => undefined,
         label: (choice) => choice.model
       }).map((pick) => pick.model)
-    // Best first since 0.712: LongCat beside Mimo, and Ling 3.0, which the order does not name, only when Mimo is down.
-    expect(picks()).toEqual([LONGCAT, MIMO])
-    expect(picks(new Set([MIMO]))).toEqual([LONGCAT, LING])
+    // Best first since 0.712: Beam beside Mimo, and Ling 3.0, which the order does not name, only when Mimo is down.
+    expect(picks()).toEqual([BEAM, MIMO])
+    expect(picks(new Set([MIMO]))).toEqual([BEAM, LING])
   })
 })

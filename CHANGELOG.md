@@ -11,6 +11,19 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.818.0 - 2026-10-22
+
+### Fixed
+
+- **Ask and Plan on OpenCode write nothing, a shell redirect included.** Since 0.744 these modes let OpenCode's shell run git commands that only read, and OpenCode checked such a command without its redirect: `git status > notes.txt` wrote the file, even outside the folder. The shell now refuses every command in these modes again, and git reaches the teammate through Locust's own git tool instead: status, diff, log, show, blame and branches, run with no shell and nothing written. `/review` in Ask mode reads the change through it.
+- **A tool call OpenCode could not run says so.** A turn's activity line read "Used invalid" when a model reached for a tool it does not have; it now says it made a tool call that did not work. Locust's git tool reads as the git it ran, such as "ran git status, diff and log".
+- **A routine stopped by a refused step says why Continue is off.** When a step was refused before it started, such as one too long to send, the routine's review card also said the step before it was never confirmed finished, though it had finished. It now says Continue would be refused the same way.
+
+### Improved
+
+- **Scout's morning brief and good news are Locust's alone.** Scout's model is no longer asked about the morning brief or a check that passes again, which it answered with filler and a draft to run the passing check once more. A look with nothing else new asks no model at all.
+- **Free models OpenCode dropped are gone from Locust's order.** Space Bunny and LongCat left OpenCode's free list, so Scout no longer falls back to them.
+
 ## 0.817.0 - 2026-10-22
 
 ### New

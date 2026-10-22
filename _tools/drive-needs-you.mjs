@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { openTeammateScript, say, scratchRepository, sleep, startDrive, recordRoot } from './drive-lib.mjs'
+import { FREE_ROUTE, openTeammateScript, say, scratchRepository, sleep, startDrive, recordRoot } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -28,7 +28,8 @@ const OUT = join(recordRoot('needs-you-2026-09-26'), `needs-you-${tag}`)
 await mkdir(OUT, { recursive: true })
 
 const WREN_MODEL = process.env.LOCUST_ROOM_MODEL_A ?? 'opencode/nemotron-3-ultra-free'
-const PIP_MODEL = process.env.LOCUST_ROOM_MODEL_B ?? 'opencode/longcat-2.5-preview-free'
+// The drives' free model (FREE_ROUTE): Pip's was LongCat by name until OpenCode dropped it (2026-10-22).
+const PIP_MODEL = process.env.LOCUST_ROOM_MODEL_B ?? FREE_ROUTE.model
 const workspace = await scratchRepository('locust-needs-you-ws-')
 const workspaceId = `ws_${createHash('sha256').update(workspace, 'utf8').digest('hex').slice(0, 32)}`
 const T0 = '2026-09-26T05:00:00.000Z'

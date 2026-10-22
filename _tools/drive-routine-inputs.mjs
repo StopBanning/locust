@@ -31,6 +31,23 @@ const SET = `(selector, value) => {
   node.dispatchEvent(new Event(node.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }))
 }`
 const click = `(label) => { const node = [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === label); if (!node) throw new Error('No button: ' + label); node.click() }`
+/*
+ * Locust's own dropdown (components/Select.tsx): a combobox button and its options, not a native select, so SET's
+ * setter threw "Illegal invocation" on it, the kind stayed Text, and the choice input went untried while every check
+ * still passed (the 0.817 sweep).
+ */
+const CHOOSE = `async (label, option) => {
+  const box = [...document.querySelectorAll('[role=combobox]')].find((one) => one.getAttribute('aria-label') === label)
+  if (!box) throw new Error('No dropdown: ' + label)
+  box.click()
+  await new Promise((r) => setTimeout(r, 250))
+  const item = [...document.querySelectorAll('[role=option]')].find((one) => one.innerText.trim() === option)
+  if (!item) throw new Error('No option ' + option + ' in ' + label)
+  item.click()
+  await new Promise((r) => setTimeout(r, 250))
+}`
+/** What a field shows: a text box's value, or the option a dropdown shows. */
+const SHOWN = `(selector) => { const node = document.querySelector(selector); return node === null ? undefined : node.getAttribute('role') === 'combobox' ? node.innerText.trim() : node.value }`
 const navigation = async (drive) => {
   await drive.evaluate(`[...document.querySelectorAll('.lc-sidebar__nav button')].find((b) => /Routines/.test(b.innerText))?.click()`)
   await sleep(600)
@@ -54,25 +71,27 @@ try {
   await drive.evaluate(`(${SET})('[aria-label="Input 1 key"]', 'topic'); (${SET})('[aria-label="Input 1 label"]', 'Topic'); (${SET})('[aria-label="Input 1 default"]', 'default topic')`)
   await drive.evaluate(`(${click})('Add input')`)
   await sleep(150)
-  await drive.evaluate(`(${SET})('[aria-label="Input 2 key"]', 'style'); (${SET})('[aria-label="Input 2 label"]', 'Style'); (${SET})('[aria-label="Input 2 kind"]', 'choice')`)
+  await drive.evaluate(`(${SET})('[aria-label="Input 2 key"]', 'style'); (${SET})('[aria-label="Input 2 label"]', 'Style')`)
+  await drive.evaluate(`(${CHOOSE})('Input 2 kind', 'Choice')`)
   await sleep(200)
   await drive.evaluate(`(${SET})('[aria-label="Input 2 choices"]', ${JSON.stringify('Brief\nDetailed')})`)
   await sleep(200)
-  await drive.evaluate(`(${SET})('[aria-label="Input 2 default"]', 'Brief')`)
-  const editor = await drive.capture('two declared inputs in the routine editor', () => drive.evaluate(`({ count: document.querySelectorAll('.lc-routineinputs__entry').length, saveDisabled: [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Save routine')?.disabled })`))
-  check('editor has two valid declarations and allows saving', editor.count === 2 && editor.saveDisabled === false, JSON.stringify(editor))
+  await drive.evaluate(`(${CHOOSE})('Input 2 default', 'Brief')`)
+  const editor = await drive.capture('two declared inputs in the routine editor', () => drive.evaluate(`({ count: document.querySelectorAll('.lc-routineinputs__entry').length, kind: (${SHOWN})('[aria-label="Input 2 kind"]'), saveDisabled: [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Save routine')?.disabled })`))
+  check('editor has two valid declarations, the second a choice, and allows saving', editor.count === 2 && editor.kind === 'Choice' && editor.saveDisabled === false, JSON.stringify(editor))
   await drive.evaluate(`(${click})('Save routine')`)
   await sleep(700)
   const saved = await drive.evaluate(`(async () => { const answer = await window.desktop.listRoutines(); return answer.ok ? answer.data.routines[0] : undefined })()`)
-  check('routine is saved with two input declarations', saved?.inputs?.length === 2 && saved.steps[0] === step, JSON.stringify(saved?.inputs))
+  check('routine is saved with two input declarations, the second a choice of two', saved?.inputs?.length === 2 && saved.inputs[1]?.kind === 'choice' && JSON.stringify(saved.inputs[1]?.choices) === '["Brief","Detailed"]' && saved.steps[0] === step, JSON.stringify(saved?.inputs))
   if (!saved) throw new Error('No saved routine')
   const automatic = await drive.evaluate(`window.desktop.runRoutine(${JSON.stringify(saved.routineId)}, { topic: 'a'.repeat(4001), style: 'Brief' })`)
   check('an overlong value is refused before any run', !automatic.ok && /4,000/.test(automatic.error.message), JSON.stringify(automatic))
   await drive.evaluate(`(${click})('Run')`)
   await sleep(400)
-  const defaults = await drive.capture('Run asks for inputs with defaults filled', () => drive.evaluate(`({ open: !!document.querySelector('[role=dialog][aria-label="Run routine"]'), topic: document.querySelector('[aria-label="Value for Topic"]')?.value, style: document.querySelector('[aria-label="Value for Style"]')?.value })`))
+  const defaults = await drive.capture('Run asks for inputs with defaults filled', () => drive.evaluate(`({ open: !!document.querySelector('[role=dialog][aria-label="Run routine"]'), topic: (${SHOWN})('[aria-label="Value for Topic"]'), style: (${SHOWN})('[aria-label="Value for Style"]') })`))
   check('manual Run opens the dialog and fills both defaults', defaults.open && defaults.topic === 'default topic' && defaults.style === 'Brief', JSON.stringify(defaults))
-  await drive.evaluate(`(${SET})('[aria-label="Value for Topic"]', 'portable-alpha'); (${SET})('[aria-label="Value for Style"]', 'Detailed')`)
+  await drive.evaluate(`(${SET})('[aria-label="Value for Topic"]', 'portable-alpha')`)
+  await drive.evaluate(`(${CHOOSE})('Value for Style', 'Detailed')`)
   await drive.capture('values entered before starting', () => drive.evaluate(`document.querySelector('[role=dialog]')?.innerText`))
   await drive.evaluate(`(${click})('Run routine')`)
   let mission

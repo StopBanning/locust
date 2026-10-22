@@ -92,7 +92,8 @@ try {
   await wait(`${SECTION}.querySelectorAll('.lc-skilllib__kept').length === 1 || ${SECTION}.querySelector('.lc-skilllib__said')?.classList.contains('lc-tone-amber')`, 120)
   const kept = await drive.capture('03. Kept', () => drive.evaluate(`({ row: ${SECTION}.querySelector('.lc-skilllib__kept')?.innerText.replace(/\\s+/g, ' ') ?? null, said: ${SECTION}.querySelector('.lc-skilllib__said')?.innerText ?? null, preview: !!${SECTION}.querySelector('.lc-skilllib__preview') })`))
   check('kept: one row for the repository, the look closed', kept.row !== null && !kept.preview && kept.row.includes(REPO), String(kept.row))
-  check('and it says when teammates get them', /^Kept 2 skills from .+\. Claude Code teammates get them from their next run\.$/.test(kept.said ?? ''), String(kept.said))
+  // Every runtime that reads skills since 0.814, not Claude Code's alone.
+  check('and it says when teammates get them', /^Kept 2 skills from .+\. Claude Code, Codex, OpenCode, Copilot and Antigravity teammates get them from their next run\.$/.test(kept.said ?? ''), String(kept.said))
 
   // 03. What landed in the profile: the two skills, at one commit, every file listed.
   const library = join(drive.profile, 'skill-library')

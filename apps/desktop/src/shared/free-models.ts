@@ -20,19 +20,21 @@
  *
  * Gone from OpenCode's free list since the 2026-10-09 sweep, so dropped:
  * nemotron-3-ultra-free, ling-3.1-flash-free, muse-spark-1.3-contributor-free.
- * Not named: jev-1.13-free, listed on 2026-10-18 but answering nothing --
- * "Unexpected server error" on every one of six tries.
+ * Gone by the 2026-10-22 sweep (the picker listed nine free models, neither of
+ * these), so dropped: space-bunny-free, longcat-2.5-preview-free. Listed then
+ * and not yet asked, so not named: flint-40b-free, minimax-m3.1-flash-free,
+ * nemotron-3-ultra-free (back). Not named either: jev-1.13-free, listed on
+ * 2026-10-18 but answering nothing -- "Unexpected server error" on every one
+ * of six tries.
  *
  * Shared since 0.756: the window picks a new person's free model from it, and
  * Scout falls back along it when its free model's provider will not answer.
  */
 export const FREE_MODELS_BEST_FIRST: readonly string[] = [
   'opencode/deepseek-v4.1-flash-free',
-  'opencode/space-bunny-free',
   'opencode/nemotron-3.5-lightning-free',
   'opencode/nemotron-3.5-super-vl-free',
   'opencode/glm-5.3-flash-free',
   'opencode/mimo-v2.6-flash-free',
-  'opencode/beam-free',
-  'opencode/longcat-2.5-preview-free'
+  'opencode/beam-free'
 ]

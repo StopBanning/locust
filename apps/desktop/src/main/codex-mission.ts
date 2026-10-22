@@ -52,7 +52,7 @@ import { createStreamedEventBatcher } from './streamed-event-batches.js'
 import { deliverWhenRuntimeStarts } from './runtime-delivery.js'
 import { persistEventUpdates } from './durable-event-updates.js'
 import type { MissionContinuation, MissionLedger, RecoveredMission, Workroom, WorkroomMessage } from '@teammate/mission-store'
-import type { AcpCapabilities, MissionSandbox, OpenCodeProvider, RuntimeCommandInfo, RuntimeCommandSpec } from '@teammate/runtime-adapters'
+import type { AcpCapabilities, GitReadsSpec, MissionSandbox, OpenCodeProvider, RuntimeCommandInfo, RuntimeCommandSpec } from '@teammate/runtime-adapters'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
@@ -698,6 +698,11 @@ interface CodexMissionServiceOptions {
   readonly openCodeCommandGuard?: () => Promise<string | undefined>
   /** The directory-based V2 plugin, distinct from the V1 hook file. */
   readonly openCode2CommandGuard?: () => Promise<string | undefined>
+  /**
+   * Locust's git tool for an OpenCode run with no shell (0.818, commands.ts withOpenCodeGitReads); undefined when its
+   * instructions file could not be written, and the run is then told only that its shell is off.
+   */
+  readonly openCodeGitReads?: () => Promise<GitReadsSpec | undefined>
   /**
    * Whether this runtime's next start sets itself up first (0.780, opencode-first-start.ts): OpenCode installs
    * its plugin package on its first start, a minute or more, and the start line says so instead of "Starting".
@@ -2276,6 +2281,10 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         if (opencodeAcp && openCodeGuardPlugin === undefined) {
           return error('RUNTIME_START_FAILED', 'OpenCode 2 could not prepare the command guard. Your message has not been sent; reopen Locust and try again.') as CodexMissionStartResponse
         }
+        // Ask and Plan on OpenCode have no shell, so git reaches them through Locust's git tool (0.818).
+        const openCodeGitReads = runtime === 'opencode' && !opencodeAcp && cloud === undefined && effectiveSandbox === 'read-only'
+          ? await options.openCodeGitReads?.().catch(() => undefined)
+          : undefined
         const codexGuardConfig = runtime === 'codex' && cloud === undefined ? await options.codexCommandGuard?.(runCwd, chosen.executable.env?.CODEX_HOME).catch(() => undefined) : undefined
         // The person's connectors are this computer's: a turn there has none to ask about.
         const permissionBridge =
@@ -2419,6 +2428,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
+              ...(openCodeGitReads === undefined ? {} : { gitReads: openCodeGitReads }),
               ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir, skillPaths })
             })
           }
@@ -2434,6 +2444,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
+              ...(openCodeGitReads === undefined ? {} : { gitReads: openCodeGitReads }),
               ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir, skillPaths }),
               ...choice
             })
@@ -2746,7 +2757,8 @@ ${sentPrompt.trim()}`
         // the app cannot keep, whichever of the two ever changes.
         // A read-only OpenCode run is told it has no shell, before the plan
         // instruction so that one stays last (A2.20, workroom-briefing.ts).
-        if (!bare && runtime === 'opencode' && sandbox === 'read-only') {
+        // With Locust's git tool, OpenCode's own instructions say so (0.818).
+        if (!bare && runtime === 'opencode' && sandbox === 'read-only' && openCodeGitReads === undefined) {
           runtimePrompt = [runtimePrompt, openCodeReadOnlySection()].join('\n\n')
         }
         if (!bare && mode === 'plan' && sandbox === 'read-only') {

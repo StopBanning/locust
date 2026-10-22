@@ -22,6 +22,7 @@ import {
   createPathExecutableLocator,
   discoverInstalledRuntimes,
   parseRuntimeVersion,
+  withOpenCodeGitReads,
   withoutOpenCodeQuestionTool,
 } from "../src/index.js";
 import type {
@@ -1130,9 +1131,12 @@ describe("OpenCode and Copilot CLI commands", () => {
         // and `opencode run`, being non-interactive, auto-rejects every
         // use of it -- measured: "permission requested: bash; auto-rejecting".
         // Still read-only; refused at the call rather than by absence.
-        // 0.744: a map that still starts "ask" -- git that only reads is let
-        // through after it (checked below).
-        bash: expect.any(Object),
+        // EVERY shell command, git included (0.818): OpenCode matches a
+        // command with its redirects taken off, so 0.744's `git status*`
+        // allow let `git status > status.txt` write the file, and `git log -1
+        // > ../outside.txt` write one outside the folder (measured
+        // 2026-10-22). Git reaches the run through Locust's git tool instead.
+        bash: "ask",
         patch: "deny",
         // Stated, not left to the default: an unstated refusal ends the run.
         external_directory: "deny",
@@ -1141,26 +1145,38 @@ describe("OpenCode and Copilot CLI commands", () => {
       // (A6.1): measured, `git status` refused, the file read instead, exit 0.
       experimental: { continue_loop_on_deny: true },
     });
-    /*
-     * GIT THAT ONLY READS (0.744), measured 2026-10-11 on OpenCode 1.18.27: the
-     * last matching pattern wins, a chained command is asked about part by
-     * part, and a bare "git diff*" let --output write a file until an "ask"
-     * for it came after the allows.
-     */
-    const bash = (JSON.parse(OPENCODE_READ_ONLY_CONFIG) as { permission: { bash: Record<string, string> } }).permission.bash;
-    const order = Object.keys(bash);
-    expect(order[0]).toBe("*");
-    expect(bash["*"]).toBe("ask");
-    for (const read of ["git status*", "git diff*", "git log*", "git show*", "git blame*", "git branch"]) expect(bash[read], read).toBe("allow");
-    // Everything allowed is git, and nothing that makes or changes anything.
-    for (const [pattern, said] of Object.entries(bash)) if (said === "allow") expect(pattern, pattern).toMatch(/^git (status|diff|log|show|blame|grep|ls-files|rev-parse|shortlog|describe|branch|stash list)($| |\*)/);
-    expect(bash["git branch*"]).toBeUndefined();
-    // Each flag that writes, runs a program or reads outside the folder is asked about again, AFTER every allow.
-    const lastAllow = Math.max(...order.map((pattern, index) => (bash[pattern] === "allow" ? index : -1)));
-    for (const flag of ["git *--output*", "git *--ext-diff*", "git *--no-index*", "git grep *-O*", "git grep *--open-files-in-pager*"]) {
-      expect(bash[flag], flag).toBe("ask");
-      expect(order.indexOf(flag), flag).toBeGreaterThan(lastAllow);
+  });
+
+  it("gives a run with no shell Locust's git tool, and only such a run", () => {
+    const gitReads = { command: "C:\\Locust\\Locust.exe", args: ["C:\\Locust\\resources\\locust-git-reads.mjs"], env: { ELECTRON_RUN_AS_NODE: "1" }, instructions: "C:\\Users\\a\\AppData\\Roaming\\Locust\\opencode-git-tool.md" };
+    const config = (sandbox?: "read-only" | "workspace-write" | "full-access", repositoryRoot?: string) => JSON.parse(
+      createOpenCodeRunCommand(openCode, { workspacePath, prompt: PROMPT, gitReads, ...(sandbox === undefined ? {} : { sandbox }), ...(repositoryRoot === undefined ? {} : { repositoryRoot }) }).env?.OPENCODE_CONFIG_CONTENT ?? "{}",
+    ) as { mcp?: Record<string, unknown>; permission: Record<string, unknown>; instructions?: unknown };
+    // Ask (the default) and Plan: the server, in the run's own folder, allowed, and told of in OpenCode's instructions.
+    const ask = config();
+    expect(ask.mcp?.locust_git).toEqual({
+      type: "local",
+      command: ["C:\\Locust\\Locust.exe", "C:\\Locust\\resources\\locust-git-reads.mjs"],
+      environment: { ELECTRON_RUN_AS_NODE: "1", LOCUST_GIT_FOLDER: workspacePath },
+      enabled: true,
+    });
+    expect(ask.permission["locust_git_*"]).toBe("allow");
+    expect(ask.instructions).toEqual([gitReads.instructions]);
+    // The shell stays shut beside it.
+    expect(ask.permission.bash).toBe("ask");
+    // A worktree's read-only run gets it too, in the worktree.
+    expect(config("read-only", "C:\\work\\shop").mcp?.locust_git).toMatchObject({ environment: { LOCUST_GIT_FOLDER: workspacePath } });
+    // A run that may edit, and Auto, have a shell that runs git: no second way in.
+    for (const sandbox of ["workspace-write", "full-access"] as const) {
+      const other = config(sandbox);
+      expect(other.mcp?.locust_git, sandbox).toBeUndefined();
+      expect(other.permission["locust_git_*"], sandbox).toBeUndefined();
+      expect(other.instructions, sandbox).toBeUndefined();
     }
+    // Without a spec the config is as it was.
+    expect(withOpenCodeGitReads(OPENCODE_READ_ONLY_CONFIG, undefined, workspacePath)).toBe(OPENCODE_READ_ONLY_CONFIG);
+    // The person's and the project's instructions are OpenCode's to add; a config's own list is kept and added to.
+    expect(JSON.parse(withOpenCodeGitReads(JSON.stringify({ permission: {}, instructions: ["NOTES.md"] }), gitReads, workspacePath)).instructions).toEqual(["NOTES.md", gitReads.instructions]);
   });
 
   it("titles only a NEW OpenCode session, and keeps plugins for a run that may edit", () => {
@@ -1234,7 +1250,7 @@ describe("OpenCode and Copilot CLI commands", () => {
          * `FreeTierError`, "ask" answers. A test that agrees with the code
          * and disagrees with the provider is worse than no test.
          *
-         * 0.744: the same map as the sibling's, "ask" first.
+         * 0.818: "ask" again, as the sibling's -- every shell command refused.
          */
         bash: JSON.parse(OPENCODE_READ_ONLY_CONFIG).permission.bash,
         patch: "deny",
@@ -1260,7 +1276,6 @@ describe("OpenCode and Copilot CLI commands", () => {
       permission: Record<string, unknown>;
     };
     for (const rule of ["edit", "write", "bash", "patch"]) {
-      // toEqual: since 0.744 `bash` is a map of patterns, the same map in both.
       expect(inWorktree.permission[rule], `${rule} differs between a plain read-only run and a worktree one`)
         .toEqual(plain.permission[rule]);
     }

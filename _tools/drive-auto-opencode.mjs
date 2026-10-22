@@ -14,13 +14,13 @@
 // answers from a remembered refusal. The proof is the marker's text in the
 // thread -- it exists nowhere else.
 //
-// Free model only: `ling-3.0-flash-fin-free` on OpenCode.
+// Free model only: the drives' free route on OpenCode (drive-lib FREE_ROUTE).
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { pickRouteScript, say, scratchRepository, sendAndWaitScript, startDrive, teammateFace, recordRoot } from './drive-lib.mjs'
+import { FREE_ROUTE, FREE_ROW, FREE_SEARCH, pickRouteScript, say, scratchRepository, sendAndWaitScript, startDrive, teammateFace, recordRoot } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -68,7 +68,7 @@ const verdict = (tail) => (tail.includes(MARKER) ? `REACHED: the marker is in th
 
 const runAs = async (name, modePattern) => {
   await drive.evaluate(`(async () => { ${teammateFace(name)}.click(); await new Promise(r => setTimeout(r, 900)) })()`)
-  const route = await drive.evaluate(pickRouteScript({ group: '/opencode/i', search: 'ling', row: '/ling/i' }))
+  const route = await drive.evaluate(pickRouteScript({ group: '/opencode/i', search: FREE_SEARCH, row: FREE_ROW }))
   const mode = await drive.evaluate(pickMode(modePattern))
   await drive.evaluate(sendAndWaitScript(ask, { waitSeconds: 240 }))
   const tail = await threadTail()
@@ -86,7 +86,7 @@ try {
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)
 } finally {
   await drive.finish({
-    intro: `Build: ${packaged ?? 'whatever pnpm build last wrote to out/'}. Wren runs the control under Edit and Vale runs Auto, both on OpenCode's free ling model, so the two never share a session. The marker ${MARKER} sits in ${outside.replace(/\\/g, '/')}, a directory the mission was never given; it reaches the thread only if the run left its folder.`
+    intro: `Build: ${packaged ?? 'whatever pnpm build last wrote to out/'}. Wren runs the control under Edit and Vale runs Auto, both on OpenCode's free ${FREE_ROUTE.model}, so the two never share a session. The marker ${MARKER} sits in ${outside.replace(/\\/g, '/')}, a directory the mission was never given; it reaches the thread only if the run left its folder.`
   })
   await rm(outside, { recursive: true, force: true })
 }

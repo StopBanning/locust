@@ -3381,3 +3381,24 @@ describe('a tool the app has words for, as a row (0.610)', () => {
     expect(entries.map((entry) => entry.kind === 'tool' ? entry.name : '')).toEqual(['Made an image'])
   })
 })
+
+describe('Locust’s git tool and OpenCode’s failed tool call, in words (0.818)', () => {
+  const call = (tool: string, settled = true): ActivityDetail => ({ kind: 'tool', name: tool, tool, settled }) as ActivityDetail
+  it('says the git a run with no shell ran, as a shell’s git reads', () => {
+    expect(liveActionLine(call('locust_git_diff', false))).toBe('Running git diff')
+    expect(activityEntries([call('locust_git_branches')]).map((entry) => entry.kind === 'tool' ? entry.name : '')).toEqual(['Ran git branch'])
+    expect(railToolName({ name: 'locust_git_log' })).toBe('Ran git log')
+    const said = (tools: readonly string[]): string | undefined => stepsLine(tools.map((tool) => call(tool)), true).segments[0]?.text
+    expect(said(['locust_git_diff'])).toBe('Ran git diff')
+    expect(said(['locust_git_diff', 'locust_git_diff'])).toBe('Ran git diff 2 times')
+    expect(said(['locust_git_status', 'locust_git_diff', 'locust_git_log'])).toBe('Ran git status, diff and log')
+    expect(said(['locust_git_status', 'locust_git_diff', 'locust_git_log', 'locust_git_show'])).toBe('Ran git 4 times')
+    // Another server's tool that only looks like it keeps its own name.
+    expect(said(['locust_git_push'])).toBe('Used locust_git_push')
+  })
+
+  it('says a tool call OpenCode could not run, never "used invalid"', () => {
+    expect(stepsLine([call('invalid')], true).segments[0]?.text).toBe('Made a tool call that did not work')
+    expect(activityEntries([call('invalid')]).map((entry) => entry.kind === 'tool' ? entry.name : '')).toEqual(['Made a tool call that did not work'])
+  })
+})

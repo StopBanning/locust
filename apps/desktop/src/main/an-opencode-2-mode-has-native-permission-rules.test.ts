@@ -28,16 +28,14 @@ describe('an OpenCode 2 mode has native permission rules', () => {
     expect(openCode2Launch(executable, { workspacePath: '/project', sandbox: 'workspace-write', approveEach: false, guardPlugin }).env.OPENCODE_CONFIG_PROJECT_DISABLE).toBeUndefined()
   })
 
-  it('denies edits and subagents in Ask while preserving reading commands and refusing unsafe git variants', () => {
+  it('denies edits and subagents in Ask, and lets no shell command through', () => {
     const rules = config('read-only').agents.locust.permissions
     expect(rules).toContainEqual({ action: 'edit', resource: '*', effect: 'deny' })
     expect(rules).toContainEqual({ action: 'subagent', resource: '*', effect: 'deny' })
     expect(rules).toContainEqual({ action: 'external_directory', resource: '*', effect: 'deny' })
-    const read = rules.findIndex((rule: { resource: string }) => rule.resource === 'git diff*')
-    const unsafe = rules.findIndex((rule: { resource: string }) => rule.resource === 'git *--output*')
-    expect(rules[read]).toEqual({ action: 'shell', resource: 'git diff*', effect: 'allow' })
-    expect(rules[unsafe]).toEqual({ action: 'shell', resource: 'git *--output*', effect: 'ask' })
-    expect(unsafe).toBeGreaterThan(read)
+    // 0.818: V1 matched an allowed `git status*` with its redirect taken off, so `git status > x.txt` wrote the file.
+    // V1's read-only shell asks for everything again, and V2 is told the same: one rule, no allows after it.
+    expect(rules.filter((rule: { action: string }) => rule.action === 'shell')).toEqual([{ action: 'shell', resource: '*', effect: 'ask' }])
     expect(rules).not.toContainEqual(expect.objectContaining({ action: 'bash' }))
   })
 
