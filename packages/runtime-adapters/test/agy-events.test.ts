@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { agyUserLine } from "../src/process-runner.js";
 import { assertSafeRuntimeCommand, createAgyEventNormalizer, createAgyPrintCommand, parseAgyModelList } from "../src/index.js";
+import { antigravityQuotaLimit } from "../src/agy-events.js";
 import type { NormalizedRuntimeEvent } from "../src/codex-events.js";
 
 /**
@@ -101,6 +102,20 @@ describe("Antigravity CLI's stream", () => {
     const events = interrupted([JSON.stringify({ event: "step_update", step_update: { conversation_id: "c1", step_index: 31, step_type: "tool", state: "ACTIVE", tool_name: "run_command", tool_info: { parameters: { CommandLine: "npx serve" } } } })]);
     expect(events.at(-1)!.type).toBe("run.failed");
     expect(events.some((event) => event.type === "adapter.diagnostic" && payload<{ code: string }>(event).code === "antigravity.interrupted_after_answer")).toBe(false);
+  });
+
+  // 0.823, from the 2026-10-22 handoff drive (Gemini 4 Argon in Ask): the card pasted AGY_ERROR's raw JSON after the
+  // sentence, and no "Usage limit reached" card said when it would reset.
+  it("a quota used up is the limit card, with the reset as the instant it names", () => {
+    const normalizer = createAgyEventNormalizer({ runId: "run_1", missionId: "mission_1", now: () => new Date("2026-10-22T17:03:44Z") });
+    const raw = '{"event":"result","result":{"conversation_id":"c1","status":"ERROR","response":"","error":"Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 33h54m24s."}}';
+    const events = [...normalizer.accept({ sequence: 1, raw } as never), ...normalizer.finish(completion(1))];
+    const limit = events.find((event) => event.type === "route.limit_detected");
+    expect(payload<{ kind: string; message: string }>(limit)).toMatchObject({ kind: "quota-exhausted", message: "Antigravity's quota is used up · resets 2026-10-24T02:58:08Z" });
+    expect(events.at(-1)!.type).toBe("run.failed");
+    expect(payload<{ message: string }>(events.at(-1)).message).toBe("Antigravity could not run it: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 33h54m24s.");
+    expect(antigravityQuotaLimit("RESOURCE_EXHAUSTED", new Date(0))).toBe("Antigravity's quota is used up");
+    expect(antigravityQuotaLimit("API error (attempt 1): UNAVAILABLE (code 503): The service is currently unavailable.", new Date(0))).toBeUndefined();
   });
 
   it("a 503 with no answer is still a failure", () => {

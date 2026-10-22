@@ -87,6 +87,22 @@ export function agyDeniedSentence(actions: readonly string[]): string | undefine
   return `Antigravity was not allowed to do everything it tried in this mode (${actions.join(", ")}). Choose Auto to let it.`;
 }
 
+/**
+ * Antigravity's quota used up, as the "Usage limit reached" card shows it, or undefined.
+ *
+ * MEASURED 2026-10-22, Gemini 4 Argon in Ask, 7 tool calls in: "Individual quota reached. Please upgrade your
+ * subscription to increase your limits. Resets in 33h54m24s." with `AGY_ERROR: {"status":"RESOURCE_EXHAUSTED",
+ * "error_code":429, ...}` on stderr, and the card pasted that JSON after the sentence. The reset is a duration from
+ * now; it is kept as the instant it names, which the window shows as a local time.
+ */
+export function antigravityQuotaLimit(error: string, now: Date): string | undefined {
+  if (!/quota reached|RESOURCE_EXHAUSTED/i.test(error)) return undefined;
+  const span = /resets in\s+(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?/i.exec(error);
+  const seconds = span === null ? 0 : Number(span[1] ?? 0) * 3600 + Number(span[2] ?? 0) * 60 + Number(span[3] ?? 0);
+  if (seconds <= 0) return "Antigravity's quota is used up";
+  return `Antigravity's quota is used up · resets ${new Date(now.getTime() + seconds * 1000).toISOString().replace(/\.\d{3}Z$/, "Z")}`;
+}
+
 export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEventNormalizer {
   const runId = requireContextText(context.runId, "runId");
   const cliVersion = context.cliVersion === undefined ? undefined : requireContextText(context.cliVersion, "cliVersion");
@@ -386,8 +402,11 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
       // A conversation Antigravity CLI does not have (one the app began, 0.541):
       // the session is over, and the next reply starts fresh.
       const lost = resultError !== undefined && /trajectory not found/i.test(resultError);
+      // Its quota used up (0.823): the limit card, with the reset as an instant the window shows as a local time.
+      const quota = resultError !== undefined && resultEvidence !== undefined ? antigravityQuotaLimit(resultError, now()) : undefined;
       return [
         ...ending,
+        ...(quota === undefined ? [] : [emit("route.limit_detected", { kind: "quota-exhausted", message: quota, evidence: resultEvidence! })]),
         emit("run.failed", {
           kind: "process-failed",
           ...(lost ? { sessionEnded: true as const } : {}),

@@ -158,6 +158,28 @@ const MUSE_SANDBOX_NOT_SET_UP = /sandbox enforcement unavailable|sandbox users a
 export const MUSE_SANDBOX_SENTENCE =
   "Muse Code can't run commands on this computer yet: its Windows sandbox isn't set up, so in Edit every command fails before it starts. Switch this teammate to Auto to run commands without that sandbox, or run `muse sandbox windows setup` once in a terminal; it may ask for an administrator's OK.";
 
+/**
+ * Muse Code's plan used up for now.
+ *
+ * MEASURED 2026-10-22, muse 1.4.11, Muse Wonder 1.0 in Ask: 57 tool calls in, the model call failed "API error 429
+ * [request_id=...]: Subscription quota exhausted. Your usage window resets at 2026-10-26T00:00:00Z.
+ * (rate_limit_error)" -- a task of Muse's own, `model.meta.response` -- and the run ended failed with the same words.
+ * The person read that line three times over, the last time behind "The runtime reported that it is out of capacity".
+ * It is said once now, as the limit it is: the reset instant stays in the record and the window shows it as a local
+ * time, and the run's failure is one sentence that says what to do.
+ */
+const MUSE_QUOTA_EXHAUSTED = /subscription quota exhausted|usage window resets/i;
+const MUSE_QUOTA_RESETS = /resets at (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/i;
+
+/** The limit, as the "Usage limit reached" card shows it: "Muse Code's plan is used up · resets <instant>". */
+export function museQuotaLimit(reason: string): string {
+  const resets = MUSE_QUOTA_RESETS.exec(reason)?.[1];
+  return `Muse Code's plan is used up${resets === undefined ? "" : ` · resets ${resets}`}`;
+}
+
+export const MUSE_QUOTA_SENTENCE =
+  "Muse Code's plan is used up for now, so it stopped before finishing. Pick another model to carry on, or send again once it resets.";
+
 export function createMuseEventNormalizer(
   context: MuseInvocationContext,
 ): MuseEventNormalizer {
@@ -174,6 +196,8 @@ export function createMuseEventNormalizer(
   /** The `terminal` word of `run.terminal.*`, once one arrives. */
   let terminal: string | undefined;
   let terminalReason: string | undefined;
+  /** That record's evidence, for a limit only the run's end said. */
+  let terminalEvidence: CodexEventEvidence | undefined;
   /** Everything the deltas have said, so a terminal without text still has it. */
   let streamedText = "";
   let messageClosed = false;
@@ -181,10 +205,14 @@ export function createMuseEventNormalizer(
   const taskKinds = new Map<string, string>();
   /** `operation`, from `side_effect_intent`: what the task is about to do. */
   const taskOperations = new Map<string, string>();
+  /** The person's tasks that started: only a row that began can be stopped (0.823). */
+  const startedTasks = new Set<string>();
   /** The model calls already said to be tried again, by attempt: each said once. */
   const retriesSaid = new Set<number>();
   /** Whether the missing sandbox has been said: once a run, however many commands it stops. */
   let sandboxSaid = false;
+  /** Whether the plan's limit has been said: once a run, whether a task or the run's own end said it first. */
+  let quotaSaid = false;
 
   const MESSAGE_ITEM = "msg_0";
 
@@ -264,6 +292,7 @@ export function createMuseEventNormalizer(
 
     if (kind === "started") {
       if (internal) return [];
+      startedTasks.add(taskId);
       return [emit("tool.started", { ...toolRow(taskId), phase: "started", evidence })];
     }
     if (kind === "completed") {
@@ -277,6 +306,12 @@ export function createMuseEventNormalizer(
       // outcome; an internal failure is recorded as something that happened,
       // and the person's own tool rows fail on their own row.
       if (internal) {
+        // The plan used up is a limit, said once as one (0.823), not "Muse Code's own model.meta.response did not run".
+        if (reason !== undefined && MUSE_QUOTA_EXHAUSTED.test(reason)) {
+          if (quotaSaid) return [];
+          quotaSaid = true;
+          return [emit("route.limit_detected", { kind: "quota-exhausted", message: museQuotaLimit(reason), evidence })];
+        }
         const named = taskKinds.get(taskId) ?? "a task";
         return [
           diagnostic(
@@ -305,8 +340,24 @@ export function createMuseEventNormalizer(
      * was an "Unhandled Muse task state" line until then, sixteen on one short run, because the fixtures were all
      * `--provider echo`, which never calls a model or a tool.
      */
-    // A task's output: kept out of the record, as every runtime's tool output is.
-    if (kind === "output") return [];
+    // A task's output: kept out of the record, as every runtime's tool output is. `tool_output_ref` is the same output
+    // saved to a file of Muse's own, and says where (MEASURED 2026-10-22, muse 1.4.11: three "Unhandled" lines a run).
+    if (kind === "output" || kind === "tool_output_ref") return [];
+    // A task Muse stopped -- "main run failed" when the run itself failed (MEASURED 2026-10-22, muse 1.4.11). Its own
+    // model call or reminder is not the person's to see, nor is a tool that never began (two of that run's three were
+    // queued, not started: they would have been rows that failed without starting); a tool that ran fails on its row.
+    if (kind === "cancelled") {
+      if (internal || !startedTasks.has(taskId)) return [];
+      const reason = stringValue(event.reason);
+      return [
+        emit("tool.failed", {
+          ...toolRow(taskId),
+          status: `Muse Code stopped it${reason === undefined ? "" : ` (${reason.slice(0, 400)})`}`,
+          phase: "completed",
+          evidence,
+        }),
+      ];
+    }
     if (kind === "rejected") {
       // `skip_if_running`: Muse's own reminder, not run twice. A tool of the person's that it would not run fails on its row.
       if (internal) return [];
@@ -372,8 +423,10 @@ export function createMuseEventNormalizer(
     if (payloadType === "turn.input.user") return [];
 
     // Which model the run is on (`model_id`, MEASURED 2026-10-12: Muse Wonder 1.0, 1.4.6's own default), and a tool's
-    // result, which the task that ran it has already closed: neither is something the thread draws.
-    if (payloadType === "run.model.configured" || payloadType === "tool.result") return [];
+    // result, which the task that ran it has already closed: neither is something the thread draws. Nor is the run's
+    // token count and plan allowance (`run.usage`, a status record, MEASURED 2026-10-22, muse 1.4.11): it was an
+    // "Unhandled Muse record" line at the foot of every turn.
+    if (payloadType === "run.model.configured" || payloadType === "tool.result" || payloadType === "run.usage") return [];
 
     if (payloadType === "run.lifecycle.started") {
       if (runOpen) return [];
@@ -401,6 +454,7 @@ export function createMuseEventNormalizer(
     if (payloadType.startsWith("run.terminal.")) {
       terminal = stringValue(payload.terminal) ?? payloadType.slice("run.terminal.".length);
       terminalReason = stringValue(payload.reason);
+      terminalEvidence = evidence;
       const events: NormalizedRuntimeEvent[] = [];
       // The answer, whole, from the runtime's own last word. This REPLACES
       // whatever the deltas built, which is what makes it safe not to know
@@ -471,7 +525,14 @@ export function createMuseEventNormalizer(
       }
       const finished = terminal === "completed";
       if (!finished || completion.exitCode !== 0) {
+        // The plan's limit, when only the run's own end said it (0.823): the card that says when it resets comes first.
+        const quota = !finished && terminalReason !== undefined && MUSE_QUOTA_EXHAUSTED.test(terminalReason);
+        const limit = quota && !quotaSaid && terminalEvidence !== undefined
+          ? [emit("route.limit_detected", { kind: "quota-exhausted", message: museQuotaLimit(terminalReason!), evidence: terminalEvidence })]
+          : [];
+        quotaSaid = quotaSaid || quota;
         return [
+          ...limit,
           emit("run.failed", {
             kind: "process-failed",
             // The host's own doing comes first: past the output cap it was
@@ -488,7 +549,9 @@ export function createMuseEventNormalizer(
                     ? `Muse Code ended ${terminal}.`
                     : MUSE_BILLING_REFUSAL.test(terminalReason)
                       ? MUSE_BILLING_SENTENCE
-                      : `Muse Code ended ${terminal}: ${terminalReason}`
+                      : quota
+                        ? MUSE_QUOTA_SENTENCE
+                        : `Muse Code ended ${terminal}: ${terminalReason}`
                   : `Muse Code exited with code ${String(completion.exitCode)}.`,
             ...thread,
             runtimeTerminal: terminal === undefined ? "missing" : finished ? "completed" : "failed",

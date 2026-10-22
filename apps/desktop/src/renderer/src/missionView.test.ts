@@ -562,6 +562,23 @@ describe('what a failure card says', () => {
     expect(said).toContain('resource_exhausted')
   })
 
+  // 0.823: the 2026-10-22 handoff drives' cards said Muse's quota three times and pasted Antigravity's raw AGY_ERROR JSON.
+  it('says a limit once when the message already names it in plain words', () => {
+    const quota = 'API error 429 [request_id=2370cf39]: Subscription quota exhausted. Your usage window resets at 2026-10-26T00:00:00Z. (rate_limit_error)'
+    expect(failureMessage({
+      message: "Muse Code's plan is used up for now, so it stopped before finishing. Pick another model to carry on, or send again once it resets.",
+      process: { stderr: `muse: Agent delegation: auto unavailable: workspace is untrusted.${nl}run ended with Failed: ${quota}${nl}` }
+    }, 'muse')).toBe("Muse Code's plan is used up for now, so it stopped before finishing. Pick another model to carry on, or send again once it resets.")
+    const agy = 'Antigravity could not run it: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 33h54m24s.'
+    expect(failureMessage({
+      message: agy,
+      process: { stderr: `AGY_ERROR: {"short_error":"RESOURCE_EXHAUSTED (code 429): Individual quota reached.","status":"RESOURCE_EXHAUSTED","error_code":429}${nl}` }
+    }, 'antigravity')).toBe(agy)
+    // A message that does not name its limit still gets the runtime's own words, as before.
+    expect(failureMessage({ message: 'Cursor Agent ended without a terminal result record.', process: { stderr: `RetriableError: [resource_exhausted] Error${nl}` } }))
+      .toContain('out of capacity right now')
+  })
+
   it('adds nothing when the runtime said nothing', () => {
     expect(failureMessage({ message: 'Codex CLI is not ready.' })).toBe('Codex CLI is not ready.')
     expect(failureMessage({ message: 'Codex CLI is not ready.', process: { stderr: '   ' + nl } })).toBe(

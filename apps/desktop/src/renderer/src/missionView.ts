@@ -5336,6 +5336,9 @@ const EXHAUSTION_PATTERNS = [
   /\bhttp\s*429\b/i
 ] as const
 
+/** A failure that already names its limit in plain words, needing no runtime line after it (0.823). */
+const LIMIT_ALREADY_SAID = /\bplan is used up\b|\bquota reached\b|\busage limit (?:has been |was )?reached\b/i
+
 /**
  * A runtime that could not write its OWN settings file.
  *
@@ -5599,6 +5602,9 @@ export function failureMessage(payload: {
   if (readableStderr !== said) return readableStderr
   if (sameSentence(payload.message, said)) return payload.message
   if (EXHAUSTION_PATTERNS.some((pattern) => pattern.test(said))) {
+    // Already said in plain words -- Muse Code's plan used up, Antigravity's quota reached (0.823) -- the runtime's line
+    // only repeated it behind "out of capacity", request id and raw JSON included. The record keeps those words.
+    if (LIMIT_ALREADY_SAID.test(payload.message)) return payload.message
     return `${payload.message} The runtime reported that it is out of capacity right now — its own limit, not this machine's: ${said}`
   }
   if (isLockedRuntimeConfig(said)) {
