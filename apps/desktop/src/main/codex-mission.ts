@@ -2368,7 +2368,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
          * wrong machine.
          */
         const runSkills =
-          cloud === undefined && !sealed && options.runSkills !== undefined && ((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')
+          cloud === undefined && options.runSkills !== undefined && !sealed && ((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')
             ? await options.runSkills({
               ...(peer?.self.teammateId === undefined ? {} : { teammateId: peer.self.teammateId }),
               ...(slot?.skill === undefined ? {} : { skill: slot.skill })
