@@ -33,7 +33,7 @@ import { createTalkShortcut, type TalkShortcut } from './talk-shortcut.js'
 import { createScout, type Scout } from './scout.js'
 import { folderMarkOf } from './scout-folder.js'
 import { readScoutGithub } from './scout-github.js'
-import { SCOUT_CHANGED, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_SET, SCOUT_STATE, SCOUT_TURN_ON } from '../shared/scout.js'
+import { SCOUT_CHANGED, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TURN_ON } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
 import { DEFAULT_CHATGPT_VOICE, VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, VOICE_CALL_START, VOICE_CALL_STOP, VOICE_CALL_TOOLS, VOICE_CALL_VOICES, VOICE_PREVIEW_SAVE, VOICE_PREVIEW_SAVED, VOICE_PREVIEW_TRIGGER, isChatGptVoice, isVoiceCallOffer, isVoiceCallTarget, type ChatGptVoice, type VoiceAddOn, type VoiceCallTarget } from '../shared/voice-call.js'
 import { createVoiceCalls } from './voice-call.js'
@@ -8087,6 +8087,7 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(SCOUT_SET, (event, change: unknown) => (fromOwnWindow(event) ? keptScout.set(change) : keptScout.state()))
     ipcMain.handle(SCOUT_DISMISS, (event, cardId: unknown) => (fromOwnWindow(event) ? keptScout.dismiss(cardId) : keptScout.state()))
     ipcMain.handle(SCOUT_LOOK, (event) => (fromOwnWindow(event) ? keptScout.look() : keptScout.state()))
+    ipcMain.handle(SCOUT_NOTES, (event, text: unknown) => (fromOwnWindow(event) ? keptScout.saveNotes(text) : keptScout.state()))
     void keptScout.start()
     app.once('will-quit', () => keptScout.dispose())
 

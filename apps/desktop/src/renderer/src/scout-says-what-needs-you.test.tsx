@@ -101,7 +101,7 @@ describe('meeting Scout', () => {
 })
 
 describe('Scout in Settings', () => {
-  const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), look: vi.fn(), onChanged: vi.fn(() => () => undefined) }
+  const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
   it('off, says what turning it on does', () => {
     const html = renderToStaticMarkup(createElement(ScoutSetting, { heading: 'Scout keeps watch', state: state([], { settings: DEFAULT_SCOUT_SETTINGS }), api }))
     expect(html).toContain('Off. Turn it on and Scout joins your team')
@@ -141,7 +141,7 @@ describe('Scout with nothing to say', () => {
   })
 
   it('in Settings, says when it last looked and offers a look now', () => {
-    const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), look: vi.fn(), onChanged: vi.fn() }
+    const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn() }
     const html = renderToStaticMarkup(createElement(ScoutSetting, { heading: createElement('h2', null, 'Scout'), state: state([], { lastLookAt: new Date(Date.now() - 3 * 60_000).toISOString() }), api }))
     expect(html).toContain('Last looked 3 min ago, and nothing needed you.')
     expect(html).toContain('>Look now</button>')

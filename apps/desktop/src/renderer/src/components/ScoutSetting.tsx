@@ -35,6 +35,8 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
   const [message, setMessage] = useState('')
   /** The goal as it is being written; undefined while it reads as saved. */
   const [goal, setGoal] = useState<string | undefined>(undefined)
+  /** Scout's notes as they are being changed; undefined while they read as kept. */
+  const [notes, setNotes] = useState<string | undefined>(undefined)
   if (api === undefined) return null
   const on = state?.settings.on === true
   const savedGoal = state?.settings.goal ?? ''
@@ -67,6 +69,12 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
     if (goal === undefined) return
     const words = goal
     void act(async () => { await api.set({ goal: words }); setGoal(undefined) })
+  }
+  const savedNotes = (state?.notes ?? []).join('\n')
+  const saveNotes = (): void => {
+    if (notes === undefined) return
+    const text = notes
+    void act(async () => { await api.saveNotes(text); setNotes(undefined) })
   }
   const switchOf = (label: string, checked: boolean, onClick: () => void, disabled = false) =>
     <button type="button" className={`lc-switch${checked ? ' is-on' : ''}`} role="switch" aria-label={label} aria-checked={checked} disabled={state === undefined || busy || disabled} onClick={onClick}><span /></button>
@@ -107,6 +115,21 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
           {goal !== undefined && goal.trim() !== savedGoal && <span className="lc-scout__goalkeys">
             <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={saveGoal}>Save</button>
             <button type="button" className="lc-control" disabled={busy} onClick={() => setGoal(undefined)}>Cancel</button>
+          </span>}
+        </div>
+      </div>
+      {/* Scout's notes (0.816): what it keeps from its looks, read, changed or cleared here. */}
+      <div className="lc-settingline lc-settingline--sub lc-scout__goalline">
+        <div className="lc-settingline__text">
+          <h3 className="lc-settings__heading">{`Scout’s notes${(state.notes?.length ?? 0) === 0 ? '' : ` · ${String(state.notes?.length ?? 0)}`}`}</h3>
+          <p className="lc-settings__lede">What Scout keeps from its looks, one line each, and reads on every look. Change or clear them here.</p>
+          <textarea className="lc-input lc-scout__goal" aria-label="Scout’s notes" disabled={busy} rows={4}
+            placeholder="Nothing yet. A look that learns something worth keeping adds a line here."
+            value={notes ?? savedNotes}
+            onChange={(event) => setNotes(event.target.value)} />
+          {notes !== undefined && notes !== savedNotes && <span className="lc-scout__goalkeys">
+            <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={saveNotes}>Save</button>
+            <button type="button" className="lc-control" disabled={busy} onClick={() => setNotes(undefined)}>Cancel</button>
           </span>}
         </div>
       </div>

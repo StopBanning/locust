@@ -12,7 +12,7 @@ import { ScoutSetting } from './components/ScoutSetting.js'
  * the folder's check, which needs a check command first; quiet hours as a clock reads them; waiting while the person
  * works; and what today's looks used, in numbers.
  */
-const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), look: vi.fn(), onChanged: vi.fn(() => () => undefined) }
+const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
 const on = (change: Partial<ScoutState['settings']> = {}, more: Partial<ScoutState> = {}): ScoutState =>
   ({ settings: { ...DEFAULT_SCOUT_SETTINGS, on: true, teammateId: 'tm_scout', ...change }, cards: [], lookIds: [], ...more })
 const draw = (state: ScoutState, extra: Record<string, unknown> = {}): string =>
@@ -25,6 +25,13 @@ describe('Scout’s settings', () => {
     expect(html).toContain('Keep main’s tests passing.</textarea>')
     expect(html).not.toContain('>Save</button>')
     expect(draw(on())).toContain('placeholder="For example: keep main’s tests passing, and tell me about new issues on the sign-in page."')
+  })
+
+  it('show Scout’s notes as lines the person can read and change, and how many', () => {
+    const html = draw(on({}, { notes: ['The person merges on Fridays', '2026-10-22: Wren owns the Mac build.'] }))
+    expect(html).toContain('Scout’s notes · 2')
+    expect(html).toContain('The person merges on Fridays\n2026-10-22: Wren owns the Mac build.</textarea>')
+    expect(draw(on())).toContain('placeholder="Nothing yet. A look that learns something worth keeping adds a line here."')
   })
 
   it('offer the folder’s check only once the folder has a check command, and say which', () => {

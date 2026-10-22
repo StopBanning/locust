@@ -54,7 +54,7 @@ import { VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_P
 import type { VoiceCallEvent } from '../shared/voice-call.js'
 import { TALK_SHORTCUT_PENDING, TALK_SHORTCUT_PRESSED, TALK_SHORTCUT_READ, TALK_SHORTCUT_SET, type TalkShortcutPress } from '../shared/talk-shortcut.js'
 import { LOCUST_LINK_TAKE, LOCUST_LINK_WAITING, type LocustLink } from '../shared/locust-link.js'
-import { SCOUT_CHANGED, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_SET, SCOUT_STATE, SCOUT_TURN_ON, type ScoutState } from '../shared/scout.js'
+import { SCOUT_CHANGED, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TURN_ON, type ScoutState } from '../shared/scout.js'
 import { REMOTE_CONTROL_GET_CHANNEL, REMOTE_CONTROL_SET_CHANNEL, type RemoteControlState } from '../shared/claude-remote-control.js'
 import { FOLDER_CHANGES_CHANNEL, FOLDER_COMMIT_CHANNEL, FOLDER_REPOSITORY_CHANNEL, type CommitResult, type FolderChanges } from '../shared/folder-commit.js'
 import { GITHUB_ISSUE_OPEN_CHANNEL, GITHUB_ISSUE_REMEMBERED_CHANNEL, GITHUB_ISSUES_LIST_CHANNEL, GITHUB_ISSUES_READY_CHANNEL, type ListedIssue, type StartedIssue } from '../shared/github-issue.js'
@@ -578,6 +578,7 @@ const desktopApi: DesktopApi = {
     set: (change) => ipcRenderer.invoke(SCOUT_SET, change),
     dismiss: (cardId) => ipcRenderer.invoke(SCOUT_DISMISS, cardId),
     look: () => ipcRenderer.invoke(SCOUT_LOOK),
+    saveNotes: (text) => ipcRenderer.invoke(SCOUT_NOTES, text),
     onChanged: (listener) => {
       const receive = (_event: Electron.IpcRendererEvent, state: ScoutState): void => { listener(state) }
       ipcRenderer.on(SCOUT_CHANGED, receive)

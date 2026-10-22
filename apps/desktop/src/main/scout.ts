@@ -4,6 +4,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import type { FolderPullRequest } from '../shared/pull-request.js'
 import {
   DEFAULT_SCOUT_SETTINGS,
+  MAX_SCOUT_NOTES,
   MAX_SCOUT_SEEN,
   SCOUT_WAIT_MOST_MS,
   branchFacts,
@@ -13,10 +14,12 @@ import {
   failedFacts,
   inQuietHours,
   issueFacts,
+  notesFrom,
   pullRequestFacts,
   reviewFacts,
   scoutAnswers,
   scoutDay,
+  scoutNoteOf,
   scoutPrompt,
   scoutSettingsFrom,
   waitingFacts,
@@ -123,13 +126,15 @@ interface Kept {
   /** The day the last morning brief came, by this computer's clock, and when (0.816). */
   readonly lastBriefDay?: string
   readonly lastBriefAt?: string
+  /** Scout's notes, oldest first (0.816). */
+  readonly notes: readonly string[]
   /** Each pull request as the last look saw it, by its address. */
   readonly prs: readonly FolderPullRequest[]
   readonly lastLookAt?: string
   readonly modelSaid?: string
 }
 
-const EMPTY: Kept = { settings: DEFAULT_SCOUT_SETTINGS, cards: [], seen: [], lookIds: [], prs: [] }
+const EMPTY: Kept = { settings: DEFAULT_SCOUT_SETTINGS, cards: [], seen: [], lookIds: [], prs: [], notes: [] }
 /** A look's turn, past this, no longer keeps its cards waiting: a short read, on a model that answers in seconds. */
 const ANSWER_WAIT_MS = 3 * 60_000
 const MAX_LOOK_IDS = 400
@@ -190,6 +195,7 @@ export function createScout(deps: ScoutDeps) {
         seen: Array.isArray(parsed.seen) ? parsed.seen.filter((key): key is string => typeof key === 'string').slice(-MAX_SCOUT_SEEN) : [],
         lookIds: Array.isArray(parsed.lookIds) ? parsed.lookIds.filter((id): id is string => typeof id === 'string').slice(-MAX_LOOK_IDS) : [],
         prs: Array.isArray(parsed.prs) ? (parsed.prs as FolderPullRequest[]).filter((pr) => typeof pr?.url === 'string' && typeof pr.number === 'number') : [],
+        notes: Array.isArray(parsed.notes) ? notesFrom(parsed.notes.filter((note): note is string => typeof note === 'string').join('\n')) : [],
         ...(typeof parsed.lastLookAt === 'string' ? { lastLookAt: parsed.lastLookAt } : {}),
         ...(typeof parsed.folderMark === 'string' ? { folderMark: parsed.folderMark } : {}),
         ...(typeof (parsed.lastCheck as { passed?: unknown } | undefined)?.passed === 'boolean' ? {
@@ -213,6 +219,7 @@ export function createScout(deps: ScoutDeps) {
     lookIds: from.lookIds,
     ...(from.lastLookAt === undefined ? {} : { lastLookAt: from.lastLookAt }),
     ...(from.modelSaid === undefined ? {} : { modelSaid: from.modelSaid }),
+    ...(from.notes.length === 0 ? {} : { notes: from.notes }),
     // Yesterday's count is not today's: a new day starts at none.
     ...(from.today === undefined || from.today.day !== scoutDay(now()) ? {} : { today: from.today })
   })
@@ -221,6 +228,7 @@ export function createScout(deps: ScoutDeps) {
     kept = next
     const body = `${JSON.stringify({
       settings: next.settings, cards: next.cards, seen: next.seen, lookIds: next.lookIds, prs: next.prs,
+      ...(next.notes.length === 0 ? {} : { notes: next.notes }),
       ...(next.lastLookAt === undefined ? {} : { lastLookAt: next.lastLookAt }),
       ...(next.folderMark === undefined ? {} : { folderMark: next.folderMark }),
       ...(next.lastCheck === undefined ? {} : { lastCheck: next.lastCheck }),
@@ -385,7 +393,12 @@ export function createScout(deps: ScoutDeps) {
       // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815).
       if (state.settings.notify && !inQuietHours(state.settings.quiet, at)) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
       // Then Scout's model, for its take and the next step.
-      const prompt = scoutPrompt({ facts, team: team.map((mate) => ({ name: mate.name, role: mate.role })), ...(state.settings.goal === undefined ? {} : { goal: state.settings.goal }) })
+      const prompt = scoutPrompt({
+        facts,
+        team: team.map((mate) => ({ name: mate.name, role: mate.role })),
+        ...(state.settings.goal === undefined ? {} : { goal: state.settings.goal }),
+        ...(kept === undefined || kept.notes.length === 0 ? {} : { notes: kept.notes })
+      })
       state = await askFor({ teammateId, prompt, cardIds: cards.map((card) => card.cardId), team, tried: [] }) ?? state
       return state
     } finally {
@@ -474,6 +487,13 @@ export function createScout(deps: ScoutDeps) {
     pending.delete(missionId)
     cancel(look.expires)
     await settle(look.cardIds, scoutAnswers(answer.text, look.cardIds.length, look.team))
+    // A note the look kept (0.816): dated by Locust, said once, the oldest going past the most kept.
+    const note = scoutNoteOf(answer.text)
+    if (note !== undefined) {
+      await mutate((latest) => latest.notes.some((kept) => kept.endsWith(note))
+        ? latest
+        : { ...latest, notes: [...latest.notes, `${scoutDay(now())}: ${note}`].slice(-MAX_SCOUT_NOTES) })
+    }
   }
 
   return {
@@ -518,6 +538,8 @@ export function createScout(deps: ScoutDeps) {
       return state
     },
     dismiss: (cardId: unknown): Promise<ScoutState> => mutate((latest) => ({ ...latest, cards: latest.cards.filter((card) => card.cardId !== cardId) })),
+    /** The notes as the person wrote them in Settings (0.816): what they keep is what the next look reads. */
+    saveNotes: (text: unknown): Promise<ScoutState> => mutate((latest) => ({ ...latest, notes: notesFrom(typeof text === 'string' ? text : '') })),
     look,
     /** A look's turn whose provider will not answer while the runtime keeps trying: stopped, and the next model tried. */
     async providerRefused(missionId: string, why: string): Promise<void> {
