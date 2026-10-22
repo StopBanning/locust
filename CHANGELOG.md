@@ -11,6 +11,25 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.811.0 - 2026-10-22
+
+### New
+
+- **Your benchmarks, read across.** The Benchmarks screen now opens with one table for the models you ran in two or more benchmarks: each one's average score, with every benchmark counted once, beside its runs that met every point, its time and its cost. One table instead of one per question.
+- **A tune can be measured before you keep one.** One run of each setup can be luck. After a tune's three setups answer, ask a judge to score them, then run them again: the benchmark reads a row a setup, still blind as Setup A, B and C, so you keep the setup whose scores hold up. Note what this tune showed then reads every run, not one.
+- **Combine both edits.** After a tune, when you kept one of the two drafts, Combine both edits asks the teammate to write that draft's edit and the other draft's as one set of instructions. It says what it took from each, and you read it, then use it or not; nothing changes until you press Use. The idea comes from Google Research's Harness².
+- **A tune can give a Claude Code teammate a skill.** When you /tune a Claude Code teammate, "What it knows" is drafted as a skill: a name, when to use it, and what it says, kept beside the teammate's own instructions. A skill loads only when the work matches it, so it costs nothing on other turns. You can edit it on the card, switch back to instructions, or write one yourself, and only that setup's run is given it. If you keep that setup, press Use this skill for the teammate; its later turns get the skill. Edit teammate lists its skills, each with Remove.
+- **See what shapes a teammate.** Type /setup in a teammate's conversation to see everything its turns are given, in order: its folder, LOCUST.md, the runtime's own file such as CLAUDE.md, its group's and its own instructions, your About you note, and team memory. Then come the skills and connectors it loads when the work matches, the lessons only /tune reads, and what its last turn loaded, as Claude Code reported it. It changes nothing, and Edit teammate is one click away.
+
+### Improved
+
+- **A check that is running says so.** After a turn that changes files, the card under it reads "Running the check npm test after this turn…" until your check finishes. In a comparison, Ask a judge says that a judge asked meanwhile waits for it.
+- **Compared models read by name.** A built-in model in a comparison, its benchmark and the benchmark's chart reads as the picker names it, such as Deepseek V4.1 Flash Free, not opencode/deepseek-v4.1-flash-free.
+
+### Fixed
+
+- **Chart labels no longer print over each other.** Two models at the same score, one label running right and one running left, now sit a line apart, each joined to its point.
+
 ## 0.810.0 - 2026-10-21
 
 ### New
