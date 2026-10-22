@@ -11,6 +11,23 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.815.0 - 2026-10-22
+
+### New
+
+- **Tell Scout what to keep watch for.** Settings > General has a box for it, in your own words, such as "keep main's tests passing, and tell me about new issues on the sign-in page". Scout reads it on every look and says how what it finds bears on it.
+- **Scout can watch this folder's check.** Turn on This folder's check and Scout runs the check from Settings > Project folder whenever the folder has changed since its last look, never while a turn is working there. A check that starts failing is a card that needs you now; when it passes again, that card replaces the failing one.
+- **Quiet hours for Scout.** Pick hours such as 10 PM to 7 AM: Scout does not look on its own then and sends nothing to Windows. The first look afterwards catches up on everything.
+
+### Improved
+
+- **Scout waits while you're working.** A look that falls due while a turn you sent is running waits for it to end, at most half an hour. Turn it off in Settings if you would rather it looked anyway.
+- **Scout says what today used.** Its line in Settings counts today's looks and how many of them needed its model.
+
+### Fixed
+
+- **Turning Scout off stops a look under way.** The timer stopped, but a look that had already asked its model kept going. Now it is stopped, and its cards stay in Locust's words.
+
 ## 0.814.0 - 2026-10-22
 
 ### New
