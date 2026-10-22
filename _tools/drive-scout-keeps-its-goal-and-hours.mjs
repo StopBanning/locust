@@ -55,15 +55,16 @@ const drive = await startDrive({
 
 const state = async () => JSON.parse(String(await drive.evaluate('window.desktop.scout.state().then((s) => JSON.stringify(s))')))
 const SECTION = `document.querySelector('[data-setting="scout"]')?.innerText.replace(/\\s+/g, ' ') ?? ''`
+// The Settings button toggles: pressed with Settings open, it closes them.
 const OPEN_SETTINGS = `(async () => {
-  document.querySelector('button[title="Settings (Ctrl 3)"]')?.click()
+  if (!document.querySelector('.lc-settings')) document.querySelector('button[title="Settings (Ctrl 3)"]')?.click()
   for (let i = 0; i < 40 && !document.querySelector('.lc-settings'); i += 1) await new Promise((r) => setTimeout(r, 100))
   ;[...document.querySelectorAll('.lc-settings__navitem, button')].find((b) => b.innerText.trim() === 'General')?.click()
   for (let i = 0; i < 40 && !document.querySelector('[data-setting="scout"]'); i += 1) await new Promise((r) => setTimeout(r, 100))
   document.querySelector('[data-setting="scout"]')?.scrollIntoView({ block: 'start' })
   return document.querySelector('[data-setting="scout"]') ? 'open' : 'no Scout section'
 })()`
-const CLOSE_SETTINGS = `(() => { document.querySelector('button[title="Settings (Ctrl 3)"]')?.click(); return 'closed' })()`
+const CLOSE_SETTINGS = `(() => { if (document.querySelector('.lc-settings')) document.querySelector('button[title="Settings (Ctrl 3)"]')?.click(); return 'closed' })()`
 const CARDS = `JSON.stringify([...document.querySelectorAll('[data-scout-card]')].map((card) => card.querySelector('.lc-scoutcard__said')?.innerText ?? ''))`
 /** The newest look's prompt, from its own record in the profile's ledger. */
 const lastLookPrompt = async () => {
@@ -112,15 +113,22 @@ try {
   const GOAL = 'Keep the answer check passing.'
   const saved = String(await drive.capture('a goal typed and saved', async () => {
     await drive.evaluate(`${OPEN_SETTINGS}.then(() => '')`)
-    await drive.evaluate(`(() => {
+    const typed = String(await drive.evaluate(`(() => {
       const box = document.querySelector('textarea[aria-label="What Scout keeps watch for"]')
+      if (!box) return 'no goal box'
       const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
       set.call(box, ${JSON.stringify(GOAL)})
       box.dispatchEvent(new Event('input', { bubbles: true }))
       return 'typed'
-    })()`)
+    })()`))
     await sleep(300)
-    await drive.evaluate(`[...document.querySelectorAll('[data-setting="scout"] button')].find((b) => b.innerText.trim() === 'Save')?.click()`)
+    const pressed = String(await drive.evaluate(`(() => {
+      const save = [...document.querySelectorAll('[data-setting="scout"] button')].find((b) => b.innerText.trim() === 'Save')
+      if (!save) return 'no Save'
+      save.click()
+      return 'pressed'
+    })()`))
+    check('typing a goal offers Save', typed === 'typed' && pressed === 'pressed', `${typed}; ${pressed}`)
     for (let i = 0; i < 20 && (await state()).settings.goal !== GOAL; i += 1) await sleep(250)
     return drive.evaluate(SECTION)
   }))

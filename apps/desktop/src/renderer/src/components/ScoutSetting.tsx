@@ -40,6 +40,11 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
   const savedGoal = state?.settings.goal ?? ''
   const quiet = state?.settings.quiet
   const today = state?.today
+  const status = [
+    ...(state?.lastLookAt === undefined ? [] : [`Last looked ${ago(state.lastLookAt, new Date())}${state.cards.length === 0 ? ', and nothing needed you.' : '.'}`]),
+    ...(today === undefined ? [] : [`Today: ${String(today.looks)} look${today.looks === 1 ? '' : 's'}, ${today.asked === 0 ? 'none of them needing its model' : `${String(today.asked)} of them read by ${model ?? 'its model'}`}.`]),
+    ...(quiet !== undefined && inQuietHours(quiet, new Date()) ? [`Quiet until ${hourWords(quiet.to)}.`] : [])
+  ]
   const act = async (work: () => Promise<unknown>): Promise<void> => {
     setBusy(true); setMessage('')
     try {
@@ -72,12 +77,13 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
         <p className="lc-settings__lede">{on
           ? `On. Scout looks every ${String(state?.settings.everyMinutes ?? 10)} minutes while Locust runs, and tells you on Home what needs you, with the next step drafted. It never sends, merges or changes anything by itself.${model === undefined ? '' : ` It reads with ${model}.`}`
           : 'Off. Turn it on and Scout joins your team: it looks at your pull requests and their checks, the reviews asked of you and your teammates’ turns, and tells you on Home what needs you.'}</p>
-        {/* When it last looked (0.768): a Scout with nothing to say otherwise shows nothing at all. */}
-        {on && state?.lastLookAt !== undefined && <p className="lc-settings__note" role="status">{`Last looked ${ago(state.lastLookAt, new Date())}${state.cards.length === 0 ? ', and nothing needed you.' : '.'}`}</p>}
+        {/*
+          * Where it stands, as one line (0.815): when it last looked (0.768: a Scout with nothing to say otherwise shows
+          * nothing at all), what today used -- a quiet Scout costs nothing, and this says so in numbers -- and that it
+          * is in its quiet hours.
+          */}
+        {on && status.length > 0 && <p className="lc-settings__note" role="status">{status.join(' ')}</p>}
         {state?.modelSaid !== undefined && on && <p className="lc-settings__note" role="status">{`Last look: ${state.modelSaid}`}</p>}
-        {/* What today used (0.815): a quiet Scout costs nothing, and this says so in numbers. */}
-        {on && today !== undefined && <p className="lc-settings__note" role="status">{`Today: ${String(today.looks)} look${today.looks === 1 ? '' : 's'}, ${today.asked === 0 ? 'none of them needing its model' : `${String(today.asked)} of them read by ${model ?? 'its model'}`}.`}</p>}
-        {on && quiet !== undefined && inQuietHours(quiet, new Date()) && <p className="lc-settings__note" role="status">{`Quiet until ${hourWords(quiet.to)}.`}</p>}
         {message && <p className="lc-settings__note" role="status">{message}</p>}
       </div>
       <span className="lc-talkkeys">
