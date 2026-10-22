@@ -155,6 +155,8 @@ import { QUEUED_MESSAGES_READ_CHANNEL, QUEUED_MESSAGES_WRITE_CHANNEL } from '../
 import { createBriefSessions } from './brief-sessions.js'
 import { createRunEnd } from './run-end.js'
 import { createCarryOn, type CarryOn } from './carry-on.js'
+import { createCheckFix, type CheckFix } from './check-fix.js'
+import { parsedCheckFixTries } from '../shared/check-fix.js'
 import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
 import { createPhoneHost } from './phone-host.js'
 import { countingLedgerWrites, keyedOnce } from './ledger-writes.js'
@@ -2183,6 +2185,24 @@ if (!ownsSingleInstanceLock) {
     let attentionReader: AttentionReader | undefined
     // 0.774: a turn whose agent's plan ran out, carried on (carry-on.ts). It starts runs through the service too.
     let carryOn: CarryOn | undefined
+    /*
+     * FIX UNTIL THE CHECK PASSES (0.812, check-fix.ts): a failed check sent back to the teammate, when the person turned
+     * that on for the folder. Made once the start path exists, further down; the mission service calls it after a check.
+     */
+    let checkFix: CheckFix | undefined
+    /**
+     * The route each turn started on, as it was resolved -- model, level, account and mode -- so a fix runs exactly as
+     * the turn it fixes did, even where the person picked a route for that one message. Kept for this session only.
+     */
+    const routeOfTurn = new Map<string, { readonly runtime: MissionRuntimeId; readonly model?: string; readonly effort?: string; readonly account?: string; readonly mode: MissionMode }>()
+    const rememberRouteOfTurn = (missionId: string, route: { readonly runtime: MissionRuntimeId; readonly model?: string; readonly effort?: string; readonly account?: string; readonly mode: MissionMode }): void => {
+      routeOfTurn.set(missionId, route)
+      while (routeOfTurn.size > 500) {
+        const oldest = routeOfTurn.keys().next().value
+        if (oldest === undefined) break
+        routeOfTurn.delete(oldest)
+      }
+    }
     // Bound late for the same reason: it reads the ledger the service writes.
     let roomTasks: RoomTasks | undefined
     /**
@@ -2698,6 +2718,9 @@ if (!ownsSingleInstanceLock) {
       acpAgents: { resolve: (agentId) => acpAgents.resolve(agentId) },
       // A3.3: the person's check for THIS folder, after a turn that changed files.
       afterEdits: (cwd, missionId, onStart) => editCheck.after(cwd, missionId, onStart),
+      onEditCheck: (turn, result) => {
+        void checkFix?.onChecked(turn, result).catch(() => undefined)
+      },
       // 0.439: a commit per turn on the teammate's own branch (turn-checkpoint.ts).
       checkpointTurn: ({ repositoryRoot, teammateId, message }) => createWorktreeManager({ workspacePath: repositoryRoot, note: detail => note('worktree-add', detail) }).checkpoint(teammateId, message),
       /*
@@ -4580,20 +4603,32 @@ if (!ownsSingleInstanceLock) {
      */
     const forThisFolder = (settings: WorkspaceSettings): WorkspaceSettings => {
       const checkFolderId = workspaceChosen ? workspaceIdFor(workspacePath) : undefined
-      const { checkCommands, ...rest } = settings
+      const { checkCommands, checkFixes, ...rest } = settings
       const command = checkFolderId === undefined ? undefined : checkCommands?.[checkFolderId]
-      return command === undefined ? rest : { ...rest, checkCommand: command }
+      // And what this folder does when its check fails (0.812): the most fixes, or none.
+      const fixes = checkFolderId === undefined ? undefined : parsedCheckFixTries(checkFixes?.[checkFolderId])
+      return { ...rest, ...(command === undefined ? {} : { checkCommand: command }), ...(fixes === undefined ? {} : { checkFixTries: fixes }) }
     }
     const withThisFolder = async (requested: unknown): Promise<unknown> => {
-      if (typeof requested !== 'object' || requested === null || !('checkCommand' in requested)) return requested
-      const { checkCommand, ...rest } = requested as Record<string, unknown>
+      if (typeof requested !== 'object' || requested === null || (!('checkCommand' in requested) && !('checkFixTries' in requested))) return requested
+      const { checkCommand, checkFixTries, ...rest } = requested as Record<string, unknown>
       const checkFolderId = workspaceChosen ? workspaceIdFor(workspacePath) : undefined
       if (checkFolderId === undefined) return rest
-      const stored = { ...((await teammates.readSettings()).checkCommands ?? {}) }
-      const command = parsedCheckCommand(checkCommand)
-      if (command === undefined) delete stored[checkFolderId]
-      else stored[checkFolderId] = command
-      return { ...rest, checkCommands: stored }
+      const held = await teammates.readSettings()
+      const commands = { ...(held.checkCommands ?? {}) }
+      if ('checkCommand' in requested) {
+        const command = parsedCheckCommand(checkCommand)
+        if (command === undefined) delete commands[checkFolderId]
+        else commands[checkFolderId] = command
+      }
+      // 0 or anything that is not 1 to 5 turns it off for this folder: show the failure, as before.
+      const fixes = { ...(held.checkFixes ?? {}) }
+      if ('checkFixTries' in requested) {
+        const most = parsedCheckFixTries(checkFixTries)
+        if (most === undefined) delete fixes[checkFolderId]
+        else fixes[checkFolderId] = most
+      }
+      return { ...rest, checkCommands: commands, checkFixes: fixes }
     }
     ipcMain.handle(WORKSPACE_SETTINGS_READ_CHANNEL, async (event) => {
       if (!fromOwnWindow(event)) return { swarm: false, relay: true, relayHopCap: DEFAULT_RELAY_HOP_CAP, memoryMode: DEFAULT_MEMORY_MODE, autoMode: false, askConnectors: false, keepATodoList: false, layout: 'auto', tube: 'full', replySize: 'standard' } as const
@@ -9345,6 +9380,8 @@ if (!ownsSingleInstanceLock) {
           payload.referenceIds
         )
         if (response.ok) {
+          // As it was resolved (0.812): a fix of this turn runs exactly as it did.
+          rememberRouteOfTurn(response.data.missionId, { runtime, ...(model === undefined ? {} : { model }), ...(effort === undefined ? {} : { effort }), ...(account === undefined ? {} : { account }), mode })
           await assignOwner(peer?.self.teammateId, response.data.missionId)
           // A review's read-only run is for that run alone (0.514): the saved route stays the teammate's.
           if ((payload as { readonly keepSavedRoute?: unknown }).keepSavedRoute !== true) {
@@ -9397,6 +9434,82 @@ if (!ownsSingleInstanceLock) {
         }
         return response
       })
+    })
+    /*
+     * FIX UNTIL THE CHECK PASSES (0.812, check-fix.ts). A fix starts through the same path a person's message takes --
+     * workspace, policy, spend, owner and continuation checks all apply -- as the next turn of the same conversation,
+     * on the route the failing turn ran on, recorded as Locust's (`check-fix`), never as the person's words.
+     */
+    const noteCheckFix = oneAtATime(async ({ missionId, message, level }: { readonly missionId: string; readonly message: string; readonly level: 'info' | 'warning' }) => {
+      const mission = await missionLedger.getMission(missionId).catch(() => undefined)
+      if (mission === undefined) return
+      sendToWindow({ kind: 'relay-notice', runId: mission.metadata.runId, missionId, message, level })
+      const last = mission.events.at(-1)
+      const sequence = (last?.sequence ?? 0) + 1
+      await missionLedger
+        .appendEvents(missionId, [
+          {
+            id: `${mission.metadata.runId}:check-fix:${String(sequence)}`,
+            runId: mission.metadata.runId,
+            missionId,
+            sequence,
+            type: 'adapter.diagnostic',
+            occurredAt: new Date().toISOString(),
+            sourceAdapter: last?.sourceAdapter ?? mission.metadata.runtime,
+            payload: { level, code: 'host.check_fix', message, terminal: false, evidence: { redacted: true } }
+          } as NormalizedRuntimeEvent
+        ])
+        .catch(() => undefined)
+    })
+    checkFix = createCheckFix({
+      mostFixes: async () => (workspaceChosen ? parsedCheckFixTries((await teammates.readSettings()).checkFixes?.[workspaceIdFor(workspacePath)]) : undefined),
+      sentByPerson: (missionId) => sentByPerson.has(missionId),
+      // The person got there first: a newer turn in this conversation, or its teammate already at work.
+      busy: async (turn) =>
+        (await newestTurnOf(missionLedger, turn.missionId).catch(() => turn.missionId)) !== turn.missionId
+        || (turn.teammateId !== undefined && codexMissions.runIdOwnedBy(turn.teammateId) !== undefined),
+      nameOf: async (teammateId) => (teammateId === undefined ? undefined : (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === teammateId)?.name) ?? 'the teammate',
+      note: (missionId, message, level) => void noteCheckFix({ missionId, message, level }).catch(() => undefined),
+      start: async ({ followUpOf, teammateId, prompt, startedBy }) => {
+        // The failing turn's own route: as it was resolved when it started, else as its record has it.
+        const held = routeOfTurn.get(followUpOf)
+        const recorded = held === undefined ? await missionLedger.getMission(followUpOf).catch(() => undefined) : undefined
+        const recordedAccount = recorded === undefined ? undefined : accountFromRoute(recorded.metadata.resolvedRouteId)
+        const route = held ?? (recorded === undefined ? undefined : {
+          runtime: recorded.metadata.runtime,
+          ...(recorded.metadata.model === 'account-default' ? {} : { model: recorded.metadata.model }),
+          ...(recordedAccount === undefined ? {} : { account: recordedAccount }),
+          mode: recorded.metadata.mode ?? 'accept-edits'
+        })
+        if (route === undefined) return { ok: false, message: 'The turn it would fix is not in the record any more.' }
+        const owners = await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>))
+        const wasHub = teammateId !== undefined && (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === teammateId)?.hubMissionId === followUpOf
+        const response = await startMission({
+          prompt,
+          ...(teammateId === undefined ? {} : { teammateId, routeOverrideFor: teammateId }),
+          followUpOf,
+          runtime: route.runtime,
+          ...(route.model === undefined ? {} : { model: route.model }),
+          ...(route.effort === undefined ? {} : { effort: route.effort }),
+          ...(route.account === undefined ? {} : { account: route.account }),
+          mode: route.mode,
+          // A fix is not the person picking a route: the teammate's saved one stays as it is.
+          keepSavedRoute: true
+        } as CodexMissionStartRequest, sendToWindow, startedBy)
+        if (!response.ok) return { ok: false, message: response.error.message }
+        const owner = owners[followUpOf] ?? teammateId
+        sendToWindow({
+          kind: 'mission-started',
+          runId: response.data.runId,
+          missionId: response.data.missionId,
+          ...(owner === undefined ? {} : { teammateId: owner }),
+          prompt,
+          data: response.data,
+          startedBy,
+          ...(wasHub ? { hubMissionId: response.data.missionId } : {})
+        })
+        return { ok: true, missionId: response.data.missionId }
+      }
     })
     const mcpTools = createLocustMcpTools({
       teammates: listTeammates,

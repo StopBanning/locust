@@ -339,7 +339,9 @@ export function publicRecoveredMission(
               ? { startedBy: { kind: 'side' as const, of: mission.metadata.startedBy.of, question: mission.metadata.startedBy.question } }
               : mission.metadata.startedBy.kind === 'carry-on'
                 ? { startedBy: { kind: 'carry-on' as const, from: mission.metadata.startedBy.from } }
-                : { startedBy: { kind: 'resume' as const, epoch: mission.metadata.startedBy.epoch } })
+                : mission.metadata.startedBy.kind === 'check-fix'
+                  ? { startedBy: { kind: 'check-fix' as const, fix: mission.metadata.startedBy.fix, of: mission.metadata.startedBy.of, command: mission.metadata.startedBy.command } }
+                  : { startedBy: { kind: 'resume' as const, epoch: mission.metadata.startedBy.epoch } })
   }
 }
 

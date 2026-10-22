@@ -2804,6 +2804,13 @@ export interface WorkspaceSettings {
   /** Every folder's check command, by workspace id. Kept by the host. */
   readonly checkCommands?: Readonly<Record<string, string>>
   /**
+   * When THIS folder's check fails after a turn the person sent (0.812, shared/check-fix.ts): send it back to the same
+   * teammate to fix, at most this many times. Absent or 0: show it, and wait for the person, as before.
+   */
+  readonly checkFixTries?: number
+  /** Every folder's most fixes, by workspace id. Kept by the host. */
+  readonly checkFixes?: Readonly<Record<string, number>>
+  /**
    * About you: the person's standing note, read by every teammate before
    * every run (shared/about-you.ts). Absent means none. Only the person
    * writes it, on the Memory screen.
@@ -3390,6 +3397,8 @@ export type CodexMissionUpdate =
         | { readonly kind: 'walkthrough' }
         /** The turn before ran out of `from`'s plan, and Locust carried the work on (0.774). */
         | { readonly kind: 'carry-on'; readonly from: MissionRuntimeId }
+        /** The person's check failed after the turn before, and Locust sent it back to fix (0.812, shared/check-fix.ts). */
+        | { readonly kind: 'check-fix'; readonly fix: number; readonly of: number; readonly command: string }
       /**
        * Present when this run is the newest turn of the teammate's hub (see
        * `PublicTeammate.hubMissionId`), so the roster on screen learns it
@@ -3627,6 +3636,16 @@ export interface PublicRecoveredMission {
         /** The turn before ran out of `from`'s plan, and Locust carried the work on (0.774). Nobody typed it. */
         readonly kind: 'carry-on'
         readonly from: MissionRuntimeId
+      }
+    | {
+        /**
+         * The person's check failed after the turn before, and Locust sent the failure back to the same teammate
+         * (0.812, shared/check-fix.ts): fix `fix` of at most `of`. Nobody typed it.
+         */
+        readonly kind: 'check-fix'
+        readonly fix: number
+        readonly of: number
+        readonly command: string
       }
 }
 

@@ -32,6 +32,19 @@ describe('the check after an edit', () => {
     expect(await check.after('C:/work')).toMatchObject({ outcome: 'passed' })
   })
 
+  it('keeps the whole of a failure, and the check before it, for a fix that follows (0.812)', async () => {
+    const check = scripted([
+      { exitCode: 0, output: 'ok 4 tests\n', timedOut: false },
+      { exitCode: 1, output: 'FAIL a.test.ts\nFAIL b.test.ts\n', timedOut: false },
+      { exitCode: 1, output: 'FAIL b.test.ts\n', timedOut: false }
+    ])
+    const passed = await check.after('C:/work')
+    expect(passed).not.toHaveProperty('lines')
+    expect(await check.after('C:/work')).toMatchObject({ lines: ['FAIL a.test.ts', 'FAIL b.test.ts'], before: ['ok 4 tests'] })
+    // Nothing new, so nothing to show -- but a fix after a fix needs to know what is left.
+    expect(await check.after('C:/work')).toMatchObject({ unchanged: true, newLines: [], lines: ['FAIL b.test.ts'], before: ['FAIL a.test.ts', 'FAIL b.test.ts'] })
+  })
+
   it('keeps each folder to itself', async () => {
     const check = scripted([{ exitCode: 1, output: 'broken\n', timedOut: false }])
     await check.after('C:/work/a')

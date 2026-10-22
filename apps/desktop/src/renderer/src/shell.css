@@ -10159,6 +10159,82 @@ textarea {
   min-width: 0;
 }
 
+/*
+ * 0.812: a turn Locust sent back to fix the check, where your message would be -- a note, never a bubble, opening
+ * the turn with the turn's own gap. Its words a click away, as Claude Code keeps a Stop hook's.
+ */
+.lc-thread__column > .lc-checkfixline {
+  margin-top: calc(var(--lc-thread-turn-gap) - var(--lc-space-5));
+}
+
+.lc-thread__column > .lc-checkfixline:first-child {
+  margin-top: 0;
+}
+
+.lc-checkfixline {
+  align-self: flex-start;
+  max-width: 640px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--lc-space-1);
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--lc-border-button);
+  font-size: var(--lc-text-description);
+  color: var(--lc-text-muted);
+}
+
+.lc-checkfixline__said {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lc-space-2);
+}
+
+.lc-checkfixline__said code {
+  color: var(--lc-text-secondary);
+}
+
+.lc-checkfixline__count {
+  font-size: var(--lc-text-mono-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.lc-checkfixline__sent summary {
+  cursor: pointer;
+  width: fit-content;
+  font-size: var(--lc-text-mono-caption);
+}
+
+.lc-checkfixline__sent summary:hover {
+  color: var(--lc-text-secondary);
+}
+
+.lc-checkfixline__sent pre {
+  margin: var(--lc-space-2) 0 0;
+  max-height: 320px;
+  overflow: auto;
+  font-size: var(--lc-text-mono-caption);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 0.812: what happens when the check fails -- shown, or sent back to fix. A row of its own under the command. */
+.lc-checkfix {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--lc-space-2);
+  min-width: 0;
+}
+
+.lc-checkfix__choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lc-space-2) var(--lc-space-3);
+}
+
 .lc-editcheck__body {
   display: flex;
   flex-direction: column;

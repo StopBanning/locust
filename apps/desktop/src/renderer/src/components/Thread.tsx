@@ -1,3 +1,4 @@
+import { CheckFixLine } from './CheckFixLine.js'
 import { EditCheckCard } from './EditCheckCard.js'
 import { ThreadImagesContext } from '../threadImages.js'
 import { FilesElsewhere, RanOnTheCloud } from '../filesElsewhere.js'
@@ -1651,6 +1652,7 @@ onResume,
               {!again && versionNote(turn.versions)}
               {callsAt(`before:${turn.missionId}`)}
               {!again && userTurn(turnPromptLine(turn), turnAttachments(turn), () => editedFiles(turn.events, workspacePath), turn.startedBy === undefined && turn.inTerminal === undefined ? turn.missionId : undefined)}
+              {turn.startedBy?.kind === 'check-fix' && <CheckFixLine command={turn.startedBy.command} fix={turn.startedBy.fix} of={turn.startedBy.of} prompt={turn.prompt} {...(peers.self === undefined ? {} : { teammateName: peers.self.name })} />}
               {!again && cloudMarkerFor(turn.missionId)}
               {cardsFor(index, 'before-work').map(peerCard)}
               {!again && inItsPlace(turn.missionId, earlierWork[index])}
@@ -1721,6 +1723,7 @@ onResume,
         {currentSeam !== undefined && <TerminalDivider seam={currentSeam} {...(shownMissionId !== undefined && backgroundTurns?.has(shownMissionId) === true ? { background: true } : {})} />}
         {shownMissionId !== undefined && callsAt(`before:${shownMissionId}`)}
         {userTurn(currentLine, turnAttachments({ prompt, ...(startedBy === undefined ? {} : { startedBy }) }), running ? undefined : () => editedFiles(events, workspacePath), !running && startedBy === undefined && inTerminal === undefined ? shownMissionId : undefined)}
+        {startedBy?.kind === 'check-fix' && <CheckFixLine command={startedBy.command} fix={startedBy.fix} of={startedBy.of} prompt={prompt} {...(peers.self === undefined ? {} : { teammateName: peers.self.name })} />}
         {cloudMarkerFor(shownMissionId)}
 
         {handoff !== undefined && (
@@ -1778,7 +1781,12 @@ onResume,
           <DiagnosticLine key={`peer_notice_${index}`} level={notice.level} message={notice.message} />
         ))}
         {editCheck !== undefined && (
-          <EditCheckCard check={editCheck} teammateName={peers.self?.name} {...(onSendEditCheck === undefined ? {} : { onSend: onSendEditCheck })} />
+          <EditCheckCard
+            check={editCheck}
+            teammateName={peers.self?.name}
+            {...(startedBy?.kind === 'check-fix' ? { fix: startedBy.fix } : {})}
+            {...(onSendEditCheck === undefined ? {} : { onSend: onSendEditCheck })}
+          />
         )}
         {/*
           * The CURRENT turn's memories, under the current turn -- and the

@@ -30,6 +30,7 @@ import { ChatCommands } from './ChatCommands.js'
 import type { LoginItemState, RuntimeUpdatesState, MetalMotion, MetalPreset, MetalStrength, ProfileBackupResponse, ProfileRestorePreview, ProfileRestoreResponse } from '../../../shared/ipc.js'
 import { backedUpLine, countsLine, folderName } from '../backupWords.js'
 import { SUPPORT_ADDRESS } from '../../../shared/support.js'
+import { DEFAULT_CHECK_FIXES, MAX_CHECK_FIXES } from '../../../shared/check-fix.js'
 import { isConnectorAgent } from '../../../shared/connector-add.js'
 import type { Spend } from '../../../shared/spend.js'
 import { isOwnRoute, modelDisplayName, routeChrome, routeModelName } from '../routeName.js'
@@ -1515,18 +1516,32 @@ function ProblemReport(): ReactElement {
 /**
  * A3.3: the person's check after a teammate's edits, for THIS folder. Set
  * here and only here -- a project never names a command Locust runs.
+ *
+ * And what happens when it fails (0.812, shared/check-fix.ts): shown with a
+ * button, as before, or sent back to the teammate to fix, at most a few times.
+ * Off until the person turns it on, because each fix is one more turn.
  */
-function CheckAfterEditsRow({ saved, onSave }: { readonly saved: string; readonly onSave: (command: string) => void }): ReactElement {
+export function CheckAfterEditsRow({
+  saved,
+  onSave,
+  fixTries,
+  onFixTriesChange
+}: {
+  readonly saved: string
+  readonly onSave: (command: string) => void
+  readonly fixTries?: number
+  readonly onFixTriesChange?: (next: number | undefined) => void
+}): ReactElement {
   const [draft, setDraft] = useState(saved)
   useEffect(() => setDraft(saved), [saved])
   const changed = draft.trim() !== saved
+  const hasCheck = saved.length > 0
   return (
     <div className="lc-policyrow lc-policyrow--stack">
       <span className="lc-tag">CHECK AFTER EDITS</span>
       <span className="lc-settings__note">
         A command Locust runs in a teammate&apos;s folder after a turn that changed files, such as npm test. Only failures
-        that were not there at the last check are shown, with a button to send them to the teammate. Set here only: a
-        project never chooses its own.
+        that were not there at the last check count. Set here only: a project never chooses its own.
       </span>
       <form
         className="lc-checkrow"
@@ -1549,6 +1564,63 @@ function CheckAfterEditsRow({ saved, onSave }: { readonly saved: string; readonl
           {draft.trim().length === 0 && saved.length > 0 ? 'Turn off' : 'Save'}
         </button>
       </form>
+      {onFixTriesChange !== undefined && (
+        <div className="lc-checkfix">
+          <div className="lc-checkfix__choice">
+            <span className="lc-settings__note" id="lc-checkfix-label">When it fails</span>
+            <div className="lc-segmented" role="radiogroup" aria-labelledby="lc-checkfix-label">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={fixTries === undefined}
+                className={`lc-button${fixTries === undefined ? ' is-active' : ''}`}
+                onClick={() => onFixTriesChange(undefined)}
+              >
+                Show me
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={fixTries !== undefined}
+                disabled={!hasCheck && fixTries === undefined}
+                title={!hasCheck && fixTries === undefined ? 'Save a check first.' : undefined}
+                className={`lc-button${fixTries !== undefined ? ' is-active' : ''}`}
+                onClick={() => onFixTriesChange(fixTries ?? DEFAULT_CHECK_FIXES)}
+              >
+                Send it back to fix
+              </button>
+            </div>
+            {fixTries !== undefined && (
+              <>
+                <span className="lc-settings__note" id="lc-checkfix-most">at most</span>
+                <div className="lc-segmented is-numeric" role="radiogroup" aria-labelledby="lc-checkfix-most">
+                  {Array.from({ length: MAX_CHECK_FIXES }, (_, index) => index + 1).map((most) => (
+                    <button
+                      key={most}
+                      type="button"
+                      role="radio"
+                      aria-checked={fixTries === most}
+                      aria-label={`${String(most)} ${most === 1 ? 'fix' : 'fixes'}`}
+                      className={`lc-button${fixTries === most ? ' is-active' : ''}`}
+                      onClick={() => onFixTriesChange(most)}
+                    >
+                      {String(most)}
+                    </button>
+                  ))}
+                </div>
+                <span className="lc-settings__note">{fixTries === 1 ? 'fix' : 'fixes'}</span>
+              </>
+            )}
+          </div>
+          <span className="lc-settings__note">
+            {fixTries === undefined
+              ? hasCheck
+                ? 'What is new in the failure is shown under the turn, with a button to send it to the teammate.'
+                : 'Save a check first. Then a failure can be shown to you, or sent back to the teammate to fix.'
+              : `After a turn you sent, what is new in the failure goes back to the same teammate, on the same model, until the check passes: ${String(fixTries)} time${fixTries === 1 ? '' : 's'} at most, and it stops sooner when a fix changes nothing. Each fix is one more turn.`}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -1620,6 +1692,8 @@ export function SettingsScreen({
   replySize,
   checkCommand,
   onCheckCommandSave,
+  checkFixTries,
+  onCheckFixTriesChange,
   metal,
   metalStrength,
   metalMotion,
@@ -1740,6 +1814,9 @@ export function SettingsScreen({
   /** A3.3: this folder's check after edits; empty for none. */
   readonly checkCommand?: string
   readonly onCheckCommandSave?: (command: string) => void
+  /** 0.812: this folder's most fixes when the check fails; undefined shows the failure instead. */
+  readonly checkFixTries?: number
+  readonly onCheckFixTriesChange?: (next: number | undefined) => void
   /** The send button's metal; every option the design pass offered. */
   readonly metal: MetalPreset
   readonly metalStrength: MetalStrength
@@ -2036,7 +2113,12 @@ export function SettingsScreen({
             </div>
           )}
           {workspacePath !== undefined && onCheckCommandSave !== undefined && (
-            <CheckAfterEditsRow saved={checkCommand ?? ''} onSave={onCheckCommandSave} />
+            <CheckAfterEditsRow
+              saved={checkCommand ?? ''}
+              onSave={onCheckCommandSave}
+              {...(checkFixTries === undefined ? {} : { fixTries: checkFixTries })}
+              {...(onCheckFixTriesChange === undefined ? {} : { onFixTriesChange: onCheckFixTriesChange })}
+            />
           )}
           {workspacePath !== undefined && worktrees !== undefined && (
             <div className="lc-policyrow lc-policyrow--stack">

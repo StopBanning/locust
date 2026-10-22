@@ -3816,7 +3816,8 @@ export function buildThread(
         // first packaged drive drew "Saved this turn" under the ask, before
         // the work it saved.
         // And why a turn whose plan ran out was not carried on (0.774): after its error, where the offer would be.
-        if (event.payload.code === 'host.turn_checkpoint' || event.payload.code === 'host.carry_on') {
+        // And why a failing check was not sent back again (0.812): after the turn it is about.
+        if (event.payload.code === 'host.turn_checkpoint' || event.payload.code === 'host.carry_on' || event.payload.code === 'host.check_fix') {
           receipts.push({ key: event.id, type: 'diagnostic', level: event.payload.level, message: event.payload.message })
           break
         }
@@ -5836,7 +5837,8 @@ export function turnPromptLine(turn: {
   // message, without the context that followed it (0.438, shared/tagging.ts).
   if (turn.startedBy === undefined) return splitAttachments(taggedWordsOf(turn.prompt)).text
   // Carried on after a plan ran out (0.774): nobody typed it, and the divider above it says what happened.
-  if (turn.startedBy.kind === 'carry-on') return undefined
+  // Sent back to fix the check (0.812): nobody typed that either, and its own line says so (CheckFixLine).
+  if (turn.startedBy.kind === 'carry-on' || turn.startedBy.kind === 'check-fix') return undefined
   // A routine step is the person's own words, saved from a conversation they
   // had; it is theirs to see, even though the host pressed go. A room post
   // is the person's own words too, said to several at once, and so is what

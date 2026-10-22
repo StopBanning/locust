@@ -26,6 +26,13 @@ export interface EditCheckResult {
   readonly unchanged: boolean
   /** No earlier check in this folder to compare with. */
   readonly first: boolean
+  /**
+   * For a fix that follows (0.812, check-fix.ts), never shown or recorded: every line this failed check printed, and
+   * every line the check before it here printed (absent when there was none). A fix after a fix is told what is still
+   * failing of what the person's turn broke, which only the whole of both can say.
+   */
+  readonly lines?: readonly string[]
+  readonly before?: readonly string[]
 }
 
 export interface CheckRun {
@@ -162,7 +169,7 @@ export function createEditCheck(options: {
       if (result.timedOut) return { command, outcome: 'timed-out', newLines: [], unchanged: false, first }
       if (result.exitCode === 0) return { command, outcome: 'passed', newLines: [], unchanged: false, first }
       const fresh = first ? lines : lines.filter((line) => !before.has(line))
-      return { command, outcome: 'failed', newLines: bounded(fresh), unchanged: !first && fresh.length === 0, first }
+      return { command, outcome: 'failed', newLines: bounded(fresh), unchanged: !first && fresh.length === 0, first, lines, ...(first ? {} : { before: [...before] }) }
     } finally {
       busy.delete(cwd)
     }

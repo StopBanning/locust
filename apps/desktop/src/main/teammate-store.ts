@@ -1,4 +1,5 @@
 import { isAccountId } from '../shared/agent-accounts.js'
+import { parsedCheckFixes } from '../shared/check-fix.js'
 import { randomUUID } from 'node:crypto'
 import { constants as fsConstants } from 'node:fs'
 import { mkdir, open, readFile, unlink } from 'node:fs/promises'
@@ -600,6 +601,13 @@ function parsedFile(text: string): StoredFile {
         : undefined
       return checkCommands === undefined ? {} : { checkCommands }
     })(),
+    // Each folder's most fixes when its check fails (0.812): only whole numbers from 1 to 5 are kept.
+    ...(() => {
+      const checkFixes = typeof rawSettings === 'object' && rawSettings !== null
+        ? parsedCheckFixes((rawSettings as Record<string, unknown>).checkFixes)
+        : undefined
+      return checkFixes === undefined ? {} : { checkFixes }
+    })(),
     ...(() => {
       const aboutYou = typeof rawSettings === 'object' && rawSettings !== null
         ? parsedAboutYou((rawSettings as Record<string, unknown>).aboutYou)
@@ -1111,6 +1119,10 @@ export function createTeammateStore(options: { readonly rootDirectory: string; r
           ...(() => {
             const checkCommands = parsedCheckCommands((settings as Record<string, unknown>).checkCommands)
             return checkCommands === undefined ? {} : { checkCommands }
+          })(),
+          ...(() => {
+            const checkFixes = parsedCheckFixes((settings as Record<string, unknown>).checkFixes)
+            return checkFixes === undefined ? {} : { checkFixes }
           })(),
           // Kept across every write that does not name it; '' clears it (0.423).
           ...(() => {

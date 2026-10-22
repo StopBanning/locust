@@ -68,6 +68,7 @@ import type {
 import type { StartPhase } from '../shared/ipc.js'
 import { acpAnswerFor, acpPermissionRequest, openCodePermissionRequest, openCodeReplyFor, withDeclines, withFileChanges } from './approval-channel.js'
 import type { EditCheckResult } from './edit-check.js'
+import type { CheckedTurn } from './check-fix.js'
 import type { TuneSkill } from '../shared/tune.js'
 import type { ApprovalChannel } from './approval-channel.js'
 import { fileChangesOf, itemOf } from './approval-patch.js'
@@ -496,6 +497,12 @@ interface CodexMissionServiceOptions {
    */
   readonly afterEdits?: (cwd: string, missionId: string, onStart?: (command: string) => void) => Promise<EditCheckResult | undefined>
   /**
+   * After the person's check said how it ended, once recorded (0.812, check-fix.ts): whether to send a failure back is
+   * decided there. For a turn Locust sent back to fix it, `no-edits` when that turn changed no files, so the check was
+   * not run again.
+   */
+  readonly onEditCheck?: (turn: CheckedTurn, result: EditCheckResult | 'no-edits') => void
+  /**
    * 0.439: commit what a turn in a teammate's own worktree changed, to its
    * branch (turn-checkpoint.ts). Called for runs in a worktree only, however
    * the turn ended, before the slot is released so the next turn never
@@ -903,6 +910,17 @@ const notReadyRefusal = (runtime: MissionRuntimeId, found?: RuntimeDiscovery): s
   return `${name} is not ready. Install or sign in to it, then retry discovery.`
 }
 
+/** A turn as the fix loop is told it (0.812, check-fix.ts), when its check has said how it ended. */
+function checkedTurnOf(mission: ActiveCodexMission): CheckedTurn {
+  return {
+    missionId: mission.missionId,
+    ...(mission.peer === undefined ? {} : { teammateId: mission.peer.self.teammateId }),
+    completed: mission.transcript.completed,
+    apart: mission.slot !== undefined || mission.relay !== undefined,
+    ...(mission.startedBy === undefined ? {} : { startedBy: mission.startedBy })
+  }
+}
+
 export function createCodexMissionService(options: CodexMissionServiceOptions): CodexMissionService {
   // Resolved here, not inside `start`: that scope declares its own `process`
   // for the child, which shadows Node's global and is in its temporal dead
@@ -944,8 +962,25 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           ...(options.readyConnectors === undefined ? {} : { readyConnectors: options.readyConnectors })
         })
 
+  /*
+   * Who waits for a run to leave `active` (0.812): what follows its check is the same teammate's next turn, which
+   * cannot start while this one still holds the teammate -- and a turn in its own copy holds it through a git commit
+   * that a quick check can outlast.
+   */
+  const clearedWaiters = new Map<string, (() => void)[]>()
+  const whenCleared = (mission: ActiveCodexMission): Promise<void> => {
+    if (active.get(mission.runId) !== mission) return Promise.resolve()
+    return new Promise((resolve) => {
+      clearedWaiters.set(mission.runId, [...(clearedWaiters.get(mission.runId) ?? []), resolve])
+      // Never held for ever: a run that somehow stays is answered as gone after two minutes.
+      setTimeout(resolve, 120_000).unref?.()
+    })
+  }
+
   const clearActive = (candidate: ActiveCodexMission): void => {
     if (active.get(candidate.runId) === candidate) active.delete(candidate.runId)
+    for (const resolve of clearedWaiters.get(candidate.runId) ?? []) resolve()
+    clearedWaiters.delete(candidate.runId)
     // The run is over, so nobody can answer a permission it was still asking:
     // refuse what is waiting, forget its token, remove its config.
     void options.permissionHost?.release(candidate.runId).catch(() => undefined)
@@ -1305,14 +1340,30 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         })
         .then(async (result) => {
           if (result === undefined) return
-          safelyEmit(mission, { kind: 'edit-check', runId: mission.runId, missionId: mission.missionId, ...result })
+          // Its own fields only: the whole output kept for a fix (`lines`, `before`) is not the window's.
+          safelyEmit(mission, { kind: 'edit-check', runId: mission.runId, missionId: mission.missionId, command: result.command, outcome: result.outcome, newLines: result.newLines, unchanged: result.unchanged, first: result.first })
           // Onto the mission it ran after, so a reopened conversation still
           // has the card and its Send button. A failed write loses only that.
           await options.ledger
             .appendEditCheck(mission.missionId, boundedEditCheck({ ...result, occurredAt: now().toISOString() }))
             .catch((error: unknown) => options.note?.('edit-check-write-failed', `${mission.missionId}: ${error instanceof Error ? error.message : 'no message'}`))
+          // After it is on screen and in the record, so a fix that follows is never ahead of the failure it fixes; and
+          // after the turn has let go of its teammate, since a fix is that teammate's next turn.
+          if (options.onEditCheck === undefined) return
+          await whenCleared(mission)
+          try {
+            options.onEditCheck(checkedTurnOf(mission), result)
+          } catch {
+            // What follows a check is its own concern; the check stands.
+          }
         })
         .catch(() => undefined)
+    } else if (mission.startedBy?.kind === 'check-fix' && observed !== undefined && observed.length === 0) {
+      // A fix that changed nothing leaves the check where it was (0.812): said under it, rather than ending in silence.
+      const said = options.onEditCheck
+      if (said !== undefined) {
+        void whenCleared(mission).then(() => said(checkedTurnOf(mission), 'no-edits')).catch(() => undefined)
+      }
     }
     // 0.439: a turn in the teammate's own worktree is committed to its branch,
     // however it ended, with a receipt in its stream. Best effort: a commit

@@ -40,10 +40,13 @@ export function editCheckFollowUp(check: EditCheckShown): string {
 export function EditCheckCard({
   check,
   teammateName,
+  fix,
   onSend
 }: {
   readonly check: EditCheckShown
   readonly teammateName: string | undefined
+  /** The turn was Locust's fix number `fix` of a failing check (0.812): a pass is said as the fix's. */
+  readonly fix?: number
   /** Absent while a run is going: a follow-up waits for it. */
   readonly onSend?: (text: string) => void
 }): ReactElement {
@@ -60,7 +63,7 @@ export function EditCheckCard({
     return (
       <div className="lc-diagnostic lc-tone-muted lc-editcheck">
         <Icon name="shield" size={12} />
-        <span>The check {command} passed after this turn.</span>
+        <span>The check {command} passed after {fix === undefined ? 'this turn' : `fix ${String(fix)}`}.</span>
       </div>
     )
   }
@@ -80,7 +83,7 @@ export function EditCheckCard({
     return (
       <div className="lc-diagnostic lc-tone-amber lc-editcheck">
         <Icon name="shield" size={12} />
-        <span>The check {command} still fails the same way it did before this turn; nothing in it is new.</span>
+        <span>The check {command} still fails after this turn, with nothing new in it.</span>
       </div>
     )
   }

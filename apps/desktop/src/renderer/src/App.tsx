@@ -538,10 +538,11 @@ function inTerminalOf(run: LiveRunState): { readonly inTerminal?: MissionRuntime
 /**
  * A recorded turn Locust carried on after a plan ran out (0.774) keeps saying so when the conversation is opened
  * again: without its starter the thread read the host's instruction back as the person's own message (the 0.774
- * drive's reloaded frame). Only this kind: what the others carry when reopened is unchanged.
+ * drive's reloaded frame). So does a turn Locust sent back to fix a failing check (0.812). Only these kinds: what the
+ * others carry when reopened is unchanged.
  */
 function carriedOnOf(mission: PublicRecoveredMission | undefined): { readonly startedBy?: LiveStarter } {
-  return mission?.startedBy?.kind === 'carry-on' ? { startedBy: mission.startedBy } : {}
+  return mission?.startedBy?.kind === 'carry-on' || mission?.startedBy?.kind === 'check-fix' ? { startedBy: mission.startedBy } : {}
 }
 
 /**
@@ -1711,6 +1712,16 @@ export default function App(): ReactElement {
       ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, checkCommand: next })
       .then((settings) => setCheckCommand(settings.checkCommand ?? ''))
       .catch(() => undefined)
+  }
+  // And what happens when it fails (0.812): shown, or sent back to fix at most this many times. Off until chosen.
+  const [checkFixTries, setCheckFixTries] = useState<number | undefined>(undefined)
+  const saveCheckFixTries = (next: number | undefined): void => {
+    const before = checkFixTries
+    setCheckFixTries(next)
+    void window.desktop
+      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, checkFixTries: next ?? 0 })
+      .then((settings) => setCheckFixTries(settings.checkFixTries))
+      .catch(() => setCheckFixTries(before))
   }
   /*
    * About you (0.423): the person's standing note, read by every teammate
@@ -3652,6 +3663,7 @@ export default function App(): ReactElement {
           setKeepATodoList(settings.keepATodoList === true)
           setClaudeOwnSkills(settings.claudeOwnSkills === true)
           setCheckCommand(settings.checkCommand ?? '')
+          setCheckFixTries(settings.checkFixTries)
           setAboutYou(settings.aboutYou ?? '')
           setAboutYouSuggestions(settings.aboutYouSuggestions ?? [])
           setRelayHopCap(settings.relayHopCap)
@@ -5543,8 +5555,8 @@ export default function App(): ReactElement {
             // the message Booty sent Wren lived on the turn BEFORE the reply,
             // and this is where that turn was rebuilt without it.
             ...(continuing.peerMessages === undefined ? {} : { peerMessages: continuing.peerMessages }),
-            // A turn Locust carried on (0.774) stays Locust's once the person replies under it.
-            ...(continuing.startedBy?.kind === 'carry-on' ? { startedBy: continuing.startedBy } : {}),
+            // A turn Locust carried on (0.774), or sent back to fix the check (0.812), stays Locust's once the person replies under it.
+            ...(continuing.startedBy?.kind === 'carry-on' || continuing.startedBy?.kind === 'check-fix' ? { startedBy: continuing.startedBy } : {}),
             // And where that turn itself switched runtime, so its divider
             // stays above it once the conversation moves on.
             ...(continuing.switchedFrom === undefined ? {} : { switchedFrom: continuing.switchedFrom }),
@@ -7072,7 +7084,10 @@ export default function App(): ReactElement {
       // Another folder: the question, if any, was about the one before.
       setFolderQuestion(undefined)
     }).catch(() => undefined)
-    void bridge.readWorkspaceSettings().then((settings) => setCheckCommand(settings.checkCommand ?? '')).catch(() => undefined)
+    void bridge.readWorkspaceSettings().then((settings) => {
+      setCheckCommand(settings.checkCommand ?? '')
+      setCheckFixTries(settings.checkFixTries)
+    }).catch(() => undefined)
     refreshRuntimeSetup()
     rereadRuntimeCommands()
     refreshMemories()
@@ -9218,6 +9233,8 @@ export default function App(): ReactElement {
               onReplySizeChange={chooseReplySize}
               checkCommand={checkCommand}
               onCheckCommandSave={saveCheckCommand}
+              checkFixTries={checkFixTries}
+              onCheckFixTriesChange={saveCheckFixTries}
               metal={metal}
               metalStrength={metalStrength}
               metalMotion={metalMotion}

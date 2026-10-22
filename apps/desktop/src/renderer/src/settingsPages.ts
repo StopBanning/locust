@@ -253,8 +253,8 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     icon: 'folder',
     headings: ['Project folder'],
     alsoKnownAs: {
-      // Own branches are set here, under the folder they branch from.
-      'Project folder': ['worktree', 'worktrees', 'branch', 'branches', 'folder', 'path', 'directory', 'project', 'repo', 'workspace']
+      // Own branches are set here, under the folder they branch from; and the check after edits, with what a failure does.
+      'Project folder': ['worktree', 'worktrees', 'branch', 'branches', 'folder', 'path', 'directory', 'project', 'repo', 'workspace', 'check after edits', 'tests', 'npm test', 'lint', 'fix until it passes']
     }
   },
   {
