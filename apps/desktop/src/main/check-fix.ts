@@ -24,6 +24,8 @@ import type { EditCheckResult } from './edit-check.js'
 /** The turn a check ran after, as the mission service knew it when the turn ended. */
 export interface CheckedTurn {
   readonly missionId: string
+  /** The project folder its conversation runs in, by id: whose setting decides (0.813, not the window's folder). */
+  readonly workspaceId?: string
   /** Whose turn it was; a conversation with nobody has none. */
   readonly teammateId?: string
   /** It finished on its own: not stopped, not failed. */
@@ -35,11 +37,12 @@ export interface CheckedTurn {
 
 export type CheckFixStart =
   | { readonly ok: true; readonly missionId: string }
-  | { readonly ok: false; readonly message: string }
+  /** `busy`: the conversation went on, or its teammate is answering in it -- the person got there first (0.813). */
+  | { readonly ok: false; readonly message: string; readonly busy?: true }
 
 export interface CheckFixOptions {
-  /** This folder's most fixes, read when the check ends: undefined while the person has not turned it on. */
-  readonly mostFixes: () => Promise<number | undefined>
+  /** The turn's folder's most fixes, read when the check ends: undefined while the person has not turned it on. */
+  readonly mostFixes: (workspaceId: string | undefined) => Promise<number | undefined>
   /** Whether the person sent this turn, from the chat box or the phone. */
   readonly sentByPerson: (missionId: string) => boolean
   /** Whether the conversation has moved on or its teammate is already working: the person got there first. */
@@ -110,7 +113,7 @@ export function createCheckFix(options: CheckFixOptions): CheckFix {
     const chain = done === 0 ? undefined : chains.get(turn.missionId)
     chains.delete(turn.missionId)
     if (result !== 'no-edits' && result.outcome !== 'failed') return
-    const most = await options.mostFixes().catch(() => undefined)
+    const most = await options.mostFixes(turn.workspaceId).catch(() => undefined)
     if (most === undefined || most < 1) return
     if (result === 'no-edits') {
       if (done > 0) options.note(turn.missionId, CHECK_FIX_STOPPED.changedNothing(done), 'warning')
@@ -159,6 +162,11 @@ export function createCheckFix(options: CheckFixOptions): CheckFix {
       started = { ok: false, message: 'The turn could not be started.' }
     }
     if (!started.ok) {
+      if (started.busy === true) {
+        // The person got there between the look and the start: the same as finding them there, said the same way.
+        options.note(turn.missionId, CHECK_FIX_STOPPED.busy(await options.nameOf(turn.teammateId).catch(() => 'the teammate')), 'info')
+        return
+      }
       sent.delete(turn.missionId)
       options.note(turn.missionId, CHECK_FIX_STOPPED.couldNotStart(started.message), 'warning')
       return

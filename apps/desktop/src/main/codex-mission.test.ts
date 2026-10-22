@@ -1,3 +1,4 @@
+import { workspaceIdFor } from './workspace.js'
 import type {
   RuntimeDiscovery,
   RuntimeJsonlRecord,
@@ -843,6 +844,42 @@ describe('Codex mission durability and lifecycle boundaries', () => {
     finishDiscovery([codexRuntime()])
     // The earlier turn is not in this fake ledger; what is checked is the claim during discovery.
     await first
+  })
+
+  // 0.813, Sol's review of 0.812: the person's reply started, and Locust's fix of the same turn would run beside it.
+  it('refuses Locust\'s fix of a turn once another turn continues it, and lets a person\'s own reply through', async () => {
+    let finishRun!: (value: RuntimeProcessCompletion) => void
+    const running = new Promise<RuntimeProcessCompletion>((resolve) => {
+      finishRun = resolve
+    })
+    const start = vi.fn((): RuntimeProcessRun => ({ records: records([]), completion: running })) satisfies RuntimeProcessRunner['start']
+    // The turn both continue: finished, in this folder.
+    const earlier = {
+      metadata: {
+        missionId: 'mission_earlier', runId: 'run_earlier', prompt: 'Add sum.', runtime: 'codex', model: 'account-default',
+        requestedRouteId: 'codex', resolvedRouteId: 'codex-account:default', cliVersion: null, workspaceId: workspaceIdFor(WORKSPACE),
+        sandbox: 'read-only', executionPolicyVersion: 1, createdAt: NOW
+      },
+      events: [{ id: 'e1', runId: 'run_earlier', missionId: 'mission_earlier', sequence: 1, type: 'run.started', occurredAt: NOW, sourceAdapter: 'codex', payload: { runtimeThreadId: 'thread-earlier', evidence: { redacted: true } } }],
+      hostFailures: [], checkpoints: [], peerLinks: [], editChecks: [], approvals: [], phase: 'completed', lastUpdatedAt: NOW, ledgerSequence: 2, issues: []
+    } as never
+    const service = createCodexMissionService({
+      workspacePath: WORKSPACE,
+      discover: async () => [codexRuntime()],
+      runner: { start },
+      ledger: fakeLedger({ getMission: async (missionId) => (missionId === 'mission_earlier' ? earlier : undefined) }),
+      schedule: () => undefined
+    })
+    const reply = await service.start('My own reply.', 'codex', 'ask', {}, () => undefined, undefined, undefined, 'mission_earlier')
+    expect(reply).toMatchObject({ ok: true })
+    const fix = { kind: 'check-fix', fix: 1, of: 2, command: 'npm test' } as const
+    await expect(service.start('The check failed.', 'codex', 'ask', {}, () => undefined, undefined, undefined, 'mission_earlier', undefined, fix)).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'RUN_ALREADY_ACTIVE', message: 'This conversation went on before the fix could start, so Locust did not send the failing check back.' }
+    })
+    // A fix of another turn is not held back by it.
+    expect(start).toHaveBeenCalledTimes(1)
+    finishRun(completion())
   })
 
   it('drains in-flight work on dispose, latches the service closed, and keeps interrupt reusable', async () => {

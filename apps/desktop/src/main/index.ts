@@ -2503,8 +2503,13 @@ if (!ownsSingleInstanceLock) {
     })
     // A3.3: read fresh at every check, so a command set in Settings applies
     // to the next turn. The folder's own id: the command is per project.
+    // The conversation's own folder's command (0.813, Sol's review): a conversation keeps its folder when the window
+    // switches (0.458), and its check is that folder's, never the folder now on screen.
     const editCheck = createEditCheck({
-      commandFor: async () => (workspaceChosen ? (await teammates.readSettings()).checkCommands?.[workspaceIdFor(workspacePath)] : undefined)
+      commandFor: async (workspaceId) => {
+        const folder = workspaceId ?? (workspaceChosen ? workspaceIdFor(workspacePath) : undefined)
+        return folder === undefined ? undefined : (await teammates.readSettings()).checkCommands?.[folder]
+      }
     })
     /*
      * A teammate's monthly limit (shared/spend.ts), read fresh at every start
@@ -2722,7 +2727,7 @@ if (!ownsSingleInstanceLock) {
       // 0.777: the agents the person added, each by its own command line.
       acpAgents: { resolve: (agentId) => acpAgents.resolve(agentId) },
       // A3.3: the person's check for THIS folder, after a turn that changed files.
-      afterEdits: (cwd, missionId, onStart) => editCheck.after(cwd, missionId, onStart),
+      afterEdits: (cwd, missionId, onStart, workspaceId) => editCheck.after(cwd, missionId, onStart, workspaceId),
       onEditCheck: (turn, result) => {
         void checkFix?.onChecked(turn, result).catch(() => undefined)
       },
@@ -9478,7 +9483,11 @@ if (!ownsSingleInstanceLock) {
         .catch(() => undefined)
     })
     checkFix = createCheckFix({
-      mostFixes: async () => (workspaceChosen ? parsedCheckFixTries((await teammates.readSettings()).checkFixes?.[workspaceIdFor(workspacePath)]) : undefined),
+      // The turn's own folder's setting (0.813, Sol's review), not the folder the window has switched to since.
+      mostFixes: async (workspaceId) => {
+        const folder = workspaceId ?? (workspaceChosen ? workspaceIdFor(workspacePath) : undefined)
+        return folder === undefined ? undefined : parsedCheckFixTries((await teammates.readSettings()).checkFixes?.[folder])
+      },
       sentByPerson: (missionId) => sentByPerson.has(missionId),
       // The person got there first: a newer turn in this conversation, or its teammate already at work.
       busy: async (turn) =>
@@ -9512,7 +9521,9 @@ if (!ownsSingleInstanceLock) {
           // A fix is not the person picking a route: the teammate's saved one stays as it is.
           keepSavedRoute: true
         } as CodexMissionStartRequest, sendToWindow, startedBy)
-        if (!response.ok) return { ok: false, message: response.error.message }
+        // Refused because the conversation went on or is answering: the person's, not a failure (0.813). The pool's
+        // own limit is a failure to say.
+        if (!response.ok) return { ok: false, message: response.error.message, ...(response.error.code === 'RUN_ALREADY_ACTIVE' && response.error.busy !== 'pool' ? { busy: true as const } : {}) }
         const owner = owners[followUpOf] ?? teammateId
         sendToWindow({
           kind: 'mission-started',

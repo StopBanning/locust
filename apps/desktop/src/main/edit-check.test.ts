@@ -13,6 +13,13 @@ describe('the check after an edit', () => {
     return createEditCheck({ commandFor: async () => 'npm test', run: async () => runs[Math.min(at++, runs.length - 1)]! })
   }
 
+  it('reads the command of the conversation\'s own folder (0.813): the window may be on another folder by then', async () => {
+    const asked: (string | undefined)[] = []
+    const check = createEditCheck({ commandFor: async (workspaceId) => { asked.push(workspaceId); return 'npm test' }, run: async () => ({ exitCode: 0, output: 'ok\n', timedOut: false }) })
+    await check.after('C:/work/a', 'mission-a', undefined, 'ws_folder_a')
+    expect(asked).toEqual(['ws_folder_a'])
+  })
+
   it('says nothing at all when no command is set for the folder', async () => {
     const check = createEditCheck({ commandFor: async () => undefined, run: async () => { throw new Error('must not run') } })
     expect(await check.after('C:/work')).toBeUndefined()

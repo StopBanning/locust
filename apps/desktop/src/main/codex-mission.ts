@@ -206,6 +206,13 @@ interface ActiveCodexMission {
   /** Where the run happened: the teammate's worktree, or the folder. */
   readonly cwd: string
   /**
+   * The project folder the conversation runs in, by id (0.813): what its check after edits, and what that check's
+   * failure may do, are read for. Not the window's folder, which the person may have switched since (0.458).
+   */
+  readonly workspaceId: string
+  /** The turn this one continues, so a second next turn of it is known while this one runs (0.813). */
+  readonly continues?: string
+  /**
    * Set when another writing run shared this folder while this one was live.
    *
    * The disk observation below is a before/after comparison of the WHOLE
@@ -496,7 +503,7 @@ interface CodexMissionServiceOptions {
    * is sent to the teammate from here. `onStart` is told its command as it
    * starts, so the thread can say it is running (0.811).
    */
-  readonly afterEdits?: (cwd: string, missionId: string, onStart?: (command: string) => void) => Promise<EditCheckResult | undefined>
+  readonly afterEdits?: (cwd: string, missionId: string, onStart?: (command: string) => void, workspaceId?: string) => Promise<EditCheckResult | undefined>
   /**
    * After the person's check said how it ended, once recorded (0.812, check-fix.ts): whether to send a failure back is
    * decided there. For a turn Locust sent back to fix it, `no-edits` when that turn changed no files, so the check was
@@ -921,6 +928,7 @@ const notReadyRefusal = (runtime: MissionRuntimeId, found?: RuntimeDiscovery): s
 function checkedTurnOf(mission: ActiveCodexMission): CheckedTurn {
   return {
     missionId: mission.missionId,
+    workspaceId: mission.workspaceId,
     ...(mission.peer === undefined ? {} : { teammateId: mission.peer.self.teammateId }),
     completed: mission.transcript.completed,
     apart: mission.slot !== undefined || mission.relay !== undefined,
@@ -1340,7 +1348,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       void options.afterEdits(mission.cwd, mission.missionId, (command) => {
         started = command
         safelyEmit(mission, { kind: 'edit-check-started', runId: mission.runId, missionId: mission.missionId, command })
-      })
+      }, mission.workspaceId)
         .catch(() => {
           if (started === undefined) return undefined
           return { command: started, outcome: 'could-not-run' as const, newLines: ['The check stopped before it said how it ended.'], unchanged: false, first: false }
@@ -1686,6 +1694,16 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         const winding = (mission: ActiveCodexMission): boolean =>
           mission.settled && followUpOf !== undefined && mission.missionId === followUpOf && mission.runtime === runtime
         const live = [...active.values()].filter((mission) => !winding(mission))
+        /*
+         * A FIX GOES ONLY FROM THE CONVERSATION'S NEWEST TURN (0.813, Sol's review of 0.812). Locust decides to send a
+         * failing check back, then starts it; the person's own reply to the same turn could start in between, and the
+         * fix would continue that turn beside it -- two turns at once in one conversation and one folder. Checked here,
+         * in the same step that claims the start, against every turn starting or running that continues it.
+         */
+        if (startedBy?.kind === 'check-fix' && follows !== undefined
+          && ([...contextStarting.values()].includes(follows) || live.some((mission) => mission.continues === follows))) {
+          return error('RUN_ALREADY_ACTIVE', 'This conversation went on before the fix could start, so Locust did not send the failing check back.') as CodexMissionStartResponse
+        }
         // A comparison's column still runs one at a time.
         const ownerBusy = starting.has(claimKey)
           || (slot !== undefined && live.some((mission) => ownerKeyOf(mission.peer, mission.slot) === owner))
@@ -3165,6 +3183,8 @@ ${sentPrompt.trim()}`
           diskBefore,
           checkpointBefore,
           cwd: runCwd,
+          workspaceId,
+          ...(continues === undefined ? {} : { continues }),
           sharedTree: false,
           settled: false,
           saidWhyAReadFailed: false,

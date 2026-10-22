@@ -29,9 +29,13 @@ function harness(input: {
 } = {}) {
   const started: Started[] = []
   const notes: { readonly missionId: string; readonly message: string; readonly level: string }[] = []
+  const askedFor: (string | undefined)[] = []
   let fixes = 0
   const checkFix = createCheckFix({
-    mostFixes: async () => ('most' in input ? input.most : 2),
+    mostFixes: async (workspaceId) => {
+      askedFor.push(workspaceId)
+      return 'most' in input ? input.most : 2
+    },
     sentByPerson: () => input.sentByPerson ?? true,
     busy: async () => input.busy ?? false,
     nameOf: async () => 'Wren',
@@ -43,7 +47,7 @@ function harness(input: {
     },
     note: (missionId, message, level) => notes.push({ missionId, message, level })
   })
-  return { checkFix, started, notes }
+  return { checkFix, started, notes, askedFor }
 }
 
 const personTurn: CheckedTurn = { missionId: 'turn_1', teammateId: 'tm_wren', completed: true, apart: false }
@@ -80,6 +84,12 @@ describe('a failing check goes back to the teammate to fix', () => {
     expect(asked?.prompt).not.toContain('Tests 4 passed')
     expect(asked?.prompt).toContain('Do not weaken, skip or delete tests')
     expect(h.notes).toEqual([])
+  })
+
+  it('reads the setting of the folder the turn ran in, not the folder now on screen (0.813, Sol\'s review)', async () => {
+    const h = harness()
+    await h.checkFix.onChecked({ ...personTurn, workspaceId: 'ws_folder_a' }, failed(['FAIL x'], []))
+    expect(h.askedFor).toEqual(['ws_folder_a'])
   })
 
   it('does nothing while the folder is set to show the failure, or for a check that did not fail', async () => {
@@ -178,6 +188,12 @@ describe('a failing check goes back to the teammate to fix', () => {
     const h = harness({ busy: true })
     await h.checkFix.onChecked(personTurn, failed(['FAIL a'], []))
     expect(h.started).toEqual([])
+    expect(h.notes).toEqual([{ missionId: 'turn_1', message: CHECK_FIX_STOPPED.busy('Wren'), level: 'info' }])
+  })
+
+  it('a start refused because the person got there first is said as theirs, not as a failure (0.813)', async () => {
+    const h = harness({ start: async () => ({ ok: false, message: 'This conversation went on before the fix could start.', busy: true }) })
+    await h.checkFix.onChecked(personTurn, failed(['FAIL a'], []))
     expect(h.notes).toEqual([{ missionId: 'turn_1', message: CHECK_FIX_STOPPED.busy('Wren'), level: 'info' }])
   })
 

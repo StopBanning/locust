@@ -24,6 +24,8 @@ heading: the home screen then shows it once, as a splash.
 
 ### Fixed
 
+- **A conversation's check is its own folder's.** Locust switches folders without restarting, and a conversation keeps working in the folder it began in. Its check after edits, and what a failure may do, came from the folder on screen instead, so switching while a turn was working could run another folder's check, or send a failure back on another folder's setting. Both now come from the conversation's own folder.
+- **A fix never runs beside your reply.** If you replied just as Locust was sending a failing check back, both could start at once in the same conversation and the same files. Locust now leaves the conversation to your reply and says so.
 - **A first message says OpenCode is setting itself up.** The first time OpenCode starts on a machine, it installs a package of its own, about a minute here, before it answers. The first message's line said "Looking for OpenCode" for all of that; it now says OpenCode is setting itself up for its first start.
 
 ## 0.812.0 - 2026-10-22

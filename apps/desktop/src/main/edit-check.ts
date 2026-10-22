@@ -133,8 +133,8 @@ export function comparableLines(output: string): readonly string[] {
 const KEPT_TURN_CHECKS = 200
 
 export function createEditCheck(options: {
-  /** This folder's command, read fresh each time, or undefined for none. */
-  readonly commandFor: () => Promise<string | undefined>
+  /** The conversation's folder's command (its workspace id, 0.813), read fresh each time, or undefined for none. */
+  readonly commandFor: (workspaceId?: string) => Promise<string | undefined>
   readonly run?: (command: string, cwd: string) => Promise<CheckRun>
 }) {
   const run = options.run ?? ((command: string, cwd: string) => runCheckCommand(command, cwd))
@@ -146,8 +146,8 @@ export function createEditCheck(options: {
    * crashed its own tests full marks, and one said the test run "cannot be verified from the material".
    */
   const byTurn = new Map<string, Promise<EditCheckResult | undefined>>()
-  const check = async (cwd: string, onStart?: (command: string) => void): Promise<EditCheckResult | undefined> => {
-    const command = await options.commandFor().catch(() => undefined)
+  const check = async (cwd: string, onStart?: (command: string) => void, workspaceId?: string): Promise<EditCheckResult | undefined> => {
+    const command = await options.commandFor(workspaceId).catch(() => undefined)
     if (command === undefined || command.length === 0) return undefined
     // One at a time per folder: two at once would each see the other's files.
     if (busy.has(cwd)) return undefined
@@ -176,8 +176,8 @@ export function createEditCheck(options: {
   }
   return {
     /** The check after a turn. Called before the turn's slot is released, so a reader that waits for that finds it. */
-    after(cwd: string, missionId?: string, onStart?: (command: string) => void): Promise<EditCheckResult | undefined> {
-      const job = check(cwd, onStart)
+    after(cwd: string, missionId?: string, onStart?: (command: string) => void, workspaceId?: string): Promise<EditCheckResult | undefined> {
+      const job = check(cwd, onStart, workspaceId)
       if (missionId !== undefined) {
         byTurn.delete(missionId)
         byTurn.set(missionId, job)
