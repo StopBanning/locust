@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.813.0 - 2026-10-22
+
+### New
+
+- **Skills reach Codex and OpenCode teammates.** A teammate's own skills, the ones a tune drafts and the ones you keep from GitHub, now reach Codex and OpenCode teammates as well as Claude Code. Each run is handed its own copy, and nothing of yours is changed: Codex and OpenCode still find the folder's skills and your own themselves, as in your own sessions. /tune now drafts "What it knows" as a skill for them too, and /setup lists the folders each one reads.
+
+### Improved
+
+- **/setup before the first turn.** /setup now works in a teammate's conversation before you have asked it anything, so you can see what it will be given before its first turn.
+- **A routine's fix reads as Locust's.** When a routine keeps going until its check passes, its fix turn now reads as Locust's line, such as "node check.js failed, so Locust sent it back to Cedar · fix 1 of 2", with What Locust sent one click away. It used to read as a message from you.
+
 ## 0.812.0 - 2026-10-22
 
 ### New
