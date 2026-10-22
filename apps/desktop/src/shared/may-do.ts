@@ -106,26 +106,31 @@ export function whatItMayDo(runtime: MissionRuntimeId, sandbox: MissionSandbox, 
       )
     case 'opencode':
       // Read-only: edit, write and patch denied, bash "ask" -- which `run`
-      // answers with a refusal every time. Edit: external_directory "deny"
-      // and nothing else, so bash, websearch and webfetch run as OpenCode's
-      // own defaults have them. Auto: `--auto` and external_directory
-      // "allow". No config names the web search in any mode.
+      // answers with a refusal every time -- and since 0.821 every tool not
+      // named asks too, first, so a person's own MCP tools are refused; the
+      // reading tools and the web's are allowed by name after it. Edit:
+      // external_directory "deny" and nothing else, so bash, websearch,
+      // webfetch and MCP tools run as OpenCode's own defaults have them.
+      // Auto: `--auto` and external_directory "allow".
       if (sandbox === 'full-access') return rows(ANY_COMMAND)
       if (asks) {
-        // `opencode serve` (createOpenCodeServeCommand): edit, bash, webfetch
-        // and external_directory all "ask"; websearch is not named.
+        // `opencode serve` (createOpenCodeServeCommand): everything not named
+        // "ask" (0.821), so edit, bash, webfetch, external_directory and a
+        // person's own MCP tools ask; websearch is allowed by name.
         return {
           rows: [
             READ,
             { verdict: 'allow', text: 'change files in this folder, once you approve each change' },
             { verdict: 'allow', wide: true, text: 'run commands and open web pages, once you approve each one' },
             { verdict: 'allow', wide: true, text: 'search the web' },
-            { verdict: 'allow', wide: true, text: 'open files outside this folder, once you approve it' }
+            { verdict: 'allow', wide: true, text: 'open files outside this folder, once you approve it' },
+            { verdict: 'allow', wide: true, text: 'use tools from your own MCP servers, once you approve each one' }
           ],
           rest
         }
       }
-      return rows(sandbox === 'read-only' ? NO_COMMANDS : OPEN_COMMANDS, THE_WEB, NOT_OUTSIDE)
+      if (sandbox === 'read-only') return rows(NO_COMMANDS, THE_WEB, NOT_OUTSIDE, { verdict: 'deny', text: 'using tools from your own MCP servers' })
+      return rows(OPEN_COMMANDS, THE_WEB, NOT_OUTSIDE)
     case 'copilot':
       // `--allow-all-tools` in every mode; read-only adds
       // `--deny-tool=write,shell`, and only Auto adds `--allow-all-paths`,

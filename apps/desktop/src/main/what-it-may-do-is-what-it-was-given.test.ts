@@ -45,11 +45,19 @@ describe('what the panel says a run may do', () => {
         expect(rows).toContain('allow run any command your account can run, and reach any network')
         continue
       }
-      // The config the free model runs under names no web rule, so the web
-      // is OpenCode's own default -- allowed -- and the panel must say so.
-      expect(permission.webfetch).toBeUndefined()
-      expect(permission.websearch).toBeUndefined()
+      // The web is allowed: by OpenCode's own default in Edit, which names no
+      // web rule, and by name after the catch-all in Ask (0.821). The panel
+      // must say so either way.
+      for (const web of [permission.webfetch, permission.websearch]) expect([undefined, 'allow'], sandbox).toContain(web)
       expect(rows).toContain('allow search the web and open web pages')
+      // Ask's catch-all refuses a person's own MCP tools (0.821); Edit leaves them to OpenCode, which allows them.
+      if (sandbox === 'read-only') {
+        expect(Object.entries(permission)[0]).toEqual(['*', 'ask'])
+        expect(rows).toContain('deny using tools from your own MCP servers')
+      } else {
+        expect(permission['*']).toBeUndefined()
+        expect(rows.join('\n')).not.toMatch(/MCP/)
+      }
       expect(rows.join('\n')).not.toMatch(/network access|deny.*network/)
       // `run` refuses every "ask"; nothing named means allowed.
       if (permission.bash === 'ask') expect(rows).toContain('deny running commands')
@@ -63,12 +71,15 @@ describe('what the panel says a run may do', () => {
     const spec = createOpenCodeServeCommand(launch('opencode'), { workspacePath: 'C:\\work\\pebble' })
     const permission = (JSON.parse(spec.env?.OPENCODE_CONFIG_CONTENT ?? '{}') as { permission: Record<string, unknown> }).permission
     expect([permission.edit, permission.bash, permission.webfetch, permission.external_directory]).toEqual(['ask', 'ask', 'ask', 'ask'])
-    expect(permission.websearch).toBeUndefined()
+    // 0.821: everything not named asks, first -- a person's own MCP tools among it -- and the search is allowed by name.
+    expect(Object.entries(permission)[0]).toEqual(['*', 'ask'])
+    expect(permission.websearch).toBe('allow')
     const rows = said('opencode', 'workspace-write', 'approve-each')
     expect(rows).toContain('allow change files in this folder, once you approve each change')
     expect(rows).toContain('allow run commands and open web pages, once you approve each one')
     expect(rows).toContain('allow search the web')
     expect(rows).toContain('allow open files outside this folder, once you approve it')
+    expect(rows).toContain('allow use tools from your own MCP servers, once you approve each one')
   })
 
   it('Claude Code: commands only when its tool list has Bash; the web in every mode, asked about outside Auto', () => {
