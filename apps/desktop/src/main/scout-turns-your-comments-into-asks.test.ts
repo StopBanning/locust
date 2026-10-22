@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createScout, type ScoutDeps } from './scout.js'
 import { createCommentReader, postComment, type CommentWatch } from './scout-comments.js'
@@ -22,7 +23,7 @@ function fakeGh(rows: unknown[]) {
   })
 }
 async function harness(overrides: Partial<ScoutDeps> = {}) {
-  const root = await mkdtemp(join(process.cwd(), '.tmp-comment-'))
+  const root = await mkdtemp(join(tmpdir(), 'locust-comment-'))
   roots.push(root)
   const deps: ScoutDeps = {
     file: join(root, 'scout.json'), now: () => new Date(at), github: async () => undefined,
