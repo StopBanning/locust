@@ -415,7 +415,13 @@ export function createScout(deps: ScoutDeps) {
       const weekOf = (latest: Kept): ScoutWeek | undefined => (weekDue ? emptyWeek(day) : latest.week)
       if (facts.length === 0) return await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks'), week: weekCounted(weekOf(latest), at, 'looks') }))
       const team = (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== teammateId)
-      const cards = facts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, true))
+      /*
+       * The weekly tune-up is Locust's own count and rule (0.817), so Scout's model is not asked about it: the first
+       * packaged drive's model drafted a handoff to Ada to review Scout's own dismissed cards, which no teammate can
+       * see. A week with nothing else new asks no model at all.
+       */
+      const forModel = (fact: ScoutFact): boolean => !fact.key.startsWith('week:')
+      const cards = facts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, forModel(fact)))
       // A check that turned says how it stands now: the card of how it stood before goes (0.815); so does yesterday's brief.
       const checkTurned = facts.some((fact) => fact.key.startsWith('check:'))
       const outdated = (card: ScoutCard): boolean => (checkTurned && card.key.startsWith('check:')) || (briefDue && card.key.startsWith('brief:')) || (weekDue && card.key.startsWith('week:'))
@@ -433,13 +439,15 @@ export function createScout(deps: ScoutDeps) {
       // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815).
       if (state.settings.notify && !inQuietHours(state.settings.quiet, at)) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
       // Then Scout's model, for its take and the next step.
+      const asked = cards.filter(forModel)
+      if (asked.length === 0) return state
       const prompt = scoutPrompt({
-        facts,
+        facts: facts.filter(forModel),
         team: team.map((mate) => ({ name: mate.name, role: mate.role })),
         ...(state.settings.goal === undefined ? {} : { goal: state.settings.goal }),
         ...(kept === undefined || kept.notes.length === 0 ? {} : { notes: kept.notes })
       })
-      state = await askFor({ teammateId, prompt, cardIds: cards.map((card) => card.cardId), team, tried: [] }) ?? state
+      state = await askFor({ teammateId, prompt, cardIds: asked.map((card) => card.cardId), team, tried: [] }) ?? state
       return state
     } finally {
       looking = false

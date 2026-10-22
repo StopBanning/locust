@@ -77,6 +77,9 @@ try {
   const shown = JSON.parse(String(await drive.capture('Home: the week as one card', async () => { await sleep(800); return drive.evaluate(WEEK_CARD) })))
   check('it says the week in Locust’s words', shown.text.includes('Your week') && shown.text.includes('This week: 410 looks, 6 of them read by its model.') && shown.text.includes('It raised 6 cards. You sent 2 on and dismissed 4.') && shown.text.includes('You dismissed all 4 GitHub cards and sent none on.'), shown.text)
   check('its one suggestion is its button, in view', shown.button !== null && shown.button.inView, JSON.stringify(shown.button))
+  // Locust's own card: Scout's model is not asked about it, so nothing is drafted for a teammate (the first packaged
+  // 0.817 drive's model drafted Ada a review of Scout's own cards).
+  check('nothing on it is drafted for a teammate', !/drafted for|send to /i.test(shown.text), shown.text)
   for (const [width, height] of [[1120, 720], [860, 640]]) {
     await drive.resize(width, height)
     await sleep(600)

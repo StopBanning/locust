@@ -26,7 +26,7 @@ async function harness() {
   roots.push(root)
   let prs: FolderPullRequest[] = []
   let at = DAY_ONE
-  let looks = 0
+  const prompts: string[] = []
   const teammates = new Set<string>()
   const deps: ScoutDeps = {
     file: join(root, 'scout.json'),
@@ -35,7 +35,7 @@ async function harness() {
     waiting: async () => [],
     failedTurn: async () => undefined,
     team: async () => [{ teammateId: 'tm_wren', name: 'Wren', role: 'Code & Migrations' }],
-    ask: async () => { looks += 1; return { missionId: `look_${String(looks)}`, runId: `run_${String(looks)}` } },
+    ask: async (_teammateId, prompt) => { prompts.push(prompt); return { missionId: `look_${String(prompts.length)}`, runId: `run_${String(prompts.length)}` } },
     stop: () => undefined,
     nextFreeModel: async () => undefined,
     answerOf: async () => ({ failed: 'It said nothing.' }),
@@ -51,7 +51,7 @@ async function harness() {
   const scout = createScout(deps)
   const cardsOf = async (prefix: string) => (await scout.state()).cards.filter((card) => card.key.startsWith(prefix))
   const onDisk = async () => (JSON.parse(await readFile(deps.file, 'utf8')) as { week?: unknown }).week
-  return { scout, deps, cardsOf, onDisk, setPrs: (next: FolderPullRequest[]) => { prs = next }, moveTo: (next: Date) => { at = next } }
+  return { scout, deps, cardsOf, onDisk, prompts, setPrs: (next: FolderPullRequest[]) => { prs = next }, moveTo: (next: Date) => { at = next } }
 }
 
 describe('Scout’s weekly tune-up', () => {
@@ -75,7 +75,10 @@ describe('Scout’s weekly tune-up', () => {
     expect(week?.lines).toEqual(['It raised 3 cards. You sent 1 on, dismissed 1 and left 1.'])
     expect(week?.tune).toBeUndefined()
     expect(week?.urgency).toBe('later')
-    expect(await h.onDisk()).toMatchObject({ from: '2026-10-29', looks: 1, asked: 1, sent: 0, dismissed: 0 })
+    // Locust's own card: not read by Scout's model, so it carries no take or draft, and that look asked none.
+    expect(week?.reading).toBeUndefined()
+    expect(week?.draft).toBeUndefined()
+    expect(await h.onDisk()).toMatchObject({ from: '2026-10-29', looks: 1, asked: 0, sent: 0, dismissed: 0 })
     // Kept across a restart, and never said twice.
     const again = createScout(h.deps)
     await again.look()
@@ -111,6 +114,21 @@ describe('Scout’s weekly tune-up', () => {
     const [week] = await h.cardsOf('week:')
     expect(week?.lines).toEqual(['It raised 4 cards. You changed 1 first and dismissed 3.'])
     expect(week?.tune).toBeUndefined()
+  })
+
+  it('is never put to Scout’s model: beside other news it is left out of the look’s prompt', async () => {
+    const h = await harness()
+    await h.scout.turnOn(ROUTE)
+    h.moveTo(WEEK_ON)
+    h.setPrs([failing(7)])
+    await h.scout.look()
+    expect(h.prompts).toHaveLength(1)
+    expect(h.prompts[0]).toContain('Your pull request #7')
+    expect(h.prompts[0]).not.toContain('This week:')
+    const [week] = await h.cardsOf('week:')
+    const [pr] = await h.cardsOf('pr:')
+    expect(week?.reading).toBeUndefined()
+    expect(pr?.reading).toBe(true)
   })
 
   it('offers looking every 30 minutes after a week that needed nothing', async () => {
