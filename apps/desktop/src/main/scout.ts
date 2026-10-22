@@ -311,8 +311,12 @@ export function createScout(deps: ScoutDeps) {
       ...(next.week === undefined ? {} : { week: next.week })
     })}\n`
     const write = writing.then(async () => {
-      // A file Scout could not read is not written over (see `load`): this run's changes live in memory.
-      if (!saveToDisk) return
+      // A file Scout could not read is not written over (see `load`): this run's changes live in memory. A change that
+      // must be on disk first -- a post's attempt, so a restart never posts it twice -- is refused instead.
+      if (!saveToDisk) {
+        if (mustWrite) throw new Error('Scout could not save to its own file, so nothing was posted.')
+        return
+      }
       const temporary = `${deps.file}.${randomBytes(6).toString('hex')}.tmp`
       try {
         await writeFile(temporary, body, { encoding: 'utf8', flag: 'wx' })
@@ -374,9 +378,11 @@ export function createScout(deps: ScoutDeps) {
     }
     if (from.settings.watches.check && deps.folderMark !== undefined && deps.runCheck !== undefined && deps.folderBusy?.() !== true) {
       const mark = await deps.folderMark().catch(() => undefined)
-      if (mark !== undefined && mark !== from.folderMark) {
+      // A turn that began while the folder was read, or while its check ran (0.823, Grok's review): its half-done work
+      // would read as a failure needing the person now. The result is dropped and the mark stays: a later look runs it.
+      if (mark !== undefined && mark !== from.folderMark && deps.folderBusy?.() !== true) {
         const result = await deps.runCheck().catch(() => undefined)
-        if (result !== undefined) {
+        if (result !== undefined && deps.folderBusy?.() !== true) {
           facts.push(...checkFacts(from.lastCheck, result, mark))
           marks = { folderMark: mark, lastCheck: { passed: result.passed, command: result.command } }
         }
@@ -430,6 +436,17 @@ export function createScout(deps: ScoutDeps) {
     }, scoutDay(at))
   }
 
+  /*
+   * OFF, AND QUIET HOURS, AGAIN AFTER EVERY WAIT (0.823, Grok's review). Both were read once, as a look began, and a
+   * look that then waited minutes on the folder's check went on to raise cards, tell Windows and ask the model after
+   * Scout was turned off or its quiet hours began. A look on Scout's own timer keeps quiet hours; one asked for does not.
+   */
+  const stillLooking = (scheduled: boolean): boolean => {
+    const settings = (kept ?? EMPTY).settings
+    return settings.on && !(scheduled && inQuietHours(settings.quiet, now()))
+  }
+  const OFF_SAYS = 'Scout was turned off, so these cards stay in Locust’s words.'
+
   /** `scheduled`: on Scout's own timer, which keeps quiet hours (0.815); a look the person asked for does not. */
   const look = async (scheduled = false): Promise<ScoutState> => {
     const from = await load()
@@ -447,6 +464,8 @@ export function createScout(deps: ScoutDeps) {
       const at = now()
       const stamp = at.toISOString()
       const { facts: found, prs, marks } = await gather(from, stamp)
+      // Off, or quiet hours begun, while it gathered: nothing is kept, so the next look finds all of it again.
+      if (!stillLooking(scheduled)) return stateOf(kept ?? from)
       const facts = [...found]
       /*
        * THE MORNING BRIEF (0.816): the first look from its hour on, once a day and never in quiet hours -- so a Locust
@@ -456,6 +475,7 @@ export function createScout(deps: ScoutDeps) {
       const day = scoutDay(at)
       const briefDue = from.settings.briefAt !== undefined && at.getHours() >= from.settings.briefAt && from.lastBriefDay !== day && !inQuietHours(from.settings.quiet, at)
       if (briefDue) facts.push(await briefOf(from, facts, prs, marks, at))
+      if (briefDue && !stillLooking(scheduled)) return stateOf(kept ?? from)
       const briefed = briefDue ? { lastBriefDay: day, lastBriefAt: stamp } : {}
       /*
        * THE WEEKLY TUNE-UP (0.817): the first look a week after the tally began brings it, and the next week starts with
@@ -496,11 +516,15 @@ export function createScout(deps: ScoutDeps) {
         today: counted(latest.today, at, 'looks'),
         week: weekRaised(weekCounted(weekOf(latest), at, 'looks'), facts)
       }))
-      // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815).
-      if (state.settings.notify && !inQuietHours(state.settings.quiet, at)) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
+      // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815). Quiet hours as they
+      // are now, not as the look began (0.823): a look begun at 9:59 told Windows at 10:04.
+      if (state.settings.notify && state.settings.on && !inQuietHours(state.settings.quiet, now())) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
       // Then Scout's model, for its take and the next step.
       const asked = cards.filter(forModel)
       if (asked.length === 0) return state
+      if (!stillLooking(scheduled)) {
+        return settle(asked.map((card) => card.cardId), undefined, state.settings.on ? 'Scout’s quiet hours began, so these cards stay in Locust’s words.' : OFF_SAYS)
+      }
       const prompt = scoutPrompt({
         facts: facts.filter(forModel),
         team: team.map((mate) => ({ name: mate.name, role: mate.role })),
@@ -522,6 +546,11 @@ export function createScout(deps: ScoutDeps) {
     const asked = await deps.ask(look.teammateId, look.prompt, model)
       .catch((error: unknown) => ({ refused: error instanceof Error ? error.message : 'The look could not start.' }))
     if ('refused' in asked) return settle(look.cardIds, undefined, asked.refused)
+    // Turned off while its turn was starting (0.823): off found nothing waiting then, so the turn is stopped here.
+    if (!(kept ?? EMPTY).settings.on) {
+      try { deps.stop(asked.runId) } catch { /* it has ended already */ }
+      return settle(look.cardIds, undefined, OFF_SAYS)
+    }
     const expires = later(() => { void gaveUp(asked.missionId, 'Scout’s model took too long to answer.') }, deps.answerWaitMs ?? ANSWER_WAIT_MS)
     pending.set(asked.missionId, { ...look, runId: asked.runId, expires })
     return mutate((latest) => ({ ...latest, lookIds: [...latest.lookIds, asked.missionId].slice(-MAX_LOOK_IDS), today: counted(latest.today, now(), 'asked'), week: weekCounted(latest.week, now(), 'asked') }))
@@ -559,7 +588,8 @@ export function createScout(deps: ScoutDeps) {
     pending.delete(missionId)
     cancel(look.expires)
     try { deps.stop(look.runId) } catch { /* it has ended already */ }
-    const next = look.tried.length >= MAX_FALLBACKS ? undefined : await deps.nextFreeModel(look.teammateId, look.tried).catch(() => undefined)
+    // No other model once Scout is off (0.823): giving up on one used to start the next whatever Scout's state.
+    const next = look.tried.length >= MAX_FALLBACKS || !(kept ?? EMPTY).settings.on ? undefined : await deps.nextFreeModel(look.teammateId, look.tried).catch(() => undefined)
     if (next === undefined) {
       await settle(look.cardIds, undefined, `${why} These cards are in Locust’s words.`)
       return
@@ -614,7 +644,7 @@ export function createScout(deps: ScoutDeps) {
     if (state.settings.on && state.settings.watches.comments !== false && (await load()).comments === undefined) await mutate((latest) => ({ ...latest, comments: { enabledAt: now().toISOString(), repositories: {} } }))
     if (state.settings.everyMinutes !== before?.everyMinutes || state.settings.on !== before.on) restart(state.settings)
     if (before?.on === true && !state.settings.on) {
-      await stopLooks('Scout was turned off, so these cards stay in Locust’s words.')
+      await stopLooks(OFF_SAYS)
       return stateOf(await load())
     }
     return state

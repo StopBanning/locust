@@ -97,7 +97,8 @@ describe('Scout’s weekly tune-up', () => {
     expect(week?.lines).toEqual(['It raised 4 cards. You dismissed 4.', 'You dismissed all 4 GitHub cards and sent none on.'])
     expect(week?.tune).toEqual({ label: 'Stop watching GitHub', watchOff: 'github' })
     const after = await h.scout.tune(week!.cardId)
-    expect(after.settings.watches).toEqual({ github: false, teammates: true, check: false })
+    // GitHub goes off; the rest stay as they were, Your /locust comments (0.823, on by default) among them.
+    expect(after.settings.watches).toEqual({ github: false, teammates: true, check: false, comments: true })
     expect(after.cards.some((card) => card.key.startsWith('week:'))).toBe(false)
   })
 

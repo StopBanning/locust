@@ -218,6 +218,21 @@ describe('the folder’s check', () => {
     // Good news, with nothing for a teammate to do: not put to Scout's model (0.818).
     expect(cards[0]).not.toHaveProperty('reading')
   })
+
+  // 0.823, Grok's review: a turn that began while the check ran made its half-done work a failure needing the person.
+  it('drops a result from a check a turn began beside, and runs it again when the folder is quiet', async () => {
+    let busyDuringCheck = true
+    const h = await harness({ runCheck: async () => { if (busyDuringCheck) h.setFolderBusy(true); return red } })
+    await h.scout.turnOn(ROUTE)
+    await h.scout.set({ watches: { github: true, teammates: true, check: true } })
+    await h.scout.look()
+    expect((await h.scout.state()).cards.filter((card) => card.key.startsWith('check:'))).toEqual([])
+    // The mark stayed: once the folder is quiet, the next look runs the check and keeps what it found.
+    busyDuringCheck = false
+    h.setFolderBusy(false)
+    await h.scout.look()
+    expect((await h.scout.state()).cards.filter((card) => card.key.startsWith('check:')).map((card) => card.said)).toEqual(['The check npm test fails: FAIL cart.test.js'])
+  })
 })
 
 describe('off means off', () => {
@@ -229,6 +244,54 @@ describe('off means off', () => {
     const state = await h.scout.set({ on: false })
     expect(h.stopped).toEqual(['run_1'])
     expect(state.cards[0]).not.toHaveProperty('reading')
+  })
+
+  /*
+   * 0.823, Grok's review: Off, and quiet hours, were read once as a look began. A look that then waited minutes on the
+   * folder's check raised its cards, told Windows and asked the model after Scout was turned off or quiet hours began.
+   */
+  it('keeps nothing from a look turned off while it waited on the folder’s check', async () => {
+    let during: () => Promise<void> = async () => undefined
+    const h = await harness({ runCheck: async () => { await during(); return red } })
+    await h.scout.turnOn(ROUTE)
+    await h.scout.set({ watches: { github: true, teammates: true, check: false } })
+    h.setGithub({ prs: [], reviews: [] })
+    await h.scout.set({ watches: { github: true, teammates: true, check: true } })
+    h.setMark('mark_2')
+    const asked = h.asked.length
+    during = async () => { await h.scout.set({ on: false }) }
+    await h.scout.look()
+    expect(h.asked).toHaveLength(asked)
+    expect(h.notified).toEqual([])
+    expect((await h.scout.state()).cards.filter((card) => card.key.startsWith('check:'))).toEqual([])
+  })
+
+  it('keeps nothing from a timer look whose quiet hours began while it waited, and tells Windows nothing', async () => {
+    let during: () => void = () => undefined
+    const h = await harness({ runCheck: async () => { during(); return red } })
+    await h.scout.turnOn(ROUTE)
+    await h.scout.set({ quiet: { from: 22, to: 7 }, watches: { github: true, teammates: true, check: true } })
+    h.at(21, 59)
+    h.setMark('mark_9')
+    const asked = h.asked.length
+    during = () => { h.at(22, 4) }
+    h.tickTimer()
+    await settled()
+    expect(h.asked).toHaveLength(asked)
+    expect(h.notified).toEqual([])
+    expect((await h.scout.state()).cards.filter((card) => card.key.startsWith('check:'))).toEqual([])
+  })
+
+  it('stops a look’s turn that was starting as Scout was turned off', async () => {
+    let during: () => Promise<void> = async () => undefined
+    let n = 0
+    const h = await harness({ ask: async () => { n += 1; await during(); return { missionId: `look_${String(n)}`, runId: `run_${String(n)}` } } })
+    h.setGithub({ prs: [failing()], reviews: [] })
+    during = async () => { await h.scout.set({ on: false }) }
+    await h.scout.turnOn(ROUTE)
+    // Off found nothing waiting while the turn was starting: it is stopped the moment it is known.
+    expect(h.stopped).toEqual(['run_1'])
+    expect((await h.scout.state()).cards.some((card) => card.reading === true)).toBe(false)
   })
 })
 

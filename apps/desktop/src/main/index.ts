@@ -7980,8 +7980,9 @@ if (!ownsSingleInstanceLock) {
       lastTeammate: async () => {
         const owners = await teammates.missionOwners()
         const files = await missionLedger.missionFiles?.()
-        for (const file of [...(files?.files ?? [])].sort((a, b) => b.modifiedAt - a.modifiedAt)) {
-          if (owners[file.missionId] === undefined) continue
+        // The newest 30 owned conversations at most: each is read whole, and with many elsewhere this read every one.
+        const recent = [...(files?.files ?? [])].sort((a, b) => b.modifiedAt - a.modifiedAt).filter((file) => owners[file.missionId] !== undefined).slice(0, 30)
+        for (const file of recent) {
           const mission = await missionLedger.getMission(file.missionId).catch(() => undefined)
           if (mission?.metadata.workspaceId === memoryWorkspaceId) return owners[file.missionId]
         }

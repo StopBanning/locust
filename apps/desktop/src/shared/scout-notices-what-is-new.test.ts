@@ -186,7 +186,8 @@ describe('cards and settings', () => {
 
   it('take only what a person could have set', () => {
     expect(scoutSettingsFrom(undefined)).toEqual(DEFAULT_SCOUT_SETTINGS)
-    expect(scoutSettingsFrom({ on: true, everyMinutes: 30, watches: { github: false }, notify: false, teammateId: 'tm_scout' })).toEqual({ on: true, teammateId: 'tm_scout', everyMinutes: 30, watches: { github: false, teammates: true, check: false }, notify: false, waitWhileWorking: true })
+    // Your /locust comments (0.823) is on unless the person turns it off.
+    expect(scoutSettingsFrom({ on: true, everyMinutes: 30, watches: { github: false }, notify: false, teammateId: 'tm_scout' })).toEqual({ on: true, teammateId: 'tm_scout', everyMinutes: 30, watches: { github: false, teammates: true, check: false, comments: true }, notify: false, waitWhileWorking: true })
     expect(scoutSettingsFrom({ everyMinutes: 1, teammateId: '../x', on: 'yes' })).toEqual(DEFAULT_SCOUT_SETTINGS)
   })
 })
