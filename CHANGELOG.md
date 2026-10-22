@@ -11,6 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.814.0 - 2026-10-22
+
+### New
+
+- **A message that names its project starts there.** Paste a handoff such as "Read C:\work\shop-wt\fix-login\docs\BRIEF.md and do what it says" into a new conversation while Locust is in a folder like .claude, or in another copy of the same repository, and the conversation starts in the project that file is in, as if you had switched folders first. A line under it says where it went. A message that only mentions some other repository is read where you are, as before.
+
+### Improved
+
+- **A routine's fix is said once.** When a routine keeps going until its check passes, the fix turn's own line says the check failed and was sent back. The note under it that said so again is gone, and the check's result now comes before the routine's "finished" line.
+
 ## 0.813.0 - 2026-10-22
 
 ### New
