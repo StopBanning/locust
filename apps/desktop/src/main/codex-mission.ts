@@ -47,6 +47,7 @@ import type {
   RuntimeProcessRun,
   RuntimeProcessRunner, NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 import { workspaceIdFor } from './workspace.js'
+import { codexReadOnlyThreadConfig } from './codex-read-only.js'
 import { cursorChoiceFor, cursorModelsFrom } from './model-catalog.js'
 import { createStreamedEventBatcher } from './streamed-event-batches.js'
 import { deliverWhenRuntimeStarts } from './runtime-delivery.js'
@@ -2971,6 +2972,8 @@ ${sentPrompt.trim()}`
               ...(side === undefined ? {} : { forkThread: true }),
               ...(codexCommand === 'review' || codexCommand === 'compact' ? { slashCommand: codexCommand } : {}),
               ...(runSkills === undefined ? {} : { skillRoots: [runSkills.skillsDir] }),
+              // Ask and Plan start none of the MCP servers the person's Codex runs as programs (0.824).
+              ...(policy.sandbox === 'read-only' ? { threadConfigFromSettings: codexReadOnlyThreadConfig } : {}),
               // No teammate ends your browser, Codex too (0.720).
               ...(() => {
                 const codexThreadConfig: Record<string, JsonValue> = {

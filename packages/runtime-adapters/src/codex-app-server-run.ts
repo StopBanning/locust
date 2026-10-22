@@ -99,6 +99,15 @@ export interface CodexAppServerRunOptions {
    */
   readonly threadConfig?: Readonly<Record<string, JsonValue>>;
   /**
+   * Config for this thread worked out from the person's own settings, read first with `config/read` -- which starts
+   * nothing -- for a run that must leave some of them off (0.824: Ask and Plan start none of the MCP servers the
+   * person's Codex runs as programs). Laid under `threadConfig`, so Locust's own servers stay as it set them. A refusal
+   * ends the run before any thread starts, in the refusal's own words.
+   */
+  readonly threadConfigFromSettings?: (settings: unknown) =>
+    | { readonly ok: true; readonly config: Readonly<Record<string, JsonValue>> }
+    | { readonly ok: false; readonly message: string };
+  /**
    * Folders of skills for THIS process only (0.813, Locust's run-skills.ts): each holds `<name>/SKILL.md`. MEASURED
    * 2026-10-22 on Codex 0.163.0, no model called: after `skills/extraRoots/set` its `skills/list` names a skill from
    * such a folder, beside every one Codex found itself. Nothing is written to the person's config.toml; a Codex too
@@ -365,6 +374,20 @@ ${said}` : why;
       // Before the thread starts, so its first turn already lists them. Refused, the turn runs without them.
       await client.request("skills/extraRoots/set", { extraRoots: [...options.skillRoots] }).catch(() => undefined);
     }
+    // The person's settings, when this run must leave some of them off; unreadable settings read as none, which the
+    // caller refuses rather than start with something left on.
+    let fromSettings: Readonly<Record<string, JsonValue>> = {};
+    if (options.threadConfigFromSettings !== undefined) {
+      const read = await client.request("config/read", { cwd: options.command.cwd }).catch(() => undefined);
+      const made = options.threadConfigFromSettings(
+        typeof read === "object" && read !== null && !Array.isArray(read) ? (read as Record<string, unknown>).config : undefined,
+      );
+      if (!made.ok) {
+        lose(made.message, true);
+        return;
+      }
+      fromSettings = made.config;
+    }
     const forking = options.resumeThreadId !== undefined && options.forkThread === true;
     const thread = await client.request(
       options.resumeThreadId === undefined ? "thread/start" : forking ? "thread/fork" : "thread/resume",
@@ -386,6 +409,7 @@ ${said}` : why;
           const route = options.slashCommand === undefined ? {} : threadRoute(options.model, options.effort);
           const config = {
             ...(typeof route.config === "object" && route.config !== null && !Array.isArray(route.config) ? route.config : {}),
+            ...fromSettings,
             ...(options.threadConfig ?? {}),
           };
           return { ...route, ...(Object.keys(config).length === 0 ? {} : { config }) };

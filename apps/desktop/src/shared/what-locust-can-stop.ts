@@ -52,7 +52,7 @@ export const WHAT_LOCUST_CAN_STOP: readonly StopRow[] = [
     runtime: 'codex',
     reach: 'each-action',
     asks: 'In Approve each action: every command that does more than read, and every file change, before it runs.',
-    without: 'In Ask and Plan it works in Codex’s own sandbox, where its commands can read but change nothing; in Edit, where they can also change files in this folder. It asks nothing in those modes, or in Auto.',
+    without: 'In Ask and Plan it works in Codex’s own sandbox, where its commands can read but change nothing; in Edit, where they can also change files in this folder. In Ask and Plan it starts none of the MCP servers or plugins your Codex runs as programs on this computer. It asks nothing in those modes, or in Auto.',
     always: KEPT_BY_LOCUST
   },
   {

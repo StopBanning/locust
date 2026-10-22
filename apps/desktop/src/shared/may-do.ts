@@ -84,12 +84,15 @@ export function whatItMayDo(runtime: MissionRuntimeId, sandbox: MissionSandbox, 
           rest
         }
       }
+      // Read-only also starts none of the MCP servers or plugins the person's Codex runs as programs (0.824,
+      // codexReadOnlyThreadConfig): Codex runs a server's tool here when the server says it only reads.
       return rows(
         {
           verdict: 'allow',
           text: sandbox === 'read-only' ? "run commands in Codex's sandbox, which lets them read and change nothing" : "run commands in Codex's sandbox, which keeps their changes in this folder"
         },
-        THE_WEB
+        THE_WEB,
+        ...(sandbox === 'read-only' ? [{ verdict: 'deny' as const, text: 'starting the MCP servers and plugins your Codex runs as programs on this computer' }] : [])
       )
     case 'claude':
       // `--tools` is the whole list: Bash only when the mode may edit;

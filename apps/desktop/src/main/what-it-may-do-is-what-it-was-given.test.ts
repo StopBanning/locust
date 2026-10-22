@@ -13,6 +13,7 @@ import type { ExecutableLaunch, MissionSandbox } from '@teammate/runtime-adapter
 import { describe, expect, it } from 'vitest'
 
 import { whatItMayDo } from '../shared/may-do.js'
+import { codexReadOnlyThreadConfig } from './codex-read-only.js'
 
 /**
  * WHAT THE PANEL SAYS A RUN MAY DO IS WHAT THE RUN WAS GIVEN (0.359).
@@ -141,6 +142,11 @@ describe('what the panel says a run may do', () => {
     expect(said('codex', 'workspace-write', 'approve-each')).toContain("allow run commands in Codex's sandbox, asking you before any that does more than read")
     expect(codexAppServerPolicy('full-access').sandbox).toBe('danger-full-access')
     expect(said('codex', 'full-access')).toContain('allow run any command your account can run, and reach any network')
+    // 0.824: read-only starts none of the person's Codex programs (codexReadOnlyThreadConfig, given to its run); no
+    // other mode says anything about them.
+    expect(codexReadOnlyThreadConfig({ mcp_servers: { notes: { command: 'notes' } } })).toEqual({ ok: true, config: { 'features.plugins': false, 'mcp_servers.notes.enabled': false } })
+    expect(said('codex', 'read-only')).toContain('deny starting the MCP servers and plugins your Codex runs as programs on this computer')
+    for (const sandbox of ['workspace-write', 'full-access'] as const) expect(said('codex', sandbox).join('\n')).not.toMatch(/MCP/)
   })
 
   it('Codex: its own web search is left on in every mode, and Approve each says it does not ask', () => {

@@ -3316,7 +3316,7 @@ describe('what a run changed on disk that it never said', () => {
  * the argv guard -- still cannot be widened by a mode that was not granted it.
  */
 /** A fake `codex app-server` that answers the handshake and then streams. */
-function fakeAppServer(script: ReadonlyArray<readonly [string, unknown]>) {
+function fakeAppServer(script: ReadonlyArray<readonly [string, unknown]>, settings: unknown = {}) {
   const written: Array<Record<string, unknown>> = []
   let emit: (chunk: string) => void = () => undefined
   const spawn = vi.fn((_executablePath: string, _args: readonly string[]) => ({
@@ -3327,12 +3327,15 @@ function fakeAppServer(script: ReadonlyArray<readonly [string, unknown]>) {
         written.push(message)
         if (typeof message.id !== 'number') continue
         // Answer each request the way the real server does, then -- once the
-        // turn is accepted -- play the script out.
+        // turn is accepted -- play the script out. The person's settings, when
+        // asked for, are `settings` (0.824: Ask and Plan read them first).
         const answer = message.method === 'thread/start' || message.method === 'thread/resume'
           ? { thread: { id: 'thread-live' } }
           : message.method === 'turn/start'
             ? { turn: { id: 'turn-1' } }
-            : { userAgent: 'codex' }
+            : message.method === 'config/read'
+              ? { config: settings }
+              : { userAgent: 'codex' }
         queueMicrotask(() => {
           emit(`${JSON.stringify({ jsonrpc: '2.0', id: message.id, result: answer })}\n`)
           if (message.method !== 'turn/start') return
@@ -3450,6 +3453,32 @@ describe('Codex over app-server', () => {
     const threadStart = written.find((message) => message.method === 'thread/start')
     expect(threadStart?.params).toMatchObject({ sandbox: 'read-only' })
     expect(JSON.stringify(written)).not.toContain('danger-full-access')
+  })
+
+  it('starts none of the MCP servers or plugins the person’s Codex runs as programs, in Ask and Plan only (0.824)', async () => {
+    const settings = { mcp_servers: { node_repl: { command: 'node', args: ['repl.mjs'] }, docs: { url: 'https://docs.example.com/mcp' } } }
+    for (const mode of ['ask', 'plan'] as const) {
+      const { spawn, written } = fakeAppServer(REPLY, settings)
+      const { service } = scheduledService({ start: vi.fn() }, fakeLedger(), { appServerSpawn: spawn })
+      await service.start('Just look.', 'codex', mode, {}, () => undefined)
+      await vi.waitFor(() => {
+        expect(written.some((message) => message.method === 'thread/start')).toBe(true)
+      })
+      // Read first, which starts nothing; then the thread, with those servers off and the one at an address kept.
+      expect(written.findIndex((message) => message.method === 'config/read')).toBeLessThan(written.findIndex((message) => message.method === 'thread/start'))
+      const config = (written.find((message) => message.method === 'thread/start')?.params as { config?: Record<string, unknown> } | undefined)?.config
+      expect(config).toMatchObject({ 'features.plugins': false, 'mcp_servers.node_repl.enabled': false })
+      expect(config).not.toHaveProperty('mcp_servers.docs.enabled')
+    }
+    // Edit leaves the person's Codex as it is, and does not ask for its settings.
+    const { spawn, written } = fakeAppServer(REPLY, settings)
+    const { service } = scheduledService({ start: vi.fn() }, fakeLedger(), { appServerSpawn: spawn })
+    await service.start('Change it.', 'codex', 'accept-edits', {}, () => undefined)
+    await vi.waitFor(() => {
+      expect(written.some((message) => message.method === 'thread/start')).toBe(true)
+    })
+    expect(written.some((message) => message.method === 'config/read')).toBe(false)
+    expect(JSON.stringify(written)).not.toContain('features.plugins')
   })
 
   it('starts every Codex thread with Locust’s command guard, for its own folder, and without it when the guard says so (0.720)', async () => {

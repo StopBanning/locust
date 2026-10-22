@@ -193,6 +193,58 @@ describe("a turn over app-server", () => {
     expect((await handshaken()).server.paramsOf("thread/start")).not.toHaveProperty("config");
   });
 
+  // 0.824: Ask and Plan start none of the MCP servers the person's Codex runs as programs, named from its settings.
+  function readingSettings(made: (settings: unknown) => { ok: true; config: Record<string, boolean> } | { ok: false; message: string }) {
+    const server = fakeServer();
+    const seen: unknown[] = [];
+    const run = startCodexAppServerRun({
+      spawn: () => server.process,
+      command: createCodexAppServerCommand(EXECUTABLE, { workspacePath: "/work", sandbox: "read-only" }),
+      prompt: "count the files",
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      threadConfig: { "mcp_servers.locust_browser.enabled": true },
+      threadConfigFromSettings: (settings) => {
+        seen.push(settings);
+        return made(settings);
+      },
+    });
+    return { server, run, seen };
+  }
+
+  it("reads the person's settings before the thread starts, and lays what it makes under Locust's own config (0.824)", async () => {
+    const { server, seen } = readingSettings(() => ({ ok: true, config: { "features.plugins": false, "mcp_servers.notes.enabled": false } }));
+    await settle();
+    server.answer(server.idOf("initialize")!, { userAgent: "codex" });
+    await settle();
+    // Nothing starts before the settings are read: config/read is asked first, in the run's folder.
+    expect(server.idOf("thread/start")).toBeUndefined();
+    expect(server.paramsOf("config/read")).toEqual({ cwd: "/work" });
+    server.answer(server.idOf("config/read")!, { config: { mcp_servers: { notes: { command: "notes-server" } } } });
+    await settle();
+    expect(seen).toEqual([{ mcp_servers: { notes: { command: "notes-server" } } }]);
+    expect(server.paramsOf("thread/start")).toMatchObject({
+      config: { "features.plugins": false, "mcp_servers.notes.enabled": false, "mcp_servers.locust_browser.enabled": true },
+    });
+  });
+
+  it("starts no thread when the settings refuse it, and ends with the refusal's own words (0.824)", async () => {
+    const message = "Locust could not read your Codex settings, so it did not start this turn.";
+    const { server, run, seen } = readingSettings(() => ({ ok: false, message }));
+    (server.process as { stderrTail?: () => string }).stderrTail = () => "some unrelated server line\n";
+    await settle();
+    server.answer(server.idOf("initialize")!, { userAgent: "codex" });
+    await settle();
+    // An answer that holds no settings reads as none at all.
+    server.answer(server.idOf("config/read")!, { not: "settings" });
+    const completion = await run.completion;
+    expect(seen).toEqual([undefined]);
+    expect(server.idOf("thread/start")).toBeUndefined();
+    expect(completion.exitCode).toBeNull();
+    // Locust's own reason, not followed by a server line it has nothing to do with.
+    expect(completion.stderr).toBe(message);
+  });
+
   it("streams every notification as a record and ends when the turn does", async () => {
     const { server, run } = await handshaken();
     server.notify("item/agentMessage/delta", { itemId: "m1", delta: "Cach" });
