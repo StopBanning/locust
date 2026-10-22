@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { readFile, rm, writeFile } from 'node:fs/promises'
+import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 
 import type { FolderPullRequest } from '../shared/pull-request.js'
 import {
@@ -214,10 +214,38 @@ export function createScout(deps: ScoutDeps) {
   const pending = new Map<string, PendingLook>()
   let writing: Promise<unknown> = Promise.resolve()
 
+  /*
+   * WHAT SCOUT KEPT, NEVER OVERWRITTEN BECAUSE IT COULD NOT BE READ (0.823). Any failed read was an empty Scout -- off,
+   * no cards, no notes, no week -- and the next save wrote that over the file, so a file busy at start was a wiped
+   * Scout (Grok's review, 2026-10-22). A missing file is a first start. A busy one is read again, three times. One that
+   * does not parse is kept beside it as `scout.json.unreadable-<time>` and Scout starts fresh. One that still cannot be
+   * read is left alone: Scout works from memory and saves nothing over it.
+   */
+  let saveToDisk = true
+  const readKept = async (): Promise<string | undefined> => {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await readFile(deps.file, 'utf8')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+        if (attempt >= 3) {
+          saveToDisk = false
+          return undefined
+        }
+        await new Promise((done) => later(() => done(undefined), 200 * 2 ** attempt))
+      }
+    }
+  }
   const load = async (): Promise<Kept> => {
     if (kept !== undefined) return kept
+    const text = await readKept()
+    if (kept !== undefined) return kept
+    if (text === undefined) {
+      kept = EMPTY
+      return kept
+    }
     try {
-      const parsed = JSON.parse(await readFile(deps.file, 'utf8')) as Record<string, unknown>
+      const parsed = JSON.parse(text) as Record<string, unknown>
       kept = {
         settings: scoutSettingsFrom(parsed.settings),
         cards: Array.isArray(parsed.cards) ? (parsed.cards as ScoutCard[]).filter((card) => typeof card?.cardId === 'string' && typeof card.said === 'string').map(({ reading: _reading, ...card }) => card) : [],
@@ -239,6 +267,10 @@ export function createScout(deps: ScoutDeps) {
         ...(weekFrom(parsed.week) === undefined ? {} : { week: weekFrom(parsed.week)! })
       }
     } catch {
+      // Not a file Scout can read: kept beside it, never written over. A file that cannot even be moved is left as it is.
+      await rename(deps.file, `${deps.file}.unreadable-${now().toISOString().replace(/[:.]/g, '-')}`).catch(() => {
+        saveToDisk = false
+      })
       kept = EMPTY
     }
     return kept
@@ -268,6 +300,8 @@ export function createScout(deps: ScoutDeps) {
       ...(next.week === undefined ? {} : { week: next.week })
     })}\n`
     const write = writing.then(async () => {
+      // A file Scout could not read is not written over (see `load`): this run's changes live in memory.
+      if (!saveToDisk) return
       const temporary = `${deps.file}.${randomBytes(6).toString('hex')}.tmp`
       try {
         await writeFile(temporary, body, { encoding: 'utf8', flag: 'wx' })
