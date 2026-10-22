@@ -11,6 +11,13 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.822.0 - 2026-10-22
+
+### Fixed
+
+- **A refusal in Ask or Plan on OpenCode says it was the mode.** When Ask or Plan refused something on OpenCode, the model was told you had declined it, and its reply said so ("you declined the permission request") though you had seen no card. It is now told that Locust refused it without asking anyone, because the teammate is in Ask or Plan mode, and the turn's line says "refused" rather than "declined".
+- **A card for one of your own MCP tools shows no empty detail.** In Approve each, the card for a tool from your own MCP servers named the tool and then showed "Exact *", because OpenCode gives no details for it. The line is left out now.
+
 ## 0.821.0 - 2026-10-22
 
 ### Fixed
