@@ -103,6 +103,14 @@ export function antigravityQuotaLimit(error: string, now: Date): string | undefi
   return `Antigravity's quota is used up · resets ${new Date(now.getTime() + seconds * 1000).toISOString().replace(/\.\d{3}Z$/, "Z")}`;
 }
 
+/**
+ * The turn's error under that card. The packaged 0.823 drive showed Antigravity's own text there -- "Individual quota
+ * reached. Please upgrade your subscription to increase your limits. Resets in 33h16m25s." -- the card's fact again,
+ * and an upgrade pitch where Muse Code's says what to do.
+ */
+export const ANTIGRAVITY_QUOTA_SENTENCE =
+  "Antigravity's quota is used up for now, so it stopped before finishing. Pick another model to carry on, or send again once it resets.";
+
 export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEventNormalizer {
   const runId = requireContextText(context.runId, "runId");
   const cliVersion = context.cliVersion === undefined ? undefined : requireContextText(context.cliVersion, "cliVersion");
@@ -417,6 +425,8 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
             ? "Antigravity sent output faster than Locust could record it, so the run was stopped rather than leave a gap in its record. Sending it again usually works."
             : status === undefined
               ? "Antigravity ended without a record saying the run had finished."
+              : quota !== undefined
+              ? ANTIGRAVITY_QUOTA_SENTENCE
               : resultError !== undefined
                 ? providerErrorSentence(resultError, "antigravity") !== resultError
                   ? providerErrorSentence(resultError, "antigravity")

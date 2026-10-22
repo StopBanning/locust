@@ -5337,7 +5337,7 @@ const EXHAUSTION_PATTERNS = [
 ] as const
 
 /** A failure that already names its limit in plain words, needing no runtime line after it (0.823). */
-const LIMIT_ALREADY_SAID = /\bplan is used up\b|\bquota reached\b|\busage limit (?:has been |was )?reached\b/i
+const LIMIT_ALREADY_SAID = /\b(?:plan|quota) is used up\b|\bquota reached\b|\busage limit (?:has been |was )?reached\b/i
 
 /**
  * A runtime that could not write its OWN settings file.

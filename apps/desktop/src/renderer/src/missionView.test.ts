@@ -574,6 +574,12 @@ describe('what a failure card says', () => {
       message: agy,
       process: { stderr: `AGY_ERROR: {"short_error":"RESOURCE_EXHAUSTED (code 429): Individual quota reached.","status":"RESOURCE_EXHAUSTED","error_code":429}${nl}` }
     }, 'antigravity')).toBe(agy)
+    // And the sentence Antigravity's quota now ends with (the packaged 0.823 drive), with the same runtime line.
+    const sentence = "Antigravity's quota is used up for now, so it stopped before finishing. Pick another model to carry on, or send again once it resets."
+    expect(failureMessage({
+      message: sentence,
+      process: { stderr: `AGY_ERROR: {"short_error":"RESOURCE_EXHAUSTED (code 429): Individual quota reached.","status":"RESOURCE_EXHAUSTED","error_code":429}${nl}` }
+    }, 'antigravity')).toBe(sentence)
     // A message that does not name its limit still gets the runtime's own words, as before.
     expect(failureMessage({ message: 'Cursor Agent ended without a terminal result record.', process: { stderr: `RetriableError: [resource_exhausted] Error${nl}` } }))
       .toContain('out of capacity right now')

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { agyUserLine } from "../src/process-runner.js";
 import { assertSafeRuntimeCommand, createAgyEventNormalizer, createAgyPrintCommand, parseAgyModelList } from "../src/index.js";
-import { antigravityQuotaLimit } from "../src/agy-events.js";
+import { ANTIGRAVITY_QUOTA_SENTENCE, antigravityQuotaLimit } from "../src/agy-events.js";
 import type { NormalizedRuntimeEvent } from "../src/codex-events.js";
 
 /**
@@ -113,7 +113,10 @@ describe("Antigravity CLI's stream", () => {
     const limit = events.find((event) => event.type === "route.limit_detected");
     expect(payload<{ kind: string; message: string }>(limit)).toMatchObject({ kind: "quota-exhausted", message: "Antigravity's quota is used up · resets 2026-10-24T02:58:08Z" });
     expect(events.at(-1)!.type).toBe("run.failed");
-    expect(payload<{ message: string }>(events.at(-1)).message).toBe("Antigravity could not run it: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 33h54m24s.");
+    // Under the card, one sentence that says what to do: not the card's fact again with an upgrade pitch (the packaged
+    // 0.823 drive showed "Please upgrade your subscription to increase your limits" there).
+    expect(payload<{ message: string }>(events.at(-1)).message).toBe(ANTIGRAVITY_QUOTA_SENTENCE);
+    expect(ANTIGRAVITY_QUOTA_SENTENCE).not.toMatch(/upgrade|subscription/i);
     expect(antigravityQuotaLimit("RESOURCE_EXHAUSTED", new Date(0))).toBe("Antigravity's quota is used up");
     expect(antigravityQuotaLimit("API error (attempt 1): UNAVAILABLE (code 503): The service is currently unavailable.", new Date(0))).toBeUndefined();
   });
