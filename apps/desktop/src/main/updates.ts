@@ -117,23 +117,33 @@ export interface UpdateService {
  *
  * It looked ONCE, eight seconds after launch (known issue 5) -- so a person
  * who keeps the app open for days, which is how a teammate app is used, never
- * heard of a single release until they happened to restart it. Six hours is
- * the same rhythm the coding agents' own updates keep (runtime-updates.ts).
+ * heard of a single release until they happened to restart it. Then every six
+ * hours, the coding agents' rhythm (runtime-updates.ts), while Locust ships
+ * several versions a day. Every hour since 0.820, as VS Code looks: a look is
+ * one small file from Locust's own downloads, and nothing is downloaded unless
+ * a newer version is there.
  */
-export const UPDATE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000
-/** A look skipped because a teammate was working is tried again this soon, not six hours later. */
+export const UPDATE_CHECK_EVERY_MS = 60 * 60 * 1000
+/** A look skipped because a teammate was working is tried again this soon, not an hour later. */
 export const UPDATE_RETRY_AFTER_RUN_MS = 15 * 60 * 1000
 
 /**
  * Whether a periodic look should happen now: never while a teammate is
  * working -- a download beside a run is the one thing a slow line notices --
- * and never while a check is under way or a version is already found, on its
- * way down, or waiting to be installed. After a check that could not
- * complete, yes: that is what the next look is for.
+ * and never while a check is under way or a version is found or on its way
+ * down. After a check that could not complete, yes: that is what the next
+ * look is for.
+ *
+ * And while a downloaded version waits to be installed, yes (0.820). It was
+ * no, so a copy stopped looking the moment one release was on disk and offered
+ * that release until someone restarted, however many came after it: on
+ * 2026-10-22 a copy open since 12:53 AM still offered 0.817 at 9:38 AM, with
+ * 0.818's security fix and 0.819 out. A newer version found replaces the
+ * waiting one.
  */
 export function periodicCheckDue(state: AppUpdateState, liveMissions: number): boolean {
   if (liveMissions > 0) return false
-  return state.phase === 'idle' || state.phase === 'current' || state.phase === 'failed'
+  return state.phase === 'idle' || state.phase === 'current' || state.phase === 'failed' || state.phase === 'ready'
 }
 
 /** `a` is a later version than `b`, by major.minor.patch; unreadable is never later. */
@@ -239,6 +249,116 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
   /** The version actually sitting in the pending folder, if any. */
   let downloadedVersion: string | undefined
 
+  /**
+   * Ask the feed. A look Locust makes on its own, the periodic one, is QUIET (0.820): it says
+   * nothing until it has an answer. It said Checking first, as a press of Check now does --
+   * harmless while nothing waits, but now that it also looks while a downloaded version waits,
+   * Checking would take the Restart and install line away for the length of every look.
+   */
+  const look = async (quiet: boolean): Promise<AppUpdateResponse> => {
+    if (!options.supported) {
+      // Said to the window too (0.507): the launch check is how Settings
+      // learns it, and a copy showed "Not checked yet" with Check now live.
+      return { ok: true, data: publish({ phase: 'unsupported', currentVersion: options.currentVersion }) }
+    }
+    if (!quiet) publish({ phase: 'checking', currentVersion: options.currentVersion })
+    try {
+      const result = await options.updater.checkForUpdates()
+      /*
+       * THE DOWNLOAD'S FAILURE IS ANSWERED HERE, NOT BY THE CRASH DIALOG.
+       *
+       * With `autoDownload` on, the check starts the download and hands
+       * back its promise; when the download fails the updater emits
+       * 'error' (handled above) and the promise rejects too. Nothing held
+       * that promise, so the rejection went to `unhandledRejection` -- and
+       * a published release whose installer was not up yet put "Locust hit
+       * a problem ... Something went wrong inside Locust" in front of Colin
+       * (2026-09-24, a 404 for 0.325.0; the same on 2026-09-23 for 0.269.0).
+       * A download that did not work is a line in Settings, not a crash.
+       */
+      void result?.downloadPromise?.catch(() => undefined)
+      const version = result?.updateInfo.version
+      /*
+       * ONLY A NEWER VERSION IS AN UPDATE (0.308). The tester lane takes
+       * `latest` -- the one build a day -- and a build AHEAD of it (a
+       * prerelease taken on "every build", with the switch turned off
+       * again; any build before its day's promotion) found latest, 0.307,
+       * from 0.308, and called that an update: 'available', a Download
+       * that electron-updater, refusing to go backwards, never starts. The
+       * update smoke hung on it (2026-09-23). Older or the same is up to
+       * date.
+       */
+      if (version === undefined || result?.isUpdateAvailable === false || !isNewer(version, options.currentVersion)) {
+        // Only said after a check that actually finished.
+        return { ok: true, data: publish({ phase: 'current', currentVersion: options.currentVersion }) }
+      }
+      /*
+       * READY MEANS *THIS* VERSION IS ON DISK, and it used to mean only
+       * that SOMETHING was.
+       *
+       * Colin, 2026-09-21, stuck on 0.225 with three releases published
+       * above him in quick succession: *"restart and install isnt working,
+       * keeps giving me the same option on restart, like its showing it as
+       * downloaded but its not"*.
+       *
+       * Exactly what the old line did. It kept `phase: 'ready'` and wrote
+       * the NEWLY FOUND version into `availableVersion`, so after
+       * downloading one version and then checking again against a newer
+       * one, the window said the newer version was downloaded and offered
+       * Restart. The installer then had nothing matching to run -- the
+       * pending file was the older build -- so the restart came back on the
+       * same version, and the same button was there again.
+       *
+       * It needed three releases in an evening to show up, which is why it
+       * survived 200 of them. A downloaded update is now `ready` only while
+       * the version on disk is the version the check just found; anything
+       * else is `available`, which is the state that offers Download.
+       *
+       * A newer version found while one waits is `available` for the same
+       * reason (0.820): electron-updater clears the waiting installer once
+       * it starts on the newer one, so Restart and install must not be
+       * offered again until the newer one is down.
+       */
+      /*
+       * `downloadedVersion` ALONE, not `state.phase === 'ready'` beside it.
+       *
+       * The first version of this fix read the phase and always saw
+       * `checking`, because this function publishes that before it asks --
+       * so it reported `available` even for the version genuinely sitting
+       * on disk. Caught by the test written for the defect above, which is
+       * the argument for writing it first.
+       *
+       * The field is set only by `update-downloaded`, so it is the whole
+       * truth on its own.
+       */
+      const onDisk = downloadedVersion !== undefined && downloadedVersion === version
+      if (!onDisk) downloadedVersion = undefined
+      const downloadUrl = options.packageUrl?.(result?.updateInfo.files)
+      return {
+        ok: true,
+        data: publish({
+          phase: onDisk ? 'ready' : 'available',
+          currentVersion: options.currentVersion,
+          availableVersion: version,
+          ...(downloadUrl === undefined ? {} : { downloadUrl })
+        })
+      }
+    } catch {
+      // The same rule: what is downloaded can still be installed.
+      if (downloadedVersion !== undefined) {
+        return { ok: true, data: publish({ phase: 'ready', currentVersion: options.currentVersion, availableVersion: downloadedVersion }) }
+      }
+      return {
+        ok: true,
+        data: publish({
+          phase: 'failed',
+          currentVersion: options.currentVersion,
+          message: 'The update check could not complete.'
+        })
+      }
+    }
+  }
+
   const service: UpdateService = {
     state: () => state,
 
@@ -257,7 +377,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
           schedule(retryMs)
           return
         }
-        if (periodicCheckDue(state, live)) void service.check()
+        if (periodicCheckDue(state, live)) void look(true)
         schedule(everyMs)
       }
       schedule(everyMs)
@@ -273,104 +393,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
       return publish(state)
     },
 
-    async check(): Promise<AppUpdateResponse> {
-      if (!options.supported) {
-        // Said to the window too (0.507): the launch check is how Settings
-        // learns it, and a copy showed "Not checked yet" with Check now live.
-        return { ok: true, data: publish({ phase: 'unsupported', currentVersion: options.currentVersion }) }
-      }
-      publish({ phase: 'checking', currentVersion: options.currentVersion })
-      try {
-        const result = await options.updater.checkForUpdates()
-        /*
-         * THE DOWNLOAD'S FAILURE IS ANSWERED HERE, NOT BY THE CRASH DIALOG.
-         *
-         * With `autoDownload` on, the check starts the download and hands
-         * back its promise; when the download fails the updater emits
-         * 'error' (handled above) and the promise rejects too. Nothing held
-         * that promise, so the rejection went to `unhandledRejection` -- and
-         * a published release whose installer was not up yet put "Locust hit
-         * a problem ... Something went wrong inside Locust" in front of Colin
-         * (2026-09-24, a 404 for 0.325.0; the same on 2026-09-23 for 0.269.0).
-         * A download that did not work is a line in Settings, not a crash.
-         */
-        void result?.downloadPromise?.catch(() => undefined)
-        const version = result?.updateInfo.version
-        /*
-         * ONLY A NEWER VERSION IS AN UPDATE (0.308). The tester lane takes
-         * `latest` -- the one build a day -- and a build AHEAD of it (a
-         * prerelease taken on "every build", with the switch turned off
-         * again; any build before its day's promotion) found latest, 0.307,
-         * from 0.308, and called that an update: 'available', a Download
-         * that electron-updater, refusing to go backwards, never starts. The
-         * update smoke hung on it (2026-09-23). Older or the same is up to
-         * date.
-         */
-        if (version === undefined || result?.isUpdateAvailable === false || !isNewer(version, options.currentVersion)) {
-          // Only said after a check that actually finished.
-          return { ok: true, data: publish({ phase: 'current', currentVersion: options.currentVersion }) }
-        }
-        /*
-         * READY MEANS *THIS* VERSION IS ON DISK, and it used to mean only
-         * that SOMETHING was.
-         *
-         * Colin, 2026-09-21, stuck on 0.225 with three releases published
-         * above him in quick succession: *"restart and install isnt working,
-         * keeps giving me the same option on restart, like its showing it as
-         * downloaded but its not"*.
-         *
-         * Exactly what the old line did. It kept `phase: 'ready'` and wrote
-         * the NEWLY FOUND version into `availableVersion`, so after
-         * downloading one version and then checking again against a newer
-         * one, the window said the newer version was downloaded and offered
-         * Restart. The installer then had nothing matching to run -- the
-         * pending file was the older build -- so the restart came back on the
-         * same version, and the same button was there again.
-         *
-         * It needed three releases in an evening to show up, which is why it
-         * survived 200 of them. A downloaded update is now `ready` only while
-         * the version on disk is the version the check just found; anything
-         * else is `available`, which is the state that offers Download.
-         */
-        /*
-         * `downloadedVersion` ALONE, not `state.phase === 'ready'` beside it.
-         *
-         * The first version of this fix read the phase and always saw
-         * `checking`, because this function publishes that before it asks --
-         * so it reported `available` even for the version genuinely sitting
-         * on disk. Caught by the test written for the defect above, which is
-         * the argument for writing it first.
-         *
-         * The field is set only by `update-downloaded`, so it is the whole
-         * truth on its own.
-         */
-        const onDisk = downloadedVersion !== undefined && downloadedVersion === version
-        if (!onDisk) downloadedVersion = undefined
-        const downloadUrl = options.packageUrl?.(result?.updateInfo.files)
-        return {
-          ok: true,
-          data: publish({
-            phase: onDisk ? 'ready' : 'available',
-            currentVersion: options.currentVersion,
-            availableVersion: version,
-            ...(downloadUrl === undefined ? {} : { downloadUrl })
-          })
-        }
-      } catch {
-        // The same rule: what is downloaded can still be installed.
-        if (downloadedVersion !== undefined) {
-          return { ok: true, data: publish({ phase: 'ready', currentVersion: options.currentVersion, availableVersion: downloadedVersion }) }
-        }
-        return {
-          ok: true,
-          data: publish({
-            phase: 'failed',
-            currentVersion: options.currentVersion,
-            message: 'The update check could not complete.'
-          })
-        }
-      }
-    },
+    check: () => look(false),
 
     holdInstallForRelaunch(): void {
       // Read by electron-updater at the quit itself, not when the handler

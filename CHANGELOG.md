@@ -11,6 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.820.0 - 2026-10-22
+
+### Improved
+
+- **A Locust left open keeps up with new versions.** It looks for a new version every hour instead of every six, and it keeps looking while a downloaded version waits: a newer one is downloaded in its place, so Restart and install brings you the newest. It used to stop looking once a version was downloaded, and offered that one until you restarted, however many came out after it. A look that finds nothing new leaves the Restart and install line where it is.
+
+### Fixed
+
+- **A routine input's Required box sits beside its word.** In the routine editor, an input's Required checkbox stood alone in the middle of a row, above the word. It sits beside it now, and a choice input's list shows four lines before it scrolls.
+
 ## 0.819.0 - 2026-10-22
 
 ### Improved

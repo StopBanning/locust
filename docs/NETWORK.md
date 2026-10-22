@@ -29,7 +29,7 @@ until it is listed here.
 
 | What | Where | When |
 | --- | --- | --- |
-| Its own updates (Windows) | `dl.locust.lol` (Locust's own downloads, on Cloudflare) | 8 seconds after it starts, then every 6 hours while it is open, and when you press Check now |
+| Its own updates (Windows) | `dl.locust.lol` (Locust's own downloads, on Cloudflare) | 8 seconds after it starts, then every hour while it is open, and when you press Check now |
 | Its own updates (Mac) | `dl.locust.lol/mac-releases.json`, then the disk image you choose | When it checks, and when you choose to update |
 | Installing an AI agent | the npm registry (`registry.npmjs.org`, or the one your npm is set to use) | When you press Install for OpenCode, Claude Code, Codex CLI or Copilot CLI |
 | Keeping Codex CLI and Copilot CLI current | the npm registry, and `dl.locust.lol/runtime-canary.json` | 45 seconds after the installed Locust starts, then at most every 6 hours |
@@ -46,12 +46,13 @@ until it is listed here.
 
 **Pictures on a GitHub issue.** When you choose an issue, Locust reads its text through your own `gh` and fetches at most four pictures, each from `github.com/user-attachments` or `githubusercontent.com`. A redirect is followed only while the next address stays on those hosts. The fetch sends no token. `gh` keeps the sign-in it already has, and Locust never prints it.
 
-**Its own updates.** A plain request for the files of the newest release in a
-public repository that holds only Locust's installers: `latest.yml`, then the
-parts of the installer that changed. No account, nothing that identifies you
-beyond what any download shows (your IP address, to GitHub). A check is never
-made while a teammate is working; it is tried again 15 minutes later. A copy of
-Locust that is not the installed one never updates itself.
+**Its own updates.** A plain request to Locust's own downloads for the files of
+the newest release: `latest.yml`, then the parts of the installer that changed.
+No account, nothing that identifies you beyond what any download shows (your IP
+address, to Cloudflare). A check is never made while a teammate is working; it
+is tried again 15 minutes later. A version already downloaded and waiting does
+not stop the hourly check: a newer one replaces it. A copy of Locust that is not
+the installed one never updates itself.
 
 **Installing and updating AI agents.** Locust runs npm, and npm downloads the
 package: `opencode-ai`, `@anthropic-ai/claude-code`, `@openai/codex` or
