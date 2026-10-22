@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactElement } from 'react'
+import type { ReactElement, Ref } from 'react'
 
 import type { PublicTeammate } from '../../../shared/ipc.js'
 import type { ScoutCard, ScoutDraft, ScoutOpen, ScoutState } from '../../../shared/scout.js'
@@ -24,7 +24,7 @@ export function ago(iso: string, now: Date): string {
   return hours < 24 ? `${String(hours)} h ago` : `${String(Math.round(hours / 24))} d ago`
 }
 
-function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss }: {
+function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, cardRef }: {
   readonly card: ScoutCard
   readonly scout: PublicTeammate | undefined
   readonly now: Date
@@ -32,10 +32,11 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss }: {
   readonly onSend: (draft: ScoutDraft, cardId: string) => void
   readonly onDraftIntoBox: (draft: ScoutDraft, cardId: string) => void
   readonly onDismiss: (cardId: string) => void
+  readonly cardRef?: Ref<HTMLElement>
 }): ReactElement {
   const needsYou = card.urgency === 'now'
   const brief = card.key.startsWith('brief:')
-  return <article className={`lc-card lc-scoutcard${needsYou ? ' is-pending is-amber' : card.urgency === 'later' ? ' is-terminal' : ''}`} data-scout-card={card.cardId}>
+  return <article ref={cardRef} className={`lc-card lc-scoutcard${needsYou ? ' is-pending is-amber' : card.urgency === 'later' ? ' is-terminal' : ''}`} data-scout-card={card.cardId}>
     <div className="lc-scoutcard__head">
       {scout !== undefined && <TeammateBot hue={scout.hue} avatar={scout.avatar} size={20} teammateId={scout.teammateId} hopsWhenDone={false} />}
       <span className={`lc-scoutcard__kind${needsYou ? ' lc-tone-amber' : ''}`}>{needsYou ? 'Needs you' : brief ? 'Morning brief' : card.draft !== undefined ? 'Noticed, and drafted' : 'Noticed'}</span>
@@ -65,7 +66,7 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss }: {
   </article>
 }
 
-export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDismiss, now = new Date() }: {
+export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDismiss, now = new Date(), focusCardId }: {
   readonly state: ScoutState
   /** Scout's own teammate: its face and name. */
   readonly scout: PublicTeammate | undefined
@@ -74,12 +75,21 @@ export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDis
   readonly onDraftIntoBox: (draft: ScoutDraft, cardId: string) => void
   readonly onDismiss: (cardId: string) => void
   readonly now?: Date
+  /** Brought here from the title bar or the Board: that card is in view, even past the first three. */
+  readonly focusCardId?: string
 }): ReactElement | null {
   const [all, setAll] = useState(false)
+  const focusRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    focusRef.current?.scrollIntoView({ block: 'center' })
+  }, [focusCardId])
   if (!state.settings.on || state.cards.length === 0) return null
   // What needs the person now comes first, whenever it was found.
   const ordered = [...state.cards.filter((card) => card.urgency === 'now'), ...state.cards.filter((card) => card.urgency !== 'now')]
   const shown = all ? ordered : ordered.slice(0, SHOWN)
+  const visible = focusCardId === undefined || shown.some((card) => card.cardId === focusCardId)
+    ? shown
+    : [...ordered.filter((card) => card.cardId === focusCardId), ...shown]
   const name = scout?.name ?? 'Scout'
   return <section className="lc-scout" aria-label={`${name} noticed`}>
     <div className="lc-scout__head">
@@ -87,7 +97,7 @@ export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDis
       {ordered.length > SHOWN && <button type="button" className="lc-ghostbutton" onClick={() => { setAll(!all) }}>{all ? 'Show fewer' : `Show all ${String(ordered.length)}`}</button>}
     </div>
     {state.modelSaid !== undefined && <p className="lc-scout__said lc-mono">{`${state.modelSaid} The cards below are in Locust’s words.`}</p>}
-    {shown.map((card) => <Card key={card.cardId} card={card} scout={scout} now={now} onOpen={onOpen} onSend={onSend} onDraftIntoBox={onDraftIntoBox} onDismiss={onDismiss} />)}
+    {visible.map((card) => <Card key={card.cardId} card={card} scout={scout} now={now} onOpen={onOpen} onSend={onSend} onDraftIntoBox={onDraftIntoBox} onDismiss={onDismiss} {...(card.cardId === focusCardId ? { cardRef: focusRef } : {})} />)}
   </section>
 }
 

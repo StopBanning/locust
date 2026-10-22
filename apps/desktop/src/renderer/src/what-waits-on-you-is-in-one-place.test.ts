@@ -1,7 +1,7 @@
 import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 import { describe, expect, it } from 'vitest'
 
-import { NEEDS_YOU_TEXT, needsYou, needsYouChip, needsYouLabel, openQuestion } from './needsYou.js'
+import { NEEDS_YOU_TEXT, needsYou, needsYouChip, needsYouLabel, needsYouPlace, openQuestion } from './needsYou.js'
 
 /**
  * WHAT WAITS ON YOU IS IN ONE PLACE (0.373).
@@ -79,6 +79,52 @@ describe('what waits on you', () => {
     expect(what.length).toBeLessThanOrEqual(NEEDS_YOU_TEXT)
     expect(what).not.toContain('\n')
     expect(what.endsWith('…')).toBe(true)
+  })
+})
+
+describe('a Scout card and a routine waiting on you', () => {
+  it('counts a card that needs you now, and a copy waiting for Keep or Discard, after a question and before memory', () => {
+    const items = needsYou({
+      ...base,
+      approvals: [{ approvalId: 'a1', runId: 'run_w', missionId: 'mission_w', kind: 'command', summary: 'Run a command', detail: 'npm test' }],
+      conversations: [{ missionId: 'mission_p', phase: 'completed' }],
+      eventsOf: () => [final(ASK), completed],
+      scoutName: 'Scout',
+      scoutCards: [
+        { cardId: 'card_soon', urgency: 'soon', said: 'A review can wait.' },
+        { cardId: 'card_now', urgency: 'now', said: 'Atlas has waited 25 minutes for your OK.' },
+        { cardId: 'card_later', urgency: 'later', said: 'This can wait.' },
+        { cardId: '  ', urgency: 'now', said: 'No card.' }
+      ],
+      routines: [
+        { routineId: 'rt_idle', name: 'Idle sweep' },
+        { routineId: 'rt_inbox', name: 'Morning digest', files: 2 },
+        { routineId: 'rt_empty', name: 'Quiet pass', files: 0 }
+      ],
+      memoryWaiting: 1
+    })
+    expect(items.map((item) => item.key)).toEqual(['approval:a1', 'decision:mission_p', 'scout:card_now', 'routine:rt_inbox', 'routine:rt_empty', 'memory'])
+    expect(items.map(needsYouLabel)).toEqual([
+      'Wren wants to run: npm test',
+      'Pip asked: Which port should the API use?',
+      'Scout noticed: Atlas has waited 25 minutes for your OK.',
+      'Morning digest: Waiting for you · 2 files in its copy',
+      'Quiet pass: Waiting for you',
+      '1 memory suggestion waiting'
+    ])
+    expect(items.map(needsYouPlace)).toEqual([
+      { to: 'conversation', missionId: 'mission_w' },
+      { to: 'conversation', missionId: 'mission_p' },
+      { to: 'home', cardId: 'card_now' },
+      { to: 'routines', routineId: 'rt_inbox' },
+      { to: 'routines', routineId: 'rt_empty' },
+      { to: 'memory' }
+    ])
+  })
+
+  it('says Scout when the card has no name of its own, and leaves soon and later off the list', () => {
+    const items = needsYou({ ...base, scoutCards: [{ cardId: 'card_soon', urgency: 'soon', said: 'Later is fine.' }, { cardId: 'card_now', urgency: 'now', said: 'Checks failed.' }] })
+    expect(items.map(needsYouLabel)).toEqual(['Scout noticed: Checks failed.'])
   })
 })
 

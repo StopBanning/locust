@@ -59,6 +59,13 @@ describe('Scout’s cards on Home', () => {
     expect(many).toContain('Show all 4')
   })
 
+  it('keeps a card brought into view even when it is past the first three', () => {
+    const cards = [1, 2, 3, 4].map((index) => card({ cardId: `card_${String(index)}`, urgency: 'now', said: `News ${String(index)}.` }))
+    const html = renderToStaticMarkup(createElement(ScoutCards, { state: state(cards), scout, onOpen: vi.fn(), onSend: vi.fn(), onDraftIntoBox: vi.fn(), onDismiss: vi.fn(), now, focusCardId: 'card_4' }))
+    expect(html).toContain('data-scout-card="card_4"')
+    expect(html).toContain('News 4.')
+  })
+
   it('are not there while Scout is off, or has nothing to say', () => {
     expect(draw(state([card({})], { settings: DEFAULT_SCOUT_SETTINGS }))).toBe('')
     expect(draw(state([]))).toBe('')

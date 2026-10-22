@@ -59,7 +59,9 @@ describe('what a waiting card says under the name (0.610)', () => {
   it('says an approval that is not a command plainly', () => {
     expect(waitingLine(approval('edit FirstLaunch.tsx'))).toBe('Wants your approval: edit FirstLaunch.tsx')
   })
-  it('says nothing for memory suggestions', () => {
+  it('says nothing for memory suggestions, a Scout card, or a routine waiting for Keep', () => {
     expect(waitingLine({ kind: 'memory', key: 'memory', count: 2 })).toBeUndefined()
+    expect(waitingLine({ kind: 'scout', key: 'scout:c', cardId: 'c', name: 'Scout', what: 'Checks failed.' })).toBeUndefined()
+    expect(waitingLine({ kind: 'routine', key: 'routine:rt', routineId: 'rt', name: 'Morning digest', what: 'Waiting for you' })).toBeUndefined()
   })
 })

@@ -17,8 +17,14 @@ import { assistantMessages } from './missionView.js'
  * running, shown only when something waits.
  *
  * In the order a person should answer them: a paused run first -- it is
- * holding a process open -- then a question a teammate stopped on, then
- * memory suggestions, which hold nothing up.
+ * holding a process open -- then a question a teammate stopped on, then a
+ * Scout card that needs you now, then a routine whose copy is waiting for
+ * Keep or Discard, then memory suggestions, which hold nothing up.
+ *
+ * The Scout card and the routine are not conversations. They already sit on
+ * Home and on Routines; this list only counts them, and the title bar opens
+ * those screens. A card that is `soon` or `later`, or one already dismissed,
+ * is not here -- dismissed cards are gone from the list Scout holds.
  */
 
 export type NeedsYouItem =
@@ -45,6 +51,24 @@ export type NeedsYouItem =
       readonly what: string
     }
   | { readonly kind: 'memory'; readonly key: 'memory'; readonly count: number }
+  | {
+      readonly kind: 'scout'
+      readonly key: string
+      readonly cardId: string
+      /** Scout's name, as the team knows it. */
+      readonly name: string
+      /** What Scout said, in one line. */
+      readonly what: string
+    }
+  | {
+      readonly kind: 'routine'
+      readonly key: string
+      readonly routineId: string
+      /** The routine's name. */
+      readonly name: string
+      /** That it is waiting, and how many files, in one line. */
+      readonly what: string
+    }
 
 /** A line in the list: long enough to recognise, short enough to be a menu row. */
 export const NEEDS_YOU_TEXT = 90
@@ -91,6 +115,19 @@ export function needsYou(input: {
   readonly nameOf: (teammateId: string) => string | undefined
   /** Memory suggestions waiting on the Memory screen. */
   readonly memoryWaiting: number
+  /**
+   * Scout's cards, as the window already holds them. Only urgency `now`
+   * counts; `soon` and `later` stay on Home. A dismissed card is not in
+   * this list.
+   */
+  readonly scoutCards?: readonly { readonly cardId: string; readonly urgency: string; readonly said: string }[]
+  /** Scout's own name. Absent: the row says Scout. */
+  readonly scoutName?: string
+  /**
+   * Every routine. One with `files` set has a copy run waiting for Keep or
+   * Discard (`files` is how many changed, and may be 0).
+   */
+  readonly routines?: readonly { readonly routineId: string; readonly name: string; readonly files?: number }[]
 }): readonly NeedsYouItem[] {
   const who = (teammateId: string | undefined): string => (teammateId === undefined ? undefined : input.nameOf(teammateId)) ?? 'A teammate'
   const items: NeedsYouItem[] = []
@@ -122,28 +159,64 @@ export function needsYou(input: {
     const teammateId = input.ownerOfMission(conversation.missionId)
     items.push({ kind: 'decision', key: `decision:${conversation.missionId}`, missionId: conversation.missionId, teammateId, name: who(teammateId), what: oneLine(question) })
   }
+  const scoutName = input.scoutName?.trim() || 'Scout'
+  for (const card of input.scoutCards ?? []) {
+    if (card.urgency !== 'now' || card.cardId.trim().length === 0) continue
+    items.push({ kind: 'scout', key: `scout:${card.cardId}`, cardId: card.cardId, name: scoutName, what: oneLine(card.said) })
+  }
+  for (const routine of input.routines ?? []) {
+    if (routine.files === undefined || routine.routineId.trim().length === 0) continue
+    items.push({ kind: 'routine', key: `routine:${routine.routineId}`, routineId: routine.routineId, name: routine.name, what: routineWaitLine(routine.files) })
+  }
   if (input.memoryWaiting > 0) items.push({ kind: 'memory', key: 'memory', count: input.memoryWaiting })
   return items
 }
 
-/** The item as a row of the menu it opens. */
+/** The one line under a routine that is waiting: the words its own card uses. */
+function routineWaitLine(files: number): string {
+  if (files <= 0) return 'Waiting for you'
+  return `Waiting for you · ${String(files)} file${files === 1 ? '' : 's'} in its copy`
+}
+
+/** A paused run or a question. Scout and a waiting routine are not a teammate's face. */
+export function isConversationWait(item: NeedsYouItem): item is Extract<NeedsYouItem, { kind: 'approval' | 'decision' }> {
+  return item.kind === 'approval' || item.kind === 'decision'
+}
+
+/** Where the title bar opens this, which is where it is answered. */
+export function needsYouPlace(item: NeedsYouItem):
+  | { readonly to: 'memory' }
+  | { readonly to: 'home'; readonly cardId: string }
+  | { readonly to: 'routines'; readonly routineId: string }
+  | { readonly to: 'conversation'; readonly missionId: string } {
+  if (item.kind === 'memory') return { to: 'memory' }
+  if (item.kind === 'scout') return { to: 'home', cardId: item.cardId }
+  if (item.kind === 'routine') return { to: 'routines', routineId: item.routineId }
+  return { to: 'conversation', missionId: item.missionId }
+}
+
 /**
  * How many things each teammate waits on the person for: runs paused for an
  * approval AND questions it stopped on (0.564). The face counted approvals
  * only, so a teammate that ended its turn on a question looked idle while the
- * title bar said it needed you (Sol's 0.562 beta, act 3).
+ * title bar said it needed you (Sol's 0.562 beta, act 3). A Scout card and a
+ * routine waiting for Keep or Discard are counted in the title bar, not on a
+ * face -- the teammate is not holding a run open for them.
  */
 export function waitingByTeammate(items: readonly NeedsYouItem[]): Map<string, number> {
   const counts = new Map<string, number>()
   for (const item of items) {
-    if (item.kind === 'memory' || item.teammateId === undefined) continue
+    if (!isConversationWait(item) || item.teammateId === undefined) continue
     counts.set(item.teammateId, (counts.get(item.teammateId) ?? 0) + 1)
   }
   return counts
 }
 
+/** The item as a row of the menu it opens. */
 export function needsYouLabel(item: NeedsYouItem): string {
   if (item.kind === 'memory') return `${String(item.count)} memory suggestion${item.count === 1 ? '' : 's'} waiting`
+  if (item.kind === 'scout') return `${item.name} noticed: ${item.what}`
+  if (item.kind === 'routine') return `${item.name}: ${item.what}`
   if (item.kind === 'decision') return `${item.name} asked: ${item.what}`
   if (item.asking) return `${item.name} is asking: ${item.what}`
   return item.command ? `${item.name} wants to run: ${item.what}` : `${item.name} needs your approval: ${item.what}`

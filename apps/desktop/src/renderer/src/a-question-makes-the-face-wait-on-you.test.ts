@@ -20,8 +20,14 @@ describe('what a teammate waits on you for', () => {
     expect(counts.get('tm_bo')).toBe(1)
   })
 
-  it('leaves out memory suggestions and items no teammate owns', () => {
-    const counts = waitingByTeammate([{ kind: 'memory', key: 'memory', count: 3 }, decision(undefined), approval(undefined)])
+  it('leaves out memory suggestions, Scout cards, waiting routines, and items no teammate owns', () => {
+    const counts = waitingByTeammate([
+      { kind: 'memory', key: 'memory', count: 3 },
+      decision(undefined),
+      approval(undefined),
+      { kind: 'scout', key: 'scout:card_now', cardId: 'card_now', name: 'Scout', what: 'Checks failed.' },
+      { kind: 'routine', key: 'routine:rt_1', routineId: 'rt_1', name: 'Morning digest', what: 'Waiting for you' }
+    ])
     expect(counts.size).toBe(0)
   })
 

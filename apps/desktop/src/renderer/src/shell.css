@@ -11543,6 +11543,70 @@ textarea {
   color: var(--lc-amber-text);
 }
 
+/*
+ * A Scout card or a routine waiting for Keep or Discard, in the Needs you
+ * column (BoardScreen.tsx). The same card shell as a conversation, with its
+ * actions under the line. The column is about 232px wide, including at
+ * 1120, so the actions wrap inside it instead of running into the next column.
+ * Colour comes from the theme tokens, so both themes read the same.
+ */
+.lc-boardwait {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--lc-space-4);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--lc-space-5) var(--lc-space-6);
+  border-radius: var(--lc-radius-card);
+  border: 1px solid var(--lc-amber-tint);
+  background: var(--lc-bg-raised);
+  color: inherit;
+}
+
+.lc-boardwait__open {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--lc-space-7);
+  row-gap: var(--lc-space-2);
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lc-boardwait__open > :is(.lc-bot, .lc-conv__nobody) {
+  grid-row: 1 / span 2;
+}
+
+.lc-boardwait__open .lc-convcard__state {
+  color: var(--lc-amber-text);
+}
+
+.lc-boardwait__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lc-space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lc-boardwait__acts > button {
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  margin-left: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .lc-boardsection--needs-you .lc-boardsection__title {
   color: var(--lc-amber-text);
 }

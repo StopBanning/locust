@@ -96,7 +96,7 @@ import { RoutineTemplateDialog } from './components/RoutineTemplates.js'
 import { AutomationsScreen } from './components/AutomationsScreen.js'
 import { BenchmarksScreen, type BenchmarkEntry } from './components/BenchmarksScreen.js'
 import { TIDY_PROMPT } from '../../shared/memory-tidy.js'
-import { needsYou, needsYouLabel, waitingByTeammate } from './needsYou.js'
+import { isConversationWait, needsYou, needsYouLabel, needsYouPlace, waitingByTeammate } from './needsYou.js'
 import { withNote } from './diffNotes.js'
 import type { DiffNote } from './diffNotes.js'
 import { DiffNotesContext } from './components/DiffNotes.js'
@@ -139,7 +139,7 @@ import { IdleTeammate } from './components/IdleTeammate.js'
 import { Inspector } from './components/Inspector.js'
 import { FileViewer } from './components/FileViewer.js'
 import { MacUpdateBanner, MissionsScreen, SettingsScreen, TeammatesScreen, UpdateBanner } from './components/Screens.js'
-import { BoardScreen } from './components/BoardScreen.js'
+import { BoardScreen, type BoardWait } from './components/BoardScreen.js'
 import { awayCounts, sinceYouWereAway } from '../../shared/away.js'
 import { WhatsNewSplash } from './components/WhatsNew.js'
 import type { SettingsPageId } from './settingsPages.js'
@@ -7477,6 +7477,8 @@ export default function App(): ReactElement {
   }
   /** Meet Scout, open over Home (0.808): opened from Scout's offered card on the team. */
   const [scoutInviteOpen, setScoutInviteOpen] = useState(false)
+  /** A Scout card or a waiting routine opened from the title bar or the Board, so that screen scrolls it into view. */
+  const [bringIntoView, setBringIntoView] = useState<{ readonly kind: 'scout'; readonly cardId: string } | { readonly kind: 'routine'; readonly routineId: string }>()
   const openScoutCard = (open: ScoutOpen): void => {
     if (open.kind === 'conversation') openMission(open.missionId)
     else void window.desktop?.openLink(open.url).catch(() => undefined)
@@ -8149,10 +8151,17 @@ export default function App(): ReactElement {
         },
         nameOf: (teammateId) => teammates.find((entry) => entry.teammateId === teammateId)?.name,
         // A line suggested for About you waits on the same screen (0.424).
-        memoryWaiting: memories.filter((memory) => memory.status === 'proposed').length + aboutYouSuggestions.length
+        memoryWaiting: memories.filter((memory) => memory.status === 'proposed').length + aboutYouSuggestions.length,
+        scoutCards: scout?.settings.on === true ? scout.cards : [],
+        scoutName: teammates.find((entry) => entry.teammateId === scout?.settings.teammateId)?.name,
+        routines: routines.map((routine) => ({
+          routineId: routine.routineId,
+          name: routine.name,
+          ...(routine.staged === undefined ? {} : { files: routine.staged.changed.length + routine.staged.deleted.length })
+        }))
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [approvals, runs, sidebarMissions, missionOwners, historyById, teammates, memories]
+    [approvals, runs, sidebarMissions, missionOwners, historyById, teammates, memories, scout, routines]
   )
   // The same count on the taskbar (0.379): a dot while anything needs you, a
   // flash when more does while the window is elsewhere (taskbar-attention.ts).
@@ -8168,8 +8177,8 @@ export default function App(): ReactElement {
     [runs]
   )
   // The board's facts (0.585): which conversations wait on the person, and for what.
-  const needsYouMissionIds = useMemo(() => new Set(needsYouItems.flatMap((item) => (item.kind === 'memory' ? [] : [item.missionId]))), [needsYouItems])
-  const waitingFor = useMemo(() => new Map(needsYouItems.flatMap((item) => (item.kind === 'memory' ? [] : [[item.missionId, item.what] as const]))), [needsYouItems])
+  const needsYouMissionIds = useMemo(() => new Set(needsYouItems.flatMap((item) => (isConversationWait(item) ? [item.missionId] : []))), [needsYouItems])
+  const waitingFor = useMemo(() => new Map(needsYouItems.flatMap((item) => (isConversationWait(item) ? [[item.missionId, item.what] as const] : []))), [needsYouItems])
   // What ended while the person was away (0.590), from the rows already here; the tray gets the counts.
   /*
    * What a run that ended while the person was away came to, for its row on Home (0.758): why it failed, or its
@@ -8299,6 +8308,54 @@ export default function App(): ReactElement {
           remove: (key) => changeShownNotes((notes) => notes.filter((entry) => entry.key !== key)),
           who: pickedTeammate?.name ?? 'your teammate'
         }
+  const showScoutOnHome = (cardId: string): void => {
+    setSelectedTeammateId(undefined)
+    setShownKey(undefined)
+    setComparingId(undefined)
+    setRoomNotice(undefined)
+    setScreen('workroom')
+    setBringIntoView({ kind: 'scout', cardId })
+  }
+  const showRoutine = (routineId: string): void => {
+    setScreen('automations')
+    setBringIntoView({ kind: 'routine', routineId })
+  }
+  const answerNeedsYou = (item: (typeof needsYouItems)[number]): void => {
+    const place = needsYouPlace(item)
+    if (place.to === 'memory') setScreen('memory')
+    else if (place.to === 'home') showScoutOnHome(place.cardId)
+    else if (place.to === 'routines') showRoutine(place.routineId)
+    else openMission(place.missionId)
+  }
+  const boardWaits = useMemo((): readonly BoardWait[] => {
+    const scoutFace = teammates.find((entry) => entry.teammateId === scout?.settings.teammateId)
+    const waits: BoardWait[] = []
+    for (const item of needsYouItems) {
+      if (item.kind === 'scout') {
+        const card = scout?.cards.find((one) => one.cardId === item.cardId)
+        if (card === undefined) continue
+        waits.push({
+          kind: 'scout',
+          cardId: item.cardId,
+          said: item.what,
+          who: item.name,
+          ...(scoutFace === undefined ? {} : { face: scoutFace }),
+          ...(card.draft === undefined ? {} : { sendTo: card.draft.name })
+        })
+      } else if (item.kind === 'routine') {
+        const routine = routines.find((one) => one.routineId === item.routineId)
+        const face = routine === undefined ? undefined : teammates.find((entry) => entry.teammateId === routine.teammateId)
+        waits.push({
+          kind: 'routine',
+          routineId: item.routineId,
+          name: item.name,
+          line: item.what,
+          ...(face === undefined ? {} : { face })
+        })
+      }
+    }
+    return waits
+  }, [needsYouItems, scout, routines, teammates])
   const openNeedsYou = (anchor: HTMLElement): void => {
     if (rowMenu?.anchor === anchor) {
       setRowMenu(undefined)
@@ -8313,7 +8370,7 @@ export default function App(): ReactElement {
       anchor,
       items: needsYouItems.map((item) => ({
         label: needsYouLabel(item),
-        onSelect: () => (item.kind === 'memory' ? setScreen('memory') : openMission(item.missionId))
+        onSelect: () => answerNeedsYou(item)
       }))
     })
   }
@@ -9048,6 +9105,19 @@ export default function App(): ReactElement {
               teammates={teammates}
               missionOwners={missionOwners}
               onOpen={openMission}
+              waiting={boardWaits}
+              onOpenScout={showScoutOnHome}
+              onSendScout={(cardId) => {
+                const card = scout?.cards.find((one) => one.cardId === cardId)
+                if (card?.draft !== undefined) sendScoutDraft(card.draft, cardId)
+              }}
+              onChangeScout={(cardId) => {
+                const card = scout?.cards.find((one) => one.cardId === cardId)
+                if (card?.draft !== undefined) draftScoutIntoBox(card.draft, cardId)
+              }}
+              onDismissScout={(cardId) => { void window.desktop?.scout?.dismiss(cardId).catch(() => undefined) }}
+              onOpenRoutine={showRoutine}
+              onSettleRoutine={settleRoutine}
             />
           ) : screen === 'teammates' ? (
             <TeammatesScreen
@@ -9141,6 +9211,7 @@ export default function App(): ReactElement {
               onBrowseTemplates={() => setTemplatePicker(true)}
               onExportRoutine={(id) => { void exportRoutine(id).catch((error: unknown) => setRoutineNotice(error instanceof Error ? error.message : 'That routine could not be exported. Check the destination folder and try again.')) }}
               onSettleRoutine={settleRoutine}
+              {...(bringIntoView?.kind === 'routine' ? { focusRoutineId: bringIntoView.routineId } : {})}
               signInOn={loginItem.openAtLogin}
               onOpenSignIn={() => {
                 setSettingsLanding('app')
@@ -9503,7 +9574,8 @@ export default function App(): ReactElement {
                     }
                     return <ScoutCards state={scout} scout={teammates.find((one) => one.teammateId === scout.settings.teammateId)} onOpen={openScoutCard}
                       onSend={sendScoutDraft} onDraftIntoBox={draftScoutIntoBox}
-                      onDismiss={(cardId) => { void window.desktop?.scout?.dismiss(cardId).catch(() => undefined) }} />
+                      onDismiss={(cardId) => { void window.desktop?.scout?.dismiss(cardId).catch(() => undefined) }}
+                      {...(bringIntoView?.kind === 'scout' ? { focusCardId: bringIntoView.cardId } : {})} />
                   }
                   // Met once is enough: a Scout turned off, or taken off the team, is turned on again from Settings.
                   if (scout.settings.teammateId !== undefined || scoutNotNow || scoutModel === undefined || workspacePath === undefined) return undefined
@@ -9569,7 +9641,7 @@ export default function App(): ReactElement {
                   // What they are doing, for the line under the name while they do it (0.610): the question they wait
                   // on, else the step under way in their running turn.
                   ...((doing) => (doing === undefined ? {} : { doing }))((() => {
-                    const waiting = needsYouItems.find((item) => item.kind !== 'memory' && item.teammateId === mate.teammateId)
+                    const waiting = needsYouItems.find((item) => isConversationWait(item) && item.teammateId === mate.teammateId)
                     if (waiting !== undefined) return waitingLine(waiting)
                     const run = [...runs.values()].find((entry) => liveRunIsActive(entry) && ownerOf(entry) === mate.teammateId && entry.data !== undefined)
                     return run?.data === undefined ? undefined : liveTurnOf(run.data.missionId)?.action

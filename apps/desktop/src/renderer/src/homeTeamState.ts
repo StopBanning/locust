@@ -9,8 +9,9 @@ import { agoLabel } from './teammateWork.js'
  * the role usually has. One line; the card cuts it with an ellipsis.
  */
 export function waitingLine(item: NeedsYouItem): string | undefined {
-  if (item.kind === 'memory') return undefined
-  if (item.kind === 'decision' || item.asking) return item.what
+  if (item.kind === 'decision') return item.what
+  if (item.kind !== 'approval') return undefined
+  if (item.asking) return item.what
   return item.command ? `Wants to run ${item.what}` : `Wants your approval: ${item.what}`
 }
 

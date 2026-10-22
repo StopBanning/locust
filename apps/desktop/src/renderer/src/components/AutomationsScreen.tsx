@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
 import { BOT_SIZE } from '../botSizes.js'
 
@@ -53,12 +54,15 @@ export function AutomationsScreen({
   onUseTemplate,
   onBrowseTemplates,
   onSettleRoutine,
+  focusRoutineId,
   folders = [],
   signInOn = false,
   onOpenSignIn
 }: {
   /** A copy routine's waiting changes: Keep, Discard, or open the copy (0.533). */
   readonly onSettleRoutine?: (routineId: string, decision: 'keep' | 'discard' | 'open') => void
+  /** Brought here from the title bar or the Board: that routine's row is in view. */
+  readonly focusRoutineId?: string
   /** What Windows holds for "Start Locust when you sign in". The word links to that switch. */
   readonly signInOn?: boolean
   readonly onOpenSignIn?: () => void
@@ -98,6 +102,10 @@ export function AutomationsScreen({
   /** Open the Save as routine dialog on one of them. */
   readonly onSaveRoutine?: (missionId: string) => void
 }): ReactElement {
+  const brought = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    brought.current?.scrollIntoView({ block: 'center' })
+  }, [focusRoutineId])
   const now = new Date()
   const savable = savableConversations(missions ?? []) as readonly (SavableConversation & {
     readonly ownerId?: string
@@ -277,7 +285,13 @@ export function AutomationsScreen({
             // theirs is what disables this row -- not any run anywhere.
             const replaying = routineStepByTeammate[routine.teammateId]
             return (
-              <div className="lc-routinerow" key={routine.routineId}>
+              <div
+                className="lc-routinerow"
+                key={routine.routineId}
+                data-routine={routine.routineId}
+                ref={focusRoutineId === routine.routineId ? brought : undefined}
+                {...(focusRoutineId === routine.routineId ? { 'data-bring-into-view': '' } : {})}
+              >
                 {owner !== undefined && (
                   <TeammateBot hue={owner.hue} avatar={owner.avatar} size={BOT_SIZE.routineRow} teammateId={owner.teammateId} />
                 )}

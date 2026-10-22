@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { BOT_SIZE } from '../botSizes.js'
 import { boardSectionOf, teamBoard } from '../teamBoard.js'
 import { waitingLine } from '../homeTeamState.js'
-import type { NeedsYouItem } from '../needsYou.js'
+import { isConversationWait, type NeedsYouItem } from '../needsYou.js'
 import { durationText, runSpanMs } from '../missionView.js'
 import { WhatsNew } from './WhatsNew.js'
 import { RemoteControlSetting } from './RemoteControlSetting.js'
@@ -657,7 +657,7 @@ export function TeammatesScreen({
     const month = monthSpendLine(spendByTeammate[teammate.teammateId], teammate.monthlyLimitUsd)
     const theirRoutines = routines.filter((routine) => routine.teammateId === teammate.teammateId)
     const replaying = routineStepByTeammate[teammate.teammateId]
-    const waiting = needsYou.find((item) => item.kind !== 'memory' && item.teammateId === teammate.teammateId)
+    const waiting = needsYou.find((item): item is Extract<NeedsYouItem, { kind: 'approval' | 'decision' }> => isConversationWait(item) && item.teammateId === teammate.teammateId)
     const question = waiting === undefined ? undefined : waitingLine(waiting)
     return (
       <div className={`lc-rostercard lc-rostercard--${boardSectionOf(viewByTeammate[teammate.teammateId], finishedUnseen?.has(teammate.teammateId) === true)}`} key={teammate.teammateId}>
@@ -740,7 +740,7 @@ export function TeammatesScreen({
         )}
         {/* Home's words, with a way to the exact turn that wants an answer,
             not the teammate's most recently opened conversation. */}
-        {waiting !== undefined && waiting.kind !== 'memory' && question !== undefined && (
+        {waiting !== undefined && question !== undefined && (
           <button type="button" className="lc-rostercard__waiting" onClick={() => onOpenMission(waiting.missionId)}>
             <span className="lc-rostercard__question" title={question}>{question}</span>
             <span className="lc-rostercard__answer">Answer <Icon name="chevron-right" size={13} /></span>
