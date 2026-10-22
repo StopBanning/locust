@@ -1466,6 +1466,29 @@ describe('runtime selection', () => {
     expect(servers).toHaveBeenCalledTimes(1)
   })
 
+  it('starts no Cursor turn in Ask beside a live Edit run that holds connector rules in the same folder (0.825)', async () => {
+    const start = vi.fn((_spec, _prompt, _options): RuntimeProcessRun => ({ records: records([]), completion: Promise.resolve(completion()) })) satisfies RuntimeProcessRunner['start']
+    let held = true
+    const service = createCodexMissionService({
+      workspacePath: WORKSPACE,
+      discover: async () => [{ ...codexRuntime(), id: 'cursor', displayName: 'Cursor Agent', optional: true }],
+      runner: { start },
+      ledger: fakeLedger(),
+      createId: (() => { let n = 0; return () => String(++n) })(),
+      now: () => new Date(NOW),
+      schedule: () => undefined,
+      connectorsHeldIn: () => held
+    })
+    const refused = await service.start('Look around.', 'cursor', 'ask', {}, () => undefined)
+    expect(refused).toMatchObject({ ok: false, error: { code: 'RUNTIME_START_FAILED' } })
+    expect(JSON.stringify(refused)).toContain('send it again when that turn ends')
+    expect(start).not.toHaveBeenCalled()
+    // Edit is the run that holds them; and once they are given back, Ask starts.
+    expect((await service.start('Change it.', 'cursor', 'accept-edits', {}, () => undefined)).ok).toBe(true)
+    held = false
+    expect((await service.start('Look around.', 'cursor', 'ask', {}, () => undefined)).ok).toBe(true)
+  })
+
   it('lets a Cursor mission edit when asked, and never forces its commands', async () => {
     const { service, start } = serviceWith([{ ...codexRuntime(), id: 'cursor', displayName: 'Cursor Agent', optional: true }])
     await service.start('Do work.', 'cursor', 'accept-edits', {}, () => undefined)

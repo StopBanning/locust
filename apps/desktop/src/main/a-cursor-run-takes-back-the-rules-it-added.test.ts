@@ -98,6 +98,26 @@ describe('a Cursor run takes back the rules it added', () => {
     expect(fs.read()).toBeUndefined()
   })
 
+  // 0.825: a Cursor turn in Ask or Plan is not started in a folder whose rules a live run holds.
+  it('says whether a live run holds rules in a folder, until the last one ends', async () => {
+    const fs = folder({}, [])
+    const both = keeper(fs.io)
+    expect(both.holds('C:/work')).toBe(false)
+    const first = await both.allow('C:/work', ['a'])
+    const second = await both.allow('C:/work', ['a'])
+    expect(both.holds('C:/work')).toBe(true)
+    expect(both.holds('C:/elsewhere')).toBe(false)
+    await first.release()
+    expect(both.holds('C:/work')).toBe(true)
+    await second.release()
+    expect(both.holds('C:/work')).toBe(false)
+    // A rule the person wrote themselves is theirs: no run holds it.
+    fs.write({ permissions: { allow: ['Mcp(a:*)'] } })
+    const theirs = await both.allow('C:/work', ['a'])
+    expect(theirs.added).toEqual([])
+    expect(both.holds('C:/work')).toBe(false)
+  })
+
   it('keeps the rule when the run that added it ends first, and the other is still going', async () => {
     const fs = folder({}, [])
     const both = keeper(fs.io)

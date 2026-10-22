@@ -635,6 +635,8 @@ interface CodexMissionServiceOptions {
     readonly added: readonly string[]
     readonly release: () => Promise<void>
   }>
+  /** Whether a live run holds those rules in this folder now (0.825): a Cursor turn in Ask or Plan there would have them. */
+  readonly connectorsHeldIn?: (workspace: string) => boolean
   /**
    * How many missions are live on the OTHER transports right now.
    *
@@ -2303,6 +2305,14 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           : undefined
         if (opencodeAcp && openCodeGuardPlugin === undefined) {
           return error('RUNTIME_START_FAILED', 'OpenCode 2 could not prepare the command guard. Your message has not been sent; reopen Locust and try again.') as CodexMissionStartResponse
+        }
+        /*
+         * A Cursor turn in Ask or Plan where a live Edit run holds connector rules (0.825). Cursor reads them from the
+         * folder's `.cursor/cli.json`, not from the run, and MEASURED 2026-10-22 on Cursor Agent 2026.10.19: with such a
+         * rule an Ask run called a server's tool, and its file was written. So it is not started beside one.
+         */
+        if (runtime === 'cursor' && effectiveSandbox === 'read-only' && cloud === undefined && options.connectorsHeldIn?.(runCwd) === true) {
+          return error('RUNTIME_START_FAILED', 'A Cursor teammate in Edit is working in this folder, and until its turn ends Cursor lets any turn here use your connectors. Your message has not been sent; send it again when that turn ends.') as CodexMissionStartResponse
         }
         // Ask and Plan on OpenCode have no shell, so git reaches them through Locust's git tool (0.818).
         const openCodeGitReads = runtime === 'opencode' && !opencodeAcp && cloud === undefined && effectiveSandbox === 'read-only' && !sealed

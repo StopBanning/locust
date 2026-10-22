@@ -136,6 +136,11 @@ export interface CursorConnectorKeeper {
    * run; resolves to the files it changed.
    */
   readonly recover: () => Promise<readonly string[]>
+  /**
+   * Whether a live run of ours holds connector rules in this folder now (0.825). Cursor reads them from the folder,
+   * not from the run, so a turn in Ask or Plan started there meanwhile would have them too: it is not started.
+   */
+  readonly holds: (workspace: string) => boolean
 }
 
 /**
@@ -355,7 +360,8 @@ export function createCursorConnectorKeeper(io: AllowIo = nodeIo, store?: HoldSt
       const path = join(workspace, CURSOR_PROJECT_CONFIG)
       return serial(path, () => take(path, servers)).catch(() => NO_GRANT)
     },
-    recover
+    recover,
+    holds: (workspace) => (folders.get(join(workspace, CURSOR_PROJECT_CONFIG))?.holds.size ?? 0) > 0
   }
 }
 

@@ -2815,6 +2815,7 @@ if (!ownsSingleInstanceLock) {
         }).catch((error: unknown) => note('runtime-commands', `could not keep ${runtime}'s commands: ${error instanceof Error ? error.message : String(error)}`))
       },
       allowConnectors: async (workspace) => cursorConnectors.allow(workspace, await cursorConfiguredConnectorNames()),
+      connectorsHeldIn: (workspace) => cursorConnectors.holds(workspace),
       discover: discoverForAccount,
       runner: createNodeRuntimeProcessRunner(),
       ledger: missionLedger,
