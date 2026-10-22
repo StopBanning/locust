@@ -24303,3 +24303,5 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-scout__goalline .lc-settingline__text { flex: 1; }
 .lc-scout__goal { display: block; width: 100%; height: auto; min-height: 64px; margin-top: var(--lc-space-2); padding: 8px 11px; resize: vertical; font-family: inherit; line-height: 1.5; }
 .lc-scout__goalkeys { display: flex; gap: var(--lc-space-2); margin-top: var(--lc-space-2); }
+/* A morning brief's lines (0.816): Locust's own counts, one to a line, under its sentence. */
+.lc-scoutcard__lines { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; color: var(--lc-text-primary); font-size: var(--lc-text-body); line-height: 1.5; overflow-wrap: anywhere; }

@@ -34,13 +34,18 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss }: {
   readonly onDismiss: (cardId: string) => void
 }): ReactElement {
   const needsYou = card.urgency === 'now'
+  const brief = card.key.startsWith('brief:')
   return <article className={`lc-card lc-scoutcard${needsYou ? ' is-pending is-amber' : card.urgency === 'later' ? ' is-terminal' : ''}`} data-scout-card={card.cardId}>
     <div className="lc-scoutcard__head">
       {scout !== undefined && <TeammateBot hue={scout.hue} avatar={scout.avatar} size={20} teammateId={scout.teammateId} hopsWhenDone={false} />}
-      <span className={`lc-scoutcard__kind${needsYou ? ' lc-tone-amber' : ''}`}>{needsYou ? 'Needs you' : card.draft !== undefined ? 'Noticed, and drafted' : 'Noticed'}</span>
+      <span className={`lc-scoutcard__kind${needsYou ? ' lc-tone-amber' : ''}`}>{needsYou ? 'Needs you' : brief ? 'Morning brief' : card.draft !== undefined ? 'Noticed, and drafted' : 'Noticed'}</span>
       <span className="lc-scoutcard__when lc-mono">{`${scout?.name ?? 'Scout'} · ${ago(card.at, now)}`}</span>
     </div>
     <p className="lc-scoutcard__said">{card.said}</p>
+    {/* A morning brief's lines (0.816), each Locust's own count. */}
+    {card.lines !== undefined && card.lines.length > 0 && <ul className="lc-scoutcard__lines">
+      {card.lines.map((line, index) => <li key={String(index)}>{line}</li>)}
+    </ul>}
     {card.quote !== undefined && <p className="lc-scoutcard__quote lc-mono">{card.quote}</p>}
     {card.chips !== undefined && card.chips.length > 0 && <div className="lc-scoutcard__chips">
       {card.chips.map((chip, index) => <span key={`${chip.text}-${String(index)}`} className={`lc-status lc-status--${chip.tone}`}>{chip.text}</span>)}

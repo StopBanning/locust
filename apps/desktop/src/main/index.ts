@@ -8062,6 +8062,21 @@ if (!ownsSingleInstanceLock) {
       folderBusy: () => codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length > 0,
       // A turn the person sent from the chat box, still running: a look on Scout's timer waits for it (0.815).
       personBusy: () => [...codexMissions.liveMissionIds(), ...antigravityMissions.liveMissionIds()].some((missionId) => sentByPerson.has(missionId)),
+      // The morning brief's count (0.816): turns whose record changed since, read newest first, Scout's own looks left out.
+      briefFacts: async (since, looks) => {
+        const from = Date.parse(since)
+        const own = new Set(looks)
+        const listing = await missionLedger.missionFiles?.().catch(() => undefined)
+        let finished = 0
+        let failed = 0
+        for (const file of (listing?.files ?? []).filter((one) => one.modifiedAt >= from && !own.has(one.missionId)).slice(0, 80)) {
+          const mission = (await missionLedger.readMission?.(file.missionId).catch(() => undefined))?.mission
+          if (mission === undefined) continue
+          if (mission.phase === 'completed') finished += 1
+          else if (mission.phase === 'failed') failed += 1
+        }
+        return { finished, failed }
+      },
       changed: (state) => {
         for (const window of BrowserWindow.getAllWindows()) {
           if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(SCOUT_CHANGED, state)

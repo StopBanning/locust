@@ -2,7 +2,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_SCOUT_SETTINGS, type ScoutState } from '../../shared/scout.js'
+import { seedAvatar } from '../../shared/avatar.js'
+import { DEFAULT_SCOUT_SETTINGS, briefFact, cardOf, type ScoutState } from '../../shared/scout.js'
+import { ScoutCards } from './components/ScoutCards.js'
 import { ScoutSetting } from './components/ScoutSetting.js'
 
 /*
@@ -40,6 +42,25 @@ describe('Scout’s settings', () => {
     expect(html).toContain('10 PM to 7 AM')
     expect(html).toContain('Wait while you’re working')
     expect(html).toMatch(/aria-label="Wait while you’re working" aria-checked="true"/)
+  })
+
+  it('offer a morning brief at an hour of the morning', () => {
+    const off = draw(on())
+    expect(off).toContain('Morning brief')
+    expect(off).toContain('One card on Home each morning: who waits on you, what finished or failed since yesterday, and how the check stands.')
+    expect(draw(on({ briefAt: 7 }))).toContain('At 7 AM')
+  })
+
+  it('draw a morning brief as one card, its lines under its sentence', () => {
+    const scout = { teammateId: 'tm_scout', name: 'Scout', hue: 'teal', role: 'Custom', roleTitle: 'Keeps watch', avatar: seedAvatar('tm_scout'), createdAt: '2026-10-12' } as const
+    const fact = briefFact({ waiting: [{ name: 'Ada', minutes: 30 }], finished: 4, failed: 1, cards: { total: 0, now: 0 } }, '2026-10-22')
+    const html = renderToStaticMarkup(createElement(ScoutCards, {
+      state: on({}, { cards: [cardOf(fact, 'card_brief', new Date('2026-10-22T12:00:00.000Z'), false)] }),
+      scout, onOpen: vi.fn(), onSend: vi.fn(), onDraftIntoBox: vi.fn(), onDismiss: vi.fn(), now: new Date('2026-10-22T12:05:00.000Z')
+    }))
+    expect(html).toContain('>Morning brief<')
+    expect(html).toContain('Good morning. Here is where things stand.')
+    expect(html).toContain('<ul class="lc-scoutcard__lines"><li>Waiting on you: Ada, 30 min.</li><li>Since yesterday: 4 turns finished, 1 failed.</li></ul>')
   })
 
   it('say what today’s looks used', () => {

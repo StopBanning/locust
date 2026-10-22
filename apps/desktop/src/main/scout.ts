@@ -7,6 +7,7 @@ import {
   MAX_SCOUT_SEEN,
   SCOUT_WAIT_MOST_MS,
   branchFacts,
+  briefFact,
   cardOf,
   checkFacts,
   failedFacts,
@@ -103,6 +104,8 @@ export interface ScoutDeps {
   readonly folderBusy?: () => boolean
   /** A turn the person started is running: a look on Scout's timer waits for it (0.815). */
   readonly personBusy?: () => boolean
+  /** The turns that ended since then, for the morning brief (0.816): Scout's own looks, named, are left out. */
+  readonly briefFacts?: (since: string, looks: readonly string[]) => Promise<{ readonly finished: number; readonly failed: number }>
 }
 
 /** How often a look that is waiting for the person's own turn asks again whether it has ended. */
@@ -115,8 +118,11 @@ interface Kept {
   readonly lookIds: readonly string[]
   /** The folder as the last check found it, and what the check said then (0.815). */
   readonly folderMark?: string
-  readonly lastCheck?: { readonly passed: boolean }
+  readonly lastCheck?: { readonly passed: boolean; readonly command?: string }
   readonly today?: ScoutToday
+  /** The day the last morning brief came, by this computer's clock, and when (0.816). */
+  readonly lastBriefDay?: string
+  readonly lastBriefAt?: string
   /** Each pull request as the last look saw it, by its address. */
   readonly prs: readonly FolderPullRequest[]
   readonly lastLookAt?: string
@@ -186,8 +192,15 @@ export function createScout(deps: ScoutDeps) {
         prs: Array.isArray(parsed.prs) ? (parsed.prs as FolderPullRequest[]).filter((pr) => typeof pr?.url === 'string' && typeof pr.number === 'number') : [],
         ...(typeof parsed.lastLookAt === 'string' ? { lastLookAt: parsed.lastLookAt } : {}),
         ...(typeof parsed.folderMark === 'string' ? { folderMark: parsed.folderMark } : {}),
-        ...(typeof (parsed.lastCheck as { passed?: unknown } | undefined)?.passed === 'boolean' ? { lastCheck: { passed: (parsed.lastCheck as { passed: boolean }).passed } } : {}),
-        ...(todayFrom(parsed.today) === undefined ? {} : { today: todayFrom(parsed.today)! })
+        ...(typeof (parsed.lastCheck as { passed?: unknown } | undefined)?.passed === 'boolean' ? {
+          lastCheck: {
+            passed: (parsed.lastCheck as { passed: boolean }).passed,
+            ...(typeof (parsed.lastCheck as { command?: unknown }).command === 'string' ? { command: (parsed.lastCheck as { command: string }).command } : {})
+          }
+        } : {}),
+        ...(todayFrom(parsed.today) === undefined ? {} : { today: todayFrom(parsed.today)! }),
+        ...(typeof parsed.lastBriefDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.lastBriefDay) ? { lastBriefDay: parsed.lastBriefDay } : {}),
+        ...(typeof parsed.lastBriefAt === 'string' && Number.isFinite(Date.parse(parsed.lastBriefAt)) ? { lastBriefAt: parsed.lastBriefAt } : {})
       }
     } catch {
       kept = EMPTY
@@ -211,7 +224,9 @@ export function createScout(deps: ScoutDeps) {
       ...(next.lastLookAt === undefined ? {} : { lastLookAt: next.lastLookAt }),
       ...(next.folderMark === undefined ? {} : { folderMark: next.folderMark }),
       ...(next.lastCheck === undefined ? {} : { lastCheck: next.lastCheck }),
-      ...(next.today === undefined ? {} : { today: next.today })
+      ...(next.today === undefined ? {} : { today: next.today }),
+      ...(next.lastBriefDay === undefined ? {} : { lastBriefDay: next.lastBriefDay }),
+      ...(next.lastBriefAt === undefined ? {} : { lastBriefAt: next.lastBriefAt })
     })}\n`
     const write = writing.then(async () => {
       const temporary = `${deps.file}.${randomBytes(6).toString('hex')}.tmp`
@@ -278,7 +293,7 @@ export function createScout(deps: ScoutDeps) {
         const result = await deps.runCheck().catch(() => undefined)
         if (result !== undefined) {
           facts.push(...checkFacts(from.lastCheck, result, mark))
-          marks = { folderMark: mark, lastCheck: { passed: result.passed } }
+          marks = { folderMark: mark, lastCheck: { passed: result.passed, command: result.command } }
         }
       }
     }
@@ -302,6 +317,28 @@ export function createScout(deps: ScoutDeps) {
     return { facts: facts.filter((fact, index) => !seen.has(fact.key) && facts.findIndex((other) => other.key === fact.key) === index), prs, marks }
   }
 
+  /** The morning brief's fact (0.816): who waits, what ran since the last brief, the check, pull requests, the cards. */
+  const briefOf = async (from: Kept, news: readonly ScoutFact[], prs: readonly FolderPullRequest[], marks: Pick<Kept, 'folderMark' | 'lastCheck'>, at: Date): Promise<ScoutFact> => {
+    const since = from.lastBriefAt ?? new Date(at.getTime() - 24 * 60 * 60_000).toISOString()
+    const ran = await deps.briefFacts?.(since, from.lookIds).catch(() => undefined)
+    const waiting = from.settings.watches.teammates ? await deps.waiting().catch(() => []) : []
+    // The waits are told on their own line: a card for one is not counted again among the cards.
+    const counts = (card: Pick<ScoutFact, 'key'>): boolean => !card.key.startsWith('brief:') && !card.key.startsWith('waiting:')
+    const others = from.cards.filter(counts)
+    const told = news.filter(counts)
+    const check = marks.lastCheck
+    const needsWork = (pr: FolderPullRequest): boolean => pr.checks === 'failing' || pr.review === 'changes-requested' || pr.conflicts === true
+    const open = prs.filter((pr) => pr.state === 'open')
+    return briefFact({
+      waiting: waiting.map((card) => ({ ...(card.name === undefined ? {} : { name: card.name }), minutes: Math.max(0, Math.round((at.getTime() - Date.parse(card.requestedAt)) / 60_000)) })),
+      finished: ran?.finished ?? 0,
+      failed: ran?.failed ?? 0,
+      ...(from.settings.watches.check && check?.command !== undefined ? { check: { command: check.command, passed: check.passed } } : {}),
+      ...(from.settings.watches.github && open.length > 0 ? { prs: { open: open.length, needsWork: open.filter(needsWork).length } } : {}),
+      cards: { total: others.length + told.length, now: [...others, ...told].filter((one) => one.urgency === 'now').length }
+    }, scoutDay(at))
+  }
+
   /** `scheduled`: on Scout's own timer, which keeps quiet hours (0.815); a look the person asked for does not. */
   const look = async (scheduled = false): Promise<ScoutState> => {
     const from = await load()
@@ -318,16 +355,28 @@ export function createScout(deps: ScoutDeps) {
       }
       const at = now()
       const stamp = at.toISOString()
-      const { facts, prs, marks } = await gather(from, stamp)
+      const { facts: found, prs, marks } = await gather(from, stamp)
+      const facts = [...found]
+      /*
+       * THE MORNING BRIEF (0.816): the first look from its hour on, once a day and never in quiet hours -- so a Locust
+       * opened at ten brings the seven o'clock brief with its first look. It comes after the look's own news, which it
+       * counts among the cards waiting.
+       */
+      const day = scoutDay(at)
+      const briefDue = from.settings.briefAt !== undefined && at.getHours() >= from.settings.briefAt && from.lastBriefDay !== day && !inQuietHours(from.settings.quiet, at)
+      if (briefDue) facts.push(await briefOf(from, facts, prs, marks, at))
+      const briefed = briefDue ? { lastBriefDay: day, lastBriefAt: stamp } : {}
       if (facts.length === 0) return await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks') }))
       const team = (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== teammateId)
       const cards = facts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, true))
-      // A check that turned says how it stands now: the card of how it stood before goes (0.815).
+      // A check that turned says how it stands now: the card of how it stood before goes (0.815); so does yesterday's brief.
       const checkTurned = facts.some((fact) => fact.key.startsWith('check:'))
+      const outdated = (card: ScoutCard): boolean => (checkTurned && card.key.startsWith('check:')) || (briefDue && card.key.startsWith('brief:'))
       let state = await mutate((latest) => ({
         ...latest,
         ...marks,
-        cards: withNewCards(checkTurned ? latest.cards.filter((card) => !card.key.startsWith('check:')) : latest.cards, cards),
+        ...briefed,
+        cards: withNewCards(latest.cards.filter((card) => !outdated(card)), cards),
         seen: [...latest.seen, ...facts.map((fact) => fact.key)].slice(-MAX_SCOUT_SEEN),
         prs,
         lastLookAt: stamp,

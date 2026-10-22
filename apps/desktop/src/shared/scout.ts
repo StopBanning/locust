@@ -59,6 +59,8 @@ export interface ScoutSettings {
   readonly quiet?: ScoutQuietHours
   /** A look due while a turn the person started is running waits for it to end, at most SCOUT_WAIT_MOST_MS (0.815). */
   readonly waitWhileWorking: boolean
+  /** The hour of the morning brief, by this computer's clock (0.816): the first look from then on brings it, once a day. */
+  readonly briefAt?: number
 }
 
 export const DEFAULT_SCOUT_SETTINGS: ScoutSettings = { on: false, everyMinutes: 10, watches: { github: true, teammates: true, check: false }, notify: true, waitWhileWorking: true }
@@ -69,6 +71,8 @@ export const MAX_SCOUT_GOAL = 600
 export const SCOUT_WAIT_MOST_MS = 30 * 60_000
 /** The quiet hours offered in Settings. */
 export const SCOUT_QUIET_CHOICES: readonly ScoutQuietHours[] = [{ from: 21, to: 7 }, { from: 22, to: 7 }, { from: 22, to: 8 }, { from: 23, to: 8 }, { from: 0, to: 8 }]
+/** The hours a morning brief may come at (0.816). */
+export const SCOUT_BRIEF_HOURS = [6, 7, 8, 9, 10] as const
 
 /** Whether `at` falls in the quiet hours, by this computer's clock. */
 export function inQuietHours(quiet: ScoutQuietHours | undefined, at: Date): boolean {
@@ -115,6 +119,8 @@ export interface ScoutFact {
   readonly detail?: string
   /** What the card shows the person in mono under its sentence -- a waiting card's command -- and never gives the model. */
   readonly quote?: string
+  /** Short lines under its sentence, in Locust's words: a morning brief's (0.816). */
+  readonly lines?: readonly string[]
   readonly chips?: readonly { readonly text: string; readonly tone: ScoutTone }[]
   readonly open?: ScoutOpen
   /** The teammate it is about, when it is about one. */
@@ -152,8 +158,14 @@ export interface ScoutState {
   readonly today?: ScoutToday
 }
 
-/** A change to Scout's settings from the window: `quiet: null` turns quiet hours off, `goal: ''` clears the goal. */
-export type ScoutChange = Partial<Pick<ScoutSettings, 'on' | 'everyMinutes' | 'watches' | 'notify' | 'goal' | 'waitWhileWorking'>> & { readonly quiet?: ScoutQuietHours | null }
+/**
+ * A change to Scout's settings from the window: `quiet: null` turns quiet hours off, `briefAt: null` the morning brief,
+ * and `goal: ''` clears the goal.
+ */
+export type ScoutChange = Partial<Pick<ScoutSettings, 'on' | 'everyMinutes' | 'watches' | 'notify' | 'goal' | 'waitWhileWorking'>> & {
+  readonly quiet?: ScoutQuietHours | null
+  readonly briefAt?: number | null
+}
 
 export interface ScoutApi {
   state(): Promise<ScoutState>
@@ -459,6 +471,47 @@ export function checkFacts(before: { readonly passed: boolean } | undefined, now
   }]
 }
 
+/** What a morning brief tells, gathered by Locust with no model (0.816). */
+export interface ScoutBrief {
+  /** Teammates whose cards wait on the person, and for how long. */
+  readonly waiting: readonly { readonly name?: string; readonly minutes: number }[]
+  /** Turns that ended since the last brief, or in the last day before the first. */
+  readonly finished: number
+  readonly failed: number
+  /** How the folder's check stood at its last run, when Scout watches it. */
+  readonly check?: { readonly command: string; readonly passed: boolean }
+  /** The person's open pull requests, and how many need work. */
+  readonly prs?: { readonly open: number; readonly needsWork: number }
+  /** Scout's other cards still on Home, and how many of them need the person now. */
+  readonly cards: { readonly total: number; readonly now: number }
+}
+
+const waitedFor = (minutes: number): string => (minutes < 60 ? `${String(minutes)} min` : `${String(Math.round(minutes / 60))} h`)
+
+/*
+ * THE MORNING BRIEF (0.816). Duet's best-liked habit, from the 10/22 deep dive: one short note each morning, then quiet.
+ * Every line is Locust's, counted with no model; Scout's model may add its take, as on any card. A morning with nothing
+ * to tell says so in one sentence.
+ */
+export function briefFact(brief: ScoutBrief, day: string): ScoutFact {
+  const lines: string[] = []
+  if (brief.waiting.length > 0) lines.push(`Waiting on you: ${brief.waiting.slice(0, 4).map((one) => `${one.name ?? 'a teammate'}, ${waitedFor(one.minutes)}`).join('; ')}.`)
+  if (brief.finished + brief.failed > 0) {
+    lines.push(`Since yesterday: ${String(brief.finished)} turn${brief.finished === 1 ? '' : 's'} finished${brief.failed === 0 ? '' : `, ${String(brief.failed)} failed`}.`)
+  }
+  if (brief.check !== undefined) lines.push(`The check ${clip(brief.check.command, 80)} ${brief.check.passed ? 'passes' : 'fails'}.`)
+  if (brief.prs !== undefined && brief.prs.open > 0) lines.push(`Your pull requests: ${String(brief.prs.open)} open${brief.prs.needsWork === 0 ? '' : `, ${String(brief.prs.needsWork)} needing work`}.`)
+  if (brief.cards.total > 0) lines.push(`Scout has ${String(brief.cards.total)} more card${brief.cards.total === 1 ? '' : 's'} for you${brief.cards.now === 0 ? '' : `, ${String(brief.cards.now)} needing you now`}.`)
+  const pressing = brief.waiting.length > 0 || brief.failed > 0 || brief.check?.passed === false || brief.cards.now > 0
+  return {
+    key: `brief:${day}`,
+    urgency: pressing ? 'soon' : 'later',
+    said: lines.length === 0 ? 'Good morning. Nothing waits on you, and nothing ran since yesterday.' : 'Good morning. Here is where things stand.',
+    ...(lines.length === 0 ? {} : { lines, detail: lines.join('\n') }),
+    chips: [{ text: 'morning brief', tone: 'blue' }]
+  }
+}
+
 export function scoutPrompt(input: { readonly facts: readonly ScoutFact[]; readonly team: readonly { readonly name: string; readonly role: string }[]; readonly goal?: string }): string {
   return [
     'You are Scout, a teammate who keeps watch for the person you work with. Locust found what is below. Use only what is below: do not use any tools, open files, run commands or change anything. Read, and write.',
@@ -536,6 +589,7 @@ export function scoutSettingsFrom(value: unknown, base: ScoutSettings = DEFAULT_
   const watches = typeof input.watches === 'object' && input.watches !== null ? input.watches as Record<string, unknown> : {}
   const goal = typeof input.goal === 'string' ? input.goal.replace(/\s+/g, ' ').trim().slice(0, MAX_SCOUT_GOAL).trim() : undefined
   const quiet = input.quiet === null ? null : quietFrom(input.quiet)
+  const briefAt = input.briefAt === null ? null : (SCOUT_BRIEF_HOURS as readonly unknown[]).includes(input.briefAt) ? input.briefAt as number : undefined
   return {
     on: typeof input.on === 'boolean' ? input.on : base.on,
     ...(typeof input.teammateId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(input.teammateId) ? { teammateId: input.teammateId } : base.teammateId === undefined ? {} : { teammateId: base.teammateId }),
@@ -548,7 +602,8 @@ export function scoutSettingsFrom(value: unknown, base: ScoutSettings = DEFAULT_
     notify: typeof input.notify === 'boolean' ? input.notify : base.notify,
     waitWhileWorking: typeof input.waitWhileWorking === 'boolean' ? input.waitWhileWorking : base.waitWhileWorking,
     ...(goal === undefined ? (base.goal === undefined ? {} : { goal: base.goal }) : goal.length === 0 ? {} : { goal }),
-    ...(quiet === null ? {} : quiet !== undefined ? { quiet } : base.quiet === undefined ? {} : { quiet: base.quiet })
+    ...(quiet === null ? {} : quiet !== undefined ? { quiet } : base.quiet === undefined ? {} : { quiet: base.quiet }),
+    ...(briefAt === null ? {} : briefAt !== undefined ? { briefAt } : base.briefAt === undefined ? {} : { briefAt: base.briefAt })
   }
 }
 

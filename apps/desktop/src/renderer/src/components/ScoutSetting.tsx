@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
-  MAX_SCOUT_GOAL, SCOUT_EVERY_MINUTES, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
+  MAX_SCOUT_GOAL, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
   type ScoutApi, type ScoutEvery, type ScoutQuietHours, type ScoutState, type ScoutWatches
 } from '../../../shared/scout.js'
 import { ago } from './ScoutCards.js'
@@ -141,6 +141,15 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
         <Select className="lc-control" aria-label="How often Scout looks" disabled={busy} value={state.settings.everyMinutes}
           onChange={(next) => { void act(() => api.set({ everyMinutes: Number(next) as ScoutEvery })) }}
           options={SCOUT_EVERY_MINUTES.map((minutes) => ({ value: String(minutes), label: minutes === 60 ? 'Every hour' : `Every ${String(minutes)} minutes` }))} />
+      </div>
+      <div className="lc-settingline lc-settingline--sub">
+        <div className="lc-settingline__text">
+          <h3 className="lc-settings__heading">Morning brief</h3>
+          <p className="lc-settings__lede">One card on Home each morning: who waits on you, what finished or failed since yesterday, and how the check stands. The first look from that hour on brings it.</p>
+        </div>
+        <Select className="lc-control" aria-label="Scout’s morning brief" disabled={busy} value={state.settings.briefAt === undefined ? 'off' : String(state.settings.briefAt)}
+          onChange={(next) => { void act(() => api.set({ briefAt: next === 'off' ? null : Number(next) })) }}
+          options={[{ value: 'off', label: 'Off' }, ...SCOUT_BRIEF_HOURS.map((hour) => ({ value: String(hour), label: `At ${hourWords(hour)}` }))]} />
       </div>
       <div className="lc-settingline lc-settingline--sub">
         <div className="lc-settingline__text">

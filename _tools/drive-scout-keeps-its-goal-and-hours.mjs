@@ -130,6 +130,8 @@ try {
     })()`))
     check('typing a goal offers Save', typed === 'typed' && pressed === 'pressed', `${typed}; ${pressed}`)
     for (let i = 0; i < 20 && (await state()).settings.goal !== GOAL; i += 1) await sleep(250)
+    // Kept on disk first; the box redraws as saved a moment later.
+    for (let i = 0; i < 20 && String(await drive.evaluate(SECTION)).includes(' Save Cancel'); i += 1) await sleep(250)
     return drive.evaluate(SECTION)
   }))
   check('the goal is kept', (await state()).settings.goal === GOAL, JSON.stringify((await state()).settings))
@@ -151,7 +153,22 @@ try {
   check('fixed, the check passes again, and the failing card has gone', checkCards.length === 1 && checkCards[0] === 'The check node check.js passes again.', JSON.stringify(checkCards))
   await drive.capture('Home: the check passes again', async () => { await sleep(500); return drive.evaluate(CARDS) })
 
-  // 5. Today's count, and quiet hours kept.
+  // 5. The morning brief (0.816): it comes with the first look from its hour on, so this needs 6 AM or later here.
+  if (new Date().getHours() >= 6) {
+    await drive.evaluate(`window.desktop.scout.set({ briefAt: 6 })`)
+    await drive.evaluate(CLOSE_SETTINGS)
+    const briefed = await lookAndWait()
+    const brief = briefed.cards.find((card) => card.key.startsWith('brief:'))
+    check('the morning brief comes, as one card with its lines', brief !== undefined && brief.said.startsWith('Good morning.') && Array.isArray(brief.lines), JSON.stringify(brief))
+    await drive.capture('Home: the morning brief', async () => { await sleep(500); return drive.evaluate(CARDS) })
+    const again = await lookAndWait()
+    check('and only once a day', again.cards.filter((card) => card.key.startsWith('brief:')).length === 1, JSON.stringify(again.cards.map((card) => card.key)))
+    await drive.evaluate(`window.desktop.scout.set({ briefAt: null })`)
+  } else {
+    say('  (the morning brief is not driven before 6 AM: its hour has not come)')
+  }
+
+  // 6. Today's count, and quiet hours kept.
   await drive.evaluate(`window.desktop.scout.set({ quiet: { from: 22, to: 7 } })`)
   const after = String(await drive.capture('settings: today’s looks and quiet hours', async () => {
     await drive.evaluate(`${OPEN_SETTINGS}.then(() => '')`)
