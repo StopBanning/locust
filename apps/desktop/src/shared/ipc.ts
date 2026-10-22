@@ -3025,6 +3025,7 @@ export type MissionApprovalAnswer =
     }
 
 export interface CodexMissionStartRequest {
+  readonly scoutCardId?: string
   /** Host picker/clone identities, never paths. Omitted means keep this conversation's references. */
   readonly referenceIds?: readonly string[]
   readonly account?: string

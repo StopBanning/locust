@@ -688,3 +688,18 @@ Entries since 2026-10-03, newest first. Earlier entries (2026-08-30 to
 - The kept output offers Review instructions, Use these instructions for the teammate, and Not now. Only the
   explicit Use button calls the existing teammate update path; empty clears, and the change briefs future turns.
   `_tools/drive-tune-a-teammate.mjs` uses a free route and does not hold or change Cursor's global default.
+
+
+## GitHub comment asks (2026-10-22)
+
+- Scout's optional comment watch uses only the signed-in person's newly created `/locust` issue and pull request
+  conversation comments. It has no timer of its own. `main/scout-comments.ts` reads through the installed GitHub CLI;
+  activation time, repository cursors, remembered comment ids and pending answer mappings live in Scout's own file.
+- Named teammates are matched without a model. Scout may route an unnamed ask, but cannot replace its deterministic
+  draft or turn the issue's other people's words into instructions. Successful person-origin starts bind the card to
+  the new turn in the host; terminal answers reconcile after a fast completion or restart.
+- Posting is a separate explicit card press. Only the saved, displayed body goes to GitHub over stdin; the durable
+  attempt marker must be written before the call. Neither errors nor uncertain results are retried, even on restart.
+- `_tools/drive-locust-in-a-github-comment.mjs` uses a free model and a fake `gh.exe` ahead of PATH. It was written for
+  the owner to run; this task did not launch Locust or run any drive. The scoped controls are
+  `_tools/control-locust-comments.mjs`.

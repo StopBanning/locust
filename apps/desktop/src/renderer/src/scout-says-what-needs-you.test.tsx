@@ -101,7 +101,7 @@ describe('meeting Scout', () => {
 })
 
 describe('Scout in Settings', () => {
-  const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), tune: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
+  const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), post: vi.fn(), editPost: vi.fn(), dismiss: vi.fn(), tune: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
   it('off, says what turning it on does', () => {
     const html = renderToStaticMarkup(createElement(ScoutSetting, { heading: 'Scout keeps watch', state: state([], { settings: DEFAULT_SCOUT_SETTINGS }), api }))
     expect(html).toContain('Off. Turn it on and Scout joins your team')
@@ -141,9 +141,31 @@ describe('Scout with nothing to say', () => {
   })
 
   it('in Settings, says when it last looked and offers a look now', () => {
-    const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), tune: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn() }
+    const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), post: vi.fn(), editPost: vi.fn(), dismiss: vi.fn(), tune: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn() }
     const html = renderToStaticMarkup(createElement(ScoutSetting, { heading: createElement('h2', null, 'Scout'), state: state([], { lastLookAt: new Date(Date.now() - 3 * 60_000).toISOString() }), api }))
     expect(html).toContain('Last looked 3 min ago, and nothing needed you.')
     expect(html).toContain('>Look now</button>')
+  })
+})
+
+
+describe('a GitHub answer waits for a press', () => {
+  it('shows the full reply, editable attribution, Post and Dismiss', () => {
+    const message = 'First line.\nFinal detail.\n\nWritten by Ada, a Locust teammate.'
+    const html = draw(state([card({ said: 'Ada answered your ask on #212', urgency: 'now', post: { repository: 'acme/app', number: 212, message } })]))
+    expect(html).toContain(message)
+    expect(html).toContain('>Post it on #212<')
+    expect(html).toContain('>Change it first<')
+    expect(html).toContain('>Dismiss<')
+    expect(html).not.toContain('Send to')
+  })
+  it('says when posted or failed and never offers Post again', () => {
+    const posted = draw(state([card({ post: { repository: 'acme/app', number: 212, message: 'Done.', attempted: true, postedUrl: 'https://github.com/acme/app/issues/212#issuecomment-99' } })]))
+    expect(posted).toContain('Posted on GitHub.')
+    expect(posted).toContain('>Open the comment<')
+    expect(posted).not.toContain('>Post it on')
+    const failed = draw(state([card({ post: { repository: 'acme/app', number: 212, message: 'Done.', attempted: true, failed: 'Connection lost. Nothing will be retried on its own.' } })]))
+    expect(failed).toContain('Connection lost.')
+    expect(failed).not.toContain('>Post it on')
   })
 })

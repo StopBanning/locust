@@ -1,3 +1,4 @@
+import type { CommentWatch } from './scout-comments.js'
 import { randomBytes } from 'node:crypto'
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 
@@ -10,6 +11,7 @@ import {
   branchFacts,
   briefFact,
   cardOf,
+  commentAnswerFact,
   checkFacts,
   daysBetween,
   emptyWeek,
@@ -66,6 +68,11 @@ export interface ScoutGithub {
 }
 
 export interface ScoutDeps {
+  readonly comments?: (watch: CommentWatch, team: readonly ScoutTeammate[], at: string) => Promise<{ watch: CommentWatch; facts: readonly ScoutFact[] }>
+  readonly lastTeammate?: () => Promise<string | undefined>
+  readonly postComment?: (repository: string, number: number, text: string) => Promise<string>
+  /** Terminal answer only; undefined while a turn is still running. */
+  readonly commentAnswer?: (missionId: string) => Promise<{ text: string } | { failed: string } | undefined>
   readonly file: string
   readonly now?: () => Date
   /** The person's pull requests, reviews asked of them and the default branch's checks; undefined when GitHub cannot be read here. */
@@ -122,6 +129,8 @@ export interface ScoutDeps {
 const WAIT_STEP_MS = 60_000
 
 interface Kept {
+  readonly comments?: CommentWatch
+  readonly commentTurns?: Readonly<Record<string, { readonly ask: NonNullable<ScoutFact['commentAsk']>; readonly name: string }>>
   readonly settings: ScoutSettings
   readonly cards: readonly ScoutCard[]
   readonly seen: readonly string[]
@@ -248,6 +257,8 @@ export function createScout(deps: ScoutDeps) {
       const parsed = JSON.parse(text) as Record<string, unknown>
       kept = {
         settings: scoutSettingsFrom(parsed.settings),
+        ...(typeof parsed.comments === 'object' && parsed.comments !== null ? { comments: parsed.comments as CommentWatch } : {}),
+        ...(typeof parsed.commentTurns === 'object' && parsed.commentTurns !== null ? { commentTurns: parsed.commentTurns as Kept['commentTurns'] } : {}),
         cards: Array.isArray(parsed.cards) ? (parsed.cards as ScoutCard[]).filter((card) => typeof card?.cardId === 'string' && typeof card.said === 'string').map(({ reading: _reading, ...card }) => card) : [],
         seen: Array.isArray(parsed.seen) ? parsed.seen.filter((key): key is string => typeof key === 'string').slice(-MAX_SCOUT_SEEN) : [],
         lookIds: Array.isArray(parsed.lookIds) ? parsed.lookIds.filter((id): id is string => typeof id === 'string').slice(-MAX_LOOK_IDS) : [],
@@ -286,10 +297,10 @@ export function createScout(deps: ScoutDeps) {
     ...(from.today === undefined || from.today.day !== scoutDay(now()) ? {} : { today: from.today })
   })
   /** Kept in memory at once, written whole beside the file and moved over it, one write at a time. */
-  const keep = async (next: Kept): Promise<ScoutState> => {
+  const keep = async (next: Kept, mustWrite = false): Promise<ScoutState> => {
     kept = next
     const body = `${JSON.stringify({
-      settings: next.settings, cards: next.cards, seen: next.seen, lookIds: next.lookIds, prs: next.prs,
+      comments: next.comments, commentTurns: next.commentTurns, settings: next.settings, cards: next.cards, seen: next.seen, lookIds: next.lookIds, prs: next.prs,
       ...(next.notes.length === 0 ? {} : { notes: next.notes }),
       ...(next.lastLookAt === undefined ? {} : { lastLookAt: next.lastLookAt }),
       ...(next.folderMark === undefined ? {} : { folderMark: next.folderMark }),
@@ -306,8 +317,9 @@ export function createScout(deps: ScoutDeps) {
       try {
         await writeFile(temporary, body, { encoding: 'utf8', flag: 'wx' })
         await replaceFile(temporary, deps.file)
-      } catch {
+      } catch (error) {
         await rm(temporary, { force: true }).catch(() => undefined)
+        if (mustWrite) throw error
       }
     })
     writing = write.catch(() => undefined)
@@ -321,9 +333,9 @@ export function createScout(deps: ScoutDeps) {
    * while a look was writing its own came back. Now each change is worked out from what is held at the moment it is
    * kept, with nothing awaited between the reading and the keeping.
    */
-  const mutate = async (change: (from: Kept) => Kept): Promise<ScoutState> => {
+  const mutate = async (change: (from: Kept) => Kept, mustWrite = false): Promise<ScoutState> => {
     const loaded = await load()
-    return keep(change(kept ?? loaded))
+    return keep(change(kept ?? loaded), mustWrite)
   }
 
   const restart = (settings: ScoutSettings): void => {
@@ -348,7 +360,7 @@ export function createScout(deps: ScoutDeps) {
   }
 
   /** Locust's own look: what is new since the last one, as facts. */
-  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[]; marks: Pick<Kept, 'folderMark' | 'lastCheck'> }> => {
+  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[]; marks: Pick<Kept, 'folderMark' | 'lastCheck' | 'comments'> }> => {
     const facts: ScoutFact[] = []
     let prs = from.prs
     /*
@@ -356,7 +368,7 @@ export function createScout(deps: ScoutDeps) {
      * is in it -- and never while a turn is working there, whose half-done work would read as broken. Not run, the
      * mark stays where it was, so the next look runs it.
      */
-    let marks: Pick<Kept, 'folderMark' | 'lastCheck'> = {
+    let marks: Pick<Kept, 'folderMark' | 'lastCheck' | 'comments'> = {
       ...(from.folderMark === undefined ? {} : { folderMark: from.folderMark }),
       ...(from.lastCheck === undefined ? {} : { lastCheck: from.lastCheck })
     }
@@ -369,6 +381,12 @@ export function createScout(deps: ScoutDeps) {
           marks = { folderMark: mark, lastCheck: { passed: result.passed, command: result.command } }
         }
       }
+    }
+    if (from.settings.watches.comments !== false && deps.comments !== undefined) {
+      const watch = from.comments ?? { enabledAt: lookStamp, repositories: {} }
+      const result = await deps.comments(watch, (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== from.settings.teammateId), lookStamp).catch(() => ({ watch, facts: [] }))
+      marks = { ...marks, comments: result.watch }
+      facts.push(...result.facts)
     }
     if (from.settings.watches.github) {
       const github = await deps.github().catch(() => undefined)
@@ -391,7 +409,7 @@ export function createScout(deps: ScoutDeps) {
   }
 
   /** The morning brief's fact (0.816): who waits, what ran since the last brief, the check, pull requests, the cards. */
-  const briefOf = async (from: Kept, news: readonly ScoutFact[], prs: readonly FolderPullRequest[], marks: Pick<Kept, 'folderMark' | 'lastCheck'>, at: Date): Promise<ScoutFact> => {
+  const briefOf = async (from: Kept, news: readonly ScoutFact[], prs: readonly FolderPullRequest[], marks: Pick<Kept, 'folderMark' | 'lastCheck' | 'comments'>, at: Date): Promise<ScoutFact> => {
     const since = from.lastBriefAt ?? new Date(at.getTime() - 24 * 60 * 60_000).toISOString()
     const ran = await deps.briefFacts?.(since, from.lookIds).catch(() => undefined)
     const waiting = from.settings.watches.teammates ? await deps.waiting().catch(() => []) : []
@@ -456,8 +474,14 @@ export function createScout(deps: ScoutDeps) {
        * the brief was a paragraph on capturing evidence, and the passing check got a draft asking Ada to run it again.
        * Neither has anything for a teammate to do. A look with nothing else new asks no model at all.
        */
-      const forModel = (fact: ScoutFact): boolean => !fact.key.startsWith('week:') && !fact.key.startsWith('brief:') && !/^check:.*:passes$/.test(fact.key)
-      const cards = facts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, forModel(fact)))
+      const forModel = (fact: ScoutFact): boolean => fact.commentAsk?.namedTeammateId === undefined && !fact.key.startsWith('comment-answer:') && !fact.key.startsWith('week:') && !fact.key.startsWith('brief:') && !/^check:.*:passes$/.test(fact.key)
+      const fallback = facts.some((fact) => fact.commentAsk !== undefined && fact.commentAsk.namedTeammateId === undefined) ? await deps.lastTeammate?.().catch(() => undefined) : undefined
+      const draftedFacts = facts.map((fact) => {
+        if (fact.commentAsk === undefined) return fact
+        const mate = team.find((mate) => mate.teammateId === (fact.commentAsk!.namedTeammateId ?? fallback)) ?? team[0]
+        return mate === undefined ? fact : { ...fact, draft: { teammateId: mate.teammateId, name: mate.name, message: fact.commentAsk.message } }
+      })
+      const cards = draftedFacts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, forModel(fact)))
       // A check that turned says how it stands now: the card of how it stood before goes (0.815); so does yesterday's brief.
       const checkTurned = facts.some((fact) => fact.key.startsWith('check:'))
       const outdated = (card: ScoutCard): boolean => (checkTurned && card.key.startsWith('check:')) || (briefDue && card.key.startsWith('brief:')) || (weekDue && card.key.startsWith('week:'))
@@ -552,7 +576,7 @@ export function createScout(deps: ScoutDeps) {
         if (at < 0) return card
         const { reading: _reading, ...rest } = card
         const answer = answers?.get(at + 1)
-        return { ...rest, ...(answer?.take === undefined ? {} : { take: answer.take }), ...(answer?.draft === undefined ? {} : { draft: answer.draft }) }
+        return { ...rest, ...(answer?.take === undefined ? {} : { take: answer.take }), ...(answer?.draft === undefined ? {} : { draft: card.commentAsk === undefined ? answer.draft : { ...answer.draft, message: card.commentAsk.message } }) }
       })
       // An answer that came clears the last one's excuse; one that did not says why.
       const { modelSaid: _was, ...base } = from
@@ -587,6 +611,7 @@ export function createScout(deps: ScoutDeps) {
       // The window may not name Scout's teammate: Scout made it, and keeps it.
       return { ...latest, settings: scoutSettingsFrom({ ...(typeof change === 'object' && change !== null ? change : {}), teammateId: latest.settings.teammateId }, latest.settings) }
     })
+    if (state.settings.on && state.settings.watches.comments !== false && (await load()).comments === undefined) await mutate((latest) => ({ ...latest, comments: { enabledAt: now().toISOString(), repositories: {} } }))
     if (state.settings.everyMinutes !== before?.everyMinutes || state.settings.on !== before.on) restart(state.settings)
     if (before?.on === true && !state.settings.on) {
       await stopLooks('Scout was turned off, so these cards stay in Locust’s words.')
@@ -595,13 +620,55 @@ export function createScout(deps: ScoutDeps) {
     return state
   }
 
+  const answerComment = async (missionId: string): Promise<void> => {
+    const turn = (await load()).commentTurns?.[missionId]
+    if (turn === undefined) return
+    const answer = await deps.commentAnswer?.(missionId)
+    if (answer === undefined) return
+    const fact = commentAnswerFact(turn.ask, missionId, turn.name, answer)
+    await mutate((latest) => {
+      if (latest.commentTurns?.[missionId] === undefined) return latest
+      const turns = { ...latest.commentTurns }
+      delete turns[missionId]
+      return { ...latest, commentTurns: turns, cards: withNewCards(latest.cards, [cardOf(fact, `card_${randomBytes(6).toString('hex')}`, now(), false)]) }
+    })
+  }
+
   return {
+    /** Bound by the host only after a successful person-origin start. Reconcile fast completions too. */
+    async sentComment(cardId: unknown, missionId: string, teammateId: string | undefined): Promise<void> {
+      const card = (await load()).cards.find((one) => one.cardId === cardId)
+      if (card?.commentAsk === undefined) return
+      const mate = (await deps.team()).find((one) => one.teammateId === teammateId)
+      if (mate === undefined) return
+      await mutate((latest) => ({ ...latest, cards: latest.cards.filter((one) => one.cardId !== cardId), commentTurns: { ...latest.commentTurns, [missionId]: { ask: card.commentAsk!, name: mate.name } } }))
+      await answerComment(missionId)
+    },
+    async editPost(cardId: unknown, text: unknown): Promise<ScoutState> {
+      return mutate((latest) => ({ ...latest, cards: latest.cards.map((card) => card.cardId === cardId && card.post !== undefined && !card.post.attempted && typeof text === 'string' && text.trim().length > 0 && text.length <= 200_000 ? { ...card, post: { ...card.post, message: text } } : card) }))
+    },
+    async post(cardId: unknown): Promise<ScoutState> {
+      let claimed: ScoutCard | undefined
+      await mutate((latest) => ({ ...latest, cards: latest.cards.map((card) => {
+        if (card.cardId !== cardId || card.post === undefined || card.post.attempted || deps.postComment === undefined) return card
+        claimed = card
+        return { ...card, post: { ...card.post, attempted: true, failed: 'Posting has not been confirmed. Check GitHub before posting again.' } }
+      }) }), true)
+      if (claimed?.post === undefined) return stateOf(await load())
+      const post = claimed.post
+      let result: { postedUrl: string } | { failed: string }
+      try { result = { postedUrl: await deps.postComment!(post.repository, post.number, post.message) } }
+      catch (error) { result = { failed: `GitHub did not confirm the post: ${error instanceof Error ? error.message : 'The request failed.'} Nothing will be retried on its own.` } }
+      return mutate((latest) => ({ ...latest, cards: latest.cards.map((card) => card.cardId === cardId ? { ...card, urgency: 'later', post: { ...post, attempted: true, ...result } } : card) }))
+    },
     state: async (): Promise<ScoutState> => stateOf(await load()),
     /** Picks up where the last launch left off: on, it looks again shortly and on its timer after. */
     async start(firstLookMs = 30_000): Promise<void> {
       const from = await load()
       // A look's cards from before a restart wait on nothing now.
       if (from.cards.some((card) => card.reading === true)) await mutate((latest) => ({ ...latest, cards: latest.cards.map(({ reading: _reading, ...card }) => card) }))
+      for (const missionId of Object.keys(from.commentTurns ?? {})) await answerComment(missionId)
+      if (from.settings.on && from.settings.watches.comments !== false && from.comments === undefined) await mutate((latest) => ({ ...latest, comments: { enabledAt: now().toISOString(), repositories: {} } }))
       restart(from.settings)
       if (from.settings.on) firstLook = later(() => { firstLook = undefined; due() }, firstLookMs)
     },
@@ -618,7 +685,7 @@ export function createScout(deps: ScoutDeps) {
         }
       }
       const madeId = teammateId
-      const state = await mutate((latest) => ({ ...latest, settings: { ...latest.settings, on: true, teammateId: madeId } }))
+      const state = await mutate((latest) => ({ ...latest, settings: { ...latest.settings, on: true, teammateId: madeId }, ...(latest.comments === undefined && latest.settings.watches.comments !== false ? { comments: { enabledAt: now().toISOString(), repositories: {} } } : {}) }))
       restart(state.settings)
       return look()
     },
@@ -654,6 +721,10 @@ export function createScout(deps: ScoutDeps) {
     },
     /** Every run that ends: a look's turn fills its cards in; a teammate's failed turn is news for the next look. */
     async onRunEnded(mission: { readonly missionId: string }): Promise<void> {
+      const commentState = await load()
+      const isCommentTurn = commentState.commentTurns?.[mission.missionId] !== undefined || commentState.cards.some((card) => card.key.startsWith('comment-answer:') && card.open?.kind === 'conversation' && card.open.missionId === mission.missionId)
+      await answerComment(mission.missionId)
+      if (isCommentTurn) return
       if (pending.has(mission.missionId)) {
         await ended(mission.missionId)
         return

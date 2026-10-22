@@ -147,8 +147,13 @@ a free model whose provider may keep what it is sent -- carrying the new facts
 and for how long -- never what it waits to run -- a failed turn's error and
 what it was asked) and your teammates'
 names and roles. Change Scout's model like any teammate's, and its looks go
-there instead. Scout sends no message, merges, pushes or changes anything:
-every action on its cards is your press.
+there instead. The "Your /locust comments" watch reads `gh api user` once for the signed-in login and one repository issue-comments
+page per look with `since`; it accepts only that person's newly created asks. For each ask it reads the issue or pull
+request text and recent comments through `gh api`, and marks that context as other people's words in the draft.
+A named teammate needs no Scout model turn; otherwise Scout may suggest the teammate, with the person's last teammate
+in that folder as the fallback. The answer stays on a card until the person presses Post it: then `gh api` posts exactly
+the reviewed text as their comment. An attempt is recorded before posting, and an uncertain result is never retried.
+Scout sends no message, merges, pushes or changes anything on its own: every action on its cards is your press.
 
 **Your cloud computer (0.761).** Off until you pick Cloud in the chat-type menu
 for an OpenCode teammate and press Set it up. Locust then asks GitHub, with your

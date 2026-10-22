@@ -63,7 +63,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
   }
   const watch = (key: keyof ScoutWatches): void => {
     if (state === undefined) return
-    void act(() => api.set({ watches: { ...state.settings.watches, [key]: !state.settings.watches[key] } }))
+    void act(() => api.set({ watches: { ...state.settings.watches, [key]: !(state.settings.watches[key] ?? true) } }))
   }
   const saveGoal = (): void => {
     if (goal === undefined) return
@@ -139,6 +139,13 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
           <p className="lc-settings__lede">Yours, the reviews asked of you, and the default branch’s checks, through the GitHub CLI you signed in.</p>
         </div>
         {switchOf('Pull requests and their checks', state.settings.watches.github, () => { watch('github') })}
+      </div>
+      <div className="lc-settingline lc-settingline--sub">
+        <div className="lc-settingline__text">
+          <h3 className="lc-settings__heading">Your /locust comments</h3>
+          <p className="lc-settings__lede">A comment of yours on this folder's GitHub with a line starting /locust is an ask. Scout brings it to Home with the step drafted; /locust ada names the teammate.</p>
+        </div>
+        {switchOf('Your /locust comments', state.settings.watches.comments !== false, () => { watch('comments') })}
       </div>
       <div className="lc-settingline lc-settingline--sub">
         <div className="lc-settingline__text">

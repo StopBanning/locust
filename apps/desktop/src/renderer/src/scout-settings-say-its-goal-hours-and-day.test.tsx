@@ -12,7 +12,7 @@ import { ScoutSetting } from './components/ScoutSetting.js'
  * the folder's check, which needs a check command first; quiet hours as a clock reads them; waiting while the person
  * works; and what today's looks used, in numbers.
  */
-const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), tune: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
+const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), post: vi.fn(), editPost: vi.fn(), dismiss: vi.fn(), tune: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
 const on = (change: Partial<ScoutState['settings']> = {}, more: Partial<ScoutState> = {}): ScoutState =>
   ({ settings: { ...DEFAULT_SCOUT_SETTINGS, on: true, teammateId: 'tm_scout', ...change }, cards: [], lookIds: [], ...more })
 const draw = (state: ScoutState, extra: Record<string, unknown> = {}): string =>
@@ -75,4 +75,12 @@ describe('Scout’s settings', () => {
       .toContain('Today: 14 looks, 2 of them read by Deepseek V4.1 Flash Free.')
     expect(draw(on({}, { today: { day: '2026-10-22', looks: 1, asked: 0 } }))).toContain('Today: 1 look, none of them needing its model.')
   })
+})
+
+
+it('offers your own comment watch on by default and says how a named ask works', () => {
+  const html = draw(on())
+  expect(html).toContain('Your /locust comments')
+  expect(html).toContain('/locust ada names the teammate.')
+  expect(html).toMatch(/aria-label="Your \/locust comments"[^>]*aria-checked="true"|aria-checked="true"[^>]*aria-label="Your \/locust comments"/)
 })

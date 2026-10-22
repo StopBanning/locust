@@ -17,6 +17,8 @@ export const SCOUT_STATE = 'scout:state'
 export const SCOUT_TURN_ON = 'scout:turn-on'
 export const SCOUT_SET = 'scout:set'
 export const SCOUT_DISMISS = 'scout:dismiss'
+export const SCOUT_POST = 'scout:post'
+export const SCOUT_EDIT_POST = 'scout:edit-post'
 export const SCOUT_LOOK = 'scout:look'
 /** Scout's notes, as the person wrote them in Settings (0.816). */
 export const SCOUT_NOTES = 'scout:notes'
@@ -30,6 +32,7 @@ export type ScoutEvery = (typeof SCOUT_EVERY_MINUTES)[number]
 /** What Scout watches; each can be switched off. */
 export interface ScoutWatches {
   /** The person's pull requests and their checks, reviews asked of them, the default branch's checks. */
+  readonly comments?: boolean
   readonly github: boolean
   /** A teammate waiting on them; a turn that failed. */
   readonly teammates: boolean
@@ -66,7 +69,7 @@ export interface ScoutSettings {
   readonly briefAt?: number
 }
 
-export const DEFAULT_SCOUT_SETTINGS: ScoutSettings = { on: false, everyMinutes: 10, watches: { github: true, teammates: true, check: false }, notify: true, waitWhileWorking: true }
+export const DEFAULT_SCOUT_SETTINGS: ScoutSettings = { on: false, everyMinutes: 10, watches: { comments: true, github: true, teammates: true, check: false }, notify: true, waitWhileWorking: true }
 
 /** The longest goal kept: a few sentences, read into every look. */
 export const MAX_SCOUT_GOAL = 600
@@ -140,7 +143,29 @@ export interface ScoutFact {
   /** The teammate it is about, when it is about one. */
   readonly teammateId?: string
   /** A weekly tune-up's one suggestion (0.817). */
+  readonly commentAsk?: ScoutCommentAsk
+  readonly draft?: ScoutDraft
+  readonly post?: ScoutPost
   readonly tune?: ScoutTune
+}
+
+export interface ScoutCommentAsk {
+  readonly id: string
+  readonly repository: string
+  readonly number: number
+  readonly url: string
+  readonly message: string
+  readonly namedTeammateId?: string
+}
+
+export interface ScoutPost {
+  readonly repository: string
+  readonly number: number
+  readonly message: string
+  /** An attempt is saved before gh starts. An uncertain result is never retried. */
+  readonly attempted?: boolean
+  readonly postedUrl?: string
+  readonly failed?: string
 }
 
 export interface ScoutDraft {
@@ -186,6 +211,8 @@ export type ScoutChange = Partial<Pick<ScoutSettings, 'on' | 'everyMinutes' | 'w
 }
 
 export interface ScoutApi {
+  post(cardId: string): Promise<ScoutState>
+  editPost(cardId: string, text: string): Promise<ScoutState>
   state(): Promise<ScoutState>
   /** Makes Scout, on this route, and starts it; on again with its teammate when it has one. */
   turnOn(route: { readonly runtime: string; readonly model: string } | undefined): Promise<ScoutState | { readonly refused: string }>
@@ -566,7 +593,7 @@ export function briefFact(brief: ScoutBrief, day: string): ScoutFact {
 }
 
 /** The watch a card came from, by its key; none for Scout's own brief and week (0.817). */
-export function watchOfKey(key: string): keyof ScoutWatches | undefined {
+export function watchOfKey(key: string): Exclude<keyof ScoutWatches, 'comments'> | undefined {
   const kind = key.slice(0, Math.max(0, key.indexOf(':')))
   if (kind === 'pr' || kind === 'review' || kind === 'issue' || kind === 'branch') return 'github'
   if (kind === 'waiting' || kind === 'failed') return 'teammates'
@@ -588,7 +615,7 @@ export interface ScoutWeek {
   readonly from: string
   readonly looks: number
   readonly asked: number
-  readonly watches: Readonly<Record<keyof ScoutWatches, ScoutWeekWatch>>
+  readonly watches: Readonly<Record<Exclude<keyof ScoutWatches, 'comments'>, ScoutWeekWatch>>
   readonly sent: number
   readonly changed: number
   readonly dismissed: number
@@ -606,7 +633,7 @@ export function weekFrom(value: unknown): ScoutWeek | undefined {
   if (typeof value !== 'object' || value === null) return undefined
   const count = (one: unknown): one is number => typeof one === 'number' && Number.isInteger(one) && one >= 0
   const { from, looks, asked, sent, changed, dismissed, watches } = value as Record<string, unknown>
-  const watchOf = (name: keyof ScoutWatches): ScoutWeekWatch | undefined => {
+  const watchOf = (name: Exclude<keyof ScoutWatches, 'comments'>): ScoutWeekWatch | undefined => {
     const one = typeof watches === 'object' && watches !== null ? (watches as Record<string, unknown>)[name] : undefined
     if (typeof one !== 'object' || one === null) return undefined
     const { raised, used, dismissed: gone } = one as Record<string, unknown>
@@ -630,8 +657,8 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((time(to) - time(from)) / 86_400_000)
 }
 
-const WATCH_CARDS: Readonly<Record<keyof ScoutWatches, string>> = { github: 'GitHub cards', teammates: 'cards about your teammates’ turns', check: 'cards about the folder’s check' }
-const WATCH_OFF: Readonly<Record<keyof ScoutWatches, string>> = { github: 'Stop watching GitHub', teammates: 'Stop watching teammates’ turns', check: 'Stop running the folder’s check' }
+const WATCH_CARDS: Readonly<Record<Exclude<keyof ScoutWatches, 'comments'>, string>> = { github: 'GitHub cards', teammates: 'cards about your teammates’ turns', check: 'cards about the folder’s check' }
+const WATCH_OFF: Readonly<Record<Exclude<keyof ScoutWatches, 'comments'>, string>> = { github: 'Stop watching GitHub', teammates: 'Stop watching teammates’ turns', check: 'Stop running the folder’s check' }
 const many = (count: number, word: string): string => `${String(count)} ${word}${count === 1 ? '' : 's'}`
 
 /*
@@ -768,6 +795,7 @@ export function scoutSettingsFrom(value: unknown, base: ScoutSettings = DEFAULT_
     ...(typeof input.teammateId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(input.teammateId) ? { teammateId: input.teammateId } : base.teammateId === undefined ? {} : { teammateId: base.teammateId }),
     everyMinutes: (SCOUT_EVERY_MINUTES as readonly number[]).includes(input.everyMinutes as number) ? input.everyMinutes as ScoutEvery : base.everyMinutes,
     watches: {
+      comments: typeof watches.comments === 'boolean' ? watches.comments : base.watches.comments ?? true,
       github: typeof watches.github === 'boolean' ? watches.github : base.watches.github,
       teammates: typeof watches.teammates === 'boolean' ? watches.teammates : base.watches.teammates,
       check: typeof watches.check === 'boolean' ? watches.check : base.watches.check
@@ -786,4 +814,23 @@ function quietFrom(value: unknown): ScoutQuietHours | undefined {
   const { from, to } = value as Record<string, unknown>
   const hour = (one: unknown): one is number => typeof one === 'number' && Number.isInteger(one) && one >= 0 && one <= 23
   return hour(from) && hour(to) && from !== to ? { from, to } : undefined
+}
+
+/** A person's own comment becomes an urgent ask; its task is drafted without a model. */
+export function commentAskFact(ask: ScoutCommentAsk, title: string, task: string): ScoutFact {
+  return {
+    key: `comment:${ask.repository}:${ask.id}`, urgency: 'now',
+    said: `You asked on #${String(ask.number)} ${title}: ${task}`,
+    detail: task, commentAsk: ask,
+    open: { kind: 'url', url: ask.url, label: 'Open your comment' }
+  }
+}
+
+export function commentAnswerFact(ask: ScoutCommentAsk, missionId: string, name: string, answer: { text: string } | { failed: string }): ScoutFact {
+  return {
+    key: `comment-answer:${ask.repository}:${ask.id}`, urgency: 'now',
+    said: 'failed' in answer ? `${name}'s turn on #${String(ask.number)} failed: ${answer.failed}` : `${name} answered your ask on #${String(ask.number)}`,
+    ...('failed' in answer ? {} : { post: { repository: ask.repository, number: ask.number, message: `${answer.text}\n\nWritten by ${name}, a Locust teammate.` } }),
+    open: { kind: 'conversation', missionId, label: 'Open it' }
+  }
 }

@@ -33,7 +33,8 @@ import { createTalkShortcut, type TalkShortcut } from './talk-shortcut.js'
 import { createScout, type Scout } from './scout.js'
 import { folderMarkOf } from './scout-folder.js'
 import { readScoutGithub } from './scout-github.js'
-import { SCOUT_CHANGED, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON } from '../shared/scout.js'
+import { createCommentReader, postComment } from './scout-comments.js'
+import { SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
 import { DEFAULT_CHATGPT_VOICE, VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, VOICE_CALL_START, VOICE_CALL_STOP, VOICE_CALL_TOOLS, VOICE_CALL_VOICES, VOICE_PREVIEW_SAVE, VOICE_PREVIEW_SAVED, VOICE_PREVIEW_TRIGGER, isChatGptVoice, isVoiceCallOffer, isVoiceCallTarget, type ChatGptVoice, type VoiceAddOn, type VoiceCallTarget } from '../shared/voice-call.js'
 import { createVoiceCalls } from './voice-call.js'
@@ -7973,7 +7974,36 @@ if (!ownsSingleInstanceLock) {
     }
     const scoutNameOf = async (teammateId: string | undefined): Promise<string | undefined> =>
       teammateId === undefined ? undefined : (await teammates.list().catch(() => [])).find((mate) => mate.teammateId === teammateId)?.name
+    const readComments = createCommentReader(scoutGh)
     const keptScout = createScout({
+      comments: async (watch, team, at) => workspaceChosen ? readComments(workspacePath, watch, team, at) : { watch, facts: [] },
+      lastTeammate: async () => {
+        const owners = await teammates.missionOwners()
+        const files = await missionLedger.missionFiles?.()
+        for (const file of [...(files?.files ?? [])].sort((a, b) => b.modifiedAt - a.modifiedAt)) {
+          if (owners[file.missionId] === undefined) continue
+          const mission = await missionLedger.getMission(file.missionId).catch(() => undefined)
+          if (mission?.metadata.workspaceId === memoryWorkspaceId) return owners[file.missionId]
+        }
+        return undefined
+      },
+      postComment: async (repository, number, text) => {
+        if (!workspaceChosen) throw new Error(NO_WORKSPACE_MESSAGE)
+        return postComment((args, cwd, input) => new Promise((resolve, reject) => {
+          const child = execFile('gh', [...args], { cwd, windowsHide: true, timeout: 30_000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1' } }, (error, stdout) => error ? reject(error) : resolve(String(stdout)))
+          child.stdin?.on('error', () => { /* execFile reports failure */ })
+          child.stdin?.end(input)
+        }), workspacePath, repository, number, text)
+      },
+      commentAnswer: async (missionId) => {
+        const recorded = await missionLedger.getMission(missionId).catch(() => undefined)
+        if (recorded === undefined || !['completed', 'failed', 'cancelled'].includes(recorded.phase)) return undefined
+        const tracker = createTranscriptTracker()
+        tracker.track(recorded.events)
+        if (recorded.phase === 'completed' && tracker.latestFinal?.trim()) return { text: tracker.latestFinal }
+        const failed = [...recorded.events].reverse().find((event) => event.type === 'run.failed')
+        return { failed: failed?.type === 'run.failed' ? failed.payload.message : recorded.hostFailures.at(-1)?.message ?? 'The turn ended without an answer.' }
+      },
       file: join(app.getPath('userData'), 'scout.json'),
       github: async () => (workspaceChosen ? readScoutGithub(workspacePath, scoutGh) : undefined),
       waiting: async () => Promise.all(raisedApprovals.waiting().map(async ({ request, teammateId }) => {
@@ -8096,6 +8126,8 @@ if (!ownsSingleInstanceLock) {
     })
     ipcMain.handle(SCOUT_SET, (event, change: unknown) => (fromOwnWindow(event) ? keptScout.set(change) : keptScout.state()))
     ipcMain.handle(SCOUT_DISMISS, (event, cardId: unknown, how: unknown) => (fromOwnWindow(event) ? keptScout.dismiss(cardId, how) : keptScout.state()))
+    ipcMain.handle(SCOUT_POST, (event, cardId: unknown) => fromOwnWindow(event) ? keptScout.post(cardId) : keptScout.state())
+    ipcMain.handle(SCOUT_EDIT_POST, (event, cardId: unknown, text: unknown) => fromOwnWindow(event) ? keptScout.editPost(cardId, text) : keptScout.state())
     ipcMain.handle(SCOUT_LOOK, (event) => (fromOwnWindow(event) ? keptScout.look() : keptScout.state()))
     ipcMain.handle(SCOUT_NOTES, (event, text: unknown) => (fromOwnWindow(event) ? keptScout.saveNotes(text) : keptScout.state()))
     ipcMain.handle(SCOUT_TUNE, (event, cardId: unknown) => (fromOwnWindow(event) ? keptScout.tune(cardId) : keptScout.state()))
@@ -9497,6 +9529,8 @@ if (!ownsSingleInstanceLock) {
         const cloud = typeof request === 'object' && request !== null && (request as { readonly cloud?: unknown }).cloud === true
         if (response.ok && !cloud) rememberSentByPerson(response.data.missionId)
         if (response.ok) {
+          const source = request as { scoutCardId?: unknown; teammateId?: unknown }
+          if (typeof source.scoutCardId === 'string') await keptScout.sentComment(source.scoutCardId, response.data.missionId, typeof source.teammateId === 'string' ? source.teammateId : undefined)
           const issue = startedIssue((request as { issue?: unknown }).issue)
           const follow = (request as { followUpOf?: unknown }).followUpOf
           if (issue !== undefined) await githubIssues.remember(response.data.missionId, issue).catch(() => undefined)

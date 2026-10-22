@@ -35,6 +35,10 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, onT
   readonly onTune?: (cardId: string) => void
   readonly cardRef?: Ref<HTMLElement>
 }): ReactElement {
+  const [editing, setEditing] = useState(false)
+  const [postText, setPostText] = useState(card.post?.message ?? '')
+  const [posting, setPosting] = useState(false)
+  const [postError, setPostError] = useState<string>()
   const needsYou = card.urgency === 'now'
   const brief = card.key.startsWith('brief:')
   const week = card.key.startsWith('week:')
@@ -59,7 +63,23 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, onT
       <p className="lc-scoutcard__draftlabel lc-mono">{`Drafted for ${card.draft.name}`}</p>
       <p className="lc-scoutcard__drafttext">{card.draft.message}</p>
     </div>}
+    {card.post !== undefined && <div className="lc-scoutcard__draft">
+      {editing ? <><textarea aria-label="Comment to post" value={postText} onChange={(event) => { setPostText(event.target.value) }} />
+        <button type="button" className="lc-control lc-control--boxed" onClick={() => {
+          void window.desktop?.scout?.editPost(card.cardId, postText).then(() => { setEditing(false) }).catch(() => { setPostError('The edit could not be saved. Your comment has not been posted.') })
+        }}>Keep this text</button></> : <p className="lc-scoutcard__drafttext">{card.post.message}</p>}
+      {card.post.postedUrl !== undefined && <><p>Posted on GitHub.</p><button type="button" className="lc-control lc-control--boxed" onClick={() => { onOpen({ kind: 'url', url: card.post!.postedUrl!, label: 'Open the comment' }) }}>Open the comment</button></>}
+      {card.post.failed !== undefined && <p>{card.post.failed}</p>}
+      {postError !== undefined && <p>{postError}</p>}
+    </div>}
     <div className="lc-scoutcard__acts">
+      {card.post !== undefined && !card.post.attempted && !editing && <>
+        <button type="button" className="lc-primarybutton" disabled={posting} onClick={() => {
+          setPosting(true)
+          void window.desktop?.scout?.post(card.cardId).catch(() => { setPostError('Posting could not be confirmed. Check GitHub before posting again.') }).finally(() => { setPosting(false) })
+        }}>{posting ? 'Posting...' : `Post it on #${String(card.post.number)}`}</button>
+        <button type="button" className="lc-control lc-control--boxed" onClick={() => { setPostText(card.post!.message); setEditing(true) }}>Change it first</button>
+      </>}
       {card.draft !== undefined && <button type="button" className="lc-primarybutton" onClick={() => { onSend(card.draft!, card.cardId) }}>{`Send to ${card.draft.name}`}</button>}
       {card.draft !== undefined && <button type="button" className="lc-control lc-control--boxed" onClick={() => { onDraftIntoBox(card.draft!, card.cardId) }}>Change it first</button>}
       {card.open !== undefined && <button type="button" className={card.draft === undefined && needsYou ? 'lc-primarybutton' : 'lc-control lc-control--boxed'} onClick={() => { onOpen(card.open!) }}>{card.open.label}</button>}

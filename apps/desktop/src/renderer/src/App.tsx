@@ -5460,11 +5460,16 @@ export default function App(): ReactElement {
     setCommandEntries(next)
     return promptWithCommands(prompt, pending)
   }
+  const scoutComposerCard = useRef<{ cardId: string; teammateId: string; folder: string | undefined } | undefined>(undefined)
+  useEffect(() => {
+    if (scoutComposerCard.current !== undefined && (scoutComposerCard.current.teammateId !== pickedTeammate?.teammateId || scoutComposerCard.current.folder !== workspacePath)) scoutComposerCard.current = undefined
+  }, [pickedTeammate?.teammateId, workspacePath])
   const startMission = async (
     prompt: string,
     modeOverride?: MissionMode,
     /** Sent from the queue: refused as busy, it goes back in line (retriedAfterBusy). */
     options?: {
+      readonly scoutCardId?: string
       readonly requeue?: QueuedRow
       /**
        * Started FOR a teammate who is not on screen yet -- a review, a tidy
@@ -5496,6 +5501,7 @@ export default function App(): ReactElement {
     const previousKey = shownKey
     const bridge = window.desktop
     const teammateId = as?.teammateId ?? pickedTeammate?.teammateId
+    const scoutCardId = options?.scoutCardId ?? (options?.fromComposer && scoutComposerCard.current?.teammateId === teammateId && scoutComposerCard.current?.folder === workspacePath ? scoutComposerCard.current?.cardId : undefined)
     // No folder, no run. The main process refuses this too; saying it here
     // keeps a refused start from being filed as a failed mission.
     if (workspacePath === undefined && build !== undefined) {
@@ -5599,6 +5605,7 @@ export default function App(): ReactElement {
     try {
       const response = await bridge.startCodexMission({
         prompt,
+        ...(scoutCardId === undefined ? {} : { scoutCardId }),
         // The mode the composer SHOWS, which is not always the mode last
         // chosen: a mode the route cannot run is not one a mission can start
         // in, and sending it anyway is how every message came back refused.
@@ -5630,6 +5637,7 @@ export default function App(): ReactElement {
         ...(issue === undefined ? {} : { issue }),
         ...(rewind === undefined ? {} : { ...(rewind.before === undefined ? {} : { followUpOf: rewind.before }), rewind: { tip: rewind.tip, ...(rewind.setAside === undefined ? {} : { setAside: rewind.setAside }) } })
       })
+      if (response.ok && options?.fromComposer) scoutComposerCard.current = undefined
       if (!response.ok) {
         /*
          * "Already running" is NOT A FAILURE, and must not eat the message.
@@ -5672,6 +5680,10 @@ export default function App(): ReactElement {
           // and this one would go out at the END of the conversation instead of where it was edited.
           if (rewind !== undefined) {
             startRefusal.current = 'Not sent: this conversation is still answering. Your edited message is still in the box -- send it once it finishes.'
+            return false
+          }
+          if (scoutCardId !== undefined) {
+            startRefusal.current = `Not sent: ${response.error.message} Your ask is still on Scout's card.`
             return false
           }
           if (inFront !== undefined) {
@@ -7523,15 +7535,17 @@ export default function App(): ReactElement {
     if (teammate === undefined) return
     selectTeammate(teammate.teammateId)
     // As THEM, whole (H9), on their own route and mode: a new conversation of theirs.
-    void startMission(draft.message, undefined, { as: startAs(teammate, { route, mode, effort }, pickerRoutes) })
+    const commentAsk = scout?.cards.find((card) => card.cardId === cardId)?.commentAsk
+    void startMission(draft.message, undefined, { ...(commentAsk === undefined ? {} : { scoutCardId: cardId }), as: startAs(teammate, { route, mode, effort }, pickerRoutes) }).then((sent) => { if (!sent && commentAsk !== undefined) setScoutMessage(startRefusal.current ?? 'The turn did not start. Your ask is still on its card.') })
     // What was done with it counts toward Scout's weekly tune-up (0.817).
-    void window.desktop?.scout?.dismiss(cardId, 'sent').catch(() => undefined)
+    if (commentAsk === undefined) void window.desktop?.scout?.dismiss(cardId, 'sent').catch(() => undefined)
   }
   const draftScoutIntoBox = (draft: ScoutDraft, cardId: string): void => {
     if (!teammates.some((one) => one.teammateId === draft.teammateId)) return
     selectTeammate(draft.teammateId)
     setComposerFill((current) => ({ text: draft.message, seq: (current?.seq ?? 0) + 1 }))
-    void window.desktop?.scout?.dismiss(cardId, 'changed').catch(() => undefined)
+    if (scout?.cards.find((card) => card.cardId === cardId)?.commentAsk) scoutComposerCard.current = { cardId, teammateId: draft.teammateId, folder: workspacePath }
+    else void window.desktop?.scout?.dismiss(cardId, 'changed').catch(() => undefined)
   }
   const openTidyMenu = (anchor: HTMLElement): void => {
     if (rowMenu?.anchor === anchor) {
