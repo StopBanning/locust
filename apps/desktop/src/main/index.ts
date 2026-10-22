@@ -225,6 +225,7 @@ import { boardLines, fittedTaskSection, rowToClaimAtStart } from '../shared/room
 import { ROOM_HISTORY_POSTS } from '../shared/room-history.js'
 import type { RoomHistory, RoomHistoryAnswer } from '../shared/room-history.js'
 import { createRoutineRunner } from './routine-runner.js'
+import { projectNamedIn } from './named-folder.js'
 import { createMemoryStore } from './memory-store.js'
 import { WorktreeHasChangesError, createWorktreeManager, defaultRunGit } from './worktrees.js'
 import { readRuntimeSetup } from './runtime-setup.js'
@@ -9436,6 +9437,23 @@ if (!ownsSingleInstanceLock) {
        * reply, an edited message or a cloud turn is not asked: the conversation has its folder, or works in none here.
        */
       const fresh = typeof request === 'object' && request !== null && !('followUpOf' in request) && !('rewind' in request) && (request as { readonly cloud?: unknown }).cloud !== true
+      /*
+       * A MESSAGE THAT NAMES ITS PROJECT STARTS THERE (0.814, named-folder.ts). A new conversation from a folder like
+       * .claude, or from one checkout, whose message names a file inside a project -- another worktree of the same
+       * repository, say -- moves the window to that project first, as the folder menu would, so a handoff pasted
+       * anywhere works where its brief is. The conversation says where it went.
+       */
+      const prompt = fresh ? (request as { readonly prompt?: unknown }).prompt : undefined
+      const named = typeof prompt === 'string' && workspaceChosen
+        ? projectNamedIn(prompt, {
+          current: workspacePath,
+          isNoProject: (folder) => folderCaution(folder) !== undefined || isInstallFolder(folder),
+          same: (one, other) => sameFolder(one, other, process.platform)
+        })
+        : undefined
+      const before = workspacePath
+      const movedFrom = basename(before) || before
+      const movedTo = named === undefined ? undefined : await switchFolder(named).catch(() => undefined)
       const why = fresh && workspaceChosen && !folderConfirmed(workspacePath) ? folderCaution(workspacePath) : undefined
       if (why !== undefined) {
         return { ok: false, error: { code: 'FOLDER_NOT_CONFIRMED', message: `Not started: this is ${why}.`, folderCaution: why } } as const
@@ -9453,6 +9471,20 @@ if (!ownsSingleInstanceLock) {
           if (issue !== undefined) await githubIssues.remember(response.data.missionId, issue).catch(() => undefined)
           else if (typeof follow === 'string') await githubIssues.copy(follow, response.data.missionId).catch(() => undefined)
         }
+        if (response.ok && movedTo !== undefined) {
+          if (!owner.isDestroyed() && !owner.webContents.isDestroyed()) {
+            owner.webContents.send(CODEX_MISSION_UPDATE_CHANNEL, {
+              kind: 'relay-notice',
+              runId: response.data.runId,
+              missionId: response.data.missionId,
+              message: `Working in ${movedTo.name}, the project your message names, instead of ${movedFrom}.`,
+              level: 'info'
+            })
+          }
+          return { ...response, data: { ...response.data, movedToFolder: { path: movedTo.path, name: movedTo.name } } }
+        }
+        // Nothing started, so nothing moved: the window goes back to the folder it was in, words and all.
+        if (!response.ok && movedTo !== undefined) await switchFolder(before).catch(() => undefined)
         return response
       })
     })

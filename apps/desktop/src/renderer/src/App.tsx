@@ -5777,6 +5777,8 @@ export default function App(): ReactElement {
       }
 
       const runId = response.data.runId
+      // Its message named a project and the window moved there (0.814, main/named-folder.ts): the folder is read again.
+      if (response.data.movedToFolder !== undefined) refreshForFolder()
       // The conversation this starts (or continues) keeps the setup it was sent with (0.552).
       // A turn sent with Cloud keeps Cloud on for the conversation's next turn (0.761).
       chatSetups.current.set(response.data.missionId, { mode: modeOverride ?? runMode, effort: runEffort, ...(options?.cloud === true ? { kind: { compare: false, blind: false, cloud: route.runtime === 'opencode', computer: route.runtime !== 'opencode' } } : {}) })

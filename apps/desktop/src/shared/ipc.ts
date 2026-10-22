@@ -3143,6 +3143,11 @@ export interface CodexMissionStartData extends MissionRouteSummary {
     /** Sections the person chose to leave out (0.527). */
     readonly leftOutByYou?: readonly string[]
   }
+  /**
+   * The project this new conversation moved the window to (0.814, main/named-folder.ts): its message named a file
+   * inside it, from a folder like .claude or another checkout of the same repository.
+   */
+  readonly movedToFolder?: { readonly path: string; readonly name: string }
   /** Workroom messages quoted into this mission's prompt, oldest first. */
   readonly peerMessages: readonly PublicPeerMessage[]
   /**
