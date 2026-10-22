@@ -1122,6 +1122,22 @@ describe("OpenCode and Copilot CLI commands", () => {
     expect(spec.env).toEqual({ OPENCODE_CONFIG_CONTENT: withoutOpenCodeQuestionTool(OPENCODE_READ_ONLY_CONFIG), OPENCODE_PURE: "1" });
     expect(JSON.parse(OPENCODE_READ_ONLY_CONFIG)).toEqual({
       permission: {
+        // Every tool the rules below do not name asks, and is refused (0.821): measured 2026-10-22, a `save_note`
+        // tool from an MCP server in the person's own global config ran without asking and wrote note.txt.
+        "*": "ask",
+        // The reading tools are allowed after it, by name. A `.env` file is not read.
+        read: { "*": "allow", "*.env": "deny", "*.env.*": "deny", "*.env.example": "allow" },
+        glob: "allow",
+        grep: "allow",
+        list: "allow",
+        lsp: "allow",
+        task: "allow",
+        todowrite: "allow",
+        todoread: "allow",
+        skill: "allow",
+        webfetch: "allow",
+        websearch: "allow",
+        codesearch: "allow",
         edit: "deny",
         write: "deny",
         // "ask", not "deny". Bisected on the free model 2026-09-18: a run
@@ -1145,6 +1161,8 @@ describe("OpenCode and Copilot CLI commands", () => {
       // (A6.1): measured, `git status` refused, the file read instead, exit 0.
       experimental: { continue_loop_on_deny: true },
     });
+    // The catch-all comes FIRST: OpenCode's last matching rule wins, so after the allows it would refuse reading too.
+    expect(Object.keys(JSON.parse(OPENCODE_READ_ONLY_CONFIG).permission)[0]).toBe("*");
   });
 
   it("gives a run with no shell Locust's git tool, and only such a run", () => {
@@ -1231,6 +1249,8 @@ describe("OpenCode and Copilot CLI commands", () => {
     expect(JSON.parse(readOnly.env?.OPENCODE_CONFIG_CONTENT ?? "{}")).toEqual({
       tools: { question: false },
       permission: {
+        // The same catch-all and reading tools as the plain read-only run (0.821); the drift guard below compares them.
+        ...Object.fromEntries(Object.entries(JSON.parse(OPENCODE_READ_ONLY_CONFIG).permission as Record<string, unknown>).filter(([rule]) => rule !== "external_directory")),
         edit: "deny",
         write: "deny",
         /*
@@ -1275,10 +1295,12 @@ describe("OpenCode and Copilot CLI commands", () => {
     const inWorktree = JSON.parse(readOnly.env?.OPENCODE_CONFIG_CONTENT ?? "{}") as {
       permission: Record<string, unknown>;
     };
-    for (const rule of ["edit", "write", "bash", "patch"]) {
+    for (const rule of Object.keys(plain.permission).filter((rule) => rule !== "external_directory")) {
       expect(inWorktree.permission[rule], `${rule} differs between a plain read-only run and a worktree one`)
         .toEqual(plain.permission[rule]);
     }
+    expect(["edit", "write", "bash", "patch", "*"].every((rule) => rule in plain.permission)).toBe(true);
+    expect(Object.keys(inWorktree.permission)[0], "the worktree run's catch-all comes first too").toBe("*");
 
     // And a run in the folder itself asks for nothing extra -- the negative
     // control, without which every assertion above passes on a builder that

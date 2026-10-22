@@ -44,6 +44,13 @@ export function openCode2Launch(executable: ExecutableLaunch, options: {
   }
   const permissions: Rule[] = [{ action: '*', resource: '*', effect: options.approveEach ? 'ask' : 'allow' }]
   for (const [key, value] of Object.entries(config.permission)) {
+    /*
+     * V1's own catch-all is not V2's (0.821). V1 asks about every tool its rules do not name, so a person's MCP
+     * tool is refused in Ask, and allows its reading tools after it by V1's names. V2's names for those were never
+     * measured -- V2 is not installed on the machine this was written on -- and a catch-all "ask" there could refuse
+     * V2's own reads in Ask. V2 keeps the catch-all above, as before.
+     */
+    if (key === '*') continue
     const action = key === 'bash' ? 'shell' : key === 'write' || key === 'patch' ? 'edit' : key === 'task' ? 'subagent' : key
     if (typeof value === 'string') permissions.push({ action, resource: '*', effect: value })
     else {

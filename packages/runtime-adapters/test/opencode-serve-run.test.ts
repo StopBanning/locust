@@ -215,10 +215,32 @@ describe("OpenCode through its own server (A6.7)", () => {
 
   it("asks for every action in its config, and never announces itself on the network", () => {
     const command = createOpenCodeServeCommand(EXECUTABLE, { workspacePath: "C:/work/pebble" });
-    expect(JSON.parse(command.env?.OPENCODE_CONFIG_CONTENT ?? "{}")).toEqual({
+    const config = JSON.parse(command.env?.OPENCODE_CONFIG_CONTENT ?? "{}");
+    expect(config).toEqual({
       tools: { question: false },
-      permission: { edit: "ask", bash: "ask", webfetch: "ask", external_directory: "ask" },
+      permission: {
+        // Every tool it does not name asks too (0.821): a person's own MCP tool used to run with no card.
+        "*": "ask",
+        // Reading is never a card; a `.env` file is the person's to open.
+        read: { "*": "allow", "*.env": "ask", "*.env.*": "ask", "*.env.example": "allow" },
+        glob: "allow",
+        grep: "allow",
+        list: "allow",
+        lsp: "allow",
+        task: "allow",
+        todowrite: "allow",
+        todoread: "allow",
+        skill: "allow",
+        edit: "ask",
+        bash: "ask",
+        webfetch: "ask",
+        websearch: "ask",
+        codesearch: "ask",
+        external_directory: "ask",
+      },
     });
+    // First, or OpenCode's last-match rule would make it outrank the reading tools after it.
+    expect(Object.keys(config.permission)[0]).toBe("*");
     expect(command.args).not.toContain("--mdns");
   });
 

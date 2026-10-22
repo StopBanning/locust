@@ -39,6 +39,17 @@ describe('an OpenCode 2 mode has native permission rules', () => {
     expect(rules).not.toContainEqual(expect.objectContaining({ action: 'bash' }))
   })
 
+  it('keeps its own catch-all, never V1\'s (0.821)', () => {
+    // V1 now asks about every tool its rules do not name and allows its reading tools after, by V1's names. V2's names
+    // for those were never measured, so V1's catch-all is not carried over: one catch-all, V2's own, first.
+    for (const [sandbox, approveEach] of [['read-only', false], ['workspace-write', true], ['workspace-write', false], ['full-access', false]] as const) {
+      const rules = config(sandbox, approveEach).agents.locust.permissions as Array<{ action: string; resource: string; effect: string }>
+      expect(rules.filter((rule) => rule.action === '*' && rule.resource === '*'), `${sandbox}${approveEach ? ', approve each' : ''}`).toHaveLength(1)
+      expect(rules[0]?.action).toBe('*')
+    }
+    expect(config('read-only').agents.locust.permissions[0]).toEqual({ action: '*', resource: '*', effect: 'allow' })
+  })
+
   it('keeps Approve each asking and makes Auto explicit without silently widening Accept edits', () => {
     const asking = config('workspace-write', true).agents.locust.permissions
     expect(asking[0]).toEqual({ action: '*', resource: '*', effect: 'ask' })

@@ -1462,8 +1462,45 @@ const OPENCODE_KEEP_GOING = { continue_loop_on_deny: true } as const
  * So the shell refuses everything again ("ask" is a refusal in an unattended
  * run), and git reaches the model through Locust's own git tool, which runs git
  * itself with no shell (withOpenCodeGitReads).
+ *
+ * EVERY TOOL THESE RULES DO NOT NAME ASKS (0.821). They named the tools that
+ * write and left the rest to OpenCode's default, which allows a tool it is not
+ * told about -- and a person's own MCP servers load in every run (OPENCODE_PURE
+ * drops plugins, not MCP servers), each tool named only by its server. MEASURED
+ * 2026-10-22, OpenCode 1.18.27 on deepseek-v4.1-flash-free, this config: a
+ * `save_note` tool from an MCP server in the person's own global config ran
+ * without asking and wrote note.txt into the folder. So `"*": "ask"` comes
+ * first -- OpenCode's last matching rule wins -- and the tools that only read
+ * are allowed after it by name (OPENCODE_READING_TOOLS). The same probe, one
+ * run per case: the MCP tool "auto-rejecting" and no file written; read, glob,
+ * grep, todowrite and a task subagent's read completed; a `.env` refused.
+ * Locust's own tools are allowed where they are added (locust_git,
+ * locust_browser), after this.
  */
+/** A `.env` file is never read where nothing may be asked, and asked about where something may. */
+const openCodeRead = (secrets: "ask" | "deny") => ({ "*": "allow", "*.env": secrets, "*.env.*": secrets, "*.env.example": "allow" }) as const;
+/**
+ * The tools that only read, by OpenCode's own names (its config schema's PermissionConfig, plus 1.18's todoread and
+ * codesearch): files, symbols, the run's to-do list, a subagent -- which keeps these same rules -- and a skill.
+ */
+const OPENCODE_READING_TOOLS = {
+  glob: "allow",
+  grep: "allow",
+  list: "allow",
+  lsp: "allow",
+  task: "allow",
+  todowrite: "allow",
+  todoread: "allow",
+  skill: "allow",
+} as const;
 const OPENCODE_READ_ONLY_PERMISSIONS = {
+  "*": "ask",
+  read: openCodeRead("deny"),
+  ...OPENCODE_READING_TOOLS,
+  // The web's reads stay what they were in this mode, allowed: they change nothing.
+  webfetch: "allow",
+  websearch: "allow",
+  codesearch: "allow",
   edit: "deny",
   write: "deny",
   bash: "ask",
@@ -2090,9 +2127,16 @@ export function createOpenCodeServeCommand(
   }
   const config = JSON.stringify({
     permission: {
+      // Every tool not named here asks too (0.821): a person's own MCP tool ran with no card, as it did in Ask
+      // (OPENCODE_READ_ONLY_PERMISSIONS). Reading is never a card; a `.env` file is.
+      "*": "ask",
+      read: openCodeRead("ask"),
+      ...OPENCODE_READING_TOOLS,
       edit: "ask",
       bash: "ask",
       webfetch: "ask",
+      websearch: "ask",
+      codesearch: "ask",
       external_directory: options.repositoryRoot === undefined
         ? "ask"
         : { [gitDirPattern(options.repositoryRoot)]: "allow", "*": "ask" },

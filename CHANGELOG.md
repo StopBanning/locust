@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.821.0 - 2026-10-22
+
+### Fixed
+
+- **Ask and Plan on OpenCode run none of your own MCP tools.** OpenCode allows any tool it is not told about, so a tool from an MCP server in your own OpenCode settings ran in Ask and Plan without asking: measured, one that saves a note wrote its file into the folder. In these modes OpenCode now refuses every tool except the ones that read (files, searches, a to-do list, a subagent that keeps the same rules, a skill), the web's reads, and Locust's own git tool and browser, which asks before a login, payment or send. In Approve each, your own MCP tools ask on a card like everything else that acts. A `.env` file is not read in Ask or Plan, and asks first in Approve each.
+
 ## 0.820.0 - 2026-10-22
 
 ### Improved
