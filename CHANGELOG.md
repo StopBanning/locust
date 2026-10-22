@@ -11,6 +11,28 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.816.0 - 2026-10-22
+
+### New
+
+- **Scout brings a morning brief.** Pick an hour from 6 to 10 AM under Morning brief in Settings > General, and the first look from that hour on leaves one card on Home: who is waiting on you, what finished or failed since yesterday, and how this folder's check stands. Once a day, and never in quiet hours.
+- **Scout keeps notes you can read.** When a look learns something worth keeping, such as who owns the Mac build, Scout adds a dated line to its notes and reads them on every look. They are plain lines in Settings > General: change or clear them there, and the next look reads what you kept.
+- **An issue link shows its state.** A GitHub issue link in a conversation now has a chip beside it, as a pull request link does: Open in green, Closed in purple, Not planned in grey, with the issue's title on hover. It is read through the GitHub CLI you signed in, only while the link is on screen.
+- **Everything waiting on you is on the Board.** A Scout card that needs you now, and a routine waiting for you to keep or discard its work, now count in the title bar's "needs you" and sit in the Board's Needs you column, each with its own buttons.
+
+### Improved
+
+- **Your own OpenCode skill paths keep working.** An OpenCode teammate that Locust gave skills to lost the `skills.paths` in your own OpenCode settings for that turn. It now keeps the ones OpenCode itself would use, beside its own. If your OpenCode settings file can't be read, the message names the file.
+- **OpenCode can read a skill's own files.** In Ask and Edit, an OpenCode teammate could read a skill but not the files beside it, such as its references. It can now, in that turn's copy of the skill only.
+- **/setup counts the skills your agents really find.** Linked and nested skill folders now count, and so do the project's skill folders up to its repository. The line reads "19 skills in your skill folders, read by OpenCode itself".
+- **Picking a folder like .claude asks in the window.** Choosing one in the folder picker no longer brings up a Windows dialog. Your first message there asks in the window instead, as a new conversation in such a folder already did.
+
+### Fixed
+
+- **A skill that does not copy whole is left out whole.** A skill that could only be partly copied for a turn reached it half there. Now a turn gets all of it or none of it, and the rest still load.
+- **Two skills with one name reach a turn once.** Names are compared as the disk compares them, so on Windows "Review" and "review" are one skill, and the one /tune is trying out wins.
+- **A turn that fails to start leaves no copy of its skills behind.**
+
 ## 0.815.0 - 2026-10-22
 
 ### New
