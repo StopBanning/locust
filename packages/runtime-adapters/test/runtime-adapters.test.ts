@@ -745,7 +745,7 @@ describe("Cursor Agent and Gemini CLI commands", () => {
     // wherever Cursor can run one: macOS and Linux, never Windows.
     const withSandbox = process.platform === "darwin" || process.platform === "linux";
     expect(spec.args).toEqual([
-      "--print", "--output-format", "stream-json", "--stream-partial-output", "--trust", "--approve-mcps", "--workspace", workspacePath, "--mode", "ask",
+      "--print", "--output-format", "stream-json", "--stream-partial-output", "--trust", "--workspace", workspacePath, "--mode", "ask",
       ...(withSandbox ? ["--sandbox", "enabled"] : []),
     ]);
     expect(spec.args).not.toContain("plan");
@@ -755,7 +755,7 @@ describe("Cursor Agent and Gemini CLI commands", () => {
     expect(spec.oversizedStandIns).toBe(true);
   });
 
-  it("approves the connectors the person already configured, because nobody is here to be asked", () => {
+  it("approves the connectors the person already configured, because nobody is here to be asked -- outside Ask and Plan", () => {
     /*
      * A headless run cannot answer Cursor's MCP approval prompt, so without
      * this the prompt resolves to "no" and every connector call fails.
@@ -764,12 +764,14 @@ describe("Cursor Agent and Gemini CLI commands", () => {
      * auth failure, which is why the same connector worked in Cursor's own
      * app and not here.
      *
-     * It rides with `--trust` on EVERY mode, read-only included: approving
-     * a connector is not permission to change anything, and a plan-mode run
-     * that cannot read the thing it is planning about is no safer, only
-     * less useful.
+     * Not in Ask or Plan (0.823). MEASURED 2026-10-22: with it, an Ask run
+     * told to use no tool still started the command a folder's own
+     * `.cursor/mcp.json` names; without it that server never started, and
+     * the servers the person set up in Cursor still loaded.
      */
-    for (const sandbox of ["read-only", "workspace-write", "full-access"] as const) {
+    expect(createCursorPrintCommand(nativeExecutable, { workspacePath, sandbox: "read-only" }).args).not.toContain("--approve-mcps");
+    expect(createCursorPrintCommand(nativeExecutable, { workspacePath }).args).not.toContain("--approve-mcps");
+    for (const sandbox of ["workspace-write", "full-access"] as const) {
       expect(createCursorPrintCommand(nativeExecutable, { workspacePath, sandbox }).args).toContain("--approve-mcps");
     }
   });

@@ -1132,6 +1132,7 @@ export function createCursorPrintCommand(
   executable: ExecutableLaunch,
   options: RuntimeCommandOptions,
 ): RuntimeCommandSpec {
+  const readOnly = sandboxArgument(options.sandbox) === "read-only";
   const args = [
     "--print",
     "--output-format",
@@ -1142,7 +1143,19 @@ export function createCursorPrintCommand(
     // host chose this workspace, so trusting it for this run is the truth.
     "--trust",
     /*
-     * The same shape as `--trust` above it, and missed for the same reason.
+     * NEVER IN ASK OR PLAN (0.823). MEASURED 2026-10-22, Cursor Agent
+     * 2026.10.19, a throwaway project whose own `.cursor/mcp.json` names a
+     * server: with this flag an Ask run told to use no tool still STARTED that
+     * server's command -- whatever a cloned folder names runs, in the mode
+     * that promises to change nothing. Without it the server never started,
+     * and a run that had the flag first did not leave it approved for the
+     * next. The servers the person set up in Cursor themselves still load
+     * without it (Colin's robinhood and gmail ones did). And Cursor's ask mode
+     * refused a server's tool even when it was marked read-only -- unless an
+     * allow list named it, and the person's own list is theirs to keep.
+     *
+     * Elsewhere, as before. The same shape as `--trust` above it, and missed
+     * for the same reason.
      *
      * A connector in `~/.cursor/mcp.json` is approved by ANSWERING A PROMPT,
      * and a headless run has nobody to answer it -- so the prompt resolves
@@ -1165,11 +1178,11 @@ export function createCursorPrintCommand(
      * credential -- what a teammate can reach here is exactly what its CLI
      * was already set up to reach.
      */
-    "--approve-mcps",
+    ...(readOnly ? [] : ["--approve-mcps"]),
     "--workspace",
     options.workspacePath,
   ];
-  if (sandboxArgument(options.sandbox) === "read-only") {
+  if (readOnly) {
     // Ask mode, not plan mode: plan mode wrote files when pushed, ask mode
     // refused every write it was pushed to make (cursorCanEnforceReadOnly).
     // The sandbox as well wherever it runs.

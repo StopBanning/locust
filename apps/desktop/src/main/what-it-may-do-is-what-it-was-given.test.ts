@@ -162,6 +162,11 @@ describe('what the panel says a run may do', () => {
     ])
     expect(createCursorPrintCommand(launch('cursor'), options('full-access')).args).toContain('--force')
     expect(said('cursor', 'full-access')).toEqual(expect.arrayContaining(['allow run any command your account can run, and reach any network', 'allow search the web and open web pages']))
+    // 0.823: Ask and Plan leave out `--approve-mcps`, so a folder's own `.cursor/mcp.json` server is never started.
+    expect(createCursorPrintCommand(launch('cursor'), options('read-only')).args).not.toContain('--approve-mcps')
+    expect(said('cursor', 'read-only')).toContain('deny starting the MCP servers this folder names')
+    expect(createCursorPrintCommand(launch('cursor'), options('workspace-write')).args).toContain('--approve-mcps')
+    expect(said('cursor', 'workspace-write').join('\n')).not.toMatch(/MCP/)
   })
 
   it('the web, runtime by runtime, as measured on 2026-10-09 (probe-web-search-each-runtime)', () => {

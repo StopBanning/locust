@@ -80,7 +80,7 @@ export const WHAT_LOCUST_CAN_STOP: readonly StopRow[] = [
     runtime: 'cursor',
     reach: 'nothing',
     asks: 'Nothing: Cursor’s command line has no way to stop and ask Locust.',
-    without: 'In Ask and Plan, Cursor’s own read-only mode. In Edit, changes in this folder, and commands as Cursor’s own settings allow. In Auto, everything.'
+    without: 'In Ask and Plan, Cursor’s own read-only mode, with no MCP server started that a folder brings; your own MCP tools run only where your Cursor settings already allow them. In Edit, changes in this folder, and commands as Cursor’s own settings allow. In Auto, everything.'
   },
   {
     runtime: 'antigravity',

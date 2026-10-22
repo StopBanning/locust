@@ -52,7 +52,7 @@ Locust can stop a run only where its AI agent asks first. Where it asks, a card 
 
 **Asks first.** Nothing: Cursor’s command line has no way to stop and ask Locust.
 
-**Without asking.** In Ask and Plan, Cursor’s own read-only mode. In Edit, changes in this folder, and commands as Cursor’s own settings allow. In Auto, everything.
+**Without asking.** In Ask and Plan, Cursor’s own read-only mode, with no MCP server started that a folder brings; your own MCP tools run only where your Cursor settings already allow them. In Edit, changes in this folder, and commands as Cursor’s own settings allow. In Auto, everything.
 
 ## Antigravity
 

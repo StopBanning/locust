@@ -166,6 +166,9 @@ export function whatItMayDo(runtime: MissionRuntimeId, sandbox: MissionSandbox, 
       // (probe-web-search-each-runtime): a `WebFetch(*)` rule in the folder's
       // `.cursor/cli.json` did not change that; only `--force` or the
       // person's own global `autoAcceptWebSearch` would.
+      // Read-only also leaves out `--approve-mcps` (0.823), so a server the
+      // folder's own `.cursor/mcp.json` names is never started.
+      if (sandbox === 'read-only') return rows(webOnlyInAuto(runtime), { verdict: 'deny', text: 'starting the MCP servers this folder names' })
       return sandbox === 'full-access' ? rows(ANY_COMMAND, THE_WEB) : rows(webOnlyInAuto(runtime))
     case 'antigravity':
       // Through its CLI (0.540, measured): read-only refuses writes and
