@@ -71,7 +71,8 @@ describe('a routine that keeps going until its check passes', () => {
     expect(started[1]!.prompt).toBe(goalFixPrompt(failing, 1, 3))
     expect(started[1]!.prompt).toContain('expected 6, got 0')
     expect(held.get('rt_tests')?.execution?.goalTry).toBe(1)
-    expect(notices.at(-1)).toBe('Routine "Green tests": the check `npm test` failed, so Wren is fixing it (fix 1 of 3).')
+    // The fix is said by its own line in the thread, never again as a notice (0.814).
+    expect(notices.filter((said) => said.includes('fix 1 of 3'))).toEqual([])
     await runner.onRunEnded({ missionId: 'mission_2' })
     expect(recorded).toEqual(['rt_tests'])
     expect(notices.at(-1)).toBe('Routine "Green tests" finished: the check `npm test` passed after 1 fix.')

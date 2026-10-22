@@ -794,8 +794,9 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
             return
           }
           await options.assignOwner(peer.self.teammateId, response.data.missionId).catch(() => undefined)
-          const started = announce(plan, peer, progress.of, response, fixPrompt)
-          notice(started, `Routine "${progress.name}": the check \`${checked.command}\` failed, so ${peer.self.name} is fixing it (fix ${String(fixes + 1)} of ${String(allowed)}).`, 'info')
+          // Said once, by the fix turn's own line ("failed, so Locust sent it back", kept with the turn), not again as
+          // a notice that a reopened conversation would not have (0.814).
+          announce(plan, peer, progress.of, response, fixPrompt)
           return
         }
         const said = `the check \`${checked.command}\` still fails after ${String(fixes)} fix${fixes === 1 ? '' : 'es'}${checked.tail.length === 0 ? '' : `: ${checked.tail.slice(-3).join(' / ')}`}`

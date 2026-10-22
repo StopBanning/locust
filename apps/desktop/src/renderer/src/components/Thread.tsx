@@ -1782,9 +1782,7 @@ onResume,
 
         {!running && cloudCardFor(shownMissionId)}
         {cardsFor(earlierTurns.length, 'after-work').map(peerCard)}
-        {peers.notices.map((notice, index) => (
-          <DiagnosticLine key={`peer_notice_${index}`} level={notice.level} message={notice.message} />
-        ))}
+        {/* The turn's own check first, then what came after it -- a routine's "finished" reads as its end (0.814). */}
         {editCheck !== undefined && (
           <EditCheckCard
             check={editCheck}
@@ -1793,6 +1791,9 @@ onResume,
             {...(onSendEditCheck === undefined ? {} : { onSend: onSendEditCheck })}
           />
         )}
+        {peers.notices.map((notice, index) => (
+          <DiagnosticLine key={`peer_notice_${index}`} level={notice.level} message={notice.message} />
+        ))}
         {/*
           * The CURRENT turn's memories, under the current turn -- and the
           * card is per turn now, not one at the foot of the conversation.
