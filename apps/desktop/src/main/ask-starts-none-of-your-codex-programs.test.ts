@@ -51,6 +51,17 @@ describe('Ask and Plan start none of the programs your Codex runs as MCP servers
     const dotted = codexReadOnlyThreadConfig({ mcp_servers: { 'a.b': { command: 'x' } } })
     expect(dotted).toMatchObject({ ok: false, message: expect.stringContaining('"a.b"') })
   })
+
+  // 0.825. MEASURED on Codex 0.163.0: a request it does not know is "Invalid request: unknown variant `<method>`".
+  it('tells a person whose Codex is too old for the read to update it, and anyone else to send again', () => {
+    const old = 'Invalid request: unknown variant `config/read`, expected one of `initialize`, `thread/start`'
+    for (const made of [codexReadOnlyThreadConfig(undefined, old), codexSealedThreadConfig(undefined, old)]) {
+      expect(made).toMatchObject({ ok: false, message: expect.stringMatching(/^Your Codex is too old to tell Locust its settings.*Update Codex, then send it again\.$/) })
+    }
+    expect(codexReadOnlyThreadConfig(undefined, 'The runtime connection ended.')).toMatchObject({ ok: false, message: expect.stringMatching(/could not read your Codex settings.*Send it again\.$/) })
+    // Settings that did come back are used, whatever else was said.
+    expect(codexReadOnlyThreadConfig({}, old).ok).toBe(true)
+  })
 })
 
 /*

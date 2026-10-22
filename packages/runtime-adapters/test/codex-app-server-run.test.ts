@@ -51,6 +51,9 @@ function fakeServer() {
     /** Answer the request with this id, the way the real server does. */
     answer: (id: number, result: unknown) =>
       emit(`${JSON.stringify({ jsonrpc: "2.0", id, result })}\n`),
+    /** Refuse the request with this id, in the server's own words. */
+    refuse: (id: number, message: string) =>
+      emit(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32600, message } })}\n`),
     notify: (method: string, params: unknown) =>
       emit(`${JSON.stringify({ jsonrpc: "2.0", method, params })}\n`),
     exit: () => exited(),
@@ -197,6 +200,7 @@ describe("a turn over app-server", () => {
   function readingSettings(made: (settings: unknown) => { ok: true; config: Record<string, boolean> } | { ok: false; message: string }) {
     const server = fakeServer();
     const seen: unknown[] = [];
+    const failures: Array<string | undefined> = [];
     const run = startCodexAppServerRun({
       spawn: () => server.process,
       command: createCodexAppServerCommand(EXECUTABLE, { workspacePath: "/work", sandbox: "read-only" }),
@@ -204,12 +208,13 @@ describe("a turn over app-server", () => {
       sandbox: "read-only",
       approvalPolicy: "never",
       threadConfig: { "mcp_servers.locust_browser.enabled": true },
-      threadConfigFromSettings: (settings) => {
+      threadConfigFromSettings: (settings, readFailure) => {
         seen.push(settings);
+        failures.push(readFailure);
         return made(settings);
       },
     });
-    return { server, run, seen };
+    return { server, run, seen, failures };
   }
 
   it("reads the person's settings before the thread starts, and lays what it makes under Locust's own config (0.824)", async () => {
@@ -243,6 +248,22 @@ describe("a turn over app-server", () => {
     expect(completion.exitCode).toBeNull();
     // Locust's own reason, not followed by a server line it has nothing to do with.
     expect(completion.stderr).toBe(message);
+  });
+
+  it("hands on Codex's own words when it refuses the read, so an old Codex can be told to update (0.825)", async () => {
+    // MEASURED 2026-10-22 on Codex 0.163.0: a request it does not know is "Invalid request: unknown variant `<method>`".
+    const refused = "Invalid request: unknown variant `config/read`, expected one of `initialize`, `thread/start`";
+    const { server, run, seen, failures } = readingSettings(() => ({ ok: false, message: "Update Codex, then send it again." }));
+    await settle();
+    server.answer(server.idOf("initialize")!, { userAgent: "codex" });
+    await settle();
+    server.refuse(server.idOf("config/read")!, refused);
+    const completion = await run.completion;
+    // No settings, and Codex's words as given; the run ends in the rule's own words, before any thread.
+    expect(seen).toEqual([undefined]);
+    expect(failures).toEqual([refused]);
+    expect(server.idOf("thread/start")).toBeUndefined();
+    expect(completion.stderr).toBe("Update Codex, then send it again.");
   });
 
   it("streams every notification as a record and ends when the turn does", async () => {

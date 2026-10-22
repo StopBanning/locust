@@ -102,9 +102,10 @@ export interface CodexAppServerRunOptions {
    * Config for this thread worked out from the person's own settings, read first with `config/read` -- which starts
    * nothing -- for a run that must leave some of them off (0.824: Ask and Plan start none of the MCP servers the
    * person's Codex runs as programs). Laid under `threadConfig`, so Locust's own servers stay as it set them. A refusal
-   * ends the run before any thread starts, in the refusal's own words.
+   * ends the run before any thread starts, in the refusal's own words. `readFailure` is Codex's own answer when it
+   * refused the read (0.825: an old Codex names `config/read` as unknown).
    */
-  readonly threadConfigFromSettings?: (settings: unknown) =>
+  readonly threadConfigFromSettings?: (settings: unknown, readFailure?: string) =>
     | { readonly ok: true; readonly config: Readonly<Record<string, JsonValue>> }
     | { readonly ok: false; readonly message: string };
   /**
@@ -378,9 +379,14 @@ ${said}` : why;
     // caller refuses rather than start with something left on.
     let fromSettings: Readonly<Record<string, JsonValue>> = {};
     if (options.threadConfigFromSettings !== undefined) {
-      const read = await client.request("config/read", { cwd: options.command.cwd }).catch(() => undefined);
+      let readFailure: string | undefined;
+      const read = await client.request("config/read", { cwd: options.command.cwd }).catch((error: unknown) => {
+        readFailure = error instanceof Error ? error.message : String(error);
+        return undefined;
+      });
       const made = options.threadConfigFromSettings(
         typeof read === "object" && read !== null && !Array.isArray(read) ? (read as Record<string, unknown>).config : undefined,
+        readFailure,
       );
       if (!made.ok) {
         lose(made.message, true);

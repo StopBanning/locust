@@ -25,13 +25,29 @@ const PLAIN_NAME = /^[A-Za-z0-9@_-]{1,128}$/
 const UNREAD =
   'Locust could not read your Codex settings, so it did not start this turn. In Ask and Plan it switches off the MCP servers your Codex runs as programs on this computer, and it could not tell which those are. Send it again.'
 
+/*
+ * A Codex too old to have `config/read` (0.825). MEASURED 2026-10-22 on Codex 0.163.0, a request it does not know is
+ * answered "Invalid request: unknown variant `config/readTheFuture`, expected one of ...": the same words, for an
+ * older Codex, would name `config/read`. Then sending it again changes nothing, and updating Codex does.
+ */
+const TOO_OLD = /unknown variant `config\/read`/
+const UPDATE =
+  'Your Codex is too old to tell Locust its settings, so Locust did not start this turn. In Ask and Plan it switches off the MCP servers your Codex runs as programs on this computer, and it could not tell which those are. Update Codex, then send it again.'
+
 export type CodexReadOnlyConfig =
   | { readonly ok: true; readonly config: Readonly<Record<string, JsonValue>> }
   | { readonly ok: false; readonly message: string }
 
-export function codexReadOnlyThreadConfig(settings: unknown, options: { readonly sealed?: boolean } = {}): CodexReadOnlyConfig {
-  if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) return { ok: false, message: UNREAD }
-  const sealed = options.sealed === true
+/** `readFailure`: Codex's own words when it refused the read, which say whether updating it would help. */
+export const codexReadOnlyThreadConfig = (settings: unknown, readFailure?: string): CodexReadOnlyConfig => threadConfig(settings, readFailure, false)
+
+/** A sealed run's thread (0.824, Scout's look): no tool at all, no server of the person's, no connector. */
+export const codexSealedThreadConfig = (settings: unknown, readFailure?: string): CodexReadOnlyConfig => threadConfig(settings, readFailure, true)
+
+function threadConfig(settings: unknown, readFailure: string | undefined, sealed: boolean): CodexReadOnlyConfig {
+  if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
+    return { ok: false, message: readFailure !== undefined && TOO_OLD.test(readFailure) ? UPDATE : UNREAD }
+  }
   const config: Record<string, JsonValue> = {
     'features.plugins': false,
     'features.browser_use': false,
@@ -60,6 +76,3 @@ export function codexReadOnlyThreadConfig(settings: unknown, options: { readonly
   }
   return { ok: true, config }
 }
-
-/** A sealed run's thread (0.824, Scout's look): no tool at all, no server of the person's, no connector. */
-export const codexSealedThreadConfig = (settings: unknown): CodexReadOnlyConfig => codexReadOnlyThreadConfig(settings, { sealed: true })
