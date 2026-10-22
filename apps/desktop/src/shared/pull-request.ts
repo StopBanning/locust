@@ -174,13 +174,18 @@ export function pullRequestNews(before: FolderPullRequest, now: FolderPullReques
  *
  * The header reads the folder's own pull request. A link in what was said is
  * any owner and repo. The window asks for those three parts and nothing else;
- * the host runs `gh pr view` and answers with the state. An issue is named
- * here too, and not read, so a later reader can sit beside this one.
+ * the host runs `gh pr view` and answers with the state. An issue link sits
+ * beside it the same way, read with `gh issue view` on its own channel, so a
+ * pull request and an issue with the same number never share a read.
  */
 export const GITHUB_PULL_LINK_CHANNEL = 'github:pull-link'
+export const GITHUB_ISSUE_LINK_CHANNEL = 'github:issue-link'
 
 /** What `gh pr view <n> --repo <owner>/<repo> --json` is asked for. */
 export const LINK_PULL_FIELDS = 'state,isDraft,mergedAt,statusCheckRollup,title'
+
+/** What `gh issue view <n> --repo <owner>/<repo> --json` is asked for. */
+export const LINK_ISSUE_FIELDS = 'state,stateReason,title'
 
 const OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/
 const REPO = /^(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/
@@ -194,10 +199,10 @@ export interface PullLinkAddress {
   readonly number: number
 }
 
-/** A GitHub link a conversation can wear. Only a pull request is read today. */
+/** A GitHub link a conversation can wear: a pull request or an issue. */
 export type GitHubConversationLink =
   | ({ readonly kind: 'pull' } & PullLinkAddress)
-  | { readonly kind: 'issue'; readonly owner: string; readonly repo: string; readonly number: number }
+  | ({ readonly kind: 'issue' } & PullLinkAddress)
 
 export type PullLinkChecks = 'passing' | 'failing' | 'running' | 'none'
 
@@ -210,9 +215,17 @@ export interface LinkedPullRequest {
   readonly total: number
 }
 
+/** An issue's standing: open, or closed and why (`stateReason`). */
+export type IssueLinkState = 'open' | 'closed-completed' | 'closed-not-planned'
+
+export interface LinkedIssue {
+  readonly state: IssueLinkState
+  readonly title: string
+}
+
 export type ConversationPiece =
   | { readonly kind: 'text'; readonly text: string }
-  | { readonly kind: 'link'; readonly text: string; readonly href: string; readonly pull?: PullLinkAddress }
+  | { readonly kind: 'link'; readonly text: string; readonly href: string; readonly pull?: PullLinkAddress; readonly issue?: PullLinkAddress }
 
 function addressOf(owner: string, repo: string, raw: string): PullLinkAddress | undefined {
   if (!OWNER.test(owner) || !REPO.test(repo) || !NUMBER.test(raw)) return undefined
@@ -253,6 +266,11 @@ export function pullLinkRequest(value: unknown): PullLinkAddress | undefined {
   if (!Number.isInteger(record.number) || record.number < 1 || record.number > MAX_PULL) return undefined
   if (!OWNER.test(record.owner) || !REPO.test(record.repo)) return undefined
   return { owner: record.owner, repo: record.repo, number: record.number }
+}
+
+/** The only request the window may make for an issue: the same three parts, on its own channel. */
+export function issueLinkRequest(value: unknown): PullLinkAddress | undefined {
+  return pullLinkRequest(value)
 }
 
 function countChecks(rollup: unknown): { readonly passed: number; readonly failed: number; readonly running: number } {
@@ -298,6 +316,42 @@ export function linkedPullRequestOf(json: string): LinkedPullRequest | undefined
   return { state, checks, ...tally, total }
 }
 
+/**
+ * `gh issue view --json state,stateReason,title` (measured 2026-10-22 on a
+ * public repository: an open issue says `stateReason: ""`).
+ * A closed issue is completed unless GitHub says it was not planned.
+ */
+export function linkedIssueOf(json: string): LinkedIssue | undefined {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return undefined
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
+  const issue = parsed as Record<string, unknown>
+  const raw = typeof issue.state === 'string' ? issue.state.toUpperCase() : ''
+  const reason = typeof issue.stateReason === 'string' ? issue.stateReason.toUpperCase() : ''
+  const state: IssueLinkState | undefined =
+    raw === 'OPEN' ? 'open' : raw === 'CLOSED' ? (reason === 'NOT_PLANNED' ? 'closed-not-planned' : 'closed-completed') : undefined
+  if (state === undefined) return undefined
+  const title = typeof issue.title === 'string' ? issue.title.replace(/\s+/g, ' ').trim().slice(0, 200) : ''
+  return { state, title }
+}
+
+/** GitHub's own words: its badge says Closed for a completed issue, and its reason tells a not-planned one apart. */
+const ISSUE_WORD: Record<IssueLinkState, string> = { open: 'Open', 'closed-completed': 'Closed', 'closed-not-planned': 'Not planned' }
+const ISSUE_STANDING: Record<IssueLinkState, string> = { open: 'Open', 'closed-completed': 'Closed as completed', 'closed-not-planned': 'Closed as not planned' }
+
+export function issueLinkWord(state: IssueLinkState): string {
+  return ISSUE_WORD[state]
+}
+
+/** "Closed as not planned · The cart forgets": its standing first, as the pull request chip's hover, then its title. */
+export function issueLinkHover(link: LinkedIssue): string {
+  return link.title.length > 0 ? `${ISSUE_STANDING[link.state]} · ${link.title}` : ISSUE_STANDING[link.state]
+}
+
 export function pullLinkWord(state: PullRequestState): string {
   return STATE_WORD[state]
 }
@@ -325,9 +379,10 @@ function webHref(url: string): boolean {
 
 /**
  * Plain text split into words and web links.
- * A bare `https://github.com/.../pull/n` becomes a link. An issue, a commit,
- * or a file does not, unless it was already written as a Markdown link, and
- * then it stays a link with no pull request on it. A URL inside `code` stays code.
+ * A bare `https://github.com/.../pull/n` or `.../issues/n` becomes a link and
+ * wears its chip. A commit or a file does not, unless it was already written
+ * as a Markdown link, and then it stays a link with no chip on it. A URL
+ * inside `code` stays code.
  */
 export function conversationPieces(text: string): readonly ConversationPiece[] {
   const scan = text.replace(/`[^`\n]*`/g, (span) => ' '.repeat(span.length))
@@ -344,20 +399,24 @@ export function conversationPieces(text: string): readonly ConversationPiece[] {
         kind: 'link',
         text: label.length > 0 ? label : href,
         href,
-        ...(found?.kind === 'pull' ? { pull: { owner: found.owner, repo: found.repo, number: found.number } } : {})
+        ...(found?.kind === 'pull' ? { pull: { owner: found.owner, repo: found.repo, number: found.number } } : {}),
+        ...(found?.kind === 'issue' ? { issue: { owner: found.owner, repo: found.repo, number: found.number } } : {})
       }
     })
   }
-  for (const match of scan.matchAll(/https:\/\/github\.com\/[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9._-]{1,100}\/pull\/[1-9]\d{0,9}\/?(?![A-Za-z0-9/])/g)) {
+  for (const match of scan.matchAll(/https:\/\/github\.com\/[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9._-]{1,100}\/(?:pull|issues)\/[1-9]\d{0,9}\/?(?![A-Za-z0-9/])/g)) {
     const at = match.index ?? 0
     if (hits.some((hit) => at >= hit.at && at < hit.at + hit.length)) continue
     const href = match[0]
     const found = githubLinkOf(href)
-    if (found?.kind !== 'pull') continue
+    if (found === undefined) continue
     hits.push({
       at,
       length: href.length,
-      piece: { kind: 'link', text: href, href, pull: { owner: found.owner, repo: found.repo, number: found.number } }
+      piece:
+        found.kind === 'pull'
+          ? { kind: 'link', text: href, href, pull: { owner: found.owner, repo: found.repo, number: found.number } }
+          : { kind: 'link', text: href, href, issue: { owner: found.owner, repo: found.repo, number: found.number } }
     })
   }
   hits.sort((a, b) => a.at - b.at)

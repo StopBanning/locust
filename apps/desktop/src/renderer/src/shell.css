@@ -15975,6 +15975,23 @@ textarea.lc-compare__judgecriteria {
   background: var(--lc-red-tint);
 }
 
+/* An issue (0.816) wears GitHub's issue colours: a completed one is purple, as done work is, and one closed as not
+ * planned is grey. Never a closed pull request's red, which would say a finished issue failed. */
+.lc-prlink[data-issue-state='open'] {
+  color: var(--lc-green-text);
+  background: var(--lc-green-tint);
+}
+
+.lc-prlink[data-issue-state='closed-completed'] {
+  color: var(--lc-violet-text);
+  background: var(--lc-violet-tint);
+}
+
+.lc-prlink[data-issue-state='closed-not-planned'] {
+  color: var(--lc-text-muted);
+  background: var(--lc-chip-bg);
+}
+
 /* The word takes the chip's state colour. The mark sets its own. */
 .lc-prlink__state {
   color: inherit;

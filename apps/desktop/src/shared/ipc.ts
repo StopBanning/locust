@@ -23,7 +23,7 @@ import type { Spend } from './spend.js'
 import type { UsageRange, UsageSummary } from './usage.js'
 import type { ConnectorAddRequest, ConnectorAddResponse, ConnectorAgent } from './connector-add.js'
 import type { GithubAccount, GithubCliVersions, GithubInstallResult, GithubSignInCode, GithubSignInResult } from './github-account.js'
-import type { FolderPullRequest, LinkedPullRequest, PullLinkAddress, PullRequestNews } from './pull-request.js'
+import type { FolderPullRequest, LinkedIssue, LinkedPullRequest, PullLinkAddress, PullRequestNews } from './pull-request.js'
 import type { FolderDiff } from './folder-diff.js'
 import type { CloudAgent, CloudFolderState, CloudSetupStep, CloudSignInStep, CloudUse, PublicCloudComputer, PublicCloudTurn } from './cloud-computer.js'
 import type { OfficeDocument } from './office-document.js'
@@ -3906,6 +3906,8 @@ export interface DesktopApi {
   folderPullRequest(): Promise<FolderPullRequest | undefined>
   /** A pull request linked in a conversation: owner, repo and number, read with the person's own gh. */
   pullLink(request: PullLinkAddress): Promise<LinkedPullRequest | undefined>
+  /** An issue linked in a conversation: owner, repo and number, read with the person's own gh. */
+  issueLink(request: PullLinkAddress): Promise<LinkedIssue | undefined>
   /** Watch the folder's pull request, or stop (0.731); answers whether it is watched now. */
   watchPullRequest(url: string, on: boolean): Promise<boolean>
   /** The folder's changes against its base, or one of its branch's commits (0.732). */

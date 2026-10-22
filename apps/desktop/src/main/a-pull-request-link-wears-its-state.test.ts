@@ -25,7 +25,7 @@ const body = (over: Record<string, unknown>) =>
 const address = { owner: 'acme', repo: 'app', number: 42 }
 
 describe('which links wear a chip', () => {
-  it('is a pull request, and an issue is named but not worn', () => {
+  it('is a pull request, and an issue is named beside it', () => {
     expect(githubLinkOf('https://github.com/acme/app/pull/42')).toEqual({ kind: 'pull', owner: 'acme', repo: 'app', number: 42 })
     expect(githubLinkOf('https://github.com/acme/app/pull/42/')).toEqual({ kind: 'pull', owner: 'acme', repo: 'app', number: 42 })
     expect(githubLinkOf('https://www.github.com/acme/app/pull/42?w=1#discussion')).toEqual({ kind: 'pull', owner: 'acme', repo: 'app', number: 42 })
@@ -45,16 +45,18 @@ describe('which links wear a chip', () => {
     expect(githubLinkOf('https://github.com/acme/../pull/1')).toBeUndefined()
   })
 
-  it('finds a bare pull request in a sentence, and leaves the issue beside it as words', () => {
+  it('finds a bare pull request in a sentence, and the issue beside it as a link of its own kind', () => {
     const pieces = conversationPieces('Opened https://github.com/acme/app/pull/42 today. See https://github.com/acme/app/issues/3.')
     expect(pieces).toEqual([
       { kind: 'text', text: 'Opened ' },
       { kind: 'link', text: 'https://github.com/acme/app/pull/42', href: 'https://github.com/acme/app/pull/42', pull: { owner: 'acme', repo: 'app', number: 42 } },
-      { kind: 'text', text: ' today. See https://github.com/acme/app/issues/3.' }
+      { kind: 'text', text: ' today. See ' },
+      { kind: 'link', text: 'https://github.com/acme/app/issues/3', href: 'https://github.com/acme/app/issues/3', issue: { owner: 'acme', repo: 'app', number: 3 } },
+      { kind: 'text', text: '.' }
     ])
     expect(conversationPieces('See [the issue](https://github.com/acme/app/issues/3) and [the file](https://github.com/acme/app/blob/main/README.md).')).toEqual([
       { kind: 'text', text: 'See ' },
-      { kind: 'link', text: 'the issue', href: 'https://github.com/acme/app/issues/3' },
+      { kind: 'link', text: 'the issue', href: 'https://github.com/acme/app/issues/3', issue: { owner: 'acme', repo: 'app', number: 3 } },
       { kind: 'text', text: ' and ' },
       { kind: 'link', text: 'the file', href: 'https://github.com/acme/app/blob/main/README.md' },
       { kind: 'text', text: '.' }

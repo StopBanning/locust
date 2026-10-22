@@ -76,8 +76,8 @@ import { CONNECTOR_ADD_CHANNEL, CONNECTOR_REMOVE_CHANNEL } from '../shared/conne
 import type { ConnectorAddRequest, ConnectorAddResponse, ConnectorAgent } from '../shared/connector-add.js'
 import { GITHUB_ACCOUNT_CHANNEL, GITHUB_CLI_VERSIONS_CHANNEL, GITHUB_INSTALL_CHANNEL, GITHUB_UPDATE_CHANNEL, GITHUB_SIGN_IN_CANCEL_CHANNEL, GITHUB_SIGN_IN_CHANNEL, GITHUB_SIGN_IN_CODE_CHANNEL } from '../shared/github-account.js'
 import type { GithubAccount, GithubCliVersions, GithubInstallResult, GithubSignInCode, GithubSignInResult } from '../shared/github-account.js'
-import { FOLDER_PULL_REQUEST_CHANNEL, GITHUB_PULL_LINK_CHANNEL, PULL_REQUEST_NEWS_CHANNEL, PULL_REQUEST_WATCH_CHANNEL } from '../shared/pull-request.js'
-import type { LinkedPullRequest, PullLinkAddress, PullRequestNews } from '../shared/pull-request.js'
+import { FOLDER_PULL_REQUEST_CHANNEL, GITHUB_ISSUE_LINK_CHANNEL, GITHUB_PULL_LINK_CHANNEL, PULL_REQUEST_NEWS_CHANNEL, PULL_REQUEST_WATCH_CHANNEL } from '../shared/pull-request.js'
+import type { LinkedIssue, LinkedPullRequest, PullLinkAddress, PullRequestNews } from '../shared/pull-request.js'
 import { FOLDER_DIFF_CHANNEL } from '../shared/folder-diff.js'
 import type { FolderDiff } from '../shared/folder-diff.js'
 import type { FolderPullRequest } from '../shared/pull-request.js'
@@ -808,6 +808,8 @@ const desktopApi: DesktopApi = {
   folderPullRequest: () => ipcRenderer.invoke(FOLDER_PULL_REQUEST_CHANNEL) as Promise<FolderPullRequest | undefined>,
   pullLink: (request: PullLinkAddress) =>
     ipcRenderer.invoke(GITHUB_PULL_LINK_CHANNEL, { owner: request.owner, repo: request.repo, number: request.number }) as Promise<LinkedPullRequest | undefined>,
+  issueLink: (request: PullLinkAddress) =>
+    ipcRenderer.invoke(GITHUB_ISSUE_LINK_CHANNEL, { owner: request.owner, repo: request.repo, number: request.number }) as Promise<LinkedIssue | undefined>,
   watchPullRequest: (url: string, on: boolean) => ipcRenderer.invoke(PULL_REQUEST_WATCH_CHANNEL, url, on) as Promise<boolean>,
   folderDiff: (sha?: string) => ipcRenderer.invoke(FOLDER_DIFF_CHANNEL, sha) as Promise<FolderDiff>,
   onPullRequestNews: (listener: (news: PullRequestNews) => void) => {

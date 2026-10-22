@@ -37,9 +37,9 @@ describe('the chip beside a pull request link', () => {
     expect(done).toContain('title="Merged"')
   })
 
-  it('makes a bare pull request in the person\'s message a link, and leaves an issue as words', () => {
+  it('makes a bare pull request in the person\'s message a link, and a bare issue one too', () => {
     expect(renderToStaticMarkup(<LinkedWords text="The first thing" />)).toBe('The first thing')
-    expect(renderToStaticMarkup(<LinkedWords text="See https://github.com/acme/app/issues/3" />)).toBe('See https://github.com/acme/app/issues/3')
+    expect(renderToStaticMarkup(<LinkedWords text="See https://github.com/acme/app/issues/3" />)).toContain('class="lc-link"')
     const html = renderToStaticMarkup(<LinkedWords text="Opened https://github.com/acme/app/pull/42 today" />)
     expect(html).toContain('class="lc-link"')
     expect(html).toContain('https://github.com/acme/app/pull/42')

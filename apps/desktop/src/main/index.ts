@@ -195,7 +195,7 @@ import { readWorkspaceImage } from './workspace-image.js'
 import { readPdfPages } from './pdf-pages.js'
 import { addConnector, removeConnector } from './connector-add.js'
 import { createGithubAccount, ghCommand } from './github-account.js'
-import { FOLDER_PULL_REQUEST_CHANNEL, GITHUB_PULL_LINK_CHANNEL, PULL_REQUEST_NEWS_CHANNEL, PULL_REQUEST_WATCH_CHANNEL } from '../shared/pull-request.js'
+import { FOLDER_PULL_REQUEST_CHANNEL, GITHUB_ISSUE_LINK_CHANNEL, GITHUB_PULL_LINK_CHANNEL, PULL_REQUEST_NEWS_CHANNEL, PULL_REQUEST_WATCH_CHANNEL } from '../shared/pull-request.js'
 import { createPullRequestWatch } from './pull-request-watch.js'
 import { createPullLinkReader } from './pull-link.js'
 import { FOLDER_DIFF_CHANNEL } from '../shared/folder-diff.js'
@@ -3257,6 +3257,9 @@ if (!ownsSingleInstanceLock) {
     })
     ipcMain.handle(GITHUB_PULL_LINK_CHANNEL, (event, request: unknown) =>
       fromOwnWindow(event) ? pullLinkReader.read(request) : undefined
+    )
+    ipcMain.handle(GITHUB_ISSUE_LINK_CHANNEL, (event, request: unknown) =>
+      fromOwnWindow(event) ? pullLinkReader.readIssue(request) : undefined
     )
     // The folder's changes in one panel (0.732): the whole change, or one of the branch's commits.
     ipcMain.handle(FOLDER_DIFF_CHANNEL, (event, sha: unknown) =>

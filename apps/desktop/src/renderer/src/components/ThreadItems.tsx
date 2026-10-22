@@ -11,9 +11,9 @@ import type { ListItem } from '../agentText.js'
 import { splitSettled } from '../settledText.js'
 import { quietMinutes } from '../quiet.js'
 import { linkHost } from '../../../shared/outbound-links.js'
-import { conversationPieces, githubLinkOf, pullLinkHover, pullLinkWord } from '../../../shared/pull-request.js'
-import type { ConversationPiece, LinkedPullRequest, PullLinkAddress } from '../../../shared/pull-request.js'
-import { sharedPullLinks } from '../pullLinkWatch.js'
+import { conversationPieces, githubLinkOf, issueLinkHover, issueLinkWord, pullLinkHover, pullLinkWord } from '../../../shared/pull-request.js'
+import type { ConversationPiece, LinkedIssue, LinkedPullRequest, PullLinkAddress } from '../../../shared/pull-request.js'
+import { sharedIssueLinks, sharedPullLinks } from '../pullLinkWatch.js'
 import type { OrbState, PlanStep } from '../missionView.js'
 import { TeammateBot } from './TeammateBot.js'
 import type { TeammateBotProps } from './TeammateBot.js'
@@ -59,6 +59,7 @@ function OutboundLink({
   const [refused, setRefused] = useState<string>()
   const found = githubLinkOf(href)
   const pull = found?.kind === 'pull' ? { owner: found.owner, repo: found.repo, number: found.number } : undefined
+  const issue = found?.kind === 'issue' ? { owner: found.owner, repo: found.repo, number: found.number } : undefined
   return (
     <>
       <button
@@ -90,6 +91,7 @@ function OutboundLink({
         <span className="lc-link__host"> ({host})</span>
       </button>
       {pull !== undefined && <PullLinkChip address={pull} />}
+      {issue !== undefined && <IssueLinkChip address={issue} />}
       {refused !== undefined && (
         <span className="lc-link__refusal" role="status">
           {refused}
@@ -210,6 +212,26 @@ function PullLinkChip({ address }: { readonly address: PullLinkAddress }): React
   const link = useSyncExternalStore(subscribe, () => sharedPullLinks().current(address), () => undefined)
   if (link === undefined) return null
   return <PullLinkChipView link={link} />
+}
+
+function IssueLinkChip({ address }: { readonly address: PullLinkAddress }): ReactElement | null {
+  const subscribe = useMemo(
+    () => (onChange: () => void) => sharedIssueLinks().watch(address, onChange),
+    [address.owner, address.repo, address.number]
+  )
+  const link = useSyncExternalStore(subscribe, () => sharedIssueLinks().current(address), () => undefined)
+  if (link === undefined) return null
+  return <IssueLinkChipView link={link} />
+}
+
+/** The chip itself, from an issue a link named. It has no checks, so it wears no mark. */
+export function IssueLinkChipView({ link }: { readonly link: LinkedIssue }): ReactElement {
+  const hover = issueLinkHover(link)
+  return (
+    <span className="lc-prlink" data-issue-state={link.state} title={hover} aria-label={hover}>
+      <span className="lc-prlink__state">{issueLinkWord(link.state)}</span>
+    </span>
+  )
 }
 
 /** The chip itself, from a pull request a link named. */
