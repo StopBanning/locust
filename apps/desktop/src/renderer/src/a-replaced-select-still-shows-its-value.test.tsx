@@ -123,6 +123,11 @@ describe('a replaced select still shows its value', () => {
     expect(chosen(html, 'Input 1 kind')).toBe('text')
     expect(html).toContain('value="Daily notes"')
     expect(html).not.toMatch(/aria-label="Input 1 default"[^>]*role="combobox"/)
+    // Required sits beside its box (0.820): the label lays them out in a row, not the box alone over the word.
+    expect(html).toContain('<label class="lc-routineinputs__check"><input type="checkbox" checked=""/> Required</label>')
+    // And a choice's list shows four lines before it scrolls: two choices read whole.
+    const choice = renderToStaticMarkup(<RoutineInputEditor inputs={[{ key: 'style', label: 'Style', kind: 'choice', required: true, choices: ['Brief', 'Detailed'] }]} onChange={nothing} />)
+    expect(choice).toMatch(/<textarea class="lc-input" rows="4" aria-label="Input 1 choices">/)
   })
 
   it('shows the voice, the talk voice, and how often Scout looks', () => {

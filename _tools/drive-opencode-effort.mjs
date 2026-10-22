@@ -10,14 +10,14 @@
 // on 2026-09-25, the variant reaches the provider: `high` reasoned more than
 // `low` in four runs of four.
 //
-// So: what does the picker offer on it, can the top stop be chosen, and is
-// its `--variant` on the command line of the process the run starts? The
-// argv is read off the live process, not inferred from the ledger.
+// So: what does the picker offer on it, can the top stop be chosen, and does
+// OpenCode run the turn at it? Read back from OpenCode's own record of the
+// session (`opencode export`), not inferred from Locust's.
 //
 // Free model only.
 
 import { execFile } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 
@@ -70,22 +70,29 @@ const CLOSE = `(async () => {
 
 const fixedLabel = () => drive.evaluate(`(document.querySelector('.lc-control__effort')?.innerText ?? 'no Fixed label')`)
 
-/** The command lines of OpenCode runs this drive's app started, while one is live. */
-async function watchArgv(until) {
-  const seen = new Set()
-  while (!until.done) {
-    try {
-      const { stdout } = await run('powershell', ['-NoProfile', '-Command',
-        "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--title Locust*' -and $_.CommandLine -like '*deepseek-v4.1-flash-free*' } | ForEach-Object { $_.CommandLine }"])
-      for (const line of stdout.split(/\r?\n/)) if (line.trim() && !line.includes('Get-CimInstance')) seen.add(line.trim().replace(/^.*?\srun\s/, 'run '))
-    } catch {}
-    await new Promise((r) => setTimeout(r, 400))
-  }
-  return [...seen]
+let failures = 0
+const check = (what, ok, detail) => {
+  if (!ok) failures += 1
+  say(`  [${ok ? 'PASS' : 'FAIL'}] ${what}${detail === undefined ? '' : ` -- ${String(detail).slice(0, 400)}`}`)
+}
+
+/**
+ * The efforts OpenCode itself recorded for this drive's runs: its own record of the session, `opencode export`.
+ * Locust talks to OpenCode's server, so the effort travels in the request and never on a command line -- the argv
+ * this drive used to read off the live process said "NO OpenCode process seen" on the 0.818 build. MEASURED
+ * 2026-10-22 (1.18.27): a turn sent with variant max is exported with `"variant": "max"` on both of its messages.
+ */
+async function recordedVariants() {
+  const ledger = join(drive.profile, 'mission-ledger')
+  const texts = await Promise.all((await readdir(ledger).catch(() => [])).filter((name) => name.endsWith('.jsonl')).map((name) => readFile(join(ledger, name), 'utf8').catch(() => '')))
+  const session = texts.join('\n').match(/ses_[A-Za-z0-9]{20,}/)?.[0]
+  if (session === undefined) return { session: undefined, variants: [] }
+  const { stdout } = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', `opencode export ${session}`], { maxBuffer: 32 * 1024 * 1024 }).catch((error) => ({ stdout: String(error?.stdout ?? '') }))
+  return { session, variants: [...new Set([...stdout.matchAll(/"variant":\s*"([^"]+)"/g)].map((match) => match[1]))] }
 }
 
 try {
-  await drive.capture('DeepSeek picked: what the effort control offers', async () => {
+  const offered = await drive.capture('DeepSeek picked: what the effort control offers', async () => {
     await drive.ready()
     await drive.evaluate(`(async () => { ${teammateFace('Wren')}.click(); await new Promise((r) => setTimeout(r, 900)) })()`)
     const route = await drive.evaluate(pickRouteScript({ group: '/opencode/i', search: 'deepseek v4.1 flash', row: '/deepseek.*v4.1.*flash/i' }))
@@ -93,8 +100,9 @@ try {
     await drive.evaluate(CLOSE)
     return `${route} || effort control: ${picker.chip} || effort notches: ${picker.notches.length === 0 ? 'NONE' : picker.notches.join(' ')} || composer label: ${await fixedLabel()}`
   })
+  check('the free model offers its efforts, three stops', /effort notches: 3 stops/.test(String(offered)), offered)
 
-  await drive.capture('High chosen', async () => {
+  const chosen = await drive.capture('the top stop chosen', async () => {
     await drive.evaluate(EFFORT)
     const said = await drive.evaluate(`(async () => {
       const slider = document.querySelector('.lc-effortpanel__slider')
@@ -110,20 +118,21 @@ try {
     await drive.evaluate(CLOSE)
     return `${said} || effort control now: ${chip}`
   })
+  check('its top stop, Max, can be chosen', /slider now: Max \|\| effort control now: Max/.test(String(chosen)), chosen)
 
-  await drive.capture('the run, and the command line OpenCode was started with', async () => {
-    const until = { done: false }
-    const watching = watchArgv(until)
+  const ran = await drive.capture('the run, and the effort OpenCode recorded for it', async () => {
     const sent = await drive.evaluate(sendAndWaitScript('Reply with exactly the word PEBBLE.', { waitSeconds: 180 }))
-    until.done = true
-    const argv = await watching
-    return `${sent} || argv: ${argv.length === 0 ? 'NO OpenCode process seen' : argv.join(' ;; ')}`
+    const recorded = await recordedVariants()
+    return `${sent} || session ${recorded.session ?? 'none in the record'} || OpenCode recorded variant: ${recorded.variants.length === 0 ? 'NONE' : recorded.variants.join(', ')}`
   })
-
+  check('the run answered, and OpenCode recorded it at max', /PEBBLE/.test(String(ran)) && /OpenCode recorded variant: max$/.test(String(ran)), ran)
 } catch (error) {
-  say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)
+  failures += 1
+  say(`  [FAIL] the drive stopped: ${error instanceof Error ? error.message : String(error)}`)
 } finally {
   await drive.finish({
-    intro: 'OpenCode / DeepSeek V4.1 Flash Free, which lists low, high and max as its variants. The argv is read off the live OpenCode process while the run is going.'
+    intro: 'OpenCode / DeepSeek V4.1 Flash Free, which lists low, high and max as its variants. The effort is read back from OpenCode\'s own record of the session (opencode export).'
   })
 }
+say(failures === 0 ? 'ALL CHECKS PASSED' : `${String(failures)} FAILURE(S)`)
+process.exit(failures === 0 ? 0 : 1)

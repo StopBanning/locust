@@ -22771,6 +22771,11 @@ textarea.lc-compare__judgecriteria {
   gap: var(--lc-space-2);
   margin-bottom: var(--lc-space-3);
 }
+/* Required beside its box, not the box alone in the middle of a row above the word (0.820, the 0.819 drive's frame). */
+.lc-routineinputs label.lc-routineinputs__check {
+  flex-direction: row;
+  align-items: center;
+}
 .lc-routineinputs__entry {
   min-width: 0;
   margin: var(--lc-space-3) 0;

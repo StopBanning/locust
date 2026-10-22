@@ -21,8 +21,8 @@ export function RoutineInputEditor({ inputs, onChange }: { readonly inputs: read
         const { default: _default, choices: _choices, ...base } = input
         change(at, { ...base, kind, ...(kind === 'choice' ? { choices: ['First', 'Second'] } : {}), ...(kind === 'folder' || input.kind === 'choice' || kind === 'choice' || input.default === undefined ? {} : { default: input.default }) })
       }} options={[{ value: 'text', label: 'Text' }, { value: 'long-text', label: 'Long text' }, { value: 'choice', label: 'Choice' }, { value: 'folder', label: 'Folder' }]} /></label>
-      <label><input type="checkbox" checked={input.required} onChange={(event) => change(at, { ...input, required: event.target.checked })} /> Required</label>
-      {input.kind === 'choice' && <label>Choices, one per line<textarea className="lc-input" aria-label={`Input ${at + 1} choices`} value={(input.choices ?? []).join('\n')} onChange={(event) => change(at, { ...input, choices: event.target.value.split('\n') })} /></label>}
+      <label className="lc-routineinputs__check"><input type="checkbox" checked={input.required} onChange={(event) => change(at, { ...input, required: event.target.checked })} /> Required</label>
+      {input.kind === 'choice' && <label>Choices, one per line<textarea className="lc-input" rows={4} aria-label={`Input ${at + 1} choices`} value={(input.choices ?? []).join('\n')} onChange={(event) => change(at, { ...input, choices: event.target.value.split('\n') })} /></label>}
       {input.kind !== 'folder' && <label>Default{input.kind === 'choice'
         ? <Select className="lc-input" aria-label={`Input ${at + 1} default`} value={input.default ?? ''} onChange={(next) => change(at, { ...input, default: next })} options={[{ value: '', label: 'No default' }, ...(input.choices ?? []).map((choice) => ({ value: choice, label: choice }))]} />
         : input.kind === 'long-text' ? <textarea className="lc-input" aria-label={`Input ${at + 1} default`} maxLength={MAX_INPUT_VALUE} value={input.default ?? ''} onChange={(event) => change(at, { ...input, default: event.target.value })} />
