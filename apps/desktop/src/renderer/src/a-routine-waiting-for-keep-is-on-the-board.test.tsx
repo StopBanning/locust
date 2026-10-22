@@ -23,7 +23,7 @@ const routine = (): BoardWait => ({
   kind: 'routine',
   routineId: 'rt_inbox',
   name: 'Morning digest',
-  line: 'Waiting for you · 2 files in its copy',
+  line: 'Waiting for you',
   face: CEDAR
 })
 
@@ -58,7 +58,7 @@ describe('a routine waiting for Keep or Discard, on the Board', () => {
     const html = screen([scout(), routine()])
     expect(html.indexOf('data-board-scout="card_now"')).toBeLessThan(html.indexOf('data-board-routine="rt_inbox"'))
     expect(html.indexOf('Morning digest')).toBeLessThan(html.indexOf('Rename the invoices'))
-    expect(html).toContain('Waiting for you · 2 files in its copy')
+    expect(html).toContain('Waiting for you')
     expect(html).toContain('Cedar')
     expect(html).toContain('>Keep<')
     expect(html).toContain('>Discard<')

@@ -37,7 +37,7 @@ export type BoardWait =
       readonly kind: 'routine'
       readonly routineId: string
       readonly name: string
-      /** "Waiting for you", and how many files when there are any. */
+      /** What it waits on, in the few words a card's line holds: "Waiting for you". */
       readonly line: string
       readonly face?: PublicTeammate
     }

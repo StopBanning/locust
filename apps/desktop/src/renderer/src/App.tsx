@@ -8349,7 +8349,8 @@ export default function App(): ReactElement {
           kind: 'routine',
           routineId: item.routineId,
           name: item.name,
-          line: item.what,
+          // A Board card's one line holds the teammate and this; how many files waits in the title bar's wider list.
+          line: 'Waiting for you',
           ...(face === undefined ? {} : { face })
         })
       }
