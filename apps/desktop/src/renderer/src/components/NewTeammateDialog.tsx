@@ -1,4 +1,5 @@
 import { accountName } from '../agentAccounts.js'
+import { SKILL_RUNTIME_ANY, takesSkills } from '../../../shared/skill-runtimes.js'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { useModal } from '../useModal.js'
@@ -957,9 +958,9 @@ export function NewTeammateDialog({
                 ))}
               </ul>
               <span className="lc-field__hint">
-                {shownRoute?.runtime === 'claude'
+                {takesSkills(shownRoute?.runtime)
                   ? 'Kept from tunes. A run loads one only when the work matches when to use it.'
-                  : 'Kept from tunes. Only a Claude Code run is handed these, so they wait until this teammate runs on Claude Code again.'}
+                  : `Kept from tunes. Only a ${SKILL_RUNTIME_ANY} run is handed these, so they wait until this teammate runs on one of them again.`}
               </span>
               {skillProblem !== undefined && <span className="lc-field__hint lc-tone-red" role="alert">{skillProblem}</span>}
             </div>

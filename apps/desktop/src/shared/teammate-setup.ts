@@ -19,11 +19,17 @@ export interface TeammateSetup {
   readonly instructions: number
   readonly aboutYou: boolean
   readonly memory: { readonly on: boolean; readonly count: number }
-  /** Claude Code only: the skills a run is handed or finds. */
+  /** Claude Code, Codex and OpenCode (0.813, shared/skill-runtimes.ts): the skills a run is handed or finds. */
   readonly skills?: {
     readonly own: readonly string[]
     readonly project: number
-    readonly personal: { readonly count: number; readonly lent: boolean }
+    /** The folder's own skill folders this runtime reads, such as `.claude/skills`. */
+    readonly projectFolders?: readonly string[]
+    /**
+     * The person's own: lent to Claude Code by Settings or Auto; found by Codex and OpenCode themselves, Settings or
+     * not, as in the person's own sessions.
+     */
+    readonly personal: { readonly count: number; readonly lent: boolean; readonly foundItself?: boolean }
     readonly library: number
   }
   /** Claude Code only: the connectors it may use without asking; none means it works without them. */
@@ -50,6 +56,12 @@ export interface SetupSection { readonly title: string; readonly note: string; r
 export const RUNTIME_FILE: Readonly<Record<string, string>> = { claude: 'CLAUDE.md', codex: 'AGENTS.md', opencode: 'AGENTS.md', gemini: 'GEMINI.md' }
 
 const count = (n: number, one: string, many = `${one}s`): string => `${String(n)} ${n === 1 ? one : many}`
+
+/** Folders in a sentence, joined both ways: "a, b and c" and "a, b or c". */
+const listed = (folders: readonly string[]): { readonly and: string; readonly or: string } => {
+  const join = (word: string): string => folders.length < 2 ? (folders[0] ?? '') : `${folders.slice(0, -1).join(', ')} ${word} ${folders.at(-1) ?? ''}`
+  return { and: join('and'), or: join('or') }
+}
 
 /** The card's words, in the order a turn is given them. `runtime` names the runtime the way the window does. */
 export function setupSections(setup: TeammateSetup, name: string, runtime: string): readonly SetupSection[] {
@@ -79,8 +91,16 @@ export function setupSections(setup: TeammateSetup, name: string, runtime: strin
     if (setup.skills !== undefined) {
       matched.push(
         { label: 'Its own skills', value: setup.skills.own.length === 0 ? 'None yet. A tune can give it one.' : setup.skills.own.join(', ') },
-        { label: 'Project skills', value: setup.skills.project === 0 ? 'None in .claude/skills' : `${count(setup.skills.project, 'skill')} in .claude/skills` },
-        { label: 'Your skills', value: setup.skills.personal.lent ? count(setup.skills.personal.count, 'skill') : 'Not lent; Settings can lend them' },
+        (() => {
+          const folders = listed(setup.skills.projectFolders ?? ['.claude/skills'])
+          return { label: 'Project skills', value: setup.skills.project === 0 ? `None in ${folders.or}` : `${count(setup.skills.project, 'skill')} in ${folders.and}` }
+        })(),
+        {
+          label: 'Your skills',
+          value: setup.skills.personal.foundItself === true
+            ? `${count(setup.skills.personal.count, 'skill')}, found by ${runtime} itself`
+            : setup.skills.personal.lent ? count(setup.skills.personal.count, 'skill') : 'Not lent; Settings can lend them'
+        },
         { label: 'Kept from GitHub', value: setup.skills.library === 0 ? 'None' : count(setup.skills.library, 'skill') }
       )
     }

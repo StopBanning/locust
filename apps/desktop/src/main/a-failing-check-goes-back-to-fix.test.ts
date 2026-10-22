@@ -5,6 +5,7 @@ import type { CheckFixStarter } from '../shared/check-fix.js'
 import { createCheckFix } from './check-fix.js'
 import type { CheckedTurn, CheckFixStart } from './check-fix.js'
 import type { EditCheckResult } from './edit-check.js'
+import { goalFixPrompt } from './routine-runner.js'
 
 /*
  * FIX UNTIL THE CHECK PASSES (0.812). The check after edits showed a failure with a button to send it back (Colin,
@@ -218,6 +219,10 @@ describe('a failing check goes back to the teammate to fix', () => {
 })
 
 describe('the fix prompt and the setting', () => {
+  it('a routine’s fix opens with the words the thread reads it by (missionView.ts fixOfTurn)', () => {
+    expect(goalFixPrompt({ command: 'node check.js', passed: false, tail: ['x'] }, 1, 2).startsWith('The check `node check.js` failed after the work above (fix 1 of 2). The end of its output:')).toBe(true)
+  })
+
   it('says when every line is listed because there was no earlier check, and when it printed nothing', () => {
     const first = checkFixPrompt({ command: 'npm test', lines: [], first: true }, 1, 2)
     expect(first).toContain('The check `npm test` failed after your last turn (fix 1 of 2). What it printed:')

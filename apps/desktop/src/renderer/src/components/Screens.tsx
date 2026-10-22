@@ -2913,6 +2913,11 @@ export function SettingsScreen({
               teammate in Ask that uses a skill still changes nothing. In Auto a teammate runs as you and
               finds every skill you have, whichever way this is set.
             </p>
+            <p>
+              Codex and OpenCode teammates find your own skills themselves, in .agents/skills in your home
+              folder and their own folders, as they do in your own sessions; this switch is for Claude Code.
+              All three get their own skills from a tune and the ones you keep from GitHub.
+            </p>
           </More>
         </section>
         )}
@@ -2920,7 +2925,8 @@ export function SettingsScreen({
         <section className="lc-settings__section" data-setting="skills-from-github">
           <h2 className="lc-settings__heading">Skills from GitHub</h2>
           <p className="lc-settings__lede">
-            Keep skills from a public repository. Claude Code teammates get them on every run, in every mode.
+            Keep skills from a public repository. Claude Code, Codex and OpenCode teammates get them on every run, in
+            every mode.
           </p>
           <SkillsFromGitHub />
           <More>

@@ -22,6 +22,12 @@ export function openCode2Launch(executable: ExecutableLaunch, options: {
   readonly referenceFolders?: readonly string[]
   readonly providers?: Readonly<Record<string, OpenCodeProvider>>
   readonly guardPlugin?: string
+  /**
+   * The run's own skills (0.813, run-skills.ts): a folder of `<name>/SKILL.md`, in V2's own `skills` list, which its
+   * documentation says every config adds to. V2 is not installed on the machine this was written on, so this follows
+   * the documentation; V1's way, `OPENCODE_CONFIG_DIR`, is the one measured.
+   */
+  readonly skillsDir?: string
 }): { readonly sandbox: MissionSandbox; readonly env: Readonly<Record<string, string>> } {
   const legacy = createOpenCodeServeCommand(executable, {
     workspacePath: options.workspacePath,
@@ -54,6 +60,7 @@ export function openCode2Launch(executable: ExecutableLaunch, options: {
     default_agent: OPENCODE_2_MODE,
     agents: { [OPENCODE_2_MODE]: { mode: 'primary', description: 'The current Locust turn', permissions } },
     ...(options.guardPlugin === undefined ? {} : { plugins: [options.guardPlugin] }),
+    ...(options.skillsDir === undefined ? {} : { skills: [options.skillsDir] }),
     // OpenCode's V2 normalizer explicitly supports V1 provider declarations.
     // The host's own-provider config stays per-run and never touches its files.
     ...(config.provider === undefined ? {} : { provider: config.provider }),

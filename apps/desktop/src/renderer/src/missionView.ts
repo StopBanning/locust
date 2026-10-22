@@ -5820,6 +5820,23 @@ export function briefAskedFor(prompt: string): string | undefined {
   return review === null ? undefined : `Review ${review[1]!}'s work.`
 }
 
+/**
+ * A routine's fix turn (0.534, main/routine-runner.ts goalFixPrompt): Locust's words, quoting its check, sent as the
+ * turn's whole prompt. Read back from them, since the record names only the routine and its step.
+ */
+const ROUTINE_FIX = /^The check `([^`\n]{1,500})` failed after the work above \(fix (\d{1,2}) of (\d{1,2})\)\. The end of its output:/
+
+/**
+ * Which fix of a failing check a turn is, when Locust sent it (0.812): a check-fix turn's own starter, or a routine's
+ * fix turn read from its prompt. Undefined for every other turn.
+ */
+export function fixOfTurn(turn: { readonly prompt: string; readonly startedBy?: LiveStarter }): { readonly command: string; readonly fix: number; readonly of: number } | undefined {
+  if (turn.startedBy?.kind === 'check-fix') return { command: turn.startedBy.command, fix: turn.startedBy.fix, of: turn.startedBy.of }
+  if (turn.startedBy?.kind !== 'routine') return undefined
+  const found = ROUTINE_FIX.exec(turn.prompt)
+  return found === null ? undefined : { command: found[1]!, fix: Number(found[2]), of: Number(found[3]) }
+}
+
 export function turnPromptLine(turn: {
   readonly prompt: string
   readonly startedBy?: LiveStarter
@@ -5837,8 +5854,9 @@ export function turnPromptLine(turn: {
   // message, without the context that followed it (0.438, shared/tagging.ts).
   if (turn.startedBy === undefined) return splitAttachments(taggedWordsOf(turn.prompt)).text
   // Carried on after a plan ran out (0.774): nobody typed it, and the divider above it says what happened.
-  // Sent back to fix the check (0.812): nobody typed that either, and its own line says so (CheckFixLine).
-  if (turn.startedBy.kind === 'carry-on' || turn.startedBy.kind === 'check-fix') return undefined
+  // Sent back to fix the check (0.812), or a routine's fix of its own (0.534): nobody typed those either, and their
+  // own line says so (CheckFixLine).
+  if (turn.startedBy.kind === 'carry-on' || fixOfTurn(turn) !== undefined) return undefined
   // A routine step is the person's own words, saved from a conversation they
   // had; it is theirs to see, even though the host pressed go. A room post
   // is the person's own words too, said to several at once, and so is what

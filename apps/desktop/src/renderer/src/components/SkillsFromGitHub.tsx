@@ -224,7 +224,7 @@ export function SkillsFromGitHub(): ReactElement {
                     setPreview(undefined)
                     setLink('')
                     setSaid({
-                      text: `Kept ${plural(chosen.length, 'skill')} from ${preview.source}. Claude Code teammates get ${chosen.length === 1 ? 'it' : 'them'} from their next run.`,
+                      text: `Kept ${plural(chosen.length, 'skill')} from ${preview.source}. Claude Code, Codex and OpenCode teammates get ${chosen.length === 1 ? 'it' : 'them'} from their next run.`,
                       good: true
                     })
                   })

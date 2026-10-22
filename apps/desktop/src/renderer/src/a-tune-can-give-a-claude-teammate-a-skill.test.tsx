@@ -91,8 +91,9 @@ describe('the tune card of a Claude Code teammate', () => {
     expect(html).toContain('aria-label="What it knows instructions"')
     expect(html).not.toContain('skill name')
     expect(html).toContain('Write a skill instead')
-    // Only Claude Code takes a skill.
-    expect(screen({ route: { runtime: 'opencode', model: 'opencode/example-free', mode: 'accept-edits' }, drafts: { how, knows: { instructions: 'x', why: 'x' } } })).not.toContain('Write a skill instead')
+    // Claude Code, Codex and OpenCode take a skill (0.813); an agent that does not, such as Gemini, is not offered one.
+    expect(screen({ route: { runtime: 'opencode', model: 'opencode/example-free', mode: 'accept-edits' }, drafts: { how, knows: { instructions: 'x', why: 'x' } } })).toContain('Write a skill instead')
+    expect(screen({ route: { runtime: 'gemini', model: 'account-default', mode: 'accept-edits' }, drafts: { how, knows: { instructions: 'x', why: 'x' } } })).not.toContain('Write a skill instead')
   })
 
   it('switches either way round, setting a skill aside rather than losing it', () => {
@@ -146,7 +147,8 @@ describe('the skill a kept tune offers', () => {
       renderToStaticMarkup(<KeptInstructions compare={compare} teammate={mate} onUse={async () => undefined} skills={[]} {...over} />)
     expect(offered(tune('c'), { skills: [kept] })).not.toContain('Use this skill')
     expect(offered(tune('a'))).not.toContain('Use this skill')
-    expect(offered(tune('c'), { teammate: { ...mate, route: { runtime: 'codex', model: 'gpt-6', mode: 'accept-edits' } } })).not.toContain('Use this skill')
+    expect(offered(tune('c'), { teammate: { ...mate, route: { runtime: 'gemini', model: 'account-default', mode: 'accept-edits' } } })).not.toContain('Use this skill')
+    expect(offered(tune('c'), { teammate: { ...mate, route: { runtime: 'codex', model: 'gpt-6', mode: 'accept-edits' } } })).toContain('Use this skill')
     // Kept from another tune under the same name: offered, saying it replaces that one.
     expect(offered(tune('c'), { skills: [{ ...kept, compareId: 'cmp_earlier' }] })).toContain('It replaces the skill of that name Wren has.')
   })
@@ -166,7 +168,8 @@ describe('Edit teammate', () => {
   })
 
   it('says when they wait for Claude Code, and shows nothing when there are none', () => {
-    expect(dialog({ initial: { ...mate, route: { runtime: 'codex', model: 'gpt-6', mode: 'accept-edits' } }, skills: [kept] })).toContain('Only a Claude Code run is handed these')
+    expect(dialog({ initial: { ...mate, route: { runtime: 'gemini', model: 'account-default', mode: 'accept-edits' } }, skills: [kept] })).toContain('Only a Claude Code, Codex or OpenCode run is handed these')
+    expect(dialog({ initial: { ...mate, route: { runtime: 'codex', model: 'gpt-6', mode: 'accept-edits' } }, skills: [kept] })).toContain('A run loads one only when the work matches')
     expect(dialog({ skills: [] })).not.toContain('>Skills<')
   })
 })

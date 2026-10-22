@@ -1,4 +1,5 @@
 import type { CompareRoute } from '../shared/compare.js'
+import { SKILL_RUNTIME_ANY, takesSkills } from '../shared/skill-runtimes.js'
 import { instructionsText } from '../shared/teammate-instructions.js'
 
 /** Missing keeps the teammate's words; empty removes them for this column only. */
@@ -30,11 +31,12 @@ export function compareInstructionsRefusal(routes: readonly CompareRoute[], team
 }
 
 /**
- * WHAT IT KNOWS, AS A SKILL (0.811): a skill is handed to a Claude Code run alone -- the one runtime Locust can give a
- * skill to for a single run (claude-skills.ts) -- and goes with a tune's column, which carries its own instructions.
+ * WHAT IT KNOWS, AS A SKILL (0.811): a skill is handed to a run of an agent that takes one (shared/skill-runtimes.ts:
+ * Claude Code since 0.811, Codex and OpenCode since 0.813) and goes with a tune's column, which carries its own
+ * instructions.
  */
 export function compareSkillRefusal(routes: readonly CompareRoute[]): string | undefined {
-  if (routes.some((route) => route.skill !== undefined && route.runtime !== 'claude')) return 'A skill reaches only a Claude Code teammate for now. Nothing was started.'
+  if (routes.some((route) => route.skill !== undefined && !takesSkills(route.runtime))) return `A skill reaches only a ${SKILL_RUNTIME_ANY} teammate for now. Nothing was started.`
   if (routes.some((route) => route.skill !== undefined && route.instructions === undefined)) return 'A skill goes with a tune’s column, beside its instructions. Nothing was started.'
   return undefined
 }

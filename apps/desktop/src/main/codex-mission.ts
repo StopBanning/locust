@@ -141,6 +141,7 @@ import type { ReadablePdf } from '../shared/attachments.js'
 import { CODEX_INIT_PROMPT, commandNamed } from './runtime-commands.js'
 import type { CursorDefaultModel } from './cursor-default-model.js'
 import type { PreparedSkills } from './claude-skills.js'
+import type { PreparedRunSkills } from './run-skills.js'
 import { checkpointMessage, checkpointNotice, checkpointSentence, turnOutcomeOf } from './turn-checkpoint.js'
 import type { TurnOutcome } from './turn-checkpoint.js'
 import type { CheckpointMessage, CheckpointResult } from './worktrees.js'
@@ -607,6 +608,12 @@ interface CodexMissionServiceOptions {
    * the run's process ends. Absent: no skills beyond Claude Code's own.
    */
   readonly claudeSkills?: (workspacePath: string, run: { readonly auto: boolean; readonly teammateId?: string; readonly skill?: TuneSkill }) => Promise<PreparedSkills>
+  /**
+   * The same for Codex and OpenCode (0.813, run-skills.ts): what lives in Locust's profile -- the teammate's own
+   * skills, a tune column's one, the ones kept from GitHub -- copied for this run. Both find the folder's skills and
+   * the person's themselves.
+   */
+  readonly runSkills?: (run: { readonly teammateId?: string; readonly skill?: TuneSkill }) => Promise<PreparedRunSkills | undefined>
   /** Connectors a Cursor teammate can call, by name, for its briefing. */
   readonly readyConnectors?: () => Promise<string | undefined>
   /**
@@ -926,6 +933,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
   // for the child, which shadows Node's global and is in its temporal dead
   // zone at the point this is needed.
   const hostPlatform: NodeJS.Platform = options.platform ?? process.platform
+  // A person who set OpenCode's config folder themselves keeps it (0.813): a run's skills would take its place.
+  const ownOpenCodeConfigDir = (process.env.OPENCODE_CONFIG_DIR ?? '').trim().length > 0
 
   if (!isAbsolute(options.workspacePath)) {
     throw new Error('Codex mission workspace must be an absolute path')
@@ -2299,6 +2308,20 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                     })
               }).catch(() => undefined)
             : undefined
+        /*
+         * SKILLS FOR CODEX AND OPENCODE (0.813, run-skills.ts): Codex on its app-server, which takes extra skill folders
+         * for its process; OpenCode 1 as its config folder, unless the person set one; OpenCode 2 in its config. Not on
+         * a cloud computer, where the copy would be on the wrong machine.
+         */
+        const runSkills =
+          cloud === undefined && options.runSkills !== undefined &&
+          ((runtime === 'codex' && codexStreams) || (runtime === 'opencode' && (opencodeAcp || !ownOpenCodeConfigDir)))
+            ? await options.runSkills({
+              ...(peer?.self.teammateId === undefined ? {} : { teammateId: peer.self.teammateId }),
+              ...(slot?.skill === undefined ? {} : { skill: slot.skill })
+            }).catch(() => undefined)
+            : undefined
+        if (runSkills !== undefined) options.note?.('skills-given', `${missionId} ${runSkills.skills.join(' ')}`)
         const openCodeAcpLaunch = !opencodeAcp ? undefined : openCode2Launch(executable, {
           workspacePath: runCwd,
           sandbox: effectiveSandbox,
@@ -2306,7 +2329,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           referenceFolders,
           ...(repositoryRoot === undefined ? {} : { repositoryRoot }),
           ...(providers === undefined ? {} : { providers }),
-          ...(openCodeGuardPlugin === undefined ? {} : { guardPlugin: openCodeGuardPlugin })
+          ...(openCodeGuardPlugin === undefined ? {} : { guardPlugin: openCodeGuardPlugin }),
+          ...(runSkills === undefined ? {} : { skillsDir: runSkills.skillsDir })
         })
         /*
          * SKILLS (0.679). `--restricted` keeps a Claude run from finding the
@@ -2364,7 +2388,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(repositoryRoot === undefined ? {} : { repositoryRoot }),
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
-              ...(browserMcp === undefined ? {} : { browserMcp })
+              ...(browserMcp === undefined ? {} : { browserMcp }),
+              ...(runSkills === undefined ? {} : { skillsConfigDir: runSkills.dir })
             })
           }
           if (runtime === 'opencode') {
@@ -2379,6 +2404,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               ...(providers === undefined ? {} : { providers }),
               ...(openCodeGuardPlugin === undefined ? {} : { openCodeGuardPlugin }),
               ...(browserMcp === undefined ? {} : { browserMcp }),
+              ...(runSkills === undefined ? {} : { skillsConfigDir: runSkills.dir }),
               ...choice
             })
           }
@@ -2889,6 +2915,7 @@ ${sentPrompt.trim()}`
               ...(resumeThreadId === undefined ? {} : { resumeThreadId }),
               ...(side === undefined ? {} : { forkThread: true }),
               ...(codexCommand === 'review' || codexCommand === 'compact' ? { slashCommand: codexCommand } : {}),
+              ...(runSkills === undefined ? {} : { skillRoots: [runSkills.skillsDir] }),
               // No teammate ends your browser, Codex too (0.720).
               ...(() => {
                 const codexThreadConfig: Record<string, JsonValue> = {
@@ -3081,6 +3108,7 @@ ${sentPrompt.trim()}`
             if (send !== undefined) steer = async (text) => send(text)
           }
         } catch (startError) {
+          if (runSkills !== undefined) void runSkills.dispose()
           // A refusal this file raised knows WHY; anything else does not, and
           // must not borrow a specific-sounding reason it cannot back.
           const why = startError instanceof Error && startError.message.length > 0
@@ -3105,6 +3133,11 @@ ${sentPrompt.trim()}`
             'RUNTIME_START_FAILED',
             why
           ) as CodexMissionStartResponse
+        }
+        if (runSkills !== undefined) {
+          // The run's copy of its skills goes when the run does, however it ends.
+          const clear = (): void => void runSkills.dispose()
+          process.completion.then(clear, clear)
         }
         if (cloudDir !== undefined) {
           // What the turn changed there is read once it ends, for the card under it (cloud-turns.ts), whichever agent.

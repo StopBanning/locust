@@ -1,4 +1,5 @@
 import { useRef, type ReactElement } from 'react'
+import { takesSkills } from '../../../shared/skill-runtimes.js'
 import { MAX_TEAMMATE_INSTRUCTIONS } from '../../../shared/ipc.js'
 import type { TeammateRoute } from '../../../shared/ipc.js'
 import { MAX_SKILL_BODY, MAX_SKILL_DESCRIPTION, MAX_SKILL_NAME, repeatsOf, TUNE_DRAFT_COST, TUNE_SKILL_INCOMPLETE, tuneSkillOf, type TuneDrafts, type TuneSkill } from '../../../shared/tune.js'
@@ -45,8 +46,8 @@ export function TuneTeammate({ card, onChange, onRun, onCancel }: {
   const skillReady = tuneSkillReady(card)
   const editSkill = (change: Partial<TuneSkill>): void =>
     onChange((current) => current.drafts.knows.skill === undefined ? current : { ...current, drafts: { ...current.drafts, knows: { ...current.drafts.knows, skill: { ...current.drafts.knows.skill, ...change } } } })
-  // Either way round, for a Claude Code teammate (0.811): the skill drafted, or set aside, or one the person writes.
-  const canSkill = card.route.runtime === 'claude' && !card.drafting
+  // Either way round, for a teammate whose agent takes skills (0.811; Codex and OpenCode 0.813): the skill drafted, or set aside, or one the person writes.
+  const canSkill = takesSkills(card.route.runtime) && !card.drafting
   const writeSkill = (): void =>
     onChange(({ skillAside, ...current }) => ({ ...current, drafts: { ...current.drafts, knows: { ...current.drafts.knows, skill: skillAside ?? { name: '', description: '', body: '' } } } }))
   const useInstructions = (): void =>

@@ -98,7 +98,7 @@ describe('a comparison’s standing instructions', () => {
     expect(handler).toContain('teammate.route.runtime !== turn.metadata.runtime')
     expect(handler).toContain('teammate.route.model !== turn.metadata.model')
     // A Claude Code teammate's "What it knows" is asked for as a skill (0.811); the turn is the same side turn.
-    expect(handler).toContain("askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId), { skills: teammate.route.runtime === 'claude' }), 1, teammate.route)")
+    expect(handler).toContain("askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId), { skills: takesSkills(teammate.route.runtime), runtimeName: runtimeDisplayName(teammate.route.runtime) ?? teammate.route.runtime }), 1, teammate.route)")
     expect(source).toContain('effortOverride.effort')
     expect(handler).not.toContain('teammates.update')
   })

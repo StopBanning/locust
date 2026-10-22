@@ -26,8 +26,9 @@ export type TeammateSkillListResponse =
 /**
  * WHAT IT KNOWS, AS A SKILL (0.811). Harness² finds a teammate's skills the strongest of its levers, and standing
  * instructions the weakest; a practitioner's checks belong in a skill, loaded when the work matches its description,
- * not in words read on every turn. For a Claude Code teammate -- the one runtime Locust can hand a skill to for a single
- * run (claude-skills.ts) -- a tune's "What it knows" is drafted as one.
+ * not in words read on every turn. For a teammate whose agent Locust can hand a skill to for a single run -- Claude
+ * Code (claude-skills.ts), and since 0.813 Codex and OpenCode (run-skills.ts; shared/skill-runtimes.ts) -- a tune's
+ * "What it knows" is drafted as one.
  */
 export type TuneSkill = NonNullable<CompareRoute['skill']>
 /** A name Claude Code gives a skill: lower case words and digits, joined by single hyphens. */

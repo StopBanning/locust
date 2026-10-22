@@ -7,7 +7,7 @@ import { CheckFixLine } from './components/CheckFixLine.js'
 import { EditCheckCard } from './components/EditCheckCard.js'
 import { CheckAfterEditsRow } from './components/Screens.js'
 import { Thread } from './components/Thread.js'
-import { buildThread, turnPromptLine } from './missionView.js'
+import { buildThread, fixOfTurn, turnPromptLine } from './missionView.js'
 
 /*
  * FIX UNTIL THE CHECK PASSES (0.812). A turn Locust sent back to fix a failing check is Locust's: nobody typed it, so
@@ -76,6 +76,23 @@ describe('a turn sent back to fix the check is said as Locust\'s', () => {
     // What was sent is the fold-out's, never a bubble: one bubble in the whole thread, the person's.
     expect(html.match(/class="lc-bubble"/g)).toHaveLength(1)
     expect(html).toContain('FAIL adds three numbers')
+  })
+
+  it('a routine’s own fix turn is Locust’s too, read from its words; a routine’s step stays the person’s', () => {
+    const routine = { kind: 'routine', routineId: 'rt_x', step: 1 } as const
+    // routine-runner.ts goalFixPrompt's words; a-failing-check-goes-back-to-fix.test.ts holds the runner to them.
+    const fix = [
+      'The check `node check.js` failed after the work above (fix 1 of 2). The end of its output:',
+      '',
+      'CHECK FAILED: answer.txt says 41',
+      '',
+      'Fix what it reports in this folder, then say in one or two sentences what you changed.'
+    ].join('\n')
+    expect(fixOfTurn({ prompt: fix, startedBy: routine })).toEqual({ command: 'node check.js', fix: 1, of: 2 })
+    expect(turnPromptLine({ prompt: fix, startedBy: routine })).toBeUndefined()
+    expect(turnPromptLine({ prompt: 'Create answer.txt holding 41.', startedBy: routine })).toBe('Create answer.txt holding 41.')
+    // The same words typed by the person are the person's: only a routine's turn is read this way.
+    expect(fixOfTurn({ prompt: fix })).toBeUndefined()
   })
 
   it('names whom it went back to, when the conversation has a teammate', () => {

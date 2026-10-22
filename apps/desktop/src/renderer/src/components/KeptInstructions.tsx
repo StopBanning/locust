@@ -1,4 +1,5 @@
 import { useState, type ReactElement } from 'react'
+import { takesSkills } from '../../../shared/skill-runtimes.js'
 import type { PublicCompare } from '../../../shared/compare.js'
 import type { PublicTeammate } from '../../../shared/ipc.js'
 import {
@@ -95,7 +96,7 @@ export function KeptInstructions({
   const own = (skills ?? []).filter((one) => one.teammateId === teammate.teammateId)
   const usedHere = offered !== undefined && own.some((one) => one.name === offered.skill.name && one.compareId === compare.compareId)
   const replaces = offered !== undefined && !usedHere && own.some((one) => one.name === offered.skill.name)
-  const offerSkill = offered !== undefined && !usedHere && !skillApplied && !skillDismissed && teammate.route?.runtime === 'claude'
+  const offerSkill = offered !== undefined && !usedHere && !skillApplied && !skillDismissed && takesSkills(teammate.route?.runtime)
   const useSkill = (): void => {
     if (busy || offered === undefined) return
     setBusy(true)

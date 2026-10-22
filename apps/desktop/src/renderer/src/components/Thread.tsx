@@ -18,7 +18,7 @@ import type {
 } from '../../../shared/ipc.js'
 import type { TurnVersions } from '../missionView.js'
 import type { MissionMode, RewindPutBackResponse } from '../../../shared/ipc.js'
-import { activityEntries, buildThread, netFileEntries, cancellationSummary, editedFiles, decisionStanding, errorAlreadyShown, foldNoticeKeys, helperAskedBy, lastPlanOf, modeRefusedATool, pathInWorkspace, readPlan, relativePath, sentAgainBy, stepsLine, stoppedBeforeSaying, terminalSeamBefore, threadMarkers, threadPeerCards, turnAttachments, turnPromptLine, usageWindowLabel } from '../missionView.js'
+import { activityEntries, buildThread, netFileEntries, cancellationSummary, editedFiles, decisionStanding, errorAlreadyShown, fixOfTurn, foldNoticeKeys, helperAskedBy, lastPlanOf, modeRefusedATool, pathInWorkspace, readPlan, relativePath, sentAgainBy, stepsLine, stoppedBeforeSaying, terminalSeamBefore, threadMarkers, threadPeerCards, turnAttachments, turnPromptLine, usageWindowLabel } from '../missionView.js'
 import { handedFileOnDisk, isWholePath } from '../../../shared/handover.js'
 import type { GroupBoundary, GroupLeaving, LiveStarter, TurnSwitch } from '../missionView.js'
 import { parseAgentText } from '../agentText.js'
@@ -1379,6 +1379,8 @@ onResume,
   // What the current turn is called: the person's words, or -- for a turn the
   // host briefed -- the message that caused it, or nothing at all.
   const currentLine = turnPromptLine({ prompt, startedBy, peerMessages: peers.messages })
+  // The turn on screen as Locust's fix of a failing check (0.812), drawn as its line rather than a message.
+  const currentFix = fixOfTurn({ prompt, ...(startedBy === undefined ? {} : { startedBy }) })
   const currentSeam = terminalSeamBefore(earlierTurns.at(-1)?.inTerminal, inTerminal)
   /*
    * The person's turn: what they typed, and under it the files they attached.
@@ -1652,7 +1654,10 @@ onResume,
               {!again && versionNote(turn.versions)}
               {callsAt(`before:${turn.missionId}`)}
               {!again && userTurn(turnPromptLine(turn), turnAttachments(turn), () => editedFiles(turn.events, workspacePath), turn.startedBy === undefined && turn.inTerminal === undefined ? turn.missionId : undefined)}
-              {turn.startedBy?.kind === 'check-fix' && <CheckFixLine command={turn.startedBy.command} fix={turn.startedBy.fix} of={turn.startedBy.of} prompt={turn.prompt} {...(peers.self === undefined ? {} : { teammateName: peers.self.name })} />}
+              {(() => {
+                const sentBack = fixOfTurn(turn)
+                return sentBack === undefined ? null : <CheckFixLine {...sentBack} prompt={turn.prompt} {...(peers.self === undefined ? {} : { teammateName: peers.self.name })} />
+              })()}
               {!again && cloudMarkerFor(turn.missionId)}
               {cardsFor(index, 'before-work').map(peerCard)}
               {!again && inItsPlace(turn.missionId, earlierWork[index])}
@@ -1723,7 +1728,7 @@ onResume,
         {currentSeam !== undefined && <TerminalDivider seam={currentSeam} {...(shownMissionId !== undefined && backgroundTurns?.has(shownMissionId) === true ? { background: true } : {})} />}
         {shownMissionId !== undefined && callsAt(`before:${shownMissionId}`)}
         {userTurn(currentLine, turnAttachments({ prompt, ...(startedBy === undefined ? {} : { startedBy }) }), running ? undefined : () => editedFiles(events, workspacePath), !running && startedBy === undefined && inTerminal === undefined ? shownMissionId : undefined)}
-        {startedBy?.kind === 'check-fix' && <CheckFixLine command={startedBy.command} fix={startedBy.fix} of={startedBy.of} prompt={prompt} {...(peers.self === undefined ? {} : { teammateName: peers.self.name })} />}
+        {currentFix !== undefined && <CheckFixLine {...currentFix} prompt={prompt} {...(peers.self === undefined ? {} : { teammateName: peers.self.name })} />}
         {cloudMarkerFor(shownMissionId)}
 
         {handoff !== undefined && (
@@ -1784,7 +1789,7 @@ onResume,
           <EditCheckCard
             check={editCheck}
             teammateName={peers.self?.name}
-            {...(startedBy?.kind === 'check-fix' ? { fix: startedBy.fix } : {})}
+            {...(currentFix === undefined ? {} : { fix: currentFix.fix })}
             {...(onSendEditCheck === undefined ? {} : { onSend: onSendEditCheck })}
           />
         )}

@@ -99,6 +99,13 @@ export interface CodexAppServerRunOptions {
    */
   readonly threadConfig?: Readonly<Record<string, JsonValue>>;
   /**
+   * Folders of skills for THIS process only (0.813, Locust's run-skills.ts): each holds `<name>/SKILL.md`. MEASURED
+   * 2026-10-22 on Codex 0.163.0, no model called: after `skills/extraRoots/set` its `skills/list` names a skill from
+   * such a folder, beside every one Codex found itself. Nothing is written to the person's config.toml; a Codex too
+   * old to know the request runs the turn without them.
+   */
+  readonly skillRoots?: readonly string[];
+  /**
    * What answers the server when it ASKS -- the approval channel. Only a
    * policy that stops for approval (`untrusted`) ever produces a request;
    * without a handler every request is refused, which under `never` is the
@@ -354,6 +361,10 @@ ${said}` : why;
       clientInfo: { name: "locust", version: "0.1.0" },
     });
     client.notify("initialized");
+    if (options.skillRoots !== undefined && options.skillRoots.length > 0) {
+      // Before the thread starts, so its first turn already lists them. Refused, the turn runs without them.
+      await client.request("skills/extraRoots/set", { extraRoots: [...options.skillRoots] }).catch(() => undefined);
+    }
     const forking = options.resumeThreadId !== undefined && options.forkThread === true;
     const thread = await client.request(
       options.resumeThreadId === undefined ? "thread/start" : forking ? "thread/fork" : "thread/resume",

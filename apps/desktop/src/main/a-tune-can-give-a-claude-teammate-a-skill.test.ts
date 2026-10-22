@@ -112,7 +112,9 @@ describe('the drafts of a tune of a Claude Code teammate', () => {
 describe('a column with a skill', () => {
   it('starts only on Claude Code, and only beside its instructions', () => {
     expect(compareSkillRefusal([{ ...route, instructions: current, skill }])).toBeUndefined()
-    expect(compareSkillRefusal([{ runtime: 'codex', model: 'gpt-6', instructions: current, skill }])).toBe('A skill reaches only a Claude Code teammate for now. Nothing was started.')
+    // Codex and OpenCode take one since 0.813 (codex-and-opencode-teammates-get-their-skills.test.ts); Gemini does not.
+    expect(compareSkillRefusal([{ runtime: 'codex', model: 'gpt-6', instructions: current, skill }])).toBeUndefined()
+    expect(compareSkillRefusal([{ runtime: 'gemini', model: 'account-default', instructions: current, skill }])).toBe('A skill reaches only a Claude Code, Codex or OpenCode teammate for now. Nothing was started.')
     expect(compareSkillRefusal([{ ...route, skill }])).toBe('A skill goes with a tune’s column, beside its instructions. Nothing was started.')
   })
 

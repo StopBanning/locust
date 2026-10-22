@@ -176,6 +176,8 @@ import type { AwaySummaryCounts } from '../shared/away.js'
 import { createRecentEdits } from './recent-edits.js'
 import { createCheckpoints, createTurnRecords } from './checkpoints.js'
 import { clearClaudeSkillCopies, prepareClaudeSkills } from './claude-skills.js'
+import { prepareRunSkills } from './run-skills.js'
+import { takesSkills } from '../shared/skill-runtimes.js'
 import { createSkillLibrary, SkillLibraryError } from './skill-library.js'
 import { createFolderCommits } from './folder-commit.js'
 import { createBackgroundRuns } from './claude-background-runs.js'
@@ -695,6 +697,8 @@ const checkpoints = createCheckpoints({ root: join(app.getPath('userData'), 'che
 const turnRecords = createTurnRecords(join(app.getPath('userData'), 'checkpoints', 'turns.json'))
 /** Skills copied for each Claude run outside Auto (0.679); what a crash left is cleared at launch. */
 const claudeSkillCopies = join(app.getPath('userData'), 'claude-skills')
+/** And for each Codex and OpenCode run (0.813, run-skills.ts), cleared the same way. */
+const runSkillCopies = join(app.getPath('userData'), 'run-skills')
 /** Skills the person kept from a GitHub repository (0.710), handed to every Claude run as the `library` plugin. */
 const skillLibrary = createSkillLibrary({ root: join(app.getPath('userData'), 'skill-library') })
 const runtimeFactsLoaded = runtimeFacts.load().catch(() => undefined)
@@ -1181,6 +1185,7 @@ const ownsSingleInstanceLock = app.requestSingleInstanceLock()
 // What a crashed run left of its skill copies: cleared by the instance that owns the profile only. A second launch,
 // about to hand over and quit, cleared them before taking the lock and could pull a live run's files away (Sol's review).
 if (ownsSingleInstanceLock) void clearClaudeSkillCopies(claudeSkillCopies)
+if (ownsSingleInstanceLock) void clearClaudeSkillCopies(runSkillCopies)
 let missionServiceForShutdown: CodexMissionService | undefined
 let remoteControlForShutdown: ReturnType<typeof createRemoteControl> | undefined
 let terminalForShutdown: ReturnType<typeof createTerminalHost> | undefined
@@ -2768,6 +2773,17 @@ if (!ownsSingleInstanceLock) {
           libraryFolder: skillLibrary.skillsFolder,
           auto: run.auto,
           // The run's teammate's own skills, and a tune column's one skill for this run alone (0.811).
+          ...(run.teammateId === undefined ? {} : {
+            teammateFolder: teammateSkills.folderOf(run.teammateId),
+            teammateSkills: (await teammateSkills.list(run.teammateId).catch(() => [])).map((skill) => skill.name)
+          }),
+          ...(run.skill === undefined ? {} : { candidate: run.skill })
+        }),
+      // The same for Codex and OpenCode (0.813): the teammate's own, a tune column's one, and the ones kept from GitHub.
+      runSkills: async (run) =>
+        prepareRunSkills({
+          scratchRoot: runSkillCopies,
+          libraryFolder: skillLibrary.skillsFolder,
           ...(run.teammateId === undefined ? {} : {
             teammateFolder: teammateSkills.folderOf(run.teammateId),
             teammateSkills: (await teammateSkills.list(run.teammateId).catch(() => [])).map((skill) => skill.name)
@@ -5181,8 +5197,8 @@ if (!ownsSingleInstanceLock) {
       const teammate = (await teammates.list()).find((entry) => entry.teammateId === owner)
       if (teammate === undefined) return refuse('Open a teammate’s conversation first. Nothing was started.')
       if (teammate.route === undefined || teammate.route.runtime !== turn.metadata.runtime || teammate.route.model !== turn.metadata.model || teammate.route.account !== accountFromRoute(turn.metadata.resolvedRouteId)) return refuse('This conversation uses another model or account. Drafts were not requested; you can write the two alternatives yourself.')
-      // A Claude Code teammate's "What it knows" is drafted as a skill (0.811): the one runtime a run can be handed one.
-      return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId), { skills: teammate.route.runtime === 'claude' }), 1, teammate.route)
+      // "What it knows" is drafted as a skill (0.811) for every agent a run can hand one to (0.813: Codex and OpenCode too).
+      return askOnTheSide(of, tuneDraftPrompt(teammate.instructions ?? '', await tuneLessons.list(teammate.teammateId), { skills: takesSkills(teammate.route.runtime), runtimeName: runtimeDisplayName(teammate.route.runtime) ?? teammate.route.runtime }), 1, teammate.route)
     })
     // Note what a kept tune showed (0.810): one side turn on the teammate's own route, only when pressed.
     ipcMain.handle(TUNE_LESSON_NOTE_CHANNEL, async (event, compareId: unknown, usedInstructions: unknown, measured: unknown) => {

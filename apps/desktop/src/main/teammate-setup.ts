@@ -3,6 +3,7 @@ import { basename, join } from 'node:path'
 
 import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 import type { PublicTeammate } from '../shared/ipc.js'
+import { SKILL_FOLDERS, takesSkills } from '../shared/skill-runtimes.js'
 import { RUNTIME_FILE, type TeammateSetup } from '../shared/teammate-setup.js'
 import { skillFoldersIn } from './claude-skills.js'
 import { readWorkspaceBrief } from './workspace-brief.js'
@@ -68,9 +69,13 @@ export async function gatherTeammateSetup(sources: SetupSources): Promise<Teamma
   const fileText = fileName === undefined ? undefined : await read(join(folderPath, fileName)).catch(() => undefined)
   const memoryOn = sources.settings.memoryMode !== 'off'
   const claude = runtime === 'claude'
-  const personal = claude ? await skillFoldersIn(join(sources.homeDirectory, '.claude', 'skills')) : []
-  // Auto runs as the person, and Claude Code finds their own skills itself (claude-skills.ts).
-  const lent = sources.settings.claudeOwnSkills === true || teammate.route?.mode === 'auto'
+  // The folders this runtime reads skills from, the folder's and the person's (0.813, shared/skill-runtimes.ts).
+  const folders = runtime !== undefined && takesSkills(runtime) ? SKILL_FOLDERS[runtime as keyof typeof SKILL_FOLDERS] : undefined
+  const namesIn = async (roots: readonly string[]): Promise<number> =>
+    new Set((await Promise.all(roots.map((root) => skillFoldersIn(root).catch(() => [] as readonly string[])))).flat()).size
+  const personal = folders === undefined ? 0 : await namesIn(folders.personal.map((path) => join(sources.homeDirectory, ...path.split('/'))))
+  // Auto runs as the person, and Claude Code finds their own skills itself (claude-skills.ts); Codex and OpenCode always do.
+  const lent = !claude || sources.settings.claudeOwnSkills === true || teammate.route?.mode === 'auto'
   const lastTurn = lastTurnOf(sources.lastTurn)
   return {
     teammateId: teammate.teammateId,
@@ -81,17 +86,19 @@ export async function gatherTeammateSetup(sources: SetupSources): Promise<Teamma
     instructions: (teammate.instructions ?? '').length,
     aboutYou: sources.settings.aboutYou !== undefined && sources.settings.aboutYou.trim().length > 0,
     memory: { on: memoryOn, count: memoryOn ? await sources.memoryCount(folderPath).catch(() => 0) : 0 },
-    ...(claude
-      ? {
+    ...(folders === undefined
+      ? {}
+      : {
           skills: {
             own: await sources.ownSkills().catch(() => []),
-            project: (await skillFoldersIn(join(folderPath, '.claude', 'skills'))).length,
-            personal: { count: personal.length, lent },
+            project: await namesIn(folders.project.map((path) => join(folderPath, ...path.split('/')))),
+            projectFolders: folders.project,
+            personal: { count: personal, lent, ...(claude ? {} : { foundItself: true as const }) },
             library: (await skillFoldersIn(sources.libraryFolder)).length
-          },
-          connectors: teammate.connectors ?? []
-        }
-      : {}),
+          }
+        }),
+    // Connectors are Claude Code's alone here: the ones it may use without asking.
+    ...(claude ? { connectors: teammate.connectors ?? [] } : {}),
     lessons: await sources.lessons().catch(() => 0),
     ...(lastTurn === undefined ? {} : { lastTurn })
   }

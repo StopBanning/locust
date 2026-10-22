@@ -82,7 +82,7 @@ describe('a Claude Code teammate’s setup', () => {
       instructions: 49,
       aboutYou: true,
       memory: { on: true, count: 4 },
-      skills: { own: ['evidence-first'], project: 1, personal: { count: 1, lent: false }, library: 1 },
+      skills: { own: ['evidence-first'], project: 1, projectFolders: ['.claude/skills'], personal: { count: 1, lent: false }, library: 1 },
       connectors: ['Gmail'],
       lessons: 1,
       lastTurn: { version: '2.1.310', tools: 21, skills: 4 }
@@ -113,11 +113,11 @@ describe('a Claude Code teammate’s setup', () => {
 })
 
 describe('another runtime’s setup', () => {
-  it('names its own file where Locust knows it, and offers no skills or connectors', async () => {
+  it('names its own file where Locust knows it, and an agent Locust hands no skill to offers no skills or connectors', async () => {
     const folder = await scratch('locust-setup-ws-')
     await writeFileAsync(join(folder, 'AGENTS.md'), 'x\n')
-    const setup = await gatherTeammateSetup({
-      teammate: mate({ route: { runtime: 'opencode', model: 'opencode/deepseek-v4.1-flash-free', mode: 'accept-edits' } }),
+    const gemini = await gatherTeammateSetup({
+      teammate: mate({ route: { runtime: 'gemini', model: 'account-default', mode: 'accept-edits' } }),
       projectPath: folder,
       settings: { memoryMode: 'project' },
       memoryCount: async () => 0,
@@ -126,11 +126,50 @@ describe('another runtime’s setup', () => {
       libraryFolder: folder,
       homeDirectory: folder
     })
-    expect(setup.runtimeFile).toEqual({ name: 'AGENTS.md', lines: 1 })
-    expect(setup.skills).toBeUndefined()
-    expect(setup.connectors).toBeUndefined()
+    expect(gemini.runtimeFile).toEqual({ name: 'GEMINI.md' })
+    expect(gemini.skills).toBeUndefined()
+    expect(gemini.connectors).toBeUndefined()
     const cursor = await gatherTeammateSetup({ teammate: mate({ route: { runtime: 'cursor', model: 'account-default', mode: 'ask' } }), projectPath: folder, settings: { memoryMode: 'off' }, memoryCount: async () => 0, ownSkills: async () => [], lessons: async () => 0, libraryFolder: folder, homeDirectory: folder })
     expect(cursor.runtimeFile).toBeUndefined()
+    expect(cursor.skills).toBeUndefined()
+  })
+
+  it('counts a Codex or OpenCode teammate’s skills from the folders that agent reads itself (0.813)', async () => {
+    const folder = await scratch('locust-setup-ws-')
+    const home = await scratch('locust-setup-home-')
+    const library = await scratch('locust-setup-lib-')
+    await skill(join(folder, '.agents', 'skills'), 'shared')
+    await skill(join(folder, '.opencode', 'skills'), 'oc-only')
+    await skill(join(folder, '.claude', 'skills'), 'shared')
+    await skill(join(home, '.agents', 'skills'), 'mine')
+    await skill(join(home, '.codex', 'skills'), 'installed')
+    await skill(join(home, '.claude', 'skills'), 'claude-own')
+    await skill(library, 'kept')
+    const sources = {
+      projectPath: folder,
+      settings: { memoryMode: 'off' as const },
+      memoryCount: async () => 0,
+      ownSkills: async () => ['evidence-first'],
+      lessons: async () => 0,
+      libraryFolder: library,
+      homeDirectory: home
+    }
+    const codex = await gatherTeammateSetup({ ...sources, teammate: mate({ route: { runtime: 'codex', model: 'gpt-6-mini', mode: 'accept-edits' } }) })
+    // Codex reads the folder's .agents/skills, and the person's ~/.agents/skills and ~/.codex/skills, Settings or not.
+    expect(codex.skills).toEqual({ own: ['evidence-first'], project: 1, projectFolders: ['.agents/skills'], personal: { count: 2, lent: true, foundItself: true }, library: 1 })
+    expect(codex.connectors).toBeUndefined()
+    const opencode = await gatherTeammateSetup({ ...sources, teammate: mate({ route: { runtime: 'opencode', model: 'opencode/deepseek-v4.1-flash-free', mode: 'accept-edits' } }) })
+    // OpenCode reads three folders of each; a name in two of them is one skill.
+    expect(opencode.skills).toEqual({ own: ['evidence-first'], project: 2, projectFolders: ['.opencode/skills', '.claude/skills', '.agents/skills'], personal: { count: 2, lent: true, foundItself: true }, library: 1 })
+    const words = setupSections(opencode, 'Ada', 'OpenCode')[1]!.rows
+    expect(words).toEqual([
+      { label: 'Its own skills', value: 'evidence-first' },
+      { label: 'Project skills', value: '2 skills in .opencode/skills, .claude/skills and .agents/skills' },
+      { label: 'Your skills', value: '2 skills, found by OpenCode itself' },
+      { label: 'Kept from GitHub', value: '1 skill' }
+    ])
+    const none = setupSections({ ...codex, skills: { ...codex.skills!, project: 0 } }, 'Ada', 'Codex')[1]!.rows
+    expect(none[1]).toEqual({ label: 'Project skills', value: 'None in .agents/skills' })
   })
 })
 
