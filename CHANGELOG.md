@@ -22,6 +22,10 @@ heading: the home screen then shows it once, as a splash.
 - **/setup before the first turn.** /setup now works in a teammate's conversation before you have asked it anything, so you can see what it will be given before its first turn.
 - **A routine's fix reads as Locust's.** When a routine keeps going until its check passes, its fix turn now reads as Locust's line, such as "node check.js failed, so Locust sent it back to Cedar · fix 1 of 2", with What Locust sent one click away. It used to read as a message from you.
 
+### Fixed
+
+- **A first message says OpenCode is setting itself up.** The first time OpenCode starts on a machine, it installs a package of its own, about a minute here, before it answers. The first message's line said "Looking for OpenCode" for all of that; it now says OpenCode is setting itself up for its first start.
+
 ## 0.812.0 - 2026-10-22
 
 ### New

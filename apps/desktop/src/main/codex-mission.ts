@@ -1549,8 +1549,10 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       const say = (phase: StartPhase): void => {
         const at = Date.now()
         phaseAt[phase] = at
-        // Timed as the start it is; said as what the person is waiting for (0.780).
-        const shown: StartPhase = phase === 'starting-runtime' && options.setsItselfUp?.(runtime) === true ? 'runtime-first-setup' : phase
+        // Timed as the start it is; said as what the person is waiting for (0.780). From its first phase (0.813): the
+        // look for OpenCode waits on the same first-start install, and the clean-machine drive read "Looking for
+        // OpenCode" for the whole minute of it.
+        const shown: StartPhase = (phase === 'starting-runtime' || phase === 'looking') && options.setsItselfUp?.(runtime) === true ? 'runtime-first-setup' : phase
         emit({ kind: 'start-phase', runtime, ...(peer === undefined ? {} : { teammateId: peer.self.teammateId }), phase: shown, at: new Date(at).toISOString() })
       }
       // `account-default` is the shell's word for "send no --model", not a

@@ -3798,7 +3798,8 @@ describe('the start says its phase, and the run writes where its seconds went', 
     const { service, appended, updates, scheduled } = build({ setsItselfUp: (runtime) => runtime === 'codex' })
     const response = await service.start('Say done.', 'codex', 'accept-edits', {}, (update) => updates.push(update))
     expect(response.ok).toBe(true)
-    expect(phasesOf(updates)).toEqual(['looking', 'briefing', 'reading-folder', 'runtime-first-setup'])
+    // From the look for it on (0.813): that look waits on the same install, so "Looking for" was all a person read.
+    expect(phasesOf(updates)).toEqual(['runtime-first-setup', 'briefing', 'reading-folder', 'runtime-first-setup'])
     while (scheduled.length > 0) scheduled.shift()!()
     for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve))
     const completed = appended.findIndex((event) => event.type === 'run.completed')
