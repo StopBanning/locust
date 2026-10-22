@@ -20,6 +20,7 @@ export const SCOUT_DISMISS = 'scout:dismiss'
 export const SCOUT_LOOK = 'scout:look'
 /** Scout's notes, as the person wrote them in Settings (0.816). */
 export const SCOUT_NOTES = 'scout:notes'
+export const SCOUT_TUNE = 'scout:tune'
 /** Main to the window: what Scout holds changed. */
 export const SCOUT_CHANGED = 'scout:changed'
 
@@ -110,6 +111,17 @@ export type ScoutOpen =
   | { readonly kind: 'url'; readonly url: string; readonly label: string }
   | { readonly kind: 'conversation'; readonly missionId: string; readonly label: string }
 
+/** A change a weekly tune-up suggests (0.817): one press applies it to Scout's settings as they stand then. */
+export interface ScoutTune {
+  readonly label: string
+  /** A watch to turn off. */
+  readonly watchOff?: keyof ScoutWatches
+  readonly everyMinutes?: ScoutEvery
+}
+
+/** What the person did with a card: sent its draft on, put it in the box to change first, or dismissed it. */
+export type ScoutOutcome = 'sent' | 'changed' | 'dismissed'
+
 /** Something Locust found, in its own words. */
 export interface ScoutFact {
   /** What it is about, in the state it was found in: the same news is never told twice. */
@@ -127,6 +139,8 @@ export interface ScoutFact {
   readonly open?: ScoutOpen
   /** The teammate it is about, when it is about one. */
   readonly teammateId?: string
+  /** A weekly tune-up's one suggestion (0.817). */
+  readonly tune?: ScoutTune
 }
 
 export interface ScoutDraft {
@@ -176,7 +190,10 @@ export interface ScoutApi {
   /** Makes Scout, on this route, and starts it; on again with its teammate when it has one. */
   turnOn(route: { readonly runtime: string; readonly model: string } | undefined): Promise<ScoutState | { readonly refused: string }>
   set(change: ScoutChange): Promise<ScoutState>
-  dismiss(cardId: string): Promise<ScoutState>
+  /** The card goes; `how` is what the person did with it, for the weekly tune-up (0.817). Dismissed when not said. */
+  dismiss(cardId: string, how?: ScoutOutcome): Promise<ScoutState>
+  /** Applies a weekly tune-up card's suggestion, and the card goes (0.817). */
+  tune(cardId: string): Promise<ScoutState>
   look(): Promise<ScoutState>
   /** The notes as the person wrote them in Settings, one per line; empty clears them (0.816). */
   saveNotes(text: string): Promise<ScoutState>
@@ -545,6 +562,117 @@ export function briefFact(brief: ScoutBrief, day: string): ScoutFact {
     said: lines.length === 0 ? 'Good morning. Nothing waits on you, and nothing ran since yesterday.' : 'Good morning. Here is where things stand.',
     ...(lines.length === 0 ? {} : { lines, detail: lines.join('\n') }),
     chips: [{ text: 'morning brief', tone: 'blue' }]
+  }
+}
+
+/** The watch a card came from, by its key; none for Scout's own brief and week (0.817). */
+export function watchOfKey(key: string): keyof ScoutWatches | undefined {
+  const kind = key.slice(0, Math.max(0, key.indexOf(':')))
+  if (kind === 'pr' || kind === 'review' || kind === 'issue' || kind === 'branch') return 'github'
+  if (kind === 'waiting' || kind === 'failed') return 'teammates'
+  return kind === 'check' ? 'check' : undefined
+}
+
+/** One watch's cards in a week: raised, used (sent on, or changed first) and dismissed. */
+export interface ScoutWeekWatch {
+  readonly raised: number
+  readonly used: number
+  readonly dismissed: number
+}
+
+/**
+ * A week of Scout (0.817), from the day it began by this computer's clock: its looks, how many asked its model, and
+ * what became of the cards it raised. The weekly tune-up is made from it.
+ */
+export interface ScoutWeek {
+  readonly from: string
+  readonly looks: number
+  readonly asked: number
+  readonly watches: Readonly<Record<keyof ScoutWatches, ScoutWeekWatch>>
+  readonly sent: number
+  readonly changed: number
+  readonly dismissed: number
+}
+
+const WATCH_NAMES = ['github', 'teammates', 'check'] as const
+const NO_CARDS: ScoutWeekWatch = { raised: 0, used: 0, dismissed: 0 }
+
+export function emptyWeek(day: string): ScoutWeek {
+  return { from: day, looks: 0, asked: 0, watches: { github: NO_CARDS, teammates: NO_CARDS, check: NO_CARDS }, sent: 0, changed: 0, dismissed: 0 }
+}
+
+/** A week as kept on disk; anything that is not one is none. */
+export function weekFrom(value: unknown): ScoutWeek | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const count = (one: unknown): one is number => typeof one === 'number' && Number.isInteger(one) && one >= 0
+  const { from, looks, asked, sent, changed, dismissed, watches } = value as Record<string, unknown>
+  const watchOf = (name: keyof ScoutWatches): ScoutWeekWatch | undefined => {
+    const one = typeof watches === 'object' && watches !== null ? (watches as Record<string, unknown>)[name] : undefined
+    if (typeof one !== 'object' || one === null) return undefined
+    const { raised, used, dismissed: gone } = one as Record<string, unknown>
+    return count(raised) && count(used) && count(gone) ? { raised, used, dismissed: gone } : undefined
+  }
+  const github = watchOf('github')
+  const teammates = watchOf('teammates')
+  const check = watchOf('check')
+  if (typeof from !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !count(looks) || !count(asked) || !count(sent) || !count(changed) || !count(dismissed)) return undefined
+  if (github === undefined || teammates === undefined || check === undefined) return undefined
+  return { from, looks, asked, watches: { github, teammates, check }, sent, changed, dismissed }
+}
+
+/** Whole days from one `scoutDay` to another, by this computer's calendar. */
+export function daysBetween(from: string, to: string): number {
+  const time = (day: string): number => {
+    const [year, month, date] = day.split('-').map(Number)
+    return new Date(year ?? 0, (month ?? 1) - 1, date ?? 1).getTime()
+  }
+  // Rounded: a day the clocks change is 23 or 25 hours long.
+  return Math.round((time(to) - time(from)) / 86_400_000)
+}
+
+const WATCH_CARDS: Readonly<Record<keyof ScoutWatches, string>> = { github: 'GitHub cards', teammates: 'cards about your teammates’ turns', check: 'cards about the folder’s check' }
+const WATCH_OFF: Readonly<Record<keyof ScoutWatches, string>> = { github: 'Stop watching GitHub', teammates: 'Stop watching teammates’ turns', check: 'Stop running the folder’s check' }
+const many = (count: number, word: string): string => `${String(count)} ${word}${count === 1 ? '' : 's'}`
+
+/*
+ * THE WEEKLY TUNE-UP (0.817; the always-on plan's last step, from a Duet setup guide's tip: after a week, look at what
+ * it did and what you did with it, then tighten it). One card a week, counted by Locust with no model: the looks, the
+ * cards they raised and what became of them. Locust's own rule makes the one suggestion, applied with one press: a
+ * watch whose cards were dismissed three times or more and never used goes off; a week that needed nothing looks less
+ * often. Scout's model may add its take, as on any card.
+ */
+export function weekFact(week: ScoutWeek, settings: Pick<ScoutSettings, 'everyMinutes' | 'watches'>): ScoutFact {
+  const raised = WATCH_NAMES.reduce((sum, name) => sum + week.watches[name].raised, 0)
+  const left = Math.max(0, raised - week.sent - week.changed - week.dismissed)
+  const did = [
+    ...(week.sent === 0 ? [] : [`sent ${String(week.sent)} on`]),
+    ...(week.changed === 0 ? [] : [`changed ${String(week.changed)} first`]),
+    ...(week.dismissed === 0 ? [] : [`dismissed ${String(week.dismissed)}`]),
+    ...(left === 0 ? [] : [`left ${String(left)}`])
+  ]
+  const lines = [raised === 0
+    ? 'Nothing needed you.'
+    : `It raised ${many(raised, 'card')}. You ${did.length < 2 ? did.join('') : `${did.slice(0, -1).join(', ')} and ${did.at(-1) ?? ''}`}.`]
+  const letGo = WATCH_NAMES
+    .filter((name) => settings.watches[name] && week.watches[name].dismissed >= 3 && week.watches[name].used === 0)
+    .sort((one, other) => week.watches[other].dismissed - week.watches[one].dismissed)[0]
+  let tune: ScoutTune | undefined
+  if (letGo !== undefined) {
+    const cards = week.watches[letGo]
+    lines.push(`You dismissed ${cards.dismissed >= cards.raised ? `all ${String(cards.raised)}` : `${String(cards.dismissed)} of the ${String(cards.raised)}`} ${WATCH_CARDS[letGo]} and sent none on.`)
+    tune = { label: WATCH_OFF[letGo], watchOff: letGo }
+  } else if (raised === 0 && settings.everyMinutes < 30) {
+    lines.push('Looking every 30 minutes would have found the same, with fewer looks.')
+    tune = { label: 'Look every 30 minutes', everyMinutes: 30 }
+  }
+  return {
+    key: `week:${week.from}`,
+    urgency: 'later',
+    said: `This week: ${many(week.looks, 'look')}, ${week.asked === 0 ? 'none of them needing its model' : `${String(week.asked)} of them read by its model`}.`,
+    lines,
+    detail: lines.join('\n'),
+    chips: [{ text: 'weekly tune-up', tone: 'blue' }],
+    ...(tune === undefined ? {} : { tune })
   }
 }
 

@@ -7489,13 +7489,14 @@ export default function App(): ReactElement {
     selectTeammate(teammate.teammateId)
     // As THEM, whole (H9), on their own route and mode: a new conversation of theirs.
     void startMission(draft.message, undefined, { as: startAs(teammate, { route, mode, effort }, pickerRoutes) })
-    void window.desktop?.scout?.dismiss(cardId).catch(() => undefined)
+    // What was done with it counts toward Scout's weekly tune-up (0.817).
+    void window.desktop?.scout?.dismiss(cardId, 'sent').catch(() => undefined)
   }
   const draftScoutIntoBox = (draft: ScoutDraft, cardId: string): void => {
     if (!teammates.some((one) => one.teammateId === draft.teammateId)) return
     selectTeammate(draft.teammateId)
     setComposerFill((current) => ({ text: draft.message, seq: (current?.seq ?? 0) + 1 }))
-    void window.desktop?.scout?.dismiss(cardId).catch(() => undefined)
+    void window.desktop?.scout?.dismiss(cardId, 'changed').catch(() => undefined)
   }
   const openTidyMenu = (anchor: HTMLElement): void => {
     if (rowMenu?.anchor === anchor) {
@@ -9576,6 +9577,7 @@ export default function App(): ReactElement {
                     return <ScoutCards state={scout} scout={teammates.find((one) => one.teammateId === scout.settings.teammateId)} onOpen={openScoutCard}
                       onSend={sendScoutDraft} onDraftIntoBox={draftScoutIntoBox}
                       onDismiss={(cardId) => { void window.desktop?.scout?.dismiss(cardId).catch(() => undefined) }}
+                      onTune={(cardId) => { void window.desktop?.scout?.tune(cardId).catch(() => undefined) }}
                       {...(bringIntoView?.kind === 'scout' ? { focusCardId: bringIntoView.cardId } : {})} />
                   }
                   // Met once is enough: a Scout turned off, or taken off the team, is turned on again from Settings.

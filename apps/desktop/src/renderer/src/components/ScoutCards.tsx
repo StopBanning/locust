@@ -24,7 +24,7 @@ export function ago(iso: string, now: Date): string {
   return hours < 24 ? `${String(hours)} h ago` : `${String(Math.round(hours / 24))} d ago`
 }
 
-function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, cardRef }: {
+function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, onTune, cardRef }: {
   readonly card: ScoutCard
   readonly scout: PublicTeammate | undefined
   readonly now: Date
@@ -32,18 +32,20 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, car
   readonly onSend: (draft: ScoutDraft, cardId: string) => void
   readonly onDraftIntoBox: (draft: ScoutDraft, cardId: string) => void
   readonly onDismiss: (cardId: string) => void
+  readonly onTune?: (cardId: string) => void
   readonly cardRef?: Ref<HTMLElement>
 }): ReactElement {
   const needsYou = card.urgency === 'now'
   const brief = card.key.startsWith('brief:')
+  const week = card.key.startsWith('week:')
   return <article ref={cardRef} className={`lc-card lc-scoutcard${needsYou ? ' is-pending is-amber' : card.urgency === 'later' ? ' is-terminal' : ''}`} data-scout-card={card.cardId}>
     <div className="lc-scoutcard__head">
       {scout !== undefined && <TeammateBot hue={scout.hue} avatar={scout.avatar} size={20} teammateId={scout.teammateId} hopsWhenDone={false} />}
-      <span className={`lc-scoutcard__kind${needsYou ? ' lc-tone-amber' : ''}`}>{needsYou ? 'Needs you' : brief ? 'Morning brief' : card.draft !== undefined ? 'Noticed, and drafted' : 'Noticed'}</span>
+      <span className={`lc-scoutcard__kind${needsYou ? ' lc-tone-amber' : ''}`}>{needsYou ? 'Needs you' : brief ? 'Morning brief' : week ? 'Your week' : card.draft !== undefined ? 'Noticed, and drafted' : 'Noticed'}</span>
       <span className="lc-scoutcard__when lc-mono">{`${scout?.name ?? 'Scout'} · ${ago(card.at, now)}`}</span>
     </div>
     <p className="lc-scoutcard__said">{card.said}</p>
-    {/* A morning brief's lines (0.816), each Locust's own count. */}
+    {/* A morning brief's lines (0.816), and a week's (0.817): each Locust's own count. */}
     {card.lines !== undefined && card.lines.length > 0 && <ul className="lc-scoutcard__lines">
       {card.lines.map((line, index) => <li key={String(index)}>{line}</li>)}
     </ul>}
@@ -61,12 +63,14 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, car
       {card.draft !== undefined && <button type="button" className="lc-primarybutton" onClick={() => { onSend(card.draft!, card.cardId) }}>{`Send to ${card.draft.name}`}</button>}
       {card.draft !== undefined && <button type="button" className="lc-control lc-control--boxed" onClick={() => { onDraftIntoBox(card.draft!, card.cardId) }}>Change it first</button>}
       {card.open !== undefined && <button type="button" className={card.draft === undefined && needsYou ? 'lc-primarybutton' : 'lc-control lc-control--boxed'} onClick={() => { onOpen(card.open!) }}>{card.open.label}</button>}
+      {/* A weekly tune-up's one suggestion (0.817): the press applies it. */}
+      {card.tune !== undefined && onTune !== undefined && <button type="button" className="lc-primarybutton" onClick={() => { onTune(card.cardId) }}>{card.tune.label}</button>}
       <button type="button" className="lc-ghostbutton lc-scoutcard__dismiss" onClick={() => { onDismiss(card.cardId) }}>Dismiss</button>
     </div>
   </article>
 }
 
-export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDismiss, now = new Date(), focusCardId }: {
+export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDismiss, onTune, now = new Date(), focusCardId }: {
   readonly state: ScoutState
   /** Scout's own teammate: its face and name. */
   readonly scout: PublicTeammate | undefined
@@ -74,6 +78,8 @@ export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDis
   readonly onSend: (draft: ScoutDraft, cardId: string) => void
   readonly onDraftIntoBox: (draft: ScoutDraft, cardId: string) => void
   readonly onDismiss: (cardId: string) => void
+  /** Applies a weekly tune-up's suggestion (0.817). */
+  readonly onTune?: (cardId: string) => void
   readonly now?: Date
   /** Brought here from the title bar or the Board: that card is in view, even past the first three. */
   readonly focusCardId?: string
@@ -97,7 +103,7 @@ export function ScoutCards({ state, scout, onOpen, onSend, onDraftIntoBox, onDis
       {ordered.length > SHOWN && <button type="button" className="lc-ghostbutton" onClick={() => { setAll(!all) }}>{all ? 'Show fewer' : `Show all ${String(ordered.length)}`}</button>}
     </div>
     {state.modelSaid !== undefined && <p className="lc-scout__said lc-mono">{`${state.modelSaid} The cards below are in Locust’s words.`}</p>}
-    {visible.map((card) => <Card key={card.cardId} card={card} scout={scout} now={now} onOpen={onOpen} onSend={onSend} onDraftIntoBox={onDraftIntoBox} onDismiss={onDismiss} {...(card.cardId === focusCardId ? { cardRef: focusRef } : {})} />)}
+    {visible.map((card) => <Card key={card.cardId} card={card} scout={scout} now={now} onOpen={onOpen} onSend={onSend} onDraftIntoBox={onDraftIntoBox} onDismiss={onDismiss} {...(onTune === undefined ? {} : { onTune })} {...(card.cardId === focusCardId ? { cardRef: focusRef } : {})} />)}
   </section>
 }
 

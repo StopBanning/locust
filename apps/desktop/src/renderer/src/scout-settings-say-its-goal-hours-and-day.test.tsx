@@ -12,7 +12,7 @@ import { ScoutSetting } from './components/ScoutSetting.js'
  * the folder's check, which needs a check command first; quiet hours as a clock reads them; waiting while the person
  * works; and what today's looks used, in numbers.
  */
-const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
+const api = { state: vi.fn(), turnOn: vi.fn(), set: vi.fn(), dismiss: vi.fn(), tune: vi.fn(), look: vi.fn(), saveNotes: vi.fn(), onChanged: vi.fn(() => () => undefined) }
 const on = (change: Partial<ScoutState['settings']> = {}, more: Partial<ScoutState> = {}): ScoutState =>
   ({ settings: { ...DEFAULT_SCOUT_SETTINGS, on: true, teammateId: 'tm_scout', ...change }, cards: [], lookIds: [], ...more })
 const draw = (state: ScoutState, extra: Record<string, unknown> = {}): string =>

@@ -11,6 +11,8 @@ import {
   briefFact,
   cardOf,
   checkFacts,
+  daysBetween,
+  emptyWeek,
   failedFacts,
   inQuietHours,
   issueFacts,
@@ -23,6 +25,9 @@ import {
   scoutPrompt,
   scoutSettingsFrom,
   waitingFacts,
+  watchOfKey,
+  weekFact,
+  weekFrom,
   withNewCards,
   type BranchRun,
   type FailedTurn,
@@ -31,9 +36,11 @@ import {
   type ReviewAsked,
   type ScoutCard,
   type ScoutFact,
+  type ScoutOutcome,
   type ScoutSettings,
   type ScoutState,
   type ScoutToday,
+  type ScoutWeek,
   type WaitingCard
 } from '../shared/scout.js'
 import { replaceFile } from './replace-file.js'
@@ -128,6 +135,8 @@ interface Kept {
   readonly lastBriefAt?: string
   /** Scout's notes, oldest first (0.816). */
   readonly notes: readonly string[]
+  /** This week's tally, for the weekly tune-up (0.817); none before the first look. */
+  readonly week?: ScoutWeek
   /** Each pull request as the last look saw it, by its address. */
   readonly prs: readonly FolderPullRequest[]
   readonly lastLookAt?: string
@@ -155,6 +164,26 @@ function counted(was: ScoutToday | undefined, at: Date, what: 'looks' | 'asked')
   const base = was?.day === day ? was : { day, looks: 0, asked: 0 }
   return { ...base, [what]: base[what] + 1 }
 }
+
+/** The same, into this week's tally (0.817): the first look starts a week. */
+function weekCounted(was: ScoutWeek | undefined, at: Date, what: 'looks' | 'asked'): ScoutWeek {
+  const base = was ?? emptyWeek(scoutDay(at))
+  return { ...base, [what]: base[what] + 1 }
+}
+
+/** The cards a look raised, each counted under the watch it came from. */
+function weekRaised(week: ScoutWeek, facts: readonly ScoutFact[]): ScoutWeek {
+  let watches = week.watches
+  for (const fact of facts) {
+    const watch = watchOfKey(fact.key)
+    if (watch !== undefined) watches = { ...watches, [watch]: { ...watches[watch], raised: watches[watch].raised + 1 } }
+  }
+  return { ...week, watches }
+}
+
+/** A week-old tally brings its tune-up; one far older is stale news, and only starts the next week (0.817). */
+const WEEK_DAYS = 7
+const STALE_WEEK_DAYS = 14
 
 /** A look's turn under way: what it asked about, of whom, on which run, and which free models it has tried. */
 interface PendingLook {
@@ -206,7 +235,8 @@ export function createScout(deps: ScoutDeps) {
         } : {}),
         ...(todayFrom(parsed.today) === undefined ? {} : { today: todayFrom(parsed.today)! }),
         ...(typeof parsed.lastBriefDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.lastBriefDay) ? { lastBriefDay: parsed.lastBriefDay } : {}),
-        ...(typeof parsed.lastBriefAt === 'string' && Number.isFinite(Date.parse(parsed.lastBriefAt)) ? { lastBriefAt: parsed.lastBriefAt } : {})
+        ...(typeof parsed.lastBriefAt === 'string' && Number.isFinite(Date.parse(parsed.lastBriefAt)) ? { lastBriefAt: parsed.lastBriefAt } : {}),
+        ...(weekFrom(parsed.week) === undefined ? {} : { week: weekFrom(parsed.week)! })
       }
     } catch {
       kept = EMPTY
@@ -234,7 +264,8 @@ export function createScout(deps: ScoutDeps) {
       ...(next.lastCheck === undefined ? {} : { lastCheck: next.lastCheck }),
       ...(next.today === undefined ? {} : { today: next.today }),
       ...(next.lastBriefDay === undefined ? {} : { lastBriefDay: next.lastBriefDay }),
-      ...(next.lastBriefAt === undefined ? {} : { lastBriefAt: next.lastBriefAt })
+      ...(next.lastBriefAt === undefined ? {} : { lastBriefAt: next.lastBriefAt }),
+      ...(next.week === undefined ? {} : { week: next.week })
     })}\n`
     const write = writing.then(async () => {
       const temporary = `${deps.file}.${randomBytes(6).toString('hex')}.tmp`
@@ -374,12 +405,20 @@ export function createScout(deps: ScoutDeps) {
       const briefDue = from.settings.briefAt !== undefined && at.getHours() >= from.settings.briefAt && from.lastBriefDay !== day && !inQuietHours(from.settings.quiet, at)
       if (briefDue) facts.push(await briefOf(from, facts, prs, marks, at))
       const briefed = briefDue ? { lastBriefDay: day, lastBriefAt: stamp } : {}
-      if (facts.length === 0) return await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks') }))
+      /*
+       * THE WEEKLY TUNE-UP (0.817): the first look a week after the tally began brings it, and the next week starts with
+       * this look. A tally far older -- Scout off, or Locust closed, for a week or more -- only starts the next week.
+       */
+      const age = from.week === undefined ? 0 : daysBetween(from.week.from, day)
+      const weekDue = age >= WEEK_DAYS
+      if (weekDue && age < STALE_WEEK_DAYS && from.week !== undefined && from.week.looks > 0) facts.push(weekFact(from.week, from.settings))
+      const weekOf = (latest: Kept): ScoutWeek | undefined => (weekDue ? emptyWeek(day) : latest.week)
+      if (facts.length === 0) return await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks'), week: weekCounted(weekOf(latest), at, 'looks') }))
       const team = (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== teammateId)
       const cards = facts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, true))
       // A check that turned says how it stands now: the card of how it stood before goes (0.815); so does yesterday's brief.
       const checkTurned = facts.some((fact) => fact.key.startsWith('check:'))
-      const outdated = (card: ScoutCard): boolean => (checkTurned && card.key.startsWith('check:')) || (briefDue && card.key.startsWith('brief:'))
+      const outdated = (card: ScoutCard): boolean => (checkTurned && card.key.startsWith('check:')) || (briefDue && card.key.startsWith('brief:')) || (weekDue && card.key.startsWith('week:'))
       let state = await mutate((latest) => ({
         ...latest,
         ...marks,
@@ -388,7 +427,8 @@ export function createScout(deps: ScoutDeps) {
         seen: [...latest.seen, ...facts.map((fact) => fact.key)].slice(-MAX_SCOUT_SEEN),
         prs,
         lastLookAt: stamp,
-        today: counted(latest.today, at, 'looks')
+        today: counted(latest.today, at, 'looks'),
+        week: weekRaised(weekCounted(weekOf(latest), at, 'looks'), facts)
       }))
       // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815).
       if (state.settings.notify && !inQuietHours(state.settings.quiet, at)) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
@@ -416,7 +456,7 @@ export function createScout(deps: ScoutDeps) {
     if ('refused' in asked) return settle(look.cardIds, undefined, asked.refused)
     const expires = later(() => { void gaveUp(asked.missionId, 'Scout’s model took too long to answer.') }, deps.answerWaitMs ?? ANSWER_WAIT_MS)
     pending.set(asked.missionId, { ...look, runId: asked.runId, expires })
-    return mutate((latest) => ({ ...latest, lookIds: [...latest.lookIds, asked.missionId].slice(-MAX_LOOK_IDS), today: counted(latest.today, now(), 'asked') }))
+    return mutate((latest) => ({ ...latest, lookIds: [...latest.lookIds, asked.missionId].slice(-MAX_LOOK_IDS), today: counted(latest.today, now(), 'asked'), week: weekCounted(latest.week, now(), 'asked') }))
   }
 
   /*
@@ -496,6 +536,21 @@ export function createScout(deps: ScoutDeps) {
     }
   }
 
+  const applySettings = async (change: unknown): Promise<ScoutState> => {
+    let before: ScoutSettings | undefined
+    const state = await mutate((latest) => {
+      before = latest.settings
+      // The window may not name Scout's teammate: Scout made it, and keeps it.
+      return { ...latest, settings: scoutSettingsFrom({ ...(typeof change === 'object' && change !== null ? change : {}), teammateId: latest.settings.teammateId }, latest.settings) }
+    })
+    if (state.settings.everyMinutes !== before?.everyMinutes || state.settings.on !== before.on) restart(state.settings)
+    if (before?.on === true && !state.settings.on) {
+      await stopLooks('Scout was turned off, so these cards stay in Locust’s words.')
+      return stateOf(await load())
+    }
+    return state
+  }
+
   return {
     state: async (): Promise<ScoutState> => stateOf(await load()),
     /** Picks up where the last launch left off: on, it looks again shortly and on its timer after. */
@@ -523,21 +578,29 @@ export function createScout(deps: ScoutDeps) {
       restart(state.settings)
       return look()
     },
-    async set(change: unknown): Promise<ScoutState> {
-      let before: ScoutSettings | undefined
-      const state = await mutate((latest) => {
-        before = latest.settings
-        // The window may not name Scout's teammate: Scout made it, and keeps it.
-        return { ...latest, settings: scoutSettingsFrom({ ...(typeof change === 'object' && change !== null ? change : {}), teammateId: latest.settings.teammateId }, latest.settings) }
-      })
-      if (state.settings.everyMinutes !== before?.everyMinutes || state.settings.on !== before.on) restart(state.settings)
-      if (before?.on === true && !state.settings.on) {
-        await stopLooks('Scout was turned off, so these cards stay in Locust’s words.')
-        return stateOf(await load())
-      }
-      return state
+    set: applySettings,
+    /**
+     * The card goes; what the person did with it -- sent its draft on, changed it first, or dismissed it -- counts toward
+     * this week's tune-up when the card came this week (0.817).
+     */
+    dismiss: (cardId: unknown, how?: unknown): Promise<ScoutState> => mutate((latest) => {
+      const card = latest.cards.find((one) => one.cardId === cardId)
+      const cards = latest.cards.filter((one) => one.cardId !== cardId)
+      const watch = card === undefined ? undefined : watchOfKey(card.key)
+      const week = latest.week
+      if (card === undefined || watch === undefined || week === undefined || scoutDay(new Date(card.at)) < week.from) return { ...latest, cards }
+      const outcome: ScoutOutcome = how === 'sent' || how === 'changed' ? how : 'dismissed'
+      const was = week.watches[watch]
+      const counts = outcome === 'dismissed' ? { ...was, dismissed: was.dismissed + 1 } : { ...was, used: was.used + 1 }
+      return { ...latest, cards, week: { ...week, watches: { ...week.watches, [watch]: counts }, [outcome]: week[outcome] + 1 } }
+    }),
+    /** A weekly tune-up's suggestion, applied to the settings as they stand now (0.817); its card goes. */
+    async tune(cardId: unknown): Promise<ScoutState> {
+      const suggested = (await load()).cards.find((card) => card.cardId === cardId)?.tune
+      if (suggested?.watchOff !== undefined) await applySettings({ watches: { [suggested.watchOff]: false } })
+      else if (suggested?.everyMinutes !== undefined) await applySettings({ everyMinutes: suggested.everyMinutes })
+      return mutate((latest) => ({ ...latest, cards: latest.cards.filter((card) => card.cardId !== cardId) }))
     },
-    dismiss: (cardId: unknown): Promise<ScoutState> => mutate((latest) => ({ ...latest, cards: latest.cards.filter((card) => card.cardId !== cardId) })),
     /** The notes as the person wrote them in Settings (0.816): what they keep is what the next look reads. */
     saveNotes: (text: unknown): Promise<ScoutState> => mutate((latest) => ({ ...latest, notes: notesFrom(typeof text === 'string' ? text : '') })),
     look,
