@@ -219,6 +219,21 @@ describe('the folder’s check', () => {
     expect(cards[0]).not.toHaveProperty('reading')
   })
 
+  // 0.823, Grok's review: the brief counted yesterday's failing check and this morning's pass as two cards.
+  it('is one card in the brief when it turns on the brief’s own look', async () => {
+    const h = await harness()
+    await h.scout.turnOn(ROUTE)
+    await h.scout.set({ watches: { github: true, teammates: true, check: true } })
+    await h.scout.look()
+    expect((await h.scout.state()).cards.filter((card) => card.key.startsWith('check:'))).toHaveLength(1)
+    await h.scout.set({ briefAt: 7 })
+    h.setMark('mark_2')
+    h.setCheck(green)
+    await h.scout.look()
+    const brief = (await h.scout.state()).cards.find((card) => card.key.startsWith('brief:'))
+    expect(brief?.lines).toContain('Scout has 1 more card for you.')
+  })
+
   // 0.823, Grok's review: a turn that began while the check ran made its half-done work a failure needing the person.
   it('drops a result from a check a turn began beside, and runs it again when the folder is quiet', async () => {
     let busyDuringCheck = true

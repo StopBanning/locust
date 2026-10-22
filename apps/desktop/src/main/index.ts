@@ -8101,13 +8101,15 @@ if (!ownsSingleInstanceLock) {
         const listing = await missionLedger.missionFiles?.().catch(() => undefined)
         let finished = 0
         let failed = 0
-        for (const file of (listing?.files ?? []).filter((one) => one.modifiedAt >= from && !own.has(one.missionId)).slice(0, 80)) {
+        // The 80 newest, and said as "at least" past them (0.823, Grok's review): the cut was silent, and not the newest.
+        const ended = (listing?.files ?? []).filter((one) => one.modifiedAt >= from && !own.has(one.missionId)).sort((a, b) => b.modifiedAt - a.modifiedAt)
+        for (const file of ended.slice(0, 80)) {
           const mission = (await missionLedger.readMission?.(file.missionId).catch(() => undefined))?.mission
           if (mission === undefined) continue
           if (mission.phase === 'completed') finished += 1
           else if (mission.phase === 'failed') failed += 1
         }
-        return { finished, failed }
+        return { finished, failed, ...(ended.length > 80 ? { more: true } : {}) }
       },
       changed: (state) => {
         for (const window of BrowserWindow.getAllWindows()) {

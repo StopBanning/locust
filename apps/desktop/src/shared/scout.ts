@@ -558,8 +558,12 @@ export interface ScoutBrief {
   /** Turns that ended since the last brief, or in the last day before the first. */
   readonly finished: number
   readonly failed: number
-  /** How the folder's check stood at its last run, when Scout watches it. */
-  readonly check?: { readonly command: string; readonly passed: boolean }
+  /** More turns ended than were read: the counts are "at least" (0.823). */
+  readonly more?: boolean
+  /** The span the counts cover, in words: "Since yesterday", "Since Friday" (briefSpan, 0.823). */
+  readonly span?: string
+  /** How the folder's check stood at its last run, when Scout watches it; `stale` when the folder moved since it ran. */
+  readonly check?: { readonly command: string; readonly passed: boolean; readonly stale?: boolean }
   /** The person's open pull requests, and how many need work. */
   readonly prs?: { readonly open: number; readonly needsWork: number }
   /** Scout's other cards still on Home, and how many of them need the person now. */
@@ -573,20 +577,36 @@ const waitedFor = (minutes: number): string => (minutes < 60 ? `${String(minutes
  * Every line is Locust's, counted with no model, and Scout's model is not asked about it (0.818: its take on the first
  * live brief added nothing the lines had not said). A morning with nothing to tell says so in one sentence.
  */
+/**
+ * The span a brief's counts cover, in words (0.823, Grok's review): it was always "Since yesterday", and Monday's brief
+ * after a weekend asleep counted Friday to Monday under it.
+ */
+export function briefSpan(since: Date, at: Date): string {
+  const hours = (at.getTime() - since.getTime()) / 3_600_000
+  if (!(hours > 36)) return 'Since yesterday'
+  if (hours < 7 * 24) return `Since ${since.toLocaleDateString('en-US', { weekday: 'long' })}`
+  return `Since ${since.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
+}
+
 export function briefFact(brief: ScoutBrief, day: string): ScoutFact {
+  const span = brief.span ?? 'Since yesterday'
   const lines: string[] = []
   if (brief.waiting.length > 0) lines.push(`Waiting on you: ${brief.waiting.slice(0, 4).map((one) => `${one.name ?? 'a teammate'}, ${waitedFor(one.minutes)}`).join('; ')}.`)
   if (brief.finished + brief.failed > 0) {
-    lines.push(`Since yesterday: ${String(brief.finished)} turn${brief.finished === 1 ? '' : 's'} finished${brief.failed === 0 ? '' : `, ${String(brief.failed)} failed`}.`)
+    lines.push(`${span}: ${brief.more === true ? 'at least ' : ''}${String(brief.finished)} turn${brief.finished === 1 ? '' : 's'} finished${brief.failed === 0 ? '' : `, ${String(brief.failed)} failed`}.`)
   }
-  if (brief.check !== undefined) lines.push(`The check ${clip(brief.check.command, 80)} ${brief.check.passed ? 'passes' : 'fails'}.`)
+  if (brief.check !== undefined) {
+    lines.push(brief.check.stale === true
+      ? `The check ${clip(brief.check.command, 80)} ${brief.check.passed ? 'passed' : 'failed'} when it last ran; the folder has changed since.`
+      : `The check ${clip(brief.check.command, 80)} ${brief.check.passed ? 'passes' : 'fails'}.`)
+  }
   if (brief.prs !== undefined && brief.prs.open > 0) lines.push(`Your pull requests: ${String(brief.prs.open)} open${brief.prs.needsWork === 0 ? '' : `, ${String(brief.prs.needsWork)} needing work`}.`)
   if (brief.cards.total > 0) lines.push(`Scout has ${String(brief.cards.total)} more card${brief.cards.total === 1 ? '' : 's'} for you${brief.cards.now === 0 ? '' : `, ${String(brief.cards.now)} needing you now`}.`)
   const pressing = brief.waiting.length > 0 || brief.failed > 0 || brief.check?.passed === false || brief.cards.now > 0
   return {
     key: `brief:${day}`,
     urgency: pressing ? 'soon' : 'later',
-    said: lines.length === 0 ? 'Good morning. Nothing waits on you, and nothing ran since yesterday.' : 'Good morning. Here is where things stand.',
+    said: lines.length === 0 ? `Good morning. Nothing waits on you, and nothing ran ${span.replace(/^Since/, 'since')}.` : 'Good morning. Here is where things stand.',
     ...(lines.length === 0 ? {} : { lines, detail: lines.join('\n') }),
     chips: [{ text: 'morning brief', tone: 'blue' }]
   }

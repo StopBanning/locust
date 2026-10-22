@@ -4,9 +4,9 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { briefFact, scoutSettingsFrom, DEFAULT_SCOUT_SETTINGS } from '../shared/scout.js'
+import { briefFact, briefSpan, scoutSettingsFrom, DEFAULT_SCOUT_SETTINGS } from '../shared/scout.js'
 import type { WaitingCard } from '../shared/scout.js'
-import { createScout, type ScoutDeps } from './scout.js'
+import { createScout, type ScoutDeps, type ScoutGithub } from './scout.js'
 
 /*
  * SCOUT BRINGS A MORNING BRIEF (0.816). Once a day, with the first look from its hour on and never in quiet hours: who
@@ -109,6 +109,38 @@ describe('the morning brief', () => {
     const second = await briefs(h.scout)
     expect(second.map((card) => card.key)).toEqual(['brief:2026-10-23'])
     expect(h.since.at(-1)?.since).toBe(new Date(2026, 9, 22, 8, 15).toISOString())
+  })
+
+  /*
+   * 0.823, Grok's review: the span was always "Since yesterday", a capped count was silent, GitHub's line came from the
+   * last list when GitHub could not be read, a check the folder moved past still said how it stands, and a check that
+   * turned was counted as two cards.
+   */
+  it('names the span it counts, says "at least" past its cut, and says when a check is out of date', () => {
+    expect(briefSpan(new Date(2026, 9, 22, 8, 15), new Date(2026, 9, 23, 9, 0))).toBe('Since yesterday')
+    expect(briefSpan(new Date(2026, 9, 23, 6, 30), new Date(2026, 9, 26, 6, 30))).toBe('Since Friday')
+    expect(briefSpan(new Date(2026, 9, 12, 6, 30), new Date(2026, 9, 26, 6, 30))).toBe('Since October 12')
+    const brief = briefFact({ waiting: [], finished: 80, failed: 2, more: true, span: 'Since Friday', check: { command: 'npm test', passed: true, stale: true }, cards: { total: 0, now: 0 } }, '2026-10-26')
+    expect(brief.lines).toEqual(['Since Friday: at least 80 turns finished, 2 failed.', 'The check npm test passed when it last ran; the folder has changed since.'])
+    expect(briefFact({ waiting: [], finished: 0, failed: 0, span: 'Since Friday', cards: { total: 0, now: 0 } }, '2026-10-26').said).toBe('Good morning. Nothing waits on you, and nothing ran since Friday.')
+  })
+
+  it('after a weekend asleep, Monday’s brief says since Friday, and leaves out GitHub it could not read', async () => {
+    let github: ScoutGithub | undefined = { prs: [{ number: 7, title: 'One', url: 'https://github.com/acme/app/pull/7', state: 'open', checks: 'passing', checkCount: 1, notPassed: 0 }], reviews: [] }
+    const h = await harness({ github: async () => github })
+    await h.scout.turnOn(ROUTE)
+    await h.scout.set({ briefAt: 7 })
+    h.at(23, 8, 0)
+    await h.scout.look()
+    expect((await briefs(h.scout))[0]?.lines).toContain('Your pull requests: 1 open.')
+    // Asleep from Friday morning; GitHub cannot be read on Monday.
+    github = undefined
+    h.at(26, 8, 0)
+    await h.scout.look()
+    const monday = await briefs(h.scout)
+    expect(monday.map((card) => card.key)).toEqual(['brief:2026-10-26'])
+    expect(monday[0]?.lines).toContain('Since Friday: 4 turns finished, 1 failed.')
+    expect(monday[0]?.lines?.some((line) => line.startsWith('Your pull requests'))).toBe(false)
   })
 
   it('waits for quiet hours to end', async () => {
