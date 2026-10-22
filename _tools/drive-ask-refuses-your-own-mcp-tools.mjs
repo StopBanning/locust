@@ -137,6 +137,8 @@ try {
   const asked = JSON.parse(String(await drive.capture('Ada in Ask, asked to call the person\'s own MCP tool', () => drive.evaluate(sendAnswering(ASK_FOR_THE_NOTE)))))
   check('Ask ran none of it: note.txt was not written', !existsSync(note), `${existsSync(note) ? `WRITTEN: ${JSON.stringify(await readFile(note, 'utf8'))}` : 'not written'} || ${asked.thread.slice(-260)}`)
   check('and asked nobody about it: Ask has no cards', asked.cards.length === 0, JSON.stringify(asked.cards))
+  // 0.822: refused by the mode, said as refused -- the model was told "the person declined" and repeated it.
+  check('and the turn says it was refused, not that the person declined', /refused/i.test(asked.thread) && !/declined/i.test(asked.thread), asked.thread.slice(-260))
 
   const read = String(await drive.capture('Ada still reads', () => drive.evaluate(sendAndWaitScript('Read calc.py with your read tool and quote its second line exactly.', { waitSeconds: 240 }))))
   check('reading still works in Ask', /return a \+ b/.test(read), read.slice(-260))
@@ -147,6 +149,8 @@ try {
   // The card is pictured before it is answered: it is new in 0.821, and what it says is the person's to judge.
   const card = JSON.parse(String(await drive.capture('Bea in Approve each: the card for the person\'s own MCP tool', () => drive.evaluate(sendUntilCard(ASK_FOR_THE_NOTE)))))
   check('Approve each stopped for it on a card that names the tool', /save_note/i.test(card.text), card.text || 'no card')
+  // 0.822: OpenCode gives the tool no details, and the card said "Exact *".
+  check('and the card shows no exact line it has nothing for', !/Exact\s*\*/i.test(card.text), card.text || 'no card')
   check('and nothing was written before the press', !existsSync(note), existsSync(note) ? 'WRITTEN' : 'not written')
   const approved = JSON.parse(String(await drive.capture('approved once, it ran', () => drive.evaluate(sendAnswering(undefined)))))
   check('and it ran once approved: note.txt was written', existsSync(note), approved.thread.slice(-260))
