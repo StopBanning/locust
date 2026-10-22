@@ -84,6 +84,8 @@ const SETUP = (name) => `(async () => {
   return 'NO SETUP CARD: ' + (document.querySelector('.lc-setup')?.innerText.replace(/\\s+/g, ' ').slice(0, 300) ?? '')
 })()`
 const ask = async (name, routeWord) => {
+  // A /setup card left open from the teammate before would cover this one's answer in the frame.
+  await drive.evaluate(`document.querySelector('.lc-setup .lc-dialog__close')?.click()`)
   const opened = await drive.evaluate(openTeammateScript(name))
   const route = String(await drive.evaluate(`document.querySelector('form.command-dock')?.innerText.replace(/\\s+/g, ' ').slice(0, 200) ?? ''`))
   if (!routeWord.test(route)) throw new Error(`${name} is not on the route this drive asks for: ${route}`)
@@ -107,7 +109,6 @@ try {
   const wrenSetup = String(await drive.capture('/setup: what Wren’s turns are given', () => drive.evaluate(SETUP('Wren'))))
   check('Codex: /setup names its own skill and .agents/skills', /probe-word/.test(wrenSetup) && /\.agents\/skills/.test(wrenSetup) && /found by Codex( CLI)? itself/.test(wrenSetup), wrenSetup)
   if (withAgy) {
-    await drive.evaluate(`document.querySelector('.lc-setup .lc-dialog__close')?.click()`)
     const ash = String(await drive.capture('Ash on Antigravity is asked for the probe word', () => ask('Ash', /Antigravity/)))
     check('Antigravity: the teammate’s own skill gave the word', ash.includes(WORD), ash)
   }

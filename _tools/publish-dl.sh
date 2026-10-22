@@ -6,9 +6,10 @@ export PNPM_CONFIG_STORE_DIR=C:/work/pnpm-store
 # Run after `node _tools/ship.mjs --marker "<a string the release adds>"` passed, with TEMP set as it was for ship:
 #   TEMP=<the folder ship used> TMP=<the same> bash _tools/publish-dl.sh 0.784.0 0.783.0
 #
-# A QUIET GITHUB (2026-10-20). With a Releases page each release is a second push for the tag, so unless asked there
-# is none: dl.locust.lol serves every file (LOCUST_GITHUB_RELEASE=1 makes one, as before). The one-release-a-day gate
-# it began with is gone (Colin, 2026-10-21: "Doesn't need to be one release a day anymore"); a release goes when ready.
+# THE RELEASES PAGE IS BACK (2026-10-22). For two days (A QUIET GITHUB, 2026-10-20) a release made no page on
+# GitHub, and the Releases tab stopped at 0.808 (Colin: "you havent been updating the releases tab"). Every release
+# makes its page again, with its six files; LOCUST_GITHUB_RELEASE=0 skips it. The one-release-a-day gate is gone too
+# (Colin, 2026-10-21: "Doesn't need to be one release a day anymore"); a release goes when ready.
 NEW="$1"; PREV="$2"
 [ -n "$NEW" ] && [ -n "$PREV" ] || { echo "usage: publish-dl.sh NEW PREV"; exit 1; }
 R=/c/work/locust
@@ -45,11 +46,11 @@ echo "Linux packages: see $TEMP/linux-$NEW.out"
 bash "$(dirname "$0")/linux-attach-dl.sh" "$NEW" > "$TEMP/linux-$NEW.out" 2>&1 < /dev/null
 tail -1 "$TEMP/linux-$NEW.out"
 # The Releases page on StopBanning/locust: the same six files and their sums, once dl.locust.lol has them all (0.790).
-# Only when asked since 2026-10-20 (A QUIET GITHUB, above).
-if [ "$LOCUST_GITHUB_RELEASE" = 1 ]; then
+# Every release since 2026-10-22 (above); LOCUST_GITHUB_RELEASE=0 skips it.
+if [ "$LOCUST_GITHUB_RELEASE" != 0 ]; then
   echo "GitHub release: see $TEMP/github-$NEW.out"
   node "$R/_tools/github-release.mjs" "$NEW" > "$TEMP/github-$NEW.out" 2>&1 < /dev/null
   tail -1 "$TEMP/github-$NEW.out"
 else
-  echo "GitHub release page: skipped (LOCUST_GITHUB_RELEASE=1 makes one)"
+  echo "GitHub release page: skipped (LOCUST_GITHUB_RELEASE=0)"
 fi
