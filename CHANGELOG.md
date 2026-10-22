@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.825.0 - 2026-10-22
+
+### Fixed
+
+- **Ask and Plan on Cursor never borrow a teammate's connector permission.** While a Cursor teammate works in Edit, Locust lets it use your connectors by writing that permission into the folder, and Cursor reads it from the folder for every turn there. A Cursor turn in Ask or Plan in the same folder would have had it too: measured, with such a permission an Ask turn used a server's tool and its file was written. Such a turn is now not started; it says why, and to send it again when the other turn ends.
+- **An old Codex is told to update.** Ask and Plan on Codex read your Codex settings first (0.824). A Codex too old to answer that refused every Ask and Plan turn with "Send it again", which could never work; it now says to update Codex.
+- **"Open the comment" is a button again.** On the card for a posted `/locust` answer it stretched across the card like a text box.
+
 ## 0.824.0 - 2026-10-22
 
 ### Fixed
