@@ -130,7 +130,7 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
               {code !== undefined
                 ? <p className="lc-settings__note">Scan it with your phone’s camera. It pairs one phone, once, within ten minutes, then a new one takes its place.</p>
                 : <span><button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void newCode() }}>Pair a phone</button></span>}
-              <p className="lc-settings__note">Lost a phone? Remove it below, and it stops at once.</p>
+              {anywhere.devices.length > 0 && <p className="lc-settings__note">Lost a phone? Remove it below, and it stops at once.</p>}
             </div>
           </div>
           {anywhere.devices.length > 0 && (

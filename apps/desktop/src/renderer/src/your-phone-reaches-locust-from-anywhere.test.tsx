@@ -38,6 +38,8 @@ describe('your phone reaches Locust from anywhere', () => {
     expect(html).toContain('aria-label="A code for your phone’s camera. It pairs your phone with Locust."')
     expect(html).toContain('Connected to Locust’s relay.')
     expect(html).toContain('It pairs one phone, once, within ten minutes')
+    // Nothing is paired yet, so there is nothing below to remove.
+    expect(html).not.toContain('Lost a phone?')
     expect(draw(OFF_WIFI, { enabled: true, connected: false, code: CODE, devices: [] })).toContain('Connecting to Locust’s relay…')
     // Why it is not connected, in Locust's words, comes before anything it would otherwise say.
     expect(draw(OFF_WIFI, { enabled: true, connected: false, devices: [], message: 'Locust’s relay no longer knows this computer.' })).toContain('Locust’s relay no longer knows this computer.')
@@ -54,6 +56,7 @@ describe('your phone reaches Locust from anywhere', () => {
     expect(html).toContain('<span class="lc-phone__name">iPhone</span><span class="lc-phone__state">Open now</span>')
     expect(html).toContain('<span class="lc-phone__name">Android phone</span><span class="lc-phone__state">Last open 3 minutes ago</span>')
     expect(html.match(/>Remove<\/button>/g)).toHaveLength(2)
+    expect(html).toContain('Lost a phone? Remove it below, and it stops at once.')
     // The code is spent once a phone pairs: the next one is made when asked for.
     expect(html).toContain('>Pair a phone</button>')
     expect(html).not.toContain('lc-phone__qr')
