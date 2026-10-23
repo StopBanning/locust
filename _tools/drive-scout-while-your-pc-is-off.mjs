@@ -3,9 +3,9 @@
 // the phone, paired from anywhere, shows it under "While your computer is off". Locust opened again puts it on Home,
 // told already, and What Scout saw has the look. Off undoes it: the secret goes and the workflow is turned off.
 //
-//   node _tools/drive-scout-while-your-pc-is-off.mjs [--packaged <exe>] [--tag <name>] [--relay <address>]
+//   node _tools/drive-scout-while-your-pc-is-off.mjs [--packaged <exe>] [--tag <name>] [--relay <address>] [--repo <owner/name>]
 //
-// The repository is a throwaway private one, StopBanning/locust-away-test, read and written with the signed-in gh.
+// The repository is a throwaway one (StopBanning/locust-away-test, private, unless --repo names another), read and written with the signed-in gh.
 // With the local relay (apps/relay: npx wrangler@4 dev --port 8790 --ip 127.0.0.1 --local) the away look runs here
 // with Locust closed, as the workflow would; with --relay https://app.locust.lol it runs as the real workflow on
 // GitHub (`gh workflow run`). Scout reads with the free OpenCode model, so nothing is spent.
@@ -22,7 +22,7 @@ const packaged = arg('--packaged')
 const tag = arg('--tag') ?? (packaged === undefined ? 'local' : 'packaged')
 const RELAY = (arg('--relay') ?? 'http://127.0.0.1:8790').replace(/\/+$/, '')
 const LIVE = !/^http:\/\/127\.0\.0\.1/.test(RELAY)
-const REPO = 'StopBanning/locust-away-test'
+const REPO = arg('--repo') ?? 'StopBanning/locust-away-test'
 const CHROME = process.env.LOCUST_CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const PHONE_PORT = 9788
 const PORT = 9787
@@ -32,6 +32,7 @@ const gh = (args, options = {}) => new Promise((resolve) => {
   if (options.input !== undefined) child.stdin?.end(options.input)
 })
 
+const PRIVATE = JSON.parse((await gh(['repo', 'view', REPO, '--json', 'visibility'])).stdout || '{}').visibility !== 'PUBLIC'
 const reachable = await fetch(`${RELAY}/`, { signal: AbortSignal.timeout(5000) }).then((answer) => answer.ok, () => false)
 if (!reachable) {
   say(`The relay at ${RELAY} does not answer. Start it in apps/relay: npx wrangler@4 dev --port 8790 --ip 127.0.0.1 --local`)
@@ -52,7 +53,7 @@ async function tidyRepo() {
 await tidyRepo()
 
 const root = process.env.LOCUST_SCRATCH ?? tmpdir()
-const workspace = join(await mkdtemp(join(root, 'locust-drive-away-ws-')), 'locust-away-test')
+const workspace = join(await mkdtemp(join(root, 'locust-drive-away-ws-')), REPO.split('/')[1])
 const cloned = await gh(['repo', 'clone', REPO, workspace])
 if (cloned.code !== 0) { say(`could not clone ${REPO}: ${cloned.stderr}`); process.exit(1) }
 const profilePath = await mkdtemp(join(root, 'locust-drive-away-profile-'))
@@ -166,7 +167,7 @@ try {
   const waiting = String(await drive.capture('turned on: merge the pull request', () => drive.evaluate(awayRow(`
     row?.querySelector('[role="switch"]')?.click()
     for (let i = 0; i < 120 && !/Merge the pull request|could not/.test(row?.innerText ?? ''); i += 1) await new Promise((r) => setTimeout(r, 500))`))))
-  check('turned on, it asks for the pull request to be merged, with a button to open it', /Merge the pull request in StopBanning\/locust-away-test to start/.test(waiting) && /Open the pull request/.test(waiting), waiting)
+  check('turned on, it asks for the pull request to be merged, with a button to open it', waiting.includes(`Merge the pull request in ${REPO} to start`) && /Open the pull request/.test(waiting), waiting)
   for (const [width, height] of [[960, 720], [760, 640]]) {
     await drive.resize(width, height)
     await sleep(600)
@@ -185,7 +186,7 @@ try {
   check('the pull request merges', merged.code === 0, merged.stderr.trim())
   const onRow = String(await drive.capture('merged: on', () => drive.evaluate(awayRow(`
     for (let i = 0; i < 90 && !/^Look while my computer is off On for/.test((row?.innerText ?? '').replace(/\\s+/g, ' ')); i += 1) await new Promise((r) => setTimeout(r, 1000))`))))
-  check('Locust notices the merge: on, every two hours for a private repository, with its cost', /On for StopBanning\/locust-away-test/.test(onRow) && /every two hours/.test(onRow) && /360 of the 2,000 free Actions minutes/.test(onRow) && /No away look yet/.test(onRow), onRow)
+  check(`Locust notices the merge: on, ${PRIVATE ? 'every two hours for a private repository, with its cost' : 'every hour for a public one, free'}`, onRow.includes(`On for ${REPO}`) && (PRIVATE ? /every two hours/.test(onRow) && /360 of the 2,000 free Actions minutes/.test(onRow) : /every hour/.test(onRow) && /Actions are free on a public repository/.test(onRow)) && /No away look yet/.test(onRow), onRow)
 
   // The phone seen again asks for the away key; Locust closes: the computer is off.
   await phone.reload()
@@ -223,7 +224,7 @@ try {
 
   const shown = await phoneWait(/new issue/i, 60)
   await phone.capture('the phone: what Scout found while the computer is off')
-  check('the phone shows what it found, with a link to the issue on GitHub', /Scout looked at StopBanning\/locust-away-test on GitHub/.test(shown) && /Sign-in page shows a blank screen/.test(shown) && /Open on GitHub/.test(shown), shown.slice(0, 400))
+  check('the phone shows what it found, with a link to the issue on GitHub', shown.includes(`Scout looked at ${REPO} on GitHub`) && /Sign-in page shows a blank screen/.test(shown) && /Open on GitHub/.test(shown), shown.slice(0, 400))
   const link = String(await phone.evaluate(`[...document.querySelectorAll('a.act')].map((a) => a.href).join(' ')`))
   check('and the link goes to that repository on GitHub only', new RegExp(`^https://github\\.com/${REPO}/issues/${String(issueNumber)}$`).test(link), link)
 
@@ -249,7 +250,7 @@ try {
     for (let i = 0; i < 20 && !/Last away look/.test(row?.innerText ?? ''); i += 1) { await new Promise((r) => setTimeout(r, 500)); row = ${AWAY_ROW} }`))))
   check('Settings says when the last away look was', /Last away look: (just now|\d+ min ago)\./.test(backRow), backRow)
   const back = await phoneWait(/Conversations/i, 30)
-  check('the phone, with the computer back, shows Locust again', /Conversations/i.test(back) && !/While your computer is off/i.test(back), back.slice(0, 200))
+  check('the phone, with the computer back, shows Locust again, and never one of Scout’s looks as a conversation', /Conversations/i.test(back) && !/While your computer is off/i.test(back) && !/You are Scout/.test(back), back.slice(0, 300))
 
   // Off: undone.
   const offAgain = String(await drive.capture('turned off', () => drive.evaluate(awayRow(`

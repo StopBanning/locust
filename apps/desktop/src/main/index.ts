@@ -9933,7 +9933,10 @@ if (!ownsSingleInstanceLock) {
       const history = await readMissionHistory(missionLedger, undefined, workspacePath)
       const live = phoneLive()
       const names = await phoneNames()
-      return { ...phoneConversations(history.ok ? history.data.missions : [], live, names), live, names }
+      // Scout's own looks are never a conversation, on the phone as in the window (0.829: the away drive's phone listed one).
+      const looks = new Set((await keptScout.state().catch(() => undefined))?.lookIds ?? [])
+      const missions = (history.ok ? history.data.missions : []).filter((mission) => !looks.has(mission.missionId))
+      return { ...phoneConversations(missions, live, names), live: live.filter((missionId) => !looks.has(missionId)), names }
     })
     const phoneHistory = () => phoneHistoryOnce(`${String(ledgerWrites())}|${phoneLive().join(',')}|${String(Math.floor(Date.now() / 60_000))}`)
     const phoneSending = new Set<string>()
