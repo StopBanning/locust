@@ -19,6 +19,10 @@ heading: the home screen then shows it once, as a splash.
 - **Scout looks while your computer is off.** Turn on Look while my computer is off in Settings > General, under Scout, and Locust opens a pull request in your folder's GitHub repository adding a small workflow and the one file it runs; merge it and it is on. With your computer off, the workflow does Scout's GitHub look every hour (every two on a private repository, about 360 of its 2,000 free Actions minutes a month), with its own read-only token, and leaves what it found at Locust's relay, sealed with a key only your devices have. Your phone shows it under While your computer is off, buzzes for what can't wait, never in your quiet hours, and brings the morning brief. With Locust open it does nothing more, and when your computer is back the cards are on Home, marked as found while your PC was off, told already, and in What Scout saw. It needs Your phone, from anywhere on, and an owner or admin of the repository to add its secret. Off deletes the secret and turns the workflow off.
 - **Scout's cards on your phone.** A Scout alert used to open a page with no Scout on it. The phone now lists Scout's cards in Locust's own words, newest first, with Open on GitHub and Dismiss. What a card quotes, Scout's model's take and a teammate's draft stay on your computer.
 
+### Fixed
+
+- **Scout's looks are not conversations on your phone.** The phone listed a look of Scout's, which began "You are Scout", among your conversations; the window never has. It no longer does.
+
 ## 0.828.0 - 2026-10-23
 <!-- big -->
 
