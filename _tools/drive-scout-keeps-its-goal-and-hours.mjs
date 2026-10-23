@@ -9,7 +9,8 @@
 //   2. A goal typed and saved is kept, and read into the next look's prompt (the look's own record says so).
 //   3. With the folder's check on, Look now runs it: a card "The check node check.js fails: ..." waits on Home.
 //   4. answer.txt fixed, Look now again: the card says the check passes again, and the failing card is gone.
-//   5. From 6 AM on, the morning brief comes with the first look, as one card, once a day (0.816).
+//   5. From 6 AM on, the morning brief comes with the first look, as one card, once a day (0.816), saying what it
+//      checked (0.827).
 //   6. Scout's notes typed in Settings are kept, counted in the heading, and read into the next look (0.816).
 //   7. Settings says what today's looks used, and quiet hours chosen are kept.
 
@@ -164,6 +165,8 @@ try {
     const briefed = await lookAndWait()
     const brief = briefed.cards.find((card) => card.key.startsWith('brief:'))
     check('the morning brief comes, as one card with its lines', brief !== undefined && brief.said.startsWith('Good morning.') && Array.isArray(brief.lines), JSON.stringify(brief))
+    // It says what it checked (0.827): what was watched and found quiet, or that GitHub could not be read.
+    check('the brief says what it checked', (brief?.lines ?? []).some((line) => /^(Checked and quiet: |GitHub could not be read)/.test(line)), JSON.stringify(brief?.lines))
     await drive.capture('Home: the morning brief', async () => { await sleep(500); return drive.evaluate(CARDS) })
     const again = await lookAndWait()
     check('and only once a day', again.cards.filter((card) => card.key.startsWith('brief:')).length === 1, JSON.stringify(again.cards.map((card) => card.key)))

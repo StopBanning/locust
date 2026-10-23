@@ -8145,7 +8145,8 @@ if (!ownsSingleInstanceLock) {
         }
       },
       notify: (card) => { attention.runFinished({ title: 'Scout', body: card.said, missionId: card.open?.kind === 'conversation' ? card.open.missionId : undefined }) },
-      raised: (cards) => phoneAlerts.scoutCards(cards)
+      raised: (cards) => phoneAlerts.scoutCards(cards),
+      heldAlerts: (since) => phoneAlerts.heldSince(since)
     })
     scout = keptScout
     void keptScout.state().then((state) => { scoutQuiet = state.settings.quiet }, () => undefined)

@@ -94,7 +94,7 @@ describe('the morning brief', () => {
     await h.scout.look()
     const first = await briefs(h.scout)
     expect(first).toHaveLength(1)
-    expect(first[0]?.lines).toEqual(['Waiting on you: Ada, 30 min.', 'Since yesterday: 4 turns finished, 1 failed.'])
+    expect(first[0]?.lines).toEqual(['Waiting on you: Ada, 30 min.', 'Since yesterday: 4 turns finished, 1 failed.', 'Checked and quiet: GitHub.'])
     // Scout's own looks are named, so they are never counted as turns that ran.
     expect(h.since.at(-1)?.looks).toEqual([])
     // Locust's own count: its model is asked about the turn waiting on you, never about the brief (0.818).
@@ -141,6 +141,75 @@ describe('the morning brief', () => {
     expect(monday.map((card) => card.key)).toEqual(['brief:2026-10-26'])
     expect(monday[0]?.lines).toContain('Since Friday: 4 turns finished, 1 failed.')
     expect(monday[0]?.lines?.some((line) => line.startsWith('Your pull requests'))).toBe(false)
+    // Not read is not quiet (0.827).
+    expect(monday[0]?.lines).toContain('GitHub could not be read since the last brief, so nothing there is called quiet.')
+    expect(monday[0]?.lines?.some((line) => line.startsWith('Checked and quiet') && line.includes('GitHub'))).toBe(false)
+  })
+
+  /*
+   * THE BRIEF SAYS WHAT IT CHECKED (0.827, the spec "Scout comes to you first", release 2): a quiet morning names what
+   * was watched and found quiet, a GitHub that could not be read is never called quiet, what was found again is set
+   * aside and counted, and alerts held back from the phone are told once, here.
+   */
+  it('says what it checked and found quiet, what it set aside, and what it held back from the phone', () => {
+    const brief = briefFact({
+      waiting: [], finished: 0, failed: 0, cards: { total: 0, now: 0 },
+      quiet: ['GitHub', 'your teammates', 'comments asking Locust'],
+      githubMissed: { missed: 2, looks: 40 },
+      setAside: 3,
+      held: [
+        { title: 'Mira needs your approval', why: 'quiet hours' },
+        { title: 'Scout', why: 'quiet hours' },
+        { title: 'Scout', why: 'quiet hours' },
+        { title: 'Scout', why: 'daily limit' }
+      ]
+    }, '2026-10-24')
+    // Nothing waits and nothing ran: still the one sentence, with what it checked beneath.
+    expect(brief).toMatchObject({ urgency: 'later', said: 'Good morning. Nothing waits on you, and nothing ran since yesterday.' })
+    expect(brief.lines).toEqual([
+      'Checked and quiet: GitHub, your teammates and comments asking Locust.',
+      'GitHub could not be read on 2 of 40 looks.',
+      'Set aside: 3 things Scout had already told you.',
+      'Not sent to your phone, in quiet hours: Mira needs your approval; Scout (2).',
+      'Not sent to your phone, past the day’s limit: Scout.'
+    ])
+    expect(briefFact({ waiting: [], finished: 0, failed: 0, cards: { total: 0, now: 0 }, setAside: 1 }, '2026-10-24').lines).toEqual(['Set aside: 1 thing Scout had already told you.'])
+  })
+
+  it('counts from the looks since the last brief, and starts again after it', async () => {
+    const held: { title: string; why: 'quiet hours' | 'daily limit'; at: number }[] = []
+    const asked: number[] = []
+    const h = await harness({ heldAlerts: (since) => { asked.push(since); return held.filter((one) => one.at >= since) } })
+    await h.scout.turnOn(ROUTE)
+    await h.scout.set({ briefAt: 7 })
+    h.at(22, 8, 0)
+    await h.scout.look()
+    // Ada waits from 8:00: told at 8:15, then found again at every look and set aside.
+    h.setWaiting([{ approvalId: 'a1', missionId: 'm1', name: 'Ada', summary: 'npm install', requestedAt: new Date(2026, 9, 22, 8, 0).toISOString() }])
+    h.at(22, 8, 15)
+    await h.scout.look()
+    h.at(22, 8, 30)
+    await h.scout.look()
+    h.at(22, 8, 45)
+    await h.scout.look()
+    h.setWaiting([])
+    held.push({ title: 'Ada needs your approval', why: 'quiet hours', at: new Date(2026, 9, 22, 23, 0).getTime() })
+    h.at(23, 7, 30)
+    await h.scout.look()
+    const brief = (await briefs(h.scout))[0]
+    expect(brief?.key).toBe('brief:2026-10-23')
+    expect(asked.at(-1)).toBe(new Date(2026, 9, 22, 8, 0).getTime())
+    // A teammate raised a card since the last brief, so only GitHub is called quiet.
+    expect(brief?.lines).toEqual([
+      'Since yesterday: 4 turns finished, 1 failed.',
+      'Checked and quiet: GitHub.',
+      'Set aside: 1 thing Scout had already told you.',
+      'Not sent to your phone, in quiet hours: Ada needs your approval.'
+    ])
+    // The next morning counts from this brief: nothing raised, nothing set aside, nothing held since.
+    h.at(24, 7, 30)
+    await h.scout.look()
+    expect((await briefs(h.scout))[0]?.lines).toEqual(['Since yesterday: 4 turns finished, 1 failed.', 'Checked and quiet: GitHub.'])
   })
 
   it('waits for quiet hours to end', async () => {

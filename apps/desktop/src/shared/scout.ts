@@ -568,9 +568,48 @@ export interface ScoutBrief {
   readonly prs?: { readonly open: number; readonly needsWork: number }
   /** Scout's other cards still on Home, and how many of them need the person now. */
   readonly cards: { readonly total: number; readonly now: number }
+  /** What Scout watched since the last brief, read, and found nothing new in (0.827), in the person's words. */
+  readonly quiet?: readonly string[]
+  /** Looks since the last brief that could not read GitHub, of how many (0.827): never called quiet. */
+  readonly githubMissed?: { readonly missed: number; readonly looks: number }
+  /** Things Scout found again since the last brief and set aside, having told the person already (0.827). */
+  readonly setAside?: number
+  /** Alerts held for this brief instead of buzzing the phone (0.827), and why. */
+  readonly held?: readonly { readonly title: string; readonly why: 'quiet hours' | 'daily limit' }[]
 }
 
 const waitedFor = (minutes: number): string => (minutes < 60 ? `${String(minutes)} min` : `${String(Math.round(minutes / 60))} h`)
+
+/** "a", "a and b", "a, b and c". */
+const inWords = (parts: readonly string[]): string => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)!}`)
+
+/*
+ * WHAT THE BRIEF CHECKED (0.827, the spec "Scout comes to you first", release 2). A quiet brief left the person
+ * wondering whether Scout looked at all; now it says what it watched and found quiet, when GitHub could not be read
+ * (never called quiet), how many things it set aside for having told them already, and the alerts held back from the
+ * phone for this brief. Every count is Locust's own, from the looks since the last brief.
+ */
+function checkedLines(brief: ScoutBrief): readonly string[] {
+  const lines: string[] = []
+  if (brief.quiet !== undefined && brief.quiet.length > 0) lines.push(`Checked and quiet: ${inWords(brief.quiet)}.`)
+  const missed = brief.githubMissed
+  if (missed !== undefined && missed.missed > 0) {
+    lines.push(missed.missed >= missed.looks
+      ? 'GitHub could not be read since the last brief, so nothing there is called quiet.'
+      : `GitHub could not be read on ${String(missed.missed)} of ${String(missed.looks)} looks.`)
+  }
+  if (brief.setAside !== undefined && brief.setAside > 0) lines.push(`Set aside: ${String(brief.setAside)} thing${brief.setAside === 1 ? '' : 's'} Scout had already told you.`)
+  for (const why of ['quiet hours', 'daily limit'] as const) {
+    const titles = (brief.held ?? []).filter((one) => one.why === why).map((one) => one.title)
+    if (titles.length === 0) continue
+    const counted = [...new Set(titles)].map((title) => {
+      const times = titles.filter((one) => one === title).length
+      return times === 1 ? title : `${title} (${String(times)})`
+    })
+    lines.push(`Not sent to your phone, ${why === 'quiet hours' ? 'in quiet hours' : 'past the day’s limit'}: ${counted.slice(0, 4).join('; ')}${counted.length > 4 ? `; ${String(counted.length - 4)} more` : ''}.`)
+  }
+  return lines
+}
 
 /*
  * THE MORNING BRIEF (0.816). Duet's best-liked habit, from the 10/22 deep dive: one short note each morning, then quiet.
@@ -603,10 +642,12 @@ export function briefFact(brief: ScoutBrief, day: string): ScoutFact {
   if (brief.prs !== undefined && brief.prs.open > 0) lines.push(`Your pull requests: ${String(brief.prs.open)} open${brief.prs.needsWork === 0 ? '' : `, ${String(brief.prs.needsWork)} needing work`}.`)
   if (brief.cards.total > 0) lines.push(`Scout has ${String(brief.cards.total)} more card${brief.cards.total === 1 ? '' : 's'} for you${brief.cards.now === 0 ? '' : `, ${String(brief.cards.now)} needing you now`}.`)
   const pressing = brief.waiting.length > 0 || brief.failed > 0 || brief.check?.passed === false || brief.cards.now > 0
+  const news = lines.length > 0
+  lines.push(...checkedLines(brief))
   return {
     key: `brief:${day}`,
     urgency: pressing ? 'soon' : 'later',
-    said: lines.length === 0 ? `Good morning. Nothing waits on you, and nothing ran ${span.replace(/^Since/, 'since')}.` : 'Good morning. Here is where things stand.',
+    said: news ? 'Good morning. Here is where things stand.' : `Good morning. Nothing waits on you, and nothing ran ${span.replace(/^Since/, 'since')}.`,
     ...(lines.length === 0 ? {} : { lines, detail: lines.join('\n') }),
     chips: [{ text: 'morning brief', tone: 'blue' }]
   }
