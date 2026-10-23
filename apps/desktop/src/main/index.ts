@@ -31,10 +31,11 @@ import { createOpenCodeFirstStart, OPENCODE_SETUP_TIMEOUT_MS } from './opencode-
 import { createPlainCheckpoints } from './checkpoints-plain.js'
 import { createTalkShortcut, type TalkShortcut } from './talk-shortcut.js'
 import { createScout, type Scout } from './scout.js'
+import { createScoutFixes, type ScoutFixes } from './scout-fix.js'
 import { folderMarkOf } from './scout-folder.js'
 import { readScoutGithub } from './scout-github.js'
 import { createCommentReader, postComment } from './scout-comments.js'
-import { inQuietHours, SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_LOG, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutQuietHours } from '../shared/scout.js'
+import { inQuietHours, SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_FIX_AGAIN, SCOUT_FIX_APPLY, SCOUT_FIX_SKIP, SCOUT_LOG, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutQuietHours } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
 import { DEFAULT_CHATGPT_VOICE, VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, VOICE_CALL_START, VOICE_CALL_STOP, VOICE_CALL_TOOLS, VOICE_CALL_VOICES, VOICE_PREVIEW_SAVE, VOICE_PREVIEW_SAVED, VOICE_PREVIEW_TRIGGER, isChatGptVoice, isVoiceCallOffer, isVoiceCallTarget, type ChatGptVoice, type VoiceAddOn, type VoiceCallTarget } from '../shared/voice-call.js'
 import { createVoiceCalls } from './voice-call.js'
@@ -2493,6 +2494,8 @@ if (!ownsSingleInstanceLock) {
     // so a teammate started because of this run is briefed with it.
     // Scout, a teammate that keeps watch (0.756): made further down, heard here as every run ends.
     let scout: Scout | undefined
+    // Scout's fixes (0.828, scout-fix.ts): each fix's turn is waited on as runs end.
+    let scoutFixes: ScoutFixes | undefined
     const runEnd = createRunEnd({
       memory: () => memoryReader,
       relay: () => relay,
@@ -2510,7 +2513,8 @@ if (!ownsSingleInstanceLock) {
           }
         },
         { label: 'unwritten answers', step: () => unwrittenAnswers },
-        { label: 'scout', step: () => scout }
+        { label: 'scout', step: () => scout },
+        { label: 'scout fixes', step: () => scoutFixes }
       ],
       note
     })
@@ -8001,6 +8005,64 @@ if (!ownsSingleInstanceLock) {
     const scoutNameOf = async (teammateId: string | undefined): Promise<string | undefined> =>
       teammateId === undefined ? undefined : (await teammates.list().catch(() => [])).find((mate) => mate.teammateId === teammateId)?.name
     const readComments = createCommentReader(scoutGh)
+    /*
+     * SCOUT PREPARES THE FIX (0.828, scout-fix.ts): in a copy under ~/.locust/scout-fixes, on the picked teammate's own
+     * route, in Edit. Its own slot, so it runs beside whatever that teammate is doing, and never commits their branch.
+     */
+    const fixes = createScoutFixes({
+      runCheck: async (command, cwd) => {
+        const run = await runCheckCommand(command, cwd)
+        const lines = run.error !== undefined
+          ? [run.error]
+          : run.timedOut
+            ? ['The check ran past its time limit and was stopped.']
+            : comparableLines(run.output).slice(-25).map((line) => (line.length > 300 ? `${line.slice(0, 299)}…` : line))
+        return { passed: run.error === undefined && !run.timedOut && run.exitCode === 0, lines }
+      },
+      start: async ({ fixId, teammateId, prompt, cwd, followUpOf }) => {
+        if (!workspaceChosen) return { refused: NO_WORKSPACE_MESSAGE }
+        const mate = (await teammates.list()).find((one) => one.teammateId === teammateId)
+        if (mate?.route === undefined) return { refused: `${mate?.name ?? 'That teammate'} has no model yet. Pick one on the Team screen.` }
+        const route = mate.route
+        const peer = await peerContextFor(teammateId)
+        const response = await codexMissions.start(
+          prompt,
+          route.runtime,
+          'accept-edits',
+          { ...(route.model === 'account-default' ? {} : { model: route.model }), ...(route.account === undefined ? {} : { account: route.account }), ...(typeof route.effort === 'string' ? { effort: route.effort } : {}) },
+          sendToWindow,
+          undefined,
+          peer,
+          followUpOf,
+          undefined,
+          undefined,
+          undefined,
+          { key: `scout-fix:${fixId}`, cwd }
+        )
+        if (!response.ok) return { refused: response.error.message }
+        await assignOwner(teammateId, response.data.missionId)
+        sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, teammateId, prompt, data: response.data })
+        return { missionId: response.data.missionId, runId: response.data.runId }
+      },
+      stop: (runId) => { codexMissions.cancel(runId) },
+      endOf: async (missionId) => {
+        const recorded = await missionLedger.getMission(missionId).catch(() => undefined)
+        if (recorded === undefined) return { phase: 'other' }
+        const tracker = createTranscriptTracker()
+        tracker.track(recorded.events)
+        const said = tracker.latestFinal?.trim()
+        const failedEvent = [...recorded.events].reverse().find((event) => event.type === 'run.failed')
+        const failed = failedEvent?.type === 'run.failed' ? failedEvent.payload.message : recorded.hostFailures.at(-1)?.message
+        const phase = recorded.phase === 'completed' || recorded.phase === 'failed' || recorded.phase === 'cancelled' ? recorded.phase : 'other'
+        return {
+          phase,
+          ...(said === undefined || said.length === 0 ? {} : { said }),
+          ...(failed === undefined ? {} : { failed }),
+          ...(said !== undefined && parseDecision(said) !== undefined ? { asked: true } : {})
+        }
+      }
+    })
+    scoutFixes = fixes
     const keptScout = createScout({
       comments: async (watch, team, at) => workspaceChosen ? readComments(workspacePath, watch, team, at) : { watch, facts: [] },
       lastTeammate: async () => {
@@ -8033,6 +8095,15 @@ if (!ownsSingleInstanceLock) {
       },
       file: join(app.getPath('userData'), 'scout.json'),
       logFile: join(app.getPath('userData'), 'scout-looks.json'),
+      fixes: {
+        prepare: async (input) => {
+          if (!workspaceChosen) return { kind: 'unfixed', why: NO_WORKSPACE_MESSAGE }
+          return fixes.prepare({ ...input, folder: workspacePath })
+        },
+        apply: (fixId) => fixes.apply(fixId),
+        discard: (fixId) => fixes.discard(fixId),
+        stop: (why) => { fixes.stop(why) }
+      },
       github: async () => (workspaceChosen ? readScoutGithub(workspacePath, scoutGh) : undefined),
       waiting: async () => Promise.all(raisedApprovals.waiting().map(async ({ request, teammateId }) => {
         const name = await scoutNameOf(teammateId)
@@ -8167,6 +8238,9 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(SCOUT_NOTES, (event, text: unknown) => (fromOwnWindow(event) ? keptScout.saveNotes(text) : keptScout.state()))
     ipcMain.handle(SCOUT_TUNE, (event, cardId: unknown) => (fromOwnWindow(event) ? keptScout.tune(cardId) : keptScout.state()))
     ipcMain.handle(SCOUT_LOG, (event) => (fromOwnWindow(event) ? keptScout.log() : { entries: [], held: [] }))
+    ipcMain.handle(SCOUT_FIX_APPLY, (event, cardId: unknown) => (fromOwnWindow(event) ? keptScout.applyFix(cardId) : keptScout.state()))
+    ipcMain.handle(SCOUT_FIX_SKIP, (event, cardId: unknown) => (fromOwnWindow(event) ? keptScout.skipFix(cardId) : keptScout.state()))
+    ipcMain.handle(SCOUT_FIX_AGAIN, (event, cardId: unknown) => (fromOwnWindow(event) ? keptScout.fixAgain(cardId) : keptScout.state()))
     void keptScout.start()
     app.once('will-quit', () => keptScout.dispose())
 

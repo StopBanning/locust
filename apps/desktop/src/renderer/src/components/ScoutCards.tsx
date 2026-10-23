@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactElement, Ref } from 'react'
 
 import type { PublicTeammate } from '../../../shared/ipc.js'
-import type { ScoutCard, ScoutDraft, ScoutOpen, ScoutState } from '../../../shared/scout.js'
+import type { ScoutCard, ScoutDraft, ScoutFix, ScoutOpen, ScoutState } from '../../../shared/scout.js'
 import { Icon } from './Icon.js'
 import { TeammateBot } from './TeammateBot.js'
 import { useModal } from '../useModal.js'
@@ -24,6 +24,72 @@ export function ago(iso: string, now: Date): string {
   return hours < 24 ? `${String(hours)} h ago` : `${String(Math.round(hours / 24))} d ago`
 }
 
+/** "2 files", "1 file". */
+const filesWord = (count: number): string => `${String(count)} file${count === 1 ? '' : 's'}`
+/** The files a fix touched, as many as fit on a line. */
+const SHOWN_FILES = 4
+
+/*
+ * A FIX SCOUT PREPARED (0.828, main/scout-fix.ts), under a failing check's sentence: who is preparing it, then ready
+ * -- how many files, and that the check passes in the copy -- with Review (its conversation), Apply and Skip; or what
+ * was missing. Nothing reaches the folder before Apply.
+ */
+export function FixLine({ fix, cardId, onOpen }: { readonly fix: ScoutFix; readonly cardId: string; readonly onOpen: (open: ScoutOpen) => void }): ReactElement {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<string>()
+  const press = (work: (() => Promise<unknown>) | undefined, fallback: string): void => {
+    if (work === undefined) return
+    setBusy(true); setFailed(undefined)
+    void work().catch(() => { setFailed(fallback) }).finally(() => { setBusy(false) })
+  }
+  const scout = typeof window === 'undefined' ? undefined : window.desktop?.scout
+  const review = (missionId: string | undefined, label = 'Review') => missionId === undefined ? null
+    : <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { onOpen({ kind: 'conversation', missionId, label }) }}>{label}</button>
+  const again = <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { press(scout?.fixAgain === undefined ? undefined : () => scout.fixAgain!(cardId), 'It could not be prepared again. Try once more.') }}>Prepare again</button>
+  const files = (list: readonly string[]) => list.length === 0 ? null
+    : <p className="lc-scoutfix__files lc-mono">{[...list.slice(0, SHOWN_FILES), ...(list.length > SHOWN_FILES ? [`and ${String(list.length - SHOWN_FILES)} more`] : [])].join(' · ')}</p>
+  let said: string
+  let acts: ReactElement | null = null
+  let shown: ReactElement | null = null
+  switch (fix.state) {
+    case 'preparing':
+      said = `${fix.name} is preparing a fix in a copy of the folder…`
+      break
+    case 'ready':
+      said = `Fix ready: ${filesWord(fix.files.length)} changed${fix.added === undefined ? '' : ` (+${String(fix.added)} −${String(fix.removed ?? 0)})`}, the check passes.`
+      shown = files(fix.files)
+      acts = <>
+        {review(fix.missionId)}
+        <button type="button" className="lc-primarybutton" disabled={busy} onClick={() => { press(scout?.applyFix === undefined ? undefined : () => scout.applyFix!(cardId), 'The fix could not be applied. Nothing in your folder changed.') }}>Apply</button>
+        <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { press(scout?.skipFix === undefined ? undefined : () => scout.skipFix!(cardId), 'It could not be skipped. Try again.') }}>Skip</button>
+      </>
+      break
+    case 'applied':
+      said = `Applied: ${filesWord(fix.files.length)} in your folder, beside your own changes. Opening a pull request is yours.`
+      shown = files(fix.files)
+      break
+    case 'stale':
+      said = `Not applied: the fix was made on an older copy, and you changed ${fix.files.length === 1 ? 'that file' : 'those files'} since.`
+      shown = files(fix.files)
+      acts = <>{review(fix.missionId)}{again}</>
+      break
+    case 'unfixed':
+      said = `${fix.name} could not prepare a fix: ${fix.why}`
+      acts = <>{review(fix.missionId, 'Open it')}{again}</>
+      break
+    case 'held':
+      said = fix.why
+      acts = again
+      break
+  }
+  return <div className={`lc-scoutfix${fix.state === 'ready' ? ' is-ready' : ''}`} data-scout-fix={fix.state}>
+    <p className={fix.state === 'preparing' ? 'lc-scoutcard__reading lc-mono' : 'lc-scoutfix__said'} role="status">{said}</p>
+    {shown}
+    {failed !== undefined && <p className="lc-scoutfix__said" role="alert">{failed}</p>}
+    {acts !== null && <div className="lc-scoutcard__acts">{acts}</div>}
+  </div>
+}
+
 function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, onTune, cardRef }: {
   readonly card: ScoutCard
   readonly scout: PublicTeammate | undefined
@@ -42,10 +108,12 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, onT
   const needsYou = card.urgency === 'now'
   const brief = card.key.startsWith('brief:')
   const week = card.key.startsWith('week:')
+  // A fix under way, ready or applied is the next step (0.828): the handoff drafted for the same check is not offered beside it.
+  const draft = card.fix !== undefined && ['preparing', 'ready', 'applied'].includes(card.fix.state) ? undefined : card.draft
   return <article ref={cardRef} className={`lc-card lc-scoutcard${needsYou ? ' is-pending is-amber' : card.urgency === 'later' ? ' is-terminal' : ''}`} data-scout-card={card.cardId}>
     <div className="lc-scoutcard__head">
       {scout !== undefined && <TeammateBot hue={scout.hue} avatar={scout.avatar} size={20} teammateId={scout.teammateId} hopsWhenDone={false} />}
-      <span className={`lc-scoutcard__kind${needsYou ? ' lc-tone-amber' : ''}`}>{needsYou ? 'Needs you' : brief ? 'Morning brief' : week ? 'Your week' : card.draft !== undefined ? 'Noticed, and drafted' : 'Noticed'}</span>
+      <span className={`lc-scoutcard__kind${needsYou ? ' lc-tone-amber' : ''}`}>{needsYou ? 'Needs you' : brief ? 'Morning brief' : week ? 'Your week' : draft !== undefined ? 'Noticed, and drafted' : 'Noticed'}</span>
       <span className="lc-scoutcard__when lc-mono">{`${scout?.name ?? 'Scout'} · ${ago(card.at, now)}`}</span>
     </div>
     <p className="lc-scoutcard__said">{card.said}</p>
@@ -59,9 +127,10 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, onT
     </div>}
     {card.take !== undefined && <p className="lc-scoutcard__take"><span className="lc-scoutcard__who">{scout?.name ?? 'Scout'}:</span> {card.take}</p>}
     {card.reading === true && <p className="lc-scoutcard__reading lc-mono">{`${scout?.name ?? 'Scout'} is reading it…`}</p>}
-    {card.draft !== undefined && <div className="lc-scoutcard__draft">
-      <p className="lc-scoutcard__draftlabel lc-mono">{`Drafted for ${card.draft.name}`}</p>
-      <p className="lc-scoutcard__drafttext">{card.draft.message}</p>
+    {card.fix !== undefined && <FixLine fix={card.fix} cardId={card.cardId} onOpen={onOpen} />}
+    {draft !== undefined && <div className="lc-scoutcard__draft">
+      <p className="lc-scoutcard__draftlabel lc-mono">{`Drafted for ${draft.name}`}</p>
+      <p className="lc-scoutcard__drafttext">{draft.message}</p>
     </div>}
     {card.post !== undefined && <div className="lc-scoutcard__draft">
       {editing ? <><textarea aria-label="Comment to post" value={postText} onChange={(event) => { setPostText(event.target.value) }} />
@@ -80,9 +149,9 @@ function Card({ card, scout, now, onOpen, onSend, onDraftIntoBox, onDismiss, onT
         }}>{posting ? 'Posting...' : `Post it on #${String(card.post.number)}`}</button>
         <button type="button" className="lc-control lc-control--boxed" onClick={() => { setPostText(card.post!.message); setEditing(true) }}>Change it first</button>
       </>}
-      {card.draft !== undefined && <button type="button" className="lc-primarybutton" onClick={() => { onSend(card.draft!, card.cardId) }}>{`Send to ${card.draft.name}`}</button>}
-      {card.draft !== undefined && <button type="button" className="lc-control lc-control--boxed" onClick={() => { onDraftIntoBox(card.draft!, card.cardId) }}>Change it first</button>}
-      {card.open !== undefined && <button type="button" className={card.draft === undefined && needsYou ? 'lc-primarybutton' : 'lc-control lc-control--boxed'} onClick={() => { onOpen(card.open!) }}>{card.open.label}</button>}
+      {draft !== undefined && <button type="button" className="lc-primarybutton" onClick={() => { onSend(draft, card.cardId) }}>{`Send to ${draft.name}`}</button>}
+      {draft !== undefined && <button type="button" className="lc-control lc-control--boxed" onClick={() => { onDraftIntoBox(draft, card.cardId) }}>Change it first</button>}
+      {card.open !== undefined && <button type="button" className={draft === undefined && needsYou ? 'lc-primarybutton' : 'lc-control lc-control--boxed'} onClick={() => { onOpen(card.open!) }}>{card.open.label}</button>}
       {/* A weekly tune-up's one suggestion (0.817): the press applies it. */}
       {card.tune !== undefined && onTune !== undefined && <button type="button" className="lc-primarybutton" onClick={() => { onTune(card.cardId) }}>{card.tune.label}</button>}
       <button type="button" className="lc-ghostbutton lc-scoutcard__dismiss" onClick={() => { onDismiss(card.cardId) }}>Dismiss</button>

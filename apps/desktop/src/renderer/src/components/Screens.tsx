@@ -1643,6 +1643,7 @@ const TERMINAL_FACES_PREVIEW: readonly (readonly ['droid' | 'ghost' | 'cat', Eye
 
 export function SettingsScreen({
   scout,
+  scoutTeam,
   scoutModel,
   scoutRoute,
   onChangeScoutModel,
@@ -1737,6 +1738,8 @@ export function SettingsScreen({
 }: {
   /** Scout (0.756): what it holds, the model it reads with, and the free model a new one would read with. */
   readonly scout?: ScoutState
+  /** Who may prepare Scout's fixes (0.828): the team but Scout. */
+  readonly scoutTeam?: readonly { readonly teammateId: string; readonly name: string }[]
   readonly scoutModel?: string
   readonly scoutRoute?: { readonly runtime: string; readonly model: string }
   readonly onChangeScoutModel?: () => void
@@ -3425,7 +3428,7 @@ export function SettingsScreen({
         {shownPage === 'app' && <ScoutSetting heading={<h2 className="lc-settings__heading">Scout keeps watch</h2>} state={scout}
           {...(scoutModel === undefined ? {} : { model: scoutModel })} {...(scoutRoute === undefined ? {} : { route: scoutRoute })}
           {...(checkCommand === undefined || checkCommand.trim().length === 0 ? {} : { checkCommand: checkCommand.trim() })}
-          {...(onChangeScoutModel === undefined ? {} : { onChangeModel: onChangeScoutModel })} />}
+          {...(onChangeScoutModel === undefined ? {} : { onChangeModel: onChangeScoutModel })} {...(scoutTeam === undefined ? {} : { team: scoutTeam })} />}
         {shownPage === 'app' && (
         <section className="lc-settings__section">
           <h2 className="lc-settings__heading">Startup</h2>

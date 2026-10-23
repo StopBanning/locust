@@ -26,6 +26,10 @@ export const SCOUT_NOTES = 'scout:notes'
 export const SCOUT_TUNE = 'scout:tune'
 /** What Scout saw (0.828, scout-log.ts): its looks of the last fourteen days. */
 export const SCOUT_LOG = 'scout:log'
+/** A prepared fix on a card (0.828, scout-fix.ts): brought into the folder, skipped, or prepared again. */
+export const SCOUT_FIX_APPLY = 'scout:fix-apply'
+export const SCOUT_FIX_SKIP = 'scout:fix-skip'
+export const SCOUT_FIX_AGAIN = 'scout:fix-again'
 /** Main to the window: what Scout holds changed. */
 export const SCOUT_CHANGED = 'scout:changed'
 
@@ -70,7 +74,36 @@ export interface ScoutSettings {
   readonly waitWhileWorking: boolean
   /** The hour of the morning brief, by this computer's clock (0.816): the first look from then on brings it, once a day. */
   readonly briefAt?: number
+  /** Fixes prepared before the person looks (0.828): absent is off. */
+  readonly fixes?: ScoutFixSettings
 }
+
+/**
+ * SCOUT PREPARES FIXES (0.828, main/scout-fix.ts): off until the person turns it on, since a fix runs on their plan; by
+ * the teammate they pick; at most `perDay` a day.
+ */
+export interface ScoutFixSettings {
+  readonly on: boolean
+  readonly teammateId?: string
+  readonly perDay: number
+}
+export const SCOUT_FIXES_PER_DAY = [1, 2, 3, 5] as const
+export const DEFAULT_SCOUT_FIXES: ScoutFixSettings = { on: false, perDay: 2 }
+
+/** A fix on a check's card, as it stands. */
+export type ScoutFix =
+  /** The teammate is working on it, in a copy. */
+  | { readonly state: 'preparing'; readonly fixId: string; readonly name: string; readonly since: string }
+  /** Done, and the check passes in the copy: Review, Apply or Skip. */
+  | { readonly state: 'ready'; readonly fixId: string; readonly name: string; readonly files: readonly string[]; readonly added?: number; readonly removed?: number; readonly missionId: string }
+  /** It could not: what was missing, in the teammate's or Locust's words. */
+  | { readonly state: 'unfixed'; readonly name: string; readonly why: string; readonly missionId?: string }
+  /** Not prepared at all, and why: the day's limit, or no teammate to prepare it. */
+  | { readonly state: 'held'; readonly why: string }
+  /** Brought into the folder. */
+  | { readonly state: 'applied'; readonly files: readonly string[] }
+  /** The person changed the same files since the copy was made: not applied, and it can be prepared again. */
+  | { readonly state: 'stale'; readonly fixId: string; readonly name: string; readonly files: readonly string[]; readonly missionId: string }
 
 export const DEFAULT_SCOUT_SETTINGS: ScoutSettings = { on: false, everyMinutes: 10, watches: { comments: true, github: true, teammates: true, check: false }, notify: true, waitWhileWorking: true }
 
@@ -102,6 +135,8 @@ export interface ScoutToday {
   readonly day: string
   readonly looks: number
   readonly asked: number
+  /** Fixes started today (0.828). */
+  readonly fixes?: number
 }
 
 /** A day as `today` keys it: by this computer's clock, not UTC. */
@@ -187,6 +222,8 @@ export interface ScoutCard extends ScoutFact {
   readonly take?: string
   /** The next step, written for a teammate: one press sends it. */
   readonly draft?: ScoutDraft
+  /** A fix prepared for a failing check (0.828). */
+  readonly fix?: ScoutFix
 }
 
 export interface ScoutState {
@@ -208,7 +245,7 @@ export interface ScoutState {
  * A change to Scout's settings from the window: `quiet: null` turns quiet hours off, `briefAt: null` the morning brief,
  * and `goal: ''` clears the goal.
  */
-export type ScoutChange = Partial<Pick<ScoutSettings, 'on' | 'everyMinutes' | 'watches' | 'notify' | 'goal' | 'waitWhileWorking'>> & {
+export type ScoutChange = Partial<Pick<ScoutSettings, 'on' | 'everyMinutes' | 'watches' | 'notify' | 'goal' | 'waitWhileWorking' | 'fixes'>> & {
   readonly quiet?: ScoutQuietHours | null
   readonly briefAt?: number | null
 }
@@ -230,6 +267,12 @@ export interface ScoutApi {
   onChanged(listener: (state: ScoutState) => void): () => void
   /** What Scout saw (0.828): its looks of the last fourteen days, oldest first, and the alerts kept off the phone. */
   log?(): Promise<{ readonly entries: readonly ScoutLogEntry[]; readonly held: readonly ScoutHeldAlert[] }>
+  /** A ready fix, into the folder beside the person's own edits (0.828). */
+  applyFix?(cardId: string): Promise<ScoutState>
+  /** A fix set aside: its copy goes, the card stays. */
+  skipFix?(cardId: string): Promise<ScoutState>
+  /** A fix that could not be applied or made, prepared again from the folder as it is now. */
+  fixAgain?(cardId: string): Promise<ScoutState>
 }
 
 /** The most cards kept; the oldest go first. */
@@ -884,7 +927,23 @@ export function scoutSettingsFrom(value: unknown, base: ScoutSettings = DEFAULT_
     waitWhileWorking: typeof input.waitWhileWorking === 'boolean' ? input.waitWhileWorking : base.waitWhileWorking,
     ...(goal === undefined ? (base.goal === undefined ? {} : { goal: base.goal }) : goal.length === 0 ? {} : { goal }),
     ...(quiet === null ? {} : quiet !== undefined ? { quiet } : base.quiet === undefined ? {} : { quiet: base.quiet }),
-    ...(briefAt === null ? {} : briefAt !== undefined ? { briefAt } : base.briefAt === undefined ? {} : { briefAt: base.briefAt })
+    ...(briefAt === null ? {} : briefAt !== undefined ? { briefAt } : base.briefAt === undefined ? {} : { briefAt: base.briefAt }),
+    ...fixesFrom(input.fixes, base.fixes)
+  }
+}
+
+/** Fix settings as a window may send them, over what was there; nothing when they were never set. */
+function fixesFrom(value: unknown, base: ScoutFixSettings | undefined): { fixes?: ScoutFixSettings } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return base === undefined ? {} : { fixes: base }
+  const input = value as Record<string, unknown>
+  const was = base ?? DEFAULT_SCOUT_FIXES
+  const teammateId = typeof input.teammateId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(input.teammateId) ? input.teammateId : input.teammateId === null ? undefined : was.teammateId
+  return {
+    fixes: {
+      on: typeof input.on === 'boolean' ? input.on : was.on,
+      perDay: (SCOUT_FIXES_PER_DAY as readonly unknown[]).includes(input.perDay) ? input.perDay as number : was.perDay,
+      ...(teammateId === undefined ? {} : { teammateId })
+    }
   }
 }
 

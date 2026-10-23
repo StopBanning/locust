@@ -298,6 +298,12 @@ export async function startDrive({ name, port, workspace, seed, files = {}, env 
     await mkdir(driveCompare, { recursive: true })
     appEnv.LOCUST_COMPARE_ROOT = driveCompare
   }
+  // Scout's fixes (0.828) likewise, under this drive's profile, not ~/.locust/scout-fixes.
+  if (appEnv.LOCUST_SCOUT_FIX_ROOT === undefined || String(appEnv.LOCUST_SCOUT_FIX_ROOT).trim() === '') {
+    const driveFixes = join(profile, 'scout-fixes')
+    await mkdir(driveFixes, { recursive: true })
+    appEnv.LOCUST_SCOUT_FIX_ROOT = driveFixes
+  }
   /*
    * The person's Cursor default, held from before the launch and put back
    * after the app is gone (see cursor-default-hold.mjs). The app's own guard

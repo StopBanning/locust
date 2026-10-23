@@ -39,6 +39,7 @@ import {
   type ReviewAsked,
   type ScoutCard,
   type ScoutFact,
+  type ScoutFix,
   type ScoutOutcome,
   type ScoutSettings,
   type ScoutState,
@@ -48,6 +49,8 @@ import {
 } from '../shared/scout.js'
 import { lookEntry, scoutLogBrief, scoutLogFrom, withLook, type ScoutHeldAlert, type ScoutLogAside, type ScoutLogEntry, type ScoutLogWatch } from '../shared/scout-log.js'
 import { replaceFile } from './replace-file.js'
+import type { CopyBringIn } from './compare-copies.js'
+import { newFixId, type ScoutFixOutcome } from './scout-fix.js'
 
 /**
  * SCOUT, WATCHING (0.756, shared/scout.ts). One look at a time, on a timer while it is on: Locust gathers what is
@@ -131,6 +134,13 @@ export interface ScoutDeps {
   readonly heldAlerts?: (since: number) => readonly ScoutHeldAlert[]
   /** Where What Scout saw is kept (0.828, shared/scout-log.ts); in memory only when absent. */
   readonly logFile?: string
+  /** Fixes prepared in a copy (0.828, scout-fix.ts); none here when absent. */
+  readonly fixes?: {
+    readonly prepare: (input: { readonly fixId: string; readonly teammateId: string; readonly name: string; readonly command: string }) => Promise<ScoutFixOutcome>
+    readonly apply: (fixId: string) => Promise<CopyBringIn | { readonly kind: 'gone' }>
+    readonly discard: (fixId: string) => Promise<void>
+    readonly stop: (why: string) => void
+  }
 }
 
 /** How often a look that is waiting for the person's own turn asks again whether it has ended. */
@@ -207,16 +217,16 @@ const MAX_FALLBACKS = 2
 /** A day's count as kept; anything else is none. */
 function todayFrom(value: unknown): ScoutToday | undefined {
   if (typeof value !== 'object' || value === null) return undefined
-  const { day, looks, asked } = value as Record<string, unknown>
+  const { day, looks, asked, fixes } = value as Record<string, unknown>
   const count = (one: unknown): one is number => typeof one === 'number' && Number.isInteger(one) && one >= 0
-  return typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) && count(looks) && count(asked) ? { day, looks, asked } : undefined
+  return typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) && count(looks) && count(asked) ? { day, looks, asked, ...(count(fixes) && fixes > 0 ? { fixes } : {}) } : undefined
 }
 
 /** One more look, or one more turn of its model, on the day `at` falls on (0.815). */
-function counted(was: ScoutToday | undefined, at: Date, what: 'looks' | 'asked'): ScoutToday {
+function counted(was: ScoutToday | undefined, at: Date, what: 'looks' | 'asked' | 'fixes'): ScoutToday {
   const day = scoutDay(at)
   const base = was?.day === day ? was : { day, looks: 0, asked: 0 }
-  return { ...base, [what]: base[what] + 1 }
+  return { ...base, [what]: (base[what] ?? 0) + 1 }
 }
 
 /** The same, into this week's tally (0.817): the first look starts a week. */
@@ -651,6 +661,8 @@ export function createScout(deps: ScoutDeps) {
         return mate === undefined ? fact : { ...fact, draft: { teammateId: mate.teammateId, name: mate.name, message: fact.commentAsk.message } }
       })
       const cards = draftedFacts.map((fact) => cardOf(fact, `card_${randomBytes(6).toString('hex')}`, at, forModel(fact)))
+      // A check card that goes takes its fix's copy with it (0.828).
+      await letGoOf(from.cards.filter(outdated), 'The check passes again, so the fix stopped.')
       let state = await mutate((latest) => ({
         ...latest,
         ...marks,
@@ -668,6 +680,9 @@ export function createScout(deps: ScoutDeps) {
       // are now, not as the look began (0.823): a look begun at 9:59 told Windows at 10:04.
       if (state.settings.notify && state.settings.on && !inQuietHours(state.settings.quiet, now())) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
       if (state.settings.on && cards.length > 0) deps.raised?.(cards)
+      // A check that started failing, with fixes on: the fix is prepared beside the look, never holding it up.
+      const failing = cards.find((card) => /^check:.*:fails$/.test(card.key))
+      if (failing !== undefined && state.settings.fixes?.on === true) void prepareFix(failing.cardId).then(({ done }) => done).catch(() => undefined)
       // Then Scout's model, for its take and the next step.
       const asked = cards.filter(forModel)
       if (asked.length === 0) return state
@@ -724,6 +739,8 @@ export function createScout(deps: ScoutDeps) {
     }
     pending.clear()
     if (cardIds.length > 0) await settle(cardIds, undefined, why)
+    // A fix under way stops too (0.828); its card says so.
+    if (fixing !== undefined) deps.fixes?.stop('Scout was turned off, so the fix stopped.')
   }
 
   /*
@@ -801,6 +818,78 @@ export function createScout(deps: ScoutDeps) {
     return state
   }
 
+  /*
+   * SCOUT PREPARES THE FIX (0.828, scout-fix.ts). A failing check's card, with fixes on: the teammate the person
+   * picked fixes it in a copy -- one at a time, at most the day's limit -- and the card says each step: preparing,
+   * ready, or what was missing. Nothing reaches the folder until the person presses Apply.
+   */
+  let fixing: { readonly cardId: string; readonly fixId: string } | undefined
+  const NOTHING_TO_DO = { done: Promise.resolve() }
+  const withFix = (card: ScoutCard, fix: ScoutFix | undefined): ScoutCard => {
+    const { fix: _was, ...rest } = card
+    return fix === undefined ? rest : { ...rest, fix }
+  }
+  const fixOf = (cardId: string, fix: ScoutFix | undefined, also: (latest: Kept) => Partial<Kept> = () => ({})): Promise<ScoutState> =>
+    mutate((latest) => ({ ...latest, ...also(latest), cards: latest.cards.map((card) => (card.cardId === cardId ? withFix(card, fix) : card)) }))
+  /** The copy a card's fix holds, if it holds one. */
+  const fixIdOf = (card: ScoutCard | undefined): string | undefined => card?.fix !== undefined && 'fixId' in card.fix ? card.fix.fixId : undefined
+  /** Its copy goes, and a fix under way for it stops. */
+  const letGoOf = async (cards: readonly ScoutCard[], why: string): Promise<void> => {
+    for (const card of cards) {
+      const fixId = fixIdOf(card)
+      if (fixId === undefined) continue
+      if (fixing?.fixId === fixId) deps.fixes?.stop(why)
+      else await deps.fixes?.discard(fixId).catch(() => undefined)
+    }
+  }
+  /** Resolves once the card says what happens; `done` resolves when the fix is. */
+  const prepareFix = async (cardId: string): Promise<{ readonly done: Promise<void> }> => {
+    const from = await load()
+    const settings = from.settings.fixes
+    const card = from.cards.find((one) => one.cardId === cardId)
+    if (deps.fixes === undefined || settings?.on !== true || !from.settings.on || card === undefined || !/^check:.*:fails$/.test(card.key)) return NOTHING_TO_DO
+    const command = from.lastCheck?.command
+    if (command === undefined || from.lastCheck?.passed !== false) return NOTHING_TO_DO
+    const mate = (await deps.team().catch(() => [])).find((one) => one.teammateId === settings.teammateId && one.teammateId !== from.settings.teammateId)
+    if (mate === undefined) {
+      await fixOf(cardId, { state: 'held', why: 'No teammate is picked to prepare fixes, so Scout did not prepare one. Pick one in Settings > General, under Scout.' })
+      return NOTHING_TO_DO
+    }
+    const used = from.today?.day === scoutDay(now()) ? from.today.fixes ?? 0 : 0
+    if (used >= settings.perDay) {
+      await fixOf(cardId, { state: 'held', why: `Today’s ${settings.perDay === 1 ? 'fix is' : `${String(settings.perDay)} fixes are`} used, so Scout did not prepare one. It can again tomorrow, or raise the limit in Settings > General, under Scout.` })
+      return NOTHING_TO_DO
+    }
+    if (fixing !== undefined) {
+      await fixOf(cardId, { state: 'held', why: 'Scout is preparing another fix. Press Prepare again when that one is done.' })
+      return NOTHING_TO_DO
+    }
+    const fixId = newFixId()
+    fixing = { cardId, fixId }
+    const fixes = deps.fixes
+    await fixOf(cardId, { state: 'preparing', fixId, name: mate.name, since: now().toISOString() }, (latest) => ({ today: counted(latest.today, now(), 'fixes') }))
+    return { done: (async () => {
+      let outcome: ScoutFixOutcome
+      try {
+        outcome = await fixes.prepare({ fixId, teammateId: mate.teammateId, name: mate.name, command })
+      } catch (error) {
+        outcome = { kind: 'unfixed', why: error instanceof Error ? error.message : 'The fix could not be prepared.' }
+      } finally {
+        if (fixing?.fixId === fixId) fixing = undefined
+      }
+      const still = (await load()).cards.find((one) => one.cardId === cardId)
+      // Dismissed, or its check passed again, while it was prepared: nothing is waiting for it.
+      if (still?.fix?.state !== 'preparing' || still.fix.fixId !== fixId) {
+        await fixes.discard(fixId).catch(() => undefined)
+        return
+      }
+      if (outcome.kind === 'unfixed') await fixes.discard(fixId).catch(() => undefined)
+      await fixOf(cardId, outcome.kind === 'ready'
+        ? { state: 'ready', fixId, name: mate.name, files: outcome.files, ...(outcome.added === undefined ? {} : { added: outcome.added, removed: outcome.removed ?? 0 }), missionId: outcome.missionId }
+        : { state: 'unfixed', name: mate.name, why: outcome.why, ...(outcome.missionId === undefined ? {} : { missionId: outcome.missionId }) })
+    })() }
+  }
+
   const answerComment = async (missionId: string): Promise<void> => {
     const turn = (await load()).commentTurns?.[missionId]
     if (turn === undefined) return
@@ -814,6 +903,18 @@ export function createScout(deps: ScoutDeps) {
       return { ...latest, commentTurns: turns, cards: withNewCards(latest.cards, [cardOf(fact, `card_${randomBytes(6).toString('hex')}`, now(), false)]) }
     })
   }
+
+  const dismissCard = (cardId: unknown, how?: unknown): Promise<ScoutState> => mutate((latest) => {
+    const card = latest.cards.find((one) => one.cardId === cardId)
+    const cards = latest.cards.filter((one) => one.cardId !== cardId)
+    const watch = card === undefined ? undefined : watchOfKey(card.key)
+    const week = latest.week
+    if (card === undefined || watch === undefined || week === undefined || scoutDay(new Date(card.at)) < week.from) return { ...latest, cards }
+    const outcome: ScoutOutcome = how === 'sent' || how === 'changed' ? how : 'dismissed'
+    const was = week.watches[watch]
+    const counts = outcome === 'dismissed' ? { ...was, dismissed: was.dismissed + 1 } : { ...was, used: was.used + 1 }
+    return { ...latest, cards, week: { ...week, watches: { ...week.watches, [watch]: counts }, [outcome]: week[outcome] + 1 } }
+  })
 
   return {
     /** Bound by the host only after a successful person-origin start. Reconcile fast completions too. */
@@ -854,6 +955,12 @@ export function createScout(deps: ScoutDeps) {
       const from = await load()
       // A look's cards from before a restart wait on nothing now.
       if (from.cards.some((card) => card.reading === true)) await mutate((latest) => ({ ...latest, cards: latest.cards.map(({ reading: _reading, ...card }) => card) }))
+      // A fix that was being prepared when Locust closed (0.828): its copy goes, and the card says so.
+      const cut = from.cards.filter((card) => card.fix?.state === 'preparing')
+      if (cut.length > 0) {
+        await letGoOf(cut, 'Locust closed while the fix was being prepared.')
+        await mutate((latest) => ({ ...latest, cards: latest.cards.map((card) => card.fix?.state === 'preparing' ? withFix(card, { state: 'unfixed', name: card.fix.name, why: 'Locust closed while it was being prepared.' }) : card) }))
+      }
       for (const missionId of Object.keys(from.commentTurns ?? {})) await answerComment(missionId)
       if (from.settings.on && from.settings.watches.comments !== false && from.comments === undefined) await mutate((latest) => ({ ...latest, comments: { enabledAt: now().toISOString(), repositories: {} } }))
       restart(from.settings)
@@ -881,17 +988,39 @@ export function createScout(deps: ScoutDeps) {
      * The card goes; what the person did with it -- sent its draft on, changed it first, or dismissed it -- counts toward
      * this week's tune-up when the card came this week (0.817).
      */
-    dismiss: (cardId: unknown, how?: unknown): Promise<ScoutState> => mutate((latest) => {
-      const card = latest.cards.find((one) => one.cardId === cardId)
-      const cards = latest.cards.filter((one) => one.cardId !== cardId)
-      const watch = card === undefined ? undefined : watchOfKey(card.key)
-      const week = latest.week
-      if (card === undefined || watch === undefined || week === undefined || scoutDay(new Date(card.at)) < week.from) return { ...latest, cards }
-      const outcome: ScoutOutcome = how === 'sent' || how === 'changed' ? how : 'dismissed'
-      const was = week.watches[watch]
-      const counts = outcome === 'dismissed' ? { ...was, dismissed: was.dismissed + 1 } : { ...was, used: was.used + 1 }
-      return { ...latest, cards, week: { ...week, watches: { ...week.watches, [watch]: counts }, [outcome]: week[outcome] + 1 } }
-    }),
+    dismiss: async (cardId: unknown, how?: unknown): Promise<ScoutState> => {
+      await letGoOf((await load()).cards.filter((card) => card.cardId === cardId), 'The card was dismissed, so the fix stopped.')
+      return dismissCard(cardId, how)
+    },
+    /** A ready fix into the folder (0.828, scout-fix.ts), beside the person's own edits; refused where they changed the same files. */
+    async applyFix(cardId: unknown): Promise<ScoutState> {
+      const card = (await load()).cards.find((one) => one.cardId === cardId)
+      if (card?.fix?.state !== 'ready' || deps.fixes === undefined) return stateOf(await load())
+      const fix = card.fix
+      const brought = await deps.fixes.apply(fix.fixId).catch(() => ({ kind: 'gone' as const }))
+      const next: ScoutFix = brought.kind === 'brought'
+        ? { state: 'applied', files: brought.files }
+        : brought.kind === 'your-changes'
+          ? { state: 'stale', fixId: fix.fixId, name: fix.name, files: brought.files, missionId: fix.missionId }
+          : { state: 'unfixed', name: fix.name, why: brought.kind === 'nothing' ? 'Its copy holds no change to apply.' : 'Its copy is gone, so there is nothing to apply. Prepare it again.', missionId: fix.missionId }
+      return mutate((latest) => ({ ...latest, cards: latest.cards.map((one) => one.cardId === cardId ? { ...withFix(one, next), ...(next.state === 'applied' ? { urgency: 'later' as const } : {}) } : one) }))
+    },
+    /** The fix set aside: its copy goes, and the card stays as Locust wrote it. */
+    async skipFix(cardId: unknown): Promise<ScoutState> {
+      const card = (await load()).cards.find((one) => one.cardId === cardId)
+      if (card?.fix === undefined || card.fix.state === 'preparing') return stateOf(await load())
+      await letGoOf([card], 'Skipped.')
+      return fixOf(card.cardId, undefined)
+    },
+    /** Prepared again from the folder as it is now: after it could not be applied, could not be made, or was held. */
+    async fixAgain(cardId: unknown): Promise<ScoutState> {
+      const card = (await load()).cards.find((one) => one.cardId === cardId)
+      if (card?.fix === undefined || !['stale', 'unfixed', 'held'].includes(card.fix.state)) return stateOf(await load())
+      await letGoOf([card], 'Prepared again.')
+      await fixOf(card.cardId, undefined)
+      void (await prepareFix(card.cardId)).done.catch(() => undefined)
+      return stateOf(await load())
+    },
     /** A weekly tune-up's suggestion, applied to the settings as they stand now (0.817); its card goes. */
     async tune(cardId: unknown): Promise<ScoutState> {
       const suggested = (await load()).cards.find((card) => card.cardId === cardId)?.tune
@@ -946,6 +1075,7 @@ export function createScout(deps: ScoutDeps) {
         try { deps.stop(look.runId) } catch { /* ended already */ }
       }
       pending.clear()
+      if (fixing !== undefined) deps.fixes?.stop('Locust closed while the fix was being prepared.')
     }
   }
 }

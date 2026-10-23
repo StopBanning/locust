@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
-  MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
+  DEFAULT_SCOUT_FIXES, MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_FIXES_PER_DAY, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
   type ScoutApi, type ScoutEvery, type ScoutQuietHours, type ScoutState, type ScoutWatches
 } from '../../../shared/scout.js'
 import { lookLines, lookName, setSomethingAside, type ScoutHeldAlert, type ScoutLogEntry } from '../../../shared/scout-log.js'
@@ -10,6 +10,41 @@ import { ago } from './ScoutCards.js'
 import { Select } from './Select.js'
 
 const quietWords = (quiet: ScoutQuietHours): string => `${hourWords(quiet.from)} to ${hourWords(quiet.to)}`
+
+/*
+ * PREPARE FIXES BEFORE I LOOK (0.828, main/scout-fix.ts): off until the person turns it on, since a fix runs on the
+ * picked teammate's plan; who prepares them; and how many a day.
+ */
+function FixesLine({ state, team, busy, checkCommand, act, api, switchOf }: {
+  readonly state: ScoutState
+  readonly team: readonly { readonly teammateId: string; readonly name: string }[]
+  readonly busy: boolean
+  readonly checkCommand: string | undefined
+  readonly act: (work: () => Promise<unknown>) => Promise<void>
+  readonly api: ScoutApi
+  readonly switchOf: (label: string, checked: boolean, onClick: () => void, disabled?: boolean) => ReactNode
+}) {
+  const fixes = state.settings.fixes ?? DEFAULT_SCOUT_FIXES
+  const picked = team.find((mate) => mate.teammateId === fixes.teammateId)
+  const set = (change: Partial<typeof fixes>): void => { void act(() => api.set({ fixes: { ...fixes, ...change } })) }
+  const canFix = state.settings.watches.check && checkCommand !== undefined
+  return <div className="lc-settingline lc-settingline--sub lc-scout__goalline">
+    <div className="lc-settingline__text">
+      <h3 className="lc-settings__heading">Prepare fixes before I look</h3>
+      <p className="lc-settings__lede">When the folder’s check starts failing, a teammate fixes it in a copy of the folder and Locust runs the check there again. Nothing reaches your folder until you press Apply, and it never pushes or opens a pull request. It runs on that teammate’s plan.</p>
+      {!canFix && <p className="lc-settings__note">Turn on This folder’s check first.</p>}
+      {fixes.on && <span className="lc-scout__goalkeys">
+        <Select className="lc-control" aria-label="Who prepares Scout’s fixes" disabled={busy || team.length === 0} value={picked?.teammateId ?? ''}
+          onChange={(next) => { set({ teammateId: next }) }}
+          options={[...(picked === undefined ? [{ value: '', label: team.length === 0 ? 'Add a teammate first' : 'Pick a teammate' }] : []), ...team.map((mate) => ({ value: mate.teammateId, label: mate.name }))]} />
+        <Select className="lc-control" aria-label="Fixes a day" disabled={busy} value={String(fixes.perDay)}
+          onChange={(next) => { set({ perDay: Number(next) }) }}
+          options={SCOUT_FIXES_PER_DAY.map((count) => ({ value: String(count), label: `At most ${String(count)} a day` }))} />
+      </span>}
+    </div>
+    {switchOf('Prepare fixes before I look', fixes.on, () => { set(fixes.on ? { on: false } : { on: true, ...(picked === undefined && team[0] !== undefined ? { teammateId: team[0].teammateId } : {}) }) }, !fixes.on && !canFix)}
+  </div>
+}
 
 /** Entries shown at first, and added by each Show more. */
 const SAW_PAGE = 30
@@ -63,7 +98,7 @@ function ScoutSaw({ api }: { readonly api: ScoutApi }) {
  * person's own words, the folder's check, quiet hours, a look that waits while their own turn runs, and what today
  * used.
  */
-export function ScoutSetting({ heading, state, model, route, checkCommand, onChangeModel, api = typeof window === 'undefined' ? undefined : window.desktop?.scout }: {
+export function ScoutSetting({ heading, state, model, route, checkCommand, onChangeModel, team = [], api = typeof window === 'undefined' ? undefined : window.desktop?.scout }: {
   /** Settings' own heading, so its search finds this line (settings-pages-are-real). */
   readonly heading: ReactNode
   readonly state: ScoutState | undefined
@@ -75,6 +110,8 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
   readonly checkCommand?: string
   /** Opens Scout's own Edit teammate, where its Model row is: absent before Scout is on the team. */
   readonly onChangeModel?: () => void
+  /** The teammates who may prepare Scout's fixes (0.828): everyone but Scout. */
+  readonly team?: readonly { readonly teammateId: string; readonly name: string }[]
   readonly api?: ScoutApi
 }) {
   const [busy, setBusy] = useState(false)
@@ -90,7 +127,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
   const today = state?.today
   const status = [
     ...(state?.lastLookAt === undefined ? [] : [`Last looked ${ago(state.lastLookAt, new Date())}${state.cards.length === 0 ? ', and nothing needed you.' : '.'}`]),
-    ...(today === undefined ? [] : [`Today: ${String(today.looks)} look${today.looks === 1 ? '' : 's'}, ${today.asked === 0 ? 'none of them needing its model' : `${String(today.asked)} of them read by ${model ?? 'its model'}`}.`]),
+    ...(today === undefined ? [] : [`Today: ${String(today.looks)} look${today.looks === 1 ? '' : 's'}, ${today.asked === 0 ? 'none of them needing its model' : `${String(today.asked)} of them read by ${model ?? 'its model'}`}${state?.settings.fixes?.on === true ? `, ${String(today.fixes ?? 0)} of ${String(state.settings.fixes.perDay)} fix${state.settings.fixes.perDay === 1 ? '' : 'es'} prepared` : ''}.`]),
     ...(quiet !== undefined && inQuietHours(quiet, new Date()) ? [`Quiet until ${hourWords(quiet.to)}.`] : [])
   ]
   const act = async (work: () => Promise<unknown>): Promise<void> => {
@@ -210,6 +247,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
         </div>
         {switchOf('This folder’s check', state.settings.watches.check, () => { watch('check') }, checkCommand === undefined && !state.settings.watches.check)}
       </div>
+      <FixesLine state={state} team={team} busy={busy} checkCommand={checkCommand} act={act} api={api} switchOf={switchOf} />
       <div className="lc-settingline lc-settingline--sub">
         <div className="lc-settingline__text">
           <h3 className="lc-settings__heading">How often it looks</h3>

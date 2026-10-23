@@ -54,6 +54,8 @@ export const BACKED_UP_FILES = [
   'calls.json',
   // Scout, on or off, and which teammate it is (0.756): without it a restored Scout would be met again as a stranger.
   'scout.json',
+  // What Scout saw (0.828, shared/scout-log.ts): fourteen days of its looks.
+  'scout-looks.json',
   // Which GitHub issue a conversation was started from: the header's #n, and Fixes #n on its pull request.
   'issue-origins.json',
   // The runs whose answer belongs to a panel (0.771): a commit message, a walkthrough. The ledger carries them, and

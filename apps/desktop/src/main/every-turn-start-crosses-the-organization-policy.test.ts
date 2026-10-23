@@ -19,7 +19,8 @@ describe('every way a turn starts crosses the organization policy', () => {
     const callers = readdirSync(main).filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts') && launches.test(read(name)))
     expect(callers).toEqual(['index.ts'])
     // An additional launch needs to be accounted for here; routing everything through the services is the boundary.
-    expect(index.match(/codexMissions\.start\(/g)).toHaveLength(13)
+    // 14 since 0.828: Scout's fix, in its copy, on the picked teammate's route.
+    expect(index.match(/codexMissions\.start\(/g)).toHaveLength(14)
     expect(index.match(/antigravityMissions\.start\(/g)).toHaveLength(2)
     for (const factory of ['createCodexMissionService', 'createAntigravityMissionService']) {
       expect(index.slice(index.indexOf(`= ${factory}({`), index.indexOf(`= ${factory}({`) + 100)).toContain('organizationPolicy,')

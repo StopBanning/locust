@@ -1,7 +1,7 @@
 /**
  * WHAT SCOUT SAW (0.828). The question people ask most about a teammate that keeps watch is "why didn't you tell me?",
  * and Scout could only guess: nothing said what a look found and left out. Now each look is written down as it ends --
- * what it raised, what it set aside and why, the watches it did not read -- and kept fourteen days. Settings > Scout
+ * what it raised, what it set aside and why, the watches it did not read -- and kept fourteen days. Settings > General
  * shows it, newest first, and a question to Scout in its own conversation is answered from it.
  *
  * Looks that said the same thing are one entry (`looks`, `until`): a quiet night of looks every ten minutes is one
@@ -198,7 +198,7 @@ export function scoutLogBrief(log: readonly ScoutLogEntry[], held: readonly Scou
   for (const entry of [...log].reverse()) {
     const block = `${lookName(entry)}:\n${lookLines(entry, held).map((line) => `- ${line}`).join('\n')}`
     if (used + block.length > SCOUT_LOG_BRIEF_CHARS) {
-      sections.push('Older looks are left out here; the record keeps them in Settings > Scout.')
+      sections.push('Older looks are left out here; the record keeps them in Settings > General, under Scout.')
       break
     }
     sections.push(block)

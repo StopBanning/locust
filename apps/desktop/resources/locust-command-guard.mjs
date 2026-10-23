@@ -266,14 +266,39 @@ function notTheRuns(seen, entry, filter) {
   return undefined
 }
 
+// A FIX'S COPY PUBLISHES NOTHING (0.828, scout-fix.ts). Scout's fixes are
+// prepared in a copy of the person's folder, in a folder named
+// rt_scoutfix<12 hex digits>. There, `git push`, `git remote` (and git's other
+// ways out: credential, send-email, request-pull) and `gh` are refused in every
+// mode: the fix reaches the person only through Apply, and a pull request is
+// theirs to open. Known by the folder the command runs in -- the hook's own
+// `cwd`, as each runtime hands it, the folder OpenCode's plugin was loaded for,
+// and this process's own -- never by what the command says about itself.
+const FIX_FOLDER = /(?:^|[\\/])rt_scoutfix[a-f0-9]{12}(?:[\\/]|$)/i
+const GH_COMMAND = /(?:^|[\s"'`(;&|=\\/])gh(?:\.exe)?(?=$|[\s"'`);&|])/i
+const GIT_OUT = /(?:^|[\s"'`(;&|\\/])git(?:\.exe)?["']?\s+(?:(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)|-c\s+\S+|--?[\w-]+(?:=\S+)?)\s+)*(?:push|remote|credential|send-email|request-pull)(?=$|[\s"'`);&|])/i
+const FIX_REFUSAL = 'Refused: this is a copy Scout made to prepare a fix, and from here Locust does not let anything push, add a remote or use gh. The person brings the fix into their folder with Apply and opens any pull request themselves. Make the fix in these files, then say what you changed.'
+
+/** Whether any of these folders is inside a fix's copy. Exported for the tests. */
+export function inFixCopy(folders) {
+  return Array.isArray(folders) && folders.some((folder) => typeof folder === 'string' && FIX_FOLDER.test(folder))
+}
+
+/** Whether a command would reach past a fix's copy: a push, a remote, gh. Exported for the tests. */
+export function publishesFromCopy(command) {
+  return typeof command === 'string' && (GH_COMMAND.test(command) || GIT_OUT.test(command))
+}
+
 /**
  * Why a command is refused, in words the model reads, or undefined when it
  * may run. `look` reads the process table when the command ends something by
- * id (the tests hand in their own); exported for them. The hook below is the
- * only other caller.
+ * id (the tests hand in their own); exported for them. `folders` are where it
+ * runs (0.828): a fix's copy refuses what would publish from it. The hook
+ * below is the only other caller.
  */
-export function stoppedBecause(command, look = lookAtProcesses) {
+export function stoppedBecause(command, look = lookAtProcesses, folders = []) {
   if (typeof command !== 'string' || command.length === 0) return undefined
+  if (inFixCopy(folders) && publishesFromCopy(command)) return FIX_REFUSAL
   // The process table, read once and only when something needs it; null when it cannot be read.
   let seen
   const looked = () => {
@@ -399,7 +424,8 @@ async function main() {
   } catch {
     return
   }
-  const reason = stoppedBecause(event?.tool_input?.command)
+  // Where it runs: the runtime's own word for it, and this hook's folder, which each runtime starts it in.
+  const reason = stoppedBecause(event?.tool_input?.command, lookAtProcesses, [event?.cwd, event?.tool_input?.workdir, process.cwd()])
   // For a drive only (0.720): a line per question, so a live run can show the
   // guard was asked at all. Codex reports its hooks in no record Locust keeps.
   if (typeof process.env.LOCUST_GUARD_LOG === 'string' && process.env.LOCUST_GUARD_LOG.length > 0) {

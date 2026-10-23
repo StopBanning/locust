@@ -1918,6 +1918,23 @@ export default function App(): ReactElement {
   // Every judge's run, drawn in its comparison (0.520), and every look of Scout's, whose answer is cards on Home
   // (0.756): never listed as a conversation.
   const scout = useScoutState()
+  /*
+   * SCOUT'S OWN TEAMMATE, MET AT ONCE (0.828). The host makes it as Scout turns on, and the window read the team only
+   * at launch, so Scout had no face, no team card and no conversation to ask it in until Locust started again. A
+   * teammate Scout names that the window does not know has the team read again, once for each.
+   */
+  const scoutMate = scout?.settings.teammateId
+  const scoutMateRead = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (scoutMate === undefined || scoutMateRead.current === scoutMate || teammates.some((one) => one.teammateId === scoutMate)) return
+    scoutMateRead.current = scoutMate
+    void window.desktop?.listTeammates().then((listed) => {
+      if (!listed.ok) return
+      setTeammates(listed.data.teammates)
+      setMissionOwners(listed.data.missionOwners)
+      rememberRosterNames(listed.data)
+    }).catch(() => undefined)
+  }, [scoutMate, teammates])
   const scoutLookKey = (scout?.lookIds ?? []).join(' ')
   // A comparison's runs again (0.763) too: the comparison they run again shows them, as its benchmark.
   // And the runs whose answer belongs to a panel (0.771): a commit message, a walk through a change.
@@ -9302,6 +9319,7 @@ export default function App(): ReactElement {
           ) : screen === 'settings' ? (
             <SettingsScreen
               {...(scout === undefined ? {} : { scout })}
+              scoutTeam={teammates.filter((one) => one.teammateId !== scout?.settings.teammateId).map((one) => ({ teammateId: one.teammateId, name: one.name }))}
               {...((mate) => (mate?.route === undefined ? {} : { scoutModel: scoutModelWords(mate.route) }))(teammates.find((one) => one.teammateId === scout?.settings.teammateId))}
               {...(scoutModel === undefined ? {} : { scoutRoute: { runtime: 'opencode', model: scoutModel } })}
               {...((mate) => (mate === undefined ? {} : { onChangeScoutModel: () => { setEditingTeammate(mate) } }))(teammates.find((one) => one.teammateId === scout?.settings.teammateId))}

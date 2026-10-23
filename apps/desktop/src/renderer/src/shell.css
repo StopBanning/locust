@@ -24435,6 +24435,11 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-scout__goalline .lc-settingline__text { flex: 1; }
 .lc-scout__goal { display: block; width: 100%; height: auto; min-height: 64px; margin-top: var(--lc-space-2); padding: 8px 11px; resize: vertical; font-family: inherit; line-height: 1.5; }
 .lc-scout__goalkeys { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-2); margin-top: var(--lc-space-2); }
+/* A fix Scout prepared (0.828): a quiet box under the check's sentence, green-edged once it is ready. */
+.lc-scoutfix { display: flex; flex-direction: column; gap: var(--lc-space-2); padding: var(--lc-space-2) var(--lc-space-3); border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); }
+.lc-scoutfix.is-ready { border-color: var(--lc-green-border); }
+.lc-scoutfix__said { margin: 0; color: var(--lc-text-primary); font-size: var(--lc-text-body); line-height: 1.5; overflow-wrap: anywhere; }
+.lc-scoutfix__files { margin: 0; color: var(--lc-text-secondary); font-size: var(--lc-text-control); overflow-wrap: anywhere; }
 /* What Scout saw (0.828): one look a row, its time over its lines, scrolled inside its own box. */
 .lc-scoutlog__filter { display: inline-flex; align-items: center; gap: 6px; color: var(--lc-text-secondary); font-size: var(--lc-text-control); }
 .lc-scoutlog { list-style: none; margin: var(--lc-space-2) 0 0; padding: 0; max-height: 420px; overflow-y: auto; border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); }
