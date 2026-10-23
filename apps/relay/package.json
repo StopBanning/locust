@@ -1,0 +1,12 @@
+{
+  "name": "@teammate/relay",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Locust's relay: lets a person's phone reach Locust on their PC from anywhere, passing messages it cannot read.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  }
+}

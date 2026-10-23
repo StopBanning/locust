@@ -140,6 +140,9 @@ try {
 
   say('Turning the page on: Windows may ask whether Locust can use the network (that choice is Colin’s).')
   const on = JSON.parse(String(await drive.capture('Your phone, on: the code', () => drive.evaluate(settingsScript(`
+    // Since 0.826 From anywhere is the first choice; this drive is the home-network way.
+    ;[...(section?.querySelectorAll('[role="radio"]') ?? [])].find((b) => b.innerText.trim() === 'Only on this Wi-Fi')?.click()
+    await new Promise((r) => setTimeout(r, 300))
     section?.querySelector('[role="switch"]')?.click()
     for (let i = 0; i < 40 && !section?.querySelector('.lc-phone__qr'); i += 1) await new Promise((r) => setTimeout(r, 250))
     const settings = await window.desktop.phone.settings()

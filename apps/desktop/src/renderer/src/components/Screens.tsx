@@ -3397,11 +3397,13 @@ export function SettingsScreen({
             heading={<h2 className="lc-settings__heading">Your phone</h2>}
             more={
               <More>
-                Locust opens one small page on this computer for your home network. The code holds its address and a
-                key; your phone keeps the key, and nothing on the page shows or changes until it is checked. A message
-                you send from your phone is your next message in that conversation, on the same teammate and mode, as
-                if you typed it here. Turning this off closes the page and unpairs every phone. It does not reach your
-                phone away from home, and nothing goes through anyone else’s server.
+                From anywhere, this computer keeps one connection open to Locust’s relay, and your phone reaches it
+                there from any network. Each message is locked on one side and opened on the other, with keys only this
+                computer and your phone hold, so the relay passes along what it cannot read. Only on this Wi-Fi, Locust
+                opens one small page on this computer for your home network instead, and nothing goes through anyone
+                else’s server. Either way, a message you send from your phone is your next message in that
+                conversation, on the same teammate and mode, as if you typed it here, and turning this off unpairs
+                every phone.
               </More>
             }
           />

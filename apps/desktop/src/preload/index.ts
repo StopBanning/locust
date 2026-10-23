@@ -41,7 +41,7 @@ import type { BrowserPointResponse } from '../shared/browser-point.js'
 import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, themeFromArguments } from '../shared/appearance.js'
 import type { AppearanceState, ThemeChoice } from '../shared/appearance.js'
 import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
-import { PHONE_FORGET_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SETTINGS_CHANNEL } from '../shared/phone.js'
+import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, type PhoneAnywhereSettings } from '../shared/phone.js'
 import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from '../shared/locust-mcp.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from '../shared/voice.js'
 import { CALLS_LIST, CALLS_SAVE } from '../shared/calls.js'
@@ -543,7 +543,16 @@ const desktopApi: DesktopApi = {
   phone: {
     settings: () => ipcRenderer.invoke(PHONE_SETTINGS_CHANNEL),
     setEnabled: (enabled) => ipcRenderer.invoke(PHONE_SET_ENABLED_CHANNEL, enabled),
-    forget: () => ipcRenderer.invoke(PHONE_FORGET_CHANNEL)
+    forget: () => ipcRenderer.invoke(PHONE_FORGET_CHANNEL),
+    anywhere: () => ipcRenderer.invoke(PHONE_ANYWHERE_CHANNEL),
+    setMode: (mode) => ipcRenderer.invoke(PHONE_SET_MODE_CHANNEL, mode),
+    newCode: () => ipcRenderer.invoke(PHONE_NEW_CODE_CHANNEL),
+    remove: (device) => ipcRenderer.invoke(PHONE_REMOVE_CHANNEL, device),
+    onAnywhereChanged: (listener) => {
+      const receive = (_event: Electron.IpcRendererEvent, settings: PhoneAnywhereSettings): void => { listener(settings) }
+      ipcRenderer.on(PHONE_ANYWHERE_CHANGED_CHANNEL, receive)
+      return () => { ipcRenderer.removeListener(PHONE_ANYWHERE_CHANGED_CHANNEL, receive) }
+    }
   },
   locustMcp: {
     settings: () => ipcRenderer.invoke(LOCUST_MCP_GET),

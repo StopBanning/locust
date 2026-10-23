@@ -1,0 +1,14 @@
+// Locust's relay on Cloudflare Workers, deployed from this folder with `npx wrangler deploy`. Anyone running their own
+// copy changes the route below to a domain of theirs and starts Locust with LOCUST_RELAY set to its address.
+{
+  "name": "locust-relay",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-01",
+  "routes": [{ "pattern": "app.locust.lol", "custom_domain": true }],
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  // Workers Logs off: the relay writes no log of its own of who connected or when.
+  "observability": { "enabled": false }
+}

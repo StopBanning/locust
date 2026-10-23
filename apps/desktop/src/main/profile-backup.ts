@@ -90,6 +90,8 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'agent-accounts': 'added agent homes and sign-ins: they stay on this machine and are never copied into a backup',
   'locust-mcp-connection.json': 'the local MCP server token and address: they belong to this Windows account and are minted again',
   'locust-mcp.json': 'whether other AI apps can use Locust on this machine: enable again after a restore',
+  'phone.json': 'the key your phone on the home network was paired with: it belongs to this machine, so pair again after a restore',
+  'phone-relay.json': "this computer's keys and the phones paired with it through Locust's relay: they belong to this machine, so pair again after a restore (0.826)",
   'voice-call-mcp': 'a voice call\'s own token for handing work to teammates: minted again for every call (0.739)',
   'voice-call.json': 'the voice Talk speaks in, and the keys that start it from any app: preferences, picked again in a moment after a restore (0.745, 0.755)',
   'voice-previews': 'the greeting each voice gave the first time it was played: made again by playing it (0.751)',

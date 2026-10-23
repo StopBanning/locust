@@ -42,6 +42,7 @@ until it is listed here.
 | A voice call (Talk, beside the microphone) | OpenAI's voice service, at the media address the call's answer names | On Windows, only while a call you started is on |
 | Scout's looks (a teammate that keeps watch) | GitHub, through your own GitHub CLI; then Scout's own model, through its agent (free: OpenCode's) | Only after you turn Scout on, every 10, 30 or 60 minutes while Locust runs, and its model only when something is new |
 | Pictures on a GitHub issue | `github.com/user-attachments` and `githubusercontent.com` only | When you choose an issue, so its pictures can sit in the chat box |
+| Your phone, from anywhere | Locust's relay at `app.locust.lol` (on Cloudflare): one WebSocket this computer opens to it | Only after you turn on Your phone with From anywhere, for as long as it stays on |
 | Your cloud computer (a teammate's turn sent with Cloud, or with Cloud computer) | GitHub, through your own GitHub CLI: Codespaces, and the codespace itself over `gh codespace ssh`; from there, the teammate's model, through its agent (OpenCode, Claude Code or Codex) | Only after you pick Cloud for an OpenCode teammate, or Cloud computer for a Claude Code or Codex teammate, and press Set it up, and then for each turn you send there |
 
 **Pictures on a GitHub issue.** When you choose an issue, Locust reads its text through your own `gh` and fetches at most four pictures, each from `github.com/user-attachments` or `githubusercontent.com`. A redirect is followed only while the next address stays on those hosts. The fetch sends no token. `gh` keeps the sign-in it already has, and Locust never prints it.
@@ -269,6 +270,20 @@ reads of your folder stays on this machine.
   refused. It is plain HTTP on your own network, with no server in between:
   use it on a network you trust. New code mints a new key and unpairs every
   phone; turning the switch off closes the listener and forgets the key.
+  This is the Only on this Wi-Fi choice; From anywhere, below, listens to nothing.
+- **Your phone, from anywhere** (Settings > General, the first choice when you
+  turn Your phone on) listens to nothing. Locust opens one WebSocket out to its
+  relay at `app.locust.lol` and keeps it open while this is on, so a phone you
+  paired can reach it from any network. Every request and answer is sealed on
+  one side and opened on the other (an X25519 key exchange, then AES-256-GCM,
+  with a key for each direction), and those keys never leave your computer and
+  the phone: the relay passes along what it cannot read. It keeps only hashes
+  of the tokens it lets in, and writes no log of its own of who connected or
+  when. A code pairs one phone, once, within ten minutes. Remove a phone in
+  Settings and it stops at once; turning this off forgets your computer's keys
+  and has the relay delete its room. The relay's code is in this repository
+  (`apps/relay`), so anyone can run their own and start Locust with
+  `LOCUST_RELAY` set to its address.
 - **The spellchecker downloads no dictionary.**
 - **Memory recall** runs a small model that ships with Locust.
 - **A report reaches Locust's makers only when you send it.** Send feedback,

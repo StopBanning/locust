@@ -31,11 +31,58 @@ export interface PhoneSettings {
   readonly message?: string
 }
 
+/*
+ * FROM ANYWHERE (0.826, main/phone-anywhere.ts): the same page, reached through Locust's relay instead of the home
+ * network, every message sealed between this computer and the phone.
+ */
+export const PHONE_ANYWHERE_CHANNEL = 'phone:anywhere'
+export const PHONE_SET_MODE_CHANNEL = 'phone:set-mode'
+export const PHONE_NEW_CODE_CHANNEL = 'phone:new-code'
+export const PHONE_REMOVE_CHANNEL = 'phone:remove'
+export const PHONE_ANYWHERE_CHANGED_CHANNEL = 'phone:anywhere-changed'
+
+/** How a phone reaches Locust: not at all, from anywhere through the relay, or on this Wi-Fi only. */
+export type PhoneMode = 'off' | 'anywhere' | 'wifi'
+export const PHONE_MODES: readonly PhoneMode[] = ['off', 'anywhere', 'wifi']
+
+export interface PhoneAnywhereDevice {
+  readonly id: string
+  /** As the phone named itself: iPhone, iPad, Android phone, Browser. */
+  readonly name: string
+  readonly added: string
+  readonly seen?: string
+  readonly online: boolean
+}
+
+export interface PhoneAnywhereSettings {
+  readonly enabled: boolean
+  /** Whether this computer is connected to the relay now. */
+  readonly connected: boolean
+  /** The code's address while one can be scanned: once, until `until`. */
+  readonly code?: { readonly url: string; readonly until: string }
+  readonly devices: readonly PhoneAnywhereDevice[]
+  /** Why the last change did not happen, or why it is not connected, in plain words. */
+  readonly message?: string
+}
+
+export interface PhoneModeState {
+  readonly wifi: PhoneSettings
+  readonly anywhere: PhoneAnywhereSettings
+}
+
 export interface PhoneApi {
   settings(): Promise<PhoneSettings>
   setEnabled(enabled: boolean): Promise<PhoneSettings>
   /** A new code: every paired phone is unpaired. */
   forget(): Promise<PhoneSettings>
+  anywhere(): Promise<PhoneAnywhereSettings>
+  /** The way phones reach Locust. Turning one way on turns the other off, and off unpairs every phone of that way. */
+  setMode(mode: PhoneMode): Promise<PhoneModeState>
+  /** A code for the next phone, from anywhere: the one before it stops working. */
+  newCode(): Promise<PhoneAnywhereSettings>
+  remove(device: string): Promise<PhoneAnywhereSettings>
+  /** Called when a phone pairs, comes and goes, or the connection to the relay changes. */
+  onAnywhereChanged(callback: (settings: PhoneAnywhereSettings) => void): () => void
 }
 
 export interface PhoneWaiting {

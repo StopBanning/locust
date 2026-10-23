@@ -27,7 +27,8 @@ function sameKey(supplied: string, expected: string): boolean {
 export const PHONE_FILE = 'phone.json'
 /** A fixed port, so a phone's saved address still works after Locust restarts; any free one when it is taken. */
 export const PHONE_PORT = 47740
-const MAX_BODY = 32 * 1024
+/** The largest request a phone may send, either way it comes. */
+export const MAX_BODY = 32 * 1024
 const MAX_MESSAGE = 20_000
 /** Wrong keys from one address before it is refused for a while: a 192-bit key is not guessed, but nobody gets to try. */
 const MAX_WRONG = 20
@@ -89,6 +90,37 @@ const json = (res: ServerResponse, status: number, value: unknown): void => {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }).end(JSON.stringify(value))
 }
 
+export interface PhoneAnswer {
+  readonly status: number
+  readonly data: unknown
+}
+
+/**
+ * What Locust answers a phone, however the request came (0.826): the page asks the same paths on the home network
+ * and through the relay (phone-anywhere.ts). Undefined for a request it does not know; each way says that its own way.
+ */
+export async function answerPhone(calls: PhoneCalls, method: 'GET' | 'POST', path: string, input?: unknown): Promise<PhoneAnswer | undefined> {
+  const url = new URL(path, 'http://phone')
+  if (method === 'GET') {
+    if (url.pathname === '/api/state') return { status: 200, data: await calls.state() }
+    if (url.pathname === '/api/turns') {
+      const turns = await calls.turns(url.searchParams.get('id') ?? '')
+      return turns === undefined ? { status: 404, data: { message: 'That conversation is not in Locust any more.' } } : { status: 200, data: { turns } }
+    }
+    return undefined
+  }
+  const fields = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
+  if (url.pathname === '/api/decide' && typeof fields.approvalId === 'string' && typeof fields.approve === 'boolean') {
+    return { status: 200, data: { ok: await calls.decide(fields.approvalId, fields.approve) } }
+  }
+  if (url.pathname === '/api/send' && typeof fields.missionId === 'string' && typeof fields.text === 'string') {
+    const text = fields.text.trim()
+    if (text.length === 0 || text.length > MAX_MESSAGE) return { status: 400, data: { ok: false, message: 'Write a message first.' } }
+    return { status: 200, data: await calls.send(fields.missionId, text) }
+  }
+  return undefined
+}
+
 /** The key is checked from the headers before any body is read. */
 export function phoneRequestHandler(key: () => string | undefined, page: () => string, calls: PhoneCalls, now: () => number = Date.now) {
   const wrong = new Map<string, number[]>()
@@ -112,12 +144,9 @@ export function phoneRequestHandler(key: () => string | undefined, page: () => s
       return
     }
     void (async () => {
-      if (req.method === 'GET' && url.pathname === '/api/state') { json(res, 200, await calls.state()); return }
-      if (req.method === 'GET' && url.pathname === '/api/turns') {
-        const turns = await calls.turns(url.searchParams.get('id') ?? '')
-        if (turns === undefined) json(res, 404, { message: 'That conversation is not in Locust any more.' })
-        else json(res, 200, { turns })
-        return
+      if (req.method === 'GET') {
+        const answer = await answerPhone(calls, 'GET', url.pathname + url.search)
+        if (answer !== undefined) { json(res, answer.status, answer.data); return }
       }
       if (req.method !== 'POST') { res.writeHead(405).end(); return }
       // A form on another page cannot send JSON with a key; this refuses whatever else arrives.
@@ -125,17 +154,8 @@ export function phoneRequestHandler(key: () => string | undefined, page: () => s
       let input: unknown
       try { input = await readBody(req) } catch { json(res, 400, { message: 'That message could not be read.' }); return }
       if (key() !== expected) { json(res, 401, { message: 'This phone was unpaired.' }); return }
-      const fields = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
-      if (url.pathname === '/api/decide' && typeof fields.approvalId === 'string' && typeof fields.approve === 'boolean') {
-        json(res, 200, { ok: await calls.decide(fields.approvalId, fields.approve) })
-        return
-      }
-      if (url.pathname === '/api/send' && typeof fields.missionId === 'string' && typeof fields.text === 'string') {
-        const text = fields.text.trim()
-        if (text.length === 0 || text.length > MAX_MESSAGE) { json(res, 400, { ok: false, message: 'Write a message first.' }); return }
-        json(res, 200, await calls.send(fields.missionId, text))
-        return
-      }
+      const answer = await answerPhone(calls, 'POST', url.pathname, input)
+      if (answer !== undefined) { json(res, answer.status, answer.data); return }
       res.writeHead(404).end()
     })().catch(() => json(res, 500, { message: 'Locust could not do that. Nothing was sent.' }))
   }

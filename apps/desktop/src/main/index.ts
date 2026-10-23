@@ -160,12 +160,13 @@ import { createCarryOn, type CarryOn } from './carry-on.js'
 import { createCheckFix, type CheckFix } from './check-fix.js'
 import { parsedCheckFixTries } from '../shared/check-fix.js'
 import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
-import { createPhoneHost } from './phone-host.js'
+import { createPhoneAnywhere, DEFAULT_RELAY } from './phone-anywhere.js'
+import { createPhoneHost, type PhoneCalls } from './phone-host.js'
 import { countingLedgerWrites, keyedOnce } from './ledger-writes.js'
 import { acpScratch, createAcpAgents } from './acp-agents.js'
 import { acpCatalog, ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
 import { phonePage } from './phone-page.js'
-import { PHONE_FORGET_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns } from '../shared/phone.js'
+import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
 import { createKeepAwake, KEEP_AWAKE_BEAT_MS } from './keep-awake.js'
 import { attentionDot, needsYouCountFrom, taskbarAttention } from './taskbar-attention.js'
 import { CLOSE_BUTTONS, closeQuestion, hideToTrayOnClose, shouldAskBeforeClosing, trayLine, trayMenuLabels } from './quit-guard.js'
@@ -9777,58 +9778,86 @@ if (!ownsSingleInstanceLock) {
     })
     const phoneHistory = () => phoneHistoryOnce(`${String(ledgerWrites())}|${phoneLive().join(',')}|${String(Math.floor(Date.now() / 60_000))}`)
     const phoneSending = new Set<string>()
+    // What a phone may see and do, the same on the home network and from anywhere (0.826).
+    const phoneCalls: PhoneCalls = {
+      state: async () => ({
+        waiting: await Promise.all(raisedApprovals.waiting().map(async ({ request, teammateId }) => {
+          const name = await scoutNameOf(teammateId)
+          return { approvalId: request.approvalId, missionId: request.missionId, summary: request.summary, requestedAt: request.requestedAt, ...(name === undefined ? {} : { name }) }
+        })),
+        conversations: (await phoneHistory()).list
+      }),
+      turns: async (missionId) => {
+        const { chains, live, names } = await phoneHistory()
+        return phoneTurns(chains, missionId, live, names)
+      },
+      decide: async (approvalId, approve) => {
+        const answered = await decideApproval({ approvalId, decision: approve ? 'approve-once' : 'deny' })
+        // The window's card comes down, as one answered in Antigravity's own window does.
+        const target = approvalWindow
+        if (answered && target && !target.isDestroyed() && !target.webContents.isDestroyed()) target.webContents.send(MISSION_APPROVAL_WITHDRAWN_CHANNEL, approvalId)
+        return answered
+      },
+      send: async (missionId, text) => {
+        const newest = await newestTurnOf(missionLedger, missionId)
+        // Two presses, or the phone and the window at once, must not both continue the same turn.
+        if (phoneSending.has(newest)) return { ok: false, message: 'That message is already on its way.' }
+        if (codexMissions.hasMission(newest) || antigravityMissions.liveMissionIds().includes(newest)) {
+          return { ok: false, message: 'This conversation is still working. Send when it finishes.' }
+        }
+        phoneSending.add(newest)
+        try {
+          const owner = (await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>)))[newest]
+          if (owner === undefined) return { ok: false, message: 'This conversation no longer has a teammate in Locust. Nothing was sent.' }
+          const list = await listTeammates()
+          const mode = (list.ok ? list.data.teammates.find((mate) => mate.teammateId === owner)?.route?.mode : undefined) ?? 'ask'
+          const response = await startMission({ prompt: text, teammateId: owner, followUpOf: newest, mode, keepSavedRoute: true } as CodexMissionStartRequest, sendToWindow)
+          if (!response.ok) return { ok: false, message: response.error.message }
+          rememberSentByPerson(response.data.missionId)
+          sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, teammateId: owner, prompt: text, data: response.data })
+          return { ok: true }
+        } finally {
+          phoneSending.delete(newest)
+        }
+      }
+    }
     const phoneHost = createPhoneHost({
       refusal: () => policyFeatureRefusal(organizationPolicy, 'phone'),
       directory: app.getPath('userData'),
       page: phonePage,
-      calls: {
-        state: async () => ({
-          waiting: await Promise.all(raisedApprovals.waiting().map(async ({ request, teammateId }) => {
-            const name = await scoutNameOf(teammateId)
-            return { approvalId: request.approvalId, missionId: request.missionId, summary: request.summary, requestedAt: request.requestedAt, ...(name === undefined ? {} : { name }) }
-          })),
-          conversations: (await phoneHistory()).list
-        }),
-        turns: async (missionId) => {
-          const { chains, live, names } = await phoneHistory()
-          return phoneTurns(chains, missionId, live, names)
-        },
-        decide: async (approvalId, approve) => {
-          const answered = await decideApproval({ approvalId, decision: approve ? 'approve-once' : 'deny' })
-          // The window's card comes down, as one answered in Antigravity's own window does.
-          const target = approvalWindow
-          if (answered && target && !target.isDestroyed() && !target.webContents.isDestroyed()) target.webContents.send(MISSION_APPROVAL_WITHDRAWN_CHANNEL, approvalId)
-          return answered
-        },
-        send: async (missionId, text) => {
-          const newest = await newestTurnOf(missionLedger, missionId)
-          // Two presses, or the phone and the window at once, must not both continue the same turn.
-          if (phoneSending.has(newest)) return { ok: false, message: 'That message is already on its way.' }
-          if (codexMissions.hasMission(newest) || antigravityMissions.liveMissionIds().includes(newest)) {
-            return { ok: false, message: 'This conversation is still working. Send when it finishes.' }
-          }
-          phoneSending.add(newest)
-          try {
-            const owner = (await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>)))[newest]
-            if (owner === undefined) return { ok: false, message: 'This conversation no longer has a teammate in Locust. Nothing was sent.' }
-            const list = await listTeammates()
-            const mode = (list.ok ? list.data.teammates.find((mate) => mate.teammateId === owner)?.route?.mode : undefined) ?? 'ask'
-            const response = await startMission({ prompt: text, teammateId: owner, followUpOf: newest, mode, keepSavedRoute: true } as CodexMissionStartRequest, sendToWindow)
-            if (!response.ok) return { ok: false, message: response.error.message }
-            rememberSentByPerson(response.data.missionId)
-            sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, teammateId: owner, prompt: text, data: response.data })
-            return { ok: true }
-          } finally {
-            phoneSending.delete(newest)
-          }
-        }
+      calls: phoneCalls
+    })
+    const phoneAnywhere = createPhoneAnywhere({
+      refusal: () => policyFeatureRefusal(organizationPolicy, 'phone'),
+      directory: app.getPath('userData'),
+      calls: phoneCalls,
+      // Locust's own relay, unless LOCUST_RELAY names another copy: a person's own, or one a drive runs locally.
+      relay: () => {
+        const named = process.env.LOCUST_RELAY?.trim()
+        return named !== undefined && /^https?:\/\/[^\s/]+$/.test(named) ? named : DEFAULT_RELAY
+      },
+      changed: (settings) => {
+        if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(PHONE_ANYWHERE_CHANGED_CHANNEL, settings)
       }
     })
-    app.once('will-quit', () => { void phoneHost.dispose() })
+    /** One way at a time: turning one on turns the other off, and off unpairs every phone of that way. */
+    const setPhoneMode = async (mode: unknown): Promise<PhoneModeState> => {
+      if (!PHONE_MODES.includes(mode as PhoneMode)) return { wifi: await phoneHost.settings(), anywhere: await phoneAnywhere.settings() }
+      const wifi = await phoneHost.setEnabled(mode === 'wifi')
+      const anywhere = await phoneAnywhere.setEnabled(mode === 'anywhere')
+      return { wifi, anywhere }
+    }
+    const NO_PHONE: PhoneAnywhereSettings = { enabled: false, connected: false, devices: [] }
+    app.once('will-quit', () => { void phoneHost.dispose(); void phoneAnywhere.dispose() })
     void phoneHost.load().catch(() => note('phone', 'The page for your phone could not start. It is off.'))
+    void phoneAnywhere.load().catch(() => note('phone', 'Your phone could not reach Locust from anywhere. It is off.'))
     ipcMain.handle(PHONE_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? phoneHost.settings() : { enabled: false, addresses: [] })
     ipcMain.handle(PHONE_SET_ENABLED_CHANNEL, (event, enabled: unknown) => fromOwnWindow(event) ? phoneHost.setEnabled(enabled) : { enabled: false, addresses: [] })
     ipcMain.handle(PHONE_FORGET_CHANNEL, (event) => fromOwnWindow(event) ? phoneHost.forget() : { enabled: false, addresses: [] })
+    ipcMain.handle(PHONE_ANYWHERE_CHANNEL, (event) => fromOwnWindow(event) ? phoneAnywhere.settings() : NO_PHONE)
+    ipcMain.handle(PHONE_SET_MODE_CHANNEL, (event, mode: unknown) => fromOwnWindow(event) ? setPhoneMode(mode) : { wifi: { enabled: false, addresses: [] }, anywhere: NO_PHONE })
+    ipcMain.handle(PHONE_NEW_CODE_CHANNEL, (event) => fromOwnWindow(event) ? phoneAnywhere.newCode() : NO_PHONE)
+    ipcMain.handle(PHONE_REMOVE_CHANNEL, (event, device: unknown) => fromOwnWindow(event) ? phoneAnywhere.remove(device) : NO_PHONE)
     ipcMain.handle(LOCUST_MCP_GET, event => fromOwnWindow(event) ? mcpHost.settings() : { enabled: false, ownMode: false })
     ipcMain.handle(LOCUST_MCP_SET, (event, enabled: unknown) => fromOwnWindow(event) ? mcpHost.setEnabled(enabled) : { enabled: false, ownMode: false })
     ipcMain.handle(LOCUST_MCP_SET_OWN_MODE, (event, ownMode: unknown) => fromOwnWindow(event) ? mcpHost.setOwnMode(ownMode) : { enabled: false, ownMode: false })
