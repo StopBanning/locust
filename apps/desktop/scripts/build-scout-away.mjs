@@ -23,6 +23,8 @@ const HEADER = `// Scout's away look, from Locust (https://github.com/StopBannin
 export async function builtScoutAway() {
   const result = await build({
     entryPoints: [join(desktop, 'src', 'main', 'scout-away-entry.ts')],
+    // The comments name each source file from here, wherever the build is run from.
+    absWorkingDir: desktop,
     bundle: true,
     platform: 'node',
     format: 'esm',
