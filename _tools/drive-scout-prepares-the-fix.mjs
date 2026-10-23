@@ -107,23 +107,23 @@ try {
   // 1. The two new lines, at three sizes.
   const shown = String(await drive.capture('settings: prepare fixes, and what Scout saw', async () => {
     say(`  ${String(await drive.evaluate(OPEN_SETTINGS))}`)
-    await drive.evaluate(`document.querySelector('[aria-label="Prepare fixes before I look"]')?.scrollIntoView({ block: 'center' })`)
+    await drive.evaluate(`[...document.querySelectorAll('[role="switch"]')].find((one) => one.getAttribute('aria-label') === 'Prepare fixes before I look')?.scrollIntoView({ block: 'center' })`)
     return drive.evaluate(SECTION)
   }))
   check('Prepare fixes before I look is there, off, and asks for the check first', shown.includes('Prepare fixes before I look') && shown.includes('Turn on This folder’s check first.'), shown.slice(0, 300))
   check('What Scout saw is there', shown.includes('What Scout saw') && shown.includes('Show what Scout saw'), shown.slice(0, 300))
   await drive.resize(1120, 720)
-  await drive.capture('settings at 1120 by 720', () => drive.evaluate(`${OPEN_SETTINGS}.then(() => document.querySelector('[aria-label="Prepare fixes before I look"]')?.scrollIntoView({ block: 'center' }))`).then(() => drive.evaluate(SECTION)))
+  await drive.capture('settings at 1120 by 720', () => drive.evaluate(`${OPEN_SETTINGS}.then(() => [...document.querySelectorAll('[role="switch"]')].find((one) => one.getAttribute('aria-label') === 'Prepare fixes before I look')?.scrollIntoView({ block: 'center' }))`).then(() => drive.evaluate(SECTION)))
   await drive.resize(860, 640)
-  await drive.capture('settings at 860 wide', () => drive.evaluate(`${OPEN_SETTINGS}.then(() => document.querySelector('[aria-label="Prepare fixes before I look"]')?.scrollIntoView({ block: 'center' }))`).then(() => drive.evaluate(SECTION)))
+  await drive.capture('settings at 860 wide', () => drive.evaluate(`${OPEN_SETTINGS}.then(() => [...document.querySelectorAll('[role="switch"]')].find((one) => one.getAttribute('aria-label') === 'Prepare fixes before I look')?.scrollIntoView({ block: 'center' }))`).then(() => drive.evaluate(SECTION)))
   await drive.resize(1440, 900)
 
   // 2. Fixes on, through Settings as the person would: the check first, then the switch.
   await drive.evaluate(`window.desktop.scout.set({ watches: { github: false, comments: false, teammates: true, check: true } })`)
   await drive.evaluate(OPEN_SETTINGS)
   const pressed = String(await drive.evaluate(`(async () => {
-    for (let i = 0; i < 20 && document.querySelector('[aria-label="Prepare fixes before I look"]')?.disabled; i += 1) await new Promise((r) => setTimeout(r, 150))
-    const sw = document.querySelector('[aria-label="Prepare fixes before I look"]')
+    for (let i = 0; i < 20 && [...document.querySelectorAll('[role="switch"]')].find((one) => one.getAttribute('aria-label') === 'Prepare fixes before I look')?.disabled; i += 1) await new Promise((r) => setTimeout(r, 150))
+    const sw = [...document.querySelectorAll('[role="switch"]')].find((one) => one.getAttribute('aria-label') === 'Prepare fixes before I look')
     if (!sw) return 'no switch'
     if (sw.disabled) return 'switch disabled'
     sw.click()
@@ -133,7 +133,7 @@ try {
   const fixes = (await state()).settings.fixes
   check('turned on in Settings, Ada prepares them, at most two a day', pressed === 'pressed' && fixes?.on === true && fixes.teammateId === 'tm_ada' && fixes.perDay === 2, `${pressed}; ${JSON.stringify(fixes)}`)
   await drive.capture('settings: fixes on, by Ada', async () => {
-    await drive.evaluate(`document.querySelector('[aria-label="Prepare fixes before I look"]')?.scrollIntoView({ block: 'center' })`)
+    await drive.evaluate(`[...document.querySelectorAll('[role="switch"]')].find((one) => one.getAttribute('aria-label') === 'Prepare fixes before I look')?.scrollIntoView({ block: 'center' })`)
     return drive.evaluate(SECTION)
   })
   await drive.evaluate(CLOSE_SETTINGS)
