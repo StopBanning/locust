@@ -44,6 +44,7 @@ until it is listed here.
 | Pictures on a GitHub issue | `github.com/user-attachments` and `githubusercontent.com` only | When you choose an issue, so its pictures can sit in the chat box |
 | Your phone, from anywhere | Locust's relay at `app.locust.lol` (on Cloudflare): one WebSocket this computer opens to it | Only after you turn on Your phone with From anywhere, for as long as it stays on |
 | Scout while your computer is off | GitHub, through your own GitHub CLI, to open one pull request and set one secret; then, from GitHub's own runner and not this computer, the relay at `app.locust.lol` | Only after you turn on Look while my computer is off and merge its pull request; the workflow runs every hour or two, and does nothing more while Locust is open |
+| Locust in a browser | Nothing new from this computer: the relay link Your phone already keeps; the browser loads the window from Locust's relay | Only for a paired device you let open the full window |
 | Your cloud computer (a teammate's turn sent with Cloud, or with Cloud computer) | GitHub, through your own GitHub CLI: Codespaces, and the codespace itself over `gh codespace ssh`; from there, the teammate's model, through its agent (OpenCode, Claude Code or Codex) | Only after you pick Cloud for an OpenCode teammate, or Cloud computer for a Claude Code or Codex teammate, and press Set it up, and then for each turn you send there |
 
 **Pictures on a GitHub issue.** When you choose an issue, Locust reads its text through your own `gh` and fetches at most four pictures, each from `github.com/user-attachments` or `githubusercontent.com`. A redirect is followed only while the next address stays on those hosts. The fetch sends no token. `gh` keeps the sign-in it already has, and Locust never prints it.
@@ -291,6 +292,15 @@ reads of your folder stays on this machine.
   (the Web Push standard, RFC 8291). The relay signs it and passes it on, and
   posts to no other address; neither it nor the push service can read it. The
   alert says who and what kind, never a command or a message's words.
+- **Locust in a browser** (Settings > General > Your phone: Full window, on a
+  paired device) adds no connection of this computer's own. The browser opens
+  `app.locust.lol/desk`, which asks this computer, through the relay link it
+  already keeps, which Locust it runs; the relay then serves that release's own
+  window, read from the zip the release put on Locust's downloads
+  (`dl.locust.lol/window/`), so a browser never runs code a computer sent it.
+  Every call the window makes goes sealed through the same link, and this
+  computer answers only those `apps/desktop/src/shared/desk-calls.ts` lets a
+  browser make; signing in, permissions, spending and the terminal stay here.
 - **Scout's away look** (Settings > General, under Scout: Look while my
   computer is off) runs on GitHub, not on your computer. Turning it on, Locust
   uses your own `gh` to open one pull request in the folder's repository, adding

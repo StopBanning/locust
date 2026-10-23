@@ -61,8 +61,13 @@ export const MAX_PAIRING_MS = 15 * 60_000
 export const MAX_PAIRING_TRIES = 10
 /** The most devices one PC pairs. */
 export const MAX_DEVICES = 20
-/** Frames one connection may send in RATE_WINDOW_MS; past that it is told to slow down and the frame is dropped. */
-export const RATE_LIMIT = 60
+/**
+ * Frames one connection may send in RATE_WINDOW_MS; past that it is told to slow down and the frame is dropped. A
+ * device's, and since Locust in a browser (0.830) the PC's own is higher: it tells a browser that has the window
+ * what its window is told, as a turn streams, a few times a second.
+ */
+export const RATE_LIMIT = 120
+export const PC_RATE_LIMIT = 600
 export const RATE_WINDOW_MS = 10_000
 /** A room whose PC has been away this long is deleted, devices and all. */
 export const IDLE_ROOM_MS = 180 * 24 * 60 * 60_000
@@ -186,7 +191,7 @@ export function roomCore(host: RoomHost) {
     const now = host.now()
     const rate: Rate = now - at.rate.start >= RATE_WINDOW_MS ? { start: now, count: 1 } : { start: at.rate.start, count: at.rate.count + 1 }
     peer.attach({ ...at, rate })
-    return rate.count <= RATE_LIMIT
+    return rate.count <= (at.as === 'pc' ? PC_RATE_LIMIT : RATE_LIMIT)
   }
 
   const auth = async (peer: Peer, frame: Extract<ClientFrame, { readonly t: 'auth' }>): Promise<void> => {

@@ -54,6 +54,7 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
   const managed = policyFeatureRefusal(useOrganizationPolicy(), 'phone') !== undefined
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState('')
+  const [copied, setCopied] = useState(false)
   const asked = useRef(false)
 
   useEffect(() => {
@@ -128,9 +129,17 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
             <div className="lc-phone__side">
               <p className="lc-settings__note" role="status">{anywhere.message ?? (anywhere.connected ? 'Connected to Locust’s relay.' : 'Connecting to Locust’s relay…')}</p>
               {code !== undefined
-                ? <p className="lc-settings__note">Scan it with your phone’s camera. It pairs one phone, once, within ten minutes, then a new one takes its place.</p>
+                ? <>
+                  <p className="lc-settings__note">Scan it with your phone’s camera. It pairs one phone, once, within ten minutes, then a new one takes its place.</p>
+                  {/* A computer has no camera to scan it with (0.830): the same code, as a link to open in its browser. */}
+                  <p className="lc-settings__note">On another computer, open this code as a link in its browser instead.</p>
+                  <span><button type="button" className="lc-control lc-control--boxed" onClick={() => {
+                    void navigator.clipboard?.writeText(code.url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2_500) }, () => undefined)
+                  }}>{copied ? 'Copied' : 'Copy the link'}</button></span>
+                </>
                 : <span><button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void newCode() }}>Pair a phone</button></span>}
               {anywhere.devices.length > 0 && <p className="lc-settings__note">Lost a phone? Remove it below, and it stops at once.</p>}
+              {anywhere.devices.some((device) => device.desk === true) && <p className="lc-settings__note">With Full window on, open app.locust.lol/desk in that device’s browser: the whole window, while this computer shows that it is open there.</p>}
             </div>
           </div>
           {anywhere.devices.length > 0 && (
@@ -141,6 +150,12 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
                     <span className="lc-phone__name">{device.name}</span>
                     <span className="lc-phone__state">{deviceState(device)}</span>
                   </span>
+                  {/* Locust in a browser (0.830): the whole window, at app.locust.lol/desk, only for a device let here. */}
+                  {api?.setDesk !== undefined && <label className="lc-phone__desk">
+                    <span>Full window</span>
+                    <button type="button" className={`lc-switch${device.desk === true ? ' is-on' : ''}`} role="switch" aria-label={`Let ${device.name} open the full window`} aria-checked={device.desk === true} disabled={busy}
+                      onClick={() => { void run(() => api!.setDesk!(device.id, device.desk !== true), setAnywhere) }}><span /></button>
+                  </label>}
                   <button type="button" className="lc-button" disabled={busy} onClick={() => { void run(() => api!.remove(device.id), setAnywhere) }}>Remove</button>
                 </li>
               ))}

@@ -61,7 +61,7 @@ describe('the report', () => {
 })
 
 describe('the renderer names no address for it', () => {
-  const preload = readFileSync(join(__dirname, '..', 'preload', 'index.ts'), 'utf8')
+  const preload = readFileSync(join(__dirname, '..', 'shared', 'desktop-api.ts'), 'utf8')
 
   it('hands over the words, never a URL', () => {
     const line = preload.split('\n').find((text) => text.includes('sendFeedback:')) ?? ''

@@ -121,7 +121,7 @@ import { DOWNLOADS, SITE } from '../shared/locust-home.js'
 import { readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeTheme } from './appearance.js'
 import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, THEME_ARGUMENT } from '../shared/appearance.js'
 import type { AppearanceState, ThemeChoice } from '../shared/appearance.js'
-import { homedir, release } from 'node:os'
+import { homedir, hostname, release } from 'node:os'
 import { execFile } from 'node:child_process'
 import { createVoicePreviews, speakHelloCommand } from './voice-preview.js'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -559,8 +559,27 @@ import { PANEL_RUNS_CHANNEL } from '../shared/panel-runs.js'
 import { COMMIT_DRAFT_CHANNEL, commitDraftPrompt, draftedCommitMessage, type CommitDraftResponse } from '../shared/commit-draft.js'
 import { WALKTHROUGH_CHANNEL, changedPaths, readWalkthrough, walkthroughPrompt, type WalkthroughResponse } from '../shared/walkthrough.js'
 import { createViewDiagramDrawer, diagramViewOn } from './diagram-view.js'
+import { createDeskHost, keepHandlers, type DeskHost } from './desk-host.js'
+import { DESK_COVER_QUERY, DESK_TAKE_BACK_CHANNEL, DESK_WHERE_CHANNEL, PHONE_DESK_CHANNEL } from '../shared/desk.js'
 import { keptDiagrams } from './diagrams.js'
 import { DIAGRAM_DRAW_CHANNEL } from '../shared/diagram.js'
+
+/*
+ * LOCUST IN A BROWSER (0.830, desk-host.ts): every handler the window's calls reach, kept as it is registered, so a
+ * browser's call that desk-calls.ts allows reaches the very same one. Kept from here, before any is registered.
+ */
+const deskHandlers = keepHandlers(ipcMain)
+/** Made once the phones' relay link is (below); a window made before then is told nothing more. */
+let deskHost: DeskHost | undefined
+/** What this computer tells its window, told to a browser that has the window too. */
+const mirrorToDesk = (window: BrowserWindow): void => {
+  const contents = window.webContents
+  const send = contents.send.bind(contents)
+  contents.send = (channel: string, ...args: unknown[]): void => {
+    send(channel, ...args)
+    deskHost?.mirror(channel, args)
+  }
+}
 
 /*
  * AN ATTACHED PDF IS OPENED FOR THE AGENT (0.713, pdf-reading.ts): its text
@@ -9996,6 +10015,7 @@ if (!ownsSingleInstanceLock) {
       page: phonePage,
       calls: phoneCalls
     })
+    let deskLink: DeskHost | undefined
     const phoneAnywhere = createPhoneAnywhere({
       refusal: () => policyFeatureRefusal(organizationPolicy, 'phone'),
       directory: app.getPath('userData'),
@@ -10009,7 +10029,9 @@ if (!ownsSingleInstanceLock) {
         if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(PHONE_ANYWHERE_CHANGED_CHANNEL, settings)
         scoutAway.nudge()
       },
-      away: { forPhone: () => scoutAway.forPhone(), refresh: () => scoutAway.refresh(), letter: (letter) => scoutAway.letter(letter) }
+      away: { forPhone: () => scoutAway.forPhone(), refresh: () => scoutAway.refresh(), letter: (letter) => scoutAway.letter(letter) },
+      // Bound once the desk host is made, a few lines on; a frame before then waits for nothing.
+      desk: { frame: (device, asks) => { void deskLink?.handle(device, asks) }, forget: (device) => { void deskLink?.forget(device) } }
     })
     scoutAwayRelay = { ready: () => phoneAnywhere.settings().then(() => undefined), room: () => phoneAnywhere.room(), connected: () => phoneAnywhere.connected(), awayOpen: (hash) => phoneAnywhere.awayOpen(hash), awayClose: () => phoneAnywhere.awayClose(), keepAwayAlerts: () => phoneAnywhere.keepAwayAlerts(), post: (box) => phoneAnywhere.post(box), letters: (after) => phoneAnywhere.letters(after) }
     phoneAlertSink = (alert) => { void phoneAnywhere.alert(alert).catch(() => undefined) }
@@ -10032,6 +10054,32 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(PHONE_SET_MODE_CHANNEL, (event, mode: unknown) => fromOwnWindow(event) ? setPhoneMode(mode) : { wifi: { enabled: false, addresses: [] }, anywhere: NO_PHONE })
     ipcMain.handle(PHONE_NEW_CODE_CHANNEL, (event) => fromOwnWindow(event) ? phoneAnywhere.newCode() : NO_PHONE)
     ipcMain.handle(PHONE_REMOVE_CHANNEL, (event, device: unknown) => fromOwnWindow(event) ? phoneAnywhere.remove(device) : NO_PHONE)
+    /*
+     * LOCUST IN A BROWSER (0.830, desk-host.ts): a paired device Settings lets open the full window makes the window's
+     * calls through the relay link; this computer's window shows a cover while it does.
+     */
+    const coverWindow = async (on: boolean): Promise<void> => {
+      const window = approvalWindow
+      if (window === undefined || window.isDestroyed()) return
+      const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
+      if (devUrl !== undefined) await window.loadURL(on ? `${devUrl}?${DESK_COVER_QUERY}=1` : devUrl)
+      else await window.loadFile(join(__dirname, '../renderer/index.html'), on ? { query: { [DESK_COVER_QUERY]: '1' } } : {})
+    }
+    const deskDeviceName = async (device: string | undefined): Promise<string | undefined> =>
+      device === undefined ? undefined : (await phoneAnywhere.settings()).devices.find((one) => one.id === device)?.name
+    const desk: DeskHost = createDeskHost({
+      handlers: deskHandlers,
+      window: () => approvalWindow,
+      tell: (device, items) => phoneAnywhere.tellDesk(device, items),
+      cover: coverWindow,
+      hello: async () => ({ version: app.getVersion(), computer: hostname(), theme: appearanceNow().resolved }),
+      waiting: () => raisedApprovals.waiting().map((one) => one.request)
+    })
+    deskHost = desk
+    deskLink = desk
+    ipcMain.handle(DESK_WHERE_CHANNEL, async (event) => (fromOwnWindow(event) ? { ...((await deskDeviceName(desk.active())) === undefined ? {} : { device: await deskDeviceName(desk.active()) }) } : {}))
+    ipcMain.handle(DESK_TAKE_BACK_CHANNEL, async (event) => { if (fromOwnWindow(event)) await desk.takeBack() })
+    ipcMain.handle(PHONE_DESK_CHANNEL, async (event, device: unknown, on: unknown) => (fromOwnWindow(event) ? phoneAnywhere.setDesk(device, on) : NO_PHONE))
     ipcMain.handle(PHONE_NIGHT_CHANNEL, async (event, on: unknown) => {
       if (!fromOwnWindow(event)) return NO_PHONE
       const settings = await phoneAnywhere.setNightApprovals(on)
@@ -10501,6 +10549,7 @@ if (!ownsSingleInstanceLock) {
     const openMain = (beginSweep: boolean): void => {
       createWindow(codexMissions, (window) => {
         approvalWindow = window
+        mirrorToDesk(window)
         browserHost.attachWindow(window)
         guardClose(window)
         attendWindow(window)
@@ -10550,6 +10599,7 @@ if (!ownsSingleInstanceLock) {
       if (BrowserWindow.getAllWindows().length === 0) {
         createWindow(codexMissions, (window) => {
           approvalWindow = window
+          mirrorToDesk(window)
           browserHost.attachWindow(window)
           guardClose(window)
           attendWindow(window)

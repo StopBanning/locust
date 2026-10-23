@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { SplashApp } from './SplashApp'
+import { ElsewhereApp } from './ElsewhereApp'
 import { WindowFallback } from './components/WindowFallback'
 import { watchWindowPresence } from './windowPresence'
 // Tokens first: the shell's palette, type and motion, plus the vendored Geist
@@ -17,6 +18,8 @@ import './shell.css'
  * there is no way for the boot screen to exist in two builds that drift.
  */
 const isSplash = window.location.hash === '#splash'
+/** This computer's window while Locust is open in a browser (0.830, shared/desk.ts): a cover, with no app behind it. */
+const isElsewhere = new URLSearchParams(window.location.search).get('elsewhere') === '1'
 
 /*
  * THE PAGE ITSELF HAS TO BE TRANSPARENT, not just the window.
@@ -45,5 +48,5 @@ if (!isSplash) {
 watchWindowPresence()
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>{isSplash ? <SplashApp /> : <WindowFallback><App /></WindowFallback>}</StrictMode>
+  <StrictMode>{isSplash ? <SplashApp /> : isElsewhere ? <ElsewhereApp /> : <WindowFallback><App /></WindowFallback>}</StrictMode>
 )

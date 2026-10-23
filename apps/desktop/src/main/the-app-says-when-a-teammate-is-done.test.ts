@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest'
  */
 const read = (path: string): string => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
 const main = read('./index.ts')
-const preload = read('../preload/index.ts')
+const preload = read('../shared/desktop-api.ts')
 const app = read('../renderer/src/App.tsx')
 
 describe('the app says when a teammate is done', () => {

@@ -3743,6 +3743,14 @@ export interface DesktopApi {
   readonly ownCommands?: import('./own-commands.js').OwnCommandsApi
   readQueuedMessages(): Promise<QueuedMessagesResponse>
   writeQueuedMessages(rows: readonly SavedQueuedMessage[]): Promise<QueuedMessagesResponse>
+  /**
+   * Locust in a browser (0.830, shared/desk.ts): set only there, naming the computer it is the window of. The window
+   * hides what means nothing in a browser -- its own window controls -- and opens links in the browser.
+   */
+  readonly remote?: { readonly computer: string }
+  /** This computer's window, while a browser has it (?elsewhere=1): the browser's name, and the way back here. */
+  deskWhere?(): Promise<{ readonly device?: string }>
+  deskTakeBack?(): Promise<void>
   readonly platform: string
   /** How many things need the person now: the taskbar shows it (0.379). */
   setNeedsYouCount(count: number): void

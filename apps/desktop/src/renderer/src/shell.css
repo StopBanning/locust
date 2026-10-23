@@ -24449,3 +24449,11 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-scoutlog__lines { margin: 0; padding-left: 18px; color: var(--lc-text-primary); font-size: var(--lc-text-body); line-height: 1.5; overflow-wrap: anywhere; }
 /* A morning brief's lines (0.816): Locust's own counts, one to a line, under its sentence. */
 .lc-scoutcard__lines { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; color: var(--lc-text-primary); font-size: var(--lc-text-body); line-height: 1.5; overflow-wrap: anywhere; }
+/* This computer's window while Locust is open in a browser (0.830, ElsewhereApp.tsx): one note, and the way back. */
+.lc-elsewhere { min-height: 100vh; display: grid; place-items: center; padding: 32px; background: var(--lc-bg-app); -webkit-app-region: drag; }
+.lc-elsewhere__box { max-width: 460px; display: flex; flex-direction: column; gap: 14px; text-align: center; -webkit-app-region: no-drag; }
+.lc-elsewhere__title { margin: 0; font-size: 20px; font-weight: 600; color: var(--lc-text-primary); text-wrap: balance; }
+.lc-elsewhere__said { margin: 0; color: var(--lc-text-secondary); font-size: var(--lc-text-body); line-height: 1.55; text-wrap: pretty; }
+.lc-elsewhere__back { align-self: center; }
+/* A paired device's Full window switch (0.830), between its name and Remove. */
+.lc-phone__desk { display: inline-flex; align-items: center; gap: 8px; color: var(--lc-text-secondary); font-size: var(--lc-text-control); white-space: nowrap; }

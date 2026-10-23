@@ -10,6 +10,7 @@ import { replaceFile } from './replace-file.js'
 import type { PhoneAlert } from './phone-alerts.js'
 import { encryptPush, type PushSubscriptionKeys } from './web-push.js'
 import type { Letter } from '../../../relay/src/protocol.js'
+import { DESK_PART_CHARS, deskJoiner, deskParts, isDeskAsk, type DeskAsk, type DeskPart, type DeskTell } from '../shared/desk.js'
 
 /*
  * YOUR PHONE, FROM ANYWHERE (0.826). The phone page (0.775) reaches Locust only on the home network. This reaches it
@@ -45,6 +46,10 @@ interface SavedDevice {
   readonly seq: number
   /** Where its alerts go, once the phone turned them on (0.827): its browser's push subscription. */
   readonly push?: PushSubscriptionKeys
+  /** It may open the full window in a browser (0.830), set on this computer only. */
+  readonly desk?: true
+  /** Each of its browser tabs' sessions, and the last frame taken from it: one not after it is a copy, and dropped. */
+  readonly deskSeen?: Readonly<Record<string, number>>
 }
 
 /** A push subscription as the phone sends it: an https address and the browser's two keys. */
@@ -109,6 +114,19 @@ const isRequest = (value: unknown): value is Request => {
     && (said.body === undefined || (typeof said.body === 'object' && said.body !== null))
 }
 
+const isDeskFrame = (value: unknown): value is { readonly v: 1; readonly kind: 'desk'; readonly s: string; readonly q: number; readonly t: number; readonly items: readonly unknown[] } => {
+  if (typeof value !== 'object' || value === null) return false
+  const said = value as Record<string, unknown>
+  return said.v === 1 && said.kind === 'desk' && typeof said.s === 'string' && /^[A-Za-z0-9_-]{8,32}$/.test(said.s)
+    && typeof said.q === 'number' && Number.isSafeInteger(said.q) && said.q > 0 && typeof said.t === 'number' && Number.isFinite(said.t)
+    && Array.isArray(said.items) && said.items.length <= 200
+}
+const isDeskPart = (value: unknown): value is DeskPart => {
+  if (typeof value !== 'object' || value === null) return false
+  const said = value as Record<string, unknown>
+  return said.v === 1 && said.kind === 'desk-part' && typeof said.id === 'string' && said.id.length <= 64 && typeof said.n === 'number' && typeof said.of === 'number' && typeof said.text === 'string'
+}
+
 const isLetter = (value: unknown): value is Letter => {
   if (typeof value !== 'object' || value === null) return false
   const said = value as Record<string, unknown>
@@ -142,6 +160,11 @@ export function createPhoneAnywhere(options: {
     /** A letter came while the line was up. */
     readonly letter: (letter: Letter) => void
   }
+  /** Locust in a browser (0.830, desk-host.ts): a device's asks, and a device that may no longer have the window. */
+  readonly desk?: {
+    readonly frame: (device: string, asks: readonly DeskAsk[]) => void
+    readonly forget: (device: string) => void
+  }
 }) {
   const file = join(options.directory, PHONE_ANYWHERE_FILE)
   const now = options.now ?? Date.now
@@ -167,6 +190,11 @@ export function createPhoneAnywhere(options: {
   let commandId = 0
   /** A command's answer: true when done, the relay's error code when not, false when it never answered. */
   const commands = new Map<string, (ok: true | string | false) => void>()
+  /** This run's own session for what it tells browsers, and its frames in order (desk.ts). */
+  const deskSession = randomText(9)
+  let deskSent = 0
+  /** A browser's frames too long for one box, put back together per device. */
+  const deskJoins = new Map<string, ReturnType<typeof deskJoiner>>()
   /** A 'letters' command's answer, by its id. */
   const pages = new Map<string, (page: { readonly items: readonly Letter[]; readonly more: boolean }) => void>()
   const lines = new Map<string, Promise<void>>()
@@ -193,7 +221,8 @@ export function createPhoneAnywhere(options: {
         added: new Date(device.added).toISOString(),
         ...(device.seen === undefined ? {} : { seen: new Date(device.seen).toISOString() }),
         online: online.has(device.id),
-        alerts: device.push !== undefined
+        alerts: device.push !== undefined,
+        ...(device.desk === true ? { desk: true } : {})
       })),
       ...(note === undefined ? {} : { message: note }),
       ...(saved?.nightApprovals === true ? { nightApprovals: true } : {})
@@ -316,6 +345,14 @@ export function createPhoneAnywhere(options: {
     if (held === undefined || link === undefined) return
     let said: unknown
     try { said = await open(link.open, n, c, aadOf(held.room, device, 'device-to-pc')) } catch { return }
+    if (isDeskPart(said)) {
+      const join = deskJoins.get(device) ?? deskJoiner()
+      deskJoins.set(device, join)
+      const whole = join(said)
+      if (whole === undefined) return
+      try { said = JSON.parse(whole) as unknown } catch { return }
+    }
+    if (isDeskFrame(said)) { deskFrame(device, said); return }
     if (!isRequest(said)) return
     const asked = said
     const entry = saved?.devices.find((other) => other.id === device)
@@ -353,6 +390,44 @@ export function createPhoneAnywhere(options: {
     })()
     const box = await seal(link.seal, { v: 1, kind: 'res', id: asked.id, status: answered.status, data: answered.data }, aadOf(held.room, device, 'pc-to-device'))
     send({ t: 'send', to: device, ...box })
+  }
+
+  /*
+   * A BROWSER'S FRAME (0.830). Only from a device let open the full window; only with this computer's clock near its
+   * own; and only in order within its tab's session, so a frame the relay kept and sent again is dropped. Its asks go to
+   * the desk host (desk-host.ts), which says which may be done.
+   */
+  const deskFrame = (device: string, frame: { readonly s: string; readonly q: number; readonly t: number; readonly items: readonly unknown[] }): void => {
+    const entry = saved?.devices.find((other) => other.id === device)
+    if (entry === undefined || options.desk === undefined) return
+    if (entry.desk !== true || options.refusal?.() !== undefined) {
+      const ids = frame.items.flatMap((item) => (isDeskAsk(item) ? [item.id] : []))
+      void tellDesk(device, ids.map((id) => ({ kind: 'res', id, ok: false, refused: true, message: options.refusal?.() ?? 'This browser may not open Locust’s window. On your computer, turn on Full window for it in Settings › General › Your phone.' })))
+      return
+    }
+    if (Math.abs(frame.t - now()) > MAX_SKEW_MS) return
+    const last = entry.deskSeen?.[frame.s]
+    if (last !== undefined && frame.q <= last) return
+    // The newest sixteen sessions: a tab's, then the next tab's, and so on.
+    const seen = Object.entries({ ...entry.deskSeen, [frame.s]: frame.q }).sort((a, b) => b[1] - a[1]).slice(0, 16)
+    updateDevice(device, (other) => ({ ...other, deskSeen: Object.fromEntries(seen), seen: now() }))
+    persistSoon()
+    options.desk.frame(device, frame.items.filter(isDeskAsk))
+  }
+
+  /** What a browser is told, sealed for it alone: in one frame, or in parts when it is too long for one. */
+  const tellDesk = async (device: string, items: readonly DeskTell[]): Promise<boolean> => {
+    const held = saved
+    const link = keys.get(device)
+    if (held === undefined || link === undefined || !connected || items.length === 0) return false
+    deskSent += 1
+    const text = JSON.stringify({ v: 1, kind: 'desk', s: deskSession, q: deskSent, t: now(), items })
+    const boxes: readonly unknown[] = text.length <= DESK_PART_CHARS ? [JSON.parse(text) as unknown] : deskParts(`${deskSession}-${String(deskSent)}`, text)
+    for (const box of boxes) {
+      const sealed = await seal(link.seal, box, aadOf(held.room, device, 'pc-to-device'))
+      if (!send({ t: 'send', to: device, ...sealed })) return false
+    }
+    return true
   }
 
   const heardFrame = (text: string): void => {
@@ -502,6 +577,7 @@ export function createPhoneAnywhere(options: {
         return settings()
       }
       // Off unpairs every phone: the relay forgets the room, and this PC its keys. The next time it is on, it is a new room.
+      for (const device of saved?.devices ?? []) options.desk?.forget(device.id)
       if (connected) await command({ t: 'reset' })
       stopSocket()
       saved = undefined
@@ -590,6 +666,19 @@ export function createPhoneAnywhere(options: {
       if (!send({ t: 'letters', ...(after === undefined ? {} : { after }), id })) { clearTimeout(timer); pages.delete(id); resolve(undefined) }
     }),
 
+    /** Told to a browser that has the window: answers, and what the window is told (desk-host.ts). */
+    tellDesk,
+
+    /** Whether a paired device may open the full window in a browser (0.830): set here, on this computer, only. */
+    setDesk: (device: unknown, on: unknown) => serial(async () => {
+      if (disposed || saved === undefined || typeof device !== 'string' || typeof on !== 'boolean' || !saved.devices.some((other) => other.id === device)) return settings()
+      updateDevice(device, (other) => { const { desk: _was, deskSeen: _seen, ...rest } = other; return on ? { ...rest, desk: true as const } : rest })
+      await persist().catch(() => { message = 'That setting could not be saved. It lasts until Locust closes.' })
+      if (!on) options.desk?.forget(device)
+      tell()
+      return settings()
+    }),
+
     setNightApprovals: (on: unknown) => serial(async () => {
       if (disposed || saved === undefined || typeof on !== 'boolean') return settings()
       const { nightApprovals: _was, ...rest } = saved
@@ -603,6 +692,7 @@ export function createPhoneAnywhere(options: {
       saved = { ...saved, devices: saved.devices.filter((other) => other.id !== device) }
       keys.delete(device)
       online.delete(device)
+      options.desk?.forget(device)
       await persist().catch(() => undefined)
       // Without the relay's word the phone still has no key this PC will answer: it is removed here either way.
       if (connected) await command({ t: 'remove', device })

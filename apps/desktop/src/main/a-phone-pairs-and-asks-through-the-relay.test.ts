@@ -11,6 +11,7 @@ import type { Letter, RelayFrame } from '../../../relay/src/protocol.js'
 import { AWAY_FOUND_ALERT, createPhoneAnywhere, PHONE_ANYWHERE_FILE, type RelaySocket } from './phone-anywhere.js'
 import type { PhoneCalls } from './phone-host.js'
 import { aadOf, deviceIdOf, linkKeys, open, pairingProof, pairingToken, seal, toBase64url, type LinkKeys } from './relay-crypto.js'
+import { deskJoiner, deskParts } from '../shared/desk.js'
 
 /**
  * A PHONE PAIRS AND ASKS THROUGH THE RELAY (0.826). Locust's own link (phone-anywhere.ts), the relay's own rules
@@ -437,5 +438,72 @@ describe('Scout’s away look through the relay (0.829)', () => {
     const after = await back.pc.letters(page!.items.at(-1)!.id)
     expect(after?.items.map((item) => item.from)).toEqual(['pc'])
     await back.pc.dispose()
+  })
+})
+
+describe('Locust in a browser through the relay (0.830)', () => {
+  it('takes a browser’s frames only once Full window is on, in order, once each, and in parts when long', async () => {
+    const relay = memoryRelay()
+    const frames: { device: string; asks: readonly unknown[] }[] = []
+    const folder = await mkdtemp(join(tmpdir(), 'locust-anywhere-desk-'))
+    directories.push(folder)
+    const pc = createPhoneAnywhere({
+      directory: folder, calls: fakeCalls(), relay: () => 'https://relay.test', connect: (url) => relay.connect(url), protectFile: async () => undefined, retryMs: () => 20,
+      desk: { frame: (device, asks) => { frames.push({ device, asks }) }, forget: () => undefined }
+    })
+    const on = await pc.setEnabled(true)
+    await until(async () => (await pc.settings()).connected)
+    const phone = await pairPhone(relay, on.code!.url)
+    const device = await phoneLine(relay, phone)
+    const session = toBase64url(new Uint8Array(randomBytes(9)))
+    const sendFrame = async (q: number, items: unknown[]): Promise<void> => {
+      const box = await seal(phone.keys.seal, { v: 1, kind: 'desk', s: session, q, t: Date.now(), items }, aadOf(phone.room, phone.device, 'device-to-pc'))
+      device.line.send(JSON.stringify({ t: 'send', to: 'pc', ...box }))
+    }
+    const heardFrame = async (): Promise<Record<string, unknown>> => {
+      const frame = await device.heard.next((one) => one.t === 'msg')
+      return await open(phone.keys.open, frame.n as string, frame.c as string, aadOf(phone.room, phone.device, 'pc-to-device')) as Record<string, unknown>
+    }
+
+    // Full window off: refused, by id, in words.
+    await sendFrame(1, [{ kind: 'hello', id: 'h1' }])
+    expect(await heardFrame()).toMatchObject({ v: 1, kind: 'desk', items: [{ kind: 'res', id: 'h1', ok: false, refused: true }] })
+    expect(frames).toEqual([])
+
+    expect((await pc.setDesk(phone.device, true)).devices[0]?.desk).toBe(true)
+    await sendFrame(2, [{ kind: 'hello', id: 'h2' }])
+    await until(async () => frames.length === 1)
+    expect(frames[0]).toEqual({ device: phone.device, asks: [{ kind: 'hello', id: 'h2' }] })
+    // The same frame again, from the relay: dropped. An older one too.
+    await sendFrame(2, [{ kind: 'hello', id: 'again' }])
+    await sendFrame(1, [{ kind: 'hello', id: 'older' }])
+    await sendFrame(3, [{ kind: 'hello', id: 'h3' }])
+    await until(async () => frames.length === 2)
+    await relay.settled()
+    expect(frames.map((one) => (one.asks[0] as { id: string }).id)).toEqual(['h2', 'h3'])
+
+    // A long frame from the browser, in parts.
+    const text = JSON.stringify({ v: 1, kind: 'desk', s: session, q: 4, t: Date.now(), items: [{ kind: 'call', id: 'big', channel: 'mission:read', args: JSON.stringify(['x'.repeat(300_000)]) }] })
+    for (const part of deskParts('big-frame', text)) {
+      const box = await seal(phone.keys.seal, part, aadOf(phone.room, phone.device, 'device-to-pc'))
+      device.line.send(JSON.stringify({ t: 'send', to: 'pc', ...box }))
+    }
+    await until(async () => frames.length === 3)
+    expect((frames[2]!.asks[0] as { id: string }).id).toBe('big')
+
+    // And a long answer to it, in parts the browser puts back together.
+    expect(await pc.tellDesk(phone.device, [{ kind: 'res', id: 'big', ok: true, value: JSON.stringify('y'.repeat(500_000)) }])).toBe(true)
+    const rejoin = deskJoiner()
+    let whole: string | undefined
+    while (whole === undefined) {
+      const said = await heardFrame()
+      expect(said.kind).toBe('desk-part')
+      whole = rejoin(said as never)
+    }
+    expect(JSON.parse(whole)).toMatchObject({ v: 1, kind: 'desk', items: [{ kind: 'res', id: 'big', ok: true }] })
+
+    // Full window off again: the browser that had the window lets it go.
+    expect((await pc.setDesk(phone.device, false)).devices[0]?.desk).toBeUndefined()
+    await pc.dispose()
   })
 })

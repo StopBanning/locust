@@ -22,6 +22,8 @@ header { position: sticky; top: 0; z-index: 2; display: flex; align-items: cente
 header h1 { font-size: 17px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .dot[data-on] { background: var(--green); }
+.desk { padding-top: 4px; }
+.more { color: var(--soft); font-size: 14px; }
 .back { border: 0; background: none; color: var(--soft); font: inherit; font-size: 15px; padding: 4px 8px 4px 0; }
 main { padding: 12px 16px 24px; display: grid; gap: 22px; }
 h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
@@ -215,9 +217,17 @@ const RELAY = `
     function save(value) { return keep('readwrite', function (store) { return store.put(value, 'link'); }); }
     function forget() { return keep('readwrite', function (store) { return store.delete('link'); }); }
 
+    // A phone by its kind; a computer's browser by its name and system (0.830), as Settings lists it.
     function deviceName() {
       var agent = navigator.userAgent || '';
-      return /iPhone/.test(agent) ? 'iPhone' : /iPad/.test(agent) ? 'iPad' : /Android/.test(agent) ? 'Android phone' : 'Browser';
+      if (/iPhone/.test(agent)) return 'iPhone';
+      if (/iPad/.test(agent)) return 'iPad';
+      if (/Android/.test(agent)) return /Mobile/.test(agent) ? 'Android phone' : 'Android tablet';
+      // Plain words, not patterns: a slash in a pattern here is lost on its way into the page.
+      function has(word) { return agent.indexOf(word) >= 0; }
+      var browser = has('Edg/') ? 'Edge' : has('OPR/') ? 'Opera' : has('Firefox/') ? 'Firefox' : has('Chrome/') ? 'Chrome' : has('Safari/') ? 'Safari' : 'Browser';
+      var system = /Windows/.test(agent) ? 'Windows' : /Macintosh|Mac OS X/.test(agent) ? 'Mac' : /CrOS/.test(agent) ? 'ChromeOS' : /Linux/.test(agent) ? 'Linux' : '';
+      return system ? browser + ' on ' + system : browser;
     }
     function readCode() {
       var hash = location.hash;
@@ -628,6 +638,8 @@ const UI = `
       main.append(convos);
       var alerts = alertsSection();
       if (alerts) main.append(alerts);
+      // From the relay (0.830): the whole window, for a device Settings lets have it.
+      if (transport.away) main.append(el('section', { class: 'desk' }, [el('a', { class: 'more', href: '/desk/', text: 'Open Locust’s full window' })]));
     }
     parts.push(main);
     root.replaceChildren.apply(root, parts);

@@ -1,6 +1,37 @@
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
+
+/*
+ * LOCUST IN A BROWSER'S WAY IN (0.830, src/renderer/src/desk-remote.ts), as one plain script: desk.html loads it
+ * before the window's own module, so window.desktop is there when the window's first line reads it. As a module it
+ * was bundled behind the window's own code, which then ran first. esbuild comes with vite.
+ */
+function deskRemote(): Plugin {
+  return {
+    name: 'locust-desk-remote',
+    apply: 'build',
+    async generateBundle() {
+      const esbuild = createRequire(createRequire(import.meta.url).resolve('vite/package.json'))('esbuild') as {
+        build: (options: Record<string, unknown>) => Promise<{ readonly outputFiles: readonly { readonly text: string }[] }>
+      }
+      const built = await esbuild.build({
+        entryPoints: [resolve('src/renderer/src/desk-remote.ts')],
+        bundle: true,
+        format: 'iife',
+        platform: 'browser',
+        target: 'es2022',
+        minify: true,
+        keepNames: true,
+        legalComments: 'none',
+        write: false
+      })
+      this.emitFile({ type: 'asset', fileName: 'desk-remote.js', source: built.outputFiles[0]!.text })
+    }
+  }
+}
 
 export default defineConfig({
   main: {
@@ -26,7 +57,7 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [react()],
+    plugins: [react(), deskRemote()],
     /*
      * MINIFIED, which electron-vite 5 does not do for the renderer by default.
      *
@@ -49,7 +80,10 @@ export default defineConfig({
           pdf: resolve('src/renderer/pdf.html'),
           // The page that draws a diagram in a reply (0.770, src/diagramPage.ts): its own entry too, so Mermaid
           // is never in the app's bundle and the app never runs in the view that draws.
-          diagram: resolve('src/renderer/diagram.html')
+          diagram: resolve('src/renderer/diagram.html'),
+          // Locust in a browser (0.830, src/desk-remote.ts): the same window, with its way into Locust through the
+          // relay first. Served by the relay from each release's own build, never loaded in this app.
+          desk: resolve('src/renderer/desk.html')
         }
       }
     },

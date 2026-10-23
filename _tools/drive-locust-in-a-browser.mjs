@@ -1,0 +1,243 @@
+// Locust in a browser (0.830): a paired device let open the full window opens app.locust.lol/desk in a browser and
+// gets the whole window -- the same window, that release's own code -- driving this computer: it lists the
+// conversations, opens one, sends the next message and is answered, while this computer's window shows that Locust is
+// open in a browser. What stays on this computer is refused. Use Locust here takes it back, and the browser says so;
+// the browser can take it again. Full window off, and the browser is told no.
+//
+//   node _tools/drive-locust-in-a-browser.mjs [--packaged <exe>] [--tag <name>] [--relay <address>]
+//
+// The relay is a local copy unless --relay names another, pointed at a local stand-in for Locust's downloads holding
+// this build's window zip; start both first:
+//   node _tools/window-zip.mjs <version> --out D:/work/scratch/desk-downloads/window/Locust-<version>-window.zip
+//   node _tools/serve-window-zip.mjs D:/work/scratch/desk-downloads --port 8791
+//   (apps/relay) npx wrangler@4 dev --port 8790 --ip 127.0.0.1 --local --var DESK_DOWNLOADS:http://127.0.0.1:8791/
+// The browser is a headless Chrome at a laptop's size with a profile of its own. The conversation is SEEDED (Mira
+// answered PELICAN); the message the browser sends runs on the free OpenCode model, so nothing is spent.
+
+import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+import { FREE_ROUTE, recordRoot, say, scratchRepository, sendAndWaitScript, sleep, startDrive } from './drive-lib.mjs'
+
+const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
+const packaged = arg('--packaged')
+const tag = arg('--tag') ?? (packaged === undefined ? 'local' : 'packaged')
+const RELAY = (arg('--relay') ?? 'http://127.0.0.1:8790').replace(/\/+$/, '')
+const CHROME = process.env.LOCUST_CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+const BROWSER_PORT = 9798
+
+const reachable = await fetch(`${RELAY}/desk/`, { signal: AbortSignal.timeout(5000) }).then((answer) => answer.ok, () => false)
+if (!reachable) {
+  say(`The relay at ${RELAY} has no /desk/. Start it in apps/relay (see this file's header).`)
+  process.exit(1)
+}
+
+const root = new URL('..', import.meta.url).pathname.slice(1)
+const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
+const workspace = await scratchRepository('locust-drive-desk-ws-')
+const profilePath = await mkdtemp(join(process.env.LOCUST_SCRATCH ?? tmpdir(), 'locust-drive-desk-profile-'))
+const workspaceId = `ws_${createHash('sha256').update(workspace, 'utf8').digest('hex').slice(0, 32)}`
+const ledger = store.createFileMissionLedger({ rootDirectory: join(profilePath, 'mission-ledger') })
+const MIRA = { teammateId: 'tm_mira000000000000000000', name: 'Mira', hue: 'violet', role: 'Custom', roleTitle: 'Writer', createdAt: '2026-10-23T01:00:00.000Z', route: { ...FREE_ROUTE, mode: 'accept-edits' } }
+const missionId = 'mission_5e000000-0000-4000-8000-000830000000'
+const runId = 'run_5e0830'
+const at = new Date(Date.now() - 600_000).toISOString()
+await ledger.createMission({
+  missionId, runId, prompt: 'Write the word PELICAN in capitals and nothing else.',
+  runtime: 'opencode', model: FREE_ROUTE.model, requestedRouteId: 'opencode', resolvedRouteId: `opencode:${FREE_ROUTE.model}`, cliVersion: null,
+  workspaceId, sandbox: 'workspace-write', mode: 'accept-edits', executionPolicyVersion: 1, createdAt: at
+})
+const process_ = { exitCode: 0, signal: null, stderr: '', stderrTruncated: false, recordCount: 2, inputDeliveryFailed: false, outputLimitExceeded: false, oversizedRecordsDropped: 0, forcedTerminationAttempted: false, terminationUnconfirmed: false, startedAt: at, finishedAt: at }
+const event = (sequence, type, payload) => ({ id: `event_${String(sequence)}`, runId, missionId, sequence, occurredAt: at, sourceAdapter: 'opencode', type, payload: { ...payload, evidence: { redacted: true } } })
+await ledger.appendEvents(missionId, [
+  event(1, 'message.delta', { itemId: 'answer', operation: 'append', text: 'PELICAN', final: true }),
+  event(2, 'run.completed', { runtimeTerminal: 'completed', process: process_ })
+])
+await ledger.flush?.()
+
+const outPath = join(recordRoot('locust-in-a-browser-2026-10-23'), tag)
+const drive = await startDrive({
+  ...(packaged === undefined ? {} : { packaged }),
+  name: `desk-${tag}`,
+  port: 9797,
+  workspace,
+  profilePath,
+  env: { LOCUST_RELAY: RELAY },
+  outPath,
+  seed: { schemaVersion: 1, teammates: [MIRA], missionOwners: { [missionId]: MIRA.teammateId }, settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off' } }
+})
+let failures = 0
+const check = (what, ok, detail) => {
+  if (!ok) failures += 1
+  say(`  [${ok ? 'PASS' : 'FAIL'}] ${what}${detail === undefined ? '' : ` -- ${String(detail).slice(0, 600)}`}`)
+}
+
+/* The browser: a headless Chrome at a laptop's size, over its own DevTools socket. */
+let browser
+async function openBrowser(url) {
+  const userData = await mkdtemp(join(tmpdir(), 'locust-drive-desk-chrome-'))
+  const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${String(BROWSER_PORT)}`, `--user-data-dir=${userData}`, '--no-first-run', '--no-default-browser-check', '--window-size=1280,820', 'about:blank'], { stdio: 'ignore' })
+  let target
+  for (let tries = 0; tries < 40 && target === undefined; tries += 1) {
+    await sleep(500)
+    target = await fetch(`http://127.0.0.1:${String(BROWSER_PORT)}/json/list`).then((r) => r.json()).then((list) => list.find((one) => one.type === 'page')).catch(() => undefined)
+  }
+  if (target === undefined) throw new Error('the browser (headless Chrome) did not start')
+  const socket = new WebSocket(target.webSocketDebuggerUrl)
+  await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject })
+  let id = 0
+  const waiting = new Map()
+  const logs = []
+  socket.onmessage = (message) => {
+    const data = JSON.parse(String(message.data))
+    if (data.id !== undefined && waiting.has(data.id)) { waiting.get(data.id)(data); waiting.delete(data.id) }
+    if (data.method === 'Runtime.consoleAPICalled' || data.method === 'Runtime.exceptionThrown') logs.push(JSON.stringify(data.params).slice(0, 400))
+  }
+  const call = (method, params = {}) => new Promise((resolve) => { id += 1; waiting.set(id, resolve); socket.send(JSON.stringify({ id, method, params })) })
+  await call('Emulation.setDeviceMetricsOverride', { width: 1280, height: 820, deviceScaleFactor: 1, mobile: false })
+  await call('Page.enable')
+  await call('Runtime.enable')
+  await call('Page.navigate', { url })
+  await sleep(2500)
+  let shot = 0
+  browser = {
+    logs,
+    evaluate: async (expression) => (await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result?.result?.value,
+    navigate: async (to) => { await call('Page.navigate', { url: to }); await sleep(2500) },
+    capture: async (label) => {
+      shot += 1
+      const data = (await call('Page.captureScreenshot', { format: 'png' })).result?.data
+      if (data !== undefined) await writeFile(join(outPath, `browser-${String(shot).padStart(2, '0')}-${label.replace(/[^a-z0-9]+/gi, '-').slice(0, 50)}.png`), Buffer.from(data, 'base64'))
+      say(`browser ${String(shot).padStart(2, '0')}. ${label}`)
+    },
+    close: () => { try { socket.close() } catch { /* gone */ } chrome.kill() }
+  }
+}
+const PAGE = `(document.body?.innerText ?? '').replace(/\\s+/g, ' ')`
+const browserWait = async (pattern, seconds = 30) => {
+  const deadline = Date.now() + seconds * 1000
+  let seen = ''
+  while (Date.now() < deadline) {
+    seen = String(await browser.evaluate(`${PAGE} + ' ' + ([...document.querySelectorAll('[role="dialog"]')].filter((d) => d.getAttribute('aria-label') === 'Locust in a browser').map((d) => d.innerText).join(' '))`))
+    if (pattern.test(seen)) return seen
+    await sleep(1000)
+  }
+  return seen
+}
+const settingsScript = (body) => `(async () => {
+  if (!document.querySelector('[data-setting="phone"]')) {
+    if (!document.querySelector('.lc-settings__navitem')) {
+      ;[...document.querySelectorAll('button')].find((one) => one.innerText.trim() === 'Settings')?.click()
+      await new Promise((r) => setTimeout(r, 900))
+    }
+    ;[...document.querySelectorAll('.lc-settings__navitem')].find((one) => one.innerText.trim().startsWith('General'))?.click()
+    await new Promise((r) => setTimeout(r, 900))
+  }
+  const section = document.querySelector('[data-setting="phone"]')
+  section?.scrollIntoView({ block: 'center' })
+  ${body}
+})()`
+const SECTION = `(section?.innerText ?? 'no section').replace(/\\s+/g, ' ')`
+const PC_PAGE = `(document.body?.innerText ?? '').replace(/\\s+/g, ' ')`
+const pcWait = async (pattern, seconds = 30) => {
+  const deadline = Date.now() + seconds * 1000
+  let seen = ''
+  while (Date.now() < deadline) {
+    seen = String(await drive.evaluate(PC_PAGE).catch(() => ''))
+    if (pattern.test(seen)) return seen
+    await sleep(1000)
+  }
+  return seen
+}
+
+try {
+  await drive.capture('launch: Mira answered PELICAN', () => drive.ready())
+  await drive.resize(1215, 860)
+
+  const on = JSON.parse(String(await drive.evaluate(settingsScript(`
+    section?.querySelector('[role="switch"]')?.click()
+    for (let i = 0; i < 60 && !(section?.querySelector('.lc-phone__qr') && /Connected to Locust’s relay/.test(section?.innerText ?? '')); i += 1) await new Promise((r) => setTimeout(r, 250))
+    const settings = await window.desktop.phone.anywhere()
+    return JSON.stringify({ text: ${SECTION}, url: settings.code?.url ?? '' })`))))
+  check('Your phone, from anywhere, is on with a code, and offers its link for a computer', on.url !== '' && /Copy the link/.test(on.text), on.text.slice(0, 300))
+
+  await openBrowser(on.url)
+  const paired = await browserWait(/Conversations/i)
+  check('the browser pairs with the code’s link, as a phone does', /Conversations/i.test(paired), paired.slice(0, 200))
+
+  // Not let in yet: the way in says so.
+  await browser.navigate(`${RELAY}/desk/`)
+  const refused = await browserWait(/Locust cannot open here/, 30)
+  await browser.capture('the way in, before Full window is on')
+  check('before Full window is on, the way in says this browser may not open the window, and where to turn it on', /may not open Locust’s window/.test(refused) && /Full window/.test(refused), refused.slice(0, 300))
+
+  const allowed = String(await drive.capture('Settings: Full window on for the browser', () => drive.evaluate(settingsScript(`
+    for (let i = 0; i < 40 && !section?.querySelector('.lc-phone__device'); i += 1) await new Promise((r) => setTimeout(r, 250))
+    section?.querySelector('.lc-phone__device [role="switch"]')?.click()
+    for (let i = 0; i < 40 && section?.querySelector('.lc-phone__device [role="switch"]')?.getAttribute('aria-checked') !== 'true'; i += 1) await new Promise((r) => setTimeout(r, 250))
+    return ${SECTION}`))))
+  check('Settings turns Full window on for that device, and says where to open it', /Full window/.test(allowed) && /app\.locust\.lol\/desk/.test(allowed), allowed.slice(0, 400))
+
+  await browser.navigate(`${RELAY}/desk/`)
+  const opened = await browserWait(/PELICAN/, 90)
+  const where = String(await browser.evaluate('location.pathname'))
+  await browser.capture('Locust in a browser: the whole window')
+  check('the way in opens this computer’s version of the window, from the relay', /^\/desk\/v\/\d+\.\d+\.\d+\/desk\.html$/.test(where), where)
+  check('the window in the browser lists the conversation, with its answer', /Write the word PELICAN/.test(opened), opened.slice(0, 300))
+  check('and has no window controls of its own', String(await browser.evaluate(`document.querySelector('.lc-windowcontrols') === null`)) === 'true')
+  const agents = await browserWait(/[1-9]\d* agents? ready/, 60)
+  say(`browser line: ${String(await browser.evaluate('window.locustDesk?.state()'))}; waiting: ${JSON.stringify(await browser.evaluate('window.locustDesk?.pending()'))}`)
+  check('the browser hears which agents this computer has', /[1-9]\d* agents? ready/.test(agents), (/\d+ agents? ready/.exec(agents) ?? ['none'])[0])
+
+  const cover = await pcWait(/Locust is open in a browser/, 30)
+  await drive.capture('this computer’s window: the cover', () => cover)
+  check('this computer’s window shows that Locust is open in a browser, naming it, with the way back', /Locust is open in a browser/.test(cover) && /Use Locust here/.test(cover), cover.slice(0, 300))
+
+  const refusedCall = String(await browser.evaluate(`window.desktop.terminal.shells().then(() => 'answered', (error) => error.message)`))
+  check('a call that stays on this computer is refused in the browser, in words', refusedCall === 'This works in Locust on your computer.', refusedCall)
+
+  // The conversation, opened and continued from the browser.
+  await browser.evaluate(`[...document.querySelectorAll('.lc-convrow button.lc-conv, .lc-conv')].find((row) => /PELICAN/i.test(row.innerText || row.getAttribute('title') || ''))?.click()`)
+  await sleep(2500)
+  const sent = String(await browser.evaluate(sendAndWaitScript('Now write the word HARBOR in capitals and nothing else. Do not use any tool.', { waitSeconds: 300 })))
+  await browser.capture('the browser: sent and answered')
+  check('a message sent from the browser runs on this computer, and its answer streams into the browser', /HARBOR/.test(sent.slice(sent.indexOf('Do not use any tool.') + 20)), sent.slice(-300))
+
+  // Taken back on this computer.
+  await drive.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Use Locust here')?.click()`)
+  const back = await pcWait(/Mira|PELICAN|Conversations/, 30)
+  const told = await browserWait(/Locust is in use on your computer now/, 20)
+  await browser.capture('the browser: told the computer took it back')
+  check('Use Locust here on this computer brings the app back there', !/Locust is open in a browser/.test(back) && /PELICAN|Mira/.test(back), back.slice(0, 200))
+  check('and the browser says so, with a way to use it there again', /Locust is in use on your computer now/.test(told) && /Use Locust here/.test(told), told.slice(0, 300))
+
+  await browser.evaluate(`[...document.querySelectorAll('[role="dialog"]')].filter((d) => d.getAttribute('aria-label') === 'Locust in a browser').flatMap((d) => [...d.querySelectorAll('button')]).find((b) => b.innerText.trim() === 'Use Locust here')?.click()`)
+  const again = await pcWait(/Locust is open in a browser/, 30)
+  check('the browser takes it again, and this computer’s window shows the cover again', /Locust is open in a browser/.test(again), again.slice(0, 200))
+  await drive.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Use Locust here')?.click()`)
+  await pcWait(/PELICAN|Mira/, 30)
+
+  // Full window off: the browser is told no.
+  await drive.evaluate(settingsScript(`
+    for (let i = 0; i < 40 && !section?.querySelector('.lc-phone__device'); i += 1) await new Promise((r) => setTimeout(r, 250))
+    section?.querySelector('.lc-phone__device [role="switch"]')?.click()
+    await new Promise((r) => setTimeout(r, 1200))
+    return 1`))
+  await browser.navigate(`${RELAY}/desk/`)
+  const off = await browserWait(/Locust cannot open here/, 30)
+  check('Full window off, the way in says no again', /may not open Locust’s window/.test(off), off.slice(0, 200))
+  const errors = browser.logs.filter((line) => /exceptionThrown|"type":"error"/.test(line))
+  say(`browser console errors: ${String(errors.length)}${errors.length === 0 ? '' : `\n${errors.slice(0, 8).join('\n')}`}`)
+} catch (error) {
+  failures += 1
+  say(`drive failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`)
+} finally {
+  browser?.close()
+  await drive.finish({ intro: `Build: ${packaged ?? 'out/'}. Relay: ${RELAY}. A seeded conversation; the browser is headless Chrome at 1280x820, paired with the code's link; its message runs on ${FREE_ROUTE.model}.`, extra: `Checks failed: ${String(failures)}` }).catch(() => undefined)
+}
+say(failures === 0 ? 'ALL CHECKS PASSED' : `${String(failures)} CHECK(S) FAILED`)
+process.exit(failures === 0 ? 0 : 1)

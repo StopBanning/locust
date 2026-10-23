@@ -591,7 +591,7 @@ describe('how the channel is guarded and where the file goes', () => {
 
   it('is one channel, named once, and reaches the window through the bridge', async () => {
     expect(MISSION_RECORD_SAVE_CHANNEL).toBe('missions:save-record')
-    const preload = await readFile(new URL('../preload/index.ts', import.meta.url), 'utf8')
+    const preload = await readFile(new URL('../shared/desktop-api.ts', import.meta.url), 'utf8')
     expect(preload).toContain('ipcRenderer.invoke(MISSION_RECORD_SAVE_CHANNEL, request)')
   })
 })

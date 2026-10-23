@@ -174,7 +174,8 @@ try {
   const listed = String(await drive.capture('Settings: the paired phone', () => drive.evaluate(settingsScript(`
     for (let i = 0; i < 40 && !section?.querySelector('.lc-phone__device'); i += 1) await new Promise((r) => setTimeout(r, 250))
     return [...(section?.querySelectorAll('.lc-phone__device') ?? [])].map((row) => row.innerText.replace(/\\s+/g, ' ')).join(' | ')`))))
-  check('Settings lists the phone, open now, with a Remove', /Browser Open now Remove/.test(listed), listed)
+  // Named by its browser and system since 0.830 (a headless Chrome on Windows here), with its Full window switch.
+  check('Settings lists the phone, open now, with a Remove', /Chrome on Windows Open now Full window Remove/.test(listed), listed)
 
   await phone.evaluate(`document.querySelector('button.convo')?.click()`)
   const thread = await phoneWait(/PELICAN.*PELICAN/)

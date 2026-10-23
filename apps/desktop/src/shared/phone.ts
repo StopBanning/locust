@@ -55,6 +55,8 @@ export interface PhoneAnywhereDevice {
   readonly online: boolean
   /** Whether this phone turned alerts on (0.827). */
   readonly alerts?: boolean
+  /** Whether it may open the full window, in a browser (0.830): set here on this computer only. */
+  readonly desk?: boolean
 }
 
 export interface PhoneAnywhereSettings {
@@ -88,6 +90,8 @@ export interface PhoneApi {
   remove(device: string): Promise<PhoneAnywhereSettings>
   /** Whether approvals and questions buzz a phone in quiet hours. */
   setNightApprovals(on: boolean): Promise<PhoneAnywhereSettings>
+  /** Whether a paired device may open the full window in a browser (0.830). */
+  setDesk?(device: string, on: boolean): Promise<PhoneAnywhereSettings>
   /** Called when a phone pairs, comes and goes, or the connection to the relay changes. */
   onAnywhereChanged(callback: (settings: PhoneAnywhereSettings) => void): () => void
 }

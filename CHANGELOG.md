@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.830.0 - 2026-10-23
+<!-- big -->
+
+### New
+
+- **Locust in a browser.** The whole window, in any browser, driven by your computer: open app.locust.lol/desk on a laptop, a tablet or a work computer, and it is the same Locust, your conversations, teammates and Board, sending messages that run on your computer and streaming their answers back. Pair the browser as you pair a phone (Settings > General > Your phone; a computer opens the code's link instead of scanning it, with Copy the link), then turn on Full window for it there. The browser loads your version's own window from Locust's relay, never code from your computer, and everything it sends and hears is sealed between the two, as your phone's is. While a browser has the window, your computer's window says Locust is open in a browser, with Use Locust here to take it back; one window acts at a time, so nothing runs twice. What stays on your computer stays there: signing agents in, permissions and the rules that grant them, the organization's policy, spending, the terminal, installing, and pairing more devices.
+
+### Improved
+
+- **A browser is named for what it is.** A paired computer's browser shows in Settings as Chrome on Windows or Safari on Mac rather than Browser, and the phone's page links to the full window.
+
 ## 0.829.0 - 2026-10-23
 <!-- big -->
 

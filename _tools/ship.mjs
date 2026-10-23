@@ -20,7 +20,7 @@
 // missing twice tonight, because an em-dash is three bytes.
 
 import { spawnSync } from 'node:child_process'
-import { readFileSync, existsSync, statSync, copyFileSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, copyFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -311,6 +311,23 @@ if (failed === 0 && !checkOnly) {
   if (existsSync(installer)) {
     copyFileSync(installer, join(DESKTOP, 'release', 'Locust-Setup.exe'))
     ok('stable copy Locust-Setup.exe — upload it beside the versioned one')
+  }
+}
+
+/*
+ * LOCUST IN A BROWSER (0.830): the window this installer carries, as the one zip the relay serves it from
+ * (apps/relay/src/window-zip.ts). publish-downloads.mjs puts it beside the installer as window/Locust-<v>-window.zip;
+ * a browser opening this version's window is served nothing else.
+ */
+if (failed === 0 && !checkOnly) {
+  const { filesUnder, writeZip } = await import('./window-zip.mjs')
+  const files = filesUnder(join(DESKTOP, 'out', 'renderer'))
+  const missing = ['desk.html', 'desk-remote.js', 'index.html'].filter((path) => !files.some((file) => file.path === path))
+  if (missing.length > 0) bad('the window zip', `the built window has no ${missing.join(', ')}`)
+  else {
+    const zip = writeZip(files)
+    writeFileSync(join(DESKTOP, 'release', `Locust-${version}-window.zip`), zip)
+    ok(`window zip Locust-${version}-window.zip: ${String(files.length)} files, ${String(Math.round(zip.length / 1048576))} MB, for Locust in a browser`)
   }
 }
 

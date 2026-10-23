@@ -50,7 +50,8 @@ export function TitleBar({
             {runningCount} running
           </span>
         )}
-        <div className="lc-windowcontrols">
+        {/* In a browser (0.830) the browser's own window has these. */}
+        {(typeof window === 'undefined' || window.desktop?.remote === undefined) && <div className="lc-windowcontrols">
           <button type="button" aria-label="Minimize" onClick={() => window.desktop?.minimize()}>
             <Icon name="minimize" size={14} />
           </button>
@@ -60,7 +61,7 @@ export function TitleBar({
           <button type="button" className="lc-close" aria-label="Close" onClick={() => window.desktop?.close()}>
             <Icon name="close" size={14} />
           </button>
-        </div>
+        </div>}
       </div>
     </header>
   )

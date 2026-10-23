@@ -79,7 +79,7 @@ describe('pointing at the browser page', () => {
 
   it('the picker request goes through main only', async () => {
     const ipc = read('./browser-ipc.ts')
-    const preload = read('../preload/index.ts')
+    const preload = read('../shared/desktop-api.ts')
     const panel = read('../renderer/src/components/BrowserPanel.tsx')
     expect(ipc).toContain('return host.point()')
     expect(ipc).not.toContain('return host.point(event)')

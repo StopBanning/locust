@@ -39,7 +39,7 @@ const fail = (line) => {
   console.error(`\nNOT PUBLISHED: ${line}\nThe feed files were not changed, so no installed Locust sees anything new.`)
   process.exit(1)
 }
-const TYPES = { '.exe': 'application/vnd.microsoft.portable-executable', '.dmg': 'application/x-apple-diskimage', '.yml': 'text/yaml; charset=utf-8', '.json': 'application/json', '.blockmap': 'application/octet-stream', '.md': 'text/plain; charset=utf-8', '.AppImage': 'application/vnd.appimage', '.deb': 'application/vnd.debian.binary-package', '.rpm': 'application/x-rpm' }
+const TYPES = { '.zip': 'application/zip', '.exe': 'application/vnd.microsoft.portable-executable', '.dmg': 'application/x-apple-diskimage', '.yml': 'text/yaml; charset=utf-8', '.json': 'application/json', '.blockmap': 'application/octet-stream', '.md': 'text/plain; charset=utf-8', '.AppImage': 'application/vnd.appimage', '.deb': 'application/vnd.debian.binary-package', '.rpm': 'application/x-rpm' }
 const typeOf = (name) => TYPES[Object.keys(TYPES).find((ending) => name.endsWith(ending)) ?? '.blockmap']
 
 // No shell: wrangler is run by node from npx's own script, with fixed arguments.
@@ -136,6 +136,11 @@ if (macDir !== undefined) {
   if (!feed.includes(`sha512: ${sha512}`)) fail("latest.yml's sha512 is not the installer on disk")
   await upload(`${installer}.blockmap`, join(RELEASE, `${installer}.blockmap`))
   await upload(installer, join(RELEASE, installer))
+  // Its window, for Locust in a browser (0.830): the relay serves a version's window from this zip only. Up before
+  // the feed, so no Locust is updated to a version whose window a browser cannot open.
+  const windowZip = `Locust-${version}-window.zip`
+  if (!existsSync(join(RELEASE, windowZip))) fail(`${windowZip} is not in ${RELEASE} -- build it with _tools/ship.mjs first`)
+  await upload(`window/${windowZip}`, join(RELEASE, windowZip))
   // This version's feed file, kept by name so --promote can hand it to the tester lane later.
   await upload(`Locust-${version}.yml`, join(RELEASE, 'latest.yml'))
   await upload('beta.yml', join(RELEASE, 'latest.yml'), { fresh: true })

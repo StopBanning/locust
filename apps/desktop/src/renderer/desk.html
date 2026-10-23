@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#090a0c" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Locust</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      Locust in a browser (0.830): the window's way into Locust through the relay (src/desk-remote.ts, built as one
+      plain script by electron.vite.config.ts) runs first, so window.desktop is there before the window's own module
+      reads it. The page's policy comes with it from the relay (apps/relay/src/worker.ts), never from here.
+    -->
+    <script src="./desk-remote.js"></script>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
