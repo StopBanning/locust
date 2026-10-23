@@ -5,10 +5,56 @@ import {
   MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
   type ScoutApi, type ScoutEvery, type ScoutQuietHours, type ScoutState, type ScoutWatches
 } from '../../../shared/scout.js'
+import { lookLines, lookName, setSomethingAside, type ScoutHeldAlert, type ScoutLogEntry } from '../../../shared/scout-log.js'
 import { ago } from './ScoutCards.js'
 import { Select } from './Select.js'
 
 const quietWords = (quiet: ScoutQuietHours): string => `${hourWords(quiet.from)} to ${hourWords(quiet.to)}`
+
+/** Entries shown at first, and added by each Show more. */
+const SAW_PAGE = 30
+
+/*
+ * WHAT SCOUT SAW (0.828, shared/scout-log.ts): its looks of the last fourteen days, newest first, read when opened --
+ * what each raised, set aside and why, and what it did not read. "Only what it left out" keeps the looks that set
+ * something aside, were not taken, or could not read a watch.
+ */
+function ScoutSaw({ api }: { readonly api: ScoutApi }) {
+  const [log, setLog] = useState<{ readonly entries: readonly ScoutLogEntry[]; readonly held: readonly ScoutHeldAlert[] } | 'failed' | undefined>(undefined)
+  const [open, setOpen] = useState(false)
+  const [asideOnly, setAsideOnly] = useState(false)
+  const [shown, setShown] = useState(SAW_PAGE)
+  const read = (): void => {
+    if (api.log === undefined) return
+    api.log().then((answer) => setLog(answer), () => setLog('failed'))
+  }
+  const entries = typeof log === 'object' ? [...log.entries].reverse().filter((entry) => !asideOnly || setSomethingAside(entry)) : []
+  return <div className="lc-settingline lc-settingline--sub lc-scout__goalline">
+    <div className="lc-settingline__text">
+      <h3 className="lc-settings__heading">What Scout saw</h3>
+      <p className="lc-settings__lede">Each look of the last 14 days, newest first: what it raised, what it set aside and why, and what it did not read. Ask Scout in its conversation why it did not tell you about something, and it answers from this.</p>
+      {!open
+        ? <span className="lc-scout__goalkeys"><button type="button" className="lc-control lc-control--boxed" disabled={api.log === undefined} onClick={() => { setOpen(true); read() }}>Show what Scout saw</button></span>
+        : <>
+          <span className="lc-scout__goalkeys">
+            <button type="button" className="lc-control lc-control--boxed" onClick={() => { setOpen(false); setShown(SAW_PAGE) }}>Hide</button>
+            <button type="button" className="lc-control" onClick={read}>Refresh</button>
+            <label className="lc-scoutlog__filter"><input type="checkbox" checked={asideOnly} onChange={(event) => { setAsideOnly(event.target.checked); setShown(SAW_PAGE) }} /> Only what it left out</label>
+          </span>
+          {log === undefined && <p className="lc-settings__note" role="status">Reading what Scout saw…</p>}
+          {log === 'failed' && <p className="lc-settings__note" role="status">What Scout saw could not be read. Try Refresh.</p>}
+          {typeof log === 'object' && entries.length === 0 && <p className="lc-settings__note" role="status">{asideOnly ? 'Nothing left out in these 14 days.' : 'No looks yet in these 14 days.'}</p>}
+          {entries.length > 0 && <ol className="lc-scoutlog" aria-label="What Scout saw">
+            {entries.slice(0, shown).map((entry) => <li key={`${entry.at}-${String(entry.looks)}`} className="lc-scoutlog__look">
+              <span className="lc-scoutlog__when">{lookName(entry)}</span>
+              <ul className="lc-scoutlog__lines">{lookLines(entry, typeof log === 'object' ? log.held : []).map((line, index) => <li key={index}>{line}</li>)}</ul>
+            </li>)}
+          </ol>}
+          {entries.length > shown && <span className="lc-scout__goalkeys"><button type="button" className="lc-control" onClick={() => setShown((was) => was + SAW_PAGE)}>{`Show ${String(Math.min(SAW_PAGE, entries.length - shown))} more`}</button></span>}
+        </>}
+    </div>
+  </div>
+}
 
 /**
  * SCOUT IN SETTINGS (0.756, shared/scout.ts): on or off, what it watches, how often it looks, and whether a card that
@@ -133,6 +179,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
           </span>}
         </div>
       </div>
+      <ScoutSaw api={api} />
       <div className="lc-settingline lc-settingline--sub">
         <div className="lc-settingline__text">
           <h3 className="lc-settings__heading">Pull requests and their checks</h3>

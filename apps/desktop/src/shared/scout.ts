@@ -1,4 +1,5 @@
 import { pullRequestNews, type FolderPullRequest } from './pull-request.js'
+import type { ScoutHeldAlert, ScoutLogEntry } from './scout-log.js'
 
 /*
  * SCOUT, A TEAMMATE THAT KEEPS WATCH (0.756). Colin, 2026-10-12, on the four ideas taken from the Grok Bot video:
@@ -23,6 +24,8 @@ export const SCOUT_LOOK = 'scout:look'
 /** Scout's notes, as the person wrote them in Settings (0.816). */
 export const SCOUT_NOTES = 'scout:notes'
 export const SCOUT_TUNE = 'scout:tune'
+/** What Scout saw (0.828, scout-log.ts): its looks of the last fourteen days. */
+export const SCOUT_LOG = 'scout:log'
 /** Main to the window: what Scout holds changed. */
 export const SCOUT_CHANGED = 'scout:changed'
 
@@ -225,6 +228,8 @@ export interface ScoutApi {
   /** The notes as the person wrote them in Settings, one per line; empty clears them (0.816). */
   saveNotes(text: string): Promise<ScoutState>
   onChanged(listener: (state: ScoutState) => void): () => void
+  /** What Scout saw (0.828): its looks of the last fourteen days, oldest first, and the alerts kept off the phone. */
+  log?(): Promise<{ readonly entries: readonly ScoutLogEntry[]; readonly held: readonly ScoutHeldAlert[] }>
 }
 
 /** The most cards kept; the oldest go first. */
@@ -380,18 +385,32 @@ export function issuesOf(json: string): readonly IssueOpened[] {
 export const NEW_ISSUE_DAYS = 7
 const ISSUES_A_LOOK = 3
 
-export function issueFacts(issues: readonly IssueOpened[], at: Date = new Date()): readonly ScoutFact[] {
-  return [...issues]
+export function issueFacts(issues: readonly IssueOpened[], at: Date = new Date(), told: ReadonlySet<string> = new Set()): readonly ScoutFact[] {
+  return newIssues(issues, at, told).facts
+}
+
+/*
+ * The three a look raises are the newest NOT YET TOLD (0.828). The three were the newest open, told or not, so with
+ * three newer issues still open a fourth was never raised at all -- the first thing "What Scout saw" showed. Past the
+ * three, the rest are set aside for the next look, and the log says so.
+ */
+export function newIssues(issues: readonly IssueOpened[], at: Date = new Date(), told: ReadonlySet<string> = new Set()): { readonly facts: readonly ScoutFact[]; readonly more: readonly ScoutFact[] } {
+  const all = [...issues]
     .filter((issue) => at.getTime() - Date.parse(issue.createdAt) <= NEW_ISSUE_DAYS * 86_400_000)
     .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
-    .slice(0, ISSUES_A_LOOK)
-    .map((issue) => ({
-      key: `issue:${issue.url}`,
-      urgency: 'soon' as const,
-      said: `${issue.author ?? 'Someone'} opened issue #${String(issue.number)}: ${issue.title}.`,
-      chips: [{ text: `#${String(issue.number)}`, tone: 'quiet' as const }, { text: 'new issue', tone: 'amber' as const }],
-      open: { kind: 'url' as const, url: issue.url, label: 'Open the issue' }
-    }))
+    .map(issueFact)
+  const fresh = all.filter((fact) => !told.has(fact.key))
+  return { facts: [...all.filter((fact) => told.has(fact.key)), ...fresh.slice(0, ISSUES_A_LOOK)], more: fresh.slice(ISSUES_A_LOOK) }
+}
+
+function issueFact(issue: IssueOpened): ScoutFact {
+  return {
+    key: `issue:${issue.url}`,
+    urgency: 'soon',
+    said: `${issue.author ?? 'Someone'} opened issue #${String(issue.number)}: ${issue.title}.`,
+    chips: [{ text: `#${String(issue.number)}`, tone: 'quiet' }, { text: 'new issue', tone: 'amber' }],
+    open: { kind: 'url', url: issue.url, label: 'Open the issue' }
+  }
 }
 
 /** One run of the default branch's checks, from `gh run list --json databaseId,conclusion,status,workflowName,url`. */

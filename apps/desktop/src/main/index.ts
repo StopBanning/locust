@@ -34,7 +34,7 @@ import { createScout, type Scout } from './scout.js'
 import { folderMarkOf } from './scout-folder.js'
 import { readScoutGithub } from './scout-github.js'
 import { createCommentReader, postComment } from './scout-comments.js'
-import { inQuietHours, SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutQuietHours } from '../shared/scout.js'
+import { inQuietHours, SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_LOG, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutQuietHours } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
 import { DEFAULT_CHATGPT_VOICE, VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, VOICE_CALL_START, VOICE_CALL_STOP, VOICE_CALL_TOOLS, VOICE_CALL_VOICES, VOICE_PREVIEW_SAVE, VOICE_PREVIEW_SAVED, VOICE_PREVIEW_TRIGGER, isChatGptVoice, isVoiceCallOffer, isVoiceCallTarget, type ChatGptVoice, type VoiceAddOn, type VoiceCallTarget } from '../shared/voice-call.js'
 import { createVoiceCalls } from './voice-call.js'
@@ -8032,6 +8032,7 @@ if (!ownsSingleInstanceLock) {
         return { failed: failed?.type === 'run.failed' ? failed.payload.message : recorded.hostFailures.at(-1)?.message ?? 'The turn ended without an answer.' }
       },
       file: join(app.getPath('userData'), 'scout.json'),
+      logFile: join(app.getPath('userData'), 'scout-looks.json'),
       github: async () => (workspaceChosen ? readScoutGithub(workspacePath, scoutGh) : undefined),
       waiting: async () => Promise.all(raisedApprovals.waiting().map(async ({ request, teammateId }) => {
         const name = await scoutNameOf(teammateId)
@@ -8165,6 +8166,7 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(SCOUT_LOOK, (event) => (fromOwnWindow(event) ? keptScout.look() : keptScout.state()))
     ipcMain.handle(SCOUT_NOTES, (event, text: unknown) => (fromOwnWindow(event) ? keptScout.saveNotes(text) : keptScout.state()))
     ipcMain.handle(SCOUT_TUNE, (event, cardId: unknown) => (fromOwnWindow(event) ? keptScout.tune(cardId) : keptScout.state()))
+    ipcMain.handle(SCOUT_LOG, (event) => (fromOwnWindow(event) ? keptScout.log() : { entries: [], held: [] }))
     void keptScout.start()
     app.once('will-quit', () => keptScout.dispose())
 
@@ -9378,7 +9380,9 @@ if (!ownsSingleInstanceLock) {
       // enough on its own: the word was already gone by the time anything
       // wrote it down, which is what a live drive found and the unit tests
       // could not.
-      const mode = parsedMissionMode(payload.mode)
+      // A question to Scout (0.828): always in Ask, which is what holds a sealed turn on every runtime but OpenCode.
+      const askingScout = typeof payload.teammateId === 'string' && payload.teammateId === await scout?.teammateId().catch(() => undefined)
+      const mode = askingScout ? 'ask' : parsedMissionMode(payload.mode)
       /*
        * Validated BEFORE the peer context is built, because building it has
        * a side effect: a teammate set to work on its own branch gets its
@@ -9396,6 +9400,14 @@ if (!ownsSingleInstanceLock) {
       const managed = policyTurnRefusal(organizationPolicy, { runtime, model, mode, cloud: payload.cloud === true })
       if (managed !== undefined) return { ok: false, error: { code: 'POLICY_REFUSED', message: managed } } as const
       const peer = await peerContextFor(payload.teammateId)
+      /*
+       * A QUESTION TO SCOUT (0.828, shared/scout-log.ts): the person's own turn with Scout's teammate is answered from
+       * What Scout saw, and sealed as its looks are -- no tool, no file, no command -- since the log quotes other
+       * people's words. Its own slot, so a look running beside it never holds it up.
+       */
+      const scoutSlot = askingScout && scout !== undefined
+        ? { key: `scout-chat:${String(payload.teammateId)}`, sealed: true as const, instructions: await scout.whyBrief() }
+        : undefined
       const startingIssue = startedIssue((payload as { issue?: unknown }).issue)
       if (startingIssue !== undefined && peer?.cwd !== undefined && peer.repositoryRoot !== undefined) {
         await checkoutIssueBranch((args, cwd) => gitText(ownGitArgs(args), cwd), peer.cwd, startingIssue.number, startingIssue.title).catch(() => undefined)
@@ -9487,7 +9499,7 @@ if (!ownsSingleInstanceLock) {
           startedBy,
           // The person's own message, typed as one of the runtime's commands (0.426).
           runtimeCommands.isCommand(runtime, prompt),
-          undefined,
+          scoutSlot,
           undefined,
           rewindTip(payload) !== undefined && followUpOf !== undefined,
           // A reply on another runtime: what the person chose to leave out of its brief (0.527).

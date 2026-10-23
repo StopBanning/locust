@@ -24434,6 +24434,13 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 /* What Scout keeps watch for (0.815): a few lines, as wide as its line, and its Save beneath once it is changed. */
 .lc-scout__goalline .lc-settingline__text { flex: 1; }
 .lc-scout__goal { display: block; width: 100%; height: auto; min-height: 64px; margin-top: var(--lc-space-2); padding: 8px 11px; resize: vertical; font-family: inherit; line-height: 1.5; }
-.lc-scout__goalkeys { display: flex; gap: var(--lc-space-2); margin-top: var(--lc-space-2); }
+.lc-scout__goalkeys { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-2); margin-top: var(--lc-space-2); }
+/* What Scout saw (0.828): one look a row, its time over its lines, scrolled inside its own box. */
+.lc-scoutlog__filter { display: inline-flex; align-items: center; gap: 6px; color: var(--lc-text-secondary); font-size: var(--lc-text-control); }
+.lc-scoutlog { list-style: none; margin: var(--lc-space-2) 0 0; padding: 0; max-height: 420px; overflow-y: auto; border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-control); background: var(--lc-bg-raised); }
+.lc-scoutlog__look { display: flex; flex-direction: column; gap: 2px; padding: var(--lc-space-2) var(--lc-space-3); }
+.lc-scoutlog__look + .lc-scoutlog__look { border-top: 1px solid var(--lc-border-hairline); }
+.lc-scoutlog__when { color: var(--lc-text-secondary); font-size: var(--lc-text-control); font-variant-numeric: tabular-nums; }
+.lc-scoutlog__lines { margin: 0; padding-left: 18px; color: var(--lc-text-primary); font-size: var(--lc-text-body); line-height: 1.5; overflow-wrap: anywhere; }
 /* A morning brief's lines (0.816): Locust's own counts, one to a line, under its sentence. */
 .lc-scoutcard__lines { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; color: var(--lc-text-primary); font-size: var(--lc-text-body); line-height: 1.5; overflow-wrap: anywhere; }

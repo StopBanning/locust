@@ -30,6 +30,8 @@ export interface HeldAlert {
   readonly title: string
   readonly at: number
   readonly why: 'quiet hours' | 'daily limit'
+  /** The Scout card it was about, by its key, for What Scout saw (0.828). Never sent to a phone. */
+  readonly about?: string
 }
 
 export const MERGE_MS = 120_000
@@ -110,8 +112,8 @@ export function createPhoneAlerts(options: PhoneAlertsOptions) {
   const escalations = new Map<string, unknown>()
 
   const dayOf = (at: number): string => new Date(at).toDateString()
-  const hold = (alert: PhoneAlert, why: HeldAlert['why']): void => {
-    held.push({ kind: alert.kind, title: alert.title, at: now(), why })
+  const hold = (alert: PhoneAlert, why: HeldAlert['why'], about?: string): void => {
+    held.push({ kind: alert.kind, title: alert.title, at: now(), why, ...(about === undefined ? {} : { about }) })
     if (held.length > HELD_KEPT) held.splice(0, held.length - HELD_KEPT)
   }
   const flush = (): void => {
@@ -124,13 +126,13 @@ export function createPhoneAlerts(options: PhoneAlertsOptions) {
   }
 
   /** The one door every alert goes through. */
-  const raise = (alert: PhoneAlert): void => {
+  const raise = (alert: PhoneAlert, about?: string): void => {
     if (!options.away()) return
     const at = now()
-    if (options.quiet(new Date(at)) && !(pressing(alert.kind) && options.approvalsAtNight?.() === true)) { hold(alert, 'quiet hours'); return }
+    if (options.quiet(new Date(at)) && !(pressing(alert.kind) && options.approvalsAtNight?.() === true)) { hold(alert, 'quiet hours', about); return }
     if (!pressing(alert.kind)) {
       if (spent.day !== dayOf(at)) spent = { day: dayOf(at), count: 0 }
-      if (spent.count >= DAILY_BUDGET) { hold(alert, 'daily limit'); return }
+      if (spent.count >= DAILY_BUDGET) { hold(alert, 'daily limit', about); return }
       spent = { ...spent, count: spent.count + 1 }
     }
     waiting.push(alert)
@@ -146,11 +148,11 @@ export function createPhoneAlerts(options: PhoneAlertsOptions) {
     /** New Scout cards: one that can't wait buzzes now; one that can wait a while buzzes once if it is left untouched. */
     scoutCards: (cards: readonly { readonly cardId: string; readonly key: string; readonly urgency: 'now' | 'soon' | 'later' }[]): void => {
       for (const card of cards) {
-        if (card.urgency === 'now') raise(scoutAlert(card.key))
+        if (card.urgency === 'now') raise(scoutAlert(card.key), card.key)
         else if (card.urgency === 'soon' && options.cardOpen !== undefined && !escalations.has(card.cardId)) {
           escalations.set(card.cardId, schedule(() => {
             escalations.delete(card.cardId)
-            void options.cardOpen?.(card.cardId).then((open) => { if (open) raise(scoutAlert(card.key)) }, () => undefined)
+            void options.cardOpen?.(card.cardId).then((open) => { if (open) raise(scoutAlert(card.key), card.key) }, () => undefined)
           }, ESCALATE_MS))
         }
       }

@@ -18,7 +18,7 @@ import {
   emptyWeek,
   failedFacts,
   inQuietHours,
-  issueFacts,
+  newIssues,
   notesFrom,
   pullRequestFacts,
   reviewFacts,
@@ -46,6 +46,7 @@ import {
   type ScoutWeek,
   type WaitingCard
 } from '../shared/scout.js'
+import { lookEntry, scoutLogBrief, scoutLogFrom, withLook, type ScoutHeldAlert, type ScoutLogAside, type ScoutLogEntry, type ScoutLogWatch } from '../shared/scout-log.js'
 import { replaceFile } from './replace-file.js'
 
 /**
@@ -127,7 +128,9 @@ export interface ScoutDeps {
   /** The turns that ended since then, for the morning brief (0.816): Scout's own looks, named, are left out. */
   readonly briefFacts?: (since: string, looks: readonly string[]) => Promise<{ readonly finished: number; readonly failed: number; readonly more?: boolean }>
   /** The alerts held back from the phone since `since` (ms), for the morning brief (0.827, phone-alerts.ts). */
-  readonly heldAlerts?: (since: number) => readonly { readonly title: string; readonly why: 'quiet hours' | 'daily limit' }[]
+  readonly heldAlerts?: (since: number) => readonly ScoutHeldAlert[]
+  /** Where What Scout saw is kept (0.828, shared/scout-log.ts); in memory only when absent. */
+  readonly logFile?: string
 }
 
 /** How often a look that is waiting for the person's own turn asks again whether it has ended. */
@@ -266,6 +269,52 @@ export function createScout(deps: ScoutDeps) {
   /** A look's turn, by its mission id. */
   const pending = new Map<string, PendingLook>()
   let writing: Promise<unknown> = Promise.resolve()
+
+  /*
+   * WHAT SCOUT SAW (0.828, shared/scout-log.ts): each look as it ended, in a file of its own beside Scout's, written
+   * whole one write at a time. A log that will not parse starts again; one that cannot be read at all is not written
+   * over, and this run keeps its looks in memory.
+   */
+  let lookLog: ScoutLogEntry[] | undefined
+  let logToDisk = deps.logFile !== undefined
+  let logWriting: Promise<unknown> = Promise.resolve()
+  const loadLog = async (): Promise<ScoutLogEntry[]> => {
+    if (lookLog !== undefined) return lookLog
+    let read: ScoutLogEntry[] = []
+    if (deps.logFile !== undefined) {
+      const text = await readFile(deps.logFile, 'utf8').catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') logToDisk = false
+        return undefined
+      })
+      try { read = text === undefined ? [] : scoutLogFrom(JSON.parse(text)) } catch { read = [] }
+    }
+    lookLog ??= read
+    return lookLog
+  }
+  const logLook = (entry: ScoutLogEntry): Promise<void> => {
+    const write = logWriting.then(async () => {
+      lookLog = withLook(await loadLog(), entry, now())
+      if (!logToDisk || deps.logFile === undefined) return
+      const temporary = `${deps.logFile}.${randomBytes(6).toString('hex')}.tmp`
+      try {
+        await writeFile(temporary, `${JSON.stringify(lookLog)}
+`, { encoding: 'utf8', flag: 'wx' })
+        await replaceFile(temporary, deps.logFile)
+      } catch {
+        await rm(temporary, { force: true }).catch(() => undefined)
+      }
+    })
+    logWriting = write.catch(() => undefined)
+    return write.catch(() => undefined)
+  }
+  const offOf = (settings: ScoutSettings): ScoutLogWatch[] => [
+    ...(settings.watches.github ? [] : ['github' as const]),
+    ...(settings.watches.comments === false ? ['comments' as const] : []),
+    ...(settings.watches.teammates ? [] : ['teammates' as const]),
+    ...(settings.watches.check ? [] : ['check' as const])
+  ]
+  /** The alerts kept off the phone in the log's fourteen days, as phone-alerts.ts still holds them. */
+  const heldInLog = (): readonly ScoutHeldAlert[] => deps.heldAlerts?.(now().getTime() - 14 * 86_400_000) ?? []
 
   /*
    * WHAT SCOUT KEPT, NEVER OVERWRITTEN BECAUSE IT COULD NOT BE READ (0.823). Any failed read was an empty Scout -- off,
@@ -410,8 +459,11 @@ export function createScout(deps: ScoutDeps) {
   }
 
   /** Locust's own look: what is new since the last one, as facts. */
-  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[]; marks: Pick<Kept, 'folderMark' | 'lastCheck' | 'comments'>; githubRead: boolean; checkStale: boolean; repeated: readonly string[] }> => {
+  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[]; marks: Pick<Kept, 'folderMark' | 'lastCheck' | 'comments'>; githubRead: boolean; checkStale: boolean; repeated: readonly string[]; aside: readonly ScoutLogAside[] }> => {
     const facts: ScoutFact[] = []
+    /** Found and not raised, and why: for What Scout saw (0.828). */
+    const aside: ScoutLogAside[] = []
+    const seen = new Set(from.seen)
     let prs = from.prs
     /** Whether this look read GitHub, and whether the folder moved past a check it did not run: for the brief (0.823). */
     let githubRead = false
@@ -451,7 +503,9 @@ export function createScout(deps: ScoutDeps) {
         facts.push(...pullRequestFacts(new Map(from.prs.map((pr) => [pr.url, pr] as const)), github.prs, lookStamp, now()))
         facts.push(...reviewFacts(github.reviews))
         if (github.branch !== undefined) facts.push(...branchFacts(github.branch.name, github.branch.runs))
-        facts.push(...issueFacts(github.issues ?? [], now()))
+        const issues = newIssues(github.issues ?? [], now(), seen)
+        facts.push(...issues.facts)
+        aside.push(...issues.more.map((fact) => ({ key: fact.key, said: fact.said, why: 'many' as const })))
         prs = github.prs
       }
     }
@@ -461,10 +515,10 @@ export function createScout(deps: ScoutDeps) {
     } else {
       failedSince.splice(0)
     }
-    const seen = new Set(from.seen)
     // Found again, and told already: set aside, and counted for the brief (0.827).
     const repeated = [...new Set(facts.filter((fact) => seen.has(fact.key)).map((fact) => fact.key))]
-    return { facts: facts.filter((fact, index) => !seen.has(fact.key) && facts.findIndex((other) => other.key === fact.key) === index), prs, marks, githubRead, checkStale, repeated }
+    for (const key of repeated) aside.push({ key, said: facts.find((fact) => fact.key === key)!.said, why: 'told' })
+    return { facts: facts.filter((fact, index) => !seen.has(fact.key) && facts.findIndex((other) => other.key === fact.key) === index), prs, marks, githubRead, checkStale, repeated, aside }
   }
 
   /** The morning brief's fact (0.816): who waits, what ran since the last brief, the check, pull requests, the cards. */
@@ -526,7 +580,10 @@ export function createScout(deps: ScoutDeps) {
   const look = async (scheduled = false): Promise<ScoutState> => {
     const from = await load()
     if (looking || !from.settings.on || from.settings.teammateId === undefined) return stateOf(from)
-    if (scheduled && inQuietHours(from.settings.quiet, now())) return stateOf(from)
+    if (scheduled && inQuietHours(from.settings.quiet, now())) {
+      await logLook(lookEntry({ at: now(), skipped: 'quiet hours' }))
+      return stateOf(from)
+    }
     looking = true
     try {
       const teammateId = from.settings.teammateId
@@ -538,7 +595,11 @@ export function createScout(deps: ScoutDeps) {
       }
       const at = now()
       const stamp = at.toISOString()
-      const { facts: found, prs, marks, githubRead, checkStale, repeated } = await gather(from, stamp)
+      const { facts: found, prs, marks, githubRead, checkStale, repeated, aside } = await gather(from, stamp)
+      // What this look raised, set aside and did not read, for What Scout saw (0.828).
+      const logged = (raised: readonly ScoutFact[]): Promise<void> => logLook(lookEntry({
+        at, raised: raised.map((fact) => ({ key: fact.key, said: fact.said })), aside, off: offOf(from.settings), githubUnread: from.settings.watches.github && !githubRead
+      }))
       const tallied = (was: SinceBrief | undefined): SinceBrief => lookTallied(was, { githubMissed: from.settings.watches.github && !githubRead, raised: found, repeated })
       // Off, or quiet hours begun, while it gathered: nothing is kept, so the next look finds all of it again.
       if (!stillLooking(scheduled)) return stateOf(kept ?? from)
@@ -569,7 +630,11 @@ export function createScout(deps: ScoutDeps) {
       const briefed = briefDue ? { lastBriefDay: day, lastBriefAt: stamp } : {}
       // A brief counts this look in; the next one counts from here (0.827).
       const sinceBrief = (latest: Kept): SinceBrief => (briefDue ? NO_LOOKS : tallied(latest.sinceBrief))
-      if (facts.length === 0) return await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks'), week: weekCounted(weekOf(latest), at, 'looks'), sinceBrief: sinceBrief(latest) }))
+      if (facts.length === 0) {
+        const quiet = await mutate((latest) => ({ ...latest, ...marks, prs, lastLookAt: stamp, today: counted(latest.today, at, 'looks'), week: weekCounted(weekOf(latest), at, 'looks'), sinceBrief: sinceBrief(latest) }))
+        await logged([])
+        return quiet
+      }
       const team = (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== teammateId)
       /*
        * Locust's own counts and good news are not put to Scout's model. The weekly tune-up (0.817): the first packaged
@@ -598,6 +663,7 @@ export function createScout(deps: ScoutDeps) {
         week: weekRaised(weekCounted(weekOf(latest), at, 'looks'), facts),
         sinceBrief: sinceBrief(latest)
       }))
+      await logged(facts)
       // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815). Quiet hours as they
       // are now, not as the look began (0.823): a look begun at 9:59 told Windows at 10:04.
       if (state.settings.notify && state.settings.on && !inQuietHours(state.settings.quiet, now())) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
@@ -777,6 +843,12 @@ export function createScout(deps: ScoutDeps) {
       return mutate((latest) => ({ ...latest, cards: latest.cards.map((card) => card.cardId === cardId ? { ...card, urgency: 'later', post: { ...post, attempted: true, ...result } } : card) }))
     },
     state: async (): Promise<ScoutState> => stateOf(await load()),
+    /** What Scout saw (0.828): its looks of the last fourteen days, oldest first, and the alerts kept off the phone. */
+    log: async (): Promise<{ readonly entries: readonly ScoutLogEntry[]; readonly held: readonly ScoutHeldAlert[] }> => ({ entries: [...(await loadLog())], held: heldInLog() }),
+    /** What a question to Scout in its own conversation is given to answer from (0.828). */
+    whyBrief: async (): Promise<string> => scoutLogBrief(await loadLog(), heldInLog(), now()),
+    /** Scout's own teammate, whose conversation is answered from the log. */
+    teammateId: async (): Promise<string | undefined> => (await load()).settings.teammateId,
     /** Picks up where the last launch left off: on, it looks again shortly and on its timer after. */
     async start(firstLookMs = 30_000): Promise<void> {
       const from = await load()
