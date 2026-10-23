@@ -7,6 +7,8 @@ import { privateMcpFile } from './locust-mcp-host.js'
 import { answerPhone, MAX_BODY, type PhoneCalls } from './phone-host.js'
 import { aadOf, deviceIdOf, importPrivateKey, linkKeys, newPcKeys, open, pairingProof, pairingToken, randomText, seal, sha256, type CryptoKey, type JsonWebKey, type LinkKeys } from './relay-crypto.js'
 import { replaceFile } from './replace-file.js'
+import type { PhoneAlert } from './phone-alerts.js'
+import { encryptPush, type PushSubscriptionKeys } from './web-push.js'
 
 /*
  * YOUR PHONE, FROM ANYWHERE (0.826). The phone page (0.775) reaches Locust only on the home network. This reaches it
@@ -40,6 +42,17 @@ interface SavedDevice {
   readonly seen?: number
   /** The last request number taken from it: one not above it is a copy, and dropped. */
   readonly seq: number
+  /** Where its alerts go, once the phone turned them on (0.827): its browser's push subscription. */
+  readonly push?: PushSubscriptionKeys
+}
+
+/** A push subscription as the phone sends it: an https address and the browser's two keys. */
+const pushOf = (value: unknown): PushSubscriptionKeys | undefined => {
+  if (typeof value !== 'object' || value === null) return undefined
+  const said = value as Record<string, unknown>
+  if (typeof said.endpoint !== 'string' || !/^https:\/\/[^\s]+$/.test(said.endpoint) || said.endpoint.length > 1024) return undefined
+  if (typeof said.p256dh !== 'string' || !/^[A-Za-z0-9_-]{87}$/.test(said.p256dh) || typeof said.auth !== 'string' || !/^[A-Za-z0-9_-]{22}$/.test(said.auth)) return undefined
+  return { endpoint: said.endpoint, p256dh: said.p256dh, auth: said.auth }
 }
 
 interface Saved {
@@ -51,6 +64,8 @@ interface Saved {
   readonly key: JsonWebKey
   readonly publicKey: string
   readonly devices: readonly SavedDevice[]
+  /** Whether approvals and questions buzz a phone in quiet hours (0.827). */
+  readonly nightApprovals?: boolean
 }
 
 /** The part of a WebSocket this uses, so a test can stand an in-memory relay in its place. */
@@ -129,7 +144,8 @@ export function createPhoneAnywhere(options: {
   let disposed = false
   let queue: Promise<unknown> = Promise.resolve()
   let commandId = 0
-  const commands = new Map<string, (ok: boolean) => void>()
+  /** A command's answer: true when done, the relay's error code when not, false when it never answered. */
+  const commands = new Map<string, (ok: true | string | false) => void>()
   const lines = new Map<string, Promise<void>>()
   /** Work a frame started that may still write: waited for before Locust lets go. */
   const inFlight = new Set<Promise<unknown>>()
@@ -153,9 +169,11 @@ export function createPhoneAnywhere(options: {
         name: device.name,
         added: new Date(device.added).toISOString(),
         ...(device.seen === undefined ? {} : { seen: new Date(device.seen).toISOString() }),
-        online: online.has(device.id)
+        online: online.has(device.id),
+        alerts: device.push !== undefined
       })),
-      ...(note === undefined ? {} : { message: note })
+      ...(note === undefined ? {} : { message: note }),
+      ...(saved?.nightApprovals === true ? { nightApprovals: true } : {})
     }
   }
   const tell = (): void => { if (!disposed) options.changed?.(settings()) }
@@ -196,7 +214,8 @@ export function createPhoneAnywhere(options: {
     try { socket.send(JSON.stringify(frame)); return true } catch { return false }
   }
   /** A command to the relay, answered by its 'done' (true) or its error (false). */
-  const command = (frame: Record<string, unknown>): Promise<boolean> => new Promise((resolve) => {
+  const command = (frame: Record<string, unknown>): Promise<boolean> => answerOf(frame).then((answer) => answer === true)
+  const answerOf = (frame: Record<string, unknown>): Promise<true | string | false> => new Promise((resolve) => {
     commandId += 1
     const id = `c${String(commandId)}`
     const timer = setTimeout(() => { commands.delete(id); resolve(false) }, COMMAND_MS)
@@ -286,6 +305,16 @@ export function createPhoneAnywhere(options: {
       if (refused !== undefined) return { status: 403, data: { message: refused } }
       if (Math.abs(asked.t - now()) > MAX_SKEW_MS) return { status: 400, data: { message: 'This phone’s clock is too far from this computer’s. Check the time on both.' } }
       if (asked.body !== undefined && JSON.stringify(asked.body).length > MAX_BODY) return { status: 400, data: { message: 'That message could not be read.' } }
+      // Alerts are this way's own (0.827): the phone turns them on with its push subscription, or off.
+      if (asked.path === '/api/alerts' && asked.body !== undefined) {
+        const off = (asked.body as Record<string, unknown>).off === true
+        const push = off ? undefined : pushOf(asked.body)
+        if (!off && push === undefined) return { status: 400, data: { message: 'That alert sign-up could not be read.' } }
+        updateDevice(device, (other) => { const { push: _old, ...rest } = other; return push === undefined ? rest : { ...rest, push } })
+        await persist().catch(() => undefined)
+        tell()
+        return { status: 200, data: { ok: true } }
+      }
       try {
         return await answerPhone(options.calls, asked.body === undefined ? 'GET' : 'POST', asked.path, asked.body) ?? { status: 404, data: { message: 'Locust does not know that request.' } }
       } catch {
@@ -313,7 +342,7 @@ export function createPhoneAnywhere(options: {
     }
     if (frame.t === 'done' && typeof frame.id === 'string') { commands.get(frame.id)?.(true); return }
     if (frame.t === 'err') {
-      if (typeof frame.id === 'string' && commands.has(frame.id)) { commands.get(frame.id)?.(false); return }
+      if (typeof frame.id === 'string' && commands.has(frame.id)) { commands.get(frame.id)?.(typeof frame.code === 'string' ? frame.code : false); return }
       if (!connected && frame.code === 'auth') {
         // Someone else's token is on this room: it is not this PC's any more. Starting over makes a new one.
         refusedByRelay = true
@@ -459,6 +488,37 @@ export function createPhoneAnywhere(options: {
     newCode: () => serial(async () => {
       if (disposed || saved === undefined) return settings()
       await newCode()
+      return settings()
+    }),
+
+    /**
+     * One buzz, to every paired phone that turned alerts on and is not open right now (an open page shows it itself).
+     * Sealed here for each phone's browser; the relay only signs and posts it. A phone whose push service says its
+     * subscription is gone stops being sent to.
+     */
+    alert: async (alert: PhoneAlert): Promise<number> => {
+      const held = saved
+      if (held === undefined || !connected || options.refusal?.() !== undefined) return 0
+      let sent = 0
+      for (const device of held.devices) {
+        if (device.push === undefined || online.has(device.id)) continue
+        const body = Buffer.from(await encryptPush(device.push, JSON.stringify({ title: alert.title, body: alert.body, tag: alert.tag }))).toString('base64url')
+        const answer = await answerOf({ t: 'push', endpoint: device.push.endpoint, body, urgency: alert.kind === 'approval' || alert.kind === 'question' ? 'high' : 'normal' })
+        if (answer === true) sent += 1
+        else if (answer === 'push-gone') {
+          updateDevice(device.id, (other) => { const { push: _gone, ...rest } = other; return rest })
+          await persist().catch(() => undefined)
+          tell()
+        }
+      }
+      return sent
+    },
+
+    setNightApprovals: (on: unknown) => serial(async () => {
+      if (disposed || saved === undefined || typeof on !== 'boolean') return settings()
+      const { nightApprovals: _was, ...rest } = saved
+      saved = on ? { ...rest, nightApprovals: true } : rest
+      await persist().catch(() => { message = 'That setting could not be saved. It lasts until Locust closes.' })
       return settings()
     }),
 

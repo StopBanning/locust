@@ -1,4 +1,21 @@
 import { roomCore, type Attachment, type Peer } from './room-core.js'
+import { vapidAuthorization, type VapidKeys } from './vapid.js'
+
+/** What the Worker is given: the push signing key is a Cloudflare secret, set with `wrangler secret put`. */
+export interface RoomEnv {
+  readonly VAPID_PRIVATE_JWK?: string
+  readonly VAPID_PUBLIC_KEY?: string
+}
+
+/** The relay's push key, or undefined when this copy of the relay has none (then alerts are off). */
+export function vapidKeysOf(env: RoomEnv): VapidKeys | undefined {
+  if (env.VAPID_PRIVATE_JWK === undefined || env.VAPID_PUBLIC_KEY === undefined) return undefined
+  try {
+    return { privateJwk: JSON.parse(env.VAPID_PRIVATE_JWK) as JsonWebKey, publicKey: env.VAPID_PUBLIC_KEY, subject: 'https://locust.lol' }
+  } catch {
+    return undefined
+  }
+}
 
 const base64url = (bytes: Uint8Array): string => {
   let text = ''
@@ -16,7 +33,8 @@ export class Room {
   /** One Peer per connection for as long as this object is awake, so two lookups of a connection are the same Peer. */
   private readonly peers = new WeakMap<WebSocket, Peer>()
 
-  constructor(private readonly state: DurableObjectState, _env: unknown) {
+  constructor(private readonly state: DurableObjectState, env: RoomEnv) {
+    const vapid = vapidKeysOf(env)
     state.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'))
     this.core = roomCore({
       store: {
@@ -28,7 +46,17 @@ export class Room {
       now: () => Date.now(),
       setAlarm: (at) => state.storage.setAlarm(at),
       random: (bytes) => base64url(crypto.getRandomValues(new Uint8Array(bytes))),
-      sha256: async (text) => base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))))
+      sha256: async (text) => base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))),
+      push: async (endpoint, body, urgency) => {
+        if (vapid === undefined) return undefined
+        const bytes = Uint8Array.from(atob(body.replaceAll('-', '+').replaceAll('_', '/')), (character) => character.charCodeAt(0))
+        const answer = await fetch(endpoint, {
+          method: 'POST',
+          headers: { authorization: await vapidAuthorization(endpoint, vapid, Date.now()), 'content-encoding': 'aes128gcm', 'content-type': 'application/octet-stream', ttl: '86400', urgency },
+          body: bytes
+        })
+        return answer.status
+      }
     })
   }
 

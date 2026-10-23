@@ -40,6 +40,7 @@ export const PHONE_SET_MODE_CHANNEL = 'phone:set-mode'
 export const PHONE_NEW_CODE_CHANNEL = 'phone:new-code'
 export const PHONE_REMOVE_CHANNEL = 'phone:remove'
 export const PHONE_ANYWHERE_CHANGED_CHANNEL = 'phone:anywhere-changed'
+export const PHONE_NIGHT_CHANNEL = 'phone:night-approvals'
 
 /** How a phone reaches Locust: not at all, from anywhere through the relay, or on this Wi-Fi only. */
 export type PhoneMode = 'off' | 'anywhere' | 'wifi'
@@ -52,6 +53,8 @@ export interface PhoneAnywhereDevice {
   readonly added: string
   readonly seen?: string
   readonly online: boolean
+  /** Whether this phone turned alerts on (0.827). */
+  readonly alerts?: boolean
 }
 
 export interface PhoneAnywhereSettings {
@@ -63,6 +66,8 @@ export interface PhoneAnywhereSettings {
   readonly devices: readonly PhoneAnywhereDevice[]
   /** Why the last change did not happen, or why it is not connected, in plain words. */
   readonly message?: string
+  /** Whether approvals and questions buzz a phone in quiet hours (0.827); off unless the person turns it on. */
+  readonly nightApprovals?: boolean
 }
 
 export interface PhoneModeState {
@@ -81,6 +86,8 @@ export interface PhoneApi {
   /** A code for the next phone, from anywhere: the one before it stops working. */
   newCode(): Promise<PhoneAnywhereSettings>
   remove(device: string): Promise<PhoneAnywhereSettings>
+  /** Whether approvals and questions buzz a phone in quiet hours. */
+  setNightApprovals(on: boolean): Promise<PhoneAnywhereSettings>
   /** Called when a phone pairs, comes and goes, or the connection to the relay changes. */
   onAnywhereChanged(callback: (settings: PhoneAnywhereSettings) => void): () => void
 }

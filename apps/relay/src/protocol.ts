@@ -42,6 +42,19 @@ export type ClientFrame =
   | { readonly t: 'pair-open'; readonly hash: string; readonly until: number; readonly id?: string }
   | { readonly t: 'pair-close'; readonly id?: string }
   | { readonly t: 'reset'; readonly id?: string }
+  | { readonly t: 'push'; readonly endpoint: string; readonly body: string; readonly urgency: 'normal' | 'high'; readonly id?: string }
+
+/** Where a browser's subscription may point. The relay posts to nothing else. */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /^push\.services\.mozilla\.com$/, /^web\.push\.apple\.com$/, /^[a-z0-9-]+\.notify\.windows\.com$/]
+
+export function isPushEndpoint(endpoint: string): boolean {
+  let url: URL
+  try { url = new URL(endpoint) } catch { return false }
+  return url.protocol === 'https:' && url.port === '' && url.username === '' && PUSH_HOSTS.some((host) => host.test(url.hostname))
+}
+
+/** A push's sealed body, at most one 4 KiB record (RFC 8291), base64url. */
+const PUSH_BODY = /^[A-Za-z0-9_-]{120,5462}$/
 
 export type ErrorCode =
   /** The token was wrong, or the device is not paired (any more). */
@@ -61,6 +74,12 @@ export type ErrorCode =
   | 'not-owner'
   /** The room has as many devices as it may. */
   | 'full'
+  /** The push service refused the alert, or could not be reached. */
+  | 'push-failed'
+  /** The push service says the phone's subscription is gone: stop sending to it. */
+  | 'push-gone'
+  /** This relay has no key to sign pushes with. */
+  | 'push-off'
 
 export type RelayFrame =
   | { readonly t: 'ok'; readonly as: 'pc'; readonly devices: readonly string[] }
@@ -68,7 +87,7 @@ export type RelayFrame =
   | { readonly t: 'msg'; readonly from: Address; readonly n: string; readonly c: string; readonly k?: string }
   | { readonly t: 'presence'; readonly pc: boolean }
   | { readonly t: 'presence'; readonly device: string; readonly on: boolean }
-  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset'; readonly id?: string }
+  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push'; readonly id?: string }
   | { readonly t: 'removed' }
   | { readonly t: 'err'; readonly code: ErrorCode; readonly id?: string }
 
@@ -118,6 +137,10 @@ export function parseClientFrame(text: string): ClientFrame | undefined {
     case 'reset':
       if (id === undefined || !only('t', 'id')) return undefined
       return { t: 'reset', ...id }
+    case 'push':
+      if (id === undefined || !only('t', 'endpoint', 'body', 'urgency', 'id') || typeof fields.endpoint !== 'string' || fields.endpoint.length > 1024
+        || typeof fields.body !== 'string' || !PUSH_BODY.test(fields.body) || (fields.urgency !== 'normal' && fields.urgency !== 'high')) return undefined
+      return { t: 'push', endpoint: fields.endpoint, body: fields.body, urgency: fields.urgency, ...id }
     default:
       return undefined
   }

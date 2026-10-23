@@ -24016,6 +24016,8 @@ textarea.lc-compare__judgecriteria {
 .lc-phone__who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .lc-phone__name { font-size: var(--lc-text-control); color: var(--lc-text-primary); }
 .lc-phone__state { font-size: var(--lc-text-description); color: var(--lc-text-muted); }
+/* Approvals in quiet hours (0.827): its own line under the paired phones. */
+.lc-phone__night { margin-top: var(--lc-space-3); }
 
 /* The person's terminals keep their screens while this panel is hidden. */
 .lc-terminal[hidden], .lc-terminal__screen[hidden] { display: none; }

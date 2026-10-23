@@ -104,6 +104,8 @@ export interface ScoutDeps {
   readonly changed: (state: ScoutState) => void
   /** A card that needs the person now, while Locust is out of sight. */
   readonly notify: (card: ScoutCard) => void
+  /** Every new card, whatever its urgency or the hours: the phone's alerts keep rules of their own (phone-alerts.ts, 0.827). */
+  readonly raised?: (cards: readonly ScoutCard[]) => void
   /** How long a look's turn may take before its cards stop waiting on it. */
   readonly answerWaitMs?: number
   readonly schedule?: (task: () => void, ms: number) => unknown
@@ -538,6 +540,7 @@ export function createScout(deps: ScoutDeps) {
       // Nothing in Windows in quiet hours, even from a look asked for: the cards wait on Home (0.815). Quiet hours as they
       // are now, not as the look began (0.823): a look begun at 9:59 told Windows at 10:04.
       if (state.settings.notify && state.settings.on && !inQuietHours(state.settings.quiet, now())) for (const card of cards) if (card.urgency === 'now') deps.notify(card)
+      if (state.settings.on && cards.length > 0) deps.raised?.(cards)
       // Then Scout's model, for its take and the next step.
       const asked = cards.filter(forModel)
       if (asked.length === 0) return state

@@ -284,6 +284,12 @@ reads of your folder stays on this machine.
   and has the relay delete its room. The relay's code is in this repository
   (`apps/relay`), so anyone can run their own and start Locust with
   `LOCUST_RELAY` set to its address.
+  With alerts turned on, on the phone, an alert goes from your computer
+  through the relay to that phone's browser push service (Apple's, Google's,
+  Mozilla's or Microsoft's), encrypted on your computer for that browser alone
+  (the Web Push standard, RFC 8291). The relay signs it and passes it on, and
+  posts to no other address; neither it nor the push service can read it. The
+  alert says who and what kind, never a command or a message's words.
 - **The spellchecker downloads no dictionary.**
 - **Memory recall** runs a small model that ships with Locust.
 - **A report reaches Locust's makers only when you send it.** Send feedback,

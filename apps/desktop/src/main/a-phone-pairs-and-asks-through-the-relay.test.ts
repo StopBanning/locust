@@ -35,7 +35,7 @@ class MemoryLine implements RelaySocket {
 }
 
 /** One room of the relay, in memory: frames are taken one at a time, as Cloudflare gives them to a room. */
-function memoryRelay() {
+function memoryRelay(pushed?: (endpoint: string, body: string) => number) {
   const stored = new Map<string, unknown>()
   const peers = new Map<MemoryLine, MemoryPeer>()
   let work: Promise<unknown> = Promise.resolve()
@@ -50,7 +50,8 @@ function memoryRelay() {
     now: () => Date.now(),
     setAlarm: async () => undefined,
     random: (bytes) => randomBytes(bytes).toString('base64url'),
-    sha256: async (text) => createHash('sha256').update(text, 'utf8').digest('base64url')
+    sha256: async (text) => createHash('sha256').update(text, 'utf8').digest('base64url'),
+    ...(pushed === undefined ? {} : { push: async (endpoint: string, body: string) => pushed(endpoint, body) })
   })
   /** The relay lets a connection go: the other side hears it close. */
   const hangUp = (line: MemoryLine): void => {
@@ -185,6 +186,28 @@ async function aPc(relay: ReturnType<typeof memoryRelay>, calls = fakeCalls(), d
   return { pc, calls, folder }
 }
 
+/** What the phone's browser does with a push: opens it with its own key (RFC 8291), as Chrome or Safari would. */
+async function openPush(body: Buffer, receiver: CryptoKeyPair, auth: Uint8Array): Promise<unknown> {
+  const subtle = globalThis.crypto.subtle
+  const salt = body.subarray(0, 16)
+  const keyLength = body[20]!
+  const senderRaw = body.subarray(21, 21 + keyLength)
+  const sealed = body.subarray(21 + keyLength)
+  const receiverRaw = new Uint8Array(await subtle.exportKey('raw', receiver.publicKey))
+  const sender = await subtle.importKey('raw', senderRaw, { name: 'ECDH', namedCurve: 'P-256' }, false, [])
+  const shared = new Uint8Array(await subtle.deriveBits({ name: 'ECDH', public: sender }, receiver.privateKey, 256))
+  const hkdf = async (saltBytes: Uint8Array, ikm: Uint8Array, info: Uint8Array, bytes: number): Promise<Uint8Array> =>
+    new Uint8Array(await subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: saltBytes, info }, await subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']), bytes * 8))
+  const text = new TextEncoder()
+  const ikm = await hkdf(auth, shared, Buffer.concat([text.encode('WebPush: info\0'), receiverRaw, senderRaw]), 32)
+  const cek = await hkdf(salt, ikm, text.encode('Content-Encoding: aes128gcm\0'), 16)
+  const nonce = await hkdf(salt, ikm, text.encode('Content-Encoding: nonce\0'), 12)
+  const plain = new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: nonce }, await subtle.importKey('raw', cek, 'AES-GCM', false, ['decrypt']), sealed))
+  // The last byte is the record's delimiter, 2.
+  expect(plain.at(-1)).toBe(2)
+  return JSON.parse(new TextDecoder().decode(plain.subarray(0, -1)))
+}
+
 describe('a phone pairs and asks through the relay', () => {
   it('pairs a phone by its code, then answers what the page asks and does what it may', async () => {
     const relay = memoryRelay()
@@ -211,6 +234,46 @@ describe('a phone pairs and asks through the relay', () => {
     expect((await device.ask('/api/send', { missionId: 'm1', text: 'Carry on' })).said).toMatchObject({ status: 200, data: { ok: true } })
     expect(calls.send).toHaveBeenCalledWith('m1', 'Carry on')
     expect((await device.ask('/api/anything-else')).said).toMatchObject({ status: 404 })
+    await pc.dispose()
+  })
+
+  it('sends an alert, sealed for that phone\'s browser alone, only to a phone that turned alerts on and is not open', async () => {
+    const posted: { endpoint: string; body: string }[] = []
+    let answer = 201
+    const relay = memoryRelay((endpoint, body) => { posted.push({ endpoint, body }); return answer })
+    const { pc } = await aPc(relay)
+    const on = await pc.setEnabled(true)
+    await until(async () => (await pc.settings()).connected)
+    const phone = await pairPhone(relay, on.code!.url)
+    const device = await phoneLine(relay, phone)
+
+    // The browser's own push keys, as its subscription carries them.
+    const receiver = await globalThis.crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as unknown as CryptoKeyPair
+    const auth = new Uint8Array(randomBytes(16))
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/phone-1'
+    const subscribed = await device.ask('/api/alerts', { endpoint, p256dh: toBase64url(new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', receiver.publicKey))), auth: toBase64url(auth) })
+    expect(subscribed.said).toMatchObject({ status: 200, data: { ok: true } })
+    await until(async () => (await pc.settings()).devices[0]?.alerts === true)
+
+    // Open on the phone: the page shows it itself, so nothing is pushed.
+    expect(await pc.alert({ kind: 'approval', title: 'Mira needs your approval', body: 'The turn is paused until you answer.', tag: 'waiting' })).toBe(0)
+    expect(posted).toEqual([])
+
+    device.line.close()
+    await until(async () => !(await pc.settings()).devices[0]?.online)
+    expect(await pc.alert({ kind: 'approval', title: 'Mira needs your approval', body: 'The turn is paused until you answer.', tag: 'waiting' })).toBe(1)
+    expect(posted.map((one) => one.endpoint)).toEqual([endpoint])
+    const body = Buffer.from(posted[0]!.body, 'base64url')
+    // Nothing of what it says travels in the clear.
+    expect(body.toString('latin1')).not.toContain('Mira')
+    expect(await openPush(body, receiver, auth)).toEqual({ title: 'Mira needs your approval', body: 'The turn is paused until you answer.', tag: 'waiting' })
+
+    // The push service says the subscription is gone: the phone is sent nothing more until it signs up again.
+    answer = 410
+    expect(await pc.alert({ kind: 'scout', title: 'Scout', body: 'The folder’s check fails.', tag: 'scout:check' })).toBe(0)
+    await until(async () => (await pc.settings()).devices[0]?.alerts !== true)
+    expect(await pc.alert({ kind: 'scout', title: 'Scout', body: 'The folder’s check fails.', tag: 'scout:check' })).toBe(0)
+    expect(posted).toHaveLength(2)
     await pc.dispose()
   })
 

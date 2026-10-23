@@ -55,6 +55,8 @@ form.compose button { min-width: 72px; border-radius: 12px; border: 0; backgroun
 .pair { padding: 48px 24px; display: grid; gap: 12px; text-align: center; }
 .pair strong { font-size: 18px; }
 .pair .said { color: var(--soft); font-size: 15px; }
+.alerts { display: grid; gap: 10px; }
+.alerts h2 { margin: 0; }
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); background: var(--raised-2);
   border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
 :focus-visible { outline: 2px solid var(--soft); outline-offset: 2px; }
@@ -318,8 +320,8 @@ const RELAY = `
       ws.onmessage = function (event) {
         var frame;
         try { frame = JSON.parse(event.data); } catch (e) { return; }
-        if (frame.t === 'ok') { ready = true; retry = 0; pcOn = !!frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); return; }
-        if (frame.t === 'presence' && typeof frame.pc === 'boolean') { pcOn = frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); return; }
+        if (frame.t === 'ok') { ready = true; retry = 0; pcOn = !!frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) refreshAlerts(); return; }
+        if (frame.t === 'presence' && typeof frame.pc === 'boolean') { pcOn = frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) refreshAlerts(); return; }
         if (frame.t === 'removed') { unpair('Locust removed this phone. Scan a new code in Locust to pair it again.'); return; }
         if (frame.t === 'err' && (frame.code === 'auth' || frame.code === 'room')) { unpair('This phone is no longer paired. Scan a new code in Locust to pair it again.'); return; }
         if (frame.t === 'err') {
@@ -342,7 +344,35 @@ const RELAY = `
       pingTimer = setInterval(function () { if (socket === ws && ws.readyState === 1) ws.send('ping'); }, 25000);
     }
 
-    return {
+    /*
+     * ALERTS (0.827). The browser's push service brings an alert this page's PC sealed for it, through the relay; the
+     * service worker (PHONE_SERVICE_WORKER) shows it. An iPhone shows web alerts only from the Home Screen.
+     */
+    var alertsOn = false, alertsBusy = false, alertsChecked = false;
+    function pushable() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+    function onHomeScreen() { return navigator.standalone === true || (!!window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }
+    function rememberAlerts(on) { try { if (on) localStorage.setItem('locust-alerts', '1'); else localStorage.removeItem('locust-alerts'); } catch (e) {} }
+    function wantedAlerts() { try { return localStorage.getItem('locust-alerts') === '1'; } catch (e) { return false; } }
+    function signUp(sub) {
+      var json = sub.toJSON();
+      return self.api('/api/alerts', { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
+    }
+    // Each time the page opens and reaches Locust: a sign-up the browser dropped (an iPhone's can lapse) is made again.
+    function refreshAlerts() {
+      if (alertsChecked || !ALERTS_KEY || !pushable() || Notification.permission !== 'granted') return;
+      alertsChecked = true;
+      navigator.serviceWorker.ready.then(function (reg) {
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (sub) return sub;
+          return wantedAlerts() ? reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: lock.unb64(ALERTS_KEY) }) : null;
+        });
+      }).then(function (sub) {
+        if (!sub) return;
+        return signUp(sub).then(function () { alertsOn = true; rememberAlerts(true); changed(); });
+      }).catch(function () { alertsChecked = false; });
+    }
+
+    var self = {
       paired: function () { return link !== null; },
       pairNote: function () { return loaded ? note : 'Opening…'; },
       problem: function () { return link ? trouble : ''; },
@@ -386,8 +416,31 @@ const RELAY = `
         // A new code opened in this same tab changes only the #fragment, which reloads nothing.
         window.addEventListener('hashchange', function () { var next = readCode(); if (next) pair(next); });
         document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && link && !socket) connect(); });
+        if (ALERTS_KEY && pushable()) navigator.serviceWorker.register('/sw.js').catch(function () {});
+      },
+      alerts: function () {
+        if (!ALERTS_KEY || !link) return 'none';
+        if (!pushable()) return /iPhone|iPad/.test(navigator.userAgent || '') && !onHomeScreen() ? 'home-screen' : 'none';
+        if (Notification.permission === 'denied') return 'denied';
+        return alertsBusy ? 'busy' : alertsOn ? 'on' : 'off';
+      },
+      setAlerts: function (on) {
+        if (alertsBusy) return Promise.resolve();
+        alertsBusy = true; changed();
+        var work = on
+          ? Notification.requestPermission().then(function (permission) {
+              if (permission !== 'granted') throw new Error(permission === 'denied' ? 'Alerts are blocked for this page in your browser’s settings.' : 'Alerts stay off until you allow them.');
+              return navigator.serviceWorker.ready;
+            }).then(function (reg) {
+              return reg.pushManager.getSubscription().then(function (sub) { return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: lock.unb64(ALERTS_KEY) }); });
+            }).then(signUp).then(function () { alertsOn = true; rememberAlerts(true); })
+          : navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+              return sub ? sub.unsubscribe() : true;
+            }).then(function () { return self.api('/api/alerts', { off: true }); }).then(function () { alertsOn = false; rememberAlerts(false); });
+        return work.then(function () { alertsBusy = false; changed(); }, function (error) { alertsBusy = false; changed(); throw error; });
       }
     };
+    return self;
   })();
 `
 
@@ -488,9 +541,27 @@ const UI = `
         convos.append(list);
       }
       main.append(convos);
+      var alerts = alertsSection();
+      if (alerts) main.append(alerts);
     }
     parts.push(main);
     root.replaceChildren.apply(root, parts);
+  }
+  function alertsSection() {
+    var state = transport.alerts ? transport.alerts() : 'none';
+    if (state === 'none') return null;
+    var words = state === 'on' ? 'On. This phone buzzes when something needs you while you are away from your computer.'
+      : state === 'off' ? 'Get a buzz when something needs you while you are away from your computer.'
+      : state === 'busy' ? 'One moment…'
+      : state === 'denied' ? 'Alerts are blocked for this page in your browser’s settings.'
+      : 'To get alerts on this phone, add Locust to your Home Screen: tap Share, then Add to Home Screen, and open it from there.';
+    var parts = [el('h2', { text: 'Alerts' }), el('div', { class: 'note', text: words })];
+    if (state === 'on' || state === 'off') {
+      parts.push(el('div', { class: 'row' }, [el('button', { class: 'act ' + (state === 'off' ? 'yes' : 'no'), type: 'button', text: state === 'off' ? 'Turn on alerts' : 'Turn off alerts', on: { click: function () {
+        transport.setAlerts(state === 'off').then(function () { toast(state === 'off' ? 'Alerts are on.' : 'Alerts are off.'); }, function (e) { toast(e.message); });
+      } } })]));
+    }
+    return el('section', { class: 'alerts' }, parts);
   }
   var turns = null;
   function threadScreen() {
@@ -561,9 +632,15 @@ const UI = `
   });
 `
 
-/** The page: on the home network (`lan`, served by the PC) or from Locust's relay (`relay`). */
-export function phonePage(options: { readonly via?: 'lan' | 'relay' } = {}): string {
-  const script = options.via === 'relay' ? `(function () {${RELAY_LOCK}${RELAY}${UI}})();` : `(function () {${LAN}${UI}})();`
+/**
+ * The page: on the home network (`lan`, served by the PC) or from Locust's relay (`relay`). From the relay it can be a
+ * home-screen app with alerts (0.827), given the public half of the key the relay signs pushes with.
+ */
+export function phonePage(options: { readonly via?: 'lan' | 'relay'; readonly alertsKey?: string } = {}): string {
+  const relay = options.via === 'relay'
+  const alertsKey = relay && options.alertsKey !== undefined && /^[A-Za-z0-9_-]{87}$/.test(options.alertsKey) ? options.alertsKey : ''
+  const script = relay ? `(function () {var ALERTS_KEY = '${alertsKey}';${RELAY_LOCK}${RELAY}${UI}})();` : `(function () {${LAN}${UI}})();`
+  const app = relay ? '\n<link rel="manifest" href="/manifest.webmanifest">\n<link rel="apple-touch-icon" href="/icon-256.png">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="Locust">' : ''
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -571,7 +648,7 @@ export function phonePage(options: { readonly via?: 'lan' | 'relay' } = {}): str
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0d0e">
 <meta name="referrer" content="no-referrer">
-<title>Locust</title>
+<title>Locust</title>${app}
 <style>${STYLE}</style>
 </head>
 <body>
@@ -579,4 +656,39 @@ export function phonePage(options: { readonly via?: 'lan' | 'relay' } = {}): str
 <script>${script}</script>
 </body>
 </html>`
+}
+
+/**
+ * The phone's service worker (0.827): it shows an alert the browser's push service brought, and a tap opens the page.
+ * What it shows is what the PC sealed: who and what kind, never a command or a message's words (phone-alerts.ts).
+ */
+export const PHONE_SERVICE_WORKER = `self.addEventListener('push', function (event) {
+  var said = {};
+  try { said = event.data ? event.data.json() : {}; } catch (e) {}
+  var title = typeof said.title === 'string' && said.title ? said.title.slice(0, 120) : 'Locust';
+  var body = typeof said.body === 'string' ? said.body.slice(0, 300) : 'Something needs you.';
+  var tag = typeof said.tag === 'string' && said.tag ? said.tag.slice(0, 60) : 'locust';
+  event.waitUntil(self.registration.showNotification(title, { body: body, tag: tag, renotify: true, icon: '/icon-256.png', badge: '/icon-256.png' }));
+});
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (open) {
+    for (var i = 0; i < open.length; i += 1) if ('focus' in open[i]) return open[i].focus();
+    return self.clients.openWindow('/');
+  }));
+});
+`
+
+/** What makes the page a home-screen app (0.827). */
+export function phoneManifest(): string {
+  return JSON.stringify({
+    name: 'Locust',
+    short_name: 'Locust',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    background_color: '#0b0d0e',
+    theme_color: '#0b0d0e',
+    icons: [{ src: '/icon-256.png', sizes: '256x256', type: 'image/png' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }]
+  })
 }

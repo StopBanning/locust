@@ -42,3 +42,9 @@ interface DurableObjectNamespace {
   idFromName(name: string): DurableObjectId
   get(id: DurableObjectId): DurableObjectStub
 }
+
+/** An image bundled into the Worker as bytes (wrangler.jsonc's Data rule). */
+declare module '*.png' {
+  const bytes: ArrayBuffer
+  export default bytes
+}

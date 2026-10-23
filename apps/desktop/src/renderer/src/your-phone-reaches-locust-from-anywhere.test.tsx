@@ -11,7 +11,7 @@ import { PhoneSettings } from './components/PhoneSettings.js'
  * phone with, whether this computer is connected to the relay, and each paired phone with a Remove.
  */
 const api: PhoneApi = {
-  settings: vi.fn(), setEnabled: vi.fn(), forget: vi.fn(), anywhere: vi.fn(), setMode: vi.fn(), newCode: vi.fn(), remove: vi.fn(),
+  settings: vi.fn(), setEnabled: vi.fn(), forget: vi.fn(), anywhere: vi.fn(), setMode: vi.fn(), newCode: vi.fn(), remove: vi.fn(), setNightApprovals: vi.fn(),
   onAnywhereChanged: vi.fn(() => () => undefined)
 }
 const OFF_WIFI: PhoneState = { enabled: false, addresses: [] }
@@ -60,6 +60,16 @@ describe('your phone reaches Locust from anywhere', () => {
     // The code is spent once a phone pairs: the next one is made when asked for.
     expect(html).toContain('>Pair a phone</button>')
     expect(html).not.toContain('lc-phone__qr')
+  })
+
+  it('says which phones get alerts, and offers approvals in quiet hours only once one does', () => {
+    const quietly = draw(OFF_WIFI, { enabled: true, connected: true, devices: [{ id: 'd1', name: 'iPhone', added: '2026-10-23T00:00:00.000Z', online: true }] })
+    expect(quietly).not.toContain('Let approvals buzz in quiet hours')
+    const html = draw(OFF_WIFI, { enabled: true, connected: true, devices: [{ id: 'd1', name: 'iPhone', added: '2026-10-23T00:00:00.000Z', online: false, alerts: true }] })
+    expect(html).toContain('<span class="lc-phone__state">Paired · alerts on</span>')
+    expect(html).toMatch(/aria-label="Let approvals buzz in quiet hours" aria-checked="false"/)
+    expect(draw(OFF_WIFI, { enabled: true, connected: true, nightApprovals: true, devices: [{ id: 'd1', name: 'iPhone', added: '2026-10-23T00:00:00.000Z', online: false, alerts: true }] }))
+      .toMatch(/aria-label="Let approvals buzz in quiet hours" aria-checked="true"/)
   })
 
   it('keeps the home-network code as it was when Only on this Wi-Fi is on', () => {

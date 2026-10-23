@@ -30,9 +30,9 @@ export function QrCode({ text, label }: { readonly text: string; readonly label:
 
 /** When a phone was last there, in the words Settings uses elsewhere. */
 function deviceState(device: PhoneAnywhereSettings['devices'][number]): string {
-  if (device.online) return 'Open now'
   const seen = device.seen === undefined ? undefined : agoLabel(device.seen)
-  return seen === undefined ? 'Paired' : `Last open ${seen}`
+  const when = device.online ? 'Open now' : seen === undefined ? 'Paired' : `Last open ${seen}`
+  return device.alerts === true ? `${when} · alerts on` : when
 }
 
 /*
@@ -145,6 +145,14 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
                 </li>
               ))}
             </ul>
+          )}
+          {anywhere.devices.some((device) => device.alerts === true) && (
+            <div className="lc-settingline lc-phone__night">
+              <div className="lc-settingline__text">
+                <p className="lc-settings__lede">Let approvals and questions buzz in quiet hours. Off, everything waits for the morning brief.</p>
+              </div>
+              <button type="button" className={`lc-switch${anywhere.nightApprovals === true ? ' is-on' : ''}`} role="switch" aria-label="Let approvals buzz in quiet hours" aria-checked={anywhere.nightApprovals === true} disabled={busy} onClick={() => { void run(() => api!.setNightApprovals(anywhere.nightApprovals !== true), setAnywhere) }}><span /></button>
+            </div>
           )}
         </>
       )}

@@ -34,7 +34,7 @@ import { createScout, type Scout } from './scout.js'
 import { folderMarkOf } from './scout-folder.js'
 import { readScoutGithub } from './scout-github.js'
 import { createCommentReader, postComment } from './scout-comments.js'
-import { SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON } from '../shared/scout.js'
+import { inQuietHours, SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutQuietHours } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
 import { DEFAULT_CHATGPT_VOICE, VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, VOICE_CALL_START, VOICE_CALL_STOP, VOICE_CALL_TOOLS, VOICE_CALL_VOICES, VOICE_PREVIEW_SAVE, VOICE_PREVIEW_SAVED, VOICE_PREVIEW_TRIGGER, isChatGptVoice, isVoiceCallOffer, isVoiceCallTarget, type ChatGptVoice, type VoiceAddOn, type VoiceCallTarget } from '../shared/voice-call.js'
 import { createVoiceCalls } from './voice-call.js'
@@ -160,13 +160,14 @@ import { createCarryOn, type CarryOn } from './carry-on.js'
 import { createCheckFix, type CheckFix } from './check-fix.js'
 import { parsedCheckFixTries } from '../shared/check-fix.js'
 import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
+import { createPhoneAlerts, type PhoneAlert } from './phone-alerts.js'
 import { createPhoneAnywhere, DEFAULT_RELAY } from './phone-anywhere.js'
 import { createPhoneHost, type PhoneCalls } from './phone-host.js'
 import { countingLedgerWrites, keyedOnce } from './ledger-writes.js'
 import { acpScratch, createAcpAgents } from './acp-agents.js'
 import { acpCatalog, ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
 import { phonePage } from './phone-page.js'
-import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
+import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
 import { createKeepAwake, KEEP_AWAKE_BEAT_MS } from './keep-awake.js'
 import { attentionDot, needsYouCountFrom, taskbarAttention } from './taskbar-attention.js'
 import { CLOSE_BUTTONS, closeQuestion, hideToTrayOnClose, shouldAskBeforeClosing, trayLine, trayMenuLabels } from './quit-guard.js'
@@ -2372,9 +2373,11 @@ if (!ownsSingleInstanceLock) {
           .then(async (owners) => {
             const ownerId = owners[request.missionId]
             const roster = ownerId === undefined ? [] : await teammates.list()
-            attention.approvalArrived(request, roster.find((entry) => entry.teammateId === ownerId)?.name)
+            const name = roster.find((entry) => entry.teammateId === ownerId)?.name
+            attention.approvalArrived(request, name)
+            phoneAlerts.approval(name, request.kind === 'question' ? 'question' : 'approval')
           })
-          .catch(() => attention.approvalArrived(request, undefined))
+          .catch(() => { attention.approvalArrived(request, undefined); phoneAlerts.approval(undefined, request.kind === 'question' ? 'question' : 'approval') })
       }
 
     /*
@@ -2863,6 +2866,24 @@ if (!ownsSingleInstanceLock) {
         target.focus()
       }
     })
+    /*
+     * Your phone's alerts (0.827, phone-alerts.ts): the moments the desk hears, by the phone's own rules. Sent through
+     * phone-anywhere once that exists; Scout's quiet hours are read as Scout last said them.
+     */
+    let phoneAlertSink: ((alert: PhoneAlert) => void) | undefined
+    let scoutQuiet: ScoutQuietHours | undefined
+    let phoneNightApprovals = false
+    const phoneAlerts = createPhoneAlerts({
+      send: (alert) => phoneAlertSink?.(alert),
+      away: () => {
+        const target = approvalWindow
+        return target === undefined || target.isDestroyed() || !target.isFocused() || target.isMinimized()
+      },
+      quiet: (at) => inQuietHours(scoutQuiet, at),
+      approvalsAtNight: () => phoneNightApprovals,
+      cardOpen: async (cardId) => ((await scout?.state())?.cards ?? []).some((card) => card.cardId === cardId)
+    })
+    app.once('will-quit', () => phoneAlerts.dispose())
     // Antigravity, experimental: driven through the running app, watched
     // through its transcript. Its own service, so its heuristics cannot leak
     // into the transports that read a process.
@@ -4230,9 +4251,11 @@ if (!ownsSingleInstanceLock) {
       ledger: missionLedger,
       teammates,
       attention: {
-        decisionAsked: (name, question) => attention.decisionAsked(name, question),
-        limitHit: (name, runtime, message) =>
-          attention.limitHit(name, isMissionRuntime(runtime) ? runtimeDisplayName(runtime) : runtime, message)
+        decisionAsked: (name, question) => { phoneAlerts.approval(name, 'question'); return attention.decisionAsked(name, question) },
+        limitHit: (name, runtime, message) => {
+          phoneAlerts.limit(name, isMissionRuntime(runtime) ? runtimeDisplayName(runtime) : runtime)
+          return attention.limitHit(name, isMissionRuntime(runtime) ? runtimeDisplayName(runtime) : runtime, message)
+        }
       }
     })
     memoryReader = createMemoryReader({
@@ -8116,13 +8139,16 @@ if (!ownsSingleInstanceLock) {
         return { finished, failed, ...(ended.length > 80 ? { more: true } : {}) }
       },
       changed: (state) => {
+        scoutQuiet = state.settings.quiet
         for (const window of BrowserWindow.getAllWindows()) {
           if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(SCOUT_CHANGED, state)
         }
       },
-      notify: (card) => { attention.runFinished({ title: 'Scout', body: card.said, missionId: card.open?.kind === 'conversation' ? card.open.missionId : undefined }) }
+      notify: (card) => { attention.runFinished({ title: 'Scout', body: card.said, missionId: card.open?.kind === 'conversation' ? card.open.missionId : undefined }) },
+      raised: (cards) => phoneAlerts.scoutCards(cards)
     })
     scout = keptScout
+    void keptScout.state().then((state) => { scoutQuiet = state.settings.quiet }, () => undefined)
     ipcMain.handle(SCOUT_STATE, (event) => (fromOwnWindow(event) ? keptScout.state() : undefined))
     ipcMain.handle(SCOUT_TURN_ON, async (event, route: unknown) => {
       if (!fromOwnWindow(event)) return { refused: 'That request was rejected.' }
@@ -9840,6 +9866,8 @@ if (!ownsSingleInstanceLock) {
         if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(PHONE_ANYWHERE_CHANGED_CHANNEL, settings)
       }
     })
+    phoneAlertSink = (alert) => { void phoneAnywhere.alert(alert).catch(() => undefined) }
+    void phoneAnywhere.settings().then((settings) => { phoneNightApprovals = settings.nightApprovals === true }, () => undefined)
     /** One way at a time: turning one on turns the other off, and off unpairs every phone of that way. */
     const setPhoneMode = async (mode: unknown): Promise<PhoneModeState> => {
       if (!PHONE_MODES.includes(mode as PhoneMode)) return { wifi: await phoneHost.settings(), anywhere: await phoneAnywhere.settings() }
@@ -9858,6 +9886,12 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(PHONE_SET_MODE_CHANNEL, (event, mode: unknown) => fromOwnWindow(event) ? setPhoneMode(mode) : { wifi: { enabled: false, addresses: [] }, anywhere: NO_PHONE })
     ipcMain.handle(PHONE_NEW_CODE_CHANNEL, (event) => fromOwnWindow(event) ? phoneAnywhere.newCode() : NO_PHONE)
     ipcMain.handle(PHONE_REMOVE_CHANNEL, (event, device: unknown) => fromOwnWindow(event) ? phoneAnywhere.remove(device) : NO_PHONE)
+    ipcMain.handle(PHONE_NIGHT_CHANNEL, async (event, on: unknown) => {
+      if (!fromOwnWindow(event)) return NO_PHONE
+      const settings = await phoneAnywhere.setNightApprovals(on)
+      phoneNightApprovals = settings.nightApprovals === true
+      return settings
+    })
     ipcMain.handle(LOCUST_MCP_GET, event => fromOwnWindow(event) ? mcpHost.settings() : { enabled: false, ownMode: false })
     ipcMain.handle(LOCUST_MCP_SET, (event, enabled: unknown) => fromOwnWindow(event) ? mcpHost.setEnabled(enabled) : { enabled: false, ownMode: false })
     ipcMain.handle(LOCUST_MCP_SET_OWN_MODE, (event, ownMode: unknown) => fromOwnWindow(event) ? mcpHost.setOwnMode(ownMode) : { enabled: false, ownMode: false })

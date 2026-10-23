@@ -1,4 +1,4 @@
-import { parseClientFrame, MAX_FRAME, type Address, type ClientFrame, type ErrorCode, type RelayFrame } from './protocol.js'
+import { isPushEndpoint, parseClientFrame, MAX_FRAME, type Address, type ClientFrame, type ErrorCode, type RelayFrame } from './protocol.js'
 
 /**
  * ONE PC'S ROOM (0.826). The room holds the connections of one PC, the devices paired with it and, while the PC
@@ -43,6 +43,11 @@ export interface RoomHost {
   random(bytes: number): string
   /** SHA-256 of the text's UTF-8 bytes, base64url. */
   sha256(text: string): Promise<string>
+  /**
+   * Posts one sealed alert to a phone's push service, signed as this relay (vapid.ts): the push service's answer, or
+   * undefined when this relay has no key to sign with. Never called for an address that is not a push service's.
+   */
+  push?(endpoint: string, body: string, urgency: 'normal' | 'high'): Promise<number | undefined>
 }
 
 /** How long a new connection has to say who it is. */
@@ -88,7 +93,7 @@ function same(a: string, b: string): boolean {
 export const addressOf = (attachment: Attachment): Address | undefined =>
   attachment.as === 'pc' ? 'pc' : attachment.as === 'device' ? attachment.device : attachment.as === 'pairing' ? `pairing:${attachment.tag}` : undefined
 
-type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' }>
+type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' }>
 
 export function roomCore(host: RoomHost) {
   const meta = (): Promise<Meta | undefined> => host.store.get<Meta>(META)
@@ -211,6 +216,18 @@ export function roomCore(host: RoomHost) {
       case 'pair-close': {
         const { pairing: _closed, ...rest } = held
         await save(rest)
+        done()
+        return
+      }
+      case 'push': {
+        // An alert for one of this PC's phones, sealed for that phone's browser: the relay signs and posts, and reads
+        // nothing. Only to a push service's address, so the relay is never a way to reach anywhere else.
+        if (!isPushEndpoint(frame.endpoint)) { err(peer, 'bad-frame', frame.id); return }
+        if (host.push === undefined) { err(peer, 'push-off', frame.id); return }
+        const status = await host.push(frame.endpoint, frame.body, frame.urgency).catch(() => 0)
+        if (status === undefined) { err(peer, 'push-off', frame.id); return }
+        if (status === 404 || status === 410) { err(peer, 'push-gone', frame.id); return }
+        if (status < 200 || status >= 300) { err(peer, 'push-failed', frame.id); return }
         done()
         return
       }
