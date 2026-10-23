@@ -17,6 +17,7 @@ import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
 import { VoiceSettings } from './VoiceSettings.js'
 import { LocustMcpSettings } from './LocustMcpSettings.js'
 import { PhoneSettings } from './PhoneSettings.js'
+import { TelegramSettings } from './TelegramSettings.js'
 import { policyFeatureRefusal, policyModeAllowed } from '../../../shared/organization-policy.js'
 import { ManagedPolicyNote, OrganizationPolicySettings, useOrganizationPolicy } from '../organizationPolicy.js'
 import { AcpAgentsSettings } from './AcpAgentsSettings.js'
@@ -3407,6 +3408,23 @@ export function SettingsScreen({
                 else’s server. Either way, a message you send from your phone is your next message in that
                 conversation, on the same teammate and mode, as if you typed it here, and turning this off unpairs
                 every phone.
+              </More>
+            }
+          />
+        </section>
+        )}
+        {shownPage === 'app' && (
+        <section className="lc-settings__section lc-settings__section--line" data-setting="telegram">
+          <TelegramSettings
+            heading={<h2 className="lc-settings__heading">Telegram</h2>}
+            more={
+              <More>
+                Locust asks Telegram for your bot’s new messages while it is open on this computer, one long request at a
+                time, so nothing on this computer listens for them. Only the chat that pressed Start with your pairing
+                link is answered; anyone else who finds the bot is ignored. A message there is your next message to that
+                teammate, on its own model and mode, as if you typed it here, and you see it here too. A card from a turn
+                started there comes to the chat with Allow once and Deny. A message that arrives while Locust is closed
+                starts nothing when it opens: the chat says so, and you send it again.
               </More>
             }
           />

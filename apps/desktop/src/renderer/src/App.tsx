@@ -157,6 +157,7 @@ import { nestedUnder } from '../../shared/nested-conversations.js'
 import { defaultComparePicks } from './compareDefaults.js'
 import { effortName } from './effortLevels.js'
 import { asReviewer, composerRouteFor, pickKeyFor, startAs } from '../../shared/route-at-start.js'
+import { interviewPrompt } from '../../shared/interview.js'
 import type { StartAs } from '../../shared/route-at-start.js'
 import type { Screen } from './components/Screens.js'
 import { Icon } from './components/Icon.js'
@@ -6356,8 +6357,45 @@ export default function App(): ReactElement {
     return signInCommand(shown.data.runtime) === undefined ? undefined : shown.data.runtime
   })()
 
+  /*
+   * A NEW TEAMMATE INTERVIEWS YOU (0.831, shared/interview.ts). Saved with "Let it interview you", the teammate's
+   * conversation opens once the roster on screen has it: the person's ask to be interviewed, in Ask for this one turn
+   * (as a review is), so the interview reads and changes nothing. Its answers carry on in its own mode.
+   */
+  const [interviewFor, setInterviewFor] = useState<string>()
+  useEffect(() => {
+    if (interviewFor === undefined) return
+    const teammate = teammates.find((one) => one.teammateId === interviewFor)
+    if (teammate === undefined) return
+    setInterviewFor(undefined)
+    selectTeammate(teammate.teammateId)
+    void startMission(interviewPrompt(teammate.name, teammate.roleTitle ?? teammate.role), undefined, { as: asReviewer(startAs(teammate, { route, mode, effort }, pickerRoutes), antigravityCli) })
+    // The teammate's arrival on screen is what this waits for; the rest is read as it is then.
+  }, [interviewFor, teammates])
+  /** What an interview wrote, kept as the teammate's own instructions: every other detail as it is. */
+  const saveInterviewInstructions = async (teammateId: string, instructions: string): Promise<string | undefined> => {
+    const bridge = window.desktop
+    const mate = teammates.find((one) => one.teammateId === teammateId)
+    if (bridge === undefined || mate === undefined) return 'That teammate is not in Locust any more. Nothing was saved.'
+    const response = await bridge.updateTeammate({
+      teammateId, name: mate.name, hue: mate.hue, role: mate.role,
+      ...(mate.roleTitle === undefined ? {} : { roleTitle: mate.roleTitle }),
+      ...(mate.worktree === undefined ? {} : { worktree: mate.worktree }),
+      avatar: mate.avatar,
+      instructions
+    })
+    if (!response.ok) return response.error.message
+    const listed = await bridge.listTeammates()
+    if (listed.ok) {
+      setTeammates(listed.data.teammates)
+      setMissionOwners(listed.data.missionOwners)
+      rememberRosterNames(listed.data)
+    }
+    return undefined
+  }
+
   // Returns the save, so the dialog can hold its button until it lands (L22).
-  const createTeammate = ({ monthlyLimitUsd, instructions, voice, ...input }: TeammateDraft): Promise<void> => {
+  const createTeammate = ({ monthlyLimitUsd, instructions, voice, interview, ...input }: TeammateDraft): Promise<void> => {
     const bridge = window.desktop
     if (!bridge) return Promise.resolve()
     return bridge
@@ -6370,6 +6408,7 @@ export default function App(): ReactElement {
         }
         setTeammateError(undefined)
         setNewTeammateOpen(false)
+        if (interview === true && response.data.teammate !== undefined) setInterviewFor(response.data.teammate.teammateId)
         return bridge.listTeammates().then((listed) => {
           if (!listed.ok) return
           setTeammates(listed.data.teammates)
@@ -6418,7 +6457,7 @@ export default function App(): ReactElement {
 
   const updateTeammate = (
     teammateId: string,
-    input: TeammateDraft
+    { interview, ...input }: TeammateDraft
   ): Promise<void> => {
     const bridge = window.desktop
     if (!bridge) return Promise.resolve()
@@ -6431,6 +6470,7 @@ export default function App(): ReactElement {
         }
         setTeammateError(undefined)
         setEditingTeammate(undefined)
+        if (interview === true) setInterviewFor(teammateId)
         return bridge.listTeammates().then((listed) => {
           if (!listed.ok) return
           setTeammates(listed.data.teammates)
@@ -10295,6 +10335,7 @@ export default function App(): ReactElement {
                   return check === undefined ? {} : { editCheck: check }
                 })())}
                 {...(running ? {} : { onSendEditCheck: (text: string) => { void startMission(text) } })}
+                onSaveInstructions={saveInterviewInstructions}
                 peers={{
                   self: missionOwner,
                   teammates,

@@ -46,6 +46,8 @@ export interface TeammateDraft {
   readonly instructions?: string | null
   /** Its voice in a call (0.746): one of ChatGPT's nine; `null` when an edit goes back to Talk's own. */
   readonly voice?: string | null
+  /** Saved, then interview the person in a new conversation to write its instructions (0.831, shared/interview.ts). */
+  readonly interview?: true
 }
 
 /**
@@ -352,6 +354,37 @@ export function NewTeammateDialog({
     if (level !== undefined && shownRoute !== undefined) setPicked({ ...shownRoute, effort: level })
   }
   const nameRef = useRef<HTMLInputElement>(null)
+  // The one save Create and the interview both make (0.831).
+  const save = (interview: boolean): void => {
+    // L22 (the code review): a double click created the teammate
+    // twice. A ref, because the second click lands before the
+    // re-render that would disable the button.
+    if (pressed.current) return
+    pressed.current = true
+    setSaving(true)
+    void Promise.resolve(
+      onCreate({
+        name: trimmed,
+        hue,
+        role,
+        ...(role === 'Custom' && roleTitle.trim().length > 0 ? { roleTitle: roleTitle.trim() } : {}),
+        ...(worktree ? { worktree: true } : {}),
+        avatar,
+        ...(picked === undefined ? {} : { route: picked }),
+        // An edit always says: an amount, or null to lift one. A new
+        // teammate only says when there is an amount.
+        ...(typeof limit === 'number' && limit > 0 ? { monthlyLimitUsd: limit } : limit === 0 ? {} : editing ? { monthlyLimitUsd: null } : {}),
+        // The same rule as the limit: an edit always says (null clears); a new teammate only when there are some.
+        ...(instructions.trim().length > 0 ? { instructions: instructions.trim() } : editing ? { instructions: null } : {}),
+        // The same again: an edit always says (null goes back to Talk's own); a new teammate only when one is picked.
+        ...(voice !== '' ? { voice } : editing ? { voice: null } : {}),
+        ...(interview ? { interview: true as const } : {})
+      })
+    ).finally(() => {
+      pressed.current = false
+      setSaving(false)
+    })
+  }
 
   useEffect(() => {
     nameRef.current?.focus()
@@ -904,6 +937,15 @@ export function NewTeammateDialog({
               {`Optional. Every turn ${trimmed.length === 0 ? 'this teammate' : trimmed} takes is given these, after a group's instructions.`}
             </span>
           </label>
+          {/* A NEW TEAMMATE INTERVIEWS YOU (0.831): it asks, then writes these itself, for you to keep or change. */}
+          <div className="lc-field lc-field--interview">
+            <button type="button" className="lc-button" disabled={!canCreate || saving} onClick={() => save(true)}>
+              {editing ? `Let ${trimmed.length === 0 ? 'this teammate' : trimmed} interview you again` : `Let ${trimmed.length === 0 ? 'this teammate' : trimmed} interview you instead`}
+            </button>
+            <span className="lc-field__hint">
+              {`${editing ? 'Saves' : 'Creates'} ${trimmed.length === 0 ? 'this teammate' : trimmed}, then opens a conversation where ${trimmed.length === 0 ? 'it' : trimmed} asks you a few short questions and writes its instructions for you to keep. The interview only asks: nothing is changed in the folder.`}
+            </span>
+          </div>
 
           {editing && lessons !== undefined && lessons.length > 0 && (
             <div className="lc-field lc-field--lessons">
@@ -1007,35 +1049,7 @@ export function NewTeammateDialog({
             type="button"
             className="lc-primarybutton"
             disabled={!canCreate || saving}
-            onClick={() => {
-              // L22 (the code review): a double click created the teammate
-              // twice. A ref, because the second click lands before the
-              // re-render that would disable the button.
-              if (pressed.current) return
-              pressed.current = true
-              setSaving(true)
-              void Promise.resolve(
-                onCreate({
-                  name: trimmed,
-                  hue,
-                  role,
-                  ...(role === 'Custom' && roleTitle.trim().length > 0 ? { roleTitle: roleTitle.trim() } : {}),
-                  ...(worktree ? { worktree: true } : {}),
-                  avatar,
-                  ...(picked === undefined ? {} : { route: picked }),
-                  // An edit always says: an amount, or null to lift one. A new
-                  // teammate only says when there is an amount.
-                  ...(typeof limit === 'number' && limit > 0 ? { monthlyLimitUsd: limit } : limit === 0 ? {} : editing ? { monthlyLimitUsd: null } : {}),
-                  // The same rule as the limit: an edit always says (null clears); a new teammate only when there are some.
-                  ...(instructions.trim().length > 0 ? { instructions: instructions.trim() } : editing ? { instructions: null } : {}),
-                  // The same again: an edit always says (null goes back to Talk's own); a new teammate only when one is picked.
-                  ...(voice !== '' ? { voice } : editing ? { voice: null } : {})
-                })
-              ).finally(() => {
-                pressed.current = false
-                setSaving(false)
-              })
-            }}
+            onClick={() => save(false)}
           >
             {editing ? 'Save changes' : 'Create teammate'}
           </button>

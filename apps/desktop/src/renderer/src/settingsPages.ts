@@ -87,12 +87,14 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     label: 'General',
     group: 'Locust',
     icon: 'settings',
-    headings: ['Managed by your organization', 'Let your other AI apps use Locust', 'Your phone', 'Voice typing', 'Talk from any app', 'Scout keeps watch', 'Startup', 'Updates', 'Report a problem', 'Help'],
+    headings: ['Managed by your organization', 'Let your other AI apps use Locust', 'Your phone', 'Telegram', 'Voice typing', 'Talk from any app', 'Scout keeps watch', 'Startup', 'Updates', 'Report a problem', 'Help'],
     alsoKnownAs: {
       'Managed by your organization': ['organization', 'organisation', 'policy', 'administrator', 'IT', 'managed settings'],
       'Let your other AI apps use Locust': ['MCP server', 'stdio', 'Claude Code', 'Codex', 'Cursor', 'other apps'],
       // A page on the home network, paired by a QR code (0.775).
       'Your phone': ['phone', 'mobile', 'QR code', 'iPhone', 'Android', 'away from your desk'],
+      // Your teammates in Telegram (0.831): your own bot, paired to your own chat.
+      Telegram: ['Telegram', 'Telegram bot', 'BotFather', 'chat app', 'messaging', 'Slack', 'Discord'],
       'Voice typing': ['dictation', 'microphone', 'speech', 'whisper', 'transcription'],
       // The keys that start Talk from any app (0.755).
       'Talk from any app': ['shortcut', 'hotkey', 'keyboard shortcut', 'voice call', 'Ctrl+Alt+Space'],

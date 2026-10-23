@@ -21,6 +21,11 @@ import { describe, expect, it } from 'vitest'
  * place, and it says why it may -- the phone host checks the key the person
  * scanned before it reads anything (phone-host.ts), and its `decide` goes down
  * the window's own path, `decideApproval`, with every guard the window's has.
+ *
+ * 0.831, TELEGRAM: the person's own press, or reply, in their own paired chat is the other. It says why it may too --
+ * the link checks the chat and the person who wrote against the ones that paired before it reads a button
+ * (telegram.ts, `pairedFrom`) -- and its `decide` is that same `decideApproval`. It offers Allow once and Deny,
+ * never Always.
  */
 const MAIN = new URL('.', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const HOLDERS = new Set(['approval-channel.ts', 'permission-host.ts', 'antigravity-mission.ts', 'codex-mission.ts'])
@@ -30,7 +35,17 @@ describe('who may answer an approval', () => {
     const callers = readdirSync(MAIN)
       .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
       .filter((name) => /\.decide\(/.test(readFileSync(join(MAIN, name), 'utf8')))
-    expect(callers.filter((name) => !HOLDERS.has(name) && name !== 'index.ts' && name !== 'phone-host.ts')).toEqual([])
+    expect(callers.filter((name) => !HOLDERS.has(name) && name !== 'index.ts' && name !== 'phone-host.ts' && name !== 'telegram.ts')).toEqual([])
+    // Telegram's two calls, a button and a reply in words, each only after the chat and its person were checked.
+    const telegram = readFileSync(join(MAIN, 'telegram.ts'), 'utf8')
+    expect(telegram.match(/\.decide\(/g)).toHaveLength(2)
+    const button = telegram.indexOf('const handleButton = async')
+    expect(telegram.indexOf('pairedFrom(query.from, query.message.chat.id)', button)).toBeGreaterThan(button)
+    expect(telegram.indexOf('pairedFrom(query.from, query.message.chat.id)', button)).toBeLessThan(telegram.indexOf('options.decide(', button))
+    const message = telegram.indexOf('const handleMessage = async')
+    expect(telegram.indexOf('if (!pairedFrom(incoming.from, incoming.chat.id)) return', message)).toBeGreaterThan(message)
+    expect(telegram.indexOf('if (!pairedFrom(incoming.from, incoming.chat.id)) return', message)).toBeLessThan(telegram.indexOf('options.decide(', message))
+    expect(telegram).not.toContain("'approve-always'")
     // The phone's one call, and only after its key was checked against the person's.
     const phone = readFileSync(join(MAIN, 'phone-host.ts'), 'utf8')
     expect(phone.match(/\.decide\(/g)).toHaveLength(1)
@@ -65,7 +80,7 @@ describe('who may answer an approval', () => {
     // The editor's private API owns only new turns minted under its per-session capability. The MCP bridge
     // offers no such tool. Its once-only answer uses the same guarded path as the window and paired phone.
     const decideCalls = index.map((line, at) => ({ line, at })).filter(({ line }) => /decideApproval\(/.test(line))
-    expect(decideCalls.map(({ at }) => (/ipcMain\.handle\(MISSION_APPROVAL_DECIDE_CHANNEL/.test(index[at - 2] ?? '') ? 'window' : /decide: async \(approvalId, approve\)/.test(index[at - 1] ?? '') ? 'phone' : /answer: async \(approvalId, approve\)/.test(index[at - 1] ?? '') ? 'editor' : `line ${String(at + 1)}`))).toEqual(['window', 'editor', 'phone'])
+    expect(decideCalls.map(({ at }) => (/ipcMain\.handle\(MISSION_APPROVAL_DECIDE_CHANNEL/.test(index[at - 2] ?? '') ? 'window' : /decide: async \(approvalId, approve\)/.test(index[at - 1] ?? '') ? 'phone' : /answer: async \(approvalId, approve\)/.test(index[at - 1] ?? '') ? 'editor' : /decide: async \(answer\) =>/.test(index[at - 1] ?? '') ? 'telegram' : `line ${String(at + 1)}`))).toEqual(['window', 'editor', 'phone', 'telegram'])
     for (const channel of ['MISSION_APPROVAL_DECIDE_CHANNEL', 'APPROVAL_RULE_FROM_CARD_CHANNEL']) {
       const handler = index.findIndex((line) => line.includes(`ipcMain.handle(${channel}`))
       expect(index[handler + 1], channel).toContain('fromOwnWindow(event)')

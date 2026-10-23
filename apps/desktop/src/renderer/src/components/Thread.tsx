@@ -68,6 +68,8 @@ import type { DecisionOption } from '../../../shared/decision.js'
 import { callPlacements, type CallPlace, type SavedCall } from '../../../shared/calls.js'
 import type { VoiceCallRole } from '../../../shared/voice-call.js'
 import { CallWords } from './CallWords.js'
+import { InstructionsCard } from './InstructionsCard.js'
+import { instructionsIn, isInterview } from '../../../shared/interview.js'
 import type { LiveCallAsk } from '../liveCall.js'
 
 /**
@@ -1022,6 +1024,8 @@ export interface ThreadProps {
   /** The person pressed Stop on this run; otherwise the card does not say "You". */
   readonly stoppedByPerson?: boolean
   readonly onSendEditCheck?: (text: string) => void
+  /** An interview's instructions saved as the teammate's own (0.831): resolves with why not, or nothing. */
+  readonly onSaveInstructions?: (teammateId: string, instructions: string) => Promise<string | undefined>
   readonly peers: {
     readonly self: PublicTeammate | undefined
     readonly teammates: readonly PublicTeammate[]
@@ -1065,6 +1069,7 @@ export function Thread({
   findRequest,
   editCheck,
   onSendEditCheck,
+  onSaveInstructions,
   stoppedByPerson = false,
   startedBy,
   runMode,
@@ -1781,6 +1786,15 @@ onResume,
         ))}
 
         {!running && cloudCardFor(shownMissionId)}
+        {!running && onSaveInstructions !== undefined && peers.self !== undefined && isInterview(earlierTurns[0]?.prompt ?? prompt) && (() => {
+          const written = instructionsIn(events)
+          const self = peers.self
+          return written === undefined ? null : (
+            <InstructionsCard key={`instructions_${shownMissionId ?? ''}`} name={self.name} written={written}
+              {...(self.instructions === undefined ? {} : { current: self.instructions })}
+              onSave={(text) => onSaveInstructions(self.teammateId, text)} />
+          )
+        })()}
         {cardsFor(earlierTurns.length, 'after-work').map(peerCard)}
         {/* The turn's own check first, then what came after it -- a routine's "finished" reads as its end (0.814). */}
         {editCheck !== undefined && (

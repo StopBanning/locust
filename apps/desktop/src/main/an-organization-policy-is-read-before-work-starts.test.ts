@@ -93,11 +93,14 @@ describe('the machine policy file', () => {
   })
 
   it('validates every optional setting and rejects a malformed known key', () => {
-    const policy: OrganizationPolicy = { version: 1, allowedAgents: [...POLICY_RUNTIME_IDS], allowedModels: { acp: ['model-*'], codex: ['*'] }, highestMode: 'approve-each', monthlyLimitUsd: 12.5, otherApps: false, phone: true, cloud: false }
-    expect(parseOrganizationPolicy(policy)).toEqual(policy)
+    const policy: OrganizationPolicy = { version: 1, allowedAgents: [...POLICY_RUNTIME_IDS], allowedModels: { acp: ['model-*'], codex: ['*'] }, highestMode: 'approve-each', monthlyLimitUsd: 12.5, otherApps: false, phone: true, chatApps: false, cloud: false, terminal: true, browser: false, accounts: true }
+    // Every known key is known: none of them is logged as skipped.
+    const unknown: string[] = []
+    expect(parseOrganizationPolicy(policy, (key) => { unknown.push(key) })).toEqual(policy)
+    expect(unknown).toEqual([])
     expect(parseOrganizationPolicy({})).toEqual({})
     expect(parseOrganizationPolicy({ monthlyLimitUsd: 0 })).toEqual({ monthlyLimitUsd: 0 })
-    for (const bad of [null, [], 1, { version: 2 }, { allowedAgents: ['typo'] }, { allowedAgents: 'codex' }, { allowedModels: [] }, { allowedModels: { typo: ['*'] } }, { allowedModels: { codex: '*' } }, { allowedModels: { codex: [''] } }, { highestMode: 'edit' }, { monthlyLimitUsd: -1 }, { monthlyLimitUsd: '5' }, { monthlyLimitUsd: Number.NaN }, { otherApps: 1 }, { phone: null }, { cloud: 'false' }]) {
+    for (const bad of [null, [], 1, { version: 2 }, { allowedAgents: ['typo'] }, { allowedAgents: 'codex' }, { allowedModels: [] }, { allowedModels: { typo: ['*'] } }, { allowedModels: { codex: '*' } }, { allowedModels: { codex: [''] } }, { highestMode: 'edit' }, { monthlyLimitUsd: -1 }, { monthlyLimitUsd: '5' }, { monthlyLimitUsd: Number.NaN }, { otherApps: 1 }, { phone: null }, { chatApps: 'no' }, { cloud: 'false' }]) {
       expect(() => parseOrganizationPolicy(bad), JSON.stringify(bad)).toThrow()
     }
   })
@@ -146,7 +149,7 @@ describe('a policy only narrows a turn', () => {
   })
 
   it('keeps each connection off only when the organization disables it', () => {
-    for (const key of ['phone', 'otherApps', 'cloud'] as const) {
+    for (const key of ['phone', 'chatApps', 'otherApps', 'cloud'] as const) {
       expect(policyFeatureRefusal(state({ [key]: false }), key)).toContain(key)
       expect(policyFeatureRefusal(state({ [key]: true }), key)).toBeUndefined()
       expect(policyFeatureRefusal(state(), key)).toBeUndefined()

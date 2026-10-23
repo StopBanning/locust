@@ -4,7 +4,7 @@ import { isAbsolute, win32 } from 'node:path'
 import { isMonthlyLimit } from '../shared/spend.js'
 import { POLICY_MODE_ORDER, POLICY_RUNTIME_IDS, type OrganizationPolicy, type OrganizationPolicyState, type PolicyRuntimeId } from '../shared/organization-policy.js'
 
-const KEYS = new Set(['version', 'allowedAgents', 'allowedModels', 'highestMode', 'monthlyLimitUsd', 'otherApps', 'phone', 'cloud', 'terminal', 'browser', 'accounts'])
+const KEYS = new Set(['version', 'allowedAgents', 'allowedModels', 'highestMode', 'monthlyLimitUsd', 'otherApps', 'phone', 'chatApps', 'cloud', 'terminal', 'browser', 'accounts'])
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const runtime = (value: unknown): value is PolicyRuntimeId => typeof value === 'string' && (POLICY_RUNTIME_IDS as readonly string[]).includes(value)
 
@@ -71,14 +71,14 @@ export function parseOrganizationPolicy(value: unknown, unknownKey: (key: string
   }
   if (value.highestMode !== undefined && !(POLICY_MODE_ORDER as readonly unknown[]).includes(value.highestMode)) bad('highestMode')
   if (value.monthlyLimitUsd !== undefined && value.monthlyLimitUsd !== 0 && !isMonthlyLimit(value.monthlyLimitUsd)) bad('monthlyLimitUsd')
-  for (const key of ['otherApps', 'phone', 'cloud', 'terminal', 'browser', 'accounts']) if (value[key] !== undefined && typeof value[key] !== 'boolean') bad(key)
+  for (const key of ['otherApps', 'phone', 'chatApps', 'cloud', 'terminal', 'browser', 'accounts']) if (value[key] !== undefined && typeof value[key] !== 'boolean') bad(key)
   return {
     ...(value.version === undefined ? {} : { version: 1 }),
     ...(value.allowedAgents === undefined ? {} : { allowedAgents: value.allowedAgents as PolicyRuntimeId[] }),
     ...(value.allowedModels === undefined ? {} : { allowedModels: models }),
     ...(value.highestMode === undefined ? {} : { highestMode: value.highestMode as OrganizationPolicy['highestMode'] }),
     ...(value.monthlyLimitUsd === undefined ? {} : { monthlyLimitUsd: value.monthlyLimitUsd as number }),
-    ...Object.fromEntries(['otherApps', 'phone', 'cloud', 'terminal', 'browser', 'accounts'].filter((key) => value[key] !== undefined).map((key) => [key, value[key]]))
+    ...Object.fromEntries(['otherApps', 'phone', 'chatApps', 'cloud', 'terminal', 'browser', 'accounts'].filter((key) => value[key] !== undefined).map((key) => [key, value[key]]))
   }
 }
 

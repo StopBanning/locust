@@ -10,6 +10,7 @@ import { MAC_RELEASES_API } from './mac-release.js'
 import { PAGE_LIBRARY_HOSTS } from './page-preview.js'
 import { REPORT_DESTINATION } from './report-problem.js'
 import { CANARY_VERDICTS_URL } from './runtime-updates.js'
+import { TELEGRAM_API } from './telegram.js'
 import { VOICE_OPENAI_URL } from './voice-openai.js'
 
 /**
@@ -55,6 +56,8 @@ const LISTED: Readonly<Record<string, { readonly places: number; readonly said: 
   'scout-away-look.ts': { places: 2, said: ["**Scout's away look**", 'runs on GitHub, not on your computer', 'never its command'] },
   'desk-page.ts': { places: 1, said: ['**Locust in a browser**', 'never runs code a computer sent it', 'adds no connection of this computer'] },
   'phone-anywhere.ts': { places: 1, said: ['**Your phone, from anywhere**', 'listens to nothing', 'the relay passes along what it cannot read'] },
+  // Your teammates in Telegram (0.831): one request at a time to the Bot API, and nothing listening.
+  'telegram.ts': { places: 1, said: ['**Your teammates in Telegram**', '`api.telegram.org`', 'no other address is ever sent the token', "Telegram's", 'servers can read what is written there'] },
   'antigravity-cascade.ts': { places: 1, said: ['Antigravity\'s own local server, at `127.0.0.1`'] },
   // Test: the models the address serves, then one capped chat request with a tool.
   'own-models.ts': { places: 2, said: ['Testing one of your own models', 'When you press Test'] },
@@ -93,6 +96,14 @@ describe('the addresses are the ones the code uses', () => {
     expect(NETWORK).toContain('Conversation references from GitHub')
     expect(NETWORK).toContain('reference-trash')
     expect(NETWORK).toContain('500 MB')
+  })
+  it('Telegram has one fixed HTTPS destination, and a stand-in only on this computer', () => {
+    expect(TELEGRAM_API).toBe('https://api.telegram.org')
+    expect(NETWORK).toContain(`\`${new URL(TELEGRAM_API).host}\``)
+    const wiring = read('./index.ts')
+    expect(wiring).toContain('process.env.LOCUST_TELEGRAM_API')
+    expect(wiring).toContain('(?:127')
+    expect(wiring).toContain('? named : TELEGRAM_API')
   })
   it('OpenAI voice typing has one fixed HTTPS destination', () => {
     expect(VOICE_OPENAI_URL).toBe('https://api.openai.com/v1/audio/transcriptions')

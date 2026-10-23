@@ -47,6 +47,7 @@ import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHAN
 import type { AppearanceState, ThemeChoice } from './appearance.js'
 import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from './acp-agents.js'
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, type PhoneAnywhereSettings } from './phone.js'
+import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL, type TelegramSettings } from './telegram.js'
 import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from './locust-mcp.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from './voice.js'
 import { CALLS_LIST, CALLS_SAVE } from './calls.js'
@@ -546,6 +547,17 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
         const receive = (_event: IpcEvent, settings: PhoneAnywhereSettings): void => { listener(settings) }
         ipcRenderer.on(PHONE_ANYWHERE_CHANGED_CHANNEL, receive)
         return () => { ipcRenderer.removeListener(PHONE_ANYWHERE_CHANGED_CHANNEL, receive) }
+      }
+    },
+    telegram: {
+      settings: () => ipcRenderer.invoke(TELEGRAM_SETTINGS_CHANNEL),
+      setToken: (token) => ipcRenderer.invoke(TELEGRAM_SET_TOKEN_CHANNEL, token),
+      newLink: () => ipcRenderer.invoke(TELEGRAM_NEW_LINK_CHANNEL),
+      remove: () => ipcRenderer.invoke(TELEGRAM_REMOVE_CHANNEL),
+      onChanged: (listener) => {
+        const receive = (_event: IpcEvent, settings: TelegramSettings): void => { listener(settings) }
+        ipcRenderer.on(TELEGRAM_CHANGED_CHANNEL, receive)
+        return () => { ipcRenderer.removeListener(TELEGRAM_CHANGED_CHANNEL, receive) }
       }
     },
     locustMcp: {

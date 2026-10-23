@@ -47,6 +47,7 @@ file is limited to 1 MB.
   "monthlyLimitUsd": 50,
   "otherApps": false,
   "phone": false,
+  "chatApps": false,
   "cloud": false,
   "terminal": false,
   "browser": false
@@ -66,6 +67,7 @@ access, or promise that an agent supports a model or mode.
 | `monthlyLimitUsd` | Maximum effective monthly limit per teammate, in USD: `0` or an amount from `0.01` through `100000`. A lower personal limit still applies. An absent or higher personal limit is capped automatically; a person cannot remove or raise the effective cap. `0` refuses new turns. |
 | `otherApps` | `false` keeps Let your other AI apps use Locust off, including its local MCP listener, the `locust` command, and editors. `true` leaves the person's opt-in choice available. |
 | `phone` | `false` keeps phone pairing off and prevents Claude Code Remote Control from being started through Locust. `true` leaves those choices available. |
+| `chatApps` | `false` keeps teammates out of chat apps: Telegram cannot be connected, and a bot connected before stops being read. `true` leaves it available. |
 | `cloud` | `false` prevents cloud computer setup and sign-in, cloud conversations, and legacy Codex Cloud and Claude cloud tasks. Existing computers can still be stopped or deleted. `true` leaves cloud choices available. |
 | `terminal` | `false` disables the in-window Terminal panel. `true` leaves it available. The panel is also disabled by an agent/model allowlist, a highest mode below Auto, or an organization monthly cap: an unrestricted personal shell cannot enforce those restrictions. Closing the panel keeps shells running; closing tabs or quitting ends them. No terminal output is sent to an AI agent. |
 | `accounts` | `false` prevents adding, signing in to, renaming or running added Claude Code and Codex accounts. The machine's existing sign-in is unchanged. Cancel and Remove remain available. |

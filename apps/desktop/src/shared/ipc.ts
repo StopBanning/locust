@@ -3737,6 +3737,8 @@ export interface DesktopApi {
   readonly locustMcp?: import('./locust-mcp.js').LocustMcpApi
   /** Your phone (0.775): a page on the home network, paired by a QR code. */
   readonly phone?: import('./phone.js').PhoneApi
+  /** Your teammates in Telegram (0.831): your own bot, your own chat. */
+  readonly telegram?: import('./telegram.js').TelegramApi
   /** Your own agents (0.777): any Agent Client Protocol agent, by its command line. */
   readonly acpAgents?: import('./acp-agents.js').AcpAgentsApi
   /** A `!` in the chat box, and Markdown files that become slash commands. */

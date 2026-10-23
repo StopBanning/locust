@@ -10279,6 +10279,14 @@ textarea {
   align-self: flex-start;
 }
 
+/* A new teammate interviews you (0.831): in the New teammate window, the offer under Instructions -- its button, then what it does. */
+.lc-field--interview { display: flex; flex-direction: column; align-items: flex-start; gap: var(--lc-space-2); }
+/* What an interview wrote (0.831): the teammate's instructions in a box to change, then Save. */
+.lc-interview__body { flex: 1; }
+.lc-interview__text { width: 100%; max-width: 640px; min-height: 120px; resize: vertical; font-size: var(--lc-text-description); line-height: 1.5; }
+.lc-interview__note { font-size: var(--lc-text-description); color: var(--lc-text-muted); }
+.lc-interview .lc-button { align-self: flex-start; }
+
 .lc-diagnostic {
   display: flex;
   align-items: flex-start;
@@ -24018,6 +24026,12 @@ textarea.lc-compare__judgecriteria {
 .lc-phone__state { font-size: var(--lc-text-description); color: var(--lc-text-muted); }
 /* Approvals in quiet hours (0.827): its own line under the paired phones. */
 .lc-phone__night { margin-top: var(--lc-space-3); }
+/* Your teammates in Telegram (0.831): BotFather, the token, then the chat's pairing code, as the phone's is drawn. */
+.lc-telegram__steps { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin-top: 12px; }
+.lc-telegram__steps .lc-settings__note { margin: 0; }
+.lc-telegram__token { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; max-width: 460px; }
+.lc-telegram__token .lc-input { flex: 1 1 220px; min-width: 0; font-family: var(--lc-font-mono); }
+.lc-telegram__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* The person's terminals keep their screens while this panel is hidden. */
 .lc-terminal[hidden], .lc-terminal__screen[hidden] { display: none; }

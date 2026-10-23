@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.831.0 - 2026-10-23
+<!-- big -->
+
+### New
+
+- **Your teammates in Telegram.** Write to your teammates from Telegram, wherever you are, while Locust is open on your computer. Make a bot of your own with Telegram's @BotFather, paste its token in Settings > General > Telegram, and press Start in the chat its link opens: `/ada` and a message reaches Ada, and the answer comes back in the chat as a reply, with the bot typing while Ada works. After that, just write; it goes to the same teammate and carries the conversation on, and a reply to an older answer carries that one on. `/new` starts a fresh conversation, `/who` lists your teammates and `/waiting` shows the cards waiting on you. A card from a turn you started there comes to the chat with Allow once and Deny; Always stays on your computer. Only the chat that paired is answered, and anyone else who finds the bot is ignored. The token is kept encrypted on your computer. Telegram's servers can read what is written there, so Locust takes out anything shaped like a key before it sends, and Settings says so. A message that arrived while Locust was closed starts nothing; the chat says so, and you send it again.
+- **A new teammate interviews you.** An empty Instructions box asked you to know how to brief a teammate before it had done anything. Now the New teammate window offers Let it interview you instead: the teammate's first conversation opens with your ask, it asks you a few short questions one at a time, and then writes its own standing instructions. They come on a card under its answer, in a box you can change, with Save; nothing is kept until you press it, and a key in them is refused. The interview's first turn runs in Ask, so it reads and changes nothing. An existing teammate's window offers the interview again.
+
 ## 0.830.0 - 2026-10-23
 <!-- big -->
 
