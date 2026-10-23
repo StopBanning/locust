@@ -11,6 +11,13 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.826.0 - 2026-10-23
+<!-- big -->
+
+### New
+
+- **Your phone reaches Locust from anywhere.** Turn on Your phone in Settings > General, scan the code once, and your phone shows your conversations, answers approval cards and sends the next message from any network, not only your home Wi-Fi. It goes through Locust's own relay, and every message is locked on your computer and opened on your phone, so the relay passes along what it cannot read. Settings lists each paired phone and whether it is open now, with a Remove that stops it at once. A code pairs one phone, once, within ten minutes. Only on this Wi-Fi still works as it did.
+
 ## 0.825.0 - 2026-10-22
 
 ### Fixed
