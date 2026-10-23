@@ -122,9 +122,26 @@ export interface PhoneTurn {
   readonly phase: PhoneConversation['phase']
 }
 
+/**
+ * One of Scout's cards, as the phone shows it (0.829): Locust's own sentence and lines, and a link when it is about
+ * something on GitHub -- never the card's quoted command, Scout's model's take, or a draft for a teammate.
+ */
+export interface PhoneScoutCard {
+  readonly cardId: string
+  readonly said: string
+  readonly lines?: readonly string[]
+  readonly now: boolean
+  readonly at: string
+  readonly url?: string
+}
+
+export const PHONE_MAX_SCOUT_CARDS = 10
+
 export interface PhoneState {
   readonly waiting: readonly PhoneWaiting[]
   readonly conversations: readonly PhoneConversation[]
+  /** Scout's cards on Home, newest first (0.829): a Scout alert on the phone opens where its card is. */
+  readonly scout?: readonly PhoneScoutCard[]
 }
 
 export const PHONE_MAX_CONVERSATIONS = 20

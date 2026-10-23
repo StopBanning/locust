@@ -38,6 +38,8 @@ export interface ScoutLogEntry {
   readonly off: readonly ScoutLogWatch[]
   /** GitHub's watch was on and GitHub could not be read. */
   readonly githubUnread?: true
+  /** An away look (0.829): from GitHub, by the repository's workflow, while the PC was off. */
+  readonly away?: true
 }
 
 /** An alert Locust kept off the phone (phone-alerts.ts), with the card it was about when it was Scout's. */
@@ -101,6 +103,7 @@ export function lookEntry(input: {
   readonly off?: readonly ScoutLogWatch[]
   readonly githubUnread?: boolean
   readonly skipped?: 'quiet hours'
+  readonly away?: boolean
 }): ScoutLogEntry {
   const unique = <T extends ScoutLogItem>(items: readonly T[]): T[] => items.filter((item, index) => items.findIndex((other) => other.key === item.key) === index)
   return {
@@ -110,14 +113,15 @@ export function lookEntry(input: {
     aside: unique(input.aside ?? []).slice(0, MAX_LOG_ITEMS).map((item) => ({ key: item.key, said: clip(item.said), why: item.why })),
     off: WATCHES.filter((watch) => (input.off ?? []).includes(watch)),
     ...(input.githubUnread === true ? { githubUnread: true as const } : {}),
-    ...(input.skipped === undefined ? {} : { skipped: input.skipped })
+    ...(input.skipped === undefined ? {} : { skipped: input.skipped }),
+    ...(input.away === true ? { away: true as const } : {})
   }
 }
 
 /** Two looks that found the same: nothing raised by either, the same set aside for the same reasons, the same watches read. */
 function same(a: ScoutLogEntry, b: ScoutLogEntry): boolean {
   if (a.raised.length > 0 || b.raised.length > 0) return false
-  if (a.skipped !== b.skipped || a.githubUnread !== b.githubUnread || a.off.join() !== b.off.join()) return false
+  if (a.skipped !== b.skipped || a.githubUnread !== b.githubUnread || a.away !== b.away || a.off.join() !== b.off.join()) return false
   const asideOf = (entry: ScoutLogEntry): string => entry.aside.map((item) => `${item.why}:${item.key}`).sort().join('\n')
   return asideOf(a) === asideOf(b)
 }
@@ -162,6 +166,7 @@ export function lookName(entry: ScoutLogEntry): string {
 export function lookLines(entry: ScoutLogEntry, held: readonly ScoutHeldAlert[] = []): string[] {
   if (entry.skipped === 'quiet hours') return ['Not taken: Scout’s quiet hours. The first look after them catches up.']
   const lines: string[] = []
+  if (entry.away === true) lines.push('Looked at GitHub while your computer was off, from the repository’s workflow.')
   for (const item of entry.raised) {
     const kept = held.find((one) => one.about === item.key)
     lines.push(`Raised on Home: ${item.said}${kept === undefined ? '' : ` Not sent to your phone: ${kept.why === 'quiet hours' ? 'your quiet hours' : 'past the day’s alert limit'}.`}`)
@@ -169,7 +174,7 @@ export function lookLines(entry: ScoutLogEntry, held: readonly ScoutHeldAlert[] 
   for (const item of entry.aside) lines.push(`Set aside, ${asideWords(item.why)}: ${item.said}`)
   if (entry.githubUnread === true) lines.push('GitHub could not be read, so nothing there was seen.')
   if (entry.off.length > 0) lines.push(`Not read, its watch is off: ${entry.off.map((watch) => WATCH_WORDS[watch]).join(', ')}.`)
-  if (lines.length === 0) lines.push('Nothing new, and nothing set aside.')
+  if (lines.length === (entry.away === true ? 1 : 0)) lines.push('Nothing new, and nothing set aside.')
   return lines
 }
 

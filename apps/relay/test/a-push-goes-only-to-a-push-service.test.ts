@@ -29,7 +29,7 @@ function aRoom(push?: RoomHost['push']) {
   const peers: FakePeer[] = []
   const posted: { endpoint: string; body: string; urgency: string }[] = []
   const core = roomCore({
-    store: { get: async <T>(key: string) => stored.get(key) as T | undefined, put: async (key, value) => { stored.set(key, value) }, deleteAll: async () => { stored.clear() } },
+    store: { get: async <T>(key: string) => stored.get(key) as T | undefined, put: async (key, value) => { stored.set(key, value) }, delete: async (keys) => { for (const key of keys) stored.delete(key) }, deleteAll: async () => { stored.clear() } },
     peers: () => peers,
     now: () => Date.now(),
     setAlarm: async () => undefined,

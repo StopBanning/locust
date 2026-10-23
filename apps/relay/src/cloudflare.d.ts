@@ -21,6 +21,7 @@ declare class WebSocketRequestResponsePair {
 interface DurableObjectStorage {
   get<T>(key: string): Promise<T | undefined>
   put(key: string, value: unknown): Promise<void>
+  delete(keys: string[]): Promise<number>
   deleteAll(): Promise<void>
   setAlarm(scheduledTime: number): Promise<void>
 }

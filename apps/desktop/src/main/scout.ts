@@ -2,6 +2,7 @@ import type { CommentWatch } from './scout-comments.js'
 import { randomBytes } from 'node:crypto'
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 
+import { factOf, MAX_TOLD, type AwayLetter } from '../shared/away-letter.js'
 import type { FolderPullRequest } from '../shared/pull-request.js'
 import {
   DEFAULT_SCOUT_SETTINGS,
@@ -41,6 +42,7 @@ import {
   type ScoutFact,
   type ScoutFix,
   type ScoutOutcome,
+  type ScoutQuietHours,
   type ScoutSettings,
   type ScoutState,
   type ScoutToday,
@@ -134,6 +136,11 @@ export interface ScoutDeps {
   readonly heldAlerts?: (since: number) => readonly ScoutHeldAlert[]
   /** Where What Scout saw is kept (0.828, shared/scout-log.ts); in memory only when absent. */
   readonly logFile?: string
+  /**
+   * Scout's away looks (0.829, scout-away.ts): the letters they left while the PC was off are read before a look, so
+   * what they told is not told again. Waited for a little at most.
+   */
+  readonly catchUp?: () => Promise<void>
   /** Fixes prepared in a copy (0.828, scout-fix.ts); none here when absent. */
   readonly fixes?: {
     readonly prepare: (input: { readonly fixId: string; readonly teammateId: string; readonly name: string; readonly command: string }) => Promise<ScoutFixOutcome>
@@ -145,6 +152,8 @@ export interface ScoutDeps {
 
 /** How often a look that is waiting for the person's own turn asks again whether it has ended. */
 const WAIT_STEP_MS = 60_000
+/** The most a look waits for the away looks' letters to be read first (0.829). */
+const CATCH_UP_MS = 15_000
 
 interface Kept {
   readonly comments?: CommentWatch
@@ -590,6 +599,7 @@ export function createScout(deps: ScoutDeps) {
   const look = async (scheduled = false): Promise<ScoutState> => {
     const from = await load()
     if (looking || !from.settings.on || from.settings.teammateId === undefined) return stateOf(from)
+    if (deps.catchUp !== undefined) await Promise.race([deps.catchUp().catch(() => undefined), new Promise((done) => { later(() => done(undefined), CATCH_UP_MS) })])
     if (scheduled && inQuietHours(from.settings.quiet, now())) {
       await logLook(lookEntry({ at: now(), skipped: 'quiet hours' }))
       return stateOf(from)
@@ -948,6 +958,51 @@ export function createScout(deps: ScoutDeps) {
     log: async (): Promise<{ readonly entries: readonly ScoutLogEntry[]; readonly held: readonly ScoutHeldAlert[] }> => ({ entries: [...(await loadLog())], held: heldInLog() }),
     /** What a question to Scout in its own conversation is given to answer from (0.828). */
     whyBrief: async (): Promise<string> => scoutLogBrief(await loadLog(), heldInLog(), now()),
+    /** What Scout has told, for the letter the away look reads next (0.829, scout-away.ts). */
+    told: async (): Promise<{ readonly prs: readonly FolderPullRequest[]; readonly told: readonly string[]; readonly briefDay?: string }> => {
+      const from = await load()
+      return { prs: from.prs, told: from.seen.slice(-MAX_TOLD), ...(from.lastBriefDay === undefined ? {} : { briefDay: from.lastBriefDay }) }
+    },
+    /** Scout's hours, for the away look to keep. */
+    hours: async (): Promise<{ readonly quiet?: ScoutQuietHours; readonly briefAt?: number }> => {
+      const { quiet, briefAt } = (await load()).settings
+      return { ...(quiet === undefined ? {} : { quiet }), ...(briefAt === undefined ? {} : { briefAt }) }
+    },
+    /**
+     * The away looks' letters, once the PC is back (0.829): what they found goes on the Board, told already, so it
+     * neither notifies nor goes to Scout's model, and each look into What Scout saw. Their newest brief replaces the
+     * day's; the pull requests are as the newest look saw them, so the next look here tells only what changed since.
+     */
+    absorb: async (letters: readonly AwayLetter[]): Promise<ScoutState> => {
+      const looks = [...letters].filter((letter) => letter.kind === 'look').sort((a, b) => a.at.localeCompare(b.at))
+      if (looks.length === 0) return stateOf(await load())
+      for (const letter of looks) {
+        await logLook(lookEntry({ at: new Date(letter.at), raised: letter.found.map((one) => ({ key: one.key, said: one.said })), away: true, githubUnread: !letter.read }))
+      }
+      const newest = new Map<string, { readonly finding: AwayLetter['found'][number]; readonly at: string }>()
+      for (const letter of looks) for (const finding of letter.found) newest.set(finding.key, { finding, at: letter.at })
+      const read = looks.filter((letter) => letter.read).at(-1)
+      const briefDay = looks.map((letter) => letter.briefDay).filter((day): day is string => day !== undefined).sort().at(-1)
+      return mutate((latest) => {
+        const seen = new Set(latest.seen)
+        const fresh = [...newest.values()].filter(({ finding }) => !seen.has(finding.key))
+        const briefs = fresh.filter(({ finding }) => finding.key.startsWith('brief:'))
+        const kept = fresh.filter(({ finding }) => !finding.key.startsWith('brief:') || finding === briefs.at(-1)?.finding)
+        const cards = kept.map(({ finding, at }) => {
+          const fact = factOf(finding)
+          return cardOf({ ...fact, chips: [...(fact.chips ?? []), { text: 'while your PC was off', tone: 'quiet' }] }, `card_${randomBytes(6).toString('hex')}`, new Date(at), false)
+        })
+        const newBrief = cards.some((card) => card.key.startsWith('brief:'))
+        const laterBrief = briefDay !== undefined && (latest.lastBriefDay === undefined || briefDay > latest.lastBriefDay)
+        return {
+          ...latest,
+          cards: withNewCards(newBrief ? latest.cards.filter((card) => !card.key.startsWith('brief:')) : latest.cards, cards),
+          seen: [...latest.seen, ...[...newest.keys()].filter((key) => !seen.has(key))].slice(-MAX_SCOUT_SEEN),
+          ...(read === undefined ? {} : { prs: read.prs }),
+          ...(laterBrief ? { lastBriefDay: briefDay, lastBriefAt: looks.filter((letter) => letter.briefDay === briefDay).at(-1)!.at } : {})
+        }
+      })
+    },
     /** Scout's own teammate, whose conversation is answered from the log. */
     teammateId: async (): Promise<string | undefined> => (await load()).settings.teammateId,
     /** Picks up where the last launch left off: on, it looks again shortly and on its timer after. */

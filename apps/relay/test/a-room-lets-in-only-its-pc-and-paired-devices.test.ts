@@ -38,6 +38,7 @@ function aRoom() {
     store: {
       get: async <T>(key: string) => structuredClone(stored.get(key)) as T | undefined,
       put: async (key, value) => { stored.set(key, structuredClone(value)) },
+      delete: async (keys) => { for (const key of keys) stored.delete(key) },
       deleteAll: async () => { stored.clear() }
     },
     peers: () => [...peers],

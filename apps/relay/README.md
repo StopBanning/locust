@@ -15,6 +15,15 @@ It also serves the page the phone opens: the same page Locust serves on the home
   quiet room costs nothing.
 - `src/worker.ts` serves the page at `/` and the rooms at `/v1/room/<id>`.
 
+## Scout's away looks
+
+While the computer is off, a scheduled workflow in the repository Scout watches looks for it
+(`apps/desktop/src/main/scout-away-look.ts`) and posts to `/v1/room/<id>/away` with a token the computer opened
+for it. It leaves a letter sealed with a key the relay never has; the computer and its phones read the letters when
+they come, and the relay keeps them for a week at most. A letter may ring the phones that are not open, with alerts
+their computer sealed for each browser ahead of time, at most five times a day. The computer turns this off with
+`away-close`, which deletes every letter.
+
 ## Run your own
 
 ```

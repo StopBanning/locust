@@ -52,6 +52,7 @@ const LISTED: Readonly<Record<string, { readonly places: number; readonly said: 
   // the same page from Locust's relay opens its WebSocket to the relay that served it, twice: pairing, then paired.
   'phone-page.ts': { places: 3, said: ['It serves one page, which holds', 'nothing; everything that page shows or does needs the key', 'and keeps it open while this is on'] },
   // Your phone from anywhere (0.826): one WebSocket out to the relay, and nothing listening.
+  'scout-away-look.ts': { places: 2, said: ["**Scout's away look**", 'runs on GitHub, not on your computer', 'never its command'] },
   'phone-anywhere.ts': { places: 1, said: ['**Your phone, from anywhere**', 'listens to nothing', 'the relay passes along what it cannot read'] },
   'antigravity-cascade.ts': { places: 1, said: ['Antigravity\'s own local server, at `127.0.0.1`'] },
   // Test: the models the address serves, then one capped chat request with a tool.

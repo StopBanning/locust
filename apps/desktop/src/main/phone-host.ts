@@ -41,6 +41,8 @@ export interface PhoneCalls {
   readonly turns: (missionId: string) => Promise<readonly PhoneTurn[] | undefined>
   readonly decide: (approvalId: string, approve: boolean) => Promise<boolean>
   readonly send: (missionId: string, text: string) => Promise<PhoneSent>
+  /** One of Scout's cards dismissed from the phone (0.829), as Dismiss on Home does. */
+  readonly dismissScout?: (cardId: string) => Promise<boolean>
 }
 
 /**
@@ -112,6 +114,9 @@ export async function answerPhone(calls: PhoneCalls, method: 'GET' | 'POST', pat
   const fields = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
   if (url.pathname === '/api/decide' && typeof fields.approvalId === 'string' && typeof fields.approve === 'boolean') {
     return { status: 200, data: { ok: await calls.decide(fields.approvalId, fields.approve) } }
+  }
+  if (url.pathname === '/api/scout/dismiss' && typeof fields.cardId === 'string' && /^card_[0-9a-f]{12}$/.test(fields.cardId) && calls.dismissScout !== undefined) {
+    return { status: 200, data: { ok: await calls.dismissScout(fields.cardId) } }
   }
   if (url.pathname === '/api/send' && typeof fields.missionId === 'string' && typeof fields.text === 'string') {
     const text = fields.text.trim()

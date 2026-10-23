@@ -34,6 +34,9 @@ import { createScout, type Scout } from './scout.js'
 import { createScoutFixes, type ScoutFixes } from './scout-fix.js'
 import { folderMarkOf } from './scout-folder.js'
 import { readScoutGithub } from './scout-github.js'
+import { createScoutAway, SCOUT_AWAY_FILE, type ScoutAwayRelay } from './scout-away.js'
+import { phoneScoutCards } from './phone-scout-cards.js'
+import { SCOUT_AWAY_CHANGED, SCOUT_AWAY_SET, SCOUT_AWAY_STATUS } from '../shared/scout-away.js'
 import { createCommentReader, postComment } from './scout-comments.js'
 import { inQuietHours, SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_FIX_AGAIN, SCOUT_FIX_APPLY, SCOUT_FIX_SKIP, SCOUT_LOG, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutQuietHours } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
@@ -8063,7 +8066,40 @@ if (!ownsSingleInstanceLock) {
       }
     })
     scoutFixes = fixes
+    /** gh with `input` on its stdin (0.829): the away look's secret is never put on a command line. */
+    const scoutGhInput = (args: readonly string[], cwd: string, input: string): Promise<string> => new Promise((resolve, reject) => {
+      const child = execFile('gh', [...args], {
+        cwd, windowsHide: true, timeout: 60_000, maxBuffer: 4 * 1024 * 1024,
+        env: { ...process.env, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1' }
+      }, (error, stdout) => { if (error) reject(error); else resolve(String(stdout)) })
+      child.stdin?.end(input)
+    })
+    /** The phones' way from anywhere, once it is made below: the away look leaves its letters in its room. */
+    let scoutAwayRelay: ScoutAwayRelay | undefined
+    /*
+     * SCOUT WHILE YOUR COMPUTER IS OFF (0.829, scout-away.ts): a workflow in the folder's repository looks for Scout
+     * with the PC off and leaves letters at the relay; this reads them when the PC is back.
+     */
+    const scoutAway = createScoutAway({
+      file: join(app.getPath('userData'), SCOUT_AWAY_FILE),
+      folder: () => (workspaceChosen ? workspacePath : undefined),
+      gh: scoutGh,
+      ghInput: scoutGhInput,
+      relay: () => scoutAwayRelay,
+      scout: {
+        told: () => keptScout.told(),
+        absorb: async (letters) => { await keptScout.absorb(letters) },
+        hours: () => keptScout.hours()
+      },
+      script: () => readFile(app.isPackaged ? join(process.resourcesPath, 'scout-away.mjs') : join(__dirname, '../../resources/scout-away.mjs'), 'utf8'),
+      changed: (status) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(SCOUT_AWAY_CHANGED, status)
+        }
+      }
+    })
     const keptScout = createScout({
+      catchUp: () => scoutAway.catchUp(),
       comments: async (watch, team, at) => workspaceChosen ? readComments(workspacePath, watch, team, at) : { watch, facts: [] },
       lastTeammate: async () => {
         const owners = await teammates.missionOwners()
@@ -8212,6 +8248,7 @@ if (!ownsSingleInstanceLock) {
       },
       changed: (state) => {
         scoutQuiet = state.settings.quiet
+        scoutAway.told()
         for (const window of BrowserWindow.getAllWindows()) {
           if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(SCOUT_CHANGED, state)
         }
@@ -8230,7 +8267,16 @@ if (!ownsSingleInstanceLock) {
       // A Scout already on the team needs no route: it reads with its own.
       return keptScout.turnOn(isTeammateRoute(kept) ? { runtime: kept.runtime, model: kept.model, ...(kept.account === undefined ? {} : { account: kept.account }) } : undefined)
     })
-    ipcMain.handle(SCOUT_SET, (event, change: unknown) => (fromOwnWindow(event) ? keptScout.set(change) : keptScout.state()))
+    ipcMain.handle(SCOUT_SET, async (event, change: unknown) => {
+      if (!fromOwnWindow(event)) return keptScout.state()
+      const before = await keptScout.hours()
+      const state = await keptScout.set(change)
+      // The away look keeps Scout's hours: changed here, its secret says them again.
+      if (JSON.stringify(await keptScout.hours()) !== JSON.stringify(before)) scoutAway.hoursChanged()
+      return state
+    })
+    ipcMain.handle(SCOUT_AWAY_STATUS, (event, check: unknown) => (fromOwnWindow(event) ? scoutAway.status(check === true) : { state: 'off' }))
+    ipcMain.handle(SCOUT_AWAY_SET, (event, on: unknown) => (fromOwnWindow(event) ? scoutAway.set(on) : scoutAway.status()))
     ipcMain.handle(SCOUT_DISMISS, (event, cardId: unknown, how: unknown) => (fromOwnWindow(event) ? keptScout.dismiss(cardId, how) : keptScout.state()))
     ipcMain.handle(SCOUT_POST, (event, cardId: unknown) => fromOwnWindow(event) ? keptScout.post(cardId) : keptScout.state())
     ipcMain.handle(SCOUT_EDIT_POST, (event, cardId: unknown, text: unknown) => fromOwnWindow(event) ? keptScout.editPost(cardId, text) : keptScout.state())
@@ -9898,8 +9944,15 @@ if (!ownsSingleInstanceLock) {
           const name = await scoutNameOf(teammateId)
           return { approvalId: request.approvalId, missionId: request.missionId, summary: request.summary, requestedAt: request.requestedAt, ...(name === undefined ? {} : { name }) }
         })),
-        conversations: (await phoneHistory()).list
+        conversations: (await phoneHistory()).list,
+        scout: phoneScoutCards((await keptScout.state().catch(() => undefined))?.cards ?? [])
       }),
+      dismissScout: async (cardId) => {
+        const before = (await keptScout.state()).cards.some((card) => card.cardId === cardId)
+        if (!before) return false
+        await keptScout.dismiss(cardId)
+        return true
+      },
       turns: async (missionId) => {
         const { chains, live, names } = await phoneHistory()
         return phoneTurns(chains, missionId, live, names)
@@ -9951,8 +10004,11 @@ if (!ownsSingleInstanceLock) {
       },
       changed: (settings) => {
         if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(PHONE_ANYWHERE_CHANGED_CHANNEL, settings)
-      }
+        scoutAway.nudge()
+      },
+      away: { forPhone: () => scoutAway.forPhone(), refresh: () => scoutAway.refresh(), letter: (letter) => scoutAway.letter(letter) }
     })
+    scoutAwayRelay = { ready: () => phoneAnywhere.settings().then(() => undefined), room: () => phoneAnywhere.room(), connected: () => phoneAnywhere.connected(), awayOpen: (hash) => phoneAnywhere.awayOpen(hash), awayClose: () => phoneAnywhere.awayClose(), keepAwayAlerts: () => phoneAnywhere.keepAwayAlerts(), post: (box) => phoneAnywhere.post(box), letters: (after) => phoneAnywhere.letters(after) }
     phoneAlertSink = (alert) => { void phoneAnywhere.alert(alert).catch(() => undefined) }
     void phoneAnywhere.settings().then((settings) => { phoneNightApprovals = settings.nightApprovals === true }, () => undefined)
     /** One way at a time: turning one on turns the other off, and off unpairs every phone of that way. */

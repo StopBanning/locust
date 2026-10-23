@@ -30,8 +30,9 @@ h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: 
 .who { font-size: 13px; color: var(--amber); }
 .what { white-space: pre-wrap; word-break: break-word; font-size: 15px; }
 .row { display: flex; gap: 10px; }
-button.act { flex: 1; min-height: 44px; border-radius: 10px; font: inherit; font-weight: 600; border: 1px solid var(--line); }
-button.yes { background: var(--button); color: var(--button-text); border-color: transparent; }
+button.act, a.act { flex: 1; min-height: 44px; border-radius: 10px; font: inherit; font-weight: 600; border: 1px solid var(--line); }
+a.act { display: flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
+button.yes, a.yes { background: var(--button); color: var(--button-text); border-color: transparent; }
 button.no { background: var(--raised-2); color: var(--text); }
 button:disabled { opacity: 0.5; }
 ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -193,6 +194,8 @@ const RELAY = `
     var socket = null, ready = false, pcOn = false, retry = 0, retryTimer = null, pingTimer = null;
     var waiting = {}, nextId = 0, session = lock.b64(crypto.getRandomValues(new Uint8Array(6)));
     var changed = function () {};
+    // Scout's away looks (0.829): what they found, opened here with the key Locust gave this phone.
+    var away = null, awayAsked = false;
 
     function keep(mode, work) {
       return new Promise(function (resolve, reject) {
@@ -321,8 +324,10 @@ const RELAY = `
       ws.onmessage = function (event) {
         var frame;
         try { frame = JSON.parse(event.data); } catch (e) { return; }
-        if (frame.t === 'ok') { ready = true; retry = 0; pcOn = !!frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) refreshAlerts(); return; }
-        if (frame.t === 'presence' && typeof frame.pc === 'boolean') { pcOn = frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) refreshAlerts(); return; }
+        if (frame.t === 'ok') { ready = true; retry = 0; pcOn = !!frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) { refreshAlerts(); awayAsked = false; refreshAway(); } else readLetters(); return; }
+        if (frame.t === 'presence' && typeof frame.pc === 'boolean') { pcOn = frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) { refreshAlerts(); awayAsked = false; refreshAway(); } else readLetters(); return; }
+        if (frame.t === 'letters' && frame.id === 'away' && Array.isArray(frame.items)) { openLetters(frame.items); return; }
+        if (frame.t === 'letter') { if (!pcOn) readLetters(); return; }
         if (frame.t === 'removed') { unpair('Locust removed this phone. Scan a new code in Locust to pair it again.'); return; }
         if (frame.t === 'err' && (frame.code === 'auth' || frame.code === 'room')) { unpair('This phone is no longer paired. Scan a new code in Locust to pair it again.'); return; }
         if (frame.t === 'err') {
@@ -387,8 +392,64 @@ const RELAY = `
       }).catch(function () { alertsChecked = false; });
     }
 
+    /*
+     * SCOUT WHILE YOUR COMPUTER IS OFF (0.829). With the PC on, this phone asks it once for the away key, kept here as
+     * a key that cannot be read back out. With the PC off, it reads the newest letters from the relay and shows what
+     * the away looks found: Scout's sentences, and links to the repository on GitHub, nowhere else.
+     */
+    function refreshAway() {
+      if (awayAsked || !link) return;
+      awayAsked = true;
+      var current = link;
+      self.api('/api/away').then(function (r) {
+        if (link !== current) return;
+        if (!r || r.off) { if (current.away) { delete current.away; away = null; changed(); return save(current); } return; }
+        if (typeof r.key !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(r.key) || typeof r.repo !== 'string' || !/^[\\w.-]+\\/[\\w.-]+$/.test(r.repo)) return;
+        return crypto.subtle.importKey('raw', lock.unb64(r.key), 'AES-GCM', false, ['decrypt']).then(function (key) {
+          current.away = { key: key, repo: r.repo };
+          return save(current);
+        });
+      }).catch(function () { awayAsked = false; });
+    }
+    function readLetters() {
+      if (!link || !link.away) { away = null; return; }
+      if (!socket || !ready) return;
+      if (!away) away = { repo: link.away.repo, at: null, read: true, found: [] };
+      socket.send(JSON.stringify({ t: 'letters', newest: 24, id: 'away' }));
+    }
+    function openLetters(items) {
+      var current = link;
+      if (!current || !current.away) return;
+      var repo = current.away.repo, prefix = 'https://github.com/' + repo.toLowerCase() + '/';
+      Promise.all(items.filter(function (item) { return item && item.from === 'away' && typeof item.n === 'string' && typeof item.c === 'string'; }).map(function (item) {
+        return lock.open(current.away.key, item.n, item.c, 'locust-away/v1|' + current.room + '|away').then(function (letter) { return letter; }, function () { return null; });
+      })).then(function (letters) {
+        if (link !== current || pcOn) return;
+        var looks = letters.filter(function (letter) { return letter && letter.v === 1 && letter.kind === 'look' && letter.repo === repo && typeof letter.at === 'string'; });
+        looks.sort(function (a, b) { return a.at < b.at ? -1 : a.at > b.at ? 1 : 0; });
+        var byKey = {}, order = [];
+        looks.forEach(function (letter) {
+          (Array.isArray(letter.found) ? letter.found : []).forEach(function (one) {
+            if (!one || typeof one.key !== 'string' || typeof one.said !== 'string') return;
+            var url = typeof one.url === 'string' && one.url.toLowerCase().indexOf(prefix) === 0 && /^https:\\/\\/github\\.com\\/[\\w./#?=&%-]+$/.test(one.url) ? one.url : null;
+            if (!byKey[one.key]) order.push(one.key);
+            byKey[one.key] = { said: String(one.said).slice(0, 400), lines: Array.isArray(one.lines) ? one.lines.filter(function (line) { return typeof line === 'string'; }).slice(0, 8) : [], url: url, at: letter.at, now: one.urgency === 'now' };
+          });
+        });
+        var newest = looks[looks.length - 1];
+        away = {
+          repo: repo,
+          at: newest ? newest.at : null,
+          read: newest ? newest.read === true : true,
+          found: order.map(function (key) { return byKey[key]; }).sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; }).slice(0, 20)
+        };
+        changed();
+      });
+    }
+
     var self = {
       paired: function () { return link !== null; },
+      away: function () { return link && link.away && !pcOn ? away : null; },
       pairNote: function () { return loaded ? note : 'Opening…'; },
       problem: function () { return link ? trouble : ''; },
       api: function (path, body) {
@@ -538,14 +599,19 @@ const UI = `
   function listScreen() {
     var parts = [header('Locust')];
     var main = el('main');
-    if (state === null) main.append(el('div', { class: 'note', text: transport.problem() || 'Reaching Locust…' }));
-    else {
+    if (state === null) {
+      main.append(el('div', { class: 'note', text: transport.problem() || 'Reaching Locust…' }));
+      var seen = awaySection();
+      if (seen) main.append(seen);
+    } else {
       if (state.waiting.length > 0) {
         var section = el('section', null, [el('h2', { text: 'Waiting on you' })]);
         var stack = el('div', { style: 'display:grid;gap:10px' });
         state.waiting.forEach(function (item) { stack.append(waitingCard(item)); });
         section.append(stack); main.append(section);
       }
+      var scouted = scoutSection(state.scout || []);
+      if (scouted) main.append(scouted);
       var convos = el('section', null, [el('h2', { text: 'Conversations' })]);
       if (state.conversations.length === 0) convos.append(el('div', { class: 'empty', text: 'No conversations yet. Start one in Locust on your computer.' }));
       else {
@@ -565,6 +631,55 @@ const UI = `
     }
     parts.push(main);
     root.replaceChildren.apply(root, parts);
+  }
+  function scoutSection(cards) {
+    if (cards.length === 0) return null;
+    var stack = el('div', { style: 'display:grid;gap:10px' });
+    cards.forEach(function (one) {
+      var card = el('div', { class: 'card', 'data-waiting': one.now, 'data-scout': true }, [
+        el('div', { class: 'who', text: 'Scout · ' + when(one.at) }),
+        el('div', { class: 'what', text: one.said })
+      ]);
+      (one.lines || []).forEach(function (line) { card.append(el('div', { class: 'snippet', text: line })); });
+      var row = el('div', { class: 'row' });
+      if (one.url) row.append(el('a', { class: 'act yes', href: one.url, target: '_blank', rel: 'noopener noreferrer', text: 'Open on GitHub' }));
+      var dismiss = el('button', { class: 'act no', type: 'button', text: 'Dismiss' });
+      dismiss.addEventListener('click', function () {
+        dismiss.disabled = true;
+        transport.api('/api/scout/dismiss', { cardId: one.cardId }).then(function (r) {
+          toast(r.ok ? 'Dismissed.' : 'That card was already gone.');
+          refresh();
+        }).catch(function (e) { dismiss.disabled = false; if (e.message !== 'unpaired') toast(e.message); });
+      });
+      row.append(dismiss);
+      card.append(row);
+      stack.append(card);
+    });
+    return el('section', null, [el('h2', { text: 'Scout found' }), stack]);
+  }
+  function awaySection() {
+    var seen = transport.away ? transport.away() : null;
+    if (!seen) return null;
+    var parts = [el('h2', { text: 'While your computer is off' })];
+    if (!seen.at) parts.push(el('div', { class: 'note', text: 'Scout looks at ' + seen.repo + ' on GitHub while your computer is off. Nothing has come from it yet.' }));
+    else {
+      parts.push(el('div', { class: 'note', text: 'Scout looked at ' + seen.repo + ' on GitHub ' + when(seen.at) + (seen.read ? '.' : ', but GitHub could not be read.') }));
+      if (seen.found.length === 0) parts.push(el('div', { class: 'empty', text: 'Nothing new in its last looks.' }));
+      else {
+        var stack = el('div', { style: 'display:grid;gap:10px' });
+        seen.found.forEach(function (one) {
+          var card = el('div', { class: 'card', 'data-waiting': one.now }, [
+            el('div', { class: 'who', text: 'Scout · ' + when(one.at) }),
+            el('div', { class: 'what', text: one.said })
+          ]);
+          one.lines.forEach(function (line) { card.append(el('div', { class: 'snippet', text: line })); });
+          if (one.url) card.append(el('div', { class: 'row' }, [el('a', { class: 'act yes', href: one.url, target: '_blank', rel: 'noopener noreferrer', text: 'Open on GitHub' })]));
+          stack.append(card);
+        });
+        parts.push(stack);
+      }
+    }
+    return el('section', { class: 'away' }, parts);
   }
   function alertsSection() {
     var state = transport.alerts ? transport.alerts() : 'none';

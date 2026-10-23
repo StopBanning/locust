@@ -73,6 +73,9 @@ extraResources:
   # Claude Code runs this before every command a teammate runs (command-guard.ts), so it too is a real file.
   - from: resources/locust-command-guard.mjs
     to: locust-command-guard.mjs
+  # Scout's away look (scout-away.ts): Locust's pull request puts this file in the watched repository.
+  - from: resources/scout-away.mjs
+    to: scout-away.mjs
   # What changed, packaged WITH the build it describes -- so the notes and
   # the bytes cannot disagree, and saying so needs no network.
   - from: ../../CHANGELOG.md

@@ -54,6 +54,7 @@ import { VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_P
 import type { VoiceCallEvent } from '../shared/voice-call.js'
 import { TALK_SHORTCUT_PENDING, TALK_SHORTCUT_PRESSED, TALK_SHORTCUT_READ, TALK_SHORTCUT_SET, type TalkShortcutPress } from '../shared/talk-shortcut.js'
 import { LOCUST_LINK_TAKE, LOCUST_LINK_WAITING, type LocustLink } from '../shared/locust-link.js'
+import { SCOUT_AWAY_CHANGED, SCOUT_AWAY_SET, SCOUT_AWAY_STATUS, type ScoutAwayStatus } from '../shared/scout-away.js'
 import { SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_FIX_AGAIN, SCOUT_FIX_APPLY, SCOUT_FIX_SKIP, SCOUT_LOG, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutState } from '../shared/scout.js'
 import { REMOTE_CONTROL_GET_CHANNEL, REMOTE_CONTROL_SET_CHANNEL, type RemoteControlState } from '../shared/claude-remote-control.js'
 import { FOLDER_CHANGES_CHANNEL, FOLDER_COMMIT_CHANNEL, FOLDER_REPOSITORY_CHANNEL, type CommitResult, type FolderChanges } from '../shared/folder-commit.js'
@@ -600,6 +601,15 @@ const desktopApi: DesktopApi = {
       const receive = (_event: Electron.IpcRendererEvent, state: ScoutState): void => { listener(state) }
       ipcRenderer.on(SCOUT_CHANGED, receive)
       return () => { ipcRenderer.removeListener(SCOUT_CHANGED, receive) }
+    },
+    away: {
+      status: (check) => ipcRenderer.invoke(SCOUT_AWAY_STATUS, check === true),
+      set: (on) => ipcRenderer.invoke(SCOUT_AWAY_SET, on),
+      onChanged: (listener) => {
+        const receive = (_event: Electron.IpcRendererEvent, status: ScoutAwayStatus): void => { listener(status) }
+        ipcRenderer.on(SCOUT_AWAY_CHANGED, receive)
+        return () => { ipcRenderer.removeListener(SCOUT_AWAY_CHANGED, receive) }
+      }
     }
   },
   talkShortcut: {

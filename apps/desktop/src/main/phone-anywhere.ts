@@ -9,6 +9,7 @@ import { aadOf, deviceIdOf, importPrivateKey, linkKeys, newPcKeys, open, pairing
 import { replaceFile } from './replace-file.js'
 import type { PhoneAlert } from './phone-alerts.js'
 import { encryptPush, type PushSubscriptionKeys } from './web-push.js'
+import type { Letter } from '../../../relay/src/protocol.js'
 
 /*
  * YOUR PHONE, FROM ANYWHERE (0.826). The phone page (0.775) reaches Locust only on the home network. This reaches it
@@ -108,6 +109,17 @@ const isRequest = (value: unknown): value is Request => {
     && (said.body === undefined || (typeof said.body === 'object' && said.body !== null))
 }
 
+const isLetter = (value: unknown): value is Letter => {
+  if (typeof value !== 'object' || value === null) return false
+  const said = value as Record<string, unknown>
+  return typeof said.id === 'string' && /^\d{13}-[A-Za-z0-9_-]{8}$/.test(said.id) && typeof said.at === 'number' && (said.from === 'away' || said.from === 'pc')
+    && typeof said.n === 'string' && typeof said.c === 'string'
+}
+
+/** What a phone's two kept away alerts say (0.829): who and what kind, as every alert. */
+export const AWAY_FOUND_ALERT = { title: 'Scout', body: 'Scout found something on GitHub while your computer is off.', tag: 'scout-away' } as const
+export const AWAY_BRIEF_ALERT = { title: 'Scout', body: 'Your morning brief is ready.', tag: 'scout-brief' } as const
+
 export function createPhoneAnywhere(options: {
   readonly directory: string
   readonly calls: PhoneCalls
@@ -121,6 +133,15 @@ export function createPhoneAnywhere(options: {
   readonly protectFile?: (path: string) => Promise<void>
   /** The wait before the n-th try to reconnect. */
   readonly retryMs?: (attempt: number) => number
+  /** Scout's away look (0.829, scout-away.ts), which leaves its letters in this PC's room. */
+  readonly away?: {
+    /** What a paired phone is given to open the letters: the away key and the repository, or nothing while it is off. */
+    readonly forPhone: () => Promise<{ readonly key: string; readonly repo: string } | undefined>
+    /** The line to the relay is up, or a phone's alerts changed: the away look's alerts and letters are seen to. */
+    readonly refresh: () => void
+    /** A letter came while the line was up. */
+    readonly letter: (letter: Letter) => void
+  }
 }) {
   const file = join(options.directory, PHONE_ANYWHERE_FILE)
   const now = options.now ?? Date.now
@@ -146,6 +167,8 @@ export function createPhoneAnywhere(options: {
   let commandId = 0
   /** A command's answer: true when done, the relay's error code when not, false when it never answered. */
   const commands = new Map<string, (ok: true | string | false) => void>()
+  /** A 'letters' command's answer, by its id. */
+  const pages = new Map<string, (page: { readonly items: readonly Letter[]; readonly more: boolean }) => void>()
   const lines = new Map<string, Promise<void>>()
   /** Work a frame started that may still write: waited for before Locust lets go. */
   const inFlight = new Set<Promise<unknown>>()
@@ -237,6 +260,7 @@ export function createPhoneAnywhere(options: {
     connected = false
     online.clear()
     for (const resolve of [...commands.values()]) resolve(false)
+    for (const resolve of [...pages.values()]) resolve({ items: [], more: false })
     if (old !== undefined) {
       old.onclose = null
       old.onmessage = null
@@ -313,7 +337,13 @@ export function createPhoneAnywhere(options: {
         updateDevice(device, (other) => { const { push: _old, ...rest } = other; return push === undefined ? rest : { ...rest, push } })
         await persist().catch(() => undefined)
         tell()
+        options.away?.refresh()
         return { status: 200, data: { ok: true } }
+      }
+      // The away look's key (0.829), for this phone to open Scout's letters while the PC is off.
+      if (asked.path === '/api/away') {
+        const away = await options.away?.forPhone().catch(() => undefined)
+        return { status: 200, data: away === undefined ? { off: true } : { key: away.key, repo: away.repo } }
       }
       try {
         return await answerPhone(options.calls, asked.body === undefined ? 'GET' : 'POST', asked.path, asked.body) ?? { status: 404, data: { message: 'Locust does not know that request.' } }
@@ -338,9 +368,18 @@ export function createPhoneAnywhere(options: {
       for (const device of Array.isArray(frame.devices) ? frame.devices : []) if (typeof device === 'string') online.add(device)
       openCode()
       tell()
+      options.away?.refresh()
       return
     }
     if (frame.t === 'done' && typeof frame.id === 'string') { commands.get(frame.id)?.(true); return }
+    if (frame.t === 'letters' && typeof frame.id === 'string' && Array.isArray(frame.items)) {
+      pages.get(frame.id)?.({ items: frame.items.filter(isLetter), more: frame.more === true })
+      return
+    }
+    if (frame.t === 'letter') {
+      if (isLetter(frame.item)) options.away?.letter(frame.item)
+      return
+    }
     if (frame.t === 'err') {
       if (typeof frame.id === 'string' && commands.has(frame.id)) { commands.get(frame.id)?.(typeof frame.code === 'string' ? frame.code : false); return }
       if (!connected && frame.code === 'auth') {
@@ -513,6 +552,43 @@ export function createPhoneAnywhere(options: {
       }
       return sent
     },
+
+    /** This PC's room on the relay, for Scout's away look; nothing while phones are off. */
+    room: (): { readonly relay: string; readonly room: string } | undefined => (saved === undefined ? undefined : { relay: saved.relay, room: saved.room }),
+    connected: (): boolean => connected,
+
+    /** The away look's token, by its hash: the relay lets it leave letters here. */
+    awayOpen: (hash: string): Promise<boolean> => command({ t: 'away-open', hash }),
+    /** Off: the relay lets the away look go, with every letter and kept alert. */
+    awayClose: (): Promise<boolean> => command({ t: 'away-close' }),
+
+    /**
+     * Each phone with alerts on gets two alerts kept at the relay, sealed here for its browser ahead of time, so an away
+     * look can ring it with this PC off: something found, and the morning brief. They say who and what kind only.
+     */
+    keepAwayAlerts: async (): Promise<boolean> => {
+      const held = saved
+      if (held === undefined || !connected) return false
+      const alerts = []
+      for (const device of held.devices) {
+        if (device.push === undefined) continue
+        const sealedFor = async (said: { readonly title: string; readonly body: string; readonly tag: string }): Promise<string> => Buffer.from(await encryptPush(device.push!, JSON.stringify(said))).toString('base64url')
+        alerts.push({ device: device.id, endpoint: device.push.endpoint, found: await sealedFor(AWAY_FOUND_ALERT), brief: await sealedFor(AWAY_BRIEF_ALERT) })
+      }
+      return command({ t: 'away-alerts', alerts })
+    },
+
+    /** A letter from this PC: what Scout told the person itself, for the next away look. */
+    post: (box: { readonly n: string; readonly c: string }): Promise<boolean> => command({ t: 'post', n: box.n, c: box.c }),
+
+    /** The letters after the last one read, a page at a time; undefined when the relay did not answer. */
+    letters: (after?: string): Promise<{ readonly items: readonly Letter[]; readonly more: boolean } | undefined> => new Promise((resolve) => {
+      commandId += 1
+      const id = `c${String(commandId)}`
+      const timer = setTimeout(() => { pages.delete(id); resolve(undefined) }, COMMAND_MS)
+      pages.set(id, (page) => { clearTimeout(timer); pages.delete(id); resolve(page) })
+      if (!send({ t: 'letters', ...(after === undefined ? {} : { after }), id })) { clearTimeout(timer); pages.delete(id); resolve(undefined) }
+    }),
 
     setNightApprovals: (on: unknown) => serial(async () => {
       if (disposed || saved === undefined || typeof on !== 'boolean') return settings()

@@ -2,7 +2,7 @@ import icon256 from '../../desktop/resources/icon.png'
 import icon512 from '../../desktop/resources/icon-512.png'
 import { PHONE_SERVICE_WORKER, phoneManifest, phonePage } from '../../desktop/src/main/phone-page.js'
 
-import { ROOM_ID } from './protocol.js'
+import { MAX_FRAME, ROOM_ID } from './protocol.js'
 import type { RoomEnv } from './room.js'
 
 export { Room } from './room.js'
@@ -47,6 +47,14 @@ export default {
       if (url.pathname === '/manifest.webmanifest') return file(url, phoneManifest(), 'application/manifest+json')
       if (url.pathname === '/icon-256.png') return file(url, icon256, 'image/png', 'public, max-age=86400')
       if (url.pathname === '/icon-512.png') return file(url, icon512, 'image/png', 'public, max-age=86400')
+    }
+    // Scout's away look (0.829) posts to its room over HTTPS, from a GitHub workflow.
+    const away = /^\/v1\/room\/([^/]+)\/away$/.exec(url.pathname)?.[1]
+    if (away !== undefined && ROOM_ID.test(away)) {
+      if (request.method !== 'GET' && request.method !== 'POST') return new Response('{"error":"bad-frame"}', { status: 405, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+      const length = Number(request.headers.get('content-length') ?? '0')
+      if (!(length <= MAX_FRAME)) return new Response('{"error":"too-big"}', { status: 413, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+      return env.ROOMS.get(env.ROOMS.idFromName(away)).fetch(request)
     }
     const room = /^\/v1\/room\/([^/]+)$/.exec(url.pathname)?.[1]
     if (room !== undefined && ROOM_ID.test(room)) {

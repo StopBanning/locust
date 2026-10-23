@@ -43,6 +43,7 @@ until it is listed here.
 | Scout's looks (a teammate that keeps watch) | GitHub, through your own GitHub CLI; then Scout's own model, through its agent (free: OpenCode's) | Only after you turn Scout on, every 10, 30 or 60 minutes while Locust runs, and its model only when something is new |
 | Pictures on a GitHub issue | `github.com/user-attachments` and `githubusercontent.com` only | When you choose an issue, so its pictures can sit in the chat box |
 | Your phone, from anywhere | Locust's relay at `app.locust.lol` (on Cloudflare): one WebSocket this computer opens to it | Only after you turn on Your phone with From anywhere, for as long as it stays on |
+| Scout while your computer is off | GitHub, through your own GitHub CLI, to open one pull request and set one secret; then, from GitHub's own runner and not this computer, the relay at `app.locust.lol` | Only after you turn on Look while my computer is off and merge its pull request; the workflow runs every hour or two, and does nothing more while Locust is open |
 | Your cloud computer (a teammate's turn sent with Cloud, or with Cloud computer) | GitHub, through your own GitHub CLI: Codespaces, and the codespace itself over `gh codespace ssh`; from there, the teammate's model, through its agent (OpenCode, Claude Code or Codex) | Only after you pick Cloud for an OpenCode teammate, or Cloud computer for a Claude Code or Codex teammate, and press Set it up, and then for each turn you send there |
 
 **Pictures on a GitHub issue.** When you choose an issue, Locust reads its text through your own `gh` and fetches at most four pictures, each from `github.com/user-attachments` or `githubusercontent.com`. A redirect is followed only while the next address stays on those hosts. The fetch sends no token. `gh` keeps the sign-in it already has, and Locust never prints it.
@@ -290,6 +291,16 @@ reads of your folder stays on this machine.
   (the Web Push standard, RFC 8291). The relay signs it and passes it on, and
   posts to no other address; neither it nor the push service can read it. The
   alert says who and what kind, never a command or a message's words.
+- **Scout's away look** (Settings > General, under Scout: Look while my
+  computer is off) runs on GitHub, not on your computer. Turning it on, Locust
+  uses your own `gh` to open one pull request in the folder's repository, adding
+  a workflow and the one file it runs (`apps/desktop/src/main/scout-away-look.ts`,
+  built into `apps/desktop/resources/scout-away.mjs`), and to set the
+  repository's LOCUST_SCOUT secret on gh's standard input, never its command
+  line. Once merged, the workflow reads the repository with its own read-only
+  token and posts to the relay over HTTPS, sealed with a key the relay never
+  has; with Locust open on your computer it asks the relay that, and stops.
+  Turning it off deletes the secret and turns the workflow off.
 - **The spellchecker downloads no dictionary.**
 - **Memory recall** runs a small model that ships with Locust.
 - **A report reaches Locust's makers only when you send it.** Send feedback,

@@ -7,8 +7,8 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { roomCore, type Attachment, type Peer } from '../../../relay/src/room-core.js'
-import type { RelayFrame } from '../../../relay/src/protocol.js'
-import { createPhoneAnywhere, PHONE_ANYWHERE_FILE, type RelaySocket } from './phone-anywhere.js'
+import type { Letter, RelayFrame } from '../../../relay/src/protocol.js'
+import { AWAY_FOUND_ALERT, createPhoneAnywhere, PHONE_ANYWHERE_FILE, type RelaySocket } from './phone-anywhere.js'
 import type { PhoneCalls } from './phone-host.js'
 import { aadOf, deviceIdOf, linkKeys, open, pairingProof, pairingToken, seal, toBase64url, type LinkKeys } from './relay-crypto.js'
 
@@ -44,6 +44,7 @@ function memoryRelay(pushed?: (endpoint: string, body: string) => number) {
     store: {
       get: async <T>(key: string) => structuredClone(stored.get(key)) as T | undefined,
       put: async (key, value) => { stored.set(key, structuredClone(value)) },
+      delete: async (keys) => { for (const key of keys) stored.delete(key) },
       deleteAll: async () => { stored.clear() }
     },
     peers: () => [...peers.values()],
@@ -79,7 +80,7 @@ function memoryRelay(pushed?: (endpoint: string, body: string) => number) {
   const drop = (): void => {
     for (const [line, peer] of [...peers]) serial(async () => { await core.closed(peer); hangUp(line) })
   }
-  return { connect, drop, stored, settled: () => work, pcAuths: () => pcAuths }
+  return { connect, drop, stored, settled: () => work, pcAuths: () => pcAuths, away: (request: Parameters<typeof core.away>[0]) => core.away(request) }
 }
 
 /** The frames a line hears, taken in order by what a test waits for. */
@@ -179,10 +180,10 @@ function fakeCalls() {
 const directories: string[] = []
 afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }) })
 
-async function aPc(relay: ReturnType<typeof memoryRelay>, calls = fakeCalls(), directory?: string) {
+async function aPc(relay: ReturnType<typeof memoryRelay>, calls = fakeCalls(), directory?: string, away?: Parameters<typeof createPhoneAnywhere>[0]['away']) {
   const folder = directory ?? await mkdtemp(join(tmpdir(), 'locust-anywhere-'))
   if (directory === undefined) directories.push(folder)
-  const pc = createPhoneAnywhere({ directory: folder, calls, relay: () => 'https://relay.test', connect: (url) => relay.connect(url), protectFile: async () => undefined, retryMs: () => 20 })
+  const pc = createPhoneAnywhere({ directory: folder, calls, relay: () => 'https://relay.test', connect: (url) => relay.connect(url), protectFile: async () => undefined, retryMs: () => 20, ...(away === undefined ? {} : { away }) })
   return { pc, calls, folder }
 }
 
@@ -368,5 +369,73 @@ describe('a phone pairs and asks through the relay', () => {
     expect(calls.send).toHaveBeenCalledTimes(1)
     expect(calls.send).toHaveBeenCalledWith('m1', 'After')
     await second.pc.dispose()
+  })
+})
+
+describe('Scout’s away look through the relay (0.829)', () => {
+  it('gives a phone the away key, keeps its alerts at the relay to ring with the PC off, and hands the PC the letters', async () => {
+    const posted: { endpoint: string; body: string }[] = []
+    const relay = memoryRelay((endpoint, body) => { posted.push({ endpoint, body }); return 201 })
+    let refreshed = 0
+    const heard: Letter[] = []
+    const key = toBase64url(new Uint8Array(randomBytes(32)))
+    let awayOn = true
+    const { pc } = await aPc(relay, fakeCalls(), undefined, {
+      forPhone: async () => (awayOn ? { key, repo: 'acme/app' } : undefined),
+      refresh: () => { refreshed += 1 },
+      letter: (letter) => { heard.push(letter) }
+    })
+    const on = await pc.setEnabled(true)
+    await until(async () => (await pc.settings()).connected)
+    expect(refreshed).toBe(1)
+    const phone = await pairPhone(relay, on.code!.url)
+    const device = await phoneLine(relay, phone)
+
+    // With the PC on, the phone is given the key to open the letters, over its sealed line.
+    expect((await device.ask('/api/away')).said).toMatchObject({ status: 200, data: { key, repo: 'acme/app' } })
+    awayOn = false
+    expect((await device.ask('/api/away')).said).toMatchObject({ status: 200, data: { off: true } })
+
+    const receiver = await globalThis.crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as unknown as CryptoKeyPair
+    const auth = new Uint8Array(randomBytes(16))
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/phone-1'
+    await device.ask('/api/alerts', { endpoint, p256dh: toBase64url(new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', receiver.publicKey))), auth: toBase64url(auth) })
+    // A phone's alerts changed: the away look's are seen to again.
+    expect(refreshed).toBe(2)
+
+    const token = toBase64url(new Uint8Array(randomBytes(32)))
+    expect(await pc.awayOpen(createHash('sha256').update(token, 'utf8').digest('base64url'))).toBe(true)
+    expect(await pc.keepAwayAlerts()).toBe(true)
+    // Sealed ahead of time for the phone's browser alone: nothing of what it says is in the clear.
+    expect(posted).toEqual([])
+
+    // A letter while the PC is connected: it hears it at once.
+    const box = { n: toBase64url(new Uint8Array(randomBytes(12))), c: toBase64url(new Uint8Array(randomBytes(80))) }
+    const first = await relay.away({ method: 'POST', token, body: JSON.stringify(box) })
+    expect(first.status).toBe(200)
+    await until(async () => heard.length === 1)
+    expect(heard[0]).toMatchObject({ from: 'away', ...box })
+
+    // The PC gone and the phone closed: the away look rings the phone with what its PC kept for it.
+    await pc.dispose()
+    device.line.close()
+    await relay.settled()
+    await until(async () => (await relay.away({ method: 'GET', token })).body.pc === false)
+    const rung = await relay.away({ method: 'POST', token, body: JSON.stringify({ ...box, alert: 'found' }) })
+    expect(rung.body.rung).toBe(1)
+    expect(posted.map((one) => one.endpoint)).toEqual([endpoint])
+    const body = Buffer.from(posted[0]!.body, 'base64url')
+    expect(await openPush(body, receiver, auth)).toEqual(AWAY_FOUND_ALERT)
+
+    // Back: the letters left while it was off, a page at a time; and its own, saying what it told.
+    const back = await aPc(relay, fakeCalls(), (await import('node:path')).dirname(join(directories[0]!, PHONE_ANYWHERE_FILE)))
+    await back.pc.load()
+    await until(async () => (await back.pc.settings()).connected)
+    const page = await back.pc.letters()
+    expect(page?.items.map((item) => item.from)).toEqual(['away', 'away'])
+    expect(await back.pc.post(box)).toBe(true)
+    const after = await back.pc.letters(page!.items.at(-1)!.id)
+    expect(after?.items.map((item) => item.from)).toEqual(['pc'])
+    await back.pc.dispose()
   })
 })

@@ -265,6 +265,8 @@ export interface ScoutApi {
   /** The notes as the person wrote them in Settings, one per line; empty clears them (0.816). */
   saveNotes(text: string): Promise<ScoutState>
   onChanged(listener: (state: ScoutState) => void): () => void
+  /** Scout while your computer is off (0.829, shared/scout-away.ts). */
+  away?: import('./scout-away.js').ScoutAwayApi & { onChanged(listener: (status: import('./scout-away.js').ScoutAwayStatus) => void): () => void }
   /** What Scout saw (0.828): its looks of the last fourteen days, oldest first, and the alerts kept off the phone. */
   log?(): Promise<{ readonly entries: readonly ScoutLogEntry[]; readonly held: readonly ScoutHeldAlert[] }>
   /** A ready fix, into the folder beside the person's own edits (0.828). */

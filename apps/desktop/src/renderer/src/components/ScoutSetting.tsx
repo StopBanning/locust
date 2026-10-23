@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
   DEFAULT_SCOUT_FIXES, MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_FIXES_PER_DAY, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
   type ScoutApi, type ScoutEvery, type ScoutQuietHours, type ScoutState, type ScoutWatches
 } from '../../../shared/scout.js'
+import type { ScoutAwayStatus } from '../../../shared/scout-away.js'
 import { lookLines, lookName, setSomethingAside, type ScoutHeldAlert, type ScoutLogEntry } from '../../../shared/scout-log.js'
 import { ago } from './ScoutCards.js'
 import { Select } from './Select.js'
@@ -43,6 +44,52 @@ function FixesLine({ state, team, busy, checkCommand, act, api, switchOf }: {
       </span>}
     </div>
     {switchOf('Prepare fixes before I look', fixes.on, () => { set(fixes.on ? { on: false } : { on: true, ...(picked === undefined && team[0] !== undefined ? { teammateId: team[0].teammateId } : {}) }) }, !fixes.on && !canFix)}
+  </div>
+}
+
+/*
+ * SCOUT WHILE YOUR COMPUTER IS OFF (0.829, main/scout-away.ts): a look from the repository's own workflow, added by a
+ * pull request the person merges. Waiting on that merge, it asks GitHub every so often whether it happened.
+ */
+const AWAY_CHECK_MS = 20_000
+function AwayLine({ api, switchOf, lastLookWords }: {
+  readonly api: NonNullable<ScoutApi['away']>
+  readonly switchOf: (label: string, checked: boolean, onClick: () => void, disabled?: boolean) => ReactNode
+  readonly lastLookWords: (iso: string) => string
+}) {
+  const [status, setStatus] = useState<ScoutAwayStatus | undefined>(undefined)
+  useEffect(() => {
+    let alive = true
+    api.status(true).then((next) => { if (alive) setStatus(next) }, () => undefined)
+    const off = api.onChanged((next) => { if (alive) setStatus(next) })
+    return () => { alive = false; off() }
+  }, [api])
+  const waiting = status?.state === 'waiting'
+  useEffect(() => {
+    if (!waiting) return
+    const timer = setInterval(() => { void api.status(true).then(setStatus, () => undefined) }, AWAY_CHECK_MS)
+    return () => clearInterval(timer)
+  }, [api, waiting])
+  const on = status?.state === 'on' || status?.state === 'waiting'
+  const set = (next: boolean): void => { void api.set(next).then(setStatus, () => undefined) }
+  const open = (url: string): void => { void window.desktop?.openLink(url).catch(() => undefined) }
+  const lede = status?.state === 'on'
+    ? `On for ${status.repo}. A workflow there looks ${status.every === 1 ? 'every hour' : 'every two hours'} while your computer is off and leaves what it found for your phone; with Locust open it does nothing more. ${status.private ? 'It uses about 360 of the 2,000 free Actions minutes your private repository gets each month.' : 'Actions are free on a public repository.'}`
+    : 'When your computer is off, a workflow in this folder’s GitHub repository looks for Scout and your phone shows what it found. Locust adds it with a pull request you merge; it reads with the workflow’s own read-only token, and what it finds is sealed for your devices.'
+  return <div className="lc-settingline lc-settingline--sub lc-scout__goalline">
+    <div className="lc-settingline__text">
+      <h3 className="lc-settings__heading">Look while my computer is off</h3>
+      <p className="lc-settings__lede">{lede}</p>
+      {status?.state === 'busy' && <p className="lc-settings__note" role="status">{status.doing}</p>}
+      {status?.state === 'waiting' && <>
+        <p className="lc-settings__note" role="status">{`Merge the pull request in ${status.repo} to start. Locust notices once it is merged.`}</p>
+        <span className="lc-scout__goalkeys"><button type="button" className="lc-control lc-control--boxed" onClick={() => open(status.pr)}>Open the pull request</button></span>
+      </>}
+      {status?.state === 'on' && <p className="lc-settings__note" role="status">{status.lastLook === undefined ? 'No away look yet: the first comes once your computer is off.' : `Last away look: ${lastLookWords(status.lastLook)}.`}</p>}
+      {status?.state === 'off' && status.blocked !== undefined && <p className="lc-settings__note">{status.blocked}</p>}
+      {status !== undefined && 'message' in status && status.message !== undefined && <p className="lc-settings__note" role="status">{status.message}</p>}
+    </div>
+    {switchOf('Look while my computer is off', on, () => { set(!on) }, status === undefined || status.state === 'busy' || (status.state === 'off' && status.blocked !== undefined))}
   </div>
 }
 
@@ -248,6 +295,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
         {switchOf('This folder’s check', state.settings.watches.check, () => { watch('check') }, checkCommand === undefined && !state.settings.watches.check)}
       </div>
       <FixesLine state={state} team={team} busy={busy} checkCommand={checkCommand} act={act} api={api} switchOf={switchOf} />
+      {api.away !== undefined && <AwayLine api={api.away} switchOf={switchOf} lastLookWords={(iso) => ago(iso, new Date())} />}
       <div className="lc-settingline lc-settingline--sub">
         <div className="lc-settingline__text">
           <h3 className="lc-settings__heading">How often it looks</h3>

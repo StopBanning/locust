@@ -40,6 +40,7 @@ export class Room {
       store: {
         get: (key) => state.storage.get(key),
         put: (key, value) => state.storage.put(key, value),
+        delete: async (keys) => { await state.storage.delete([...keys]) },
         deleteAll: () => state.storage.deleteAll()
       },
       peers: () => state.getWebSockets().map((ws) => this.peerOf(ws)),
@@ -74,6 +75,13 @@ export class Room {
   }
 
   async fetch(request: Request): Promise<Response> {
+    // Scout's away look (0.829): the one kind of request that is not a WebSocket, with its token as a bearer.
+    if (new URL(request.url).pathname.endsWith('/away')) {
+      const bearer = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') ?? '')?.[1]
+      const body = request.method === 'POST' ? await request.text() : undefined
+      const answer = await this.core.away({ method: request.method, ...(bearer === undefined ? {} : { token: bearer }), ...(body === undefined ? {} : { body }) })
+      return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+    }
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected a WebSocket.', { status: 426 })
     const pair = new WebSocketPair()
     const client = pair[0]

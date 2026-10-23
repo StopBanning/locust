@@ -1,4 +1,4 @@
-import { isPushEndpoint, parseClientFrame, MAX_FRAME, type Address, type ClientFrame, type ErrorCode, type RelayFrame } from './protocol.js'
+import { isPushEndpoint, parseAwayPost, parseClientFrame, LETTERS_AT_ONCE, MAX_FRAME, TOKEN, type Address, type AwayAlert, type ClientFrame, type ErrorCode, type Letter, type LetterFrom, type RelayFrame } from './protocol.js'
 
 /**
  * ONE PC'S ROOM (0.826). The room holds the connections of one PC, the devices paired with it and, while the PC
@@ -30,6 +30,7 @@ export interface Peer {
 export interface RoomStore {
   get<T>(key: string): Promise<T | undefined>
   put(key: string, value: unknown): Promise<void>
+  delete(keys: readonly string[]): Promise<void>
   deleteAll(): Promise<void>
 }
 
@@ -66,10 +67,29 @@ export const RATE_WINDOW_MS = 10_000
 /** A room whose PC has been away this long is deleted, devices and all. */
 export const IDLE_ROOM_MS = 180 * 24 * 60 * 60_000
 
+/** How long a letter is kept for a PC or phone that has not come for it, and how many at most. */
+export const LETTER_KEPT_MS = 7 * 24 * 60 * 60_000
+export const MAX_LETTERS = 200
+/** An away look comes every hour or two: more than this an hour is something else, and is refused. */
+export const AWAY_POSTS_PER_HOUR = 12
+/** The most times a day the away looks ring the phones, whatever they ask. */
+export const AWAY_PUSHES_PER_DAY = 5
+const HOUR_MS = 60 * 60_000
+const DAY_MS = 24 * HOUR_MS
+
 /** The close codes a client acts on. */
 export const CLOSE = { replaced: 4001, removed: 4003, reset: 4004, refused: 4401, timeout: 4408 } as const
 
 interface DeviceEntry { readonly hash: string; readonly added: number }
+interface LetterEntry { readonly id: string; readonly at: number; readonly from: LetterFrom }
+interface Away {
+  /** SHA-256 of the away look's token. */
+  readonly hash: string
+  readonly since: number
+  /** When it last posted, and last rang the phones: counted against the hour's and the day's limits. */
+  readonly posts: readonly number[]
+  readonly pushes: readonly number[]
+}
 interface Meta {
   /** SHA-256 of the PC's token. */
   readonly owner: string
@@ -78,8 +98,16 @@ interface Meta {
   readonly seen: number
   readonly devices: Readonly<Record<string, DeviceEntry>>
   readonly pairing?: { readonly hash: string; readonly until: number; readonly tries: number }
+  readonly away?: Away
+  /** The letters kept, oldest first; each one's box is stored under its own key. */
+  readonly letters?: readonly LetterEntry[]
 }
 const META = 'meta'
+const AWAY_ALERTS = 'away-alerts'
+const letterKey = (id: string): string => `letter:${id}`
+
+/** What the away look is answered over HTTP: a status, and a few words of JSON. */
+export interface AwayAnswer { readonly status: number; readonly body: Readonly<Record<string, unknown>> }
 
 /** Two hashes compared without stopping at the first difference. */
 function same(a: string, b: string): boolean {
@@ -93,7 +121,7 @@ function same(a: string, b: string): boolean {
 export const addressOf = (attachment: Attachment): Address | undefined =>
   attachment.as === 'pc' ? 'pc' : attachment.as === 'device' ? attachment.device : attachment.as === 'pairing' ? `pairing:${attachment.tag}` : undefined
 
-type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' }>
+type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' }>
 
 export function roomCore(host: RoomHost) {
   const meta = (): Promise<Meta | undefined> => host.store.get<Meta>(META)
@@ -114,7 +142,41 @@ export function roomCore(host: RoomHost) {
     const held = await meta()
     if (held?.pairing !== undefined) times.push(held.pairing.until)
     if (held !== undefined && pcBesides(leaving) === undefined) times.push(held.seen + IDLE_ROOM_MS)
+    const oldest = held?.letters?.[0]
+    if (oldest !== undefined) times.push(oldest.at + LETTER_KEPT_MS)
     if (times.length > 0) await host.setAlarm(Math.max(now + 1_000, Math.min(...times)))
+  }
+
+  /** The letters still kept: none older than a week, and only the newest MAX_LETTERS. */
+  const kept = (letters: readonly LetterEntry[], now: number): { readonly stay: readonly LetterEntry[]; readonly gone: readonly LetterEntry[] } => {
+    const fresh = letters.filter((letter) => now - letter.at < LETTER_KEPT_MS)
+    const stay = fresh.slice(-MAX_LETTERS)
+    return { stay, gone: letters.filter((letter) => !stay.includes(letter)) }
+  }
+
+  /** A letter left for the PC and its phones: stored, then handed at once to whoever of them is connected. */
+  const leave = async (held: Meta, from: LetterFrom, n: string, c: string, poster?: Peer): Promise<Letter> => {
+    const now = host.now()
+    const letter: Letter = { id: `${String(now).padStart(13, '0')}-${host.random(6)}`, at: now, from, n, c }
+    const { stay, gone } = kept([...(held.letters ?? []), { id: letter.id, at: now, from }], now)
+    await host.store.put(letterKey(letter.id), letter)
+    if (gone.length > 0) await host.store.delete(gone.map((old) => letterKey(old.id)))
+    await save({ ...held, letters: stay })
+    for (const other of host.peers()) if (other !== poster && (other.attachment.as === 'pc' || other.attachment.as === 'device')) other.send({ t: 'letter', item: letter })
+    await schedule()
+    return letter
+  }
+
+  /** The letters a PC catching up asks for (after the last it read), or the newest few a phone shows. */
+  const letters = async (peer: Peer, frame: Extract<ClientFrame, { readonly t: 'letters' }>): Promise<void> => {
+    const at = peer.attachment
+    if (at.as !== 'pc' && at.as !== 'device') { err(peer, 'not-owner', frame.id); return }
+    const index = (await meta())?.letters ?? []
+    const after = frame.after
+    const rest = frame.newest !== undefined ? index.slice(-frame.newest) : after === undefined ? index : index.filter((letter) => letter.id > after)
+    const chosen = rest.slice(0, LETTERS_AT_ONCE)
+    const items = (await Promise.all(chosen.map((letter) => host.store.get<Letter>(letterKey(letter.id))))).filter((item): item is Letter => item !== undefined)
+    peer.send({ t: 'letters', items, more: rest.length > chosen.length, ...(frame.id === undefined ? {} : { id: frame.id }) })
   }
 
   /** Each connection's frames are counted; one that sends too many is told so and the rest are dropped. */
@@ -196,6 +258,9 @@ export function roomCore(host: RoomHost) {
       case 'remove': {
         const { [frame.device]: _gone, ...devices } = held.devices
         await save({ ...held, devices })
+        // A phone removed is rung no more by the away looks either.
+        const alerts = await host.store.get<readonly AwayAlert[]>(AWAY_ALERTS)
+        if (alerts?.some((alert) => alert.device === frame.device)) await host.store.put(AWAY_ALERTS, alerts.filter((alert) => alert.device !== frame.device))
         for (const other of host.peers()) {
           if (other.attachment.as === 'device' && other.attachment.device === frame.device) {
             other.send({ t: 'removed' })
@@ -231,6 +296,34 @@ export function roomCore(host: RoomHost) {
         done()
         return
       }
+      case 'away-open': {
+        // A new token for the away look: the one before it stops working. Its counts carry on, so a new token is no
+        // way around the day's limit.
+        await save({ ...held, away: { posts: [], pushes: [], ...held.away, hash: frame.hash, since: now } })
+        done()
+        return
+      }
+      case 'away-close': {
+        // Off: the away look is let go, and every letter and kept alert with it.
+        const { away: _off, letters: gone, ...rest } = held
+        if (gone !== undefined && gone.length > 0) await host.store.delete(gone.map((letter) => letterKey(letter.id)))
+        await host.store.delete([AWAY_ALERTS])
+        await save(rest)
+        done()
+        return
+      }
+      case 'away-alerts': {
+        // Only for phones this PC paired.
+        await host.store.put(AWAY_ALERTS, frame.alerts.filter((alert) => held.devices[alert.device] !== undefined))
+        done()
+        return
+      }
+      case 'post': {
+        // What the PC told the person itself, so the away look that follows does not tell it again.
+        await leave(held, 'pc', frame.n, frame.c, peer)
+        done()
+        return
+      }
       case 'reset': {
         await host.store.deleteAll()
         for (const other of host.peers()) if (other !== peer) other.close(CLOSE.reset, 'reset')
@@ -258,7 +351,50 @@ export function roomCore(host: RoomHost) {
       if (!within(peer)) { err(peer, 'too-fast'); return }
       if (frame === undefined || frame.t === 'auth') { err(peer, 'bad-frame'); return }
       if (frame.t === 'send') { send(peer, frame); return }
+      if (frame.t === 'letters') { await letters(peer, frame); return }
       await command(peer, frame)
+    },
+
+    /**
+     * The away look, over HTTPS with its own token (a workflow has no WebSocket to keep): GET asks whether the PC is
+     * on and for the newest letter, so the look knows what was told already; POST leaves a letter, and may ring the
+     * phones that are not open, with the alerts their PC sealed ahead of time, at most AWAY_PUSHES_PER_DAY a day.
+     */
+    async away(request: { readonly method: string; readonly token?: string; readonly body?: string }): Promise<AwayAnswer> {
+      const held = await meta()
+      if (held === undefined) return { status: 404, body: { error: 'room' } }
+      if (held.away === undefined) return { status: 403, body: { error: 'away-off' } }
+      if (request.token === undefined || !TOKEN.test(request.token) || !same(held.away.hash, await host.sha256(request.token))) return { status: 401, body: { error: 'auth' } }
+      const pc = pcBesides() !== undefined
+      if (request.method === 'GET') {
+        const newest = held.letters?.at(-1)
+        const latest = newest === undefined ? undefined : await host.store.get<Letter>(letterKey(newest.id))
+        return { status: 200, body: { pc, ...(latest === undefined ? {} : { latest }) } }
+      }
+      if (request.method !== 'POST') return { status: 405, body: { error: 'bad-frame' } }
+      const now = host.now()
+      const posts = held.away.posts.filter((at) => now - at < HOUR_MS)
+      if (posts.length >= AWAY_POSTS_PER_HOUR) return { status: 429, body: { error: 'too-fast' } }
+      const post = request.body === undefined ? undefined : parseAwayPost(request.body)
+      if (post === undefined) return { status: 400, body: { error: 'bad-frame' } }
+      let pushes = held.away.pushes.filter((at) => now - at < DAY_MS)
+      let rung = 0
+      // With the PC on, it rings the phones itself.
+      if (post.alert !== undefined && !pc && pushes.length < AWAY_PUSHES_PER_DAY && host.push !== undefined) {
+        const alerts = (await host.store.get<readonly AwayAlert[]>(AWAY_ALERTS)) ?? []
+        const open = new Set(host.peers().flatMap((peer) => peer.attachment.as === 'device' ? [peer.attachment.device] : []))
+        const gone: string[] = []
+        for (const alert of alerts) {
+          if (open.has(alert.device) || held.devices[alert.device] === undefined || !isPushEndpoint(alert.endpoint)) continue
+          const status = await host.push(alert.endpoint, alert[post.alert], 'normal').catch(() => 0)
+          if (status === 404 || status === 410) gone.push(alert.device)
+          else if (status !== undefined && status >= 200 && status < 300) rung += 1
+        }
+        if (gone.length > 0) await host.store.put(AWAY_ALERTS, alerts.filter((alert) => !gone.includes(alert.device)))
+        if (rung > 0) pushes = [...pushes, now]
+      }
+      const letter = await leave({ ...held, away: { ...held.away, posts: [...posts, now], pushes } }, 'away', post.n, post.c)
+      return { status: 200, body: { id: letter.id, rung } }
     },
 
     async closed(peer: Peer): Promise<void> {
@@ -287,9 +423,19 @@ export function roomCore(host: RoomHost) {
         for (const peer of host.peers()) peer.close(CLOSE.reset, 'room gone')
         return
       }
-      if (held?.pairing !== undefined && held.pairing.until <= now) {
-        const { pairing: _over, ...rest } = held
-        await save(rest)
+      if (held !== undefined) {
+        let next: Meta = held
+        if (next.pairing !== undefined && next.pairing.until <= now) {
+          const { pairing: _over, ...rest } = next
+          next = rest
+        }
+        // Letters a week old are deleted whether or not anyone came for them.
+        const { stay, gone } = kept(next.letters ?? [], now)
+        if (gone.length > 0) {
+          await host.store.delete(gone.map((letter) => letterKey(letter.id)))
+          next = { ...next, letters: stay }
+        }
+        if (next !== held) await save(next)
       }
       await schedule()
     }
