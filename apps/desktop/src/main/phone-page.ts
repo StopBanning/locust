@@ -646,6 +646,10 @@ const UI = `
     });
   }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') refresh(); });
+  // A tapped alert (PHONE_SERVICE_WORKER) opens the list, where what it was about waits.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (event) {
+    if (event.data && event.data.locust === 'alert') { open = null; turns = null; render(); refresh(); }
+  });
   render();
   transport.start(function (reset) {
     if (reset) { open = null; turns = null; state = null; }
@@ -694,7 +698,8 @@ export const PHONE_SERVICE_WORKER = `self.addEventListener('push', function (eve
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (open) {
-    for (var i = 0; i < open.length; i += 1) if ('focus' in open[i]) return open[i].focus();
+    // An alert is about something waiting on you: the page goes to the list, where it waits (0.827).
+    for (var i = 0; i < open.length; i += 1) if ('focus' in open[i]) { open[i].postMessage({ locust: 'alert' }); return open[i].focus(); }
     return self.clients.openWindow('/');
   }));
 });

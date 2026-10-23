@@ -213,14 +213,15 @@ try {
   check('the quiet-hours switch turns on, is kept, and turns off again', night === 'true true false', night)
 
   // Away: the phone asks Mira for a file, then goes in the pocket: its page hidden, as a locked screen hides it, so it
-  // lets go of its line. Locust's window is behind (a drive's window never has the focus), so the approval her action
-  // waits on goes to the phone.
+  // lets go of its line. Locust's window is minimized, as by someone stepping away (a drive's window may well hold the
+  // focus, and Locust then shows the card itself), so the approval her action waits on goes to the phone.
   await phone.evaluate(`document.querySelector('button.convo')?.click()`)
   await phoneWait(/PELICAN.*PELICAN/, 15)
   const MAKE = 'Create a file named alerts-check.txt in this folder containing the word OK. Use your file-writing tool.'
   await phone.evaluate(`(() => { const box = document.querySelector('textarea'); box.value = ${JSON.stringify(MAKE)}; box.dispatchEvent(new Event('input')); document.querySelector('form.compose button').click() })()`)
   await sleep(2000)
   await phone.capture('the phone: asked Mira for a file')
+  await drive.evaluate('window.desktop.minimize()')
   await phone.pocket(true)
   check('in the pocket, the page is hidden', await phone.evaluate('document.visibilityState') === 'hidden', await phone.evaluate('document.visibilityState'))
   say('the phone: in the pocket; waiting for the approval to buzz it')
@@ -237,10 +238,15 @@ try {
   }
   check('with the page hidden, the waiting approval buzzed the phone through its push service', shown.some((one) => one.title === 'Mira needs your approval'), JSON.stringify(shown))
   check('the lock screen says who and what kind, never the file or the message', shown.length > 0 && shown.every((one) => !/alerts-check|OK|Create a file/.test(`${one.title} ${one.body}`)) && shown.some((one) => one.body === 'The turn is paused until you answer.'), JSON.stringify(shown))
+  // Back at the desk.
+  await drive.evaluate('window.desktop.toggleMaximize()')
+  await sleep(1000)
+  await drive.resize(1215, 860)
   await drive.capture('the window: Mira waiting on an approval', () => drive.evaluate('1'))
 
-  // The person takes the phone out and answers.
+  // The person takes the phone out and answers, from the list (where a tapped alert takes the page).
   await phone.pocket(false)
+  await phone.evaluate(`document.querySelector('.back')?.click()`)
   const asking = await phoneWait(/Waiting on you/i, 60)
   await phone.capture('the phone: opened from the alert, the card')
   check('opened, the phone shows the card the alert was about', /Waiting on you/i.test(asking) && /Mira asks/.test(asking), asking.slice(0, 300))
