@@ -210,6 +210,7 @@ import {
   failedOnProviderSide,
   recentlyUsedRoutes,
   freeModelsThatAnswered,
+  liveModelNames,
   resolvedModelNames,
   resumableSessionOf,
   laterFileChanges,
@@ -4612,7 +4613,13 @@ export default function App(): ReactElement {
   // Anywhere: no teammate is needed to compare (Colin, 2026-09-28), so a new person can try it first thing.
   // Above the comparison's default picks, which read both while rendering (0.460).
   // What each route's model turned out to be, from missions that already ran.
-  const resolvedModels = useMemo(() => resolvedModelNames(history), [history])
+  const historyModels = useMemo(() => resolvedModelNames(history), [history])
+  // A run under way names its model as it starts (0.827); kept as one string so the map changes only when a name does.
+  const liveModelsKey = useMemo(() => JSON.stringify([...liveModelNames([...runs.values()].map((run) => ({ runtime: run.data?.runtime ?? run.runtime, model: run.data?.model, events: run.events })))]), [runs])
+  const resolvedModels = useMemo(() => {
+    const live = JSON.parse(liveModelsKey) as [string, string][]
+    return live.length === 0 ? historyModels : new Map([...historyModels, ...live])
+  }, [historyModels, liveModelsKey])
   /** A compared model by name (0.811): the person's name for it, else the picker's spelling of its id, never the raw id. */
   const compareRouteName = (route: CompareRoute): string =>
     shownRouteLabel(route) ?? routeModelName(route.runtime as MissionRuntimeId, route.model, resolvedModels.get(`${route.runtime}:${route.model}`))

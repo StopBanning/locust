@@ -18,6 +18,10 @@ heading: the home screen then shows it once, as a splash.
 - **Alerts on your phone.** Paired from anywhere, your phone can buzz when something on your computer needs you while you're away from it: a run waiting on your approval or answer, a run that hit its plan's limit, Scout's urgent cards, and a card that could wait, left untouched for four hours. Turn them on from the phone's page; on an iPhone, add Locust to your Home Screen first. Your phone stays quiet while Locust's window is in front or the page is open, buzzes at most once every two minutes (anything else joins the next buzz), holds anything but approvals past five a day, and keeps Scout's quiet hours, unless you let approvals through at night in Settings. A lock screen says who and what kind, never a command or a message, and each alert is locked on your computer for that phone's browser alone.
 - **The morning brief says what it checked.** A quiet brief no longer leaves you wondering whether Scout looked: it names what Scout watched and found quiet, says when GitHub couldn't be read instead of calling it quiet, counts what Scout set aside for having told you already, and lists the alerts it held back from your phone in quiet hours or past the day's limit.
 
+### Fixed
+
+- **A turn on a runtime's default names its model while it runs.** A turn Locust carried on with Claude Code read just "Claude  High" until it finished, and for good when no turn on Claude's default had finished before. The model is named as the turn starts.
+
 ## 0.826.0 - 2026-10-23
 <!-- big -->
 

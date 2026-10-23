@@ -345,6 +345,20 @@ const RELAY = `
     }
 
     /*
+     * OUT OF SIGHT, THE LINE IS LET GO (0.827). Locust sends an alert only to a phone whose page is not open, since an
+     * open page shows everything itself. A locked phone or a page in the background kept its line, and a line a phone
+     * drops without closing stays open at the relay, so Locust took the phone for open and sent nothing (the alerts
+     * drive, 10/23). Hidden, the page closes its line; seen again, it opens it again.
+     */
+    function rest() {
+      if (!socket) return;
+      var ws = socket;
+      socket = null; ready = false; clearInterval(pingTimer); clearTimeout(retryTimer);
+      failAll('Reaching Locust…');
+      try { ws.close(1000); } catch (e) {}
+    }
+
+    /*
      * ALERTS (0.827). The browser's push service brings an alert this page's PC sealed for it, through the relay; the
      * service worker (PHONE_SERVICE_WORKER) shows it. An iPhone shows web alerts only from the Home Screen.
      */
@@ -415,7 +429,11 @@ const RELAY = `
         });
         // A new code opened in this same tab changes only the #fragment, which reloads nothing.
         window.addEventListener('hashchange', function () { var next = readCode(); if (next) pair(next); });
-        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && link && !socket) connect(); });
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') { if (link && !socket) connect(); } else rest();
+        });
+        window.addEventListener('pagehide', rest);
+        window.addEventListener('pageshow', function () { if (document.visibilityState === 'visible' && link && !socket) connect(); });
         if (ALERTS_KEY && pushable()) navigator.serviceWorker.register('/sw.js').catch(function () {});
       },
       alerts: function () {
@@ -619,6 +637,8 @@ const UI = `
       : transport.api('/api/state').then(function (r) { state = r; render(); });
     work.catch(function (e) {
       if (e.message === 'unpaired') return;
+      // Seen again, the line is still opening: what was on screen stays until it answers (0.827).
+      if (e.message === 'Reaching Locust…') return;
       if (!asked) { state = null; render(); }
     }).then(function () {
       if (transport.paired() && document.visibilityState === 'visible') timer = setTimeout(refresh, 3000);

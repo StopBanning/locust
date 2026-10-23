@@ -116,6 +116,12 @@ async function openPhone(url) {
     call: tab.call,
     evaluate: async (expression) => (await tab.call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result?.result?.value,
     navigate: async (to) => { await tab.call('Page.navigate', { url: to }); await sleep(2500) },
+    // In the pocket, and out again: the window minimized hides the page as a locked screen does.
+    pocket: async (hidden) => {
+      const { result } = await browser.call('Browser.getWindowForTarget', { targetId: target.id })
+      await browser.call('Browser.setWindowBounds', { windowId: result.windowId, bounds: { windowState: hidden ? 'minimized' : 'normal' } })
+      await sleep(1500)
+    },
     capture: async (label) => {
       shot += 1
       const data = (await tab.call('Page.captureScreenshot', { format: 'png' })).result?.data
@@ -136,8 +142,7 @@ const phoneWait = async (pattern, seconds = 30) => {
   }
   return seen
 }
-// What the phone's lock screen holds: the notifications its service worker showed. Read from a page of the relay's
-// own address that is not the phone page, so reading them does not open the phone.
+// What the phone's lock screen holds: the notifications its service worker showed, read from the page in the pocket.
 const NOTIFICATIONS = `(async () => {
   const reg = await navigator.serviceWorker.getRegistration('/')
   if (!reg) return JSON.stringify({ none: 'no service worker' })
@@ -207,29 +212,35 @@ try {
     return first + ' ' + String(saved) + ' ' + section?.querySelector('[aria-label="Let approvals buzz in quiet hours"]')?.getAttribute('aria-checked')`)))
   check('the quiet-hours switch turns on, is kept, and turns off again', night === 'true true false', night)
 
-  // Away: the phone asks Mira for a file, then its page is closed, as a phone put in a pocket. Locust's window is
-  // behind (a drive's window never has the focus), so the approval her action waits on goes to the phone.
+  // Away: the phone asks Mira for a file, then goes in the pocket: its page hidden, as a locked screen hides it, so it
+  // lets go of its line. Locust's window is behind (a drive's window never has the focus), so the approval her action
+  // waits on goes to the phone.
   await phone.evaluate(`document.querySelector('button.convo')?.click()`)
   await phoneWait(/PELICAN.*PELICAN/, 15)
   const MAKE = 'Create a file named alerts-check.txt in this folder containing the word OK. Use your file-writing tool.'
   await phone.evaluate(`(() => { const box = document.querySelector('textarea'); box.value = ${JSON.stringify(MAKE)}; box.dispatchEvent(new Event('input')); document.querySelector('form.compose button').click() })()`)
   await sleep(2000)
   await phone.capture('the phone: asked Mira for a file')
-  await phone.navigate(`${RELAY}/manifest.webmanifest`)
-  say('the phone: page closed; waiting for the approval to buzz it')
+  await phone.pocket(true)
+  check('in the pocket, the page is hidden', await phone.evaluate('document.visibilityState') === 'hidden', await phone.evaluate('document.visibilityState'))
+  say('the phone: in the pocket; waiting for the approval to buzz it')
   let shown = []
   const deadline = Date.now() + 300_000
+  let said = ''
   while (Date.now() < deadline) {
     const read = JSON.parse(String(await phone.evaluate(NOTIFICATIONS) ?? '[]'))
     if (Array.isArray(read) && read.length > 0) { shown = read; break }
+    // How the computer sees the phone meanwhile: open or not, alerts on or not.
+    const now = String(await drive.evaluate(`window.desktop.phone.anywhere().then((s) => JSON.stringify({ connected: s.connected, devices: s.devices.map((d) => ({ online: d.online, alerts: d.alerts === true })) }))`))
+    if (now !== said) { say(`  the computer sees: ${now}`); said = now }
     await sleep(3000)
   }
-  check('with the page closed, the waiting approval buzzed the phone through its push service', shown.some((one) => one.title === 'Mira needs your approval'), JSON.stringify(shown))
+  check('with the page hidden, the waiting approval buzzed the phone through its push service', shown.some((one) => one.title === 'Mira needs your approval'), JSON.stringify(shown))
   check('the lock screen says who and what kind, never the file or the message', shown.length > 0 && shown.every((one) => !/alerts-check|OK|Create a file/.test(`${one.title} ${one.body}`)) && shown.some((one) => one.body === 'The turn is paused until you answer.'), JSON.stringify(shown))
   await drive.capture('the window: Mira waiting on an approval', () => drive.evaluate('1'))
 
-  // The person opens the phone and answers.
-  await phone.navigate(`${RELAY}/`)
+  // The person takes the phone out and answers.
+  await phone.pocket(false)
   const asking = await phoneWait(/Waiting on you/i, 60)
   await phone.capture('the phone: opened from the alert, the card')
   check('opened, the phone shows the card the alert was about', /Waiting on you/i.test(asking) && /Mira asks/.test(asking), asking.slice(0, 300))

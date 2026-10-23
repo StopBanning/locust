@@ -5106,6 +5106,26 @@ export function resolvedModelNames(
   return new Map([...byRoute].map(([key, held]) => [key, held.name]))
 }
 
+/**
+ * WHICH MODEL A RUN UNDER WAY IS ON, from its own start record (0.827). A turn Locust carried on with Claude Code on its
+ * default read "Claude  High" until it finished, and for good when no turn on that default had finished before (Colin,
+ * 2026-10-23, on a turn carried on from Antigravity: "still only reading as claude and high"). Claude Code's start
+ * record names the model its default is, so the run says it as it starts. Keyed as resolvedModelNames is.
+ */
+export function liveModelNames(
+  runs: Iterable<{ readonly runtime?: string; readonly model?: string; readonly events: readonly NormalizedRuntimeEvent[] }>
+): ReadonlyMap<string, string> {
+  const named = new Map<string, string>()
+  for (const run of runs) {
+    if (run.runtime === undefined || run.model === undefined) continue
+    const started = run.events.find((event) => event.type === 'run.started')
+    const raw = started?.type === 'run.started' ? started.payload.evidence.raw : undefined
+    const model = typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>).model : undefined
+    if (typeof model === 'string' && model.length > 0 && model !== run.model) named.set(`${run.runtime}:${run.model}`, model)
+  }
+  return named
+}
+
 export function resolvedModelKey(runtime: MissionRuntimeId, model: string): string {
   return `${runtime}:${model}`
 }
