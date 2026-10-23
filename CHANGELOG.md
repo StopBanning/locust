@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.827.0 - 2026-10-23
+
+### New
+
+- **Alerts on your phone.** Paired from anywhere, your phone can buzz when something on your computer needs you while you're away from it: a run waiting on your approval or answer, a run that hit its plan's limit, Scout's urgent cards, and a card that could wait, left untouched for four hours. Turn them on from the phone's page; on an iPhone, add Locust to your Home Screen first. Your phone stays quiet while Locust's window is in front or the page is open, buzzes at most once every two minutes (anything else joins the next buzz), holds anything but approvals past five a day, and keeps Scout's quiet hours, unless you let approvals through at night in Settings. A lock screen says who and what kind, never a command or a message, and each alert is locked on your computer for that phone's browser alone.
+
 ## 0.826.0 - 2026-10-23
 <!-- big -->
 
