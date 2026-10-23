@@ -234,7 +234,8 @@ try {
 
   await drive.evaluate(settingsScript(`
     for (let i = 0; i < 40 && !section?.querySelector('.lc-phone__device'); i += 1) await new Promise((r) => setTimeout(r, 250))
-    section?.querySelector('.lc-phone__device button')?.click()
+    // Remove by its name: the row has a Full window switch before it since 0.830.
+    ;[...(section?.querySelectorAll('.lc-phone__device button') ?? [])].find((b) => b.innerText.trim() === 'Remove')?.click()
     await new Promise((r) => setTimeout(r, 1200))
     return 1`))
   const removed = await phoneWait(/Pair this phone/, 15)
