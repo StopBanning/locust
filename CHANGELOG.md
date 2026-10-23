@@ -11,6 +11,18 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.828.0 - 2026-10-23
+<!-- big -->
+
+### New
+
+- **Scout prepares the fix before you look.** Turn on Prepare fixes before I look in Settings > General, under Scout, pick the teammate who prepares them, and when the folder's check starts failing that teammate fixes it in a copy of your folder while Scout's card says so. Locust runs the check there again, and the card then reads "Fix ready: 2 files changed, the check passes", with Review, Apply and Skip; or, when it couldn't, what was missing, in the teammate's words. Apply brings the change into your folder beside your own edits, and says so when you changed the same files since, with Prepare again. Nothing reaches your folder before Apply, and from the copy nothing can push, add a remote or use gh; opening a pull request stays your step. It runs on that teammate's plan, so it is off until you turn it on, at most two a day unless you change it, two tries and 30 minutes a fix, and Scout's today line counts them.
+- **What Scout saw.** Scout writes down every look for 14 days: what it raised, what it set aside and why (told you already, or past the three new issues a look raises), the watches it didn't read, when GitHub couldn't be read, and looks not taken in quiet hours. Settings > General shows it under Scout, newest first, with a filter for what it left out, and a card that was kept off your phone says why. Ask Scout in its own conversation "why didn't you tell me about #42?" and it answers from that record, naming the look, with no tools.
+
+### Fixed
+
+- **A fourth new issue is raised.** Scout raises three new issues a look, and they were always the three newest, told or not, so a fourth stayed untold for as long as three newer ones were open. It now raises the newest it hasn't told you about.
+
 ## 0.827.0 - 2026-10-23
 
 ### New
