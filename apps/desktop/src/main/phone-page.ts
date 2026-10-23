@@ -312,7 +312,8 @@ const RELAY = `
     }
 
     function connect() {
-      if (!link || socket) return;
+      // Out of sight, no line (see rest): a page opened in the background opens it when it is seen.
+      if (!link || socket || document.visibilityState === 'hidden') return;
       clearTimeout(retryTimer);
       var ws = socket = new WebSocket(RELAY + link.room);
       ready = false;

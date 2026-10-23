@@ -7,7 +7,7 @@
 //
 // Real pushes need a relay that holds the signing key, so the relay is the live one unless --relay names another.
 // The phone is a Chrome at a phone's size with a profile of its own, notifications allowed for the relay's address (a
-// person taps Allow), its window off the screen. Not headless: a headless Chrome's push subscription is refused by
+// person taps Allow), its window off the screen and still counted as seen (Windows would count it hidden). Not headless: a headless Chrome's push subscription is refused by
 // Google's push service as gone (measured 10/23), so a real one is the only phone that shows a real push. Its messages
 // run on the free OpenCode model, so nothing is spent.
 
@@ -89,7 +89,7 @@ const connect = async (url, onEvent) => {
 }
 async function openPhone(url) {
   const userData = await mkdtemp(join(tmpdir(), 'locust-drive-alerts-chrome-'))
-  chrome = spawn(CHROME, [`--remote-debugging-port=${String(PHONE_PORT)}`, `--user-data-dir=${userData}`, '--no-first-run', '--no-default-browser-check', '--window-size=390,844', '--window-position=-3000,0', 'about:blank'], { stdio: 'ignore' })
+  chrome = spawn(CHROME, [`--remote-debugging-port=${String(PHONE_PORT)}`, `--user-data-dir=${userData}`, '--no-first-run', '--no-default-browser-check', '--window-size=390,844', '--window-position=-3000,0', '--disable-features=CalculateNativeWinOcclusion', 'about:blank'], { stdio: 'ignore' })
   let target
   for (let tries = 0; tries < 40 && target === undefined; tries += 1) {
     await sleep(500)
