@@ -130,6 +130,9 @@ function banner() {
   }
 }
 
+/** Said while the relay cannot be reached at all from this browser, before the window ever opened. */
+const RELAY_OUT_OF_REACH = 'Locust’s relay cannot be reached from this browser. Check its connection; it keeps trying.'
+
 /** Said of a change asked for while the window shows what Locust last showed. */
 const SNAPSHOT_SAYS = 'This is what Locust last showed here, so nothing can be changed from it yet. It opens live as soon as your computer answers.'
 
@@ -335,6 +338,8 @@ function createDeskLine() {
       fail('Locust’s relay could not be reached. Reaching it again…')
       if (link === undefined) return
       if (have === 'yes') say('Reaching Locust again…')
+      // Never reached: said, rather than "Opening" for as long as it keeps trying (0.834).
+      else say(RELAY_OUT_OF_REACH)
       retry = Math.min(retry + 1, 6)
       window.setTimeout(connect, 1000 * 2 ** (retry - 1))
     }
@@ -385,7 +390,8 @@ function createDeskLine() {
       link = await savedLink()
       // What it last showed, shown at once -- unless this tab already opened live, and was reloaded.
       let live = false
-      try { live = sessionStorage.getItem('locust-desk-live') === '1' } catch { /* Not live, then. */ }
+      // Once: a later reload of this tab, with the computer off, shows what it last showed again.
+      try { live = sessionStorage.getItem('locust-desk-live') === '1'; sessionStorage.removeItem('locust-desk-live') } catch { /* Not live, then. */ }
       snapshot = link === undefined ? undefined : await store.load().catch(() => undefined)
       showingSnapshot = !live && snapshot !== undefined && Object.keys(snapshot.answers).length > 0
       loaded()

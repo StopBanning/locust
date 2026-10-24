@@ -109,6 +109,11 @@ async function openBrowser(url) {
     evaluate: async (expression) => (await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result?.result?.value,
     /** A script that runs in every page this browser opens from now on, before the page's own. */
     onEveryPage: async (source) => { await call('Page.addScriptToEvaluateOnNewDocument', { source }) },
+    /*
+     * The relay out of reach in this tab, from its next load, as with the computer off: every socket the page opens
+     * fails as an unreachable one does. Chrome's own URL blocking leaves WebSockets alone, so it is done in the page.
+     */
+    offline: async (on) => { await call('Runtime.evaluate', { expression: on ? `sessionStorage.setItem('drive-offline', '1')` : `sessionStorage.removeItem('drive-offline')` }) },
     navigate: async (to) => { await call('Page.navigate', { url: to }); await sleep(2500) },
     capture: async (label) => {
       shot += 1
@@ -219,8 +224,36 @@ try {
   const saw = JSON.parse(String(await browser.evaluate(`sessionStorage.getItem('drive-saw') ?? 'null'`)))
   await browser.capture('opened again: live, after what it last showed')
   check('opened again, the window shows at once what it last showed, and says so', saw !== null && /This is what Locust last showed here, at /.test(saw.line) && saw.pelican === true, JSON.stringify(saw))
-  check('then it opens live from this computer, and the line goes', /PELICAN/.test(live) && String(await browser.evaluate(`document.querySelector('[aria-label="What Locust last showed here"]') === null && sessionStorage.getItem('locust-desk-live') === '1'`)) === 'true', live.slice(0, 200))
+  check('then it opens live from this computer, and the line goes', /PELICAN/.test(live) && String(await browser.evaluate(`document.querySelector('[aria-label="What Locust last showed here"]') === null && sessionStorage.getItem('locust-desk-live') === null`)) === 'true', live.slice(0, 200))
   check('what it keeps is sealed in the browser, never the conversation as text', String(await browser.evaluate(`new Promise((resolve) => { const r = indexedDB.open('locust-desk-snapshot', 1); r.onsuccess = () => { const g = r.result.transaction('kept', 'readonly').objectStore('kept').get('snapshot'); g.onsuccess = () => { const kept = g.result; resolve(kept && kept.box instanceof ArrayBuffer && !new TextDecoder().decode(kept.box).includes('PELICAN') ? 'sealed' : 'open: ' + JSON.stringify(kept).slice(0, 80)) } } })`)) === 'sealed')
+
+  // With the computer out of reach -- the relay's room blocked -- it goes on showing what it last showed, and says so.
+  await browser.onEveryPage(`(() => {
+    if (sessionStorage.getItem('drive-offline') !== '1') return
+    window.WebSocket = class extends EventTarget {
+      constructor(url) {
+        super(); this.url = String(url); this.readyState = 0
+        setTimeout(() => { this.readyState = 3; for (const kind of ['error', 'close']) { const event = kind === 'close' ? new CloseEvent('close', { code: 1006 }) : new Event('error'); this['on' + kind]?.(event); this.dispatchEvent(event) } }, 50)
+      }
+      send() {} close() {}
+    }
+  })()`)
+  await browser.offline(true)
+  await browser.navigate(deskAt)
+  await sleep(4000)
+  const away = JSON.parse(String(await browser.evaluate(`JSON.stringify({ line: document.querySelector('[aria-label="What Locust last showed here"]')?.textContent ?? null, pelican: /PELICAN/.test(document.body.innerText) })`)))
+  await browser.capture('computer out of reach: what Locust last showed, under its line')
+  check('with the computer out of reach, it still shows what it last showed, under the line', away.pelican === true && /This is what Locust last showed here, at /.test(away.line ?? ''), JSON.stringify(away))
+  check('and the line says the relay cannot be reached, and that it keeps trying', /relay cannot be reached from this browser.*keeps trying/.test(away.line ?? ''), away.line)
+  await browser.offline(false)
+  await browser.navigate(deskAt)
+  // What it last showed comes first again, so live is when the line has gone and the conversation is there.
+  let liveAgain = false
+  for (let waited = 0; waited < 90 && !liveAgain; waited += 1) {
+    await sleep(1000)
+    liveAgain = String(await browser.evaluate(`document.querySelector('[aria-label="What Locust last showed here"]') === null && /PELICAN/.test(document.body.innerText)`).catch(() => 'false')) === 'true'
+  }
+  check('reached again, it opens live', liveAgain)
 
   const cover = await pcWait(/Locust is open in a browser/, 30)
   await drive.capture('this computer’s window: the cover', () => cover)
