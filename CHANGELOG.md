@@ -11,6 +11,18 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.834.0 - 2026-10-25
+<!-- big -->
+
+### New
+
+- **Locust in a browser opens at once.** Opened again, app.locust.lol/desk shows straight away the conversations, team and turns it showed last time, under a thin line saying it is what Locust last showed and when, and opens live as soon as your computer answers. With your computer off or the relay out of reach, you can still read what it last showed; nothing can be changed from it until it is live. What the browser keeps is sealed with a key the browser itself holds and will not hand out, and forgetting the pairing forgets it too.
+- **Routines as Markdown files.** Export a routine and you get `Name.routine.md`: what it asks for and where it runs at the top, then its name and each step in its own words, under `## Step 1`, `## Step 2` and so on. Read it, share it, edit it in any editor, and import it again -- Locust reads it with the same checks as before, and still reads the older `.locust-routine.json` files.
+
+### Improved
+
+- **A key asked for reads as one line.** When a teammate asks for a key, its answer now says "Asks for the key NAME (below)", and the reason it gave is on the card with the box, instead of standing alone in the answer.
+
 ## 0.833.0 - 2026-10-24
 <!-- big -->
 
