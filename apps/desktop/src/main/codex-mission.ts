@@ -1,3 +1,4 @@
+import { KEYS_REACH, scrubKeyValues, type RunKey } from '../shared/teammate-keys.js'
 import { accountFromRoute } from '../shared/agent-accounts.js'
 import { policyFeatureRefusal, policyTurnRefusal } from '../shared/organization-policy.js'
 import { supportsPerRunBrowserMcp } from '../shared/browser.js'
@@ -250,6 +251,8 @@ interface ActiveCodexMission {
   lastSequence: number
   /** Every event persisted, so the observation can tell reported edits from unreported ones. */
   readonly persisted: NormalizedRuntimeEvent[]
+  /** The teammate's keys this run was given (0.833): each value is taken out of every event before it is kept or shown. */
+  readonly runKeys: readonly RunKey[]
   /** Called only for durable runtime records, never the host's terminal receipt. */
   readonly deliverMessages: (events: readonly NormalizedRuntimeEvent[]) => Promise<void>
   /** When the start's phases began and the first event arrived (0.602); the run's end writes the note. */
@@ -590,6 +593,8 @@ interface CodexMissionServiceOptions {
    * starts passes through here (shared/spend.ts).
    */
   readonly spendRefusal?: (teammateId: string) => Promise<string | undefined>
+  /** A teammate's keys, decrypted, for one of its runs (0.833, teammate-keys.ts). */
+  readonly teammateKeys?: (teammateId: string) => Promise<readonly RunKey[]>
   /**
    * The provider a model of the person's own needs (main/own-models.ts):
    * undefined for one no longer kept. Asked only for an OpenCode route whose
@@ -1095,7 +1100,9 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
     let persistenceReason: string | undefined
     const maxWaiting = options.maxWaitingEvents ?? MAX_WAITING_EVENTS
     let ledgerFailed = false
-    const batches = createStreamedEventBatcher(async (events) => {
+    const batches = createStreamedEventBatcher(async (given) => {
+      // A key's value, whatever printed it, is never kept or shown (0.833): its name in brackets is.
+      const events = scrubKeyValues(given, mission.runKeys)
       await persistAndEmit(mission, options.ledger, events)
       await mission.deliverMessages(events)
       // Best effort, after the durable write; this is not a ledger failure.
@@ -2259,7 +2266,18 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         // a run that never existed. Nothing created today can be pruned
         // today, so those files were permanent.
         // Narrowed above; captured so the closure below keeps the narrowing.
-        const executable = chosen.executable
+        /*
+         * KEYS A TEAMMATE NEEDS (0.833, shared/teammate-keys.ts): its own keys, as environment variables of its run, on
+         * an agent that passes them to its commands. Never on a cloud computer, where they would leave this one, nor in
+         * a sealed run, whose prompt holds other people's words.
+         */
+        const runKeys = peer !== undefined && cloud === undefined && slot?.sealed !== true && KEYS_REACH.has(runtime) && options.teammateKeys !== undefined
+          ? await options.teammateKeys(peer.self.teammateId).catch(() => [])
+          : []
+        const executable = runKeys.length === 0
+          ? chosen.executable
+          : { ...chosen.executable, env: { ...(chosen.executable.env ?? {}), ...Object.fromEntries(runKeys.map((key) => [key.name, key.value])) } }
+        if (runKeys.length > 0) options.note?.('keys-given', `${missionId} ${runKeys.map((key) => key.name).join(' ')}`)
         // The teammate's own worktree when it has one, else the folder. The
         // ledger's workspace id stays the FOLDER's: history is per folder.
         // A comparison's column may answer in a copy of the folder (0.443, compare-copies.ts).
@@ -3261,6 +3279,7 @@ ${sentPrompt.trim()}`
           lastSequence: 0,
           startTiming: { sentAt, phaseAt },
           persisted: [],
+          runKeys,
           deliverMessages: deliverWhenRuntimeStarts(peerExchange, missionId, delivered)
         }
         active.set(runId, mission)

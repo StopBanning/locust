@@ -30,7 +30,7 @@
  * different character and the words survive intact.
  */
 // `locust-instructions` (0.831, shared/interview.ts): a teammate's own standing instructions, written in an interview.
-export const PROTOCOL_TAGS = ['locust-share', 'locust-memory', 'locust-ask', 'locust-task', 'locust-file', 'locust-tidy', 'locust-instructions'] as const
+export const PROTOCOL_TAGS = ['locust-share', 'locust-memory', 'locust-ask', 'locust-task', 'locust-file', 'locust-tidy', 'locust-instructions', 'locust-key'] as const
 
 /** The mark a defanged bracket leaves. Single-width, visibly not a bracket. */
 export const DEFANGED_BRACKET = '‹'

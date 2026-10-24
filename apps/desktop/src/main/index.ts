@@ -246,6 +246,8 @@ import { createMemoryStore } from './memory-store.js'
 import { WorktreeHasChangesError, createWorktreeManager, defaultRunGit } from './worktrees.js'
 import { copilotMcpServerNames, readRuntimeSetup } from './runtime-setup.js'
 import { folderSentences, readWorkspaceBrief, groupSection, teammateSection } from './workspace-brief.js'
+import { createTeammateKeys } from './teammate-keys.js'
+import { KEYS_REACH, keysSection, TEAMMATE_KEYS_LIST_CHANNEL, TEAMMATE_KEYS_REMOVE_CHANNEL, TEAMMATE_KEYS_SET_CHANNEL } from '../shared/teammate-keys.js'
 import { createConversationChain, groupBriefFor } from './conversation-chain.js'
 import { createMemoryReader } from './memory-reader.js'
 import { createAttentionReader } from './attention-reader.js'
@@ -2031,6 +2033,11 @@ if (!ownsSingleInstanceLock) {
     })
     // Each teammate's own skills (0.811), kept from its tunes: handed to its Claude Code runs as the `teammate` plugin.
     const teammateSkills = createTeammateSkillStore({ rootDirectory: app.getPath('userData') })
+    // Keys a teammate needs (0.833, teammate-keys.ts): by name to the window, by value only to that teammate's runs.
+    const teammateKeys = createTeammateKeys({
+      directory: app.getPath('userData'),
+      secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) }
+    })
     let memoryWorkspaceId = workspaceChosen ? workspaceIdFor(workspacePath) : 'ws_none'
     let memoryWorkspaceName = workspaceChosen ? basename(workspacePath) || workspacePath : 'no folder'
     /** A folder by path, with the id and name memory and the brief know it by (0.458). */
@@ -2094,6 +2101,11 @@ if (!ownsSingleInstanceLock) {
         const own = peer === undefined ? undefined : (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === peer.self.teammateId)
         const instructions = columnInstructions(own?.instructions, conversation?.instructions)
         if (own !== undefined && instructions !== undefined && instructions.length > 0) sections.push(teammateSection(own.name, instructions))
+        // Its keys by name, never by value, and how to ask for one it needs (0.833).
+        if (own !== undefined) {
+          const keys = keysSection(await teammateKeys.names(own.teammateId).catch(() => []), runtime !== undefined && KEYS_REACH.has(runtime))
+          if (keys.length > 0) sections.push(keys)
+        }
         const settings = await teammates.readSettings()
         // About you (0.423): the person's own standing note, before memory
         // and whatever the memory mode says -- switching teammate memory off
@@ -2738,6 +2750,7 @@ if (!ownsSingleInstanceLock) {
       // A scripted launch spends nothing unless told to (free-routes.ts).
       freeRoutesOnly: freeRoutesOnly(process.argv, process.env),
       spendRefusal,
+      teammateKeys: (teammateId) => teammateKeys.runKeys(teammateId),
       ownProvider: (model) => ownModels.providerFor(model),
       permissionHost,
       browserHost,
@@ -6968,6 +6981,11 @@ if (!ownsSingleInstanceLock) {
       }
     })
 
+    // A teammate's keys (0.833): their names in the window, a value going in once, from this computer's own window only.
+    const NO_KEYS = { ok: false, message: 'Keys are changed only in Locust on this computer.', names: [] } as const
+    ipcMain.handle(TEAMMATE_KEYS_LIST_CHANNEL, async (event, teammateId: unknown) => fromOwnWindow(event) && typeof teammateId === 'string' ? { ok: true, names: await teammateKeys.names(teammateId) } : NO_KEYS)
+    ipcMain.handle(TEAMMATE_KEYS_SET_CHANNEL, (event, teammateId: unknown, name: unknown, value: unknown) => fromOwnWindow(event) ? teammateKeys.set(teammateId, name, value) : NO_KEYS)
+    ipcMain.handle(TEAMMATE_KEYS_REMOVE_CHANNEL, (event, teammateId: unknown, name: unknown) => fromOwnWindow(event) ? teammateKeys.remove(teammateId, name) : NO_KEYS)
     ipcMain.handle(TEAMMATE_REMOVE_CHANNEL, async (event, teammateId: unknown) => {
       if (!fromOwnWindow(event)) return teammateRejected('The teammate could not be removed.')
       try {
@@ -6978,6 +6996,8 @@ if (!ownsSingleInstanceLock) {
         await rooms.removeTeammate(teammateId).catch(() => undefined)
         await tuneLessons.removeForTeammate(teammateId).catch(() => undefined)
         await teammateSkills.removeForTeammate(teammateId).catch(() => undefined)
+        // And its keys go with it (0.833).
+        if (typeof teammateId === 'string') await teammateKeys.forget(teammateId).catch(() => undefined)
         return { ok: true, data: {} } as const
       } catch {
         return teammateRejected('That teammate could not be removed.')

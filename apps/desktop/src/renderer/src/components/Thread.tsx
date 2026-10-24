@@ -69,6 +69,8 @@ import { callPlacements, type CallPlace, type SavedCall } from '../../../shared/
 import type { VoiceCallRole } from '../../../shared/voice-call.js'
 import { CallWords } from './CallWords.js'
 import { InstructionsCard } from './InstructionsCard.js'
+import { KeyCard } from './KeyCard.js'
+import { KEYS_REACH, keyRequestsInEvents } from '../../../shared/teammate-keys.js'
 import { instructionsIn, isInterview } from '../../../shared/interview.js'
 import type { LiveCallAsk } from '../liveCall.js'
 
@@ -1793,6 +1795,15 @@ onResume,
             <InstructionsCard key={`instructions_${shownMissionId ?? ''}`} name={self.name} written={written}
               {...(self.instructions === undefined ? {} : { current: self.instructions })}
               onSave={(text) => onSaveInstructions(self.teammateId, text)} />
+          )
+        })()}
+        {/* A key the teammate asked for (0.833): its name, a masked box, and Keep, under the answer that asked. */}
+        {!running && peers.self !== undefined && (() => {
+          const requests = keyRequestsInEvents(events)
+          const self = peers.self
+          const runtime = self.route?.runtime
+          return requests.length === 0 ? null : (
+            <KeyCard key={`keys_${shownMissionId ?? ''}`} teammateId={self.teammateId} name={self.name} requests={requests} reaches={runtime !== undefined && KEYS_REACH.has(runtime)} />
           )
         })()}
         {cardsFor(earlierTurns.length, 'after-work').map(peerCard)}

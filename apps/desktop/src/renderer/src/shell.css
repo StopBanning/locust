@@ -10286,6 +10286,14 @@ textarea {
 .lc-interview__text { width: 100%; max-width: 640px; min-height: 120px; resize: vertical; font-size: var(--lc-text-description); line-height: 1.5; }
 .lc-interview__note { font-size: var(--lc-text-description); color: var(--lc-text-muted); }
 .lc-interview .lc-button { align-self: flex-start; }
+/* A key a teammate asked for (0.833), and a teammate's keys in its settings: a name, a masked box, and Keep. */
+.lc-keycard { align-items: flex-start; }
+.lc-keycard__body { flex: 1; display: flex; flex-direction: column; gap: var(--lc-space-2); }
+.lc-keycard__row { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.lc-keycard__row code, .lc-field--lessons code { font-family: var(--lc-font-mono); }
+.lc-keycard__form { width: 100%; }
+.lc-keycard__entry { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; max-width: 520px; }
+.lc-keycard__entry .lc-input { flex: 1 1 160px; min-width: 0; font-family: var(--lc-font-mono); }
 
 .lc-diagnostic {
   display: flex;

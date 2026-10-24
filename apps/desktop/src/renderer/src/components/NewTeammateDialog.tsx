@@ -1,6 +1,8 @@
 import { accountName } from '../agentAccounts.js'
 import { SKILL_RUNTIME_ANY, takesSkills } from '../../../shared/skill-runtimes.js'
 import { useEffect, useRef, useState } from 'react'
+
+import { TeammateKeysField } from './KeyCard.js'
 import type { ReactElement } from 'react'
 import { useModal } from '../useModal.js'
 
@@ -946,6 +948,9 @@ export function NewTeammateDialog({
               {`${editing ? 'Saves' : 'Creates'} ${trimmed.length === 0 ? 'this teammate' : trimmed}, then opens a conversation where ${trimmed.length === 0 ? 'it' : trimmed} asks you a few short questions and writes its instructions for you to keep. The interview only asks: nothing is changed in the folder.`}
             </span>
           </div>
+
+          {/* KEYS A TEAMMATE NEEDS (0.833): by name, with Remove; a value goes in once, masked, and never comes back. */}
+          {editing && initial !== undefined && <TeammateKeysField teammateId={initial.teammateId} name={trimmed.length === 0 ? 'this teammate' : trimmed} />}
 
           {editing && lessons !== undefined && lessons.length > 0 && (
             <div className="lc-field lc-field--lessons">

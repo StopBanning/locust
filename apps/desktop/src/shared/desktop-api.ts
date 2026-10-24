@@ -49,6 +49,7 @@ import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHA
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, type PhoneAnywhereSettings } from './phone.js'
 import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL } from './telegram.js'
 import type { ChatAppSettings } from './chat-apps.js'
+import { TEAMMATE_KEYS_LIST_CHANNEL, TEAMMATE_KEYS_REMOVE_CHANNEL, TEAMMATE_KEYS_SET_CHANNEL } from './teammate-keys.js'
 import { DISCORD_CHANGED_CHANNEL, DISCORD_NEW_LINK_CHANNEL, DISCORD_REMOVE_CHANNEL, DISCORD_SET_TOKEN_CHANNEL, DISCORD_SETTINGS_CHANNEL } from './discord.js'
 import { SLACK_CHANGED_CHANNEL, SLACK_NEW_LINK_CHANNEL, SLACK_REMOVE_CHANNEL, SLACK_SET_TOKEN_CHANNEL, SLACK_SETTINGS_CHANNEL } from './slack.js'
 import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from './locust-mcp.js'
@@ -551,6 +552,12 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
         ipcRenderer.on(PHONE_ANYWHERE_CHANGED_CHANNEL, receive)
         return () => { ipcRenderer.removeListener(PHONE_ANYWHERE_CHANGED_CHANNEL, receive) }
       }
+    },
+    // Keys a teammate needs (0.833).
+    teammateKeys: {
+      list: (teammateId) => ipcRenderer.invoke(TEAMMATE_KEYS_LIST_CHANNEL, teammateId),
+      set: (teammateId, name, value) => ipcRenderer.invoke(TEAMMATE_KEYS_SET_CHANNEL, teammateId, name, value),
+      remove: (teammateId, name) => ipcRenderer.invoke(TEAMMATE_KEYS_REMOVE_CHANNEL, teammateId, name)
     },
     // Your teammates in chat apps (0.831 Telegram, 0.832 Discord and Slack): each app's five calls, the same shape.
     telegram: {

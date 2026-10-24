@@ -3741,6 +3741,8 @@ export interface DesktopApi {
   readonly telegram?: import('./chat-apps.js').ChatAppApi
   readonly discord?: import('./chat-apps.js').ChatAppApi
   readonly slack?: import('./chat-apps.js').ChatAppApi
+  /** Keys a teammate needs (0.833): by name; a value goes in once and never comes back. */
+  readonly teammateKeys?: import('./teammate-keys.js').TeammateKeysApi
   /** Your own agents (0.777): any Agent Client Protocol agent, by its command line. */
   readonly acpAgents?: import('./acp-agents.js').AcpAgentsApi
   /** A `!` in the chat box, and Markdown files that become slash commands. */
