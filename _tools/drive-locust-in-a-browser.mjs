@@ -14,7 +14,7 @@
 // The browser is a headless Chrome at a laptop's size with a profile of its own. The conversation is SEEDED (Mira
 // answered PELICAN); the message the browser sends runs on the free OpenCode model, so nothing is spent.
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -330,6 +330,17 @@ try {
   check('a memory added in the browser is kept on this computer, and removed there it goes', typeof remembered.id === 'string' && keptHere === 'true' && goneHere === 'true', JSON.stringify({ remembered, keptHere, goneHere }))
   const fixes = String(await browser.evaluate(`window.desktop.scout.set({ fixes: true }).then(() => 'answered', (error) => error.message)`))
   check('Scout preparing fixes is not turned on from a browser, and it says so', fixes === 'This works in Locust on your computer.', fixes)
+
+  /*
+   * COMMIT FROM A BROWSER (0.835): a change in the folder, committed from the browser, is a commit on this computer;
+   * a push, which puts it on GitHub, is refused there.
+   */
+  await writeFile(join(workspace, 'note-from-a-browser.txt'), 'Committed from Locust in a browser.\n', 'utf8')
+  const committed = JSON.parse(String(await browser.evaluate(`window.desktop.commitFolder('Add a note from a browser', 'commit', ['note-from-a-browser.txt']).then((one) => JSON.stringify(one), (error) => JSON.stringify({ thrown: error.message }))`)))
+  const lastCommit = spawnSync('git', ['-C', workspace, 'log', '-1', '--format=%s'], { encoding: 'utf8' }).stdout.trim()
+  const pushed = String(await browser.evaluate(`window.desktop.commitFolder('Push it', 'push', ['note-from-a-browser.txt']).then(() => 'answered', (error) => error.message)`))
+  check('a change committed from the browser is a commit on this computer', committed.kind === 'done' && lastCommit === 'Add a note from a browser', JSON.stringify({ committed, lastCommit }))
+  check('a push, which puts the work on GitHub, is refused in the browser, in words', pushed === 'This works in Locust on your computer.', pushed)
   await browser.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Conversations')?.click()`)
 
   // The conversation, opened and continued from the browser.
