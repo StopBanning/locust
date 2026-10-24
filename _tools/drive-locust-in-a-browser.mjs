@@ -309,6 +309,27 @@ try {
   const compared = JSON.parse(String(await browser.evaluate(`window.desktop.startCompare({ prompt: 'Write the word TULIP and nothing else.', routes: [{ runtime: 'opencode', model: '${FREE_ROUTE.model}' }, { runtime: 'opencode', model: 'opencode/nemotron-3-ultra-free' }] }).then((answer) => JSON.stringify(answer.ok ? { id: answer.data.compare.compareId } : answer), (error) => JSON.stringify({ thrown: error.message }))`)))
   const pcCompares = JSON.parse(String(await drive.evaluate(`window.desktop.listCompares().then((answer) => JSON.stringify(answer.ok ? answer.data.compares.map((one) => ({ id: one.compareId, columns: one.slots.length })) : answer))`)))
   check('a comparison started in the browser is on this computer, with both models', typeof compared.id === 'string' && Array.isArray(pcCompares) && pcCompares.some((one) => one.id === compared.id && one.columns === 2), JSON.stringify({ compared, pcCompares }))
+
+  /*
+   * SETTINGS FROM A BROWSER (0.835): the look changed in the browser is this computer's; a memory added there is
+   * kept here, and removed there it goes; Scout preparing fixes is not turned on from a browser.
+   */
+  const lookBefore = JSON.parse(String(await drive.evaluate(`window.desktop.readAppearance().then((one) => JSON.stringify(one))`)))
+  const lookSet = JSON.parse(String(await browser.evaluate(`window.desktop.setTheme('light').then((one) => JSON.stringify(one), (error) => JSON.stringify({ thrown: error.message }))`)))
+  const lookHere = JSON.parse(String(await drive.evaluate(`window.desktop.readAppearance().then((one) => JSON.stringify(one))`)))
+  await browser.evaluate(`window.desktop.setTheme('${lookBefore.theme}')`)
+  check('the look changed in the browser is this computer\u2019s too', lookSet.theme === 'light' && lookHere.theme === 'light', JSON.stringify({ lookBefore, lookSet, lookHere }))
+  const remembered = JSON.parse(String(await browser.evaluate(`(async () => {
+    const added = await window.desktop.addMemory({ text: 'The drive added this from a browser.', scope: 'workspace' })
+    const memory = added.ok ? added.data.memories.find((one) => one.text === 'The drive added this from a browser.') : undefined
+    return JSON.stringify({ id: memory?.memoryId, added: added.ok })
+  })()`)))
+  const keptHere = String(await drive.evaluate(`window.desktop.listMemories().then((answer) => String(answer.ok && answer.data.memories.some((one) => one.memoryId === '${remembered.id}')))`))
+  await browser.evaluate(`window.desktop.removeMemory('${remembered.id}')`)
+  const goneHere = String(await drive.evaluate(`window.desktop.listMemories().then((answer) => String(answer.ok && !answer.data.memories.some((one) => one.memoryId === '${remembered.id}')))`))
+  check('a memory added in the browser is kept on this computer, and removed there it goes', typeof remembered.id === 'string' && keptHere === 'true' && goneHere === 'true', JSON.stringify({ remembered, keptHere, goneHere }))
+  const fixes = String(await browser.evaluate(`window.desktop.scout.set({ fixes: true }).then(() => 'answered', (error) => error.message)`))
+  check('Scout preparing fixes is not turned on from a browser, and it says so', fixes === 'This works in Locust on your computer.', fixes)
   await browser.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Conversations')?.click()`)
 
   // The conversation, opened and continued from the browser.
