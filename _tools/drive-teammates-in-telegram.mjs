@@ -1,4 +1,4 @@
-// Drive (0.831): YOUR TEAMMATES IN TELEGRAM, end to end. The real window, and a stand-in for Telegram's Bot API on
+// Drive (0.831; its row of Chat apps since 0.832): YOUR TEAMMATES IN TELEGRAM, end to end. The real window, and a stand-in for Telegram's Bot API on
 // this computer (_tools/fake-telegram.mjs, as strict as Telegram on markup) playing the person's chat: the token goes
 // in Settings' masked field, the chat pairs by the link, `/ada` reaches Ada and her answer comes back as a reply, a
 // message with no command carries the conversation on, a stranger is ignored, and Mira's approval card comes to the
@@ -44,7 +44,7 @@ const check = (what, ok, detail) => {
   say(`  [${ok ? 'PASS' : 'FAIL'}] ${what}${detail === undefined ? '' : ` -- ${String(detail).slice(0, 600)}`}`)
 }
 const settingsScript = (body) => `(async () => {
-  if (!document.querySelector('[data-setting="telegram"]')) {
+  if (!document.querySelector('[data-setting="chat-apps"]')) {
     if (!document.querySelector('.lc-settings__navitem')) {
       ;[...document.querySelectorAll('button')].find((one) => one.innerText.trim() === 'Settings')?.click()
       await new Promise((r) => setTimeout(r, 900))
@@ -52,7 +52,7 @@ const settingsScript = (body) => `(async () => {
     ;[...document.querySelectorAll('.lc-settings__navitem')].find((one) => one.innerText.trim().startsWith('General'))?.click()
     await new Promise((r) => setTimeout(r, 900))
   }
-  const section = document.querySelector('[data-setting="telegram"]')
+  const section = document.querySelector('[data-chat-app="telegram"]')
   section?.scrollIntoView({ block: 'center' })
   ${body}
 })()`
@@ -66,8 +66,11 @@ try {
   await drive.resize(1215, 860)
 
   // The empty state, as a person first sees it, at three sizes.
-  const off = String(await drive.capture('Telegram, off: BotFather and the token field', () => drive.evaluate(settingsScript(`return ${SECTION}`))))
-  check('off, Settings says what it does and starts with BotFather', /Off\. Write to your teammates from Telegram/.test(off) && /Open BotFather/.test(off), off.slice(0, 300))
+  const off = String(await drive.capture('Telegram, off: Set up, then BotFather and the token field', () => drive.evaluate(settingsScript(`
+    ;[...section.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Set up')?.click()
+    for (let i = 0; i < 20 && !section.querySelector('input'); i += 1) await new Promise((r) => setTimeout(r, 100))
+    return ${SECTION}`))))
+  check('off, Settings says so, and Set up starts with BotFather', /^Telegram Off Hide/.test(off) && /Open BotFather/.test(off), off.slice(0, 300))
   const masked = await drive.evaluate(settingsScript(`return section?.querySelector('input')?.type ?? 'none'`))
   check('the token goes in a masked field', masked === 'password', masked)
   for (const [width, height] of [[960, 720], [760, 640]]) {
@@ -85,7 +88,7 @@ try {
     for (let i = 0; i < 60 && !section?.querySelector('.lc-phone__qr'); i += 1) await new Promise((r) => setTimeout(r, 250))
     for (let i = 0; i < 60 && !/Reading @/.test(section?.innerText ?? ''); i += 1) await new Promise((r) => setTimeout(r, 250))
     return ${SECTION}`))))
-  check('connected, Settings names the bot and shows the code and the link', /Connected to @locust_test_bot/.test(connected) && /Open in Telegram/.test(connected) && /Reading @locust_test_bot’s messages/.test(connected), connected.slice(0, 300))
+  check('connected, Settings names the bot and shows the code and the link', /Not paired yet/.test(connected) && /Open in Telegram/.test(connected) && /Reading @locust_test_bot’s messages/.test(connected), connected.slice(0, 300))
   const shown = String(await drive.evaluate(settingsScript(`return section?.querySelector('input')?.value ?? '(no field)'`)))
   check('the token is not shown again anywhere in Settings', shown === '(no field)' && !String(await drive.evaluate('document.body.innerText')).includes(telegram.token.split(':')[1]), shown)
 
@@ -160,9 +163,9 @@ try {
   // Remove: the token and the chat are forgotten, and Settings is back where it began.
   const removed = String(await drive.capture('Remove: back to off', () => drive.evaluate(settingsScript(`
     ;[...section.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Remove')?.click()
-    for (let i = 0; i < 40 && !/Open BotFather/.test(section?.innerText ?? ''); i += 1) await new Promise((r) => setTimeout(r, 250))
+    for (let i = 0; i < 40 && !/Set up|Open BotFather/.test(section?.innerText ?? ''); i += 1) await new Promise((r) => setTimeout(r, 250))
     return ${SECTION}`))))
-  check('Remove forgets the bot and the chat', /Open BotFather/.test(removed) && !/Sam/.test(removed), removed.slice(0, 200))
+  check('Remove forgets the bot and the chat', /Off/.test(removed) && /Set up|Open BotFather/.test(removed) && !/Sam/.test(removed), removed.slice(0, 200))
   const pollsAfter = telegram.state.polls
   await sleep(3000)
   check('removed, Locust stops reading the bot', telegram.state.polls === pollsAfter, `${String(pollsAfter)} then ${String(telegram.state.polls)}`)

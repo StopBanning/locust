@@ -24026,12 +24026,24 @@ textarea.lc-compare__judgecriteria {
 .lc-phone__state { font-size: var(--lc-text-description); color: var(--lc-text-muted); }
 /* Approvals in quiet hours (0.827): its own line under the paired phones. */
 .lc-phone__night { margin-top: var(--lc-space-3); }
-/* Your teammates in Telegram (0.831): BotFather, the token, then the chat's pairing code, as the phone's is drawn. */
-.lc-telegram__steps { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin-top: 12px; }
-.lc-telegram__steps .lc-settings__note { margin: 0; }
-.lc-telegram__token { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; max-width: 460px; }
-.lc-telegram__token .lc-input { flex: 1 1 220px; min-width: 0; font-family: var(--lc-font-mono); }
-.lc-telegram__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Your teammates in chat apps (0.831 Telegram, 0.832 Discord and Slack): one row an app -- its name and state, then,
+   once set up, its steps where they are done, the code that pairs, and who is paired, as the phone's are drawn. */
+.lc-chatapps { list-style: none; margin: var(--lc-space-3) 0 0; padding: 0; display: grid; border-top: 1px solid var(--lc-border-hairline); }
+.lc-chatapp { display: flex; flex-direction: column; gap: var(--lc-space-2); padding-block: var(--lc-space-3); border-bottom: 1px solid var(--lc-border-hairline); }
+.lc-chatapp > .lc-settings__note { margin: 0; }
+.lc-chatapp__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-3) var(--lc-space-4); }
+.lc-chatapp__who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lc-chatapp__name { font-size: var(--lc-text-control); color: var(--lc-text-primary); }
+.lc-chatapp__state { font-size: var(--lc-text-description); color: var(--lc-text-muted); }
+.lc-chatapp__body { display: flex; flex-direction: column; gap: var(--lc-space-2); }
+.lc-chatapp__body > .lc-phone, .lc-chatapp__body > .lc-phone__devices { margin-top: 0; }
+.lc-chatapp__steps { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.lc-chatapp__steps .lc-settings__note, .lc-chatapp__body > .lc-settings__note { margin: 0; }
+.lc-chatapp__token { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; max-width: 460px; }
+.lc-chatapp__token .lc-input { flex: 1 1 220px; min-width: 0; font-family: var(--lc-font-mono); }
+.lc-chatapp__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.lc-chatapp__code { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-3); }
+.lc-chatapp__digits { font-family: var(--lc-font-mono); font-size: 22px; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; color: var(--lc-text-primary); padding: 4px 10px; border: 1px solid var(--lc-border-hairline); border-radius: 8px; background: var(--lc-bg-field); user-select: all; }
 
 /* The person's terminals keep their screens while this panel is hidden. */
 .lc-terminal[hidden], .lc-terminal__screen[hidden] { display: none; }

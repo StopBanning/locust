@@ -11,6 +11,19 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.832.0 - 2026-10-23
+<!-- big -->
+
+### New
+
+- **Your teammates in Discord.** Write to your teammates from Discord, while Locust is open on your computer. Make an application of your own in Discord's Developer Portal, paste its bot's token in Settings > General > Chat apps, add the bot to a server of yours, and send it the eight-digit code Settings shows: that pairs your account. Then type `/` in your messages with the bot and pick a teammate from Discord's own list, or write a name and a colon ("Ada: check the build"); the answer comes back as a reply, with the bot typing while your teammate works. After that, just write, and a reply to an older answer carries that conversation on. A card from a turn you started there comes with Allow once and Deny buttons; Always stays on your computer. The bot reads only its direct messages, so you turn nothing on in the Developer Portal, and only your account is answered.
+- **Your teammates in Slack.** The same in Slack. Settings' Create the app in Slack opens Slack with the app already filled in: pick your workspace, install it, and paste its two tokens. Send the Locust app the code Settings shows, then write "Ada: check the build". Your message is marked with 👀 while Ada works, the answer comes back in the chat, and a reply in an answer's thread carries that conversation on in the thread. "who", "new" and "waiting" work as in the other apps, and cards come with Allow once and Deny.
+
+### Improved
+
+- **Chat apps, in one place.** Discord, Slack and Telegram are rows of one Chat apps section in Settings > General, each Off until you press Set up, and each walks you through its steps where they are done. A teammate's name and a colon now writes to it in Telegram too.
+- **Chat tokens are never repeated.** A Discord bot's token, a Slack app's token and a Telegram bot's token are now among the shapes Locust takes out of anything sent to a chat app, kept in a memory, or saved in a record.
+
 ## 0.831.0 - 2026-10-23
 <!-- big -->
 

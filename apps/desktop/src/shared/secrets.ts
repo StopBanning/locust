@@ -21,6 +21,10 @@ const SHAPES: readonly { readonly kind: string; readonly pattern: RegExp }[] = [
   { kind: 'a GitHub token', pattern: /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{22,})/ },
   { kind: 'a GitLab token', pattern: /\bglpat-[A-Za-z0-9_-]{20,}/ },
   { kind: 'a Slack token', pattern: /\bxox[abprs]-[A-Za-z0-9-]{10,}/ },
+  // 0.832, teammates in chat apps: the tokens a person pastes for them, and which a teammate must never repeat.
+  { kind: 'a Slack app token', pattern: /\bxapp-\d-[A-Za-z0-9-]{10,}/ },
+  { kind: 'a Discord bot token', pattern: /\b[MNO][A-Za-z0-9_-]{23,27}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,40}\b/ },
+  { kind: 'a Telegram bot token', pattern: /\b\d{5,15}:AA[A-Za-z0-9_-]{30,40}\b/ },
   { kind: 'an npm token', pattern: /\bnpm_[A-Za-z0-9]{36}\b/ },
   { kind: 'a signed token (JWT)', pattern: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/ },
   { kind: 'a private key', pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
@@ -128,6 +132,10 @@ const SCRUB_SHAPES: readonly RegExp[] = [
   /\bglpat-[A-Za-z0-9_-]{20,}/g,
   // secretIn and redactSecrets: a Slack token.
   /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
+  // secretIn (0.832): the tokens of the chat apps' own -- Slack's app token, a Discord bot's, a Telegram bot's.
+  /\bxapp-\d-[A-Za-z0-9-]{10,}/g,
+  /\b[MNO][A-Za-z0-9_-]{23,27}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,40}\b/g,
+  /\b\d{5,15}:AA[A-Za-z0-9_-]{30,40}\b/g,
   // secretIn: an npm token.
   /\bnpm_[A-Za-z0-9]{36}\b/g,
   // redactSecrets: a Hugging Face token.

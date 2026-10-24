@@ -167,8 +167,14 @@ import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
 import { createPhoneAlerts, type PhoneAlert } from './phone-alerts.js'
 import { createPhoneAnywhere, DEFAULT_RELAY } from './phone-anywhere.js'
 import { createPhoneHost, type PhoneCalls } from './phone-host.js'
-import { createTelegramLink, TELEGRAM_API, type TelegramLink, type TelegramStart } from './telegram.js'
-import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL, type TelegramSettings } from '../shared/telegram.js'
+import { createTelegramLink, TELEGRAM_API } from './telegram.js'
+import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL } from '../shared/telegram.js'
+import type { ChatLink, ChatLinkOptions, ChatStart } from './chat-link.js'
+import { createDiscordLink, DISCORD_API } from './discord.js'
+import { createSlackLink, SLACK_API } from './slack.js'
+import type { ChatAppSettings } from '../shared/chat-apps.js'
+import { DISCORD_CHANGED_CHANNEL, DISCORD_NEW_LINK_CHANNEL, DISCORD_REMOVE_CHANNEL, DISCORD_SET_TOKEN_CHANNEL, DISCORD_SETTINGS_CHANNEL } from '../shared/discord.js'
+import { SLACK_CHANGED_CHANNEL, SLACK_NEW_LINK_CHANNEL, SLACK_REMOVE_CHANNEL, SLACK_SET_TOKEN_CHANNEL, SLACK_SETTINGS_CHANNEL } from '../shared/slack.js'
 import { countingLedgerWrites, keyedOnce } from './ledger-writes.js'
 import { acpScratch, createAcpAgents } from './acp-agents.js'
 import { acpCatalog, ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
@@ -2285,13 +2291,13 @@ if (!ownsSingleInstanceLock) {
         recordAnswer(answer, by, words)
         // Recorded: the card is no longer waiting (0.599), so the cap below counts only open cards.
         raisedApprovals.forget(answer.approvalId)
-        // The card's message in Telegram (0.831) says how it was answered, and loses its buttons.
-        telegram?.cardSettled(answer.approvalId, 'answers' in answer ? 'answered' : answer.decision === 'deny' ? 'denied' : 'allowed')
+        // The card's message in a chat app (0.831, 0.832) says how it was answered, and loses its buttons.
+        for (const link of chatLinks) link.cardSettled(answer.approvalId, 'answers' in answer ? 'answered' : answer.decision === 'deny' ? 'denied' : 'allowed')
       }
       return answered
     }
-    // Your teammates in Telegram (0.831, telegram.ts): made with the phone's calls further down.
-    let telegram: TelegramLink | undefined
+    // Your teammates in chat apps (0.831 Telegram, 0.832 Discord and Slack; chat-link.ts): made with the phone's calls further down.
+    let chatLinks: readonly ChatLink[] = []
     const raisedApprovals = createRaisedApprovals()
     // A card's answer the ledger refused: tried again at the run's end, else said in the record (0.587).
     const unwrittenAnswers = createUnwrittenAnswers({ ledger: missionLedger })
@@ -2405,10 +2411,10 @@ if (!ownsSingleInstanceLock) {
             const name = roster.find((entry) => entry.teammateId === ownerId)?.name
             attention.approvalArrived(request, name)
             phoneAlerts.approval(name, request.kind === 'question' ? 'question' : 'approval')
-            // A turn started in Telegram brings its card to the chat too (0.831).
-            telegram?.cardRaised(request, name)
+            // A turn started in a chat app brings its card to the chat too (0.831, 0.832).
+            for (const link of chatLinks) link.cardRaised(request, name)
           })
-          .catch(() => { attention.approvalArrived(request, undefined); phoneAlerts.approval(undefined, request.kind === 'question' ? 'question' : 'approval'); telegram?.cardRaised(request, undefined) })
+          .catch(() => { attention.approvalArrived(request, undefined); phoneAlerts.approval(undefined, request.kind === 'question' ? 'question' : 'approval'); for (const link of chatLinks) link.cardRaised(request, undefined) })
       }
 
     /*
@@ -2545,8 +2551,8 @@ if (!ownsSingleInstanceLock) {
         { label: 'unwritten answers', step: () => unwrittenAnswers },
         { label: 'scout', step: () => scout },
         { label: 'scout fixes', step: () => scoutFixes },
-        // A turn started in Telegram is answered there (0.831), after carry-on has said whether it carries on.
-        { label: 'telegram', step: () => telegram }
+        // A turn started in a chat app is answered there (0.831, 0.832), after carry-on has said whether it carries on.
+        { label: 'chat apps', step: () => (chatLinks.length === 0 ? undefined : { onRunEnded: async (mission) => { for (const link of chatLinks) await link.onRunEnded(mission).catch(() => undefined) } }) }
       ],
       note
     })
@@ -2954,7 +2960,7 @@ if (!ownsSingleInstanceLock) {
         if (target && !target.isDestroyed() && !target.webContents.isDestroyed()) {
           target.webContents.send(MISSION_APPROVAL_WITHDRAWN_CHANNEL, approvalId)
         }
-        telegram?.cardSettled(approvalId, 'gone')
+        for (const link of chatLinks) link.cardSettled(approvalId, 'gone')
       },
       onShared: (mission, posted) => runEnd.onShared(mission, posted),
       onRunEnded: (mission) => runEnd.onRunEnded(mission)
@@ -10057,22 +10063,23 @@ if (!ownsSingleInstanceLock) {
     const NO_PHONE: PhoneAnywhereSettings = { enabled: false, connected: false, devices: [] }
     app.once('will-quit', () => { void phoneHost.dispose(); void phoneAnywhere.dispose() })
     /*
-     * YOUR TEAMMATES IN TELEGRAM (0.831, telegram.ts). A message from the paired chat is the person's next message to
-     * that teammate, started as the phone's is -- on the teammate's own route and mode -- and recorded as theirs.
+     * YOUR TEAMMATES IN CHAT APPS (0.831 Telegram, 0.832 Discord and Slack; chat-link.ts). A message from the paired
+     * chat is the person's next message to that teammate, started as the phone's is -- on the teammate's own route and
+     * mode -- and recorded as theirs. The three apps share the start, the record and the window's path for a card.
      */
-    const telegramSending = new Set<string>()
-    const telegramStart = async ({ teammateId, text, followUpOf }: { readonly teammateId: string; readonly text: string; readonly followUpOf?: string }): Promise<TelegramStart> => {
+    const chatSending = new Set<string>()
+    const chatStart = async ({ teammateId, text, followUpOf }: { readonly teammateId: string; readonly text: string; readonly followUpOf?: string }): Promise<ChatStart> => {
       const list = await listTeammates()
       const mate = list.ok ? list.data.teammates.find((one) => one.teammateId === teammateId) : undefined
       if (mate === undefined) return { ok: false, message: 'That teammate is not in Locust any more. Nothing was sent.' }
       const newest = followUpOf === undefined ? undefined : await newestTurnOf(missionLedger, followUpOf).catch(() => followUpOf)
       if (newest !== undefined) {
-        // Two messages at once, or the chat and the window at once, must not both continue the same turn.
-        if (telegramSending.has(newest) || phoneSending.has(newest)) return { ok: false, message: 'That message is already on its way.' }
+        // Two messages at once, or a chat and the window at once, must not both continue the same turn.
+        if (chatSending.has(newest) || phoneSending.has(newest)) return { ok: false, message: 'That message is already on its way.' }
         if (codexMissions.hasMission(newest) || antigravityMissions.liveMissionIds().includes(newest)) {
           return { ok: false, message: `${mate.name} is still working on the last message. Send this one when its answer arrives.` }
         }
-        telegramSending.add(newest)
+        chatSending.add(newest)
       }
       try {
         const response = await startMission({ prompt: text, teammateId, ...(newest === undefined ? {} : { followUpOf: newest }), mode: mate.route?.mode ?? 'ask', keepSavedRoute: true } as CodexMissionStartRequest, sendToWindow)
@@ -10081,10 +10088,10 @@ if (!ownsSingleInstanceLock) {
         sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, teammateId, prompt: text, data: response.data })
         return { ok: true, missionId: response.data.missionId }
       } finally {
-        if (newest !== undefined) telegramSending.delete(newest)
+        if (newest !== undefined) chatSending.delete(newest)
       }
     }
-    const telegramLink = createTelegramLink({
+    const chatOptions = (changedChannel: string): ChatLinkOptions => ({
       directory: app.getPath('userData'),
       secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
       refusal: () => policyFeatureRefusal(organizationPolicy, 'chatApps'),
@@ -10093,7 +10100,7 @@ if (!ownsSingleInstanceLock) {
         const list = await listTeammates()
         return list.ok ? list.data.teammates.map((mate) => ({ teammateId: mate.teammateId, name: mate.name, role: mate.roleTitle ?? mate.role })) : []
       },
-      start: telegramStart,
+      start: chatStart,
       read: async (missionId) => {
         const read = await readOneMission(missionLedger, workroom, missionId)
         return read.ok ? read.data.mission : undefined
@@ -10101,6 +10108,7 @@ if (!ownsSingleInstanceLock) {
       live: (missionId) => codexMissions.hasMission(missionId) || antigravityMissions.liveMissionIds().includes(missionId),
       carried: (missionId) => carryOn?.carried(missionId) === true,
       waiting: () => raisedApprovals.waiting(),
+      // A chat's Allow once, Deny or answer, after the link checked the chat and its person (chat-link.ts).
       decide: async (answer) => {
         const answered = await decideApproval(answer)
         // The window's card comes down, as one answered from the phone does.
@@ -10108,24 +10116,37 @@ if (!ownsSingleInstanceLock) {
         if (answered && target && !target.isDestroyed() && !target.webContents.isDestroyed()) target.webContents.send(MISSION_APPROVAL_WITHDRAWN_CHANNEL, answer.approvalId)
         return answered
       },
-      changed: (settings: TelegramSettings) => {
-        if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(TELEGRAM_CHANGED_CHANNEL, settings)
+      changed: (settings: ChatAppSettings) => {
+        if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(changedChannel, settings)
       },
-      note,
-      // Telegram itself, unless a drive names its stand-in on this computer: never another host, since the token is in the address.
-      api: () => {
-        const named = process.env.LOCUST_TELEGRAM_API?.trim()
-        return named !== undefined && /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}$/.test(named) ? named : TELEGRAM_API
-      }
+      note
     })
-    telegram = telegramLink
-    app.once('will-quit', () => { void telegramLink.dispose() })
+    // Each app itself, unless a drive names its stand-in on this computer: never another host, since the token goes there.
+    const standIn = (variable: string, real: string) => (): string => {
+      const named = process.env[variable]?.trim()
+      return named !== undefined && /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}$/.test(named) ? named : real
+    }
+    const telegramLink = createTelegramLink({ ...chatOptions(TELEGRAM_CHANGED_CHANNEL), api: standIn('LOCUST_TELEGRAM_API', TELEGRAM_API) })
+    const discordLink = createDiscordLink({ ...chatOptions(DISCORD_CHANGED_CHANNEL), api: standIn('LOCUST_DISCORD_API', DISCORD_API), version: app.getVersion() })
+    const slackLink = createSlackLink({ ...chatOptions(SLACK_CHANGED_CHANNEL), api: standIn('LOCUST_SLACK_API', SLACK_API) })
+    chatLinks = [discordLink, slackLink, telegramLink]
+    app.once('will-quit', () => { for (const link of chatLinks) void link.dispose() })
+    void discordLink.load().catch(() => note('discord', 'Discord could not start. It is off.'))
+    void slackLink.load().catch(() => note('slack', 'Slack could not start. It is off.'))
     void telegramLink.load().catch(() => note('telegram', 'Telegram could not start. It is off.'))
-    const NO_TELEGRAM: TelegramSettings = { connected: false }
-    ipcMain.handle(TELEGRAM_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.settings() : NO_TELEGRAM)
-    ipcMain.handle(TELEGRAM_SET_TOKEN_CHANNEL, (event, token: unknown) => fromOwnWindow(event) ? telegramLink.setToken(token) : NO_TELEGRAM)
-    ipcMain.handle(TELEGRAM_NEW_LINK_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.newLink() : NO_TELEGRAM)
-    ipcMain.handle(TELEGRAM_REMOVE_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.remove() : NO_TELEGRAM)
+    const NO_CHAT: ChatAppSettings = { connected: false }
+    ipcMain.handle(DISCORD_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? discordLink.settings() : NO_CHAT)
+    ipcMain.handle(DISCORD_SET_TOKEN_CHANNEL, (event, token: unknown) => fromOwnWindow(event) ? discordLink.setToken(token) : NO_CHAT)
+    ipcMain.handle(DISCORD_NEW_LINK_CHANNEL, (event) => fromOwnWindow(event) ? discordLink.newLink() : NO_CHAT)
+    ipcMain.handle(DISCORD_REMOVE_CHANNEL, (event) => fromOwnWindow(event) ? discordLink.remove() : NO_CHAT)
+    ipcMain.handle(SLACK_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? slackLink.settings() : NO_CHAT)
+    ipcMain.handle(SLACK_SET_TOKEN_CHANNEL, (event, tokens: unknown) => fromOwnWindow(event) ? slackLink.setToken(tokens) : NO_CHAT)
+    ipcMain.handle(SLACK_NEW_LINK_CHANNEL, (event) => fromOwnWindow(event) ? slackLink.newLink() : NO_CHAT)
+    ipcMain.handle(SLACK_REMOVE_CHANNEL, (event) => fromOwnWindow(event) ? slackLink.remove() : NO_CHAT)
+    ipcMain.handle(TELEGRAM_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.settings() : NO_CHAT)
+    ipcMain.handle(TELEGRAM_SET_TOKEN_CHANNEL, (event, token: unknown) => fromOwnWindow(event) ? telegramLink.setToken(token) : NO_CHAT)
+    ipcMain.handle(TELEGRAM_NEW_LINK_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.newLink() : NO_CHAT)
+    ipcMain.handle(TELEGRAM_REMOVE_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.remove() : NO_CHAT)
     void phoneHost.load().catch(() => note('phone', 'The page for your phone could not start. It is off.'))
     void phoneAnywhere.load().catch(() => note('phone', 'Your phone could not reach Locust from anywhere. It is off.'))
     ipcMain.handle(PHONE_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? phoneHost.settings() : { enabled: false, addresses: [] })

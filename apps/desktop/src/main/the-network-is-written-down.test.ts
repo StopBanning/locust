@@ -10,6 +10,8 @@ import { MAC_RELEASES_API } from './mac-release.js'
 import { PAGE_LIBRARY_HOSTS } from './page-preview.js'
 import { REPORT_DESTINATION } from './report-problem.js'
 import { CANARY_VERDICTS_URL } from './runtime-updates.js'
+import { DISCORD_API } from './discord.js'
+import { SLACK_API } from './slack.js'
 import { TELEGRAM_API } from './telegram.js'
 import { VOICE_OPENAI_URL } from './voice-openai.js'
 
@@ -58,6 +60,9 @@ const LISTED: Readonly<Record<string, { readonly places: number; readonly said: 
   'phone-anywhere.ts': { places: 1, said: ['**Your phone, from anywhere**', 'listens to nothing', 'the relay passes along what it cannot read'] },
   // Your teammates in Telegram (0.831): one request at a time to the Bot API, and nothing listening.
   'telegram.ts': { places: 1, said: ['**Your teammates in Telegram**', '`api.telegram.org`', 'no other address is ever sent the token', "Telegram's", 'servers can read what is written there'] },
+  // Your teammates in Discord and Slack (0.832): each one connection out -- Discord's gateway, Slack's Socket Mode -- and its REST calls.
+  'discord.ts': { places: 2, said: ['**Your teammates in Discord**', '`discord.com`', '`gateway.discord.gg`', 'only direct messages', "Discord's servers can read what is written there"] },
+  'slack.ts': { places: 2, said: ['**Your teammates in Slack**', '`slack.com`', 'Socket Mode', 'a `*.slack.com` address', "Slack's servers can read what is written there"] },
   'antigravity-cascade.ts': { places: 1, said: ['Antigravity\'s own local server, at `127.0.0.1`'] },
   // Test: the models the address serves, then one capped chat request with a tool.
   'own-models.ts': { places: 2, said: ['Testing one of your own models', 'When you press Test'] },
@@ -97,13 +102,20 @@ describe('the addresses are the ones the code uses', () => {
     expect(NETWORK).toContain('reference-trash')
     expect(NETWORK).toContain('500 MB')
   })
-  it('Telegram has one fixed HTTPS destination, and a stand-in only on this computer', () => {
+  it('each chat app has one fixed HTTPS destination, and a stand-in only on this computer', () => {
     expect(TELEGRAM_API).toBe('https://api.telegram.org')
-    expect(NETWORK).toContain(`\`${new URL(TELEGRAM_API).host}\``)
+    expect(DISCORD_API).toBe('https://discord.com')
+    expect(SLACK_API).toBe('https://slack.com')
+    for (const api of [TELEGRAM_API, DISCORD_API, SLACK_API]) expect(NETWORK).toContain(`\`${new URL(api).host}\``)
     const wiring = read('./index.ts')
-    expect(wiring).toContain('process.env.LOCUST_TELEGRAM_API')
-    expect(wiring).toContain('(?:127')
-    expect(wiring).toContain('? named : TELEGRAM_API')
+    const standIn = wiring.slice(wiring.indexOf('const standIn = '), wiring.indexOf('const telegramLink = '))
+    expect(standIn).toContain('process.env[variable]')
+    expect(standIn).toContain('(?:127')
+    expect(standIn).toContain('? named : real')
+    for (const named of ["standIn('LOCUST_TELEGRAM_API', TELEGRAM_API)", "standIn('LOCUST_DISCORD_API', DISCORD_API)", "standIn('LOCUST_SLACK_API', SLACK_API)"]) expect(wiring).toContain(named)
+    // The sockets: Discord's gateway is only ever Discord's, and Slack's only ever Slack's, unless a stand-in is local.
+    expect(read('./discord.ts')).toContain('/^wss:\\/\\/[a-z0-9.-]+\\.discord\\.gg(?:\\/|$)/i')
+    expect(read('./slack.ts')).toContain('/^wss:\\/\\/[a-z0-9.-]+\\.slack\\.com\\//i')
   })
   it('OpenAI voice typing has one fixed HTTPS destination', () => {
     expect(VOICE_OPENAI_URL).toBe('https://api.openai.com/v1/audio/transcriptions')

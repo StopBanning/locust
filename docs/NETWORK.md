@@ -45,7 +45,9 @@ until it is listed here.
 | Your phone, from anywhere | Locust's relay at `app.locust.lol` (on Cloudflare): one WebSocket this computer opens to it | Only after you turn on Your phone with From anywhere, for as long as it stays on |
 | Scout while your computer is off | GitHub, through your own GitHub CLI, to open one pull request and set one secret; then, from GitHub's own runner and not this computer, the relay at `app.locust.lol` | Only after you turn on Look while my computer is off and merge its pull request; the workflow runs every hour or two, and does nothing more while Locust is open |
 | Locust in a browser | Nothing new from this computer: the relay link Your phone already keeps; the browser loads the window from Locust's relay | Only for a paired device you let open the full window |
-| Your teammates in Telegram | `api.telegram.org` (Telegram's Bot API), over HTTPS, for your own bot only | Only after you paste your bot's token in Settings > General > Telegram, and then for as long as Locust is open |
+| Your teammates in Discord | `discord.com` (Discord's API), over HTTPS, and one WebSocket to its gateway at `gateway.discord.gg`, for your own bot only | Only after you paste your bot's token in Settings > General > Chat apps, and then for as long as Locust is open |
+| Your teammates in Slack | `slack.com` (Slack's Web API), over HTTPS, and one Socket Mode WebSocket to a `*.slack.com` address Slack gives, for your own app only | Only after you paste your app's two tokens in Settings > General > Chat apps, and then for as long as Locust is open |
+| Your teammates in Telegram | `api.telegram.org` (Telegram's Bot API), over HTTPS, for your own bot only | Only after you paste your bot's token in Settings > General > Chat apps, and then for as long as Locust is open |
 | Your cloud computer (a teammate's turn sent with Cloud, or with Cloud computer) | GitHub, through your own GitHub CLI: Codespaces, and the codespace itself over `gh codespace ssh`; from there, the teammate's model, through its agent (OpenCode, Claude Code or Codex) | Only after you pick Cloud for an OpenCode teammate, or Cloud computer for a Claude Code or Codex teammate, and press Set it up, and then for each turn you send there |
 
 **Pictures on a GitHub issue.** When you choose an issue, Locust reads its text through your own `gh` and fetches at most four pictures, each from `github.com/user-attachments` or `githubusercontent.com`. A redirect is followed only while the next address stays on those hosts. The fetch sends no token. `gh` keeps the sign-in it already has, and Locust never prints it.
@@ -302,7 +304,38 @@ reads of your folder stays on this machine.
   Every call the window makes goes sealed through the same link, and this
   computer answers only those `apps/desktop/src/shared/desk-calls.ts` lets a
   browser make; signing in, permissions, spending and the terminal stay here.
-- **Your teammates in Telegram** (Settings > General > Telegram) listens to
+- **Your teammates in Discord** (Settings > General > Chat apps) listens to
+  nothing. With the token of a bot you make in Discord's Developer Portal,
+  Locust keeps one WebSocket open to Discord's gateway at `gateway.discord.gg`
+  (with its heartbeats, and a resume when the connection drops) and calls
+  `discord.com` to answer; it connects to no gateway that is not Discord's. It
+  asks Discord for only direct messages, whose words come without Discord's
+  privileged Message Content intent, so the bot reads nothing in any server it
+  is in. The token is kept as the operating system encrypts it, and Settings
+  shows only the bot's name. You add the bot to a server of yours, asking for no
+  permissions, and send it the eight-digit code Settings shows: that pairs your
+  account, once, within ten minutes, and anyone else who writes to the bot is
+  ignored. The bot's slash commands (one for each teammate, and Locust's own)
+  are offered only in your direct messages with it.
+  Discord's servers can read what is written there: Locust takes out anything
+  shaped like a key before it sends an answer or a card, and Settings says so.
+  Remove forgets the token and the account, and takes the bot's commands down.
+- **Your teammates in Slack** (Settings > General > Chat apps) listens to
+  nothing. Its link opens Slack's own "create an app" with Locust's manifest
+  filled in: a bot in your direct messages, with permission to write
+  (`chat:write`), to read its direct messages (`im:history`), to react to your
+  message while a teammate works (`reactions:write`), and to read your name for
+  Settings (`users:read`). With that app's two tokens, Locust opens one Socket
+  Mode WebSocket to a `*.slack.com` address Slack gives for it, acknowledging
+  each event at once, and calls `slack.com` to answer; it opens no socket at an
+  address that is not Slack's. The tokens are kept as the operating system
+  encrypts them. You send the app the eight-digit code Settings shows: that
+  pairs your account, once, within ten minutes, and anyone else in the
+  workspace who writes to it is ignored.
+  Slack's servers can read what is written there: Locust takes out anything
+  shaped like a key before it sends, and Settings says so. Remove forgets the
+  tokens and the account.
+- **Your teammates in Telegram** (Settings > General > Chat apps) listens to
   nothing. With your own bot's token from Telegram's @BotFather, Locust asks
   `api.telegram.org` for the bot's new messages, one long request at a time,
   and answers through the same bot; no other address is ever sent the token,

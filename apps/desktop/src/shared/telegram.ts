@@ -1,5 +1,5 @@
 /**
- * YOUR TEAMMATES IN TELEGRAM (0.831, the Rakazo scrub's first take; Slack and Discord follow).
+ * YOUR TEAMMATES IN TELEGRAM (0.831, the Rakazo scrub's first take; Discord and Slack joined it in 0.832, chat-apps.ts).
  *
  * Every always-on rival lets a person write to their bots from a chat app. Locust's phone page (0.775, 0.826) shows
  * the conversations and the cards, but a chat app is where a person already is. So a person makes a bot of their own
@@ -11,6 +11,10 @@
  * only while it is open. The token is kept as the operating system encrypts it. Telegram's servers can read what is
  * written there -- a bot is not end-to-end encrypted -- and Settings says so in those words.
  */
+import { teammateCommands } from './chat-apps.js'
+
+export { teammateCommands }
+
 export const TELEGRAM_SETTINGS_CHANNEL = 'telegram:settings'
 export const TELEGRAM_SET_TOKEN_CHANNEL = 'telegram:set-token'
 export const TELEGRAM_NEW_LINK_CHANNEL = 'telegram:new-link'
@@ -53,26 +57,8 @@ export const TELEGRAM_STALE_MS = 10 * 60_000
 /** A pairing link works once, for this long. */
 export const TELEGRAM_LINK_MS = 10 * 60_000
 
-/** Locust's own commands, which no teammate's name may take. */
+/** Locust's own commands, which no teammate's name may take (shared/chat-apps.ts keeps the list for every app). */
 export const TELEGRAM_OWN_COMMANDS = ['start', 'help', 'who', 'new', 'waiting'] as const
-const RESERVED: ReadonlySet<string> = new Set([...TELEGRAM_OWN_COMMANDS, 'settings', 'stop', 'cancel'])
-
-/**
- * Each teammate's command, by id, in the team's order: the name as Telegram allows a command -- lowercase letters,
- * digits and underscores, 32 at most -- with a number after one that is taken or is one of Locust's own.
- */
-export function teammateCommands(team: readonly { readonly teammateId: string; readonly name: string }[]): ReadonlyMap<string, string> {
-  const commands = new Map<string, string>()
-  const taken = new Set<string>()
-  for (const mate of team) {
-    const base = mate.name.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 28).replace(/^_+|_+$/g, '') || 'teammate'
-    let command = base
-    for (let next = 2; RESERVED.has(command) || taken.has(command); next += 1) command = `${base}${String(next)}`
-    taken.add(command)
-    commands.set(mate.teammateId, command)
-  }
-  return commands
-}
 
 /** A message's command, the way Telegram sends one: `/ada hello`, or `/ada@your_bot hello` in a menu's tap. */
 export function parsedCommand(text: string, botUsername: string): { readonly command: string; readonly rest: string } | undefined {
