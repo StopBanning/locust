@@ -12,7 +12,7 @@ const route = { ...FREE_ROUTE, mode: 'ask' }
 const packaged = process.argv.includes('--packaged') ? process.argv[process.argv.indexOf('--packaged') + 1] : undefined
 const workspace = await scratchRepository('locust-routine-inputs-ws-')
 const transfer = await mkdtemp(join(tmpdir(), 'locust-routine-inputs-file-'))
-const filePath = join(transfer, 'Portable notes.locust-routine.json')
+const filePath = join(transfer, 'Portable notes.routine.md')
 const seed = (id, name) => ({ schemaVersion: 1,
   teammates: [{ teammateId: id, name, hue: 'lime', role: 'Custom', roleTitle: 'Office', createdAt: '2026-10-03T00:00:00Z', route }],
   missionOwners: {}, settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false } })
@@ -131,10 +131,15 @@ try {
   await navigation(drive)
   await drive.evaluate(`document.querySelector('button[aria-label="Export Portable notes"]')?.click()`)
   await sleep(700)
-  exported = JSON.parse(await readFile(filePath, 'utf8'))
-  check('export writes exactly the eight allowed keys', JSON.stringify(Object.keys(exported).sort()) === JSON.stringify(['format', 'version', 'name', 'steps', 'inputs', 'handOffs', 'route', 'connectors'].sort()), Object.keys(exported).join(', '))
-  check('export nested keys contain no machine or execution data', Object.keys(exported.route).join() === 'runtime' && exported.handOffs.every((entry) => Object.keys(entry).every((key) => key === 'role')) && !JSON.stringify(exported).includes(saved.routineId) && !JSON.stringify(exported).includes('tm_source'), JSON.stringify(exported.route))
-  check('export preserves templates and declarations without entered values', exported.steps[0] === step && exported.inputs.length === 2 && !JSON.stringify(exported).includes('portable-alpha'))
+  // A routine is exported as Markdown (0.834): the settings between --- lines, then the title and each step.
+  const written = await readFile(filePath, 'utf8')
+  const top = written.split('\n---\n')[0]
+  check('export is Markdown a person reads: settings, then the title and each step', /^---\nlocust-routine: 1\n/.test(written) && written.includes(`\n# Portable notes\n\n## Step 1\n\n${step}\n`), written.slice(0, 200))
+  check('export settings name only what a routine is', [...top.matchAll(/^([a-z-]+):/gm)].every(([, key]) => ['locust-routine', 'runs-on', 'connectors', 'inputs'].includes(key)), top)
+  check('export contains no machine or execution data', !written.includes(saved.routineId) && !written.includes('tm_source') && !written.includes(sourceProfile), written.slice(0, 200))
+  check('export preserves templates and declarations without entered values', (written.match(/^ {2}- key: /gm) ?? []).length === 2 && !written.includes('portable-alpha'))
+  // What the import that follows must carry over: the source routine's own steps and inputs.
+  exported = { steps: saved.steps, inputs: saved.inputs }
   await drive.capture('routine exported as a file', () => drive.evaluate(`document.querySelector('.lc-automations')?.innerText`))
   check('source captures have no renderer errors', drive.record.every((entry) => entry.errors.length === 0))
   await drive.finish({ intro: `W7 dev build; ${route.model}; two inputs, one manual free run and file export.`, extra: `${checks - failures}/${checks} checks passed. Transfer file: ${filePath}` })
@@ -153,7 +158,8 @@ try {
   check('preview shows steps, inputs, connectors and a teammate choice', ['{{topic}}', '{{style}}', 'Topic', 'Style', 'Connectors it needs', 'Give it to', 'with no schedule, and runs nothing'].every((text) => preview?.toLowerCase().includes(text.toLowerCase())), preview)
   const pending = await drive.evaluate(`(async () => ({ routines: await window.desktop.listRoutines(), history: await window.desktop.getMissionHistory() }))()`)
   check('preview creates and runs nothing', pending.routines.data.routines.length === 0 && pending.history.data.missions.length === 0)
-  await drive.evaluate(`(${SET})('[aria-label="Give routine to"]', 'tm_import')`)
+  // A dropdown drawn by Locust now, not a select, so it is chosen as one (0.834).
+  await drive.evaluate(`(${CHOOSE})('Give routine to', 'Maple')`)
   await sleep(150)
   await drive.evaluate(`document.querySelector('[role=dialog] button.lc-primarybutton')?.click()`)
   await sleep(700)
@@ -167,7 +173,8 @@ try {
   await sleep(200)
   await drive.evaluate(`(${click})('Add input')`)
   await sleep(200)
-  await drive.evaluate(`(${SET})('[aria-label="Input 3 key"]', 'folder'); (${SET})('[aria-label="Input 3 label"]', 'Folder'); (${SET})('[aria-label="Input 3 kind"]', 'folder')`)
+  await drive.evaluate(`(${SET})('[aria-label="Input 3 key"]', 'folder'); (${SET})('[aria-label="Input 3 label"]', 'Folder')`)
+  await drive.evaluate(`(${CHOOSE})('Input 3 kind', 'Folder')`)
   await drive.evaluate(`(${SET})('textarea[aria-label="Step 1"]', ${JSON.stringify('Report {{topic}} in {{style}} with folder {{folder}}.')})`)
   await drive.evaluate(`(${click})('Save changes')`)
   await sleep(500)

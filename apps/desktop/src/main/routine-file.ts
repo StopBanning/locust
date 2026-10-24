@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { MAX_INPUTS, inputsRefusal, keptInputs } from '../shared/routine-inputs.js'
 import type { RoutineInput } from '../shared/routine-inputs.js'
 import type { PublicRoutine, RoutineFlaggedPath } from '../shared/ipc.js'
@@ -128,11 +130,116 @@ export function routineFileText(file: RoutineFile): string {
   return `${JSON.stringify(file, null, 2)}\n`
 }
 
-/** `<name>.locust-routine.json`, with a name any file system takes. */
-export function routineFileName(name: string): string {
+/*
+ * A ROUTINE AS A MARKDOWN FILE (0.834, the Rakazo scrub's fifth take). Rakazo keeps routines as Markdown a person
+ * reads, shares and edits; a `.locust-routine.json` is none of those. So a routine is exported as `<name>.routine.md`:
+ * what it asks for and where it runs at the top, between `---` lines, then its name as the title and one
+ * `## Step N` section per step, in the steps' own words. Edited by hand, it is imported again as any routine file is,
+ * through the same checks. A routine the Markdown would not carry exactly -- a step with a `## Step` line of its own,
+ * say -- is exported as the JSON file instead, so nothing is ever changed on the way out.
+ */
+const MARKDOWN_FIELDS = ['locust-routine', 'runs-on', 'connectors', 'inputs'] as const
+const STEP_HEADING = /^## Step (\d+)((?: · [^\n]*)?)$/
+const CHECKS_THE_WORK = 'checks the work'
+
+/** The routine as Markdown: the same text every time for the same routine. */
+export function routineMarkdown(file: RoutineFile): string {
+  const top: Record<string, unknown> = { 'locust-routine': file.version }
+  if (file.route.runtime !== undefined) top['runs-on'] = file.route.runtime
+  if (file.connectors.length > 0) top.connectors = [...file.connectors]
+  if (file.inputs.length > 0) top.inputs = file.inputs.map((input) => ({ ...input }))
+  const steps = file.steps.map((step, at) => {
+    const handOff = file.handOffs[at]
+    const said = [...(handOff?.role === undefined ? [] : [handOff.role]), ...(handOff?.check === true ? [CHECKS_THE_WORK] : [])]
+    return `## Step ${String(at + 1)}${said.map((part) => ` · ${part}`).join('')}\n\n${step}\n`
+  })
+  return `---\n${stringifyYaml(top, { lineWidth: 0 })}---\n\n# ${file.name}\n\n${steps.join('\n')}`
+}
+
+/** Whether this text is a routine written as Markdown, rather than the JSON file. */
+const isMarkdown = (text: string): boolean => /^---\r?\n/.test(text)
+
+/** The Markdown read into the fields the JSON file has, for the same checks; or why it cannot be. */
+function markdownFields(text: string): { readonly ok: true; readonly value: Record<string, unknown> } | { readonly ok: false; readonly message: string } {
+  const refuse = (message: string) => ({ ok: false as const, message })
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const close = lines.indexOf('---', 1)
+  if (close < 0) return refuse('That routine file opens its settings with --- and never closes them.')
+  let top: unknown
+  try {
+    // Every value read as text, so a default of 5 is the text 5 and nothing is read as something else.
+    top = parseYaml(lines.slice(1, close).join('\n'), { schema: 'failsafe', maxAliasCount: 0 })
+  } catch {
+    return refuse('That routine file\'s settings, between its --- lines, are not readable.')
+  }
+  if (!isRecord(top)) return refuse('That routine file has no settings between its --- lines.')
+  const stray = Object.keys(top).find((key) => !(MARKDOWN_FIELDS as readonly string[]).includes(key))
+  if (stray !== undefined) return refuse(`That routine file has a setting Locust does not read (${stray.slice(0, 40)}), so it was not opened.`)
+  const version = top['locust-routine']
+  if (version === undefined) return refuse('That file is not a Locust routine: its settings do not start with locust-routine.')
+  if (version !== String(ROUTINE_FILE_VERSION)) return refuse(`That routine file is version ${String(version).slice(0, 12)}; this Locust reads version ${String(ROUTINE_FILE_VERSION)}.`)
+
+  const body = lines.slice(close + 1)
+  const titleAt = body.findIndex((line) => line.trim().length > 0)
+  const title = titleAt < 0 ? undefined : /^# (.+)$/.exec(body[titleAt]!)
+  if (title === null || title === undefined) return refuse('That routine file needs its name as a title, a line starting with # , after its settings.')
+  const steps: string[] = []
+  const handOffs: Record<string, unknown>[] = []
+  let current: string[] | undefined
+  const finish = (): void => {
+    if (current === undefined) return
+    while (current.length > 0 && current[0]!.trim().length === 0) current.shift()
+    while (current.length > 0 && current[current.length - 1]!.trim().length === 0) current.pop()
+    steps.push(current.join('\n'))
+  }
+  for (const line of body.slice(titleAt + 1)) {
+    const heading = STEP_HEADING.exec(line)
+    // Only the next step's heading starts it, so a step may hold headings of its own.
+    if (heading !== null && Number(heading[1]) === steps.length + (current === undefined ? 1 : 2)) {
+      finish()
+      current = []
+      const said = heading[2]!.split(' · ').slice(1).map((part) => part.trim())
+      const check = said[said.length - 1] === CHECKS_THE_WORK
+      const role = check ? said.slice(0, -1) : said
+      if (role.length > 1) return refuse(`Step ${heading[1]!}'s heading names more than one teammate.`)
+      handOffs.push({ ...(role[0] === undefined ? {} : { role: role[0] }), ...(check ? { check: true } : {}) })
+    } else if (current === undefined) {
+      if (line.trim().length > 0) return refuse('That routine file has text between its title and ## Step 1. Put it in a step, or take it out.')
+    } else {
+      current.push(line)
+    }
+  }
+  finish()
+  if (steps.length === 0) return refuse('That routine file has no steps: each starts with a line ## Step 1, ## Step 2 and so on.')
+  const inputs = top.inputs === undefined ? [] : top.inputs
+  return {
+    ok: true,
+    value: {
+      format: ROUTINE_FILE_FORMAT,
+      version: ROUTINE_FILE_VERSION,
+      name: title[1]!,
+      steps,
+      inputs: Array.isArray(inputs) ? inputs.map((input: unknown) => isRecord(input) && typeof input.required === 'string' && ['true', 'false'].includes(input.required) ? { ...input, required: input.required === 'true' } : input) : inputs,
+      handOffs,
+      route: top['runs-on'] === undefined ? {} : { runtime: top['runs-on'] },
+      connectors: top.connectors === undefined ? [] : top.connectors
+    }
+  }
+}
+
+/** What an export writes: the Markdown, when it carries the routine exactly, and the JSON file when it would not. */
+export function routineExportText(file: RoutineFile): { readonly text: string; readonly markdown: boolean } {
+  const markdown = routineMarkdown(file)
+  const back = parseRoutineFile(markdown)
+  const plain = (one: RoutineFile): unknown => JSON.parse(JSON.stringify(one))
+  return back.ok && isDeepStrictEqual(plain(back.file), plain(file)) ? { text: markdown, markdown: true } : { text: routineFileText(file), markdown: false }
+}
+
+/** `<name>.routine.md` or `<name>.locust-routine.json`, with a name any file system takes. */
+export function routineFileName(name: string, markdown = false): string {
   // eslint-disable-next-line no-control-regex
   const plain = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').slice(0, 60)
-  return `${plain.length > 0 ? plain : 'routine'}.locust-routine.json`
+  return `${plain.length > 0 ? plain : 'routine'}${markdown ? '.routine.md' : '.locust-routine.json'}`
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -149,11 +256,18 @@ export type RoutineFileRead = { readonly ok: true; readonly file: RoutineFile } 
 export function parseRoutineFile(text: string): RoutineFileRead {
   const refuse = (message: string): RoutineFileRead => ({ ok: false, message })
   if (Buffer.byteLength(text, 'utf8') > MAX_ROUTINE_FILE_BYTES) return refuse('That file is too large to be a routine.')
+  const plain = text.replace(/^\uFEFF/, '')
   let value: unknown
-  try {
-    value = JSON.parse(text.replace(/^\uFEFF/, ''))
-  } catch {
-    return refuse('That file is not a routine: it is not readable JSON.')
+  if (isMarkdown(plain)) {
+    const read = markdownFields(plain)
+    if (!read.ok) return refuse(read.message)
+    value = read.value
+  } else {
+    try {
+      value = JSON.parse(plain)
+    } catch {
+      return refuse('That file is not a routine: it is neither a routine in Markdown nor readable JSON.')
+    }
   }
   if (!isRecord(value)) return refuse('That file is not a routine.')
   if (value.format !== ROUTINE_FILE_FORMAT) {

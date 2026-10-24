@@ -5,7 +5,7 @@ import type { PublicTeammate, RoutineExportResponse, RoutineFolderResponse, Rout
 import { listRoutineTemplates, readRoutineTemplate, templateChangesFiles } from './routine-templates.js'
 import { resolveValues } from '../shared/routine-inputs.js'
 import type { RoutineValues } from '../shared/routine-inputs.js'
-import { absolutePathsIn, MAX_ROUTINE_FILE_BYTES, parseRoutineFile, pathsAsInputs, routineFileName, routineFileText, routineToFile } from './routine-file.js'
+import { absolutePathsIn, MAX_ROUTINE_FILE_BYTES, parseRoutineFile, pathsAsInputs, routineExportText, routineFileName, routineToFile } from './routine-file.js'
 import type { RoutineFile } from './routine-file.js'
 import type { RoutineStore } from './routine-store.js'
 
@@ -89,10 +89,11 @@ export function createRoutineIO(options: {
         const mate = team.find((entry) => entry.teammateId === id)
         return mate === undefined ? undefined : roleLabelOf(mate)
       } })
-      const text = routineFileText(file)
+      // Markdown a person can read and edit (0.834), or the JSON file when the Markdown would not carry it exactly.
+      const { text, markdown } = routineExportText(file)
       const checked = parseRoutineFile(text)
       if (!checked.ok) return rejected(checked.message)
-      const path = await options.pickExport(routineFileName(routine.name))
+      const path = await options.pickExport(routineFileName(routine.name, markdown))
       if (path === undefined) return { ok: true, data: { cancelled: true } }
       await writeFile(path, text, 'utf8')
       return { ok: true, data: { path } }

@@ -8543,11 +8543,11 @@ if (!ownsSingleInstanceLock) {
       },
       pickImport: async () => {
         const scripted = !app.isPackaged ? process.env.LOCUST_ROUTINE_FILE_PATH : undefined
-        return scripted || (await dialog.showOpenDialog({ title: 'Import a routine', filters: [{ name: 'Locust routine', extensions: ['locust-routine.json'] }], properties: ['openFile'] })).filePaths[0]
+        return scripted || (await dialog.showOpenDialog({ title: 'Import a routine', filters: [{ name: 'Locust routine', extensions: ['md', 'locust-routine.json'] }], properties: ['openFile'] })).filePaths[0]
       },
       pickExport: async (name) => {
         const scripted = !app.isPackaged ? process.env.LOCUST_ROUTINE_FILE_PATH : undefined
-        return scripted || (await dialog.showSaveDialog({ title: 'Export a routine', defaultPath: join(app.getPath('downloads'), name), filters: [{ name: 'Locust routine', extensions: ['locust-routine.json'] }], properties: ['showOverwriteConfirmation'] })).filePath
+        return scripted || (await dialog.showSaveDialog({ title: 'Export a routine', defaultPath: join(app.getPath('downloads'), name), filters: [name.endsWith('.md') ? { name: 'Locust routine (Markdown)', extensions: ['md'] } : { name: 'Locust routine', extensions: ['locust-routine.json'] }], properties: ['showOverwriteConfirmation'] })).filePath
       }
     })
     routineFolderChosen = routineIO.folderWasChosen

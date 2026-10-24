@@ -138,7 +138,13 @@ describe('main owns folder choices and import/export receipts', () => {
     expect(await h.io.export({ routineId: saved.routineId })).toMatchObject({ ok: false, error: { code: 'ABSOLUTE_PATHS' } })
     expect(h.picker).not.toHaveBeenCalled()
     expect((await h.io.export({ routineId: saved.routineId, paths: 'input' })).ok).toBe(true)
-    const exported = JSON.parse(await readFile(h.file, 'utf8'))
+    // Written as Markdown a person reads (0.834), named for it, and read back as the routine it is.
+    expect(h.picker).toHaveBeenCalledWith('Notes.routine.md')
+    const written = await readFile(h.file, 'utf8')
+    expect(written).toContain('\n# Notes\n\n## Step 1\n\nRead {{path}}.\n')
+    const read = parseRoutineFile(written)
+    if (!read.ok) throw new Error(read.message)
+    const exported = read.file
     expect(Object.keys(exported).sort()).toEqual(['format', 'version', 'name', 'steps', 'inputs', 'handOffs', 'route', 'connectors'].sort())
     expect(exported.steps).toEqual(['Read {{path}}.'])
     expect((await h.store.get(saved.routineId))?.steps).toEqual(['Read C:\\work\\notes.'])
