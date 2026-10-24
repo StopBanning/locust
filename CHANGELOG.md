@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.833.0 - 2026-10-24
+<!-- big -->
+
+### New
+
+- **Keys a teammate needs.** A teammate that needs a key -- to charge a test card, post to a channel, call a private API -- asks for it by name, and a card under its answer has a masked box and Keep. Or add one yourself in the teammate's settings, under Keys. A key is kept encrypted on your computer for that teammate alone, and only its own turns get it, as an environment variable of that name: never another teammate, a cloud turn or Scout's sealed looks. Its brief names the key, never its value, and if a command prints the value, Locust takes it out of everything it records and shows. Names an agent signs in with, like ANTHROPIC_API_KEY or GITHUB_TOKEN, are refused, so a teammate never pays with a key instead of your plan. Keys reach Claude Code and Cursor teammates for now; other agents follow once each is tested.
+
+### Fixed
+
+- **Antigravity waiting on a stuck helper no longer hides as thinking.** A turn whose helper had stalled showed "Thought for 5m" over and over while each wake-up quietly re-read the whole conversation and used up quota. Now those rows say "Waiting on its helper", with when it last moved; the third time a turn re-reads the whole conversation with nothing reused, Locust says how much quota that has cost and to press Stop; and a model that stops answering for five minutes is said in words.
+
 ## 0.832.0 - 2026-10-23
 <!-- big -->
 
