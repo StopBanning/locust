@@ -137,6 +137,8 @@ const appLabels = new Set<string>()
 const appLabelPrefixes: string[] = []
 for (const text of appSource) {
   for (const [, literal] of text.matchAll(/aria-label="([^"{}]+)"/g)) appLabels.add(literal)
+  // A line drawn without React, as Locust in a browser draws its own (desk-remote.ts, 0.834).
+  for (const [, literal] of text.matchAll(/setAttribute\('aria-label', '([^']+)'\)/g)) appLabels.add(literal)
   // One level of `${...}` inside the braces, so a ternary of two templates is read whole (0.705).
   for (const [, expression] of text.matchAll(/aria-label=\{((?:[^{}]|\{[^{}]*\})*)\}/g)) {
     // A ternary of two literals is two literal labels. Missing this is what

@@ -3,6 +3,7 @@ import { DESK_PART_CHARS, deskDecode, deskEncode, deskJoiner, deskParts, type De
 import { desktopApiOver, type DesktopIpc, type IpcEvent } from '../../shared/desktop-api.js'
 import type { DesktopApi } from '../../shared/ipc.js'
 import { MISSION_APPROVAL_CHANNEL } from '../../shared/ipc.js'
+import { snapshotKey, snapshotStore, snapshotWhen, snapshotWith, type DeskSnapshot } from './desk-snapshot.js'
 
 /*
  * LOCUST IN A BROWSER, IN THE BROWSER (0.830, shared/desk.ts). Loaded before the window's own code on
@@ -101,8 +102,61 @@ function overlay() {
   }
 }
 
+/* The line over a window that is showing what Locust last showed (desk-snapshot.ts): thin, at the top, never in the way. */
+function banner() {
+  let shown: HTMLElement | undefined
+  return (words: string | undefined, action?: { readonly label: string; readonly run: () => void }): void => {
+    if (words === undefined) { shown?.remove(); shown = undefined; return }
+    if (shown === undefined) {
+      shown = document.createElement('div')
+      shown.setAttribute('role', 'status')
+      shown.setAttribute('aria-label', 'What Locust last showed here')
+      shown.className = 'lc-deskbanner'
+      shown.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483646;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:center;padding:6px 16px;background:rgba(20,22,26,.96);color:#e8e8e8;font:13px/1.4 system-ui,sans-serif;border-bottom:1px solid rgba(255,255,255,.12)'
+      document.documentElement.appendChild(shown)
+    }
+    const said = document.createElement('span')
+    said.textContent = words
+    const parts: HTMLElement[] = [said]
+    if (action !== undefined) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.textContent = action.label
+      button.style.cssText = 'padding:3px 10px;border-radius:8px;border:0;background:#e8e8e8;color:#0b0d0e;font:600 13px system-ui,sans-serif;cursor:pointer'
+      button.addEventListener('click', action.run)
+      parts.push(button)
+    }
+    shown.replaceChildren(...parts)
+  }
+}
+
+/** Said of a change asked for while the window shows what Locust last showed. */
+const SNAPSHOT_SAYS = 'This is what Locust last showed here, so nothing can be changed from it yet. It opens live as soon as your computer answers.'
+
 function createDeskLine() {
-  const say = overlay()
+  const overlaid = overlay()
+  const line = banner()
+  const store = snapshotStore()
+  let snapshot: DeskSnapshot | undefined
+  /** Showing what Locust last showed, until the computer answers and the window opens live. */
+  let showingSnapshot = false
+  let saving: number | undefined
+  let loaded: () => void = () => undefined
+  const snapshotReady = new Promise<void>((resolve) => { loaded = resolve })
+  const remember = (key: string, value: unknown): void => {
+    snapshot = snapshotWith(snapshot, key, value, Date.now())
+    if (saving !== undefined) return
+    saving = window.setTimeout(() => { saving = undefined; const kept = snapshot; if (kept !== undefined) void store.save(kept).catch(() => undefined) }, 1_500)
+  }
+  /*
+   * Over a window showing what Locust last showed, the line at the top says how things stand; the overlay is kept
+   * for a window that is live, where it stops the person acting on a window that cannot answer.
+   */
+  const say = (words: string | undefined, action?: { readonly label: string; readonly run: () => void }): void => {
+    if (!showingSnapshot) { overlaid(words, action); return }
+    const when = snapshot === undefined ? '' : `, at ${snapshotWhen(snapshot.at, Date.now())}`
+    line(words === undefined ? undefined : `This is what Locust last showed here${when}. ${words === 'Opening Locust…' ? 'Reaching your computer…' : words}`, action)
+  }
   const listeners = new Map<string, Set<(event: IpcEvent, ...args: unknown[]) => void>>()
   const waiting = new Map<string, { readonly resolve: (value: unknown) => void; readonly reject: (error: Error) => void; readonly what: string; readonly since: number }>()
   const session = randomId()
@@ -171,6 +225,12 @@ function createDeskLine() {
     say('Opening Locust…')
     void ask({ kind: 'take', id: randomId() }).then(() => {
       have = 'yes'
+      // From what it last showed to live: the window opens again, now from the computer.
+      if (showingSnapshot) {
+        try { sessionStorage.setItem('locust-desk-live', '1') } catch { /* The reload is live either way. */ }
+        location.reload()
+        return
+      }
       say(undefined)
       outbox.push(...held)
       held = []
@@ -257,6 +317,10 @@ function createDeskLine() {
       }
       if (relay.t === 'removed' || (relay.t === 'err' && (relay.code === 'auth' || relay.code === 'room'))) {
         link = undefined
+        // A browser that is no longer paired keeps nothing of what it was shown.
+        snapshot = undefined
+        void store.clear().catch(() => undefined)
+        if (showingSnapshot) { showingSnapshot = false; line(undefined) }
         fail('This browser is no longer paired.')
         say('This browser is no longer paired with Locust. Pair it again from Settings › General › Your phone on your computer.', { label: 'Pair this browser', run: () => { location.href = '/' } })
         return
@@ -277,9 +341,21 @@ function createDeskLine() {
   }
 
   const ipc: DesktopIpc = {
-    invoke: (channel, ...args) => {
-      if (deskAccess(channel, args) === undefined) return Promise.reject(new Error(WINDOW_ONLY_SAYS))
-      return ask({ kind: 'call', id: randomId(), channel, args: deskEncode(args) })
+    invoke: async (channel, ...args) => {
+      const access = deskAccess(channel, args)
+      if (access === undefined) throw new Error(WINDOW_ONLY_SAYS)
+      await snapshotReady
+      const key = snapshotKey(channel, args)
+      if (showingSnapshot) {
+        const kept = snapshot?.answers[key]
+        if (access === 'read' && kept !== undefined) return structuredClone(kept.value)
+        // A read it never kept waits for the live window, which takes this one's place.
+        if (access === 'read') return new Promise(() => undefined)
+        throw new Error(SNAPSHOT_SAYS)
+      }
+      const value = await ask({ kind: 'call', id: randomId(), channel, args: deskEncode(args) })
+      if (access === 'read') remember(key, value)
+      return value
     },
     // The window's one-way messages are its own badge and controls: nothing to send from a browser.
     send: () => undefined,
@@ -307,6 +383,13 @@ function createDeskLine() {
     state: (): string => `${have}${ready ? '' : ', not connected'}${pcOn ? '' : ', computer off'}`,
     start: async (): Promise<void> => {
       link = await savedLink()
+      // What it last showed, shown at once -- unless this tab already opened live, and was reloaded.
+      let live = false
+      try { live = sessionStorage.getItem('locust-desk-live') === '1' } catch { /* Not live, then. */ }
+      snapshot = link === undefined ? undefined : await store.load().catch(() => undefined)
+      showingSnapshot = !live && snapshot !== undefined && Object.keys(snapshot.answers).length > 0
+      loaded()
+      if (showingSnapshot) say('Opening Locust…')
       if (link === undefined) {
         say('This browser is not paired with Locust yet. Pair it from Settings › General › Your phone on your computer, then open this page again.', { label: 'Pair this browser', run: () => { location.href = '/' } })
         return

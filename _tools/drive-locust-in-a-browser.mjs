@@ -107,6 +107,8 @@ async function openBrowser(url) {
   browser = {
     logs,
     evaluate: async (expression) => (await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result?.result?.value,
+    /** A script that runs in every page this browser opens from now on, before the page's own. */
+    onEveryPage: async (source) => { await call('Page.addScriptToEvaluateOnNewDocument', { source }) },
     navigate: async (to) => { await call('Page.navigate', { url: to }); await sleep(2500) },
     capture: async (label) => {
       shot += 1
@@ -192,6 +194,33 @@ try {
   const agents = await browserWait(/[1-9]\d* agents? ready/, 60)
   say(`browser line: ${String(await browser.evaluate('window.locustDesk?.state()'))}; waiting: ${JSON.stringify(await browser.evaluate('window.locustDesk?.pending()'))}`)
   check('the browser hears which agents this computer has', /[1-9]\d* agents? ready/.test(agents), (/\d+ agents? ready/.exec(agents) ?? ['none'])[0])
+
+  /*
+   * OPENS AT ONCE, ON WHAT IT LAST SAW (0.834, desk-snapshot.ts). Opened again, the window shows the conversation it
+   * read last time at once, under the line that says so, and then opens live from this computer. What the first
+   * moments showed is noted by a watcher in the page, since the step to live is a matter of seconds.
+   */
+  await sleep(2500)
+  await browser.onEveryPage(`(() => {
+    if (sessionStorage.getItem('drive-saw') !== null || !/\\/desk\\/v\\//.test(location.pathname)) return
+    const started = Date.now()
+    const look = () => {
+      const line = document.querySelector('[aria-label="What Locust last showed here"]')
+      if (line === null) { if (Date.now() - started < 15000) setTimeout(look, 50); return }
+      sessionStorage.setItem('drive-saw', JSON.stringify({ ms: Date.now() - started, line: line.textContent, pelican: /PELICAN/.test(document.body.innerText) }))
+      setTimeout(() => { const later = JSON.parse(sessionStorage.getItem('drive-saw')); later.pelican = later.pelican || /PELICAN/.test(document.body.innerText); later.refused = 'checked'; sessionStorage.setItem('drive-saw', JSON.stringify(later)) }, 400)
+    }
+    look()
+  })()`)
+  const deskAt = String(await browser.evaluate('location.href'))
+  await browser.navigate(deskAt)
+  const live = await browserWait(/PELICAN/, 90)
+  await sleep(3000)
+  const saw = JSON.parse(String(await browser.evaluate(`sessionStorage.getItem('drive-saw') ?? 'null'`)))
+  await browser.capture('opened again: live, after what it last showed')
+  check('opened again, the window shows at once what it last showed, and says so', saw !== null && /This is what Locust last showed here, at /.test(saw.line) && saw.pelican === true, JSON.stringify(saw))
+  check('then it opens live from this computer, and the line goes', /PELICAN/.test(live) && String(await browser.evaluate(`document.querySelector('[aria-label="What Locust last showed here"]') === null && sessionStorage.getItem('locust-desk-live') === '1'`)) === 'true', live.slice(0, 200))
+  check('what it keeps is sealed in the browser, never the conversation as text', String(await browser.evaluate(`new Promise((resolve) => { const r = indexedDB.open('locust-desk-snapshot', 1); r.onsuccess = () => { const g = r.result.transaction('kept', 'readonly').objectStore('kept').get('snapshot'); g.onsuccess = () => { const kept = g.result; resolve(kept && kept.box instanceof ArrayBuffer && !new TextDecoder().decode(kept.box).includes('PELICAN') ? 'sealed' : 'open: ' + JSON.stringify(kept).slice(0, 80)) } } })`)) === 'sealed')
 
   const cover = await pcWait(/Locust is open in a browser/, 30)
   await drive.capture('this computer’s window: the cover', () => cover)
