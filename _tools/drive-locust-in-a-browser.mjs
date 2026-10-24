@@ -304,6 +304,11 @@ try {
   check('what a teammate may spend is not changed from a browser, and it says so', changed.spend === 'This works in Locust on your computer.' && pcSees.limit === null, JSON.stringify({ spend: changed.spend, limit: pcSees.limit }))
   check('a room made in the browser is on this computer', Array.isArray(pcSees.rooms) && pcSees.rooms.includes('Browser room'), JSON.stringify(pcSees.rooms))
   await browser.evaluate(`window.desktop.removeRoom('${changed.room}')`)
+
+  // COMPARE FROM A BROWSER (0.835): a comparison started in the browser, on two free models, is on this computer.
+  const compared = JSON.parse(String(await browser.evaluate(`window.desktop.startCompare({ prompt: 'Write the word TULIP and nothing else.', routes: [{ runtime: 'opencode', model: '${FREE_ROUTE.model}' }, { runtime: 'opencode', model: 'opencode/nemotron-3-ultra-free' }] }).then((answer) => JSON.stringify(answer.ok ? { id: answer.data.compare.compareId } : answer), (error) => JSON.stringify({ thrown: error.message }))`)))
+  const pcCompares = JSON.parse(String(await drive.evaluate(`window.desktop.listCompares().then((answer) => JSON.stringify(answer.ok ? answer.data.compares.map((one) => ({ id: one.compareId, columns: one.slots.length })) : answer))`)))
+  check('a comparison started in the browser is on this computer, with both models', typeof compared.id === 'string' && Array.isArray(pcCompares) && pcCompares.some((one) => one.id === compared.id && one.columns === 2), JSON.stringify({ compared, pcCompares }))
   await browser.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Conversations')?.click()`)
 
   // The conversation, opened and continued from the browser.
