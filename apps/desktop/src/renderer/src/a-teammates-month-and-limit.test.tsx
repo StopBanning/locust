@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { seedAvatar } from '../../shared/avatar.js'
 import type { PublicRecoveredMission, PublicTeammate } from '../../shared/ipc.js'
-import { NewTeammateDialog, limitHint, parsedLimit } from './components/NewTeammateDialog.js'
+import { NewTeammateDialog, limitHint, limitSaid, parsedLimit } from './components/NewTeammateDialog.js'
 import { TeammatesScreen } from './components/Screens.js'
 import { missionCost, monthSpendLine, UNPRICED_NOTE } from './cost.js'
 
@@ -71,6 +71,15 @@ describe('the limit field', () => {
     expect(parsedLimit('1,000')).toBe(1000)
     expect(parsedLimit('.5')).toBe(0.5)
     expect(parsedLimit('12.345')).toBe(12.35)
+  })
+
+  it('says a limit on an edit only when it changed, so an edit that leaves it can be saved from a browser (0.834)', () => {
+    expect(limitSaid(5, true, 5)).toEqual({})
+    expect(limitSaid(undefined, true, undefined)).toEqual({})
+    expect(limitSaid(8, true, 5)).toEqual({ monthlyLimitUsd: 8 })
+    expect(limitSaid(undefined, true, 5)).toEqual({ monthlyLimitUsd: null })
+    expect(limitSaid(5, false, undefined)).toEqual({ monthlyLimitUsd: 5 })
+    expect(limitSaid(undefined, false, undefined)).toEqual({})
   })
 
   it('refuses what is not an amount, rather than saving a limit nobody meant', () => {

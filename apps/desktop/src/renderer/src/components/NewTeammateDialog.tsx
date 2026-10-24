@@ -76,6 +76,18 @@ export function parsedLimit(text: string): number | undefined | 'invalid' {
   return isMonthlyLimit(amount) ? amount : 'invalid'
 }
 
+/**
+ * What a save says of the monthly limit. An edit says a changed one: an amount, or null to lift it. One left as it
+ * was is not said, which keeps it (0.834), so Locust in a browser can save the rest: what may be spent is changed on
+ * the computer only (desk-calls.ts). A new teammate only says when there is an amount.
+ */
+export function limitSaid(limit: number | undefined | 'invalid', editing: boolean, before: number | undefined): { readonly monthlyLimitUsd?: number | null } {
+  if (editing && limit === before) return {}
+  if (typeof limit === 'number' && limit > 0) return { monthlyLimitUsd: limit }
+  if (limit === 0) return {}
+  return editing ? { monthlyLimitUsd: null } : {}
+}
+
 const HUES: readonly { readonly hue: TeammateHue; readonly label: string }[] = [
   { hue: 'lime', label: 'Lime' },
   { hue: 'blue', label: 'Blue' },
@@ -373,9 +385,7 @@ export function NewTeammateDialog({
         ...(worktree ? { worktree: true } : {}),
         avatar,
         ...(picked === undefined ? {} : { route: picked }),
-        // An edit always says: an amount, or null to lift one. A new
-        // teammate only says when there is an amount.
-        ...(typeof limit === 'number' && limit > 0 ? { monthlyLimitUsd: limit } : limit === 0 ? {} : editing ? { monthlyLimitUsd: null } : {}),
+        ...limitSaid(limit, editing, policyMonthlyLimit(policy, initial?.monthlyLimitUsd)),
         // The same rule as the limit: an edit always says (null clears); a new teammate only when there are some.
         ...(instructions.trim().length > 0 ? { instructions: instructions.trim() } : editing ? { instructions: null } : {}),
         // The same again: an edit always says (null goes back to Talk's own); a new teammate only when one is picked.

@@ -17,6 +17,7 @@ heading: the home screen then shows it once, as a splash.
 ### New
 
 - **Locust in a browser opens at once.** Opened again, app.locust.lol/desk shows straight away the conversations, team and turns it showed last time, under a thin line saying it is what Locust last showed and when, and opens live as soon as your computer answers. With your computer off or the relay out of reach, you can still read what it last showed; nothing can be changed from it until it is live. What the browser keeps is sealed with a key the browser itself holds and will not hand out, and forgetting the pairing forgets it too.
+- **Routines, teammates and rooms from a browser.** Locust in a browser now makes, edits, runs, pauses and removes routines, keeps or discards what a routine changed in its copy, makes, edits and removes teammates, and makes rooms, posts to them and moves their board. What opens something on your computer -- choosing a folder, importing or exporting a file -- and what a teammate may spend, its folder, connectors, skills and keys are still changed only in Locust on your computer, and the browser says so.
 - **Routines as Markdown files.** Export a routine and you get `Name.routine.md`: what it asks for and where it runs at the top, then its name and each step in its own words, under `## Step 1`, `## Step 2` and so on. Read it, share it, edit it in any editor, and import it again -- Locust reads it with the same checks as before, and still reads the older `.locust-routine.json` files.
 
 ### Improved

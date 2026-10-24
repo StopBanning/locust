@@ -262,6 +262,50 @@ try {
   const refusedCall = String(await browser.evaluate(`window.desktop.terminal.shells().then(() => 'answered', (error) => error.message)`))
   check('a call that stays on this computer is refused in the browser, in words', refusedCall === 'This works in Locust on your computer.', refusedCall)
 
+  /*
+   * ROUTINES FROM A BROWSER (0.834, desk-calls.ts). A routine made and paused in the browser is on this computer,
+   * paused, and shows on the browser's Routines page; exporting it, which opens a dialog here, stays here; removed in
+   * the browser, it is gone from this computer.
+   */
+  const route = JSON.stringify(MIRA.route)
+  const madeHere = JSON.parse(String(await browser.evaluate(`(async () => {
+    const made = await window.desktop.createRoutine({ name: 'Weekly notes from a browser', teammateId: '${MIRA.teammateId}', route: ${route}, steps: ['Write the word ORCHID and nothing else.'], learnedFrom: [] })
+    if (!made.ok) return JSON.stringify({ error: made.error })
+    const paused = await window.desktop.pauseRoutine(made.data.routine.routineId, true)
+    const exported = await window.desktop.exportRoutine({ routineId: made.data.routine.routineId }).then((answer) => JSON.stringify(answer), (error) => error.message)
+    return JSON.stringify({ id: made.data.routine.routineId, paused: paused.ok && paused.data.routine.paused === true, exported })
+  })()`)))
+  const onThePc = JSON.parse(String(await drive.evaluate(`window.desktop.listRoutines().then((answer) => JSON.stringify(answer.ok ? answer.data.routines.map((one) => ({ id: one.routineId, name: one.name, paused: one.paused === true })) : answer))`)))
+  check('a routine made and paused in the browser is on this computer, paused', madeHere.paused === true && Array.isArray(onThePc) && onThePc.some((one) => one.id === madeHere.id && one.paused), JSON.stringify({ madeHere, onThePc }))
+  check('exporting it, which opens a dialog on this computer, stays there and says so', madeHere.exported === 'This works in Locust on your computer.', madeHere.exported)
+  await browser.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Routines')?.click()`)
+  const listed = await browserWait(/Weekly notes from a browser/, 20)
+  await browser.capture('the browser: a routine made and paused there')
+  // With no schedule, a pause changes nothing it shows; this computer's list above says it is paused.
+  check('the browser\u2019s Routines page shows it', /Weekly notes from a browser/.test(listed), listed.slice(0, 300))
+  const removed = String(await browser.evaluate(`window.desktop.removeRoutine('${madeHere.id}').then((answer) => String(answer.ok))`))
+  const gone = String(await drive.evaluate(`window.desktop.listRoutines().then((answer) => String(answer.ok && !answer.data.routines.some((one) => one.routineId === '${madeHere.id}')))`))
+  check('removed in the browser, it is gone from this computer', removed === 'true' && gone === 'true', JSON.stringify({ removed, gone }))
+
+  /*
+   * A TEAMMATE AND A ROOM FROM A BROWSER (0.834). Mira's instructions changed in the browser are hers on this
+   * computer; a change to what she may spend is refused there; a room made in the browser is on this computer.
+   */
+  const mira = MIRA.teammateId
+  const changed = JSON.parse(String(await browser.evaluate(`(async () => {
+    const base = { teammateId: '${mira}', name: 'Mira', hue: 'violet', role: 'Custom', roleTitle: 'Writer', avatar: (await window.desktop.listTeammates()).data.teammates.find((one) => one.teammateId === '${mira}').avatar }
+    const said = await window.desktop.updateTeammate({ ...base, instructions: 'Answer in one word when you can.' })
+    const spend = await window.desktop.updateTeammate({ ...base, monthlyLimitUsd: 500 }).then((answer) => JSON.stringify(answer), (error) => error.message)
+    const room = await window.desktop.createRoom({ name: 'Browser room', teammateIds: ['${mira}'] })
+    return JSON.stringify({ said: said.ok, spend, room: room.ok ? room.data.room.roomId : JSON.stringify(room) })
+  })()`)))
+  const pcSees = JSON.parse(String(await drive.evaluate(`(async () => JSON.stringify({ instructions: (await window.desktop.listTeammates()).data.teammates.find((one) => one.teammateId === '${mira}')?.instructions, limit: (await window.desktop.listTeammates()).data.teammates.find((one) => one.teammateId === '${mira}')?.monthlyLimitUsd ?? null, rooms: (await window.desktop.listRooms()).data.rooms.map((one) => one.name) }))()`)))
+  check('a teammate\u2019s instructions changed in the browser are hers on this computer', changed.said === true && pcSees.instructions === 'Answer in one word when you can.', JSON.stringify({ changed, pcSees }))
+  check('what a teammate may spend is not changed from a browser, and it says so', changed.spend === 'This works in Locust on your computer.' && pcSees.limit === null, JSON.stringify({ spend: changed.spend, limit: pcSees.limit }))
+  check('a room made in the browser is on this computer', Array.isArray(pcSees.rooms) && pcSees.rooms.includes('Browser room'), JSON.stringify(pcSees.rooms))
+  await browser.evaluate(`window.desktop.removeRoom('${changed.room}')`)
+  await browser.evaluate(`[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Conversations')?.click()`)
+
   // The conversation, opened and continued from the browser.
   await browser.evaluate(`[...document.querySelectorAll('.lc-convrow button.lc-conv, .lc-conv')].find((row) => /PELICAN/i.test(row.innerText || row.getAttribute('title') || ''))?.click()`)
   await sleep(2500)

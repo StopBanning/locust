@@ -193,6 +193,12 @@ import {
  *
  * A call added to the window is window-only until it is listed here: the-browser-asks-only-what-it-may.test.ts reads
  * desktop-api.ts and fails on any call this file does not name.
+ *
+ * ROUTINES AND ROOMS FROM A BROWSER (0.834). A routine is made, changed, paused, run, removed and its copy's changes
+ * kept or discarded from a browser as in the window; a room is made, renamed, removed, posted to and its board moved.
+ * Choosing a folder, importing or exporting a file, and showing a copy in the file manager open something on this
+ * computer, so they stay here. A teammate is made, changed and removed too -- but its monthly limit is what may be
+ * spent, so a change that says one stays here, as do its folder, connectors, skills and keys.
  */
 export type DeskAccess = 'read' | 'act'
 
@@ -228,7 +234,10 @@ const ACT: readonly string[] = [
   APP_CHANGELOG_SEEN_CHANNEL, CALLS_SAVE, CARRY_ON_CHANNEL, CODEX_MISSION_CANCEL_CHANNEL,
   CODEX_MISSION_START_CHANNEL, FOLDER_SWITCH_CHANNEL, GROUP_ASSIGN_CHANNEL, MISSION_DELETE_CHANNEL,
   MISSION_HANDOFF_CHANNEL, MISSION_RESTORE_CHANNEL, MISSION_RESUME_CHANNEL, PULL_REQUEST_WATCH_CHANNEL,
-  QUEUED_MESSAGES_WRITE_CHANNEL, REWIND_PUT_BACK_CHANNEL, SCOUT_DISMISS, SCOUT_EDIT_POST, SCOUT_FIX_AGAIN,
+  QUEUED_MESSAGES_WRITE_CHANNEL, REWIND_PUT_BACK_CHANNEL, ROOM_CREATE_CHANNEL, ROOM_POST_CHANNEL, ROOM_REMOVE_CHANNEL,
+  ROOM_RENAME_CHANNEL, ROOM_TASK_CHANNEL, ROUTINE_CREATE_CHANNEL, ROUTINE_PAUSE_CHANNEL, ROUTINE_RECOVERY_CHANNEL,
+  ROUTINE_REMOVE_CHANNEL, ROUTINE_RUN_CHANNEL, ROUTINE_UPDATE_CHANNEL, SCOUT_DISMISS, TEAMMATE_CREATE_CHANNEL,
+  TEAMMATE_REMOVE_CHANNEL, SCOUT_EDIT_POST, SCOUT_FIX_AGAIN,
   SCOUT_FIX_APPLY, SCOUT_FIX_SKIP, SCOUT_LOOK, SCOUT_POST, SIDE_ASK_CHANNEL, TEAMMATES_TAG_CHANNEL,
   TEAMMATE_ASSIGN_CHANNEL, TEAMMATE_PIN_MISSION_CHANNEL, TEAMMATE_RENAME_MISSION_CHANNEL,
   TEAMMATE_SETTLE_MISSION_CHANNEL, TURN_UNDO_CHANNEL, VOICE_CANCEL, VOICE_TRANSCRIBE, WORKSPACE_PASTE_CHANNEL
@@ -237,7 +246,11 @@ const ACT: readonly string[] = [
 /** Calls a browser makes only some ways: reading the accounts, never adding one; Allow once and Deny, never Always. */
 const SOME: Readonly<Record<string, (args: readonly unknown[]) => DeskAccess | undefined>> = {
   [AGENT_ACCOUNTS_CHANNEL]: (args) => (isRecord(args[0]) && args[0].kind === 'list' ? 'read' : undefined),
-  [MISSION_APPROVAL_DECIDE_CHANNEL]: (args) => (isRecord(args[0]) && args[0].decision !== 'approve-always' ? 'act' : undefined)
+  [MISSION_APPROVAL_DECIDE_CHANNEL]: (args) => (isRecord(args[0]) && args[0].decision !== 'approve-always' ? 'act' : undefined),
+  // Keep or Discard a copy routine's changes; Open shows the copy in this computer's file manager, so it stays here.
+  // A teammate changed in all but what it may spend: a change that names a monthly limit, or lifts one, stays here.
+  [TEAMMATE_UPDATE_CHANNEL]: (args) => (isRecord(args[0]) && args[0].monthlyLimitUsd === undefined ? 'act' : undefined),
+  [ROUTINE_SETTLE_CHANNEL]: (args) => (isRecord(args[0]) && (args[0].decision === 'keep' || args[0].decision === 'discard') ? 'act' : undefined)
 }
 
 /** Named so the coverage test sees each was decided: these stay in the window on this computer. */
@@ -271,15 +284,12 @@ export const WINDOW_ONLY: readonly string[] = [
   PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SETTINGS_CHANNEL,
   PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PROFILE_BACKUP_CHANNEL, PROFILE_LAST_RESTORE_CHANNEL,
   PROFILE_PICK_FOLDER_CHANNEL, PROFILE_RESTORE_CHANNEL, PROFILE_RESTORE_PREVIEW_CHANNEL, REMOTE_CONTROL_SET_CHANNEL,
-  REPLY_PAGE_CHANNEL, ROOM_CREATE_CHANNEL, ROOM_POST_CHANNEL, ROOM_REMOVE_CHANNEL, ROOM_RENAME_CHANNEL,
-  ROOM_TASK_CHANNEL, ROUTINE_CREATE_CHANNEL, ROUTINE_EXPORT_CHANNEL, ROUTINE_FOLDER_CHANNEL, ROUTINE_IMPORT_CHANNEL,
-  ROUTINE_IMPORT_PREVIEW_CHANNEL, ROUTINE_PAUSE_CHANNEL, ROUTINE_RECOVERY_CHANNEL, ROUTINE_REMOVE_CHANNEL,
-  ROUTINE_RUN_CHANNEL, ROUTINE_SETTLE_CHANNEL, ROUTINE_UPDATE_CHANNEL, RUNTIME_INSTALL_CHANNEL,
+  REPLY_PAGE_CHANNEL, ROUTINE_EXPORT_CHANNEL, ROUTINE_FOLDER_CHANNEL, ROUTINE_IMPORT_CHANNEL,
+  ROUTINE_IMPORT_PREVIEW_CHANNEL, RUNTIME_INSTALL_CHANNEL,
   RUNTIME_SIGN_IN_CHANNEL, RUNTIME_UPDATES_NOW_CHANNEL, RUNTIME_UPDATES_SET_CHANNEL, SCOUT_AWAY_SET, SCOUT_NOTES,
   SCOUT_SET, SCOUT_TUNE, SCOUT_TURN_ON, SESSION_IMPORT_CHANNEL, SKILL_LIBRARY_INSTALL_CHANNEL,
   SKILL_LIBRARY_REMOVE_CHANNEL, TALK_SHORTCUT_PENDING, TALK_SHORTCUT_SET, TEAMMATE_CONNECTORS_CHANNEL,
-  TEAMMATE_CREATE_CHANNEL, TEAMMATE_FOLDER_CHANNEL, TEAMMATE_REMOVE_CHANNEL, TEAMMATE_SKILL_REMOVE_CHANNEL,
-  TEAMMATE_SKILL_USE_CHANNEL, TEAMMATE_UPDATE_CHANNEL, TEAM_CARD_ADD_CHANNEL, TEAM_CARD_SAVE_CHANNEL,
+  TEAMMATE_FOLDER_CHANNEL, TEAMMATE_SKILL_REMOVE_CHANNEL, TEAMMATE_SKILL_USE_CHANNEL, TEAM_CARD_ADD_CHANNEL, TEAM_CARD_SAVE_CHANNEL,
   TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SETTINGS_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL,
   // The chat apps' tokens and pairing codes are this computer's alone (0.832), as Telegram's are.
   DISCORD_NEW_LINK_CHANNEL, DISCORD_REMOVE_CHANNEL, DISCORD_SETTINGS_CHANNEL, DISCORD_SET_TOKEN_CHANNEL,
