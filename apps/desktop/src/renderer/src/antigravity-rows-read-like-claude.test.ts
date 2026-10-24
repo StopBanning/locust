@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { activityEntries, activityTrace, buildSignalRail, buildThread, traceOutcome } from './missionView.js'
+import { activityEntries, activityTrace, buildSignalRail, buildThread, thoughtHeadline, traceOutcome } from './missionView.js'
 import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 
 /**
@@ -52,6 +52,24 @@ describe("Antigravity's thought (0.542)", () => {
     const activity = buildThread(thought, { running: false }).find((item) => item.type === 'activity')
     const steps = activity?.type === 'activity' ? activity.details : []
     expect(steps[0]).toMatchObject({ kind: 'reasoning', durationMs: 4385, output: '' })
+  })
+})
+
+describe("Antigravity's wait on a helper (0.833)", () => {
+  it('reads as a wait on that helper, at the length agy timed, with what its list said under it', () => {
+    const waited = [
+      event('run.started', {}),
+      event('step.started', { stepKind: 'reasoning', itemId: 'thought_624' }),
+      event('step.completed', { stepKind: 'reasoning', itemId: 'thought_624', durationMs: 309_291, message: '**Waiting on its helper Soak & Sweep Runner**\nIts list says the helper is waiting for dependents, with no step since 7:18 AM.' }),
+      event('adapter.diagnostic', { level: 'warning', code: 'antigravity.rereading', message: 'Antigravity has read this whole conversation again 3 times this turn, about 230,000 tokens each, with none of it reused: 691,000 tokens of your quota so far. If it is only waiting, press Stop and send "continue" later.', terminal: false }),
+      event('run.completed', {})
+    ]
+    const thread = buildThread(waited, { running: false })
+    const activity = thread.find((item) => item.type === 'activity')
+    const steps = activity?.type === 'activity' ? activity.details : []
+    expect(steps[0]).toMatchObject({ kind: 'reasoning', durationMs: 309_291 })
+    expect(thoughtHeadline(steps[0]?.output ?? '')).toBe('Waiting on its helper Soak & Sweep Runner')
+    expect(JSON.stringify(thread)).toContain('press Stop and send')
   })
 })
 

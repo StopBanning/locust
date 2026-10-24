@@ -111,6 +111,41 @@ export function antigravityQuotaLimit(error: string, now: Date): string | undefi
 export const ANTIGRAVITY_QUOTA_SENTENCE =
   "Antigravity's quota is used up for now, so it stopped before finishing. Pick another model to carry on, or send again once it resets.";
 
+/**
+ * The model stopped answering (0.833). MEASURED 2026-10-24, Colin's Gemini 4 Argon turn of 4 hours 38 minutes: after
+ * forty minutes of waiting on a stuck helper, one call had no answer for five minutes and agy ended the turn ERROR,
+ * "agent executor error: generating and executing: request failed: stream idle timeout (5m0s): context deadline
+ * exceeded" (AGY_ERROR status DEADLINE_EXCEEDED, retryable). The window said that line as it was.
+ */
+export const ANTIGRAVITY_STALLED_SENTENCE =
+  "Antigravity's model stopped answering for five minutes, so Antigravity ended the turn. What it did so far is kept. Antigravity says this can be tried again: send \"continue\".";
+
+/** A helper agy started, as its `manage_subagents` list says it: its role, its state, and its last step. */
+export interface AgyHelper { readonly role: string; readonly state: string; readonly lastStepAt?: string }
+
+/** The helpers a `manage_subagents` answer lists, read from the JSON after its first line; none when it is not one. */
+export function agyHelpersIn(output: string): readonly AgyHelper[] {
+  const start = output.indexOf('[');
+  if (start < 0) return [];
+  try {
+    const listed = JSON.parse(output.slice(start)) as unknown;
+    if (!Array.isArray(listed)) return [];
+    return listed.flatMap((entry) => {
+      if (!isObject(entry)) return [];
+      const role = stringValue(entry.role) ?? "helper";
+      const state = stringValue(entry.state) ?? "unknown";
+      const last = stringValue(entry.lastStepTime);
+      return [{ role, state, ...(last === undefined ? {} : { lastStepAt: last }) }];
+    });
+  } catch { return []; }
+}
+
+const HELPER_DONE = /^(done|completed|complete|succeeded|success|finished|failed|cancelled|canceled|stopped)$/i;
+/** A step that read this much of the conversation again, reusing none of it, re-sent the whole of it. */
+const WHOLE_REREAD = 100_000;
+/** Said once a turn has done that this many times. */
+const REREADS_WORTH_SAYING = 3;
+
 export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEventNormalizer {
   const runId = requireContextText(context.runId, "runId");
   const cliVersion = context.cliVersion === undefined ? undefined : requireContextText(context.cliVersion, "cliVersion");
@@ -136,6 +171,12 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
   const openTools = new Set<number>();
   /** The agent_response steps that wrote words: theirs is writing time, not thought. */
   const spoken = new Set<number>();
+  /** Its helpers, as its last `manage_subagents` list said them (0.833). */
+  let helpers: readonly AgyHelper[] = [];
+  /** The steps that re-read the whole conversation with nothing reused, and how many tokens they read. */
+  let rereads = 0;
+  let rereadTokens = 0;
+  let saidRereads = false;
 
   const emit = <TType extends NormalizedRuntimeEventType>(type: TType, payload: NormalizedRuntimePayloadMap[TType]): NormalizedRuntimeEvent => {
     normalizedSequence += 1;
@@ -194,6 +235,33 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
     return calls.map((call) => (refused.has(call) ? emit("tool.failed", { ...call, output: "Not allowed in this mode.", status: "refused" }) : emit("tool.completed", call)));
   };
 
+  /** "Waiting on its helper Soak & Sweep Runner", as a thought's headline, and what its list said of it. */
+  const waitingLine = (helper: AgyHelper): string => {
+    const last = helper.lastStepAt === undefined ? undefined : new Date(helper.lastStepAt);
+    const at = last === undefined || Number.isNaN(last.getTime()) ? undefined : last.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return `**Waiting on its helper ${helper.role}**\nIts list says the helper is ${helper.state.replace(/_/g, " ")}${at === undefined ? "" : `, with no step since ${at}`}.`;
+  };
+
+  /*
+   * THE CONVERSATION READ AGAIN, WHOLE (0.833). In that same turn each wake-up re-sent the whole conversation -- about
+   * 230,000 tokens, none of it reused from the cache, which had gone cold while it waited -- six times in forty
+   * minutes: 1.8 million tokens of Colin's quota spent on waiting, and his Antigravity quota was used up before he
+   * was back. Said once, the third time, with what it has cost and what to do.
+   */
+  const rereadOf = (step: JsonObject, evidence: CodexEventEvidence): readonly NormalizedRuntimeEvent[] => {
+    const counted = isObject(step.usage) ? step.usage : undefined;
+    const input = typeof counted?.input_tokens === "number" ? counted.input_tokens : 0;
+    const cached = typeof counted?.cache_read_tokens === "number" ? counted.cache_read_tokens : 0;
+    if (input < WHOLE_REREAD || cached > 0) return [];
+    rereads += 1;
+    rereadTokens += input;
+    if (saidRereads || rereads < REREADS_WORTH_SAYING) return [];
+    saidRereads = true;
+    const each = Math.round(input / 1000);
+    const total = rereadTokens >= 1_000_000 ? `${(rereadTokens / 1_000_000).toFixed(1)} million` : `${String(Math.round(rereadTokens / 1000))},000`;
+    return [diagnostic("warning", "antigravity.rereading", `Antigravity has read this whole conversation again ${String(rereads)} times this turn, about ${String(each)},000 tokens each, with none of it reused: ${total} tokens of your quota so far. If it is only waiting, press Stop and send "continue" later.`, evidence)];
+  };
+
   function acceptStep(step: JsonObject, evidence: CodexEventEvidence): readonly NormalizedRuntimeEvent[] {
     const index = typeof step.step_index === "number" ? step.step_index : undefined;
     const type = stringValue(step.step_type);
@@ -215,14 +283,24 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
       if ((text === undefined || text.length === 0) && state === "DONE" && !spoken.has(index)) {
         const used = isObject(step.usage) && typeof step.usage.thinking_tokens === "number" ? step.usage.thinking_tokens : 0;
         const seconds = typeof step.duration_seconds === "number" ? step.duration_seconds : undefined;
-        if (used <= 0 || seconds === undefined) return [];
+        const rereadNow = rereadOf(step, evidence);
+        if (used <= 0 || seconds === undefined) return rereadNow;
         const itemId = `thought_${String(index)}`;
+        /*
+         * WAITING, SAID AS WAITING (0.833). Colin's turn, 2026-10-24: six "Thought for 5m" rows in a row, forty minutes,
+         * while agy waited on a helper whose own list said "waiting_for_dependents", no step since 07:18. Each was a
+         * wake-up that thought for a few seconds and waited the rest. A thought after a list with a helper still
+         * going says so; the length stays the one agy timed.
+         */
+        const waitingOn = helpers.find((helper) => !HELPER_DONE.test(helper.state));
+        const waitingSaid = waitingOn === undefined ? undefined : waitingLine(waitingOn);
         return [
           emit("step.started", { stepKind: "reasoning", itemId, evidence }),
-          emit("step.completed", { stepKind: "reasoning", itemId, durationMs: Math.round(seconds * 1000), evidence }),
+          emit("step.completed", { stepKind: "reasoning", itemId, durationMs: Math.round(seconds * 1000), ...(waitingSaid === undefined ? {} : { message: waitingSaid }), evidence }),
+          ...rereadNow,
         ];
       }
-      if (text === undefined || text.length === 0) return [];
+      if (text === undefined || text.length === 0) return state === "DONE" ? rereadOf(step, evidence) : [];
       spoken.add(index);
       lastMessageItem = `msg_${String(index)}`;
       spokenText.set(lastMessageItem, (spokenText.get(lastMessageItem) ?? "") + text);
@@ -244,6 +322,10 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
       openTools.delete(index);
       const info = isObject(step.tool_info) ? step.tool_info : {};
       const output = stringValue(info.output);
+      if (state === "DONE" && row.name === "manage_subagents" && output !== undefined) {
+        const listed = agyHelpersIn(output);
+        if (listed.length > 0 || /no active subagent/i.test(output)) helpers = listed;
+      }
       const seconds = typeof step.duration_seconds === "number" ? step.duration_seconds : undefined;
       const ended = {
         ...row,
@@ -427,6 +509,8 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
               ? "Antigravity ended without a record saying the run had finished."
               : quota !== undefined
               ? ANTIGRAVITY_QUOTA_SENTENCE
+              : resultError !== undefined && /stream idle timeout|DEADLINE_EXCEEDED|context deadline exceeded/i.test(resultError)
+              ? ANTIGRAVITY_STALLED_SENTENCE
               : resultError !== undefined
                 ? providerErrorSentence(resultError, "antigravity") !== resultError
                   ? providerErrorSentence(resultError, "antigravity")
