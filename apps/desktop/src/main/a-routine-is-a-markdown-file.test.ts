@@ -60,6 +60,7 @@ describe('a routine as a Markdown file', () => {
     expect(said('---\nlocust-routine: 1\n---\n# A\n\nA note.\n\n## Step 1\n\nGo.\n')).toContain('between its title and ## Step 1')
     expect(said('---\nlocust-routine: 1\n---\n# A\n\nGo.\n')).toContain('between its title')
     expect(said('---\nlocust-routine: 1\n---\n# A\n')).toContain('no steps')
+    expect(said('---\nlocust-routine: 1\n---\n# A\n\n## Step 1 · Writer · Reviewer\n\nGo.\n')).toContain('more than one teammate')
     expect(said('---\nlocust-routine: 1\n---\n\n## Step 1\n\nGo.\n')).toContain('name as a title')
     expect(said('---\nlocust-routine: 1\n\n# A\n')).toContain('never closes')
     expect(said('---\nlocust-routine: 1\n---\n# A\n\n## Step 1\n\nRead {{missing}}.\n')).toContain('not declared')
