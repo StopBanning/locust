@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { unwrapProtocolTags } from '../shared/protocolTags.js'
 import { keyNameRefusal, keyRequestsIn, keysSection, keyValueRefusal, scrubKeyValues, withoutKeyValues } from '../shared/teammate-keys.js'
 import { createTeammateKeys, TEAMMATE_KEYS_FILE } from './teammate-keys.js'
 
@@ -66,6 +67,12 @@ describe('a teammate’s keys', () => {
   it('are asked for by name in the answer, outside code, three at most', () => {
     const text = 'I need two keys.\n\n<locust-key name="STRIPE_KEY">To make test charges</locust-key>\n<locust-key name="SLACK_WEBHOOK_URL">\n  To post the summary\n</locust-key>\n\n```\n<locust-key name="IN_CODE">no</locust-key>\n```\n<locust-key name="STRIPE_KEY">twice</locust-key>'
     expect(keyRequestsIn(text)).toEqual([{ name: 'STRIPE_KEY', why: 'To make test charges' }, { name: 'SLACK_WEBHOOK_URL', why: 'To post the summary' }])
+  })
+
+  it('are asked for in the answer as one line naming the key, its words left to the card', () => {
+    expect(unwrapProtocolTags('I need one.\n\n<locust-key name="WEATHER_KEY">the key for calling the weather service</locust-key>')).toBe('I need one.\n\nAsks for the key WEATHER_KEY (below).')
+    // In code it is an example, and stays as written.
+    expect(unwrapProtocolTags('Write `<locust-key name="X">why</locust-key>` to ask.')).toBe('Write `<locust-key name="X">why</locust-key>` to ask.')
   })
 
   it('are named in the brief, never valued, with how to ask for another', () => {

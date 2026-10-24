@@ -183,16 +183,24 @@ export function stripBlocksOutsideCode(text: string, block: RegExp): string {
  * is not plumbing -- it is the answer. It happens here often enough to be in
  * these comments twice already.
  */
+/*
+ * A KEY ASKED FOR IS SAID IN A LINE (0.834). A `locust-key` block's words are for the card under the answer (KeyCard),
+ * which says them with the box; left in the bubble once its tags came off, they read alone and out of place ("the key
+ * for calling the weather service"). The block becomes one line naming the key.
+ */
+const KEY_BLOCK = /<locust-key\s+name\s*=\s*"([^"]{1,80})"\s*>[\s\S]*?<\/locust-key>/gi
+const plain = (part: string): string => part.replace(KEY_BLOCK, (_all, name: string) => `Asks for the key ${name.trim()} (below).`).replace(LOOSE_TAG, '')
+
 export function unwrapProtocolTags(text: string): string {
   let out = ''
   let at = 0
   for (const span of text.matchAll(CODE)) {
     const index = span.index ?? 0
-    out += text.slice(at, index).replace(LOOSE_TAG, '')
+    out += plain(text.slice(at, index))
     out += span[0]
     at = index + span[0].length
   }
-  out += text.slice(at).replace(LOOSE_TAG, '')
+  out += plain(text.slice(at))
   /*
    * The torn one last, and only on the tail: it is anchored to the end of the
    * string, so it can only be judged once every complete tag is gone.
