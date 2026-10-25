@@ -50,6 +50,7 @@ import { DocPreview, isNewDocument } from './DocPreview.js'
 import { FilesElsewhere, RanOnTheCloud } from '../filesElsewhere.js'
 import { InComparisonCell, PinnedPagesContext } from '../pinnedPages.js'
 import { Icon } from './Icon.js'
+import { FileTypeIcon, fileName, folderName, statusWord } from './FileTypeIcon.js'
 import { AgentText, PlanSteps } from './ThreadItems.js'
 import { runtimeDisplayName } from '../../../shared/runtimes.js'
 import { commandReach } from '../../../shared/command-reach.js'
@@ -186,6 +187,8 @@ function ShellOutputFoot({ output, total }: { readonly output: string; readonly 
 
 /** How many rows a finished fold shows before "Show N more". */
 export const FOLD_ROWS_SHOWN = 10
+/** A finished turn's changed files show their first five, as Claude Code's list does (0.835); the rest are a press away. */
+export const FILE_ROWS_SHOWN = 5
 
 export function ActivityCard({
   summary,
@@ -439,8 +442,19 @@ export function ActivityCard({
    * that is the work happening.
    */
   const [showAll, setShowAll] = useState(false)
-  const capped = !steps && finished && !showAll && entries.length > FOLD_ROWS_SHOWN + 2
-  const shown = capped ? entries.slice(0, FOLD_ROWS_SHOWN) : entries
+  /*
+   * A FILE BY ITS NAME (0.835), as Claude Code lists a turn's files: the name, and its folder only when two of the
+   * rows share that name. The whole path is the row's hover, as before.
+   */
+  const named = new Map<string, number>()
+  for (const entry of entries) {
+    const path = entry.kind === 'file' ? entry.file.path : entry.kind === 'unreported' ? entry.name : undefined
+    if (path !== undefined) named.set(fileName(path).toLowerCase(), (named.get(fileName(path).toLowerCase()) ?? 0) + 1)
+  }
+  const twice = (path: string): string | undefined => ((named.get(fileName(path).toLowerCase()) ?? 0) > 1 ? folderName(relativePath(path, workspacePath)) : undefined)
+  const rowsShown = variant === 'files' ? FILE_ROWS_SHOWN : FOLD_ROWS_SHOWN
+  const capped = !steps && finished && !showAll && entries.length > rowsShown + 2
+  const shown = capped ? entries.slice(0, rowsShown) : entries
 
   return (
     <div className={steps ? 'lc-steps' : 'lc-card'} ref={boxRef}>
@@ -515,10 +529,12 @@ export function ActivityCard({
                 <>
                   <div className="lc-filerow__line">
                     <button type="button" className="lc-filerow" onClick={() => toggle(entry)} aria-expanded={isOpen(entry)}>
-                      <Icon name="file" size={14} />
-                      <span className="lc-filerow__path" title={elsewhere === undefined ? entry.file.path : `${entry.file.path}\n${elsewhere}`}>{displayPath(entry.file.path, workspacePath)}</span>
-                      <span className="lc-filerow__status">{entry.file.status}</span>
-                      {entry.large && <span className="lc-filerow__status is-large">LARGE</span>}
+                      <FileTypeIcon path={entry.file.path} />
+                      <span className="lc-filerow__path lc-filerow__name" title={elsewhere === undefined ? displayPath(entry.file.path, workspacePath) : `${displayPath(entry.file.path, workspacePath)}\n${elsewhere}`}>{fileName(entry.file.path)}</span>
+                      {twice(entry.file.path) !== undefined && <span className="lc-filerow__dir">{twice(entry.file.path)}</span>}
+                      {statusWord(entry.file.status) !== undefined && <span className="lc-filerow__status">{statusWord(entry.file.status)}</span>}
+                      {/* Said when its counts could not be known: the reason there are none. */}
+                      {entry.large && <span className="lc-filerow__status is-large">large</span>}
                       {(() => {
                         const counts = fileRowCounts(entry)
                         if (counts === undefined) return null
@@ -859,8 +875,9 @@ export function ActivityCard({
                  */
                 <div className="lc-filerow__line">
                   <div className="lc-filerow is-static">
-                    <Icon name="file" size={14} />
-                    <span className="lc-filerow__path" title={entry.name}>{displayPath(entry.name, workspacePath)}</span>
+                    <FileTypeIcon path={entry.name} />
+                    <span className="lc-filerow__path lc-filerow__name" title={displayPath(entry.name, workspacePath)}>{fileName(entry.name)}</span>
+                    {twice(entry.name) !== undefined && <span className="lc-filerow__dir">{twice(entry.name)}</span>}
                     {/* The runtime's own word (Write, Edit); not Codex's "changed", which the status says already. */}
                     {entry.tool !== undefined && fileToolWord(entry.tool) !== 'changed' && <span className="lc-filerow__status">{fileToolWord(entry.tool)}</span>}
                     <span className="lc-filerow__result is-muted">changed · seen on disk</span>
@@ -964,7 +981,7 @@ export function ActivityCard({
           ))}
           {capped && (
             <button type="button" className="lc-activity__more" onClick={() => setShowAll(true)}>
-              Show {entries.length - FOLD_ROWS_SHOWN} more
+              Show {entries.length - rowsShown} more
             </button>
           )}
           {revealNotice !== undefined && <p className="lc-filerow__notice">{revealNotice}</p>}

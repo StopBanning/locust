@@ -2154,6 +2154,94 @@ textarea {
   white-space: nowrap;
 }
 
+/* A changed file by its name (0.835, FileTypeIcon.tsx), in the window's own type, as Claude Code lists them; its
+   folder, muted, only beside a name two rows share. */
+.lc-filerow__name {
+  font-family: var(--lc-font-ui);
+  font-size: var(--lc-text-body);
+  font-weight: 500;
+  color: var(--lc-text-primary);
+}
+
+.lc-filerow__dir {
+  flex: none;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--lc-font-ui);
+  font-size: var(--lc-text-description);
+  color: var(--lc-text-muted);
+}
+
+.lc-filetype {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 14px;
+  border-radius: 3px;
+  font: 700 8px/1 var(--lc-font-mono);
+  letter-spacing: -0.02em;
+  color: var(--lc-filetype-ink-dark);
+  background: var(--lc-text-faint);
+}
+
+.lc-filetype[data-badge]::before {
+  content: attr(data-badge);
+}
+
+.lc-filetype.is-js { background: var(--lc-filetype-js); }
+.lc-filetype.is-ts { background: var(--lc-filetype-ts); color: var(--lc-filetype-ink-light); }
+.lc-filetype.is-py { background: var(--lc-filetype-py); color: var(--lc-filetype-py-ink); }
+.lc-filetype.is-rs { background: var(--lc-filetype-rs); }
+.lc-filetype.is-go { background: var(--lc-filetype-go); }
+.lc-filetype.is-java, .lc-filetype.is-kt, .lc-filetype.is-swift, .lc-filetype.is-html { background: var(--lc-filetype-html); color: var(--lc-filetype-ink-light); }
+.lc-filetype.is-rb, .lc-filetype.is-svelte { background: var(--lc-filetype-rb); color: var(--lc-filetype-ink-light); }
+.lc-filetype.is-php, .lc-filetype.is-cs, .lc-filetype.is-css { background: var(--lc-filetype-css); color: var(--lc-filetype-ink-light); }
+.lc-filetype.is-c { background: var(--lc-filetype-c); color: var(--lc-filetype-ink-light); }
+.lc-filetype.is-vue { background: var(--lc-filetype-vue); }
+.lc-filetype.is-data, .lc-filetype.is-shell { background: transparent; color: var(--lc-text-muted); box-shadow: inset 0 0 0 1px var(--lc-border-hairline); }
+
+/* A document is a page, as Claude Code draws a Markdown file: filled in its green. An image, a picture. */
+svg.lc-filetype {
+  width: 14px;
+  background: none;
+}
+
+svg.lc-filetype.is-page > path:first-child {
+  fill: var(--lc-filetype-doc);
+}
+
+svg.lc-filetype .lc-filetype__lines {
+  fill: none;
+  stroke: var(--lc-filetype-ink-dark);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+svg.lc-filetype.is-image > rect {
+  fill: none;
+  stroke: var(--lc-text-muted);
+  stroke-width: 1.2;
+}
+
+svg.lc-filetype.is-image .lc-filetype__lines {
+  stroke: var(--lc-text-muted);
+}
+
+svg.lc-filetype.is-image .lc-filetype__dot {
+  fill: var(--lc-text-muted);
+}
+
+.lc-filetype.is-plain {
+  width: 14px;
+  background: none;
+  color: var(--lc-text-muted);
+}
+
 .lc-filerow__status {
   flex: none;
   font-size: var(--lc-text-mono-label);
@@ -2163,6 +2251,15 @@ textarea {
 
 .lc-filerow__status.is-large {
   color: var(--lc-amber-text);
+}
+
+/* Beside a file's name the word is a word (0.835): new, deleted, renamed, large -- not a tracked capital label. */
+.lc-filerow__dir + .lc-filerow__status,
+.lc-filerow__name + .lc-filerow__status,
+.lc-filerow__name ~ .lc-filerow__status {
+  font-family: var(--lc-font-ui);
+  font-size: var(--lc-text-description);
+  letter-spacing: 0;
 }
 
 .lc-filerow__result {

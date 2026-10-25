@@ -83,9 +83,9 @@ describe('counts on a large diff row', () => {
       />
     )
 
-    // The row marks the file as LARGE.
+    // The row marks the file as large.
     expect(html).toContain('is-large')
-    expect(html).toContain('LARGE')
+    expect(html).toContain('>large<')
 
     // It reports the true counts from the tool's record.
     expect(html).toContain('+1700')
@@ -107,9 +107,9 @@ describe('counts on a large diff row', () => {
       />
     )
 
-    // Truncated multi-file edit is marked LARGE.
+    // Truncated multi-file edit is marked large.
     expect(html).toContain('is-large')
-    expect(html).toContain('LARGE')
+    expect(html).toContain('>large<')
 
     // Neither partial counts nor +0 are shown on the truncated big.ts row.
     expect(html).not.toMatch(/\+0\b/)

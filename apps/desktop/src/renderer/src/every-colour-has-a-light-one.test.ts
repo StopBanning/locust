@@ -27,6 +27,8 @@ const SHARED = [
   /^--lc-hue-(?!pearl$)/,
   // The runtimes' own brand marks.
   /^--lc-mark-/,
+  // A file's kind: each language's own colour, on a badge that carries its own ink, as editors draw it on either ground.
+  /^--lc-filetype-/,
   // The boot screen is a lit screen in a dark bezel, in any room.
   /^--lc-boot-/,
   // Find's current hit is solid amber with dark letters, which reads on either ground.

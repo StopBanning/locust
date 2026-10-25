@@ -189,6 +189,21 @@
 :root {
   /* --- Surfaces ------------------------------------------------------- */
   --lc-bg-app: #0b0d0e;
+  /* A file's kind (0.835, FileTypeIcon.tsx): each language's own colour, the same in both themes. */
+  --lc-filetype-js: #e8c94a;
+  --lc-filetype-ts: #3178c6;
+  --lc-filetype-py: #3a6fa3;
+  --lc-filetype-py-ink: #ffd43b;
+  --lc-filetype-rs: #dea584;
+  --lc-filetype-go: #3fbadb;
+  --lc-filetype-html: #d9572d;
+  --lc-filetype-rb: #b9382b;
+  --lc-filetype-css: #6d4bb0;
+  --lc-filetype-c: #5a6fa8;
+  --lc-filetype-vue: #4fbf8b;
+  --lc-filetype-doc: #6fbf73;
+  --lc-filetype-ink-dark: #14171a;
+  --lc-filetype-ink-light: #ffffff;
   --lc-bg-window: #121415;
   --lc-bg-chrome: #16191a;
   --lc-bg-sidebar: #17191a;
