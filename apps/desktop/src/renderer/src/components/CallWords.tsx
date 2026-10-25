@@ -1,8 +1,8 @@
 import { Fragment, useContext, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 
-import { callLength, type CallPiece, type SavedCallHandOff, type SavedCallLine } from '../../../shared/calls.js'
-import { CALL_TODO_WORDS, CallTodosContext, todoCount } from '../callTodos.js'
+import { callLength, type CallPiece, type SavedCallLine } from '../../../shared/calls.js'
+import { CALL_TODO_WORDS, CallTodosContext, todoCount, type TodoShown } from '../callTodos.js'
 import type { PublicTeammate } from '../../../shared/ipc.js'
 import type { VoiceCallRole } from '../../../shared/voice-call.js'
 import { CONNECTOR_NOT_UNDOABLE, dataSentLine } from '../../../shared/approval-data.js'
@@ -98,7 +98,7 @@ function CallAskCard({ ask, name }: { readonly ask: LiveCallAsk; readonly name: 
  * them up when it ends; a call with a teammate sums them up under its place in their conversation.
  */
 export function CallTodoList({ handed, label, here, openable = true }: {
-  readonly handed: readonly SavedCallHandOff[]
+  readonly handed: readonly TodoShown[]
   readonly label: string
   /** The turns of the conversation on screen: a to-do among them is right there, and has nothing to open. */
   readonly here?: ReadonlySet<string>
@@ -110,13 +110,14 @@ export function CallTodoList({ handed, label, here, openable = true }: {
     <p className="lc-calltodos__label lc-mono">{label}</p>
     <ul className="lc-calltodos__list">
       {handed.map((todo) => {
-        const words = CALL_TODO_WORDS[states.get(todo.missionId) ?? 'starting']
-        const opens = openable && here?.has(todo.missionId) !== true
-        return <li key={todo.missionId} className="lc-calltodo" data-call-todo={todo.missionId}>
+        const missionId = todo.missionId
+        const words = CALL_TODO_WORDS[(missionId === undefined ? undefined : states.get(missionId)) ?? 'starting']
+        const opens = openable && missionId !== undefined && here?.has(missionId) !== true
+        return <li key={todo.key ?? missionId} className="lc-calltodo" data-call-todo={missionId}>
           <span className="lc-calltodo__who">{todo.name}</span>
           <span className="lc-calltodo__task" title={todo.task}>{todo.task}</span>
           <span className={`lc-status lc-status--${words.tone}`}>{words.label}</span>
-          {opens && <button type="button" className="lc-control lc-control--boxed lc-calltodo__open" onClick={() => { open(todo.missionId) }} aria-label={`Open ${todo.name}’s conversation: ${todo.task}`}>Open</button>}
+          {opens && <button type="button" className="lc-control lc-control--boxed lc-calltodo__open" onClick={() => { open(missionId) }} aria-label={`Open ${todo.name}’s conversation: ${todo.task}`}>Open</button>}
         </li>
       })}
     </ul>

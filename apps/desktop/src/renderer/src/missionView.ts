@@ -5831,10 +5831,10 @@ export function typedPrompt(
  * Undefined when nothing received it, which is a real state and not an
  * error: the message may still be waiting for that teammate's next run.
  */
-export function peerRunFor(
+export function peerRunFor<T extends Pick<PublicRecoveredMission, 'missionId' | 'peerMessages'>>(
   messageId: string,
-  missions: readonly PublicRecoveredMission[]
-): PublicRecoveredMission | undefined {
+  missions: readonly T[]
+): T | undefined {
   if (messageId.length === 0) return undefined
   return missions.find((mission) =>
     mission.peerMessages.some((message) => message.messageId === messageId && message.direction === 'received')

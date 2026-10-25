@@ -26,7 +26,7 @@ const call: SavedCall = {
 }
 const states = (pairs: Record<string, CallTodoState>) => new Map(Object.entries(pairs))
 const within = (element: ReactElement, pairs: Record<string, CallTodoState> = {}): string =>
-  renderToStaticMarkup(createElement(CallTodosContext.Provider, { value: { states: states(pairs), open: () => undefined } }, element))
+  renderToStaticMarkup(createElement(CallTodosContext.Provider, { value: { states: states(pairs), open: () => undefined, receivedIn: new Map() } }, element))
 const piece = (overrides: Partial<CallPieceShown> = {}): CallPieceShown => ({ call, lines: call.lines, first: false, last: true, live: false, ...overrides })
 
 describe('a call’s to-dos', () => {

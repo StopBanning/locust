@@ -60,7 +60,7 @@ import { SentNotes } from './SentNotes.js'
 import { splitDiffNotes } from '../diffNotes.js'
 import type { DiffFile } from '../diff.js'
 import { TimeMarker } from './TimeMarker.js'
-import { PeerThread } from './PeerThread.js'
+import { HandedOut, PeerThread } from './PeerThread.js'
 import { PdfTile } from './PdfTile.js'
 import { isPdf } from '../pdfPages.js'
 import type { ThreadItem, ThreadPeerCard } from '../missionView.js'
@@ -1671,6 +1671,7 @@ onResume,
               {/* An earlier turn stopped before it said anything had nothing under it, as if still waiting (0.496; Claude Code: "Interrupted"). */}
               {!again && stoppedBeforeSaying(turn.events) && <div className="lc-thread__note">Stopped before it replied</div>}
               {cloudCardFor(turn.missionId)}
+              <HandedOut messages={turn.peerMessages ?? []} />
               {cardsFor(index, 'after-work').map(peerCard)}
               {/* What that turn taught the team, under that turn. */}
               <MemoryCard lines={memoriesOfTurn(peers.memories ?? [], turn.missionId)} />
@@ -1806,6 +1807,7 @@ onResume,
             <KeyCard key={`keys_${shownMissionId ?? ''}`} teammateId={self.teammateId} name={self.name} requests={requests} reaches={runtime !== undefined && KEYS_REACH.has(runtime)} />
           )
         })()}
+        <HandedOut messages={peers.messages} />
         {cardsFor(earlierTurns.length, 'after-work').map(peerCard)}
         {/* The turn's own check first, then what came after it -- a routine's "finished" reads as its end (0.814). */}
         {editCheck !== undefined && (

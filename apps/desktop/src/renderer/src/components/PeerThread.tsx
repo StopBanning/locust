@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import { BOT_SIZE } from '../botSizes.js'
 import type { ReactElement } from 'react'
 
@@ -8,6 +8,28 @@ import type { AvatarSpec } from '../../../shared/avatar.js'
 import type { PublicPeerMessage, PublicTeammate, TeammateHue } from '../../../shared/ipc.js'
 import { peerExchangeStartsOpen, peerSnippet } from '../missionView.js'
 import { TeammateBot } from './TeammateBot.js'
+import { CallTodosContext, todoCount } from '../callTodos.js'
+import { CallTodoList } from './CallWords.js'
+
+/*
+ * HANDED OUT, UNDER THE TURN (2026-10-25). The peer exchanges keep the whole conversation; this sums up who has
+ * each ask and how it is going. The call card owns the words and states, so speaking or typing an ask cannot disagree.
+ */
+export function HandedOut({ messages }: { readonly messages: readonly PublicPeerMessage[] }): ReactElement | null {
+  const { receivedIn } = useContext(CallTodosContext)
+  const posted = messages.filter((message) => message.direction === 'posted')
+  if (posted.length === 0) return null
+  const handed = posted.map((message) => {
+    const missionId = receivedIn.get(message.messageId)
+    return {
+      key: message.messageId,
+      ...(missionId === undefined ? {} : { missionId }),
+      name: message.to.name,
+      task: message.text ?? 'This message is no longer in the workroom.'
+    }
+  })
+  return <CallTodoList handed={handed} label={`Handed out · ${todoCount(handed.length)}`} />
+}
 
 /**
  * The exchange between this mission's teammate and one peer.

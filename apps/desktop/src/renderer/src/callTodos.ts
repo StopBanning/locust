@@ -38,9 +38,19 @@ export function callTodoState(facts: { readonly runPhase?: string; readonly reco
 export interface CallTodos {
   readonly states: ReadonlyMap<string, CallTodoState>
   readonly open: (missionId: string) => void
+  /** A posted peer message's receiving turn, only once the window has seen its delivery. */
+  readonly receivedIn: ReadonlyMap<string, string>
 }
 
-export const CallTodosContext = createContext<CallTodos>({ states: new Map(), open: () => undefined })
+export const CallTodosContext = createContext<CallTodos>({ states: new Map(), open: () => undefined, receivedIn: new Map() })
+
+/** A call or typed turn's to-do. An undelivered share has a key, but no receiving mission yet. */
+export interface TodoShown {
+  readonly key?: string
+  readonly missionId?: string
+  readonly name: string
+  readonly task: string
+}
 
 /** "3 to-dos", "1 to-do". */
 export function todoCount(count: number): string {

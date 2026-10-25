@@ -8921,9 +8921,26 @@ export default function App(): ReactElement {
    * to-do's state does -- not with every word a teammate streams.
    */
   const handOffsNow = useCallHandOffs()
+  /*
+   * TYPED TURNS HAND WORK OUT TOO (2026-10-25). The same delivery lookup as the peer bubble, over the live runs and
+   * records already used by the exchange. Keyed by the links, not streaming words, so the shared card only updates
+   * when a delivery or state changes. No receiving mission is invented for a share that is still waiting.
+   */
+  const peerTodoKey = useMemo(() => {
+    const missions = [...missionsForExchange.values()]
+    const messages = [...(liveRun?.earlierTurns ?? []).flatMap((turn) => turn.peerMessages ?? []), ...(liveRun?.peerMessages ?? [])]
+    const links = new Map<string, string>()
+    for (const message of messages) {
+      if (message.direction !== 'posted') continue
+      const reached = peerRunFor(message.messageId, missions)
+      if (reached !== undefined) links.set(message.messageId, reached.missionId)
+    }
+    return JSON.stringify([...links])
+  }, [missionsForExchange, liveRun?.earlierTurns, liveRun?.peerMessages])
+  const receivedIn = useMemo<ReadonlyMap<string, string>>(() => new Map(JSON.parse(peerTodoKey) as [string, string][]), [peerTodoKey])
   const callTodoIds = useMemo(
-    () => [...new Set([...handOffsNow, ...threadCalls.flatMap((call) => call.handed ?? [])].map((handOff) => handOff.missionId))],
-    [handOffsNow, threadCalls]
+    () => [...new Set([...handOffsNow, ...threadCalls.flatMap((call) => call.handed ?? [])].map((handOff) => handOff.missionId).concat([...receivedIn.values()]))],
+    [handOffsNow, threadCalls, receivedIn]
   )
   let callTodoKey = ''
   if (callTodoIds.length > 0) {
@@ -8938,8 +8955,9 @@ export default function App(): ReactElement {
   }
   const callTodos = useMemo<CallTodos>(() => ({
     states: new Map(callTodoKey.length === 0 ? [] : callTodoKey.split(' ').map((pair) => pair.split('=') as [string, CallTodoState])),
-    open: (missionId) => { openMissionRef.current(missionId) }
-  }), [callTodoKey])
+    open: (missionId) => { openMissionRef.current(missionId) },
+    receivedIn
+  }), [callTodoKey, receivedIn])
   // Which teammate is replaying a routine, and which step it is on. DERIVED
   // from the runs that are actually live rather than tracked alongside them:
   // a step that ended stops being reported because its run stopped running,
