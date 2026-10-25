@@ -23544,6 +23544,55 @@ textarea.lc-compare__judgecriteria {
   }
 }
 
+/*
+ * HOME FITS AT 1200x780 (2026-10-25).
+ *
+ * Six teammates and the Meet Scout card are three rows. At Colin's window
+ * the cover is already at its floor (HomeCover's coverFloor) and the four
+ * starters still sat under the composer: "Start a conversation" with nothing
+ * under it. The drawing stays the one he approved -- a little smaller, and
+ * the height it gives back is returned to the page (the scale does not
+ * change layout on its own). The team cards give back some padding; the
+ * role and the model stay. 900px tall is past this query, so a large
+ * window is unchanged. 0.86 and the margin below are the same shrink: the
+ * margin hands back what the scale no longer paints.
+ */
+@media (max-height: 860px) {
+  .lc-cover.lc-cover--machine {
+    --lc-cover-fit: 0.86;
+    transform: scale(var(--lc-cover-fit));
+    transform-origin: top center;
+    margin-top: calc(48px * var(--lc-cover-k) * var(--lc-cover-fit));
+    margin-bottom: calc(254px * var(--lc-cover-k) * (var(--lc-cover-fit) - 1));
+  }
+
+  /*
+   * The short-page rule (`.lc-empty.is-tight .lc-hometeam__card`) had already
+   * taken the padding to 8px, and the three lines still held the card at its
+   * old height, so a shorter min-height did nothing. Same specificity, later:
+   * a little less padding and a tighter line. The role and the model stay.
+   */
+  .lc-empty .lc-hometeam__card {
+    min-height: 0;
+    padding: 6px 10px 6px 12px;
+    line-height: 1.2;
+  }
+
+  /*
+   * Three rows still left a short scrollbar: the starters were on screen and
+   * the pane's own padding was not. Only when the seventh card is there
+   * (Meet Scout), so two rows keep the space they already fit in.
+   */
+  .lc-empty:has(.lc-hometeam__grid > :nth-child(7)) {
+    padding-top: var(--lc-space-3);
+    padding-bottom: var(--lc-space-3);
+  }
+
+  .lc-empty:has(.lc-hometeam__grid > :nth-child(7)) > .lc-empty__inner {
+    gap: var(--lc-space-2);
+  }
+}
+
 .lc-usage {
   width: 800px;
 }
