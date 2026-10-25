@@ -266,6 +266,21 @@ export const APP_SERVER_COMPACTED =
 export const APP_SERVER_COMPACTED_ON_REQUEST =
   "Codex summarized the conversation so far, as asked, and carries on from the summary.";
 
+/*
+ * A CONVERSATION CODEX HAS OPEN ELSEWHERE (0.835). Codex lets one process write a thread at a time; with the same
+ * conversation open in the Codex app, or in a Codex in a terminal, resuming it here fails at once with "thread-store
+ * conflict: thread ... already has an active writer" -- and the turn showed Codex's whole log, a config warning and
+ * all, where a person needed one sentence (Colin's window, 2026-10-24). The log stays in the turn's evidence.
+ */
+export const CODEX_THREAD_IN_USE_SENTENCE =
+  "Codex has this conversation open somewhere else right now, most likely in the Codex app or a Codex in a terminal, and lets only one place write to it at a time. Close it there, then run it again.";
+const THREAD_IN_USE = /already has an active writer|thread-store conflict/i;
+
+/** What Codex said, or the sentence for a conversation it has open elsewhere. */
+export function codexSaid(message: string): string {
+  return THREAD_IN_USE.test(message) ? CODEX_THREAD_IN_USE_SENTENCE : message;
+}
+
 export function createAppServerEventNormalizer(
   context: AppServerInvocationContext,
 ): AppServerEventNormalizer {
@@ -631,7 +646,7 @@ export function createAppServerEventNormalizer(
         case "error": {
           const error = isObject(params.error) ? params.error : {};
           const message = boundedMessageText(
-            providerErrorSentence(stringValue(error.message) ?? "The runtime reported an error.", "codex"),
+            codexSaid(providerErrorSentence(stringValue(error.message) ?? "The runtime reported an error.", "codex")),
           );
           // `willRetry` means the provider intends to continue. Ending the run
           // on it would report a failure the provider is about to recover from.
@@ -766,7 +781,7 @@ export function createAppServerEventNormalizer(
             const kind = failureKind(said);
             return kind === "unknown" ? "process-failed" : kind;
           })(),
-          message: said ?? "The runtime connection ended before the turn completed.",
+          message: said === undefined ? "The runtime connection ended before the turn completed." : codexSaid(said),
           ...(runtimeThreadId === undefined ? {} : { runtimeThreadId }),
           runtimeTerminal: "missing",
           process,

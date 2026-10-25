@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   APP_SERVER_COMPACTED,
   APP_SERVER_COMPACTED_ON_REQUEST,
+  CODEX_THREAD_IN_USE_SENTENCE,
   createAppServerEventNormalizer,
   limitFromSnapshot,
   usageWindowFromSnapshot,
@@ -313,6 +314,18 @@ describe("a run that ends without the server saying so", () => {
     const [failed] = app.finish("transport-lost", "Authentication required: run codex login.");
     expect(failed?.type === "run.failed" && failed.payload.message).toBe("Authentication required: run codex login.");
     expect(failed?.type === "run.failed" && failed.payload.kind).toBe("authentication-failed");
+  });
+
+  it("says, in a sentence, that Codex has the conversation open elsewhere (0.835)", () => {
+    // Codex's own words, as they reached Colin's window: the conflict, with its log and a config warning after it.
+    const log = "thread 01a10f66-f0ff-7622-8e68-875be5256541 already has an active writer 2026-10-25T03:32:46.432808Z ERROR codex_app_server: Codex is ignoring 1 unrecognized configuration setting. 2026-10-25T03:32:48.486820Z ERROR codex_core::session::session: failed to initialize thread persistence: thread-store conflict: thread 01a10f66-f0ff-7622-8e68-875be5256541 already has an active writer";
+    const [failed] = normalizer().finish("transport-lost", log);
+    expect(failed?.type === "run.failed" && failed.payload.message).toBe(CODEX_THREAD_IN_USE_SENTENCE);
+    // What Codex said stays, for whoever reads the evidence.
+    expect(failed?.type === "run.failed" && failed.payload.process.stderr).toContain("already has an active writer");
+    const app = normalizer();
+    const events = app.accept(note("error", { threadId: "t", turnId: "u", willRetry: false, error: { message: log } }));
+    expect(events.at(-1)?.type === "run.failed" && events.at(-1)?.payload).toMatchObject({ message: CODEX_THREAD_IN_USE_SENTENCE });
   });
 
   it("still says something when it knew nothing", () => {
