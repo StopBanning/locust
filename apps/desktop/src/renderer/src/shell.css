@@ -11660,6 +11660,26 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+/* A command asked on the Board (0.835): shown whole, wrapped, with where it would run. */
+.lc-boardwait__command {
+  display: block;
+  max-height: 9.5em;
+  overflow: auto;
+  padding: var(--lc-space-3) var(--lc-space-4);
+  border-radius: var(--lc-radius-control);
+  background: var(--lc-bg-terminal);
+  color: var(--lc-text-primary);
+  font: var(--lc-text-mono-caption) / 1.5 var(--lc-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lc-boardwait__where {
+  color: var(--lc-text-muted);
+  font-size: var(--lc-text-mono-label);
+  overflow-wrap: anywhere;
+}
+
 .lc-boardsection--needs-you .lc-boardsection__title {
   color: var(--lc-amber-text);
 }

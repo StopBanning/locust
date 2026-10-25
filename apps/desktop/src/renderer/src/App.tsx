@@ -139,7 +139,7 @@ import { IdleTeammate } from './components/IdleTeammate.js'
 import { Inspector } from './components/Inspector.js'
 import { FileViewer } from './components/FileViewer.js'
 import { MacUpdateBanner, MissionsScreen, SettingsScreen, TeammatesScreen, UpdateBanner } from './components/Screens.js'
-import { BoardScreen, type BoardWait } from './components/BoardScreen.js'
+import { BoardScreen, type BoardAsk, type BoardWait } from './components/BoardScreen.js'
 import { awayCounts, sinceYouWereAway } from '../../shared/away.js'
 import { WhatsNewSplash } from './components/WhatsNew.js'
 import type { SettingsPageId } from './settingsPages.js'
@@ -8293,6 +8293,20 @@ export default function App(): ReactElement {
   // The board's facts (0.585): which conversations wait on the person, and for what.
   const needsYouMissionIds = useMemo(() => new Set(needsYouItems.flatMap((item) => (isConversationWait(item) ? [item.missionId] : []))), [needsYouItems])
   const waitingFor = useMemo(() => new Map(needsYouItems.flatMap((item) => (isConversationWait(item) ? [[item.missionId, item.what] as const] : []))), [needsYouItems])
+  // What the Board answers in place (0.835): each conversation's first request, its command whole.
+  const boardAsks = useMemo(() => {
+    const asks = new Map<string, BoardAsk>()
+    for (const request of approvals) {
+      if (asks.has(request.missionId)) continue
+      asks.set(request.missionId, {
+        approvalId: request.approvalId,
+        kind: request.kind,
+        ...(request.kind === 'command' && request.detail.trim().length > 0 ? { command: request.detail } : {}),
+        ...(request.cwd === null || request.cwd.trim().length === 0 ? {} : { where: request.cwd })
+      })
+    }
+    return asks
+  }, [approvals])
   // What ended while the person was away (0.590), from the rows already here; the tray gets the counts.
   /*
    * What a run that ended while the person was away came to, for its row on Home (0.758): why it failed, or its
@@ -9233,6 +9247,8 @@ export default function App(): ReactElement {
               onDismissScout={(cardId) => { void window.desktop?.scout?.dismiss(cardId).catch(() => undefined) }}
               onOpenRoutine={showRoutine}
               onSettleRoutine={settleRoutine}
+              asks={boardAsks}
+              onAnswer={(approvalId, decision) => decideApproval(approvalId, decision)}
             />
           ) : screen === 'teammates' ? (
             <TeammatesScreen

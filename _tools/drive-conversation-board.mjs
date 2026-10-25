@@ -11,6 +11,8 @@
 //      it is under WORKING.
 //   4. The run ends while the Board is on screen: it moves to READY TO LOOK
 //      AT, and opening it takes it out again.
+//   5. (0.835) Wren is asked to run a command: the Board shows the command
+//      whole with Allow once and Deny, and Allow once on the Board answers it.
 // Captured at 1440x900, and the Needs-you board again at 1120x720.
 
 import { mkdir, mkdtemp } from 'node:fs/promises'
@@ -70,9 +72,9 @@ const BOARD = `JSON.stringify((() => {
   if (!board) return { shown: false }
   const sections = [...board.querySelectorAll('.lc-boardsection')].map((section) => ({
     title: section.getAttribute('aria-label'),
-    cards: [...section.querySelectorAll('.lc-convcard')].map((card) => ({ title: card.querySelector('.lc-convcard__title')?.textContent ?? '', state: card.querySelector('.lc-convcard__state')?.textContent ?? '', who: card.querySelector('.lc-convcard__who')?.textContent ?? '', face: card.querySelector('.lc-bot') !== null }))
+    cards: [...section.querySelectorAll('.lc-convcard, .lc-boardwait--ask')].map((card) => ({ title: card.querySelector('.lc-convcard__title')?.textContent ?? '', state: card.querySelector('.lc-convcard__state')?.textContent ?? '', who: card.querySelector('.lc-convcard__who')?.textContent ?? '', face: card.querySelector('.lc-bot') !== null, ask: card.dataset.boardAsk === undefined ? undefined : { command: card.querySelector('.lc-boardwait__command')?.textContent ?? '', where: card.querySelector('.lc-boardwait__where')?.textContent ?? '', acts: [...card.querySelectorAll('.lc-boardwait__acts button')].map((b) => b.textContent.trim()) } }))
   }))
-  const overflow = [...board.querySelectorAll('.lc-convcard')].some((card) => card.scrollWidth > card.clientWidth + 1)
+  const overflow = [...board.querySelectorAll('.lc-convcard, .lc-boardwait')].some((card) => card.scrollWidth > card.clientWidth + 1)
   return { shown: true, meta: board.querySelector('.lc-screen__meta')?.textContent ?? '', note: board.querySelector('.lc-screen__note')?.textContent.slice(0, 60) ?? '', sections, overflow }
 })())`
 const running = async () => String(await drive.evaluate(`String(document.querySelector('button[aria-label^="Stop the running"]') !== null)`)) === 'true'
@@ -131,7 +133,7 @@ try {
   await sleep(500)
 
   // 3. Open from the board, approve, back: Working.
-  const opened = String(await drive.evaluate(`(() => { const c = document.querySelector('.lc-board .lc-boardsection[data-column="needs-you"] .lc-convcard'); if (!c) return 'no card'; c.click(); return 'clicked' })()`))
+  const opened = String(await drive.evaluate(`(() => { const c = document.querySelector('.lc-board .lc-boardsection[data-column="needs-you"] :is(.lc-convcard, .lc-boardwait--ask .lc-boardwait__open)'); if (!c) return 'no card'; c.click(); return 'clicked' })()`))
   await sleep(900)
   check('its Board card opens the conversation, on its card', opened === 'clicked' && (await cardShown()) && String(await drive.evaluate(`String(document.querySelector('.lc-board') === null)`)) === 'true')
   await drive.evaluate(`[...document.querySelectorAll('.lc-approval__actions button')].find((b) => /^Approve once$|^Allow once$/.test(b.innerText.trim()))?.click()`)
@@ -153,7 +155,7 @@ try {
     const now = JSON.parse(String(await drive.evaluate(BOARD)))
     if (!stillGoing(now)) break
     if (listedUnder(now, 'Needs you')) {
-      await drive.evaluate(`document.querySelector('.lc-board .lc-boardsection[data-column="needs-you"] .lc-convcard')?.click()`)
+      await drive.evaluate(`document.querySelector('.lc-board .lc-boardsection[data-column="needs-you"] :is(.lc-convcard, .lc-boardwait--ask .lc-boardwait__open)')?.click()`)
       await sleep(900)
       await drive.evaluate(`[...document.querySelectorAll('.lc-approval__actions button')].find((b) => /^Approve once$|^Allow once$/.test(b.innerText.trim()))?.click()`)
       await sleep(700)
@@ -172,6 +174,63 @@ try {
   await sleep(800)
   const after = JSON.parse(String(await drive.capture('the board, after looking', () => drive.evaluate(BOARD))))
   check('looked at: it leaves Ready to look at', column(after, 'Ready to look at') === undefined, JSON.stringify(after.sections?.map((s) => s.title)))
+
+  // 5. A command, answered on the Board (0.835).
+  await drive.evaluate(openTeammateScript('Wren'))
+  await sleep(800)
+  const asked = String(await drive.evaluate(`(async () => {
+    const field = document.querySelector('form.command-dock textarea')
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
+    setter.call(field, 'Run exactly this shell command once: git status --short. Then reply with the word LISTED and nothing else.')
+    field.dispatchEvent(new Event('input', { bubbles: true }))
+    for (let i = 0; i < 120; i += 1) {
+      await new Promise((r) => setTimeout(r, 250))
+      const button = document.querySelector('button[aria-label="Send"]')
+      if (button && !button.disabled) { button.click(); return 'sent' }
+    }
+    return 'not sent'
+  })()`))
+  check('the command task is sent', asked === 'sent', asked)
+  let asking
+  for (let i = 0; i < 240 && asking === undefined; i += 1) {
+    await sleep(500)
+    if (await cardShown()) {
+      await drive.evaluate(OPEN_BOARD)
+      await sleep(800)
+      asking = column(JSON.parse(String(await drive.evaluate(BOARD))), 'Needs you')?.cards.find((c) => c.ask !== undefined)
+      if (asking === undefined) { await drive.evaluate(openTeammateScript('Wren')); await sleep(500) }
+    }
+  }
+  await drive.capture('the board: a command asked, answered here', () => drive.evaluate(BOARD))
+  check('the Board shows the command whole, where it runs, with Allow once and Deny', asking !== undefined && asking.ask.command.length > 0 && /^in /.test(asking.ask.where) && asking.ask.acts.includes('Allow once') && asking.ask.acts.includes('Deny') && !asking.ask.acts.some((a) => /Always/.test(a)), JSON.stringify(asking))
+  // The command may come in the conversation already open, under that conversation's own title.
+  const askedTitle = asking?.title
+  let answered = 0
+  for (let i = 0; i < 480; i += 1) {
+    const now = JSON.parse(String(await drive.evaluate(BOARD)))
+    const ask = column(now, 'Needs you')?.cards.find((c) => c.ask !== undefined && c.ask.acts.includes('Allow once'))
+    if (ask !== undefined) {
+      await drive.evaluate(`[...document.querySelectorAll('.lc-board .lc-boardwait--ask .lc-boardwait__acts button')].find((b) => b.textContent.trim() === 'Allow once')?.click()`)
+      answered += 1
+      await sleep(1500)
+      continue
+    }
+    const other = column(now, 'Needs you')?.cards.find((c) => c.title === askedTitle)
+    if (other !== undefined) {
+      // A request the Board does not answer in place: the conversation's own card does.
+      await drive.evaluate(`document.querySelector('.lc-board .lc-boardsection[data-column="needs-you"] :is(.lc-convcard, .lc-boardwait--ask .lc-boardwait__open)')?.click()`)
+      await sleep(900)
+      await drive.evaluate(`[...document.querySelectorAll('.lc-approval__actions button')].find((b) => /^Approve once$|^Allow once$/.test(b.innerText.trim()))?.click()`)
+      await sleep(700)
+      await drive.evaluate(OPEN_BOARD)
+      await sleep(600)
+      continue
+    }
+    if (column(now, 'Ready to look at')?.cards.some((c) => c.title === askedTitle) || column(now, 'Done')?.cards.some((c) => c.title === askedTitle)) break
+    await sleep(500)
+  }
+  const done = JSON.parse(String(await drive.capture('the board: the command answered from it', () => drive.evaluate(BOARD))))
+  check('Allow once on the Board answers it, and the turn goes on to finish', answered > 0 && (column(done, 'Ready to look at')?.cards.some((c) => c.title === askedTitle) || column(done, 'Done')?.cards.some((c) => c.title === askedTitle)) === true, JSON.stringify({ answered, sections: done.sections?.map((s) => [s.title, s.cards.map((c) => c.title.slice(0, 24))]) }))
 } catch (error) {
   failures += 1
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)

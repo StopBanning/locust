@@ -141,7 +141,8 @@ export function accountDefaultModel(
     id: ACCOUNT_DEFAULT_MODEL,
     runtime,
     displayName: 'Account default',
-    description: 'Whatever model your account uses. The effort levels below apply to all of them.',
+    // One line the picker's row shows whole (0.835): the effort levels it shares are in the row's hover already.
+    description: 'The model your account picks for you',
     supportedEfforts: shared
   }
 }

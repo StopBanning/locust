@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 
-import type { PublicRoom, PublicTeammate } from '../../../shared/ipc.js'
+import type { MissionApprovalKind, PublicRoom, PublicTeammate } from '../../../shared/ipc.js'
 import { runtimeDisplayName } from '../../../shared/runtimes.js'
 import { BOT_SIZE } from '../botSizes.js'
 import { conversationBoard, conversationColumn } from '../conversationBoard.js'
@@ -43,6 +43,21 @@ export type BoardWait =
     }
 
 /**
+ * What a conversation in Needs you is asked, answered from the Board (0.835). A command is shown whole, with where it
+ * would run, and takes Allow once or Deny here: Approve each promises nothing runs until the person has seen the exact
+ * command, and this is it. A file change, a connector or a question opens the conversation, where its card shows the
+ * change or the question in full. Always, and saving a rule, stay on the card in the conversation.
+ */
+export interface BoardAsk {
+  readonly approvalId: string
+  readonly kind: MissionApprovalKind
+  /** The exact command, for a command with one. */
+  readonly command?: string
+  /** Where it would run. */
+  readonly where?: string
+}
+
+/**
  * THE BOARD (0.585): every conversation, in columns by what it needs from
  * the person -- Needs you, Working, Ready to look at, Done -- over every
  * runtime at once. Devin Desktop's Command Center is the reference; Locust
@@ -75,7 +90,9 @@ export function BoardScreen({
   onChangeScout,
   onDismissScout,
   onOpenRoutine,
-  onSettleRoutine
+  onSettleRoutine,
+  asks,
+  onAnswer
 }: {
   readonly missions: readonly SidebarMission[]
   readonly rooms: readonly PublicRoom[]
@@ -95,6 +112,9 @@ export function BoardScreen({
   readonly onDismissScout?: (cardId: string) => void
   readonly onOpenRoutine?: (routineId: string) => void
   readonly onSettleRoutine?: (routineId: string, decision: 'keep' | 'discard' | 'open') => void
+  /** The first request each conversation in Needs you is waiting on, by turn id. */
+  readonly asks?: ReadonlyMap<string, BoardAsk>
+  readonly onAnswer?: (approvalId: string, decision: 'approve-once' | 'deny') => void
 }): ReactElement {
   const board = conversationBoard(missions, rooms, trashed, facts)
   const ownerOf = (row: SidebarMission): PublicTeammate | undefined => {
@@ -105,6 +125,12 @@ export function BoardScreen({
     const parent = card.parentId === undefined ? undefined : missions.find((row) => row.missionId === card.parentId)
     return parent === undefined ? undefined : `under ${parent.title}`
   }
+  const faceOf = (mate: PublicTeammate | undefined): ReactElement =>
+    mate === undefined ? (
+      <span className="lc-conv__nobody" aria-hidden="true" />
+    ) : (
+      <TeammateBot hue={mate.hue} avatar={mate.avatar} size={BOT_SIZE.conversationOwner} teammateId={mate.teammateId} name={mate.name} />
+    )
   const stateOf = (card: ConversationCard, key: ConversationBoardKey): string => {
     const row = card.row
     const ago = row.lastAt === undefined ? undefined : agoLabel(row.lastAt, now)
@@ -120,6 +146,40 @@ export function BoardScreen({
     const row = entry.row
     const by = ownerOf(row)
     const under = titleOf(entry)
+    const ask = key === 'needs-you' ? [...(row.memberIds ?? []), row.missionId].map((id) => asks?.get(id)).find((one) => one !== undefined) : undefined
+    if (ask !== undefined) {
+      const name = by?.name ?? 'This conversation'
+      return (
+        <div key={row.missionId} className="lc-boardwait lc-boardwait--ask" data-column={key} data-board-ask={ask.approvalId}>
+          <button type="button" className="lc-boardwait__open" onClick={() => onOpen(row.missionId)} title={row.title}>
+            {faceOf(by)}
+            <span className="lc-convcard__title">{row.title}</span>
+            <span className="lc-convcard__meta lc-mono">
+              {by !== undefined && <span className="lc-convcard__who">{by.name}</span>}
+              <span className="lc-convcard__state">{ask.command !== undefined ? 'wants to run' : stateOf(entry, key)}</span>
+            </span>
+          </button>
+          {ask.command !== undefined && <code className="lc-boardwait__command">{ask.command}</code>}
+          {ask.command !== undefined && ask.where !== undefined && <span className="lc-boardwait__where lc-mono">in {ask.where}</span>}
+          <div className="lc-boardwait__acts">
+            {ask.command !== undefined ? (
+              <>
+                <button type="button" className="lc-primarybutton" aria-label={`Allow ${name} to run this once`} onClick={() => onAnswer?.(ask.approvalId, 'approve-once')}>
+                  Allow once
+                </button>
+                <button type="button" className="lc-ghostbutton" aria-label={`Deny ${name} this command`} onClick={() => onAnswer?.(ask.approvalId, 'deny')}>
+                  Deny
+                </button>
+              </>
+            ) : (
+              <button type="button" className="lc-control lc-control--boxed" onClick={() => onOpen(row.missionId)}>
+                {ask.kind === 'question' ? 'Answer' : 'Review'}
+              </button>
+            )}
+          </div>
+        </div>
+      )
+    }
     return (
       <button type="button" key={row.missionId} className="lc-convcard" data-column={key} onClick={() => onOpen(row.missionId)} title={row.title}>
         {by === undefined ? (
@@ -142,12 +202,6 @@ export function BoardScreen({
       </button>
     )
   }
-  const faceOf = (mate: PublicTeammate | undefined): ReactElement =>
-    mate === undefined ? (
-      <span className="lc-conv__nobody" aria-hidden="true" />
-    ) : (
-      <TeammateBot hue={mate.hue} avatar={mate.avatar} size={BOT_SIZE.conversationOwner} teammateId={mate.teammateId} name={mate.name} />
-    )
   const waitCard = (entry: BoardWait): ReactElement => {
     if (entry.kind === 'scout') {
       return (
