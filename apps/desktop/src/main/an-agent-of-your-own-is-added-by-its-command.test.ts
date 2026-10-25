@@ -63,6 +63,9 @@ describe('an agent of your own', () => {
   })
 
   it('reads the models an agent offers from its session, grouped or not', () => {
+    // All of them (0.835): Kilo offers 336, and the first 200 were all that was kept.
+    const kilo = Array.from({ length: 336 }, (_, at) => ({ value: `kilo/model-${String(at)}`, name: `Model ${String(at)}` }))
+    expect(modelOptionOf({ configOptions: [{ id: 'model', category: 'model', currentValue: 'kilo/model-0', options: kilo }] })?.models).toHaveLength(336)
     expect(modelOptionOf({ configOptions: [{ id: 'model', category: 'model', currentValue: 'a', options: [{ options: [{ value: 'a', name: 'A' }] }, { value: 'b' }] }] }))
       .toEqual({ id: 'model', current: 'a', models: [{ value: 'a', name: 'A' }, { value: 'b', name: 'b' }] })
     expect(modelOptionOf({ configOptions: [{ id: 'mode', category: 'mode', options: [] }] })).toBeUndefined()

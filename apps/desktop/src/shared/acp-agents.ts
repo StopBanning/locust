@@ -136,6 +136,13 @@ export function parsedAcpAgents(value: unknown): readonly AcpAgent[] {
 
 const text = (value: unknown, max = 200): string | undefined => (typeof value === 'string' && value.length > 0 ? value.slice(0, max) : undefined)
 
+/*
+ * EVERY MODEL AN AGENT OFFERS (0.835). This kept the first 200, and Kilo's agent offers 336 (Sol's measurement,
+ * 2026-10-25): seven of its free models were among the 136 dropped, with nothing said. A bound stays, as on every
+ * list read from another program, high enough that no agent known today meets it.
+ */
+export const MAX_AGENT_MODELS = 1_000
+
 export function parsedAnswer(value: unknown): AcpAgentAnswer {
   const answer = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>
   const option = (typeof answer.modelOption === 'object' && answer.modelOption !== null ? answer.modelOption : undefined) as Record<string, unknown> | undefined
@@ -144,7 +151,7 @@ export function parsedAnswer(value: unknown): AcpAgentAnswer {
         const entry = (typeof model === 'object' && model !== null ? model : {}) as Record<string, unknown>
         const value = text(entry.value)
         return value === undefined ? [] : [{ value, name: text(entry.name) ?? value }]
-      }).slice(0, 200)
+      }).slice(0, MAX_AGENT_MODELS)
     : []
   const optionId = text(option?.id, 100)
   const current = text(option?.current)
@@ -182,7 +189,7 @@ export function modelOptionOf(session: unknown): AcpAgentAnswer['modelOption'] {
       return value === undefined ? [] : [{ value, name: text(model.name) ?? value }]
     })
     const current = text(option.currentValue)
-    return { id, ...(current === undefined ? {} : { current }), models: models.slice(0, 200) }
+    return { id, ...(current === undefined ? {} : { current }), models: models.slice(0, MAX_AGENT_MODELS) }
   }
   return undefined
 }
