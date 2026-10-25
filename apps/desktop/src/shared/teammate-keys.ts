@@ -63,14 +63,16 @@ export function keyValueRefusal(value: string): string | undefined {
 /**
  * The agents a key reaches: each MEASURED with a real run, a command of the teammate's printing the key's length and
  * the value kept out of the record (_tools/drive-a-teammates-key-reaches-its-runs.mjs, 2026-10-24: Claude Code on Haiku
- * and Cursor on the person's own model, both PRESENT at full length). An agent joins once its own run passes. Not yet:
- * OpenCode (its free models were out of usage that night), Gemini and Copilot (not ready on that computer). Codex
+ * and Cursor on the person's own model, both PRESENT at full length; 2026-10-25: OpenCode on
+ * opencode/deepseek-v4.1-flash-free, PRESENT 27 at full length, value absent from the window and record, and its key
+ * request card kept the second key: all nine checks passed). An agent joins once its own run passes. Not yet:
+ * Gemini and Copilot (not ready on that computer). Codex
  * drops every variable named like a key from the commands it runs, and the ways past that would hand its commands the
  * person's own secrets too; Antigravity runs its commands in its own app, not in a process Locust starts.
  */
-export const KEYS_REACH: ReadonlySet<string> = new Set(['claude', 'cursor'])
+export const KEYS_REACH: ReadonlySet<string> = new Set(['claude', 'cursor', 'opencode'])
 /** The agents a key reaches, as a person reads them. */
-export const KEYS_REACH_SAID = 'Claude Code and Cursor'
+export const KEYS_REACH_SAID = 'Claude Code, Cursor and OpenCode'
 
 export interface KeyRequest { readonly name: string; readonly why: string }
 

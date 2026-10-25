@@ -29,7 +29,7 @@ describe('a key asked for on a card', () => {
     expect(reserved).not.toContain('type="password"')
     const codex = draw(<KeyCard teammateId="tm_mira" name="Mira" reaches={false} requests={[{ name: 'STRIPE_KEY', why: '' }]} />)
     expect(codex).toContain('Locust does not give keys to its agent yet')
-    expect(codex).toContain('Keys reach Claude Code and Cursor teammates for now')
+    expect(codex).toContain('Keys reach Claude Code, Cursor and OpenCode teammates for now')
     expect(codex).not.toContain('type="password"')
   })
 
@@ -38,6 +38,6 @@ describe('a key asked for on a card', () => {
     expect(field).toContain('<code>SLACK_WEBHOOK_URL</code>')
     expect(field.match(/>Remove</g)).toHaveLength(2)
     expect(field).toMatch(/<input[^>]*type="password"[^>]*aria-label="The key"/)
-    expect(field).toContain('Keys reach Claude Code and Cursor teammates for now.')
+    expect(field).toContain('Keys reach Claude Code, Cursor and OpenCode teammates for now.')
   })
 })
