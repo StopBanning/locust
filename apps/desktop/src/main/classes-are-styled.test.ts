@@ -36,6 +36,9 @@ const RENDERER = fileURLToPath(new URL('../renderer/src/', import.meta.url))
 const REACHED_NOT_STYLED: ReadonlySet<string> = new Set([
   // A drive's selector for the Automations screen body.
   'lc-automations',
+  // A Board card that answers a request in place (0.835): drawn as every `lc-boardwait` is, marked so
+  // drive-conversation-board can tell it from a Scout or routine card.
+  'lc-boardwait--ask',
   // Your own benchmark's table (0.763): drawn as every `lc-table` is, marked so drive-a-benchmark-runs-again reads its rows.
   'lc-benchmark__table',
   // The empty Home's team offer: drawn as the `lc-hometeam` section it shares,
