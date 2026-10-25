@@ -399,8 +399,20 @@ function briefFact(brief, day) {
 
 // src/main/scout-github.ts
 var AWAY_WORKFLOW_NAME = "Locust Scout";
-async function readScoutGithub(folder, gh, who = "@me") {
-  const mine = await gh(["pr", "list", "--author", who, "--state", "open", "--limit", "30", "--json", `${PULL_REQUEST_FIELDS},updatedAt`], folder).catch(() => void 0);
+function githubUnreadWhy(error) {
+  const code = typeof error === "object" && error !== null ? error.code : void 0;
+  if (code === "ENOENT") return "no-cli";
+  const said = error instanceof Error ? error.message : String(error);
+  if (/not a git repository|no git remotes|none of the git remotes|not a github repository|could not determine (?:the )?(?:base )?repo/i.test(said)) return "not-on-github";
+  if (/gh auth login|not logged in|authentication (?:required|failed)|HTTP 401|bad credentials/i.test(said)) return "signed-out";
+  if (/is not recognized as an internal or external command|command not found/i.test(said)) return "no-cli";
+  return "unreadable";
+}
+async function readScoutGithub(folder, gh, who = "@me", unread) {
+  const mine = await gh(["pr", "list", "--author", who, "--state", "open", "--limit", "30", "--json", `${PULL_REQUEST_FIELDS},updatedAt`], folder).catch((error) => {
+    unread?.(githubUnreadWhy(error));
+    return void 0;
+  });
   if (mine === void 0) return void 0;
   const reviews = await gh(["pr", "list", "--search", `review-requested:${who}`, "--state", "open", "--limit", "20", "--json", "number,title,url,author"], folder).catch(() => "[]");
   const branch = (await gh(["repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], folder).catch(() => "")).trim();

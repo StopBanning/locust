@@ -38,6 +38,8 @@ export interface ScoutLogEntry {
   readonly off: readonly ScoutLogWatch[]
   /** GitHub's watch was on and GitHub could not be read. */
   readonly githubUnread?: true
+  /** Why GitHub was not read, when that is known (0.835): a folder not on GitHub is no failure. */
+  readonly github?: 'not-on-github' | 'signed-out' | 'no-cli'
   /** An away look (0.829): from GitHub, by the repository's workflow, while the PC was off. */
   readonly away?: true
 }
@@ -90,7 +92,8 @@ export function scoutLogFrom(value: unknown): ScoutLogEntry[] {
       at: entry.at, looks: entry.looks, raised, aside, off,
       ...(isTime(entry.until) ? { until: entry.until } : {}),
       ...(entry.skipped === 'quiet hours' ? { skipped: 'quiet hours' as const } : {}),
-      ...(entry.githubUnread === true ? { githubUnread: true as const } : {})
+      ...(entry.githubUnread === true ? { githubUnread: true as const } : {}),
+      ...(entry.github === 'not-on-github' || entry.github === 'signed-out' || entry.github === 'no-cli' ? { github: entry.github } : {})
     }]
   })
 }
@@ -102,6 +105,7 @@ export function lookEntry(input: {
   readonly aside?: readonly ScoutLogAside[]
   readonly off?: readonly ScoutLogWatch[]
   readonly githubUnread?: boolean
+  readonly github?: 'not-on-github' | 'signed-out' | 'no-cli'
   readonly skipped?: 'quiet hours'
   readonly away?: boolean
 }): ScoutLogEntry {
@@ -113,6 +117,7 @@ export function lookEntry(input: {
     aside: unique(input.aside ?? []).slice(0, MAX_LOG_ITEMS).map((item) => ({ key: item.key, said: clip(item.said), why: item.why })),
     off: WATCHES.filter((watch) => (input.off ?? []).includes(watch)),
     ...(input.githubUnread === true ? { githubUnread: true as const } : {}),
+    ...(input.github === undefined ? {} : { github: input.github }),
     ...(input.skipped === undefined ? {} : { skipped: input.skipped }),
     ...(input.away === true ? { away: true as const } : {})
   }
@@ -121,7 +126,7 @@ export function lookEntry(input: {
 /** Two looks that found the same: nothing raised by either, the same set aside for the same reasons, the same watches read. */
 function same(a: ScoutLogEntry, b: ScoutLogEntry): boolean {
   if (a.raised.length > 0 || b.raised.length > 0) return false
-  if (a.skipped !== b.skipped || a.githubUnread !== b.githubUnread || a.away !== b.away || a.off.join() !== b.off.join()) return false
+  if (a.skipped !== b.skipped || a.githubUnread !== b.githubUnread || a.github !== b.github || a.away !== b.away || a.off.join() !== b.off.join()) return false
   const asideOf = (entry: ScoutLogEntry): string => entry.aside.map((item) => `${item.why}:${item.key}`).sort().join('\n')
   return asideOf(a) === asideOf(b)
 }
@@ -172,7 +177,10 @@ export function lookLines(entry: ScoutLogEntry, held: readonly ScoutHeldAlert[] 
     lines.push(`Raised on Home: ${item.said}${kept === undefined ? '' : ` Not sent to your phone: ${kept.why === 'quiet hours' ? 'your quiet hours' : 'past the day’s alert limit'}.`}`)
   }
   for (const item of entry.aside) lines.push(`Set aside, ${asideWords(item.why)}: ${item.said}`)
-  if (entry.githubUnread === true) lines.push('GitHub could not be read, so nothing there was seen.')
+  if (entry.github === 'not-on-github') lines.push('This folder is not on GitHub, so its GitHub watch had nothing to read.')
+  else if (entry.github === 'signed-out') lines.push('GitHub could not be read: the GitHub CLI is signed out. Sign in under Settings › Connectors › GitHub.')
+  else if (entry.github === 'no-cli') lines.push('GitHub could not be read: the GitHub CLI is not installed. Install it under Settings › Connectors › GitHub.')
+  else if (entry.githubUnread === true) lines.push('GitHub could not be read, so nothing there was seen.')
   if (entry.off.length > 0) lines.push(`Not read, its watch is off: ${entry.off.map((watch) => WATCH_WORDS[watch]).join(', ')}.`)
   if (lines.length === (entry.away === true ? 1 : 0)) lines.push('Nothing new, and nothing set aside.')
   return lines

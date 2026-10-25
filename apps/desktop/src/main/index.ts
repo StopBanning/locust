@@ -33,7 +33,7 @@ import { createTalkShortcut, type TalkShortcut } from './talk-shortcut.js'
 import { createScout, type Scout } from './scout.js'
 import { createScoutFixes, type ScoutFixes } from './scout-fix.js'
 import { folderMarkOf } from './scout-folder.js'
-import { readScoutGithub } from './scout-github.js'
+import { readScoutGithub, type ScoutGithubUnread } from './scout-github.js'
 import { createScoutAway, SCOUT_AWAY_FILE, type ScoutAwayRelay } from './scout-away.js'
 import { phoneScoutCards } from './phone-scout-cards.js'
 import { SCOUT_AWAY_CHANGED, SCOUT_AWAY_SET, SCOUT_AWAY_STATUS } from '../shared/scout-away.js'
@@ -8196,7 +8196,11 @@ if (!ownsSingleInstanceLock) {
         discard: (fixId) => fixes.discard(fixId),
         stop: (why) => { fixes.stop(why) }
       },
-      github: async () => (workspaceChosen ? readScoutGithub(workspacePath, scoutGh) : undefined),
+      github: async () => {
+        if (!workspaceChosen) return undefined
+        let why: ScoutGithubUnread | undefined
+        return (await readScoutGithub(workspacePath, scoutGh, '@me', (reason) => { why = reason })) ?? why
+      },
       waiting: async () => Promise.all(raisedApprovals.waiting().map(async ({ request, teammateId }) => {
         const name = await scoutNameOf(teammateId)
         return {

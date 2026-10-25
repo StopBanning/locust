@@ -53,6 +53,7 @@ import { lookEntry, scoutLogBrief, scoutLogFrom, withLook, type ScoutHeldAlert, 
 import { replaceFile } from './replace-file.js'
 import type { CopyBringIn } from './compare-copies.js'
 import { newFixId, type ScoutFixOutcome } from './scout-fix.js'
+import type { ScoutGithubUnread } from './scout-github.js'
 
 /**
  * SCOUT, WATCHING (0.756, shared/scout.ts). One look at a time, on a timer while it is on: Locust gathers what is
@@ -83,7 +84,8 @@ export interface ScoutDeps {
   readonly file: string
   readonly now?: () => Date
   /** The person's pull requests, reviews asked of them and the default branch's checks; undefined when GitHub cannot be read here. */
-  readonly github: () => Promise<ScoutGithub | undefined>
+  /** What GitHub said, or why it could not be read (0.835, scout-github.ts). */
+  readonly github: () => Promise<ScoutGithub | ScoutGithubUnread | undefined>
   /** Teammates' approval cards still waiting on the person. */
   readonly waiting: () => Promise<readonly WaitingCard[]>
   /** A run that ended, as a failed turn when it failed; undefined otherwise. */
@@ -478,7 +480,7 @@ export function createScout(deps: ScoutDeps) {
   }
 
   /** Locust's own look: what is new since the last one, as facts. */
-  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[]; marks: Pick<Kept, 'folderMark' | 'lastCheck' | 'comments'>; githubRead: boolean; checkStale: boolean; repeated: readonly string[]; aside: readonly ScoutLogAside[] }> => {
+  const gather = async (from: Kept, lookStamp: string): Promise<{ facts: readonly ScoutFact[]; prs: readonly FolderPullRequest[]; marks: Pick<Kept, 'folderMark' | 'lastCheck' | 'comments'>; githubRead: boolean; githubWhy: ScoutGithubUnread | undefined; checkStale: boolean; repeated: readonly string[]; aside: readonly ScoutLogAside[] }> => {
     const facts: ScoutFact[] = []
     /** Found and not raised, and why: for What Scout saw (0.828). */
     const aside: ScoutLogAside[] = []
@@ -486,6 +488,7 @@ export function createScout(deps: ScoutDeps) {
     let prs = from.prs
     /** Whether this look read GitHub, and whether the folder moved past a check it did not run: for the brief (0.823). */
     let githubRead = false
+    let githubWhy: ScoutGithubUnread | undefined
     let checkStale = false
     /*
      * THE FOLDER'S CHECK (0.815), only when the folder moved since the check last ran -- a commit, or a change to what
@@ -516,7 +519,9 @@ export function createScout(deps: ScoutDeps) {
       facts.push(...result.facts)
     }
     if (from.settings.watches.github) {
-      const github = await deps.github().catch(() => undefined)
+      const read = await deps.github().catch(() => undefined)
+      if (typeof read === 'string') githubWhy = read
+      const github = typeof read === 'string' ? undefined : read
       if (github !== undefined) {
         githubRead = true
         facts.push(...pullRequestFacts(new Map(from.prs.map((pr) => [pr.url, pr] as const)), github.prs, lookStamp, now()))
@@ -537,7 +542,7 @@ export function createScout(deps: ScoutDeps) {
     // Found again, and told already: set aside, and counted for the brief (0.827).
     const repeated = [...new Set(facts.filter((fact) => seen.has(fact.key)).map((fact) => fact.key))]
     for (const key of repeated) aside.push({ key, said: facts.find((fact) => fact.key === key)!.said, why: 'told' })
-    return { facts: facts.filter((fact, index) => !seen.has(fact.key) && facts.findIndex((other) => other.key === fact.key) === index), prs, marks, githubRead, checkStale, repeated, aside }
+    return { facts: facts.filter((fact, index) => !seen.has(fact.key) && facts.findIndex((other) => other.key === fact.key) === index), prs, marks, githubRead, githubWhy, checkStale, repeated, aside }
   }
 
   /** The morning brief's fact (0.816): who waits, what ran since the last brief, the check, pull requests, the cards. */
@@ -615,10 +620,11 @@ export function createScout(deps: ScoutDeps) {
       }
       const at = now()
       const stamp = at.toISOString()
-      const { facts: found, prs, marks, githubRead, checkStale, repeated, aside } = await gather(from, stamp)
+      const { facts: found, prs, marks, githubRead, githubWhy, checkStale, repeated, aside } = await gather(from, stamp)
       // What this look raised, set aside and did not read, for What Scout saw (0.828).
       const logged = (raised: readonly ScoutFact[]): Promise<void> => logLook(lookEntry({
-        at, raised: raised.map((fact) => ({ key: fact.key, said: fact.said })), aside, off: offOf(from.settings), githubUnread: from.settings.watches.github && !githubRead
+        at, raised: raised.map((fact) => ({ key: fact.key, said: fact.said })), aside, off: offOf(from.settings), githubUnread: from.settings.watches.github && !githubRead && githubWhy !== 'not-on-github',
+        ...(from.settings.watches.github && !githubRead && githubWhy !== undefined && githubWhy !== 'unreadable' ? { github: githubWhy } : {})
       }))
       const tallied = (was: SinceBrief | undefined): SinceBrief => lookTallied(was, { githubMissed: from.settings.watches.github && !githubRead, raised: found, repeated })
       // Off, or quiet hours begun, while it gathered: nothing is kept, so the next look finds all of it again.

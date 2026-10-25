@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { IssueOpened, WaitingCard } from '../shared/scout.js'
 import { lookEntry, lookLines, lookName, scoutLogBrief, withLook, SCOUT_LOG_DAYS, type ScoutHeldAlert } from '../shared/scout-log.js'
 import { createScout, type ScoutDeps, type ScoutGithub } from './scout.js'
+import { githubUnreadWhy, type ScoutGithubUnread } from './scout-github.js'
 
 /*
  * WHAT SCOUT SAW (0.828). Each look is written down as it ends -- raised, set aside and why, not read -- and kept
@@ -20,7 +21,7 @@ async function harness(overrides: Partial<ScoutDeps> = {}) {
   roots.push(root)
   let clock = new Date(2026, 9, 22, 14, 0, 0)
   let waiting: WaitingCard[] = []
-  let github: ScoutGithub | undefined = { prs: [], reviews: [] }
+  let github: ScoutGithub | ScoutGithubUnread | undefined = { prs: [], reviews: [] }
   const teammates = new Set<string>()
   const deps: ScoutDeps = {
     file: join(root, 'scout.json'),
@@ -49,7 +50,7 @@ async function harness(overrides: Partial<ScoutDeps> = {}) {
     scout: createScout(deps),
     at: (day: number, hours: number, minutes = 0) => { clock = new Date(2026, 9, day, hours, minutes, 0) },
     setWaiting: (next: WaitingCard[]) => { waiting = next },
-    setGithub: (next: ScoutGithub | undefined) => { github = next }
+    setGithub: (next: ScoutGithub | ScoutGithubUnread | undefined) => { github = next }
   }
 }
 const ROUTE = { runtime: 'opencode', model: 'opencode/deepseek-v4.1-flash-free' }
@@ -104,6 +105,34 @@ describe('what Scout saw', () => {
     expect(night).toMatchObject({ skipped: 'quiet hours', looks: 2 })
     expect(lookName(night)).toBe('The 2 looks due from Thu Oct 22, 11:00 PM to Thu Oct 22, 11:10 PM')
     expect(lookLines(night)).toEqual(['Not taken: Scout’s quiet hours. The first look after them catches up.'])
+  })
+
+  it('says why GitHub was not read: a folder not on GitHub is no failure; a signed-out CLI says how to sign in (0.835)', async () => {
+    // The GitHub CLI's own words, as they come back after the command in Node's error.
+    const failed = (said: string, code?: string): Error => Object.assign(new Error(`Command failed: gh pr list --author @me\n${said}`), code === undefined ? {} : { code })
+    expect(githubUnreadWhy(failed('failed to run git: fatal: not a git repository (or any of the parent directories): .git'))).toBe('not-on-github')
+    expect(githubUnreadWhy(failed('none of the git remotes configured for this repository point to a known GitHub host'))).toBe('not-on-github')
+    expect(githubUnreadWhy(failed('To get started with GitHub CLI, please run:  gh auth login'))).toBe('signed-out')
+    expect(githubUnreadWhy(Object.assign(new Error('spawn gh ENOENT'), { code: 'ENOENT' }))).toBe('no-cli')
+    expect(githubUnreadWhy(failed('HTTP 502: Bad Gateway'))).toBe('unreadable')
+
+    const h = await harness()
+    await h.scout.turnOn(ROUTE)
+    await h.scout.set({ watches: { github: true, teammates: true, comments: true, check: false } })
+    h.setGithub('not-on-github')
+    h.at(22, 15, 0)
+    await h.scout.look()
+    const quiet = (await h.scout.log()).entries.at(-1)!
+    expect(quiet.githubUnread).toBeUndefined()
+    expect(lookLines(quiet)).toContain('This folder is not on GitHub, so its GitHub watch had nothing to read.')
+    expect(lookLines(quiet).join(' ')).not.toContain('could not be read')
+
+    h.setGithub('signed-out')
+    h.at(22, 15, 10)
+    await h.scout.look()
+    const out = (await h.scout.log()).entries.at(-1)!
+    expect(out.githubUnread).toBe(true)
+    expect(lookLines(out)).toContain('GitHub could not be read: the GitHub CLI is signed out. Sign in under Settings › Connectors › GitHub.')
   })
 
   it('says a card that was raised but kept off the phone, and why', () => {
