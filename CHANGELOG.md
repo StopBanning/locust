@@ -20,6 +20,7 @@ heading: the home screen then shows it once, as a splash.
 
 ### Improved
 
+- **Muse Code is no longer marked Preview.** Its row in the model picker and Settings reads like every other agent's: it has now finished whole paid runs with dozens of tool calls each, the step its Preview label was waiting on.
 - **Changed files are easier to scan.** Each row leads with a mark for its kind and the file's own name, with its folder beside it when two rows share a name and its path in the hover. Long file lists under finished turns show five rows and Show N more, and new, deleted, renamed and large are quiet words beside the name.
 - **Home makes more room in a short window.** The illustration shrinks a little and the team cards sit closer together, leaving more room for the chat box and conversation starters. Taller windows keep their existing layout.
 

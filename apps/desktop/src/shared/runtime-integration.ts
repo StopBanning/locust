@@ -43,13 +43,14 @@ export const RUNTIME_INTEGRATION: Readonly<Record<string, IntegrationLevel>> = {
   /*
    * Muse Code owns a mission end to end and its runs are as durable as any
    * other -- measured twice through the real builder, runner and normalizer
-   * on the free echo provider. What is NOT measured is a run under a paying
-   * provider: no tool call has ever been seen, so the tool rows are built on
-   * the captured lifecycle and not on a captured tool. That is the gap the
-   * PREVIEW row names, and it closes the first time someone runs a real
-   * mission on it.
+   * on the free echo provider. It was PREVIEW until a run under a paying
+   * provider had been seen with real tool calls.
+   * LIVE SINCE 2026-10-25: two missions in a person's own ledger on Muse
+   * Wonder 1.0 (2026-10-19 and 2026-10-22), each a whole run.completed with
+   * 60-odd tool calls through the same rows (shell, read, edit, write,
+   * search, to-dos) and the odd tool.failed shown as one.
    */
-  muse: 'preview',
+  muse: 'live',
   gemini: 'planned',
   omniroute: 'planned'
 }
