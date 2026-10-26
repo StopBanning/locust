@@ -1,4 +1,4 @@
-import { isPushEndpoint, parseAwayPost, parseClientFrame, HOOK_BODY_CHARS, LETTERS_AT_ONCE, MAX_FRAME, TOKEN, type Address, type AwayAlert, type ClientFrame, type ErrorCode, type HookLetter, type Letter, type LetterFrom, type RelayFrame } from './protocol.js'
+import { isPushEndpoint, parseAwayPost, parseClientFrame, HOOK_BODY_CHARS, LETTERS_AT_ONCE, MAX_FRAME, MAX_NOTES, TOKEN, type Address, type AwayAlert, type ClientFrame, type ErrorCode, type HookLetter, type Letter, type LetterFrom, type Note, type NoteHeld, type RelayFrame } from './protocol.js'
 
 /**
  * ONE PC'S ROOM (0.826). The room holds the connections of one PC, the devices paired with it and, while the PC
@@ -98,6 +98,7 @@ export const CLOSE = { replaced: 4001, removed: 4003, reset: 4004, refused: 4401
 interface DeviceEntry { readonly hash: string; readonly added: number }
 interface LetterEntry { readonly id: string; readonly at: number; readonly from: LetterFrom | 'hook'; readonly hook?: string }
 interface Hook { readonly hash: string; readonly posts: readonly number[]; readonly lost: number }
+interface NoteEntry { readonly id: string; readonly at: number; readonly device: string; readonly held?: NoteHeld }
 interface Away {
   /** SHA-256 of the away look's token. */
   readonly hash: string
@@ -118,10 +119,13 @@ interface Meta {
   readonly hooks?: Readonly<Record<string, Hook>>
   /** The letters kept, oldest first; each one's box is stored under its own key. */
   readonly letters?: readonly LetterEntry[]
+  /** Phones' notes waiting for the PC (0.837), oldest first; each one's box under its own key. */
+  readonly notes?: readonly NoteEntry[]
 }
 const META = 'meta'
 const AWAY_ALERTS = 'away-alerts'
 const letterKey = (id: string): string => `letter:${id}`
+const noteKey = (id: string): string => `note:${id}`
 /** Cloudflare values are capped at 128 KiB; 16K UTF-16 characters fit even when JSON must escape every character. */
 const HOOK_PART_CHARS = 16 * 1024
 type StoredHookLetter = Omit<HookLetter, 'body'> & { readonly parts: number }
@@ -141,7 +145,7 @@ function same(a: string, b: string): boolean {
 export const addressOf = (attachment: Attachment): Address | undefined =>
   attachment.as === 'pc' ? 'pc' : attachment.as === 'device' ? attachment.device : attachment.as === 'pairing' ? `pairing:${attachment.tag}` : undefined
 
-type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'hook-letters' }>
+type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'hook-letters' | 'notes-collected' }>
 
 export function roomCore(host: RoomHost) {
   const meta = (): Promise<Meta | undefined> => host.store.get<Meta>(META)
@@ -210,6 +214,8 @@ export function roomCore(host: RoomHost) {
     if (held !== undefined && pcBesides(leaving) === undefined) times.push(held.seen + IDLE_ROOM_MS)
     const oldest = held?.letters?.[0]
     if (oldest !== undefined) times.push(oldest.at + LETTER_KEPT_MS)
+    const oldestNote = held?.notes?.[0]
+    if (oldestNote !== undefined) times.push(oldestNote.at + LETTER_KEPT_MS)
     if (times.length > 0) await host.setAlarm(Math.max(now + 1_000, Math.min(...times)))
   }
 
@@ -259,6 +265,66 @@ export function roomCore(host: RoomHost) {
     const chosen = rest.slice(0, LETTERS_AT_ONCE)
     const items = (await Promise.all(chosen.map((letter) => host.store.get<Letter>(letterKey(letter.id))))).filter((item): item is Letter => item !== undefined)
     peer.send({ t: 'letters', items, more: rest.length > chosen.length, ...(frame.id === undefined ? {} : { id: frame.id }) })
+  }
+
+  /** The notes still kept: none older than a week, and none from a phone no longer paired. Saved when that changed. */
+  const pruneNotes = async (held: Meta): Promise<Meta> => {
+    const now = host.now()
+    const notes = held.notes ?? []
+    const stay = notes.filter((note) => now - note.at < LETTER_KEPT_MS && held.devices[note.device] !== undefined)
+    if (stay.length === notes.length) return held
+    await host.store.delete(notes.filter((note) => !stay.includes(note)).map((note) => noteKey(note.id)))
+    const next = { ...held, notes: stay }
+    await save(next)
+    return next
+  }
+  /** Each phone of this room that is connected now, told its notes changed. */
+  const tellPhones = (): void => {
+    for (const other of host.peers()) if (other.attachment.as === 'device') other.send({ t: 'notes-changed' })
+  }
+
+  /*
+   * A PHONE'S NOTES (0.837). Only a paired phone leaves one, and only it takes its own back. The PC reads them all, with
+   * their sealed boxes; a phone reads only its own, without: it keeps its own words. At most MAX_NOTES wait at once.
+   */
+  const notes = async (peer: Peer, frame: Extract<ClientFrame, { readonly t: 'note' | 'unnote' | 'notes' }>): Promise<void> => {
+    const at = peer.attachment
+    const id = frame.id === undefined ? {} : { id: frame.id }
+    if (at.as !== 'device' && !(at.as === 'pc' && frame.t === 'notes')) { err(peer, 'not-owner', frame.id); return }
+    const found = await meta()
+    if (found === undefined) { err(peer, 'room', frame.id); return }
+    const held = await pruneNotes(found)
+    const kept = held.notes ?? []
+    if (frame.t === 'notes') {
+      if (at.as === 'device') {
+        peer.send({ t: 'my-notes', items: kept.filter((note) => note.device === at.device).map((note) => ({ id: note.id, at: note.at, ...(note.held === undefined ? {} : { held: note.held }) })), ...id })
+        return
+      }
+      const boxes = await Promise.all(kept.map(async (note) => {
+        const box = await host.store.get<Note>(noteKey(note.id))
+        return box === undefined ? undefined : { ...box, ...(note.held === undefined ? {} : { held: note.held }) }
+      }))
+      peer.send({ t: 'notes', items: boxes.filter((box): box is Note => box !== undefined), ...id })
+      return
+    }
+    if (at.as !== 'device') return
+    if (frame.t === 'unnote') {
+      const mine = kept.find((note) => note.id === frame.note && note.device === at.device)
+      if (mine === undefined) { err(peer, 'note-gone', frame.id); return }
+      await host.store.delete([noteKey(mine.id)])
+      await save({ ...held, notes: kept.filter((note) => note !== mine) })
+      peer.send({ t: 'unnoted', note: mine.id, ...id })
+      await schedule()
+      return
+    }
+    if (kept.length >= MAX_NOTES) { err(peer, 'full', frame.id); return }
+    const now = host.now()
+    const note: Note = { id: `${String(now).padStart(13, '0')}-${host.random(6)}`, at: now, device: at.device, n: frame.n, c: frame.c }
+    await host.store.put(noteKey(note.id), note)
+    await save({ ...held, notes: [...kept, { id: note.id, at: now, device: at.device }] })
+    peer.send({ t: 'noted', note: note.id, ...id })
+    pcBesides()?.send({ t: 'notes-changed' })
+    await schedule()
   }
 
   /** Each connection's frames are counted; one that sends too many is told so and the rest are dropped. */
@@ -353,6 +419,18 @@ export function roomCore(host: RoomHost) {
         done()
         return
       }
+      case 'notes-collected': {
+        // Sent: gone from here. Held: kept, with why, for the phone that wrote it to decide.
+        const kept = held.notes ?? []
+        const gone = kept.filter((note) => frame.notes.includes(note.id))
+        await host.store.delete(gone.map((note) => noteKey(note.id)))
+        const why = new Map(frame.held.map((item) => [item.note, item.why]))
+        await save({ ...held, notes: kept.filter((note) => !gone.includes(note)).map((note) => why.has(note.id) ? { ...note, held: why.get(note.id)! } : note) })
+        done()
+        tellPhones()
+        await schedule()
+        return
+      }
       case 'hook-letters': {
         const fresh = await prune(held)
         const chosen = (fresh.letters ?? []).filter((letter) => letter.hook === frame.hook).slice(0, 10)
@@ -368,7 +446,10 @@ export function roomCore(host: RoomHost) {
       }
       case 'remove': {
         const { [frame.device]: _gone, ...devices } = held.devices
-        await save({ ...held, devices })
+        // A phone removed takes back every note it left.
+        const its = (held.notes ?? []).filter((note) => note.device === frame.device)
+        if (its.length > 0) await host.store.delete(its.map((note) => noteKey(note.id)))
+        await save({ ...held, devices, notes: (held.notes ?? []).filter((note) => note.device !== frame.device) })
         // A phone removed is rung no more by the away looks either.
         const alerts = await host.store.get<readonly AwayAlert[]>(AWAY_ALERTS)
         if (alerts?.some((alert) => alert.device === frame.device)) await host.store.put(AWAY_ALERTS, alerts.filter((alert) => alert.device !== frame.device))
@@ -488,6 +569,7 @@ export function roomCore(host: RoomHost) {
       if (frame === undefined || frame.t === 'auth') { err(peer, 'bad-frame'); return }
       if (frame.t === 'send') { send(peer, frame); return }
       if (frame.t === 'letters') { await letters(peer, frame); return }
+      if (frame.t === 'note' || frame.t === 'unnote' || frame.t === 'notes') { await notes(peer, frame); return }
       await command(peer, frame)
     },
 
@@ -565,8 +647,9 @@ export function roomCore(host: RoomHost) {
           const { pairing: _over, ...rest } = next
           next = rest
         }
-        // Letters a week old are deleted whether or not anyone came for them.
+        // Letters and notes a week old are deleted whether or not anyone came for them.
         next = await prune(next)
+        next = await pruneNotes(next)
         if (next !== held) await save(next)
       }
       await schedule()

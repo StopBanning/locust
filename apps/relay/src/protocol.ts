@@ -52,6 +52,19 @@ export type AwayAlertKind = 'found' | 'brief'
 /** One phone's two alerts, sealed by the PC for its browser ahead of time, so the relay rings it with no PC on. */
 export interface AwayAlert { readonly device: string; readonly endpoint: string; readonly found: string; readonly brief: string }
 
+/**
+ * WRITTEN WHILE THE COMPUTER IS OFF (0.837). A paired phone leaves a message here for its PC, sealed with the key the
+ * two of them share, and the PC collects it when it is back. The relay keeps who left it and when, and, once the PC has
+ * looked, a one-word reason it did not send it; never the words.
+ */
+export const MAX_NOTES = 20
+/** Why the PC left a note unsent: it waited too long to send unasked, its conversation is gone, or the send failed. */
+export type NoteHeld = 'old' | 'gone' | 'failed'
+export const NOTE_HELD: readonly NoteHeld[] = ['old', 'gone', 'failed']
+export interface Note { readonly id: string; readonly at: number; readonly device: string; readonly n: string; readonly c: string; readonly held?: NoteHeld }
+/** What a phone is told of its own notes: which still wait, and why one was held. Its words it keeps itself. */
+export interface NoteState { readonly id: string; readonly at: number; readonly held?: NoteHeld }
+
 /** Who a message goes to: the PC, a paired device, or a phone being paired. */
 export type Address = 'pc' | `pairing:${string}` | string
 
@@ -75,6 +88,10 @@ export type ClientFrame =
   | { readonly t: 'away-alerts'; readonly alerts: readonly AwayAlert[]; readonly id?: string }
   | { readonly t: 'post'; readonly n: string; readonly c: string; readonly id?: string }
   | { readonly t: 'letters'; readonly after?: string; readonly newest?: number; readonly id?: string }
+  | { readonly t: 'note'; readonly n: string; readonly c: string; readonly id?: string }
+  | { readonly t: 'unnote'; readonly note: string; readonly id?: string }
+  | { readonly t: 'notes'; readonly id?: string }
+  | { readonly t: 'notes-collected'; readonly notes: readonly string[]; readonly held: readonly { readonly note: string; readonly why: NoteHeld }[]; readonly id?: string }
 
 /** Where a browser's subscription may point. The relay posts to nothing else. */
 const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /^push\.services\.mozilla\.com$/, /^web\.push\.apple\.com$/, /^[a-z0-9-]+\.notify\.windows\.com$/]
@@ -114,6 +131,8 @@ export type ErrorCode =
   | 'push-off'
   /** Scout's away looks are not on for this room. */
   | 'away-off'
+  /** That note was collected, taken back, or ran out. */
+  | 'note-gone'
 
 export type RelayFrame =
   | { readonly t: 'hook-letter'; readonly hook: string }
@@ -123,12 +142,20 @@ export type RelayFrame =
   | { readonly t: 'msg'; readonly from: Address; readonly n: string; readonly c: string; readonly k?: string }
   | { readonly t: 'presence'; readonly pc: boolean }
   | { readonly t: 'presence'; readonly device: string; readonly on: boolean }
-  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected'; readonly id?: string }
+  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'notes-collected'; readonly id?: string }
   | { readonly t: 'letters'; readonly items: readonly Letter[]; readonly more: boolean; readonly id?: string }
   /** A letter that came while this connection was open. */
   | { readonly t: 'letter'; readonly item: Letter }
   | { readonly t: 'removed' }
   | { readonly t: 'err'; readonly code: ErrorCode; readonly id?: string }
+  /** A phone's note was kept, under this id. */
+  | { readonly t: 'noted'; readonly note: string; readonly id?: string }
+  | { readonly t: 'unnoted'; readonly note: string; readonly id?: string }
+  /** The PC is told every note waiting, with its sealed box; a phone only its own, without. */
+  | { readonly t: 'notes'; readonly items: readonly Note[]; readonly id?: string }
+  | { readonly t: 'my-notes'; readonly items: readonly NoteState[]; readonly id?: string }
+  /** To the PC: a phone left a note while it was connected. To a phone: what became of its notes changed. */
+  | { readonly t: 'notes-changed' }
 
 const isAddress = (value: unknown): value is Address =>
   typeof value === 'string' && (value === 'pc' || DEVICE_ID.test(value) || (value.startsWith('pairing:') && PAIRING_TAG.test(value.slice(8))))
@@ -212,6 +239,27 @@ export function parseClientFrame(text: string): ClientFrame | undefined {
       if (fields.newest !== undefined && (typeof fields.newest !== 'number' || !Number.isInteger(fields.newest) || fields.newest < 1 || fields.newest > LETTERS_AT_ONCE)) return undefined
       if (fields.after !== undefined && fields.newest !== undefined) return undefined
       return { t: 'letters', ...(fields.after === undefined ? {} : { after: fields.after }), ...(fields.newest === undefined ? {} : { newest: fields.newest }), ...id }
+    case 'note':
+      if (id === undefined || !only('t', 'n', 'c', 'id') || typeof fields.n !== 'string' || !NONCE.test(fields.n) || typeof fields.c !== 'string' || !LETTER.test(fields.c)) return undefined
+      return { t: 'note', n: fields.n, c: fields.c, ...id }
+    case 'unnote':
+      if (id === undefined || !only('t', 'note', 'id') || typeof fields.note !== 'string' || !LETTER_ID.test(fields.note)) return undefined
+      return { t: 'unnote', note: fields.note, ...id }
+    case 'notes':
+      if (id === undefined || !only('t', 'id')) return undefined
+      return { t: 'notes', ...id }
+    case 'notes-collected': {
+      if (id === undefined || !only('t', 'notes', 'held', 'id') || !Array.isArray(fields.notes) || fields.notes.length > MAX_NOTES
+        || !fields.notes.every((item) => typeof item === 'string' && LETTER_ID.test(item)) || !Array.isArray(fields.held) || fields.held.length > MAX_NOTES) return undefined
+      const held = fields.held.map((value) => {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+        const item = value as Record<string, unknown>
+        if (!Object.keys(item).every((key) => key === 'note' || key === 'why') || typeof item.note !== 'string' || !LETTER_ID.test(item.note) || !NOTE_HELD.includes(item.why as NoteHeld)) return undefined
+        return { note: item.note, why: item.why as NoteHeld }
+      })
+      if (held.some((item) => item === undefined)) return undefined
+      return { t: 'notes-collected', notes: fields.notes as string[], held: held as { note: string; why: NoteHeld }[], ...id }
+    }
     default:
       return undefined
   }
