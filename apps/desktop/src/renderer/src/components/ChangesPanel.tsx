@@ -9,6 +9,7 @@ import { agoLabel } from '../teammateWork.js'
 import { DiffView } from './DiffView.js'
 import { Icon } from './Icon.js'
 import { InlineProse } from './ThreadItems.js'
+import { fileMenuEvent } from '../fileMenuOpen.js'
 
 /**
  * THE FOLDER'S CHANGES, IN ONE PANEL (0.732, shared/folder-diff.ts), laid out as Claude Code's own (claude.ai/code,
@@ -238,6 +239,7 @@ export function ChangesPanel({ workspacePath, running, onClose, walkWith, commit
                       type="button"
                       className="lc-changes__filehead"
                       aria-expanded={open}
+                      onContextMenu={fileMenuEvent(file.path)}
                       onClick={() =>
                         setFolded((current) => {
                           const next = new Set(current)
@@ -355,6 +357,7 @@ function FileTree({ files, onJump }: { readonly files: readonly DiffFile[]; read
           type="button"
           className="lc-changes__treefile"
           style={{ paddingLeft: `${String(20 + depth * 12)}px` }}
+          onContextMenu={fileMenuEvent(file.path)}
           title={file.path}
           onClick={() => onJump(file.path)}
         >

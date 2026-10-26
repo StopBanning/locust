@@ -1,5 +1,8 @@
 // H1: first, before any import can spawn -- no bare name is found in its working folder.
 import './no-planted-executables.js'
+import { heldChord } from './composer-chords.js'
+import { editorsOnPath, launchEditor } from './installed-editors.js'
+import { isScriptPath } from '../shared/file-menu.js'
 import { columnInstructions, compareInstructionsRefusal, compareSkillRefusal, shuffledColumns } from './compare-instructions.js'
 import { tuneDraftPrompt } from './tune-drafts.js'
 import { columnChangesSummary, parseTuneLesson, tuneLessonPrompt, type TuneLessonSetup } from './tune-lessons.js'
@@ -20,7 +23,7 @@ import { ownGitArgs } from './git-guard.js'
 import { APP_USER_MODEL_ID, DEVELOPMENT_APP_USER_MODEL_ID, mayShowToasts, repairStartMenuShortcut, sweepStaleElectronShortcuts } from './stale-shortcut.js'
 import { openingPlacement, readSavedWindow } from './window-bounds.js'
 import type { SavedWindow } from './window-bounds.js'
-import { app, BrowserWindow, crashReporter, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerSaveBlocker, protocol, safeStorage, screen, session, shell, Tray } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerSaveBlocker, protocol, safeStorage, screen, session, shell, Tray } from 'electron'
 import { createVoiceHost } from './voice-host.js'
 import { voicePermission } from './voice-permission.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from '../shared/voice.js'
@@ -467,6 +470,10 @@ import {
   WORKSPACE_PASTE_CHANNEL,
   WORKSPACE_IMAGE_CHANNEL,
   WORKSPACE_REVEAL_CHANNEL,
+  FILE_EDITORS_CHANNEL,
+  FILE_OPEN_CHANNEL,
+  CLIPBOARD_WRITE_CHANNEL,
+  CLIPBOARD_READ_CHANNEL,
   WORKSPACE_SAVE_COPY_CHANNEL,
   WORKSPACE_TEXT_CHANNEL,
   WORKSPACE_PAGE_CHANNEL,
@@ -1485,6 +1492,24 @@ const createWindow = (
       contextIsolation: true,
       nodeIntegration: false
     }
+  })
+
+  // The default menu would take Ctrl+Shift+I for DevTools, Ctrl+O for Open, and Ctrl+/.
+  // Those chords belong to the page. F12 still opens DevTools. Ctrl+W, Ctrl+R and Alt+F4 are not held.
+  window.webContents.on('before-input-event', (event, input) => {
+    const chord = heldChord({
+      type: input.type,
+      control: input.control,
+      meta: input.meta,
+      shift: input.shift,
+      alt: input.alt,
+      key: input.key,
+      code: input.code
+    })
+    if (chord === undefined) return
+    event.preventDefault()
+    const detail = JSON.stringify({ key: chord.key, code: chord.code, ctrlKey: true, shiftKey: chord.shift, bubbles: true, cancelable: true })
+    void window.webContents.executeJavaScript(`window.dispatchEvent(new KeyboardEvent('keydown', ${detail}))`)
   })
 
   reportPreloadErrors(window, 'main')
@@ -6263,6 +6288,44 @@ if (!ownsSingleInstanceLock) {
       // of the person. `openPath` would run a `.bat` or a `.ps1` that a model
       // wrote, which is not a click anyone should be one step away from.
       shell.showItemInFolder(decision.path)
+      return { ok: true } as const
+    })
+
+    ipcMain.handle(FILE_EDITORS_CHANNEL, (event) => {
+      if (!fromOwnWindow(event)) return [] as const
+      return editorsOnPath(process.platform, process.env).map((editor) => editor.id)
+    })
+    ipcMain.handle(CLIPBOARD_WRITE_CHANNEL, (event, text: unknown) => {
+      if (!fromOwnWindow(event) || typeof text !== 'string') return false
+      clipboard.writeText(text)
+      return true
+    })
+    ipcMain.handle(CLIPBOARD_READ_CHANNEL, (event) => {
+      if (!fromOwnWindow(event)) return ''
+      return clipboard.readText()
+    })
+    ipcMain.handle(FILE_OPEN_CHANNEL, async (event, requested: unknown) => {
+      if (!fromOwnWindow(event) || typeof requested !== 'object' || requested === null) return { ok: false, message: 'That request was rejected.' } as const
+      const body = requested as { path?: unknown; how?: unknown }
+      const how = body.how
+      if (how !== 'vscode' && how !== 'cursor' && how !== 'default') return { ok: false, message: 'That request was rejected.' } as const
+      const decision = await decideTeammateFile(body.path, [
+        ...(await workedInFolders()),
+        ...(await teammateFolders()),
+        ledgerDirectory,
+        compareRoot()
+      ], namedFile)
+      if (!decision.ok) {
+        return { ok: false, message: 'That file is outside the folders your teammates work in, so Locust will not open it.' } as const
+      }
+      if (how === 'default') {
+        if (isScriptPath(decision.path)) return { ok: false, message: 'That file is a script, so Locust will not run it.' } as const
+        const failed = await shell.openPath(decision.path)
+        return failed.length === 0 ? ({ ok: true } as const) : ({ ok: false, message: failed } as const)
+      }
+      const editor = editorsOnPath(process.platform, process.env).find((one) => one.id === how)
+      if (editor === undefined) return { ok: false, message: 'That editor is not on PATH.' } as const
+      launchEditor(editor.command, decision.path, process.platform)
       return { ok: true } as const
     })
 

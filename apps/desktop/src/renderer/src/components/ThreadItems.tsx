@@ -11,6 +11,8 @@ import type { ListItem } from '../agentText.js'
 import { splitSettled } from '../settledText.js'
 import { quietMinutes } from '../quiet.js'
 import { linkHost } from '../../../shared/outbound-links.js'
+import { looksLikeFilePath } from '../../../shared/file-menu.js'
+import { fileMenuEvent } from '../fileMenuOpen.js'
 import { conversationPieces, githubLinkOf, issueLinkHover, issueLinkWord, pullLinkHover, pullLinkWord } from '../../../shared/pull-request.js'
 import type { ConversationPiece, LinkedIssue, LinkedPullRequest, PullLinkAddress } from '../../../shared/pull-request.js'
 import { sharedIssueLinks, sharedPullLinks } from '../pullLinkWatch.js'
@@ -278,7 +280,7 @@ function inline(text: string): ReactElement {
         if (span.kind === 'code') {
           const colour = hexColourOf(span.text)
           return (
-            <code className="lc-code--inline" key={`s${String(index)}`}>
+            <code className="lc-code--inline" key={`s${String(index)}`} {...(looksLikeFilePath(span.text) ? { onContextMenu: fileMenuEvent(span.text), 'data-path': span.text } : {})}>
               {colour !== undefined && <span className="lc-swatch" style={{ backgroundColor: colour }} aria-hidden="true" />}
               {span.text}
             </code>
@@ -305,7 +307,7 @@ function inline(text: string): ReactElement {
           const host = linkHost(span.href)
           if (host === undefined) {
             return (
-              <span className="lc-linklabel" key={`s${String(index)}`} title={span.href}>
+              <span className="lc-linklabel" key={`s${String(index)}`} title={span.href} data-path={span.href} onContextMenu={fileMenuEvent(span.href)}>
                 {span.text}
               </span>
             )

@@ -132,7 +132,11 @@ import { refusalNotice } from './components/RoomScreen.js'
 import { exchangeAcross, exchangeOf } from './exchange.js'
 import type { ExchangeMission } from './exchange.js'
 import { FirstLaunch } from './components/FirstLaunch.js'
+import { readTranscriptView, writeTranscriptView, type TranscriptView } from './transcriptView.js'
+import { bindFileMenu } from './fileMenuOpen.js'
+import { fileBaseName, fileMenuChoices, pathInsideFolder, relativeToFolder, rootedPath } from '../../shared/file-menu.js'
 import { CommandPalette } from './components/CommandPalette.js'
+import { KeyboardSheet } from './components/KeyboardSheet.js'
 import { SaveRecordDialog } from './components/SaveRecordDialog.js'
 import type { PaletteAction } from './components/CommandPalette.js'
 import { IdleTeammate } from './components/IdleTeammate.js'
@@ -2275,6 +2279,17 @@ export default function App(): ReactElement {
     }
   }, [wantsSpend, history])
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [transcriptView, setTranscriptViewState] = useState<TranscriptView>(() => readTranscriptView(typeof localStorage === 'undefined' ? undefined : localStorage))
+  const setTranscriptView = (next: TranscriptView): void => {
+    setTranscriptViewState(next)
+    writeTranscriptView(typeof localStorage === 'undefined' ? undefined : localStorage, next)
+  }
+  const toggleTranscriptView = (): void => setTranscriptView(transcriptView === 'verbose' ? 'normal' : 'verbose')
+  const [menuChord, setMenuChord] = useState<{ readonly id: number; readonly which: 'mode' | 'model' | 'effort' }>({ id: 0, which: 'mode' })
+  const [attachIn, setAttachIn] = useState<{ readonly id: number; readonly paths: readonly string[] } | undefined>(undefined)
+  const [composerTold, setComposerTold] = useState<{ readonly id: number; readonly text: string } | undefined>(undefined)
+  const [installedEditors, setInstalledEditors] = useState<readonly ('vscode' | 'cursor')[]>([])
   // Accept edits, not Ask. A person who opens a workroom and says "add a
   // discount function" means it; under Ask the sandbox refuses the write and
   // the model pastes its patch into the reply instead, with nothing on screen
@@ -2711,6 +2726,50 @@ export default function App(): ReactElement {
   const [workspaceName, setWorkspaceName] = useState('Local workspace')
   /** The folder itself, so activity rows can show paths the way a person writes them. */
   const [workspacePath, setWorkspacePath] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    void window.desktop?.installedEditors().then((ids) => {
+      setInstalledEditors(ids.filter((id): id is 'vscode' | 'cursor' => id === 'vscode' || id === 'cursor'))
+    }).catch(() => undefined)
+  }, [])
+  useEffect(() => {
+    const platform = window.desktop?.platform ?? 'win32'
+    bindFileMenu((given, x, y) => {
+      const path = rootedPath(given, workspacePath)
+      const choices = fileMenuChoices({ path, folder: workspacePath, platform, editors: installedEditors })
+      setRowMenu({
+        x,
+        y,
+        title: fileBaseName(path),
+        items: choices.map((choice) => ({
+          label: choice.label,
+          onSelect: () => {
+            void (async () => {
+              if (choice.id === 'attach') {
+                setAttachIn((current) => ({ id: (current?.id ?? 0) + 1, paths: [path] }))
+                return
+              }
+              if (choice.id === 'copy-path' || choice.id === 'copy-relative' || choice.id === 'copy-name') {
+                const text = choice.id === 'copy-name' ? fileBaseName(path) : choice.id === 'copy-relative' ? relativeToFolder(path, workspacePath, platform) : path
+                const wrote = await window.desktop?.writeClipboard(text)
+                if (wrote !== true) await navigator.clipboard?.writeText(text).catch(() => undefined)
+                return
+              }
+              if (choice.id === 'reveal') {
+                const answer = await window.desktop?.revealFile(path)
+                if (answer !== undefined && !answer.ok) setComposerTold((current) => ({ id: (current?.id ?? 0) + 1, text: answer.message }))
+                return
+              }
+              if (!pathInsideFolder(path, workspacePath, platform)) return
+              const how = choice.id === 'vscode' ? 'vscode' : choice.id === 'cursor' ? 'cursor' : 'default'
+              const answer = await window.desktop?.openFile(path, how)
+              if (answer !== undefined && !answer.ok) setComposerTold((current) => ({ id: (current?.id ?? 0) + 1, text: answer.message }))
+            })()
+          }
+        }))
+      })
+    })
+    return () => bindFileMenu(undefined)
+  }, [workspacePath, installedEditors])
   const [cloudEnvironment, setCloudEnvironment] = useState({ folder: '', value: '', edited: false })
   useEffect(() => {
     if (workspacePath === undefined) return
@@ -3975,9 +4034,28 @@ export default function App(): ReactElement {
         setPaletteOpen((open) => !open)
         return
       }
-      if (accel && event.key.toLowerCase() === 'i') {
+      // Ctrl+I stays the inspector. Ctrl+Shift+I is the model menu. Checked and not taken: Ctrl+W, Ctrl+R, Alt+F4.
+      // Ctrl+Shift+I is also Chromium DevTools; the main process holds that chord and F12 still opens DevTools.
+      if (accel && event.shiftKey && !event.altKey && (event.key.toLowerCase() === 'm' || event.key.toLowerCase() === 'i' || event.key.toLowerCase() === 'e')) {
+        event.preventDefault()
+        const which = event.key.toLowerCase() === 'm' ? 'mode' : event.key.toLowerCase() === 'e' ? 'effort' : 'model'
+        setMenuChord((current) => ({ id: current.id + 1, which }))
+        return
+      }
+      if (accel && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'i') {
         event.preventDefault()
         setInspectorOpen((open) => !open)
+        return
+      }
+      if (accel && !event.shiftKey && !event.altKey && (event.key.toLowerCase() === 'o' || event.code === 'Slash' && event.key === '/')) {
+        event.preventDefault()
+        if (event.key.toLowerCase() === 'o') {
+          setTranscriptViewState((current) => {
+            const next = current === 'verbose' ? 'normal' : 'verbose'
+            writeTranscriptView(typeof localStorage === 'undefined' ? undefined : localStorage, next)
+            return next
+          })
+        } else setShortcutsOpen((open) => !open)
         return
       }
       // The next or previous conversation (2026-10-19, conversationSteps.ts); with Shift, one waiting for you.
@@ -8531,6 +8609,10 @@ export default function App(): ReactElement {
    * no button at all.
    */
   const headerActions: ContextMenuItem[] = []
+  headerActions.push({
+    label: transcriptView === 'verbose' ? 'Normal' : 'Verbose',
+    onSelect: () => toggleTranscriptView()
+  })
   /*
    * Open in terminal (0.387; components/OpenInTerminal.tsx): first in the ...
    * menu, and only there since the header became a row of icons (0.797).
@@ -10237,6 +10319,7 @@ export default function App(): ReactElement {
               })()}
               <DiffNotesContext.Provider value={diffNotesPlace}>
               <Thread
+                verbose={transcriptView === 'verbose'}
                 findRequest={findRequest}
                 backgroundTurns={backgroundTurnIds}
                 onOpenFile={openFileInViewer}
@@ -10499,6 +10582,9 @@ export default function App(): ReactElement {
           {screen === 'workroom' && (
           <Composer
             draftKey={composerDraftKey}
+            menuChord={menuChord}
+            {...(attachIn === undefined ? {} : { attachIn })}
+            {...(composerTold === undefined ? {} : { told: composerTold })}
             {...(shownData?.missionId === undefined ? {} : { referenceMissionId: shownData.missionId })}
             {...(referenceCwd === undefined ? {} : { referenceCwd })}
             referencesOnCloud={cloudOn || computerOn}
@@ -11073,6 +11159,7 @@ export default function App(): ReactElement {
       </div>
       {sharingTeam && <ShareTeamDialog teammates={teammates} onClose={() => setSharingTeam(false)} />}
       {savingRecordOf !== undefined && <SaveRecordDialog missionId={savingRecordOf} onClose={() => setSavingRecordOf(undefined)} />}
+      {shortcutsOpen && <KeyboardSheet onClose={() => setShortcutsOpen(false)} />}
       {paletteOpen && (
         <CommandPalette
           onClose={() => setPaletteOpen(false)}
@@ -11089,6 +11176,13 @@ export default function App(): ReactElement {
                 // person has for it (first-impressions pass, 0.354).
                 label: 'Back to the conversation',
                 run: () => setScreen('workroom')
+              },
+              {
+                id: 'keyboard-shortcuts',
+                group: 'This conversation',
+                label: 'Keyboard shortcuts',
+                hint: 'Ctrl+/',
+                run: () => setShortcutsOpen(true)
               },
               {
                 id: 'toggle-swarm',

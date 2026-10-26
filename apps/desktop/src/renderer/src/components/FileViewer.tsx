@@ -7,6 +7,7 @@ import { languageOfPath } from '../codeColors.js'
 import { AgentText } from './ThreadItems.js'
 import { DiffView } from './DiffView.js'
 import { Icon } from './Icon.js'
+import { fileMenuEvent } from '../fileMenuOpen.js'
 import { SheetView } from './SheetView.js'
 import { PdfPages } from './PdfPages.js'
 import { DocumentView } from './DocumentView.js'
@@ -145,7 +146,7 @@ export function FileViewer({
           * says only `report.md` cannot tell you WHICH report.md, and the
           * pane is too narrow for the path at any useful size.
           */}
-        <span className="lc-viewer__name" title={path}>
+        <span className="lc-viewer__name" title={path} onContextMenu={fileMenuEvent(path)}>
           {path.replace(/\\/g, '/').split('/').pop() ?? path}
         </span>
         <span className="lc-viewer__spacer" />
