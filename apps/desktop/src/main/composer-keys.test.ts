@@ -91,6 +91,9 @@ describe('the composer’s keys', () => {
      * would be the worst kind of surprise -- one of those is free and the
      * other is not.
      */
-    expect(rest).toMatch(/Escape'\s*&&\s*running\s*&&\s*!modeOpen\s*&&\s*!pickerOpen\s*&&\s*!effortOpen/)
+    // The effort choice is the foot of the model picker, so an open picker is
+    // the panel Escape closes before it may stop a run.
+    expect(rest).toMatch(/Escape'\s*&&\s*running\s*&&\s*!modeOpen\s*&&\s*!pickerOpen/)
+    expect(rest).not.toContain('effortOpen')
   })
 })

@@ -1,13 +1,14 @@
 import { accountUsageKey } from '../../../shared/agent-accounts.js'
 import { useAgentAccounts } from '../agentAccounts.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent, ReactElement } from 'react'
+import type { KeyboardEvent, ReactElement, ReactNode } from 'react'
 
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 import type { PublicModel, PublicRuntimeStatus } from '../../../shared/ipc.js'
 import { OWN_MODELS_GROUP, ROUTE_GROUP_LIMIT, capRouteRows, integrationOf, modelFamily, orderRouteRows, recentRouteRows, routeRowStatus, routeRowTag, routeSearchText } from '../status.js'
 import type { RouteTag } from '../status.js'
 import { isOwnRoute, modelDisplayName, routeFamilyName, routeModelName } from '../routeName.js'
+import { isTypingTarget, menuRowFromDigit } from '../menuDigit.js'
 import { RuntimeMark } from './RuntimeMark.js'
 import { levelsLine } from '../effortScale.js'
 import { effortName } from '../effortLevels.js'
@@ -354,7 +355,9 @@ export function RoutePicker({
   notice,
   limitedRuntimes,
   compare,
-  slot
+  slot,
+  effort,
+  openAt = 'model'
 }: {
   readonly runtimes: readonly PublicRuntimeStatus[]
   /** Runtimes whose last run ended on the account's usage limit, with its own words. */
@@ -399,6 +402,10 @@ export function RoutePicker({
   /** The maximum level swarm would hold every mission at, when one is known. */
   /** Compare (0.441): absent where a comparison cannot start (a run is live, or a comparison is on screen). */
   readonly compare?: ComparePicking
+  /** The effort slider, at the foot of the list, so model and effort are one control. */
+  readonly effort?: ReactNode
+  /** Where focus goes when the list opens. Effort is the slider at the foot. */
+  readonly openAt?: 'model' | 'effort'
 }): ReactElement {
   const accounts = useAgentAccounts()
   const comparing = compare?.on === true
@@ -408,8 +415,15 @@ export function RoutePicker({
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (openAt === 'effort') {
+      const slider = document.querySelector<HTMLElement>('[data-effort-focus] input, [data-effort-focus] button')
+      if (slider !== null) {
+        slider.focus()
+        return
+      }
+    }
     inputRef.current?.focus()
-  }, [])
+  }, [openAt])
 
   const rows = useMemo(
     () => {
@@ -435,6 +449,22 @@ export function RoutePicker({
    * searching; rows load as discovery answers, so it waits for the row.
    */
   const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      const index = menuRowFromDigit(
+        event.key,
+        { ctrl: event.ctrlKey, meta: event.metaKey, alt: event.altKey, shift: event.shiftKey },
+        isTypingTarget(event.target)
+      )
+      if (index === undefined) return
+      const row = listRef.current?.querySelectorAll<HTMLButtonElement>('.lc-picker__row:not(:disabled)')[index]
+      if (row === undefined) return
+      event.preventDefault()
+      row.click()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const shownChosen = useRef(false)
   useEffect(() => {
     if (shownChosen.current || searching) return
@@ -705,7 +735,8 @@ export function RoutePicker({
         </div>
       ) : (
         <div className="lc-picker__foot">
-          Privacy and permissions live in Settings.
+          {effort}
+          <span>Privacy and permissions live in Settings.</span>
         </div>
       )}
     </div>

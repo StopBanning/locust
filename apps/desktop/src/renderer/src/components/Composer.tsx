@@ -27,6 +27,8 @@ import {
 } from '../status.js'
 import { defaultEffort, sendBlockedReason } from '../status.js'
 import { freeTagOf, isOwnRoute, routeFamilyName, routeModelName, shortRuntimeName } from '../routeName.js'
+import { routeChipReading } from '../routeChipReading.js'
+import { isTypingTarget, menuRowFromDigit } from '../menuDigit.js'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 import { handoffPreviewParts, joinerBefore } from '../handoffPreview.js'
 import type { HandoffPreviewParts } from '../handoffPreview.js'
@@ -218,6 +220,12 @@ export interface ComposerProps {
    * box, above whatever is typed there. A new object quotes again.
    */
   readonly quoteIn?: { readonly quote: string; readonly attachments?: readonly string[] }
+  /** Files to attach, and nothing else. A new id attaches again. */
+  readonly attachIn?: { readonly id: number; readonly paths: readonly string[] }
+  /** A sentence from the window, shown once per id. */
+  readonly told?: { readonly id: number; readonly text: string }
+  /** Ctrl+Shift+M, I or E: open the mode, model or effort menu of this conversation. */
+  readonly menuChord?: { readonly id: number; readonly which: 'mode' | 'model' | 'effort' }
   /**
    * Parts of the browser page waiting to be sent. Each picture is attached
    * with the message; removing a chip removes its picture. Nothing is sent
@@ -520,6 +528,9 @@ export function Composer({
   talkTo,
   handBack,
   quoteIn,
+  attachIn,
+  told,
+  menuChord,
   pagePoints,
   onPagePointNote,
   onPagePointRemove,
@@ -762,8 +773,8 @@ export function Composer({
   useEffect(() => {
     slashList.current?.querySelector('.lc-slash__item.is-active')?.scrollIntoView({ block: 'nearest' })
   }, [slashAt])
-  const [effortOpen, setEffortOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerFocus, setPickerFocus] = useState<'model' | 'effort'>('model')
   useEffect(() => {
     if (pickerRequest !== undefined && pickerRequest > 0) setPickerOpen(true)
   }, [pickerRequest])
@@ -816,13 +827,10 @@ export function Composer({
   const closeFolder = useCallback(() => setFolderOpen(false), [])
   useDismissOnOutsidePress(folderOpen, closeFolder, folderAnchor)
   const pickerAnchor = useRef<HTMLSpanElement>(null)
-  const effortAnchor = useRef<HTMLSpanElement>(null)
-  /** The chips the send's metal is cast onto -- see `reflectOnto`. */
+  /** The chip the send's metal is cast onto -- see `reflectOnto`. */
   const routeChip = useRef<HTMLButtonElement>(null)
-  const effortChip = useRef<HTMLButtonElement>(null)
   const closeMode = useCallback(() => setModeOpen(false), [])
   const closePicker = useCallback(() => setPickerOpen(false), [])
-  const closeEffort = useCallback(() => setEffortOpen(false), [])
   useDismissOnOutsidePress(modeOpen, closeMode, modeAnchor)
   const contextAnchor = useRef<HTMLSpanElement>(null)
   const closeContext = useCallback(() => setContextOpen(false), [])
@@ -830,7 +838,20 @@ export function Composer({
   const closeChatMode = useCallback(() => setChatModeOpen(false), [])
   useDismissOnOutsidePress(chatModeOpen, closeChatMode, chatModeAnchor)
   useDismissOnOutsidePress(pickerOpen, closePicker, pickerAnchor)
-  useDismissOnOutsidePress(effortOpen, closeEffort, effortAnchor)
+  useEffect(() => {
+    if (!modeOpen && !chatModeOpen) return undefined
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      const index = menuRowFromDigit(event.key, { ctrl: event.ctrlKey, meta: event.metaKey, alt: event.altKey, shift: event.shiftKey }, isTypingTarget(event.target))
+      if (index === undefined) return
+      const root = modeOpen ? modeAnchor.current : chatModeAnchor.current
+      const row = root?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not([disabled])')[index]
+      if (row === undefined) return
+      event.preventDefault()
+      row.click()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [modeOpen, chatModeOpen])
 
   // A mode the chosen route cannot run is not the mode a mission would start
   // in, so it is not the mode the control shows either. Switching route used
@@ -1091,6 +1112,33 @@ export function Composer({
    */
   const slotsShown = asking === undefined && compare?.on === true && compare.picks.length > 0 && !running
     && !(pickerOpen && compare.picks.length < MIN_COMPARE_SLOTS)
+  const chordSeen = useRef(0)
+  useEffect(() => {
+    if (menuChord === undefined || menuChord.id === 0 || menuChord.id === chordSeen.current) return
+    chordSeen.current = menuChord.id
+    if (menuChord.which === 'mode') {
+      setPickerOpen(false)
+      setChatModeOpen(false)
+      setSlotPicker(undefined)
+      setModeOpen(true)
+      return
+    }
+    setModeOpen(false)
+    setChatModeOpen(false)
+    if (menuChord.which === 'effort' && slotsShown) {
+      setPickerOpen(false)
+      setSlotEffort(0)
+      return
+    }
+    if (menuChord.which === 'model' && slotsShown) {
+      setPickerOpen(false)
+      setSlotPicker(0)
+      return
+    }
+    // which === 'model' opens the list; which === 'effort' opens the same list at its effort.
+    setPickerFocus(menuChord.which === 'effort' ? 'effort' : 'model')
+    setPickerOpen(true)
+  }, [menuChord, slotsShown])
   /*
    * COMPARE CHANGES (0.445): while models are being picked, the mode chip
    * chooses between answers (Ask) and changes (Edit, each model in its own
@@ -1326,6 +1374,15 @@ export function Composer({
       input.setSelectionRange(input.value.length, input.value.length)
     })
   }, [quoteIn])
+  useEffect(() => {
+    if (attachIn === undefined || attachIn.paths.length === 0) return
+    attachPaths(attachIn.paths)
+    field.current?.focus()
+  }, [attachIn])
+  useEffect(() => {
+    if (told === undefined) return
+    setNote(told.text)
+  }, [told])
   const pressBox = (event: MouseEvent<HTMLDivElement>): void => {
     if (event.button !== 0) return
     const target = event.target as HTMLElement
@@ -1493,7 +1550,7 @@ export function Composer({
      * killed a mission would be the worst kind of surprise, since one of
      * those is free and the other is not.
      */
-    if (keyEvent.key === 'Escape' && running && !modeOpen && !pickerOpen && !effortOpen) {
+    if (keyEvent.key === 'Escape' && running && !modeOpen && !pickerOpen) {
       keyEvent.preventDefault()
       onCancel()
       return
@@ -1527,6 +1584,7 @@ export function Composer({
       return
     }
     if (keyEvent.key === 'Enter' && !keyEvent.shiftKey) {
+      // shortcut:newline Shift+Enter is the new line, so it is not taken here.
       keyEvent.preventDefault()
       // Ctrl+Enter while a teammate works: Claude Code's send-now. It queues
       // like Enter, then stops the run and sends at once (0.485).
@@ -1592,6 +1650,13 @@ export function Composer({
   const { bases: effortBases, hasFast: effortHasFast } = effortScale(supportedEfforts)
   const { base: effortBase, fast: effortIsFast } = splitEffort(shownEffort ?? effortBases[0] ?? '')
   const effortIndex = Math.max(0, effortBases.indexOf(effortBase))
+  const effortPhrase = comparing
+    ? undefined
+    : effortIsGenuinelyFixed
+      ? 'Fixed'
+      : shownEffort !== undefined && supportedEfforts.length > 0
+        ? `${effortName(effortBase)}${effortIsFast ? ' · Fast' : ''}`
+        : undefined
   const shownRuntimeStatus = runtimes.find((runtime) => runtime.id === shownRuntime)
   /** Nothing on this machine can take work, so no route is a real answer. */
   const nothingConnected = !runtimes.some(runtimeIsUsable) && !accounts.some(a => a.state === 'ready')
@@ -1703,8 +1768,7 @@ export function Composer({
   // Listening, typing your words, or off: the glow's state (voiceLevel.ts).
   const [voice, setVoice] = useState<VoiceState>(voiceState.get())
   useEffect(() => voiceState.subscribe(setVoice), [])
-  const effortShown = shownEffort !== undefined && supportedEfforts.length > 0
-  const reflectOnto = useMemo(() => [effortShown ? effortChip : routeChip], [effortShown])
+  const reflectOnto = useMemo(() => [routeChip], [])
   return (
     /*
      * THE CHAT BOX GLOWS WITH YOUR VOICE (0.686, voice-glow, MIT) -- around the visible box (0.687), below. Mounted always, so starting to listen never
@@ -2200,6 +2264,124 @@ export function Composer({
                 onAttach={attachFiles}
                 onChooseFolder={onChooseFolder}
               />
+            </div>
+            <div className="lc-composer__group">
+<VoiceButton key={draftKey ?? ''} platform={platform ?? 'unknown'} disabled={workingNow && queued !== undefined} onText={(text) => {
+                const input = field.current
+                const inserted = insertVoiceText(valueNow.current, text, input?.selectionStart ?? valueNow.current.length, input?.selectionEnd ?? valueNow.current.length, MAX_PROMPT_LENGTH)
+                type(inserted.text)
+                requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(inserted.cursor, inserted.cursor) })
+              }} />
+              {/*
+                * A voice call (0.737): talks back, where the microphone beside it only types. Leaving the conversation
+                * ends it -- except a call WITH a teammate (0.746), which lasts while you stay with them: its first ask
+                * opens their new conversation, and that move must not hang up the call that made it.
+                */}
+              <VoiceCallButton key={`call-${talkTo?.teammateId ?? draftKey ?? ''}`} platform={platform ?? 'unknown'} {...(talkTo === undefined ? {} : { talkTo })} onText={(text) => {
+                const input = field.current
+                const inserted = insertVoiceText(valueNow.current, text, input?.selectionStart ?? valueNow.current.length, input?.selectionEnd ?? valueNow.current.length, MAX_PROMPT_LENGTH)
+                type(inserted.text)
+                requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(inserted.cursor, inserted.cursor) })
+              }} />
+              {running && !canQueue ? (
+                // A mono beam travels the stop button while the run goes --
+                // Colin: "a loading hue for their stop button ... make it mono
+                // instead to make it subtle". It stops with the stopping.
+                // Colin, 2026-09-23: "slightly raise the intensity for the current
+                // mono beam, its not too visible rn" -- full strength here, and
+                // the layers lifted in shell.css (.lc-stopbeam).
+                <Beam size="sm" strength={1} active={!cancelling} className="lc-stopbeam">
+                  <button
+                    type="button"
+                    className="send-button lc-send is-stop"
+                    onClick={stopClicked}
+                    disabled={cancelling}
+                    aria-label="Stop the running reply"
+                  >
+                    {/* A small rounded square, as drawn -- not a pause icon. */}
+                    <span className="lc-stopsquare" />
+                  </button>
+                </Beam>
+              ) : canQueue ? (
+                // Typed text turns the control into "queue this", so the stop
+                // button is still one click away with an empty box. What the
+                // button does is what the placeholder just promised.
+                <button
+                  type="submit"
+                  className="send-button lc-send is-queue"
+                  aria-label="Send this when the reply finishes"
+                  title="Send this when the reply finishes"
+                >
+                  <ArrowUpGlyph />
+                </button>
+              ) : (
+                /*
+                 * ONE send control, which grows a label when it is about to
+                 * do more than send.
+                 *
+                 * The drawing gives the multi-teammate case a button reading
+                 */
+                /*
+                 * METAL, AND ONLY ON THIS ONE.
+                 *
+                 * The design agent's answer to "use it more widely" is no, and
+                 * the reason is worth keeping next to the one place it is used:
+                 * three metal buttons in a view and metal stops meaning
+                 * anything — it becomes the button style, which is decoration.
+                 * This button earns it by being the only control in the app
+                 * that is purely an invitation rather than a state.
+                 *
+                 * And two of the candidates are worse than redundant: `Deny` is
+                 * destructive and `Approve once` is consequential. Making
+                 * either delightful to hover is the wrong nudge on a card whose
+                 * whole job is to slow a person down.
+                 *
+                 * The stop and queue variants above stay plain for the same
+                 * reason: one is a state, the other is a deferral.
+                 */
+                <MetalSend
+                  /*
+                   * As the page's composer draws it: a rim of light along the
+                   * ring's top inside edge, and the metal cast onto the chip
+                   * beside it (there the Auto chip; here whichever sits next
+                   * to the send -- the effort chip, or the route when a model
+                   * has no effort to choose).
+                   */
+                  innerShadow
+                  reflectionTargets={reflectOnto}
+                  {...(metal === undefined ? {} : { preset: metal })}
+                  {...(metalStrength === undefined ? {} : { strength: metalStrength })}
+                  {...(metalMotion === undefined ? {} : { motion: metalMotion })}
+                  {...(metalBend === undefined ? {} : { bend: metalBend })}
+                  type="submit"
+                  className="send-button lc-send"
+                  disabled={!canStart}
+                  aria-label="Send"
+                  /*
+                    * A disabled control says why. Sol's beta finding 6: with
+                    * nothing installed, Send was grey and its only word about
+                    * itself was the thing it would not do.
+                    */
+                  title={
+                    sendBlockedReason({
+                      nothingInstalled: nothingConnected,
+                      runtimeReady: selectedReady,
+                      routeCanRun,
+                      busy: busyWith !== undefined,
+                      // Notes on the diff are a message on their own.
+                      empty: value.trim().length === 0 && (diffNotes ?? []).length === 0 && (pagePoints ?? []).length === 0
+                    }) ?? 'Send — Shift+Enter for a new line'
+                  }
+                >
+                  <ArrowUpGlyph />
+                </MetalSend>
+              )}
+            </div>
+          </div>
+          </div>
+          </VoiceBeam>
+          <div className="lc-composer__under">
+            <div className="lc-composer__group">
               {/*
                 * DIRECT, COMPARE OR BLIND (0.451). Colin, 2026-09-28, sending
                 * Arena's menu: "maybe let's just do what they do in arena. We
@@ -2686,6 +2868,32 @@ export function Composer({
                       })
                     }}
                     onClose={() => setPickerOpen(false)}
+                    openAt={pickerFocus}
+                    {...(comparing || effortIsGenuinelyFixed || supportedEfforts.length === 0 ? {} : {
+                      effort: (
+                        <div data-effort-focus="true">
+                          {swarm ? (
+                            <p className="lc-picker__effortnote">Swarm holds this at {effortName(effortBase)}.</p>
+                          ) : (
+                            <EffortSlider
+                              bases={effortBases}
+                              index={effortIndex}
+                              fast={effortIsFast}
+                              hasFast={effortHasFast}
+                              footer={effortFooter(route.runtime)}
+                              onPick={(base) => {
+                                const level = joinEffort(base, effortIsFast, supportedEfforts)
+                                if (level !== undefined) onEffortChange(level)
+                              }}
+                              onFast={(next) => {
+                                const level = joinEffort(effortBase, next, supportedEfforts)
+                                if (level !== undefined) onEffortChange(level)
+                              }}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
                     // Compare (0.441): only where one can start -- nothing running, no comparison on screen.
                     {...(compare === undefined || asking !== undefined || running ? {} : { compare })}
                     {...(handoff === 'available'
@@ -2726,6 +2934,7 @@ export function Composer({
                   disabled={handoff === 'starting' || handoff === 'switching'}
                   aria-haspopup="listbox"
                   aria-expanded={pickerOpen}
+                  aria-label={comparing ? versus : nothingConnected ? 'No AI agent' : routeChipReading(modelName, effortPhrase)}
                 >
                   {/*
                     * THE RUNTIME'S MARK, where the dot was (0.383).
@@ -2783,246 +2992,24 @@ export function Composer({
                     })()
                   ) : (
                     <>
-                      {!ownModel && (
-                        <>
-                          <span className="lc-control__runtime">{runtimeLabel}</span>
-                          <span className="lc-separator">/</span>
-                        </>
-                      )}
                       <span className="lc-control__mono lc-control__model">{modelName}{(running ? routeAccount(activeRoute ?? {}) : route.account) !== undefined ? ` \u00b7 ${accountName(running ? routeAccount(activeRoute ?? {}) : route.account)}` : ''}</span>
                       {freeModel && <span className="lc-control__free">Free</span>}
                     </>
                   )}
+                  {!comparing && effortPhrase !== undefined && <span className="lc-control__effort">· {effortPhrase}</span>}
+                  {swarm && !comparing && <img className="lc-control__swarmmark" src={mark} alt="" aria-hidden="true" />}
                   {/*
-                    * The chevron the mode chip beside it has, and that the
-                    * reference draws on this one too: `Codex CLI / gpt-5.6 ·
-                    * high ⌄`. Without it nothing said the chip opens
-                    * anything, and effort now lives behind it -- so a person
-                    * looking for effort had no reason to press here. Colin,
-                    * on the reference: "allows the user to see effort and
-                    * still has dropdown for it."
+                    * One control: the model and its effort, as `Haiku 5.5 · Medium`,
+                    * with the agent's mark in front. The list and the effort
+                    * slider open together.
                     */}
                   <ChevronGlyph />
                 </button>
               </span>
               )}
-              {/*
-                * Effort, as its own control again.
-                *
-                * The design review folded it onto the route chip; that made
-                * it invisible until chosen and it vanished entirely whenever
-                * a model was picked, because choosing a model cleared it.
-                * Colin, 2026-09-07: "just go back to effort being separate,
-                * completely remove it from the model page". So: a chip that
-                * always states a real level, beside the model it belongs to,
-                * reading `gpt-5.6` `medium` the way the reference image does.
-                *
-                * Absent only when the model reports no levels -- there is
-                * nothing to choose then, and a control that says so would be
-                * the dead chip this replaced.
-                */}
-              {/*
-                * A model with no levels never draws the pickable chip, even if
-                * an effort is still set from a previous route. It used to draw
-                * one showing that stale level with an empty menu behind it, so
-                * there was no way to clear it -- Colin, 2026-09-08: "it has an
-                * effort set and wont let me switch out of it". `startRoute`
-                * refuses to send it either way; this stops the app offering a
-                * choice that does not exist.
-                */}
-              {/* A comparison has an effort per model, on each model's chip (0.490): no one effort applies to all. */}
-              {shownEffort !== undefined && supportedEfforts.length > 0 && !comparing && (
-                <span className="lc-control__anchor" ref={effortAnchor}>
-                  {effortOpen && (
-                    /*
-                      * A SLIDER and a switch, not a list.
-                      *
-                      * Cursor lists eight levels and a menu of eight rows ran
-                      * off the window (Colin, 2026-09-08, with a screenshot).
-                      * His fix, and the right one: "you could just use claudes
-                      * since you already have access to it, and then if there
-                      * is a fast option just have a toggle for it." Those eight
-                      * are not eight things -- they are four, each with a
-                      * faster variant. The stops are whatever THIS model
-                      * listed, in the order it listed them, so right is more.
-                      */
-                    <div className="lc-menu lc-menu--right lc-effortpanel" role="group" aria-label="Reasoning effort">
-                      <EffortSlider
-                        bases={effortBases}
-                        index={effortIndex}
-                        fast={effortIsFast}
-                        hasFast={effortHasFast}
-                        footer={effortFooter(route.runtime)}
-                        onPick={(base) => {
-                          const level = joinEffort(base, effortIsFast, supportedEfforts)
-                          if (level !== undefined) onEffortChange(level)
-                        }}
-                        onFast={(next) => {
-                          const level = joinEffort(effortBase, next, supportedEfforts)
-                          if (level !== undefined) onEffortChange(level)
-                        }}
-                      />
-                    </div>
-                  )}
-                  <button
-                    ref={effortChip}
-                    type="button"
-                    className="lc-control lc-control--boxed"
-                    aria-haspopup="menu"
-                    aria-expanded={effortOpen}
-                    aria-label="Reasoning effort"
-                    title={
-                      swarm
-                        ? `Swarm is holding this at ${swarmEffort ?? 'the model maximum'}`
-                        : 'How hard the model thinks'
-                    }
-                    disabled={running || swarm}
-                    onClick={() => setEffortOpen(!effortOpen)}
-                  >
-                    {swarm && <img className="lc-control__swarmmark" src={mark} alt="" aria-hidden="true" />}
-                    {/* The level in words, as the panel says it: "High", "High · Fast". */}
-                    <span className="lc-control__effort">
-                      {effortName(effortBase)}
-                      {effortIsFast ? ' · Fast' : ''}
-                    </span>
-                    <ChevronGlyph />
-                  </button>
-                </span>
-              )}
-              {/*
-                * A model with no levels to choose says so, rather than leaving
-                * a gap where the chip was. Taken from Colin's reference image
-                * (2026-09-07), which reads `effort - fixed`.
-                *
-                * Not a disabled control: there is nothing here to press, so it
-                * is a label. A DISABLED chip would be the dead plus this
-                * composer already removed once -- something that looks like it
-                * should work and never does. This one just states a fact about
-                * the runtime, which is the same fact the route chip beside it
-                * is there to give.
-                */}
-              {effortIsGenuinelyFixed && !comparing && (
-                <span
-                  className="lc-control lc-control--boxed is-static"
-                  title="This AI agent does not let the effort be chosen; it uses its own."
-                >
-                  <span className="lc-control__effort">Fixed</span>
-                </span>
-              )}
-              <VoiceButton key={draftKey ?? ''} platform={platform ?? 'unknown'} disabled={workingNow && queued !== undefined} onText={(text) => {
-                const input = field.current
-                const inserted = insertVoiceText(valueNow.current, text, input?.selectionStart ?? valueNow.current.length, input?.selectionEnd ?? valueNow.current.length, MAX_PROMPT_LENGTH)
-                type(inserted.text)
-                requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(inserted.cursor, inserted.cursor) })
-              }} />
-              {/*
-                * A voice call (0.737): talks back, where the microphone beside it only types. Leaving the conversation
-                * ends it -- except a call WITH a teammate (0.746), which lasts while you stay with them: its first ask
-                * opens their new conversation, and that move must not hang up the call that made it.
-                */}
-              <VoiceCallButton key={`call-${talkTo?.teammateId ?? draftKey ?? ''}`} platform={platform ?? 'unknown'} {...(talkTo === undefined ? {} : { talkTo })} onText={(text) => {
-                const input = field.current
-                const inserted = insertVoiceText(valueNow.current, text, input?.selectionStart ?? valueNow.current.length, input?.selectionEnd ?? valueNow.current.length, MAX_PROMPT_LENGTH)
-                type(inserted.text)
-                requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(inserted.cursor, inserted.cursor) })
-              }} />
-              {running && !canQueue ? (
-                // A mono beam travels the stop button while the run goes --
-                // Colin: "a loading hue for their stop button ... make it mono
-                // instead to make it subtle". It stops with the stopping.
-                // Colin, 2026-09-23: "slightly raise the intensity for the current
-                // mono beam, its not too visible rn" -- full strength here, and
-                // the layers lifted in shell.css (.lc-stopbeam).
-                <Beam size="sm" strength={1} active={!cancelling} className="lc-stopbeam">
-                  <button
-                    type="button"
-                    className="send-button lc-send is-stop"
-                    onClick={stopClicked}
-                    disabled={cancelling}
-                    aria-label="Stop the running reply"
-                  >
-                    {/* A small rounded square, as drawn -- not a pause icon. */}
-                    <span className="lc-stopsquare" />
-                  </button>
-                </Beam>
-              ) : canQueue ? (
-                // Typed text turns the control into "queue this", so the stop
-                // button is still one click away with an empty box. What the
-                // button does is what the placeholder just promised.
-                <button
-                  type="submit"
-                  className="send-button lc-send is-queue"
-                  aria-label="Send this when the reply finishes"
-                  title="Send this when the reply finishes"
-                >
-                  <ArrowUpGlyph />
-                </button>
-              ) : (
-                /*
-                 * ONE send control, which grows a label when it is about to
-                 * do more than send.
-                 *
-                 * The drawing gives the multi-teammate case a button reading
-                 */
-                /*
-                 * METAL, AND ONLY ON THIS ONE.
-                 *
-                 * The design agent's answer to "use it more widely" is no, and
-                 * the reason is worth keeping next to the one place it is used:
-                 * three metal buttons in a view and metal stops meaning
-                 * anything — it becomes the button style, which is decoration.
-                 * This button earns it by being the only control in the app
-                 * that is purely an invitation rather than a state.
-                 *
-                 * And two of the candidates are worse than redundant: `Deny` is
-                 * destructive and `Approve once` is consequential. Making
-                 * either delightful to hover is the wrong nudge on a card whose
-                 * whole job is to slow a person down.
-                 *
-                 * The stop and queue variants above stay plain for the same
-                 * reason: one is a state, the other is a deferral.
-                 */
-                <MetalSend
-                  /*
-                   * As the page's composer draws it: a rim of light along the
-                   * ring's top inside edge, and the metal cast onto the chip
-                   * beside it (there the Auto chip; here whichever sits next
-                   * to the send -- the effort chip, or the route when a model
-                   * has no effort to choose).
-                   */
-                  innerShadow
-                  reflectionTargets={reflectOnto}
-                  {...(metal === undefined ? {} : { preset: metal })}
-                  {...(metalStrength === undefined ? {} : { strength: metalStrength })}
-                  {...(metalMotion === undefined ? {} : { motion: metalMotion })}
-                  {...(metalBend === undefined ? {} : { bend: metalBend })}
-                  type="submit"
-                  className="send-button lc-send"
-                  disabled={!canStart}
-                  aria-label="Send"
-                  /*
-                    * A disabled control says why. Sol's beta finding 6: with
-                    * nothing installed, Send was grey and its only word about
-                    * itself was the thing it would not do.
-                    */
-                  title={
-                    sendBlockedReason({
-                      nothingInstalled: nothingConnected,
-                      runtimeReady: selectedReady,
-                      routeCanRun,
-                      busy: busyWith !== undefined,
-                      // Notes on the diff are a message on their own.
-                      empty: value.trim().length === 0 && (diffNotes ?? []).length === 0 && (pagePoints ?? []).length === 0
-                    }) ?? 'Send — Shift+Enter for a new line'
-                  }
-                >
-                  <ArrowUpGlyph />
-                </MetalSend>
-              )}
+              
             </div>
           </div>
-          </div>
-          </VoiceBeam>
         </form>
       </div>
     </div>

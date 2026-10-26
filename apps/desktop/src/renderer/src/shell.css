@@ -24657,3 +24657,56 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-elsewhere__back { align-self: center; }
 /* A paired device's Full window switch (0.830), between its name and Remove. */
 .lc-phone__desk { display: inline-flex; align-items: center; gap: 8px; color: var(--lc-text-secondary); font-size: var(--lc-text-control); white-space: nowrap; }
+
+/*
+ * The quiet row under the message box. The pills stay on Home. Here the
+ * controls are plain words: muted at rest, a hover background only. Send
+ * stays in the box, in its own look.
+ */
+.lc-composer__controls { justify-content: space-between; }
+.lc-composer__under {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 8px 0;
+}
+.lc-composer__under .lc-composer__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.lc-composer__under .lc-composer__group:last-child { justify-content: flex-end; flex: 1 1 auto; }
+.lc-composer__under .lc-control--boxed,
+.lc-composer__under .lc-chipbutton,
+.lc-composer__under .lc-control--folder,
+.lc-composer__under .lc-contextring__button {
+  height: auto;
+  min-height: 26px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lc-text-muted);
+}
+.lc-composer__under .lc-control--boxed:hover:not(:disabled),
+.lc-composer__under .lc-chipbutton:hover:not(:disabled),
+.lc-composer__under .lc-control--folder:hover:not(:disabled),
+.lc-composer__under .lc-contextring__button:hover:not(:disabled) {
+  background: var(--lc-chip-bg-hover);
+  box-shadow: none;
+  color: var(--lc-text-secondary);
+}
+.lc-composer__under .lc-control__model { max-width: 24ch; }
+.lc-picker__effortnote { margin: 0 0 8px; color: var(--lc-text-muted); }
+.lc-shortcuts { width: min(440px, calc(100% - var(--lc-space-8))); }
+.lc-shortcuts__body { overflow: auto; display: flex; flex-direction: column; gap: 16px; }
+.lc-shortcuts__group h2 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--lc-text-secondary); }
+.lc-shortcuts__group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lc-shortcuts__group li { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+.lc-shortcuts__group kbd { color: var(--lc-text-muted); font-family: inherit; font-size: 12px; white-space: nowrap; }
+

@@ -88,9 +88,13 @@ describe('a model of your own', () => {
   it('reads as itself in the chat bar, with the exact route one hover away', () => {
     rememberOwnModels([ACME])
     const html = composer({ runtime: 'opencode', model: 'own-a1b2c3d0/acme-70b' })
-    expect(chipWords(html)).toBe('Acme Chat')
+    // Effort sits on the same control. This model has none to choose, so the words are its name and Fixed.
+    expect(chipWords(html)).toBe('Acme Chat · Fixed')
+    expect(chipWords(html)).not.toContain('OpenCode')
     expect(html).toContain('OpenCode / own-a1b2c3d0/acme-70b')
-    // The control: an ordinary OpenCode route still says OpenCode.
-    expect(chipWords(composer({ runtime: 'opencode', model: 'opencode/ling-3.0-flash-fin-free' }))).toMatch(/^OpenCode \/ /)
+    // The agent's name stays in the tooltip. The face is the model and its effort, with the mark beside them.
+    const ordinary = composer({ runtime: 'opencode', model: 'opencode/ling-3.0-flash-fin-free' })
+    expect(chipWords(ordinary)).not.toMatch(/^OpenCode \//)
+    expect(ordinary).toContain('OpenCode / opencode/ling-3.0-flash-fin-free')
   })
 })
