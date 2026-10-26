@@ -78,6 +78,11 @@ export function releaseNotes(entry, { previous, files = [] } = {}) {
       '',
       'The SHA-256 sum of every file is in `SHA256SUMS.txt`.'
     ].join('\n'))
+    // A build GitHub had no Mac machine for (0.835: its macOS runners were out of capacity for hours) is
+    // released for Windows and Linux alone, and says so rather than leave a Mac reader looking for a file.
+    if (!files.some((file) => /-mac-(arm64|x64)\.dmg$/.test(file.name))) {
+      parts.push(`There is no Mac build of ${entry.version}: GitHub had no Mac build machine free for it. On a Mac, Locust stays on ${previous ?? 'the version before'} and offers the next version that has one.`)
+    }
   }
   parts.push(previous === undefined
     ? `**Full changelog:** [CHANGELOG.md](${HOME}/blob/main/CHANGELOG.md)`

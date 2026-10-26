@@ -68,3 +68,13 @@ test('the Windows installer is named by its version; the rest keep their names',
 test('the sums file is the one sha256sum -c reads', () => {
   assert.equal(checksumsFile([{ name: 'a.exe', sha256: 'ab12' }, { name: 'b.deb', sha256: 'cd34' }]), 'ab12  a.exe\ncd34  b.deb\n')
 })
+
+test('a build with no Mac files says there is none, and which version a Mac stays on', () => {
+  const [entry] = changelogEntries(CHANGELOG)
+  const files = ['Locust-0.789.0-setup.exe', 'Locust-0.789.0-x86_64.AppImage', 'Locust-0.789.0-amd64.deb', 'Locust-0.789.0-x86_64.rpm'].map((name) => ({ name }))
+  const notes = releaseNotes(entry, { previous: '0.788.0', files })
+  assert.ok(notes.includes('There is no Mac build of 0.789.0'))
+  assert.ok(notes.includes('On a Mac, Locust stays on 0.788.0'))
+  const withMac = releaseNotes(entry, { previous: '0.788.0', files: [...files, { name: 'Locust-0.789.0-mac-arm64.dmg' }] })
+  assert.ok(!withMac.includes('There is no Mac build'))
+})

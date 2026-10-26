@@ -32,11 +32,13 @@ const REMOTE = 'stopbanning'
 const CREDENTIAL = ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential']
 
 const history = process.argv.includes('--history')
+// --without-mac: a build whose Mac job GitHub never ran (0.835) is released with its four Windows and Linux files.
+const withoutMac = process.argv.includes('--without-mac')
 const version = history ? undefined : process.argv[2]
 const everyAt = process.argv.indexOf('--every')
 const every = everyAt === -1 ? 20 : Number(process.argv[everyAt + 1])
 if ((!history && (version === undefined || !/^\d+\.\d+\.\d+$/.test(version))) || !(every >= 5)) {
-  console.error('usage: node _tools/github-release.mjs <version>   or   node _tools/github-release.mjs --history [--every <seconds, 5 or more>]')
+  console.error('usage: node _tools/github-release.mjs <version> [--without-mac]   or   node _tools/github-release.mjs --history [--every <seconds, 5 or more>]')
   process.exit(2)
 }
 
@@ -182,7 +184,9 @@ async function releaseWithFiles() {
   // What dl.locust.lol offers must be this version, for every system.
   const list = await (await fetch(`${DOWNLOADS}release.json?check=${String(Date.now())}`, { headers: { 'Cache-Control': 'no-cache' } })).json()
   if (list.tag_name !== version) fail(`dl.locust.lol offers ${String(list.tag_name)}, not ${version}: publish it there first`)
-  if (list.assets.length !== 6) fail(`dl.locust.lol has ${String(list.assets.length)} files for ${version}, not 6: attach the Mac and Linux builds first`)
+  const wanted = withoutMac ? 4 : 6
+  if (list.assets.length !== wanted) fail(`dl.locust.lol has ${String(list.assets.length)} files for ${version}, not ${String(wanted)}: attach the ${withoutMac ? 'Linux' : 'Mac and Linux'} builds first`)
+  if (withoutMac && list.assets.some((asset) => /mac/i.test(asset.name))) fail(`dl.locust.lol has a Mac file for ${version}: release it with the Mac builds, without --without-mac`)
 
   const files = []
   for (const asset of list.assets) {
