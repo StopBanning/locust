@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.837.0 - 2026-10-29
+<!-- big -->
+
+### New
+
+- **A routine starts when its private link is called.** In the routine, choose When a link is called. Your phone, from anywhere has to be on. The link is a password: anyone who has it can start that routine, and the routine always runs in Ask, so it reads and changes nothing. What they send passes through Locust's relay readable, unlike sealed phone traffic, and is kept there until your computer collects it, at most a week. Do not send secrets.
+- **Kilo is an agent, in Preview.** A new conversation starts on Auto Free, which needs no account. Auto Free may route requests to providers that log prompts and outputs and use them to improve their services. Do not submit personal or confidential data.
+
 ## 0.836.0 - 2026-10-28
 <!-- big -->
 
