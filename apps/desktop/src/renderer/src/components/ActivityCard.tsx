@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useContext } from 'react'
+import { fileMenuEvent } from '../fileMenuOpen.js'
+import { looksLikeFilePath } from '../../../shared/file-menu.js'
 
 /** "Thought for 12s", or just "Thought" when the runtime never said when it began. */
 /**
@@ -202,6 +204,7 @@ export function ActivityCard({
   onOpenFile,
   planUnderway = false,
   openByDefault = false,
+  verbose = false,
   fold = false,
   traceOpen,
   traceShorter,
@@ -272,6 +275,11 @@ export function ActivityCard({
    */
   readonly openByDefault?: boolean
   /**
+   * Verbose (Ctrl+O): this group starts open, and every tool call's detail
+   * is shown. The person's own open or close still wins.
+   */
+  readonly verbose?: boolean
+  /**
    * The run moved on past this group (0.594): fold it to its line, unless
    * the person opened or closed it by hand. The one way the app closes a
    * fold, and only while the turn is running -- see the effect below.
@@ -286,7 +294,7 @@ export function ActivityCard({
   readonly traceTitle?: string
   readonly traceOpenTitle?: string
 }): ReactElement {
-  const [open, setOpen] = useState(openByDefault)
+  const [open, setOpen] = useState(openByDefault || verbose)
   /*
    * THE LINE FITS ITS ROW (0.604). The sentence is measured after it paints;
    * while it still overflows its box, the next shorter form from the builder
@@ -347,9 +355,15 @@ export function ActivityCard({
    * true once the turn is over, so the last group stays as it was.
    */
   useEffect(() => {
-    if (decided.current || fold !== true) return
+    if (decided.current || fold !== true || verbose) return
     setOpen(false)
-  }, [fold])
+  }, [fold, verbose])
+  const verboseWas = useRef(verbose)
+  useEffect(() => {
+    if (!decided.current && verbose) setOpen(true)
+    if (!decided.current && !verbose && verboseWas.current) setOpen(openByDefault)
+    verboseWas.current = verbose
+  }, [verbose, openByDefault])
   useEffect(() => {
     if (decided.current) return
     /*
@@ -419,7 +433,12 @@ export function ActivityCard({
   // and the reopened column ran the page twice.
   const firstOpen = variant === 'card' ? defaultOpenEntry(entries) : variant === 'files' && !inComparison ? newPageEntry(entries) : undefined
   const initiallyOpen = entries.some((entry) => entry.key === firstOpen && entry.kind === 'file' && pinned.has(entry.file.path)) ? undefined : firstOpen
-  const isOpen = (entry: ActivityEntry): boolean => toggled.get(entry.key) ?? entry.key === initiallyOpen
+  const isOpen = (entry: ActivityEntry): boolean => {
+    const chosen = toggled.get(entry.key)
+    if (chosen !== undefined) return chosen
+    if (verbose) return true
+    return entry.key === initiallyOpen
+  }
   const decide = (next: boolean): void => {
     decided.current = true
     setOpen(next)
@@ -453,7 +472,7 @@ export function ActivityCard({
   }
   const twice = (path: string): string | undefined => ((named.get(fileName(path).toLowerCase()) ?? 0) > 1 ? folderName(relativePath(path, workspacePath)) : undefined)
   const rowsShown = variant === 'files' ? FILE_ROWS_SHOWN : FOLD_ROWS_SHOWN
-  const capped = !steps && finished && !showAll && entries.length > rowsShown + 2
+  const capped = !verbose && !steps && finished && !showAll && entries.length > rowsShown + 2
   const shown = capped ? entries.slice(0, rowsShown) : entries
 
   return (
@@ -528,7 +547,7 @@ export function ActivityCard({
               {entry.kind === 'file' ? (
                 <>
                   <div className="lc-filerow__line">
-                    <button type="button" className="lc-filerow" onClick={() => toggle(entry)} aria-expanded={isOpen(entry)}>
+                    <button type="button" className="lc-filerow" onClick={() => toggle(entry)} onContextMenu={fileMenuEvent(entry.file.path)} aria-expanded={isOpen(entry)}>
                       <FileTypeIcon path={entry.file.path} />
                       <span className="lc-filerow__path lc-filerow__name" title={elsewhere === undefined ? displayPath(entry.file.path, workspacePath) : `${displayPath(entry.file.path, workspacePath)}\n${elsewhere}`}>{fileName(entry.file.path)}</span>
                       {twice(entry.file.path) !== undefined && <span className="lc-filerow__dir">{twice(entry.file.path)}</span>}
@@ -876,7 +895,7 @@ export function ActivityCard({
                 <div className="lc-filerow__line">
                   <div className="lc-filerow is-static">
                     <FileTypeIcon path={entry.name} />
-                    <span className="lc-filerow__path lc-filerow__name" title={displayPath(entry.name, workspacePath)}>{fileName(entry.name)}</span>
+                    <span className="lc-filerow__path lc-filerow__name" title={displayPath(entry.name, workspacePath)} onContextMenu={fileMenuEvent(entry.name)}>{fileName(entry.name)}</span>
                     {twice(entry.name) !== undefined && <span className="lc-filerow__dir">{twice(entry.name)}</span>}
                     {/* The runtime's own word (Write, Edit); not Codex's "changed", which the status says already. */}
                     {entry.tool !== undefined && fileToolWord(entry.tool) !== 'changed' && <span className="lc-filerow__status">{fileToolWord(entry.tool)}</span>}
@@ -925,6 +944,7 @@ export function ActivityCard({
                     className={`lc-filerow__path${entry.settled || finished ? '' : ' lc-sweep'}`}
                     data-text={displayPath(entry.name, workspacePath)}
                     title={entry.name}
+                    {...(looksLikeFilePath(entry.name) ? { onContextMenu: fileMenuEvent(entry.name) } : {})}
                   >
                     {displayPath(entry.name, workspacePath)}
                   </span>
@@ -1066,7 +1086,7 @@ export function HelperCalls({
           return (
             <div key={call.key} role="listitem" className="lc-filerow is-static">
               <Icon name="file" size={14} />
-              <span className="lc-filerow__path" title={call.file.path}>{displayPath(call.file.path, workspacePath)}</span>
+              <span className="lc-filerow__path" title={call.file.path} onContextMenu={fileMenuEvent(call.file.path)}>{displayPath(call.file.path, workspacePath)}</span>
               <span className="lc-filerow__status">{call.file.status}</span>
               {call.large && <span className="lc-filerow__status is-large">LARGE</span>}
               {(() => {
@@ -1097,7 +1117,7 @@ export function HelperCalls({
           return (
             <div key={call.key} role="listitem" className="lc-filerow is-static">
               <Icon name={call.kind === 'tool' ? 'activity' : 'file'} size={14} />
-              <span className="lc-filerow__path" title={call.name}>{displayPath(call.name, workspacePath)}</span>
+              <span className="lc-filerow__path" title={call.name} {...(looksLikeFilePath(call.name) ? { onContextMenu: fileMenuEvent(call.name) } : {})}>{displayPath(call.name, workspacePath)}</span>
               {call.tool !== undefined && <span className="lc-filerow__status">{fileToolWord(call.tool)}</span>}
               <span className={`lc-filerow__result ${result.tone}`}>{result.word}</span>
             </div>

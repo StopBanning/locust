@@ -216,6 +216,7 @@ export function ThreadItems({
   workspacePath,
   decision,
   onOpenFile,
+  verbose = false,
   onDraft,
   planMode = false,
   faces = true,
@@ -225,6 +226,7 @@ export function ThreadItems({
   /** Stops the running turn from its live line's quiet note (0.758); only on the turn that runs. */
   readonly onStop?: () => void
   readonly items: readonly ThreadItem[]
+  readonly verbose?: boolean
   /**
    * Another model to go on with, when this turn's model is busy (C9): drawn
    * under the latest busy notice. Absent on earlier turns and on a turn that
@@ -459,6 +461,7 @@ export function ThreadItems({
                   // Folded until pressed, the newest too, as Claude Code's groups are (0.610). Colin, 2026-10-04:
                   // "because that recent row stays open, it give it, its own look ... wont be familiar to claude users".
                   openByDefault={false}
+                  verbose={verbose}
                   fold={item.superseded === true}
                   {...(onOpenFile === undefined ? {} : { onOpenFile })}
                 />
@@ -476,6 +479,7 @@ export function ThreadItems({
               workspacePath={workspacePath}
               {...(replyText === undefined ? {} : { replyText })}
               {...(onOpenFile === undefined ? {} : { onOpenFile })}
+              verbose={verbose}
             />
           )
         }
@@ -558,12 +562,14 @@ function TurnFoot({
   item,
   workspacePath,
   onOpenFile,
+  verbose = false,
   replyText
 }: {
   readonly item: Extract<ThreadItem, { type: 'activity' }>
   readonly workspacePath: string | undefined
   /** The turn's last reply, for the Copy at the end of this line (0.545). */
   readonly replyText?: string
+  readonly verbose?: boolean
   readonly onOpenFile?: (path: string) => void
 }): ReactElement {
   // What changed on disk, not every edit call: one refused was no change.
@@ -616,6 +622,7 @@ function TurnFoot({
           runtimeName={item.reportedBy === undefined ? undefined : runtimeDisplayName(item.reportedBy)}
           workspacePath={workspacePath}
           openByDefault
+          verbose={verbose}
           {...(onOpenFile === undefined ? {} : { onOpenFile })}
         />
       )}
@@ -834,6 +841,8 @@ export interface ThreadProps {
   /** Open the run a peer message reached; undefined for one nothing received yet. */
   /** Open a handed file in the panel beside the conversation. */
   readonly onOpenFile?: (path: string) => void
+  /** Verbose opens every step in this window. */
+  readonly verbose?: boolean
   /** Words for the box, for the person to send (0.733). */
   readonly onDraft?: (text: string) => void
   /**
@@ -1076,6 +1085,7 @@ export function Thread({
   startedBy,
   runMode,
   onOpenFile,
+  verbose = false,
   onDraft,
   onOpenPeerRun,
   earlierTurns,
@@ -1235,12 +1245,13 @@ onResume,
           owner={peers.self}
           activity="idle"
           workspacePath={workspacePath}
+          verbose={verbose}
           decision={undefined}
         />
       )
     })
     return { elements, said, sizes }
-  }, [earlierTurns, mayEdit, workspacePath, peers.self, cloudTurnIds])
+  }, [earlierTurns, mayEdit, workspacePath, peers.self, cloudTurnIds, verbose])
   const earlierWork = earlier.elements
   // A call's words among the turns it started (0.747); opened by the person once it has ended.
   const callPlaces = useMemo(
@@ -1741,7 +1752,7 @@ onResume,
 
         {handoff !== undefined && (
           <>
-            <ThreadItems items={buildThread(handoff.priorEvents, { running: false, mayEdit, ...(workspacePath === undefined ? {} : { workspacePath }) })} owner={peers.self} activity="idle" workspacePath={workspacePath} decision={undefined} />
+            <ThreadItems items={buildThread(handoff.priorEvents, { running: false, mayEdit, ...(workspacePath === undefined ? {} : { workspacePath }) })} owner={peers.self} activity="idle" workspacePath={workspacePath} verbose={verbose} decision={undefined} />
             <HandoffDivider
               from={handoff.from}
               to={handoff.to}
@@ -1772,6 +1783,7 @@ onResume,
            */
           key={restoredMission?.missionId ?? events.find((event) => event.missionId !== undefined)?.missionId ?? 'starting'}
           {...(onOpenFile === undefined ? {} : { onOpenFile })}
+          verbose={verbose}
           {...(onDraft === undefined ? {} : { onDraft })}
           items={items}
           owner={peers.self}
