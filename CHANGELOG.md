@@ -11,6 +11,25 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.835.0 - 2026-10-26
+<!-- big -->
+
+### New
+
+- **Compare works from a browser.** Start a comparison, ask again, run it again, have it judged and keep a column, using the models a browser can already run.
+- **More settings and branch work from a browser.** Change the look, groups, individual memories and Scout's notes, tune-up and settings, draft and make a commit, and land a teammate's branch or begin its merge. Scout's preparing fixes, the folder's own permissions, forgetting every memory at once, pushing, opening a pull request and throwing a branch away still stay on your computer.
+- **Answer a command from the Board.** A conversation in Needs you shows the whole command and where it would run, with Allow once and Deny right there. A file change, connector or question opens the conversation for its full card; Always stays there too.
+- **See what a teammate handed out.** Under a turn that sent work to other teammates, Handed out lists who has each ask, its live state and Open to reach its conversation. The full peer exchanges stay beside it.
+
+### Improved
+
+- **Account default fits its row.** Its explanation in the model picker now reads "The model your account picks for you" on one line.
+
+### Fixed
+
+- **Codex says when a conversation is open elsewhere.** If the Codex app or a Codex in a terminal already has it open, Locust says to close it there and run it again, instead of showing the whole log.
+- **Scout says why GitHub was not read.** What Scout saw distinguishes a folder that is not on GitHub from a signed-out or missing GitHub CLI. Where signing in or installing can fix it, it points to Settings > Connectors > GitHub.
+
 ## 0.834.0 - 2026-10-26
 <!-- big -->
 
