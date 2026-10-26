@@ -11,49 +11,31 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
-## 0.837.0 - 2026-10-29
+## 0.835.0 - 2026-10-26
 <!-- big -->
 
 ### New
 
 - **A routine starts when its private link is called.** In the routine, choose When a link is called. Your phone, from anywhere has to be on. The link is a password: anyone who has it can start that routine, and the routine always runs in Ask, so it reads and changes nothing. What they send passes through Locust's relay readable, unlike sealed phone traffic, and is kept there until your computer collects it, at most a week. Do not send secrets.
 - **Kilo is an agent, in Preview.** A new conversation starts on Auto Free, which needs no account. Auto Free may route requests to providers that log prompts and outputs and use them to improve their services. Do not submit personal or confidential data.
-
-## 0.836.0 - 2026-10-28
-<!-- big -->
-
-### New
-
+- **Compare works from a browser.** Start a comparison, ask again, run it again, have it judged and keep a column, using the models a browser can already run.
+- **More settings and branch work from a browser.** Change the look, groups, individual memories and Scout's notes, tune-up and settings, draft and make a commit, and land a teammate's branch or begin its merge. Scout's preparing fixes, the folder's own permissions, forgetting every memory at once, pushing, opening a pull request and throwing a branch away still stay on your computer.
+- **Answer a command from the Board.** A conversation in Needs you shows the whole command and where it would run, with Allow once and Deny right there. A file change, connector or question opens the conversation for its full card; Always stays there too.
+- **See what a teammate handed out.** Under a turn that sent work to other teammates, Handed out lists who has each ask, its live state and Open to reach its conversation. The full peer exchanges stay beside it.
 - **OpenCode teammates can use their kept keys.** Keys you keep for a teammate now reach its OpenCode turns, as they already do for Claude Code and Cursor.
 
 ### Improved
 
+- **Account default fits its row.** Its explanation in the model picker now reads "The model your account picks for you" on one line.
 - **Muse Code is no longer marked Preview.** Its row in the model picker and Settings reads like every other agent's: it has now finished whole paid runs with dozens of tool calls each, the step its Preview label was waiting on.
 - **Changed files are easier to scan.** Each row leads with a mark for its kind and the file's own name, with its folder beside it when two rows share a name and its path in the hover. Long file lists under finished turns show five rows and Show N more, and new, deleted, renamed and large are quiet words beside the name.
 - **Home makes more room in a short window.** The illustration shrinks a little and the team cards sit closer together, leaving more room for the chat box and conversation starters. Taller windows keep their existing layout.
 
 ### Fixed
 
-- **Your own agent no longer stops at its first 200 models.** The model picker now keeps up to 1,000 models the agent offers, so a longer list can include models that used to disappear.
-
-## 0.835.0 - 2026-10-27
-<!-- big -->
-
-### New
-
-- **Compare works from a browser.** Start a comparison, ask again, run it again, have it judged and keep a column, using the models a browser can already run.
-- **More settings and branch work from a browser.** Change the look, groups, individual memories and Scout's notes, tune-up and settings, draft and make a commit, and land a teammate's branch or begin its merge. Scout's preparing fixes, the folder's own permissions, forgetting every memory at once, pushing, opening a pull request and throwing a branch away still stay on your computer.
-- **Answer a command from the Board.** A conversation in Needs you shows the whole command and where it would run, with Allow once and Deny right there. A file change, connector or question opens the conversation for its full card; Always stays there too.
-- **See what a teammate handed out.** Under a turn that sent work to other teammates, Handed out lists who has each ask, its live state and Open to reach its conversation. The full peer exchanges stay beside it.
-
-### Improved
-
-- **Account default fits its row.** Its explanation in the model picker now reads "The model your account picks for you" on one line.
-
-### Fixed
-
 - **Codex says when a conversation is open elsewhere.** If the Codex app or a Codex in a terminal already has it open, Locust says to close it there and run it again, instead of showing the whole log.
 - **Scout says why GitHub was not read.** What Scout saw distinguishes a folder that is not on GitHub from a signed-out or missing GitHub CLI. Where signing in or installing can fix it, it points to Settings > Connectors > GitHub.
+- **Your own agent no longer stops at its first 200 models.** The model picker now keeps up to 1,000 models the agent offers, so a longer list can include models that used to disappear.
 
 ## 0.834.0 - 2026-10-26
 <!-- big -->
