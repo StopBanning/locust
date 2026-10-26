@@ -404,6 +404,40 @@ describe('a phone pairs and asks through the relay', () => {
     expect(calls.send).toHaveBeenCalledWith('m1', 'After')
     await second.pc.dispose()
   })
+
+  it('forgets a called link when the phone relay is turned off while it is disconnected', async () => {
+    const relay = memoryRelay()
+    const folder = await mkdtemp(join(tmpdir(), 'locust-hook-off-'))
+    directories.push(folder)
+    let open = true
+    const pc = createPhoneAnywhere({
+      directory: folder,
+      calls: fakeCalls(),
+      relay: () => 'https://relay.test',
+      connect: (url) => { if (!open) throw new Error('offline'); return relay.connect(url) },
+      protectFile: async () => undefined,
+      retryMs: () => 20
+    })
+    try {
+      await pc.setEnabled(true)
+      await until(async () => pc.connected())
+      const token = randomBytes(32).toString('base64url')
+      expect(await pc.hookOpen('rt_a', createHash('sha256').update(token).digest('base64url'))).toBe(true)
+      expect((await relay.hook({ method: 'POST', secret: token, body: 'while on', contentType: 'text/plain' })).status).toBe(202)
+      open = false
+      relay.drop()
+      await until(async () => !pc.connected())
+      expect(pc.connected()).toBe(false)
+      await pc.setEnabled(false)
+      // The line is back. Turning it off has to forget the room, including a reset that had to wait for the line.
+      open = true
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      await relay.settled()
+      expect((await relay.hook({ method: 'POST', secret: token, body: 'after off', contentType: 'text/plain' })).status).toBe(404)
+    } finally {
+      await pc.dispose()
+    }
+  })
 })
 
 describe('Scout’s away look through the relay (0.829)', () => {
