@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { HOOK_BODY_CHARS, HOOK_ID, LETTER_ID, ROOM_ID, TOKEN, type HookLetter } from '../../../relay/src/protocol.js'
 import type { PublicRoutine } from '../shared/ipc.js'
@@ -7,6 +7,7 @@ import { privateMcpFile } from './locust-mcp-host.js'
 import { randomText, sha256 } from './relay-crypto.js'
 import { replaceFile } from './replace-file.js'
 import { STEP_BUDGET } from '../shared/step-budget.js'
+import type { SecretBox } from './own-models.js'
 
 /** CALLED LINKS (2026-10-25). Passwords and the collected inbox stay account-private, outside routines and exports. */
 export const ROUTINE_HOOKS_FILE = 'routine-hooks.json'
@@ -15,6 +16,8 @@ const MAX_BODY_CHARS = HOOK_BODY_CHARS
 interface Pending { readonly ids: readonly string[]; readonly count: number; readonly at: number; readonly body: string; readonly contentType: string }
 interface Entry { readonly secret: string; readonly room: string; readonly lost: number; readonly seen: readonly string[]; readonly pending?: Pending; readonly closed?: true; readonly confirmed?: true }
 interface Saved { readonly v: 1; readonly entries: Readonly<Record<string, Entry>> }
+/** THE SAME LOCK AS TEAMMATE KEYS (2026-10-25): only ciphertext goes to disk; decrypted values stay in this host. */
+const CANNOT_ENCRYPT = 'This computer cannot encrypt the link password, so no link was made. Nothing was sent to the relay.'
 export interface HookBatch { readonly ids: readonly string[]; readonly count: number; readonly at: number; readonly body: string; readonly contentType: string }
 export interface HookRelay {
   room(): { readonly relay: string; readonly room: string } | undefined
@@ -38,6 +41,7 @@ export function hookNote(batch: HookBatch, step: string): string {
 
 export function createRoutineHooks(options: {
   readonly file: string
+  readonly secrets: SecretBox
   readonly relay: () => HookRelay | undefined
   readonly routines: () => Promise<readonly PublicRoutine[]>
   readonly lost: (id: string, count: number, at: string) => Promise<void>
@@ -60,8 +64,12 @@ export function createRoutineHooks(options: {
     try {
       const text = await readFile(options.file, 'utf8')
       if (Buffer.byteLength(text) > 4 * 1024 * 1024) throw new Error('Oversized hook inbox')
-      const value = JSON.parse(text) as Saved
-      if (value.v !== 1 || typeof value.entries !== 'object' || value.entries === null || Array.isArray(value.entries) || Object.keys(value.entries).length > 200) throw new Error('Invalid hook inbox')
+      const disk = JSON.parse(text) as { readonly v: number; readonly entries: Saved['entries'] }
+      if ((disk.v !== 1 && disk.v !== 2) || typeof disk.entries !== 'object' || disk.entries === null || Array.isArray(disk.entries) || Object.keys(disk.entries).length > 200) throw new Error('Invalid hook inbox')
+      if (!options.secrets.available()) throw new Error(CANNOT_ENCRYPT)
+      const value: Saved = { v: 1, entries: Object.fromEntries(Object.entries(disk.entries).map(([id, entry]) => [id, {
+        ...entry, secret: disk.v === 2 ? options.secrets.decrypt(Buffer.from(entry.secret, 'base64')) : entry.secret
+      }])) }
       for (const [id, entry] of Object.entries(value.entries)) {
         const pending = entry.pending
         if (!HOOK_ID.test(id) || typeof entry.secret !== 'string' || !TOKEN.test(entry.secret) || typeof entry.room !== 'string' || !ROOM_ID.test(entry.room)
@@ -71,18 +79,26 @@ export function createRoutineHooks(options: {
             || !Number.isSafeInteger(pending.count) || pending.count < 1 || !Number.isFinite(pending.at) || typeof pending.body !== 'string' || pending.body.length > MAX_BODY_CHARS + 1 || typeof pending.contentType !== 'string' || pending.contentType.length > 200))) throw new Error('Invalid hook entry')
       }
       saved = value
+      // Upgrade the earlier private-but-unencrypted file before displaying or registering any saved link.
+      if (disk.v === 1) await persist(value)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('The kept links could not be read. Nothing was changed.')
     }
     loaded = true
   }
   const persist = async (next: Saved): Promise<void> => {
+    if (!options.secrets.available()) throw new Error(CANNOT_ENCRYPT)
+    let disk: { readonly v: 2; readonly entries: Saved['entries'] }
+    try {
+      disk = { v: 2, entries: Object.fromEntries(Object.entries(next.entries).map(([id, entry]) => [id, { ...entry, secret: options.secrets.encrypt(entry.secret).toString('base64') }])) }
+    } catch { throw new Error('The link password could not be encrypted. No link was made.') }
     await mkdir(dirname(options.file), { recursive: true })
     const temp = options.file + '.tmp'
-    // Protect an empty file before putting passwords in it, as phone-anywhere does.
-    await writeFile(temp, '', { mode: 0o600 })
+    await rm(temp, { force: true })
+    // As teammate-keys does: encrypt first, then protect an empty file before writing the ciphertext.
+    await writeFile(temp, '', { mode: 0o600, flag: 'wx' })
     await (options.protectFile ?? privateMcpFile)(temp)
-    await writeFile(temp, JSON.stringify(next), { mode: 0o600 })
+    await writeFile(temp, JSON.stringify(disk), { mode: 0o600 })
     await replaceFile(temp, options.file)
     saved = next
   }
@@ -93,6 +109,7 @@ export function createRoutineHooks(options: {
   }
   const missing = 'Turn on Your phone, from anywhere in Settings > Phone, then come back here.'
   const state = async (id: string, replace: boolean): Promise<RoutineHookState> => {
+    if (!options.secrets.available()) return { message: CANNOT_ENCRYPT }
     await load()
     const relay = options.relay()
     const room = relay?.room()
@@ -122,6 +139,7 @@ export function createRoutineHooks(options: {
     sync: (): Promise<void> => {
       if (syncing !== undefined) return syncing
       const work = serial(async () => {
+      if (!options.secrets.available()) return
       await load()
       const relay = options.relay()
       const room = relay?.room()

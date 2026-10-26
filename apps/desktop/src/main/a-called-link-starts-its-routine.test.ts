@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -14,6 +14,8 @@ import { STEP_BUDGET } from '../shared/step-budget.js'
 
 /** A CALLED LINK STARTS ITS ROUTINE (2026-10-25). Real routine receipts; a fake relay and runner spend nothing. */
 const roots: string[] = []
+// The same reversible test box as teammate-key tests; production receives Electron safeStorage, never this stand-in.
+const box = { available: () => true, encrypt: (text: string) => Buffer.from([...Buffer.from(text)].map((byte) => byte ^ 0x5a)), decrypt: (cipher: Buffer) => Buffer.from([...cipher].map((byte) => byte ^ 0x5a)).toString('utf8') }
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))) })
 async function fixture(steps = ['Summarize the event.']) {
   const root = await mkdtemp(join(tmpdir(), 'locust-hook-'))
@@ -35,7 +37,7 @@ async function fixture(steps = ['Summarize the event.']) {
     hookCollected: async (_id, ids) => { for (let index = boxes.length - 1; index >= 0; index -= 1) if (ids.includes(boxes[index]!.id)) boxes.splice(index, 1); return true }
   }
   const protection: string[] = []
-  const options = { file: join(root, ROUTINE_HOOKS_FILE), relay: () => relay, routines: () => store.list(), lost: (id: string, count: number, at: string) => store.recordHookLoss(id, count, at), tick: () => undefined, protectFile: async (path: string) => { protection.push(await readFile(path, 'utf8')) }, now: () => now }
+  const options = { file: join(root, ROUTINE_HOOKS_FILE), secrets: box, relay: () => relay, routines: () => store.list(), lost: (id: string, count: number, at: string) => store.recordHookLoss(id, count, at), tick: () => undefined, protectFile: async (path: string) => { protection.push(await readFile(path, 'utf8')) }, now: () => now }
   const hooks = createRoutineHooks(options)
   const starts: Parameters<RoutineRunnerOptions['start']>[0][] = []
   const notices: CodexMissionUpdate[] = []
@@ -59,6 +61,49 @@ async function fixture(steps = ['Summarize the event.']) {
 }
 
 describe('a called link starts its routine', () => {
+  it('uses the teammate-key encryption box, survives restart, and leaves the password nowhere in the profile', async () => {
+    const f = await fixture()
+    await f.hooks.sync()
+    const url = (await f.hooks.state(f.routine.routineId)).url!
+    const password = url.split('/').at(-1)!
+    const disk = JSON.parse(await readFile(f.options.file, 'utf8'))
+    expect(disk.v).toBe(2)
+    expect(box.decrypt(Buffer.from(disk.entries[f.routine.routineId].secret, 'base64'))).toBe(password)
+    expect((await createRoutineHooks(f.options).state(f.routine.routineId)).url).toBe(url)
+    for (const name of await readdir(f.root)) expect(await readFile(join(f.root, name), 'utf8')).not.toContain(password)
+  })
+
+  it('refuses a link without encryption, writes no plaintext and sends no registration to the relay', async () => {
+    const f = await fixture()
+    const hooks = createRoutineHooks({ ...f.options, secrets: { ...box, available: () => false } })
+    expect(await hooks.state(f.routine.routineId, true)).toEqual({ message: 'This computer cannot encrypt the link password, so no link was made. Nothing was sent to the relay.' })
+    await hooks.sync()
+    expect(f.hashes.size).toBe(0)
+    expect(await readFile(f.options.file, 'utf8').catch(() => undefined)).toBeUndefined()
+  })
+
+  it('migrates an earlier plaintext file before showing its link and fails closed when it cannot decrypt', async () => {
+    const f = await fixture()
+    await f.hooks.sync()
+    const url = (await f.hooks.state(f.routine.routineId)).url!
+    const password = url.split('/').at(-1)!
+    const disk = JSON.parse(await readFile(f.options.file, 'utf8'))
+    disk.v = 1
+    disk.entries[f.routine.routineId].secret = password
+    await writeFile(f.options.file, JSON.stringify(disk))
+    expect((await createRoutineHooks(f.options).state(f.routine.routineId)).url).toBe(url)
+    expect(await readFile(f.options.file, 'utf8')).not.toContain(password)
+    const locked = createRoutineHooks({ ...f.options, secrets: { ...box, decrypt: () => { throw new Error('Locked') } } })
+    await expect(locked.state(f.routine.routineId)).rejects.toThrow('The kept links could not be read. Nothing was changed.')
+  })
+
+  it('does not keep a link or register it when encryption throws', async () => {
+    const f = await fixture()
+    const hooks = createRoutineHooks({ ...f.options, secrets: { ...box, encrypt: () => { throw new Error('Unavailable') } } })
+    await expect(hooks.state(f.routine.routineId, true)).rejects.toThrow('The link password could not be encrypted. No link was made.')
+    expect(f.hashes.size).toBe(0)
+    expect(await readFile(f.options.file, 'utf8').catch(() => undefined)).toBeUndefined()
+  })
   it('saves a hook schedule, keeps its password out of routines, exports, dispatches and notices, and fences the data in Ask', async () => {
     const f = await fixture()
     expect((await f.hooks.state(f.routine.routineId)).url).toBeUndefined()

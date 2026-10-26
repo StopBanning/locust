@@ -4125,6 +4125,7 @@ if (!ownsSingleInstanceLock) {
     const fileArrivals = createFileArrivals({ get projectFolder() { return workspacePath } })
     let hookRelay: HookRelay | undefined
     const routineHooks = createRoutineHooks({
+      secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
       file: join(app.getPath('userData'), ROUTINE_HOOKS_FILE), relay: () => hookRelay,
       routines: () => routines.list(),
       lost: async (id, count, at) => { await routines.recordHookLoss(id, count, at); sendToWindow({ kind: 'routine-recovery-changed' }) },
