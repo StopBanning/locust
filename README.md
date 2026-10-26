@@ -2,9 +2,52 @@
 
 <p align="center"><a href="https://locust.lol"><img src="docs/assets/locust-banner.png" alt="Locust: AI teammates, on the models you pick" width="100%"></a></p>
 
-A local-first desktop app that runs AI coding agents as a team you can watch,
-on runtimes and models you choose, with a durable record of everything they did.
+<p align="center">
+<a href="https://github.com/StopBanning/locust/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/StopBanning/locust?label=release"></a>
+<a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
+<img alt="Windows, Mac and Linux" src="https://img.shields.io/badge/runs%20on-Windows%20%7C%20Mac%20%7C%20Linux-informational">
+</p>
 
+**Your AI coding agents, as one team on your own computer.** Locust runs Claude
+Code, Codex, Cursor, OpenCode, GitHub Copilot, Muse Code, Antigravity and Kilo
+side by side, each teammate on the agent and model you pick, under your own
+accounts. You watch every step, approve what matters, and keep a record of
+everything they did. Free and open source (MIT), with no Locust account and no
+telemetry.
+
+**[Download for Windows, Mac or Linux](https://locust.lol)** ·
+[Releases](https://github.com/StopBanning/locust/releases) ·
+[What's new](CHANGELOG.md)
+
+<table>
+<tr>
+<td><img src="docs/assets/shots/01-home.png" alt="Locust home: a team of six, each teammate on its own AI and model, and Connected accounts: 7 ready"><br><sub>Your team of six, each teammate on its own AI and model. Connected accounts: 7 ready.</sub></td>
+<td><img src="docs/assets/shots/02-model-picker.png" alt="The model picker, grouped by agent, with Opus 5.5 marked active and Antigravity, Claude Code and other agents’ models listed"><br><sub>One picker for the models your own accounts offer, grouped by agent, with the one in use marked.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/assets/shots/03-run-in-progress.png" alt="A teammate working in Edit mode with a three-step plan card, step 1 under way"><br><sub>A run in progress: a three-step plan, step 1 under way, the live line naming the step and its time.</sub></td>
+<td><img src="docs/assets/shots/04-approval.png" alt="An Approve each card showing the exact command, where it runs, and four answers"><br><sub>Approve each: before a command runs you see the exact command, where it runs, and what Locust can and cannot tell about it.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/assets/shots/05-hand-off.png" alt="A hand-off chain: Atlas on Codex reads the code and writes VERDICT: APPROVED on Wren’s diagnosis"><br><sub>A hand-off chain: Wren (OpenCode) diagnosed the bug; Atlas (Codex) read the code himself and wrote VERDICT: APPROVED.</sub></td>
+<td><img src="docs/assets/shots/06-finished.png" alt="The finished run: plan 3 of 3 done, two files edited, four tests passing"><br><sub>The finished fix: 2 files edited, a test added, four tests passing, in 1m 01s.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/assets/shots/07-blind-compare.png" alt="A blind compare: Model A and Model B answer the same ask side by side with names hidden, and a judge model can be asked"><br><sub>Blind compare: two models on the same ask, names hidden until you keep one. A judge model can be asked which it would keep.</sub></td>
+<td><img src="docs/assets/shots/09-board.png" alt="The Board: conversations in columns by what they need from you, one under Needs you and one under Done"><br><sub>The Board: every conversation by what it needs from you.</sub></td>
+</tr>
+</table>
+
+<sub>Screenshots from the packaged app on a fresh demo profile (0.619.0): real runs, no mocks, taken by `_tools/drive-promo-shots.mjs`. The models shown are what that machine’s accounts offer; yours come from your own accounts.</sub>
+
+**Locust** puts Claude Code, Codex, Cursor, OpenCode, GitHub Copilot,
+Antigravity, Muse Code and, in Preview, Kilo side by side under one roof. You give a teammate a
+mission; it runs on your machine, under your own provider accounts, in a
+read-only sandbox unless you say otherwise. Every event is written to an
+append-only local ledger before it reaches the screen, so what you are shown
+is what was recorded, and a mission survives a restart.
+
+## Install
 
 **Download the latest build** at [locust.lol](https://locust.lol), for Windows,
 Mac and Linux, or from [Releases](https://github.com/StopBanning/locust/releases),
@@ -28,34 +71,6 @@ Windows and Mac builds are not signed by a publisher yet
 Locust is developed in this repository, and each release is cut from `main`.
 Issues are welcome here; code changes are by invitation (see CONTRIBUTING.md).
 
-**Locust** puts Claude Code, Codex, Cursor, OpenCode, GitHub Copilot,
-Antigravity and Muse Code side by side under one roof. You give a teammate a
-mission; it runs on your machine, under your own provider accounts, in a
-read-only sandbox unless you say otherwise. Every event is written to an
-append-only local ledger before it reaches the screen, so what you are shown
-is what was recorded, and a mission survives a restart.
-
-<table>
-<tr>
-<td><img src="docs/assets/shots/01-home.png" alt="Locust home: a team of six, each teammate on its own AI and model, and Connected accounts: 7 ready"><br><sub>Your team of six, each teammate on its own AI and model. Connected accounts: 7 ready.</sub></td>
-<td><img src="docs/assets/shots/02-model-picker.png" alt="The model picker, grouped by agent, with Opus 5.5 marked active and Antigravity, Claude Code and other agents’ models listed"><br><sub>One picker for the models your own accounts offer, grouped by agent, with the one in use marked.</sub></td>
-</tr>
-<tr>
-<td><img src="docs/assets/shots/03-run-in-progress.png" alt="A teammate working in Edit mode with a three-step plan card, step 1 under way"><br><sub>A run in progress: a three-step plan, step 1 under way, the live line naming the step and its time.</sub></td>
-<td><img src="docs/assets/shots/04-approval.png" alt="An Approve each card showing the exact command, where it runs, and four answers"><br><sub>Approve each: before a command runs you see the exact command, where it runs, and what Locust can and cannot tell about it.</sub></td>
-</tr>
-<tr>
-<td><img src="docs/assets/shots/05-hand-off.png" alt="A hand-off chain: Atlas on Codex reads the code and writes VERDICT: APPROVED on Wren’s diagnosis"><br><sub>A hand-off chain: Wren (OpenCode) diagnosed the bug; Atlas (Codex) read the code himself and wrote VERDICT: APPROVED.</sub></td>
-<td><img src="docs/assets/shots/06-finished.png" alt="The finished run: plan 3 of 3 done, two files edited, four tests passing"><br><sub>The finished fix: 2 files edited, a test added, four tests passing, in 1m 01s.</sub></td>
-</tr>
-<tr>
-<td><img src="docs/assets/shots/07-blind-compare.png" alt="A blind compare: Model A and Model B answer the same ask side by side with names hidden, and a judge model can be asked"><br><sub>Blind compare: two models on the same ask, names hidden until you keep one. A judge model can be asked which it would keep.</sub></td>
-<td><img src="docs/assets/shots/09-board.png" alt="The Board: conversations in columns by what they need from you, one under Needs you and one under Done"><br><sub>The Board: every conversation by what it needs from you.</sub></td>
-</tr>
-</table>
-
-<sub>Screenshots from the packaged app on a fresh demo profile (0.619.0): real runs, no mocks, taken by `_tools/drive-promo-shots.mjs`. The models shown are what that machine’s accounts offer; yours come from your own accounts.</sub>
-
 ## Why this exists
 
 Most agent products hide the runtime, the model, the provider, the permissions
@@ -72,7 +87,8 @@ You ──► a teammate (name, role, face; its own runtime, model and mode)
           ├─ OpenCode ──────── "
           ├─ Copilot CLI ───── "
           ├─ Antigravity ───── the IDE's own agent, through its CLI
-          └─ Muse Code ─────── "
+          ├─ Muse Code ─────── "
+          └─ Kilo ──────────── its free Auto Free model needs no account (Preview)
           │
           ▼
         one append-only ledger per conversation, written before the screen is
@@ -105,6 +121,8 @@ names -- nothing is offered that the installed CLI did not list. Gemini CLI is
 found and signed into like the others but refused: Google serves the CLI to
 API keys and enterprise licences only, and its stream has never been measured,
 so Locust says so rather than start a process whose output nobody can read.
+Kilo joined in 0.835, in Preview: a new conversation starts on its free Auto
+Free model, which needs no account.
 
 **Teammates.** A teammate is a name, a role, a look and routing defaults: its
 runtime, model, reasoning effort and mode. Up to 64 teammates; up to 8
@@ -144,7 +162,8 @@ different runtimes, with a checker that must approve before the run counts.
 Rooms hold a conversation several teammates take part in.
 
 **Routines.** A routine runs a teammate on a schedule -- every N hours,
-daily, weekly, once, or when files in a folder change -- and can keep running
+daily, weekly, once, when files in a folder change, or when its private link
+is called -- and can keep running
 in the background after the window is closed.
 
 **The Board.** Every conversation in columns by what it needs from you: Needs
@@ -175,6 +194,13 @@ turns in Ask mode unless you say otherwise. The Claude app is added in one
 press (a copy of its settings is kept first); Claude Code, Codex and OpenClaw
 get the command or config entry to paste. Through OpenClaw, your chat apps
 (WhatsApp, Telegram, iMessage, Slack) can ask the team too.
+
+**Away from your computer.** Pair your phone once and it reaches Locust from
+any network through Locust's relay, every message locked on your own devices:
+it shows your conversations, answers approval cards and can buzz when something
+needs you. `app.locust.lol/desk` opens the whole window in any browser, driven
+by your computer, and a Telegram bot of your own carries messages to your
+teammates. Each is off until you turn it on.
 
 **Links.** A link like `locust://new?prompt=Explain%20this%20project` opens
 Locust on a new conversation with that message in the box, so a README or a
@@ -218,7 +244,7 @@ Run all checks:
 pnpm check
 ```
 
-This builds every workspace package, runs TypeScript checks, and runs the complete test suite (about 11,400 tests across the desktop app, the adapters and the ledger, as of 0.745).
+This builds every workspace package, runs TypeScript checks, and runs the complete test suite (about 13,800 tests across the desktop app, the adapters, the ledger and the relay, as of 0.835).
 
 Green tests are not the evidence here. Each package carries a mutation
 control (`test/mutation-control.mjs`) that breaks one behaviour at a time and
@@ -246,6 +272,8 @@ it is, including who approves each release and what is never collected, is in
 ## Current scope
 
 Locust runs on your own computer, on the CLIs you installed and the accounts
-you signed into. There is no hosted service, no account with Locust, and no
-telemetry. Cloud execution, if it ever comes, comes after the local approval
+you signed into. There is no account with Locust and no telemetry. The one
+service Locust runs is its relay at `app.locust.lol`, used only once you turn
+on your phone, a browser or a routine link ([docs/NETWORK.md](docs/NETWORK.md)).
+Cloud execution, if it ever comes, comes after the local approval
 and recovery model has proved itself in use.
