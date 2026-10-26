@@ -11,6 +11,22 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.836.0 - 2026-10-27
+<!-- big -->
+
+### New
+
+- **OpenCode teammates can use their kept keys.** Keys you keep for a teammate now reach its OpenCode turns, as they already do for Claude Code and Cursor.
+
+### Improved
+
+- **Changed files are easier to scan.** Each row leads with a mark for its kind and the file's own name, with its folder beside it when two rows share a name and its path in the hover. Long file lists under finished turns show five rows and Show N more, and new, deleted, renamed and large are quiet words beside the name.
+- **Home makes more room in a short window.** The illustration shrinks a little and the team cards sit closer together, leaving more room for the chat box and conversation starters. Taller windows keep their existing layout.
+
+### Fixed
+
+- **Your own agent no longer stops at its first 200 models.** The model picker now keeps up to 1,000 models the agent offers, so a longer list can include models that used to disappear.
+
 ## 0.835.0 - 2026-10-27
 <!-- big -->
 
