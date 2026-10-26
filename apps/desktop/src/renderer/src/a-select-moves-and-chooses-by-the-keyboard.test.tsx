@@ -38,6 +38,9 @@ describe('a select moves and chooses by the keyboard', () => {
     expect(press('ArrowDown', { open: true, active: 3 }).active).toBe(3)
     expect(press('ArrowUp', { open: true, active: 0 }).active).toBe(0)
     expect(press('Home', { open: true, active: 2 })).toMatchObject({ active: 0, choose: false })
+    expect(press('1', { open: true, active: 3 })).toMatchObject({ open: false, active: 0, choose: true })
+    expect(press('4', { open: true, active: 0 })).toMatchObject({ active: 3, choose: true })
+    expect(press('9', { open: true, active: 0 }).choose).toBe(false)
     expect(press('End', { open: true, active: 0 })).toMatchObject({ active: 3, choose: false })
   })
 

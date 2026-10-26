@@ -5,6 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react'
 import { useDismissOnOutsidePress } from '../useDismissOnOutsidePress.js'
 import { ChevronGlyph } from './ChatGlyphs.js'
 import { Icon } from './Icon.js'
+import { menuRowFromDigit } from '../menuDigit.js'
 
 /**
  * A choice control drawn as Locust's own menu, in place of the operating
@@ -86,6 +87,14 @@ export function applySelectKey(input: SelectKeyInput): SelectKeyResult {
   const stay: SelectKeyResult = { open: input.open, active: input.active, choose: false, prevent: false, query: held }
   if (input.enabled.length === 0 || input.ctrlKey || input.metaKey) return stay
   const selected = input.selected >= 0 && input.enabled.includes(input.selected) ? input.selected : input.enabled[0]!
+  if (input.open) {
+    const nth = menuRowFromDigit(input.key, { ctrl: input.ctrlKey, meta: input.metaKey, alt: input.altKey, shift: false }, false)
+    if (nth !== undefined) {
+      const chosen = input.enabled[nth]
+      if (chosen === undefined) return { ...stay, prevent: true }
+      return { open: false, active: chosen, choose: true, prevent: true, query: '' }
+    }
+  }
 
   if (input.key.length === 1 && input.key !== ' ' && !input.altKey) {
     const letter = input.key.toLowerCase()
