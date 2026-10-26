@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { createAcpAgentCommand } from "./commands.js";
 import { startOpenCodeAcpRun } from "./opencode-acp-run.js";
 import type { OpenCodeAcpRun, OpenCodeAcpRunOptions } from "./opencode-acp-run.js";
@@ -85,9 +89,88 @@ export function createKiloAcpCommand(
 }
 
 export function startKiloAcpRun(options: OpenCodeAcpRunOptions): OpenCodeAcpRun {
+  const command = createKiloAcpCommand(options.executable, options.workspacePath, options.launch);
   return startOpenCodeAcpRun({
     ...options,
     label: "Kilo",
-    command: createKiloAcpCommand(options.executable, options.workspacePath, options.launch),
+    command: { ...command, env: withKiloGitShim(command.env) },
   });
+}
+
+export interface KiloGitShimDeps {
+  readonly platform?: NodeJS.Platform;
+  readonly pathEnv?: string;
+  readonly pathKey?: string;
+  readonly resolveGit?: (pathEnv: string | undefined, platform: NodeJS.Platform) => string | undefined;
+  readonly directory?: string;
+  readonly mkdirSync?: (path: string) => void;
+  readonly writeFileSync?: (path: string, contents: string) => void;
+}
+
+/**
+ * The first `git` on this Kilo child's PATH, and nowhere else.
+ *
+ * GIT INHERITS ACP STDIN ON WINDOWS (2026-10-26). Kilo 7.8.17 runs
+ * `git config --get remote.origin.url` through Bun's shell, and that child
+ * inherits the ACP pipe. On Windows it blocks until another line is written.
+ * Measured the same day on 7.8.17: one process's five model requests spawned
+ * that lookup once, and a second prompt in that process did not spawn it
+ * again. A JSON-RPC line written while git was already blocked still reached
+ * Kilo, and released git about 13ms later. A blank line sent before git is
+ * blocked is only an empty protocol line, so a timer cannot close the race.
+ * Bun's shell resolves a `git.cmd` placed first on the child PATH (measured).
+ * That file runs the real git, found when the run starts, with stdin from NUL,
+ * so the protocol pipe is never its input. OpenCode does not get this directory.
+ */
+export function withKiloGitShim(
+  env: Readonly<Record<string, string>> | undefined,
+  deps: KiloGitShimDeps = {},
+): Readonly<Record<string, string>> {
+  const base = { ...(env ?? {}) };
+  try {
+    const platform = deps.platform ?? process.platform;
+    const pathKey = deps.pathKey ?? Object.keys(process.env).find((key) => key.toLowerCase() === "path") ?? "PATH";
+    const pathEnv = deps.pathEnv ?? process.env[pathKey];
+    const gitPath = (deps.resolveGit ?? resolveGitOnPath)(pathEnv, platform);
+    if (gitPath === undefined || !gitPathIsSafe(gitPath, platform)) return base;
+    const directory = deps.directory ?? join(tmpdir(), "locust-kilo-git");
+    const prepare = deps.mkdirSync ?? ((path: string) => { mkdirSync(path, { recursive: true }); });
+    const write = deps.writeFileSync ?? ((path: string, contents: string) => { writeFileSync(path, contents, "utf8"); });
+    prepare(directory);
+    const name = platform === "win32" ? "git.cmd" : "git";
+    write(join(directory, name), gitShimScript(gitPath, platform));
+    const separator = platform === "win32" ? ";" : ":";
+    const current = base[pathKey] ?? pathEnv ?? "";
+    return { ...base, [pathKey]: current.length > 0 ? `${directory}${separator}${current}` : directory };
+  } catch {
+    return base;
+  }
+}
+
+/** `git.exe` anywhere on PATH wins over a later `git.cmd`, so the shim cannot call itself. */
+export function resolveGitOnPath(pathEnv: string | undefined, platform: NodeJS.Platform): string | undefined {
+  const dirs = (pathEnv ?? "").split(platform === "win32" ? ";" : ":").filter((dir) => dir.length > 0);
+  const names = platform === "win32" ? ["git.exe", "git.cmd"] : ["git"];
+  for (const name of names) {
+    for (const dir of dirs) {
+      const candidate = join(dir, name);
+      try {
+        if (existsSync(candidate)) return candidate;
+      } catch {
+        // A PATH entry that cannot be stated is not a git we can point at.
+      }
+    }
+  }
+  return undefined;
+}
+
+function gitPathIsSafe(gitPath: string, platform: NodeJS.Platform): boolean {
+  if (gitPath.length === 0 || gitPath.length > 260) return false;
+  if (platform === "win32") return /^[A-Za-z]:\\[^"\r\n%&|<>^]*git\.(?:exe|cmd)$/i.test(gitPath);
+  return gitPath.startsWith("/") && !/[\0\r\n"'`$\\]/.test(gitPath);
+}
+
+function gitShimScript(gitPath: string, platform: NodeJS.Platform): string {
+  if (platform === "win32") return `@echo off\r\n@"${gitPath.replace(/%/g, "%%")}" %* < NUL\r\n`;
+  return `#!/bin/sh\nexec "${gitPath}" "$@" </dev/null\n`;
 }

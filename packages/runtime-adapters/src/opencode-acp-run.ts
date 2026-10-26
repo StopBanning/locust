@@ -194,22 +194,6 @@ export function startOpenCodeAcpRun(options: OpenCodeAcpRunOptions): OpenCodeAcp
                   admitted = true;
                   clearTimeout(startupTimer);
                   queueMicrotask(flushSteering);
-                  // GIT INHERITS ACP STDIN ON WINDOWS (2026-10-26). Kilo 7.8.17 runs
-                  // `git config --get remote.origin.url` through Bun's shell on every
-                  // gateway request, and that child inherits this pipe. On Windows it
-                  // blocks until another line arrives, so session/prompt never returns
-                  // and the client is never asked for a file or a permission. A blank
-                  // line is not a protocol message. Measured on 7.8.17: a blank line
-                  // 500ms after the prompt, and the model is selected about 15ms later.
-                  // 750ms leaves room for a slower prepare. OpenCode does not do this
-                  // lookup. The local `process` is the child, so the platform is read
-                  // from Node itself.
-                  if (command.runtime === "kilo" && globalThis.process.platform === "win32") {
-                    const release = setTimeout(() => {
-                      try { child.write("\n"); } catch { /* The pipe already closed. */ }
-                    }, 750);
-                    if (typeof release === "object" && release !== null && "unref" in release) release.unref();
-                  }
                 }
                 try {
                   child.write(line);
