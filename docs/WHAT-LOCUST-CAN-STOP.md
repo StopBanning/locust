@@ -13,6 +13,7 @@ Locust can stop a run only where its AI agent asks first. Where it asks, a card 
 | Copilot CLI | Each action | in Approve each action | Locust |
 | Cursor Agent | Nothing | never | — |
 | Antigravity | Questions only | its questions | — |
+| Kilo | Nothing | never | — |
 | Muse Code | Nothing | never | — |
 | Your own agent | Some actions | what the agent asks about | Locust |
 
@@ -59,6 +60,12 @@ Locust can stop a run only where its AI agent asks first. Where it asks, a card 
 **Asks first.** Only its questions, which you answer on a card. It never asks before an action.
 
 **Without asking.** In Ask and Plan, no file changes and no commands; in Edit, file changes and no commands; in Auto, everything. What it refused is listed after the run.
+
+## Kilo
+
+**Asks first.** Nothing: Kilo runs without asking Locust.
+
+**Without asking.** In Ask and Plan, Kilo’s ask mode: no file changes, and a tool it does not name is denied, including an MCP tool from a config Locust does not load. In Edit, Kilo’s code mode in this folder, and an action it asks about is refused. In Auto, that mode, and an action it asks about is allowed. Paid models and signing in have not been measured.
 
 ## Muse Code
 

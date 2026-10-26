@@ -26,7 +26,7 @@ import { runtimeInstallFacts } from './runtime-install.js'
  * The runtime addresses are read from `runtime-install.ts` rather than
  * copied, so a vendor URL that changes there cannot leave a dead link here.
  */
-const RUNTIME_LINKS: readonly string[] = ['cursor', 'antigravity', 'codex', 'claude', 'copilot', 'opencode', 'gemini', 'muse']
+const RUNTIME_LINKS: readonly string[] = ['cursor', 'antigravity', 'codex', 'claude', 'copilot', 'opencode', 'gemini', 'muse', 'kilo']
   .map((id) => runtimeInstallFacts(id))
   .flatMap((facts) => (facts !== undefined && facts.install.kind === 'vendor' ? [facts.install.url] : []))
 

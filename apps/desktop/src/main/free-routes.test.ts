@@ -10,6 +10,9 @@ describe('free routes only', () => {
   it('knows the free routes the drives use', () => {
     expect(isFreeRoute('opencode', 'opencode/muse-spark-1.3-contributor-free')).toBe(true)
     expect(isFreeRoute('opencode', 'ling-3.0-flash-fin-free')).toBe(true)
+    expect(isFreeRoute('kilo', 'kilo/kilo-auto/free')).toBe(true)
+    expect(isFreeRoute('kilo', 'kilo/some-vendor/model:free')).toBe(true)
+    expect(isFreeRoute('kilo', 'vendor/model-free')).toBe(true)
   })
 
   it('does not call a route free because of its runtime or a word in its name', () => {
@@ -20,6 +23,9 @@ describe('free routes only', () => {
     // "free" inside an id is a word, not a price (code review B4, own runs 4).
     expect(isFreeRoute('opencode', 'opencode/x-free-pro')).toBe(false)
     expect(isFreeRoute('opencode', 'opencode/free-tier-preview-max')).toBe(false)
+    expect(isFreeRoute('kilo', 'kilo/google/gemini-3-pro-image')).toBe(false)
+    expect(isFreeRoute('kilo', undefined)).toBe(false)
+    expect(isFreeRoute('kilo', 'kilo/free-tier-preview')).toBe(false)
   })
 
   it('knows every free model OpenCode 1.18.27 lists', () => {

@@ -57,7 +57,7 @@ export function publicStatus(runtime: RuntimeDiscovery): PublicRuntimeStatus {
   //
   // `not-applicable` is what the type already carries for a runtime whose
   // readiness is not a statement about an account.
-  const auth: RuntimeAuthState = runtime.id === 'omniroute' || runtime.id === 'opencode'
+  const auth: RuntimeAuthState = runtime.id === 'omniroute' || runtime.id === 'opencode' || runtime.id === 'kilo'
     ? 'not-applicable'
     : runtime.readiness === 'ready'
       ? 'authenticated'

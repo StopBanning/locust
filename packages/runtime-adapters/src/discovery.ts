@@ -346,6 +346,26 @@ const DEFINITIONS: readonly IntegrationDefinition[] = [
     },
   },
   {
+    /*
+     * Kilo Code's CLI. Measured 2026-10-25 on 7.8.17: `kilo --version` prints
+     * the version alone, and `kilo acp` speaks the Agent Client Protocol.
+     * Models come from that session, not a list command -- a list command is
+     * not run here, and neither is a turn. There is no credential file check:
+     * Auto Free needs no account, and this probe does not look at
+     * ~/.config/kilo or ~/.config/opencode.
+     */
+    id: "kilo",
+    kind: "agent-runtime",
+    displayName: "Kilo",
+    commandName: "kilo",
+    optional: true,
+    versionArgs: ["--version"],
+    capabilityArgs: ["acp", "--help"],
+    readinessArgs: ["--version"],
+    requiredFeatures: ["acp-stdio"],
+    readyWhen: (result) => /\d+\.\d+\.\d+/.test(`${result.stdout}\n${result.stderr}`),
+  },
+  {
     id: "omniroute",
     kind: "provider-gateway",
     displayName: "OmniRoute",
@@ -642,6 +662,60 @@ async function discoverOpenCodeAcp(
   };
 }
 
+/**
+ * Kilo is ready when `kilo acp --help` names the Agent Client Protocol.
+ * The help is a fact about the binary, so it is cached with the version.
+ * A failed help is not cached. No model list and no credential file.
+ */
+async function discoverKilo(
+  definition: IntegrationDefinition,
+  runner: CommandRunner,
+  executable: ExecutableLaunch,
+  version: ParsedRuntimeVersion,
+  versionText: string,
+  remembered: RuntimeBinaryFacts | undefined,
+  fingerprint: string | undefined,
+  recall: RuntimeFactsCache | undefined,
+): Promise<RuntimeDiscovery> {
+  const capability: ProbeOutcome = remembered !== undefined
+    ? { result: { stdout: remembered.capabilityText, stderr: "", exitCode: 0 } }
+    : await runProbe(runner, executable, "capabilities", ["acp", "--help"]);
+  const capabilityText = succeeded(capability) ? `${capability.result.stdout}\n${capability.result.stderr}` : "";
+  const advertised = succeeded(capability) && /\bagent[\s-]*client[\s-]*protocol\b/i.test(capabilityText);
+  if (remembered === undefined && fingerprint !== undefined && succeeded(capability)) {
+    recall?.set(fingerprint, { versionText, capabilityText });
+  }
+  const diagnostics: RuntimeDiagnostic[] = [];
+  if (!succeeded(capability)) {
+    diagnostics.push({
+      code: "capability-probe-failed",
+      severity: "error",
+      message: `Kilo ACP capability detection ${failureMessage(capability)}.`,
+    });
+  }
+  if (!advertised) {
+    diagnostics.push({
+      code: "required-capability-missing",
+      severity: "error",
+      message: "Kilo did not advertise the Agent Client Protocol on its acp command.",
+      resolution: "Update Kilo to a release whose kilo acp command supports the Agent Client Protocol.",
+    });
+  }
+  return {
+    id: definition.id,
+    kind: definition.kind,
+    displayName: definition.displayName,
+    optional: definition.optional,
+    availability: "available",
+    readiness: advertised ? "ready" : "unsupported",
+    executable,
+    version,
+    supportedFeatures: advertised ? ["acp-stdio"] : [],
+    requiredFeatures: ["acp-stdio"],
+    diagnostics,
+  };
+}
+
 async function discoverOne(
   definition: IntegrationDefinition,
   runner: CommandRunner,
@@ -714,6 +788,14 @@ async function discoverOne(
         requiredFeatures: [],
         diagnostics: [{ code: "version-unsupported", severity: "error", ...refused }],
       };
+    }
+  }
+  if (definition.id === "kilo") {
+    const outcome = await versionAsked;
+    const versionText = succeeded(outcome) ? `${outcome.result.stdout}\n${outcome.result.stderr}` : "";
+    const version = succeeded(outcome) ? parseRuntimeVersion(versionText) : undefined;
+    if (version !== undefined) {
+      return discoverKilo(definition, runner, executable, version, versionText, remembered, fingerprint, recall);
     }
   }
   /*

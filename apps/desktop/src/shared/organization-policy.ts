@@ -4,7 +4,7 @@ import { parsedAcpRouteModel } from './acp-agents.js'
 import { runtimeDisplayName } from './runtimes.js'
 
 export type PolicyRuntimeId = LocalRuntimeId | MissionRuntimeId
-export const POLICY_RUNTIME_IDS = ['codex', 'claude', 'cursor', 'gemini', 'opencode', 'copilot', 'antigravity', 'muse', 'omniroute', 'acp'] as const satisfies readonly PolicyRuntimeId[]
+export const POLICY_RUNTIME_IDS = ['codex', 'claude', 'cursor', 'gemini', 'opencode', 'copilot', 'antigravity', 'muse', 'kilo', 'omniroute', 'acp'] as const satisfies readonly PolicyRuntimeId[]
 
 /** Increasing authority: read, plan, ask before actions, edit without asking, unrestricted. */
 export const POLICY_MODE_ORDER: readonly MissionMode[] = ['ask', 'plan', 'approve-each', 'accept-edits', 'auto']

@@ -129,7 +129,7 @@ function buildRows(
      * it is wrong: someone deciding whether picking this route will cost
      * them money.
      */
-    const group = runtime.id === FREE_START_RUNTIME ? runtime.displayName : `${runtime.displayName} · your account`
+    const group = runtime.id === FREE_START_RUNTIME || runtime.id === 'kilo' ? runtime.displayName : `${runtime.displayName} · your account`
 
     // Every catalog model names its runtime -- Codex's from a live server
     // read, Claude's from what its CLI advertised -- and is offered only

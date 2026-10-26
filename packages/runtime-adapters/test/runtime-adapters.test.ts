@@ -409,6 +409,7 @@ describe("installed runtime discovery", () => {
       { id: "opencode", availability: "unavailable", readiness: "unknown" },
       { id: "copilot", availability: "unavailable", readiness: "unknown" },
       { id: "muse", availability: "unavailable", readiness: "unknown" },
+      { id: "kilo", availability: "unavailable", readiness: "unknown" },
       { id: "omniroute", availability: "unavailable", readiness: "unknown" },
     ]);
   });

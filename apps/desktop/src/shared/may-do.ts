@@ -153,6 +153,14 @@ export function whatItMayDo(runtime: MissionRuntimeId, sandbox: MissionSandbox, 
         rows: [READ, { verdict: 'allow', text: "change files and run commands when it asks and you approve; which actions it asks about is the agent's own choice" }],
         rest
       }
+    case 'kilo':
+      // Ask and Plan are Kilo's ask agent: unnamed tools, including MCP tools
+      // from a config this run does not load, are denied. Edit is Kilo's code
+      // mode with an ask refused. Auto is that mode with an ask allowed.
+      // https://kilo.ai/docs/getting-started/using-kilo-for-free
+      if (sandbox === 'full-access') return rows(ANY_COMMAND, THE_WEB)
+      if (sandbox === 'read-only') return rows(NO_COMMANDS, THE_WEB)
+      return rows(OPEN_COMMANDS, THE_WEB, NOT_OUTSIDE)
     case 'muse':
       // Read-only: `--disable-write --disable-shell`. Edit: approval `never`
       // with Muse's sandbox left on ("shell filesystem/network sandboxing",

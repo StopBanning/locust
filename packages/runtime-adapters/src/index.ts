@@ -44,6 +44,7 @@ export type { AcpEventNormalizer, AcpInvocationContext } from "./acp-events.js";
 export { ACP_PROTOCOL_VERSION, acpCapabilitiesOf, acpPermissionRequestOf, startAcpRun } from "./acp-run.js";
 export type { AcpCapabilities, AcpMcpServer, AcpPermissionAnswer, AcpPermissionOption, AcpPermissionRequest, AcpRun, AcpRunOptions } from "./acp-run.js";
 export { OPENCODE_ACP_PROFILE, createOpenCodeAcpCommand, startOpenCodeAcpRun } from "./opencode-acp-run.js";
+export { KILO_AUTO_FREE_MODEL, createKiloAcpCommand, kiloIsolationEnv, kiloModelForRun, kiloSessionMode, startKiloAcpRun } from "./kilo-acp-run.js";
 export type { OpenCodeAcpFailure, OpenCodeAcpRun, OpenCodeAcpRunOptions } from "./opencode-acp-run.js";
 export { unifiedDiffOf } from "./line-diff.js";
 export type { OpenCodePermission, OpenCodePermissionAnswer, OpenCodePermissionReply, OpenCodeServeRunOptions } from "./opencode-serve-run.js";

@@ -72,4 +72,19 @@ describe('a pick belongs to the conversation it was made in (0.552)', () => {
     const home = { runtime: 'claude' as const, model: 'account-default' }
     expect(composerRouteFor(home, undefined, choices, pickKeyFor(undefined, undefined))).toBe(home)
   })
+  it('shows a Kilo teammate saved on the account default as Auto Free', () => {
+    const kilo = { teammateId: 'tm_wren', route: { runtime: 'kilo' as const, model: 'account-default', mode: 'ask' as const } }
+    expect(composerRouteFor(fallback, kilo, new Map(), pickKeyFor(undefined, kilo.teammateId))).toMatchObject({
+      runtime: 'kilo',
+      model: 'kilo/kilo-auto/free'
+    })
+    expect(composerRouteFor({ runtime: 'kilo', model: 'account-default' }, undefined, new Map(), 'new')).toMatchObject({
+      runtime: 'kilo',
+      model: 'kilo/kilo-auto/free'
+    })
+    expect(routeAtStart({ runtime: 'kilo', model: 'account-default' }, kilo)).toMatchObject({
+      runtime: 'kilo',
+      model: 'kilo/kilo-auto/free'
+    })
+  })
 })

@@ -27,7 +27,7 @@ import type { CheckpointReason, ReconciledCheckpoint } from './checkpoint.js'
  */
 export type MissionRecordedMode = "ask" | "plan" | "accept-edits" | "approve-each" | "auto";
 
-export const MISSION_LEDGER_SCHEMA_VERSION = 26 as const
+export const MISSION_LEDGER_SCHEMA_VERSION = 27 as const
 
 /**
  * Versions this reader accepts, each a strict subset of the next, so all are
@@ -170,7 +170,8 @@ export const MISSION_LEDGER_SCHEMA_VERSION = 26 as const
 // typed it. A v23 reader stops at a starter it does not know, so the number moves for the reason it moved at v23.
 // v26 records a turn Locust started because the person's check failed after the turn before it and the person had
 // said to send such a failure back (0.812, `check-fix`): nobody typed it either, so the number moves the same way.
-export const SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26] as const
+// v27 records a mission on Kilo. A v26 reader has no such runtime.
+export const SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27] as const
 
 export type MissionLedgerSchemaVersion =
   (typeof SUPPORTED_MISSION_LEDGER_SCHEMA_VERSIONS)[number]
@@ -827,6 +828,8 @@ const MISSION_RUNTIMES = {
   copilot: true,
   antigravity: true,
   muse: true,
+  // Kilo Code's CLI (LEDGER v27).
+  kilo: true,
   // An agent the person added, by its command line (0.777, LEDGER v25).
   acp: true
 } as const satisfies Record<MissionRuntimeId, true>
@@ -1184,6 +1187,10 @@ function parsedMetadata(
   }
   // And no writer before v16 knew Muse Code.
   if (schemaVersion < 16 && candidate.runtime === 'muse') {
+    return undefined
+  }
+  // And no writer before v27 knew Kilo.
+  if (schemaVersion < 27 && candidate.runtime === 'kilo') {
     return undefined
   }
   if (

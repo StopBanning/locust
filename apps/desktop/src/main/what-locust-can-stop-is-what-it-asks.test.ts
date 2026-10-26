@@ -26,7 +26,7 @@ const source = (file: string): string => readFileSync(fileURLToPath(new URL(file
  * renderer, so this reads the table the way the other main tests read
  * renderer source.
  */
-const RUNTIMES: readonly MissionRuntimeId[] = ['codex', 'claude', 'cursor', 'gemini', 'opencode', 'copilot', 'antigravity', 'muse', 'acp']
+const RUNTIMES: readonly MissionRuntimeId[] = ['codex', 'claude', 'cursor', 'gemini', 'opencode', 'copilot', 'antigravity', 'muse', 'kilo', 'acp']
 const capabilities = source('../renderer/src/status.ts')
 const table = capabilities.slice(capabilities.indexOf('export const RUNTIME_CAPABILITIES'))
 const modesOf = (runtime: MissionRuntimeId): string => {

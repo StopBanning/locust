@@ -45,6 +45,12 @@ export type RuntimeIntegrationId =
    */
   | "antigravity"
   /**
+   * Kilo Code's CLI (`kilo acp`), an OpenCode fork that speaks ACP.
+   * Discovered on PATH. A fresh session's own model is not what a new run
+   * uses: the host starts it on Auto Free. Signing in is only for paid models.
+   */
+  | "kilo"
+  /**
    * AN AGENT THE PERSON ADDED (0.777): any program that speaks the Agent Client
    * Protocol -- Goose, Qwen Code, Kimi CLI, Mistral Vibe and the rest of the
    * list at agentclientprotocol.com -- by the command line the person gave it.

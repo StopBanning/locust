@@ -28,6 +28,11 @@ import {
   createOpenCodeRunCommand,
   createOpenCodeServeCommand,
   createOpenCodeAcpCommand,
+  createKiloAcpCommand,
+  kiloIsolationEnv,
+  kiloModelForRun,
+  kiloSessionMode,
+  startKiloAcpRun,
   openCodeUsesAcp,
   cursorCanEnforceReadOnly,
   notificationOfRecord,
@@ -57,7 +62,9 @@ import type { MissionContinuation, MissionLedger, RecoveredMission, Workroom, Wo
 import type { AcpCapabilities, GitReadsSpec, MissionSandbox, OpenCodeProvider, RuntimeCommandInfo, RuntimeCommandSpec } from '@teammate/runtime-adapters'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { isAbsolute } from 'node:path'
+import { mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { isAbsolute, join } from 'node:path'
 import type {
   CodexMissionCancelResponse,
   CodexMissionStartResponse,
@@ -490,7 +497,7 @@ interface CodexMissionServiceOptions {
    * the folder it is told. Absent: Copilot has no Approve-each.
    */
   /** What an ACP agent said it can do, at the start of its run (W12): kept for Settings. */
-  readonly onAcpCapabilities?: (runtime: 'copilot' | 'opencode', capabilities: AcpCapabilities) => void
+  readonly onAcpCapabilities?: (runtime: 'copilot' | 'opencode' | 'kilo', capabilities: AcpCapabilities) => void
   /** The agents the person added (0.777, main/acp-agents.ts): an agent's command, found by the rule its Test used. */
   readonly acpAgents?: { readonly resolve: (agentId: string) => Promise<{ readonly agent: AcpAgent; readonly found: AcpLaunch } | { readonly message: string }> }
   readonly acpSpawn?: (
@@ -1508,7 +1515,9 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
   ): Promise<string | undefined> {
     const managed = policyTurnRefusal(options.organizationPolicy, { runtime, mode, model: route.model, account: route.account })
     if (managed !== undefined) return managed
-    const chosenModel = route.model === undefined || route.model === 'account-default' ? undefined : route.model
+    const chosenModel = runtime === 'kilo'
+      ? kiloModelForRun(route.model)
+      : route.model === undefined || route.model === 'account-default' ? undefined : route.model
     if (options.freeRoutesOnly === true && !isFreeRoute(runtime, chosenModel)) return FREE_ONLY_REFUSAL
     const overLimit = await spendRefusalFor(teammateId)
     if (overLimit !== undefined) return overLimit
@@ -1594,8 +1603,9 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
       // `account-default` is the shell's word for "send no --model", not a
       // model id. Passing it through would make the CLI look for a model that
       // does not exist.
-      const chosenModel =
-        route.model === undefined || route.model === 'account-default' ? undefined : route.model
+      const chosenModel = runtime === 'kilo'
+        ? kiloModelForRun(route.model)
+        : route.model === undefined || route.model === 'account-default' ? undefined : route.model
       // Before anything is recorded or spawned: a drive's window spends
       // nothing, whichever way the run was asked for (free-routes.ts).
       if (options.freeRoutesOnly === true && !isFreeRoute(runtime, chosenModel)) {
@@ -1809,6 +1819,12 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
         }
         if (opencodeAcp && options.acpSpawn === undefined) {
           return error('RUNTIME_START_FAILED', 'OpenCode 2 needs its ACP connection. Your message has not been sent; reopen Locust and try again.') as CodexMissionStartResponse
+        }
+        if (runtime === 'kilo' && cloud !== undefined) {
+          return error('RUNTIME_START_FAILED', 'Kilo runs on this computer. Turn Cloud off for this conversation.') as CodexMissionStartResponse
+        }
+        if (runtime === 'kilo' && options.acpSpawn === undefined) {
+          return error('RUNTIME_START_FAILED', 'Kilo needs its ACP connection. Your message has not been sent; reopen Locust and try again.') as CodexMissionStartResponse
         }
         if (runtime === 'cursor') {
           const picked = cursorChoiceFor(cursorModelsFrom(runtimes), chosenModel, route.effort)
@@ -2119,6 +2135,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                 ? 'copilot'
                 : runtime === 'muse'
                   ? 'muse'
+                  : runtime === 'kilo'
+                    ? 'kilo'
                   : runtime === 'antigravity'
                     ? 'antigravity'
                     : 'codex'
@@ -2243,6 +2261,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           ? createClaudeEventNormalizer(normalizerContext)
           : runtime === 'cursor'
             ? createCursorEventNormalizer(normalizerContext)
+            : runtime === 'kilo'
+              ? createAcpEventNormalizer({ ...normalizerContext, runtime: 'kilo', ...(resumeThreadId === undefined ? {} : { sessionId: resumeThreadId }) })
             : opencodeAcp
               ? createAcpEventNormalizer({ ...normalizerContext, runtime: 'opencode', ...(resumeThreadId === undefined ? {} : { sessionId: resumeThreadId }) })
             : runtime === 'opencode'
@@ -2413,6 +2433,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           }
         }
         if (runSkills !== undefined) options.note?.('skills-given', `${missionId} ${runSkills.skills.join(' ')}`)
+        const kiloConfig = runtime !== 'kilo' ? undefined : await mkdtemp(join(tmpdir(), 'locust-kilo-run-'))
+        const kiloLaunch = kiloConfig === undefined ? undefined : { env: kiloIsolationEnv(kiloConfig), sandbox: effectiveSandbox }
         const openCodeAcpLaunch = !opencodeAcp ? undefined : openCode2Launch(executable, {
           workspacePath: runCwd,
           sandbox: effectiveSandbox,
@@ -2469,6 +2491,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
             ...(resumeThreadId === undefined ? {} : { resumeThreadId }),
             ...(side === undefined ? {} : { forkSession: true })
           }
+          if (runtime === 'kilo') return createKiloAcpCommand(executable, runCwd, kiloLaunch)
           if (opencodeAcp) return createOpenCodeAcpCommand(executable, runCwd, openCodeAcpLaunch)
           if (runtime === 'opencode' && opencodeServes) {
             return createOpenCodeServeCommand(executable, {
@@ -3039,6 +3062,26 @@ ${sentPrompt.trim()}`
             })
             process = streamed
             steer = streamed.steer
+          } else if (runtime === 'kilo') {
+            say('starting-runtime')
+            const acp = startKiloAcpRun({
+              spawn: options.acpSpawn!,
+              executable,
+              workspacePath: runCwd,
+              launch: kiloLaunch,
+              prompt: runtimePrompt,
+              ...(resumeThreadId === undefined ? {} : { resumeSessionId: resumeThreadId }),
+              // Model first, then mode. Kilo's fresh session model is a paid
+              // image model; setting the model can reset the mode, so the mode
+              // is set after it. Effort is not copied from that image model.
+              requiredConfig: { model: chosenModel ?? kiloModelForRun(undefined), mode: kiloSessionMode(mode) },
+              onCapabilities: (capabilities) => options.onAcpCapabilities?.('kilo', capabilities),
+              onPermission: async () => (effectiveSandbox === 'full-access' ? 'allow_once' : 'reject_once'),
+              signal: controller.signal,
+              now
+            })
+            process = acp
+            steer = acp.steer
           } else if (opencodeAcp) {
             say('starting-runtime')
             const handler = mode === 'approve-each' ? options.approvals?.requestHandlerFor({ runId, missionId, cwd: runCwd, changesByItem, runtime: 'opencode' }) : undefined

@@ -244,6 +244,9 @@ export function detectSupportedFeatures(
     add("jsonl-events", scan(helpText, "--json"));
     add("workspace-selection", scan(helpText, "--workspace"));
     add("read-only-sandbox", scan(helpText, "--disable-write") && scan(helpText, "--disable-shell"));
+  } else if (runtime === "kilo") {
+    // `kilo acp` advertises the protocol by name. Measured on 7.8.17.
+    add("acp-stdio", /\bagent[\s-]*client[\s-]*protocol\b/i.test(helpText));
   } else if (runtime === "antigravity") {
     // Nothing. Antigravity's `agentapi` prints no help text this repo has ever
     // captured, and it cannot even open a conversation without a project id

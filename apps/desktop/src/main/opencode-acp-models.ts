@@ -4,16 +4,23 @@ import { join } from 'node:path'
 
 import type { AppServerRunProcess, RuntimeDiscovery } from '@teammate/runtime-adapters'
 
+import { kiloIsolationEnv } from '@teammate/runtime-adapters'
+
 import { modelOptionOf } from '../shared/acp-agents.js'
+import { KILO_AUTO_FREE_MODEL, kiloModelDescription } from '../shared/kilo-models.js'
 import type { PublicModel } from '../shared/ipc.js'
 
 const CATALOG_DEADLINE_MS = 20_000
 const MAX_OUTPUT = 4 * 1024 * 1024
+/** Kilo's session/new carries every model in one line. 336 of them passed 4 MB in measurement. */
+const KILO_MAX_OUTPUT = 8 * 1024 * 1024
 
 export interface OpenCodeAcpModelsOptions {
   readonly spawn: (executablePath: string, args: readonly string[], env?: Readonly<Record<string, string>>, cwd?: string) => AppServerRunProcess
   /** A new, disposable empty folder. Never a project or the person's profile. */
   readonly scratch?: () => Promise<string>
+  /** Kilo uses the same handshake. Its rows keep Kilo's names and are not capped at OpenCode's old own-agent limit. */
+  readonly runtime?: 'opencode' | 'kilo'
 }
 
 const object = (value: unknown): Record<string, unknown> =>
@@ -26,10 +33,13 @@ const object = (value: unknown): Record<string, unknown> =>
  */
 export async function readOpenCodeAcpModels(runtime: RuntimeDiscovery, options: OpenCodeAcpModelsOptions): Promise<readonly PublicModel[]> {
   if (runtime.readiness !== 'ready' || runtime.executable === undefined) return []
+  const which = options.runtime ?? 'opencode'
+  const outputCap = which === 'kilo' ? KILO_MAX_OUTPUT : MAX_OUTPUT
   let active = true
   let exited = false
   let child: AppServerRunProcess | undefined
   let cwd: string | undefined
+  let configHome: string | undefined
   let buffer = ''
   let received = 0
   let next = 0
@@ -54,19 +64,25 @@ export async function readOpenCodeAcpModels(runtime: RuntimeDiscovery, options: 
     try { child.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`) } catch { fail() }
   })
   const probe = async (): Promise<readonly PublicModel[]> => {
-    const directory = await (options.scratch ?? (() => mkdtemp(join(tmpdir(), 'locust-opencode-models-'))))()
+    const directory = await (options.scratch ?? (() => mkdtemp(join(tmpdir(), which === 'kilo' ? 'locust-kilo-models-' : 'locust-opencode-models-'))))()
     // Scratch creation can finish after the overall deadline. It cannot then
     // start a process, and it still owns this empty folder's cleanup.
     if (!active) { await cleanup(directory); return [] }
     cwd = directory
     const launch = runtime.executable!
-    child = options.spawn(launch.executablePath, [...launch.prefixArgs, 'acp'], launch.env, cwd)
+    // Kilo's catalog session uses a throwaway config directory, not the person's Kilo or OpenCode files.
+    if (which === 'kilo') {
+      configHome = await mkdtemp(join(tmpdir(), 'locust-kilo-config-'))
+      if (!active) return []
+    }
+    const env = configHome === undefined ? launch.env : { ...launch.env, ...kiloIsolationEnv(configHome) }
+    child = options.spawn(launch.executablePath, [...launch.prefixArgs, 'acp'], env, cwd)
     child.onExit(() => { exited = true; if (active && !sessionAnswered) fail() })
     child.onStdoutClose?.(() => { if (active && !sessionAnswered) fail() })
     child.onData((chunk) => {
       if (!active) return
       received += chunk.length
-      if (received > MAX_OUTPUT) { fail(); return }
+      if (received > outputCap) { fail(); return }
       buffer += chunk
       for (let at = buffer.indexOf('\n'); at >= 0 && active; at = buffer.indexOf('\n')) {
         const line = buffer.slice(0, at).trim()
@@ -94,19 +110,23 @@ export async function readOpenCodeAcpModels(runtime: RuntimeDiscovery, options: 
     const session = await call('session/new', { cwd, mcpServers: [] })
     const advertised = modelOptionOf(session)
     const seen = new Set<string>()
-    return (advertised?.models ?? []).flatMap((model) => {
+    const models = (advertised?.models ?? []).flatMap((model) => {
       if (seen.has(model.value)) return []
       seen.add(model.value)
       return [{
         id: model.value,
-        runtime: 'opencode' as const,
+        runtime: which,
         displayName: model.name,
-        description: model.value.endsWith('-free') ? 'Free · no sign-in' : 'Through OpenCode',
+        description: which === 'kilo' ? kiloModelDescription(model.value) : model.value.endsWith('-free') ? 'Free · no sign-in' : 'Through OpenCode',
         // An ACP effort option applies to the session's current model. It is
         // not a catalog-wide promise and cannot be assigned to every row.
+        // Kilo's fresh session advertises "thinking" only for its default
+        // image model; that is not copied onto these rows.
         supportedEfforts: []
       }]
     })
+    if (which !== 'kilo') return models
+    return [...models.filter((model) => model.id === KILO_AUTO_FREE_MODEL), ...models.filter((model) => model.id !== KILO_AUTO_FREE_MODEL)]
   }
   try {
     return await Promise.race([probe(), deadline])
@@ -120,5 +140,6 @@ export async function readOpenCodeAcpModels(runtime: RuntimeDiscovery, options: 
       try { child?.kill() } catch { /* The result never depends on shutdown succeeding. */ }
     }
     if (cwd !== undefined) await cleanup(cwd)
+    if (configHome !== undefined) await cleanup(configHome)
   }
 }

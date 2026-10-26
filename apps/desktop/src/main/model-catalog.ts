@@ -163,7 +163,8 @@ export function withAccountDefaults(models: readonly PublicModel[]): readonly Pu
     models.filter((model) => model.id === ACCOUNT_DEFAULT_MODEL).map((model) => model.runtime)
   )
   const defaults = [...new Set(models.map((model) => model.runtime))]
-    .filter((runtime) => !already.has(runtime))
+    // Kilo has no account default. That row would be the session's paid image model.
+    .filter((runtime) => runtime !== 'kilo' && !already.has(runtime))
     .map((runtime) => accountDefaultModel(models, runtime))
     .filter((row): row is PublicModel => row !== undefined)
   return [...defaults, ...models]
@@ -593,6 +594,10 @@ export function createModelCatalog(options: ModelCatalogOptions): ModelCatalog {
     const opencodeAsked = openCodeUsesAcp(opencode?.version) && opencode?.readiness === 'ready'
       ? readOpenCodeAcpModels(opencode, { spawn: options.spawn, ...(options.opencodeScratch === undefined ? {} : { scratch: options.opencodeScratch }) })
       : Promise.resolve([])
+    const kilo = runtimes.find((entry) => entry.id === 'kilo')
+    const kiloAsked = kilo?.readiness === 'ready'
+      ? readOpenCodeAcpModels(kilo, { spawn: options.spawn, runtime: 'kilo' })
+      : Promise.resolve([])
     // Each runtime's models come from its own source and fail on their own:
     // Claude's and Cursor's from what their CLIs advertised at discovery,
     // Codex's from a live server read.
@@ -618,14 +623,16 @@ export function createModelCatalog(options: ModelCatalogOptions): ModelCatalog {
     // Independent of Codex: a missing server or an older method loses no other reading.
     const withUsage = async (response: ModelCatalogResponse): Promise<ModelCatalogResponse> => {
       const opencodeAcpModels = await opencodeAsked
+      const kiloModels = await kiloAsked
       if (openCodeUsesAcp(opencode?.version) && opencode?.readiness === 'ready') {
         missingAList = listsItsModelsButListedNone(runtimes.filter((entry) => entry.id !== 'opencode')) || opencodeAcpModels.length === 0
       }
-      const combined: ModelCatalogResponse = opencodeAcpModels.length === 0 ? response : {
+      const added = [...opencodeAcpModels, ...kiloModels]
+      const combined: ModelCatalogResponse = added.length === 0 ? response : {
         ok: true,
         data: {
           ...(response.ok ? response.data : {}),
-          models: withAccountDefaults([...(response.ok ? response.data.models : []), ...opencodeAcpModels])
+          models: withAccountDefaults([...(response.ok ? response.data.models : []), ...added])
         }
       }
       await Promise.race([usage, new Promise<void>((resolve) => setTimeout(resolve, USAGE_WAIT_MS))])

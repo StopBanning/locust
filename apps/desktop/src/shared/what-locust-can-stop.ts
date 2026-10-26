@@ -89,6 +89,12 @@ export const WHAT_LOCUST_CAN_STOP: readonly StopRow[] = [
     without: 'In Ask and Plan, no file changes and no commands; in Edit, file changes and no commands; in Auto, everything. What it refused is listed after the run.'
   },
   {
+    runtime: 'kilo',
+    reach: 'nothing',
+    asks: 'Nothing: Kilo runs without asking Locust.',
+    without: 'In Ask and Plan, Kilo’s ask mode: no file changes, and a tool it does not name is denied, including an MCP tool from a config Locust does not load. In Edit, Kilo’s code mode in this folder, and an action it asks about is refused. In Auto, that mode, and an action it asks about is allowed. Paid models and signing in have not been measured.'
+  },
+  {
     runtime: 'muse',
     reach: 'nothing',
     asks: 'Nothing: Muse runs without asking Locust.',

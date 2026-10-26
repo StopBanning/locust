@@ -51,6 +51,16 @@ export const RUNTIME_INTEGRATION: Readonly<Record<string, IntegrationLevel>> = {
    * search, to-dos) and the odd tool.failed shown as one.
    */
   muse: 'live',
+  /*
+   * PREVIEW. Kilo 7.8.17 speaks ACP. A new run is forced onto
+   * kilo/kilo-auto/free; a fresh session's own model is a paid image model.
+   * Measured 2026-10-26: the gateway answered one short Auto Free request,
+   * and `kilo run -m kilo/kilo-auto/free` replied with the word it was asked
+   * for. The same model through `kilo acp` logged the stream start and the
+   * session/prompt did not return; a Locust turn stayed on "Starting Kilo"
+   * and wrote no file. Paid models and sign-in were not measured.
+   */
+  kilo: 'preview',
   gemini: 'planned',
   omniroute: 'planned'
 }

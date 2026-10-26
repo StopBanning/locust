@@ -25,7 +25,7 @@ import MARK_COMPONENT from './components/RuntimeMark.tsx?raw'
  * good."
  */
 
-const EVERY_RUNTIME = ['codex', 'claude', 'cursor', 'gemini', 'opencode', 'copilot', 'antigravity', 'muse', 'acp'] as const
+const EVERY_RUNTIME = ['codex', 'claude', 'cursor', 'gemini', 'opencode', 'copilot', 'antigravity', 'muse', 'kilo', 'acp'] as const
 
 describe('the marks', () => {
   it('cover every runtime a teammate can run on', () => {
@@ -104,10 +104,12 @@ describe('the marks', () => {
     expect(RUNTIME_MARKS.antigravity.viewBox).toBe('14 14.2 83.6 83.6')
     expect(RUNTIME_MARKS.antigravity.source).toContain("Antigravity's own")
     expect(RUNTIME_MARKS.muse.source).toContain('Meta')
-    // Every mark is its maker's; none is a glyph Locust drew -- but an agent the person added (0.777), which has no
-    // one maker: any of dozens of programs can be it, so Locust's own plug says "one you added", and nobody's logo.
+    // Every mark is its maker's; none is a glyph Locust drew -- except two that have no mark we may copy.
+    // An agent the person added (0.777) has no one maker, so Locust's own plug says "one you added".
+    // Kilo's wordmark is not copied; the row wears a K drawn here, and the source says so.
     for (const [runtime, mark] of Object.entries(RUNTIME_MARKS)) {
       if (runtime === 'acp') expect(mark.source).toMatch(/^Locust: a plug/)
+      else if (runtime === 'kilo') expect(mark.source).toMatch(/^Locust: a K/)
       else expect(mark.source, runtime).not.toMatch(/^Locust/)
     }
   })

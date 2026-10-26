@@ -248,6 +248,7 @@ import { PullRequestNewsBanner } from './components/PullRequestNewsBanner.js'
 import { ChangesPanel } from './components/ChangesPanel.js'
 import type { PullRequestNews } from '../../shared/pull-request.js'
 import type { SettledEntry } from './settled.js'
+import { kiloStartModel } from '../../shared/kilo-models.js'
 import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effortAfterRouteChange, routeAfterKeep, effortIsInModelId, modelFamily, listedAsMission, modeFacts, modeRunsOn, modesFor, modeUnavailableReason, ownerToSelect, facePresenceFor, keepWhatWasKnown, runtimeOfTeammate, runtimeIsUsable, runtimeReach, teammateStatusView, startRoute, freeStartStillFree, freeStartModel, nextFreeModel, droppedFreeModel, integrationOf, ACCOUNT_DEFAULT_MODEL} from './status.js'
 import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName, shownRouteLabel } from './routeName.js'
 import { restoreNoticeLine } from './backupWords.js'
@@ -2568,6 +2569,13 @@ export default function App(): ReactElement {
       current.model === ACCOUNT_DEFAULT_MODEL ? { ...current, model: free } : current
     )
   }, [runtimeState.phase, route.runtime, route.model, models, freeAnswered, freeDown])
+  // Kilo's account default is the session's paid image model. A new conversation moves to Auto Free once it is listed.
+  useEffect(() => {
+    if (runtimeState.phase !== 'ready') return
+    const next = kiloStartModel(route.runtime, route.model, models)
+    if (next === undefined) return
+    setRoute((current) => (kiloStartModel(current.runtime, current.model, models) === next ? { ...current, model: next } : current))
+  }, [runtimeState.phase, route.runtime, route.model, models])
   // What the CLIs already have set up. Read once discovery has settled: the
   // list is gated on which runtimes are installed, so asking earlier would
   // report an empty machine.

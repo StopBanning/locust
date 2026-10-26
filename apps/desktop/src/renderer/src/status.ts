@@ -286,7 +286,9 @@ function baseRouteRowStatus(
     return {
       tag: 'PREVIEW',
       selectable: true,
-      detail: `Signed in and found. Locust's support for ${runtime.displayName} has not been tried through a whole run yet, so parts of a run may not show.`
+      detail: runtime.id === 'kilo'
+        ? 'Preview. Auto Free needs no account. A turn through Kilo did not finish, and paid models and sign-in have not been measured.'
+        : `Signed in and found. Locust's support for ${runtime.displayName} has not been tried through a whole run yet, so parts of a run may not show.`
     }
   }
   return {
@@ -845,6 +847,15 @@ export const RUNTIME_CAPABILITIES: Readonly<Record<MissionRuntimeId, RuntimeCapa
    */
   muse: { modes: [...EVERY_ORDINARY_MODE], evidence: 'measured' },
   /*
+   * Ask and Plan map to Kilo's ask agent (unnamed tools denied). Edit and
+   * Auto map to its code mode. Approve each is not offered: code mode runs
+   * what its own permissions allow without a card. Those mappings are in
+   * the launch path. A finished turn is not: Auto Free through `kilo acp`
+   * did not return (2026-10-26), so the evidence stays unproven. Paid models
+   * and sign-in were not measured.
+   */
+  kilo: { modes: [...EVERY_ORDINARY_MODE], evidence: 'unproven' },
+  /*
    * AN AGENT THE PERSON ADDED (0.777): Approve each and nothing else. It is the one mode the Agent Client Protocol
    * itself makes true -- every action the agent asks to take arrives as session/request_permission, answered on a card
    * -- whatever the agent is. Its own modes (OpenCode's build and plan, Goose's auto) are its own ids with its own
@@ -1276,6 +1287,9 @@ export function orderRouteRows<
     // models and behind a "1 more model · type to search them" line. The row
     // the composer is pointing at is the last thing that should need finding.
     if (row.tag === 'ACTIVE') return -1
+    // Kilo's Auto Free stays above flagship names, which would otherwise fill
+    // the six visible rows with paid gateway models.
+    if (row.model === 'kilo/kilo-auto/free') return 500_000
     const used = rank.get(row.key)
     if (used !== undefined) return used
     const flagship = flagshipRank(row.model ?? row.key)

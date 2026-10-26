@@ -61,6 +61,9 @@ export function isFreeRoute(runtime: string, model: string | undefined): boolean
     const picked = parsedAcpRouteModel(model)?.model
     return picked !== undefined && /^opencode\/[a-z0-9.-]+-free$/i.test(picked)
   }
+  // Kilo labels a free model with /free, :free or -free. Auto Free is kilo/kilo-auto/free.
+  // A gateway model is not free just because Kilo serves it.
+  if (runtime === 'kilo') return model !== undefined && /(?:^|[-/:])free$/i.test(model)
   return runtime === 'opencode' && model !== undefined && /(^|[-/])free$/i.test(model)
 }
 

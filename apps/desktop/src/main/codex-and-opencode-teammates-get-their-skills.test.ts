@@ -144,7 +144,7 @@ describe('a run’s own skills folder', () => {
 describe('which agents take a skill', () => {
   it('is Claude Code, Codex, OpenCode, Copilot and Antigravity, and a comparison says so for any other', () => {
     expect(['claude', 'codex', 'opencode', 'copilot', 'antigravity'].every(takesSkills)).toBe(true)
-    expect(['gemini', 'cursor', 'muse', 'acp', undefined].some(takesSkills)).toBe(false)
+    expect(['gemini', 'cursor', 'muse', 'kilo', 'acp', undefined].some(takesSkills)).toBe(false)
     const asked = { name: 'review', description: 'When reviewing.', body: 'Check.' }
     expect(compareSkillRefusal([{ runtime: 'codex', model: 'gpt-6-mini', skill: asked, instructions: 'x' } as never])).toBeUndefined()
     expect(compareSkillRefusal([{ runtime: 'gemini', model: 'account-default', skill: asked, instructions: 'x' } as never])).toBe(`A skill reaches only a ${SKILL_RUNTIME_ANY} teammate for now. Nothing was started.`)

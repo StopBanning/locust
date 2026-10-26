@@ -42,6 +42,8 @@ export interface RuntimeInstallFacts {
    * which is true of exactly one of them, and it is the whole on-ramp.
    */
   readonly account?: string
+  /** Signing in is offered, and the free route still runs without it. */
+  readonly signInOptional?: boolean
 }
 
 /**
@@ -123,7 +125,19 @@ const FACTS: Readonly<Record<string, RuntimeInstallFacts | undefined>> = {
   },
   // Found and signed into like the others, but no mission can run under it --
   // its event stream has never been captured. Nothing to offer to install.
-  gemini: undefined
+  gemini: undefined,
+  /*
+   * Install from Kilo's own CLI page. Auto Free needs no account
+   * (https://kilo.ai/docs/gateway/authentication). `kilo auth login` is only
+   * for a paid model.
+   */
+  kilo: {
+    install: { kind: 'vendor', url: 'https://kilo.ai/docs/code-with-ai/platforms/cli' },
+    signIn: 'kilo auth login',
+    signInAgain: 'kilo auth login',
+    account: 'a Kilo account, only for a paid model',
+    signInOptional: true
+  }
 }
 
 /**
@@ -151,7 +165,10 @@ export function installSentence(runtime: string, displayName: string): string {
   const facts = FACTS[runtime]
   if (facts === undefined) return `${displayName} was not found on this machine.`
   if (facts.install.kind === 'vendor') {
-    return `${displayName} was not found on this machine. It installs from ${facts.install.url}.`
+    const optional = facts.signInOptional === true && facts.signIn !== undefined
+      ? ` Auto Free needs no account; run ${facts.signIn} only for a paid model.`
+      : ''
+    return `${displayName} was not found on this machine. It installs from ${facts.install.url}.${optional}`
   }
   // "Then run codex..." read as a dangling clause when the command sits on the
   // line below rather than in the sentence (drive, 2026-09-06). The sentence

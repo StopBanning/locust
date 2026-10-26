@@ -29,6 +29,14 @@ export interface OpenCodeAcpRunOptions extends Omit<AcpRunOptions, "command"> {
   readonly workspacePath: string;
   /** Per-run host configuration, including the permission mode and command guard. */
   readonly launch?: { readonly env?: Readonly<Record<string, string>>; readonly sandbox?: MissionSandbox };
+  /**
+   * A command already built for this run. OpenCode builds its own; Kilo passes
+   * `kilo acp` so this handshake is shared without pointing Kilo at OpenCode's
+   * `locust` mode or OPENCODE_* configuration.
+   */
+  readonly command?: RuntimeCommandSpec;
+  /** Named in a failure. OpenCode's own runs say OpenCode. */
+  readonly label?: string;
   /** Transport restarts before any prompt write. Capped at three. */
   readonly maxStartupRetries?: number;
   readonly retryDelayMs?: number;
@@ -57,7 +65,8 @@ function bound(value: number | undefined, fallback: number, maximum: number, min
  * neither that prompt nor any of its tool calls can safely be replayed.
  */
 export function startOpenCodeAcpRun(options: OpenCodeAcpRunOptions): OpenCodeAcpRun {
-  const command = createOpenCodeAcpCommand(options.executable, options.workspacePath, options.launch);
+  const command = options.command ?? createOpenCodeAcpCommand(options.executable, options.workspacePath, options.launch);
+  const who = options.label ?? "OpenCode";
   const now = options.now ?? (() => new Date());
   const startedAt = now().toISOString();
   const queueLimit = bound(options.maxQueuedRecords, 20_000, 20_000);
@@ -225,7 +234,7 @@ export function startOpenCodeAcpRun(options: OpenCodeAcpRunOptions): OpenCodeAcp
       } catch {
         try { stopOwned(); } catch { /* Exit confirmation remains bounded. */ }
         const confirmed = await confirmOwned();
-        finish(undefined, "process-start-failed", "OpenCode's ACP process could not start. Check its installed command; no prompt was sent.", !confirmed);
+        finish(undefined, "process-start-failed", `${who}'s ACP process could not start. Check its installed command; no prompt was sent.`, !confirmed);
         return;
       }
       const relay = (async () => {
@@ -247,9 +256,9 @@ export function startOpenCodeAcpRun(options: OpenCodeAcpRunOptions): OpenCodeAcp
       const confirmed = await confirmOwned();
       receipt = { ...receipt, terminationUnconfirmed: !confirmed };
       if (options.signal?.aborted === true) { finish(receipt); return; }
-      if (overflowed || receipt.outputLimitExceeded) { finish(receipt, "output-limit", "OpenCode sent output faster than Locust could record it. The run was stopped and was not retried."); return; }
-      if (timedOut) { finish(receipt, "startup-timeout", "OpenCode did not complete ACP startup within the startup deadline. No prompt was resent."); return; }
-      if (!exited) { finish(receipt, "termination-unconfirmed", "OpenCode's ACP process did not confirm that it exited after being stopped. No replacement process was started."); return; }
+      if (overflowed || receipt.outputLimitExceeded) { finish(receipt, "output-limit", `${who} sent output faster than Locust could record it. The run was stopped and was not retried.`); return; }
+      if (timedOut) { finish(receipt, "startup-timeout", `${who} did not complete ACP startup within the startup deadline. No prompt was resent.`); return; }
+      if (!exited) { finish(receipt, "termination-unconfirmed", `${who}'s ACP process did not confirm that it exited after being stopped. No replacement process was started.`); return; }
       if (!admitted && transportClosed && attempts <= maxRetries) {
         await wait(Math.min(retryDelay * 2 ** (attempts - 1), maxRetryDelay));
         continue;
@@ -258,11 +267,11 @@ export function startOpenCodeAcpRun(options: OpenCodeAcpRunOptions): OpenCodeAcp
       finish(receipt, code);
       return;
     }
-    finish(undefined, timedOut ? "startup-timeout" : undefined, timedOut ? "OpenCode's ACP startup deadline expired before a prompt was sent." : undefined);
+    finish(undefined, timedOut ? "startup-timeout" : undefined, timedOut ? `${who}'s ACP startup deadline expired before a prompt was sent.` : undefined);
   })().catch(async () => {
     try { stopOwned(); } catch { /* Exit confirmation remains bounded. */ }
     const confirmed = await confirmOwned();
-    finish(undefined, "agent-error", "OpenCode's ACP run could not finish. No prompt was resent.", !confirmed);
+    finish(undefined, "agent-error", `${who}'s ACP run could not finish. No prompt was resent.`, !confirmed);
   });
 
   return {

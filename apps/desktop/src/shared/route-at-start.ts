@@ -1,6 +1,14 @@
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 import type { MissionMode, TeammateRoute } from './ipc.js'
+import { KILO_AUTO_FREE_MODEL } from './kilo-models.js'
 import { isMissionRuntime } from './runtimes.js'
+
+/** Kilo's saved "account default" is the session's paid image model. The chip and the start use Auto Free. */
+function kiloOnAutoFree<T extends { readonly runtime: string; readonly model?: string }>(route: T): T {
+  if (route.runtime !== 'kilo') return route
+  if (route.model !== undefined && route.model !== 'account-default' && route.model.trim().length > 0) return route
+  return { ...route, model: KILO_AUTO_FREE_MODEL }
+}
 
 export interface StartRouteInput {
   readonly runtime?: unknown
@@ -30,13 +38,20 @@ export function routeAtStart(
   input: StartRouteInput,
   teammate: { readonly teammateId: string; readonly route?: TeammateRoute } | undefined
 ): StartRoute {
-  const requested: StartRoute = {
+  const requestedModel = typeof input.model === 'string' ? input.model : undefined
+  const requested: StartRoute = kiloOnAutoFree({
     runtime: isMissionRuntime(input.runtime) ? input.runtime : 'codex',
     ...(typeof input.account === 'string' ? { account: input.account } : {}),
-    ...(typeof input.model === 'string' ? { model: input.model } : {}),
+    ...(requestedModel === undefined ? {} : { model: requestedModel }),
     ...(typeof input.effort === 'string' ? { effort: input.effort } : {})
+  })
+  const savedRoute = teammate?.route
+  const saved = savedRoute === undefined ? undefined : {
+    ...savedRoute,
+    model: savedRoute.runtime === 'kilo' && (savedRoute.model === 'account-default' || savedRoute.model.trim().length === 0)
+      ? KILO_AUTO_FREE_MODEL
+      : savedRoute.model
   }
-  const saved = teammate?.route
   if (saved === undefined || input.routeOverrideFor === teammate?.teammateId) return requested
   // Cursor encodes effort in the concrete model id. Matching the original
   // picker identity lets that transformation survive without allowing a
@@ -77,10 +92,10 @@ export function composerRouteFor(
   conversation?: PickerRoute
 ): PickerRoute {
   const picked = key === undefined ? undefined : explicit.get(key)
-  if (picked !== undefined) return picked
-  if (conversation !== undefined) return conversation
-  if (teammate === undefined) return fallback
-  return teammate.route ?? fallback
+  if (picked !== undefined) return kiloOnAutoFree(picked)
+  if (conversation !== undefined) return kiloOnAutoFree(conversation)
+  if (teammate === undefined) return kiloOnAutoFree(fallback)
+  return kiloOnAutoFree(teammate.route ?? fallback)
 }
 
 /** Where the box's pick is held: the conversation on screen, or the new chat it starts (0.552). */

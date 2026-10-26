@@ -1565,7 +1565,7 @@ export interface ApprovalRuleFromCardRequest {
 /** An approval answered somewhere else -- a question answered in Antigravity's own window. */
 export const MISSION_APPROVAL_WITHDRAWN_CHANNEL = 'mission-approval:withdrawn'
 
-export type LocalRuntimeId = 'codex' | 'claude' | 'cursor' | 'gemini' | 'opencode' | 'copilot' | 'antigravity' | 'muse' | 'omniroute'
+export type LocalRuntimeId = 'codex' | 'claude' | 'cursor' | 'gemini' | 'opencode' | 'copilot' | 'antigravity' | 'muse' | 'kilo' | 'omniroute'
 
 export type TeammateHue = 'lime' | 'blue' | 'violet' | 'clay' | 'teal' | 'butter' | 'rose' | 'slate' | 'pearl' | 'indigo' | 'coral'
 

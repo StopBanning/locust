@@ -39,6 +39,7 @@ const EVERY_RUNTIME = {
   copilot: true,
   antigravity: true,
   muse: true,
+  kilo: true,
   acp: true
 } as const satisfies Record<MissionRuntimeId, true>
 
