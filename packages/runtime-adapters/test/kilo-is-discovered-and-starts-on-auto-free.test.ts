@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { discoverInstalledRuntimes } from "../src/discovery.js";
-import { KILO_AUTO_FREE_MODEL, createKiloAcpCommand, kiloModelForRun, kiloSessionMode } from "../src/kilo-acp-run.js";
+import { KILO_AUTO_FREE_MODEL, createKiloAcpCommand, kiloModelForRun, kiloSessionMode, startKiloAcpRun } from "../src/kilo-acp-run.js";
 import type { CommandResult, CommandRunner, ExecutableLaunch, ExecutableLocator, ProbeCommand } from "../src/types.js";
 
 const ACP_HELP = "kilo acp: Agent Client Protocol over stdin and stdout";
@@ -85,5 +85,53 @@ describe("Kilo's modes", () => {
     expect(command.runtime).toBe("kilo");
     expect(command.args).toEqual(["acp"]);
     expect(command.env?.KILO_CONFIG_DIR).toBe("C:\\work\\scratch\\kilo-config");
+  });
+});
+
+describe("a Kilo prompt on Windows lets the inherited git child exit", () => {
+  it("writes one blank line after the prompt and no protocol message in it", async () => {
+    vi.useFakeTimers();
+    try {
+      const lines: string[] = [];
+      let receive: (chunk: string) => void = () => undefined;
+      const run = startKiloAcpRun({
+        executable: installed,
+        workspacePath: "C:\\work\\scratch",
+        prompt: "Reply with pebble.",
+        retryDelayMs: 10,
+        shutdownTimeoutMs: 20,
+        spawn: () => {
+          let exited: () => void = () => undefined;
+          return {
+            write: (line) => {
+              lines.push(line);
+              if (!line.startsWith("{")) return;
+              const message = JSON.parse(line) as { id?: number; method?: string };
+              const result = message.method === "initialize"
+                ? { protocolVersion: 1 }
+                : message.method === "session/new"
+                  ? { sessionId: "s1" }
+                  : message.method === "session/prompt"
+                    ? { stopReason: "end_turn" }
+                    : {};
+              queueMicrotask(() => receive(`${JSON.stringify({ jsonrpc: "2.0", id: message.id, result })}\n`));
+            },
+            kill: () => { exited(); },
+            onData: (listener) => { receive = listener; },
+            onExit: (listener) => { exited = listener; },
+          };
+        },
+      });
+      for (let step = 0; step < 30; step += 1) await Promise.resolve();
+      expect(lines.some((line) => line.includes("session/prompt"))).toBe(true);
+      expect(lines).not.toContain("\n");
+      await vi.advanceTimersByTimeAsync(750);
+      for (let step = 0; step < 10; step += 1) await Promise.resolve();
+      if (process.platform === "win32") expect(lines.filter((line) => line === "\n")).toEqual(["\n"]);
+      else expect(lines).not.toContain("\n");
+      await expect(run.completion).resolves.toMatchObject({ exitCode: 0 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

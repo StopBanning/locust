@@ -59,7 +59,7 @@ const waitForChip = async () => {
   while (Date.now() < deadline) {
     last = String(await chip() ?? '')
     const [text, title] = last.split(' || ')
-    if (/auto free/i.test(text ?? '') || /kilo-auto\\/free/i.test(title ?? '')) return last
+    if (/auto free/i.test(text ?? '') || /kilo-auto\/free/i.test(title ?? '')) return last
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
   return last
@@ -141,7 +141,7 @@ try {
       askWrote = (await readFile(join(workspace, ASK_FILE), 'utf8')).includes(ASK_LINE)
     } catch { askWrote = false }
     check('ask mode', /^mode: Ask/.test(String(mode)), String(mode))
-    check('ask route', /auto free/i.test(String(route)), String(route))
+    check('ask route', /auto[ /]free/i.test(String(route)) || /kilo-auto\/free/i.test(String(route)), String(route))
     check('ask turn finished', String(turn).startsWith('finished:') && !/Starting Kilo/i.test(String(turn)), String(turn).slice(0, 400))
     check('ask changed nothing', beforeAsk === after && askWrote === false, `before ${beforeAsk} ; after ${after}`)
     return `${mode} || ${route} || ${String(turn).slice(0, 500)}`
@@ -159,7 +159,7 @@ try {
     try { body = await readFile(join(workspace, NOTE), 'utf8') } catch { body = '' }
     const thread = String(turn)
     check('auto mode', /^mode: Auto/.test(String(mode)), String(mode))
-    check('auto route', /auto free/i.test(String(route)), String(route))
+    check('auto route', /auto[ /]free/i.test(String(route)) || /kilo-auto\/free/i.test(String(route)), String(route))
     const reply = thread.slice(thread.indexOf(LINE) + LINE.length)
     check('auto turn finished', thread.startsWith('finished:') && !/Starting Kilo/i.test(thread), thread.slice(0, 400))
     check('file written', body.includes(LINE), body.slice(0, 200) || 'file missing')
