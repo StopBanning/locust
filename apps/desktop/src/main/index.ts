@@ -78,6 +78,8 @@ import { createCompareStore } from './compare-store.js'
 import { createCompareReruns } from './compare-reruns.js'
 import { createApprovalRuleStore } from './approval-rule-store.js'
 import { createFileArrivals, POLL_MS } from './routine-file-watch.js'
+import { createRoutineHooks, ROUTINE_HOOKS_FILE, type HookRelay } from './routine-hooks.js'
+import { ROUTINE_HOOK_READ, ROUTINE_HOOK_NEW } from '../shared/routine-hook.js'
 import { enforcedAnswer, ruleCandidateOf, ruledActionOf, ruleRefusalFor, ruleSentence } from '../shared/approval-rules.js'
 import { createRunAlways, decide } from '../shared/who-decides.js'
 import { judgeAnswerText, judgePrompt } from './compare-judge.js'
@@ -4121,6 +4123,14 @@ if (!ownsSingleInstanceLock) {
     const tuneLessons = createTuneLessonStore({ rootDirectory: app.getPath('userData') })
     // Folder watchers (0.522): routines that run on a new file, polled, inside the project folder.
     const fileArrivals = createFileArrivals({ get projectFolder() { return workspacePath } })
+    let hookRelay: HookRelay | undefined
+    const routineHooks = createRoutineHooks({
+      file: join(app.getPath('userData'), ROUTINE_HOOKS_FILE), relay: () => hookRelay,
+      routines: () => routines.list(),
+      lost: async (id, count, at) => { await routines.recordHookLoss(id, count, at); sendToWindow({ kind: 'routine-recovery-changed' }) },
+      tick: () => { if (workspaceChosen) void routineRunner?.tick(new Date()).catch(() => undefined) }
+    })
+    const syncHooks = (): void => { void routineHooks.sync().catch(() => note('routine', 'The called links could not be collected. They will be tried again when the relay connects.')) }
     const routineCopies = createRoutineCopies()
     /*
      * The folder's own check (0.534): this folder's command from Settings, the one the after-edits check runs -- never a
@@ -4140,6 +4150,7 @@ if (!ownsSingleInstanceLock) {
       return { command, passed: run.error === undefined && !run.timedOut && run.exitCode === 0, tail }
     }
     routineRunner = createRoutineRunner({
+      hooks: routineHooks,
       folderChosen: (path) => routineFolderChosen(path),
       arrivals: fileArrivals,
       // A routine that works in a copy (0.533): made from the folder the window is in.
@@ -4260,6 +4271,7 @@ if (!ownsSingleInstanceLock) {
     // -- a run needs one, and a routine started into nothing would fail and
     // be held off an hour for a reason the person never saw.
     const tickRoutines = (): void => {
+      syncHooks()
       if (!workspaceChosen || routineRunner === undefined) return
       void routineRunner.tick(new Date()).catch(() => undefined)
     }
@@ -8575,6 +8587,12 @@ if (!ownsSingleInstanceLock) {
         return { ok: false, error: { code: 'ROUTINES_UNAVAILABLE', message: 'Routines could not be read.' } } as const
       }
     })
+    for (const [channel, replace] of [[ROUTINE_HOOK_READ, false], [ROUTINE_HOOK_NEW, true]] as const) {
+      ipcMain.handle(channel, (event, id: unknown) => routineIORequest(event, async () => {
+        if (typeof id !== 'string' || (await routines.get(id)) === undefined) return routineRejected('That routine no longer exists.')
+        return { ok: true, data: await routineHooks.state(id, replace) }
+      }))
+    }
 
     ipcMain.handle(ROUTINE_CREATE_CHANNEL, async (event, request: unknown) => {
       if (!fromOwnWindow(event)) return routineRejected('The routine could not be saved.')
@@ -8595,6 +8613,7 @@ if (!ownsSingleInstanceLock) {
           ...(input.untilCheck === undefined ? {} : { untilCheck: input.untilCheck }),
           ...(input.inputs === undefined ? {} : { inputs: input.inputs })
         })
+        await routineHooks.sync().catch(() => note('routine', 'The routine was saved, but its link could not be confirmed. Check Settings > Phone and open the routine again.'))
         return { ok: true, data: { routine } } as const
       } catch (error) {
         return routineRejected(error instanceof Error ? error.message : 'That routine could not be saved.')
@@ -8616,6 +8635,7 @@ if (!ownsSingleInstanceLock) {
           ...(input.untilCheck === undefined ? {} : { untilCheck: input.untilCheck }),
           ...(input.inputs === undefined ? {} : { inputs: input.inputs })
         })
+        await routineHooks.sync().catch(() => note('routine', 'The routine was changed, but its link could not be confirmed. Check Settings > Phone and open the routine again.'))
         return { ok: true, data: { routine } } as const
       } catch (error) {
         return routineRejected(error instanceof Error ? error.message : 'That routine could not be changed.')
@@ -8626,6 +8646,7 @@ if (!ownsSingleInstanceLock) {
       if (!fromOwnWindow(event)) return routineRejected('The routine could not be removed.')
       try {
         await routines.remove(routineId)
+        await routineHooks.sync().catch(() => note('routine', 'The routine was removed. Its link will be closed when the relay reconnects.'))
         // Its copy, if it worked in one, goes with it (0.533): nothing of it reached the folder.
         if (typeof routineId === 'string') await routineCopies.discard(routineId).catch(() => undefined)
         return { ok: true, data: {} } as const
@@ -10071,9 +10092,11 @@ if (!ownsSingleInstanceLock) {
         scoutAway.nudge()
       },
       away: { forPhone: () => scoutAway.forPhone(), refresh: () => scoutAway.refresh(), letter: (letter) => scoutAway.letter(letter) },
+      hooks: { refresh: syncHooks },
       // Bound once the desk host is made, a few lines on; a frame before then waits for nothing.
       desk: { frame: (device, asks) => { void deskLink?.handle(device, asks) }, forget: (device) => { void deskLink?.forget(device) } }
     })
+    hookRelay = phoneAnywhere
     scoutAwayRelay = { ready: () => phoneAnywhere.settings().then(() => undefined), room: () => phoneAnywhere.room(), connected: () => phoneAnywhere.connected(), awayOpen: (hash) => phoneAnywhere.awayOpen(hash), awayClose: () => phoneAnywhere.awayClose(), keepAwayAlerts: () => phoneAnywhere.keepAwayAlerts(), post: (box) => phoneAnywhere.post(box), letters: (after) => phoneAnywhere.letters(after) }
     phoneAlertSink = (alert) => { void phoneAnywhere.alert(alert).catch(() => undefined) }
     void phoneAnywhere.settings().then((settings) => { phoneNightApprovals = settings.nightApprovals === true }, () => undefined)

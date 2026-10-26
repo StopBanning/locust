@@ -122,7 +122,7 @@ export function createRoutineIO(options: {
       const route = { ...base, mode: 'ask' as const }
       previews.delete(request.token as string)
       const routine = await options.routines.create({ name: held.file.name, steps: held.file.steps, inputs: held.file.inputs,
-        teammateId: mate.teammateId, route, learnedFrom: [], workspaceId: held.workspace })
+        teammateId: mate.teammateId, route, learnedFrom: [], workspaceId: held.workspace, ...(held.file.schedule === undefined ? {} : { schedule: held.file.schedule }) })
       return { ok: true, data: { routine } }
     }
   }

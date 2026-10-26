@@ -10,7 +10,7 @@ import { inputsRefusal, keptInputs, placeholdersIn, undeclaredPlaceholders, vali
 import type { RoutineInput } from '../shared/routine-inputs.js'
 
 /** Every shape a schedule may take, said when one does not read (0.522). */
-const SCHEDULE_REFUSAL = 'The schedule is not one Locust can keep: every 1 to 168 hours, daily or on set days at HH:MM, once at a date and time, or on a new file in a folder inside the project.'
+const SCHEDULE_REFUSAL = 'The schedule is not one Locust can keep: every 1 to 168 hours, daily or on set days at HH:MM, once at a date and time, on a new file in a folder inside the project, or when a link is called.'
 import { isTeammateRoute, safeId } from './teammate-store.js'
 import type { RoutineExecution } from '../shared/routine-recovery.js'
 import { routineAwaitsReview } from '../shared/routine-recovery.js'
@@ -98,6 +98,7 @@ export interface RoutineStore {
    * stays, and the clock moves to that slot so the next tick does not start it.
    */
   recordMiss(routineId: string, dueAt: string, recordedAt: string): Promise<void>
+  recordHookLoss(routineId: string, count: number, at: string): Promise<void>
   /**
    * Pause or resume its schedule (0.705). Resuming records when, so the clock
    * counts from then. Answers the routine as saved, or undefined if it is gone.
@@ -197,7 +198,7 @@ function parsedHistory(value: unknown): readonly RoutineHistoryEntry[] | undefin
     if (record.kind !== 'missed') continue
     if (typeof record.dueAt !== 'string' || Number.isNaN(Date.parse(record.dueAt))) continue
     if (typeof record.recordedAt !== 'string' || Number.isNaN(Date.parse(record.recordedAt))) continue
-    entries.push({ kind: 'missed', dueAt: record.dueAt, recordedAt: record.recordedAt })
+    entries.push({ kind: 'missed', dueAt: record.dueAt, recordedAt: record.recordedAt, ...(Number.isSafeInteger(record.hookCalls) && Number(record.hookCalls) > 0 ? { hookCalls: Number(record.hookCalls) } : {}) })
   }
   return entries.length === 0 ? undefined : entries
 }
@@ -623,6 +624,17 @@ export function createRoutineStore(options: { readonly rootDirectory: string }):
           ...file,
           routines: file.routines.map((routine) => (routine.routineId === routineId ? next : routine))
         })
+      })
+    },
+
+    recordHookLoss(routineId, count, at): Promise<void> {
+      return serialize(async () => {
+        if (!safeId(routineId) || !Number.isSafeInteger(count) || count < 1 || parsedInstant(at) === undefined) return
+        const file = await read()
+        const held = file.routines.find((routine) => routine.routineId === routineId)
+        if (held === undefined) return
+        const entry: RoutineHistoryEntry = { kind: 'missed', dueAt: at, recordedAt: at, hookCalls: count }
+        await write({ ...file, routines: file.routines.map((routine) => routine.routineId === routineId ? { ...held, history: [...(held.history ?? []), entry].slice(-HISTORY_CAP) } : routine) })
       })
     },
 

@@ -29,7 +29,7 @@ export interface AwayRow {
 export interface AwayRoutine {
   readonly routineId: string
   readonly name: string
-  readonly history?: readonly { readonly kind: 'missed'; readonly dueAt: string; readonly recordedAt: string }[]
+  readonly history?: readonly { readonly kind: 'missed'; readonly dueAt: string; readonly recordedAt: string; readonly hookCalls?: number }[]
 }
 
 export interface AwayItem {
@@ -103,7 +103,7 @@ export function sinceYouWereAway(input: {
   const missed: AwayMissed[] = []
   for (const routine of input.routines) {
     for (const entry of routine.history ?? []) {
-      if (entry.kind !== 'missed') continue
+      if (entry.kind !== 'missed' || entry.hookCalls !== undefined) continue
       // A miss is news when it was RECORDED after the person left: a slot that
       // passed while they were away, however old the slot itself reads.
       if (!(time(entry.recordedAt) > since || time(entry.dueAt) > since)) continue

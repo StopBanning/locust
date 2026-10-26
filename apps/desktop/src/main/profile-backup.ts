@@ -85,6 +85,7 @@ const NEVER_COPIED = new Set(['.writable'])
  * that rebuilds itself.
  */
 export const LEFT_OUT: Readonly<Record<string, string>> = {
+  'routine-hooks.json': 'private link passwords and collected webhook data: tied to this computer and never backed up',
   'claude-context-launches.json': 'machine-local flags for context inspection: recorded again by the next Claude turn',
   'conversation-references.json': 'reference folders belong to this machine: choose them again after a restore',
   'reference-repositories': 'shallow reference copies: downloaded again after choosing a repository',

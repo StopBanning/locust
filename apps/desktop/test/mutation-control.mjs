@@ -67,6 +67,11 @@ const ORG_VIEW_TEST = 'src/renderer/src/managed-controls-say-who-set-them.test.t
 
 const MUTATIONS = [
   ...[
+    ['a hook inherits a writing mode', 'src/main/routine-runner.ts', "mode: hook ? 'ask' : route.mode,", 'mode: route.mode,', 'keeps handed-on steps in Ask even if the teammate and saved routine both write', 'src/main/a-called-link-starts-its-routine.test.ts'],
+    ['waiting calls are replayed twice', 'src/main/routine-runner.ts', "if (arrived !== undefined && 'kind' in arrived) await options.hooks?.fired(routine.routineId, arrived.batch)", '// The batch is left waiting.', 'folds two calls during a run into one more, using the newest body and saying how many', 'src/main/a-called-link-starts-its-routine.test.ts'],
+    ['the password reaches the brief', 'src/main/routine-hooks.ts', "text = text.replaceAll(entry.secret, '[link password removed]')", 'text = text.replaceAll(entry.secret, entry.secret)', 'saves a hook schedule, keeps its password out of routines, exports, dispatches and notices, and fences the data in Ask', 'src/main/a-called-link-starts-its-routine.test.ts']
+  ].map(([name, file, from, to, expected, test]) => ({ name: `called-link: ${name}`, file: join(ROOT, file), from, to, expect: expected, tests: [test] })),
+  ...[
     ['own model route loses its prefix', '../../_tools/api-benchmark.mjs', 'model: `own-${model.ownId}/${model.model}`', 'model: `${model.ownId}/${model.model}`', 'refuses paid judges in stand-in mode and invalid limits before starting anything', 'src/main/an-api-benchmark-prices-and-checks-each-run.test.mjs'],
     ['replacement messages are duplicated', '../../_tools/api-benchmark.mjs', "operation === 'replace' ? text", "operation === 'never' ? text", 'reads normalized replacement text once and measures wall time even when no run-start event was emitted', 'src/main/an-api-benchmark-prices-and-checks-each-run.test.mjs'],
     ['missing run-start loses the clock', '../../_tools/api-benchmark.mjs', "started?.occurredAt ?? mission?.createdAt ?? ''", "started?.occurredAt ?? ''", 'reads normalized replacement text once and measures wall time even when no run-start event was emitted', 'src/main/an-api-benchmark-prices-and-checks-each-run.test.mjs'],

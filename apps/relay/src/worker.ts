@@ -110,6 +110,13 @@ export default {
       const asset = /^\/desk\/v\/([^/]+)\/(.+)$/.exec(url.pathname)
       if (asset !== null && WINDOW_VERSION.test(asset[1]!)) return windowAsset(url, env, asset[1]!, asset[2]!)
     }
+    // Called links (2026-10-25) go to the same room, with their own readable letters.
+    const hook = /^\/v1\/room\/([^/]+)\/hook\/([^/]+)$/.exec(url.pathname)
+    if (hook !== null && ROOM_ID.test(hook[1]!)) {
+      if (request.method !== 'POST') return new Response('{"error":"method"}', { status: 405, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', allow: 'POST' } })
+      if (Number(request.headers.get('content-length') ?? '0') > MAX_FRAME) return new Response('{"error":"too-big"}', { status: 413 })
+      return env.ROOMS.get(env.ROOMS.idFromName(hook[1]!)).fetch(request)
+    }
     // Scout's away look (0.829) posts to its room over HTTPS, from a GitHub workflow.
     const away = /^\/v1\/room\/([^/]+)\/away$/.exec(url.pathname)?.[1]
     if (away !== undefined && ROOM_ID.test(away)) {

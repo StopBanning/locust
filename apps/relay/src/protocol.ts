@@ -1,10 +1,11 @@
 /**
  * LOCUST'S RELAY (0.826): what a PC, a paired phone and a phone being paired say to the relay, and what it says back.
  *
- * The relay sees who talks to whom and when, never what. Every message's words are sealed on one of the person's
+ * Phone messages are sealed: the relay sees who talks to whom and when, never what. Their words are sealed on one of the person's
  * devices and opened on another (apps/desktop/src/main/relay-crypto.ts, and the same steps in the phone's page), so
  * `n` and `c` below are a nonce and a sealed box it only passes on. What it does keep is small: a hash of the PC's
  * token, a hash of each paired device's token, and while a code is shown, a hash of that code's token.
+ * Called links (2026-10-25) are the explicit exception: their bodies are readable data, for the PC alone, at most a week.
  */
 
 /** 16 random bytes, base64url: a room is one PC's. */
@@ -41,6 +42,11 @@ const LETTER = new RegExp(`^[A-Za-z0-9_-]{22,${String(Math.ceil((MAX_LETTER_BYTE
 /** Who left a letter: the away look, or the PC saying what it already told the person. */
 export type LetterFrom = 'away' | 'pc'
 export interface Letter { readonly id: string; readonly at: number; readonly from: LetterFrom; readonly n: string; readonly c: string }
+/** A called link (2026-10-25): readable data for the PC alone, never a sealed phone message. */
+export interface HookLetter { readonly id: string; readonly at: number; readonly hook: string; readonly body: string; readonly contentType: string }
+export const HOOK_ID = /^[A-Za-z0-9_-]{1,80}$/
+/** One routine brief's data budget; one extra character makes the PC's cut line explicit. */
+export const HOOK_BODY_CHARS = 4_000
 /** Which of a phone's two kept alerts a letter rings: something found, or the morning brief. */
 export type AwayAlertKind = 'found' | 'brief'
 /** One phone's two alerts, sealed by the PC for its browser ahead of time, so the relay rings it with no PC on. */
@@ -50,6 +56,10 @@ export interface AwayAlert { readonly device: string; readonly endpoint: string;
 export type Address = 'pc' | `pairing:${string}` | string
 
 export type ClientFrame =
+  | { readonly t: 'hook-open'; readonly hook: string; readonly hash: string; readonly id?: string }
+  | { readonly t: 'hook-close'; readonly hook: string; readonly id?: string }
+  | { readonly t: 'hook-letters'; readonly hook: string; readonly id?: string }
+  | { readonly t: 'hook-collected'; readonly hook: string; readonly letters: readonly string[]; readonly id?: string }
   | { readonly t: 'auth'; readonly as: 'pc'; readonly token: string }
   | { readonly t: 'auth'; readonly as: 'device'; readonly device: string; readonly token: string }
   | { readonly t: 'auth'; readonly as: 'pairing'; readonly token: string }
@@ -106,12 +116,14 @@ export type ErrorCode =
   | 'away-off'
 
 export type RelayFrame =
+  | { readonly t: 'hook-letter'; readonly hook: string }
+  | { readonly t: 'hook-letters'; readonly items: readonly HookLetter[]; readonly lost: number; readonly id?: string }
   | { readonly t: 'ok'; readonly as: 'pc'; readonly devices: readonly string[] }
   | { readonly t: 'ok'; readonly as: 'device' | 'pairing'; readonly pc: boolean }
   | { readonly t: 'msg'; readonly from: Address; readonly n: string; readonly c: string; readonly k?: string }
   | { readonly t: 'presence'; readonly pc: boolean }
   | { readonly t: 'presence'; readonly device: string; readonly on: boolean }
-  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post'; readonly id?: string }
+  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected'; readonly id?: string }
   | { readonly t: 'letters'; readonly items: readonly Letter[]; readonly more: boolean; readonly id?: string }
   /** A letter that came while this connection was open. */
   | { readonly t: 'letter'; readonly item: Letter }
@@ -137,6 +149,17 @@ export function parseClientFrame(text: string): ClientFrame | undefined {
   const only = (...allowed: readonly string[]): boolean => keys.every((key) => allowed.includes(key))
   const id = withId(fields)
   switch (fields.t) {
+    case 'hook-open':
+      if (id === undefined || !only('t', 'hook', 'hash', 'id') || typeof fields.hook !== 'string' || !HOOK_ID.test(fields.hook) || typeof fields.hash !== 'string' || !HASH.test(fields.hash)) return undefined
+      return { t: 'hook-open', hook: fields.hook, hash: fields.hash, ...id }
+    case 'hook-close':
+    case 'hook-letters':
+      if (id === undefined || !only('t', 'hook', 'id') || typeof fields.hook !== 'string' || !HOOK_ID.test(fields.hook)) return undefined
+      return { t: fields.t, hook: fields.hook, ...id }
+    case 'hook-collected':
+      if (id === undefined || !only('t', 'hook', 'letters', 'id') || typeof fields.hook !== 'string' || !HOOK_ID.test(fields.hook)
+        || !Array.isArray(fields.letters) || fields.letters.length > LETTERS_AT_ONCE || !fields.letters.every((item) => typeof item === 'string' && LETTER_ID.test(item))) return undefined
+      return { t: 'hook-collected', hook: fields.hook, letters: fields.letters as string[], ...id }
     case 'auth':
       if (fields.as === 'pc' && only('t', 'as', 'token') && typeof fields.token === 'string' && TOKEN.test(fields.token)) return { t: 'auth', as: 'pc', token: fields.token }
       if (fields.as === 'device' && only('t', 'as', 'device', 'token') && typeof fields.device === 'string' && DEVICE_ID.test(fields.device) && typeof fields.token === 'string' && TOKEN.test(fields.token)) {

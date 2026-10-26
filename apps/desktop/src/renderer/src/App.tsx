@@ -6725,7 +6725,8 @@ export default function App(): ReactElement {
           setRoutineDialog({ ...dialog, busy: false, error: response.error.message })
           return
         }
-        setRoutineDialog(undefined)
+        if (input.schedule?.kind === 'hook' && dialog.schedule?.kind !== 'hook' && response.data.routine !== undefined) editRoutine(response.data.routine)
+        else setRoutineDialog(undefined)
         await reloadRoutines()
       })
       .catch(() => setRoutineDialog({ ...dialog, busy: false, error: 'That routine could not be saved. The version on disk is unchanged.' }))
@@ -11335,12 +11336,13 @@ export default function App(): ReactElement {
       }} />}
       {routineDialog !== undefined && (
         <RoutineDialog
-          key={routineDialog.routineId ?? 'new'}
+          key={`${routineDialog.routineId ?? 'new'}-${routineDialog.schedule?.kind ?? 'off'}`}
           teammate={teammates.find((entry) => entry.teammateId === routineDialog.teammateId)}
           {...(routineDialog.teammateId === undefined && routineDialog.routineId === undefined
             ? { chooseFrom: teammates }
             : {})}
           initialName={routineDialog.name}
+          {...(routineDialog.routineId === undefined ? {} : { routineId: routineDialog.routineId })}
           {...(() => {
             // Its own folder when it has one; a new one is made in the folder open now (0.512).
             const own = routines.find((entry) => entry.routineId === routineDialog.routineId)?.workspaceId

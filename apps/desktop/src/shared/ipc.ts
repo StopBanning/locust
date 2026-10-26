@@ -1898,6 +1898,8 @@ export interface RoutineHandOff {
 /** A scheduled time that passed while Locust was closed. */
 export interface RoutineHistoryEntry {
   readonly kind: 'missed'
+  /** Calls lost to the relay's week or storage cap, rather than a clock slot. */
+  readonly hookCalls?: number
   readonly dueAt: string
   readonly recordedAt: string
 }
@@ -3876,6 +3878,8 @@ export interface DesktopApi {
   listRoutines(): Promise<RoutineListResponse>
   createRoutine(request: RoutineCreateRequest): Promise<RoutineMutationResponse>
   updateRoutine(request: RoutineUpdateRequest): Promise<RoutineMutationResponse>
+  readRoutineHook(routineId: string): Promise<import('./routine-hook.js').RoutineHookResponse>
+  newRoutineHook(routineId: string): Promise<import('./routine-hook.js').RoutineHookResponse>
   removeRoutine(routineId: string): Promise<RoutineMutationResponse>
   /** Pause or resume a routine's schedule (0.705). Run still runs a paused one. */
   pauseRoutine(routineId: string, paused: boolean): Promise<RoutineMutationResponse>

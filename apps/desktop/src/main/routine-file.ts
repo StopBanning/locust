@@ -11,7 +11,8 @@ import { stepsTooLongToSave, validRoutineName, validSteps } from './routine-stor
  * What travels is what a routine IS -- its steps, what it asks for, the kind of
  * route it was made for and the connectors its steps name. What belongs to one
  * person's machine does not: no teammate, workspace or mission ids (`learnedFrom`),
- * no run counts, schedules, staged changes or execution state. A file is
+ * no run counts, clock schedules, staged changes or execution state. Only the called-link kind travels, without its password.
+ * A file is
  * written from an explicit list of fields, never by copying the routine, so a
  * field added to routines later does not leak into a file until someone decides
  * it should.
@@ -20,11 +21,13 @@ import { stepsTooLongToSave, validRoutineName, validSteps } from './routine-stor
 export const ROUTINE_FILE_FORMAT = 'locust-routine'
 export const ROUTINE_FILE_VERSION = 1
 /** Exactly the keys a routine file may carry, and the only ones an import accepts. */
-export const ROUTINE_FILE_KEYS = ['format', 'version', 'name', 'steps', 'inputs', 'handOffs', 'route', 'connectors'] as const
+export const ROUTINE_FILE_KEYS = ['format', 'version', 'name', 'steps', 'inputs', 'handOffs', 'route', 'connectors', 'schedule'] as const
 export const MAX_ROUTINE_FILE_BYTES = 512 * 1024
 const MAX_CONNECTORS = 24
 
 export interface RoutineFile {
+  /** Only the called-link kind travels (2026-10-25), never its machine's password or URL. */
+  readonly schedule?: { readonly kind: 'hook' }
   readonly format: typeof ROUTINE_FILE_FORMAT
   readonly version: typeof ROUTINE_FILE_VERSION
   readonly name: string
@@ -109,6 +112,7 @@ export function routineToFile(
     format: ROUTINE_FILE_FORMAT,
     version: ROUTINE_FILE_VERSION,
     name: routine.name,
+    ...(routine.schedule?.kind === 'hook' ? { schedule: { kind: 'hook' as const } } : {}),
     steps: [...using.steps],
     inputs: keptInputs(using.inputs),
     handOffs: using.steps.map((_, at) => {
@@ -138,13 +142,14 @@ export function routineFileText(file: RoutineFile): string {
  * through the same checks. A routine the Markdown would not carry exactly -- a step with a `## Step` line of its own,
  * say -- is exported as the JSON file instead, so nothing is ever changed on the way out.
  */
-const MARKDOWN_FIELDS = ['locust-routine', 'runs-on', 'connectors', 'inputs'] as const
+const MARKDOWN_FIELDS = ['locust-routine', 'runs-on', 'connectors', 'inputs', 'when'] as const
 const STEP_HEADING = /^## Step (\d+)((?: · [^\n]*)?)$/
 const CHECKS_THE_WORK = 'checks the work'
 
 /** The routine as Markdown: the same text every time for the same routine. */
 export function routineMarkdown(file: RoutineFile): string {
   const top: Record<string, unknown> = { 'locust-routine': file.version }
+  if (file.schedule?.kind === 'hook') top.when = 'hook'
   if (file.route.runtime !== undefined) top['runs-on'] = file.route.runtime
   if (file.connectors.length > 0) top.connectors = [...file.connectors]
   if (file.inputs.length > 0) top.inputs = file.inputs.map((input) => ({ ...input }))
@@ -173,6 +178,7 @@ function markdownFields(text: string): { readonly ok: true; readonly value: Reco
     return refuse('That routine file\'s settings, between its --- lines, are not readable.')
   }
   if (!isRecord(top)) return refuse('That routine file has no settings between its --- lines.')
+  if (top.when !== undefined && top.when !== 'hook') return refuse('That routine file has a trigger Locust does not read.')
   const stray = Object.keys(top).find((key) => !(MARKDOWN_FIELDS as readonly string[]).includes(key))
   if (stray !== undefined) return refuse(`That routine file has a setting Locust does not read (${stray.slice(0, 40)}), so it was not opened.`)
   const version = top['locust-routine']
@@ -218,6 +224,7 @@ function markdownFields(text: string): { readonly ok: true; readonly value: Reco
       format: ROUTINE_FILE_FORMAT,
       version: ROUTINE_FILE_VERSION,
       name: title[1]!,
+      ...(top.when === 'hook' ? { schedule: { kind: 'hook' } } : {}),
       steps,
       inputs: Array.isArray(inputs) ? inputs.map((input: unknown) => isRecord(input) && typeof input.required === 'string' && ['true', 'false'].includes(input.required) ? { ...input, required: input.required === 'true' } : input) : inputs,
       handOffs,
@@ -278,9 +285,10 @@ export function parseRoutineFile(text: string): RoutineFileRead {
   }
   const stray = Object.keys(value).find((key) => !(ROUTINE_FILE_KEYS as readonly string[]).includes(key))
   if (stray !== undefined) return refuse(`That routine file has a field Locust does not read (${stray.slice(0, 40)}), so it was not opened.`)
-  const missing = ROUTINE_FILE_KEYS.find((key) => !Object.hasOwn(value, key))
+  const missing = ROUTINE_FILE_KEYS.find((key) => key !== 'schedule' && !Object.hasOwn(value, key))
   if (missing !== undefined) return refuse(`That routine file is missing its ${missing} field.`)
   const { name, steps, inputs, handOffs, route, connectors } = value
+  if (value.schedule !== undefined && (!isRecord(value.schedule) || value.schedule.kind !== 'hook' || Object.keys(value.schedule).length !== 1)) return refuse('That routine file has a trigger Locust does not read.')
   if (!validRoutineName(name)) return refuse('That routine has no usable name.')
   if (!validSteps(steps)) return refuse('That routine\'s steps are not ones Locust can keep: 1 to 12 steps, none empty.')
   const tooLong = stepsTooLongToSave(steps)
@@ -304,6 +312,7 @@ export function parseRoutineFile(text: string): RoutineFileRead {
       format: ROUTINE_FILE_FORMAT,
       version: ROUTINE_FILE_VERSION,
       name: name.trim(),
+      ...(value.schedule === undefined ? {} : { schedule: { kind: 'hook' as const } }),
       steps: [...steps],
       inputs: keptInputs(asked as readonly RoutineInput[]),
       handOffs: (handOffs as readonly { readonly role?: string; readonly check?: true }[]).map((entry) => ({ ...(entry.role === undefined ? {} : { role: entry.role }), ...(entry.check === true ? { check: true as const } : {}) })),

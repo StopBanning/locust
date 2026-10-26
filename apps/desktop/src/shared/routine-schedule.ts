@@ -1,13 +1,14 @@
 /**
  * When a routine runs on its own.
  *
- * Four shapes, all local. A run starts only while the app is open; a time
+ * Clock schedules are local. A run starts only while the app is open; a time
  * that already passed while it was closed is missed, not caught up (the
  * runner). Every N hours from the last run,
  * daily at a wall-clock time, on chosen days of the week at a time (0.517),
  * or once at a date and time (0.517). Nothing here starts anything; the
  * runner asks `nextRunAfter`, starts a routine whose time arrives while the
  * app is open, and misses one whose time passed while it was closed.
+ * Files wait for the local watcher; called links (2026-10-25) wait at the relay, at most a week, until collected.
  * A routine with no schedule is what every routine was before this: it runs
  * when a person presses Run.
  */
@@ -27,6 +28,8 @@ export type RoutineSchedule =
    * always runs in Ask -- reads it and changes nothing.
    */
   | { readonly kind: 'files'; readonly folder: string }
+  /** A private link called through the phone relay (2026-10-25): queued for the PC, always run in Ask. No password here. */
+  | { readonly kind: 'hook' }
 
 export const EVERY_HOURS_CHOICES = [1, 2, 4, 8, 12, 24] as const
 export const MAX_EVERY_HOURS = 168
@@ -50,6 +53,7 @@ export function onceMoment(on: string): Date | undefined {
 export function validSchedule(value: unknown): value is RoutineSchedule {
   if (typeof value !== 'object' || value === null) return false
   const record = value as Record<string, unknown>
+  if (record.kind === 'hook') return Object.keys(record).every((key) => key === 'kind')
   if (record.kind === 'every') {
     return typeof record.hours === 'number' && Number.isInteger(record.hours) && record.hours >= 1 && record.hours <= MAX_EVERY_HOURS
   }
@@ -116,7 +120,7 @@ export function nextRunAfter(schedule: RoutineSchedule, lastRunAt: string, now: 
     return due.getTime() <= now.getTime() ? now : due
   }
   // A file arriving is not a time: the runner asks the watcher instead (0.522).
-  if (schedule.kind === 'files') return undefined
+  if (schedule.kind === 'files' || schedule.kind === 'hook') return undefined
   if (schedule.kind === 'once') {
     const moment = onceMoment(schedule.on)
     if (moment === undefined || last.getTime() >= moment.getTime()) return undefined
@@ -179,7 +183,7 @@ export function missedSlot(schedule: RoutineSchedule, lastRunAt: string, openedA
  * delays the next one rather than dropping it; files are not a time.
  */
 export function slotPassedDuring(schedule: RoutineSchedule, startedAt: string, endedAt: Date): Date | undefined {
-  if (schedule.kind === 'every' || schedule.kind === 'files') return undefined
+  if (schedule.kind === 'every' || schedule.kind === 'files' || schedule.kind === 'hook') return undefined
   const start = new Date(startedAt)
   if (Number.isNaN(start.getTime())) return undefined
   // Asked from the START: from the end, "today" is the end's day, and a slot before midnight vanished (2026-10-10 sweep).
@@ -234,6 +238,7 @@ export function daysLabel(days: readonly number[]): string {
 
 /** How the schedule reads on a card. */
 export function scheduleLabel(schedule: RoutineSchedule | undefined): string {
+  if (schedule?.kind === 'hook') return 'when a link is called'
   if (schedule === undefined) return 'when you press Run'
   if (schedule.kind === 'every') return schedule.hours === 1 ? 'every hour' : `every ${String(schedule.hours)} hours`
   if (schedule.kind === 'weekly') return `${daysLabel(schedule.days)} at ${schedule.at}`

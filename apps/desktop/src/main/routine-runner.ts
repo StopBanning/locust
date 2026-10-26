@@ -6,6 +6,7 @@ import { handOffPrompt, verdictOf } from '../shared/hand-off.js'
 import { isDue, missedSlot, scheduleBase } from '../shared/routine-schedule.js'
 import { arrivalNote } from './routine-file-watch.js'
 import type { FileArrivals } from './routine-file-watch.js'
+import { hookNote, type HookBatch } from './routine-hooks.js'
 import type { MissionPeerContext } from './workroom-briefing.js'
 import { randomUUID } from 'node:crypto'
 import type { RoutineExecution, RoutineRecoveryRequest, RoutineRecoveryResponse } from '../shared/routine-recovery.js'
@@ -38,6 +39,7 @@ import type { RoutineValues } from '../shared/routine-inputs.js'
  */
 
 export interface RoutineRunnerOptions {
+  readonly hooks?: { ready(id: string): Promise<HookBatch | undefined>; fired(id: string, batch: HookBatch): Promise<void>; restore?(id: string, batch: HookBatch): Promise<void> }
   /** W7: the host picker vouches for folder values at dispatch, after the final store read. */
   readonly folderChosen?: (path: string) => boolean
   readonly workspaceId: string
@@ -155,7 +157,7 @@ export interface RoutineRunner {
    * `values` (W7): what a person entered for the routine's inputs. Absent, nobody
    * was asked -- a run on its own -- and the defaults stand.
    */
-  run(routineId: string, arrived?: { readonly folder: string; readonly files: readonly string[] }, values?: RoutineValues): Promise<RoutineRunResponse>
+  run(routineId: string, arrived?: RoutineArrival, values?: RoutineValues): Promise<RoutineRunResponse>
   /** Any run ending, however it ended. Only a routine's own current step moves it. */
   onRunEnded(mission: { readonly missionId: string }): Promise<void>
   running(): readonly RoutineProgress[]
@@ -178,6 +180,7 @@ function isAtCapacity(message: string): boolean {
 
 /** How long a scheduled routine waits after a start that failed before it is tried again. */
 export const SCHEDULE_HOLD_OFF_MS = 3_600_000
+type RoutineArrival = { readonly folder: string; readonly files: readonly string[] } | { readonly kind: 'hook'; readonly batch: HookBatch }
 
 /**
  * THE ROUTINE AS THIS RUN WILL SAY IT (W7): every `{{key}}` in its steps
@@ -404,12 +407,14 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
     /** The step before, when this one goes to another teammate or checks it (0.435). */
     handedFrom?: { readonly missionId: string; readonly name: string },
     /** The new files a watching routine runs for, said before step 1's own words (0.522). */
-    arrived?: { readonly folder: string; readonly files: readonly string[] },
+    arrived?: RoutineArrival,
     /** A standing goal's fix turn (0.534): its own words, after the last step. */
     fix?: { readonly prompt: string; readonly goalTry: number }
   ): Promise<CodexMissionStartResponse> => {
     const saved = routine.steps[step - 1]
-    const prompt = fix !== undefined ? fix.prompt : saved === undefined || arrived === undefined || step !== 1 ? saved : `${arrivalNote(arrived.folder, arrived.files)}\n\n${saved}`
+    const hook = (arrived !== undefined && 'kind' in arrived) || routine.execution?.hook === true
+    const prompt = fix !== undefined ? fix.prompt : saved === undefined || arrived === undefined || step !== 1 ? saved
+      : 'kind' in arrived ? hookNote(arrived.batch, saved) : `${arrivalNote(arrived.folder, arrived.files)}\n\n${saved}`
     if (prompt === undefined) {
       return { ok: false, error: { code: 'RUNTIME_START_FAILED', message: `Routine has no step ${String(step)}.` } }
     }
@@ -487,6 +492,7 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
         })
     const prior = routine.execution
     const intent: RoutineExecution = {
+      ...(hook ? { hook: true as const } : {}),
       attemptId: prior?.status === 'abandoned' || prior === undefined ? randomUUID() : prior.attemptId,
       status: 'dispatching', step, of: routine.steps.length, steps: routine.steps, route: routine.route,
       ...(routine.handOffs === undefined ? {} : { handOffs: routine.handOffs }),
@@ -501,12 +507,13 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
     // Persist BEFORE spawn. If spawn succeeds but recording its id fails, the
     // intent remains uncertain; restart must not replay it as an unstarted step.
     await options.routines.saveProgress(routine.routineId, intent, prior?.status === 'abandoned' ? null : prior?.attemptId ?? null)
+    if (arrived !== undefined && 'kind' in arrived) await options.hooks?.fired(routine.routineId, arrived.batch)
     let response: CodexMissionStartResponse
     try {
       response = await options.start({
         prompt: sent,
         runtime: route.runtime,
-        mode: route.mode,
+        mode: hook ? 'ask' : route.mode,
         model: route.model === 'account-default' ? undefined : route.model,
         // A routine replays the turns you typed, and how hard the model was
         // asked to think is part of how it ran: one saved at `high` that
@@ -527,6 +534,7 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
         // PERSISTENCE_FAILED can also come from the spawn boundary; without an
         // id they remain uncertain, even though the service returned an error.
         await options.routines.clearProgress(routine.routineId, intent.attemptId)
+        if (arrived !== undefined && 'kind' in arrived) await options.hooks?.restore?.(routine.routineId, arrived.batch)
       } else if (response.error.code === 'SPEND_LIMIT_REACHED') {
         // A later step at the teammate's monthly limit was refused before
         // anything was recorded, which PROVES it never started: said exactly,
@@ -624,7 +632,10 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
       // What it asks for, settled before anything else is looked at (W7).
       const filled = fillInputs(stored, values, options.folderChosen)
       if (!filled.ok) return { ok: false, error: { code: 'ROUTINE_REJECTED', message: filled.message } }
-      const routine = filled.routine
+      // A hook cannot run a folder check or make a writable copy. Its saved routine is otherwise unchanged.
+      const routine: PublicRoutine = arrived !== undefined && 'kind' in arrived
+        ? (({ inCopy: _copy, untilCheck: _goal, ...rest }) => ({ ...rest, route: { ...rest.route, mode: 'ask' as const } }))(filled.routine)
+        : filled.routine
       if (routine.execution !== undefined && routine.execution.status !== 'abandoned') {
         return { ok: false, error: { code: 'ROUTINE_REJECTED', message: 'This routine is already running or waiting for review. Open its routine card before starting more work.' } }
       }
@@ -687,8 +698,11 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
       const progress = announce(routine, peer, 1, response)
       // What started it, said: the bubble shows the saved step, not the note the run was given (0.522).
       if (arrived !== undefined) {
-        const named = arrived.files.map((name) => `${arrived.folder.replace(/\\/g, '/')}/${name}`).join(', ')
-        notice(progress, `Started because ${arrived.files.length === 1 ? 'a new file' : `${String(arrived.files.length)} new files`} arrived: ${named}.`, 'info')
+        if ('kind' in arrived) notice(progress, `Started because a link was called. ${String(arrived.batch.count)} call${arrived.batch.count === 1 ? '' : 's'} folded into this Ask run.`, 'info')
+        else {
+          const named = arrived.files.map((name) => `${arrived.folder.replace(/\\/g, '/')}/${name}`).join(', ')
+          notice(progress, `Started because ${arrived.files.length === 1 ? 'a new file' : `${String(arrived.files.length)} new files`} arrived: ${named}.`, 'info')
+        }
       }
       if (routine.steps.length > 1) {
         notice(progress, `Routine "${routine.name}" · step 1 of ${String(routine.steps.length)}. Each next step starts when this one completes.`, 'info')
@@ -760,7 +774,7 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
        * changes still wait for Keep or Discard, since only the person can judge
        * whether work that does not pass is worth keeping.
        */
-      if (progress.step >= progress.of && execution.untilCheck !== undefined && options.goalCheck !== undefined) {
+      if (progress.step >= progress.of && execution.hook !== true && execution.untilCheck !== undefined && options.goalCheck !== undefined) {
         const cwd = execution.inCopy === true && options.copies !== undefined ? options.copies.path(progress.routineId) : options.folderNow?.()
         const checked = cwd === undefined ? undefined : await options.goalCheck(cwd).catch(() => undefined)
         const fixes = execution.goalTry ?? 0
@@ -892,14 +906,15 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
         if (routine.staged !== undefined) continue
         // On a new file (0.522): due when the watcher has settled files for it and its hour is not full.
         const arrivedFiles = routine.schedule.kind === 'files' ? options.arrivals?.ready(routine.routineId, now.getTime()) ?? [] : []
-        if (routine.schedule.kind === 'files' ? arrivedFiles.length === 0 : !isDue(routine.schedule, scheduleBase(routine), now)) continue
+        const hookBatch = routine.schedule.kind === 'hook' ? await options.hooks?.ready(routine.routineId) : undefined
+        if (routine.schedule.kind === 'hook' ? hookBatch === undefined : routine.schedule.kind === 'files' ? arrivedFiles.length === 0 : !isDue(routine.schedule, scheduleBase(routine), now)) continue
         // M15: on its own, only in the folder it was made in. A routine made
         // for project A replayed its steps, in its write mode, in project B.
         const home = await (options.homeOf ?? (async (entry: PublicRoutine) => entry.workspaceId))(routine).catch(() => undefined)
         if (home !== undefined && home !== options.workspaceId) continue
         // No catch-up. A time that passed while Locust was closed is missed,
         // recorded, and not started. A time that passes while it is open still starts.
-        if (routine.schedule.kind !== 'files') {
+        if (routine.schedule.kind !== 'files' && routine.schedule.kind !== 'hook') {
           const slot = missedSlot(routine.schedule, scheduleBase(routine), options.openedAt ?? new Date(0), now)
           if (slot !== undefined) {
             await options.routines.recordMiss?.(routine.routineId, slot.toISOString(), now.toISOString())
@@ -913,7 +928,7 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
         const first = ownerOf(routine, 1)
         if ([...active.values()].some((progress) => progress.teammateId === first)) continue
         if (options.teammateBusy !== undefined && (await options.teammateBusy(first).catch(() => true))) continue
-        const response = await this.run(routine.routineId, routine.schedule.kind === 'files' ? { folder: routine.schedule.folder, files: arrivedFiles } : undefined)
+        const response = await this.run(routine.routineId, hookBatch !== undefined ? { kind: 'hook', batch: hookBatch } : routine.schedule.kind === 'files' ? { folder: routine.schedule.folder, files: arrivedFiles } : undefined)
         if (response.ok) {
           started.push(routine.routineId)
           if (routine.schedule.kind === 'files') options.arrivals?.fired(routine.routineId, arrivedFiles, now.getTime())

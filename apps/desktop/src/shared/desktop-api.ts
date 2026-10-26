@@ -5,6 +5,7 @@
  * drift apart. Nothing here imports Electron.
  */
 import { AGENT_ACCOUNTS_CHANNEL, type AccountAction, type AgentAccountsState } from './agent-accounts.js'
+import { ROUTINE_HOOK_READ, ROUTINE_HOOK_NEW, type RoutineHookResponse } from './routine-hook.js'
 import {
   TEAMMATE_SKILL_LIST_CHANNEL,
   TEAMMATE_SKILL_REMOVE_CHANNEL,
@@ -804,6 +805,8 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
     setGroupRoute: (groupId: string, route: TeammateRoute | undefined) =>
       ipcRenderer.invoke(GROUP_ROUTE_CHANNEL, { groupId, route }) as Promise<GroupMutationResponse>,
     listRoutines: () => ipcRenderer.invoke(ROUTINE_LIST_CHANNEL) as Promise<RoutineListResponse>,
+    readRoutineHook: (id: string) => ipcRenderer.invoke(ROUTINE_HOOK_READ, id) as Promise<RoutineHookResponse>,
+    newRoutineHook: (id: string) => ipcRenderer.invoke(ROUTINE_HOOK_NEW, id) as Promise<RoutineHookResponse>,
     createRoutine: (request: RoutineCreateRequest) =>
       ipcRenderer.invoke(ROUTINE_CREATE_CHANNEL, request) as Promise<RoutineMutationResponse>,
     updateRoutine: (request: RoutineUpdateRequest) =>

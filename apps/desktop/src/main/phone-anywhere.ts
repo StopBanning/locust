@@ -9,7 +9,7 @@ import { aadOf, deviceIdOf, importPrivateKey, linkKeys, newPcKeys, open, pairing
 import { replaceFile } from './replace-file.js'
 import type { PhoneAlert } from './phone-alerts.js'
 import { encryptPush, type PushSubscriptionKeys } from './web-push.js'
-import type { Letter } from '../../../relay/src/protocol.js'
+import { HOOK_ID, LETTER_ID, MAX_FRAME, type HookLetter, type Letter } from '../../../relay/src/protocol.js'
 import { DESK_PART_CHARS, deskJoiner, deskParts, isDeskAsk, type DeskAsk, type DeskPart, type DeskTell } from '../shared/desk.js'
 
 /*
@@ -160,6 +160,8 @@ export function createPhoneAnywhere(options: {
     /** A letter came while the line was up. */
     readonly letter: (letter: Letter) => void
   }
+  /** Called links (2026-10-25), readable by this PC alone; collected separately from Scout's sealed letters. */
+  readonly hooks?: { readonly refresh: () => void }
   /** Locust in a browser (0.830, desk-host.ts): a device's asks, and a device that may no longer have the window. */
   readonly desk?: {
     readonly frame: (device: string, asks: readonly DeskAsk[]) => void
@@ -197,6 +199,7 @@ export function createPhoneAnywhere(options: {
   const deskJoins = new Map<string, ReturnType<typeof deskJoiner>>()
   /** A 'letters' command's answer, by its id. */
   const pages = new Map<string, (page: { readonly items: readonly Letter[]; readonly more: boolean }) => void>()
+  const hookPages = new Map<string, (page: { readonly items: readonly HookLetter[]; readonly lost: number } | undefined) => void>()
   const lines = new Map<string, Promise<void>>()
   /** Work a frame started that may still write: waited for before Locust lets go. */
   const inFlight = new Set<Promise<unknown>>()
@@ -290,6 +293,7 @@ export function createPhoneAnywhere(options: {
     online.clear()
     for (const resolve of [...commands.values()]) resolve(false)
     for (const resolve of [...pages.values()]) resolve({ items: [], more: false })
+    for (const resolve of [...hookPages.values()]) resolve(undefined)
     if (old !== undefined) {
       old.onclose = null
       old.onmessage = null
@@ -444,9 +448,22 @@ export function createPhoneAnywhere(options: {
       openCode()
       tell()
       options.away?.refresh()
+      options.hooks?.refresh()
       return
     }
     if (frame.t === 'done' && typeof frame.id === 'string') { commands.get(frame.id)?.(true); return }
+    if (frame.t === 'hook-letter') { options.hooks?.refresh(); return }
+    if (frame.t === 'hook-letters' && typeof frame.id === 'string' && Array.isArray(frame.items) && Number.isSafeInteger(frame.lost) && Number(frame.lost) >= 0) {
+      const items = frame.items.filter((value): value is HookLetter => {
+        if (typeof value !== 'object' || value === null) return false
+        const item = value as Record<string, unknown>
+        return typeof item.id === 'string' && LETTER_ID.test(item.id) && typeof item.hook === 'string' && HOOK_ID.test(item.hook)
+          && typeof item.at === 'number' && Number.isFinite(item.at) && typeof item.body === 'string' && Buffer.byteLength(item.body) <= MAX_FRAME
+          && typeof item.contentType === 'string' && item.contentType.length <= 200
+      })
+      hookPages.get(frame.id)?.({ items, lost: Number(frame.lost) })
+      return
+    }
     if (frame.t === 'letters' && typeof frame.id === 'string' && Array.isArray(frame.items)) {
       pages.get(frame.id)?.({ items: frame.items.filter(isLetter), more: frame.more === true })
       return
@@ -637,6 +654,16 @@ export function createPhoneAnywhere(options: {
     awayOpen: (hash: string): Promise<boolean> => command({ t: 'away-open', hash }),
     /** Off: the relay lets the away look go, with every letter and kept alert. */
     awayClose: (): Promise<boolean> => command({ t: 'away-close' }),
+    hookOpen: (hook: string, hash: string): Promise<boolean> => command({ t: 'hook-open', hook, hash }),
+    hookClose: (hook: string): Promise<boolean> => command({ t: 'hook-close', hook }),
+    hookCollected: (hook: string, letters: readonly string[]): Promise<boolean> => command({ t: 'hook-collected', hook, letters }),
+    hookLetters: (hook: string): Promise<{ readonly items: readonly HookLetter[]; readonly lost: number } | undefined> => new Promise((resolve) => {
+      commandId += 1
+      const id = `c${String(commandId)}`
+      const timer = setTimeout(() => { hookPages.delete(id); resolve(undefined) }, COMMAND_MS)
+      hookPages.set(id, (page) => { clearTimeout(timer); hookPages.delete(id); resolve(page) })
+      if (!send({ t: 'hook-letters', hook, id })) hookPages.get(id)?.(undefined)
+    }),
 
     /**
      * Each phone with alerts on gets two alerts kept at the relay, sealed here for its browser ahead of time, so an away

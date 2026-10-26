@@ -11,6 +11,7 @@ import {
 } from './ipc.js'
 import { ROUTINE_RECOVERY_CHANNEL } from './routine-recovery.js'
 import { TEAMMATE_SKILL_USE_CHANNEL } from './tune.js'
+import { ROUTINE_HOOK_READ, ROUTINE_HOOK_NEW } from './routine-hook.js'
 
 /**
  * ROUTINES, TEAMMATES AND ROOMS FROM A BROWSER (0.834, desk-calls.ts). Locust in a browser works a routine, a
@@ -18,6 +19,11 @@ import { TEAMMATE_SKILL_USE_CHANNEL } from './tune.js'
  * manager over a copy -- stays there, and says so.
  */
 describe('routines and rooms from a browser', () => {
+  it('reads a called link, and classifies making or replacing its password as an action', () => {
+    expect(deskAccess(ROUTINE_HOOK_READ, ['rt_a'])).toBe('read')
+    expect(deskAccess(ROUTINE_HOOK_NEW, ['rt_a'])).toBe('act')
+    expect(deskAccess(ROUTINE_UPDATE_CHANNEL, [{ schedule: { kind: 'hook' } }])).toBe('act')
+  })
   it('makes, changes, pauses, runs and removes a routine, and settles what it was asked to', () => {
     for (const channel of [ROUTINE_CREATE_CHANNEL, ROUTINE_UPDATE_CHANNEL, ROUTINE_PAUSE_CHANNEL, ROUTINE_RUN_CHANNEL, ROUTINE_REMOVE_CHANNEL, ROUTINE_RECOVERY_CHANNEL]) {
       expect(deskAccess(channel, [{}]), channel).toBe('act')

@@ -1,5 +1,28 @@
 import { roomCore, type Attachment, type Peer } from './room-core.js'
 import { vapidAuthorization, type VapidKeys } from './vapid.js'
+import { MAX_FRAME } from './protocol.js'
+
+/** A streaming sender may omit Content-Length: stop reading at the byte limit, before decoding. */
+export async function hookBody(request: Request): Promise<string | undefined> {
+  if (Number(request.headers.get('content-length') ?? '0') > MAX_FRAME) return undefined
+  const reader = request.body?.getReader()
+  if (reader === undefined) return ''
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    for (;;) {
+      const part = await reader.read()
+      if (part.done) break
+      size += part.value.byteLength
+      if (size > MAX_FRAME) { await reader.cancel(); return undefined }
+      chunks.push(part.value)
+    }
+  } finally { reader.releaseLock() }
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
+  return new TextDecoder().decode(bytes)
+}
 
 /** What the Worker is given: the push signing key is a Cloudflare secret, set with `wrangler secret put`. */
 export interface RoomEnv {
@@ -32,6 +55,13 @@ export class Room {
   private readonly core: ReturnType<typeof roomCore>
   /** One Peer per connection for as long as this object is awake, so two lookups of a connection are the same Peer. */
   private readonly peers = new WeakMap<WebSocket, Peer>()
+  /** HTTP calls and sockets may interleave across storage awaits: one room changes its index at a time. */
+  private queue: Promise<unknown> = Promise.resolve()
+  private serial<T>(work: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(work)
+    this.queue = next.catch(() => undefined)
+    return next
+  }
 
   constructor(private readonly state: DurableObjectState, env: RoomEnv) {
     const vapid = vapidKeysOf(env)
@@ -75,11 +105,19 @@ export class Room {
   }
 
   async fetch(request: Request): Promise<Response> {
+    const hook = /\/hook\/([^/]+)$/.exec(new URL(request.url).pathname)?.[1]
+    if (hook !== undefined) {
+      if (request.method !== 'POST') return new Response('{"error":"method"}', { status: 405, headers: { allow: 'POST' } })
+      const body = await hookBody(request)
+      if (body === undefined) return new Response('{"error":"too-big"}', { status: 413 })
+      const answer = await this.serial(() => this.core.hook({ method: request.method, secret: hook, body, contentType: request.headers.get('content-type') ?? 'application/octet-stream' }))
+      return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+    }
     // Scout's away look (0.829): the one kind of request that is not a WebSocket, with its token as a bearer.
     if (new URL(request.url).pathname.endsWith('/away')) {
       const bearer = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') ?? '')?.[1]
       const body = request.method === 'POST' ? await request.text() : undefined
-      const answer = await this.core.away({ method: request.method, ...(bearer === undefined ? {} : { token: bearer }), ...(body === undefined ? {} : { body }) })
+      const answer = await this.serial(() => this.core.away({ method: request.method, ...(bearer === undefined ? {} : { token: bearer }), ...(body === undefined ? {} : { body }) }))
       return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
     }
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected a WebSocket.', { status: 426 })
@@ -88,26 +126,26 @@ export class Room {
     const server = pair[1]
     this.state.acceptWebSocket(server)
     server.serializeAttachment({ as: 'new', at: Date.now() } satisfies Attachment)
-    await this.core.opened()
+    await this.serial(() => this.core.opened())
     return new Response(null, { status: 101, webSocket: client } as unknown as ResponseInit)
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     // The relay speaks text only: a binary frame is read as nothing, and refused as a frame it does not know.
-    await this.core.message(this.peerOf(ws), typeof message === 'string' ? message : '')
+    await this.serial(() => this.core.message(this.peerOf(ws), typeof message === 'string' ? message : ''))
   }
 
   async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
-    await this.core.closed(this.peerOf(ws))
+    await this.serial(() => this.core.closed(this.peerOf(ws)))
     // 1005 and 1006 say no code came; they cannot be sent back.
     try { ws.close(code === 1005 || code === 1006 ? 1000 : code, reason) } catch { /* Closed already. */ }
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
-    await this.core.closed(this.peerOf(ws))
+    await this.serial(() => this.core.closed(this.peerOf(ws)))
   }
 
   async alarm(): Promise<void> {
-    await this.core.alarm()
+    await this.serial(() => this.core.alarm())
   }
 }

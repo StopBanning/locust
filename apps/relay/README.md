@@ -22,7 +22,25 @@ While the computer is off, a scheduled workflow in the repository Scout watches 
 for it. It leaves a letter sealed with a key the relay never has; the computer and its phones read the letters when
 they come, and the relay keeps them for a week at most. A letter may ring the phones that are not open, with alerts
 their computer sealed for each browser ahead of time, at most five times a day. The computer turns this off with
-`away-close`, which deletes every letter.
+`away-close`, which deletes its sealed letters and leaves called-link letters alone.
+
+## Called links
+
+A routine set to **When a link is called** uses the same room. Its computer makes a password and sends only its
+SHA-256 hash with `hook-open`; `hook-close` retires it. `POST /v1/room/<room>/hook/<password>` accepts a readable body
+and content type and returns `202` without waiting for the computer. Unlike phone messages, these bodies are **not
+end-to-end encrypted**. A link is a password: anyone who has it can start the routine. Do not send secrets.
+
+Only the PC receives these letters, live or through `hook-letters` on reconnection. It acknowledges a letter with
+`hook-collected` after saving it locally; then the relay deletes it. The existing 200-letter cap is shared with
+Scout's letters, and nothing is kept for more than a week. Expired or displaced calls leave a count for the routine's
+history. A hook accepts at most 60 calls an hour, across password changes. Other methods get `405`, oversized bodies
+`413`, excess calls `429`, and wrong, unknown or retired passwords the same `404`.
+
+The PC folds waiting calls into one Ask run, with their count and the newest body's bounded data block. Hook-triggered
+steps cannot use a routine's writing mode, run its folder check or start a writable copy. No new listener runs on the
+PC. A relay upgrade is needed before this desktop feature can confirm a working link; existing rooms need no storage
+migration. Keep HTTP access logs and tracing from recording full hook URLs: their path holds a password.
 
 ## Run your own
 

@@ -12,6 +12,8 @@ export function routineAwaitsReview(routine: { readonly execution?: RoutineExecu
 }
 
 export interface RoutineExecution {
+  /** A called link keeps every step in Ask, including steps handed to another teammate. */
+  readonly hook?: true
   readonly attemptId: string
   readonly status: 'dispatching' | 'running' | 'held' | 'abandoned'
   readonly step: number

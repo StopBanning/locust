@@ -81,7 +81,7 @@ function memoryRelay(pushed?: (endpoint: string, body: string) => number) {
   const drop = (): void => {
     for (const [line, peer] of [...peers]) serial(async () => { await core.closed(peer); hangUp(line) })
   }
-  return { connect, drop, stored, settled: () => work, pcAuths: () => pcAuths, away: (request: Parameters<typeof core.away>[0]) => core.away(request) }
+  return { connect, drop, stored, settled: () => work, pcAuths: () => pcAuths, away: (request: Parameters<typeof core.away>[0]) => core.away(request), hook: (request: Parameters<typeof core.hook>[0]) => core.hook(request) }
 }
 
 /** The frames a line hears, taken in order by what a test waits for. */
@@ -211,6 +211,39 @@ async function openPush(body: Buffer, receiver: CryptoKeyPair, auth: Uint8Array)
 }
 
 describe('a phone pairs and asks through the relay', () => {
+  it('registers a hook by hash, hears its live notice, collects offline calls and retires the old password', async () => {
+    const relay = memoryRelay()
+    const folder = await mkdtemp(join(tmpdir(), 'locust-hook-relay-'))
+    directories.push(folder)
+    let nudges = 0
+    const pc = createPhoneAnywhere({ directory: folder, calls: fakeCalls(), relay: () => 'https://relay.test', connect: relay.connect, protectFile: async () => undefined, hooks: { refresh: () => { nudges += 1 } } })
+    try {
+      await pc.setEnabled(true)
+      await until(async () => pc.connected())
+      const token = randomBytes(32).toString('base64url')
+      const hash = createHash('sha256').update(token).digest('base64url')
+      expect(await pc.hookOpen('rt_a', hash)).toBe(true)
+      const before = nudges
+      expect((await relay.hook({ method: 'POST', secret: token, body: 'online', contentType: 'text/plain' })).status).toBe(202)
+      await until(async () => nudges > before)
+      const page = await pc.hookLetters('rt_a')
+      expect(page).toMatchObject({ lost: 0, items: [{ hook: 'rt_a', body: 'online', contentType: 'text/plain' }] })
+      expect(await pc.hookCollected('rt_a', page!.items.map((item) => item.id))).toBe(true)
+      expect((await pc.hookLetters('rt_a'))?.items).toEqual([])
+      await pc.dispose()
+      await relay.settled()
+      expect((await relay.hook({ method: 'POST', secret: token, body: 'offline', contentType: 'application/json' })).status).toBe(202)
+      const back = (await aPc(relay, fakeCalls(), folder)).pc
+      try {
+        await back.load()
+        await until(async () => back.connected())
+        expect((await back.hookLetters('rt_a'))?.items[0]).toMatchObject({ body: 'offline', contentType: 'application/json' })
+        expect(await back.hookOpen('rt_a', createHash('sha256').update(randomBytes(32)).digest('base64url'))).toBe(true)
+        expect((await relay.hook({ method: 'POST', secret: token, body: 'old', contentType: 'text/plain' })).status).toBe(404)
+        expect(await back.hookClose('rt_a')).toBe(true)
+      } finally { await back.dispose() }
+    } finally { await pc.dispose() }
+  })
   it('pairs a phone by its code, then answers what the page asks and does what it may', async () => {
     const relay = memoryRelay()
     const { pc, calls } = await aPc(relay)

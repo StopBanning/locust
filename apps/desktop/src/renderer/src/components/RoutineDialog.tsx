@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BOT_SIZE } from '../botSizes.js'
 import type { ReactElement } from 'react'
 import { useModal } from '../useModal.js'
@@ -12,6 +12,40 @@ import { TeammateBot } from './TeammateBot.js'
 import { RoutineInputEditor } from './RoutineInputs.js'
 import { inputsRefusal } from '../../../shared/routine-inputs.js'
 import type { RoutineInput } from '../../../shared/routine-inputs.js'
+import { HOOK_WARNING, HOOK_ASK, type RoutineHookState } from '../../../shared/routine-hook.js'
+
+/** THE LINK IS A PASSWORD (2026-10-25). Read only in this editor, never loaded into the general routine list. */
+export function RoutineHookLink({ routineId }: { readonly routineId?: string }): ReactElement {
+  const [state, setState] = useState<RoutineHookState>({ message: routineId === undefined ? 'Save the routine to make its link. Your phone, from anywhere must be on in Settings > Phone.' : 'Checking the phone relay…' })
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    let live = true
+    if (routineId !== undefined) void window.desktop?.readRoutineHook(routineId).then((answer) => { if (live) setState(answer.ok ? answer.data : { message: answer.error.message }) }).catch(() => { if (live) setState({ message: 'The link could not be read. Open this editor again to try.' }) })
+    return () => { live = false }
+  }, [routineId])
+  const replace = async (): Promise<void> => {
+    if (routineId === undefined || !window.desktop) return
+    setBusy(true)
+    setCopied(false)
+    try {
+      const answer = await window.desktop.newRoutineHook(routineId)
+      setState(answer.ok ? answer.data : { message: answer.error.message })
+    } catch { setState({ message: 'The relay did not confirm a new link. Check Settings > Phone and try again.' }) }
+    finally { setBusy(false) }
+  }
+  return <div className="lc-routinesched__days">
+    {state.url !== undefined && <>
+      <input className="lc-input" aria-label="Routine link" type="text" readOnly value={state.url} />
+      <button type="button" className="lc-ghostbutton" onClick={() => { void navigator.clipboard.writeText(state.url!).then(() => setCopied(true), () => setCopied(false)) }}>{copied ? 'Copied' : 'Copy'}</button>
+      <button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => { void replace() }}>New link</button>
+    </>}
+    {state.message !== undefined && <p className="lc-dialog__note lc-mono">{state.message}</p>}
+    {state.url === undefined && state.canMake === true && routineId !== undefined && <button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => { void replace() }}>Make link</button>}
+    <p className="lc-dialog__note lc-mono">{HOOK_WARNING}</p>
+    <p className="lc-dialog__note lc-mono">{HOOK_ASK}</p>
+  </div>
+}
 
 /** Monday first, as a week reads; 0 is Sunday, as the schedule counts. */
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const
@@ -57,8 +91,10 @@ export function RoutineDialog({
   initialGoalTries,
   checkCommand,
   running = false,
-  initialInputs = []
+  initialInputs = [],
+  routineId
 }: {
+  readonly routineId?: string
   /** A standing goal's fixes, when it has one (0.534). */
   readonly initialGoalTries?: number
   /** This folder's check command from Settings, or undefined for none (0.534). */
@@ -509,7 +545,8 @@ export function RoutineDialog({
                     ['daily', 'Daily'],
                     ['weekly', 'On set days'],
                     ['once', 'Once'],
-                    ['files', 'On a new file']
+                    ['files', 'On a new file'],
+                    ['hook', 'When a link is called']
                   ] as const
                 ).map(([kind, label]) => (
                   <button
@@ -534,7 +571,7 @@ export function RoutineDialog({
                                 ? { kind: 'once', on: tomorrowAtNine() }
                                 : kind === 'files'
                                   ? { kind: 'files', folder: 'inbox' }
-                                  : { kind: 'daily', at: '09:00' }
+                                  : kind === 'hook' ? { kind: 'hook' } : { kind: 'daily', at: '09:00' }
                       )
                     }}
                   >
@@ -639,6 +676,7 @@ export function RoutineDialog({
                 </p>
               </div>
             )}
+            {schedule?.kind === 'hook' && <RoutineHookLink {...(routineId === undefined ? {} : { routineId })} />}
             {schedule?.kind === 'once' && (
               <div className="lc-routinesched lc-routinesched__days">
                 <label className="lc-routinesched__detail lc-mono">
@@ -658,7 +696,7 @@ export function RoutineDialog({
                 )}
               </div>
             )}
-            {schedule !== undefined && (
+            {schedule !== undefined && schedule.kind !== 'hook' && (
               <p className="lc-dialog__note lc-mono">
                 Only while Locust is open, and only when {teammate?.name ?? 'the teammate'} is free. A run missed while
                 Locust was closed happens once, the next time it is open.

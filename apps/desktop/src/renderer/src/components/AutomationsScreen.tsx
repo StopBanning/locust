@@ -326,6 +326,11 @@ export function AutomationsScreen({
                   {routine.lastFailed !== undefined && (
                     <span className="lc-routinerow__failed">Last run: {routine.lastFailed}</span>
                   )}
+                  {routine.history?.filter((entry) => entry.hookCalls !== undefined).map((entry, at) => (
+                    <span key={`hook-loss-${String(at)}`} className="lc-routinerow__failed">
+                      {String(entry.hookCalls)} link calls were not run: calls are kept at most a week, with room for the newest 200 letters.
+                    </span>
+                  ))}
                   {/* A scheduled routine in Approve each waits on its first card when it fires unattended (0.591, PRD U4). */}
                   {routineWaitsForYou(routine) !== undefined && (
                     <span className="lc-routinerow__waits">{routineWaitsForYou(routine)}</span>
