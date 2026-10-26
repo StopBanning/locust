@@ -11,6 +11,19 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.836.0 - 2026-10-27
+<!-- big -->
+
+### New
+
+- **Verbose shows every step.** In a conversation, ··· then Verbose, or Ctrl+O, opens every run's steps and each tool call's detail. Normal folds them again. The choice stays with this window.
+- **Right-click a file path.** On a path in an answer, a changed file, a step that names a file, or the file viewer's title, right-click to add it to your next message, open it in VS Code or Cursor when that editor is on your PATH, open it in the usual app (a script is not run that way), show it in Explorer, Finder or the file manager, or copy the path, the path from the folder, or the file name. A path outside the conversation's folder can only be copied.
+
+### Improved
+
+- **The message box is quieter.** The kind of message, the mode, the folder, the usage ring and the model sit under the box as plain words. The model and its effort are one control, such as Haiku 5.5 · Medium, and opening it lists the models with the effort choice at the foot. The send button keeps its look. Comparing models still sets each one's effort on its own.
+- **Keyboard shortcuts, in one sheet.** Ctrl+/ lists them, grouped. Ctrl+Shift+M, Ctrl+Shift+I and Ctrl+Shift+E open the mode, model and effort of the conversation on screen. With a menu open, 1 through 9 picks a row. The command palette lists Keyboard shortcuts too.
+
 ## 0.835.0 - 2026-10-26
 <!-- big -->
 
