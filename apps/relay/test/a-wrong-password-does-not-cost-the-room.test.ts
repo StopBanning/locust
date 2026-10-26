@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 
 import { describe, expect, it } from 'vitest'
 
-import { HOOK_POSTS_PER_HOUR, roomCore, type Attachment, type Peer, type RoomHost } from '../src/room-core.js'
+import { HOOK_MISSES_PER_HOUR, HOOK_POSTS_PER_HOUR, roomCore, type Attachment, type Peer, type RoomHost } from '../src/room-core.js'
 import { Room } from '../src/room.js'
 
 /**
@@ -37,7 +37,7 @@ async function room() {
   const secret = password()
   await say({ t: 'hook-open', hook: 'rt_a', hash: digest(secret) })
   const call = (token: string, body = 'hello') => core.hook({ method: 'POST', secret: token, body, contentType: 'text/plain' })
-  return { secret, call, tick: (ms: number) => { now += ms } }
+  return { secret, call, gate: core.hookGate, tick: (ms: number) => { now += ms } }
 }
 
 describe('a wrong password does not cost the room', () => {
@@ -47,6 +47,22 @@ describe('a wrong password does not cost the room', () => {
     expect((await made.call(made.secret)).status).toBe(202)
     made.tick(1)
     expect((await made.call(password())).status).toBe(429)
+  })
+
+  it('forgets a miss after an hour, and lets a right password through at any count', async () => {
+    const made = await room()
+    for (let index = 0; index < HOOK_MISSES_PER_HOUR; index += 1) await made.call(password())
+    expect(await made.gate(password())).toMatchObject({ status: 429 })
+    expect(await made.gate(made.secret)).toBeUndefined()
+    made.tick(60 * 60_000)
+    expect(await made.gate(password())).toMatchObject({ status: 404, body: { error: 'not-found' } })
+  })
+
+  it('answers a wrong password the same whatever the body is', async () => {
+    const made = await room()
+    const big = 'x'.repeat(800 * 1024)
+    expect(await made.call(password(), big)).toMatchObject({ status: 404, body: { error: 'not-found' } })
+    expect(await made.call(made.secret, big)).toMatchObject({ status: 413 })
   })
 
   it('does not read the body before the password matches', async () => {
@@ -66,13 +82,15 @@ describe('a wrong password does not cost the room', () => {
       setWebSocketAutoResponse: () => undefined
     }, {})
     let reads = 0
+    // A stream with room for one chunk is pulled once as it is made, before anything reads it: a high-water mark of
+    // zero makes a pull mean a read.
     const stream = new ReadableStream<Uint8Array>({
       pull(controller) {
         reads += 1
         controller.enqueue(new TextEncoder().encode('hello'))
         controller.close()
       }
-    })
+    }, { highWaterMark: 0 })
     const response = await durable.fetch(new Request(`https://example.test/v1/room/${'a'.repeat(22)}/hook/${password()}`, { method: 'POST', body: stream, duplex: 'half' } as RequestInit))
     expect(response.status).toBe(404)
     expect(reads).toBe(0)

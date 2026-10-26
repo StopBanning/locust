@@ -68,6 +68,8 @@ export function createRoutineHooks(options: {
     queue = next.catch(() => undefined)
     return next
   }
+  /** The links this process already closed because their record could not be used: not asked again every minute. */
+  const unusable = new Set<string>()
   const load = async (): Promise<void> => {
     if (loaded) return
     try {
@@ -106,12 +108,37 @@ export function createRoutineHooks(options: {
             || !Number.isSafeInteger(pending.count) || pending.count < 1 || !Number.isFinite(pending.at) || typeof pending.body !== 'string' || pending.body.length > MAX_BODY_CHARS + 1 || typeof pending.contentType !== 'string' || pending.contentType.length > 200))) throw new Error('Invalid hook entry')
       }
       saved = value
+      unusable.clear()
       // Upgrade the earlier private-but-unencrypted file before displaying or registering any saved link.
       if (disk.v === 1) await persist(value)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('The kept links could not be read. Nothing was changed.')
     }
     loaded = true
+  }
+  /** The hook ids a file names, read without opening a password: its keys are not secret. Nothing when it cannot be parsed. */
+  const idsOnDisk = async (): Promise<readonly string[]> => {
+    try {
+      const disk = JSON.parse(await readFile(options.file, 'utf8')) as { readonly entries?: unknown }
+      return typeof disk.entries === 'object' && disk.entries !== null && !Array.isArray(disk.entries) ? Object.keys(disk.entries).slice(0, 200) : []
+    } catch { return [] }
+  }
+  /**
+   * A LINK THE RECORD CANNOT OPEN IS STILL CLOSED (2026-10-26). Closing needs only the hook id, which is the routine's
+   * id, never the password. When the file cannot be read or this computer cannot decrypt it, every link that could be
+   * registered is closed at the relay (those the file names, and every routine that is called by a link) so it stops
+   * taking calls. The error the person sees is unchanged, and nothing on disk is touched.
+   */
+  const closeUnusable = async (): Promise<void> => {
+    const relay = options.relay()
+    const room = relay?.room()
+    if (relay === undefined || room === undefined || !relay.connected()) return
+    const routines = await options.routines().catch(() => [] as readonly PublicRoutine[])
+    const ids = new Set([...await idsOnDisk(), ...routines.filter((routine) => routine.schedule?.kind === 'hook').map((routine) => routine.routineId)])
+    for (const id of ids) {
+      if (!HOOK_ID.test(id) || unusable.has(id)) continue
+      try { if (await relay.hookClose(id)) unusable.add(id) } catch { /* Tried again at the next sync. */ }
+    }
   }
   const persist = async (next: Saved): Promise<void> => {
     if (!options.secrets.available()) throw new Error(CANNOT_ENCRYPT)
@@ -177,8 +204,8 @@ export function createRoutineHooks(options: {
     sync: (): Promise<void> => {
       if (syncing !== undefined) return syncing
       const work = serial(async () => {
-      if (!options.secrets.available()) return
-      await load()
+      if (!options.secrets.available()) { await closeUnusable(); return }
+      try { await load() } catch (error) { await closeUnusable(); throw error }
       const relay = options.relay()
       const room = relay?.room()
       const routines = await options.routines()

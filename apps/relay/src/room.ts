@@ -108,6 +108,10 @@ export class Room {
     const hook = /\/hook\/([^/]+)$/.exec(new URL(request.url).pathname)?.[1]
     if (hook !== undefined) {
       if (request.method !== 'POST') return new Response('{"error":"method"}', { status: 405, headers: { allow: 'POST' } })
+      // THE PASSWORD IS CHECKED BEFORE THE BODY IS READ (2026-10-26). It is in the path, so a wrong one is answered without
+      // pulling a byte of what came with it, and without waiting in the room's queue behind a body that is still arriving.
+      const refused = await this.serial(() => this.core.hookGate(hook))
+      if (refused !== undefined) return new Response(JSON.stringify(refused.body), { status: refused.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
       const body = await hookBody(request)
       if (body === undefined) return new Response('{"error":"too-big"}', { status: 413 })
       const answer = await this.serial(() => this.core.hook({ method: request.method, secret: hook, body, contentType: request.headers.get('content-type') ?? 'application/octet-stream' }))

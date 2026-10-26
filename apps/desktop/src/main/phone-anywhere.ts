@@ -72,6 +72,11 @@ interface Saved {
   readonly devices: readonly SavedDevice[]
   /** Whether approvals and questions buzz a phone in quiet hours (0.827). */
   readonly nightApprovals?: boolean
+  /**
+   * TURNING OFF WITHOUT THE LINE (2026-10-26). Off was asked for and the relay has not yet said it forgot the room.
+   * Only the room and its token are kept, to ask once more: the token is the one thing that can reset the room.
+   */
+  readonly closing?: true
 }
 
 /** The part of a WebSocket this uses, so a test can stand an in-memory relay in its place. */
@@ -213,11 +218,11 @@ export function createPhoneAnywhere(options: {
   const settings = (): PhoneAnywhereSettings => {
     const open = saved !== undefined && pairing !== undefined && !pairing.used && pairing.until > now() ? pairing : undefined
     const refusal = options.refusal?.()
-    const note = refusal ?? message
+    const note = saved?.closing === true ? 'Turning off...' : refusal ?? message
     return {
-      enabled: saved !== undefined,
+      enabled: saved !== undefined && saved.closing !== true,
       connected,
-      ...(saved !== undefined && open !== undefined ? { code: { url: codeUrl(saved, open.secret), until: new Date(open.until).toISOString() } } : {}),
+      ...(saved !== undefined && saved.closing !== true && open !== undefined ? { code: { url: codeUrl(saved, open.secret), until: new Date(open.until).toISOString() } } : {}),
       devices: (saved?.devices ?? []).map((device) => ({
         id: device.id,
         name: device.name,
@@ -305,6 +310,37 @@ export function createPhoneAnywhere(options: {
     if (disposed || saved === undefined || refusedByRelay || retryTimer !== undefined) return
     attempt += 1
     retryTimer = setTimeout(() => { retryTimer = undefined; connect() }, retryMs(attempt))
+  }
+
+  /** The room is gone from the relay, and this PC: its keys, its file. */
+  const forgetRoom = async (): Promise<void> => {
+    stopSocket()
+    saved = undefined
+    privateKey = undefined
+    keys.clear()
+    pairing = undefined
+    message = undefined
+    refusedByRelay = false
+    clearTimeout(saveTimer)
+    saveTimer = undefined
+    await writing
+    // Retried as the stores' moves are (replace-file.ts): an antivirus scanning the file just written holds it a
+    // moment, and a file left behind would turn this back on when Locust next starts.
+    try {
+      await rm(file, { force: true, recursive: true, maxRetries: 20, retryDelay: 100 })
+    } catch {
+      message = 'Locust could not delete what paired your phones. It will try again the next time you turn this off.'
+    }
+  }
+
+  /** Off, as far as it can go now: reset when the line is up and forget once the relay says so; otherwise wait for the line. */
+  const letGo = async (): Promise<void> => {
+    if (saved?.closing !== true) return
+    if (refusedByRelay) { await forgetRoom(); return }
+    if (connected && await command({ t: 'reset' })) { await forgetRoom(); return }
+    // No word from the relay: the line is made again and the reset sent when it is back ('ok' above).
+    if (connected) stopSocket()
+    reconnectLater()
   }
 
   const pairingHello = async (from: string, key: string, n: string, c: string): Promise<void> => {
@@ -444,6 +480,11 @@ export function createPhoneAnywhere(options: {
       attempt = 0
       message = undefined
       online.clear()
+      if (saved?.closing === true) {
+        // The line is back: the reset that had to wait is sent now, and nothing else is told or opened on this room.
+        void serial(async () => { await letGo(); return settings() }).then(tell, () => undefined)
+        return
+      }
       for (const device of Array.isArray(frame.devices) ? frame.devices : []) if (typeof device === 'string') online.add(device)
       openCode()
       tell()
@@ -479,6 +520,8 @@ export function createPhoneAnywhere(options: {
         refusedByRelay = true
         message = 'Locust’s relay no longer knows this computer. Turn this off and on again, then scan the new code.'
         stopSocket()
+        // A room this token cannot reset is not this PC's to close: there is nothing left to wait for.
+        if (saved?.closing === true) void serial(async () => { await letGo(); return settings() }).then(tell, () => undefined)
         tell()
       }
       return
@@ -567,7 +610,12 @@ export function createPhoneAnywhere(options: {
       if (disposed || saved !== undefined) return settings()
       try {
         const held = JSON.parse(await readFile(file, 'utf8')) as unknown
-        if (isSaved(held)) await start(held)
+        if (isSaved(held) && held.closing === true) {
+          // Off was asked for and never confirmed: stays off, and asks the relay again.
+          saved = held
+          refusedByRelay = false
+          connect()
+        } else if (isSaved(held)) await start(held)
       } catch { /* Missing or unreadable stays off. */ }
       return settings()
     }),
@@ -575,7 +623,8 @@ export function createPhoneAnywhere(options: {
     setEnabled: (enabled: unknown) => serial(async () => {
       if (disposed || typeof enabled !== 'boolean') return settings()
       if (enabled) {
-        if (options.refusal?.() !== undefined) return settings()
+        // Still being turned off: a new room waits until the old one is let go.
+        if (options.refusal?.() !== undefined || saved?.closing === true) return settings()
         if (saved === undefined) {
           const pc = await newPcKeys()
           const held: Saved = { v: 1, relay: (options.relay?.() ?? DEFAULT_RELAY).replace(/\/+$/, ''), room: randomText(16), token: randomText(32), key: pc.privateJwk, publicKey: pc.publicKey, devices: [] }
@@ -595,30 +644,26 @@ export function createPhoneAnywhere(options: {
       }
       // Off unpairs every phone: the relay forgets the room, and this PC its keys. The next time it is on, it is a new room.
       for (const device of saved?.devices ?? []) options.desk?.forget(device.id)
-      if (connected) await command({ t: 'reset' })
-      stopSocket()
-      saved = undefined
-      privateKey = undefined
-      keys.clear()
-      pairing = undefined
-      message = undefined
-      refusedByRelay = false
-      clearTimeout(saveTimer)
-      saveTimer = undefined
-      await writing
-      // Retried as the stores' moves are (replace-file.ts): an antivirus scanning the file just written holds it a
-      // moment, and a file left behind would turn this back on when Locust next starts.
-      try {
-        await rm(file, { force: true, recursive: true, maxRetries: 20, retryDelay: 100 })
-      } catch {
-        message = 'Locust could not delete what paired your phones. It will try again the next time you turn this off.'
+      if (saved !== undefined && saved.closing !== true) {
+        // THE ROOM'S TOKEN OUTLIVES OFF UNTIL THE RELAY CONFIRMS (2026-10-26). It is the only thing that can reset the
+        // room. Deleted with the line down, nothing could close it, and called links would keep taking calls until the
+        // relay's idle sweep. The phones' keys go now; the token stays, marked as being let go.
+        saved = { ...saved, key: {}, devices: [], closing: true }
+        privateKey = undefined
+        keys.clear()
+        pairing = undefined
+        message = undefined
+        await persist().catch(() => undefined)
       }
+      // Nothing held, or a file that was never read: still removed, as it was before the room was kept to be reset.
+      if (saved === undefined) await forgetRoom()
+      else await letGo()
       return settings()
     }),
 
     /** A new code, for the next phone: the one before it stops working. */
     newCode: () => serial(async () => {
-      if (disposed || saved === undefined) return settings()
+      if (disposed || saved === undefined || saved.closing === true) return settings()
       await newCode()
       return settings()
     }),
@@ -647,14 +692,14 @@ export function createPhoneAnywhere(options: {
     },
 
     /** This PC's room on the relay, for Scout's away look; nothing while phones are off. */
-    room: (): { readonly relay: string; readonly room: string } | undefined => (saved === undefined ? undefined : { relay: saved.relay, room: saved.room }),
+    room: (): { readonly relay: string; readonly room: string } | undefined => (saved === undefined || saved.closing === true ? undefined : { relay: saved.relay, room: saved.room }),
     connected: (): boolean => connected,
 
     /** The away look's token, by its hash: the relay lets it leave letters here. */
-    awayOpen: (hash: string): Promise<boolean> => command({ t: 'away-open', hash }),
+    awayOpen: (hash: string): Promise<boolean> => (saved?.closing === true ? Promise.resolve(false) : command({ t: 'away-open', hash })),
     /** Off: the relay lets the away look go, with every letter and kept alert. */
     awayClose: (): Promise<boolean> => command({ t: 'away-close' }),
-    hookOpen: (hook: string, hash: string): Promise<boolean> => command({ t: 'hook-open', hook, hash }),
+    hookOpen: (hook: string, hash: string): Promise<boolean> => (saved?.closing === true ? Promise.resolve(false) : command({ t: 'hook-open', hook, hash })),
     hookClose: (hook: string): Promise<boolean> => command({ t: 'hook-close', hook }),
     hookCollected: (hook: string, letters: readonly string[]): Promise<boolean> => command({ t: 'hook-collected', hook, letters }),
     hookLetters: (hook: string): Promise<{ readonly items: readonly HookLetter[]; readonly lost: number } | undefined> => new Promise((resolve) => {
@@ -707,7 +752,7 @@ export function createPhoneAnywhere(options: {
     }),
 
     setNightApprovals: (on: unknown) => serial(async () => {
-      if (disposed || saved === undefined || typeof on !== 'boolean') return settings()
+      if (disposed || saved === undefined || saved.closing === true || typeof on !== 'boolean') return settings()
       const { nightApprovals: _was, ...rest } = saved
       saved = on ? { ...rest, nightApprovals: true } : rest
       await persist().catch(() => { message = 'That setting could not be saved. It lasts until Locust closes.' })

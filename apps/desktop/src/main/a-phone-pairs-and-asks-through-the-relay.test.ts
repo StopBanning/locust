@@ -438,6 +438,49 @@ describe('a phone pairs and asks through the relay', () => {
       await pc.dispose()
     }
   })
+
+  it('says it is turning off until the relay confirms, and finishes after a restart', async () => {
+    const relay = memoryRelay()
+    const folder = await mkdtemp(join(tmpdir(), 'locust-hook-off-'))
+    directories.push(folder)
+    let open = true
+    const make = () => createPhoneAnywhere({
+      directory: folder,
+      calls: fakeCalls(),
+      relay: () => 'https://relay.test',
+      connect: (url) => { if (!open) throw new Error('offline'); return relay.connect(url) },
+      protectFile: async () => undefined,
+      retryMs: () => 20
+    })
+    const first = make()
+    await first.setEnabled(true)
+    await until(async () => first.connected())
+    const token = randomBytes(32).toString('base64url')
+    expect(await first.hookOpen('rt_a', createHash('sha256').update(token).digest('base64url'))).toBe(true)
+    open = false
+    relay.drop()
+    await until(async () => !first.connected())
+    const turning = await first.setEnabled(false)
+    expect(turning).toMatchObject({ enabled: false, message: 'Turning off...' })
+    expect(turning.code).toBeUndefined()
+    expect(first.room()).toBeUndefined()
+    // What is kept is only what resets the room: no phone's key stays.
+    expect(existsSync(join(folder, PHONE_ANYWHERE_FILE))).toBe(true)
+    // A new room is not made while the old one is still being let go.
+    expect(await first.setEnabled(true)).toMatchObject({ enabled: false, message: 'Turning off...' })
+    await first.dispose()
+
+    // Locust is started again with the line back: the reset that never got through is sent, and the file goes.
+    open = true
+    const second = make()
+    expect(await second.load()).toMatchObject({ enabled: false, message: 'Turning off...' })
+    await until(async () => !existsSync(join(folder, PHONE_ANYWHERE_FILE)))
+    await relay.settled()
+    expect((await relay.hook({ method: 'POST', secret: token, body: 'after restart', contentType: 'text/plain' })).status).toBe(404)
+    expect(await second.settings()).toMatchObject({ enabled: false })
+    expect((await second.settings()).message).toBeUndefined()
+    await second.dispose()
+  })
 })
 
 describe('Scout’s away look through the relay (0.829)', () => {

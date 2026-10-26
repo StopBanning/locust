@@ -79,6 +79,12 @@ export const MAX_LETTERS = 200
 export const AWAY_POSTS_PER_HOUR = 12
 /** Sixty calls an hour lets integrations burst, without one leaked link spending a plan in a tight loop. */
 export const HOOK_POSTS_PER_HOUR = 60
+/**
+ * Wrong passwords one room turns away an hour before it answers 429 instead of 404. The link's password is random, so a
+ * guess is never the worry; the worry is someone who once held it and keeps calling. Sixty is one a minute: a caller
+ * left on a replaced password for a while is not locked out of learning so, and a right password is never counted.
+ */
+export const HOOK_MISSES_PER_HOUR = 60
 /** As many hooks as routines; a room cannot grow an unbounded hash table. */
 export const MAX_HOOKS = 64
 /** The most times a day the away looks ring the phones, whatever they ask. */
@@ -150,6 +156,27 @@ export function roomCore(host: RoomHost) {
       const parts = box !== undefined && 'parts' in box ? Array.from({ length: box.parts }, (_, at) => `${key}:${String(at)}`) : []
       await host.store.delete([key, ...parts])
     }
+  }
+  /**
+   * WRONG PASSWORDS ARE COUNTED IN MEMORY (2026-10-26). A miss writes nothing: a stored count would make every wrong
+   * call cost a storage write. A room that sleeps forgets them, and one that is being called does not sleep. At most
+   * HOOK_MISSES_PER_HOUR times are kept, so the list cannot grow.
+   */
+  const misses: number[] = []
+  /** The link a password opens, or the answer for one that opens none. A password is checked before any body is read. */
+  const openHook = async (secret: string): Promise<{ readonly held: Meta; readonly id: string; readonly hook: Hook } | AwayAnswer> => {
+    // AN UNKNOWN ROOM COSTS THE SAME AS A KNOWN ONE (2026-10-25). The password is hashed before the room is read, and a room with no hooks still runs one compare, so the 404 is not the cheaper path. The body stays not-found.
+    const hash = await host.sha256(secret)
+    const held = await meta()
+    const hooks = Object.entries(held?.hooks ?? {})
+    if (hooks.length === 0) void same(hash, hash)
+    const match = hooks.find(([, hook]) => same(hook.hash, hash))
+    if (held !== undefined && TOKEN.test(secret) && match !== undefined) return { held, id: match[0], hook: match[1] }
+    const now = host.now()
+    while (misses.length > 0 && now - misses[0]! >= HOUR_MS) misses.shift()
+    if (misses.length >= HOOK_MISSES_PER_HOUR) return { status: 429, body: { error: 'too-fast' } }
+    misses.push(now)
+    return { status: 404, body: { error: 'not-found' } }
   }
   const keepHookLetter = async (letter: HookLetter): Promise<void> => {
     const key = letterKey(letter.id)
@@ -419,18 +446,18 @@ export function roomCore(host: RoomHost) {
   }
 
   return {
+    /** A called link's password, before any of its body is read (2026-10-26): nothing when it opens a link, else the answer to give. */
+    async hookGate(secret: string): Promise<AwayAnswer | undefined> {
+      const opened = await openHook(secret)
+      return 'status' in opened ? opened : undefined
+    },
     /** A called link (2026-10-25): accepted into storage, without waiting for a PC or an agent. */
     async hook(request: { readonly method: string; readonly secret: string; readonly body: string; readonly contentType: string }): Promise<AwayAnswer> {
       if (request.method !== 'POST') return { status: 405, body: { error: 'method' } }
+      const opened = await openHook(request.secret)
+      if ('status' in opened) return opened
       if (new TextEncoder().encode(request.body).length > MAX_FRAME) return { status: 413, body: { error: 'too-big' } }
-      // AN UNKNOWN ROOM COSTS THE SAME AS A KNOWN ONE (2026-10-25). The password is hashed before the room is read, and a room with no hooks still runs one compare, so the 404 is not the cheaper path. The body stays not-found.
-      const hash = await host.sha256(request.secret)
-      const held = await meta()
-      const hooks = Object.entries(held?.hooks ?? {})
-      if (hooks.length === 0) void same(hash, hash)
-      const match = hooks.find(([, hook]) => same(hook.hash, hash))
-      if (held === undefined || !TOKEN.test(request.secret) || match === undefined) return { status: 404, body: { error: 'not-found' } }
-      const [id, hook] = match
+      const { held, id, hook } = opened
       const now = host.now()
       const posts = hook.posts.filter((at) => now - at < HOUR_MS)
       if (posts.length >= HOOK_POSTS_PER_HOUR) return { status: 429, body: { error: 'too-fast' } }
