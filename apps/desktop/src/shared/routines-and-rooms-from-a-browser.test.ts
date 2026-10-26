@@ -19,9 +19,11 @@ import { ROUTINE_HOOK_READ, ROUTINE_HOOK_NEW } from './routine-hook.js'
  * manager over a copy -- stays there, and says so.
  */
 describe('routines and rooms from a browser', () => {
-  it('reads a called link, and classifies making or replacing its password as an action', () => {
-    expect(deskAccess(ROUTINE_HOOK_READ, ['rt_a'])).toBe('read')
-    expect(deskAccess(ROUTINE_HOOK_NEW, ['rt_a'])).toBe('act')
+  it('leaves a called link on this computer, and still saves the hook kind', () => {
+    expect(deskAccess(ROUTINE_HOOK_READ, ['rt_a'])).toBeUndefined()
+    expect(deskAccess(ROUTINE_HOOK_NEW, ['rt_a'])).toBeUndefined()
+    expect(WINDOW_ONLY).toContain(ROUTINE_HOOK_READ)
+    expect(WINDOW_ONLY).toContain(ROUTINE_HOOK_NEW)
     expect(deskAccess(ROUTINE_UPDATE_CHANNEL, [{ schedule: { kind: 'hook' } }])).toBe('act')
   })
   it('makes, changes, pauses, runs and removes a routine, and settles what it was asked to', () => {

@@ -14,16 +14,24 @@ import { inputsRefusal } from '../../../shared/routine-inputs.js'
 import type { RoutineInput } from '../../../shared/routine-inputs.js'
 import { HOOK_WARNING, HOOK_ASK, type RoutineHookState } from '../../../shared/routine-hook.js'
 
-/** THE LINK IS A PASSWORD (2026-10-25). Read only in this editor, never loaded into the general routine list. */
+/** THE LINK IS A PASSWORD (2026-10-25). Shown in this editor on this computer only. A browser may save the hook kind and is told the link stays here: no password, no Copy, no New link. */
+const LINK_ON_THIS_COMPUTER = 'The link is shown only in Locust on your computer.'
 export function RoutineHookLink({ routineId }: { readonly routineId?: string }): ReactElement {
+  const here = typeof window === 'undefined' || window.desktop?.remote === undefined
   const [state, setState] = useState<RoutineHookState>({ message: routineId === undefined ? 'Save the routine to make its link. Your phone, from anywhere must be on in Settings > Phone.' : 'Checking the phone relay…' })
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   useEffect(() => {
+    if (!here) return
     let live = true
     if (routineId !== undefined) void window.desktop?.readRoutineHook(routineId).then((answer) => { if (live) setState(answer.ok ? answer.data : { message: answer.error.message }) }).catch(() => { if (live) setState({ message: 'The link could not be read. Open this editor again to try.' }) })
     return () => { live = false }
-  }, [routineId])
+  }, [routineId, here])
+  if (!here) return <div className="lc-routinesched__days">
+    <p className="lc-dialog__note lc-mono">{LINK_ON_THIS_COMPUTER}</p>
+    <p className="lc-dialog__note lc-mono">{HOOK_WARNING}</p>
+    <p className="lc-dialog__note lc-mono">{HOOK_ASK}</p>
+  </div>
   const replace = async (): Promise<void> => {
     if (routineId === undefined || !window.desktop) return
     setBusy(true)

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -15,11 +15,13 @@ import { createRoutineRunner, type RoutineRunnerOptions } from './routine-runner
 import { createRoutineStore } from './routine-store.js'
 
 /**
- * REVIEW OF A CALLED LINK (2026-10-25). These fail on purpose. The product code is unchanged; each test is a hole
- * in what that commit claims.
+ * A CALLED LINK GIVES NOTHING AWAY (2026-10-25). The password stays on this computer, a replaced password is redacted
+ * for the week a call can still arrive, an unknown room costs the same hash as a known one, and the caller's content
+ * type stays inside the untrusted block.
  */
 
 const password = (): string => randomBytes(32).toString('base64url')
+const box = { available: () => true, encrypt: (text: string) => Buffer.from([...Buffer.from(text)].map((byte) => byte ^ 0x5a)), decrypt: (cipher: Buffer) => Buffer.from([...cipher].map((byte) => byte ^ 0x5a)).toString('utf8') }
 const digest = (text: string): string => createHash('sha256').update(text).digest('base64url')
 
 describe('a called link gives its room away before it hashes', () => {
@@ -98,7 +100,7 @@ describe('a retired link password still reaches the run', () => {
       hookLetters: async (id) => ({ items: boxes.filter((box) => box.hook === id), lost: 0 }),
       hookCollected: async (_id, ids) => { for (let index = boxes.length - 1; index >= 0; index -= 1) if (ids.includes(boxes[index]!.id)) boxes.splice(index, 1); return true }
     }
-    const hooks = createRoutineHooks({ file: join(root, ROUTINE_HOOKS_FILE), relay: () => relay, routines: () => store.list(), lost: async () => undefined, tick: () => undefined, protectFile: async () => undefined, now: () => now })
+    const hooks = createRoutineHooks({ file: join(root, ROUTINE_HOOKS_FILE), secrets: box, relay: () => relay, routines: () => store.list(), lost: async () => undefined, tick: () => undefined, protectFile: async () => undefined, now: () => now })
     const starts: Parameters<RoutineRunnerOptions['start']>[0][] = []
     const runner = createRoutineRunner({ workspaceId: 'ws_a', routines: store, hooks,
       peerContextFor: async (id) => ({ self: { teammateId: id, name: 'Reader', role: 'Code' }, others: [] }),
@@ -120,6 +122,38 @@ describe('a retired link password still reaches the run', () => {
     await hooks.sync()
     await runner.tick(new Date(now))
     expect((starts[0]?.prompt ?? '').includes(old)).toBe(false)
+  })
+
+  it('drops a retired password from the file once it is older than a week', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-hook-review-'))
+    roots.push(root)
+    const store = createRoutineStore({ rootDirectory: root })
+    const routine = await store.create({ name: 'Event summary', teammateId: 'tm_a', route: { runtime: 'codex', model: 'account-default', mode: 'auto' }, steps: ['Summarize the event.'], learnedFrom: [], schedule: { kind: 'hook' }, workspaceId: 'ws_a' })
+    let now = 1_800_000_000_000
+    const room = randomBytes(16).toString('base64url')
+    const relay: HookRelay = {
+      room: () => ({ relay: 'https://example.test', room }),
+      connected: () => true,
+      hookOpen: async () => true,
+      hookClose: async () => true,
+      hookLetters: async () => ({ items: [], lost: 0 }),
+      hookCollected: async () => true
+    }
+    const hooks = createRoutineHooks({ file: join(root, ROUTINE_HOOKS_FILE), secrets: box, relay: () => relay, routines: () => store.list(), lost: async () => undefined, tick: () => undefined, protectFile: async () => undefined, now: () => now })
+    const open = async (): Promise<string[]> => {
+      const disk = JSON.parse(await readFile(join(root, ROUTINE_HOOKS_FILE), 'utf8')) as { readonly entries: Readonly<Record<string, { readonly secret: string; readonly retired?: readonly { readonly secret: string }[] }>> }
+      return Object.values(disk.entries).flatMap((entry) => [entry.secret, ...(entry.retired ?? []).map((item) => item.secret)]).map((secret) => box.decrypt(Buffer.from(secret, 'base64')))
+    }
+    await hooks.sync()
+    const old = (await hooks.state(routine.routineId)).url!.split('/').at(-1)!
+    await store.update({ routineId: routine.routineId, name: routine.name, steps: routine.steps, schedule: null })
+    await hooks.sync()
+    expect((await open()).includes(old)).toBe(true)
+    now += 7 * 24 * 60 * 60_000 + 1
+    await hooks.sync()
+    const later = await readFile(join(root, ROUTINE_HOOKS_FILE), 'utf8')
+    expect(later.includes(old)).toBe(false)
+    expect((await open()).includes(old)).toBe(false)
   })
 })
 

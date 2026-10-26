@@ -1,4 +1,4 @@
-/** CALLED LINKS (2026-10-25). Only this deliberate editor call reveals a link; routine lists never carry passwords. */
+/** CALLED LINKS (2026-10-25). Only the editor on this computer reveals a link. A browser is told the link stays there, and routine lists never carry passwords. */
 export const ROUTINE_HOOK_READ = 'routine:hook-read'
 export const ROUTINE_HOOK_NEW = 'routine:hook-new'
 export interface RoutineHookState { readonly url?: string; readonly message?: string; readonly canMake?: true }

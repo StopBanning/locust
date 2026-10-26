@@ -423,11 +423,13 @@ export function roomCore(host: RoomHost) {
     async hook(request: { readonly method: string; readonly secret: string; readonly body: string; readonly contentType: string }): Promise<AwayAnswer> {
       if (request.method !== 'POST') return { status: 405, body: { error: 'method' } }
       if (new TextEncoder().encode(request.body).length > MAX_FRAME) return { status: 413, body: { error: 'too-big' } }
-      const held = await meta()
-      if (held === undefined || !TOKEN.test(request.secret)) return { status: 404, body: { error: 'not-found' } }
+      // AN UNKNOWN ROOM COSTS THE SAME AS A KNOWN ONE (2026-10-25). The password is hashed before the room is read, and a room with no hooks still runs one compare, so the 404 is not the cheaper path. The body stays not-found.
       const hash = await host.sha256(request.secret)
-      const match = Object.entries(held.hooks ?? {}).find(([, hook]) => same(hook.hash, hash))
-      if (match === undefined) return { status: 404, body: { error: 'not-found' } }
+      const held = await meta()
+      const hooks = Object.entries(held?.hooks ?? {})
+      if (hooks.length === 0) void same(hash, hash)
+      const match = hooks.find(([, hook]) => same(hook.hash, hash))
+      if (held === undefined || !TOKEN.test(request.secret) || match === undefined) return { status: 404, body: { error: 'not-found' } }
       const [id, hook] = match
       const now = host.now()
       const posts = hook.posts.filter((at) => now - at < HOUR_MS)
