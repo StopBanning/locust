@@ -11,7 +11,7 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
-## 0.834.0 - 2026-10-25
+## 0.834.0 - 2026-10-26
 <!-- big -->
 
 ### New
@@ -22,6 +22,7 @@ heading: the home screen then shows it once, as a splash.
 
 ### Improved
 
+- **Big token counts read as billions.** Usage now writes 1.1B instead of 1133M, and a count about to read as a thousand of one unit is written as one of the next (1.0B, never 1000M).
 - **A key asked for reads as one line.** When a teammate asks for a key, its answer now says "Asks for the key NAME (below)", and the reason it gave is on the card with the box, instead of standing alone in the answer.
 
 ## 0.833.0 - 2026-10-24
