@@ -9,6 +9,7 @@
 //
 // Frames: D:/work/scratch/grok-polish-a/
 
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, appendFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -18,6 +19,10 @@ import { pathToFileURL } from 'node:url'
 import { FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const OUT = 'D:/work/scratch/grok-polish-a'
+// The window does not read the clipboard (it only writes it), so the drive reads it from outside, as a person pasting would.
+const systemClipboard = () => process.platform === 'win32'
+  ? execFileSync(join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'), ['-NoProfile', '-Command', 'Get-Clipboard'], { encoding: 'utf8' }).trim()
+  : 'not read off Windows'
 await mkdir(OUT, { recursive: true })
 
 const root = new URL('..', import.meta.url).pathname.slice(1)
@@ -257,8 +262,8 @@ try {
     if (!button) return 'no Copy path'
     button.click()
     await new Promise((r) => setTimeout(r, 250))
-    try { return 'desktop:' + String(await window.desktop.readClipboard()) } catch (error) { return 'failed:' + String(error && error.message) }
-  })()`)
+    return 'clicked'
+  })()`).then((clicked) => (clicked === 'clicked' ? `clipboard:${systemClipboard()}` : String(clicked)))
   await drive.capture('copied answer path', async () => String(copiedAnswer))
   await drive.evaluate(`document.body.click()`)
   await sleep(200)
@@ -279,8 +284,8 @@ try {
     if (!button) return 'no Copy path'
     button.click()
     await new Promise((r) => setTimeout(r, 250))
-    try { return 'desktop:' + String(await window.desktop.readClipboard()) } catch (error) { return 'failed:' + String(error && error.message) }
-  })()`)
+    return 'clicked'
+  })()`).then((clicked) => (clicked === 'clicked' ? `clipboard:${systemClipboard()}` : String(clicked)))
   await drive.capture('copied changed file path', async () => String(copiedFile))
 } catch (error) {
   say(`drive failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`)

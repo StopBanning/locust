@@ -827,7 +827,6 @@ export function Composer({
   const closeFolder = useCallback(() => setFolderOpen(false), [])
   useDismissOnOutsidePress(folderOpen, closeFolder, folderAnchor)
   const pickerAnchor = useRef<HTMLSpanElement>(null)
-  /** The chip the send's metal is cast onto -- see `reflectOnto`. */
   const routeChip = useRef<HTMLButtonElement>(null)
   const closeMode = useCallback(() => setModeOpen(false), [])
   const closePicker = useCallback(() => setPickerOpen(false), [])
@@ -1760,15 +1759,9 @@ export function Composer({
       .finally(() => setAttaching(false))
   }
 
-  /*
-   * What the send's metal reflects onto: the chip beside it. Held in a memo so
-   * the shader is not handed a new list -- and re-registering -- on every
-   * keystroke.
-   */
   // Listening, typing your words, or off: the glow's state (voiceLevel.ts).
   const [voice, setVoice] = useState<VoiceState>(voiceState.get())
   useEffect(() => voiceState.subscribe(setVoice), [])
-  const reflectOnto = useMemo(() => [routeChip], [])
   return (
     /*
      * THE CHAT BOX GLOWS WITH YOUR VOICE (0.686, voice-glow, MIT) -- around the visible box (0.687), below. Mounted always, so starting to listen never
@@ -2338,6 +2331,10 @@ export function Composer({
                  *
                  * The stop and queue variants above stay plain for the same
                  * reason: one is a state, the other is a deferral.
+                 *
+                 * Nothing beside it for its metal to reflect onto (0.836): the
+                 * route chip it was cast on moved under the box, where the
+                 * reflection drew a pale smudge across the chip's top.
                  */
                 <MetalSend
                   /*
@@ -2348,7 +2345,6 @@ export function Composer({
                    * has no effort to choose).
                    */
                   innerShadow
-                  reflectionTargets={reflectOnto}
                   {...(metal === undefined ? {} : { preset: metal })}
                   {...(metalStrength === undefined ? {} : { strength: metalStrength })}
                   {...(metalMotion === undefined ? {} : { motion: metalMotion })}

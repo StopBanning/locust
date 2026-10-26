@@ -2,7 +2,7 @@
 import './no-planted-executables.js'
 import { heldChord } from './composer-chords.js'
 import { editorsOnPath, launchEditor } from './installed-editors.js'
-import { isScriptPath } from '../shared/file-menu.js'
+import { defaultAppMayOpen } from '../shared/file-menu.js'
 import { columnInstructions, compareInstructionsRefusal, compareSkillRefusal, shuffledColumns } from './compare-instructions.js'
 import { tuneDraftPrompt } from './tune-drafts.js'
 import { columnChangesSummary, parseTuneLesson, tuneLessonPrompt, type TuneLessonSetup } from './tune-lessons.js'
@@ -473,7 +473,6 @@ import {
   FILE_EDITORS_CHANNEL,
   FILE_OPEN_CHANNEL,
   CLIPBOARD_WRITE_CHANNEL,
-  CLIPBOARD_READ_CHANNEL,
   WORKSPACE_SAVE_COPY_CHANNEL,
   WORKSPACE_TEXT_CHANNEL,
   WORKSPACE_PAGE_CHANNEL,
@@ -6300,10 +6299,6 @@ if (!ownsSingleInstanceLock) {
       clipboard.writeText(text)
       return true
     })
-    ipcMain.handle(CLIPBOARD_READ_CHANNEL, (event) => {
-      if (!fromOwnWindow(event)) return ''
-      return clipboard.readText()
-    })
     ipcMain.handle(FILE_OPEN_CHANNEL, async (event, requested: unknown) => {
       if (!fromOwnWindow(event) || typeof requested !== 'object' || requested === null) return { ok: false, message: 'That request was rejected.' } as const
       const body = requested as { path?: unknown; how?: unknown }
@@ -6319,13 +6314,17 @@ if (!ownsSingleInstanceLock) {
         return { ok: false, message: 'That file is outside the folders your teammates work in, so Locust will not open it.' } as const
       }
       if (how === 'default') {
-        if (isScriptPath(decision.path)) return { ok: false, message: 'That file is a script, so Locust will not run it.' } as const
+        if (!defaultAppMayOpen(decision.path)) return { ok: false, message: 'Locust opens only documents, pictures, sound and video in the default app, never a file it could run. Open this one in an editor.' } as const
         const failed = await shell.openPath(decision.path)
         return failed.length === 0 ? ({ ok: true } as const) : ({ ok: false, message: failed } as const)
       }
       const editor = editorsOnPath(process.platform, process.env).find((one) => one.id === how)
       if (editor === undefined) return { ok: false, message: 'That editor is not on PATH.' } as const
-      launchEditor(editor.command, decision.path, process.platform)
+      try {
+        launchEditor(editor.command, decision.path, process.platform, process.env)
+      } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : String(error) } as const
+      }
       return { ok: true } as const
     })
 

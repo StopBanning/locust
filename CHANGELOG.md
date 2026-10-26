@@ -17,7 +17,7 @@ heading: the home screen then shows it once, as a splash.
 ### New
 
 - **Verbose shows every step.** In a conversation, ··· then Verbose, or Ctrl+O, opens every run's steps and each tool call's detail. Normal folds them again. The choice stays with this window.
-- **Right-click a file path.** On a path in an answer, a changed file, a step that names a file, or the file viewer's title, right-click to add it to your next message, open it in VS Code or Cursor when that editor is on your PATH, open it in the usual app (a script is not run that way), show it in Explorer, Finder or the file manager, or copy the path, the path from the folder, or the file name. A path outside the conversation's folder can only be copied.
+- **Right-click a file path.** On a path in an answer, a changed file, a step that names a file, or the file viewer's title, right-click to add it to your next message, open it in VS Code or Cursor when that editor is on your PATH, open a document, picture, sound or video in its usual app (never a file that app would run), show it in Explorer, Finder or the file manager, or copy the path, the path from the folder, or the file name. A path outside the conversation's folder can only be copied.
 
 ### Improved
 

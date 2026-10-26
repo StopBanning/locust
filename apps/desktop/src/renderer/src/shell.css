@@ -24710,3 +24710,55 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-shortcuts__group li { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
 .lc-shortcuts__group kbd { color: var(--lc-text-muted); font-family: inherit; font-size: 12px; white-space: nowrap; }
 
+/*
+ * THE QUIET ROW, CHECKED BY EYE (0.836 review). The rules for the old row inside the box are scoped to
+ * `.lc-composer__controls`, so the words that moved under it lost three of them:
+ * - the model's name came back in the mono face (Colin, 2026-09-23: "Use the same font that edit uses");
+ * - with the box ~380px (the browser open beside a conversation), the model chip lay over the folder's name by
+ *   75px, because the right group gave ground its chip could not give;
+ * - the right group inside the box (voice typing, Talk, send) still took a line of its own there, leaving + alone
+ *   above it.
+ * The folder's name is what gives way now, then the model's name, as on the old row.
+ */
+.lc-composer__under .lc-control__mono { font-family: inherit; }
+.lc-composer__under .lc-composer__group:first-child { flex: 0 1 auto; }
+.lc-composer__under .lc-composer__group:last-child { flex: 0 0 auto; }
+.lc-composer__under .lc-composer__group:last-child:has(.lc-compare-slots) { flex: 0 1 auto; }
+.lc-composer__under .lc-control--folder { min-width: 0; }
+.lc-composer__under .lc-control__folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-composer__under:has(.lc-compare-slots) .lc-control--folder:not(.is-missing) .lc-control__folder {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@container (max-width: 480px) {
+  .lc-composer__controls .lc-composer__group + .lc-composer__group:not(:has(.lc-compare-slots)) {
+    flex-basis: auto;
+  }
+
+  .lc-composer__under .lc-control--folder:not(.is-missing) .lc-control__folder {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .lc-composer__under .lc-control__model { max-width: 9ch; }
+  .lc-composer__under .lc-control__free { display: none; }
+  .lc-composer__under .lc-control__runtime:has(+ .lc-separator),
+  .lc-composer__under .lc-control__runtime + .lc-separator {
+    display: none;
+  }
+}

@@ -1051,7 +1051,6 @@ export const FILE_EDITORS_CHANNEL = 'file:editors'
  */
 export const FILE_OPEN_CHANNEL = 'file:open'
 export const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write'
-export const CLIPBOARD_READ_CHANNEL = 'clipboard:read'
 /**
  * Save a COPY of a file a teammate wrote, wherever the person says.
  *
@@ -4054,7 +4053,6 @@ export interface DesktopApi {
   /** Open a file in an editor on PATH, or in the default app when it is not a script. */
   openFile(path: string, how: 'vscode' | 'cursor' | 'default'): Promise<RevealFileResponse>
   writeClipboard(text: string): Promise<boolean>
-  readClipboard(): Promise<string>
   /** Save a copy of a file a teammate wrote, to a place the person picks. */
   saveCopy(path: string): Promise<RevealFileResponse>
   /** Read a workspace text file for the viewer. */

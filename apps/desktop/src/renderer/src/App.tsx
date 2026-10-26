@@ -134,7 +134,7 @@ import type { ExchangeMission } from './exchange.js'
 import { FirstLaunch } from './components/FirstLaunch.js'
 import { readTranscriptView, writeTranscriptView, type TranscriptView } from './transcriptView.js'
 import { bindFileMenu } from './fileMenuOpen.js'
-import { fileBaseName, fileMenuChoices, pathInsideFolder, relativeToFolder, rootedPath } from '../../shared/file-menu.js'
+import { fileBaseName, fileMenuChoices, pathInsideFolder, relativeToFolder, rootedPath, systemPath } from '../../shared/file-menu.js'
 import { CommandPalette } from './components/CommandPalette.js'
 import { KeyboardSheet } from './components/KeyboardSheet.js'
 import { SaveRecordDialog } from './components/SaveRecordDialog.js'
@@ -2749,7 +2749,7 @@ export default function App(): ReactElement {
                 return
               }
               if (choice.id === 'copy-path' || choice.id === 'copy-relative' || choice.id === 'copy-name') {
-                const text = choice.id === 'copy-name' ? fileBaseName(path) : choice.id === 'copy-relative' ? relativeToFolder(path, workspacePath, platform) : path
+                const text = choice.id === 'copy-name' ? fileBaseName(path) : systemPath(choice.id === 'copy-relative' ? relativeToFolder(path, workspacePath, platform) : path, platform)
                 const wrote = await window.desktop?.writeClipboard(text)
                 if (wrote !== true) await navigator.clipboard?.writeText(text).catch(() => undefined)
                 return
