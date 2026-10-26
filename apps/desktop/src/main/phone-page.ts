@@ -30,6 +30,9 @@ h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: 
 .card { background: var(--raised); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
 .card[data-waiting] { border-color: rgba(233,185,73,0.35); }
 .who { font-size: 13px; color: var(--amber); }
+/* A message left for the computer waits on nobody; one it held waits on the person (0.837). */
+.card[data-note="waiting"] .who { color: var(--muted); }
+.card[data-note="old"], .card[data-note="gone"], .card[data-note="failed"] { border-color: rgba(233,185,73,0.35); }
 .what { white-space: pre-wrap; word-break: break-word; font-size: 15px; }
 .row { display: flex; gap: 10px; }
 button.act, a.act { flex: 1; min-height: 44px; border-radius: 10px; font: inherit; font-weight: 600; border: 1px solid var(--line); }
@@ -215,7 +218,98 @@ const RELAY = `
     }
     function saved() { return keep('readonly', function (store) { return store.get('link'); }); }
     function save(value) { return keep('readwrite', function (store) { return store.put(value, 'link'); }); }
-    function forget() { return keep('readwrite', function (store) { return store.delete('link'); }); }
+    // Unpaired, what it last saw and its waiting notes go with the link (0.837).
+    function forget() {
+      keptView = null; myNotes = []; keptText = '';
+      return keep('readwrite', function (store) { store.delete('seen'); store.delete('seen-key'); return store.delete('link'); });
+    }
+
+    /*
+     * WHAT IT LAST SAW, AND WHAT WAITS (0.837). The conversations this phone last read are kept here, sealed with a key
+     * the browser keeps and will not hand out, so with the computer off it still shows them. A message written then is
+     * left at the relay as a note, sealed as a request is, and Locust sends it when the computer is back. This phone
+     * keeps its own words for each; the relay has only the sealed box, and says which still wait, and why one was held.
+     */
+    var keptView = null, keptText = '', myNotes = [], noteWaits = {};
+    var SEEN_AAD = new TextEncoder().encode('locust-phone-seen-v1');
+    var NOTE_ERRORS = {
+      full: 'Twenty messages are already waiting. Take one back, or wait for your computer.',
+      'too-fast': 'That was a lot at once. Wait a moment, then send it.',
+      'bad-frame': 'That message is too long to wait. Keep it under 8,000 characters.',
+      'not-owner': 'This phone cannot leave messages. Scan a new code in Locust to pair it again.'
+    };
+    function seenKey() {
+      return keep('readonly', function (store) { return store.get('seen-key'); }).then(function (key) {
+        if (key) return key;
+        // Not extractable: the browser seals and opens with it, and gives it to no one.
+        return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']).then(function (made) {
+          return keep('readwrite', function (store) { return store.put(made, 'seen-key'); }).then(function () { return made; });
+        });
+      });
+    }
+    function writeKept() {
+      if (!link) return Promise.resolve();
+      var text = JSON.stringify({ view: keptView, notes: myNotes });
+      if (text === keptText) return Promise.resolve();
+      keptText = text;
+      return seenKey().then(function (key) {
+        var iv = crypto.getRandomValues(new Uint8Array(12));
+        return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv, additionalData: SEEN_AAD }, key, new TextEncoder().encode(text)).then(function (box) {
+          return keep('readwrite', function (store) { return store.put({ iv: iv, box: box }, 'seen'); });
+        });
+      }).catch(function () { keptText = ''; });
+    }
+    function readKept() {
+      return Promise.all([seenKey(), keep('readonly', function (store) { return store.get('seen'); })]).then(function (got) {
+        var sealed = got[1];
+        if (!sealed || !sealed.iv || !sealed.box) return;
+        return crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.iv, additionalData: SEEN_AAD }, got[0], sealed.box).then(function (plain) {
+          var text = new TextDecoder().decode(plain), value = JSON.parse(text);
+          keptText = text;
+          keptView = value && value.view && typeof value.view.at === 'number' ? value.view : null;
+          myNotes = value && Array.isArray(value.notes) ? value.notes.filter(function (one) { return one && typeof one.note === 'string' && typeof one.text === 'string'; }) : [];
+        });
+      }).catch(function () {});
+    }
+    function cut(text, most) { return typeof text === 'string' && text.length > most ? text.slice(0, most) + '…' : text; }
+    function noteAsk(frame) {
+      return new Promise(function (resolve, reject) {
+        if (!socket || !ready) { reject(new Error(trouble || 'Reaching Locust’s relay…')); return; }
+        nextId += 1;
+        var id = 'n-' + nextId;
+        frame.id = id;
+        noteWaits[id] = { resolve: resolve, reject: reject, timer: setTimeout(function () { delete noteWaits[id]; reject(new Error('Locust’s relay did not answer. Try again.')); }, 15000) };
+        socket.send(JSON.stringify(frame));
+      });
+    }
+    function noteAnswer(frame) {
+      var wait = typeof frame.id === 'string' ? noteWaits[frame.id] : undefined;
+      if (!wait) return false;
+      delete noteWaits[frame.id]; clearTimeout(wait.timer);
+      if (frame.t !== 'err') { wait.resolve(frame); return true; }
+      var error = new Error(NOTE_ERRORS[frame.code] || 'Locust’s relay did not keep that. Try again.');
+      error.code = frame.code;
+      wait.reject(error);
+      return true;
+    }
+    // Which of this phone's notes still wait: one the relay no longer has, inside its week, was sent by Locust.
+    function syncNotes() {
+      if (!link || !socket || !ready) return;
+      noteAsk({ t: 'notes' }).then(function (answer) {
+        var there = {};
+        (Array.isArray(answer.items) ? answer.items : []).forEach(function (item) { if (item && typeof item.id === 'string') there[item.id] = item; });
+        var sent = 0;
+        myNotes = myNotes.filter(function (one) {
+          var item = there[one.note];
+          if (item) { one.held = item.held === 'old' || item.held === 'gone' || item.held === 'failed' ? item.held : null; return true; }
+          if (Date.now() - one.t < 7 * 24 * 3600 * 1000) sent += 1;
+          return false;
+        });
+        writeKept();
+        if (sent > 0 && self.onSent) self.onSent(sent);
+        changed();
+      }, function () {});
+    }
 
     // A phone by its kind; a computer's browser by its name and system (0.830), as Settings lists it.
     function deviceName() {
@@ -334,8 +428,10 @@ const RELAY = `
       ws.onmessage = function (event) {
         var frame;
         try { frame = JSON.parse(event.data); } catch (e) { return; }
-        if (frame.t === 'ok') { ready = true; retry = 0; pcOn = !!frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) { refreshAlerts(); awayAsked = false; refreshAway(); } else readLetters(); return; }
-        if (frame.t === 'presence' && typeof frame.pc === 'boolean') { pcOn = frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); if (pcOn) { refreshAlerts(); awayAsked = false; refreshAway(); } else readLetters(); return; }
+        if (frame.t === 'ok') { ready = true; retry = 0; pcOn = !!frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); syncNotes(); if (pcOn) { refreshAlerts(); awayAsked = false; refreshAway(); } else readLetters(); return; }
+        if (frame.t === 'presence' && typeof frame.pc === 'boolean') { pcOn = frame.pc; trouble = pcOn ? '' : OFFLINE; changed(); syncNotes(); if (pcOn) { refreshAlerts(); awayAsked = false; refreshAway(); } else readLetters(); return; }
+        if ((frame.t === 'noted' || frame.t === 'unnoted' || frame.t === 'my-notes' || frame.t === 'err') && noteAnswer(frame)) return;
+        if (frame.t === 'notes-changed') { syncNotes(); return; }
         if (frame.t === 'letters' && frame.id === 'away' && Array.isArray(frame.items)) { openLetters(frame.items); return; }
         if (frame.t === 'letter') { if (!pcOn) readLetters(); return; }
         if (frame.t === 'removed') { unpair('Locust removed this phone. Scan a new code in Locust to pair it again.'); return; }
@@ -458,6 +554,53 @@ const RELAY = `
     }
 
     var self = {
+      onSent: null,
+      /** The relay answers and the computer does not: what is written now waits for it. */
+      offline: function () { return !!link && ready && !!socket && !pcOn; },
+      kept: function () { return link ? keptView : null; },
+      keepState: function (state) {
+        if (!link || !state || !Array.isArray(state.conversations)) return;
+        keptView = { at: Date.now(), conversations: state.conversations.slice(0, 40).map(function (c) {
+          return { missionId: c.missionId, title: cut(c.title, 200), agent: c.agent, at: c.at, snippet: cut(c.snippet, 300) };
+        }), turns: keptView && keptView.turns ? keptView.turns : {} };
+        writeKept();
+      },
+      keepTurns: function (ids, turns) {
+        if (!link || !keptView || !Array.isArray(turns)) return;
+        var shown = turns.slice(-20).map(function (turn) { return { missionId: turn.missionId, asked: cut(turn.asked, 2000), agent: turn.agent, answer: cut(turn.answer, 4000), at: turn.at, phase: turn.phase }; });
+        // Newest last, so the oldest are the first let go.
+        ids.forEach(function (id) { if (id) { delete keptView.turns[id]; keptView.turns[id] = shown; } });
+        // The conversations read last, each kept under the ids it was opened by.
+        var names = Object.keys(keptView.turns);
+        if (names.length > 20) names.slice(0, names.length - 20).forEach(function (name) { delete keptView.turns[name]; });
+        writeKept();
+      },
+      notes: function () { return link ? myNotes.slice() : []; },
+      leave: function (missionId, title, text) {
+        var current = link;
+        if (!current) return Promise.reject(new Error('unpaired'));
+        var nid = lock.b64(crypto.getRandomValues(new Uint8Array(16))), t = Date.now();
+        return lock.seal(current.seal, { v: 1, kind: 'note', nid: nid, missionId: missionId, text: text, t: t }, lock.aad(current.room, current.device, 'device-to-pc')).then(function (box) {
+          return noteAsk({ t: 'note', n: box.n, c: box.c });
+        }).then(function (answer) {
+          if (link !== current) return;
+          myNotes.push({ note: answer.note, missionId: missionId, title: cut(title, 200), text: text, t: t, held: null });
+          writeKept();
+          changed();
+        });
+      },
+      /** Taken back from the relay: 'gone' when Locust had already taken it. */
+      takeBack: function (entry) {
+        return noteAsk({ t: 'unnote', note: entry.note }).then(function () { return 'taken'; }, function (error) {
+          if (error.code === 'note-gone') return 'gone';
+          throw error;
+        }).then(function (how) {
+          myNotes = myNotes.filter(function (one) { return one.note !== entry.note; });
+          writeKept();
+          changed();
+          return how;
+        });
+      },
       paired: function () { return link !== null; },
       away: function () { return link && link.away && !pcOn ? away : null; },
       pairNote: function () { return loaded ? note : 'Opening…'; },
@@ -492,7 +635,7 @@ const RELAY = `
         saved().then(function (kept) {
           loaded = true;
           if (code) { pair(code); return; }
-          if (kept && kept.room && kept.seal && kept.open) { link = kept; connect(); }
+          if (kept && kept.room && kept.seal && kept.open) { link = kept; connect(); readKept().then(function () { changed(); }); }
           changed();
         }, function () {
           loaded = true;
@@ -610,10 +753,20 @@ const UI = `
     var parts = [header('Locust')];
     var main = el('main');
     if (state === null) {
-      main.append(el('div', { class: 'note', text: transport.problem() || 'Reaching Locust…' }));
+      // The computer off (0.837): what this phone last saw, and what waits for it.
+      var kept = transport.kept ? transport.kept() : null;
+      var off = transport.offline && transport.offline();
+      main.append(el('div', { class: 'note', 'data-off': off, text: off && kept
+        ? 'Your computer is off. This is what your phone last saw, at ' + clock(kept.at) + '. A message you write now waits, and Locust sends it when your computer is back.'
+        : transport.problem() || 'Reaching Locust…' }));
+      var waits = notesSection(null);
+      if (waits) main.append(waits);
+      if (kept && kept.conversations.length > 0) main.append(conversationsSection(kept.conversations, true));
       var seen = awaySection();
       if (seen) main.append(seen);
     } else {
+      var held = notesSection(null);
+      if (held) main.append(held);
       if (state.waiting.length > 0) {
         var section = el('section', null, [el('h2', { text: 'Waiting on you' })]);
         var stack = el('div', { style: 'display:grid;gap:10px' });
@@ -622,20 +775,7 @@ const UI = `
       }
       var scouted = scoutSection(state.scout || []);
       if (scouted) main.append(scouted);
-      var convos = el('section', null, [el('h2', { text: 'Conversations' })]);
-      if (state.conversations.length === 0) convos.append(el('div', { class: 'empty', text: 'No conversations yet. Start one in Locust on your computer.' }));
-      else {
-        var list = el('ul');
-        state.conversations.forEach(function (c) {
-          list.append(el('li', null, [el('button', { class: 'convo', type: 'button', on: { click: function () { open = c.missionId; openTitle = c.title; draft = ''; render(); refresh(); } } }, [
-            el('span', { class: 'title', text: c.title }),
-            el('span', { class: 'meta', 'data-running': c.phase === 'running', text: c.agent + ' · ' + phaseWords(c.phase) + ' · ' + when(c.at) }),
-            c.snippet ? el('span', { class: 'snippet', text: c.snippet }) : null
-          ])]));
-        });
-        convos.append(list);
-      }
-      main.append(convos);
+      main.append(conversationsSection(state.conversations, false));
       var alerts = alertsSection();
       if (alerts) main.append(alerts);
       // From the relay (0.830): the whole window, for a device Settings lets have it.
@@ -643,6 +783,75 @@ const UI = `
     }
     parts.push(main);
     root.replaceChildren.apply(root, parts);
+  }
+  function clock(at) {
+    var then = new Date(at), now = new Date();
+    var time = then.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return then.toDateString() === now.toDateString() ? time : then.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + time;
+  }
+  // Kept, a conversation's state is as it was then: no "working" it may no longer be doing.
+  function conversationsSection(conversations, kept) {
+    var convos = el('section', null, [el('h2', { text: 'Conversations' })]);
+    if (conversations.length === 0) { convos.append(el('div', { class: 'empty', text: 'No conversations yet. Start one in Locust on your computer.' })); return convos; }
+    var list = el('ul');
+    conversations.forEach(function (c) {
+      list.append(el('li', null, [el('button', { class: 'convo', type: 'button', on: { click: function () { open = c.missionId; openTitle = c.title; draft = ''; turns = null; render(); refresh(); } } }, [
+        el('span', { class: 'title', text: c.title }),
+        el('span', { class: 'meta', 'data-running': !kept && c.phase === 'running', text: kept ? c.agent + ' · ' + when(c.at) : c.agent + ' · ' + phaseWords(c.phase) + ' · ' + when(c.at) }),
+        c.snippet ? el('span', { class: 'snippet', text: c.snippet }) : null
+      ])]));
+    });
+    convos.append(list);
+    return convos;
+  }
+  /*
+   * WHAT WAITS FOR YOUR COMPUTER (0.837). Each message this phone left while the computer was off, until Locust sends
+   * it: Take back while it waits; and once the computer has held one, the person decides here.
+   */
+  function noteCard(one, inThread) {
+    var card = el('div', { class: 'card', 'data-note': one.held || 'waiting' }, [
+      el('div', { class: 'who', text: 'You · ' + when(new Date(one.t).toISOString()) + (inThread || !one.title ? '' : ' · ' + one.title) }),
+      el('div', { class: 'what', text: inThread ? one.text : (one.text.length > 300 ? one.text.slice(0, 300) + '…' : one.text) })
+    ]);
+    var words = one.held === 'old' ? 'Your computer was off for a long time, so Locust did not send this by itself. Send it now, or discard it.'
+      : one.held === 'gone' ? 'Locust could not send this: that conversation is not in Locust any more.'
+      : one.held === 'failed' ? 'Locust could not send this. Send it again, or discard it.'
+      : 'Waiting for your computer. Locust sends it when your computer is back.';
+    card.append(el('div', { class: 'snippet', text: words }));
+    var row = el('div', { class: 'row' });
+    var busy = function (on) { Array.prototype.forEach.call(row.querySelectorAll('button'), function (b) { b.disabled = on; }); };
+    var discard = function (said) {
+      busy(true);
+      transport.takeBack(one).then(function (how) { toast(how === 'gone' ? 'Your computer already took that one.' : said); }, function (e) { busy(false); toast(e.message); });
+    };
+    if (one.held === 'old' || one.held === 'failed') {
+      row.append(el('button', { class: 'act yes', type: 'button', text: 'Send now', on: { click: function () {
+        busy(true);
+        transport.api('/api/send', { missionId: one.missionId, text: one.text }).then(function (r) {
+          if (!r.ok) { busy(false); toast(r.message || 'Locust could not send that.'); return; }
+          return transport.takeBack(one).then(function () { toast('Sent.'); refresh(); });
+        }).catch(function (e) { busy(false); if (e.message !== 'unpaired') toast(e.message); });
+      } } }));
+    }
+    if (one.held === 'gone' && navigator.clipboard) {
+      row.append(el('button', { class: 'act yes', type: 'button', text: 'Copy', on: { click: function () {
+        navigator.clipboard.writeText(one.text).then(function () { toast('Copied.'); }, function () { toast('This browser would not copy it.'); });
+      } } }));
+    }
+    row.append(el('button', { class: 'act no', type: 'button', text: one.held ? 'Discard' : 'Take back', on: { click: function () { discard(one.held ? 'Discarded.' : 'Taken back. Nothing was sent.'); } } }));
+    card.append(row);
+    return card;
+  }
+  // In a conversation, its notes are those left on any of its turns: it moves on to a newer turn once one is sent.
+  function notesSection(missionIds) {
+    var mine = transport.notes ? transport.notes() : [];
+    var shown = mine.filter(function (one) { return missionIds ? missionIds.indexOf(one.missionId) >= 0 : true; });
+    // With the computer on, only one it held needs the person; one still waiting is about to go.
+    if (state !== null && !missionIds) shown = shown.filter(function (one) { return !!one.held; });
+    if (shown.length === 0) return null;
+    var stack = el('div', { style: 'display:grid;gap:10px' });
+    shown.forEach(function (one) { stack.append(noteCard(one, !!missionIds)); });
+    return el('section', { class: 'waits' }, [el('h2', { text: 'Waiting to send' }), stack]);
   }
   function scoutSection(cards) {
     if (cards.length === 0) return null;
@@ -713,26 +922,40 @@ const UI = `
   function threadScreen() {
     var main = el('main');
     var list = el('div', { class: 'turns' });
-    if (turns === null) list.append(el('div', { class: 'note', text: transport.problem() || 'Opening…' }));
-    else turns.forEach(function (turn) {
+    var off = !!(transport.offline && transport.offline());
+    var kept = turns === null && transport.kept ? transport.kept() : null;
+    var shown = turns !== null ? turns : kept && kept.turns && kept.turns[open] ? kept.turns[open] : null;
+    if (turns === null && shown !== null) list.append(el('div', { class: 'note', 'data-off': off, text: (off ? 'Your computer is off. ' : '') + 'This is the conversation as your phone last saw it, at ' + clock(kept.at) + '.' }));
+    if (shown === null) list.append(el('div', { class: 'note', text: transport.problem() || 'Opening…' }));
+    else shown.forEach(function (turn) {
       if (turn.asked) list.append(el('div', { class: 'asked', text: turn.asked }));
       var said = el('div', null, [el('div', { class: 'by', text: turn.agent })]);
       if (turn.answer) said.append(el('div', { class: 'answer', text: turn.answer }));
-      if (turn.phase === 'running') said.append(el('div', { class: 'working', text: 'Working…' }));
-      else if (!turn.answer) said.append(el('div', { class: 'note', text: 'This turn ' + phaseWords(turn.phase) + ' without an answer.' }));
+      if (turn.phase === 'running' && turns !== null) said.append(el('div', { class: 'working', text: 'Working…' }));
+      else if (!turn.answer) said.append(el('div', { class: 'note', text: turns === null ? 'No answer had come when your phone last saw it.' : 'This turn ' + phaseWords(turn.phase) + ' without an answer.' }));
       list.append(said);
     });
+    var waiting = notesSection([open].concat((shown || []).map(function (turn) { return turn.missionId; })));
+    if (waiting) list.append(waiting);
     main.append(list);
-    var box = el('textarea', { rows: '1', placeholder: 'Send the next message', 'aria-label': 'Message' });
+    var box = el('textarea', { rows: '1', placeholder: off ? 'Leave a message for later' : 'Send the next message', 'aria-label': 'Message' });
     box.value = draft;
     box.addEventListener('input', function () { draft = box.value; box.style.height = 'auto'; box.style.height = box.scrollHeight + 'px'; });
-    var send = el('button', { type: 'submit', text: 'Send' });
-    var running = turns !== null && turns.length > 0 && turns[turns.length - 1].phase === 'running';
+    var send = el('button', { type: 'submit', text: off ? 'Leave' : 'Send' });
+    var running = !off && turns !== null && turns.length > 0 && turns[turns.length - 1].phase === 'running';
     send.disabled = running;
     if (running) box.placeholder = 'Wait for this turn to finish';
     var form = el('form', { class: 'compose', on: { submit: function (event) {
       event.preventDefault();
-      var text = box.value.trim(); if (!text || !turns || turns.length === 0) return;
+      var text = box.value.trim(); if (!text) return;
+      // The computer off (0.837): the message waits at the relay, sealed, and Locust sends it when it is back.
+      if (off) {
+        if (text.length > 8000) { toast('That message is too long to wait. Keep it under 8,000 characters.'); return; }
+        send.disabled = true;
+        transport.leave(open, openTitle, text).then(function () { draft = ''; toast('Waiting for your computer.'); render(); }, function (e) { send.disabled = false; if (e.message !== 'unpaired') toast(e.message); });
+        return;
+      }
+      if (!turns || turns.length === 0) return;
       send.disabled = true;
       transport.api('/api/send', { missionId: turns[turns.length - 1].missionId, text: text }).then(function (r) {
         if (!r.ok) { send.disabled = false; toast(r.message || 'Locust could not send that.'); return; }
@@ -758,16 +981,19 @@ const UI = `
           turns = r.turns;
           // A message sent from here starts a newer turn: follow it.
           if (turns.length > 0) open = turns[turns.length - 1].missionId;
+          if (transport.keepTurns) transport.keepTurns([asked, open], turns);
           var atEnd = window.innerHeight + window.scrollY >= document.body.scrollHeight - 40;
           render();
           if (turns.length !== before || atEnd) window.scrollTo(0, document.body.scrollHeight);
         })
-      : transport.api('/api/state').then(function (r) { state = r; render(); });
+      : transport.api('/api/state').then(function (r) { state = r; if (transport.keepState) transport.keepState(r); render(); });
     work.catch(function (e) {
       if (e.message === 'unpaired') return;
       // Seen again, the line is still opening: what was on screen stays until it answers (0.827).
       if (e.message === 'Reaching Locust…') return;
       if (!asked) { state = null; render(); }
+      // The computer went off with a conversation open: it shows as the phone last saw it, with a way to leave a message.
+      else if (open === asked && turns !== null && transport.offline && transport.offline()) { turns = null; render(); }
     }).then(function () {
       if (transport.paired() && document.visibilityState === 'visible') timer = setTimeout(refresh, 3000);
     });
@@ -778,6 +1004,9 @@ const UI = `
     if (event.data && event.data.locust === 'alert') { open = null; turns = null; render(); refresh(); }
   });
   render();
+  transport.onSent = function (count) {
+    toast(count === 1 ? 'Your computer is back, and Locust sent the message you left.' : 'Your computer is back, and Locust sent the ' + count + ' messages you left.');
+  };
   transport.start(function (reset) {
     if (reset) { open = null; turns = null; state = null; }
     render(); refresh();

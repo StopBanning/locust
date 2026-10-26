@@ -9,7 +9,7 @@ import { aadOf, deviceIdOf, importPrivateKey, linkKeys, newPcKeys, open, pairing
 import { replaceFile } from './replace-file.js'
 import type { PhoneAlert } from './phone-alerts.js'
 import { encryptPush, type PushSubscriptionKeys } from './web-push.js'
-import { HOOK_ID, LETTER_ID, MAX_FRAME, type HookLetter, type Letter } from '../../../relay/src/protocol.js'
+import { HOOK_ID, LETTER_ID, MAX_FRAME, NOTE_HELD, type HookLetter, type Letter, type Note, type NoteHeld } from '../../../relay/src/protocol.js'
 import { DESK_PART_CHARS, deskJoiner, deskParts, isDeskAsk, type DeskAsk, type DeskPart, type DeskTell } from '../shared/desk.js'
 
 /*
@@ -72,6 +72,8 @@ interface Saved {
   readonly devices: readonly SavedDevice[]
   /** Whether approvals and questions buzz a phone in quiet hours (0.827). */
   readonly nightApprovals?: boolean
+  /** The newest notes sent (0.837), by the phone's own id for each: one the relay hands back again is never sent twice. */
+  readonly notesTaken?: readonly string[]
   /**
    * TURNING OFF WITHOUT THE LINE (2026-10-26). Off was asked for and the relay has not yet said it forgot the room.
    * Only the room and its token are kept, to ask once more: the token is the one thing that can reset the room.
@@ -139,6 +141,36 @@ const isLetter = (value: unknown): value is Letter => {
     && typeof said.n === 'string' && typeof said.c === 'string'
 }
 
+/*
+ * WRITTEN WHILE THIS COMPUTER WAS OFF (0.837). A phone that cannot reach this PC leaves its message at the relay as a
+ * note, sealed as its requests are. When the line is back, each note is opened and sent as the phone's message would
+ * have been, through the same path. One written more than NOTE_SENDS_WITHIN_MS ago is not sent unasked: it is held,
+ * and the phone that wrote it asks the person. A note whose conversation is gone, or that would not send, is held too,
+ * with why. A conversation still working is tried again a minute later.
+ */
+export const NOTE_SENDS_WITHIN_MS = 12 * 60 * 60_000
+export const NOTE_CHARS = 8_000
+const NOTE_RETRY_MS = 60_000
+const NOTES_TAKEN_KEPT = 200
+export type NoteDelivery = 'sent' | 'busy' | NoteHeld
+
+interface WrittenNote { readonly nid: string; readonly missionId: string; readonly text: string; readonly t: number }
+const isWrittenNote = (value: unknown): value is WrittenNote => {
+  if (typeof value !== 'object' || value === null) return false
+  const said = value as Record<string, unknown>
+  return said.v === 1 && said.kind === 'note' && typeof said.nid === 'string' && /^[A-Za-z0-9_-]{16,32}$/.test(said.nid)
+    && typeof said.missionId === 'string' && said.missionId.length > 0 && said.missionId.length <= 200
+    && typeof said.text === 'string' && said.text.trim().length > 0 && said.text.length <= NOTE_CHARS
+    && typeof said.t === 'number' && Number.isFinite(said.t)
+}
+const isNoteBox = (value: unknown): value is Note => {
+  if (typeof value !== 'object' || value === null) return false
+  const said = value as Record<string, unknown>
+  return typeof said.id === 'string' && LETTER_ID.test(said.id) && typeof said.at === 'number' && Number.isFinite(said.at)
+    && typeof said.device === 'string' && /^[A-Za-z0-9_-]{22}$/.test(said.device) && typeof said.n === 'string' && typeof said.c === 'string'
+    && (said.held === undefined || NOTE_HELD.includes(said.held as NoteHeld))
+}
+
 /** What a phone's two kept away alerts say (0.829): who and what kind, as every alert. */
 export const AWAY_FOUND_ALERT = { title: 'Scout', body: 'Scout found something on GitHub while your computer is off.', tag: 'scout-away' } as const
 export const AWAY_BRIEF_ALERT = { title: 'Scout', body: 'Your morning brief is ready.', tag: 'scout-brief' } as const
@@ -172,6 +204,8 @@ export function createPhoneAnywhere(options: {
     readonly frame: (device: string, asks: readonly DeskAsk[]) => void
     readonly forget: (device: string) => void
   }
+  /** Messages a phone wrote while this PC was off (0.837): each sent as the phone's own would be. */
+  readonly notes?: { readonly deliver: (missionId: string, text: string) => Promise<NoteDelivery> }
 }) {
   const file = join(options.directory, PHONE_ANYWHERE_FILE)
   const now = options.now ?? Date.now
@@ -205,6 +239,10 @@ export function createPhoneAnywhere(options: {
   /** A 'letters' command's answer, by its id. */
   const pages = new Map<string, (page: { readonly items: readonly Letter[]; readonly more: boolean }) => void>()
   const hookPages = new Map<string, (page: { readonly items: readonly HookLetter[]; readonly lost: number } | undefined) => void>()
+  const notePages = new Map<string, (items: readonly Note[] | undefined) => void>()
+  let collecting: Promise<void> | undefined
+  let collectAgain = false
+  let noteTimer: ReturnType<typeof setTimeout> | undefined
   const lines = new Map<string, Promise<void>>()
   /** Work a frame started that may still write: waited for before Locust lets go. */
   const inFlight = new Set<Promise<unknown>>()
@@ -299,6 +337,9 @@ export function createPhoneAnywhere(options: {
     for (const resolve of [...commands.values()]) resolve(false)
     for (const resolve of [...pages.values()]) resolve({ items: [], more: false })
     for (const resolve of [...hookPages.values()]) resolve(undefined)
+    for (const resolve of [...notePages.values()]) resolve(undefined)
+    clearTimeout(noteTimer)
+    noteTimer = undefined
     if (old !== undefined) {
       old.onclose = null
       old.onmessage = null
@@ -470,6 +511,67 @@ export function createPhoneAnywhere(options: {
     return true
   }
 
+  /** Every note waiting at the relay, with its sealed box; undefined when it did not answer. */
+  const waitingNotes = (): Promise<readonly Note[] | undefined> => new Promise((resolve) => {
+    commandId += 1
+    const id = `c${String(commandId)}`
+    const timer = setTimeout(() => { notePages.delete(id); resolve(undefined) }, COMMAND_MS)
+    notePages.set(id, (items) => { clearTimeout(timer); notePages.delete(id); resolve(items) })
+    if (!send({ t: 'notes', id })) notePages.get(id)?.(undefined)
+  })
+
+  /** The phones' notes, each sent once or held with why. One pass at a time; a call during one runs another after. */
+  const collectNotes = (): Promise<void> => {
+    if (collecting !== undefined) { collectAgain = true; return collecting }
+    collecting = (async () => {
+      do {
+        collectAgain = false
+        await collectOnce()
+      } while (collectAgain && connected)
+    })().finally(() => { collecting = undefined })
+    return collecting
+  }
+  const collectOnce = async (): Promise<void> => {
+    const deliver = options.notes?.deliver
+    if (deliver === undefined || saved === undefined || saved.closing === true || !connected || options.refusal?.() !== undefined) return
+    clearTimeout(noteTimer)
+    noteTimer = undefined
+    const items = await waitingNotes()
+    if (items === undefined) return
+    const collected: string[] = []
+    const held: { note: string; why: NoteHeld }[] = []
+    let busy = false
+    for (const item of items) {
+      // Held already: it waits for the phone that wrote it.
+      if (item.held !== undefined) continue
+      const room = saved?.room
+      const link = keys.get(item.device)
+      if (room === undefined || link === undefined) continue
+      let said: unknown
+      try { said = await open(link.open, item.n, item.c, aadOf(room, item.device, 'device-to-pc')) } catch { said = undefined }
+      if (!isWrittenNote(said)) { held.push({ note: item.id, why: 'failed' }); continue }
+      // A copy of one sent before: gone from the relay, never sent again.
+      if (saved?.notesTaken?.includes(said.nid) === true) { collected.push(item.id); continue }
+      // Whichever clock says it is older: a phone's slow clock cannot make an old note new.
+      if (now() - Math.min(item.at, said.t) > NOTE_SENDS_WITHIN_MS) { held.push({ note: item.id, why: 'old' }); continue }
+      // Kept as sent before it is sent: a crash between the two never sends it twice.
+      const taken = (saved?.notesTaken ?? []).concat(said.nid).slice(-NOTES_TAKEN_KEPT)
+      if (saved === undefined) return
+      saved = { ...saved, notesTaken: taken }
+      try { await persist() } catch { saved = { ...saved, notesTaken: taken.filter((nid) => nid !== said.nid) }; continue }
+      const result = await deliver(said.missionId, said.text.trim()).catch((): NoteDelivery => 'failed')
+      if (result === 'sent') { collected.push(item.id); continue }
+      if (saved !== undefined) {
+        saved = { ...saved, notesTaken: (saved.notesTaken ?? []).filter((nid) => nid !== said.nid) }
+        await persist().catch(() => undefined)
+      }
+      if (result === 'busy') busy = true
+      else held.push({ note: item.id, why: result })
+    }
+    if (collected.length > 0 || held.length > 0) await command({ t: 'notes-collected', notes: collected, held })
+    if (busy && connected && !disposed) noteTimer = setTimeout(() => { noteTimer = undefined; void collectNotes() }, NOTE_RETRY_MS)
+  }
+
   const heardFrame = (text: string): void => {
     heard = now()
     if (text === 'pong') return
@@ -490,6 +592,12 @@ export function createPhoneAnywhere(options: {
       tell()
       options.away?.refresh()
       options.hooks?.refresh()
+      track(collectNotes())
+      return
+    }
+    if (frame.t === 'notes-changed') { track(collectNotes()); return }
+    if (frame.t === 'notes' && typeof frame.id === 'string' && Array.isArray(frame.items)) {
+      notePages.get(frame.id)?.(frame.items.filter(isNoteBox))
       return
     }
     if (frame.t === 'done' && typeof frame.id === 'string') { commands.get(frame.id)?.(true); return }

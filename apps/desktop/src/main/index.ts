@@ -10084,6 +10084,29 @@ if (!ownsSingleInstanceLock) {
     })
     const phoneHistory = () => phoneHistoryOnce(`${String(ledgerWrites())}|${phoneLive().join(',')}|${String(Math.floor(Date.now() / 60_000))}`)
     const phoneSending = new Set<string>()
+    /** A phone's message as the person's next turn, and, when it was not sent, whether it may be tried again (0.837). */
+    const phoneSend = async (missionId: string, text: string): Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string; readonly why: 'busy' | 'gone' | 'failed' }> => {
+      const newest = await newestTurnOf(missionLedger, missionId)
+      // Two presses, or the phone and the window at once, must not both continue the same turn.
+      if (phoneSending.has(newest)) return { ok: false, message: 'That message is already on its way.', why: 'busy' }
+      if (codexMissions.hasMission(newest) || antigravityMissions.liveMissionIds().includes(newest)) {
+        return { ok: false, message: 'This conversation is still working. Send when it finishes.', why: 'busy' }
+      }
+      phoneSending.add(newest)
+      try {
+        const owner = (await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>)))[newest]
+        if (owner === undefined) return { ok: false, message: 'This conversation no longer has a teammate in Locust. Nothing was sent.', why: 'gone' }
+        const list = await listTeammates()
+        const mode = (list.ok ? list.data.teammates.find((mate) => mate.teammateId === owner)?.route?.mode : undefined) ?? 'ask'
+        const response = await startMission({ prompt: text, teammateId: owner, followUpOf: newest, mode, keepSavedRoute: true } as CodexMissionStartRequest, sendToWindow)
+        if (!response.ok) return { ok: false, message: response.error.message, why: 'failed' }
+        rememberSentByPerson(response.data.missionId)
+        sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, teammateId: owner, prompt: text, data: response.data })
+        return { ok: true }
+      } finally {
+        phoneSending.delete(newest)
+      }
+    }
     // What a phone may see and do, the same on the home network and from anywhere (0.826).
     const phoneCalls: PhoneCalls = {
       state: async () => ({
@@ -10112,26 +10135,8 @@ if (!ownsSingleInstanceLock) {
         return answered
       },
       send: async (missionId, text) => {
-        const newest = await newestTurnOf(missionLedger, missionId)
-        // Two presses, or the phone and the window at once, must not both continue the same turn.
-        if (phoneSending.has(newest)) return { ok: false, message: 'That message is already on its way.' }
-        if (codexMissions.hasMission(newest) || antigravityMissions.liveMissionIds().includes(newest)) {
-          return { ok: false, message: 'This conversation is still working. Send when it finishes.' }
-        }
-        phoneSending.add(newest)
-        try {
-          const owner = (await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>)))[newest]
-          if (owner === undefined) return { ok: false, message: 'This conversation no longer has a teammate in Locust. Nothing was sent.' }
-          const list = await listTeammates()
-          const mode = (list.ok ? list.data.teammates.find((mate) => mate.teammateId === owner)?.route?.mode : undefined) ?? 'ask'
-          const response = await startMission({ prompt: text, teammateId: owner, followUpOf: newest, mode, keepSavedRoute: true } as CodexMissionStartRequest, sendToWindow)
-          if (!response.ok) return { ok: false, message: response.error.message }
-          rememberSentByPerson(response.data.missionId)
-          sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId, teammateId: owner, prompt: text, data: response.data })
-          return { ok: true }
-        } finally {
-          phoneSending.delete(newest)
-        }
+        const sent = await phoneSend(missionId, text)
+        return sent.ok ? sent : { ok: false, message: sent.message }
       }
     }
     const phoneHost = createPhoneHost({
@@ -10157,7 +10162,9 @@ if (!ownsSingleInstanceLock) {
       away: { forPhone: () => scoutAway.forPhone(), refresh: () => scoutAway.refresh(), letter: (letter) => scoutAway.letter(letter) },
       hooks: { refresh: syncHooks },
       // Bound once the desk host is made, a few lines on; a frame before then waits for nothing.
-      desk: { frame: (device, asks) => { void deskLink?.handle(device, asks) }, forget: (device) => { void deskLink?.forget(device) } }
+      desk: { frame: (device, asks) => { void deskLink?.handle(device, asks) }, forget: (device) => { void deskLink?.forget(device) } },
+      // Written on a phone while this computer was off (0.837): sent now, through the phone's own path.
+      notes: { deliver: async (missionId, text) => { const sent = await phoneSend(missionId, text); return sent.ok ? 'sent' : sent.why } }
     })
     hookRelay = phoneAnywhere
     scoutAwayRelay = { ready: () => phoneAnywhere.settings().then(() => undefined), room: () => phoneAnywhere.room(), connected: () => phoneAnywhere.connected(), awayOpen: (hash) => phoneAnywhere.awayOpen(hash), awayClose: () => phoneAnywhere.awayClose(), keepAwayAlerts: () => phoneAnywhere.keepAwayAlerts(), post: (box) => phoneAnywhere.post(box), letters: (after) => phoneAnywhere.letters(after) }

@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { roomCore, type Attachment, type Peer } from '../../../relay/src/room-core.js'
 import type { Letter, RelayFrame } from '../../../relay/src/protocol.js'
-import { AWAY_FOUND_ALERT, createPhoneAnywhere, PHONE_ANYWHERE_FILE, type RelaySocket } from './phone-anywhere.js'
+import { AWAY_FOUND_ALERT, createPhoneAnywhere, NOTE_SENDS_WITHIN_MS, PHONE_ANYWHERE_FILE, type RelaySocket } from './phone-anywhere.js'
 import type { PhoneCalls } from './phone-host.js'
 import { aadOf, deviceIdOf, linkKeys, open, pairingProof, pairingToken, seal, toBase64url, type LinkKeys } from './relay-crypto.js'
 import { deskJoiner, deskParts } from '../shared/desk.js'
@@ -615,5 +615,110 @@ describe('Locust in a browser through the relay (0.830)', () => {
     // Full window off again: the browser that had the window lets it go.
     expect((await pc.setDesk(phone.device, false)).devices[0]?.desk).toBeUndefined()
     await pc.dispose()
+  })
+})
+
+/*
+ * WRITTEN WHILE THE COMPUTER IS OFF (0.837). The phone leaves its message at the relay as a note, sealed as its
+ * requests are; the PC, back, sends each through the phone's own path once, and holds with why what it will not send.
+ */
+describe('a message written while the computer is off', () => {
+  /** A PC on, a phone paired, then the PC off: the phone's line stays with the relay. */
+  async function offWithAPhone(relay: ReturnType<typeof memoryRelay>) {
+    const folder = await mkdtemp(join(tmpdir(), 'locust-notes-'))
+    directories.push(folder)
+    const first = createPhoneAnywhere({ directory: folder, calls: fakeCalls(), relay: () => 'https://relay.test', connect: relay.connect, protectFile: async () => undefined, retryMs: () => 20 })
+    const on = await first.setEnabled(true)
+    await until(async () => first.connected())
+    const phone = await pairPhone(relay, on.code!.url)
+    await until(async () => (await first.settings()).devices.length === 1)
+    await first.dispose()
+    await relay.settled()
+    const line = await phoneLine(relay, phone)
+    expect(line.ok).toMatchObject({ t: 'ok', as: 'device', pc: false })
+    let asks = 0
+    const ask = async (frame: Record<string, unknown>, answer: string): Promise<Record<string, unknown>> => {
+      asks += 1
+      const id = `n${String(asks)}`
+      line.line.send(JSON.stringify({ ...frame, id }))
+      return line.heard.next((heard) => heard.id === id && (heard.t === answer || heard.t === 'err'))
+    }
+    const leave = async (said: Record<string, unknown>, keys = phone.keys): Promise<string> => {
+      const box = await seal(keys.seal, { v: 1, kind: 'note', ...said }, aadOf(phone.room, phone.device, 'device-to-pc'))
+      const kept = await ask({ t: 'note', ...box }, 'noted')
+      expect(kept.t).toBe('noted')
+      return kept.note as string
+    }
+    const mine = async (): Promise<readonly Record<string, unknown>[]> => (await ask({ t: 'notes' }, 'my-notes')).items as Record<string, unknown>[]
+    const back = (deliver: (missionId: string, text: string) => Promise<'sent' | 'busy' | 'gone' | 'failed'>) => {
+      const pc = createPhoneAnywhere({ directory: folder, calls: fakeCalls(), relay: () => 'https://relay.test', connect: relay.connect, protectFile: async () => undefined, retryMs: () => 20, notes: { deliver } })
+      return pc
+    }
+    return { phone, line, leave, mine, back, folder }
+  }
+  const nid = (): string => randomBytes(16).toString('base64url')
+
+  it('sends a message left while the PC was off once it is back, through the phone\'s own path', async () => {
+    const relay = memoryRelay()
+    const off = await offWithAPhone(relay)
+    await off.leave({ nid: nid(), missionId: 'm1', text: '  Run the tests again  ', t: Date.now() })
+    // The relay holds a sealed box: the words are not in what it stored.
+    expect(JSON.stringify([...relay.stored.values()])).not.toContain('Run the tests')
+    const deliver = vi.fn(async () => 'sent' as const)
+    const pc = off.back(deliver)
+    try {
+      await pc.load()
+      await until(async () => deliver.mock.calls.length === 1)
+      expect(deliver).toHaveBeenCalledWith('m1', 'Run the tests again')
+      await until(async () => (await off.mine()).length === 0)
+      expect(await off.line.heard.next((frame) => frame.t === 'notes-changed')).toEqual({ t: 'notes-changed' })
+    } finally { await pc.dispose() }
+  })
+
+  it('never sends one twice, even when the relay hands the same note back again', async () => {
+    const relay = memoryRelay()
+    const off = await offWithAPhone(relay)
+    const same = { nid: nid(), missionId: 'm1', text: 'Once only', t: Date.now() }
+    await off.leave(same)
+    await off.leave(same)
+    const deliver = vi.fn(async () => 'sent' as const)
+    const pc = off.back(deliver)
+    try {
+      await pc.load()
+      await until(async () => (await off.mine()).length === 0)
+      expect(deliver).toHaveBeenCalledTimes(1)
+    } finally { await pc.dispose() }
+  })
+
+  it('holds one written more than twelve hours ago for the phone to decide, and sends it never by itself', async () => {
+    const relay = memoryRelay()
+    const off = await offWithAPhone(relay)
+    await off.leave({ nid: nid(), missionId: 'm1', text: 'From yesterday', t: Date.now() - NOTE_SENDS_WITHIN_MS - 60_000 })
+    const deliver = vi.fn(async () => 'sent' as const)
+    const pc = off.back(deliver)
+    try {
+      await pc.load()
+      await until(async () => (await off.mine()).some((item) => item.held === 'old'))
+      expect(deliver).not.toHaveBeenCalled()
+    } finally { await pc.dispose() }
+  })
+
+  it('holds with why one whose conversation is gone, or that does not open, and leaves a busy one waiting', async () => {
+    const relay = memoryRelay()
+    const off = await offWithAPhone(relay)
+    const gone = await off.leave({ nid: nid(), missionId: 'gone', text: 'Nobody here', t: Date.now() })
+    const busy = await off.leave({ nid: nid(), missionId: 'busy', text: 'Still working', t: Date.now() })
+    const pair = await globalThis.crypto.subtle.generateKey({ name: 'X25519' }, false, ['deriveBits']) as unknown as CryptoKeyPair
+    const other = await linkKeys(pair.privateKey, toBase64url(new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', pair.publicKey))), off.phone.room, 'device')
+    const strange = await off.leave({ nid: nid(), missionId: 'm1', text: 'Sealed wrong', t: Date.now() }, other)
+    const deliver = vi.fn(async (missionId: string) => (missionId === 'gone' ? 'gone' as const : 'busy' as const))
+    const pc = off.back(deliver)
+    try {
+      await pc.load()
+      await until(async () => (await off.mine()).filter((item) => item.held !== undefined).length === 2)
+      const states = Object.fromEntries((await off.mine()).map((item) => [item.id, item.held ?? 'waiting']))
+      expect(states).toEqual({ [gone]: 'gone', [busy]: 'waiting', [strange]: 'failed' })
+      expect(deliver.mock.calls.map((call) => call[0]).sort()).toEqual(['busy', 'gone'])
+    } finally { await pc.dispose() }
   })
 })
