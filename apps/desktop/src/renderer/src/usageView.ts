@@ -8,10 +8,22 @@ import type { UsageDay, UsageModel, UsagePay, UsageRange, UsageSummary } from '.
  * word is tested without drawing anything (usage-is-counted.test.ts).
  */
 
-/** 3.1M, 410k, 920: how the app writes a token count everywhere. */
+const COUNT_UNITS = [[1_000_000_000, 'B'], [1_000_000, 'M'], [1_000, 'k']] as const
+
+/**
+ * 1.1B, 3.1M, 410k, 920: how the app writes a token count everywhere.
+ * BILLIONS (2026-10-26): Colin's all-time Usage read "1133M"; past a billion it
+ * is 1.1B. A count that would round to 1000 of one unit is written as the next
+ * (999.6M is 1.0B, never "1000M"), and one that rounds to 10 drops its decimal.
+ */
 export function compactCount(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}k`
+  for (const [index, [size, unit]] of COUNT_UNITS.entries()) {
+    if (value < size) continue
+    const scaled = value / size
+    const text = scaled >= 9.95 ? scaled.toFixed(0) : scaled.toFixed(1)
+    const larger = COUNT_UNITS[index - 1]
+    return text === '1000' && larger !== undefined ? `1.0${larger[1]}` : `${text}${unit}`
+  }
   return String(Math.round(value))
 }
 

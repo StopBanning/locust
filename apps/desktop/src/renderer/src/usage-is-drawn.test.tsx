@@ -96,4 +96,10 @@ describe('the dialog', () => {
   it('writes a token count the way the app does everywhere', () => {
     expect([920, 12_400, 3_100_000, 19_000_000].map(compactCount)).toEqual(['920', '12k', '3.1M', '19M'])
   })
+
+  it('writes a billion and more as B, never as a thousand of the unit below', () => {
+    // Colin's all-time Usage, 2026-10-26: 1,133,000,000 tokens read "1133M".
+    expect([1_133_000_000, 12_500_000_000, 999_600_000, 999_999, 9_960_000].map(compactCount))
+      .toEqual(['1.1B', '13B', '1.0B', '1.0M', '10M'])
+  })
 })

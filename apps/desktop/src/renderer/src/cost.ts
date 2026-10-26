@@ -2,6 +2,7 @@ import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 
 import { dollars, limitReached, moneyOfUsage } from '../../shared/spend.js'
 import type { Spend } from '../../shared/spend.js'
+import { compactCount } from './usageView.js'
 
 /**
  * What a run cost, read off its receipt and never estimated.
@@ -84,11 +85,8 @@ export function missionCost(mission: { readonly events: readonly NormalizedRunti
   return runCostOf(mission.events) ?? (mission.money === undefined ? undefined : { ...mission.money })
 }
 
-function tokens(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}k`
-  return String(value)
-}
+/** A receipt's token counts are written as every other count is (usageView). */
+const tokens = compactCount
 
 /**
  * One short line, in the runtime's own unit. Dollars win when the runtime
