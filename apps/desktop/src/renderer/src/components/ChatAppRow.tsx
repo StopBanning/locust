@@ -80,6 +80,29 @@ export function ChatAppRow({ app, name, state, open, onToggle, failure, children
   )
 }
 
+/**
+ * TELL ME HERE WHEN SOMETHING NEEDS ME (0.837, shared/chat-apps.ts). Off until turned on. Says, before it is on, what
+ * would leave this computer for the app's servers.
+ */
+export function ChatAlertsSwitch({ app, name, state, busy, onSet }: {
+  readonly app: ChatAppId
+  readonly name: string
+  readonly state: ChatAppSettings
+  readonly busy: boolean
+  readonly onSet: (on: boolean) => void
+}): ReactElement {
+  const on = state.alerts === true
+  return (
+    <div className="lc-settingline lc-chatapp__alerts" data-chat-alerts={app}>
+      <div className="lc-settingline__text">
+        <h3 className="lc-settings__heading">Tell me here when something needs me</h3>
+        <p className="lc-settings__lede">While you are away from this window, the cards that wait on you come here with Allow once and Deny, and so do Scout’s urgent finds and a teammate that hits its limit, by your phone’s rules: merged, a few a day, held in quiet hours. {name}’s servers can read who is asking and the card’s summary, with anything shaped like a key taken out.</p>
+      </div>
+      <button type="button" className={`lc-switch${on ? ' is-on' : ''}`} role="switch" aria-label={`Tell me in ${name} when something needs me`} aria-checked={on} disabled={busy} onClick={() => { onSet(!on) }}><span /></button>
+    </div>
+  )
+}
+
 /** The code that pairs an account, big enough to read out, with Copy beside it. */
 export function PairingCode({ code, label }: { readonly code: string; readonly label: string }): ReactElement {
   const [copied, setCopied] = useState(false)

@@ -247,6 +247,21 @@ describe('teammates answer their person in Slack', () => {
     expect(self.decided).toHaveLength(1)
   })
 
+  it('tells the person here what needs them from any run, once they turn it on (0.837)', async () => {
+    const self = await paired()
+    const request = card('appr_away', 'mission_window')
+    self.waiting = [{ request }]
+    const alert = { cards: [{ request, name: 'Ada' }], lines: [{ title: 'Scout', body: 'One of your pull requests needs you.' }] }
+    self.link.alert(alert)
+    await new Promise((settle) => setTimeout(settle, 150))
+    expect(self.slack.state.sent.some((one) => one.text.includes('needs your approval') || one.text.includes('pull requests'))).toBe(false)
+    expect((await self.link.setAlerts(true)).alerts).toBe(true)
+    self.link.alert(alert)
+    const posted = await self.slack.until((state) => state.sent.find((one) => one.text.startsWith('*Ada needs your approval*')), 5_000, 'the card')
+    expect(posted.blocks.find((block) => block.type === 'actions')!.elements!.map((button) => button.text.text)).toEqual(['Allow once', 'Deny'])
+    await self.slack.until((state) => state.sent.find((one) => one.text === '*Scout*\nOne of your pull requests needs you.'), 5_000, 'Scout’s line')
+  })
+
   it('takes anything shaped like a key out of an answer before Slack has it', async () => {
     const self = await paired()
     self.slack.say('Ada: the tokens?')

@@ -79,8 +79,21 @@ export interface ChatLink {
   cardRaised(request: MissionApprovalRequest, name: string | undefined): void
   /** A card answered anywhere, or taken down: its message in the chat says so, and its buttons go. */
   cardSettled(approvalId: string, how: 'allowed' | 'denied' | 'answered' | 'gone'): void
+  /** Tell me here when something needs me (0.837): on or off, kept with the link. */
+  setAlerts(on: unknown): Promise<ChatAppSettings>
+  /**
+   * What the alert rules let through while the person is away (phone-alerts.ts), when this chat's switch is on: each
+   * card still waiting, with its buttons, and the rest as one short message.
+   */
+  alert(said: ChatAlert): void
   onRunEnded(mission: { readonly missionId: string }): Promise<void>
   dispose(): Promise<void>
+}
+
+/** One alert as a chat is told it: the cards still waiting, and the other lines, who and what kind only. */
+export interface ChatAlert {
+  readonly cards: readonly { readonly request: MissionApprovalRequest; readonly name: string | undefined }[]
+  readonly lines: readonly { readonly title: string; readonly body: string }[]
 }
 
 /** The bot, as its app named it when the token was checked. */
@@ -278,6 +291,8 @@ interface Saved {
   readonly cards?: readonly SavedCard[]
   /** Turns answered here lately, whose carry-on or check-fix is answered here too. */
   readonly answered?: readonly { readonly missionId: string; readonly at: number }[]
+  /** Tell me here when something needs me (0.837). */
+  readonly alerts?: true
 }
 
 /** 0.831's Telegram file, with numbers for its ids, read into this shape. */
@@ -356,7 +371,8 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
     ...(saved?.chat === undefined ? {} : { chat: { name: saved.chat.name, ...(saved.chat.username === undefined ? {} : { username: saved.chat.username }), pairedAt: saved.chat.pairedAt } }),
     ...(saved === undefined || link === undefined || link.until <= now() ? {} : app.pairing(saved.bot, link.code, new Date(link.until).toISOString())),
     connected: saved !== undefined && connected,
-    ...(message === undefined ? {} : { message })
+    ...(message === undefined ? {} : { message }),
+    ...(saved?.alerts === true ? { alerts: true } : {})
   })
   const changed = (): void => { options.changed?.(settingsNow()) }
 
@@ -435,8 +451,8 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
     const name = incoming.name ?? known?.name ?? 'Your chat'
     const username = incoming.username ?? known?.username
     const chat: SavedChat = { place: incoming.place, user: incoming.from, name, ...(username === undefined ? {} : { username }), pairedAt: new Date(now()).toISOString() }
-    // A new chat starts clean: what the last one was writing, and to whom, was that chat's.
-    update((was) => ({ schemaVersion: 1, token: was.token, bot: was.bot, chat, ...(was.offset === undefined ? {} : { offset: was.offset }) }))
+    // A new chat starts clean: what the last one was writing, and to whom, was that chat's. The person's own switch stays.
+    update((was) => ({ schemaVersion: 1, token: was.token, bot: was.bot, chat, ...(was.offset === undefined ? {} : { offset: was.offset }), ...(was.alerts === true ? { alerts: true as const } : {}) }))
     link = undefined
     wrongCodes = 0
     message = undefined
@@ -895,6 +911,25 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
         if ((await fromHere(request.missionId)) === undefined) return
         await postCard(request, name)
       })().catch(() => undefined)
+    },
+    async setAlerts(on) {
+      if (typeof on !== 'boolean' || saved === undefined) return settingsNow()
+      const refused = options.refusal()
+      if (refused !== undefined && on) return { ...settingsNow(), message: refused }
+      update((was) => { const { alerts: _was, ...rest } = was; return on ? { ...rest, alerts: true as const } : rest })
+      try { await persist() } catch { message = 'That setting could not be saved. It lasts until Locust closes.' }
+      changed()
+      return settingsNow()
+    },
+    alert(said) {
+      if (saved?.alerts !== true || saved.chat === undefined || options.refusal() !== undefined) return
+      void inTurn(async () => {
+        // A card already in this chat (its turn came from here) is not sent again: postCard keeps one per card.
+        for (const card of said.cards) await postCard(card.request, card.name)
+        if (said.lines.length === 0) return
+        // Who and what kind, as on a lock screen: never a command, a file's name or a message's words.
+        await send(said.lines.map((line) => `${bold(line.title)}\n${escape(line.body)}`).join('\n\n'))
+      })
     },
     cardSettled(approvalId, how) {
       if (saved?.cards?.some((card) => card.approvalId === approvalId) !== true) return

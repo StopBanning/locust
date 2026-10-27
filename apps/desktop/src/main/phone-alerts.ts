@@ -22,6 +22,10 @@ export interface PhoneAlert {
   readonly body: string
   /** Notifications with one tag replace each other on the phone. */
   readonly tag: string
+  /** An approval's or question's card (0.837): a chat app shows it with its buttons. Never sent to a phone. */
+  readonly approvalId?: string
+  /** Who asks, for that card. Never sent to a phone either. */
+  readonly who?: string
 }
 
 /** What the alert said, kept for the morning brief when it was held (spec release 2). */
@@ -60,11 +64,12 @@ export function scoutAlertBody(key: string): string {
   }
 }
 
-export function approvalAlert(name: string | undefined, kind: 'approval' | 'question'): PhoneAlert {
+export function approvalAlert(name: string | undefined, kind: 'approval' | 'question', approvalId?: string): PhoneAlert {
   const who = name ?? 'A teammate'
+  const card = approvalId === undefined ? {} : { approvalId, ...(name === undefined ? {} : { who: name }) }
   return kind === 'question'
-    ? { kind, title: `${who} is asking you something`, body: 'The turn waits for your answer.', tag: 'waiting' }
-    : { kind, title: `${who} needs your approval`, body: 'The turn is paused until you answer.', tag: 'waiting' }
+    ? { kind, title: `${who} is asking you something`, body: 'The turn waits for your answer.', tag: 'waiting', ...card }
+    : { kind, title: `${who} needs your approval`, body: 'The turn is paused until you answer.', tag: 'waiting', ...card }
 }
 
 export function limitAlert(name: string | undefined, runtimeName: string): PhoneAlert {
@@ -85,8 +90,8 @@ export function mergedAlert(alerts: readonly PhoneAlert[]): PhoneAlert {
 }
 
 export interface PhoneAlertsOptions {
-  /** Hands one buzz to the phones (phone-anywhere.ts). */
-  readonly send: (alert: PhoneAlert) => void
+  /** Hands one buzz to the phones (phone-anywhere.ts), and its parts to the chat apps that are on (chat-link.ts, 0.837). */
+  readonly send: (alert: PhoneAlert, parts: readonly PhoneAlert[]) => void
   /** Whether the person is away from Locust's window: it is behind another app, or minimized. */
   readonly away: () => boolean
   /** Whether `at` is in the person's quiet hours. */
@@ -122,7 +127,7 @@ export function createPhoneAlerts(options: PhoneAlertsOptions) {
     waiting = []
     if (said.length === 0) return
     lastSent = now()
-    options.send(mergedAlert(said))
+    options.send(mergedAlert(said), said)
   }
 
   /** The one door every alert goes through. */
@@ -143,7 +148,7 @@ export function createPhoneAlerts(options: PhoneAlertsOptions) {
   }
 
   return {
-    approval: (name: string | undefined, kind: 'approval' | 'question'): void => raise(approvalAlert(name, kind)),
+    approval: (name: string | undefined, kind: 'approval' | 'question', approvalId?: string): void => raise(approvalAlert(name, kind, approvalId)),
     limit: (name: string | undefined, runtimeName: string): void => raise(limitAlert(name, runtimeName)),
     /** New Scout cards: one that can't wait buzzes now; one that can wait a while buzzes once if it is left untouched. */
     scoutCards: (cards: readonly { readonly cardId: string; readonly key: string; readonly urgency: 'now' | 'soon' | 'later' }[]): void => {

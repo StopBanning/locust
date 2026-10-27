@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react'
 
 import type { ChatAppApi, ChatAppSettings } from '../../../shared/chat-apps.js'
-import { ChatAppRow, openLink, useChatApp, useFreshPairing } from './ChatAppRow.js'
+import { ChatAlertsSwitch, ChatAppRow, openLink, useChatApp, useFreshPairing } from './ChatAppRow.js'
 import { QrCode } from './PhoneSettings.js'
 
 export const BOTFATHER_LINK = 'https://t.me/BotFather'
@@ -86,6 +86,7 @@ export function TelegramSettings({ api = typeof window === 'undefined' ? undefin
             </div>
           )}
           <p className="lc-settings__note">In Telegram, write /name and a message to @{bot.username}. Telegram’s servers can read what you and your teammates write there: a bot’s chat is not end-to-end encrypted. Locust takes out anything shaped like a key before it sends, but keep secrets out of it. Approval cards there offer Allow once and Deny; Always stays here.</p>
+          {api?.setAlerts !== undefined && <ChatAlertsSwitch app="telegram" name="Telegram" state={state} busy={busy} onSet={(on) => { void run(() => api.setAlerts!(on)) }} />}
         </>
       )}
     </ChatAppRow>

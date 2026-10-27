@@ -49,7 +49,7 @@ import type { AppearanceState, ThemeChoice } from './appearance.js'
 import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from './acp-agents.js'
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, type PhoneAnywhereSettings } from './phone.js'
 import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL } from './telegram.js'
-import type { ChatAppSettings } from './chat-apps.js'
+import { CHAT_ALERTS_CHANNEL, type ChatAppSettings } from './chat-apps.js'
 import { TEAMMATE_KEYS_LIST_CHANNEL, TEAMMATE_KEYS_REMOVE_CHANNEL, TEAMMATE_KEYS_SET_CHANNEL } from './teammate-keys.js'
 import { DISCORD_CHANGED_CHANNEL, DISCORD_NEW_LINK_CHANNEL, DISCORD_REMOVE_CHANNEL, DISCORD_SET_TOKEN_CHANNEL, DISCORD_SETTINGS_CHANNEL } from './discord.js'
 import { SLACK_CHANGED_CHANNEL, SLACK_NEW_LINK_CHANNEL, SLACK_REMOVE_CHANNEL, SLACK_SET_TOKEN_CHANNEL, SLACK_SETTINGS_CHANNEL } from './slack.js'
@@ -569,6 +569,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       setToken: (token) => ipcRenderer.invoke(TELEGRAM_SET_TOKEN_CHANNEL, token),
       newLink: () => ipcRenderer.invoke(TELEGRAM_NEW_LINK_CHANNEL),
       remove: () => ipcRenderer.invoke(TELEGRAM_REMOVE_CHANNEL),
+      setAlerts: (on) => ipcRenderer.invoke(CHAT_ALERTS_CHANNEL, 'telegram', on),
       onChanged: (listener) => {
         const receive = (_event: IpcEvent, settings: ChatAppSettings): void => { listener(settings) }
         ipcRenderer.on(TELEGRAM_CHANGED_CHANNEL, receive)
@@ -580,6 +581,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       setToken: (token) => ipcRenderer.invoke(DISCORD_SET_TOKEN_CHANNEL, token),
       newLink: () => ipcRenderer.invoke(DISCORD_NEW_LINK_CHANNEL),
       remove: () => ipcRenderer.invoke(DISCORD_REMOVE_CHANNEL),
+      setAlerts: (on) => ipcRenderer.invoke(CHAT_ALERTS_CHANNEL, 'discord', on),
       onChanged: (listener) => {
         const receive = (_event: IpcEvent, settings: ChatAppSettings): void => { listener(settings) }
         ipcRenderer.on(DISCORD_CHANGED_CHANNEL, receive)
@@ -591,6 +593,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       setToken: (token) => ipcRenderer.invoke(SLACK_SET_TOKEN_CHANNEL, token),
       newLink: () => ipcRenderer.invoke(SLACK_NEW_LINK_CHANNEL),
       remove: () => ipcRenderer.invoke(SLACK_REMOVE_CHANNEL),
+      setAlerts: (on) => ipcRenderer.invoke(CHAT_ALERTS_CHANNEL, 'slack', on),
       onChanged: (listener) => {
         const receive = (_event: IpcEvent, settings: ChatAppSettings): void => { listener(settings) }
         ipcRenderer.on(SLACK_CHANGED_CHANNEL, receive)

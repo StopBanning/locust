@@ -276,6 +276,47 @@ describe('teammates answer their person in Discord', () => {
     expect(self.decided).toHaveLength(1)
   })
 
+  /*
+   * WHAT NEEDS YOU, HERE (0.837). Off until the person turns it on. On, what the alert rules let through reaches the
+   * chat: a card from a turn started in the window, with its buttons, once; and Scout's or a limit's line, who and what
+   * kind only. Off again, nothing more.
+   */
+  it('tells the person here what needs them, from any run, only once they turn it on', async () => {
+    const self = await paired()
+    expect((await self.link.settings()).alerts).toBeUndefined()
+    const request = card('appr_away', 'mission_window')
+    self.waiting = [{ request }]
+    const alert = { cards: [{ request, name: 'Ada' }], lines: [{ title: 'Scout', body: 'A check failed on a branch.' }] }
+    self.link.alert(alert)
+    await new Promise((settle) => setTimeout(settle, 150))
+    expect(self.discord.state.sent.filter((one) => one.content.includes('needs your approval') || one.content.includes('Scout'))).toEqual([])
+
+    const on = await self.link.setAlerts(true)
+    expect(on.alerts).toBe(true)
+    expect(JSON.parse(await readFile(join(self.directory, DISCORD_FILE), 'utf8')).alerts).toBe(true)
+    self.link.alert(alert)
+    const posted = await self.discord.until((state) => state.sent.find((one) => one.content.startsWith('**Ada needs your approval**')), 5_000, 'the card')
+    expect(posted.components[0]!.components.map((button) => button.label)).toEqual(['Allow once', 'Deny'])
+    const line = await self.discord.until((state) => state.sent.find((one) => one.content === '**Scout**\nA check failed on a branch.'), 5_000, 'Scout’s line')
+    expect(line.components ?? []).toEqual([])
+    // The same card told again is not sent twice.
+    self.link.alert({ cards: [{ request, name: 'Ada' }], lines: [] })
+    await new Promise((settle) => setTimeout(settle, 150))
+    expect(self.discord.state.sent.filter((one) => one.content.includes('needs your approval'))).toHaveLength(1)
+    // Answered here by the window's own path, Allow once only.
+    self.discord.press(posted.id, posted.components[0]!.components[0]!.custom_id)
+    await self.discord.until(() => self.decided.length === 1, 5_000, 'the answer')
+    expect(self.decided[0]).toEqual({ approvalId: 'appr_away', decision: 'approve-once' })
+
+    expect((await self.link.setAlerts(false)).alerts).toBeUndefined()
+    const next = card('appr_off', 'mission_window_2')
+    self.waiting = [{ request: next }]
+    self.link.alert({ cards: [{ request: next, name: 'Ada' }], lines: [{ title: 'Scout', body: 'There is a new issue.' }] })
+    await new Promise((settle) => setTimeout(settle, 150))
+    expect(self.discord.state.sent.filter((one) => one.content.includes('needs your approval'))).toHaveLength(1)
+    expect(self.discord.state.sent.some((one) => one.content.includes('There is a new issue.'))).toBe(false)
+  })
+
   it('takes anything shaped like a key out of an answer before Discord has it', async () => {
     const self = await paired()
     self.discord.command('ada', 'the token?')

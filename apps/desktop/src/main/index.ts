@@ -177,7 +177,7 @@ import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CH
 import type { ChatLink, ChatLinkOptions, ChatStart } from './chat-link.js'
 import { createDiscordLink, DISCORD_API } from './discord.js'
 import { createSlackLink, SLACK_API } from './slack.js'
-import type { ChatAppSettings } from '../shared/chat-apps.js'
+import { CHAT_ALERTS_CHANNEL, type ChatAppSettings } from '../shared/chat-apps.js'
 import { DISCORD_CHANGED_CHANNEL, DISCORD_NEW_LINK_CHANNEL, DISCORD_REMOVE_CHANNEL, DISCORD_SET_TOKEN_CHANNEL, DISCORD_SETTINGS_CHANNEL } from '../shared/discord.js'
 import { SLACK_CHANGED_CHANNEL, SLACK_NEW_LINK_CHANNEL, SLACK_REMOVE_CHANNEL, SLACK_SET_TOKEN_CHANNEL, SLACK_SETTINGS_CHANNEL } from '../shared/slack.js'
 import { countingLedgerWrites, keyedOnce } from './ledger-writes.js'
@@ -2448,11 +2448,11 @@ if (!ownsSingleInstanceLock) {
             const roster = ownerId === undefined ? [] : await teammates.list()
             const name = roster.find((entry) => entry.teammateId === ownerId)?.name
             attention.approvalArrived(request, name)
-            phoneAlerts.approval(name, request.kind === 'question' ? 'question' : 'approval')
+            phoneAlerts.approval(name, request.kind === 'question' ? 'question' : 'approval', request.approvalId)
             // A turn started in a chat app brings its card to the chat too (0.831, 0.832).
             for (const link of chatLinks) link.cardRaised(request, name)
           })
-          .catch(() => { attention.approvalArrived(request, undefined); phoneAlerts.approval(undefined, request.kind === 'question' ? 'question' : 'approval'); for (const link of chatLinks) link.cardRaised(request, undefined) })
+          .catch(() => { attention.approvalArrived(request, undefined); phoneAlerts.approval(undefined, request.kind === 'question' ? 'question' : 'approval', request.approvalId); for (const link of chatLinks) link.cardRaised(request, undefined) })
       }
 
     /*
@@ -2955,7 +2955,18 @@ if (!ownsSingleInstanceLock) {
     let scoutQuiet: ScoutQuietHours | undefined
     let phoneNightApprovals = false
     const phoneAlerts = createPhoneAlerts({
-      send: (alert) => phoneAlertSink?.(alert),
+      send: (alert, parts) => {
+        phoneAlertSink?.(alert)
+        // The chat apps that are on (0.837): each card still waiting, with its buttons; the rest as one message.
+        const waiting = raisedApprovals.waiting()
+        const cards = parts.flatMap((part) => {
+          const entry = part.approvalId === undefined ? undefined : waiting.find((one) => one.request.approvalId === part.approvalId)
+          return entry === undefined ? [] : [{ request: entry.request, name: part.who }]
+        })
+        // A card answered since it was raised is not told at all.
+        const lines = parts.filter((part) => part.approvalId === undefined).map((part) => ({ title: part.title, body: part.body }))
+        if (cards.length > 0 || lines.length > 0) for (const link of chatLinks) link.alert({ cards, lines })
+      },
       away: () => {
         const target = approvalWindow
         return target === undefined || target.isDestroyed() || !target.isFocused() || target.isMinimized()
@@ -10264,6 +10275,10 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(TELEGRAM_SET_TOKEN_CHANNEL, (event, token: unknown) => fromOwnWindow(event) ? telegramLink.setToken(token) : NO_CHAT)
     ipcMain.handle(TELEGRAM_NEW_LINK_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.newLink() : NO_CHAT)
     ipcMain.handle(TELEGRAM_REMOVE_CHANNEL, (event) => fromOwnWindow(event) ? telegramLink.remove() : NO_CHAT)
+    ipcMain.handle(CHAT_ALERTS_CHANNEL, (event, id: unknown, on: unknown) => {
+      const link = id === 'discord' ? discordLink : id === 'slack' ? slackLink : id === 'telegram' ? telegramLink : undefined
+      return fromOwnWindow(event) && link !== undefined ? link.setAlerts(on) : NO_CHAT
+    })
     void phoneHost.load().catch(() => note('phone', 'The page for your phone could not start. It is off.'))
     void phoneAnywhere.load().catch(() => note('phone', 'Your phone could not reach Locust from anywhere. It is off.'))
     ipcMain.handle(PHONE_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? phoneHost.settings() : { enabled: false, addresses: [] })

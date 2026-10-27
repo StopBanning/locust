@@ -103,6 +103,24 @@ describe('your phone buzzes only when it must', () => {
     expect(sent).toEqual([])
   })
 
+  it('hands each buzz\'s parts on too, a card by its id, for the chat apps that are on (0.837)', async () => {
+    let clock = Date.parse('2026-10-23T14:00:00')
+    const timers: (() => void)[] = []
+    const heard: { alert: PhoneAlert; parts: readonly PhoneAlert[] }[] = []
+    const alerts = createPhoneAlerts({ send: (alert, parts) => heard.push({ alert, parts }), away: () => true, quiet: () => false, now: () => clock, schedule: (task) => { timers.push(task); return timers.length } })
+    alerts.limit('Ivy', 'Codex')
+    clock += 10_000
+    alerts.approval('Mira', 'approval', 'ap_1')
+    alerts.scoutCards([{ cardId: 'c1', key: 'branch:main', urgency: 'now' }])
+    timers.splice(0).forEach((task) => task())
+    expect(heard.map((one) => one.parts.map((part) => [part.kind, part.approvalId ?? null, part.who ?? null]))).toEqual([
+      [['limit', null, null]],
+      [['approval', 'ap_1', 'Mira'], ['scout', null, null]]
+    ])
+    // The phone's buzz is still who and what kind: the merged one leads with the card.
+    expect(heard[1]!.alert.title).toBe('Mira needs your approval')
+  })
+
   it('names a Scout card by the watch it came from, never by its words', () => {
     expect(scoutAlertBody('pr:owner/repo#42:checks')).toBe('One of your pull requests needs you.')
     expect(scoutAlertBody('check:npm test')).toBe('The folder’s check fails.')

@@ -5,7 +5,7 @@ import { DISCORD_DEVELOPER_PORTAL } from '../../../shared/discord.js'
 import { policyFeatureRefusal } from '../../../shared/organization-policy.js'
 import { SLACK_MANIFEST_LINK } from '../../../shared/slack.js'
 import { ManagedPolicyNote, useOrganizationPolicy } from '../organizationPolicy.js'
-import { ChatAppRow, openLink, PairingCode, useChatApp, useFreshPairing } from './ChatAppRow.js'
+import { ChatAlertsSwitch, ChatAppRow, openLink, PairingCode, useChatApp, useFreshPairing } from './ChatAppRow.js'
 import { TelegramSettings } from './TelegramSettings.js'
 
 /*
@@ -93,6 +93,7 @@ export function DiscordSettings({ api = typeof window === 'undefined' ? undefine
             </div>
           )}
           <p className="lc-settings__note">In your messages with the bot, type / to pick a teammate, or write a name and a colon: “Ada: check the build”. Discord’s servers can read what you and your teammates write there. Locust takes out anything shaped like a key before it sends, but keep secrets out of it. Approval cards there offer Allow once and Deny; Always stays here.</p>
+          {api?.setAlerts !== undefined && <ChatAlertsSwitch app="discord" name="Discord" state={state} busy={busy} onSet={(on) => { void run(() => api.setAlerts!(on)) }} />}
         </>
       )}
     </ChatAppRow>
@@ -158,6 +159,7 @@ export function SlackSettings({ api = typeof window === 'undefined' ? undefined 
             </div>
           )}
           <p className="lc-settings__note">In Slack, write to the Locust app with a teammate’s name and a colon: “Ada: check the build”. Reply in an answer’s thread to carry on that conversation. Slack’s servers can read what you and your teammates write there. Locust takes out anything shaped like a key before it sends, but keep secrets out of it. Approval cards there offer Allow once and Deny; Always stays here.</p>
+          {api?.setAlerts !== undefined && <ChatAlertsSwitch app="slack" name="Slack" state={state} busy={busy} onSet={(on) => { void run(() => api.setAlerts!(on)) }} />}
         </>
       )}
     </ChatAppRow>

@@ -35,6 +35,8 @@ export interface ChatAppSettings {
   readonly connected: boolean
   /** Why the last change did not happen, or why it is not connected, in plain words. */
   readonly message?: string
+  /** What needs the person reaches this chat while they are away from the window (0.837), off until they turn it on. */
+  readonly alerts?: boolean
 }
 
 /** Slack takes two tokens: its bot's, which writes, and the app's own, which opens the connection Locust keeps. */
@@ -48,8 +50,17 @@ export interface ChatAppApi {
   newLink(): Promise<ChatAppSettings>
   /** The token and the chat are forgotten, and Locust stops reading the app. */
   remove(): Promise<ChatAppSettings>
+  /** Tell me here when something needs me (0.837). */
+  setAlerts?(on: boolean): Promise<ChatAppSettings>
   onChanged(callback: (settings: ChatAppSettings) => void): () => void
 }
+
+/**
+ * WHAT NEEDS YOU, IN YOUR CHAT APP (0.837). Off until the person turns it on, per app. On, what would buzz their phone
+ * reaches the paired chat by the same rules (main/phone-alerts.ts): a card from any run, with Allow once and Deny, a
+ * question, a Scout card that cannot wait, a teammate at its limit. The app's servers can read what is sent.
+ */
+export const CHAT_ALERTS_CHANNEL = 'chat-apps:alerts'
 
 /** A message older than this, when Locust reads it, came while it was closed: it starts nothing. */
 export const CHAT_STALE_MS = 10 * 60_000

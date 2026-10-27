@@ -87,4 +87,18 @@ describe('chat apps say each step in Settings', () => {
     expect(drawn).toContain('Pair another chat')
     expect(drawn).toContain('Telegram’s servers can read what you and your teammates write there')
   })
+
+  it('offers, once paired, to tell you there when something needs you: off until turned on, saying what is sent (0.837)', () => {
+    const api = { settings: async () => ({ connected: true }), setToken: async () => ({ connected: true }), newLink: async () => ({ connected: true }), remove: async () => ({ connected: false }), setAlerts: async () => ({ connected: true }), onChanged: () => () => undefined }
+    const chat = { name: 'Sam', username: 'sam_here', pairedAt: new Date().toISOString() }
+    const off = list(<DiscordSettings api={api} initial={{ connected: true, bot: { username: 'Locust#4242', name: 'Locust' }, chat }} />)
+    expect(off).toMatch(/role="switch" aria-label="Tell me in Discord when something needs me" aria-checked="false"/)
+    expect(off).toContain('Discord’s servers can read who is asking and the card’s summary')
+    expect(off).toContain('by your phone’s rules: merged, a few a day, held in quiet hours')
+    const on = list(<SlackSettings api={api} initial={{ connected: true, bot: { username: 'locust', name: 'locust', team: 'Tides' }, chat, alerts: true }} />)
+    expect(on).toMatch(/aria-label="Tell me in Slack when something needs me" aria-checked="true"/)
+    expect(list(<TelegramSettings api={api} initial={{ connected: true, bot: { username: 'tides_bot', name: 'Tides' }, chat }} />)).toContain('Tell me in Telegram when something needs me')
+    // Not paired yet, there is nobody to tell.
+    expect(list(<DiscordSettings api={api} initial={{ connected: true, bot: { username: 'Locust#4242', name: 'Locust' } }} />)).not.toContain('when something needs me')
+  })
 })

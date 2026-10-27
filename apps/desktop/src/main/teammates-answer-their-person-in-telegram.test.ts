@@ -281,6 +281,21 @@ describe('teammates answer their person in Telegram', () => {
     expect(self.telegram.state.answers.at(-1)!.text).toContain('already answered')
   })
 
+  it('tells the person here what needs them from any run, once they turn it on (0.837)', async () => {
+    const self = await paired()
+    const request = card('appr_away', 'mission_window')
+    self.waiting = [{ request }]
+    const alert = { cards: [{ request, name: 'Ada' }], lines: [{ title: 'Ivy hit the Codex limit', body: 'Pick where the work carries on.' }] }
+    self.link.alert(alert)
+    await new Promise((settle) => setTimeout(settle, 150))
+    expect(self.telegram.state.sent.some((one) => one.text.includes('needs your approval') || one.text.includes('Codex limit'))).toBe(false)
+    expect((await self.link.setAlerts(true)).alerts).toBe(true)
+    self.link.alert(alert)
+    const posted = await self.telegram.until((state) => state.sent.find((one) => one.text.startsWith('Ada needs your approval')), 5_000, 'the card')
+    expect(posted.reply_markup?.inline_keyboard[0]!.map((button) => button.text)).toEqual(['Allow once', 'Deny'])
+    await self.telegram.until((state) => state.sent.find((one) => one.text === 'Ivy hit the Codex limit\nPick where the work carries on.'), 5_000, 'the limit line')
+  })
+
   it('says in the chat what became of a card answered in the window, or whose turn ended', async () => {
     const self = await paired()
     self.telegram.say('/ada look')
