@@ -142,9 +142,8 @@ try {
     return (document.querySelector('.lc-thread')?.innerText ?? '').replace(/\\s+/g, ' ').slice(-240)
   })()`))
   say(`  the chain: ${chain}`)
-  const handoff = await boxOf(`[...document.querySelectorAll('.lc-thread [class*="handoff"], .lc-thread [class*="verdict"]')].pop()`)
-  if (handoff !== null) await shoot('card-handoff.png', `Atlas's check of Wren's step: ${/approved/i.test(chain) ? 'approved' : 'verdict not seen'}`, handoff)
-  else say('  no hand-off card found to frame')
+  // The whole window: the hand-off note and the verdict are rows of the thread, not one card, so they are cropped after.
+  await shoot('handoff-window.png', `Atlas's check of Wren's step: ${/approved/i.test(chain) ? 'approved' : 'verdict not seen'}`)
 
   // 2. Wren fixes the bug, in Edit, on Claude Code.
   await drive.evaluate(openTeammateScript('Wren'))
