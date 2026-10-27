@@ -104,7 +104,7 @@ try {
   check('Discord is paired with the person’s account', /On · Sam/.test(paired), paired.slice(0, 200))
 
   const off = String(await drive.capture('Discord paired: Tell me here when something needs me, off', () => drive.evaluate(rowScript(`return ${ROW} + ' || ' + (${SWITCH}?.getAttribute('aria-checked') ?? 'no switch')`))))
-  check('paired, Settings offers the switch, off, saying what Discord can read', /Tell me here when something needs me/.test(off) && /Discord’s servers can read who is asking and the card’s summary/.test(off) && /\|\| false$/.test(off), off.slice(-500))
+  check('paired, Settings offers the switch, off, saying what Discord can read', /Tell me here when something needs me/.test(off) && /Discord’s servers can read who is asking, what the card asks to do and the first line of its file or command/.test(off) && /\|\| false$/.test(off), off.slice(-500))
   for (const [width, height] of [[960, 720], [760, 640]]) {
     await drive.resize(width, height)
     await sleep(600)
