@@ -21,6 +21,10 @@ heading: the home screen then shows it once, as a splash.
 - **Claude Code can ask before each action.** Approve each action now runs on Claude Code teammates too: every file change, command and connector call waits on a card for Allow once, Always or Deny before it runs, as it already did on Codex, OpenCode and Copilot.
 - **Council review: three AIs check one change.** Routines > Start from a template > Council review hands the changes in your folder not yet committed to three teammates, each proposed on a different AI where your team has one: the first reviews, the second reviews too and agrees or disagrees with each finding, and the third settles them, keeping what at least two would stand behind, and approves only if nothing must change. It changes no file. Who takes each step shows in the editor before you save it. After tstack's council.
 
+### Improved
+
+- **The message box is one row.** As in Claude Code: the + left of where you type, and voice typing, Talk and send right of it. One line is half the height it was. A longer message still grows the box, and the buttons stay on its last line.
+
 ### Fixed
 
 - **Codex's commands read as they run on Windows.** An approval card and the Board showed the program's path with every backslash doubled. They now show it the way the shell gets it, and the rest of the command exactly as Codex sent it.

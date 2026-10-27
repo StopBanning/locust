@@ -24769,3 +24769,25 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
     display: none;
   }
 }
+
+/*
+ * ONE ROW, AS CLAUDE CODE'S (0.837). Colin, 2026-10-27, with Claude Code's message box beside ours: "we can condense
+ * this like claude code now that we have this new setup". Since 0.836 the mode, folder and model sit under the box, so
+ * the box held one line of text over a row of four buttons: 108px for a line. Now the + sits left of the field, and
+ * voice typing, Talk and send right of it, on one 56px row. The field still grows with what is typed, to its 180px, and
+ * the buttons stay on its last line. The box is a grid over the controls' two groups (`display: contents` on the row
+ * that held them), so no control moved in the markup and every rule on the groups still reaches them.
+ */
+.lc-composer__box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: 12px;
+  padding: 8px;
+}
+.lc-composer__box > .lc-commandmode { grid-column: 1 / -1; grid-row: 1; margin: 8px 4px; }
+/* 12px above and below a 16px line: one line is the send's 40px, so text and buttons share a centre. */
+.lc-composer__box > textarea { grid-column: 2; grid-row: 2; margin: 0; padding: 12px 0; }
+.lc-composer__box > .lc-composer__controls { display: contents; }
+.lc-composer__box > .lc-composer__controls > .lc-composer__group:first-child { grid-column: 1; grid-row: 2; }
+.lc-composer__box > .lc-composer__controls > .lc-composer__group:last-child { grid-column: 3; grid-row: 2; margin-left: 0; }
