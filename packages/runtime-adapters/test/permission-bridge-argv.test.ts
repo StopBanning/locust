@@ -85,4 +85,27 @@ describe("the permission bridge on the command line", () => {
   it("refuses an empty config path rather than sending a flag with nothing after it", () => {
     expect(() => createClaudePrintCommand(EXE, { workspacePath: "C:\\workspace", sandbox: "workspace-write", permissionBridge: { configPath: "", toolName: "mcp__locust__approve" } })).toThrow();
   });
+
+  /*
+   * APPROVE EACH ON CLAUDE CODE (0.837). MEASURED 2026-10-26 on 2.1.311 with a stand-in permission tool: `default`
+   * mode with Write and Bash listed asked the tool before each; `acceptEdits` asked only before Bash.
+   */
+  it("asks before every edit and command in Approve each: Claude Code's default mode, the editing tools, the bridge", () => {
+    const args = createClaudePrintCommand(EXE, { workspacePath: "C:\\workspace", sandbox: "workspace-write", askEach: true, permissionBridge: BRIDGE }).args
+    expect(args[args.indexOf("--permission-mode") + 1]).toBe("default");
+    expect(args[args.indexOf("--tools") + 1]).toContain("Write");
+    expect(args[args.indexOf("--tools") + 1]).toContain("Bash");
+    expect(args[args.indexOf("--permission-prompt-tool") + 1]).toBe("mcp__locust__approve");
+    // Edit mode stays acceptEdits: only commands ask there.
+    expect(claude("workspace-write", BRIDGE)[claude("workspace-write", BRIDGE).indexOf("--permission-mode") + 1]).toBe("acceptEdits");
+  });
+
+  it("never runs Approve each without the bridge, where every action would be refused unseen", () => {
+    expect(() => createClaudePrintCommand(EXE, { workspacePath: "C:\\workspace", sandbox: "workspace-write", askEach: true })).toThrow(/permission host/);
+    // It widens nothing: in Ask it stays read-only, and in Auto it asks nothing.
+    const ask = createClaudePrintCommand(EXE, { workspacePath: "C:\\workspace", sandbox: "read-only", askEach: true, permissionBridge: BRIDGE }).args
+    expect(ask[ask.indexOf("--tools") + 1]).not.toContain("Write");
+    const auto = createClaudePrintCommand(EXE, { workspacePath: "C:\\workspace", sandbox: "full-access", askEach: true }).args
+    expect(auto[auto.indexOf("--permission-mode") + 1]).toBe("bypassPermissions");
+  });
 });

@@ -405,6 +405,11 @@ export interface RuntimeCommandOptions {
   readonly effort?: string;
   readonly sandbox?: MissionSandbox;
   /**
+   * Approve each, on Claude Code (0.837): its own default permission mode, so every edit and every command is asked
+   * of the permission bridge, one card each. Only with the folder's write sandbox, and only with the bridge.
+   */
+  readonly askEach?: boolean;
+  /**
    * The runtime's own session handle, to continue that conversation instead of
    * starting a blank one. Codex calls it a thread id and Claude Code a session
    * id; both take it back on the command line, which is what makes a second
@@ -937,6 +942,17 @@ export function createClaudePrintCommand(
   // for is `bypassPermissions`, measured off `claude --help` the same day.
   const auto = sandboxArgument(options.sandbox) === "full-access";
   const editing = sandboxArgument(options.sandbox) !== "read-only";
+  /*
+   * APPROVE EACH (0.837). MEASURED 2026-10-26 on claude 2.1.311, Haiku, this argv's shape with a stand-in permission
+   * tool that logged each question and allowed it: in `default` mode with Write and Bash listed, Claude Code asked the tool before
+   * the Write AND before the Bash, and did each once allowed; in `acceptEdits` it asked only before the Bash. So the
+   * "Bash and Edit never route through it" below holds for acceptEdits' edits only, and the default mode is the one that
+   * stops at every action. Without the bridge nothing could answer, and every action would be refused unseen.
+   */
+  const askEach = options.askEach === true && editing && !auto;
+  if (askEach && options.permissionBridge === undefined) {
+    throw new Error("Approve each on Claude Code asks through Locust's permission host, which this run does not have.");
+  }
   const args = [
     // MEASURED 2026-09-06: `--restricted` and `bypassPermissions` cannot be
     // combined -- the CLI exits at once with "bypassPermissions not supported
@@ -971,7 +987,7 @@ export function createClaudePrintCommand(
     // inherits the tools of the run that asked for it, so a read-only run's
     // helpers read only.
     "--permission-mode",
-    auto ? "bypassPermissions" : editing ? "acceptEdits" : "default",
+    auto ? "bypassPermissions" : askEach ? "default" : editing ? "acceptEdits" : "default",
     // THE PERSON'S CONNECTORS, IN EVERY MODE.
     //
     // This used to allow `mcp__*` in Auto only, and deny it everywhere else,
@@ -1042,9 +1058,9 @@ export function createClaudePrintCommand(
      * `--permission-prompt-tool` naming its tool, a `--print` run under
      * `--restricted` in the strictest mode called the tool before using a
      * connector, waited, and honoured the answer; a denial's message reached
-     * the model verbatim. Bash and Edit never route through it -- they are
-     * granted by `--tools` -- so this is connectors only, which is the one
-     * thing the mode was never able to govern.
+     * the model verbatim. Edits in acceptEdits never route through it; Bash
+     * does (MEASURED again 2026-10-26, above), and in Approve each's default
+     * mode every edit does too.
      */
     // No teammate ends the person's browser (0.717, main/command-guard.ts).
     ...(options.commandGuard === undefined ? [] : ["--settings", requireText(options.commandGuard.settingsPath, "Command guard settings")]),

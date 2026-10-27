@@ -8,7 +8,7 @@ Locust can stop a run only where its AI agent asks first. Where it asks, a card 
 | AI agent | Can stop | Asks first | Always kept by |
 | --- | --- | --- | --- |
 | Codex CLI | Each action | in Approve each action | Locust |
-| Claude Code | Some actions | connectors, and commands in Edit | Locust |
+| Claude Code | Each action | in Approve each action | Locust |
 | OpenCode | Each action | in Approve each action | Locust |
 | Copilot CLI | Each action | in Approve each action | Locust |
 | Cursor Agent | Nothing | never | — |
@@ -27,7 +27,7 @@ Locust can stop a run only where its AI agent asks first. Where it asks, a card 
 
 ## Claude Code
 
-**Asks first.** In Ask and Plan, every connector call. In Edit, a connector call the teammate was not given (or every one, when “Ask before every connector call” is on), a command it does not run on its own say, and a change to a file outside this folder.
+**Asks first.** In Approve each action: every file change, command and connector call, before it runs. In Ask and Plan, every connector call. In Edit, a connector call the teammate was not given (or every one, when “Ask before every connector call” is on), a command it does not run on its own say, and a change to a file outside this folder.
 
 **Without asking.** Reading files, in every mode. In Edit, changes to files in this folder and the commands Claude Code runs on its own say. In Auto, everything. In every mode, Locust refuses one kind of command without asking: one that ends a browser, Locust or another AI agent that no teammate started, by name or by its id, which would end yours too.
 

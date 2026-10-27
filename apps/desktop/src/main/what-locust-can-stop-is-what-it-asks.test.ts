@@ -49,7 +49,7 @@ describe('one row for every AI agent a run can start on', () => {
       expect(entry.reach === 'each-action', entry.runtime).toBe(offered && entry.runtime !== 'acp')
       expect(/Approve each action/.test(entry.asks), entry.runtime).toBe(offered)
     }
-    expect(RUNTIMES.filter((runtime) => modesOf(runtime).includes("'approve-each'")).sort()).toEqual(['acp', 'codex', 'copilot', 'opencode'])
+    expect(RUNTIMES.filter((runtime) => modesOf(runtime).includes("'approve-each'")).sort()).toEqual(['acp', 'claude', 'codex', 'copilot', 'opencode'])
     expect(row('acp').reach).toBe('some-actions')
     expect(row('acp').asks).toMatch(/agent’s own setting/)
   })
@@ -70,7 +70,11 @@ describe('each row is what the run is given', () => {
     const tools = (sandbox: MissionSandbox) => args(sandbox)[args(sandbox).indexOf('--tools') + 1]!.split(',')
     expect(tools('read-only')).not.toContain('Bash')
     expect(tools('workspace-write')).toContain('Bash')
-    expect(row('claude').reach).toBe('some-actions')
+    // Approve each (0.837): Claude Code's own default mode, so every edit and command asks the bridge.
+    const each = createClaudePrintCommand(launch('claude'), { workspacePath: 'C:\\work', sandbox: 'workspace-write', askEach: true, permissionBridge: bridge }).args
+    expect(each[each.indexOf('--permission-mode') + 1]).toBe('default')
+    expect(row('claude').reach).toBe('each-action')
+    expect(source('./codex-mission.ts')).toContain("...(mode === 'approve-each' ? { askEach: true } : {})")
     // Every mode but Auto registers a run with the permission host.
     expect(source('./codex-mission.ts')).toContain("runtime === 'claude' && effectiveSandbox !== 'full-access' && options.permissionHost !== undefined")
   })

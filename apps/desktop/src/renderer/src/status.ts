@@ -779,8 +779,11 @@ export const RUNTIME_CAPABILITIES: Readonly<Record<MissionRuntimeId, RuntimeCapa
    * "read-only" in the header -- was fixed properly by making the mode decide
    * the argv, in `createClaudePrintCommand`. Removing the capability had been
    * the wrong repair for the right complaint.
+   *
+   * Approve each (0.837): its own default mode asks Locust's permission host before every edit and every command,
+   * MEASURED 2026-10-26 on 2.1.311 (commands.ts, createClaudePrintCommand).
    */
-  claude: { modes: [...EVERY_ORDINARY_MODE], evidence: 'measured' },
+  claude: { modes: [...EVERY_ORDINARY_MODE, 'approve-each'], evidence: 'measured' },
   /*
    * Cursor's read-only mode is only real where its sandbox can run. On
    * Windows the host refuses such a mission rather than record a containment
@@ -1114,7 +1117,7 @@ export function modeUnavailableReason(
   platform?: string
 ): string | undefined {
   if (modeRunsOn(mode, runtime, platform)) return undefined
-  if (mode === 'approve-each') return `Codex CLI, OpenCode and Copilot CLI only. ${runtimeLabel(runtime)} cannot stop and ask yet.`
+  if (mode === 'approve-each') return `Claude Code, Codex CLI, OpenCode and Copilot CLI only. ${runtimeLabel(runtime)} cannot stop and ask yet.`
   if (mode === 'auto') return `${runtimeLabel(runtime)} runs its own agent under its own permissions; Locust has no handle to widen.`
   if (runtime === 'antigravity') return 'Antigravity CLI runs this mode; without it, Antigravity runs only in Edit.'
   return 'Cursor Agent cannot be kept read-only on Windows: that needs macOS or Linux, and its plan mode alone does not stop it editing files.'

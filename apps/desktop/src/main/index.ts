@@ -9746,13 +9746,14 @@ if (!ownsSingleInstanceLock) {
         }
       }
       // Codex asks through its app-server, OpenCode through its own server
-      // (A6.7), Copilot and the agents the person added through the Agent Client Protocol (0.377, 0.777).
-      if (mode === 'approve-each' && runtime !== 'codex' && runtime !== 'opencode' && runtime !== 'copilot' && runtime !== 'acp') {
+      // (A6.7), Copilot and the agents the person added through the Agent Client Protocol (0.377, 0.777),
+      // Claude Code through Locust's permission host, in its own default mode (0.837).
+      if (mode === 'approve-each' && runtime !== 'codex' && runtime !== 'opencode' && runtime !== 'copilot' && runtime !== 'acp' && runtime !== 'claude') {
         return {
           ok: false,
           error: {
             code: 'RUNTIME_START_FAILED',
-            message: `Per-action approvals run on Codex CLI, OpenCode, Copilot CLI and your own agents only. Pick another mode for ${runtimeDisplayName(runtime)}, or switch the route.`
+            message: `Per-action approvals run on Claude Code, Codex CLI, OpenCode, Copilot CLI and your own agents only. Pick another mode for ${runtimeDisplayName(runtime)}, or switch the route.`
           }
         } as const
       }

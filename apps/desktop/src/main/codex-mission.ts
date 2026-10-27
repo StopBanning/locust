@@ -2608,7 +2608,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                    * models do." So Ask sends no rules: each call is a card.
                    */
                   // The teammate's own ticks, and nothing for a teammate with none: its connectors are off (0.798, below).
-                  return claudeConnectorRules(effectiveSandbox, askEveryConnector, cloud !== undefined ? [] : (peer?.connectors ?? []))
+                  // Approve each asks before every connector call too, as before every edit and command (0.837).
+                  return claudeConnectorRules(effectiveSandbox, askEveryConnector || mode === 'approve-each', cloud !== undefined ? [] : (peer?.connectors ?? []))
                 })(),
                 /*
                  * A TEAMMATE'S CONNECTORS ARE ON ONLY WHEN IT HAS ONE TICKED (0.798). Claude Code sends every tool of
@@ -2623,6 +2624,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                 // edits ran in plan mode and answered "I don't have a Write
                 // tool available in this session" -- measured 2026-09-03.
                 sandbox: effectiveSandbox,
+                // Approve each: Claude Code's own default mode, every edit and command a card (0.837).
+                ...(mode === 'approve-each' ? { askEach: true } : {}),
                 ...choice
               })
             : runtime === 'cursor'

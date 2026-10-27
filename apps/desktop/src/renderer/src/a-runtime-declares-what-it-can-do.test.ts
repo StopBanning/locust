@@ -70,6 +70,10 @@ describe('a runtime declares what it can do', () => {
     // written files (2026-09-02). The sandbox is still asked for wherever it
     // runs.
     cursor: ['ask', 'accept-edits', 'plan', 'auto'],
+    // Claude Code gained Approve-each on 2026-10-26 (0.837): its own default
+    // mode asks Locust's permission host before every edit and command --
+    // measured with a stand-in permission tool on 2.1.311.
+    claude: ['ask', 'accept-edits', 'approve-each', 'plan', 'auto'],
     // OpenCode gained Approve-each on 2026-09-25 (A6.7): it rides
     // `opencode serve`, which stops and asks -- measured, and driven
     // (drive-opencode-approve-each: an approved command ran, a declined one
@@ -165,7 +169,7 @@ describe('a runtime declares what it can do', () => {
         if (reason === undefined || runtime === 'codex') continue
         // Approve-each names Codex and OpenCode on purpose -- it says which
         // runtimes DO have it -- so only the second half is checked.
-        const aboutThisRuntime = mode === 'approve-each' ? reason.replace('Codex CLI, OpenCode and Copilot CLI only.', '') : reason
+        const aboutThisRuntime = mode === 'approve-each' ? reason.replace('Claude Code, Codex CLI, OpenCode and Copilot CLI only.', '') : reason
         expect(aboutThisRuntime, `${runtime} / ${mode}: ${reason}`).not.toContain('Codex CLI')
       }
     }

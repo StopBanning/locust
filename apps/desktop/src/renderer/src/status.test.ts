@@ -603,7 +603,8 @@ describe('a read-only mode, where it is real', () => {
 
   it('leaves the other runtimes alone on every platform', () => {
     expect(modesFor('codex', 'win32')).toEqual(['ask', 'plan', 'accept-edits', 'approve-each', 'auto'])
-    expect(modesFor('claude', 'win32')).toEqual(['ask', 'plan', 'accept-edits', 'auto'])
+    // Claude Code stops and asks too since 0.837 (its own default mode, through Locust's permission host).
+    expect(modesFor('claude', 'win32')).toEqual(['ask', 'plan', 'accept-edits', 'approve-each', 'auto'])
   })
 
   it('offers Plan exactly where Ask is', () => {
@@ -620,7 +621,7 @@ describe('which modes a route can actually run', () => {
   it('keeps per-action approvals to the runtime that can stop and ask', () => {
     expect(modeRunsOn('approve-each', 'codex')).toBe(true)
     expect(modeRunsOn('approve-each', 'cursor')).toBe(false)
-    expect(modeRunsOn('approve-each', 'claude')).toBe(false)
+    expect(modeRunsOn('approve-each', 'claude')).toBe(true)
   })
 
   it('lets every runtime read and edit', () => {
