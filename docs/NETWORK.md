@@ -360,6 +360,10 @@ reads of your folder stays on this machine.
   line. Once merged, the workflow reads the repository with its own read-only
   token and posts to the relay over HTTPS, sealed with a key the relay never
   has; with Locust open on your computer it asks the relay that, and stops.
+  It also runs when a comment is written (0.838): your own /locust ask is
+  posted to the relay the same way, sealed, and anyone else's comment ends the
+  run before anything is sent. A repository on the older look is offered the
+  newer one by another pull request, opened the same way.
   Turning it off deletes the secret and turns the workflow off.
 - **The spellchecker downloads no dictionary.**
 - **Memory recall** runs a small model that ships with Locust.

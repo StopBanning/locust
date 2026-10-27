@@ -55,7 +55,8 @@ const LISTED: Readonly<Record<string, { readonly places: number; readonly said: 
   // the same page from Locust's relay opens its WebSocket to the relay that served it, twice: pairing, then paired.
   'phone-page.ts': { places: 3, said: ['It serves one page, which holds', 'nothing; everything that page shows or does needs the key', 'and keeps it open while this is on'] },
   // Your phone from anywhere (0.826): one WebSocket out to the relay, and nothing listening.
-  'scout-away-look.ts': { places: 2, said: ["**Scout's away look**", 'runs on GitHub, not on your computer', 'never its command'] },
+  // The look's question and letter, and an ask's letter (0.838).
+  'scout-away-look.ts': { places: 3, said: ["**Scout's away look**", 'runs on GitHub, not on your computer', 'never its command'] },
   'desk-page.ts': { places: 1, said: ['**Locust in a browser**', 'never runs code a computer sent it', 'adds no connection of this computer'] },
   'phone-anywhere.ts': { places: 1, said: ['**Your phone, from anywhere**', 'listens to nothing', 'the relay passes along what it cannot read'] },
   // Your teammates in Telegram (0.831): one request at a time to the Bot API, and nothing listening.

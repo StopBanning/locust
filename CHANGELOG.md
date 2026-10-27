@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.838.0 - 2026-10-27
+<!-- big -->
+
+### New
+
+- **Your /locust comments are picked up within a minute.** With Scout on, Locust reads your own comments on the folder's GitHub repository every minute instead of waiting for Scout's next look, ten minutes to an hour away. A minute with nothing new asks no AI. A new ask starts Scout's look at once, and its card comes as it always has.
+- **A /locust comment reaches your phone while your computer is off.** With Look while my computer is off on, the workflow in your repository also runs when a comment is written. Yours, starting a line with /locust, goes to your phone at once, sealed so the relay cannot read it, and rings it unless it is quiet hours. Anyone else's comment ends the run. When Locust is open again, your ask becomes its card for a teammate. A repository that already has the away look is offered the newer one: Update it, under Look while my computer is off, opens the pull request.
+
 ## 0.837.0 - 2026-10-27
 <!-- big -->
 

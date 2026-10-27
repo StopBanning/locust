@@ -52,12 +52,14 @@ function FixesLine({ state, team, busy, checkCommand, act, api, switchOf }: {
  * pull request the person merges. Waiting on that merge, it asks GitHub every so often whether it happened.
  */
 const AWAY_CHECK_MS = 20_000
-function AwayLine({ api, switchOf, lastLookWords }: {
+export function AwayLine({ api, switchOf, lastLookWords, initial }: {
   readonly api: NonNullable<ScoutApi['away']>
   readonly switchOf: (label: string, checked: boolean, onClick: () => void, disabled?: boolean) => ReactNode
   readonly lastLookWords: (iso: string) => string
+  /** How it stands before the first answer: none in the window, which asks at once. */
+  readonly initial?: ScoutAwayStatus
 }) {
-  const [status, setStatus] = useState<ScoutAwayStatus | undefined>(undefined)
+  const [status, setStatus] = useState<ScoutAwayStatus | undefined>(initial)
   useEffect(() => {
     let alive = true
     api.status(true).then((next) => { if (alive) setStatus(next) }, () => undefined)
