@@ -261,7 +261,7 @@ export function routineScheduleSummary(
  * `fallback` is the route a teammate with none of their own would replay on.
  */
 export function chainDraftFrom(
-  preview: Pick<RoutineImportPreview, 'name' | 'steps' | 'inputs' | 'handOffRoles' | 'handOffChecks' | 'changesFiles'>,
+  preview: Pick<RoutineImportPreview, 'name' | 'steps' | 'inputs' | 'handOffRoles' | 'handOffChecks' | 'handOffOnAnotherAgent' | 'changesFiles'>,
   team: readonly PublicTeammate[],
   fallback: TeammateRoute
 ): {
@@ -276,7 +276,7 @@ export function chainDraftFrom(
   readonly inCopy?: true
   readonly forceMode?: 'accept-edits'
 } {
-  const { owner, handOffs } = proposedHandOffs(preview.steps.map((_, at) => ({ role: preview.handOffRoles[at], check: preview.handOffChecks[at] })), team)
+  const { owner, handOffs } = proposedHandOffs(preview.steps.map((_, at) => ({ role: preview.handOffRoles[at], check: preview.handOffChecks[at], another: preview.handOffOnAnotherAgent?.[at] })), team)
   const teammate = team.find((entry) => entry.teammateId === owner)
   const base = teammate === undefined ? undefined : (teammate.route ?? fallback)
   const changes = preview.changesFiles === true

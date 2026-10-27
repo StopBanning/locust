@@ -136,4 +136,9 @@ describe('the draft the editor opens on', () => {
     expect(draft).not.toHaveProperty('route')
     expect(draft.handOffs).toEqual([{}, {}, { check: true }])
   })
+  it('gives a Council review step to a teammate on another agent, as its template says (0.837)', () => {
+    const council = { name: 'Council review: three AIs check a change', steps: ['Review it.', 'Review it again.', 'Settle it.'], inputs: [], handOffRoles: [undefined, undefined, undefined], handOffChecks: [false, false, true], handOffOnAnotherAgent: [false, true, true] }
+    const team = [WREN, ATLAS, SABLE].map((entry, at) => ({ ...entry, route: { runtime: ['claude', 'claude', 'codex'][at]!, model: 'm', mode: 'ask' } }) as PublicTeammate)
+    expect(chainDraftFrom(council, team, fallback).handOffs).toEqual([{}, { teammateId: 'tm_sable' }, { teammateId: 'tm_atlas', check: true }])
+  })
 })

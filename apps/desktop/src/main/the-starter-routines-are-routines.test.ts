@@ -24,8 +24,8 @@ const SHIPPED = fileURLToPath(new URL('../../resources/routines/', import.meta.u
 const files = readdirSync(SHIPPED).filter((name) => name.endsWith(TEMPLATE_SUFFIX))
 
 describe('every starter routine', () => {
-  it('is there: fifteen -- the ten of R16, the challenge of its section 7, three chains and the overnight polish -- each in the order offered', () => {
-    expect(files.length).toBe(15)
+  it('is there: sixteen -- the ten of R16, the challenge of its section 7, three chains, the overnight polish and Council review -- each in the order offered', () => {
+    expect(files.length).toBe(16)
     expect(files.map((name) => name.slice(0, -TEMPLATE_SUFFIX.length)).sort()).toEqual([...TEMPLATE_ORDER].sort())
   })
 

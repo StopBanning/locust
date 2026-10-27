@@ -107,6 +107,7 @@ extraResources:
       - explain-this-project.locust-routine.json
       - find-what-is-unfinished.locust-routine.json
       - review-a-file.locust-routine.json
+      - council-review.locust-routine.json
       - fix-a-bug.locust-routine.json
       - build-a-feature.locust-routine.json
       - make-it-faster.locust-routine.json

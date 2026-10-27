@@ -2309,6 +2309,8 @@ export interface RoutineImportPreview {
   readonly handOffRoles: readonly (string | undefined)[]
   /** Which step checks the work, one per step; a chain is a routine with one (it opens in the editor, a teammate proposed for each role). */
   readonly handOffChecks: readonly boolean[]
+  /** A starter routine's steps that go to a teammate on an agent no earlier step used (0.837, Council review). */
+  readonly handOffOnAnotherAgent?: readonly boolean[]
   /** A starter routine that changes files, as the editor should open it: changing them, in a copy. */
   readonly changesFiles?: true
   readonly runtime?: string

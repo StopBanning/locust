@@ -14,7 +14,7 @@ import { seedAvatar } from '../shared/avatar.js'
 import { absolutePathsIn, parseRoutineFile, routineFileText, routineToFile } from './routine-file.js'
 import { createRoutineIO } from './routine-io.js'
 import { createRoutineStore } from './routine-store.js'
-import { listRoutineTemplates, TEMPLATE_SUFFIX, templateChangesFiles } from './routine-templates.js'
+import { listRoutineTemplates, TEMPLATE_SUFFIX, templateChangesFiles, templateOnAnotherAgent } from './routine-templates.js'
 
 /**
  * READY-MADE CHAINS (2026-10-05): fix a bug, build a feature, make it faster.
@@ -27,6 +27,8 @@ const SHIPPED = fileURLToPath(new URL('../../resources/routines/', import.meta.u
 const CHAINS = ['fix-a-bug', 'build-a-feature', 'make-it-faster'] as const
 /** The overnight polish (2026-10-12): a chain too, that asks nothing -- the project's own tests are its question. */
 const NIGHTLY = ['polish-overnight'] as const
+/** Council review (0.837): three reviewers, each proposed on another agent where the roster has one. */
+const COUNCIL = ['council-review'] as const
 const read = (id: string) => {
   const parsed = parseRoutineFile(readFileSync(join(SHIPPED, `${id}${TEMPLATE_SUFFIX}`), 'utf8'))
   if (!parsed.ok) throw new Error(`${id}: ${parsed.message}`)
@@ -81,7 +83,7 @@ describe('the chain templates are files', () => {
 
   it('are listed as chains, with what they do; the others are not', async () => {
     const listed = await listRoutineTemplates(SHIPPED)
-    for (const template of listed.templates) expect(template.chain === true, template.id).toBe(([...CHAINS, ...NIGHTLY] as readonly string[]).includes(template.id))
+    for (const template of listed.templates) expect(template.chain === true, template.id).toBe(([...CHAINS, ...NIGHTLY, ...COUNCIL] as readonly string[]).includes(template.id))
     expect(listed.templates.find((template) => template.id === 'fix-a-bug')).toMatchObject({ steps: 3, asks: ['What is going wrong?'] })
     expect(listed.templates.every((template) => template.summary.length > 10)).toBe(true)
   })
@@ -202,5 +204,60 @@ describe('a chain template, as the window asks for it', () => {
     } finally {
       await rm(folder, { recursive: true, force: true })
     }
+  })
+})
+
+describe('Council review: one change read by different AIs (0.837)', () => {
+  const on = (teammateId: string, runtime: string): PublicTeammate => ({ ...mate(teammateId, 'Code & Migrations'), route: { runtime, model: 'm', mode: 'ask' } }) as PublicTeammate
+  const COUNCIL_STEPS: readonly ChainStep[] = [{}, { another: true }, { check: true, another: true }]
+
+  it('is three read-only steps that ask nothing, the last settling the other two and checking', () => {
+    const file = read('council-review')
+    expect(file.steps).toHaveLength(3)
+    expect(file.inputs).toEqual([])
+    expect(file.route).toEqual({})
+    for (const step of file.steps) expect(step).toMatch(/Do not change any file\.$/)
+    expect(file.steps[1]).toMatch(/agree, or disagree and say why/)
+    expect(file.steps[2]).toMatch(/at least two of the three of you/)
+    expect(file.handOffs.map((entry) => entry.check === true)).toEqual([false, false, true])
+    expect(templateChangesFiles('council-review')).toBe(false)
+  })
+
+  it('previews which steps go to another agent; no other template says so', async () => {
+    expect(templateOnAnotherAgent('council-review')).toEqual([false, true, true])
+    for (const id of [...CHAINS, ...NIGHTLY, 'review-a-file', 'challenge-an-idea']) expect(templateOnAnotherAgent(id), id).toBeUndefined()
+    const folder = await mkdtemp(join(tmpdir(), 'locust-council-'))
+    try {
+      const io = createRoutineIO({ routines: createRoutineStore({ rootDirectory: folder }), team: async () => [], connectors: () => [], workspace: () => 'ws', templates: SHIPPED,
+        pickFolder: async () => undefined, pickImport: async () => undefined, pickExport: async () => undefined, run: async () => ({ ok: false, error: { code: 'ROUTINE_REJECTED', message: 'no' } }) })
+      const council = await io.previewTemplate('council-review')
+      if (!council.ok || council.data.preview === undefined) throw new Error('no preview')
+      expect(council.data.preview).toMatchObject({ handOffChecks: [false, false, true], handOffOnAnotherAgent: [false, true, true] })
+      expect(council.data.preview).not.toHaveProperty('changesFiles')
+      const fix = await io.previewTemplate('fix-a-bug')
+      if (!fix.ok || fix.data.preview === undefined) throw new Error('no preview')
+      expect(fix.data.preview).not.toHaveProperty('handOffOnAnotherAgent')
+    } finally {
+      await rm(folder, { recursive: true, force: true })
+    }
+  })
+
+  it('proposes a teammate on a different agent for each review, where the roster has one', () => {
+    const team = [on('tm_claude', 'claude'), on('tm_claude_2', 'claude'), on('tm_codex', 'codex'), on('tm_open', 'opencode')]
+    expect(proposeTeammates(COUNCIL_STEPS, team)).toEqual(['tm_claude', 'tm_codex', 'tm_open'])
+    expect(proposedHandOffs(COUNCIL_STEPS, team)).toEqual({ owner: 'tm_claude', handOffs: [{}, { teammateId: 'tm_codex' }, { teammateId: 'tm_open', check: true }] })
+  })
+
+  it('with two agents, the third review goes to a teammate who has not reviewed yet; with one teammate, all three are theirs', () => {
+    expect(proposeTeammates(COUNCIL_STEPS, [on('tm_a', 'claude'), on('tm_b', 'claude'), on('tm_c', 'codex')])).toEqual(['tm_a', 'tm_c', 'tm_b'])
+    expect(proposeTeammates(COUNCIL_STEPS, [on('tm_a', 'claude'), on('tm_b', 'claude')])).toEqual(['tm_a', 'tm_b', 'tm_b'])
+    expect(proposeTeammates(COUNCIL_STEPS, [on('tm_a', 'claude')])).toEqual(['tm_a', 'tm_a', 'tm_a'])
+  })
+
+  it('is what the shipped template gets, read the way the window reads it', () => {
+    const file = read('council-review')
+    const another = templateOnAnotherAgent('council-review')!
+    const steps: readonly ChainStep[] = file.handOffs.map((entry, at) => ({ role: entry.role, check: entry.check === true, another: another[at] }))
+    expect(proposeTeammates(steps, [on('tm_claude', 'claude'), on('tm_codex', 'codex'), on('tm_cursor', 'cursor')])).toEqual(['tm_claude', 'tm_codex', 'tm_cursor'])
   })
 })

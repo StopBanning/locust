@@ -35,6 +35,7 @@ export const TEMPLATE_ORDER = [
   'explain-this-project',
   'find-what-is-unfinished',
   'review-a-file',
+  'council-review',
   'fix-a-bug',
   'build-a-feature',
   'make-it-faster',
@@ -54,6 +55,7 @@ const WHAT_IT_DOES: Readonly<Record<string, string>> = {
   'explain-this-project': 'What this folder is, how it is laid out and how to run it, for someone new.',
   'find-what-is-unfinished': 'Every TODO and half-done part, grouped by how much it matters.',
   'review-a-file': 'A careful review of one file: bugs, unclear names, missing checks.',
+  'council-review': 'Three teammates, each on a different AI where your team has one, review the same change, and the third keeps what two would stand behind.',
   'fix-a-bug': 'Find the cause, fix it with the smallest change, and have the fix checked where it broke.',
   'build-a-feature': 'A plan, the build, and a review of the build against the plan.',
   'make-it-faster': 'Measure where the time goes, change the slowest part, then measure again.',
@@ -73,6 +75,17 @@ const WHAT_IT_DOES: Readonly<Record<string, string>> = {
 const CHANGES_FILES: ReadonlySet<string> = new Set(['fix-a-bug', 'build-a-feature', 'make-it-faster', 'polish-overnight'])
 
 export const templateChangesFiles = (id: string): boolean => CHANGES_FILES.has(id)
+
+/*
+ * COUNCIL REVIEW (0.837), from tstack's council (github.com/t3dotgg/tstack, MIT, read 2026-10-27): models from
+ * different providers review one change until they agree. Locust's take is a chain: the steps marked here go to a
+ * teammate on an agent no earlier step ran on, where the roster has one (shared/chain-proposal.ts), so the same change
+ * is read by different AIs and the last of them settles it. A hint for the proposal only, never part of the file.
+ */
+const ON_ANOTHER_AGENT: Readonly<Record<string, readonly boolean[]>> = { 'council-review': [false, true, true] }
+
+/** Which steps of a template go to a teammate on an agent no earlier step used; undefined when none do. */
+export const templateOnAnotherAgent = (id: string): readonly boolean[] | undefined => ON_ANOTHER_AGENT[id]
 
 /** As the window lists it (shared/ipc.ts). */
 export type RoutineTemplate = RoutineTemplateInfo
