@@ -2337,6 +2337,13 @@ if (!ownsSingleInstanceLock) {
     // Your teammates in chat apps (0.831 Telegram, 0.832 Discord and Slack; chat-link.ts): made with the phone's calls further down.
     let chatLinks: readonly ChatLink[] = []
     const raisedApprovals = createRaisedApprovals()
+    /** A card nothing waits on any more comes down everywhere it shows: the window, the phone's list, a chat app (0.837). */
+    const withdrawCard = (approvalId: string): void => {
+      const target = approvalWindow
+      if (target && !target.isDestroyed() && !target.webContents.isDestroyed()) target.webContents.send(MISSION_APPROVAL_WITHDRAWN_CHANNEL, approvalId)
+      raisedApprovals.forget(approvalId)
+      for (const link of chatLinks) link.cardSettled(approvalId, 'gone')
+    }
     // A card's answer the ledger refused: tried again at the run's end, else said in the record (0.587).
     const unwrittenAnswers = createUnwrittenAnswers({ ledger: missionLedger })
     /*
@@ -2468,7 +2475,8 @@ if (!ownsSingleInstanceLock) {
       // Electron's own binary, run as node (ELECTRON_RUN_AS_NODE is set in
       // the server's env): guaranteed present, whatever is on PATH.
       node: process.execPath,
-      emitApproval: raiseApproval
+      emitApproval: raiseApproval,
+      withdrawApproval: (approvalId) => withdrawCard(approvalId)
     })
     permissionHostForShutdown = permissionHost
     const browserHost = createBrowserHost({
@@ -3005,13 +3013,7 @@ if (!ownsSingleInstanceLock) {
       // Its `ask_question`, as the same card Codex's questions use -- and
       // taken down again when it was answered in Antigravity's own window.
       emitApproval: raiseApproval,
-      withdrawApproval: (approvalId) => {
-        const target = approvalWindow
-        if (target && !target.isDestroyed() && !target.webContents.isDestroyed()) {
-          target.webContents.send(MISSION_APPROVAL_WITHDRAWN_CHANNEL, approvalId)
-        }
-        for (const link of chatLinks) link.cardSettled(approvalId, 'gone')
-      },
+      withdrawApproval: (approvalId) => withdrawCard(approvalId),
       onShared: (mission, posted) => runEnd.onShared(mission, posted),
       onRunEnded: (mission) => runEnd.onRunEnded(mission)
     })

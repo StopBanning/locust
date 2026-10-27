@@ -231,6 +231,12 @@ export function createPermissionHost(options: {
   readonly node: string
   /** Raise a card. The host answers when `decide` is called with its id. */
   readonly emitApproval: (request: MissionApprovalRequest) => void
+  /**
+   * Take a card down: the bridge stopped waiting for it (0.837). After ten minutes the bridge tells Claude Code "nobody
+   * answered in time", and Claude Code asks again, so the old card waited on nothing: two of one card on screen (Colin's
+   * frame, 2026-10-26), and pressing the old one did nothing.
+   */
+  readonly withdrawApproval?: (approvalId: string) => void
   readonly createId?: () => string
   readonly now?: () => Date
   /** A fixed port for tests; 0 lets the OS choose. */
@@ -245,7 +251,7 @@ export function createPermissionHost(options: {
   let starting: Promise<void> | undefined
   let port = 0
 
-  const answerRequest = async (body: unknown): Promise<BridgeAnswer> => {
+  const answerRequest = async (body: unknown, raised: (approvalId: string) => void = () => undefined): Promise<BridgeAnswer> => {
     const asked = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}
     // The token FIRST. Anything on this machine can reach a loopback port;
     // only a process handed a token by this one is a run of ours.
@@ -275,6 +281,7 @@ export function createPermissionHost(options: {
     const decided = new Promise<BridgeAnswer>((resolve) => {
       pending.set(approvalId, { runId: registered.runId, missionId: registered.missionId, input, resolve })
     })
+    raised(approvalId)
     options.emitApproval({
       approvalId,
       runId: registered.runId,
@@ -321,8 +328,19 @@ export function createPermissionHost(options: {
           } catch {
             body = {}
           }
-          void answerRequest(body).then((answer) => {
-            res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(answer))
+          let card: string | undefined
+          void answerRequest(body, (approvalId) => { card = approvalId }).then((answer) => {
+            if (!res.destroyed) res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(answer))
+          })
+          // The bridge let go before anyone answered (its ten minutes ran out, or the run's process ended): the
+          // card waits on nothing now, so it comes down, and the question it asks again is the one card.
+          res.on('close', () => {
+            if (res.writableEnded || card === undefined) return
+            const waiting = pending.get(card)
+            if (waiting === undefined) return
+            pending.delete(card)
+            waiting.resolve(deny('Nobody answered in time.'))
+            options.withdrawApproval?.(card)
           })
         })
       })

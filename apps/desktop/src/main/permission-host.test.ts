@@ -88,6 +88,40 @@ describe('the permission host', () => {
     expect(cards).toEqual([])
   })
 
+  it('takes a card down when the bridge stops waiting for it, so the question asked again is the one card (0.837)', async () => {
+    const withdrawn: string[] = []
+    const cards: MissionApprovalRequest[] = []
+    const host = createPermissionHost({ bridgePath: 'C:/locust/resources/locust-permission-bridge.mjs', node: 'node', emitApproval: (card) => cards.push(card), withdrawApproval: (id) => withdrawn.push(id), createId: () => `gone_${String(cards.length + withdrawn.length)}` })
+    hosts.push(host)
+    await host.start()
+    const { configPath } = await host.register({ runId: 'run_late', missionId: 'm_late', cwd: 'C:/work' })
+    const text = JSON.stringify({ token: tokenOf(configPath), toolName: 'Write', input: { file_path: 'C:/work/a.txt', content: 'OK' } })
+    // The bridge's own patience runs out: it lets go of the request without an answer.
+    const req = request({ host: '127.0.0.1', port: host.port, path: '/approve', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(text) } })
+    req.on('error', () => undefined)
+    req.end(text)
+    await vi.waitFor(() => { expect(cards).toHaveLength(1) })
+    req.destroy()
+    await vi.waitFor(() => { expect(withdrawn).toEqual([cards[0]!.approvalId]) })
+    // Pressing the old card now answers nothing.
+    expect(host.decide({ approvalId: cards[0]!.approvalId, decision: 'approve-once' })).toBe(false)
+  })
+
+  it('leaves an answered card alone when its connection closes after the answer', async () => {
+    const withdrawn: string[] = []
+    const cards: MissionApprovalRequest[] = []
+    const host = createPermissionHost({ bridgePath: 'C:/locust/resources/locust-permission-bridge.mjs', node: 'node', emitApproval: (card) => cards.push(card), withdrawApproval: (id) => withdrawn.push(id) })
+    hosts.push(host)
+    await host.start()
+    const { configPath } = await host.register({ runId: 'run_ok', missionId: 'm_ok', cwd: 'C:/work' })
+    const asked = post(host.port, { token: tokenOf(configPath), toolName: 'Bash', input: { command: 'npm test' } })
+    await vi.waitFor(() => { expect(cards).toHaveLength(1) })
+    expect(host.decide({ approvalId: cards[0]!.approvalId, decision: 'approve-once' })).toBe(true)
+    expect((await asked).behavior).toBe('allow')
+    await new Promise((r) => setTimeout(r, 50))
+    expect(withdrawn).toEqual([])
+  })
+
   it('refuses a request that carries no token of ours, before reading anything else', async () => {
     const { host, cards } = await hostWithCards()
     const answer = await post(host.port, { token: 'not-ours', toolName: 'mcp__claude_ai_Robinhood__place_equity_order' })
