@@ -22,10 +22,12 @@
 // Exit 0 only if every check passes. Self-contained, like posix-stop-smoke.mjs.
 
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { appendFileSync, existsSync } from 'node:fs'
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+
+import { portFor, waitForPortFree } from './ports.mjs'
 
 const built = process.argv[2] === undefined ? undefined : resolve(process.argv[2])
 const image = process.argv[3] === undefined ? undefined : resolve(process.argv[3])
@@ -36,7 +38,19 @@ if (built === undefined || image === undefined) {
 const APP = '/Applications/Locust.app'
 const BINARY = `${APP}/Contents/MacOS/Locust`
 const MARKER = `${APP}/Contents/Resources/locust-update-smoke-old.txt`
-const PORT = 9334
+const PORT = portFor(import.meta.url)
+// 0.837's ran 30 minutes into the job's limit, driving the window the first-hour check had left on the port both
+// used, and the dmgs went out with no Mac build. Now: a port of its own that must be free, a window that stops
+// answering is a failure that says so, the whole check ends inside its step, and every line also goes to a file
+// the workflow keeps, since GitHub keeps no log of a job that runs out its time.
+const SILENT_MS = 90_000
+const DEADLINE_MS = 6 * 60_000
+const LOG = 'mac-update.log'
+const say = console.log
+console.log = (...parts) => {
+  say(...parts)
+  try { appendFileSync(LOG, `${parts.join(' ')}\n`) } catch { /* the console has it */ }
+}
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 let failures = 0
 const check = (what, ok, detail) => {
@@ -57,23 +71,46 @@ execFileSync('ditto', [built, APP])
 await writeFile(MARKER, 'the copy that was installed first\n', 'utf8')
 check('the built app is installed in /Applications, marked as the old copy', existsSync(MARKER))
 
+if (!(await waitForPortFree(PORT))) {
+  console.log(`MAC UPDATE SMOKE: something already answers on ${String(PORT)}, so the window driven would not be this one`)
+  process.exit(1)
+}
+
 // 2. Started with its own disk image offered as a newer version.
 const profile = await mkdtemp(join(tmpdir(), 'locust-mac-update-profile-'))
 const child = spawn(BINARY, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], {
   cwd: profile,
   env: { ...process.env, LOCUST_FREE_ONLY: '1', LOCUST_MAC_UPDATE_TEST_DMG: image, LOCUST_MAC_UPDATE_TEST_VERSION: '9.9.9' },
-  stdio: ['ignore', 'pipe', 'pipe']
+  stdio: ['ignore', 'pipe', 'pipe'],
+  // Its own process group, so the app and anything it started can be stopped together.
+  detached: true
 })
 const output = []
 child.stdout.on('data', (data) => output.push(String(data)))
 child.stderr.on('data', (data) => output.push(String(data)))
+const lastLines = () => output.join('').split('\n').slice(-25).join('\n')
+const stopAll = () => {
+  try { process.kill(-child.pid, 'SIGKILL') } catch { /* gone */ }
+  child.stdout.destroy()
+  child.stderr.destroy()
+}
+setTimeout(() => {
+  console.log(`  [FAIL] still going after ${String(DEADLINE_MS / 60_000)} minutes; the app's last lines:\n${lastLines()}`)
+  console.log('MAC UPDATE SMOKE: stopped at its deadline')
+  stopAll()
+  process.exit(1)
+}, DEADLINE_MS).unref()
 
 let socket
 let nextId = 1
 const waiting = new Map()
 const evaluateOnce = (expression) => new Promise((done, fail) => {
   const id = nextId++
-  waiting.set(id, { resolve: done, reject: fail })
+  const silent = setTimeout(() => {
+    waiting.delete(id)
+    fail(new Error(`the window did not answer in ${String(SILENT_MS / 1000)} s; the app's last lines:\n${lastLines()}`))
+  }, SILENT_MS)
+  waiting.set(id, { resolve: (value) => { clearTimeout(silent); done(value) }, reject: (error) => { clearTimeout(silent); fail(error) } })
   socket.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }))
 })
 const evaluate = async (expression) => {
@@ -168,6 +205,7 @@ try {
 } finally {
   try { child.kill() } catch { /* gone */ }
   try { socket?.close() } catch { /* closed */ }
+  stopAll()
 }
 console.log(failures === 0 ? 'MAC UPDATE SMOKE PASSED' : `${String(failures)} MAC UPDATE SMOKE FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)

@@ -52,6 +52,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-first-hour-frames
-          path: mac-first-hour-*.png
+          path: |
+            mac-first-hour-*.png
+            mac-first-hour.log
           if-no-files-found: ignore
           retention-days: 7

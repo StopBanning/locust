@@ -118,12 +118,26 @@ jobs:
           done
           echo "moved aside for the smoke:${hidden:- nothing}"
           "$NODE" _smoke/mac-first-hour-smoke.mjs "apps/desktop/release/mac-arm64/Locust.app/Contents/MacOS/Locust"
+      # 0.837: the step's limit stopped the smoke and not what it had started. The Locust it left kept the port
+      # the update check then drove for 30 minutes, and the runner's node stayed moved aside. Whatever happened
+      # above, none of it reaches the checks below.
+      - name: Nothing left from the first hour
+        if: runner.os == 'macOS' && always()
+        run: |
+          pkill -9 -f 'release/mac-arm64/Locust.app/Contents/MacOS/' || true
+          for d in /opt/homebrew/bin /usr/local/bin; do
+            for f in "$d"/*.locust-hidden; do
+              if [ -e "$f" ] || [ -L "$f" ]; then sudo mv "$f" "${f%.locust-hidden}"; echo "put back ${f%.locust-hidden}"; fi
+            done
+          done
       - name: Keep the first hour's frames
         if: runner.os == 'macOS' && always()
         uses: actions/upload-artifact@v4
         with:
           name: mac-first-hour-frames
-          path: mac-first-hour-*.png
+          path: |
+            mac-first-hour-*.png
+            mac-first-hour.log
           if-no-files-found: ignore
           retention-days: 7
       # npm runs OpenCode's install script, which fetches its program, only when asked.
@@ -137,7 +151,17 @@ jobs:
           node _smoke/posix-stop-smoke.mjs "apps/desktop/release/mac-arm64/Locust.app/Contents/MacOS/Locust"
       - name: Update itself on macOS
         if: runner.os == 'macOS'
+        # It passes in under a minute and stops itself at six.
+        timeout-minutes: 8
         run: node _smoke/mac-update-smoke.mjs apps/desktop/release/mac-arm64/Locust.app "$(ls apps/desktop/release/*-mac-arm64.dmg | head -1)"
+      - name: Keep the update check's log
+        if: runner.os == 'macOS' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-update-log
+          path: mac-update.log
+          if-no-files-found: ignore
+          retention-days: 7
       # Linux (0.789): each package is checked the way a person meets it. The .deb is installed with apt, its
       # launcher is checked against the desktop-entry spec, and the installed app runs a turn on a free OpenCode
       # model and is stopped, with Chromium's sandbox on as the package sets it up. The AppImage is started on

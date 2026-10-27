@@ -24,17 +24,30 @@
 // Self-contained, like posix-stop-smoke.mjs: the drive library assumes Windows.
 
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { appendFileSync, existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+
+import { portFor, waitForPortFree } from './ports.mjs'
 
 const app = process.argv[2] === undefined ? undefined : resolve(process.argv[2])
 if (app === undefined) {
   console.log('usage: node _smoke/mac-first-hour-smoke.mjs <Locust.app/Contents/MacOS/Locust>')
   process.exit(2)
 }
-const PORT = 9334
+const PORT = portFor(import.meta.url)
+// The whole smoke ends inside the step's 12 minutes, so what it saw is said and the app it started is stopped: on
+// 0.837 the step's limit killed this node instead, the app it left running kept the update check's port, and the
+// update check drove it for 30 minutes. GitHub keeps no log of a job that runs out its time, so every line also
+// goes to a file the workflow keeps.
+const DEADLINE_MS = 10 * 60_000
+const LOG = 'mac-first-hour.log'
+const say = console.log
+console.log = (...parts) => {
+  say(...parts)
+  try { appendFileSync(LOG, `${parts.join(' ')}\n`) } catch { /* the console has it */ }
+}
 const WAIT_FOR_INSTALL_MS = 4 * 60_000
 const WAIT_FOR_ANSWER_MS = 4 * 60_000
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -81,12 +94,29 @@ if (present.length > 0) {
   process.exit(1)
 }
 
+if (!(await waitForPortFree(PORT))) {
+  console.log(`MAC FIRST HOUR SMOKE: something already answers on ${String(PORT)}, so the window driven would not be this one`)
+  process.exit(1)
+}
 const timing = {}
 const launchedAt = Date.now()
-const child = spawn(app, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], { cwd: '/', env, stdio: ['ignore', 'pipe', 'pipe'] })
+// Its own process group, so the app and everything it started (npm, OpenCode) can be stopped together.
+const child = spawn(app, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], { cwd: '/', env, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
 const output = []
 child.stdout.on('data', (data) => output.push(String(data)))
 child.stderr.on('data', (data) => output.push(String(data)))
+const lastLines = () => output.join('').split('\n').slice(-25).join('\n')
+const stopAll = () => {
+  try { process.kill(-child.pid, 'SIGKILL') } catch { /* gone */ }
+  child.stdout.destroy()
+  child.stderr.destroy()
+}
+setTimeout(() => {
+  console.log(`  [FAIL] still going after ${String(DEADLINE_MS / 60_000)} minutes; the app's last lines:\n${lastLines()}`)
+  console.log('MAC FIRST HOUR SMOKE: stopped at its deadline')
+  stopAll()
+  process.exit(1)
+}, DEADLINE_MS).unref()
 
 let socket
 let nextId = 1
@@ -99,8 +129,7 @@ const send = (method, params = {}) => new Promise((resolve, reject) => {
   const id = nextId++
   const silent = setTimeout(() => {
     waiting.delete(id)
-    const last = output.join('').split('\n').slice(-25).join('\n')
-    reject(new Error(`the window did not answer ${method} in ${String(SILENT_MS / 1000)} s; the app's last lines:\n${last}`))
+    reject(new Error(`the window did not answer ${method} in ${String(SILENT_MS / 1000)} s; the app's last lines:\n${lastLines()}`))
   }, SILENT_MS)
   waiting.set(id, { resolve: (value) => { clearTimeout(silent); resolve(value) }, reject: (error) => { clearTimeout(silent); reject(error) } })
   socket.send(JSON.stringify({ id, method, params }))
@@ -258,7 +287,9 @@ try {
   socket?.close()
   child.kill()
   for (let i = 0; i < 20 && child.exitCode === null; i += 1) await sleep(250)
+  // What the app started may outlive it and hold its pipes open, and an open pipe keeps this node running.
+  stopAll()
   await rm(root, { recursive: true, force: true }).catch(() => undefined)
 }
 console.log(failures === 0 ? 'MAC FIRST HOUR SMOKE PASSED' : `MAC FIRST HOUR SMOKE: ${String(failures)} check(s) failed`)
-process.exitCode = failures === 0 ? 0 : 1
+process.exit(failures === 0 ? 0 : 1)

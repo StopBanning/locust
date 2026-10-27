@@ -65,7 +65,10 @@ export const SMOKE_PORTS = Object.freeze({
   workspace: 9267,
   worktree: 9268,
   hub: 9269,
-  'login-item': 9270
+  'login-item': 9270,
+  // The Mac checks in ci.yml, one after the other on one runner (0.838): both took 9334 until then.
+  'mac-first-hour': 9271,
+  'mac-update': 9272
 })
 
 /**
