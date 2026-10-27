@@ -14869,6 +14869,11 @@ textarea.lc-compare__judgecriteria {
   overflow-y: auto;
 }
 
+/* A flag's dashes and its first letter, kept on one line (CommandText.tsx). */
+.lc-nobreak {
+  white-space: nowrap;
+}
+
 /* What the command reaches beyond this run (0.578): the one row on the card a
  * person cannot read off the command without knowing the tool. Scoped under
  * `.lc-receipt dd`, whose own colour otherwise wins on specificity (it did in

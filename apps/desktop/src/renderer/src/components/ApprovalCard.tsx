@@ -5,6 +5,7 @@ import type { MissionApprovalDecision, MissionApprovalRequest, MissionQuestion }
 import { runtimeDisplayName } from '../../../shared/runtimes.js'
 import { COMMAND_EFFECTS_UNKNOWN, CONNECTOR_NOT_UNDOABLE, commandEffectsUnknown, dataSentLine } from '../../../shared/approval-data.js'
 import { commandReach } from '../../../shared/command-reach.js'
+import { CommandText } from './CommandText.js'
 import { Icon } from './Icon.js'
 import { RuntimeMark } from './RuntimeMark.js'
 import { DiffView } from './DiffView.js'
@@ -387,7 +388,7 @@ export function ApprovalCard({
         {request.detail.length > 0 && (
           <>
             <dt>{isQuestion ? 'Question' : 'Exact'}</dt>
-            <dd className="lc-mono lc-approval__detail">{request.detail}</dd>
+            <dd className="lc-mono lc-approval__detail">{request.kind === 'command' ? <CommandText text={request.detail} /> : request.detail}</dd>
           </>
         )}
         {reach !== undefined && (

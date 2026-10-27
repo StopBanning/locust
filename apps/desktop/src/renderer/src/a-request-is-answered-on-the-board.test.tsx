@@ -38,7 +38,7 @@ describe('a request answered on the Board', () => {
     const html = board(new Map([['m_run', { approvalId: 'ap_1', kind: 'command', command: LONG, where: 'C:/acme-storefront' }]]))
     expect(html).toContain('data-board-ask="ap_1"')
     // Whole, never the 90-character line the title bar's list uses.
-    expect(html).toContain(LONG.replaceAll('"', '&quot;'))
+    expect(html.replace(/<[^>]*>/g, '')).toContain(LONG.replaceAll('"', '&quot;'))
     expect(html).toContain('in C:/acme-storefront')
     expect(html).toContain('>Allow once<')
     expect(html).toContain('>Deny<')

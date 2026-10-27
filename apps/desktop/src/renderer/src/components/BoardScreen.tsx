@@ -9,6 +9,7 @@ import type { ConversationBoardFacts, ConversationBoardKey, ConversationCard } f
 import { isOwnRoute } from '../routeName.js'
 import { agoLabel } from '../teammateWork.js'
 import { ArmedButton } from './ArmedButton.js'
+import { CommandText } from './CommandText.js'
 import { Icon } from './Icon.js'
 import { RuntimeMark } from './RuntimeMark.js'
 import type { SidebarMission } from './Sidebar.js'
@@ -159,7 +160,7 @@ export function BoardScreen({
               <span className="lc-convcard__state">{ask.command !== undefined ? 'wants to run' : stateOf(entry, key)}</span>
             </span>
           </button>
-          {ask.command !== undefined && <code className="lc-boardwait__command">{ask.command}</code>}
+          {ask.command !== undefined && <code className="lc-boardwait__command"><CommandText text={ask.command} /></code>}
           {ask.command !== undefined && ask.where !== undefined && <span className="lc-boardwait__where lc-mono">in {ask.where}</span>}
           <div className="lc-boardwait__acts">
             {ask.command !== undefined ? (

@@ -24,6 +24,7 @@ heading: the home screen then shows it once, as a splash.
 ### Fixed
 
 - **Codex's commands read as they run on Windows.** An approval card and the Board showed the program's path with every backslash doubled. They now show it the way the shell gets it, and the rest of the command exactly as Codex sent it.
+- **A long command wraps at its spaces.** On an approval card and the Board, a command too long for one line could break between a flag's dash and its name, so `-Command` read as `-` and `Command`. A flag now stays whole, and the command copies exactly as sent.
 
 ## 0.836.0 - 2026-10-27
 <!-- big -->
