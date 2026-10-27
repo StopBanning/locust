@@ -156,6 +156,8 @@ export interface ScoutDeps {
 const WAIT_STEP_MS = 60_000
 /** The most a look waits for the away looks' letters to be read first (0.829). */
 const CATCH_UP_MS = 15_000
+/** How often your own /locust comments are read, between looks (0.838). */
+export const COMMENT_EVERY_MS = 60_000
 
 interface Kept {
   readonly comments?: CommentWatch
@@ -281,6 +283,7 @@ export function createScout(deps: ScoutDeps) {
   const cancel = deps.cancel ?? ((handle) => clearTimeout(handle as NodeJS.Timeout))
   let kept: Kept | undefined
   let timer: unknown
+  let commentTimer: unknown
   let firstLook: unknown
   /** A due look waiting for the person's own turn to end (0.815). */
   let deferred: unknown
@@ -460,8 +463,39 @@ export function createScout(deps: ScoutDeps) {
 
   const restart = (settings: ScoutSettings): void => {
     if (timer !== undefined) clear(timer)
+    if (commentTimer !== undefined) clear(commentTimer)
     timer = undefined
+    commentTimer = undefined
     if (settings.on && settings.teammateId !== undefined) timer = schedule(() => { due() }, settings.everyMinutes * 60_000)
+    if (settings.on && settings.teammateId !== undefined && settings.watches.comments !== false && deps.comments !== undefined) commentTimer = schedule(() => { void commentsNow() }, COMMENT_EVERY_MS)
+  }
+
+  /*
+   * /LOCUST WITHIN A MINUTE (0.838). A comment of yours asking Locust waited for Scout's next look, ten minutes to an
+   * hour away. Your comments are now read every minute on their own: one GitHub CLI call and no model, so a minute with
+   * nothing new costs nothing but that. A new ask is held for a look, which starts at once and makes its card as a look
+   * always has -- an ask naming nobody is still routed by Scout's model. The place reading reached is kept only with the
+   * look's cards, so a look that stops before it keeps any finds the ask again; and a look already under way leaves the
+   * ask held for the next minute.
+   */
+  let heldComments: { readonly watch: CommentWatch; readonly facts: readonly ScoutFact[] } | undefined
+  let readingComments: Promise<void> | undefined
+  const commentsNow = async (): Promise<void> => {
+    if (looking || readingComments !== undefined) return
+    const from = await load()
+    if (!from.settings.on || from.settings.teammateId === undefined || from.settings.watches.comments === false || deps.comments === undefined) return
+    if (heldComments === undefined) {
+      const read = deps.comments
+      readingComments = (async () => {
+        const watch = from.comments ?? { enabledAt: now().toISOString(), repositories: {} }
+        const result = await read(watch, (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== from.settings.teammateId), now().toISOString()).catch(() => ({ watch, facts: [] }))
+        const seen = new Set(from.seen)
+        if (result.facts.some((fact) => !seen.has(fact.key))) heldComments = result
+        else await mutate((latest) => ({ ...latest, comments: result.watch }))
+      })().finally(() => { readingComments = undefined })
+      await readingComments
+    }
+    if (heldComments !== undefined) await look()
   }
 
   /*
@@ -513,8 +547,12 @@ export function createScout(deps: ScoutDeps) {
       checkStale = mark !== undefined && mark !== marks.folderMark
     }
     if (from.settings.watches.comments !== false && deps.comments !== undefined) {
+      // What the minute's read found is this look's to raise; one still reading is waited for, so no ask is read twice.
+      await readingComments
+      const held = heldComments
+      heldComments = undefined
       const watch = from.comments ?? { enabledAt: lookStamp, repositories: {} }
-      const result = await deps.comments(watch, (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== from.settings.teammateId), lookStamp).catch(() => ({ watch, facts: [] }))
+      const result = held ?? await deps.comments(watch, (await deps.team().catch(() => [])).filter((mate) => mate.teammateId !== from.settings.teammateId), lookStamp).catch(() => ({ watch, facts: [] }))
       marks = { ...marks, comments: result.watch }
       facts.push(...result.facts)
     }
@@ -826,7 +864,7 @@ export function createScout(deps: ScoutDeps) {
       return { ...latest, settings: scoutSettingsFrom({ ...(typeof change === 'object' && change !== null ? change : {}), teammateId: latest.settings.teammateId }, latest.settings) }
     })
     if (state.settings.on && state.settings.watches.comments !== false && (await load()).comments === undefined) await mutate((latest) => ({ ...latest, comments: { enabledAt: now().toISOString(), repositories: {} } }))
-    if (state.settings.everyMinutes !== before?.everyMinutes || state.settings.on !== before.on) restart(state.settings)
+    if (state.settings.everyMinutes !== before?.everyMinutes || state.settings.on !== before.on || state.settings.watches.comments !== before.watches.comments) restart(state.settings)
     if (before?.on === true && !state.settings.on) {
       await stopLooks(OFF_SAYS)
       return stateOf(await load())
@@ -1127,6 +1165,8 @@ export function createScout(deps: ScoutDeps) {
     dispose(): void {
       if (timer !== undefined) clear(timer)
       timer = undefined
+      if (commentTimer !== undefined) clear(commentTimer)
+      commentTimer = undefined
       if (firstLook !== undefined) cancel(firstLook)
       firstLook = undefined
       if (deferred !== undefined) cancel(deferred)
