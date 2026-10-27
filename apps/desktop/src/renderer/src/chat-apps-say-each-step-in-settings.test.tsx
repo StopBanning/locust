@@ -93,7 +93,7 @@ describe('chat apps say each step in Settings', () => {
     const chat = { name: 'Sam', username: 'sam_here', pairedAt: new Date().toISOString() }
     const off = list(<DiscordSettings api={api} initial={{ connected: true, bot: { username: 'Locust#4242', name: 'Locust' }, chat }} />)
     expect(off).toMatch(/role="switch" aria-label="Tell me in Discord when something needs me" aria-checked="false"/)
-    expect(off).toContain('Discord’s servers can read who is asking and the card’s summary')
+    expect(off).toContain('Discord’s servers can read who is asking, what the card asks to do and the first line of its file or command')
     expect(off).toContain('by your phone’s rules: merged, a few a day, held in quiet hours')
     const on = list(<SlackSettings api={api} initial={{ connected: true, bot: { username: 'locust', name: 'locust', team: 'Tides' }, chat, alerts: true }} />)
     expect(on).toMatch(/aria-label="Tell me in Slack when something needs me" aria-checked="true"/)

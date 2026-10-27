@@ -96,7 +96,7 @@ export function ChatAlertsSwitch({ app, name, state, busy, onSet }: {
     <div className="lc-settingline lc-chatapp__alerts" data-chat-alerts={app}>
       <div className="lc-settingline__text">
         <h3 className="lc-settings__heading">Tell me here when something needs me</h3>
-        <p className="lc-settings__lede">While you are away from this window, the cards that wait on you come here with Allow once and Deny, and so do Scout’s urgent finds and a teammate that hits its limit, by your phone’s rules: merged, a few a day, held in quiet hours. {name}’s servers can read who is asking and the card’s summary, with anything shaped like a key taken out.</p>
+        <p className="lc-settings__lede">While you are away from this window, the cards that wait on you come here with Allow once and Deny, and so do Scout’s urgent finds and a teammate that hits its limit, by your phone’s rules: merged, a few a day, held in quiet hours. {name}’s servers can read who is asking, what the card asks to do and the first line of its file or command, with anything shaped like a key taken out.</p>
       </div>
       <button type="button" className={`lc-switch${on ? ' is-on' : ''}`} role="switch" aria-label={`Tell me in ${name} when something needs me`} aria-checked={on} disabled={busy} onClick={() => { onSet(!on) }}><span /></button>
     </div>

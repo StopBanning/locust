@@ -547,6 +547,18 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
   /** A card in the chat: words, and the buttons that answer it here when it can be answered here. */
   const postCard = async (request: MissionApprovalRequest, name: string | undefined): Promise<void> => {
     if (saved?.chat === undefined || saved.cards?.some((card) => card.approvalId === request.approvalId) === true) return
+    /*
+     * ONE MESSAGE A CARD, WHOEVER ASKS FIRST (0.837). A turn started here posts its card, and the alert rules may post
+     * the same card a moment later: both passed the check above before either had saved, and Discord showed it twice
+     * (drive-what-needs-you-reaches-your-chat, 2026-10-26). A card being posted counts as posted.
+     */
+    if (posting.has(request.approvalId)) return
+    posting.add(request.approvalId)
+    try { await postCardNow(request, name) } finally { posting.delete(request.approvalId) }
+  }
+  const posting = new Set<string>()
+  const postCardNow = async (request: MissionApprovalRequest, name: string | undefined): Promise<void> => {
+    if (saved?.chat === undefined) return
     const who = name ?? 'A teammate'
     const key = cardKey()
     let text: string
@@ -567,7 +579,15 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
         question = { id: only.id, options: labels, words: free }
       }
     } else {
-      text = `${bold(`${who} needs your approval`)}\n${escape(scrubSecrets(request.summary).text)}\n\n${italic('The whole of it is in Locust on your computer.')}`
+      /*
+       * WHAT IS ALLOWED IS SAID (0.837). A Claude Code card's summary is the kind of action -- "Change 1 file", "Run a
+       * command" -- and its exact file or command is the detail, so Allow once here was pressed on words that said
+       * neither (drive-what-needs-you-reaches-your-chat, 2026-10-26). The detail's first line goes with it, cut short,
+       * anything shaped like a key taken out; the whole of it stays in Locust.
+       */
+      const exact = typeof request.detail === 'string' ? request.detail.split('\n').find((line) => line.trim().length > 0)?.trim() : undefined
+      const shown = exact === undefined || request.summary.includes(exact) ? undefined : scrubSecrets(exact.length > 200 ? `${exact.slice(0, 200)}…` : exact).text
+      text = `${bold(`${who} needs your approval`)}\n${escape(scrubSecrets(request.summary).text)}${shown === undefined ? '' : `\n${escape(shown)}`}\n\n${italic('The whole of it is in Locust on your computer.')}`
       buttons = [[{ label: 'Allow once', data: `y:${key}`, style: 'allow' }, { label: 'Deny', data: `n:${key}`, style: 'deny' }]]
     }
     const messageId = await send(text, buttons.length === 0 ? {} : { buttons })

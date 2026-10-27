@@ -6,7 +6,7 @@
 // is spent. No real Discord account or bot is used.
 //
 //   node _tools/drive-what-needs-you-reaches-your-chat.mjs [--packaged <Locust.exe>] [--tag <name>] [--out <folder>]
-import { access, mkdtemp, writeFile } from 'node:fs/promises'
+import { access, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -71,14 +71,21 @@ const made = async (name, seconds) => {
 // The window behind another app: the person is away from it. The router reads the window's focus.
 // A turn started in the window runs in the message box's mode: Approve, so a file Mira makes raises a card.
 const approveEach = () => drive.evaluate(`(async () => {
-  document.querySelector('button[aria-label="Permission mode"]')?.click()
-  await new Promise((r) => setTimeout(r, 400))
-  const item = [...document.querySelectorAll('[role="menu"][aria-label="Permission mode"] [role="menuitemradio"]')].find((b) => /^Approve/.test(b.innerText.trim()))
-  item?.click()
-  await new Promise((r) => setTimeout(r, 300))
-  return item ? 'approve' : 'no approve item'
+  for (let tries = 0; tries < 3; tries += 1) {
+    const button = document.querySelector('button[aria-label="Permission mode"]')
+    if (!button) { await new Promise((r) => setTimeout(r, 500)); continue }
+    button.click()
+    await new Promise((r) => setTimeout(r, 400))
+    const item = [...document.querySelectorAll('[role="menu"][aria-label="Permission mode"] [role="menuitemradio"]')].find((b) => /^Approve/.test(b.innerText.trim()))
+    if (item) { item.click(); await new Promise((r) => setTimeout(r, 300)); return 'approve' }
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await new Promise((r) => setTimeout(r, 300))
+  }
+  return 'no approve item; mode button: ' + (document.querySelector('button[aria-label="Permission mode"]')?.innerText ?? 'none') + '; settings open: ' + !!document.querySelector('.lc-settings__navitem')
 })()`)
-const away = () => drive.evaluate(`(async () => { window.blur(); return document.hasFocus() })()`)
+// A drive's window may well hold the focus, and then Locust shows the card itself: minimized, as by someone stepping
+// away, the alert rules let it out (drive-your-phone-alerts.mjs does the same).
+const away = () => drive.evaluate('window.desktop.minimize()')
 
 try {
   await drive.capture('launch: Mira, no conversations', () => drive.ready())
@@ -117,8 +124,8 @@ try {
   const waitedOff = await drive.evaluate(`(async () => { for (let i = 0; i < 240 && !document.querySelector('[role=group][aria-label="Approval required"]'); i += 1) await new Promise((r) => setTimeout(r, 1000)); return !!document.querySelector('[role=group][aria-label="Approval required"]') })()`)
   await sleep(3000)
   check('off, a card from a window turn waits in the window and not in Discord', waitedOff === true && cardsFor(/before-on/).length === 0, `card in window: ${String(waitedOff)}; in Discord: ${String(cardsFor(/before-on/).length)}`)
-  // Answered in the window, so it is out of the way.
-  await drive.evaluate(`(async () => { ;[...document.querySelectorAll('[role=group][aria-label="Approval required"] button')].find((b) => /^Deny/.test(b.innerText.trim()))?.click(); await new Promise((r) => setTimeout(r, 800)); for (let i = 0; i < 120 && document.querySelector('button[aria-label^="Stop the running"]'); i += 1) await new Promise((r) => setTimeout(r, 1000)); return 1 })()`)
+  // Answered in the window, so it is out of the way: Approve once (Deny… opens a menu of its own).
+  await drive.evaluate(`(async () => { ;[...document.querySelectorAll('[role=group][aria-label="Approval required"] button')].find((b) => /^Approve once/.test(b.innerText.trim()))?.click(); await new Promise((r) => setTimeout(r, 800)); for (let i = 0; i < 120 && document.querySelector('button[aria-label^="Stop the running"]'); i += 1) await new Promise((r) => setTimeout(r, 1000)); return 1 })()`)
 
   // On.
   const on = String(await drive.capture('Tell me here when something needs me, on', () => drive.evaluate(rowScript(`${SWITCH}?.click(); for (let i = 0; i < 40 && ${SWITCH}?.getAttribute('aria-checked') !== 'true'; i += 1) await new Promise((r) => setTimeout(r, 100)); return ${SWITCH}?.getAttribute('aria-checked') ?? 'no switch'`))))
@@ -149,6 +156,9 @@ try {
   const own = await discord.until(() => cardsFor(/from-discord/)[0], 300_000, 'the Discord turn’s card').catch(() => undefined)
   await sleep(150_000)
   check('a card from a turn started in Discord arrives once, not twice', own !== undefined && cardsFor(/from-discord/).length === 1, String(cardsFor(/from-discord/).length))
+  const kept = JSON.parse(await readFile(join(profilePath, 'discord.json'), 'utf8').catch(() => '{}'))
+  say(`  Locust's Discord file: chat ${kept.chat === undefined ? 'none' : 'paired'}, alerts ${String(kept.alerts)}, turns ${JSON.stringify((kept.turns ?? []).map((one) => one.missionId))}, cards ${JSON.stringify((kept.cards ?? []).map((one) => one.approvalId))}`)
+  say(`  the window's waiting cards: ${String(await drive.evaluate(`(async () => JSON.stringify([...document.querySelectorAll('[role=group][aria-label="Approval required"]')].length))()`))}; sent to Discord: ${String(discord.state.sent.length)}`)
   say(`  Discord's answers to commands: ${JSON.stringify(discord.state.responses.map((one) => one.content).slice(-3))}`)
   await drive.capture('the window after the Discord turn', () => drive.evaluate(`(document.querySelector('.lc-thread')?.innerText ?? '').replace(/\\s+/g, ' ').slice(-600)`))
   if (own !== undefined) discord.press(own.id, own.components[0].components[1].custom_id)

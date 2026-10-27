@@ -276,6 +276,24 @@ describe('teammates answer their person in Discord', () => {
     expect(self.decided).toHaveLength(1)
   })
 
+  it('says which file or command a card allows, and posts a card once when its turn and the alert rules both bring it (0.837)', async () => {
+    const self = await paired()
+    self.discord.command('wren', 'make the notes')
+    await self.discord.until(() => self.started.length === 1, 5_000, 'the turn')
+    await self.link.setAlerts(true)
+    // A Claude Code card: its summary is the kind of action, its detail the exact file.
+    const request = card('appr_file', 'mission_1', { kind: 'file-change', summary: 'Change 1 file', detail: 'notes/plan.md' })
+    self.waiting = [{ request, teammateId: 'mate_wren' }]
+    // From its own turn, and from the alert rules, at the same moment.
+    self.link.cardRaised(request, 'Wren')
+    self.link.alert({ cards: [{ request, name: 'Wren' }], lines: [] })
+    const posted = await self.discord.until((state) => state.sent.find((one) => one.content.startsWith('**Wren needs your approval**')), 5_000, 'the card')
+    expect(shown(posted.content)).toContain('Change 1 file\nnotes/plan.md')
+    await new Promise((settle) => setTimeout(settle, 200))
+    expect(self.discord.state.sent.filter((one) => one.content.startsWith('**Wren needs your approval**'))).toHaveLength(1)
+    expect(JSON.parse(await readFile(join(self.directory, DISCORD_FILE), 'utf8')).cards.filter((one: { approvalId: string }) => one.approvalId === 'appr_file')).toHaveLength(1)
+  })
+
   /*
    * WHAT NEEDS YOU, HERE (0.837). Off until the person turns it on. On, what the alert rules let through reaches the
    * chat: a card from a turn started in the window, with its buttons, once; and Scout's or a limit's line, who and what
