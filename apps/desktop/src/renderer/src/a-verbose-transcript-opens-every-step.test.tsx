@@ -1,4 +1,3 @@
-import { writeFileSync, mkdirSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -44,10 +43,6 @@ describe('Verbose opens every step of a long transcript', () => {
   it('times the folded line and the open steps', () => {
     const folded = draw(false)
     const open = draw(true)
-    try {
-      mkdirSync('D:/work/scratch/grok-polish-a', { recursive: true })
-      writeFileSync('D:/work/scratch/grok-polish-a/verbose-times.txt', `before ${folded.ms.toFixed(1)} ms, ${String(folded.html.length)} bytes\nafter ${open.ms.toFixed(1)} ms, ${String(open.html.length)} bytes\n`)
-    } catch { /* the times are the assertions below when this folder is not there */ }
     expect(folded.html).toContain('Checked 220 steps')
     expect(folded.html).not.toContain('done 219')
     expect(open.html).toContain('done 0')
