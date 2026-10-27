@@ -21,7 +21,7 @@ import type {
 } from '../shared/ipc.js'
 import { approvalPatchFrom } from './approval-patch.js'
 import { relativeToFolder } from '../shared/approval-patch.js'
-import { wholeDetail } from '../shared/approval-detail.js'
+import { programAsRun, wholeDetail } from '../shared/approval-detail.js'
 import { OUTSIDE_NOT_UNDOABLE, outsideFolder } from '../shared/approval-data.js'
 import type { FileChangeRecord } from './approval-patch.js'
 
@@ -79,7 +79,7 @@ export function describeApproval(request: AppServerRequest):
   const cwd = typeof params.cwd === 'string' ? params.cwd : null
 
   if (kind === 'command') {
-    const command = bounded(params.command)
+    const command = programAsRun(bounded(params.command))
     return {
       kind,
       summary: command.length > 0 ? 'Run a command' : 'Run a command it did not describe',

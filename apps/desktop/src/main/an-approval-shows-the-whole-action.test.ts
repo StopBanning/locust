@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { MAX_APPROVAL_DETAIL, wholeDetail } from '../shared/approval-detail.js'
+import { MAX_APPROVAL_DETAIL, programAsRun, wholeDetail } from '../shared/approval-detail.js'
+import { describeApproval } from './approval-channel.js'
 import { builtInOrConnector } from './permission-host.js'
 
 /**
@@ -25,6 +26,21 @@ describe('an approval card', () => {
   it('keeps a command\'s line breaks, as the command will run', () => {
     const command = "cat > notes.txt <<'EOF'\nfirst line\nsecond line\nEOF\ncurl -X POST https://example.com/upload -d @notes.txt"
     expect(builtInOrConnector('Bash', { command }, 'C:/work').detail).toBe(command)
+  })
+
+  it('shows the path of a Codex command on Windows as the shell gets it', () => {
+    const sent = String.raw`"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'python -m pytest -q'`
+    const card = describeApproval({ id: 1, method: 'item/commandExecution/requestApproval', params: { command: sent, cwd: 'C:/acme' } })
+    expect(card?.detail).toBe(String.raw`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Command 'python -m pytest -q'`)
+  })
+
+  it('leaves a command as sent when its path was not escaped as a whole, and leaves the rest alone', () => {
+    const plain = String.raw`"C:\Program Files\Git\bin\bash.exe" -lc 'ls'`
+    expect(programAsRun(plain)).toBe(plain)
+    const mixed = String.raw`"C:\\tools\odd.exe" run`
+    expect(programAsRun(mixed)).toBe(mixed)
+    expect(programAsRun(String.raw`"C:\\bin\\x.exe" 'a\\b'`)).toBe(String.raw`"C:\bin\x.exe" 'a\\b'`)
+    expect(programAsRun('npm test')).toBe('npm test')
   })
 
   it('counts what it cannot show, and never cuts it silently', () => {

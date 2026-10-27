@@ -22,6 +22,22 @@ export function wholeDetail(text: string): string {
   return `${kept.slice(0, MAX_APPROVAL_DETAIL)}\n\n[${rest.toLocaleString('en-US')} more character${rest === 1 ? '' : 's'} not shown here. Deny if you cannot see enough to decide.]`
 }
 
+/**
+ * THE PROGRAM AS THE SHELL GETS IT (0.837). Codex on Windows sends a command
+ * with its program's path escaped, every backslash doubled:
+ * `"C:\\Windows\\System32\\...\\powershell.exe" -Command 'python -m pytest -q'`.
+ * The card and the Board printed it so -- an "exact action" that is not what
+ * runs (site frames, 2026-10-27). When every backslash in the leading quoted
+ * path is half of a pair, each pair is read as one; anything else, and the
+ * rest of the command, is shown exactly as sent.
+ */
+export function programAsRun(command: string): string {
+  const leading = /^"([^"]*)"/.exec(command)
+  const path = leading?.[1]
+  if (path === undefined || !path.includes('\\\\') || path.replace(/\\\\/g, '').includes('\\')) return command
+  return `"${path.replace(/\\\\/g, '\\')}"${command.slice(path.length + 2)}`
+}
+
 /** A tool call's input, one field to a line, so every field is on the card. */
 export function wholeInput(input: unknown): string {
   try {
