@@ -105,6 +105,8 @@ jobs:
       - name: First hour on a bare Mac
         if: runner.os == 'macOS'
         continue-on-error: true
+        # It passes in under two minutes. 0.836's hung for 43, and the job's limit then took the checks that gate the dmgs.
+        timeout-minutes: 12
         run: |
           NODE="$(realpath "$(command -v node)")"
           hidden=""

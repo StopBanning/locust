@@ -91,9 +91,18 @@ child.stderr.on('data', (data) => output.push(String(data)))
 let socket
 let nextId = 1
 const waiting = new Map()
+// 0.836's Mac run pressed Install and heard nothing more for 43 minutes, until the job's limit cancelled it and the
+// launch and update checks after it never ran. A window that stops answering is now a failure that says so, with the
+// app's own last lines, and the step ends.
+const SILENT_MS = 90_000
 const send = (method, params = {}) => new Promise((resolve, reject) => {
   const id = nextId++
-  waiting.set(id, { resolve, reject })
+  const silent = setTimeout(() => {
+    waiting.delete(id)
+    const last = output.join('').split('\n').slice(-25).join('\n')
+    reject(new Error(`the window did not answer ${method} in ${String(SILENT_MS / 1000)} s; the app's last lines:\n${last}`))
+  }, SILENT_MS)
+  waiting.set(id, { resolve: (value) => { clearTimeout(silent); resolve(value) }, reject: (error) => { clearTimeout(silent); reject(error) } })
   socket.send(JSON.stringify({ id, method, params }))
 })
 const evaluate = async (expression) => {
