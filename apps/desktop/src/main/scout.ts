@@ -2,7 +2,7 @@ import type { CommentWatch } from './scout-comments.js'
 import { randomBytes } from 'node:crypto'
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 
-import { factOf, MAX_TOLD, type AwayLetter } from '../shared/away-letter.js'
+import { AWAY_ASK_KEY, factOf, MAX_TOLD, type AwayLetter } from '../shared/away-letter.js'
 import type { FolderPullRequest } from '../shared/pull-request.js'
 import {
   DEFAULT_SCOUT_SETTINGS,
@@ -1024,7 +1024,9 @@ export function createScout(deps: ScoutDeps) {
         await logLook(lookEntry({ at: new Date(letter.at), raised: letter.found.map((one) => ({ key: one.key, said: one.said })), away: true, githubUnread: !letter.read }))
       }
       const newest = new Map<string, { readonly finding: AwayLetter['found'][number]; readonly at: string }>()
-      for (const letter of looks) for (const finding of letter.found) newest.set(finding.key, { finding, at: letter.at })
+      // A /locust ask your phone was given (0.838) is not a card here: the comment is read again here, and its card is
+      // the one a teammate takes it from.
+      for (const letter of looks) for (const finding of letter.found) if (!finding.key.startsWith(AWAY_ASK_KEY)) newest.set(finding.key, { finding, at: letter.at })
       const read = looks.filter((letter) => letter.read).at(-1)
       const briefDay = looks.map((letter) => letter.briefDay).filter((day): day is string => day !== undefined).sort().at(-1)
       return mutate((latest) => {

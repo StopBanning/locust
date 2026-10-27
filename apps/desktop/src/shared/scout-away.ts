@@ -32,11 +32,14 @@ export type ScoutAwayStatus =
     readonly lastLook?: string
     /** A newer away look than the repository's, for another pull request. */
     readonly outdated?: true
+    /** That pull request, opened and waiting to be merged (0.838). */
+    readonly update?: string
     readonly message?: string
   }
 
 export interface ScoutAwayApi {
   /** `check`: ask GitHub whether the pull request was merged since. */
   status(check?: boolean): Promise<ScoutAwayStatus>
-  set(on: boolean): Promise<ScoutAwayStatus>
+  /** On or off; or 'update': open the pull request that brings the newer away look (0.838). */
+  set(on: boolean | 'update'): Promise<ScoutAwayStatus>
 }

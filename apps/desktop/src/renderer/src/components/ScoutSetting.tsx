@@ -64,14 +64,15 @@ function AwayLine({ api, switchOf, lastLookWords }: {
     const off = api.onChanged((next) => { if (alive) setStatus(next) })
     return () => { alive = false; off() }
   }, [api])
-  const waiting = status?.state === 'waiting'
+  // A pull request to merge: the first look's, or a newer look's (0.838).
+  const waiting = status?.state === 'waiting' || (status?.state === 'on' && status.update !== undefined)
   useEffect(() => {
     if (!waiting) return
     const timer = setInterval(() => { void api.status(true).then(setStatus, () => undefined) }, AWAY_CHECK_MS)
     return () => clearInterval(timer)
   }, [api, waiting])
   const on = status?.state === 'on' || status?.state === 'waiting'
-  const set = (next: boolean): void => { void api.set(next).then(setStatus, () => undefined) }
+  const set = (next: boolean | 'update'): void => { void api.set(next).then(setStatus, () => undefined) }
   const open = (url: string): void => { void window.desktop?.openLink(url).catch(() => undefined) }
   const lede = status?.state === 'on'
     ? `On for ${status.repo}. A workflow there looks ${status.every === 1 ? 'every hour' : 'every two hours'} while your computer is off and leaves what it found for your phone; with Locust open it does nothing more. ${status.private ? 'It uses about 360 of the 2,000 free Actions minutes your private repository gets each month.' : 'Actions are free on a public repository.'}`
@@ -86,6 +87,14 @@ function AwayLine({ api, switchOf, lastLookWords }: {
         <span className="lc-scout__goalkeys"><button type="button" className="lc-control lc-control--boxed" onClick={() => open(status.pr)}>Open the pull request</button></span>
       </>}
       {status?.state === 'on' && <p className="lc-settings__note" role="status">{status.lastLook === undefined ? 'No away look yet: the first comes once your computer is off.' : `Last away look: ${lastLookWords(status.lastLook)}.`}</p>}
+      {status?.state === 'on' && status.update !== undefined && <>
+        <p className="lc-settings__note" role="status">{`Merge the update in ${status.repo}. The away look goes on as it was until then.`}</p>
+        <span className="lc-scout__goalkeys"><button type="button" className="lc-control lc-control--boxed" onClick={() => open(status.update!)}>Open the pull request</button></span>
+      </>}
+      {status?.state === 'on' && status.update === undefined && status.outdated === true && <>
+        <p className="lc-settings__note">A newer away look is ready: your own /locust comments reach your phone as you write them. It comes in by a pull request you merge.</p>
+        <span className="lc-scout__goalkeys"><button type="button" className="lc-control lc-control--boxed" onClick={() => set('update')}>Update it</button></span>
+      </>}
       {status?.state === 'off' && status.blocked !== undefined && <p className="lc-settings__note">{status.blocked}</p>}
       {status !== undefined && 'message' in status && status.message !== undefined && <p className="lc-settings__note" role="status">{status.message}</p>}
     </div>

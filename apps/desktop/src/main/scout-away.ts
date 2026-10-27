@@ -38,12 +38,15 @@ export function awayWorkflow(every: 1 | 2): string {
 # While your computer is off, Scout looks at this repository's pull requests, reviews, checks and
 # issues for you, and leaves what it found at Locust's relay, sealed with a key only your devices
 # have, so your phone can show it. With Locust open on your computer, it does nothing more.
-# It reads with this workflow's own read-only token. To stop it, turn it off in Locust, or delete
-# this file, .github/locust/scout-away.mjs and the LOCUST_SCOUT secret.
+# A comment of yours that starts a line with /locust goes to your phone as you write it; anyone
+# else's comment ends the run at once. It reads with this workflow's own read-only token. To stop
+# it, turn it off in Locust, or delete this file, .github/locust/scout-away.mjs and the LOCUST_SCOUT secret.
 name: ${AWAY_WORKFLOW_NAME}
 on:
   schedule:
     - cron: '23 ${every === 1 ? '*' : '*/2'} * * *'
+  issue_comment:
+    types: [created]
   workflow_dispatch:
 permissions:
   contents: read
@@ -53,10 +56,11 @@ permissions:
   statuses: read
   actions: read
 concurrency:
-  group: locust-scout
+  group: locust-scout\${{ github.event_name == 'issue_comment' && format('-ask-{0}', github.event.comment.id) || '' }}
   cancel-in-progress: true
 jobs:
   look:
+    if: github.event_name != 'issue_comment' || contains(github.event.comment.body, '/locust')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -92,6 +96,10 @@ interface Saved {
   readonly told?: string
   /** The away look's file as it went in, by its hash. */
   readonly script: string
+  /** And its workflow (0.838); none from before, when the file's hash alone said which look it was. */
+  readonly workflow?: string
+  /** The pull request bringing a newer away look (0.838), waiting to be merged. */
+  readonly update?: { readonly url: string; readonly number: number }
 }
 
 export interface ScoutAwayRelay {
@@ -170,6 +178,14 @@ export function createScoutAway(deps: ScoutAwayDeps) {
     await replaceFile(temp, deps.file)
   }
 
+  let carried: string | undefined
+  const knowCarried = async (): Promise<void> => {
+    carried ??= hashOf(await deps.script().catch(() => ''))
+  }
+  /** A newer away look than the repository's: this Locust's file, or its workflow, is not the one that went in. */
+  const outdated = (held: Saved): boolean =>
+    carried !== undefined && carried !== hashOf('') && (held.script !== carried || (held.workflow !== undefined && held.workflow !== hashOf(awayWorkflow(held.every))))
+
   const blocked = (): string | undefined => {
     const relay = deps.relay()
     if (relay?.room() === undefined) return 'Turn on “Your phone, from anywhere” first: Scout leaves what it finds there.'
@@ -185,7 +201,10 @@ export function createScoutAway(deps: ScoutAwayDeps) {
       return { state: 'off', ...(why === undefined ? {} : { blocked: why }), ...said }
     }
     if (!held.merged) return { state: 'waiting', repo: held.repo, pr: held.pr?.url ?? `https://github.com/${held.repo}/pulls`, ...said }
-    return { state: 'on', repo: held.repo, every: held.every, private: held.private, ...(held.lastLook === undefined ? {} : { lastLook: held.lastLook }), ...said }
+    return {
+      state: 'on', repo: held.repo, every: held.every, private: held.private, ...(held.lastLook === undefined ? {} : { lastLook: held.lastLook }),
+      ...(held.update !== undefined ? { update: held.update.url } : outdated(held) ? { outdated: true as const } : {}), ...said
+    }
   }
   const tell = (): ScoutAwayStatus => { const now = status(); deps.changed?.(now); return now }
 
@@ -266,6 +285,75 @@ export function createScoutAway(deps: ScoutAwayDeps) {
     message = why
   }
 
+  /** A branch of the two files on the default branch's newest commit, and its pull request (one already open gets the new commit). */
+  const pullRequest = async (repo: string, branch: string, folder: string, workflow: string, script: string, words: { readonly title: string; readonly message: string; readonly body: string }): Promise<{ url: string; number: number }> => {
+    const base = JSON.parse(await deps.gh(['api', `repos/${repo}/git/commits/${(await deps.gh(['api', `repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, '--jq', '.object.sha'], folder)).trim()}`], folder)) as { sha: string; tree: { sha: string } }
+    const tree = JSON.parse(await deps.ghInput(['api', '-X', 'POST', `repos/${repo}/git/trees`, '--input', '-'], folder, JSON.stringify({
+      base_tree: base.tree.sha,
+      tree: [
+        { path: AWAY_WORKFLOW_PATH, mode: '100644', type: 'blob', content: workflow },
+        { path: AWAY_SCRIPT_PATH, mode: '100644', type: 'blob', content: script }
+      ]
+    }))) as { sha: string }
+    const commit = JSON.parse(await deps.ghInput(['api', '-X', 'POST', `repos/${repo}/git/commits`, '--input', '-'], folder, JSON.stringify({ message: words.message, tree: tree.sha, parents: [base.sha] }))) as { sha: string }
+    const ref = `refs/heads/${AWAY_BRANCH}`
+    await deps.ghInput(['api', '-X', 'POST', `repos/${repo}/git/refs`, '--input', '-'], folder, JSON.stringify({ ref, sha: commit.sha }))
+      .catch(() => deps.ghInput(['api', '-X', 'PATCH', `repos/${repo}/git/${ref}`, '--input', '-'], folder, JSON.stringify({ sha: commit.sha, force: true })))
+    try {
+      return JSON.parse(await deps.ghInput(['api', '-X', 'POST', `repos/${repo}/pulls`, '--input', '-', '--jq', '{url: .html_url, number: .number}'], folder, JSON.stringify({ title: words.title, head: AWAY_BRANCH, base: branch, body: words.body }))) as { url: string; number: number }
+    } catch {
+      // One is open already, from an earlier try: it has the new commit now.
+      const open = (JSON.parse(await deps.gh(['pr', 'list', '--repo', repo, '--head', AWAY_BRANCH, '--state', 'open', '--json', 'url,number'], folder)) as { url: string; number: number }[])[0]
+      if (open === undefined) throw new Error('GitHub did not open the pull request.')
+      return open
+    }
+  }
+
+  /** The files on the repository's default branch, as Locust would put them, or not. */
+  const onDefault = async (held: Saved, workflow: string, script: string): Promise<boolean> => {
+    const folder = deps.folder() ?? held.folder
+    const read = (path: string): Promise<string | undefined> => deps.gh(['api', `repos/${held.repo}/contents/${path}?ref=${encodeURIComponent(held.branch)}`, '-H', 'Accept: application/vnd.github.raw'], folder).catch(() => undefined)
+    const [hadWorkflow, hadScript] = await Promise.all([read(AWAY_WORKFLOW_PATH), read(AWAY_SCRIPT_PATH)])
+    return hadWorkflow?.replace(/\r\n/g, '\n') === workflow && hadScript?.replace(/\r\n/g, '\n') === script
+  }
+
+  /*
+   * A NEWER AWAY LOOK (0.838). The repository runs the files that went in when it was turned on; a Locust that carries
+   * newer ones -- 0.838's passes on /locust asks -- offers them by another pull request, and is on the new ones once
+   * that is merged. Until then the old look goes on as it was.
+   */
+  const update = async (): Promise<void> => {
+    const held = saved
+    if (held === undefined || !held.merged || held.update !== undefined || !outdated(held)) return
+    const folder = deps.folder() ?? held.folder
+    busy = 'Opening the pull request…'
+    tell()
+    const script = await deps.script()
+    const workflow = awayWorkflow(held.every)
+    try {
+      if (await onDefault(held, workflow, script)) {
+        await persist({ ...held, script: hashOf(script), workflow: hashOf(workflow) })
+        message = undefined
+        return
+      }
+      const pr = await pullRequest(held.repo, held.branch, folder, workflow, script, {
+        title: 'Scout’s away look, updated from Locust',
+        message: 'Update Scout\'s away look from Locust\n\nYour own /locust comments now reach your phone as you write them, while your computer is off.',
+        body: [
+          'Locust has a newer away look for this repository.',
+          '',
+          '- **What is new:** a comment of yours that starts a line with `/locust` reaches your phone as you write it, while your computer is off. When Locust is open again, it becomes a card for a teammate, as it always has.',
+          '- **What runs:** the same two files, and the workflow now also runs when a comment is written. Anyone else’s comment ends the run at once.',
+          `- **What it costs:** ${held.private ? 'a few seconds of Actions minutes for each comment that mentions /locust, beside the scheduled looks' : 'nothing: Actions are free on public repositories'}.`
+        ].join('\n')
+      })
+      await persist({ ...held, update: pr })
+      message = undefined
+    } catch (error) {
+      message = `The update could not be opened: ${ghSaid(error)}`
+    }
+  }
+
   const turnOn = async (): Promise<void> => {
     const why = blocked()
     if (why !== undefined) { message = why; return }
@@ -296,7 +384,7 @@ export function createScoutAway(deps: ScoutAwayDeps) {
     busy = 'Letting the away look into Locust’s relay…'
     tell()
     if (!(await relay.awayOpen(await sha256(token)))) { message = 'Locust’s relay did not take the away look. Try again in a minute.'; return }
-    const draft: Saved = { v: 1, repo: repo.nameWithOwner, folder, login, key, token, room: place.room, every, private: isPrivate, branch, merged: false, script: hashOf(script) }
+    const draft: Saved = { v: 1, repo: repo.nameWithOwner, folder, login, key, token, room: place.room, every, private: isPrivate, branch, merged: false, script: hashOf(script), workflow: hashOf(workflow) }
     try {
       busy = 'Adding the LOCUST_SCOUT secret…'
       tell()
@@ -311,38 +399,20 @@ export function createScoutAway(deps: ScoutAwayDeps) {
       } else {
         busy = 'Opening the pull request…'
         tell()
-        const base = JSON.parse(await deps.gh(['api', `repos/${repo.nameWithOwner}/git/commits/${(await deps.gh(['api', `repos/${repo.nameWithOwner}/git/ref/heads/${encodeURIComponent(branch)}`, '--jq', '.object.sha'], folder)).trim()}`], folder)) as { sha: string; tree: { sha: string } }
-        const tree = JSON.parse(await deps.ghInput(['api', '-X', 'POST', `repos/${repo.nameWithOwner}/git/trees`, '--input', '-'], folder, JSON.stringify({
-          base_tree: base.tree.sha,
-          tree: [
-            { path: AWAY_WORKFLOW_PATH, mode: '100644', type: 'blob', content: workflow },
-            { path: AWAY_SCRIPT_PATH, mode: '100644', type: 'blob', content: script }
-          ]
-        }))) as { sha: string }
-        const commit = JSON.parse(await deps.ghInput(['api', '-X', 'POST', `repos/${repo.nameWithOwner}/git/commits`, '--input', '-'], folder, JSON.stringify({
-          message: 'Add Scout\'s away look from Locust\n\nWhile your computer is off, Scout looks at this repository on a schedule, with the workflow\'s own read-only token, and leaves what it found at Locust\'s relay, sealed for your devices.',
-          tree: tree.sha,
-          parents: [base.sha]
-        }))) as { sha: string }
-        const ref = `refs/heads/${AWAY_BRANCH}`
-        await deps.ghInput(['api', '-X', 'POST', `repos/${repo.nameWithOwner}/git/refs`, '--input', '-'], folder, JSON.stringify({ ref, sha: commit.sha }))
-          .catch(() => deps.ghInput(['api', '-X', 'PATCH', `repos/${repo.nameWithOwner}/git/${ref}`, '--input', '-'], folder, JSON.stringify({ sha: commit.sha, force: true })))
         const body = [
           'Locust’s Scout looks at this repository for you while your computer is off, and your phone shows what it found.',
           '',
           `- **What runs:** \`${AWAY_WORKFLOW_PATH}\`, ${every === 1 ? 'every hour' : 'every two hours'}, runs \`${AWAY_SCRIPT_PATH}\`. It reads your pull requests, reviews asked of you, the ${branch} branch’s checks and new issues, with the workflow’s own read-only token.`,
+          '- **Your /locust asks:** it also runs when a comment is written. Yours, starting a line with `/locust`, goes to your phone at once; anyone else’s ends the run.',
           '- **Where it goes:** to Locust’s relay, sealed with a key only your devices have. With Locust open on your computer, it does nothing more.',
           `- **What it costs:** ${isPrivate ? 'about 360 of the 2,000 free Actions minutes a private repository gets each month' : 'nothing: Actions are free on public repositories'}.`,
           '- **To stop it:** turn it off in Locust, or delete these two files and the `LOCUST_SCOUT` secret.'
         ].join('\n')
-        let pr: { url: string; number: number }
-        try {
-          pr = JSON.parse(await deps.ghInput(['api', '-X', 'POST', `repos/${repo.nameWithOwner}/pulls`, '--input', '-', '--jq', '{url: .html_url, number: .number}'], folder, JSON.stringify({ title: 'Scout’s away look, from Locust', head: AWAY_BRANCH, base: branch, body }))) as typeof pr
-        } catch {
-          // One is open already, from an earlier try: it has the new commit now.
-          pr = (JSON.parse(await deps.gh(['pr', 'list', '--repo', repo.nameWithOwner, '--head', AWAY_BRANCH, '--state', 'open', '--json', 'url,number'], folder)) as { url: string; number: number }[])[0]!
-          if (pr === undefined) throw new Error('GitHub did not open the pull request.')
-        }
+        const pr = await pullRequest(repo.nameWithOwner, branch, folder, workflow, script, {
+          title: 'Scout’s away look, from Locust',
+          message: 'Add Scout\'s away look from Locust\n\nWhile your computer is off, Scout looks at this repository on a schedule, with the workflow\'s own read-only token, and leaves what it found at Locust\'s relay, sealed for your devices.',
+          body
+        })
         await persist({ ...draft, pr })
       }
     } catch (error) {
@@ -373,7 +443,25 @@ export function createScoutAway(deps: ScoutAwayDeps) {
       await load()
       await deps.relay()?.ready().catch(() => undefined)
       if (await roomGone()) return tell()
+      await knowCarried()
       const held = saved
+      if (check && held?.update !== undefined) {
+        const script = await deps.script()
+        const workflow = awayWorkflow(held.every)
+        if (await onDefault(held, workflow, script)) {
+          const { update: _merged, ...rest } = held
+          await persist({ ...rest, script: hashOf(script), workflow: hashOf(workflow) })
+          message = undefined
+        } else {
+          const state = (await deps.gh(['api', `repos/${held.repo}/pulls/${String(held.update.number)}`, '--jq', '.state'], deps.folder() ?? held.folder).catch(() => '')).trim()
+          if (state === 'closed') {
+            const { update: _closed, ...rest } = held
+            await persist(rest)
+            message = 'The update’s pull request was closed without merging, so the away look goes on as it was.'
+          }
+        }
+        return tell()
+      }
       if (check && held !== undefined && !held.merged) {
         const merged = await mergedYet(held)
         if (merged === 'closed') await letGo(held, 'The pull request was closed without merging, so Scout does not look while your computer is off.')
@@ -385,7 +473,12 @@ export function createScoutAway(deps: ScoutAwayDeps) {
 
     set: (on: unknown): Promise<ScoutAwayStatus> => serial(async () => {
       await load()
+      await knowCarried()
       await deps.relay()?.ready().catch(() => undefined)
+      if (on === 'update' && busy === undefined) {
+        try { await update() } finally { busy = undefined }
+        return tell()
+      }
       if (typeof on !== 'boolean' || busy !== undefined) return status()
       if (on && saved === undefined) {
         try { await turnOn() } finally { busy = undefined }

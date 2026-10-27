@@ -1,11 +1,13 @@
 import { execFile } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 
-import { awayConfigOf, awayLook } from './scout-away-look.js'
+import { awayAsk, awayCommentOf, awayConfigOf, awayLook } from './scout-away-look.js'
 
 /*
  * The away look's one file, as the workflow runs it: `node .github/locust/scout-away.mjs`, with the LOCUST_SCOUT
  * secret, the workflow's own token (GH_TOKEN) and the repository (GH_REPO), so `gh` reads that repository with that
- * token. Built with `node scripts/build-scout-away.mjs` into resources/scout-away.mjs.
+ * token. Built with `node scripts/build-scout-away.mjs` into resources/scout-away.mjs. Run for a comment (0.838), it
+ * reads that comment from the event file GitHub gives the run, and passes on the person's own /locust ask.
  */
 const config = awayConfigOf(process.env.LOCUST_SCOUT)
 const repo = process.env.GH_REPO ?? process.env.GITHUB_REPOSITORY ?? ''
@@ -21,7 +23,14 @@ if (config === undefined) {
       else resolve(stdout)
     })
   })
-  const result = await awayLook({ config, repo, gh, fetch })
+  let result: { readonly said: string; readonly ok: boolean }
+  if (process.env.GITHUB_EVENT_NAME === 'issue_comment') {
+    const event: unknown = await readFile(process.env.GITHUB_EVENT_PATH ?? '', 'utf8').then((text) => JSON.parse(text) as unknown, () => undefined)
+    const comment = awayCommentOf(event)
+    result = comment === undefined ? { said: 'This run is not about a comment that was written.', ok: true } : await awayAsk({ config, repo, gh, fetch, comment })
+  } else {
+    result = await awayLook({ config, repo, gh, fetch })
+  }
   console.log(result.said)
   if (!result.ok) process.exitCode = 1
 }

@@ -7,10 +7,12 @@
 
 // src/main/scout-away-entry.ts
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 
 // src/shared/away-letter.ts
 var AWAY_LETTER_VERSION = 1;
 var MAX_TOLD = 500;
+var AWAY_ASK_KEY = "away-ask:";
 var MAX_FOUND = 40;
 var MAX_SAID = 400;
 var REPO = /^[\w.-]{1,100}\/[\w.-]{1,100}$/;
@@ -466,11 +468,8 @@ function localTime(at, tz) {
   return { day: `${part("year")}-${part("month")}-${part("day")}`, hour: Number(part("hour")) % 24 };
 }
 var quietAt = (quiet, hour) => quiet !== void 0 && quiet.from !== quiet.to && (quiet.from < quiet.to ? hour >= quiet.from && hour < quiet.to : hour >= quiet.from || hour < quiet.to);
-async function awayLook(deps) {
+async function askRelay(deps, base, headers, open) {
   const { config: config2 } = deps;
-  const at = (deps.now ?? (() => /* @__PURE__ */ new Date()))();
-  const base = `${config2.relay}/v1/room/${config2.room}/away`;
-  const headers = { authorization: `Bearer ${config2.token}`, "content-type": "application/json" };
   let asked;
   try {
     asked = await deps.fetch(base, { method: "GET", headers });
@@ -481,9 +480,18 @@ async function awayLook(deps) {
   if (asked.status === 401 || asked.status === 404) return { said: "Locust’s relay did not know this look’s token. Turn “Look while my computer is off” off and on again in Locust.", ok: false };
   if (!asked.ok) return { said: `Locust’s relay answered ${String(asked.status)}. The next look tries again.`, ok: false };
   const answer = await asked.json().catch(() => ({}));
-  if (answer.pc === true) return { said: "Locust is open on your computer, so Scout looks from there.", ok: true };
+  if (answer.pc === true) return { said: open, ok: true };
   const from = answer.latest?.from === "pc" ? "pc" : "away";
-  const before = answer.latest === void 0 ? void 0 : await openAwayLetter(config2.key, answer.latest, config2.room, from);
+  return { before: answer.latest === void 0 ? void 0 : await openAwayLetter(config2.key, answer.latest, config2.room, from) };
+}
+async function awayLook(deps) {
+  const { config: config2 } = deps;
+  const at = (deps.now ?? (() => /* @__PURE__ */ new Date()))();
+  const base = `${config2.relay}/v1/room/${config2.room}/away`;
+  const headers = { authorization: `Bearer ${config2.token}`, "content-type": "application/json" };
+  const relayed = await askRelay(deps, base, headers, "Locust is open on your computer, so Scout looks from there.");
+  if ("said" in relayed) return relayed;
+  const { before } = relayed;
   const told = new Set(before?.told ?? []);
   const local = localTime(at, config2.tz);
   const quiet = quietAt(config2.quiet, local.hour);
@@ -553,6 +561,69 @@ async function awayLook(deps) {
     ok: true
   };
 }
+function awayCommentOf(event) {
+  if (typeof event !== "object" || event === null) return void 0;
+  const { action, comment, issue } = event;
+  if (action !== "created" || typeof comment !== "object" || comment === null || typeof issue !== "object" || issue === null) return void 0;
+  const login = comment.user?.login;
+  if (typeof comment.id !== "number" || !Number.isSafeInteger(comment.id) || typeof login !== "string" || typeof comment.body !== "string" || typeof comment.html_url !== "string") return void 0;
+  if (typeof issue.number !== "number" || !Number.isSafeInteger(issue.number) || issue.number < 1) return void 0;
+  return { id: comment.id, login, body: comment.body, url: comment.html_url, number: issue.number, title: typeof issue.title === "string" ? issue.title : "" };
+}
+function askOf(body) {
+  const match = /^\/locust(?:[ \t]+|(?=\r?$))/m.exec(body);
+  if (match === null) return void 0;
+  const task = body.slice(match.index + match[0].length).trim();
+  return task.length === 0 ? void 0 : task;
+}
+async function awayAsk(deps) {
+  const { config: config2, comment } = deps;
+  if (comment.login.toLowerCase() !== config2.login.toLowerCase()) return { said: "This comment is not yours, so Scout leaves it.", ok: true };
+  const task = askOf(comment.body);
+  if (task === void 0) return { said: "This comment asks Locust nothing.", ok: true };
+  if (!new RegExp(`^https://github\\.com/${deps.repo.replace(/\./g, "\\.")}/(?:issues|pull)/${String(comment.number)}#issuecomment-${String(comment.id)}$`).test(comment.url)) return { said: "This comment’s link is not this repository’s, so Scout leaves it.", ok: true };
+  const at = (deps.now ?? (() => /* @__PURE__ */ new Date()))();
+  const base = `${config2.relay}/v1/room/${config2.room}/away`;
+  const headers = { authorization: `Bearer ${config2.token}`, "content-type": "application/json" };
+  const relayed = await askRelay(deps, base, headers, "Locust is open on your computer, so it reads your ask from there.");
+  if ("said" in relayed) return relayed;
+  const { before } = relayed;
+  const key = `${AWAY_ASK_KEY}${deps.repo}:${String(comment.id)}`;
+  const told = before?.told ?? [];
+  if (told.includes(key)) return { said: "Your phone has this ask already.", ok: true };
+  const line = task.split(/\r?\n/)[0].trim();
+  const fact = {
+    key,
+    urgency: "now",
+    said: `You asked on #${String(comment.number)}${comment.title === "" ? "" : ` ${comment.title}`}: ${line.length > 140 ? `${line.slice(0, 139)}…` : line}`,
+    detail: task,
+    lines: ["Your computer is off: your ask waits on GitHub, and becomes a card for a teammate when Locust is open again."],
+    chips: [{ text: "while your PC was off", tone: "quiet" }],
+    open: { kind: "url", url: comment.url, label: "Open your comment" }
+  };
+  const letter = {
+    v: 1,
+    kind: "look",
+    at: at.toISOString(),
+    repo: deps.repo,
+    read: true,
+    found: [findingOf(fact)],
+    prs: before?.prs ?? [],
+    told: [...told, key].slice(-MAX_TOLD),
+    ...before?.briefDay === void 0 ? {} : { briefDay: before.briefDay }
+  };
+  const quiet = quietAt(config2.quiet, localTime(at, config2.tz).hour);
+  const box = await sealAwayLetter(config2.key, letter, config2.room, "away");
+  let posted;
+  try {
+    posted = await deps.fetch(base, { method: "POST", headers, body: JSON.stringify({ ...box, ...quiet ? {} : { alert: "found" } }) });
+  } catch {
+    return { said: "Locust’s relay could not be reached to pass your ask on.", ok: false };
+  }
+  if (!posted.ok) return { said: `Locust’s relay answered ${String(posted.status)}, so your ask was not passed on.`, ok: false };
+  const rung = Number((await posted.json().catch(() => ({}))).rung ?? 0);
+  return { said: `Scout passed your ask on.${rung > 0 ? ` It rang ${String(rung)} phone${rung === 1 ? "" : "s"}.` : quiet ? " Quiet hours: no phone was rung." : ""}`, ok: true };
+}
 
 // src/main/scout-away-entry.ts
 var config = awayConfigOf(process.env.LOCUST_SCOUT);
@@ -569,7 +640,14 @@ if (config === void 0) {
       else resolve(stdout);
     });
   });
-  const result = await awayLook({ config, repo, gh, fetch });
+  let result;
+  if (process.env.GITHUB_EVENT_NAME === "issue_comment") {
+    const event = await readFile(process.env.GITHUB_EVENT_PATH ?? "", "utf8").then((text) => JSON.parse(text), () => void 0);
+    const comment = awayCommentOf(event);
+    result = comment === void 0 ? { said: "This run is not about a comment that was written.", ok: true } : await awayAsk({ config, repo, gh, fetch, comment });
+  } else {
+    result = await awayLook({ config, repo, gh, fetch });
+  }
   console.log(result.said);
   if (!result.ok) process.exitCode = 1;
 }

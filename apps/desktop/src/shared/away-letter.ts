@@ -47,6 +47,8 @@ export interface AwayLetter {
 }
 
 export const MAX_TOLD = 500
+/** What a /locust ask passed to the phone while the PC was off is known by (0.838): never a card on the PC. */
+export const AWAY_ASK_KEY = 'away-ask:'
 export const MAX_FOUND = 40
 const MAX_SAID = 400
 const REPO = /^[\w.-]{1,100}\/[\w.-]{1,100}$/
