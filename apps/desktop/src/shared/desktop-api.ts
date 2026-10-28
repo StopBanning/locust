@@ -302,6 +302,7 @@ import {
   RUNTIME_SETUP_CHANNEL,
   CONNECTOR_LIST_CHANNEL,
   TEAMMATE_CONNECTORS_CHANNEL,
+  TEAMMATE_OWN_BROWSER_CHANNEL,
   TEAMMATE_FOLDER_CHANNEL,
   WORKTREE_LIST_CHANNEL,
   WORKTREE_REMOVE_CHANNEL,
@@ -510,7 +511,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       forward: (tabId) => ipcRenderer.invoke(BROWSER_FORWARD_CHANNEL, tabId),
       reload: (tabId) => ipcRenderer.invoke(BROWSER_RELOAD_CHANNEL, tabId),
       stop: (tabId) => ipcRenderer.invoke(BROWSER_STOP_CHANNEL, tabId),
-      newTab: (url) => ipcRenderer.invoke(BROWSER_NEW_TAB_CHANNEL, url),
+      newTab: (url, profileId) => ipcRenderer.invoke(BROWSER_NEW_TAB_CHANNEL, url, profileId),
       selectTab: (tabId) => ipcRenderer.invoke(BROWSER_SELECT_TAB_CHANNEL, tabId),
       closeTab: (tabId) => ipcRenderer.invoke(BROWSER_CLOSE_TAB_CHANNEL, tabId),
       point: () => ipcRenderer.invoke(BROWSER_POINT_CHANNEL) as Promise<BrowserPointResponse>,
@@ -1048,6 +1049,8 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
     listConnectors: () => ipcRenderer.invoke(CONNECTOR_LIST_CHANNEL) as Promise<ConnectorListResponse>,
     setTeammateConnectors: (teammateId: string, names: readonly string[]) =>
       ipcRenderer.invoke(TEAMMATE_CONNECTORS_CHANNEL, { teammateId, names }) as Promise<TeammateFolderResponse>,
+    setTeammateOwnBrowser: (teammateId: string, on: boolean) =>
+      ipcRenderer.invoke(TEAMMATE_OWN_BROWSER_CHANNEL, { teammateId, on }) as Promise<TeammateFolderResponse>,
     chooseTeammateFolder: (teammateId: string, clear?: boolean) =>
       ipcRenderer.invoke(TEAMMATE_FOLDER_CHANNEL, { teammateId, clear: clear === true }) as Promise<TeammateFolderResponse>,
     listWorktrees: () => ipcRenderer.invoke(WORKTREE_LIST_CHANNEL) as Promise<WorktreeListResponse>,

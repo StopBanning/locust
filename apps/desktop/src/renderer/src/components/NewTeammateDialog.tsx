@@ -225,6 +225,7 @@ export function NewTeammateDialog({
   folderNotice,
   connectors,
   onSetConnectors,
+  onSetOwnBrowser,
   composerRoute,
   picker,
   platform,
@@ -265,6 +266,8 @@ export function NewTeammateDialog({
   readonly connectors?: readonly PublicConnector[]
   /** The whole list of ticked names; empty means every connector. Takes effect at once. */
   readonly onSetConnectors?: (names: readonly string[]) => void
+  /** Own browser sign-ins on or off (0.839). Takes effect at once; off forgets them. */
+  readonly onSetOwnBrowser?: (on: boolean) => void
   /**
    * What the chat box is set to: the model a teammate with none of its own
    * runs on, and so what the Model row says until one is picked.
@@ -905,6 +908,34 @@ export function NewTeammateDialog({
                 {(initial?.connectors ?? []).length === 0
                   ? 'Off. This teammate works without your connectors, which keeps each Claude Code turn about ten times lighter. Tick the ones it may use.'
                   : 'On. The ticked ones work without asking. While any is ticked, Claude Code loads all your connectors, and a call to one not ticked asks you first.'}
+              </span>
+            </div>
+          )}
+
+          {/*
+            * ITS OWN BROWSER SIGN-INS (0.839, shared/browser.ts). From the OpenBot scrub: a profile of its own in the
+            * browser panel, so two teammates can be in two accounts on one site. Only when editing, like the folder:
+            * the host writes it onto a record. Takes effect at once, and off clears what it had signed in to.
+            */}
+          {editing && onSetOwnBrowser !== undefined && (
+            <div className="lc-field lc-field--switch">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={initial?.ownBrowser === true}
+                aria-label="Own browser sign-ins"
+                className={`lc-memory__switch${initial?.ownBrowser === true ? ' is-on' : ''}`}
+                onClick={() => onSetOwnBrowser(initial?.ownBrowser !== true)}
+              >
+                <span className="lc-memory__knob" />
+              </button>
+              <span className="lc-field__text">
+                <span className="lc-fieldlabel lc-mono">Own browser sign-ins</span>
+                <span className="lc-field__hint">
+                  {initial?.ownBrowser === true
+                    ? `On. In the browser panel, ${trimmed.length === 0 ? 'this teammate' : trimmed} signs in to sites apart from you and every other teammate, and its tabs carry its color. To sign it in, press + in the browser panel and pick ${trimmed.length === 0 ? 'its name' : trimmed}. Turning this off forgets those sign-ins.`
+                    : `Off. ${trimmed.length === 0 ? 'This teammate' : trimmed} uses the browser panel's shared sign-ins, as every teammate does. Turn this on to give it its own, so two teammates can be in two accounts on one site.`}
+                </span>
               </span>
             </div>
           )}

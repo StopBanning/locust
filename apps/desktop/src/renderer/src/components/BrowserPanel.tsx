@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   browserRuntimeUnsupportedNote,
-  type BrowserPanelState
+  type BrowserPanelState,
+  type BrowserProfile
 } from '../../../shared/browser.js'
 import { browserPointControl, BROWSER_POINT_SHORTCUT, isBrowserPointShortcut, type BrowserPoint } from '../../../shared/browser-point.js'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
@@ -10,12 +11,15 @@ import { Icon } from './Icon.js'
 export default function BrowserPanel({
   visible,
   runtime,
+  profiles = [],
   pointingOff,
   onPointed,
   onClose
 }: {
   readonly visible: boolean
   readonly runtime?: MissionRuntimeId
+  /** Teammates with their own sign-ins (0.839): the + offers a tab as each, to sign it in. */
+  readonly profiles?: readonly BrowserProfile[]
   readonly pointingOff?: string
   readonly onPointed: (pick: { readonly point: BrowserPoint; readonly png?: Uint8Array }) => void | string | Promise<void | string | undefined>
   readonly onClose: () => void
@@ -25,6 +29,20 @@ export default function BrowserPanel({
   const [editingAddress, setEditingAddress] = useState(false)
   const [localError, setLocalError] = useState<string>()
   const [pointing, setPointing] = useState<'idle' | 'pointing' | { readonly said: string }>('idle')
+  const [newTabMenu, setNewTabMenu] = useState(false)
+  // The menu closes on a press anywhere else, or Esc.
+  useEffect(() => {
+    if (!newTabMenu) return
+    const away = (event: Event): void => {
+      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !(event.target instanceof Element && event.target.closest('.lc-browser__newtab, .lc-browser__newtabmenu'))) setNewTabMenu(false)
+    }
+    window.addEventListener('pointerdown', away, true)
+    window.addEventListener('keydown', away, true)
+    return () => {
+      window.removeEventListener('pointerdown', away, true)
+      window.removeEventListener('keydown', away, true)
+    }
+  }, [newTabMenu])
   const viewportRef = useRef<HTMLDivElement>(null)
   const pointRef = useRef<() => void>(() => undefined)
 
@@ -89,7 +107,7 @@ export default function BrowserPanel({
       window.removeEventListener('resize', reportBounds)
       void window.desktop?.browser?.setBounds(null).catch(() => undefined)
     }
-  }, [visible, reportBounds, state.activity, state.error, localError, runtimeNote, state.tabs.length])
+  }, [visible, reportBounds, state.activity, state.error, localError, runtimeNote, state.tabs.length, newTabMenu])
 
   const point = useCallback((): void => {
     const api = window.desktop?.browser
@@ -184,28 +202,47 @@ export default function BrowserPanel({
     <aside className="lc-viewer lc-browser" aria-label="Browser panel" hidden={!visible}>
       <div className="lc-viewer__head">
         <span className="lc-viewer__name">Browser</span>
-        <span
-          className="lc-browser__partition"
-          title="Isolated Chromium session (persist:locust-browser). Separate from your Chrome profile and cookies."
-        >
-          Isolated session
-        </span>
+        {activeTab?.profile === undefined ? (
+          <span
+            className="lc-browser__partition"
+            title="Isolated Chromium session (persist:locust-browser). Separate from your Chrome profile and cookies."
+          >
+            Isolated session
+          </span>
+        ) : (
+          <span
+            className="lc-browser__partition is-own"
+            style={{ '--lc-tab-hue': `var(--lc-hue-${activeTab.profile.hue})` } as React.CSSProperties}
+            title={`${activeTab.profile.name}'s own sign-ins, apart from yours and every other teammate's.`}
+          >
+            {`${activeTab.profile.name}'s sign-ins`}
+          </span>
+        )}
         <span className="lc-viewer__spacer" />
-        <button
-          className="lc-viewer__action"
-          type="button"
-          aria-label="New browser tab"
-          title="New tab"
-          onClick={() => {
-            setLocalError(undefined)
-            void window.desktop?.browser
-              ?.newTab()
-              .then((next) => setState(next))
-              .catch(() => undefined)
-          }}
-        >
-          <Icon name="plus" size={13} />
-        </button>
+        <span className="lc-browser__newtab">
+          <button
+            className="lc-viewer__action"
+            type="button"
+            aria-label="New browser tab"
+            title="New tab"
+            aria-haspopup={profiles.length > 0 ? 'menu' : undefined}
+            aria-expanded={profiles.length > 0 ? newTabMenu : undefined}
+            onClick={() => {
+              setLocalError(undefined)
+              // With a teammate that signs in on its own (0.839), + asks whose tab it is.
+              if (profiles.length > 0) {
+                setNewTabMenu(!newTabMenu)
+                return
+              }
+              void window.desktop?.browser
+                ?.newTab()
+                .then((next) => setState(next))
+                .catch(() => undefined)
+            }}
+          >
+            <Icon name="plus" size={13} />
+          </button>
+        </span>
         <button
           className="lc-viewer__close"
           type="button"
@@ -217,14 +254,50 @@ export default function BrowserPanel({
         </button>
       </div>
 
+      {/*
+        * Whose tab, a row of its own rather than a menu over the page: the page is a native view drawn above the
+        * window's HTML, so anything laid over it is hidden. The row pushes the page down instead.
+        */}
+      {newTabMenu && profiles.length > 0 && (
+        <div className="lc-browser__newtabmenu" role="menu" aria-label="New tab">
+          {[undefined, ...profiles].map((profile) => (
+            <button
+              key={profile?.id ?? 'shared'}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setNewTabMenu(false)
+                void window.desktop?.browser
+                  ?.newTab(undefined, profile?.id)
+                  .then((next) => setState(next))
+                  .catch(() => undefined)
+              }}
+            >
+              {profile === undefined ? (
+                'New tab'
+              ) : (
+                <>
+                  <span className="lc-browser__hue" style={{ '--lc-tab-hue': `var(--lc-hue-${profile.hue})` } as React.CSSProperties} aria-hidden="true" />
+                  {`As ${profile.name}`}
+                </>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="lc-browser__tabs" role="tablist" aria-label="Browser tabs">
         {state.tabs.map((tab) => (
-          <div className="lc-browser__tab" key={tab.id}>
+          <div
+            className={`lc-browser__tab${tab.profile === undefined ? '' : ' is-own'}`}
+            key={tab.id}
+            {...(tab.profile === undefined ? {} : { style: { '--lc-tab-hue': `var(--lc-hue-${tab.profile.hue})` } as React.CSSProperties })}
+          >
             <button
               role="tab"
               type="button"
               aria-selected={activeTab?.id === tab.id}
-              title={tab.url || tab.title || 'New Tab'}
+              title={tab.profile === undefined ? tab.url || tab.title || 'New Tab' : `${tab.profile.name}'s sign-ins · ${tab.url || tab.title || 'New Tab'}`}
               onClick={() => {
                 setLocalError(undefined)
                 void window.desktop?.browser

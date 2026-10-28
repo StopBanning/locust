@@ -1472,6 +1472,8 @@ export const RUNTIME_SETUP_CHANNEL = 'runtime:setup'
 /** Every connector the person's Claude Code reports, and which each teammate may use. */
 export const CONNECTOR_LIST_CHANNEL = 'connectors:list'
 export const TEAMMATE_CONNECTORS_CHANNEL = 'teammates:connectors'
+/** Give one teammate its own browser sign-ins, or take them away and clear them (0.839, shared/browser.ts). */
+export const TEAMMATE_OWN_BROWSER_CHANNEL = 'teammates:own-browser'
 /** Pick, or clear, the folder one teammate works in. The host names the path. */
 export const TEAMMATE_FOLDER_CHANNEL = 'teammates:folder'
 export const WORKTREE_LIST_CHANNEL = 'worktrees:list'
@@ -1657,6 +1659,8 @@ export interface PublicTeammate {
    * `claude mcp list`; never typed.
    */
   readonly connectors?: readonly string[]
+  /** Its own browser sign-ins, apart from the shared ones and every other teammate's (0.839, shared/browser.ts). */
+  readonly ownBrowser?: true
   /**
    * The face, persisted with the record. Seeded from the immutable id when a
    * teammate is created without one, so a rename never changes it.
@@ -4185,6 +4189,8 @@ export interface DesktopApi {
    * time; an empty list means every connector, which is the default.
    */
   setTeammateConnectors(teammateId: string, names: readonly string[]): Promise<TeammateFolderResponse>
+  /** Own browser sign-ins for one teammate, on or off and cleared (0.839). */
+  setTeammateOwnBrowser(teammateId: string, on: boolean): Promise<TeammateFolderResponse>
   /** The teammates' own worktrees under the folder, and whether the folder can have them. */
   listWorktrees(): Promise<WorktreeListResponse>
   /**

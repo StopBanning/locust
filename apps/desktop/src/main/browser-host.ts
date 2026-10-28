@@ -11,6 +11,7 @@ import type { Session, WebContents } from 'electron'
 import {
   BROWSER_PARTITION,
   browserOriginForUrl,
+  browserPartitionFor,
   classifyBrowserAction,
   formatBrowserPageSnapshot,
   isLoopbackOrWorkspaceOrigin,
@@ -21,6 +22,7 @@ import {
   type BrowserNetworkEntry,
   type BrowserPageSnapshot,
   type BrowserPanelState,
+  type BrowserProfile,
   type BrowserRect,
   type BrowserTabState
 } from '../shared/browser.js'
@@ -41,6 +43,8 @@ export interface BrowserRunContext {
   readonly missionId: string
   readonly teammateLabel: string
   readonly cwd: string
+  /** The teammate's own sign-ins, when it has them on (0.839): its tools reach only its own tabs. */
+  readonly profile?: BrowserProfile
   readonly askApproval?: (decision: BrowserApprovalDecision) => Promise<{
     readonly approved: boolean
     readonly always?: boolean
@@ -73,6 +77,8 @@ export interface BrowserHostOptions {
     readonly summary: string
   }) => void
   readonly emitPointHotkey?: () => void
+  /** A teammate's own sign-ins, when it has them on; the person's "New tab as" asks for one. */
+  readonly profileOf?: (teammateId: string) => Promise<BrowserProfile | undefined>
   readonly now?: () => Date
   readonly port?: number
 }
@@ -90,7 +96,9 @@ export interface BrowserHost {
   goForward(tabId?: string): Promise<BrowserPanelState>
   reload(tabId?: string): Promise<BrowserPanelState>
   stop(tabId?: string): Promise<BrowserPanelState>
-  newTab(rawUrl?: string): Promise<BrowserPanelState>
+  newTab(rawUrl?: string, profileId?: string): Promise<BrowserPanelState>
+  /** Close a teammate's own tabs and clear its partition: its sign-ins are gone (0.839). */
+  forgetProfile(teammateId: string): Promise<BrowserPanelState>
   selectTab(tabId: string): BrowserPanelState
   closeTab(tabId: string): BrowserPanelState
   point(): Promise<BrowserPointResponse>
@@ -119,6 +127,7 @@ interface InternalTab {
   readonly networkEntries: BrowserNetworkEntry[]
   lastElements: BrowserElementSnapshot[]
   canPoint?: boolean
+  readonly profile?: BrowserProfile
 }
 
 interface RegisteredRun extends BrowserRunContext {
@@ -129,6 +138,11 @@ interface RegisteredRun extends BrowserRunContext {
 
 const MAX_LOG_ENTRIES = 100
 const DEFAULT_OFFSCREEN_BOUNDS: BrowserRect = { x: 10000, y: 10000, width: 640, height: 480 }
+
+/** Whether a run may use this tab: a person's press may use any; a run, only tabs in its own sign-ins (0.839). */
+function ownTab(tab: Pick<InternalTab, 'profile'>, run: Pick<BrowserRunContext, 'profile'> | undefined): boolean {
+  return run === undefined || tab.profile?.id === run.profile?.id
+}
 
 function textAnswer(text: string, isError = false): BrowserToolResponse {
   return {
@@ -290,7 +304,8 @@ const SNAPSHOT_SCRIPT = `(() => {
 export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
   const now = options.now ?? (() => new Date())
   let mainWindow: BrowserWindow | undefined
-  let browserSession: Session | undefined
+  // One per partition: the shared one, and each teammate's own (0.839).
+  const sessions = new Map<string, Session>()
   let server: Server | undefined
   let starting: Promise<void> | undefined
   let port = 0
@@ -345,7 +360,8 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
       canGoBack: !destroyed && wc.navigationHistory.canGoBack(),
       canGoForward: !destroyed && wc.navigationHistory.canGoForward(),
       ...(tab.previewDataUrl !== undefined ? { previewDataUrl: tab.previewDataUrl } : {}),
-      ...(tab.canPoint !== undefined ? { canPoint: tab.canPoint } : {})
+      ...(tab.canPoint !== undefined ? { canPoint: tab.canPoint } : {}),
+      ...(tab.profile !== undefined ? { profile: tab.profile } : {})
     }
   }
 
@@ -408,9 +424,10 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
     }
   }
 
-  const ensureSession = (): Session => {
-    if (browserSession !== undefined) return browserSession
-    const part = session.fromPartition(BROWSER_PARTITION)
+  const ensureSession = (partition: string = BROWSER_PARTITION): Session => {
+    const known = sessions.get(partition)
+    if (known !== undefined) return known
+    const part = session.fromPartition(partition)
     part.setSpellCheckerDictionaryDownloadURL('http://127.0.0.1:0/')
     part.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
     part.setPermissionCheckHandler(() => false)
@@ -493,17 +510,18 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
       void event
     })
 
-    browserSession = part
+    sessions.set(partition, part)
     return part
   }
 
-  const createTabInternal = (): InternalTab => {
-    const part = ensureSession()
+  const createTabInternal = (profile?: BrowserProfile): InternalTab => {
+    const partition = browserPartitionFor(profile?.id)
+    const part = ensureSession(partition)
     tabSeq += 1
     const id = `tab_${String(tabSeq)}`
     const view = new WebContentsView({
       webPreferences: {
-        partition: BROWSER_PARTITION,
+        partition,
         session: part,
         contextIsolation: true,
         nodeIntegration: false,
@@ -522,7 +540,8 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
       personOrigins: new Set<string>(),
       consoleEntries: [],
       networkEntries: [],
-      lastElements: []
+      lastElements: [],
+      ...(profile === undefined ? {} : { profile })
     }
 
     const wc: WebContents = view.webContents
@@ -637,22 +656,25 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
     return tab
   }
 
-  const ensureActiveTab = (requestedTabId?: string): InternalTab => {
-    if (requestedTabId && tabs.has(requestedTabId)) {
-      activeTabId = requestedTabId
+  // For a run, only a tab in its own sign-ins, and a new one in them when it has none (0.839).
+  const ensureActiveTab = (requestedTabId?: string, run?: BrowserRunContext): InternalTab => {
+    const requested = requestedTabId === undefined ? undefined : tabs.get(requestedTabId)
+    if (requested !== undefined && ownTab(requested, run)) {
+      activeTabId = requested.id
       syncViewAttachment()
-      return tabs.get(requestedTabId)!
+      return requested
     }
-    if (activeTabId && tabs.has(activeTabId)) {
-      return tabs.get(activeTabId)!
+    const active = activeTabId === undefined ? undefined : tabs.get(activeTabId)
+    if (active !== undefined && ownTab(active, run)) {
+      return active
     }
-    const first = tabs.values().next().value as InternalTab | undefined
+    const first = [...tabs.values()].find((tab) => ownTab(tab, run))
     if (first) {
       activeTabId = first.id
       syncViewAttachment()
       return first
     }
-    return createTabInternal()
+    return createTabInternal(run?.profile)
   }
 
   const navigateTab = async (
@@ -784,12 +806,17 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
     }
 
     const requestedTabId = typeof args.tab_id === 'string' && args.tab_id.trim() ? args.tab_id.trim() : undefined
+    // Another teammate's own sign-ins, or the shared ones for a teammate with its own: never this run's to use (0.839).
+    const named = requestedTabId === undefined ? undefined : tabs.get(requestedTabId)
+    if (named !== undefined && !ownTab(named, run)) {
+      return textAnswer(`Tab "${named.id}" is signed in as someone else, so it is not yours to use. Open a tab of your own with browser_tabs.`, true)
+    }
 
     if (toolName === 'browser_tabs') {
       const action = typeof args.action === 'string' ? args.action : 'list'
       return withActivity('Managing tabs', action, async () => {
         if (action === 'new') {
-          const tab = createTabInternal()
+          const tab = createTabInternal(run.profile)
           if (typeof args.url === 'string' && args.url.trim()) {
             const nav = await executeTool(run, 'browser_open', { url: args.url, tab_id: tab.id })
             return nav
@@ -810,7 +837,7 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
           host.closeTab(requestedTabId)
           return textAnswer(`Closed tab ${requestedTabId}.`)
         }
-        const list = [...tabs.values()].map(
+        const list = [...tabs.values()].filter((t) => ownTab(t, run)).map(
           (t) => `${t.id === activeTabId ? '*' : '-'} ${t.id}: ${t.title || '(Untitled)'} (${t.url || 'about:blank'})`
         )
         return textAnswer(list.length > 0 ? `Open tabs:\n${list.join('\n')}` : 'No browser tabs are open yet.')
@@ -823,7 +850,7 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
       if (!resolved.ok) {
         return textAnswer(resolved.message, true)
       }
-      const tab = requestedTabId === 'new' ? createTabInternal() : ensureActiveTab(requestedTabId)
+      const tab = requestedTabId === 'new' ? createTabInternal(run.profile) : ensureActiveTab(requestedTabId, run)
       return withActivity('Opening page', resolved.url, async () => {
         const decision = classifyBrowserAction({
           action: 'open',
@@ -847,7 +874,7 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
       })
     }
 
-    const tab = ensureActiveTab(requestedTabId)
+    const tab = ensureActiveTab(requestedTabId, run)
 
     if (toolName === 'browser_read') {
       return withActivity('Reading page', tab.url || tab.title, async () => {
@@ -1339,14 +1366,19 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
       return notifyState()
     },
 
-    async newTab(rawUrl) {
+    async newTab(rawUrl, profileId) {
       const refusal = options.policyRefusal?.()
       if (refusal !== undefined) {
         lastError = refusal
         return notifyState()
       }
+      const profile = profileId === undefined ? undefined : await options.profileOf?.(profileId).catch(() => undefined)
+      if (profileId !== undefined && profile === undefined) {
+        lastError = 'That teammate does not have its own browser sign-ins any more, so no tab was opened.'
+        return notifyState()
+      }
       panelOpen = true
-      const tab = createTabInternal()
+      const tab = createTabInternal(profile)
       if (rawUrl && rawUrl.trim().length > 0) {
         await navigateTab(tab, rawUrl, { initiatedByPerson: true })
       }
@@ -1412,6 +1444,18 @@ export function createBrowserHost(options: BrowserHostOptions): BrowserHost {
         activeTabId = undefined
       }
       syncViewAttachment()
+      return notifyState()
+    },
+
+    async forgetProfile(teammateId) {
+      for (const tab of [...tabs.values()]) {
+        if (tab.profile?.id === teammateId) host.closeTab(tab.id)
+      }
+      const partition = browserPartitionFor(teammateId)
+      const part = sessions.get(partition) ?? session.fromPartition(partition)
+      sessions.delete(partition)
+      await part.clearStorageData().catch(() => undefined)
+      await part.clearCache().catch(() => undefined)
       return notifyState()
     },
 

@@ -25,6 +25,24 @@ export const BROWSER_POINT_HOTKEY_CHANNEL = 'locust:browser:point-hotkey'
  */
 export const BROWSER_PARTITION = 'persist:locust-browser'
 
+/**
+ * A TEAMMATE'S OWN SIGN-INS (0.839, the OpenBot scrub's take 2). OpenBot gives each agent a named browser profile,
+ * colored on its tabs, so two agents can be in two accounts on one site. A teammate with Own browser sign-ins on gets
+ * a partition of its own beside the shared one: its tabs carry its name and color in the panel, its tools see and use
+ * only its own tabs, and no other teammate's tools ever reach them. The person can open a tab as that teammate to sign
+ * it in. Turned off, or the teammate removed, its partition is cleared: those sign-ins are gone.
+ */
+export interface BrowserProfile {
+  /** The teammate's id, which names its partition. */
+  readonly id: string
+  readonly name: string
+  readonly hue: string
+}
+
+export function browserPartitionFor(profileId: string | undefined): string {
+  return profileId === undefined ? BROWSER_PARTITION : `${BROWSER_PARTITION}-${profileId}`
+}
+
 export interface BrowserRect {
   readonly x: number
   readonly y: number
@@ -42,6 +60,8 @@ export interface BrowserTabState {
   readonly previewDataUrl?: string
   /** False when the page will not run the picker. Absent until that is known. */
   readonly canPoint?: boolean
+  /** Whose own sign-ins the tab is in (0.839). Absent: the shared ones. */
+  readonly profile?: BrowserProfile
 }
 
 export interface BrowserActivity {
@@ -463,7 +483,8 @@ export interface BrowserApi {
   forward(tabId?: string): Promise<BrowserPanelState>
   reload(tabId?: string): Promise<BrowserPanelState>
   stop(tabId?: string): Promise<BrowserPanelState>
-  newTab(url?: string): Promise<BrowserPanelState>
+  /** `profileId`: open it in that teammate's own sign-ins (0.839). */
+  newTab(url?: string, profileId?: string): Promise<BrowserPanelState>
   selectTab(tabId: string): Promise<BrowserPanelState>
   closeTab(tabId: string): Promise<BrowserPanelState>
   point(): Promise<BrowserPointResponse>

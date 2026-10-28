@@ -75,10 +75,12 @@ export function registerBrowserIpc(host: BrowserHost, own: (event: IpcMainInvoke
     if (!own(event)) throw new Error('Only Locust’s window can stop loading in the browser.')
     return host.stop(isTabId(rawTabId) ? rawTabId : undefined)
   })
-  ipcMain.handle(BROWSER_NEW_TAB_CHANNEL, async (event, rawUrl: unknown) => {
+  ipcMain.handle(BROWSER_NEW_TAB_CHANNEL, async (event, rawUrl: unknown, rawProfile: unknown) => {
     if (!own(event)) throw new Error('Only Locust’s window can open a browser tab.')
     const url = typeof rawUrl === 'string' && rawUrl.length <= 4096 ? rawUrl : undefined
-    return host.newTab(url)
+    // A teammate's id, whose own sign-ins the tab opens in (0.839); the host checks it still has them.
+    const profile = typeof rawProfile === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(rawProfile) ? rawProfile : undefined
+    return host.newTab(url, profile)
   })
   ipcMain.handle(BROWSER_SELECT_TAB_CHANNEL, (event, rawTabId: unknown) => {
     if (!own(event) || !isTabId(rawTabId)) return host.getState()

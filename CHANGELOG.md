@@ -13,6 +13,10 @@ heading: the home screen then shows it once, as a splash.
 
 ## 0.839.0 - 2026-10-28
 
+### New
+
+- **A teammate can have its own browser sign-ins.** Turn on Own browser sign-ins when editing a teammate, and in the browser panel it signs in to sites apart from you and every other teammate, so two teammates can work in two accounts on one site. Its tabs carry its color. To sign it in, press + in the panel and pick its name. Its tools see and use only its own tabs, and no other teammate's reach them. Turning it off, or removing the teammate, forgets those sign-ins.
+
 ### Improved
 
 - **Carry on past a provider error, not only a used-up plan.** When a sign-in has expired, a provider is down or busy, or there is no network, and the turn stops before it has done anything, its card now offers Carry on with another agent, which does the task from the start. With an agent picked and Without asking on in Settings > AI agents & accounts, it goes on by itself. A turn that had already used a tool is never moved, so nothing is done twice. The section is now called When an agent cannot go on.

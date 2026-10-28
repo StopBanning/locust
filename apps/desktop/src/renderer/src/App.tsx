@@ -6634,6 +6634,28 @@ export default function App(): ReactElement {
       .catch(() => setFolderNotice('That could not be changed. The setting is as it was.'))
   }
 
+  /** Own browser sign-ins on or off (0.839). The host answers with the teammate; off, it has cleared them. */
+  const setTeammateOwnBrowser = (teammateId: string, on: boolean): void => {
+    const bridge = window.desktop
+    if (!bridge) return
+    void bridge
+      .setTeammateOwnBrowser(teammateId, on)
+      .then((response) => {
+        if (!response.ok) {
+          setFolderNotice(response.error.message)
+          return
+        }
+        setEditingTeammate(response.data.teammate)
+        return bridge.listTeammates().then((listed) => {
+          if (!listed.ok) return
+          setTeammates(listed.data.teammates)
+          setMissionOwners(listed.data.missionOwners)
+          rememberRosterNames(listed.data)
+        })
+      })
+      .catch(() => setFolderNotice('That could not be changed. The setting is as it was.'))
+  }
+
   const chooseTeammateFolder = (teammateId: string, clear: boolean): void => {
     const bridge = window.desktop
     if (!bridge) return
@@ -10924,6 +10946,7 @@ export default function App(): ReactElement {
           onClose={() => setTerminalOpen(false)} /></Suspense>}
         {browserMounted && <Suspense fallback={null}><BrowserPanel visible={browserOpen && screen === 'workroom'}
           runtime={liveRun?.data?.runtime ?? composerRoute.runtime}
+          profiles={teammates.filter((mate) => mate.ownBrowser === true).map((mate) => ({ id: mate.teammateId, name: mate.name, hue: mate.hue }))}
           {...(browserRefusal === undefined ? {} : { pointingOff: browserRefusal })}
           onPointed={async (pick) => {
             if (pagePoints.length >= MAX_PAGE_POINTS) {
@@ -11417,6 +11440,7 @@ export default function App(): ReactElement {
           onChooseFolder={(clear) => chooseTeammateFolder(editingTeammate.teammateId, clear)}
           {...(connectorList === undefined ? {} : { connectors: connectorList })}
           onSetConnectors={(names) => setTeammateConnectors(editingTeammate.teammateId, names)}
+          onSetOwnBrowser={(on) => setTeammateOwnBrowser(editingTeammate.teammateId, on)}
           {...(folderNotice === undefined ? {} : { folderNotice })}
           lessons={tuneLessons.filter((lesson) => lesson.teammateId === editingTeammate.teammateId)}
           onRemoveLesson={removeTuneLesson}

@@ -2378,6 +2378,8 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
                 missionId,
                 teammateLabel: peer?.self.name ?? runtimeDisplayName(runtime),
                 cwd: runCwd,
+                // Its own sign-ins, when it has them (0.839): its tools reach only its own tabs.
+                ...(peer?.browserProfile === undefined ? {} : { profile: peer.browserProfile }),
                 ...(browserApprovalHandler === undefined
                   ? {}
                   : {

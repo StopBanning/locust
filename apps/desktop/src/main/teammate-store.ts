@@ -131,6 +131,8 @@ export interface TeammateStore {
    * the record cannot get out of step.
    */
   setConnectors(teammateId: unknown, names: unknown): Promise<PublicTeammate>
+  /** Give one teammate its own browser sign-ins, or take them away (0.839). Only a literal true turns them on. */
+  setOwnBrowser(teammateId: unknown, on: unknown): Promise<PublicTeammate>
   /** Remember which teammate a mission belongs to. */
   assignMission(teammateId: unknown, missionId: unknown): Promise<void>
   /** Forget which teammate a mission belonged to, once the mission is gone. */
@@ -434,6 +436,7 @@ export function parsedTeammate(value: unknown): PublicTeammate | undefined {
     // a folder anybody chose.
     ...(isTeammateFolder(record.folder) ? { folder: record.folder } : {}),
     ...(parsedConnectors(record.connectors).length === 0 ? {} : { connectors: parsedConnectors(record.connectors) }),
+    ...(record.ownBrowser === true ? { ownBrowser: true } : {}),
     // A record from before faces were persisted gets the face its id seeds --
     // the same face every reader would derive, so nothing changes on upgrade.
     avatar: isAvatarSpec(record.avatar) ? record.avatar : seedAvatar(record.teammateId),
@@ -797,6 +800,8 @@ export function createTeammateStore(options: { readonly rootDirectory: string; r
           // Carried like the folder: an edit of the name must not widen a
           // teammate back to every connector.
           ...(existing.connectors === undefined ? {} : { connectors: existing.connectors }),
+          // Carried too: an edit of the name must not sign it out of its own browser.
+          ...(existing.ownBrowser === true ? { ownBrowser: true } : {}),
           avatar: cleanAvatar(input.avatar),
           createdAt: existing.createdAt,
           ...(existing.route === undefined ? {} : { route: existing.route }),
@@ -906,6 +911,21 @@ export function createTeammateStore(options: { readonly rootDirectory: string; r
           kept.length === 0
             ? (({ connectors: _dropped, ...rest }) => rest)(existing)
             : { ...existing, connectors: kept }
+        await write({
+          ...file,
+          teammates: file.teammates.map((teammate) => (teammate.teammateId === teammateId ? updated : teammate))
+        })
+        return updated
+      })
+    },
+
+    setOwnBrowser(teammateId, on): Promise<PublicTeammate> {
+      return serialize(async () => {
+        if (!safeId(teammateId)) throw new Error('Teammate id is invalid')
+        const file = await read()
+        const existing = file.teammates.find((teammate) => teammate.teammateId === teammateId)
+        if (existing === undefined) throw new Error('Unknown teammate')
+        const updated: PublicTeammate = on === true ? { ...existing, ownBrowser: true } : (({ ownBrowser: _dropped, ...rest }) => rest)(existing)
         await write({
           ...file,
           teammates: file.teammates.map((teammate) => (teammate.teammateId === teammateId ? updated : teammate))

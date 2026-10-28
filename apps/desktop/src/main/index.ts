@@ -428,6 +428,7 @@ import {
   WORKSPACE_SETTINGS_WRITE_CHANNEL,
   CONNECTOR_LIST_CHANNEL,
   TEAMMATE_CONNECTORS_CHANNEL,
+  TEAMMATE_OWN_BROWSER_CHANNEL,
   TEAMMATE_FOLDER_CHANNEL,
   WORKSPACE_CHOOSE_CHANNEL,
   WORKSPACE_CONFIRM_CHANNEL,
@@ -2494,6 +2495,11 @@ if (!ownsSingleInstanceLock) {
           approvalWindow.webContents.send(BROWSER_EVENT_CHANNEL, state)
         }
       },
+      // A teammate's own sign-ins (0.839): only while its record says it has them.
+      profileOf: async (teammateId) => {
+        const mate = (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === teammateId)
+        return mate?.ownBrowser === true ? { id: mate.teammateId, name: mate.name, hue: mate.hue } : undefined
+      },
       emitPointHotkey: () => {
         if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) {
           approvalWindow.webContents.send(BROWSER_POINT_HOTKEY_CHANNEL)
@@ -3827,6 +3833,7 @@ if (!ownsSingleInstanceLock) {
         ...(cwd === undefined ? {} : { cwd }),
         ...(repositoryRoot === undefined ? {} : { repositoryRoot }),
         ...(self.connectors === undefined ? {} : { connectors: self.connectors }),
+        ...(self.ownBrowser === true ? { browserProfile: { id: self.teammateId, name: self.name, hue: self.hue } } : {}),
         ...(worktreeRefused === undefined ? {} : { worktreeRefused })
       }
     }
@@ -4870,6 +4877,23 @@ if (!ownsSingleInstanceLock) {
      * from the list above, but the store reads them strictly either way: a
      * name is an allow rule on a real command line.
      */
+    // Own browser sign-ins (0.839): taken away, they are cleared, so a teammate turned back on starts signed out.
+    ipcMain.handle(TEAMMATE_OWN_BROWSER_CHANNEL, async (event, requested: unknown) => {
+      if (!fromOwnWindow(event)) {
+        return { ok: false, error: { code: 'REJECTED', message: 'The browser sign-ins request was rejected.' } } as const
+      }
+      const ask = typeof requested === 'object' && requested !== null ? (requested as Record<string, unknown>) : {}
+      try {
+        const teammate = await teammates.setOwnBrowser(ask.teammateId, ask.on)
+        if (teammate.ownBrowser !== true) await browserHost.forgetProfile(teammate.teammateId)
+        return { ok: true, data: { teammate } } as const
+      } catch (error) {
+        return {
+          ok: false,
+          error: { code: 'REJECTED', message: error instanceof Error ? error.message : 'That could not be changed.' }
+        } as const
+      }
+    })
     ipcMain.handle(TEAMMATE_CONNECTORS_CHANNEL, async (event, requested: unknown) => {
       if (!fromOwnWindow(event)) {
         return { ok: false, error: { code: 'REJECTED', message: 'The connector request was rejected.' } } as const
@@ -7106,6 +7130,8 @@ if (!ownsSingleInstanceLock) {
       if (!fromOwnWindow(event)) return teammateRejected('The teammate could not be removed.')
       try {
         await teammates.remove(teammateId)
+        // Its own browser sign-ins go with it (0.839).
+        if (typeof teammateId === 'string') await browserHost.forgetProfile(teammateId).catch(() => undefined)
         // Their routines had nobody left to run them.
         await routines.removeForTeammate(teammateId).catch(() => undefined)
         // And they leave every room; a room left empty goes with them.

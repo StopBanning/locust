@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import type { WorkroomMessage } from '@teammate/mission-store'
 
 import type { TeammateRoute } from '../shared/ipc.js'
+import type { BrowserProfile } from '../shared/browser.js'
 
 import { sanitizeInbound, SHARE_TAG } from '../shared/peer-share.js'
 import { ASK_TAG } from '../shared/decision.js'
@@ -78,6 +79,8 @@ export interface MissionPeerContext {
    * printed into a prompt. Absent means every connector the person has.
    */
   readonly connectors?: readonly string[]
+  /** Its own browser sign-ins, when it has them on (0.839). Host-only, never printed into a prompt. */
+  readonly browserProfile?: BrowserProfile
   /** Why the worktree could not be made, when the teammate asked for one. */
   readonly worktreeRefused?: string
   /**
