@@ -84,6 +84,9 @@ import { createFileArrivals, POLL_MS } from './routine-file-watch.js'
 import { createRoutineHooks, ROUTINE_HOOKS_FILE, type HookRelay } from './routine-hooks.js'
 import { ROUTINE_HOOK_READ, ROUTINE_HOOK_NEW } from '../shared/routine-hook.js'
 import { enforcedAnswer, ruleCandidateOf, ruledActionOf, ruleRefusalFor, ruleSentence } from '../shared/approval-rules.js'
+import { exactLine } from '../shared/approval-data.js'
+import { plainCommand } from '../shared/command-plain.js'
+import { scrubSecrets } from '../shared/secrets.js'
 import { createRunAlways, decide } from '../shared/who-decides.js'
 import { judgeAnswerText, judgePrompt } from './compare-judge.js'
 import { keepOutOfGit } from './attachments-for-run.js'
@@ -10187,7 +10190,13 @@ if (!ownsSingleInstanceLock) {
       state: async () => ({
         waiting: await Promise.all(raisedApprovals.waiting().map(async ({ request, teammateId }) => {
           const name = await scoutNameOf(teammateId)
-          return { approvalId: request.approvalId, missionId: request.missionId, summary: request.summary, requestedAt: request.requestedAt, ...(name === undefined ? {} : { name }) }
+          // What is allowed is said here as in the chat apps (0.840): "Run a command" alone was Allow once on nothing.
+          const exact = request.kind === 'question' ? undefined : exactLine(request)
+          const plain = request.kind === 'command' ? plainCommand(request.detail) : undefined
+          return {
+            approvalId: request.approvalId, missionId: request.missionId, summary: request.summary, requestedAt: request.requestedAt, ...(name === undefined ? {} : { name }),
+            ...(exact === undefined ? {} : { exact }), ...(plain === undefined ? {} : { plain: { said: scrubSecrets(plain.said).text, careful: plain.careful } })
+          }
         })),
         conversations: (await phoneHistory()).list,
         scout: phoneScoutCards((await keptScout.state().catch(() => undefined))?.cards ?? [])

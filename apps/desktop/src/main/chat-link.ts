@@ -9,6 +9,8 @@ import type { MissionApprovalAnswer, MissionApprovalRequest } from '../shared/ip
 import { joinMessageFragments } from '../shared/messageFragments.js'
 import { unwrapProtocolTags } from '../shared/protocolTags.js'
 import { scrubSecrets } from '../shared/secrets.js'
+import { exactLine } from '../shared/approval-data.js'
+import { plainCommand } from '../shared/command-plain.js'
 import { privateMcpFile } from './locust-mcp-host.js'
 import type { SecretBox } from './own-models.js'
 import { replaceFile } from './replace-file.js'
@@ -583,11 +585,12 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
        * WHAT IS ALLOWED IS SAID (0.837). A Claude Code card's summary is the kind of action -- "Change 1 file", "Run a
        * command" -- and its exact file or command is the detail, so Allow once here was pressed on words that said
        * neither (drive-what-needs-you-reaches-your-chat, 2026-10-26). The detail's first line goes with it, cut short,
-       * anything shaped like a key taken out; the whole of it stays in Locust.
+       * anything shaped like a key taken out; the whole of it stays in Locust. A command Locust can read says what it
+       * is for, too (0.840, shared/command-plain.ts).
        */
-      const exact = typeof request.detail === 'string' ? request.detail.split('\n').find((line) => line.trim().length > 0)?.trim() : undefined
-      const shown = exact === undefined || request.summary.includes(exact) ? undefined : scrubSecrets(exact.length > 200 ? `${exact.slice(0, 200)}…` : exact).text
-      text = `${bold(`${who} needs your approval`)}\n${escape(scrubSecrets(request.summary).text)}${shown === undefined ? '' : `\n${escape(shown)}`}\n\n${italic('The whole of it is in Locust on your computer.')}`
+      const shown = exactLine(request)
+      const plain = request.kind === 'command' ? plainCommand(request.detail) : undefined
+      text = `${bold(`${who} needs your approval`)}\n${escape(scrubSecrets(request.summary).text)}${shown === undefined ? '' : `\n${escape(shown)}`}${plain === undefined ? '' : `\n${escape(scrubSecrets(plain.said).text)}`}\n\n${italic('The whole of it is in Locust on your computer.')}`
       buttons = [[{ label: 'Allow once', data: `y:${key}`, style: 'allow' }, { label: 'Deny', data: `n:${key}`, style: 'deny' }]]
     }
     const messageId = await send(text, buttons.length === 0 ? {} : { buttons })

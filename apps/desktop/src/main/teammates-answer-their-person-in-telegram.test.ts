@@ -281,6 +281,17 @@ describe('teammates answer their person in Telegram', () => {
     expect(self.telegram.state.answers.at(-1)!.text).toContain('already answered')
   })
 
+  it('says the exact command with what it is for, so Allow once is pressed on words that say it (0.840)', async () => {
+    const self = await paired()
+    self.telegram.say('/wren push the fix')
+    await self.telegram.until(() => self.started.length === 1, 5_000, 'the turn')
+    const request = card('appr_push', 'mission_1', { summary: 'Run a command', detail: 'git push --force origin main' })
+    self.waiting = [{ request, teammateId: 'mate_wren' }]
+    self.link.cardRaised(request, 'Wren')
+    const posted = await self.telegram.until((state) => state.sent.find((one) => one.text.startsWith('Wren needs your approval')), 5_000, 'the card')
+    expect(posted.text).toContain('Run a command\ngit push --force origin main\nReplaces main on origin with this computer’s version: commits there that are not on this computer are lost.')
+  })
+
   it('tells the person here what needs them from any run, once they turn it on (0.837)', async () => {
     const self = await paired()
     const request = card('appr_away', 'mission_window')

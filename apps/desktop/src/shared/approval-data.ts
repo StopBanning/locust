@@ -1,3 +1,5 @@
+import { scrubSecrets } from './secrets.js'
+
 /**
  * What would leave this machine, said only where it can be known.
  *
@@ -111,6 +113,18 @@ export function commandEffectsUnknown(request: { readonly kind: string; readonly
 
 /** What a connector does cannot be undone from here: said on every card that asks for one (0.749, a call's card too). */
 export const CONNECTOR_NOT_UNDOABLE = 'Unknown — a connector acts on the service it reaches, and Locust cannot undo what happens there.'
+
+/**
+ * THE EXACT ACTION, ON A SMALL SCREEN (0.837 in the chat apps, 0.840 on the phone). A card's summary is the kind of
+ * action -- "Change 1 file", "Run a command" -- and its exact file or command is the detail, so a card answered away
+ * from the window said neither. The detail's first line goes with it, cut short, anything shaped like a key taken
+ * out; undefined when the summary already says it.
+ */
+export function exactLine(request: { readonly summary: string; readonly detail: string }): string | undefined {
+  const exact = typeof request.detail === 'string' ? request.detail.split('\n').find((line) => line.trim().length > 0)?.trim() : undefined
+  if (exact === undefined || request.summary.includes(exact)) return undefined
+  return scrubSecrets(exact.length > 200 ? `${exact.slice(0, 200)}…` : exact).text
+}
 
 export const COMMAND_EFFECTS_UNKNOWN = 'Unknown. Locust cannot tell what a command sends or undo what it does; it can do anything the sandbox allows.'
 

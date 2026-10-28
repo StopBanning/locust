@@ -392,7 +392,7 @@ export function tokens(text: string): string[] {
 }
 
 /** The text inside `( ... )` wrapping a whole part, each `$( ... )`, and each backtick span: commands that run. */
-function innerCommands(text: string): string[] {
+export function innerCommands(text: string): string[] {
   const found: string[] = []
   const trimmed = text.trim()
   const close = (from: number): number => {
@@ -416,7 +416,7 @@ function innerCommands(text: string): string[] {
 }
 
 /** Drops what runs the command rather than being it: `sudo`, `&`, `env X=1`, `timeout 10`, `nice -n 5`, `do`. */
-function commandWords(words: readonly string[]): string[] {
+export function commandWords(words: readonly string[]): string[] {
   let at = 0
   while (at < words.length) {
     const word = words[at]!
@@ -449,7 +449,7 @@ function commandWords(words: readonly string[]): string[] {
 }
 
 /** The command inside `powershell -Command`, `cmd /c` or `bash -c`, if this is one. */
-function wrapped(words: readonly string[]): string | undefined {
+export function wrapped(words: readonly string[]): string | undefined {
   const name = programName(words[0]!)
   const args = words.slice(1)
   if (name === 'powershell' || name === 'pwsh') {
@@ -486,7 +486,7 @@ function decodeUtf16Base64(text: string): string | undefined {
 }
 
 /** `C:\Windows\System32\taskkill.exe` and `/usr/bin/pkill` as `taskkill` and `pkill`. */
-function programName(word: string): string {
+export function programName(word: string): string {
   const base = word.split(/[\\/]/).pop() ?? word
   return base.toLowerCase().replace(/\.(exe|cmd|bat|ps1)$/, '')
 }

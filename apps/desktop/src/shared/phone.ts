@@ -118,6 +118,10 @@ export interface PhoneWaiting {
   readonly summary: string
   readonly requestedAt: string
   readonly name?: string
+  /** The exact command or file, one line, keys taken out (0.840): the summary alone was "Run a command". */
+  readonly exact?: string
+  /** What the command is for, when Locust can read all of it (0.840, shared/command-plain.ts). */
+  readonly plain?: { readonly said: string; readonly careful: boolean }
 }
 
 export interface PhoneConversation {

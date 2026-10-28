@@ -34,6 +34,9 @@ h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: 
 .card[data-note="waiting"] .who { color: var(--muted); }
 .card[data-note="old"], .card[data-note="gone"], .card[data-note="failed"] { border-color: rgba(233,185,73,0.35); }
 .what { white-space: pre-wrap; word-break: break-word; font-size: 15px; }
+.exact { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; color: var(--soft); word-break: break-all; }
+.plain { font-size: 14px; }
+.plain[data-careful] { color: var(--amber); }
 .row { display: flex; gap: 10px; }
 button.act, a.act { flex: 1; min-height: 44px; border-radius: 10px; font: inherit; font-weight: 600; border: 1px solid var(--line); }
 a.act { display: flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
@@ -778,7 +781,10 @@ const UI = `
       });
     });
     card.append(el('div', { class: 'who', text: (item.name ? item.name + ' asks' : 'An agent asks') + ' · ' + when(item.requestedAt) }),
-      el('div', { class: 'what', text: item.summary }), el('div', { class: 'row' }, buttons));
+      el('div', { class: 'what', text: item.summary }),
+      item.exact ? el('div', { class: 'exact', text: item.exact }) : null,
+      item.plain ? el('div', { class: 'plain', 'data-careful': item.plain.careful === true, text: item.plain.said }) : null,
+      el('div', { class: 'row' }, buttons));
     return card;
   }
   function listScreen() {

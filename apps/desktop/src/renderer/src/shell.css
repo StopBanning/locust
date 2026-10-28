@@ -14882,6 +14882,11 @@ textarea.lc-compare__judgecriteria {
   color: var(--lc-amber-text);
 }
 
+/* What a command is for (0.840): amber when it deletes, forces or throws work away, as a reach is. */
+.lc-receipt dd.lc-approval__plain[data-careful] {
+  color: var(--lc-amber-text);
+}
+
 .lc-approval__actions {
   display: flex;
   flex-wrap: wrap;

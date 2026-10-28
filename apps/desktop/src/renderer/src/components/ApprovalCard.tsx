@@ -5,6 +5,7 @@ import type { MissionApprovalDecision, MissionApprovalRequest, MissionQuestion }
 import { runtimeDisplayName } from '../../../shared/runtimes.js'
 import { COMMAND_EFFECTS_UNKNOWN, CONNECTOR_NOT_UNDOABLE, commandEffectsUnknown, dataSentLine } from '../../../shared/approval-data.js'
 import { commandReach } from '../../../shared/command-reach.js'
+import { plainCommand } from '../../../shared/command-plain.js'
 import { CommandText } from './CommandText.js'
 import { Icon } from './Icon.js'
 import { RuntimeMark } from './RuntimeMark.js'
@@ -326,6 +327,8 @@ export function ApprovalCard({
   // arena's `taskkill //F //IM python.exe` stops every Python on the computer,
   // and the card said only "Run a command". See shared/command-reach.ts.
   const reach = request.kind === 'command' ? commandReach(request.detail) : undefined
+  // What the command is for, in a sentence, when every part of it is one Locust can read (0.840, shared/command-plain.ts).
+  const plain = request.kind === 'command' ? plainCommand(request.detail) : undefined
   // Both rows would say Unknown: one row says it once (0.735, shared/approval-data.ts).
   const effectsUnknown = commandEffectsUnknown(request)
 
@@ -389,6 +392,12 @@ export function ApprovalCard({
           <>
             <dt>{isQuestion ? 'Question' : 'Exact'}</dt>
             <dd className="lc-mono lc-approval__detail">{request.kind === 'command' ? <CommandText text={request.detail} /> : request.detail}</dd>
+          </>
+        )}
+        {plain !== undefined && (
+          <>
+            <dt>In short</dt>
+            <dd className="lc-approval__plain" {...(plain.careful ? { 'data-careful': 'true' } : {})}>{plain.said}</dd>
           </>
         )}
         {reach !== undefined && (
