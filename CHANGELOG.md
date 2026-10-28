@@ -12,6 +12,7 @@ about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
 ## 0.839.0 - 2026-10-28
+<!-- big -->
 
 ### New
 
