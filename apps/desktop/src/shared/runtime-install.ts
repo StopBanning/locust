@@ -178,9 +178,16 @@ export function installSentence(runtime: string, displayName: string): string {
   // "Then run codex..." read as a dangling clause when the command sits on the
   // line below rather than in the sentence (drive, 2026-09-06). The sentence
   // has to stand on its own and point at what follows it.
+  //
+  // NO TERMINAL IN IT (0.840, the clean-machine drive of 2026-10-28). It told a
+  // person with nothing installed to "run codex once to sign in", when the row
+  // offers Sign in as a button once the agent is there (SignInButton), and it
+  // told Kilo's free model, which needs no account, to sign in first.
   const after = facts.signIn === undefined
-    ? 'Press Install -- no account and no sign-in; its free model runs as soon as it is there.'
-    : `Press Install, then run ${facts.signIn} once to sign in with ${facts.account ?? 'your account'}.`
+    ? 'Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there.'
+    : facts.signInOptional === true
+      ? `Press Install. Its free model needs no account; run ${facts.signIn} only for a paid model.`
+      : `Press Install, then Sign in. It needs ${facts.account ?? 'an account'}.`
   return `${displayName} was not found on this machine. ${after}`
 }
 

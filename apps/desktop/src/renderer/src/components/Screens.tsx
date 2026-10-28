@@ -2299,8 +2299,8 @@ export function SettingsScreen({
           */}
           {runtimes.length > 0 && !runtimes.some((runtime) => runtime.installed) && (
             <p className="lc-settings__lede lc-settings__lede--start">
-              None of these are on this machine yet. The quickest start is <b>OpenCode</b>: one command, no
-              account, and its free model runs as soon as it is installed. The others below are worth adding
+              None of these are on this machine yet. The quickest start is <b>OpenCode</b>: press its Install, no
+              account, and its free model runs as soon as it is there. The others below are worth adding
               when you want a stronger model, and each needs its own sign-in.
             </p>
           )}
@@ -2374,7 +2374,11 @@ export function SettingsScreen({
                         </ul>
                       </div>
                     )}
-                    {status.tag === 'NOT INSTALLED' && installCommand(runtime.id) !== undefined && (
+                    {/*
+                      * The npm line only where the row's Install cannot run it (0.840): a person on a machine with
+                      * nothing installed was shown a terminal command, with Copy, beside a button that does it.
+                      */}
+                    {status.tag === 'NOT INSTALLED' && installCommand(runtime.id) !== undefined && (onInstall === undefined || npmMissing === true) && (
                       <InstallCommand command={installCommand(runtime.id)!} />
                     )}
                     {installing === runtime.id && installLine !== undefined && (

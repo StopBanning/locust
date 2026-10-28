@@ -41,10 +41,18 @@ describe('what a person has to do to get a runtime', () => {
     // The one that needs nothing says so, because it is the fastest way from
     // "nothing works" to "one teammate works".
     expect(installSentence('opencode', 'OpenCode')).toBe(
-      'OpenCode was not found on this machine. Press Install -- no account and no sign-in; its free model runs as soon as it is there.'
+      'OpenCode was not found on this machine. Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there.'
     )
+    // Sign in is a button on the row once the agent is there: no terminal is named (0.840).
     expect(installSentence('claude', 'Claude Code')).toBe(
-      'Claude Code was not found on this machine. Press Install, then run claude once to sign in with an Anthropic account.'
+      'Claude Code was not found on this machine. Press Install, then Sign in. It needs an Anthropic account.'
+    )
+    expect(installSentence('copilot', 'Copilot CLI')).toBe(
+      'Copilot CLI was not found on this machine. Press Install, then Sign in. It needs a GitHub Copilot subscription.'
+    )
+    // Kilo's free model needs no account, so it is not told to sign in first.
+    expect(installSentence('kilo', 'Kilo')).toBe(
+      'Kilo was not found on this machine. Press Install. Its free model needs no account; run kilo auth login only for a paid model.'
     )
     expect(installSentence('cursor', 'Cursor Agent')).toBe(
       'Cursor Agent was not found on this machine. It installs from https://cursor.com/cli.'
