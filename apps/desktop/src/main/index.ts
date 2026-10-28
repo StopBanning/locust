@@ -23,7 +23,7 @@ import { ownGitArgs } from './git-guard.js'
 import { APP_USER_MODEL_ID, DEVELOPMENT_APP_USER_MODEL_ID, mayShowToasts, repairStartMenuShortcut, sweepStaleElectronShortcuts } from './stale-shortcut.js'
 import { openingPlacement, readSavedWindow } from './window-bounds.js'
 import type { SavedWindow } from './window-bounds.js'
-import { app, BrowserWindow, clipboard, crashReporter, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerSaveBlocker, protocol, safeStorage, screen, session, shell, Tray } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, powerSaveBlocker, protocol, safeStorage, screen, session, shell, Tray } from 'electron'
 import { createVoiceHost } from './voice-host.js'
 import { voicePermission } from './voice-permission.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from '../shared/voice.js'
@@ -190,7 +190,7 @@ import { attentionDot, needsYouCountFrom, taskbarAttention } from './taskbar-att
 import { CLOSE_BUTTONS, closeQuestion, hideToTrayOnClose, shouldAskBeforeClosing, trayLine, trayMenuLabels } from './quit-guard.js'
 import { BACKGROUND_ARG, createLoginItem } from './login-item.js'
 import { nextRoutineDueLine } from '../shared/routine-schedule.js'
-import { BACKGROUND_FILE, readKeepRunning, writeKeepRunning } from './keep-running.js'
+import { AWAKE_FILE, BACKGROUND_FILE, readKeepRunning, readStayAwake, writeKeepRunning, writeStayAwake } from './keep-running.js'
 import { AWAY_FILE, readAttentionMark, writeAttentionMark } from './away.js'
 import { awayCountsFrom, awayLine, wasAway } from '../shared/away.js'
 import type { AwaySummaryCounts } from '../shared/away.js'
@@ -344,6 +344,8 @@ import {
   APP_UPDATE_LANE_CHANNEL,
   KEEP_RUNNING_GET_CHANNEL,
   KEEP_RUNNING_SET_CHANNEL,
+  STAY_AWAKE_GET_CHANNEL,
+  STAY_AWAKE_SET_CHANNEL,
   LOGIN_ITEM_GET_CHANNEL,
   LOGIN_ITEM_SET_CHANNEL,
   APP_UPDATE_STATE_CHANNEL,
@@ -3024,9 +3026,34 @@ if (!ownsSingleInstanceLock) {
       start: () => powerSaveBlocker.start('prevent-app-suspension'),
       stop: (id) => powerSaveBlocker.stop(id)
     })
-    const awakeBeat = setInterval(() => {
-      keepAwake.update(codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length)
-    }, KEEP_AWAKE_BEAT_MS)
+    // 0.838: plugged in, and asked to, it also stays awake with nothing running, so a routine or Scout's look comes on time.
+    let stayAwake = readStayAwake(join(app.getPath('userData'), AWAKE_FILE))
+    const pluggedIn = (): boolean => {
+      try {
+        return !powerMonitor.isOnBatteryPower()
+      } catch {
+        return false
+      }
+    }
+    const awakeNow = (): void => {
+      keepAwake.update(codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length, stayAwake && pluggedIn())
+    }
+    const awakeBeat = setInterval(awakeNow, KEEP_AWAKE_BEAT_MS)
+    ipcMain.handle(STAY_AWAKE_GET_CHANNEL, (event) => {
+      if (!fromOwnWindow(event)) return { stayAwake: false }
+      return { stayAwake }
+    })
+    ipcMain.handle(STAY_AWAKE_SET_CHANNEL, (event, next: unknown) => {
+      if (!fromOwnWindow(event) || typeof next !== 'boolean') return { stayAwake }
+      try {
+        writeStayAwake(join(app.getPath('userData'), AWAKE_FILE), next)
+      } catch {
+        // Kept for this run; the next start reads it as off.
+      }
+      stayAwake = next
+      awakeNow()
+      return { stayAwake }
+    })
     awakeBeat.unref()
     app.once('will-quit', () => {
       clearInterval(awakeBeat)

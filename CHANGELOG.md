@@ -18,6 +18,7 @@ heading: the home screen then shows it once, as a splash.
 
 - **Your /locust comments are picked up within a minute.** With Scout on, Locust reads your own comments on the folder's GitHub repository every minute instead of waiting for Scout's next look, ten minutes to an hour away. A minute with nothing new asks no AI. A new ask starts Scout's look at once, and its card comes as it always has.
 - **A /locust comment reaches your phone while your computer is off.** With Look while my computer is off on, the workflow in your repository also runs when a comment is written. Yours, starting a line with /locust, goes to your phone at once, sealed so the relay cannot read it, and rings it unless it is quiet hours. Anyone else's comment ends the run. When Locust is open again, your ask becomes its card for a teammate. A repository that already has the away look is offered the newer one: Update it, under Look while my computer is off, opens the pull request.
+- **Plugged in, your computer can stay awake for routines and Scout.** In Settings > General, under Startup, turn on Keep this computer awake while it is plugged in. A routine set for 7:00, or Scout’s next look, used to wait for a computer that went to sleep at 1:00. Only the sleep that comes when nobody uses it is held off: the screen still turns off, Sleep and closing the lid work as always, and on battery it sleeps as usual. Off until you turn it on.
 
 ## 0.837.0 - 2026-10-27
 <!-- big -->

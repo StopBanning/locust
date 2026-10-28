@@ -20,7 +20,7 @@ const app = read('../renderer/src/App.tsx')
 describe('the app says when a teammate is done', () => {
   it('holds the SYSTEM awake while any run is live, in either transport -- never the display', () => {
     expect(main).toContain("start: () => powerSaveBlocker.start('prevent-app-suspension')")
-    expect(main).toContain('keepAwake.update(codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length)')
+    expect(main).toContain('keepAwake.update(codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length, stayAwake && pluggedIn())')
     expect(main).not.toContain("'prevent-display-sleep'")
   })
 

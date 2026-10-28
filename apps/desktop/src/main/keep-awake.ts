@@ -14,6 +14,13 @@
  * without a hook in each.
  *
  * The decision is pure; the Electron call is injected.
+ *
+ * PLUGGED IN, IT CAN STAY AWAKE FOR WHAT IS SCHEDULED (0.838). A routine at
+ * 7:00 or Scout's next look never comes on a computer that slept at 1:00.
+ * With Keep this computer awake while it is plugged in on, the host also
+ * holds while the computer is on power, with nothing running. On battery it
+ * holds only for live runs, as before. OpenBot has the same switch (read
+ * 2026-10-27); the system may still sleep when someone asks it to.
  */
 
 export interface PowerBlocker {
@@ -23,8 +30,8 @@ export interface PowerBlocker {
 }
 
 export interface KeepAwake {
-  /** How many runs are live now. Holds or releases to match. */
-  update(liveRuns: number): void
+  /** How many runs are live now, and whether to hold with none (plugged in and asked to). Holds or releases to match. */
+  update(liveRuns: number, standing?: boolean): void
   /** Whether the machine is being held awake. */
   readonly holding: boolean
   /** Release for good (the app is quitting). */
@@ -45,9 +52,10 @@ export function createKeepAwake(blocker: PowerBlocker): KeepAwake {
     }
   }
   return {
-    update(liveRuns) {
+    update(liveRuns, standing = false) {
       if (disposed) return
-      if (liveRuns > 0 && hold === undefined) {
+      const wanted = liveRuns > 0 || standing
+      if (wanted && hold === undefined) {
         try {
           hold = blocker.start()
         } catch {
@@ -55,7 +63,7 @@ export function createKeepAwake(blocker: PowerBlocker): KeepAwake {
           // the run itself is unaffected, and the next beat tries again.
           hold = undefined
         }
-      } else if (liveRuns <= 0) {
+      } else if (!wanted) {
         release()
       }
     },

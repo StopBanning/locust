@@ -2391,11 +2391,13 @@ export default function App(): ReactElement {
   const [runtimeUpdates, setRuntimeUpdates] = useState<RuntimeUpdatesState>()
   const [loginItem, setLoginItem] = useState<LoginItemState>({ openAtLogin: false, available: false })
   const [keepRunning, setKeepRunning] = useState(false)
+  const [stayAwake, setStayAwake] = useState(false)
   const readStartup = (): void => {
     const bridge = window.desktop
     if (bridge === undefined) return
     void bridge.readLoginItem().then(setLoginItem).catch(() => undefined)
     void bridge.readKeepRunning().then((state: KeepRunningState) => setKeepRunning(state.keepRunning)).catch(() => undefined)
+    void bridge.readStayAwake().then((state) => setStayAwake(state.stayAwake)).catch(() => undefined)
   }
   useEffect(() => { readStartup() }, [])
   useEffect(() => {
@@ -9541,6 +9543,11 @@ export default function App(): ReactElement {
               onKeepRunningChange={(next) => {
                 setKeepRunning(next)
                 void window.desktop?.setKeepRunning(next).then((state) => setKeepRunning(state.keepRunning)).catch(() => setKeepRunning(!next))
+              }}
+              stayAwake={stayAwake}
+              onStayAwakeChange={(next) => {
+                setStayAwake(next)
+                void window.desktop?.setStayAwake(next).then((state) => setStayAwake(state.stayAwake)).catch(() => setStayAwake(!next))
               }}
               relay={relay}
               swarm={swarm}

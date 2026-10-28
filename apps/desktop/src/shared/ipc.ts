@@ -370,6 +370,9 @@ export const LOGIN_ITEM_SET_CHANNEL = 'login-item:set'
 /** Keep the process up when the window closes. Off unless the person turned it on. */
 export const KEEP_RUNNING_GET_CHANNEL = 'keep-running:get'
 export const KEEP_RUNNING_SET_CHANNEL = 'keep-running:set'
+/** Keep the computer awake while it is plugged in (0.838). Off unless the person turned it on. */
+export const STAY_AWAKE_GET_CHANNEL = 'stay-awake:get'
+export const STAY_AWAKE_SET_CHANNEL = 'stay-awake:set'
 
 export interface LoginItemState {
   readonly openAtLogin: boolean
@@ -381,6 +384,10 @@ export interface LoginItemState {
 
 export interface KeepRunningState {
   readonly keepRunning: boolean
+}
+
+export interface StayAwakeState {
+  readonly stayAwake: boolean
 }
 export const MISSION_PRUNE_CHANNEL = 'mission:prune'
 export const MISSION_TRASH_LIST_CHANNEL = 'mission:trash:list'
@@ -3807,6 +3814,8 @@ export interface DesktopApi {
   setLoginItem(openAtLogin: boolean): Promise<LoginItemState>
   readKeepRunning(): Promise<KeepRunningState>
   setKeepRunning(keepRunning: boolean): Promise<KeepRunningState>
+  readStayAwake(): Promise<StayAwakeState>
+  setStayAwake(stayAwake: boolean): Promise<StayAwakeState>
   /** The theme this window was started in, read from its own command line: no flash on the way in (0.789). */
   readonly initialTheme: 'dark' | 'light'
   readAppearance(): Promise<AppearanceState>

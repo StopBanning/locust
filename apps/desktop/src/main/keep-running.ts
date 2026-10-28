@@ -27,6 +27,29 @@ export function readKeepRunning(file: string): boolean {
   }
 }
 
+/**
+ * Keep this computer awake while it is plugged in (0.838), so routines and
+ * Scout's looks run on time. Off unless the person turned it on, read the
+ * same way: anything but `true` is off.
+ */
+export const AWAKE_FILE = 'awake.json'
+
+export function readStayAwake(file: string): boolean {
+  try {
+    const value: unknown = JSON.parse(readFileSync(file, 'utf8'))
+    return typeof value === 'object' && value !== null && (value as { readonly stayAwake?: unknown }).stayAwake === true
+  } catch {
+    return false
+  }
+}
+
+export function writeStayAwake(file: string, stayAwake: boolean): void {
+  mkdirSync(dirname(file), { recursive: true })
+  const temporary = `${file}.tmp`
+  writeFileSync(temporary, `${JSON.stringify({ stayAwake })}\n`, 'utf8')
+  renameSync(temporary, file)
+}
+
 export function writeKeepRunning(file: string, keepRunning: boolean): void {
   mkdirSync(dirname(file), { recursive: true })
   // Whole or absent (0.587): written beside, then renamed over, as the other stores do.

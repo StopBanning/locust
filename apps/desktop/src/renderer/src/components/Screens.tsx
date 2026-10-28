@@ -1680,6 +1680,8 @@ export function SettingsScreen({
   onGeneralOpen,
   keepRunning = false,
   onKeepRunningChange,
+  stayAwake = false,
+  onStayAwakeChange,
   relay,
   onRelayChange,
   interrupt,
@@ -1806,6 +1808,9 @@ export function SettingsScreen({
   /** Keep Locust running when the window is closed. Off unless the person turned it on. */
   readonly keepRunning?: boolean
   readonly onKeepRunningChange?: (keepRunning: boolean) => void
+  /** Keep the computer awake while it is plugged in, so routines and Scout run on time (0.838). */
+  readonly stayAwake?: boolean
+  readonly onStayAwakeChange?: (stayAwake: boolean) => void
   /** Whether teammates start runs to answer each other. */
   readonly relay: boolean
   readonly onRelayChange: (relay: boolean) => void
@@ -3486,7 +3491,26 @@ export function SettingsScreen({
                 <span className="lc-switch__knob" />
               </button>
             </div>
+            <div className="lc-settingrow">
+              <span className="lc-settings__note">Keep this computer awake while it is plugged in, so routines and Scout run on time.</span>
+              <button
+                type="button"
+                className={`lc-switch${stayAwake ? ' is-on' : ''}`}
+                role="switch"
+                aria-checked={stayAwake}
+                aria-label="Keep this computer awake while it is plugged in, so routines and Scout run on time."
+                onClick={() => onStayAwakeChange?.(stayAwake !== true)}
+              >
+                <span className="lc-switch__knob" />
+              </button>
+            </div>
           </div>
+          {stayAwake && (
+            <p className="lc-settings__note">
+              Only the sleep that comes when nobody uses it is held off, while Locust is open. The screen still turns off,
+              and Sleep and closing the lid work as they always do. On battery it sleeps as usual.
+            </p>
+          )}
           {loginItem.available !== true && (
             <p className="lc-settings__note">
               {loginItem.why === 'platform' ? 'Windows only for now.' : 'Only the installed app can sign in with Windows. A development copy would register Electron.'}
