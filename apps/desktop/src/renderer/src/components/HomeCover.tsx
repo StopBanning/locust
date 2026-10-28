@@ -139,6 +139,31 @@ export function homeIsShort(sections: number, count: number, footprint: number, 
   return sections + footprint * coverFloor(footprint) + HOME_GAP * Math.max(0, count - 1) + HOME_PAD * 2 > paneHeight + 0.5
 }
 
+/** What Home has seen of its sections' spacing, for one count of sections. */
+export interface HomeSpacingSeen {
+  readonly count: number
+  /** The sections' height last measured at the normal spacing. */
+  readonly loose?: number
+  /** How much tight spacing took off them, measured as it went tight. */
+  readonly took?: number
+  readonly wasTight?: boolean
+}
+
+/**
+ * THE SECTIONS AT THE NORMAL SPACING, EVEN WHILE TIGHT (0.838). Tight spacing also tightens the sections themselves
+ * (the accounts block, the cards, the starters: 0.714, 0.799), so measured while tight they read shorter, that argued
+ * for loosening, loosening grew them back, and Home flicked every frame (Colin, 2026-10-27: "twitchy home screen bug
+ * is back"; six teammates from 882px tall, three at 766px, drive-home-holds-still --team). While tight, what the
+ * spacing took is added back, measured the moment it went tight; content that grows or shrinks while tight counts in
+ * full. A new count of sections starts over.
+ */
+export function sectionsAtNormalSpacing(seen: HomeSpacingSeen, count: number, sections: number, tightNow: boolean): { readonly seen: HomeSpacingSeen; readonly sections: number } {
+  const base: HomeSpacingSeen = seen.count === count ? seen : { count }
+  if (!tightNow) return { seen: { count, loose: sections, ...(base.took === undefined ? {} : { took: base.took }), wasTight: false }, sections }
+  const took = base.wasTight === false && base.loose !== undefined ? Math.max(0, base.loose - sections) : base.took
+  return { seen: { count, ...(base.loose === undefined ? {} : { loose: base.loose }), ...(took === undefined ? {} : { took }), wasTight: true }, sections: sections + (took ?? 0) }
+}
+
 /**
  * THE SMALLEST COVER IS ONE SIZE (0.799), whatever the column's width: the drawing COVER_MIN_GROW makes of the
  * narrowest column's card. The floor was 0.85 of the cover at ITS width, so a wider window kept a bigger smallest

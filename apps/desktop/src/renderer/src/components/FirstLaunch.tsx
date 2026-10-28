@@ -4,7 +4,7 @@ import type { ReactElement, ReactNode } from 'react'
 import type { PublicRuntimeStatus, TubePreference } from '../../../shared/ipc.js'
 import { connectedRuntimeCount, deferredOthersSentence, integrationOf, routeRowStatus, runtimeIsUsable } from '../status.js'
 import { FREE_START_RUNTIME, installCommand, installSentence, runtimeInstallFacts, signInCommand } from '../../../shared/runtime-install.js'
-import { COVER_HEIGHT, COVER_REACH, HomeCover, coverGrowFor, coverRoomFor, coverScale, homeIsShort } from './HomeCover.js'
+import { COVER_HEIGHT, COVER_REACH, HomeCover, coverGrowFor, coverRoomFor, coverScale, homeIsShort, sectionsAtNormalSpacing, type HomeSpacingSeen } from './HomeCover.js'
 import { HomeTeam } from './HomeTeam.js'
 import { AwayList } from './AwayList.js'
 import type { AwaySummary } from '../../../shared/away.js'
@@ -360,6 +360,8 @@ export function FirstLaunch({
   const [coverGrow, setCoverGrow] = useState(1)
   // Short of height even with the smallest cover: tighter padding and gaps (0.583, `homeIsShort`).
   const [tight, setTight] = useState(false)
+  // The sections' height at each spacing, for one count of sections (0.838, `sectionsAtNormalSpacing`).
+  const spacing = useRef<HomeSpacingSeen>({ count: -1 })
   useEffect(() => {
     const paneEl = pane.current
     const innerEl = inner.current
@@ -392,7 +394,10 @@ export function FirstLaunch({
         }, 0)
         + (parseFloat(column.paddingTop) || 0) + (parseFloat(column.paddingBottom) || 0)
       const others = sections + gap * Math.max(0, children.length - 1)
-      setTight(homeIsShort(sections, children.length, base, paneEl.clientHeight))
+      // Decided at the normal spacing, even while tight (0.838, `sectionsAtNormalSpacing`).
+      const normal = sectionsAtNormalSpacing(spacing.current, children.length, sections, paneEl.classList.contains('is-tight'))
+      spacing.current = normal.seen
+      setTight(homeIsShort(normal.sections, children.length, base, paneEl.clientHeight))
       setCoverGrow(coverGrowFor(coverRoomFor(usable, others, base), base))
     }
     measure()

@@ -20,6 +20,10 @@ heading: the home screen then shows it once, as a splash.
 - **A /locust comment reaches your phone while your computer is off.** With Look while my computer is off on, the workflow in your repository also runs when a comment is written. Yours, starting a line with /locust, goes to your phone at once, sealed so the relay cannot read it, and rings it unless it is quiet hours. Anyone else's comment ends the run. When Locust is open again, your ask becomes its card for a teammate. A repository that already has the away look is offered the newer one: Update it, under Look while my computer is off, opens the pull request.
 - **Plugged in, your computer can stay awake for routines and Scout.** In Settings > General, under Startup, turn on Keep this computer awake while it is plugged in. A routine set for 7:00, or Scout’s next look, used to wait for a computer that went to sleep at 1:00. Only the sleep that comes when nobody uses it is held off: the screen still turns off, Sleep and closing the lid work as always, and on battery it sleeps as usual. Off until you turn it on.
 
+### Fixed
+
+- **Home holds still again.** On a window just short of room, Home flicked between two layouts many times a second: with six teammates from about 880 pixels tall, with three at about 766. Squeezing the spacing to fit also shortened the cards, which made it look as if there was room after all, so it let go, and then had to squeeze again. Home now judges the room at its normal spacing, so once it squeezes it stays put.
+
 ## 0.837.0 - 2026-10-27
 <!-- big -->
 
