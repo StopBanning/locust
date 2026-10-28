@@ -1,9 +1,9 @@
 import type { MissionLedger, RecoveredMission } from '@teammate/mission-store'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 
-import { carryOnPrompt, carryOnRefusal, planRanOut } from '../shared/carry-on.js'
+import { carryOnPrompt, carryOnReason, carryOnRefusal } from '../shared/carry-on.js'
 import type { MissionMode } from '../shared/ipc.js'
-import type { CarryOnResponse, CarryOnRoute, PlanRunsOut } from '../shared/carry-on.js'
+import type { CarryOnReason, CarryOnResponse, CarryOnRoute, PlanRunsOut } from '../shared/carry-on.js'
 import { runtimeDisplayName } from '../shared/runtimes.js'
 
 /**
@@ -17,6 +17,10 @@ import { runtimeDisplayName } from '../shared/runtimes.js'
  * Either way the new turn is a reply on another agent, which the mission service already knows how to do: it
  * reconciles the stopped turn, briefs the new agent with what was done and how it ended, and records the seam
  * (codex-mission.ts, the route switch). This only decides whether to, and says so when it does not.
+ *
+ * AND A PROVIDER THAT FAILED FIRST (0.839). A turn that stopped on a sign-in, provider or network error before it ran
+ * any tool is carried on the same two ways, to the same agent, since the person's pick is who takes over when an
+ * agent cannot go on (shared/carry-on.ts, providerFailedFirst).
  */
 
 export interface CarryOnStart {
@@ -49,10 +53,18 @@ export interface CarryOn {
   carried(missionId: string): boolean
 }
 
+/**
+ * Why a run that stopped can be carried on, if it can: its plan ran out, or its provider failed before it did
+ * anything. A run that finished or was stopped by the person is never carried on.
+ */
+export function stoppedFor(mission: Pick<RecoveredMission, 'phase' | 'events'>): CarryOnReason | undefined {
+  if (mission.phase === 'completed' || mission.phase === 'cancelled') return undefined
+  return carryOnReason(mission.events)
+}
+
 /** Whether a run ended on its account's usage limit: stopped, not finished, and its events say the plan ran out. */
 export function endedOnPlanLimit(mission: Pick<RecoveredMission, 'phase' | 'events'>): boolean {
-  if (mission.phase === 'completed' || mission.phase === 'cancelled') return false
-  return planRanOut(mission.events)
+  return stoppedFor(mission) === 'plan'
 }
 
 /** The mode the carried-on turn runs in: the stopped turn's own. A turn recorded before modes were is read by its sandbox. */
@@ -83,9 +95,10 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
       recovered = undefined
     }
     if (recovered === undefined) return { ok: false, message: 'This conversation is not in the record any more, so it cannot be carried on.' }
-    if (!endedOnPlanLimit(recovered)) return { ok: false, message: 'This turn did not stop on its plan running out, so there is nothing to carry on.' }
+    const reason = stoppedFor(recovered)
+    if (reason === undefined) return { ok: false, message: 'This turn did not stop on its plan running out or its provider failing, so there is nothing to carry on.' }
     const from = recovered.metadata.runtime
-    if (route.runtime === from) return { ok: false, message: `${runtimeDisplayName(from)} is the agent whose plan ran out.` }
+    if (route.runtime === from) return { ok: false, message: reason === 'plan' ? `${runtimeDisplayName(from)} is the agent whose plan ran out.` : `${runtimeDisplayName(from)} is the agent that just failed.` }
     const mode = modeOf(recovered)
     const refusal = carryOnRefusal(mode, route.runtime)
     if (refusal !== undefined) return { ok: false, message: refusal }
@@ -93,7 +106,7 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     remember(missionId)
     let response: CarryOnResponse
     try {
-      response = await options.start({ prompt: carryOnPrompt(from), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from })
+      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from })
     } catch {
       response = { ok: false, message: 'The turn could not be started. The work stays where it stopped.' }
     }
@@ -119,10 +132,16 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
       } catch {
         return
       }
-      if (recovered === undefined || !endedOnPlanLimit(recovered)) return
+      const reason = recovered === undefined ? undefined : stoppedFor(recovered)
+      if (recovered === undefined || reason === undefined) return
       const name = runtimeDisplayName(chosen.runtime)
       if (chosen.runtime === recovered.metadata.runtime) {
-        options.note(mission.missionId, `${name} is the agent picked to carry on when a plan runs out, and its own plan ran out, so nothing was carried on.`)
+        options.note(
+          mission.missionId,
+          reason === 'plan'
+            ? `${name} is the agent picked to carry on when a plan runs out, and its own plan ran out, so nothing was carried on.`
+            : `${name} is the agent picked to carry on, and it is the one whose provider failed, so nothing was carried on.`
+        )
         return
       }
       const result = await carry(mission.missionId, chosen)

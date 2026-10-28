@@ -74,7 +74,7 @@ import type {
 import { roleLabelOf } from '../../shared/ipc.js'
 import { addPagePoint, MAX_PAGE_POINTS, noteOnPagePoint, withoutPagePoint, type PagePointChip } from '../../shared/browser-point.js'
 import { isPanelRunKind } from '../../shared/panel-runs.js'
-import { carryOnOffer, planRanOut } from '../../shared/carry-on.js'
+import { carryOnOffer, carryOnReason, providerFailedFirst } from '../../shared/carry-on.js'
 import type { PlanRunsOut } from '../../shared/carry-on.js'
 import { withSuggestion } from '../../shared/about-you.js'
 import { aboutYouSecretRefusal, secretIn } from '../../shared/secrets.js'
@@ -3430,7 +3430,11 @@ export default function App(): ReactElement {
                     at: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
                     unsettledCount: switched.unsettledCount,
                     omittedBriefing: switched.omittedBriefing,
-                    ...(update.startedBy?.kind === 'carry-on' ? { carriedOn: true as const } : {})
+                    ...(update.startedBy?.kind === 'carry-on' ? { carriedOn: true as const } : {}),
+                    // Why, from the turn it carried on: its plan, or its provider failing first (0.839).
+                    ...(update.startedBy?.kind === 'carry-on' && providerFailedFirst([...current.values()].find((run) => run.data?.missionId === continues)?.events ?? historyByIdRef.current.get(continues ?? '')?.events ?? [])
+                      ? { carriedFor: 'provider' as const }
+                      : {})
                   }
                 })
           }
@@ -6416,10 +6420,11 @@ export default function App(): ReactElement {
     const chosen = planRunsOut?.runtime
     return chosen === undefined || listed.some((choice) => choice.runtime === chosen) ? listed : [...listed, { runtime: chosen, label: `${named(chosen)} (not ready)` }]
   })()
-  const carryOnShown = ((): { readonly label: string; readonly from: MissionRuntimeId; readonly busy: boolean; readonly refused?: string; readonly onPress: () => void } | undefined => {
+  const carryOnShown = ((): { readonly label: string; readonly from: MissionRuntimeId; readonly why: 'plan' | 'provider'; readonly busy: boolean; readonly refused?: string; readonly onPress: () => void } | undefined => {
     const shown = liveRun
     if (shown === undefined || shown.phase !== 'failed' || shown.data === undefined || limitOffer !== undefined) return undefined
-    if (!planRanOut(shown.events)) return undefined
+    const reason = carryOnReason(shown.events)
+    if (reason === undefined) return undefined
     const from = shown.data.runtime
     const route = carryOnOffer(from, planRunsOut, carryOnReady)
     if (route === undefined) return undefined
@@ -6428,6 +6433,7 @@ export default function App(): ReactElement {
     const busy = pressed !== undefined && pressed.refused === undefined
     return {
       from,
+      why: reason,
       label: `Carry on with ${route.model === undefined ? runtimeDisplayName(route.runtime) : modelDisplayName(route.runtime, route.model)}`,
       busy,
       ...(pressed?.refused === undefined ? {} : { refused: pressed.refused }),

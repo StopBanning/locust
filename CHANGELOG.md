@@ -15,6 +15,8 @@ heading: the home screen then shows it once, as a splash.
 
 ### Improved
 
+- **Carry on past a provider error, not only a used-up plan.** When a sign-in has expired, a provider is down or busy, or there is no network, and the turn stops before it has done anything, its card now offers Carry on with another agent, which does the task from the start. With an agent picked and Without asking on in Settings > AI agents & accounts, it goes on by itself. A turn that had already used a tool is never moved, so nothing is done twice. The section is now called When an agent cannot go on.
+
 - **Kilo installs from Locust, in one click.** Kilo's row on Home now has Install, as Claude Code, Codex, Copilot and OpenCode have, instead of a link to Kilo's page and npm lines to type into a terminal. Auto Free needs no Kilo account.
 
 - **A working conversation shimmers, as in Claude Code.** In the sidebar, a conversation or room that is working no longer turns a spark beside it: a soft light passes slowly through its title instead, in the window's own greys. With many chats going, the list stays calm. With reduced motion asked for in your system, the title simply stays bright while it works.

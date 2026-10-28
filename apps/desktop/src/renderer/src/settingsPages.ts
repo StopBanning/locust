@@ -198,7 +198,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     label: 'AI agents',
     group: 'Agents',
     icon: 'terminal',
-    headings: ['AI agents & accounts', 'What Locust can stop', 'When a plan runs out', 'Your own agents'],
+    headings: ['AI agents & accounts', 'What Locust can stop', 'When an agent cannot go on', 'Your own agents'],
     alsoKnownAs: {
       // "node" and "npm" are what a person types after the first screen has
       // just talked to them about Node. This is the page about the CLIs that
@@ -208,7 +208,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
       // Not 'approve', 'permission', 'ask first' or 'always': Teammates has those.
       'What Locust can stop': ['approval', 'approvals', 'permissions', 'card', 'cards', 'gate', 'stop', 'safety', 'security'],
       // 0.774: the section that carries work on when a plan runs out, by the words a person looking for it types.
-      'When a plan runs out': ['route', 'limit', 'quota', 'rate limit', 'usage', 'fallback', 'fallback chain', 'backup agent', 'carry on', 'ran out', 'out of credits'],
+      'When an agent cannot go on': ['route', 'limit', 'quota', 'rate limit', 'usage', 'fallback', 'fallback chain', 'backup agent', 'backup model', 'carry on', 'ran out', 'out of credits', 'plan runs out', 'provider error', 'outage', 'offline', 'network', 'signed out'],
       // 0.777: any Agent Client Protocol agent, by its command line.
       'Your own agents': ['ACP', 'agent client protocol', 'add an agent', 'Goose', 'Qwen Code', 'Kimi', 'custom agent']
     }

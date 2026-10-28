@@ -42,6 +42,7 @@ export function HandoffDivider({
   omittedBriefing,
   leftOutByYou = [],
   carriedOn,
+  carriedFor,
   fromModel,
   toModel
 }: {
@@ -60,6 +61,8 @@ export function HandoffDivider({
   readonly leftOutByYou?: readonly string[]
   /** Locust made the switch because `from`'s plan ran out (0.774): said first, since nobody typed the turn below. */
   readonly carriedOn?: true
+  /** And it was `from`'s provider failing before it did anything, not its plan (0.839). */
+  readonly carriedFor?: 'provider'
 }): ReactElement {
   // Every runtime by its name. Only three were listed, so a switch to
   // OpenCode read "Codex -> opencode" (drive-runtime-switch, packaged 0.309).
@@ -89,7 +92,13 @@ export function HandoffDivider({
           </span>
           {at !== undefined && <span className="lc-handoff__time">· {at}</span>}
         </span>
-        {carriedOn === true && <span className="lc-handoff__note">{`${fromLabel} ran out of its plan, so Locust carried the work on with ${toLabel}.`}</span>}
+        {carriedOn === true && (
+          <span className="lc-handoff__note">
+            {carriedFor === 'provider'
+              ? `${fromLabel}’s provider failed before it did anything, so Locust carried the work on with ${toLabel}.`
+              : `${fromLabel} ran out of its plan, so Locust carried the work on with ${toLabel}.`}
+          </span>
+        )}
         <span className="lc-handoff__note">
           {unsettledCount === 0
             ? `Nothing was in flight, so ${toLabel} picked up from a clean stop.`

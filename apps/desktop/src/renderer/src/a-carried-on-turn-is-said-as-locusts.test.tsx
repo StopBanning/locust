@@ -22,12 +22,12 @@ const ranOut: NormalizedRuntimeEvent[] = [
     } } } as unknown as NormalizedRuntimeEvent
 ]
 
-const render = (carryOn: { readonly label: string; readonly busy: boolean; readonly refused?: string }): string => renderToStaticMarkup(
+const render = (carryOn: { readonly label: string; readonly busy: boolean; readonly refused?: string; readonly why?: 'plan' | 'provider' }): string => renderToStaticMarkup(
   <Thread prompt="Write the release notes" onOpenPeerRun={() => undefined} earlierTurns={[]} events={ranOut}
     running={false} restoredMission={undefined} error="You've hit your usage limit." errorIsPersistence={false} startedAt={undefined}
     approvals={[]} onDecide={() => undefined} onAnswerQuestion={() => undefined} decidingIds={[]} cancelled={false}
     handoff={undefined} peers={{ self: undefined, teammates: [], messages: [], notices: [] }}
-    carryOn={{ ...carryOn, from: 'codex', onPress: () => undefined }} />
+    carryOn={{ why: 'plan', ...carryOn, from: 'codex', onPress: () => undefined }} />
 )
 
 describe('a carried-on turn is said as Locust\'s', () => {
@@ -40,6 +40,16 @@ describe('a carried-on turn is said as Locust\'s', () => {
     expect(html).toContain('Codex ran out of its plan, so Locust carried the work on with Claude Code.')
     const plain = renderToStaticMarkup(<HandoffDivider from="codex" to="claude" at="14:05" unsettledCount={0} omittedBriefing={[]} />)
     expect(plain).not.toContain('ran out of its plan')
+    // 0.839: a provider that failed before the turn did anything is said as that, not as a plan.
+    const provider = renderToStaticMarkup(<HandoffDivider from="codex" to="claude" at="14:05" unsettledCount={0} omittedBriefing={[]} carriedOn carriedFor="provider" />)
+    expect(provider).toContain('Codex’s provider failed before it did anything, so Locust carried the work on with Claude Code.')
+    expect(provider).not.toContain('ran out of its plan')
+  })
+
+  it('the stopped run says its provider failed first, and that another agent can start it clean (0.839)', () => {
+    const html = render({ label: 'Carry on with Claude Code', busy: false, why: 'provider' })
+    expect(html).toContain('stopped on an error before it did anything, so another agent can do the task from the start.')
+    expect(html).not.toContain('ran out of its plan')
   })
 
   it('the stopped run offers one press that names the agent, and says why a press was refused', () => {

@@ -468,7 +468,7 @@ function askedSection(mission: RecoveredMission, teammate: string): { readonly h
   if (by?.kind === 'routine') return host(`Nobody typed this turn: Locust replayed step ${String(by.step)} of a saved routine.`)
   if (by?.kind === 'resume') return host(`Nobody typed this turn: Locust picked the work back up from checkpoint ${String(by.epoch)} after an interruption.`)
   if (by?.kind === 'side') return host(`A side question (number ${String(by.question)}) asked on a fork of the conversation; the conversation itself never saw it.`)
-  if (by?.kind === 'carry-on') return host(`Nobody typed this turn: ${runtimeDisplayName(by.from)} ran out of its plan, so Locust carried the work on.`)
+  if (by?.kind === 'carry-on') return host(`Nobody typed this turn: ${runtimeDisplayName(by.from)} could not go on, its plan used up or its provider failing, so Locust carried the work on.`)
   if (by?.kind === 'check-fix') return host(`Nobody typed this turn: the check \`${by.command}\` failed after the turn before, so Locust sent it back to fix (fix ${String(by.fix)} of ${String(by.of)}).`)
   if (by?.kind === 'terminal') {
     return {

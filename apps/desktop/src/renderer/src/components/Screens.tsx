@@ -2657,14 +2657,17 @@ export function SettingsScreen({
         )}
         {shownPage === 'runtimes' && (
         <section className="lc-settings__section" data-setting="plan-runs-out">
-          {/* 0.774 (shared/carry-on.ts): the third way on, which this section used to say was not built. */}
-          <h2 className="lc-settings__heading">When a plan runs out</h2>
+          {/*
+            0.774 (shared/carry-on.ts): the third way on, which this section used to say was not built. 0.839: and a
+            provider that failed before the turn did anything, as OpenBot's backup models do.
+          */}
+          <h2 className="lc-settings__heading">When an agent cannot go on</h2>
           <p className="lc-settings__lede">
             {planRunsOut === undefined
-              ? 'A run whose plan runs out stops where it is. Its card offers to carry the work on with the first AI agent that is ready, told what was done. Pick one here to choose which.'
+              ? 'A run whose plan runs out, or whose provider fails before it does anything, stops where it is. Its card offers to carry the work on with the first AI agent that is ready, told what was done. Pick one here to choose which.'
               : planRunsOut.automatic
-                ? `${carryOnChoices.find((choice) => choice.runtime === planRunsOut.runtime)?.label ?? planRunsOut.runtime} carries the work on by itself when another agent's plan runs out, told what was done.`
-                : `A run whose plan runs out stops where it is, and its card offers to carry the work on with ${carryOnChoices.find((choice) => choice.runtime === planRunsOut.runtime)?.label ?? planRunsOut.runtime}.`}
+                ? `${carryOnChoices.find((choice) => choice.runtime === planRunsOut.runtime)?.label ?? planRunsOut.runtime} carries the work on by itself when another agent's plan runs out, or its provider fails before it does anything, told what was done.`
+                : `A run whose plan runs out, or whose provider fails before it does anything, stops where it is, and its card offers to carry the work on with ${carryOnChoices.find((choice) => choice.runtime === planRunsOut.runtime)?.label ?? planRunsOut.runtime}.`}
           </p>
           <div className="lc-carryon" role="radiogroup" aria-label="Carry on with">
             <button
@@ -2743,7 +2746,9 @@ export function SettingsScreen({
             <span className="lc-settings__note">
               When a plan runs out, one press on the stopped run&rsquo;s card carries the work on with the
               agent picked above, or, with Without asking on, it goes on by itself. Claude Code and Codex
-              say when their plan runs out; an agent that does not say so is not carried on.
+              say when their plan runs out; an agent that does not say so is not carried on. The same goes
+              for a sign-in that expired, a provider that is down or no network, but only when the run had
+              not used a single tool yet, so nothing is done twice.
             </span>
           </div>
           </div>
