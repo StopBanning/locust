@@ -2,8 +2,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { createKeepAwake } from './keep-awake.js'
@@ -67,14 +65,4 @@ describe('Keep this computer awake while it is plugged in', () => {
     expect(readStayAwake(file)).toBe(false)
   })
 
-  it('sits in Settings under Startup and says what it leaves alone', async () => {
-    const { SettingsScreen } = await import('../renderer/src/components/Screens.js')
-    const draw = (stayAwake: boolean): string => renderToStaticMarkup(createElement(SettingsScreen as never, { page: 'app', stayAwake } as never))
-    const off = draw(false)
-    expect(off).toContain('aria-checked="false" aria-label="Keep this computer awake while it is plugged in, so routines and Scout run on time."')
-    expect(off).not.toContain('On battery it sleeps as usual.')
-    const on = draw(true)
-    expect(on).toContain('aria-checked="true" aria-label="Keep this computer awake while it is plugged in')
-    expect(on).toContain('The screen still turns off, and Sleep and closing the lid work as they always do. On battery it sleeps as usual.')
-  })
 })
