@@ -17,6 +17,8 @@ heading: the home screen then shows it once, as a splash.
 
 - **Kilo installs from Locust, in one click.** Kilo's row on Home now has Install, as Claude Code, Codex, Copilot and OpenCode have, instead of a link to Kilo's page and npm lines to type into a terminal. Auto Free needs no Kilo account.
 
+- **A working conversation shimmers, as in Claude Code.** In the sidebar, a conversation or room that is working no longer turns a spark beside it: a soft light passes slowly through its title instead, in the window's own greys. With many chats going, the list stays calm. With reduced motion asked for in your system, the title simply stays bright while it works.
+
 ### Fixed
 
 - **An agent you install while Locust is open is found when you come back.** After Get it, the next time you return to Locust's window it checks every agent again, the ones it had marked not installed too. Before, it said Kilo was not installed until Locust was restarted.

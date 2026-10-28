@@ -19,13 +19,14 @@ import { execFileSync } from 'node:child_process'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { openTeammateScript, say, sleep, startDrive } from './drive-lib.mjs'
+import { FREE_ROUTE, openTeammateScript, say, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const SHOTS = arg('--out')
 if (SHOTS === undefined) throw new Error('--out <folder for the frames> is required')
-const FREE = process.env.LOCUST_FREE_MODEL ?? 'opencode/nemotron-3-ultra-free'
+// drive-lib's free model, never one named here: OpenCode drops free models weekly (Nemotron 3 Ultra was gone, 2026-10-28).
+const FREE = FREE_ROUTE.model
 // The window's size and pixel density: Colin's own window is about 1200x780,
 // which fills without dead space; at 2x the frames stay crisp on the site.
 const WIDTH = Number(arg('--width') ?? 1920)
@@ -55,7 +56,8 @@ git('commit', '-q', '-m', 'Acme storefront')
 
 const at = '2026-09-28T09:00:00.000Z'
 const drive = await startDrive({
-  name: 'promo-shots', port: 9773, workspace, spends: true,
+  // Only the hand-off (Atlas on Codex) and the Blind compare spend: --only without them runs free (0.838.x).
+  name: 'promo-shots', port: 9773, workspace, spends: ONLY === undefined || ONLY.includes('handoff') || ONLY.includes('blind'),
   ...(packaged === undefined ? {} : { packaged }),
   seed: {
     schemaVersion: 1,

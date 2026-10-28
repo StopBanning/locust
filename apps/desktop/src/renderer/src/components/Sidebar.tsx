@@ -30,7 +30,6 @@ import { LIST_PAGE, ListMore, WhenNear } from './ListWindow.js'
 import { RuntimeMark } from './RuntimeMark.js'
 import type { TeammateStatusView } from '../status.js'
 import { Icon } from './Icon.js'
-import { WorkingSpark } from './WorkingSpark.js'
 import { teammateTooltip } from '../teammateTooltip.js'
 import { railCountBadge } from '../railFlyout.js'
 import { conversationRows, heldFor, narrowingLine, ownerOf, unreadableSentence, withRoomsFolded } from '../conversationList.js'
@@ -813,11 +812,11 @@ export function Sidebar({
           aria-current={here ? 'true' : undefined}
           onClick={() => onOpenRoom(room.roomId)}
         >
-          {running ? <WorkingSpark /> : <span className="lc-dot lc-tone-blue is-quiet" />}
+          {running ? <span className="lc-conv__working" aria-hidden="true" data-orb="shimmer" /> : <span className="lc-dot lc-tone-blue is-quiet" />}
           <span className="lc-conv__room" aria-hidden="true">
             <Icon name="users" size={13} />
           </span>
-          <span className="lc-conv__title">{room.name}</span>
+          <span className={`lc-conv__title${running ? ' is-working' : ''}`}>{room.name}</span>
         </button>
       </div>
     )
@@ -956,8 +955,15 @@ export function Sidebar({
                       * conversation is a state rather than an activity — and
                       * the tone still carries whether it ended well.
                       */}
+                    {/*
+                      * A SHIMMER, NOT A SPINNER (0.839). Colin, 2026-10-28, of Claude Code's new sidebar: "this rolling
+                      * shimmer to show that the convo/chat is working ... its like a monochrome gradient ... i have lots
+                      * of chats going now and its too distracting". With many running, a turning glyph on every row
+                      * pulled the eye down the list; now a running row keeps the dot's footprint, empty, and a light
+                      * band passes slowly through its title, as Claude Code's does.
+                      */}
                     {mission.phase === 'running' ? (
-                      <WorkingSpark />
+                      <span className="lc-conv__working" aria-hidden="true" data-orb="shimmer" />
                     ) : (
                       <span
                         className={`lc-dot lc-tone-${missionPhaseView(mission.phase, mission.integrityIssueCount > 0).tone}${
@@ -997,7 +1003,7 @@ export function Sidebar({
                       </span>
                     )}
                     {mission.compareId !== undefined && <span className="lc-conv__vs lc-mono" aria-label="A comparison">vs</span>}
-                    <span className="lc-conv__title">{mission.title}</span>
+                    <span className={`lc-conv__title${mission.phase === 'running' ? ' is-working' : ''}`}>{mission.title}</span>
                     {/*
                       * A routine's conversation says which step it is on
                       * while one runs, where its age would be -- the clock

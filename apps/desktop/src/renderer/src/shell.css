@@ -19670,6 +19670,41 @@ textarea.lc-compare__judgecriteria {
   text-overflow: ellipsis;
 }
 
+/*
+ * WORKING, AS CLAUDE CODE SHOWS IT (0.839). Colin, 2026-10-28: "this rolling shimmer ... like a monochrome gradient
+ * ... i have lots of chats going now and its too distracting". A running row's title is drawn in the muted grey,
+ * with a band of the primary white passing through it left to right, slowly. Grey and white are the theme's own
+ * tokens, so light mode flips with them. The spark it replaces turned a glyph on every running row.
+ */
+.lc-conv__title.is-working {
+  background-image: linear-gradient(90deg, var(--lc-text-muted) 0%, var(--lc-text-muted) 38%, var(--lc-text-primary) 50%, var(--lc-text-muted) 62%, var(--lc-text-muted) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lc-shimmer 2.4s linear infinite;
+}
+
+/* The dot's footprint, kept empty while the title shimmers, so a run starting never moves the row. */
+.lc-conv__working {
+  flex: none;
+  width: 6px;
+  height: 6px;
+}
+
+@keyframes lc-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-conv__title.is-working {
+    animation: none;
+    background-image: none;
+    color: var(--lc-text-primary);
+  }
+}
+
 .lc-conv__age {
   flex: none;
   font-size: var(--lc-text-mono-caption);

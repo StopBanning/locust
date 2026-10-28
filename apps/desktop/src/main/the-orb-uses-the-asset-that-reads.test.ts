@@ -57,7 +57,9 @@ describe('the orb uses the asset that reads', () => {
      */
     const sidebar = readFileSync(`${SRC}components/Sidebar.tsx`, 'utf8')
     expect(sidebar).not.toContain('ThinkingOrb')
-    expect(sidebar.split('<WorkingSpark />').length - 1).toBe(2)
+    // Since 0.839 a running row shimmers its title instead (Colin, 2026-10-28: "too distracting" with many chats).
+    expect(sidebar.split('<WorkingSpark />').length - 1).toBe(0)
+    expect(sidebar.split('data-orb="shimmer"').length - 1).toBe(2)
     expect(css).not.toContain('.lc-row__orb')
   })
 
