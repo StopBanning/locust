@@ -15,9 +15,16 @@ accounts. You watch every step, approve what matters, and keep a record of
 everything they did. Free and open source (MIT), with no Locust account and no
 telemetry.
 
+**From your phone, or any browser.** Pair your phone once, or sign in with
+GitHub at [app.locust.lol/desk](https://app.locust.lol/desk/), and your team is
+there wherever you are, while Locust runs on your computer. What goes between
+them is sealed end to end: the relay in the middle cannot read it.
+
 **[Download for Windows, Mac or Linux](https://locust.lol)** ·
 [Releases](https://github.com/StopBanning/locust/releases) ·
 [What's new](CHANGELOG.md)
+
+If Locust is useful to you, a star on this repository helps other people find it.
 
 <table>
 <tr>
