@@ -16,8 +16,16 @@ import type { TurnUndoState } from '../../../shared/ipc.js'
  * with another run (what changed cannot be told apart), one from before 0.674 -- so a turn reads as it
  * always has unless there is something to offer.
  */
-export function TurnUndo({ runId }: { readonly runId: string }): ReactElement | null {
+export function TurnUndo({ runId, onUndone }: {
+  readonly runId: string
+  /** Told once the turn's files are put back, so the card above them can say so (0.840). */
+  readonly onUndone?: () => void
+}): ReactElement | null {
   const [state, setState] = useState<TurnUndoState | undefined>(undefined)
+  const putBack = state?.kind === 'undone' && state.restored.length > 0
+  useEffect(() => {
+    if (putBack) onUndone?.()
+  }, [putBack, onUndone])
   const [asking, setAsking] = useState(false)
   const [working, setWorking] = useState(false)
   useEffect(() => {

@@ -552,6 +552,14 @@ export function ThreadItems({
   )
 }
 
+/** The files card's heading: what the run edited, what else changed in the folder, and whether Undo put it back. */
+export function filesHeading(edited: number, seen: number, undone = false): string {
+  const said = edited > 0
+    ? `Edited ${edited === 1 ? '1 file' : `${String(edited)} files`}${seen > 0 ? ` · ${String(seen)} more changed in the folder` : ''}`
+    : `${seen === 1 ? '1 file' : `${String(seen)} files`} changed in the folder while it ran`
+  return undone ? `${said} · undone` : said
+}
+
 /**
  * THE FOOT OF A FINISHED TURN (0.491): the files it changed, as Claude Code
  * closes a turn with "Edited 2 files", and the line of totals that used to
@@ -602,9 +610,13 @@ function TurnFoot({
    */
   const edited = pathsOf(false)
   const seen = pathsOf(true)
-  const heading = edited > 0
-    ? `Edited ${edited === 1 ? '1 file' : `${String(edited)} files`}${seen > 0 ? ` · ${String(seen)} more changed in the folder` : ''}`
-    : `${seen === 1 ? '1 file' : `${String(seen)} files`} changed in the folder while it ran`
+  /*
+   * UNDONE, SAID ON THE CARD TOO (0.840). The clean-machine drive of 2026-10-28: after Undo the card still read
+   * "Edited 1 file", the file "new +27", and only a line under it said the file was put back.
+   */
+  const [undone, setUndone] = useState(false)
+  const markUndone = useMemo(() => () => setUndone(true), [])
+  const heading = filesHeading(edited, seen, undone)
   const changed = edited + seen
   // The files card says how many; the line need not say it again.
   const trace = changed > 0 ? item.trace.filter((seg) => seg.key !== 'files') : item.trace
@@ -635,7 +647,7 @@ function TurnFoot({
         {replyText !== undefined && <CopyButton className="lc-agentline__copy" label="this reply" text={replyText} />}
       </div>
       {/* Undo a turn (0.674): offered only when Locust kept the folder from before it, and only once it is over. */}
-      {item.finished && item.runId !== undefined && changed > 0 && <TurnUndo runId={item.runId} />}
+      {item.finished && item.runId !== undefined && changed > 0 && <TurnUndo runId={item.runId} onUndone={markUndone} />}
       {/*
         * What the runtime said about this turn before its work began, under
         * the totals, each naming who said it. Muted whatever level the runtime
