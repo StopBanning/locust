@@ -72,6 +72,11 @@ export function approvalAlert(name: string | undefined, kind: 'approval' | 'ques
     : { kind, title: `${who} needs your approval`, body: 'The turn is paused until you answer.', tag: 'waiting', ...card }
 }
 
+/** A routine holds for an OK before its next step (0.840). Who, never the routine's name or its step's words. */
+export function routineOkAlert(name: string | undefined): PhoneAlert {
+  return { kind: 'approval', title: `${name ?? 'A teammate'} waits for your OK`, body: 'A routine’s next step starts when you go ahead.', tag: 'waiting' }
+}
+
 export function limitAlert(name: string | undefined, runtimeName: string): PhoneAlert {
   return { kind: 'limit', title: `${name ?? 'A teammate'} hit the ${runtimeName} limit`, body: 'Pick where the work carries on.', tag: 'limit' }
 }
@@ -150,6 +155,7 @@ export function createPhoneAlerts(options: PhoneAlertsOptions) {
   return {
     approval: (name: string | undefined, kind: 'approval' | 'question', approvalId?: string): void => raise(approvalAlert(name, kind, approvalId)),
     limit: (name: string | undefined, runtimeName: string): void => raise(limitAlert(name, runtimeName)),
+    routineOk: (name: string | undefined): void => raise(routineOkAlert(name)),
     /** New Scout cards: one that can't wait buzzes now; one that can wait a while buzzes once if it is left untouched. */
     scoutCards: (cards: readonly { readonly cardId: string; readonly key: string; readonly urgency: 'now' | 'soon' | 'later' }[]): void => {
       for (const card of cards) {

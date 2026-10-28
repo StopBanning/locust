@@ -61,6 +61,8 @@ export interface RoutineRunnerOptions {
   readonly openedAt?: Date
   /** Whether the teammate has a live run of anyone's. A scheduled routine waits for it to end. */
   readonly teammateBusy?: (teammateId: string) => Promise<boolean>
+  /** A run now waits for the person's OK before `step` (0.840): the desktop, the phone and the chat apps are told. */
+  readonly asksFirst?: (teammateName: string | undefined, routineName: string, step: number) => void
   readonly peerContextFor: (teammateId: string) => Promise<MissionPeerContext | undefined>
   readonly start: (input: {
     readonly prompt: string
@@ -271,12 +273,13 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
     execution: RoutineExecution,
     reason: string,
     canContinue = false,
-    settledAtDispatch = false
+    settledAtDispatch = false,
+    waitsForOk = false
   ): Promise<void> => {
     if (execution.status === 'held' && execution.reason === reason && execution.canContinue === canContinue) return
     await options.routines.saveProgress(
       routine.routineId,
-      { ...execution, status: 'held', reason, canContinue, ...(settledAtDispatch ? { settledAtDispatch: true } : {}) },
+      { ...execution, status: 'held', reason, canContinue, ...(settledAtDispatch ? { settledAtDispatch: true } : {}), ...(waitsForOk ? { waitsForOk: true as const } : {}) },
       execution.attemptId
     )
     active.delete(routine.routineId)
@@ -844,6 +847,18 @@ export function createRoutineRunner(options: RoutineRunnerOptions): RoutineRunne
       const routine = current === undefined ? undefined : startedPlan(current)
       const next = progress.step + 1
       const owner = routine === undefined ? undefined : ownerOf(routine, next)
+      /*
+       * WAITS FOR YOUR OK (0.840, the OpenBot scrub's ninth take). A step marked Wait for my OK first is held before
+       * it starts, as a step for a busy teammate is: Go ahead on the routine's card starts it, given what the step
+       * before answered. Read from the plan the run started with, so an edit made meanwhile changes the next run.
+       */
+      if (routine !== undefined && owner !== undefined && routine.handOffs?.[next - 1]?.askFirst === true) {
+        const who = await nameOf(owner)
+        await hold(stored, execution, `Step ${String(next)} waits for your OK. Read what step ${String(progress.step)} did, then go ahead or stop here.`, true, true, true)
+        notice(progress, `Routine "${progress.name}" is waiting for your OK after step ${String(progress.step)} of ${String(progress.of)}. Go ahead with step ${String(next)} under Routines.`)
+        options.asksFirst?.(who, progress.name, next)
+        return
+      }
       /*
        * HANDED TO A TEAMMATE WHO IS BUSY (0.435): held, not queued and not
        * refused -- the person continues it from the routine card once they

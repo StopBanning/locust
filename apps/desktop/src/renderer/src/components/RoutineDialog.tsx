@@ -208,6 +208,7 @@ export function RoutineDialog({
   const ownerName = teammate?.name ?? chooseFrom?.find((entry) => entry.teammateId === runner)?.name
   // A chain from a template keeps its checker even for one teammate: every step is theirs, and the last still has to approve.
   const canHandOff = team !== undefined && (team.length > 1 || (initialHandOffs ?? []).some((entry) => entry.check === true))
+  const asksFirst = handOffs.some((entry) => entry.askFirst === true) || (initialHandOffs ?? []).some((entry) => entry.askFirst === true)
   const setHandOff = (index: number, change: RoutineHandOff): void => {
     setHandOffs(steps.map((_, at) => (at === index ? change : handOffs[at] ?? {})))
   }
@@ -479,9 +480,14 @@ export function RoutineDialog({
                     * WHO TAKES IT (0.435). A step can go to another teammate,
                     * who is given the answer of the step before; a checker's
                     * approval is what makes a run count as done.
+                    *
+                    * WAIT FOR MY OK FIRST (0.840), from step 2 on, with one
+                    * teammate too: the run holds before the step, and Go ahead
+                    * on its routine card starts it.
                     */}
-                  {canHandOff && (
+                  {(canHandOff || index > 0) && (
                     <div className="lc-routinestep__who">
+                      {canHandOff && <>
                       <Select
                         className="lc-input lc-routinestep__pick"
                         aria-label={`Who takes step ${String(index + 1)}`}
@@ -508,7 +514,21 @@ export function RoutineDialog({
                         />
                         Checker: must approve
                       </label>
-                      {stepRoles[index] !== undefined && <span className="lc-routinestep__role lc-mono">Role: {stepRoles[index]}</span>}
+                      </>}
+                      {index > 0 && (
+                        <label className="lc-routinestep__check lc-mono">
+                          <input
+                            type="checkbox"
+                            checked={handOffs[index]?.askFirst === true}
+                            onChange={(event) => {
+                              const { askFirst: _was, ...rest } = handOffs[index] ?? {}
+                              setHandOff(index, event.target.checked ? { ...rest, askFirst: true } : rest)
+                            }}
+                          />
+                          Wait for my OK first
+                        </label>
+                      )}
+                      {canHandOff && stepRoles[index] !== undefined && <span className="lc-routinestep__role lc-mono">Role: {stepRoles[index]}</span>}
                     </div>
                   )}
                   {tooLong !== undefined && (
@@ -722,6 +742,7 @@ export function RoutineDialog({
           )}
           <p className="lc-dialog__note lc-mono">
             Each step runs only after the one before it finishes. A step that fails ends the routine there.
+            {steps.length > 1 ? ' A step set to wait for your OK starts when you go ahead on the routine’s card, and your phone and chat apps are told.' : ''}
             {canHandOff
               ? ' A step handed to another teammate is given the answer of the step before it; a checker must approve for the run to count as done.'
               : ''}
@@ -753,8 +774,11 @@ export function RoutineDialog({
                   ? goal === initialGoalTries ? {} : { untilCheck: goal === undefined ? null : { tries: goal } }
                   : goal === undefined ? {} : { untilCheck: { tries: goal } }),
                 ...(runner.length === 0 ? {} : { teammateId: runner }),
-                // Lined up with the steps that are kept (0.435).
-                ...(canHandOff ? { handOffs: steps.flatMap((step, at) => (step.trim().length > 0 ? [handOffs[at] ?? {}] : [])) } : {})
+                // Lined up with the steps that are kept (0.435). Sent for one teammate too while a step waits for an OK,
+                // or once did, so turning the last one off is saved (0.840).
+                ...(canHandOff || asksFirst
+                  ? { handOffs: steps.flatMap((step, at) => (step.trim().length > 0 ? [handOffs[at] ?? {}] : [])) }
+                  : {})
               })
             }
           >

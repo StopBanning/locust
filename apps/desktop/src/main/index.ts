@@ -4228,6 +4228,11 @@ if (!ownsSingleInstanceLock) {
       arrivals: fileArrivals,
       // A routine that works in a copy (0.533): made from the folder the window is in.
       copies: routineCopies,
+      // A step that waits for an OK (0.840) is told as a question is: Windows, the phone, the chat apps.
+      asksFirst: (name, routineName, step) => {
+        attention.decisionAsked(name, `Routine "${routineName}": step ${String(step)} waits for your OK. Go ahead under Routines.`)
+        phoneAlerts.routineOk(name)
+      },
       folderNow: () => workspacePath,
       // A standing goal's check (0.534): the end of what it printed goes to the teammate asked to fix it.
       goalCheck: (cwd) => runFolderCheck(cwd),
@@ -5144,7 +5149,9 @@ if (!ownsSingleInstanceLock) {
           if (!workspaceChosen) { left.push(`${name} (open a project folder for it first)`); continue }
           if (owner.route === undefined) { left.push(`${name} (${owner.name} has no model yet)`); continue }
           try {
-            await routines.create({ name: file.name, steps: file.steps, inputs: file.inputs, teammateId: owner.teammateId, route: { ...owner.route, mode: 'ask' }, learnedFrom: [], workspaceId: memoryWorkspaceId })
+            await routines.create({ name: file.name, steps: file.steps, inputs: file.inputs, teammateId: owner.teammateId, route: { ...owner.route, mode: 'ask' }, learnedFrom: [], workspaceId: memoryWorkspaceId,
+              // A step that waited for an OK where the card was made still waits here (0.840).
+              ...(file.handOffs.some((entry) => entry.askFirst === true) ? { handOffs: file.handOffs.map((entry) => (entry.askFirst === true ? { askFirst: true as const } : {})) } : {}) })
             brought.push(file.name)
           } catch {
             left.push(`${name} (it could not be saved)`)

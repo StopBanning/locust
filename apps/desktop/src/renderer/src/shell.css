@@ -17486,6 +17486,12 @@ textarea.lc-compare__judgecriteria {
   text-wrap: pretty;
 }
 
+/* What a step that waits for your OK will ask, in its own words, under the question (0.840). */
+.lc-recovery__next {
+  white-space: pre-wrap;
+  color: var(--lc-text-secondary);
+}
+
 .lc-recovery__details > summary {
   cursor: pointer;
   color: var(--lc-text-muted);

@@ -138,7 +138,7 @@ export function createLocustMcpTools(options: {
         const folder = (routine.inputs ?? []).some(input => input.kind === 'folder')
         return {
           id: routine.routineId, name: routine.name,
-          steps: routine.steps.map((_, index) => ({ teammate: nameOf(routine.handOffs?.[index]?.teammateId ?? routine.teammateId), mode: modes[index], ...(routine.handOffs?.[index]?.check === true ? { checks_the_work: true } : {}) })),
+          steps: routine.steps.map((_, index) => ({ teammate: nameOf(routine.handOffs?.[index]?.teammateId ?? routine.teammateId), mode: modes[index], ...(routine.handOffs?.[index]?.check === true ? { checks_the_work: true } : {}), ...(routine.handOffs?.[index]?.askFirst === true ? { waits_for_your_ok: true } : {}) })),
           inputs: (routine.inputs ?? []).map(input => ({ key: input.key, label: input.label, kind: input.kind, required: input.required,
             ...(input.default === undefined ? {} : { default: input.default }), ...(input.choices === undefined ? {} : { choices: input.choices }) })),
           changes_files: writes,

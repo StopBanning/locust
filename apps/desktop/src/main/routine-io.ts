@@ -37,6 +37,7 @@ export function createRoutineIO(options: {
       token, name: file.name, steps: file.steps, inputs: file.inputs,
       handOffRoles: file.handOffs.map((entry) => entry.role),
       handOffChecks: file.handOffs.map((entry) => entry.check === true),
+      ...(file.handOffs.some((entry) => entry.askFirst === true) ? { handOffAsks: file.handOffs.map((entry) => entry.askFirst === true) } : {}),
       ...(changesFiles ? { changesFiles: true as const } : {}),
       ...(onAnotherAgent === undefined ? {} : { handOffOnAnotherAgent: onAnotherAgent }),
       ...(file.route.runtime === undefined ? {} : { runtime: file.route.runtime }),
@@ -123,7 +124,9 @@ export function createRoutineIO(options: {
       const route = { ...base, mode: 'ask' as const }
       previews.delete(request.token as string)
       const routine = await options.routines.create({ name: held.file.name, steps: held.file.steps, inputs: held.file.inputs,
-        teammateId: mate.teammateId, route, learnedFrom: [], workspaceId: held.workspace, ...(held.file.schedule === undefined ? {} : { schedule: held.file.schedule }) })
+        teammateId: mate.teammateId, route, learnedFrom: [], workspaceId: held.workspace, ...(held.file.schedule === undefined ? {} : { schedule: held.file.schedule }),
+        // The steps that wait for an OK still wait (0.840); every step is this teammate's.
+        ...(held.file.handOffs.some((entry) => entry.askFirst === true) ? { handOffs: held.file.handOffs.map((entry) => (entry.askFirst === true ? { askFirst: true as const } : {})) } : {}) })
       return { ok: true, data: { routine } }
     }
   }

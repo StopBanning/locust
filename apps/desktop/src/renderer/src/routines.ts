@@ -183,7 +183,7 @@ export function routineRunner(
  */
 export function routineRunSummary(routine: Pick<PublicRoutine, 'runs' | 'steps' | 'execution'>): string {
   const steps = `${String(routine.steps.length)} step${routine.steps.length === 1 ? '' : 's'}`
-  if (routine.execution !== undefined) return `${steps} · ${routine.execution.status === 'abandoned' ? 'last attempt abandoned' : routine.execution.status === 'running' ? 'in progress' : 'waiting for review'} · ${String(routine.runs)} completed runs`
+  if (routine.execution !== undefined) return `${steps} · ${routine.execution.status === 'abandoned' ? 'last attempt abandoned' : routine.execution.status === 'running' ? 'in progress' : routine.execution.waitsForOk === true ? 'waiting for your OK' : 'waiting for review'} · ${String(routine.runs)} completed runs`
   if (routine.runs === 0) return `${steps} · not run yet`
   return `${steps} · run ${String(routine.runs)} time${routine.runs === 1 ? '' : 's'}`
 }
@@ -229,7 +229,7 @@ export function routineScheduleSummary(
   if (routine.schedule === undefined) return undefined
   // Paused (0.705): said on the chip itself, the one fact a person scans the row for.
   if (routine.paused === true && (routine.execution === undefined || routine.execution.status === 'abandoned')) return `${scheduleLabel(routine.schedule)} · paused`
-  if (routine.execution !== undefined && routine.execution.status !== 'abandoned') return `${scheduleLabel(routine.schedule)} · ${routine.execution.status === 'running' ? 'in progress' : 'held for review; no automatic retry'}`
+  if (routine.execution !== undefined && routine.execution.status !== 'abandoned') return `${scheduleLabel(routine.schedule)} · ${routine.execution.status === 'running' ? 'in progress' : routine.execution.waitsForOk === true ? 'waiting for your OK' : 'held for review; no automatic retry'}`
   if (routine.missedAt !== undefined) {
     const missed = missedLine(routine.missedAt, now)
     if (missed !== undefined) return missed
@@ -261,7 +261,7 @@ export function routineScheduleSummary(
  * `fallback` is the route a teammate with none of their own would replay on.
  */
 export function chainDraftFrom(
-  preview: Pick<RoutineImportPreview, 'name' | 'steps' | 'inputs' | 'handOffRoles' | 'handOffChecks' | 'handOffOnAnotherAgent' | 'changesFiles'>,
+  preview: Pick<RoutineImportPreview, 'name' | 'steps' | 'inputs' | 'handOffRoles' | 'handOffChecks' | 'handOffOnAnotherAgent' | 'changesFiles' | 'handOffAsks'>,
   team: readonly PublicTeammate[],
   fallback: TeammateRoute
 ): {
@@ -276,7 +276,9 @@ export function chainDraftFrom(
   readonly inCopy?: true
   readonly forceMode?: 'accept-edits'
 } {
-  const { owner, handOffs } = proposedHandOffs(preview.steps.map((_, at) => ({ role: preview.handOffRoles[at], check: preview.handOffChecks[at], another: preview.handOffOnAnotherAgent?.[at] })), team)
+  const { owner, handOffs: proposed } = proposedHandOffs(preview.steps.map((_, at) => ({ role: preview.handOffRoles[at], check: preview.handOffChecks[at], another: preview.handOffOnAnotherAgent?.[at] })), team)
+  // A step the file says waits for an OK still does (0.840).
+  const handOffs = proposed.map((entry, at) => (preview.handOffAsks?.[at] === true ? { ...entry, askFirst: true as const } : entry))
   const teammate = team.find((entry) => entry.teammateId === owner)
   const base = teammate === undefined ? undefined : (teammate.route ?? fallback)
   const changes = preview.changesFiles === true

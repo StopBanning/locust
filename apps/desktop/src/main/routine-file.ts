@@ -35,9 +35,10 @@ export interface RoutineFile {
   readonly inputs: readonly RoutineInput[]
   /**
    * One per step. The ROLE of whoever took it where it was made -- never a
-   * teammate's id -- and whether this step is the one that checks the work.
+   * teammate's id -- whether this step is the one that checks the work, and
+   * whether the run waits for the person's OK before it (0.840).
    */
-  readonly handOffs: readonly { readonly role?: string; readonly check?: true }[]
+  readonly handOffs: readonly { readonly role?: string; readonly check?: true; readonly askFirst?: true }[]
   readonly route: { readonly runtime?: string }
   /** Connectors the steps name, so an import can say which this machine lacks. */
   readonly connectors: readonly string[]
@@ -122,7 +123,7 @@ export function routineToFile(
       const chain = routine.handOffs?.some((held) => held.check === true) === true
       const named = who === undefined || who === routine.teammateId ? (chain ? routine.teammateId : undefined) : who
       const role = named === undefined ? undefined : using.roleOf(named)
-      return { ...(role === undefined ? {} : { role }), ...(entry?.check === true ? { check: true as const } : {}) }
+      return { ...(role === undefined ? {} : { role }), ...(entry?.check === true ? { check: true as const } : {}), ...(entry?.askFirst === true && at > 0 ? { askFirst: true as const } : {}) }
     }),
     route: { runtime: routine.route.runtime },
     connectors: connectorsNamedIn(using.steps, using.connectorNames)
@@ -145,6 +146,7 @@ export function routineFileText(file: RoutineFile): string {
 const MARKDOWN_FIELDS = ['locust-routine', 'runs-on', 'connectors', 'inputs', 'when'] as const
 const STEP_HEADING = /^## Step (\d+)((?: · [^\n]*)?)$/
 const CHECKS_THE_WORK = 'checks the work'
+const ASKS_FIRST = 'waits for your OK'
 
 /** The routine as Markdown: the same text every time for the same routine. */
 export function routineMarkdown(file: RoutineFile): string {
@@ -155,7 +157,7 @@ export function routineMarkdown(file: RoutineFile): string {
   if (file.inputs.length > 0) top.inputs = file.inputs.map((input) => ({ ...input }))
   const steps = file.steps.map((step, at) => {
     const handOff = file.handOffs[at]
-    const said = [...(handOff?.role === undefined ? [] : [handOff.role]), ...(handOff?.check === true ? [CHECKS_THE_WORK] : [])]
+    const said = [...(handOff?.role === undefined ? [] : [handOff.role]), ...(handOff?.check === true ? [CHECKS_THE_WORK] : []), ...(handOff?.askFirst === true ? [ASKS_FIRST] : [])]
     return `## Step ${String(at + 1)}${said.map((part) => ` · ${part}`).join('')}\n\n${step}\n`
   })
   return `---\n${stringifyYaml(top, { lineWidth: 0 })}---\n\n# ${file.name}\n\n${steps.join('\n')}`
@@ -204,11 +206,14 @@ function markdownFields(text: string): { readonly ok: true; readonly value: Reco
     if (heading !== null && Number(heading[1]) === steps.length + (current === undefined ? 1 : 2)) {
       finish()
       current = []
-      const said = heading[2]!.split(' · ').slice(1).map((part) => part.trim())
+      const named = heading[2]!.split(' · ').slice(1).map((part) => part.trim())
+      const askFirst = named[named.length - 1] === ASKS_FIRST
+      const said = askFirst ? named.slice(0, -1) : named
       const check = said[said.length - 1] === CHECKS_THE_WORK
       const role = check ? said.slice(0, -1) : said
       if (role.length > 1) return refuse(`Step ${heading[1]!}'s heading names more than one teammate.`)
-      handOffs.push({ ...(role[0] === undefined ? {} : { role: role[0] }), ...(check ? { check: true } : {}) })
+      if (askFirst && steps.length === 0 && current === undefined) return refuse('Step 1 cannot wait for your OK: it starts when you run the routine.')
+      handOffs.push({ ...(role[0] === undefined ? {} : { role: role[0] }), ...(check ? { check: true } : {}), ...(askFirst ? { askFirst: true } : {}) })
     } else if (current === undefined) {
       if (line.trim().length > 0) return refuse('That routine file has text between its title and ## Step 1. Put it in a step, or take it out.')
     } else {
@@ -297,9 +302,10 @@ export function parseRoutineFile(text: string): RoutineFileRead {
   const saying = inputsRefusal(asked, steps)
   if (saying !== undefined) return refuse(`That routine's inputs are not ones Locust can keep. ${saying}`)
   if (!Array.isArray(handOffs) || handOffs.length !== steps.length
-    || !handOffs.every((entry) => isRecord(entry) && Object.keys(entry).every((key) => key === 'role' || key === 'check') && (entry.role === undefined || ONE_LINE(entry.role, 60)) && (entry.check === undefined || entry.check === true))) {
+    || !handOffs.every((entry) => isRecord(entry) && Object.keys(entry).every((key) => key === 'role' || key === 'check' || key === 'askFirst') && (entry.role === undefined || ONE_LINE(entry.role, 60)) && (entry.check === undefined || entry.check === true) && (entry.askFirst === undefined || entry.askFirst === true))) {
     return refuse('That routine\'s hand-offs do not line up with its steps.')
   }
+  if (isRecord(handOffs[0]) && handOffs[0].askFirst === true) return refuse('Step 1 cannot wait for your OK: it starts when you run the routine.')
   if (!isRecord(route) || Object.keys(route).some((key) => key !== 'runtime') || (route.runtime !== undefined && !(typeof route.runtime === 'string' && /^[a-z0-9-]{1,40}$/.test(route.runtime)))) {
     return refuse('That routine\'s route is not one Locust can read.')
   }
@@ -315,7 +321,7 @@ export function parseRoutineFile(text: string): RoutineFileRead {
       ...(value.schedule === undefined ? {} : { schedule: { kind: 'hook' as const } }),
       steps: [...steps],
       inputs: keptInputs(asked as readonly RoutineInput[]),
-      handOffs: (handOffs as readonly { readonly role?: string; readonly check?: true }[]).map((entry) => ({ ...(entry.role === undefined ? {} : { role: entry.role }), ...(entry.check === true ? { check: true as const } : {}) })),
+      handOffs: (handOffs as readonly { readonly role?: string; readonly check?: true; readonly askFirst?: true }[]).map((entry) => ({ ...(entry.role === undefined ? {} : { role: entry.role }), ...(entry.check === true ? { check: true as const } : {}), ...(entry.askFirst === true ? { askFirst: true as const } : {}) })),
       route: route.runtime === undefined ? {} : { runtime: route.runtime as string },
       connectors: [...(connectors as readonly string[])]
     }

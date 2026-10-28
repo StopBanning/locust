@@ -155,18 +155,20 @@ function validLearnedFrom(value: unknown): value is readonly string[] {
 export function validHandOffs(value: unknown, steps: number): value is readonly RoutineHandOff[] {
   return Array.isArray(value) && value.length === steps && value.every((entry) =>
     typeof entry === 'object' && entry !== null && !Array.isArray(entry)
-    && Object.keys(entry).every((key) => key === 'teammateId' || key === 'check')
+    && Object.keys(entry).every((key) => key === 'teammateId' || key === 'check' || key === 'askFirst')
     && ((entry as RoutineHandOff).teammateId === undefined || safeId((entry as RoutineHandOff).teammateId))
-    && ((entry as RoutineHandOff).check === undefined || (entry as RoutineHandOff).check === true))
+    && ((entry as RoutineHandOff).check === undefined || (entry as RoutineHandOff).check === true)
+    && ((entry as RoutineHandOff).askFirst === undefined || (entry as RoutineHandOff).askFirst === true))
 }
 
-/** Stored only when some step goes to another teammate or checks. */
+/** Stored only when some step goes to another teammate, checks, or waits for an OK (step 2 on: step 1 never waits). */
 const keptHandOffs = (handOffs: readonly RoutineHandOff[], owner: string): readonly RoutineHandOff[] | undefined => {
-  const cleaned = handOffs.map((entry) => ({
+  const cleaned = handOffs.map((entry, at) => ({
     ...(entry.teammateId === undefined || entry.teammateId === owner ? {} : { teammateId: entry.teammateId }),
-    ...(entry.check === true ? { check: true as const } : {})
+    ...(entry.check === true ? { check: true as const } : {}),
+    ...(entry.askFirst === true && at > 0 ? { askFirst: true as const } : {})
   }))
-  return cleaned.some((entry) => entry.teammateId !== undefined || entry.check === true) ? cleaned : undefined
+  return cleaned.some((entry) => entry.teammateId !== undefined || entry.check === true || entry.askFirst === true) ? cleaned : undefined
 }
 
 /** A standing goal the store will keep: 1 to MAX_GOAL_TRIES fixes (0.534). */
@@ -284,6 +286,7 @@ function parsedExecution(value: unknown, steps: readonly string[], route: Teamma
     && (item.canContinue === undefined || typeof item.canContinue === 'boolean')
     && (item.recovered === undefined || typeof item.recovered === 'boolean')
     && (item.settledAtDispatch === undefined || typeof item.settledAtDispatch === 'boolean')
+    && (item.waitsForOk === undefined || item.waitsForOk === true)
     && (item.inCopy === undefined || item.inCopy === true)
     && (item.untilCheck === undefined || validGoal(item.untilCheck))
     && (item.goalTry === undefined || (Number.isInteger(item.goalTry) && Number(item.goalTry) >= 1 && Number(item.goalTry) <= MAX_GOAL_TRIES))) {

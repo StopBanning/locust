@@ -1912,6 +1912,11 @@ export interface RoutineHandOff {
   readonly teammateId?: string
   /** This step checks the work: the run is done only if it approves. */
   readonly check?: true
+  /**
+   * The run waits for the person's OK before this step starts (0.840, the OpenBot scrub's ninth take): step 2 on,
+   * since step 1 starts when the person, the clock or a file says so already.
+   */
+  readonly askFirst?: true
 }
 
 /** A scheduled time that passed while Locust was closed. */
@@ -2322,6 +2327,8 @@ export interface RoutineImportPreview {
   readonly handOffChecks: readonly boolean[]
   /** A starter routine's steps that go to a teammate on an agent no earlier step used (0.837, Council review). */
   readonly handOffOnAnotherAgent?: readonly boolean[]
+  /** Which steps wait for the person's OK first, one per step (0.840); absent when none do. */
+  readonly handOffAsks?: readonly boolean[]
   /** A starter routine that changes files, as the editor should open it: changing them, in a copy. */
   readonly changesFiles?: true
   readonly runtime?: string

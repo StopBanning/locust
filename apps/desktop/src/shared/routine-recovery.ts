@@ -53,6 +53,8 @@ export interface RoutineExecution {
    * phase could move.
    */
   readonly settledAtDispatch?: boolean
+  /** Held on purpose, before a step the routine asks the person about first (0.840): Go ahead starts it. */
+  readonly waitsForOk?: true
 }
 
 export const ROUTINE_RECOVERY_CHANNEL = 'routine:recovery'
