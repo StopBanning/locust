@@ -5,4 +5,4 @@ contact_links:
     about: Please report it privately (the Security tab, or email), not in a public issue.
   - name: Download Locust
     url: https://locust.lol
-    about: The latest installer for Windows and Mac.
+    about: The latest installer for Windows, Mac and Linux.
