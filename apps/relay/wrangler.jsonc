@@ -13,7 +13,8 @@
   // The home-screen app's icons, bundled as bytes.
   "rules": [{ "type": "Data", "globs": ["**/*.png"], "fallthrough": true }],
   // The public half of the key alerts are signed with; the private half is a secret: `wrangler secret put VAPID_PRIVATE_JWK`.
-  "vars": { "VAPID_PUBLIC_KEY": "BKnPmizkshlRYQ7W_B_9q2XGAGfYvPZtJEy2BDAJBjprlN3w94yDYPtjJ7bTOHtCvSkgJ7Qq1KVSvghyleQpPUk" },
+  // GITHUB_CLIENT_ID (0.838): the public id of Locust's GitHub OAuth app; its secret is `wrangler secret put GITHUB_CLIENT_SECRET`.
+  "vars": { "GITHUB_CLIENT_ID": "Ov23li16LxZXWbtAkgCn", "VAPID_PUBLIC_KEY": "BKnPmizkshlRYQ7W_B_9q2XGAGfYvPZtJEy2BDAJBjprlN3w94yDYPtjJ7bTOHtCvSkgJ7Qq1KVSvghyleQpPUk" },
   // Workers Logs off: the relay writes no log of its own of who connected or when.
   "observability": { "enabled": false }
 }
