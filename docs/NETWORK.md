@@ -62,8 +62,8 @@ not stop the hourly check: a newer one replaces it. A copy of Locust that is not
 the installed one never updates itself.
 
 **Installing and updating AI agents.** Locust runs npm, and npm downloads the
-package: `opencode-ai`, `@anthropic-ai/claude-code`, `@openai/codex` or
-`@github/copilot`. Cursor Agent, Muse Code and Antigravity are installed from
+package: `opencode-ai`, `@anthropic-ai/claude-code`, `@openai/codex`,
+`@github/copilot` or `@kilocode/cli`. Cursor Agent, Muse Code and Antigravity are installed from
 their makers' pages, in your browser. For Codex CLI and Copilot CLI, the
 installed Locust also asks npm for their newest version (one `npm view` each)
 and reads the verdict file above, which can hold a version back. The look runs

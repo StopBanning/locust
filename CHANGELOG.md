@@ -11,6 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.839.0 - 2026-10-28
+
+### Improved
+
+- **Kilo installs from Locust, in one click.** Kilo's row on Home now has Install, as Claude Code, Codex, Copilot and OpenCode have, instead of a link to Kilo's page and npm lines to type into a terminal. Auto Free needs no Kilo account.
+
+### Fixed
+
+- **An agent you install while Locust is open is found when you come back.** After Get it, the next time you return to Locust's window it checks every agent again, the ones it had marked not installed too. Before, it said Kilo was not installed until Locust was restarted.
+
 ## 0.838.0 - 2026-10-28
 <!-- big -->
 

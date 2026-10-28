@@ -144,7 +144,8 @@ describe('the addresses are the ones the code uses', () => {
 
   it('every package Locust installs with npm', () => {
     const packages = [...read('../shared/runtime-install.ts').matchAll(/kind: 'npm', packageName: '([^']+)'/g)].map((match) => match[1]!)
-    expect(packages.length).toBe(4)
+    // Kilo's CLI joined them in 0.838.x: one npm install, as the others.
+    expect(packages.length).toBe(5)
     for (const name of packages) expect(NETWORK, name).toContain(`\`${name}\``)
   })
 

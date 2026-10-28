@@ -116,7 +116,7 @@ import { reviewPairOf } from './review-pair.js'
 import { runningCheck, type EditCheckShown } from './components/EditCheckCard.js'
 import { imageMediaType } from '../../shared/image-files.js'
 import { signInCommand } from '../../shared/runtime-install.js'
-import { SIGN_IN_OPENED_EVENT } from './signInEvents.js'
+import { INSTALL_PAGE_OPENED_EVENT, SIGN_IN_OPENED_EVENT } from './signInEvents.js'
 import { DEFAULT_RELAY_HOP_CAP, DEFAULT_MEMORY_MODE } from '../../shared/ipc.js'
 import type { PublicClaudeCloudSession, PublicCloudFolder, PublicCloudTask, PublicCloudWhere, RewindPutBackResponse, RuntimeCommandsResponse } from '../../shared/ipc.js'
 import { stripTaskBlocks } from '../../shared/room-task.js'
@@ -3527,6 +3527,12 @@ export default function App(): ReactElement {
       signInOpened = true
     }
     window.addEventListener(SIGN_IN_OPENED_EVENT, onSignInOpened)
+    // An agent's download page was opened: the next return asks about every agent, the uninstalled ones too.
+    let installPageOpened = false
+    const onInstallPageOpened = (): void => {
+      installPageOpened = true
+    }
+    window.addEventListener(INSTALL_PAGE_OPENED_EVENT, onInstallPageOpened)
     // A sign-in window closed: ask now, not only when this window next has focus (0.545).
     let askAfterSignIn: (() => void) | undefined
     const stopSignInClosed = bridge.onSignInClosed?.(() => askAfterSignIn?.()) ?? (() => undefined)
@@ -3708,6 +3714,12 @@ export default function App(): ReactElement {
       askAgain()
     }
     const onFocus = (): void => {
+      if (installPageOpened) {
+        installPageOpened = false
+        // Everything, the host's caches too: an agent installed meanwhile is new to them as well.
+        askAgain(true)
+        return
+      }
       if (signInOpened) {
         signInOpened = false
         askAgain()
@@ -3945,6 +3957,7 @@ export default function App(): ReactElement {
       window.removeEventListener('focus', onFocus)
       stopLateWatch()
       window.removeEventListener(SIGN_IN_OPENED_EVENT, onSignInOpened)
+      window.removeEventListener(INSTALL_PAGE_OPENED_EVENT, onInstallPageOpened)
       stopSignInClosed()
       removeMissionListener()
       frameBatcher.current.dispose()

@@ -127,12 +127,17 @@ const FACTS: Readonly<Record<string, RuntimeInstallFacts | undefined>> = {
   // its event stream has never been captured. Nothing to offer to install.
   gemini: undefined,
   /*
-   * Install from Kilo's own CLI page. Auto Free needs no account
-   * (https://kilo.ai/docs/gateway/authentication). `kilo auth login` is only
-   * for a paid model.
+   * ONE NPM INSTALL, AS THE OTHERS (0.838.x; Colin, 2026-10-28: "we might need
+   * to make this stuff easier for the user, like run the commands for them").
+   * Kilo's CLI is the npm package @kilocode/cli (measured 7.8.18: `kilo` and
+   * `kilocode` in npm's bin folder); it was a link to Kilo's page, and the
+   * person typed npm's lines into a terminal. Its postinstall only links the
+   * binary for this platform; the npm Locust carries allows it by name. Auto
+   * Free needs no account (https://kilo.ai/docs/gateway/authentication).
+   * `kilo auth login` is only for a paid model.
    */
   kilo: {
-    install: { kind: 'vendor', url: 'https://kilo.ai/docs/code-with-ai/platforms/cli' },
+    install: { kind: 'npm', packageName: '@kilocode/cli' },
     signIn: 'kilo auth login',
     signInAgain: 'kilo auth login',
     account: 'a Kilo account, only for a paid model',

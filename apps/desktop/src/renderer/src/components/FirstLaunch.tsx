@@ -18,6 +18,7 @@ import { Icon } from './Icon.js'
 import { StarterList } from './StarterList.js'
 import type { Starter } from './StarterList.js'
 import { SignInButton } from './SignInButton.js'
+import { INSTALL_PAGE_OPENED_EVENT } from '../signInEvents.js'
 import { UsageChip, UsageLine, useUsageSummary } from './UsageLine.js'
 import type { UsageReadResponse } from '../../../shared/ipc.js'
 import type { UsageRange } from '../../../shared/usage.js'
@@ -819,6 +820,7 @@ export function FirstLaunch({
                     onClick={() => {
                       setLinkRefusal(undefined)
                       openLink(vendorUrl(runtime.id) ?? '', setLinkRefusal)
+                      window.dispatchEvent(new Event(INSTALL_PAGE_OPENED_EVENT))
                     }}
                     title={`Open ${vendorUrl(runtime.id) ?? ''} in your browser`}
                   >
