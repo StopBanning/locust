@@ -14,7 +14,13 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 main { max-width: 460px; display: grid; gap: 14px; text-align: center; }
 h1 { margin: 0; font-size: 20px; font-weight: 600; }
 p { margin: 0; color: var(--muted); }
-button { justify-self: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--button); color: var(--button-text); font: 600 15px system-ui, sans-serif; cursor: pointer; }
+button, a.go { justify-self: center; display: inline-grid; place-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--button); color: var(--button-text); font: 600 15px system-ui, sans-serif; cursor: pointer; text-decoration: none; }
+a.go.quiet { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px #2c3133; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.ways { display: grid; gap: 10px; justify-items: center; }
+.or { font-size: 14px; }
+.new { margin-top: 18px; padding-top: 18px; border-top: 1px solid #22272a; display: grid; gap: 8px; font-size: 14px; }
+.new a { color: var(--text); }
 `
 
 const SCRIPT = `
@@ -28,9 +34,27 @@ const SCRIPT = `
       b.addEventListener('click', action.run); main.appendChild(b);
     }
     root.replaceChildren(main);
+    return main;
   }
+  function line(parent, tag, className, text) {
+    var el = document.createElement(tag); if (className) el.className = className; if (text) el.textContent = text;
+    parent.appendChild(el); return el;
+  }
+  /*
+   * NOT PAIRED YET (0.838). The way in says what Locust is and every way in: signing in with GitHub where this relay
+   * offers it, a code from the computer, and for someone with no Locust yet, where to get it.
+   */
   function pairFirst() {
-    show('Pair this browser first', 'On your computer, open Locust, then Settings › General › Your phone, and open its code in this browser. Then turn on Full window for it there.', { label: 'Pair this browser', run: function () { location.href = '/'; } });
+    var main = show('Open Locust in this browser', 'Locust runs on your computer. This page opens its whole window from anywhere, while your computer is on and Locust is open there.');
+    var ways = line(main, 'div', 'ways');
+    if (GITHUB) {
+      var go = line(ways, 'a', 'go', 'Sign in with GitHub'); go.href = '/v1/github/start';
+      line(ways, 'p', 'or', 'Works once Locust on your computer is signed in with GitHub too: Settings › General › Your phone › Sign in with GitHub.');
+    }
+    line(ways, 'p', 'or', (GITHUB ? 'Or pair it with a code. ' : '') + 'In Locust on your computer, open Settings › General › Your phone. Open in your browser opens it there; on another computer, open the code’s link here.');
+    var fresh = line(main, 'div', 'new');
+    line(fresh, 'p', '', 'New to Locust? It runs AI teammates on your own computer, with the AI tools you already use.');
+    var get = line(fresh, 'a', '', 'Download Locust'); get.href = 'https://locust.lol';
   }
   function saved() {
     return new Promise(function (resolve) {
@@ -87,8 +111,8 @@ const SCRIPT = `
   }
 `
 
-/** The way in, as the relay serves it at /desk/. */
-export function deskPage(): string {
+/** The way in, as the relay serves it at /desk/; `github` when this relay offers signing in with GitHub (0.838). */
+export function deskPage(options: { readonly github?: boolean } = {}): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -101,7 +125,28 @@ export function deskPage(): string {
 </head>
 <body>
 <div id="root"></div>
-<script>(function () {${RELAY_LOCK}${SCRIPT}})();</script>
+<script>(function () {var GITHUB = ${options.github === true ? 'true' : 'false'};${RELAY_LOCK}${SCRIPT}})();</script>
+</body>
+</html>`
+}
+
+const escape = (text: string): string => text.replace(/[&<>"']/g, (character) => `&#${String(character.charCodeAt(0))};`)
+
+/** A short page in the way in's own look, with no script: what GitHub's sign-in ended in (0.838, apps/relay/src/github.ts). */
+export function deskNotePage(note: { readonly title: string; readonly words: string; readonly links?: readonly { readonly label: string; readonly href: string }[] }): string {
+  const links = (note.links ?? []).map((link, at) => `<a class="go${at === 0 ? '' : ' quiet'}" href="${escape(link.href)}">${escape(link.label)}</a>`).join('')
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0d0e">
+<meta name="referrer" content="no-referrer">
+<title>Locust</title>
+<style>${STYLE}</style>
+</head>
+<body>
+<main><h1>${escape(note.title)}</h1><p>${escape(note.words)}</p>${links === '' ? '' : `<div class="ways">${links}</div>`}</main>
 </body>
 </html>`
 }

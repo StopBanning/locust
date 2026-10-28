@@ -50,6 +50,8 @@ interface SavedDevice {
   readonly desk?: true
   /** Each of its browser tabs' sessions, and the last frame taken from it: one not after it is a copy, and dropped. */
   readonly deskSeen?: Readonly<Record<string, number>>
+  /** It came in by signing in with GitHub (0.838), not with a code. */
+  readonly via?: 'github'
 }
 
 /** A push subscription as the phone sends it: an https address and the browser's two keys. */
@@ -79,6 +81,42 @@ interface Saved {
    * Only the room and its token are kept, to ask once more: the token is the one thing that can reset the room.
    */
   readonly closing?: true
+  /** The GitHub account a browser may sign in as to be let in (0.838), as the relay said it was tied. */
+  readonly github?: GithubAccount
+}
+
+/*
+ * SIGNED IN WITH GITHUB (0.838, apps/relay/src/github.ts). The person ties this computer's room to their GitHub
+ * account once, from Settings; after that a browser where they sign in to GitHub comes with a ticket the relay gave it,
+ * and GitHub's token. The relay's word is not enough: this computer asks GitHub itself whose the token is, and lets the
+ * browser in only for the account it is tied to, with the full window. The token is used for that one question and
+ * kept nowhere.
+ */
+interface GithubAccount { readonly user: number; readonly login: string }
+const GITHUB_TOKEN = /^[A-Za-z0-9_]{20,255}$/
+const accountOf = (value: unknown): GithubAccount | undefined => {
+  if (typeof value !== 'object' || value === null) return undefined
+  const said = value as Record<string, unknown>
+  return typeof said.user === 'number' && Number.isSafeInteger(said.user) && said.user > 0 && typeof said.login === 'string' && /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(said.login)
+    ? { user: said.user, login: said.login }
+    : undefined
+}
+
+/** Whose a GitHub token is, by GitHub's own answer: the account's number, or undefined when it gave none. */
+export async function githubUserOf(token: string, api = 'https://api.github.com'): Promise<number | undefined> {
+  const answer = await fetch(`${api.replace(/\/+$/, '')}/user`, {
+    headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'user-agent': 'Locust' },
+    signal: AbortSignal.timeout(10_000)
+  }).catch(() => undefined)
+  if (answer === undefined || !answer.ok) return undefined
+  const body = await answer.json().catch(() => undefined) as Record<string, unknown> | undefined
+  return typeof body?.id === 'number' && Number.isSafeInteger(body.id) && body.id > 0 ? body.id : undefined
+}
+
+/** What a computer is called where a browser chooses between them: its name, kept to plain words. */
+const computerNameOf = (value: string | undefined): string => {
+  const text = (value ?? '').replace(/[^\p{L}\p{N} '.,()_-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60)
+  return text === '' ? 'Computer' : text
 }
 
 /** The part of a WebSocket this uses, so a test can stand an in-memory relay in its place. */
@@ -206,6 +244,10 @@ export function createPhoneAnywhere(options: {
   }
   /** Messages a phone wrote while this PC was off (0.837): each sent as the phone's own would be. */
   readonly notes?: { readonly deliver: (missionId: string, text: string) => Promise<NoteDelivery> }
+  /** Whose a GitHub token is (0.838): GitHub's own answer, unless a test or drive stands in for it. */
+  readonly githubUser?: (token: string) => Promise<number | undefined>
+  /** What this computer is called, where a browser signed in to GitHub chooses between computers. */
+  readonly computerName?: () => string
 }) {
   const file = join(options.directory, PHONE_ANYWHERE_FILE)
   const now = options.now ?? Date.now
@@ -219,7 +261,8 @@ export function createPhoneAnywhere(options: {
   let connected = false
   let refusedByRelay = false
   const online = new Set<string>()
-  let pairing: { readonly secret: string; readonly hash: string; readonly until: number; used: boolean } | undefined
+  /** `desk` when Open in your browser made it (0.838): the device it pairs may open the full window from the start. */
+  let pairing: { readonly secret: string; readonly hash: string; readonly until: number; used: boolean; readonly desk?: true } | undefined
   let message: string | undefined
   let attempt = 0
   let retryTimer: ReturnType<typeof setTimeout> | undefined
@@ -252,7 +295,7 @@ export function createPhoneAnywhere(options: {
     void held.then(() => inFlight.delete(held))
   }
 
-  const codeUrl = (held: Saved, secret: string): string => `${held.relay}/#p=${held.room}.${held.publicKey}.${secret}`
+  const codeUrl = (held: Saved, secret: string, desk?: true): string => `${held.relay}/#p=${held.room}.${held.publicKey}.${secret}${desk === true ? '.d' : ''}`
   const settings = (): PhoneAnywhereSettings => {
     const open = saved !== undefined && pairing !== undefined && !pairing.used && pairing.until > now() ? pairing : undefined
     const refusal = options.refusal?.()
@@ -260,7 +303,7 @@ export function createPhoneAnywhere(options: {
     return {
       enabled: saved !== undefined && saved.closing !== true,
       connected,
-      ...(saved !== undefined && saved.closing !== true && open !== undefined ? { code: { url: codeUrl(saved, open.secret), until: new Date(open.until).toISOString() } } : {}),
+      ...(saved !== undefined && saved.closing !== true && open !== undefined ? { code: { url: codeUrl(saved, open.secret, open.desk), until: new Date(open.until).toISOString(), ...(open.desk === true ? { desk: true } : {}) } } : {}),
       devices: (saved?.devices ?? []).map((device) => ({
         id: device.id,
         name: device.name,
@@ -268,8 +311,10 @@ export function createPhoneAnywhere(options: {
         ...(device.seen === undefined ? {} : { seen: new Date(device.seen).toISOString() }),
         online: online.has(device.id),
         alerts: device.push !== undefined,
-        ...(device.desk === true ? { desk: true } : {})
+        ...(device.desk === true ? { desk: true } : {}),
+        ...(device.via === 'github' ? { github: true } : {})
       })),
+      ...(saved?.github !== undefined && saved.closing !== true ? { github: { login: saved.github.login } } : {}),
       ...(note === undefined ? {} : { message: note }),
       ...(saved?.nightApprovals === true ? { nightApprovals: true } : {})
     }
@@ -384,10 +429,29 @@ export function createPhoneAnywhere(options: {
     reconnectLater()
   }
 
+  /** A device let in: the relay told its token's hash, the device told its token, and the device kept. False when the relay would not. */
+  const admit = async (from: string, device: string, key: string, link: LinkKeys, entry: Pick<SavedDevice, 'name' | 'desk' | 'via'>, admitted?: () => void): Promise<boolean> => {
+    const held = saved
+    if (held === undefined) return false
+    const token = randomText(32)
+    // The relay must know the device before the phone comes back as one: allowed first, then answered.
+    if (!(await command({ t: 'allow', device, hash: await sha256(token) }))) return false
+    const reply = await seal(link.seal, { v: 1, kind: 'paired', device, token }, aadOf(held.room, device, 'pc-to-device'))
+    send({ t: 'send', to: from, ...reply })
+    admitted?.()
+    if (saved === undefined) return true
+    const kept: SavedDevice = { id: device, key, added: now(), seen: now(), seq: 0, ...entry }
+    saved = { ...saved, devices: [...saved.devices.filter((other) => other.id !== device), kept] }
+    keys.set(device, link)
+    message = undefined
+    await persist().catch(() => { message = 'The new phone could not be saved. It works until Locust closes.' })
+    tell()
+    return true
+  }
+
   const pairingHello = async (from: string, key: string, n: string, c: string): Promise<void> => {
     const held = saved
-    const code = pairing
-    if (held === undefined || privateKey === undefined || code === undefined || code.used || code.until <= now()) return
+    if (held === undefined || privateKey === undefined) return
     const device = await deviceIdOf(key)
     let link: LinkKeys
     let said: unknown
@@ -396,27 +460,48 @@ export function createPhoneAnywhere(options: {
       said = await open(link.open, n, c, aadOf(held.room, device, 'device-to-pc'))
     } catch { return }
     const hello = typeof said === 'object' && said !== null ? said as Record<string, unknown> : {}
-    if (hello.v !== 1 || hello.kind !== 'pair' || typeof hello.proof !== 'string' || !sameText(hello.proof, await pairingProof(code.secret))) return
+    if (hello.v !== 1) return
+    if (hello.kind === 'signin') { await signedIn(from, device, key, link, hello); return }
+    const code = pairing
+    if (code === undefined || code.used || code.until <= now()) return
+    if (hello.kind !== 'pair' || typeof hello.proof !== 'string' || !sameText(hello.proof, await pairingProof(code.secret))) return
     // One code, one phone.
     code.used = true
-    const token = randomText(32)
-    // The relay must know the device before the phone comes back as one: allowed first, then answered.
-    if (!(await command({ t: 'allow', device, hash: await sha256(token) }))) {
+    const done = await admit(from, device, key, link, { name: cleanName(hello.name), ...(code.desk === true ? { desk: true as const } : {}) }, () => {
+      void command({ t: 'pair-close' })
+      if (pairing === code) pairing = undefined
+    })
+    if (!done) {
       code.used = false
       message = 'Locust’s relay did not take the new phone. Make a new code and scan it again.'
       tell()
-      return
     }
-    const reply = await seal(link.seal, { v: 1, kind: 'paired', device, token }, aadOf(held.room, device, 'pc-to-device'))
-    send({ t: 'send', to: from, ...reply })
-    void command({ t: 'pair-close' })
-    if (saved === undefined) return
-    const entry: SavedDevice = { id: device, name: cleanName(hello.name), key, added: now(), seen: now(), seq: 0 }
-    saved = { ...saved, devices: [...saved.devices.filter((other) => other.id !== device), entry] }
-    keys.set(device, link)
-    pairing = undefined
-    message = undefined
-    await persist().catch(() => { message = 'The new phone could not be saved. It works until Locust closes.' })
+  }
+
+  /** A browser the relay let in with a GitHub ticket: in, with the full window, only when GitHub says it is this room's account. */
+  const signedIn = async (from: string, device: string, key: string, link: LinkKeys, hello: Record<string, unknown>): Promise<void> => {
+    const refuse = async (words: string): Promise<void> => {
+      const held = saved
+      if (held !== undefined) send({ t: 'send', to: from, ...(await seal(link.seal, { v: 1, kind: 'refused', message: words }, aadOf(held.room, device, 'pc-to-device'))) })
+    }
+    const account = saved?.github
+    if (account === undefined || saved?.closing === true) { await refuse('Locust on your computer is not signed in with GitHub any more. Pair this browser with a code instead.'); return }
+    if (typeof hello.github !== 'string' || !GITHUB_TOKEN.test(hello.github)) return
+    const user = await (options.githubUser ?? githubUserOf)(hello.github).catch(() => undefined)
+    if (user === undefined) { await refuse('Locust on your computer could not check your account with GitHub. Sign in again in a moment.'); return }
+    if (user !== account.user) { await refuse(`Locust on your computer is signed in with a different GitHub account (${account.login}). Sign in as that account.`); return }
+    if (!(await admit(from, device, key, link, { name: cleanName(hello.name), desk: true, via: 'github' }))) await refuse('Locust’s relay did not take this browser. Sign in with GitHub again.')
+  }
+
+  /** The account the relay says the room is tied to, kept when it changed: none when it says false. */
+  const syncGithub = (value: unknown): void => {
+    if (saved === undefined || saved.closing === true) return
+    const account = value === false ? undefined : accountOf(value)
+    if (value !== false && account === undefined) return
+    if (account?.user === saved.github?.user && account?.login === saved.github?.login) return
+    const { github: _was, ...rest } = saved
+    saved = account === undefined ? rest : { ...rest, github: account }
+    void persist().catch(() => undefined)
     tell()
   }
 
@@ -588,6 +673,8 @@ export function createPhoneAnywhere(options: {
         return
       }
       for (const device of Array.isArray(frame.devices) ? frame.devices : []) if (typeof device === 'string') online.add(device)
+      // A relay that offers GitHub says which account the room is tied to; one that does not says nothing.
+      if (frame.github !== undefined) syncGithub(frame.github)
       openCode()
       tell()
       options.away?.refresh()
@@ -596,6 +683,7 @@ export function createPhoneAnywhere(options: {
       return
     }
     if (frame.t === 'notes-changed') { track(collectNotes()); return }
+    if (frame.t === 'github') { syncGithub(frame.account); return }
     if (frame.t === 'notes' && typeof frame.id === 'string' && Array.isArray(frame.items)) {
       notePages.get(frame.id)?.(frame.items.filter(isNoteBox))
       return
@@ -705,9 +793,9 @@ export function createPhoneAnywhere(options: {
     return task
   }
 
-  const newCode = async (): Promise<void> => {
+  const newCode = async (desk?: true): Promise<void> => {
     const secret = randomText(16)
-    pairing = { secret, hash: await sha256(await pairingToken(secret)), until: now() + CODE_MS, used: false }
+    pairing = { secret, hash: await sha256(await pairingToken(secret)), until: now() + CODE_MS, used: false, ...(desk === true ? { desk } : {}) }
     openCode()
   }
 
@@ -766,6 +854,56 @@ export function createPhoneAnywhere(options: {
       // Nothing held, or a file that was never read: still removed, as it was before the room was kept to be reset.
       if (saved === undefined) await forgetRoom()
       else await letGo()
+      return settings()
+    }),
+
+    /*
+     * OPEN IN YOUR BROWSER (0.838). A code for this computer's own browser, opened at once: the browser it pairs goes
+     * on to the full window, already let have it. Undefined when there is no line to the relay to open it on.
+     */
+    deskCode: async (): Promise<string | undefined> => {
+      const made = await serial(async () => {
+        if (disposed || saved === undefined || saved.closing === true) return settings()
+        await newCode(true)
+        return settings()
+      })
+      const held = pairing
+      if (made.code?.desk !== true || held === undefined || !connected) return undefined
+      // Opened at the relay before the browser comes for it.
+      return (await command({ t: 'pair-open', hash: held.hash, until: held.until })) ? made.code.url : undefined
+    },
+
+    /** Where to send the person to tie this computer to their GitHub account, or undefined with why in Settings' note. */
+    githubLink: async (): Promise<string | undefined> => {
+      const held = saved
+      if (held === undefined || held.closing === true || !connected) {
+        message = 'Locust is not connected to its relay yet. Try again in a moment.'
+        tell()
+        return undefined
+      }
+      const link = randomText(32)
+      const answer = await answerOf({ t: 'github-open', hash: await sha256(link), key: held.publicKey, name: computerNameOf(options.computerName?.()) })
+      if (answer !== true) {
+        message = answer === 'github-off' ? 'Locust’s relay does not offer signing in with GitHub yet.' : 'Locust’s relay did not answer, or does not offer signing in with GitHub yet. Try again in a moment.'
+        tell()
+        return undefined
+      }
+      message = undefined
+      tell()
+      return `${held.relay}/v1/github/start?room=${held.room}&link=${link}`
+    },
+
+    /** No browser signs in with GitHub any more. Browsers already let in stay paired until they are removed. */
+    githubSignOut: () => serial(async () => {
+      if (disposed || saved === undefined || saved.github === undefined) return settings()
+      if (!(await command({ t: 'github-close' }))) {
+        message = 'Locust’s relay did not answer. Signing in with GitHub is still on; try again in a moment.'
+        return settings()
+      }
+      const { github: _gone, ...rest } = saved
+      saved = rest
+      message = undefined
+      await persist().catch(() => undefined)
       return settings()
     }),
 

@@ -30,6 +30,21 @@ export const MAX_FRAME = 720 * 1024
 /** A request id the PC may put on a command, so it knows which one the relay has done. */
 const COMMAND_ID = /^[A-Za-z0-9_-]{1,32}$/
 
+/*
+ * SIGNED IN WITH GITHUB (0.838). A PC may tie its room to the person's GitHub account; then a browser where they sign
+ * in to GitHub is given a one-time ticket into the room, the way a code's token lets a phone in, and the PC checks the
+ * account with GitHub itself before it pairs that browser. The relay keeps the account's number and name, the PC's
+ * public key and its name, and hashes of the tickets it hands out.
+ */
+/** A GitHub account's number. */
+export const GITHUB_USER = /^[1-9]\d{0,15}$/
+/** A GitHub login: letters, digits and single hyphens, at most 39. */
+export const GITHUB_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/
+/** What a computer is called where a browser chooses between them: plain words, at most 60. */
+export const COMPUTER_NAME = /^[\p{L}\p{N} '.,()_-]{1,60}$/u
+/** The account a room is tied to, as the PC is told it. */
+export interface GithubAccount { readonly user: number; readonly login: string }
+
 /**
  * SCOUT'S AWAY LOOKS (0.829). While the PC is off, a workflow in the repository Scout watches looks for it and leaves
  * a letter here, sealed with a key the relay never sees; the PC and its phones read the letters when they come. A
@@ -92,6 +107,10 @@ export type ClientFrame =
   | { readonly t: 'unnote'; readonly note: string; readonly id?: string }
   | { readonly t: 'notes'; readonly id?: string }
   | { readonly t: 'notes-collected'; readonly notes: readonly string[]; readonly held: readonly { readonly note: string; readonly why: NoteHeld }[]; readonly id?: string }
+  /** The PC is about to send the person to GitHub: the link's hash, the PC's public key, and what it is called. */
+  | { readonly t: 'github-open'; readonly hash: string; readonly key: string; readonly name: string; readonly id?: string }
+  /** No browser signs in with GitHub any more, and the account is let go. */
+  | { readonly t: 'github-close'; readonly id?: string }
 
 /** Where a browser's subscription may point. The relay posts to nothing else. */
 const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /^push\.services\.mozilla\.com$/, /^web\.push\.apple\.com$/, /^[a-z0-9-]+\.notify\.windows\.com$/]
@@ -133,16 +152,21 @@ export type ErrorCode =
   | 'away-off'
   /** That note was collected, taken back, or ran out. */
   | 'note-gone'
+  /** This relay does not offer signing in with GitHub. */
+  | 'github-off'
 
 export type RelayFrame =
   | { readonly t: 'hook-letter'; readonly hook: string }
   | { readonly t: 'hook-letters'; readonly items: readonly HookLetter[]; readonly lost: number; readonly id?: string }
-  | { readonly t: 'ok'; readonly as: 'pc'; readonly devices: readonly string[] }
+  /** `github`, from a relay that offers it: the account the room is tied to, or false for none. */
+  | { readonly t: 'ok'; readonly as: 'pc'; readonly devices: readonly string[]; readonly github?: GithubAccount | false }
   | { readonly t: 'ok'; readonly as: 'device' | 'pairing'; readonly pc: boolean }
   | { readonly t: 'msg'; readonly from: Address; readonly n: string; readonly c: string; readonly k?: string }
   | { readonly t: 'presence'; readonly pc: boolean }
   | { readonly t: 'presence'; readonly device: string; readonly on: boolean }
-  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'notes-collected'; readonly id?: string }
+  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'notes-collected' | 'github-open' | 'github-close'; readonly id?: string }
+  /** To the PC: the person signed in to GitHub, and the room is tied to this account now. */
+  | { readonly t: 'github'; readonly account: GithubAccount }
   | { readonly t: 'letters'; readonly items: readonly Letter[]; readonly more: boolean; readonly id?: string }
   /** A letter that came while this connection was open. */
   | { readonly t: 'letter'; readonly item: Letter }
@@ -260,6 +284,13 @@ export function parseClientFrame(text: string): ClientFrame | undefined {
       if (held.some((item) => item === undefined)) return undefined
       return { t: 'notes-collected', notes: fields.notes as string[], held: held as { note: string; why: NoteHeld }[], ...id }
     }
+    case 'github-open':
+      if (id === undefined || !only('t', 'hash', 'key', 'name', 'id') || typeof fields.hash !== 'string' || !HASH.test(fields.hash)
+        || typeof fields.key !== 'string' || !PUBLIC_KEY.test(fields.key) || typeof fields.name !== 'string' || !COMPUTER_NAME.test(fields.name)) return undefined
+      return { t: 'github-open', hash: fields.hash, key: fields.key, name: fields.name, ...id }
+    case 'github-close':
+      if (id === undefined || !only('t', 'id')) return undefined
+      return { t: 'github-close', ...id }
     default:
       return undefined
   }

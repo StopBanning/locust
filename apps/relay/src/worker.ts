@@ -1,13 +1,15 @@
 import icon256 from '../../desktop/resources/icon.png'
 import icon512 from '../../desktop/resources/icon-512.png'
 import { PHONE_SERVICE_WORKER, phoneManifest, phonePage } from '../../desktop/src/main/phone-page.js'
-import { deskPage } from '../../desktop/src/main/desk-page.js'
+import { deskNotePage, deskPage } from '../../desktop/src/main/desk-page.js'
 
 import { MAX_FRAME, ROOM_ID } from './protocol.js'
 import { WINDOW_PATH, WINDOW_VERSION, windowDirectory, windowFile, windowType, type WindowEntry, type ZipRange } from './window-zip.js'
 import type { RoomEnv } from './room.js'
+import { githubBack, githubOffered, githubStart, type NotePage } from './github.js'
 
 export { Room } from './room.js'
+export { Account } from './account.js'
 
 /**
  * LOCUST'S RELAY (0.826), at app.locust.lol: the page a phone opens to reach Locust from anywhere, and the rooms that
@@ -19,6 +21,8 @@ export { Room } from './room.js'
  */
 interface Env extends RoomEnv {
   readonly ROOMS: DurableObjectNamespace
+  readonly GITHUB_WEB?: string
+  readonly GITHUB_API?: string
   /** Where each release's window zip is (0.830): Locust's own downloads, unless a copy of the relay names another. */
   readonly DESK_DOWNLOADS?: string
 }
@@ -106,7 +110,11 @@ export default {
       if (url.pathname === '/manifest.webmanifest') return file(url, phoneManifest(), 'application/manifest+json')
       if (url.pathname === '/icon-256.png') return file(url, icon256, 'image/png', 'public, max-age=86400')
       if (url.pathname === '/icon-512.png') return file(url, icon512, 'image/png', 'public, max-age=86400')
-      if (url.pathname === '/desk' || url.pathname === '/desk/') return new Response(deskPage(), { headers: pageHeaders(url) })
+      if (url.pathname === '/desk' || url.pathname === '/desk/') return new Response(deskPage({ github: githubOffered(env) }), { headers: pageHeaders(url) })
+      // Signing in with GitHub (0.838, github.ts).
+      const note: NotePage = (said) => new Response(deskNotePage(said), { headers: { ...pageHeaders(url), 'cache-control': 'no-store' } })
+      if (url.pathname === '/v1/github/start') return githubStart(url, env, note)
+      if (url.pathname === '/v1/github/back') return githubBack(request, url, env, note)
       const asset = /^\/desk\/v\/([^/]+)\/(.+)$/.exec(url.pathname)
       if (asset !== null && WINDOW_VERSION.test(asset[1]!)) return windowAsset(url, env, asset[1]!, asset[2]!)
     }

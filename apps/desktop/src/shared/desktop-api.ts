@@ -47,6 +47,7 @@ import type { BrowserPointResponse } from './browser-point.js'
 import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL } from './appearance.js'
 import type { AppearanceState, ThemeChoice } from './appearance.js'
 import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from './acp-agents.js'
+import { PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL } from './phone.js'
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, type PhoneAnywhereSettings } from './phone.js'
 import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL } from './telegram.js'
 import { CHAT_ALERTS_CHANNEL, type ChatAppSettings } from './chat-apps.js'
@@ -554,6 +555,9 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       remove: (device) => ipcRenderer.invoke(PHONE_REMOVE_CHANNEL, device),
       setNightApprovals: (on) => ipcRenderer.invoke(PHONE_NIGHT_CHANNEL, on),
       setDesk: (device, on) => ipcRenderer.invoke(PHONE_DESK_CHANNEL, device, on),
+      openInBrowser: () => ipcRenderer.invoke(PHONE_OPEN_BROWSER_CHANNEL),
+      githubSignIn: () => ipcRenderer.invoke(PHONE_GITHUB_IN_CHANNEL),
+      githubSignOut: () => ipcRenderer.invoke(PHONE_GITHUB_OUT_CHANNEL),
       onAnywhereChanged: (listener) => {
         const receive = (_event: IpcEvent, settings: PhoneAnywhereSettings): void => { listener(settings) }
         ipcRenderer.on(PHONE_ANYWHERE_CHANGED_CHANNEL, receive)

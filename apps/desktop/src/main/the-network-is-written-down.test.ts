@@ -39,8 +39,9 @@ const code = (text: string): string[] => text.split('\n').filter((line) => !/^\s
 /** Each file that reaches the network, how many places in it do, and the document's words for them. */
 const LISTED: Readonly<Record<string, { readonly places: number; readonly said: readonly string[] }>> = {
   'terminal-ipc.ts': { places: 1, said: ['Links in the terminal', 'HTTP and HTTPS only'] },
-  // The updater (Windows), the Mac release list, the pet gallery's fetch, and five openings of the person's browser.
-  'index.ts': { places: 8, said: ['Its own updates (Windows)', 'Its own updates (Mac)', 'The pet gallery', 'A link inside a previewed page asks you first', 'open a public GitHub issue', 'open your mail app', 'Locust opens that page in your browser'] },
+  // The updater (Windows), the Mac release list, the pet gallery's fetch, and six openings of the person's browser:
+  // the sixth (0.838) is Open in your browser's code and GitHub's sign-in.
+  'index.ts': { places: 9, said: ['**Open in your browser**', 'opens GitHub\'s sign-in in your browser, through Locust\'s relay', 'Its own updates (Windows)', 'Its own updates (Mac)', 'The pet gallery', 'A link inside a previewed page asks you first', 'open a public GitHub issue', 'open your mail app', 'Locust opens that page in your browser'] },
   'mac-self-update.ts': { places: 2, said: ['Its own updates (Mac)', 'then the disk image you choose'] },
   'runtime-updates.ts': { places: 1, said: ['Keeping Codex CLI and Copilot CLI current'] },
   'pet-library.ts': { places: 1, said: ['The pet gallery'] },
@@ -58,7 +59,8 @@ const LISTED: Readonly<Record<string, { readonly places: number; readonly said: 
   // The look's question and letter, and an ask's letter (0.838).
   'scout-away-look.ts': { places: 3, said: ["**Scout's away look**", 'runs on GitHub, not on your computer', 'never its command'] },
   'desk-page.ts': { places: 1, said: ['**Locust in a browser**', 'never runs code a computer sent it', 'adds no connection of this computer'] },
-  'phone-anywhere.ts': { places: 1, said: ['**Your phone, from anywhere**', 'listens to nothing', 'the relay passes along what it cannot read'] },
+  // And GitHub, asked once for each browser that signs in whose account its token is (0.838).
+  'phone-anywhere.ts': { places: 2, said: ['**Your phone, from anywhere**', 'listens to nothing', 'the relay passes along what it cannot read', 'asks `api.github.com/user` once whose account it is', 'kept nowhere'] },
   // Your teammates in Telegram (0.831): one request at a time to the Bot API, and nothing listening.
   'telegram.ts': { places: 1, said: ['**Your teammates in Telegram**', '`api.telegram.org`', 'no other address is ever sent the token', "Telegram's", 'servers can read what is written there'] },
   // Your teammates in Discord and Slack (0.832): each one connection out -- Discord's gateway, Slack's Socket Mode -- and its REST calls.

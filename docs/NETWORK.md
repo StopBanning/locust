@@ -45,6 +45,7 @@ until it is listed here.
 | Your phone, from anywhere | Locust's relay at `app.locust.lol` (on Cloudflare): one WebSocket this computer opens to it | Only after you turn on Your phone with From anywhere, for as long as it stays on |
 | Scout while your computer is off | GitHub, through your own GitHub CLI, to open one pull request and set one secret; then, from GitHub's own runner and not this computer, the relay at `app.locust.lol` | Only after you turn on Look while my computer is off and merge its pull request; the workflow runs every hour or two, and does nothing more while Locust is open |
 | Locust in a browser | Nothing new from this computer: the relay link Your phone already keeps; the browser loads the window from Locust's relay | Only for a paired device you let open the full window |
+| Signing in with GitHub, for Locust in a browser | `api.github.com/user`, once for each browser that signs in, to ask GitHub whose account it is; GitHub's sign-in opens in your browser, through Locust's relay | Only after you choose Sign in with GitHub in Settings > General > Your phone, and then only when a browser signs in |
 | Your teammates in Discord | `discord.com` (Discord's API), over HTTPS, and one WebSocket to its gateway at `gateway.discord.gg`, for your own bot only | Only after you paste your bot's token in Settings > General > Chat apps, and then for as long as Locust is open |
 | Your teammates in Slack | `slack.com` (Slack's Web API), over HTTPS, and one Socket Mode WebSocket to a `*.slack.com` address Slack gives, for your own app only | Only after you paste your app's two tokens in Settings > General > Chat apps, and then for as long as Locust is open |
 | Your teammates in Telegram | `api.telegram.org` (Telegram's Bot API), over HTTPS, for your own bot only | Only after you paste your bot's token in Settings > General > Chat apps, and then for as long as Locust is open |
@@ -304,6 +305,20 @@ reads of your folder stays on this machine.
   Every call the window makes goes sealed through the same link, and this
   computer answers only those `apps/desktop/src/shared/desk-calls.ts` lets a
   browser make; signing in, permissions, spending and the terminal stay here.
+  **Open in your browser** (beside the code) turns From anywhere on if it is
+  off, and opens a code in your own browser on this computer; that browser goes
+  on to the full window.
+- **Signing in with GitHub** (Settings > General > Your phone: Sign in with
+  GitHub) opens GitHub's sign-in in your browser, through Locust's relay, which
+  asks GitHub for no permissions, only who you are. The relay then keeps your
+  GitHub account's number and name beside this computer's room, with this
+  computer's public key and its name, never GitHub's token. A browser where you
+  later sign in to GitHub at `app.locust.lol/desk` is given a one-time ticket
+  into the room, good for ten minutes, and brings GitHub's token, sealed, to
+  this computer, which asks `api.github.com/user` once whose account it is and
+  lets the browser in only for yours. The token is used for that one question
+  and kept nowhere. Sign out of GitHub in Settings and the relay forgets the
+  account; browsers already in stay paired until you remove them.
 - **Your teammates in Discord** (Settings > General > Chat apps) listens to
   nothing. With the token of a bot you make in Discord's Developer Portal,
   Locust keeps one WebSocket open to Discord's gateway at `gateway.discord.gg`

@@ -1,5 +1,6 @@
 import { roomCore, type Attachment, type Peer } from './room-core.js'
 import { vapidAuthorization, type VapidKeys } from './vapid.js'
+import { forgetAccountRoom, githubOffered } from './github.js'
 import { MAX_FRAME } from './protocol.js'
 
 /** A streaming sender may omit Content-Length: stop reading at the byte limit, before decoding. */
@@ -28,6 +29,10 @@ export async function hookBody(request: Request): Promise<string | undefined> {
 export interface RoomEnv {
   readonly VAPID_PRIVATE_JWK?: string
   readonly VAPID_PUBLIC_KEY?: string
+  /** Signing in with GitHub (0.838, github.ts): the rooms each account opens, and the OAuth app. */
+  readonly ACCOUNTS?: DurableObjectNamespace
+  readonly GITHUB_CLIENT_ID?: string
+  readonly GITHUB_CLIENT_SECRET?: string
 }
 
 /** The relay's push key, or undefined when this copy of the relay has none (then alerts are off). */
@@ -87,7 +92,8 @@ export class Room {
           body: bytes
         })
         return answer.status
-      }
+      },
+      ...(githubOffered(env) ? { github: { forget: (user: number, room: string) => forgetAccountRoom(env, user, room) } } : {})
     })
   }
 
@@ -105,6 +111,17 @@ export class Room {
   }
 
   async fetch(request: Request): Promise<Response> {
+    // From the relay's own Worker only (github.ts): no address from outside is routed to these paths.
+    const path = new URL(request.url).pathname
+    if (path === '/github/linked' || path === '/github/ticket') {
+      const said = await request.json().catch(() => undefined) as Record<string, unknown> | undefined
+      const user = typeof said?.user === 'number' && Number.isSafeInteger(said.user) && said.user > 0 ? said.user : undefined
+      if (said === undefined || user === undefined) return new Response('{"error":"bad-frame"}', { status: 400 })
+      const answer = await this.serial(() => path === '/github/linked'
+        ? this.core.githubLinked({ room: String(said.room), link: String(said.link), user, login: String(said.login) })
+        : this.core.githubTicket({ user }))
+      return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+    }
     const hook = /\/hook\/([^/]+)$/.exec(new URL(request.url).pathname)?.[1]
     if (hook !== undefined) {
       if (request.method !== 'POST') return new Response('{"error":"method"}', { status: 405, headers: { allow: 'POST' } })

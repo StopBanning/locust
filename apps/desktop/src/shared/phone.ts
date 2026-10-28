@@ -41,6 +41,13 @@ export const PHONE_NEW_CODE_CHANNEL = 'phone:new-code'
 export const PHONE_REMOVE_CHANNEL = 'phone:remove'
 export const PHONE_ANYWHERE_CHANGED_CHANNEL = 'phone:anywhere-changed'
 export const PHONE_NIGHT_CHANNEL = 'phone:night-approvals'
+/*
+ * WITHOUT A CODE TO CARRY (0.838). Open in your browser pairs this computer's own browser and opens the full window in
+ * it; signing in with GitHub lets any browser where the person signs in to GitHub in, with no code at all.
+ */
+export const PHONE_OPEN_BROWSER_CHANNEL = 'phone:open-browser'
+export const PHONE_GITHUB_IN_CHANNEL = 'phone:github-in'
+export const PHONE_GITHUB_OUT_CHANNEL = 'phone:github-out'
 
 /** How a phone reaches Locust: not at all, from anywhere through the relay, or on this Wi-Fi only. */
 export type PhoneMode = 'off' | 'anywhere' | 'wifi'
@@ -57,19 +64,23 @@ export interface PhoneAnywhereDevice {
   readonly alerts?: boolean
   /** Whether it may open the full window, in a browser (0.830): set here on this computer only. */
   readonly desk?: boolean
+  /** It came in by signing in with GitHub (0.838). */
+  readonly github?: boolean
 }
 
 export interface PhoneAnywhereSettings {
   readonly enabled: boolean
   /** Whether this computer is connected to the relay now. */
   readonly connected: boolean
-  /** The code's address while one can be scanned: once, until `until`. */
-  readonly code?: { readonly url: string; readonly until: string }
+  /** The code's address while one can be scanned: once, until `until`. `desk` when Open in your browser made it (0.838). */
+  readonly code?: { readonly url: string; readonly until: string; readonly desk?: boolean }
   readonly devices: readonly PhoneAnywhereDevice[]
   /** Why the last change did not happen, or why it is not connected, in plain words. */
   readonly message?: string
   /** Whether approvals and questions buzz a phone in quiet hours (0.827); off unless the person turns it on. */
   readonly nightApprovals?: boolean
+  /** The GitHub account a browser may sign in as to open Locust (0.838). */
+  readonly github?: { readonly login: string }
 }
 
 export interface PhoneModeState {
@@ -92,6 +103,11 @@ export interface PhoneApi {
   setNightApprovals(on: boolean): Promise<PhoneAnywhereSettings>
   /** Whether a paired device may open the full window in a browser (0.830). */
   setDesk?(device: string, on: boolean): Promise<PhoneAnywhereSettings>
+  /** Pairs this computer's own browser and opens the full window in it (0.838), turning on From anywhere if it is off. */
+  openInBrowser?(): Promise<PhoneAnywhereSettings>
+  /** Sends the person to GitHub to tie this computer to their account (0.838). */
+  githubSignIn?(): Promise<PhoneAnywhereSettings>
+  githubSignOut?(): Promise<PhoneAnywhereSettings>
   /** Called when a phone pairs, comes and goes, or the connection to the relay changes. */
   onAnywhereChanged(callback: (settings: PhoneAnywhereSettings) => void): () => void
 }

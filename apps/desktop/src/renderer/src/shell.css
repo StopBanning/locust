@@ -24205,6 +24205,9 @@ textarea.lc-compare__judgecriteria {
 .lc-phone__state { font-size: var(--lc-text-description); color: var(--lc-text-muted); }
 /* Approvals in quiet hours (0.827): its own line under the paired phones. */
 .lc-phone__night { margin-top: var(--lc-space-3); }
+/* Without a code to carry (0.838): GitHub's line sits as the quiet hours' does; Open in your browser's line wraps its button under the words when narrow. */
+.lc-phone__github { margin-top: var(--lc-space-3); }
+.lc-phone__browser { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-2); }
 /* Your teammates in chat apps (0.831 Telegram, 0.832 Discord and Slack): one row an app -- its name and state, then,
    once set up, its steps where they are done, the code that pairs, and who is paired, as the phone's are drawn. */
 .lc-chatapps { list-style: none; margin: var(--lc-space-3) 0 0; padding: 0; display: grid; border-top: 1px solid var(--lc-border-hairline); }

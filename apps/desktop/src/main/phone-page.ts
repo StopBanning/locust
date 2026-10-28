@@ -323,13 +323,24 @@ const RELAY = `
       var system = /Windows/.test(agent) ? 'Windows' : /Macintosh|Mac OS X/.test(agent) ? 'Mac' : /CrOS/.test(agent) ? 'ChromeOS' : /Linux/.test(agent) ? 'Linux' : '';
       return system ? browser + ' on ' + system : browser;
     }
+    /*
+     * A CODE, OR A GITHUB TICKET (0.838). #p= is a code from Settings: room, the PC's key, the secret, and a 'd' when
+     * Open in your browser made it, to go on to the full window. #g= is what signing in with GitHub hands this browser
+     * (apps/relay/src/github.ts): room, the PC's key, a ticket the relay lets in once, and GitHub's token, which only
+     * the PC reads, to check the account with GitHub itself. Neither stays in the address.
+     */
     function readCode() {
       var hash = location.hash;
-      if (hash.indexOf('#p=') !== 0) return null;
+      if (hash.indexOf('#p=') !== 0 && hash.indexOf('#g=') !== 0) return null;
       history.replaceState(null, '', location.pathname);
       var parts = hash.slice(3).split('.');
-      if (parts.length !== 3 || !/^[A-Za-z0-9_-]{22}$/.test(parts[0]) || !/^[A-Za-z0-9_-]{43}$/.test(parts[1]) || !/^[A-Za-z0-9_-]{22}$/.test(parts[2])) return null;
-      return { room: parts[0], pc: parts[1], secret: parts[2] };
+      if (!/^[A-Za-z0-9_-]{22}$/.test(parts[0] || '') || !/^[A-Za-z0-9_-]{43}$/.test(parts[1] || '')) return null;
+      if (hash.indexOf('#g=') === 0) {
+        if (parts.length !== 4 || !/^[A-Za-z0-9_-]{43}$/.test(parts[2]) || !/^[A-Za-z0-9_]{20,255}$/.test(parts[3])) return null;
+        return { room: parts[0], pc: parts[1], ticket: parts[2], github: parts[3], desk: true };
+      }
+      if ((parts.length !== 3 && !(parts.length === 4 && parts[3] === 'd')) || !/^[A-Za-z0-9_-]{22}$/.test(parts[2])) return null;
+      return { room: parts[0], pc: parts[1], secret: parts[2], desk: parts.length === 4 };
     }
     function failAll(message) {
       Object.keys(waiting).forEach(function (id) { var wait = waiting[id]; delete waiting[id]; clearTimeout(wait.timer); wait.reject(new Error(message)); });
@@ -347,7 +358,9 @@ const RELAY = `
       changed(true);
     }
 
+    var signinFailed = false;
     function pair(code) {
+      signinFailed = false;
       closeSocket(); failAll('unpaired');
       link = null; note = 'Pairing with Locust…'; changed(true);
       var device, publicKey, keys;
@@ -356,7 +369,8 @@ const RELAY = `
       }).then(function (made) {
         return crypto.subtle.exportKey('raw', made.publicKey).then(function (raw) {
           publicKey = lock.b64(new Uint8Array(raw));
-          return Promise.all([lock.deviceIdOf(publicKey), lock.linkKeys(made.privateKey, code.pc, code.room, 'device'), lock.pairingToken(code.secret), lock.pairingProof(code.secret)]);
+          return Promise.all([lock.deviceIdOf(publicKey), lock.linkKeys(made.privateKey, code.pc, code.room, 'device'),
+            code.ticket ? code.ticket : lock.pairingToken(code.secret), code.ticket ? '' : lock.pairingProof(code.secret)]);
         });
       }).then(function (got) {
         device = got[0]; keys = got[1];
@@ -376,14 +390,16 @@ const RELAY = `
             var frame;
             try { frame = JSON.parse(event.data); } catch (e) { return; }
             if (frame.t === 'err') {
-              finish(new Error(frame.code === 'pairing-closed' || frame.code === 'auth' ? 'That code was already used, or it ran out. Make a new one in Locust and scan it again.'
+              finish(new Error(code.ticket && (frame.code === 'pairing-closed' || frame.code === 'auth') ? 'That sign-in was already used, or it ran out. Sign in with GitHub again.'
+                : frame.code === 'pairing-closed' || frame.code === 'auth' ? 'That code was already used, or it ran out. Make a new one in Locust and scan it again.'
                 : frame.code === 'pc-offline' ? 'Locust is not connected on your computer. Open it, make a new code and scan it again.'
                 : 'Pairing did not work. Make a new code and scan it again.'));
               return;
             }
             if (frame.t === 'ok') {
-              if (!frame.pc) { finish(new Error('Locust is not connected on your computer. Open it, make a new code and scan it again.')); return; }
-              lock.seal(keys.seal, { v: 1, kind: 'pair', proof: proof, name: deviceName() }, lock.aad(code.room, device, 'device-to-pc')).then(function (box) {
+              if (!frame.pc) { finish(new Error(code.ticket ? 'Locust is not connected on your computer. Check that it is on and Locust is open there, then sign in with GitHub again.' : 'Locust is not connected on your computer. Open it, make a new code and scan it again.')); return; }
+              var hello = code.ticket ? { v: 1, kind: 'signin', github: code.github, name: deviceName() } : { v: 1, kind: 'pair', proof: proof, name: deviceName() };
+              lock.seal(keys.seal, hello, lock.aad(code.room, device, 'device-to-pc')).then(function (box) {
                 ws.send(JSON.stringify({ t: 'send', to: 'pc', n: box.n, c: box.c, k: publicKey }));
               });
               return;
@@ -391,6 +407,7 @@ const RELAY = `
             if (frame.t === 'msg' && frame.from === 'pc') {
               lock.open(keys.open, frame.n, frame.c, lock.aad(code.room, device, 'pc-to-device')).then(function (said) {
                 if (said && said.v === 1 && said.kind === 'paired' && said.device === device && /^[A-Za-z0-9_-]{43}$/.test(said.token)) finish(null, said.token);
+                else if (code.ticket && said && said.kind === 'refused') finish(new Error(said.message || 'Locust on your computer did not take this sign-in.'));
                 else finish(new Error('Locust did not take this phone. Make a new code and scan it again.'));
               }, function () { finish(new Error('Locust’s answer could not be opened. Make a new code and scan it again.')); });
             }
@@ -398,8 +415,13 @@ const RELAY = `
         });
       }).then(function (token) {
         var next = { room: code.room, device: device, token: token, seal: keys.seal, open: keys.open, seq: 0 };
-        return save(next).then(function () { link = next; note = ''; connect(); changed(true); });
+        return save(next).then(function () {
+          // Opened for the full window: on to it, with the pairing it shares.
+          if (code.desk) { location.replace('/desk/'); return; }
+          link = next; note = ''; connect(); changed(true);
+        });
       }).catch(function (error) {
+        signinFailed = !!code.ticket;
         link = null; note = error && error.message ? error.message : 'Pairing did not work. Make a new code and scan it again.';
         changed(true);
       });
@@ -604,6 +626,8 @@ const RELAY = `
       paired: function () { return link !== null; },
       away: function () { return link && link.away && !pcOn ? away : null; },
       pairNote: function () { return loaded ? note : 'Opening…'; },
+      // A GitHub sign-in that did not let this browser in (0.838): its screen points back to the way in, not a camera.
+      signedInFailed: function () { return signinFailed; },
       problem: function () { return link ? trouble : ''; },
       api: function (path, body) {
         var current = link;
@@ -724,6 +748,14 @@ const UI = `
   }
   function pairScreen() {
     var said = transport.pairNote();
+    if (transport.signedInFailed && transport.signedInFailed()) {
+      root.replaceChildren(el('div', { class: 'pair' }, [
+        el('strong', { text: 'Locust did not open here' }),
+        said ? el('div', { class: 'said', role: 'status', text: said }) : null,
+        el('a', { class: 'note', href: '/desk/', text: 'Back to signing in' })
+      ]));
+      return;
+    }
     root.replaceChildren(el('div', { class: 'pair' }, [
       el('strong', { text: 'Pair this phone with Locust' }),
       el('div', { class: 'note', text: 'On your computer, open Locust, then Settings › Your phone, and scan the code with this phone’s camera.' }),

@@ -32,7 +32,8 @@ export function QrCode({ text, label }: { readonly text: string; readonly label:
 function deviceState(device: PhoneAnywhereSettings['devices'][number]): string {
   const seen = device.seen === undefined ? undefined : agoLabel(device.seen)
   const when = device.online ? 'Open now' : seen === undefined ? 'Paired' : `Last open ${seen}`
-  return device.alerts === true ? `${when} · alerts on` : when
+  const how = device.github === true ? `${when} · signed in with GitHub` : when
+  return device.alerts === true ? `${how} · alerts on` : how
 }
 
 /*
@@ -78,6 +79,9 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
     try { apply(await work()) } catch { setFailure('This setting could not be changed. It is unchanged.') } finally { setBusy(false) }
   }
   const setMode = (next: PhoneMode): Promise<void> => run(() => api!.setMode(next), (state: PhoneModeState) => { setWifi(state.wifi); setAnywhere(state.anywhere) })
+  // Without a code to carry (0.838): this computer's own browser, paired at once; any browser, through GitHub.
+  const openInBrowser = (): Promise<void> => run(() => api!.openInBrowser!(), setAnywhere)
+  const github = anywhere?.github
   const newCode = (): Promise<void> => run(() => api!.newCode(), setAnywhere)
 
   // A code runs out after ten minutes; while it is on screen a fresh one takes its place. With no phone paired yet,
@@ -122,13 +126,27 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
         ))}
       </div>
 
+      {/* Off: one click turns on From anywhere and opens the whole window in this computer's browser (0.838). */}
+      {!on && !managed && shown === 'anywhere' && api?.openInBrowser !== undefined && (
+        <p className="lc-settings__note lc-phone__browser">Or open Locust’s whole window in this computer’s browser. It turns this on, from anywhere.{' '}
+          <button type="button" className="lc-control lc-control--boxed" disabled={busy || !anywhere} onClick={() => { void openInBrowser() }}>Open in your browser</button></p>
+      )}
+
       {on && mode === 'anywhere' && anywhere !== undefined && (
         <>
           <div className="lc-phone" data-phone-anywhere="">
-            {code !== undefined && <QrCode text={code.url} label="A code for your phone’s camera. It pairs your phone with Locust." />}
+            {/* A code Open in your browser made is for this computer's browser: not shown for a phone to scan. */}
+            {code !== undefined && code.desk !== true && <QrCode text={code.url} label="A code for your phone’s camera. It pairs your phone with Locust." />}
             <div className="lc-phone__side">
               <p className="lc-settings__note" role="status">{anywhere.message ?? (anywhere.connected ? 'Connected to Locust’s relay.' : 'Connecting to Locust’s relay…')}</p>
-              {code !== undefined
+              {code?.desk === true
+                ? <>
+                  <p className="lc-settings__note">Opening Locust in this computer’s browser. If no tab opened, copy the link and open it in the browser.</p>
+                  <span><button type="button" className="lc-control lc-control--boxed" onClick={() => {
+                    void navigator.clipboard?.writeText(code.url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2_500) }, () => undefined)
+                  }}>{copied ? 'Copied' : 'Copy the link'}</button></span>
+                </>
+                : code !== undefined
                 ? <>
                   <p className="lc-settings__note">Scan it with your phone’s camera. It pairs one phone, once, within ten minutes, then a new one takes its place.</p>
                   {/* A computer has no camera to scan it with (0.830): the same code, as a link to open in its browser. */}
@@ -138,6 +156,8 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
                   }}>{copied ? 'Copied' : 'Copy the link'}</button></span>
                 </>
                 : <span><button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void newCode() }}>Pair a phone</button></span>}
+              {api?.openInBrowser !== undefined && code?.desk !== true && <p className="lc-settings__note">Or open the whole window in this computer’s browser, paired at once.{' '}
+                <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void openInBrowser() }}>Open in your browser</button></p>}
               {anywhere.devices.length > 0 && <p className="lc-settings__note">Lost a phone? Remove it below, and it stops at once.</p>}
               {anywhere.devices.some((device) => device.desk === true) && <p className="lc-settings__note">With Full window on, open app.locust.lol/desk in that device’s browser: the whole window, while this computer shows that it is open there.</p>}
             </div>
@@ -160,6 +180,24 @@ export function PhoneSettings({ heading, more, api = typeof window === 'undefine
                 </li>
               ))}
             </ul>
+          )}
+          {/*
+            * SIGNED IN WITH GITHUB (0.838). Tied once, any browser where the person signs in to GitHub opens Locust here
+            * with the full window: the relay checks the account with GitHub, then this computer checks it again itself.
+            */}
+          {api?.githubSignIn !== undefined && (
+            <div className="lc-settingline lc-phone__github">
+              <div className="lc-settingline__text">
+                <p className="lc-settings__lede">{github !== undefined
+                  ? `Any browser where you sign in to GitHub as ${github.login} opens Locust at app.locust.lol/desk, with no code.`
+                  : 'Sign in with GitHub, and any browser where you sign in to GitHub opens Locust at app.locust.lol/desk, with no code.'}</p>
+                <p className="lc-settings__note">{github !== undefined
+                  ? 'Signing out stops new sign-ins. Browsers already in stay paired until you remove them above.'
+                  : 'Locust’s relay checks who you are with GitHub, then this computer checks again with GitHub itself. Locust asks GitHub for no permissions, only who you are.'}</p>
+              </div>
+              <button type="button" className="lc-control lc-control--boxed" disabled={busy || !anywhere.connected}
+                onClick={() => { void run(() => (github !== undefined ? api!.githubSignOut!() : api!.githubSignIn!()), setAnywhere) }}>{github !== undefined ? 'Sign out of GitHub' : 'Sign in with GitHub'}</button>
+            </div>
           )}
           {anywhere.devices.some((device) => device.alerts === true) && (
             <div className="lc-settingline lc-phone__night">

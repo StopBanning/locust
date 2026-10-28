@@ -6,9 +6,10 @@
   "compatibility_date": "2026-08-01",
   "routes": [{ "pattern": "app.locust.lol", "custom_domain": true }],
   "durable_objects": {
-    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+    // ACCOUNTS (0.838): one per GitHub account, the computers a browser signed in as it may open (src/account.ts).
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }, { "name": "ACCOUNTS", "class_name": "Account" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }, { "tag": "v2", "new_sqlite_classes": ["Account"] }],
   // The home-screen app's icons, bundled as bytes.
   "rules": [{ "type": "Data", "globs": ["**/*.png"], "fallthrough": true }],
   // The public half of the key alerts are signed with; the private half is a secret: `wrangler secret put VAPID_PRIVATE_JWK`.

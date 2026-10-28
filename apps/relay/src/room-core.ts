@@ -1,4 +1,4 @@
-import { isPushEndpoint, parseAwayPost, parseClientFrame, HOOK_BODY_CHARS, LETTERS_AT_ONCE, MAX_FRAME, MAX_NOTES, TOKEN, type Address, type AwayAlert, type ClientFrame, type ErrorCode, type HookLetter, type Letter, type LetterFrom, type Note, type NoteHeld, type RelayFrame } from './protocol.js'
+import { isPushEndpoint, parseAwayPost, parseClientFrame, GITHUB_LOGIN, HOOK_BODY_CHARS, LETTERS_AT_ONCE, MAX_FRAME, MAX_NOTES, ROOM_ID, TOKEN, type Address, type AwayAlert, type ClientFrame, type ErrorCode, type HookLetter, type Letter, type LetterFrom, type Note, type NoteHeld, type RelayFrame } from './protocol.js'
 
 /**
  * ONE PC'S ROOM (0.826). The room holds the connections of one PC, the devices paired with it and, while the PC
@@ -49,6 +49,11 @@ export interface RoomHost {
    * undefined when this relay has no key to sign with. Never called for an address that is not a push service's.
    */
   push?(endpoint: string, body: string, urgency: 'normal' | 'high'): Promise<number | undefined>
+  /**
+   * Signing in with GitHub (0.838), on a relay that offers it: forgets that an account opens this room, when the room
+   * lets the account go or is deleted. Without it, the room refuses to be tied to an account.
+   */
+  readonly github?: { forget(user: number, room: string): Promise<void> }
 }
 
 /** How long a new connection has to say who it is. */
@@ -89,6 +94,13 @@ export const HOOK_MISSES_PER_HOUR = 60
 export const MAX_HOOKS = 64
 /** The most times a day the away looks ring the phones, whatever they ask. */
 export const AWAY_PUSHES_PER_DAY = 5
+/** How long the person has to sign in to GitHub once the PC sent them there (0.838). */
+export const GITHUB_LINK_MS = 10 * 60_000
+/** A browser signed in with GitHub has this long to use its ticket, once. */
+export const TICKET_MS = 10 * 60_000
+/** The most tickets waiting at once, and handed out in an hour, for one room. */
+export const MAX_TICKETS = 5
+export const TICKETS_PER_HOUR = 20
 const HOUR_MS = 60 * 60_000
 const DAY_MS = 24 * HOUR_MS
 
@@ -121,6 +133,14 @@ interface Meta {
   readonly letters?: readonly LetterEntry[]
   /** Phones' notes waiting for the PC (0.837), oldest first; each one's box under its own key. */
   readonly notes?: readonly NoteEntry[]
+  /** While the PC has sent the person to GitHub (0.838): the link's hash, until when, and what a ticket will carry. */
+  readonly githubLink?: { readonly hash: string; readonly until: number; readonly key: string; readonly name: string }
+  /** The GitHub account this room is tied to, what a browser signing in as it is given, and the room's own id. */
+  readonly github?: { readonly user: number; readonly login: string; readonly key: string; readonly name: string; readonly room: string; readonly since: number }
+  /** Tickets handed to browsers signed in as that account: each good once, until it runs out. */
+  readonly tickets?: readonly { readonly hash: string; readonly until: number }[]
+  /** When tickets were handed out, for the hour's limit. */
+  readonly ticketed?: readonly number[]
 }
 const META = 'meta'
 const AWAY_ALERTS = 'away-alerts'
@@ -145,13 +165,20 @@ function same(a: string, b: string): boolean {
 export const addressOf = (attachment: Attachment): Address | undefined =>
   attachment.as === 'pc' ? 'pc' : attachment.as === 'device' ? attachment.device : attachment.as === 'pairing' ? `pairing:${attachment.tag}` : undefined
 
-type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'hook-letters' | 'notes-collected' }>
+type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'hook-letters' | 'notes-collected' | 'github-open' | 'github-close' }>
 
 export function roomCore(host: RoomHost) {
   const meta = (): Promise<Meta | undefined> => host.store.get<Meta>(META)
   const save = (next: Meta): Promise<void> => host.store.put(META, next)
   const pcBesides = (peer?: Peer): Peer | undefined => host.peers().find((other) => other !== peer && other.attachment.as === 'pc')
   const err = (peer: Peer, code: ErrorCode, id?: string): void => peer.send({ t: 'err', code, ...(id === undefined ? {} : { id }) })
+  /** The account no longer opens this room: gone from the relay's list of rooms for it. */
+  const forgetAccount = async (held: Meta | undefined): Promise<void> => {
+    if (held?.github !== undefined) await host.github?.forget(held.github.user, held.github.room).catch(() => undefined)
+  }
+  /** What the PC is told of its account, by a relay that offers GitHub: the account, or false. */
+  const accountOf = (held: Meta | undefined): { readonly github?: { readonly user: number; readonly login: string } | false } =>
+    host.github === undefined ? {} : { github: held?.github === undefined ? false : { user: held.github.user, login: held.github.login } }
   const refuse = (peer: Peer, code: ErrorCode): void => { err(peer, code); peer.close(CLOSE.refused, code) }
   const forgetLetters = async (letters: readonly LetterEntry[]): Promise<void> => {
     for (const letter of letters) {
@@ -211,6 +238,8 @@ export function roomCore(host: RoomHost) {
     }
     const held = await meta()
     if (held?.pairing !== undefined) times.push(held.pairing.until)
+    if (held?.githubLink !== undefined) times.push(held.githubLink.until)
+    for (const ticket of held?.tickets ?? []) times.push(ticket.until)
     if (held !== undefined && pcBesides(leaving) === undefined) times.push(held.seen + IDLE_ROOM_MS)
     const oldest = held?.letters?.[0]
     if (oldest !== undefined) times.push(oldest.at + LETTER_KEPT_MS)
@@ -351,7 +380,7 @@ export function roomCore(host: RoomHost) {
       for (const other of host.peers()) if (other !== peer && other.attachment.as === 'pc') other.close(CLOSE.replaced, 'replaced')
       peer.attach({ as: 'pc', at: now, rate })
       const online = [...new Set(host.peers().flatMap((other) => other.attachment.as === 'device' ? [other.attachment.device] : []))]
-      peer.send({ t: 'ok', as: 'pc', devices: online })
+      peer.send({ t: 'ok', as: 'pc', devices: online, ...accountOf(await meta()) })
       for (const other of host.peers()) if (other.attachment.as === 'device' || other.attachment.as === 'pairing') other.send({ t: 'presence', pc: true })
       await schedule()
       return
@@ -366,11 +395,22 @@ export function roomCore(host: RoomHost) {
       pc?.send({ t: 'presence', device: frame.device, on: true })
       return
     }
+    // A BROWSER SIGNED IN WITH GITHUB (0.838) comes with a ticket instead of a code's token: good once, then gone. It is
+    // let in as a phone being paired is, and the PC checks the account with GitHub before it pairs it.
+    const presented = await host.sha256(frame.token)
+    const ticket = (held.tickets ?? []).find((one) => one.until > now && same(one.hash, presented))
+    if (ticket !== undefined && held.github !== undefined) {
+      await save({ ...held, tickets: (held.tickets ?? []).filter((one) => one !== ticket) })
+      peer.attach({ as: 'pairing', tag: host.random(9), at: now, sent: false, rate })
+      peer.send({ t: 'ok', as: 'pairing', pc: pcBesides(peer) !== undefined })
+      await schedule()
+      return
+    }
     // A phone with the code's token. Every try counts, right or wrong, so a code cannot be guessed at.
     const window = held.pairing
     if (window === undefined || window.until <= now || window.tries >= MAX_PAIRING_TRIES) { refuse(peer, 'pairing-closed'); return }
     await save({ ...held, pairing: { ...window, tries: window.tries + 1 } })
-    if (!same(window.hash, await host.sha256(frame.token))) { refuse(peer, 'auth'); return }
+    if (!same(window.hash, presented)) { refuse(peer, 'auth'); return }
     peer.attach({ as: 'pairing', tag: host.random(9), at: now, sent: false, rate })
     peer.send({ t: 'ok', as: 'pairing', pc: pcBesides(peer) !== undefined })
     await schedule()
@@ -517,7 +557,23 @@ export function roomCore(host: RoomHost) {
         done()
         return
       }
+      case 'github-open': {
+        if (host.github === undefined) { err(peer, 'github-off', frame.id); return }
+        await save({ ...held, githubLink: { hash: frame.hash, until: now + GITHUB_LINK_MS, key: frame.key, name: frame.name } })
+        done()
+        await schedule()
+        return
+      }
+      case 'github-close': {
+        // Let go: no browser signs in with it any more, and tickets not yet used stop working.
+        const { github: _account, githubLink: _link, tickets: _tickets, ...rest } = held
+        await forgetAccount(held)
+        await save(rest)
+        done()
+        return
+      }
       case 'reset': {
+        await forgetAccount(held)
         await host.store.deleteAll()
         for (const other of host.peers()) if (other !== peer) other.close(CLOSE.reset, 'reset')
         done()
@@ -551,6 +607,37 @@ export function roomCore(host: RoomHost) {
       await schedule()
       return { status: 202, body: { accepted: true } }
     },
+    /**
+     * THE PERSON SIGNED IN TO GITHUB FROM THIS PC (0.838). The Worker has GitHub's word for the account; the link the
+     * PC sent them with says which room. Tied, the PC is told, and the answer says what the account's list of rooms keeps.
+     */
+    async githubLinked(request: { readonly room: string; readonly link: string; readonly user: number; readonly login: string }): Promise<AwayAnswer> {
+      const held = await meta()
+      const link = held?.githubLink
+      if (held === undefined || host.github === undefined || !ROOM_ID.test(request.room) || !TOKEN.test(request.link) || !GITHUB_LOGIN.test(request.login)) return { status: 404, body: { error: 'room' } }
+      if (link === undefined || link.until <= host.now() || !same(link.hash, await host.sha256(request.link))) return { status: 410, body: { error: 'link-gone' } }
+      // Another account before it no longer opens this room.
+      if (held.github !== undefined && held.github.user !== request.user) await forgetAccount(held)
+      const { githubLink: _used, tickets: _old, ...rest } = held
+      const github = { user: request.user, login: request.login, key: link.key, name: link.name, room: request.room, since: host.now() }
+      await save({ ...rest, github })
+      pcBesides()?.send({ t: 'github', account: { user: github.user, login: github.login } })
+      return { status: 200, body: { key: github.key, name: github.name } }
+    },
+    /** A browser signed in as an account this room is tied to: a ticket in, good once, or 404 when it is not tied to it. */
+    async githubTicket(request: { readonly user: number }): Promise<AwayAnswer> {
+      const held = await meta()
+      if (held?.github === undefined || held.github.user !== request.user || host.github === undefined) return { status: 404, body: { error: 'room' } }
+      const now = host.now()
+      const ticketed = (held.ticketed ?? []).filter((at) => now - at < HOUR_MS)
+      if (ticketed.length >= TICKETS_PER_HOUR) return { status: 429, body: { error: 'too-fast' } }
+      const ticket = host.random(32)
+      const tickets = [...(held.tickets ?? []).filter((one) => one.until > now), { hash: await host.sha256(ticket), until: now + TICKET_MS }].slice(-MAX_TICKETS)
+      await save({ ...held, tickets, ticketed: [...ticketed, now] })
+      await schedule()
+      return { status: 200, body: { ticket, key: held.github.key, name: held.github.name } }
+    },
+
     /** A connection came in: it has AUTH_WITHIN_MS to say who it is. */
     async opened(): Promise<void> {
       await schedule()
@@ -637,6 +724,7 @@ export function roomCore(host: RoomHost) {
       }
       const held = await meta()
       if (held !== undefined && pcBesides() === undefined && now - held.seen >= IDLE_ROOM_MS) {
+        await forgetAccount(held)
         await host.store.deleteAll()
         for (const peer of host.peers()) peer.close(CLOSE.reset, 'room gone')
         return
@@ -647,6 +735,11 @@ export function roomCore(host: RoomHost) {
           const { pairing: _over, ...rest } = next
           next = rest
         }
+        if (next.githubLink !== undefined && next.githubLink.until <= now) {
+          const { githubLink: _over, ...rest } = next
+          next = rest
+        }
+        if (next.tickets?.some((ticket) => ticket.until <= now) === true) next = { ...next, tickets: next.tickets.filter((ticket) => ticket.until > now) }
         // Letters and notes a week old are deleted whether or not anyone came for them.
         next = await prune(next)
         next = await pruneNotes(next)

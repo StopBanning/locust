@@ -170,7 +170,7 @@ import { createCheckFix, type CheckFix } from './check-fix.js'
 import { parsedCheckFixTries } from '../shared/check-fix.js'
 import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
 import { createPhoneAlerts, type PhoneAlert } from './phone-alerts.js'
-import { createPhoneAnywhere, DEFAULT_RELAY } from './phone-anywhere.js'
+import { createPhoneAnywhere, DEFAULT_RELAY, githubUserOf } from './phone-anywhere.js'
 import { createPhoneHost, type PhoneCalls } from './phone-host.js'
 import { createTelegramLink, TELEGRAM_API } from './telegram.js'
 import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL } from '../shared/telegram.js'
@@ -184,6 +184,7 @@ import { countingLedgerWrites, keyedOnce } from './ledger-writes.js'
 import { acpScratch, createAcpAgents } from './acp-agents.js'
 import { acpCatalog, ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
 import { phonePage } from './phone-page.js'
+import { PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL } from '../shared/phone.js'
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
 import { createKeepAwake, KEEP_AWAKE_BEAT_MS } from './keep-awake.js'
 import { attentionDot, needsYouCountFrom, taskbarAttention } from './taskbar-attention.js'
@@ -10205,7 +10206,13 @@ if (!ownsSingleInstanceLock) {
       // Bound once the desk host is made, a few lines on; a frame before then waits for nothing.
       desk: { frame: (device, asks) => { void deskLink?.handle(device, asks) }, forget: (device) => { void deskLink?.forget(device) } },
       // Written on a phone while this computer was off (0.837): sent now, through the phone's own path.
-      notes: { deliver: async (missionId, text) => { const sent = await phoneSend(missionId, text); return sent.ok ? 'sent' : sent.why } }
+      notes: { deliver: async (missionId, text) => { const sent = await phoneSend(missionId, text); return sent.ok ? 'sent' : sent.why } },
+      // Signed in with GitHub (0.838): GitHub's own answer, unless LOCUST_GITHUB_API names a stand-in a drive runs.
+      githubUser: (token) => {
+        const named = process.env.LOCUST_GITHUB_API?.trim()
+        return githubUserOf(token, named !== undefined && /^https?:\/\/[^\s/]+$/.test(named) ? named : undefined)
+      },
+      computerName: () => hostname()
     })
     hookRelay = phoneAnywhere
     scoutAwayRelay = { ready: () => phoneAnywhere.settings().then(() => undefined), room: () => phoneAnywhere.room(), connected: () => phoneAnywhere.connected(), awayOpen: (hash) => phoneAnywhere.awayOpen(hash), awayClose: () => phoneAnywhere.awayClose(), keepAwayAlerts: () => phoneAnywhere.keepAwayAlerts(), post: (box) => phoneAnywhere.post(box), letters: (after) => phoneAnywhere.letters(after) }
@@ -10318,6 +10325,46 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(PHONE_SET_MODE_CHANNEL, (event, mode: unknown) => fromOwnWindow(event) ? setPhoneMode(mode) : { wifi: { enabled: false, addresses: [] }, anywhere: NO_PHONE })
     ipcMain.handle(PHONE_NEW_CODE_CHANNEL, (event) => fromOwnWindow(event) ? phoneAnywhere.newCode() : NO_PHONE)
     ipcMain.handle(PHONE_REMOVE_CHANNEL, (event, device: unknown) => fromOwnWindow(event) ? phoneAnywhere.remove(device) : NO_PHONE)
+    /*
+     * WITHOUT A CODE TO CARRY (0.838). Open in your browser turns on From anywhere when phones are off, opens a code in
+     * this computer's own browser, and that browser goes on to the full window. Sign in with GitHub sends the person to
+     * GitHub in their browser, through Locust's relay; after that any browser where they sign in to GitHub opens Locust.
+     */
+    // A drive's stand-in writes the page down instead, as LOCUST_SIGN_IN_PAGES does for agents' sign-ins: a drive is not the person.
+    const openForPerson = async (url: string): Promise<void> => {
+      const pages = process.env.LOCUST_SIGN_IN_PAGES
+      if (pages !== undefined && pages.length > 0) await appendFile(pages, `${url}
+`, 'utf8')
+      else await shell.openExternal(url)
+    }
+    const relayAnswers = async (): Promise<boolean> => {
+      for (let waited = 0; waited < 15_000; waited += 250) {
+        if ((await phoneAnywhere.settings()).connected) return true
+        await new Promise((resolve) => setTimeout(resolve, 250))
+      }
+      return false
+    }
+    ipcMain.handle(PHONE_OPEN_BROWSER_CHANNEL, async (event) => {
+      if (!fromOwnWindow(event)) return NO_PHONE
+      const before = await phoneAnywhere.settings()
+      if (policyFeatureRefusal(organizationPolicy, 'phone') !== undefined) return before
+      if (!before.enabled) {
+        if ((await phoneHost.settings()).enabled) return { ...before, message: 'Your phone reaches Locust only on this Wi-Fi now. Choose From anywhere first.' }
+        await setPhoneMode('anywhere')
+      }
+      if (!(await relayAnswers())) return { ...(await phoneAnywhere.settings()), message: 'Locust could not reach its relay. Check this computer’s connection, then try again.' }
+      const url = await phoneAnywhere.deskCode()
+      if (url === undefined) return { ...(await phoneAnywhere.settings()), message: 'Locust’s relay did not open a code for this browser. Try again in a moment.' }
+      await openForPerson(url)
+      return phoneAnywhere.settings()
+    })
+    ipcMain.handle(PHONE_GITHUB_IN_CHANNEL, async (event) => {
+      if (!fromOwnWindow(event)) return NO_PHONE
+      const url = await phoneAnywhere.githubLink()
+      if (url !== undefined) await openForPerson(url)
+      return phoneAnywhere.settings()
+    })
+    ipcMain.handle(PHONE_GITHUB_OUT_CHANNEL, (event) => fromOwnWindow(event) ? phoneAnywhere.githubSignOut() : NO_PHONE)
     /*
      * LOCUST IN A BROWSER (0.830, desk-host.ts): a paired device Settings lets open the full window makes the window's
      * calls through the relay link; this computer's window shows a cover while it does.
