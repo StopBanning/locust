@@ -6,6 +6,8 @@
  * `n` and `c` below are a nonce and a sealed box it only passes on. What it does keep is small: a hash of the PC's
  * token, a hash of each paired device's token, and while a code is shown, a hash of that code's token.
  * Called links (2026-10-25) are the explicit exception: their bodies are readable data, for the PC alone, at most a week.
+ * Other apps from anywhere (0.841, mcp.ts) are the other: an app's requests are its own plain HTTPS, passed to the PC
+ * and answered, and kept nowhere.
  */
 
 /** 16 random bytes, base64url: a room is one PC's. */
@@ -29,6 +31,9 @@ export const PAIRING_TAG = /^[A-Za-z0-9_-]{12}$/
 export const MAX_FRAME = 720 * 1024
 /** A request id the PC may put on a command, so it knows which one the relay has done. */
 const COMMAND_ID = /^[A-Za-z0-9_-]{1,32}$/
+/** An app's request the PC answers by name, and the longest answer (0.841, mcp.ts keeps the same numbers). */
+const MCP_ASK_ID = /^[A-Za-z0-9_-]{16}$/
+const MAX_MCP_ANSWER = 256 * 1024
 
 /*
  * SIGNED IN WITH GITHUB (0.838). A PC may tie its room to the person's GitHub account; then a browser where they sign
@@ -111,6 +116,11 @@ export type ClientFrame =
   | { readonly t: 'github-open'; readonly hash: string; readonly key: string; readonly name: string; readonly id?: string }
   /** No browser signs in with GitHub any more, and the account is let go. */
   | { readonly t: 'github-close'; readonly id?: string }
+  /** Other apps may reach this PC from anywhere (0.841, mcp.ts), or no longer: off forgets every app. */
+  | { readonly t: 'mcp-open'; readonly id?: string }
+  | { readonly t: 'mcp-close'; readonly id?: string }
+  /** The PC's answer to an app's request: an HTTP status and the body to send it, as the PC wrote them. */
+  | { readonly t: 'mcp-answer'; readonly ask: string; readonly status: number; readonly body: string }
 
 /** Where a browser's subscription may point. The relay posts to nothing else. */
 const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /^push\.services\.mozilla\.com$/, /^web\.push\.apple\.com$/, /^[a-z0-9-]+\.notify\.windows\.com$/]
@@ -164,7 +174,12 @@ export type RelayFrame =
   | { readonly t: 'msg'; readonly from: Address; readonly n: string; readonly c: string; readonly k?: string }
   | { readonly t: 'presence'; readonly pc: boolean }
   | { readonly t: 'presence'; readonly device: string; readonly on: boolean }
-  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'notes-collected' | 'github-open' | 'github-close'; readonly id?: string }
+  | { readonly t: 'done'; readonly of: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'notes-collected' | 'github-open' | 'github-close' | 'mcp-open' | 'mcp-close'; readonly id?: string }
+  /**
+   * To the PC (0.841, mcp.ts): an app asks something. `connect` is a sign-in waiting on the person's card; `token` is a
+   * code or key to exchange; `call` is an MCP request, with the bearer it came with. The PC answers with `mcp-answer`.
+   */
+  | { readonly t: 'mcp-ask'; readonly ask: string; readonly kind: 'connect' | 'token' | 'call'; readonly body: string; readonly auth?: string }
   /** To the PC: the person signed in to GitHub, and the room is tied to this account now. */
   | { readonly t: 'github'; readonly account: GithubAccount }
   | { readonly t: 'letters'; readonly items: readonly Letter[]; readonly more: boolean; readonly id?: string }
@@ -291,6 +306,15 @@ export function parseClientFrame(text: string): ClientFrame | undefined {
     case 'github-close':
       if (id === undefined || !only('t', 'id')) return undefined
       return { t: 'github-close', ...id }
+    case 'mcp-open':
+    case 'mcp-close':
+      if (id === undefined || !only('t', 'id')) return undefined
+      return { t: fields.t, ...id }
+    case 'mcp-answer':
+      if (!only('t', 'ask', 'status', 'body') || typeof fields.ask !== 'string' || !MCP_ASK_ID.test(fields.ask)
+        || typeof fields.status !== 'number' || !Number.isInteger(fields.status) || fields.status < 200 || fields.status > 599
+        || typeof fields.body !== 'string' || fields.body.length > MAX_MCP_ANSWER) return undefined
+      return { t: 'mcp-answer', ask: fields.ask, status: fields.status, body: fields.body }
     default:
       return undefined
   }

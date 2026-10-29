@@ -3765,6 +3765,8 @@ export interface DesktopApi {
   /** Scout, a teammate that keeps watch (0.756). */
   readonly scout?: import('./scout.js').ScoutApi
   readonly locustMcp?: import('./locust-mcp.js').LocustMcpApi
+  /** Other apps from anywhere (0.841): Claude on the web and the like, through the relay. */
+  readonly remoteMcp?: import('./remote-mcp.js').RemoteMcpApi
   /** Your phone (0.775): a page on the home network, paired by a QR code. */
   readonly phone?: import('./phone.js').PhoneApi
   /** Your teammates in chat apps (0.831 Telegram, 0.832 Discord and Slack): your own bot or app, your own chat. */

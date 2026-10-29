@@ -2,6 +2,30 @@ import { roomCore, type Attachment, type Peer } from './room-core.js'
 import { vapidAuthorization, type VapidKeys } from './vapid.js'
 import { forgetAccountRoom, githubOffered } from './github.js'
 import { MAX_FRAME } from './protocol.js'
+import { MAX_MCP_BODY, MCP_ASK_MS } from './mcp.js'
+import { mcpPage, mcpPageHeaders } from './mcp-page.js'
+
+/** An app's request as the PC answered it, or the relay's own reason it got none. */
+interface McpReply { readonly status: number; readonly body: string }
+
+const json = (status: number, body: unknown, more: Record<string, string> = {}): Response =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...more } })
+
+/**
+ * Where an app is told to sign in, when it calls with no key or a key the PC refused (RFC 9728): the room's own
+ * address for its protected resource's metadata.
+ */
+export function mcpChallenge(url: URL, room: string): string {
+  return `Bearer resource_metadata="${url.origin}/.well-known/oauth-protected-resource/v1/room/${room}/mcp"`
+}
+
+/** A JSON-RPC request's id, when the PC cannot answer it: the app is told why in its own terms. */
+function rpcId(body: string): string | number | null | undefined {
+  try {
+    const value = JSON.parse(body) as Record<string, unknown>
+    return typeof value.id === 'string' || typeof value.id === 'number' ? value.id : value.id === null ? null : undefined
+  } catch { return undefined }
+}
 
 /** A streaming sender may omit Content-Length: stop reading at the byte limit, before decoding. */
 export async function hookBody(request: Request): Promise<string | undefined> {
@@ -62,6 +86,8 @@ export class Room {
   private readonly peers = new WeakMap<WebSocket, Peer>()
   /** HTTP calls and sockets may interleave across storage awaits: one room changes its index at a time. */
   private queue: Promise<unknown> = Promise.resolve()
+  /** Apps' requests held open for the PC's answer (0.841, mcp.ts): in memory, never stored. */
+  private readonly waiting = new Map<string, (reply: McpReply) => void>()
   private serial<T>(work: () => Promise<T>): Promise<T> {
     const next = this.queue.then(work)
     this.queue = next.catch(() => undefined)
@@ -93,7 +119,8 @@ export class Room {
         })
         return answer.status
       },
-      ...(githubOffered(env) ? { github: { forget: (user: number, room: string) => forgetAccountRoom(env, user, room) } } : {})
+      ...(githubOffered(env) ? { github: { forget: (user: number, room: string) => forgetAccountRoom(env, user, room) } } : {}),
+      answered: (ask, status, body) => { this.waiting.get(ask)?.({ status, body }) }
     })
   }
 
@@ -110,9 +137,76 @@ export class Room {
     return peer
   }
 
+  /** A request for the PC to answer, held until it does or MCP_ASK_MS passes. Registered before it is sent. */
+  private async held(kind: 'token' | 'call', body: string, auth?: string): Promise<McpReply> {
+    const ask = base64url(crypto.getRandomValues(new Uint8Array(12)))
+    let settle: (reply: McpReply) => void = () => undefined
+    const answered = new Promise<McpReply>((resolve) => { settle = resolve })
+    const timer = setTimeout(() => settle({ status: 504, body: JSON.stringify({ error: 'pc-timeout' }) }), MCP_ASK_MS)
+    this.waiting.set(ask, (reply) => settle(reply))
+    try {
+      const refused = await this.serial(() => this.core.mcp.forward(ask, kind, body, auth))
+      if (refused !== undefined) return { status: refused.status, body: JSON.stringify(refused.body) }
+      return await answered
+    } finally {
+      clearTimeout(timer)
+      this.waiting.delete(ask)
+    }
+  }
+
+  /** Other apps from anywhere (0.841): signing in, and the MCP requests themselves. */
+  private async mcpFetch(request: Request, url: URL, room: string, what: string): Promise<Response> {
+    if (what === 'oauth/register') {
+      if (request.method !== 'POST') return json(405, { error: 'method' }, { allow: 'POST' })
+      const body = await hookBody(request)
+      if (body === undefined) return json(413, { error: 'too-big' })
+      const answer = await this.serial(() => this.core.mcp.register(body))
+      return json(answer.status, answer.body)
+    }
+    if (what === 'oauth/authorize') {
+      if (request.method !== 'GET') return json(405, { error: 'method' }, { allow: 'GET' })
+      const shown = await this.serial(() => this.core.mcp.authorize(url.searchParams))
+      if (shown.page === 'redirect') return new Response(null, { status: 302, headers: { location: shown.to, 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' } })
+      return new Response(mcpPage(shown), { status: shown.page === 'waiting' ? 200 : shown.page === 'bad' ? 400 : shown.page === 'busy' ? 429 : shown.page === 'offline' ? 503 : 404, headers: mcpPageHeaders(url.protocol === 'https:') })
+    }
+    if (what === 'oauth/wait') {
+      const answer = await this.serial(() => this.core.mcp.wait(url.searchParams.get('ask') ?? ''))
+      return json(answer.status, answer.body)
+    }
+    if (what === 'oauth/token') {
+      if (request.method !== 'POST') return json(405, { error: 'method' }, { allow: 'POST' })
+      const body = await hookBody(request)
+      if (body === undefined || body.length > MAX_MCP_BODY) return json(413, { error: 'too-big' })
+      const reply = await this.held('token', body)
+      return new Response(reply.body, { status: reply.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', pragma: 'no-cache' } })
+    }
+    // what === 'mcp'. Answered as JSON, one request at a time; there is no stream to open (GET) or session to end.
+    if (request.method !== 'POST') return json(405, { error: 'method' }, { allow: 'POST' })
+    if (!(await this.serial(() => this.core.mcp.on()))) return json(404, { error: 'not-found' })
+    const bearer = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') ?? '')?.[1]
+    if (bearer === undefined) return json(401, { error: 'invalid_token' }, { 'www-authenticate': mcpChallenge(url, room) })
+    const body = await hookBody(request)
+    if (body === undefined || body.length > MAX_MCP_BODY) return json(413, { error: 'too-big' })
+    const reply = await this.held('call', body, bearer)
+    if (reply.status === 401) return new Response(reply.body, { status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', 'www-authenticate': mcpChallenge(url, room) } })
+    // The computer off, or slow: the app is told in its own terms, so its person reads why.
+    if (reply.status === 503 || reply.status === 504) {
+      const id = rpcId(body)
+      if (id !== undefined) {
+        const message = reply.status === 503 ? 'Locust is not open on the computer it runs on. Open Locust there and try again.' : 'Locust did not answer in time. Nothing was retried; check Locust before asking again.'
+        return json(200, { jsonrpc: '2.0', id, error: { code: -32000, message } })
+      }
+    }
+    if (reply.status === 202 && reply.body === '') return new Response(null, { status: 202, headers: { 'cache-control': 'no-store' } })
+    return new Response(reply.body, { status: reply.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+  }
+
   async fetch(request: Request): Promise<Response> {
+    const address = new URL(request.url)
+    const mcpPath = /^\/v1\/room\/([^/]+)\/(oauth\/(?:register|authorize|wait|token)|mcp)$/.exec(address.pathname)
+    if (mcpPath !== null) return this.mcpFetch(request, address, mcpPath[1]!, mcpPath[2]!)
     // From the relay's own Worker only (github.ts): no address from outside is routed to these paths.
-    const path = new URL(request.url).pathname
+    const path = address.pathname
     if (path === '/github/linked' || path === '/github/ticket') {
       const said = await request.json().catch(() => undefined) as Record<string, unknown> | undefined
       const user = typeof said?.user === 'number' && Number.isSafeInteger(said.user) && said.user > 0 ? said.user : undefined

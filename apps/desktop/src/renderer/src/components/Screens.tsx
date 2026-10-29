@@ -16,6 +16,7 @@ import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
 import { VoiceSettings } from './VoiceSettings.js'
 import { LocustMcpSettings } from './LocustMcpSettings.js'
+import { RemoteMcpSettings } from './RemoteMcpSettings.js'
 import { PhoneSettings } from './PhoneSettings.js'
 import { ChatAppsSettings } from './ChatAppsSettings.js'
 import { policyFeatureRefusal, policyModeAllowed } from '../../../shared/organization-policy.js'
@@ -3407,6 +3408,7 @@ export function SettingsScreen({
         <section className="lc-settings__section lc-settings__section--line" data-setting="locust-mcp">
           <OrganizationPolicySettings heading={<h2 className="lc-settings__heading">Managed by your organization</h2>} />
           <LocustMcpSettings heading={<h2 className="lc-settings__heading">Let your other AI apps use Locust</h2>} />
+          <RemoteMcpSettings />
         </section>
         )}
         {shownPage === 'app' && (

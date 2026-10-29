@@ -15,6 +15,7 @@ import {
 } from './ipc.js'
 import { GITHUB_SIGN_IN_CHANNEL, GITHUB_SIGN_IN_CODE_CHANNEL } from './github-account.js'
 import { LOCUST_MCP_SET } from './locust-mcp.js'
+import { REMOTE_MCP_DECIDE, REMOTE_MCP_SET } from './remote-mcp.js'
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_NEW_CODE_CHANNEL } from './phone.js'
 import { TERMINAL_CREATE, TERMINAL_INPUT } from './terminal.js'
 
@@ -44,7 +45,9 @@ describe('the browser asks only what it may', () => {
     for (const channel of [
       APPROVAL_RULE_FROM_CARD_CHANNEL, RUNTIME_SIGN_IN_CHANNEL, GITHUB_SIGN_IN_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_DESK_CHANNEL, OWN_MODEL_ADD_CHANNEL,
       CONNECTOR_ADD_CHANNEL, REMOTE_CONTROL_SET_CHANNEL, LOCUST_MCP_SET, APP_UPDATE_INSTALL_CHANNEL, PROFILE_RESTORE_CHANNEL, RUNTIME_INSTALL_CHANNEL,
-      WORKSPACE_CHOOSE_CHANNEL, OPEN_LINK_CHANNEL, TERMINAL_CREATE, TERMINAL_INPUT, DESK_TAKE_BACK_CHANNEL, DESK_WHERE_CHANNEL
+      WORKSPACE_CHOOSE_CHANNEL, OPEN_LINK_CHANNEL, TERMINAL_CREATE, TERMINAL_INPUT, DESK_TAKE_BACK_CHANNEL, DESK_WHERE_CHANNEL,
+      // An app from anywhere is let in only on the computer (0.841): a browser window can neither allow one nor turn it on.
+      REMOTE_MCP_DECIDE, REMOTE_MCP_SET
     ]) {
       expect(deskAccess(channel, []), channel).toBeUndefined()
       expect(WINDOW_ONLY, channel).toContain(channel)

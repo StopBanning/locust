@@ -24851,3 +24851,13 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-composer__box > .lc-composer__controls { display: contents; }
 .lc-composer__box > .lc-composer__controls > .lc-composer__group:first-child { grid-column: 1; grid-row: 2; }
 .lc-composer__box > .lc-composer__controls > .lc-composer__group:last-child { grid-column: 3; grid-row: 2; margin-left: 0; }
+
+/* An app asks to use the team from anywhere (0.841, RemoteConnectCard.tsx): answered here and nowhere else. */
+.lc-remote-connect { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-3) var(--lc-space-4); margin: var(--lc-space-3); padding: var(--lc-space-4); border: 1px solid var(--lc-border-hairline); border-radius: var(--lc-radius-card); background: var(--lc-bg-raised); }
+.lc-remote-connect__text { flex: 1 1 320px; min-width: 0; display: grid; gap: var(--lc-space-2); }
+.lc-remote-connect__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--lc-text-name); text-wrap: balance; }
+.lc-remote-connect__said, .lc-remote-connect__note { margin: 0; color: var(--lc-text-description); }
+.lc-remote-connect__note { color: var(--lc-text-muted); }
+.lc-remote-connect__match { font-family: var(--lc-font-mono); letter-spacing: 0.08em; color: var(--lc-text-primary); white-space: nowrap; }
+.lc-remote-connect__acts { display: flex; gap: var(--lc-space-2); }
+.lc-remote-mcp { margin-top: var(--lc-space-3); }

@@ -248,6 +248,14 @@ export function createPhoneAnywhere(options: {
   readonly githubUser?: (token: string) => Promise<number | undefined>
   /** What this computer is called, where a browser signed in to GitHub chooses between computers. */
   readonly computerName?: () => string
+  /**
+   * Other apps from anywhere (0.841, remote-mcp.ts): an app's request the relay passed on, answered here, and the
+   * relay told again whether it may take apps each time this PC connects.
+   */
+  readonly mcp?: {
+    readonly answer: (asked: { readonly ask: string; readonly kind: 'connect' | 'token' | 'call'; readonly body: string; readonly auth?: string }) => Promise<{ readonly status: number; readonly body: string }>
+    readonly sync: () => void
+  }
 }) {
   const file = join(options.directory, PHONE_ANYWHERE_FILE)
   const now = options.now ?? Date.now
@@ -679,7 +687,18 @@ export function createPhoneAnywhere(options: {
       tell()
       options.away?.refresh()
       options.hooks?.refresh()
+      options.mcp?.sync()
       track(collectNotes())
+      return
+    }
+    // An app's request (0.841): answered, however long the person takes over a card; the relay holds the rest.
+    if (frame.t === 'mcp-ask' && options.mcp !== undefined && typeof frame.ask === 'string' && /^[A-Za-z0-9_-]{16}$/.test(frame.ask)
+      && (frame.kind === 'connect' || frame.kind === 'token' || frame.kind === 'call') && typeof frame.body === 'string'
+      && (frame.auth === undefined || typeof frame.auth === 'string')) {
+      const ask = frame.ask
+      const asked = { ask, kind: frame.kind as 'connect' | 'token' | 'call', body: frame.body, ...(typeof frame.auth === 'string' ? { auth: frame.auth } : {}) }
+      track(options.mcp.answer(asked).catch(() => ({ status: 500, body: JSON.stringify({ error: 'locust-failed' }) }))
+        .then((answer) => { send({ t: 'mcp-answer', ask, status: answer.status, body: answer.body }) }))
       return
     }
     if (frame.t === 'notes-changed') { track(collectNotes()); return }
@@ -936,6 +955,11 @@ export function createPhoneAnywhere(options: {
       }
       return sent
     },
+
+    /** Where other apps reach this PC from anywhere (0.841): its room's MCP address, while From anywhere is on. */
+    mcpAddress: (): string | undefined => (saved === undefined || saved.closing === true ? undefined : `${saved.relay}/v1/room/${saved.room}/mcp`),
+    /** The relay takes apps for this room, or no longer: off forgets every app it registered. */
+    mcpOpen: (on: boolean): Promise<boolean> => (saved === undefined || saved.closing === true ? Promise.resolve(!on) : command({ t: on ? 'mcp-open' : 'mcp-close' })),
 
     /** This PC's room on the relay, for Scout's away look; nothing while phones are off. */
     room: (): { readonly relay: string; readonly room: string } | undefined => (saved === undefined || saved.closing === true ? undefined : { relay: saved.relay, room: saved.room }),

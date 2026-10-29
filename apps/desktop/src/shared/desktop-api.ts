@@ -54,6 +54,7 @@ import { CHAT_ALERTS_CHANNEL, type ChatAppSettings } from './chat-apps.js'
 import { TEAMMATE_KEYS_LIST_CHANNEL, TEAMMATE_KEYS_REMOVE_CHANNEL, TEAMMATE_KEYS_SET_CHANNEL } from './teammate-keys.js'
 import { DISCORD_CHANGED_CHANNEL, DISCORD_NEW_LINK_CHANNEL, DISCORD_REMOVE_CHANNEL, DISCORD_SET_TOKEN_CHANNEL, DISCORD_SETTINGS_CHANNEL } from './discord.js'
 import { SLACK_CHANGED_CHANNEL, SLACK_NEW_LINK_CHANNEL, SLACK_REMOVE_CHANNEL, SLACK_SET_TOKEN_CHANNEL, SLACK_SETTINGS_CHANNEL } from './slack.js'
+import { REMOTE_MCP_CHANGED, REMOTE_MCP_DECIDE, REMOTE_MCP_GET, REMOTE_MCP_REMOVE, REMOTE_MCP_SET, type RemoteMcpState } from './remote-mcp.js'
 import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from './locust-mcp.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from './voice.js'
 import { CALLS_LIST, CALLS_SAVE } from './calls.js'
@@ -606,6 +607,17 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
         const receive = (_event: IpcEvent, settings: ChatAppSettings): void => { listener(settings) }
         ipcRenderer.on(SLACK_CHANGED_CHANNEL, receive)
         return () => { ipcRenderer.removeListener(SLACK_CHANGED_CHANNEL, receive) }
+      }
+    },
+    remoteMcp: {
+      settings: () => ipcRenderer.invoke(REMOTE_MCP_GET),
+      setEnabled: (enabled) => ipcRenderer.invoke(REMOTE_MCP_SET, enabled),
+      remove: (id) => ipcRenderer.invoke(REMOTE_MCP_REMOVE, id),
+      decide: (request, allow) => ipcRenderer.invoke(REMOTE_MCP_DECIDE, request, allow),
+      onChanged: (listener) => {
+        const receive = (_event: IpcEvent, state: RemoteMcpState): void => { listener(state) }
+        ipcRenderer.on(REMOTE_MCP_CHANGED, receive)
+        return () => { ipcRenderer.removeListener(REMOTE_MCP_CHANGED, receive) }
       }
     },
     locustMcp: {

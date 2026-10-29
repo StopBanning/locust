@@ -97,6 +97,9 @@ const pageHeaders = (url: URL): HeadersInit => ({
     `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' ${url.protocol === 'https:' ? 'wss' : 'ws'}://${url.host}; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`
 })
 
+/** An app's sign-in metadata: only addresses, the same for every room, kept briefly. */
+const metadataHeaders = (url: URL): Record<string, string> => ({ 'cache-control': 'public, max-age=300', 'access-control-allow-origin': '*', ...security(url) })
+
 const file = (url: URL, body: BodyInit, type: string, cache = 'public, max-age=3600'): Response =>
   new Response(body, { headers: { 'content-type': type, 'cache-control': cache, ...security(url) } })
 
@@ -117,6 +120,39 @@ export default {
       if (url.pathname === '/v1/github/back') return githubBack(request, url, env, note)
       const asset = /^\/desk\/v\/([^/]+)\/(.+)$/.exec(url.pathname)
       if (asset !== null && WINDOW_VERSION.test(asset[1]!)) return windowAsset(url, env, asset[1]!, asset[2]!)
+    }
+    /*
+     * OTHER APPS FROM ANYWHERE (0.841, mcp.ts). What an app reads first, to learn where to sign in: the room's MCP
+     * address is the protected resource (RFC 9728), and the room itself is its sign-in server (RFC 8414), at the
+     * addresses MCP's clients try. Both say only addresses; a room that is off answers them the same, and refuses at
+     * the room.
+     */
+    if (request.method === 'GET') {
+      const resource = /^\/\.well-known\/oauth-protected-resource\/v1\/room\/([^/]+)\/mcp$/.exec(url.pathname)?.[1]
+      if (resource !== undefined && ROOM_ID.test(resource)) {
+        return Response.json({ resource: `${url.origin}/v1/room/${resource}/mcp`, authorization_servers: [`${url.origin}/v1/room/${resource}`], bearer_methods_supported: ['header'], resource_name: 'Locust' }, { headers: metadataHeaders(url) })
+      }
+      const server = /^\/\.well-known\/(?:oauth-authorization-server|openid-configuration)\/v1\/room\/([^/]+)$/.exec(url.pathname)?.[1]
+        ?? /^\/v1\/room\/([^/]+)\/\.well-known\/(?:oauth-authorization-server|openid-configuration)$/.exec(url.pathname)?.[1]
+      if (server !== undefined && ROOM_ID.test(server)) {
+        const issuer = `${url.origin}/v1/room/${server}`
+        return Response.json({
+          issuer,
+          authorization_endpoint: `${issuer}/oauth/authorize`,
+          token_endpoint: `${issuer}/oauth/token`,
+          registration_endpoint: `${issuer}/oauth/register`,
+          response_types_supported: ['code'],
+          grant_types_supported: ['authorization_code', 'refresh_token'],
+          code_challenge_methods_supported: ['S256'],
+          token_endpoint_auth_methods_supported: ['none'],
+          scopes_supported: ['locust']
+        }, { headers: metadataHeaders(url) })
+      }
+    }
+    const mcpRoom = /^\/v1\/room\/([^/]+)\/(?:oauth\/(?:register|authorize|wait|token)|mcp)$/.exec(url.pathname)?.[1]
+    if (mcpRoom !== undefined && ROOM_ID.test(mcpRoom)) {
+      if (Number(request.headers.get('content-length') ?? '0') > MAX_FRAME) return new Response('{"error":"too-big"}', { status: 413, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+      return env.ROOMS.get(env.ROOMS.idFromName(mcpRoom)).fetch(request)
     }
     // Called links (2026-10-25) go to the same room, with their own readable letters.
     const hook = /^\/v1\/room\/([^/]+)\/hook\/([^/]+)$/.exec(url.pathname)

@@ -140,6 +140,8 @@ export function createAttention(
   roomChanged(input: { readonly roomId: string; readonly roomName: string; readonly message: string }): void
   /** A teammate ended a run with a question card. Said at once, like an approval. */
   decisionAsked(teammateName: string | undefined, question: string): boolean
+  /** An app asks to use the team from anywhere (0.841, remote-mcp.ts): its card waits in the window. Said at once. */
+  connectAsked(appName: string): boolean
   /** A run stopped at its account limit and waits for a person to pick where it continues. */
   limitHit(teammateName: string | undefined, runtimeName: string, message: string | undefined): boolean
   /**
@@ -185,6 +187,11 @@ export function createAttention(
     decisionAsked(teammateName, question) {
       if (!shouldNotify({ focused: surface.focused(), supported: surface.supported() })) return false
       surface.notify({ ...decisionNotificationText(teammateName, question), onClick: () => surface.focusWindow() })
+      return true
+    },
+    connectAsked(appName) {
+      if (!shouldNotify({ focused: surface.focused(), supported: surface.supported() })) return false
+      surface.notify({ title: `${appName.slice(0, 60)} wants to use your Locust team`, body: 'Allow or deny it in Locust’s window. Nothing is connected until you do.', onClick: () => surface.focusWindow() })
       return true
     },
     limitHit(teammateName, runtimeName, message) {

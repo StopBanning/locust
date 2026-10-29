@@ -53,6 +53,8 @@ import { MCP_CONNECTION_FILE, createLocustMcpHost } from './locust-mcp-host.js'
 import { claudeAppConfigFile, claudeAppStartedAt, createClaudeAppConnector, relaunchClaudeApp } from './claude-app-connection.js'
 import { createLocustMcpTools } from './locust-mcp-tools.js'
 import { createLocustCliSessions } from './locust-cli-sessions.js'
+import { REMOTE_MCP_CHANGED, REMOTE_MCP_DECIDE, REMOTE_MCP_GET, REMOTE_MCP_REMOVE, REMOTE_MCP_SET } from '../shared/remote-mcp.js'
+import { createRemoteMcp, REMOTE_MCP_FILE } from './remote-mcp.js'
 import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from '../shared/locust-mcp.js'
 import { createPageServer, fromPagePreview, pageMayReach, PAGE_SCHEME } from './page-preview.js'
 import { CANCEL_SCRIPT, captureRectOf, pageFrameOf, pickInFrame } from './page-pick.js'
@@ -10241,6 +10243,8 @@ if (!ownsSingleInstanceLock) {
       calls: phoneCalls
     })
     let deskLink: DeskHost | undefined
+    /** Other apps from anywhere (0.841, remote-mcp.ts): made just below, once the relay's line exists. */
+    let remoteMcp: ReturnType<typeof createRemoteMcp> | undefined
     const phoneAnywhere = createPhoneAnywhere({
       refusal: () => policyFeatureRefusal(organizationPolicy, 'phone'),
       directory: app.getPath('userData'),
@@ -10253,6 +10257,12 @@ if (!ownsSingleInstanceLock) {
       changed: (settings) => {
         if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(PHONE_ANYWHERE_CHANGED_CHANNEL, settings)
         scoutAway.nudge()
+        // From anywhere off forgets the room, and with it every app's address: they are let go here too.
+        if (!settings.enabled && remoteMcp?.settings().enabled === true) void remoteMcp.setEnabled(false)
+      },
+      mcp: {
+        answer: (asked) => remoteMcp?.answer(asked) ?? Promise.resolve({ status: 503, body: JSON.stringify({ error: 'pc-offline' }) }),
+        sync: () => { void remoteMcp?.sync() }
       },
       away: { forPhone: () => scoutAway.forPhone(), refresh: () => scoutAway.refresh(), letter: (letter) => scoutAway.letter(letter) },
       hooks: { refresh: syncHooks },
@@ -10268,6 +10278,24 @@ if (!ownsSingleInstanceLock) {
       computerName: () => hostname()
     })
     hookRelay = phoneAnywhere
+    remoteMcp = createRemoteMcp({
+      file: join(app.getPath('userData'), REMOTE_MCP_FILE),
+      // The tools an app on this computer gets, with the same rules: Ask unless each teammate's own mode is on.
+      call: (name, args) => mcpTools(name, args),
+      address: () => phoneAnywhere.mcpAddress(),
+      open: (on) => phoneAnywhere.mcpOpen(on),
+      refusal: () => policyFeatureRefusal(organizationPolicy, 'otherApps') ?? policyFeatureRefusal(organizationPolicy, 'phone'),
+      changed: (state) => { if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(REMOTE_MCP_CHANGED, state) },
+      asked: (name) => { attention.connectAsked(name) },
+      version: app.getVersion()
+    })
+    void remoteMcp.load().then(() => { if (phoneAnywhere.connected()) void remoteMcp?.sync() }, () => undefined)
+    ipcMain.handle(REMOTE_MCP_GET, (event) => fromOwnWindow(event) && remoteMcp !== undefined ? remoteMcp.settings() : { enabled: false, apps: [], asking: [] })
+    ipcMain.handle(REMOTE_MCP_SET, (event, on: unknown) => fromOwnWindow(event) && remoteMcp !== undefined ? remoteMcp.setEnabled(on) : { enabled: false, apps: [], asking: [] })
+    ipcMain.handle(REMOTE_MCP_REMOVE, (event, id: unknown) => fromOwnWindow(event) && remoteMcp !== undefined ? remoteMcp.remove(id) : { enabled: false, apps: [], asking: [] })
+    // Only the window answers a card: never an app, never the relay.
+    ipcMain.handle(REMOTE_MCP_DECIDE, (event, request: unknown, allow: unknown) => fromOwnWindow(event) && remoteMcp !== undefined ? remoteMcp.answerSignIn(request, allow) : { enabled: false, apps: [], asking: [] })
+    app.once('will-quit', () => { remoteMcp?.dispose() })
     scoutAwayRelay = { ready: () => phoneAnywhere.settings().then(() => undefined), room: () => phoneAnywhere.room(), connected: () => phoneAnywhere.connected(), awayOpen: (hash) => phoneAnywhere.awayOpen(hash), awayClose: () => phoneAnywhere.awayClose(), keepAwayAlerts: () => phoneAnywhere.keepAwayAlerts(), post: (box) => phoneAnywhere.post(box), letters: (after) => phoneAnywhere.letters(after) }
     phoneAlertSink = (alert) => { void phoneAnywhere.alert(alert).catch(() => undefined) }
     void phoneAnywhere.settings().then((settings) => { phoneNightApprovals = settings.nightApprovals === true }, () => undefined)

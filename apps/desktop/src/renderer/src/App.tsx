@@ -9,6 +9,7 @@ const TerminalPanel = lazy(() => import('./components/TerminalPanel.js'))
 const BrowserPanel = lazy(() => import('./components/BrowserPanel.js'))
 import { BOT_SIZE } from './botSizes.js'
 import { OrganizationPolicyContext, OrganizationPolicyNotice } from './organizationPolicy.js'
+import { RemoteConnectCard } from './components/RemoteConnectCard.js'
 import { POLICY_MODE_ORDER, policyModeAllowed } from '../../shared/organization-policy.js'
 import { commandsStillToCarry, promptWithCommands } from '../../shared/own-commands.js'
 import type { ListedIssue, StartedIssue } from '../../shared/github-issue.js'
@@ -9350,6 +9351,8 @@ export default function App(): ReactElement {
         />
         <main className="lc-workroom">
           <OrganizationPolicyNotice />
+          {/* An app asks to use the team from anywhere (0.841): answered here, on every screen. */}
+          <RemoteConnectCard />
           {screen === 'missions' ? (
             <MissionsScreen
               missions={missionsToList}

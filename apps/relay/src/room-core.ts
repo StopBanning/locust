@@ -1,3 +1,4 @@
+import { mcpRoom } from './mcp.js'
 import { isPushEndpoint, parseAwayPost, parseClientFrame, GITHUB_LOGIN, HOOK_BODY_CHARS, LETTERS_AT_ONCE, MAX_FRAME, MAX_NOTES, ROOM_ID, TOKEN, type Address, type AwayAlert, type ClientFrame, type ErrorCode, type HookLetter, type Letter, type LetterFrom, type Note, type NoteHeld, type RelayFrame } from './protocol.js'
 
 /**
@@ -54,6 +55,8 @@ export interface RoomHost {
    * lets the account go or is deleted. Without it, the room refuses to be tied to an account.
    */
   readonly github?: { forget(user: number, room: string): Promise<void> }
+  /** The PC answered an app's request this room's object holds open (0.841, mcp.ts); room.ts sends it back. */
+  answered?(ask: string, status: number, body: string): void
 }
 
 /** How long a new connection has to say who it is. */
@@ -165,12 +168,14 @@ function same(a: string, b: string): boolean {
 export const addressOf = (attachment: Attachment): Address | undefined =>
   attachment.as === 'pc' ? 'pc' : attachment.as === 'device' ? attachment.device : attachment.as === 'pairing' ? `pairing:${attachment.tag}` : undefined
 
-type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'hook-letters' | 'notes-collected' | 'github-open' | 'github-close' }>
+type Command = Extract<ClientFrame, { readonly t: 'allow' | 'remove' | 'pair-open' | 'pair-close' | 'reset' | 'push' | 'away-open' | 'away-close' | 'away-alerts' | 'post' | 'hook-open' | 'hook-close' | 'hook-collected' | 'hook-letters' | 'notes-collected' | 'github-open' | 'github-close' | 'mcp-open' | 'mcp-close' }>
 
 export function roomCore(host: RoomHost) {
   const meta = (): Promise<Meta | undefined> => host.store.get<Meta>(META)
   const save = (next: Meta): Promise<void> => host.store.put(META, next)
   const pcBesides = (peer?: Peer): Peer | undefined => host.peers().find((other) => other !== peer && other.attachment.as === 'pc')
+  /** Other apps from anywhere (0.841, mcp.ts): its own storage key, and the PC that answers them. */
+  const mcp = mcpRoom({ ...host, exists: async () => (await meta()) !== undefined, pc: () => pcBesides() })
   const err = (peer: Peer, code: ErrorCode, id?: string): void => peer.send({ t: 'err', code, ...(id === undefined ? {} : { id }) })
   /** The account no longer opens this room: gone from the relay's list of rooms for it. */
   const forgetAccount = async (held: Meta | undefined): Promise<void> => {
@@ -572,6 +577,16 @@ export function roomCore(host: RoomHost) {
         done()
         return
       }
+      case 'mcp-open': {
+        await mcp.open()
+        done()
+        return
+      }
+      case 'mcp-close': {
+        await mcp.close()
+        done()
+        return
+      }
       case 'reset': {
         await forgetAccount(held)
         await host.store.deleteAll()
@@ -638,6 +653,9 @@ export function roomCore(host: RoomHost) {
       return { status: 200, body: { ticket, key: held.github.key, name: held.github.name } }
     },
 
+    /** Other apps from anywhere (0.841): the HTTP side, for room.ts. */
+    mcp,
+
     /** A connection came in: it has AUTH_WITHIN_MS to say who it is. */
     async opened(): Promise<void> {
       await schedule()
@@ -657,6 +675,12 @@ export function roomCore(host: RoomHost) {
       if (frame.t === 'send') { send(peer, frame); return }
       if (frame.t === 'letters') { await letters(peer, frame); return }
       if (frame.t === 'note' || frame.t === 'unnote' || frame.t === 'notes') { await notes(peer, frame); return }
+      if (frame.t === 'mcp-answer') {
+        if (peer.attachment.as !== 'pc') { err(peer, 'not-owner'); return }
+        // A card's answer is kept for the page waiting on it; any other goes to the request held open for it.
+        if (!(await mcp.answered(frame.ask, frame.status, frame.body))) host.answered?.(frame.ask, frame.status, frame.body)
+        return
+      }
       await command(peer, frame)
     },
 
