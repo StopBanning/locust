@@ -20,6 +20,9 @@ const READ_ONLY: ReadonlySet<MissionMode> = new Set(['ask', 'plan'])
 const MODE_NAME: Readonly<Record<MissionMode, string>> = { ask: 'Ask', plan: 'Plan', 'accept-edits': 'Edit', 'approve-each': 'Approve each action', auto: 'Auto' }
 
 /** Only adapters to the window's existing roster, start and ledger readers. */
+/** The longest read_reply waits for an answer when asked to. */
+export const MCP_WAIT_LIMIT_S = 20
+
 export function createLocustMcpTools(options: {
   readonly teammates: () => Promise<TeammateListResponse>
   readonly busy: (teammateId: string) => boolean
@@ -61,7 +64,10 @@ export function createLocustMcpTools(options: {
    * app could not see. Colin's Duet asked for a change to Locust's code, and the turn ran in another project.
    */
   readonly folder?: () => string | undefined
+  /** How a read_reply that was asked to wait sleeps between looks; tests pass one that does not. */
+  readonly pause?: (ms: number) => Promise<void>
 }) {
+  const pause = options.pause ?? ((ms: number) => new Promise<void>(done => setTimeout(done, ms)))
   const starting = new Set<string>()
   // The routines this server started. Their status is readable here; a person's own runs are not.
   const routinesStartedHere = new Set<string>()
@@ -276,8 +282,17 @@ export function createLocustMcpTools(options: {
       // the same old tip, even if the first finishes while the second reads.
       if (name === 'send_message') starting.add(id)
       try {
-        const mission = await lookup(id)
+        let mission = await lookup(id)
         if (mission === undefined) return mcpText('That conversation could not be read from the local ledger. Use an id returned by this server.', true)
+        // WAITING FOR THE ANSWER (0.842): an app asks read_reply again and again while a turn works -- on Claude on the
+        // web every call is one more Allow -- so it may wait here for the turn to end or a card to come up, up to
+        // MCP_WAIT_LIMIT_S: under the relay's 30 seconds and the bridge's 60.
+        if (name === 'read_reply' && typeof args.wait_seconds === 'number' && Number.isFinite(args.wait_seconds)) {
+          const looking = mission.missionId
+          for (let left = Math.min(Math.max(Math.floor(args.wait_seconds), 0), MCP_WAIT_LIMIT_S) * 2; left > 0 && options.live(looking) && options.waiting?.(looking) !== true; left--) await pause(500)
+          mission = await lookup(id)
+          if (mission === undefined) return mcpText('That conversation could not be read from the local ledger. Use an id returned by this server.', true)
+        }
         if (options.live(mission.missionId)) {
           // This app cannot answer a card: there is no tool for it, by design.
           if (options.waiting?.(mission.missionId) === true) return mcpText("Waiting for the person to approve or deny an action in Locust's window. This app cannot answer it; read_reply again later.")
