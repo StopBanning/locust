@@ -28,6 +28,7 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
   const toggle = () => change(current => api!.setEnabled(!current.enabled))
   const toggleOwnMode = () => change(current => api!.setOwnMode(!current.ownMode))
   const toggleEditorAnswers = () => change(current => api!.setEditorAnswers!(current.editorAnswers !== true))
+  const toggleConversations = () => change(current => api!.setConversations!(current.conversations !== true))
   /** One press: Add turns the server on and puts Locust in Claude's tools; Remove takes it out; Restart closes and reopens Claude. */
   const pressClaude = async (what: 'add' | 'remove' | 'restart') => {
     if (!api || busy) return
@@ -63,6 +64,16 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
           : 'Off. Every turn another app starts is Ask mode (read only), whatever mode the teammate is set to.'}</p>
       </div>
       <button type="button" className={`lc-switch${state.ownMode ? ' is-on' : ''}`} role="switch" aria-label="Use each teammate's own mode" aria-checked={state.ownMode} disabled={busy} onClick={() => { void toggleOwnMode() }}><span /></button>
+    </div>}
+    {/* THE PERSON'S CONVERSATIONS (0.842, Colin: "can duet start or look at active chats as well?"). */}
+    {state?.enabled && <div className="lc-settingline lc-settingline--sub">
+      <div className="lc-settingline__text">
+        <h3 className="lc-settings__heading">Let apps see your conversations</h3>
+        <p className="lc-settings__lede">{state.conversations === true
+          ? 'On. An app can list, read, continue and stop your conversations in this folder, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and cards answered only here.'
+          : 'Off. An app sees only the conversations it started. A turn it started that runs out can still be carried on to another AI agent.'}</p>
+      </div>
+      <button type="button" className={`lc-switch${state.conversations === true ? ' is-on' : ''}`} role="switch" aria-label="Let apps see your conversations" aria-checked={state.conversations === true} disabled={busy || api?.setConversations === undefined} onClick={() => { void toggleConversations() }}><span /></button>
     </div>}
     {/*
       * EDITORS ANSWER ONLY WHEN YOU SAY SO (0.790). Every app connected to Locust holds the key an editor session is

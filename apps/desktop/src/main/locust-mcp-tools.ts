@@ -1,6 +1,8 @@
 import type { MissionStarter } from '@teammate/mission-store'
 import type { CodexMissionStartRequest, CodexMissionStartResponse, MissionMode, MissionReadResponse, PublicModel, PublicRecoveredMission, PublicRoutine, RoutineRunResponse, TeammateListResponse, TeammateRoute } from '../shared/ipc.js'
 import type { PublicBackgroundRun } from '../shared/background.js'
+import type { MissionRuntimeId } from '@teammate/runtime-adapters'
+import { carryOnReason, type CarryOnReason, type CarryOnResponse, type CarryOnRoute } from '../shared/carry-on.js'
 import { joinMessageFragments } from '../shared/messageFragments.js'
 import { unwrapProtocolTags } from '../shared/protocolTags.js'
 import { mcpText, type McpToolResult } from './locust-mcp-host.js'
@@ -20,6 +22,10 @@ const READ_ONLY: ReadonlySet<MissionMode> = new Set(['ask', 'plan'])
 const MODE_NAME: Readonly<Record<MissionMode, string>> = { ask: 'Ask', plan: 'Plan', 'accept-edits': 'Edit', 'approve-each': 'Approve each action', auto: 'Auto' }
 
 /** Only adapters to the window's existing roster, start and ledger readers. */
+/** Why a turn that ended can be carried on to another agent, as its card says it (main/carry-on.ts, stoppedFor). */
+const stoppedReason = (turn: PublicRecoveredMission): CarryOnReason | undefined =>
+  turn.phase === 'completed' || turn.phase === 'cancelled' ? undefined : carryOnReason(turn.events)
+
 /** The longest read_reply waits for an answer when asked to. */
 export const MCP_WAIT_LIMIT_S = 20
 
@@ -69,6 +75,17 @@ export function createLocustMcpTools(options: {
    * Auto that went the wrong way, and only he could stop it. Undefined for a server that does not offer it.
    */
   readonly cancel?: (runId: string) => boolean
+  /**
+   * THE PERSON'S CONVERSATIONS (0.842, Colin: "can duet start or look at active chats as well? like if a chat hits
+   * limit can she start it up with a new model?"). The person's switch, read on every call and off until turned on:
+   * on, an app lists, reads, continues, stops and carries on any conversation in the open folder, by the same rules
+   * as its own -- Ask unless each teammate's own mode is on, never higher, and cards answered only in Locust.
+   */
+  readonly seeAll?: () => boolean
+  /** The newest turn of each recent conversation in the open folder, newest first. */
+  readonly conversations?: () => Promise<readonly PublicRecoveredMission[]>
+  /** Locust's own carry-on, the stopped turn's card press (main/carry-on.ts): it re-checks why the turn stopped. */
+  readonly carryOn?: (missionId: string, route: CarryOnRoute) => Promise<CarryOnResponse>
   /** How a read_reply that was asked to wait sleeps between looks; tests pass one that does not. */
   readonly pause?: (ms: number) => Promise<void>
 }) {
@@ -80,7 +97,7 @@ export function createLocustMcpTools(options: {
   const lookup = async (id: string) => {
     const root = await options.read(id)
     if (!root.ok) return undefined
-    if (root.data.mission.startedBy?.kind !== 'mcp' && (options.here?.() === undefined || options.here() !== id)) return undefined
+    if (root.data.mission.startedBy?.kind !== 'mcp' && options.seeAll?.() !== true && (options.here?.() === undefined || options.here() !== id)) return undefined
     const newest = await options.newest(id)
     const read = newest === id ? root : await options.read(newest)
     return read.ok ? read.data.mission : undefined
@@ -194,6 +211,12 @@ export function createLocustMcpTools(options: {
     }
     if (name === 'list_models') {
       if (options.models === undefined) return mcpText('This server does not offer a choice of model.', true)
+      if (args.teammate === undefined) {
+        // Every AI agent this Locust can run, for carry_on.
+        const all = (await options.models()).filter(one => one.own !== true && one.older !== true)
+        return mcpText(JSON.stringify([...new Set(all.map(one => one.runtime))].map(runtime => ({ runtime,
+          models: all.filter(one => one.runtime === runtime).map(one => ({ id: one.id, name: one.displayName })) }))))
+      }
       if (!text(args.teammate)) return mcpText('Name a teammate by its id or name from list_teammates.', true)
       const list = await options.teammates()
       if (!list.ok) return mcpText(list.error.message, true)
@@ -279,12 +302,47 @@ export function createLocustMcpTools(options: {
       if (answer.isError === true || routine.staged === undefined) return answer
       return mcpText(`Its changes are waiting in Locust under Routines for the person to Keep or Discard; nothing has reached the folder yet.\n\n${answer.content[0]!.text}`)
     }
+    if (name === 'list_conversations' && options.conversations !== undefined) {
+      if (options.seeAll?.() !== true) return mcpText('Off: this app sees only the conversations it started. The person can turn on "Let apps see your conversations" in Locust\'s Settings.')
+      const list = await options.teammates()
+      const names = new Map(list.ok ? list.data.teammates.map(t => [t.teammateId, t.name] as const) : [])
+      const rows = []
+      for (const turn of await options.conversations()) {
+        const owner = await options.owner(turn.missionId)
+        const stopped = options.live(turn.missionId) ? undefined : stoppedReason(turn)
+        rows.push({ conversation_id: turn.missionId, teammate: owner === undefined ? null : names.get(owner) ?? null,
+          title: (list.ok ? list.data.missionTitles[turn.missionId] : undefined) ?? turn.prompt.slice(0, 80),
+          started_by: turn.startedBy?.kind === 'mcp' ? 'an app' : 'the person', runtime: turn.runtime, model: turn.model,
+          state: options.live(turn.missionId) ? (options.waiting?.(turn.missionId) === true ? 'waiting for the person in Locust' : 'working')
+            : stopped === 'plan' ? 'stopped: its plan ran out' : stopped === 'provider' ? 'stopped: its provider failed' : turn.phase,
+          ...(stopped === undefined ? {} : { can_carry_on: true }), updated: turn.lastUpdatedAt })
+      }
+      return mcpText(JSON.stringify(rows))
+    }
+    if (name === 'carry_on' && options.carryOn !== undefined) {
+      if (!text(args.conversation_id)) return mcpText('Give a conversation id from start_conversation or list_conversations.', true)
+      const mission = await lookup(args.conversation_id)
+      if (mission === undefined) return mcpText('That conversation could not be read from the local ledger. Use an id returned by this server.', true)
+      if (options.live(mission.missionId)) return mcpText('It is still working, so there is nothing to carry on. Nothing was started.', true)
+      // The stopped turn's own mode, as its card carries it on -- but never above what an app's turns may run in.
+      const mode = mission.mode ?? (mission.sandbox === 'read-only' ? 'ask' : 'accept-edits')
+      if (mode !== 'ask' && options.ownMode?.() !== true) return mcpText(`That turn ran in ${mode}, not Ask. An app carries on only an Ask turn unless the person has turned on "Use each teammate's own mode" in Locust; they can carry it on from its card there. Nothing was started.`, true)
+      const all = options.models === undefined ? [] : (await options.models()).filter(one => one.own !== true)
+      const offered = all.filter(one => one.runtime === args.runtime)
+      if (!text(args.runtime, 40) || offered.length === 0) return mcpText(`Name an AI agent this Locust can run, as list_models with no teammate lists them: ${[...new Set(all.map(one => one.runtime))].join(', ') || 'none'}. Nothing was started.`, true)
+      const asked = text(args.model) ? offered.find(one => one.id === args.model || one.displayName.toLowerCase() === (args.model as string).toLowerCase()) : undefined
+      if (text(args.model) && asked === undefined) return mcpText(`${args.runtime} does not offer that model here. Use one from list_models. Nothing was started.`, true)
+      const carried = await options.carryOn(mission.missionId, { runtime: args.runtime as MissionRuntimeId, ...(asked === undefined ? {} : { model: asked.id }) })
+      return carried.ok
+        ? mcpText(JSON.stringify({ conversation_id: carried.missionId, runtime: args.runtime, ...(asked === undefined ? {} : { model: asked.id }), mode }))
+        : mcpText(`${carried.message} Nothing was started.`, true)
+    }
     if (name === 'stop_turn' && options.cancel !== undefined) {
       if (!text(args.conversation_id)) return mcpText('Give a conversation id returned by start_conversation.', true)
       const mission = await lookup(args.conversation_id)
       if (mission === undefined) return mcpText('That conversation could not be read from the local ledger. Use an id returned by this server.', true)
       // Only a turn an app started: the person may have gone on in Locust's window, and that turn is theirs to stop.
-      if (mission.startedBy?.kind !== 'mcp') return mcpText('The newest turn there was started by the person in Locust. Only they can stop it. Nothing was stopped.', true)
+      if (mission.startedBy?.kind !== 'mcp' && options.seeAll?.() !== true) return mcpText('The newest turn there was started by the person in Locust. Only they can stop it. Nothing was stopped.', true)
       if (!options.live(mission.missionId)) return mcpText('Nothing is running in that conversation now. Nothing was stopped.')
       return options.cancel(mission.runId)
         ? mcpText('Stopping it. What it already changed stays; the person can undo that turn in Locust.')

@@ -2,6 +2,7 @@ export const LOCUST_MCP_GET = 'locust-mcp:get'
 export const LOCUST_MCP_SET = 'locust-mcp:set'
 export const LOCUST_MCP_SET_OWN_MODE = 'locust-mcp:set-own-mode'
 export const LOCUST_MCP_SET_EDITOR_ANSWERS = 'locust-mcp:set-editor-answers'
+export const LOCUST_MCP_SET_CONVERSATIONS = 'locust-mcp:set-conversations'
 /** Locust in the Claude app's tools (0.740): read where it stands, and add or remove it in one press. */
 export const LOCUST_MCP_CLAUDE_APP = 'locust-mcp:claude-app'
 export const LOCUST_MCP_CLAUDE_APP_SET = 'locust-mcp:claude-app-set'
@@ -37,6 +38,11 @@ export interface LocustMcpState {
    * only the person answers it. On: that editor may approve or deny the cards of the turns it started (0.790).
    */
   readonly editorAnswers?: boolean
+  /**
+   * Off (the default): an app sees only the conversations it started. On: it may list, read, continue, stop and carry
+   * on the person's own conversations in the open folder too, by the same rules as its own (0.842).
+   */
+  readonly conversations?: boolean
   /** An editor has connected to this Locust at least once, so Settings shows the switch above. */
   readonly editorSeen?: boolean
   readonly claudeCommand?: string
@@ -50,6 +56,7 @@ export interface LocustMcpApi {
   setEnabled(enabled: boolean): Promise<LocustMcpState>
   setOwnMode(ownMode: boolean): Promise<LocustMcpState>
   setEditorAnswers?(editorAnswers: boolean): Promise<LocustMcpState>
+  setConversations?(conversations: boolean): Promise<LocustMcpState>
   claudeApp?(): Promise<ClaudeAppConnection>
   setClaudeApp?(added: boolean): Promise<ClaudeAppResult>
   /** Close the Claude app and open it again, so it reads Locust's entry. */

@@ -112,13 +112,15 @@ export function createLocustMcpHost(options: {
   // Let editors answer cards for their own turns (0.790), and whether an editor has ever connected to show it.
   let editorAnswers = false
   let editorSeen = false
+  // Let apps see the person's own conversations too (0.842).
+  let conversations = false
   let queue: Promise<unknown> = Promise.resolve()
   const state = (message = options.refusal?.()): LocustMcpState => ({ enabled: server !== undefined, ownMode,
-    ...(editorAnswers ? { editorAnswers } : {}), ...(editorSeen ? { editorSeen } : {}),
+    ...(editorAnswers ? { editorAnswers } : {}), ...(editorSeen ? { editorSeen } : {}), ...(conversations ? { conversations } : {}),
     ...(server === undefined ? {} : setup), ...(message === undefined ? {} : { message }) })
   const save = async (): Promise<void> => {
     await mkdir(options.directory, { recursive: true })
-    await writeFile(settings + '.tmp', JSON.stringify({ enabled: server !== undefined, ownMode, ...(editorAnswers ? { editorAnswers } : {}), ...(editorSeen ? { editorSeen } : {}) }), 'utf8')
+    await writeFile(settings + '.tmp', JSON.stringify({ enabled: server !== undefined, ownMode, ...(editorAnswers ? { editorAnswers } : {}), ...(editorSeen ? { editorSeen } : {}), ...(conversations ? { conversations } : {}) }), 'utf8')
     await replaceFile(settings + '.tmp', settings)
   }
   const stop = async (): Promise<void> => {
@@ -172,11 +174,12 @@ export function createLocustMcpHost(options: {
       await rm(connection, { force: true }) // a crashed process's token is never reused
       if (options.refusal?.() !== undefined) return state()
       try {
-        const saved = JSON.parse(await readFile(settings, 'utf8')) as { readonly enabled?: unknown; readonly ownMode?: unknown; readonly editorAnswers?: unknown; readonly editorSeen?: unknown }
+        const saved = JSON.parse(await readFile(settings, 'utf8')) as { readonly enabled?: unknown; readonly ownMode?: unknown; readonly editorAnswers?: unknown; readonly editorSeen?: unknown; readonly conversations?: unknown }
         // Only a literal true widens anything; a missing or odd value is Ask, and cards answered only here.
         ownMode = saved.ownMode === true
         editorAnswers = saved.editorAnswers === true
         editorSeen = saved.editorSeen === true
+        conversations = saved.conversations === true
         if (saved.enabled === true) await start()
       } catch { /* Missing, unreadable or failed setup stays off. */ }
       return state()
@@ -219,6 +222,19 @@ export function createLocustMcpHost(options: {
         return state('The setting could not be saved. It is unchanged.')
       }
     }),
+    setConversations: (next: unknown) => serial(async () => {
+      if (disposed || typeof next !== 'boolean') return state('That setting was not changed.')
+      const before = conversations
+      conversations = next
+      try {
+        await save()
+        return state()
+      } catch {
+        // As with the mode: not saved means not changed.
+        conversations = before
+        return state('The setting could not be saved. It is unchanged.')
+      }
+    }),
     /** An editor opened a session: kept, so Settings shows its switch from now on. */
     noteEditor: () => serial(async () => {
       if (disposed || editorSeen) return state()
@@ -228,6 +244,7 @@ export function createLocustMcpHost(options: {
     }),
     ownMode: (): boolean => ownMode,
     editorAnswers: (): boolean => editorAnswers,
+    conversations: (): boolean => conversations,
     dispose: async (): Promise<void> => { disposed = true; await queue; await stop() }
   }
 }

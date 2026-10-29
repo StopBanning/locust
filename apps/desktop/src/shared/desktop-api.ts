@@ -55,7 +55,7 @@ import { TEAMMATE_KEYS_LIST_CHANNEL, TEAMMATE_KEYS_REMOVE_CHANNEL, TEAMMATE_KEYS
 import { DISCORD_CHANGED_CHANNEL, DISCORD_NEW_LINK_CHANNEL, DISCORD_REMOVE_CHANNEL, DISCORD_SET_TOKEN_CHANNEL, DISCORD_SETTINGS_CHANNEL } from './discord.js'
 import { SLACK_CHANGED_CHANNEL, SLACK_NEW_LINK_CHANNEL, SLACK_REMOVE_CHANNEL, SLACK_SET_TOKEN_CHANNEL, SLACK_SETTINGS_CHANNEL } from './slack.js'
 import { REMOTE_MCP_CHANGED, REMOTE_MCP_DECIDE, REMOTE_MCP_GET, REMOTE_MCP_REMOVE, REMOTE_MCP_SET, type RemoteMcpState } from './remote-mcp.js'
-import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from './locust-mcp.js'
+import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_CONVERSATIONS, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from './locust-mcp.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from './voice.js'
 import { CALLS_LIST, CALLS_SAVE } from './calls.js'
 import { DIAGRAM_DRAW_CHANNEL, type DiagramResponse } from './diagram.js'
@@ -625,6 +625,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       setEnabled: (enabled) => ipcRenderer.invoke(LOCUST_MCP_SET, enabled),
       setOwnMode: (ownMode) => ipcRenderer.invoke(LOCUST_MCP_SET_OWN_MODE, ownMode),
       setEditorAnswers: (editorAnswers) => ipcRenderer.invoke(LOCUST_MCP_SET_EDITOR_ANSWERS, editorAnswers),
+      setConversations: (conversations) => ipcRenderer.invoke(LOCUST_MCP_SET_CONVERSATIONS, conversations),
       claudeApp: () => ipcRenderer.invoke(LOCUST_MCP_CLAUDE_APP),
       setClaudeApp: (added) => ipcRenderer.invoke(LOCUST_MCP_CLAUDE_APP_SET, added),
       restartClaudeApp: () => ipcRenderer.invoke(LOCUST_MCP_CLAUDE_APP_RESTART)

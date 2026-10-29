@@ -55,7 +55,7 @@ import { createLocustMcpTools } from './locust-mcp-tools.js'
 import { createLocustCliSessions } from './locust-cli-sessions.js'
 import { REMOTE_MCP_CHANGED, REMOTE_MCP_DECIDE, REMOTE_MCP_GET, REMOTE_MCP_REMOVE, REMOTE_MCP_SET } from '../shared/remote-mcp.js'
 import { createRemoteMcp, REMOTE_MCP_FILE } from './remote-mcp.js'
-import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from '../shared/locust-mcp.js'
+import { LOCUST_MCP_CLAUDE_APP, LOCUST_MCP_CLAUDE_APP_RESTART, LOCUST_MCP_CLAUDE_APP_SET, LOCUST_MCP_GET, LOCUST_MCP_SET, LOCUST_MCP_SET_CONVERSATIONS, LOCUST_MCP_SET_EDITOR_ANSWERS, LOCUST_MCP_SET_OWN_MODE } from '../shared/locust-mcp.js'
 import { createPageServer, fromPagePreview, pageMayReach, PAGE_SCHEME } from './page-preview.js'
 import { CANCEL_SCRIPT, captureRectOf, pageFrameOf, pickInFrame } from './page-pick.js'
 import { createRuntimeCommands } from './runtime-commands.js'
@@ -116,7 +116,7 @@ import { boundedApproval, createFileMissionLedger, createFileWorkroom } from '@t
 import { retireSetAsideMessages } from './set-aside-messages.js'
 import { MAC_RELEASES_API, newerMacRelease } from './mac-release.js'
 import { createMacUpdater, macSelfUpdateTarget } from './mac-self-update.js'
-import type { AppChangelog, AppChangelogEntry, CodexMissionStartResponse, TeammateRoute, TurnUndoState, WorkspaceSettings } from '../shared/ipc.js'
+import type { PublicRecoveredMission, AppChangelog, AppChangelogEntry, CodexMissionStartResponse, TeammateRoute, TurnUndoState, WorkspaceSettings } from '../shared/ipc.js'
 import type { MissionApproval, MissionLedger, MissionStarter, Workroom } from '@teammate/mission-store'
 import type { ClaudeListedModel, RuntimeDiscovery } from '@teammate/runtime-adapters'
 import { spawn } from 'node:child_process'
@@ -10040,6 +10040,23 @@ if (!ownsSingleInstanceLock) {
         return { ok: true, missionId: response.data.missionId }
       }
     })
+    /*
+     * The conversations an app may list (0.842): the newest turn of each, in the open folder, as the window lists them --
+     * never a panel's own run (a commit message, a walkthrough) -- at most 20, newest first.
+     */
+    const appConversations = async (): Promise<readonly PublicRecoveredMission[]> => {
+      if (!workspaceChosen) return []
+      const history = await readMissionHistory(missionLedger, undefined, workspacePath)
+      if (!history.ok) return []
+      const hidden = new Set(await panelRuns.list().catch(() => [] as readonly string[]))
+      const newest: PublicRecoveredMission[] = []
+      for (const turn of [...history.data.missions].sort((a, b) => b.lastUpdatedAt.localeCompare(a.lastUpdatedAt))) {
+        if (newest.length >= 20) break
+        if (turn.workspaceId !== history.data.currentWorkspaceId || hidden.has(turn.missionId)) continue
+        if (await newestTurnOf(missionLedger, turn.missionId) === turn.missionId) newest.push(turn)
+      }
+      return newest
+    }
     const mcpTools = createLocustMcpTools({
       teammates: listTeammates,
       busy: id => codexMissions.runIdOwnedBy(id) !== undefined || antigravityMissions.runIdOwnedBy(id) !== undefined,
@@ -10067,7 +10084,11 @@ if (!ownsSingleInstanceLock) {
       // Where every turn works, by the folder's name alone: never the path above it (0.842).
       folder: () => (workspaceChosen ? basename(workspacePath) : undefined),
       // The window's own Stop, for a turn an app started (0.842).
-      cancel: runId => codexMissions.cancel(runId).ok || antigravityMissions.cancel(runId)
+      cancel: runId => codexMissions.cancel(runId).ok || antigravityMissions.cancel(runId),
+      // The person's own conversations too, only while their switch is on (0.842).
+      seeAll: () => mcpHost.conversations(),
+      conversations: () => appConversations(),
+      carryOn: (missionId, route) => carryOn?.carry(missionId, route) ?? Promise.resolve({ ok: false, message: 'Locust is still starting.' })
     })
     const cliSessions = createLocustCliSessions({
       teammates: async () => {
@@ -10491,6 +10512,7 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(LOCUST_MCP_GET, event => fromOwnWindow(event) ? mcpHost.settings() : { enabled: false, ownMode: false })
     ipcMain.handle(LOCUST_MCP_SET, (event, enabled: unknown) => fromOwnWindow(event) ? mcpHost.setEnabled(enabled) : { enabled: false, ownMode: false })
     ipcMain.handle(LOCUST_MCP_SET_OWN_MODE, (event, ownMode: unknown) => fromOwnWindow(event) ? mcpHost.setOwnMode(ownMode) : { enabled: false, ownMode: false })
+    ipcMain.handle(LOCUST_MCP_SET_CONVERSATIONS, (event, conversations: unknown) => fromOwnWindow(event) ? mcpHost.setConversations(conversations) : { enabled: false, ownMode: false })
     ipcMain.handle(LOCUST_MCP_SET_EDITOR_ANSWERS, (event, editorAnswers: unknown) => fromOwnWindow(event) ? mcpHost.setEditorAnswers(editorAnswers) : { enabled: false, ownMode: false })
     // Locust in the Claude app's tools, in one press (0.740): Add turns the local server on and writes the one entry.
     const mcpBridge = app.isPackaged ? join(process.resourcesPath, 'locust-mcp-bridge.mjs') : join(__dirname, '../../resources/locust-mcp-bridge.mjs')
