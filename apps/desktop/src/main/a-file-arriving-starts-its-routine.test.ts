@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { CodexMissionStartResponse, PublicRoutine } from '../shared/ipc.js'
 import { validSchedule, watchedFolderValid } from '../shared/routine-schedule.js'
-import { MAX_FIRES_PER_HOUR, SETTLE_MS, arrivalNote, createFileArrivals, watchedPath } from './routine-file-watch.js'
+import { MAX_FIRES_PER_HOUR, RELEASE_MS, SETTLE_MS, arrivalNote, createFileArrivals, watchedPath } from './routine-file-watch.js'
 import { createRoutineRunner } from './routine-runner.js'
 import type { RoutineRunnerOptions } from './routine-runner.js'
 
@@ -134,5 +134,58 @@ describe('a routine on a new file', () => {
     expect(starts[0]).toBe(`${arrivalNote('inbox', ready)}\n\nSummarize it in one line.`)
     expect(starts[0]).toContain('2 new files just arrived: inbox/invoice-1043.pdf, inbox/invoice-1051.pdf.')
     expect(fired).toEqual([['invoice-1043.pdf', 'invoice-1051.pdf']])
+  })
+})
+
+describe('a file a teammate wrote', () => {
+  it('starts nothing: held while a run is live, and let go when its turn says it wrote it', async () => {
+    const root = await project()
+    const arrivals = createFileArrivals({ projectFolder: root })
+    const watching = [{ routineId: 'rt_1', folder: 'inbox' }]
+    await arrivals.poll(watching, T0)
+    // "When a file lands in inbox/, write its summary there": the summary is the run's own.
+    await writeFile(join(root, 'inbox', 'summary.md'), 'Three invoices.\n')
+    await arrivals.poll(watching, T0 + 1, true)
+    await arrivals.poll(watching, T0 + SETTLE_MS + 2, true)
+    expect(arrivals.ready('rt_1', T0 + SETTLE_MS + 2)).toEqual([])
+    arrivals.wrote(root, ['inbox/summary.md', 'notes/elsewhere.md'])
+    await arrivals.poll(watching, T0 + SETTLE_MS + RELEASE_MS + 10, false)
+    expect(arrivals.ready('rt_1', T0 + SETTLE_MS + RELEASE_MS + 10)).toEqual([])
+  })
+
+  it('is told apart from a person’s file that landed while it worked, which still starts the routine', async () => {
+    const root = await project()
+    const arrivals = createFileArrivals({ projectFolder: root })
+    const watching = [{ routineId: 'rt_1', folder: 'inbox' }]
+    await arrivals.poll(watching, T0)
+    await writeFile(join(root, 'inbox', 'summary.md'), 'mine\n')
+    await writeFile(join(root, 'inbox', 'invoice-1060.pdf'), 'theirs\n')
+    await arrivals.poll(watching, T0 + 1, true)
+    await arrivals.poll(watching, T0 + SETTLE_MS + 2, true)
+    // The turn's record is written as it ends, so a moment of quiet is waited for before anything held counts.
+    await arrivals.poll(watching, T0 + SETTLE_MS + 3, false)
+    expect(arrivals.ready('rt_1', T0 + SETTLE_MS + 3)).toEqual([])
+    arrivals.wrote(root, ['inbox/summary.md'])
+    await arrivals.poll(watching, T0 + SETTLE_MS + 2 + RELEASE_MS, false)
+    expect(arrivals.ready('rt_1', T0 + SETTLE_MS + 2 + RELEASE_MS)).toEqual(['invoice-1060.pdf'])
+  })
+
+  it('is let go even when its turn ends before the file has stopped changing', async () => {
+    const root = await project()
+    const arrivals = createFileArrivals({ projectFolder: root })
+    const watching = [{ routineId: 'rt_1', folder: 'inbox' }]
+    await arrivals.poll(watching, T0)
+    await writeFile(join(root, 'inbox', 'report.csv'), 'a,b\n')
+    arrivals.wrote(root, ['inbox/report.csv'])
+    await arrivals.poll(watching, T0 + 1)
+    await arrivals.poll(watching, T0 + SETTLE_MS + 2)
+    expect(arrivals.ready('rt_1', T0 + SETTLE_MS + 2)).toEqual([])
+  })
+
+  it('reaches the watcher from every turn Undo records, and the host says when a run is live', async () => {
+    const host = await readFile(new URL('./index.ts', import.meta.url), 'utf8')
+    expect(host).toContain('void checkpoints.changed(record.workspace, record.before, record.after).then((paths) => turnWrote?.(record.workspace, paths), () => undefined)')
+    expect(host).toContain('turnWrote = (workspace, paths) => fileArrivals.wrote(workspace, paths)')
+    expect(host).toContain('await fileArrivals.poll(watching, Date.now(), codexMissions.liveMissionIds().length > 0 || antigravityMissions.liveMissionIds().length > 0)')
   })
 })

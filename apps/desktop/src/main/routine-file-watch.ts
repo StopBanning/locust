@@ -1,5 +1,5 @@
 import { readdir, stat } from 'node:fs/promises'
-import { join, resolve, sep } from 'node:path'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 
 /**
  * FOLDER WATCHERS (0.522), for routines that run "on a new file"
@@ -12,6 +12,15 @@ import { join, resolve, sep } from 'node:path'
  *     times.
  *   - A new file counts once it has STOPPED CHANGING for `SETTLE_MS`: a
  *     download or a copy in progress is not yet the file.
+ *   - A file a teammate wrote is not an arrival (0.840; Macro's routines
+ *     take no trigger from what agents and bots change). "When a file lands
+ *     in inbox/, write its summary there" started again on its own summary,
+ *     six times an hour, every hour. While any run is live, a file that
+ *     settles is HELD; each turn's record names what it wrote (Undo's own
+ *     checkpoints), and those are let go. What is left once runs have been
+ *     quiet for `RELEASE_MS` came from someone else, and starts the routine.
+ *     A turn with no record -- Undo could not keep that folder -- is not told
+ *     apart, so the cap below still stands behind it.
  *   - At most `MAX_FIRES_PER_HOUR` runs an hour, per routine: a folder a
  *     teammate itself writes into cannot set off a loop.
  *   - Files arriving together go to ONE run, named together.
@@ -25,6 +34,8 @@ import { join, resolve, sep } from 'node:path'
 export const POLL_MS = 10_000
 export const SETTLE_MS = 20_000
 export const MAX_FIRES_PER_HOUR = 6
+/** How long runs stay quiet before held files are taken as someone else's: a turn's record is written as it ends. */
+export const RELEASE_MS = 15_000
 const MAX_ENTRIES = 2_000
 const MAX_PENDING = 20
 
@@ -38,14 +49,21 @@ interface Watched {
   readonly settling: Map<string, { size: number; mtimeMs: number; since: number }>
   /** Settled new files, waiting for a run. */
   pending: string[]
+  /** Settled while a run was live: perhaps that run's own, until its turn says what it wrote. */
+  held: string[]
   /** When each run this hour started. */
   fires: number[]
   baselined: boolean
 }
 
 export interface FileArrivals {
-  /** Look at every watched folder; the routines to watch are given each time. */
-  poll(watching: readonly { readonly routineId: string; readonly folder: string }[], now?: number): Promise<void>
+  /**
+   * Look at every watched folder; the routines to watch are given each time, and whether a teammate's run is live
+   * now -- a file that settles then is held until that turn says what it wrote.
+   */
+  poll(watching: readonly { readonly routineId: string; readonly folder: string }[], now?: number, writing?: boolean): Promise<void>
+  /** A turn ended having changed these paths, relative to `workspace` with `/`: none of them is an arrival. */
+  wrote(workspace: string, paths: readonly string[]): void
   /** The settled new files a routine may run for now, or none (none waiting, or its hour is full). */
   ready(routineId: string, now?: number): readonly string[]
   /** A run started for these files. */
@@ -59,10 +77,16 @@ export function watchedPath(projectFolder: string, folder: string): string | und
   return path.startsWith(root + sep) ? path : undefined
 }
 
+/** One path, the same however it was spelled: Windows does not tell `C:\Work` from `c:\work`. */
+const samePath = (one: string, other: string): boolean => (process.platform === 'win32' ? one.toLowerCase() === other.toLowerCase() : one === other)
+
 export function createFileArrivals(options: { readonly projectFolder: string }): FileArrivals {
   const byRoutine = new Map<string, Watched>()
+  let writingAt: number | undefined
   return {
-    async poll(watching, now = Date.now()) {
+    async poll(watching, now = Date.now(), writing = false) {
+      if (writing) writingAt = now
+      const quiet = writingAt === undefined || now - writingAt >= RELEASE_MS
       // A routine no longer watching -- removed, or its schedule changed -- is forgotten.
       for (const routineId of [...byRoutine.keys()]) {
         const still = watching.find((entry) => entry.routineId === routineId)
@@ -71,7 +95,7 @@ export function createFileArrivals(options: { readonly projectFolder: string }):
       for (const { routineId, folder } of watching) {
         const path = watchedPath(options.projectFolder, folder)
         if (path === undefined) continue
-        const watched = byRoutine.get(routineId) ?? { folder, seen: new Set(), settling: new Map(), pending: [], fires: [], baselined: false }
+        const watched = byRoutine.get(routineId) ?? { folder, seen: new Set(), settling: new Map(), pending: [], held: [], fires: [], baselined: false }
         byRoutine.set(routineId, watched)
         let names: string[]
         try {
@@ -101,10 +125,31 @@ export function createFileArrivals(options: { readonly projectFolder: string }):
           if (now - held.since < SETTLE_MS) continue
           watched.settling.delete(name)
           watched.seen.add(name)
-          if (watched.pending.length < MAX_PENDING) watched.pending.push(name)
+          if (watched.held.length + watched.pending.length < MAX_PENDING) watched.held.push(name)
         }
         // A name that went away while settling is let go.
         for (const name of [...watched.settling.keys()]) if (!names.includes(name)) watched.settling.delete(name)
+        // Runs quiet long enough for every turn to have said what it wrote: what is held came from someone else.
+        if (quiet && watched.held.length > 0) {
+          watched.pending.push(...watched.held.filter((name) => !watched.pending.includes(name)))
+          watched.held = []
+        }
+      }
+    },
+    wrote(workspace, paths) {
+      for (const watched of byRoutine.values()) {
+        const folder = watchedPath(options.projectFolder, watched.folder)
+        if (folder === undefined) continue
+        for (const path of paths) {
+          const full = resolve(workspace, path)
+          if (!samePath(dirname(full), folder)) continue
+          const name = basename(full)
+          // Seen, so it is never new; and out of whatever it was waiting in.
+          watched.seen.add(name)
+          watched.settling.delete(name)
+          watched.held = watched.held.filter((one) => one !== name)
+          watched.pending = watched.pending.filter((one) => one !== name)
+        }
       }
     },
     ready(routineId, now = Date.now()) {

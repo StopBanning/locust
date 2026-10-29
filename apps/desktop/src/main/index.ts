@@ -199,7 +199,7 @@ import { AWAY_FILE, readAttentionMark, writeAttentionMark } from './away.js'
 import { awayCountsFrom, awayLine, wasAway } from '../shared/away.js'
 import type { AwaySummaryCounts } from '../shared/away.js'
 import { createRecentEdits } from './recent-edits.js'
-import { createCheckpoints, createTurnRecords } from './checkpoints.js'
+import { createCheckpoints, createTurnRecords, type TurnRecords } from './checkpoints.js'
 import { clearClaudeSkillCopies, prepareClaudeSkills } from './claude-skills.js'
 import { prepareRunSkills } from './run-skills.js'
 import { takesSkills } from '../shared/skill-runtimes.js'
@@ -748,7 +748,16 @@ const runtimeFacts = createRuntimeFactsStore({ rootDirectory: app.getPath('userD
 // never in the person's folder; not in a profile backup (BACKED_UP_FOLDERS names what is).
 // And on a machine with no git, the same Undo from a store of Locust's own (0.780, checkpoints-plain.ts).
 const checkpoints = createCheckpoints({ root: join(app.getPath('userData'), 'checkpoints'), withoutGit: createPlainCheckpoints({ root: join(app.getPath('userData'), 'checkpoints') }) })
-const turnRecords = createTurnRecords(join(app.getPath('userData'), 'checkpoints', 'turns.json'))
+const keptTurns = createTurnRecords(join(app.getPath('userData'), 'checkpoints', 'turns.json'))
+/** Told what each turn wrote (0.840): a routine watching a folder does not start on a teammate's own file. */
+let turnWrote: ((workspace: string, paths: readonly string[]) => void) | undefined
+const turnRecords: TurnRecords = {
+  ...keptTurns,
+  async put(runId, record) {
+    await keptTurns.put(runId, record)
+    void checkpoints.changed(record.workspace, record.before, record.after).then((paths) => turnWrote?.(record.workspace, paths), () => undefined)
+  }
+}
 /** Skills copied for each Claude run outside Auto (0.679); what a crash left is cleared at launch. */
 const claudeSkillCopies = join(app.getPath('userData'), 'claude-skills')
 /** And for each Codex, OpenCode, Copilot and Antigravity run (0.813, run-skills.ts), cleared the same way. */
@@ -4198,6 +4207,7 @@ if (!ownsSingleInstanceLock) {
     const tuneLessons = createTuneLessonStore({ rootDirectory: app.getPath('userData') })
     // Folder watchers (0.522): routines that run on a new file, polled, inside the project folder.
     const fileArrivals = createFileArrivals({ get projectFolder() { return workspacePath } })
+    turnWrote = (workspace, paths) => fileArrivals.wrote(workspace, paths)
     let hookRelay: HookRelay | undefined
     const routineHooks = createRoutineHooks({
       secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
@@ -4378,7 +4388,8 @@ if (!ownsSingleInstanceLock) {
             : []
         )
         if (watching.length === 0) return
-        await fileArrivals.poll(watching)
+        // A teammate at work: what settles now may be its own, held until its turn says what it wrote.
+        await fileArrivals.poll(watching, Date.now(), codexMissions.liveMissionIds().length > 0 || antigravityMissions.liveMissionIds().length > 0)
         if (watching.some((entry) => fileArrivals.ready(entry.routineId).length > 0)) tickRoutines()
       })().catch(() => undefined)
     }
