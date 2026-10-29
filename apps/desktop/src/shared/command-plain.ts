@@ -15,9 +15,14 @@
  * It speaks only when it knows EVERY part. A chain with one part it cannot
  * read -- `npm test && ./deploy.sh` -- gets no plain words at all, since a
  * sentence about the test alone would read as the whole of it. So does a part
- * that writes a file with `>`, runs something inside `$( )`, or is longer than
- * four steps. Silence is the honest answer for those, and the card's exact
- * row still says what will run.
+ * that runs something inside `$( )` or `( )`, hands a filter a `{ }` block of
+ * code, or is longer than four steps -- twelve when every one only looks, three
+ * of them said and the rest counted. Silence is the honest answer for those,
+ * and the card's exact row still says what will run.
+ *
+ * Measured against the 9,834 different commands the agents ran here by
+ * 2026-10-28: Codex's long chains of reads, `Get-Content -LiteralPath` and a
+ * script's output saved to a log were most of what it could not read.
  *
  * Pure and dependency-free, as command-reach.ts is: the main process (the
  * phone, the chat apps) and the renderer both use it.
@@ -40,22 +45,68 @@ interface Step {
 }
 
 const MAX_STEPS = 4
+/** A chain that only looks may be longer: Codex reads five files and a diff in one command. */
+const MAX_LOOKING_STEPS = 12
+/** Of a longer chain, the steps said before the rest are counted. */
+const SAID_OF_A_LONG_ONE = 3
 const ONLY_LOOKS = ' It only looks.'
 const NO_BIN = ' Nothing goes to the Recycle Bin or Trash.'
 
 export function plainCommand(command: string | undefined): PlainCommand | undefined {
   if (typeof command !== 'string' || command.trim().length === 0 || command.length > 2000) return undefined
+  // An escaped quote -- `\"` to bash and to a Windows command line, `` `" `` to PowerShell -- ends a quote here, so
+  // the rest of a chain could read as a search's words: `rg 'a=\"b' src; pnpm build` said only "Searches".
+  if (/\\"|`["']/.test(command) || !closed(command)) {
+    // Still said when it is a download run at once, whatever the quotes: that one most needs saying.
+    const url = /\b(?:curl|wget|irm|iwr|invoke-restmethod|invoke-webrequest)\b[^|;&]*?(https?:\/\/[^\s'"\\)]+)[^|;&]*\|\s*(?:sh|bash|zsh|iex|invoke-expression)\b/i.exec(command)?.[1]
+      ?? (/\b(?:iex|invoke-expression)\b/i.test(command) ? runsDownloaded('iex', command) : undefined)
+    if (url === undefined) return undefined
+    const said = downloadAndRun(url).said
+    return { said, careful: true, onlyLooks: false }
+  }
   const all = stepsOf(command, 0)
-  if (all === undefined || all.length > MAX_STEPS) return undefined
+  if (all === undefined || all.length > MAX_LOOKING_STEPS) return undefined
   // A step that says nothing worth a word (`exit 0`) is not one.
-  const steps = all.filter((step) => step.said.length > 0)
+  const steps = once(all.filter((step) => step.said.length > 0))
   if (steps.length === 0) return undefined
   const onlyLooks = steps.every((step) => step.looks === true)
+  // Only a chain that changes nothing is cut short: a step left unsaid could be the one that deletes.
+  if (steps.length > MAX_STEPS && !onlyLooks) return undefined
+  const shown = steps.length > MAX_STEPS
+    ? [...steps.slice(0, SAID_OF_A_LONG_ONE).map((step) => step.said), `And ${String(steps.length - SAID_OF_A_LONG_ONE)} more step${steps.length - SAID_OF_A_LONG_ONE === 1 ? '' : 's'}.`]
+    : steps.map((step) => step.said)
   return {
-    said: `${steps.map((step) => step.said).join(' ')}${onlyLooks ? ONLY_LOOKS : ''}`,
+    said: `${shown.join(' ')}${onlyLooks ? ONLY_LOOKS : ''}`,
     careful: steps.some((step) => step.careful === true),
     onlyLooks
   }
+}
+
+/** Every quote that opens closes: one left open takes the rest of the chain into its words. */
+function closed(command: string): boolean {
+  let quote: string | undefined
+  for (const ch of command) {
+    if (quote !== undefined) {
+      if (ch === quote) quote = undefined
+    } else if (ch === '"' || ch === "'") quote = ch
+  }
+  return quote === undefined
+}
+
+/** The same step run again and again -- one script driven with different words -- said once, with how often. */
+function once(steps: readonly Step[]): Step[] {
+  const kept: { step: Step; times: number }[] = []
+  for (const step of steps) {
+    const last = kept[kept.length - 1]
+    // Only a one-sentence step: a count after a second sentence would read as belonging to it.
+    if (last !== undefined && last.step.said === step.said && !/\.\s/.test(step.said)) {
+      last.times += 1
+      // Amber if either was: said once, it still stands for both.
+      if (step.careful === true) last.step = { ...last.step, careful: true }
+      if (step.looks !== true) last.step = { said: last.step.said, ...(last.step.careful === true ? { careful: true } : {}) }
+    } else kept.push({ step, times: 1 })
+  }
+  return kept.map(({ step, times }) => (times === 1 ? step : { ...step, said: `${step.said.replace(/\.$/, '')}, ${times === 2 ? 'twice' : `${String(times)} times`}.` }))
 }
 
 function stepsOf(command: string, depth: number): Step[] | undefined {
@@ -63,6 +114,11 @@ function stepsOf(command: string, depth: number): Step[] | undefined {
   const parts = splitChain(command)
   const steps: Step[] = []
   for (let i = 0; i < parts.length; i += 1) {
+    const set = setting(parts[i]!.text)
+    if (set !== undefined && parts[i + 1]?.after !== '|') {
+      steps.push(set)
+      continue
+    }
     let end = i
     while (end + 1 < parts.length && parts[end + 1]!.after === '|') end += 1
     const found = pipeline(parts.slice(i, end + 1).map((part) => part.text), depth)
@@ -74,15 +130,43 @@ function stepsOf(command: string, depth: number): Step[] | undefined {
   return steps
 }
 
+/**
+ * A PowerShell line that only sets something for the lines after it. The exit code kept for later and how errors
+ * are taken say nothing worth a word; an environment variable is named, since it can change what the next command
+ * does, and never its value.
+ */
+function setting(text: string): Step | undefined {
+  if (/^\s*\$\w+\s*=\s*\$(LASTEXITCODE|\?)\s*$/i.test(text)) return { said: '', looks: true }
+  if (/^\s*\$ErrorActionPreference\s*=\s*['"]?\w+['"]?\s*$/i.test(text)) return { said: '', looks: true }
+  const env = /^\s*\$env:([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:'[^']*'|"[^"$`]*"|[^\s;|&()$`'"]+)\s*$/i.exec(text)
+  return env === null ? undefined : { said: `Sets ${env[1]!} for the commands after it.` }
+}
+
 // --- one pipeline: a command, or commands piped into each other -----------------
 
 function pipeline(texts: readonly string[], depth: number): Step[] | undefined {
+  // `NODE_ENV=production node build.mjs`: the setting is named, as a PowerShell one is.
+  const sets = texts.length === 1 ? leadingSettings(tokens(texts[0]!)) : []
   const words = texts.map((text) => withoutRedirects(commandWords(tokens(text))))
   if (words.some((each) => each.length === 0)) return undefined
   // `command -v git` asks where git is; read as `git` it would be explained as git.
   if (texts.some((text) => /^\s*(command|builtin)\s/i.test(text))) return undefined
-  if (texts.some(writesAFile)) return undefined
+  // A download run at once is said before anything else is weighed: `iex (irm …)` is all brackets.
+  const ran = texts.length === 1 ? runsDownloaded(programName(words[0]![0]!), texts[0]!) : undefined
+  if (ran !== undefined) return [downloadAndRun(ran)]
+  // `( )` runs what is inside it -- `Remove-Item (Join-Path $env:TEMP x)`, a subshell -- and a `{ }` handed to a
+  // filter is code: `gci | ? { Remove-Item $_ }` lists nothing.
+  if (texts.some(computes)) return undefined
+  // What it prints, saved in a file: said after it, and from the last command only.
+  if (texts.slice(0, -1).some((text) => redirects(text)?.length !== 0)) return undefined
+  const saved = redirects(texts[texts.length - 1]!)
+  if (saved === undefined || saved.length > 1) return undefined
+  const found = commands(texts, words, depth)
+  if (found === undefined) return undefined
+  return [...sets.map((name) => ({ said: `Sets ${name} for this command.` })), ...found, ...saved.map(savedIn)]
+}
 
+function commands(texts: readonly string[], words: readonly (readonly string[])[], depth: number): Step[] | undefined {
   const last = words[words.length - 1]!
   // A script downloaded and run at once: `curl … | sh`, `irm … | iex`, `bash -c "$(curl …)"`, `iex (irm …)`.
   if (texts.length > 1 && RUNNERS.has(programName(last[0]!))) {
@@ -92,11 +176,12 @@ function pipeline(texts: readonly string[], depth: number): Step[] | undefined {
   }
   if (texts.length === 1) {
     const verb = programName(words[0]![0]!)
-    const ran = runsDownloaded(verb, texts[0]!)
-    if (ran !== undefined) return [downloadAndRun(ran)]
     if (innerCommands(texts[0]!).length > 0) return undefined
     const inner = wrapped(words[0]!)
     if (inner !== undefined) return stepsOf(inner, depth + 1)
+    // `bash _tools/gate.sh`, `powershell -File setup.ps1`: a script file, as `node x.mjs` is.
+    const file = ['bash', 'sh', 'zsh'].includes(verb) ? words[0]![1] : ['powershell', 'pwsh'].includes(verb) ? valueOf(words[0]!.slice(1), ['-file']) : undefined
+    if (file !== undefined && !file.startsWith('-')) return [{ said: `Runs the script ${file}.` }]
     if (['powershell', 'pwsh', 'cmd', 'bash', 'sh', 'zsh'].includes(verb)) return undefined
     const step = stepOf(words[0]!)
     if (step === undefined) return undefined
@@ -106,7 +191,51 @@ function pipeline(texts: readonly string[], depth: number): Step[] | undefined {
   if (texts.some((text) => innerCommands(text).length > 0)) return undefined
   const first = stepOf(words[0]!)
   if (first === undefined) return undefined
-  return words.slice(1).every((each) => FILTERS.has(programName(each[0]!)) && !writesFromAFilter(each)) ? [first] : undefined
+  const rest = words.slice(1)
+  if (!rest.every((each) => FILTERS.has(programName(each[0]!)) && !writesFromAFilter(each))) return undefined
+  // `Get-Content app.js | Select-Object -Skip 760 -First 40` reads forty lines of it, not all of it.
+  const narrowed = rest.some((each) => ['head', 'tail'].includes(programName(each[0]!)) || ['select-object', 'select'].includes(programName(each[0]!)) && each.some((word) => /^-(first|last|skip|index)$/i.test(word)))
+  return [narrowed && first.said.startsWith('Shows what is in ') ? { ...first, said: `Shows part of ${first.said.slice('Shows what is in '.length)}` } : first]
+}
+
+/** Names set in front of a command for it alone: `CI=1 NODE_ENV=production node build.mjs`. Never their values. */
+function leadingSettings(words: readonly string[]): string[] {
+  const names: string[] = []
+  for (const word of words) {
+    const set = /^([A-Za-z_][A-Za-z0-9_]*)=/.exec(word)
+    if (set === null) break
+    names.push(set[1]!)
+  }
+  return names
+}
+
+/** A `(` or a `{` outside quotes: something worked out or run before the command is. `HEAD@{1}` is a commit. */
+function computes(text: string): boolean {
+  const bare = text.replace(/\w@\{[\w.:-]+\}/g, '')
+  let quote: string | undefined
+  for (const ch of bare) {
+    if (quote !== undefined) {
+      if (ch === quote) quote = undefined
+      continue
+    }
+    if (ch === '"' || ch === "'") quote = ch
+    else if (ch === '(' || ch === '{') return true
+  }
+  return false
+}
+
+interface Saved {
+  readonly file: string
+  readonly adds: boolean
+  readonly errors: boolean
+}
+
+function savedIn(saved: Saved): Step {
+  const what = saved.errors ? 'Its error messages' : 'What it prints'
+  if (saved.adds) return { said: `${what} ${saved.errors ? 'are' : 'is'} added to the end of ${saved.file}.` }
+  // Replacing a log is what a log is for; replacing any other file loses what was in it.
+  if (/\.(log|tap|out)$/i.test(saved.file)) return { said: `${what} ${saved.errors ? 'are' : 'is'} saved in ${saved.file}.` }
+  return { said: `${what} ${saved.errors ? 'replace' : 'replaces'} what was in ${saved.file}.`, careful: true }
 }
 
 /** A filter told to write a file: `sed -i`, `sort -o out.txt`. */
@@ -235,8 +364,42 @@ function stepOf(words: readonly string[]): Step | undefined {
     case 'gc':
     case 'get-content':
     case 'less':
-    case 'more':
-      return looks(named(plainOf(args, verb), (files) => `Shows what is in ${join(files)}.`))
+    case 'more': {
+      // `Get-Content -LiteralPath x -Tail 20`: the file is a parameter's value, and a part of it may be all that is read.
+      const part = valueOf(args, ['-tail', '-last']) !== undefined ? 'the end of' : valueOf(args, ['-totalcount', '-head', '-first']) !== undefined ? 'the start of' : 'what is in'
+      return looks(named([...valuesOf(args, ['-path', '-literalpath']), ...plainOf(args, verb)].flatMap(commaList), (files) => `Shows ${part} ${join(files)}.`))
+    }
+    case 'test-path':
+      return looks(named([...valuesOf(args, ['-path', '-literalpath']), ...plainOf(args, verb)].flatMap(commaList), (files) => `Checks whether ${join(files)} ${files.length === 1 ? 'is' : 'are'} there.`))
+    case 'get-date':
+    case 'date':
+      // GNU `date -s` sets the clock.
+      return args.some((arg) => arg === '-s' || arg.startsWith('--set')) ? undefined : { said: 'Shows the date and time.', looks: true }
+    case 'sleep':
+    case 'start-sleep':
+      return waits(args)
+    case 'get-process':
+    case 'gps': {
+      // `Get-Process node`, `Get-Process -Id 4120`: the ones named, not every program.
+      const which = [...valuesOf(args, ['-id', '-name']), ...plainOf(args, verb, ['-id'])].flatMap(commaList)
+      return { said: which.length === 0 ? 'Lists the programs running on this computer.' : `Looks up the running program${plural(which)} ${join(which)}.`, looks: true }
+    }
+    case 'ps':
+    case 'tasklist':
+      return { said: 'Lists the programs running on this computer.', looks: true }
+    case 'get-ciminstance':
+    case 'gcim':
+    case 'get-wmiobject':
+    case 'gwmi': {
+      const kind = (valueOf(args, ['-classname', '-class']) ?? plainOf(args, verb)[0] ?? '').toLowerCase()
+      if (kind === 'win32_process') return { said: 'Lists the programs running on this computer.', looks: true }
+      if (kind === 'win32_logicaldisk') return { said: 'Shows how much room is left on each drive.', looks: true }
+      return undefined
+    }
+    case 'get-psdrive':
+    case 'gdr':
+    case 'df':
+      return { said: 'Shows how much room is left on each drive.', looks: true }
     case 'head':
     case 'tail':
       return looks(named(plainOf(args, verb, ['-n', '-c']), (files) => `Shows the ${verb === 'head' ? 'start' : 'end'} of ${join(files)}.`))
@@ -319,13 +482,21 @@ function git(all: readonly string[]): Step | undefined {
     case 'status':
       return { said: 'Shows which files have changed.', looks: true }
     case 'diff':
+      if (has('--check')) return { said: 'Checks the changes for stray spaces and other whitespace mistakes.', looks: true }
       return { said: has('--staged', '--cached') ? 'Shows the changes marked for the next commit.' : 'Shows what has changed in the files.', looks: true }
+    case 'grep':
+      return search('git grep', args)
+    case 'worktree':
+      return args[0] === 'list' ? { said: 'Lists the folders this repository is checked out in.', looks: true } : undefined
     case 'log':
     case 'shortlog':
     case 'reflog':
       return args[0] === 'expire' || args[0] === 'delete' ? undefined : { said: 'Lists recent commits.', looks: true }
-    case 'show':
-      return { said: 'Shows a commit and what it changed.', looks: true }
+    case 'show': {
+      // `git show main:src/cart.ts` is a file as it was, not a commit.
+      const at = plain.length === 1 ? /^([^:\s]{2,}):(.+)$/.exec(plain[0]!) : null
+      return { said: at === null ? 'Shows a commit and what it changed.' : `Shows ${at[2]!} as it was at ${at[1]!}.`, looks: true }
+    }
     case 'blame':
       return { said: `Shows who last changed each line of ${plain[0] ?? 'a file'}.`, looks: true }
     case 'ls-files':
@@ -452,6 +623,7 @@ function checkout(args: readonly string[], plain: readonly string[]): Step | und
 
 function branch(args: readonly string[]): Step | undefined {
   const plain = args.filter((arg) => !arg.startsWith('-'))
+  if (args.includes('--show-current')) return { said: 'Shows which branch this is.', looks: true }
   if (args.includes('-D') || args.includes('--delete') && args.includes('--force')) {
     return plain.length === 0 ? undefined : { said: `Deletes the branch${plural(plain)} ${join(plain)}, even if ${plain.length === 1 ? 'its' : 'their'} commits are on no other branch: those commits can be lost.`, careful: true }
   }
@@ -588,7 +760,11 @@ function python(args: readonly string[]): Step | undefined {
 function script(args: readonly string[]): Step | undefined {
   if (args.some((arg) => arg === '-e' || arg === '--eval' || arg === '-p' || arg === '--print')) return undefined
   const file = args.find((arg) => !arg.startsWith('-'))
-  return file === undefined ? undefined : { said: `Runs the script ${file}.` }
+  if (file === undefined) return undefined
+  // `node --check app.js` reads the file and runs none of it.
+  if (args.includes('--check') || args.includes('-c')) return { said: `Checks ${file} for mistakes in how it is written, without running it.`, looks: true }
+  if (args.includes('--test')) return { said: `Runs the tests in ${join(args.filter((arg) => !arg.startsWith('-')))}.` }
+  return { said: `Runs the script ${file}.` }
 }
 
 function cargo(args: readonly string[]): Step | undefined {
@@ -615,13 +791,17 @@ function goTool(args: readonly string[]): Step | undefined {
 // --- files -------------------------------------------------------------------
 
 /** PowerShell parameters that take a value: their value is not a file to act on. */
-const PS_VALUES = ['-erroraction', '-ea', '-include', '-exclude', '-filter', '-itemtype', '-type', '-value', '-encoding', '-depth', '-first', '-last', '-tail', '-totalcount', '-head', '-newname', '-destination', '-path', '-literalpath', '-name', '-pattern']
+const PS_VALUES = ['-erroraction', '-ea', '-include', '-exclude', '-filter', '-itemtype', '-type', '-value', '-encoding', '-depth', '-first', '-last', '-tail', '-totalcount', '-head', '-newname', '-destination', '-path', '-literalpath', '-name', '-pattern', '-pathtype', '-classname', '-class', '-seconds', '-milliseconds', '-readcount', '-delimiter']
 
 function remove(verb: string, args: readonly string[]): Step | undefined {
   const targets = [...(valuesOf(args, ['-path', '-literalpath'])), ...plainOf(args, verb)].flatMap(commaList)
   if (targets.length === 0) return undefined
+  // `Remove-Item Env:LOCUST_X` takes a setting away; no file is touched.
+  if (targets.every((target) => /^env:[A-Za-z_][A-Za-z0-9_]*$/i.test(target))) return { said: `Clears ${join(targets.map((target) => target.slice(4)))} for the commands after it.` }
   // `-r`, `-rf`, `-Re` (PowerShell takes the start of -Recurse); never `-Force`, which has an r in it.
   const deep = args.some((arg) => /^-recurse$/i.test(arg) || arg === '--recursive' || /^-[a-zA-Z]{1,3}$/.test(arg) && /r/i.test(arg) || /^\/s$/i.test(arg))
+  // `rmdir build` without /s or -r takes a folder only when it is already empty.
+  if ((verb === 'rmdir' || verb === 'rd') && !deep) return { said: `Deletes the folder${plural(targets)} ${join(targets)}, only if ${targets.length === 1 ? 'it is' : 'they are'} empty.` }
   if ((verb === 'del' || verb === 'erase') && deep) return { said: `Deletes ${join(targets)} in this folder and every folder inside it.${NO_BIN}`, careful: true }
   return { said: `Deletes ${join(targets)}${deep ? ` and everything inside ${targets.length === 1 ? 'it' : 'them'}` : ''}.${NO_BIN}`, careful: true }
 }
@@ -684,11 +864,18 @@ function listing(verb: string, args: readonly string[]): Step | undefined {
 
 function search(verb: string, args: readonly string[]): Step | undefined {
   const takesValue = ['-e', '-f', '-A', '-B', '-C', '-m', '-g', '-t', '-T', '--glob', '--type', '--max-count', '-pattern', '-path', '-include', '-exclude', '-context']
+  // `rg --files -g AGENTS.md`: lists files, searching none of them.
+  if (verb === 'rg' && args.includes('--files')) {
+    const where = plainOf(args, verb, takesValue)
+    const like = valuesOf(args, ['-g', '--glob', '--iglob'])
+    const named = like.length > 0 && like.every((glob) => !glob.startsWith('!')) ? ` named like ${like.length === 1 ? like[0]! : `${like.slice(0, -1).map((one) => cut(one, 40)).join(', ')} or ${cut(like[like.length - 1]!, 40)}`}` : ''
+    return { said: `Lists the files in ${where.length === 0 ? 'this folder' : join(where.map(place))}${named}.`, looks: true }
+  }
   const pattern = valueOf(args, ['-e', '--regexp', '-pattern'])
   const plain = plainOf(args, verb, takesValue)
   const what = pattern ?? plain[0]
   if (what === undefined) return undefined
-  const where = [...valuesOf(args, ['-path']), ...(pattern === undefined ? plain.slice(1) : plain)]
+  const where = [...valuesOf(args, ['-path', '-literalpath']), ...(pattern === undefined ? plain.slice(1) : plain)]
   return { said: `Searches ${where.length === 0 ? 'this folder' : join(where.map(place))} for “${cut(what, 60)}”.`, looks: true }
 }
 
@@ -697,6 +884,18 @@ function opens(args: readonly string[]): Step | undefined {
   if (target === undefined) return undefined
   if (/^https?:\/\//i.test(target)) return { said: `Opens ${hostOf(target)} in your web browser.` }
   return undefined
+}
+
+function waits(args: readonly string[]): Step | undefined {
+  const ms = valueOf(args, ['-milliseconds', '-m'])
+  if (ms !== undefined) return /^\d+$/.test(ms) ? { said: 'Waits a moment.', looks: true } : undefined
+  const given = valueOf(args, ['-seconds', '-s']) ?? args.find((arg) => !arg.startsWith('-'))
+  const time = given === undefined ? null : /^(\d+(?:\.\d+)?)([smhd]?)$/.exec(given)
+  if (time === null) return undefined
+  const seconds = Number(time[1]) * ({ '': 1, s: 1, m: 60, h: 3600, d: 86400 } as Record<string, number>)[time[2]!]!
+  if (seconds < 120) return { said: `Waits ${String(Math.round(seconds))} second${Math.round(seconds) === 1 ? '' : 's'}.`, looks: true }
+  if (seconds < 7200) return { said: `Waits about ${String(Math.round(seconds / 60))} minutes.`, looks: true }
+  return { said: `Waits about ${String(Math.round(seconds / 3600))} hours.`, looks: true }
 }
 
 function fetches(verb: string, args: readonly string[]): Step | undefined {
@@ -717,8 +916,13 @@ function fetches(verb: string, args: readonly string[]): Step | undefined {
 
 // --- reading the words --------------------------------------------------------
 
-/** A redirect into a file, outside quotes: `> out.txt`, `>> log`. Not `2>&1`, `> /dev/null` or `> $null`. */
-function writesAFile(text: string): boolean {
+/**
+ * The files a part's output goes into, outside quotes: `> out.txt`, `>> log`, `*> drive.log`. Not `2>&1`,
+ * `> /dev/null` or `> $null`. Undefined when a target is worked out -- `> $env:TEMP\x.log` -- since where it goes
+ * is then not in the words.
+ */
+function redirects(text: string): Saved[] | undefined {
+  const found: Saved[] = []
   let quote: string | undefined
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i]!
@@ -731,13 +935,21 @@ function writesAFile(text: string): boolean {
       continue
     }
     if (ch !== '>') continue
+    const errors = text[i - 1] === '2'
+    const adds = text[i + 1] === '>'
     let at = i + 1
     while (text[at] === '>' || text[at] === ' ') at += 1
-    const target = /^(?:&\d?|[^\s;|&]*)/.exec(text.slice(at))![0]
-    if (!/^(&\d?|\/dev\/null|\$null|nul)$/i.test(target)) return true
+    const opener = text[at]
+    const target = opener === '"' || opener === "'"
+      ? text.slice(at, text.indexOf(opener, at + 1) + 1 || text.length)
+      : /^(?:&\d?|[^\s;|&]*)/.exec(text.slice(at))![0]
     i = at + target.length - 1
+    const file = target.replace(/^(["'])(.*)\1$/, '$2')
+    if (/^(&\d?|\/dev\/null|\$null|nul)$/i.test(file)) continue
+    if (file.length === 0 || /[$`(){}@*?]/.test(file)) return undefined
+    found.push({ file, adds, errors })
   }
-  return false
+  return found
 }
 
 /** The words with redirections and what they point at taken out: `2>&1`, `> /dev/null`. */
