@@ -11,6 +11,13 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.841.0 - 2026-10-29
+<!-- big -->
+
+### New
+
+- **Use your team from Claude on the web, Claude Duet, or any app that takes a remote MCP server.** In Settings > General, under Let your other AI apps use Locust, turn on Use from anywhere, then paste the address it shows into Claude (Settings, then Connectors, then Add custom connector). When Claude connects, Locust shows a card naming it, with six digits Claude’s sign-in page shows too: only Allow there lets it in. It can then ask your teammates, read their replies and run your routines, by the same rules as an app on your computer: Ask mode unless you turned on each teammate’s own mode, and every approval answered only in Locust. It goes through the same relay as your phone from anywhere, so that needs to be on, and Locust needs to be open on your computer. Each connected app is listed with Remove, and turning this off disconnects them all. The keys are made and checked on your computer; the relay passes on what an app asks and what Locust answers, and keeps none of it.
+
 ## 0.840.0 - 2026-10-29
 <!-- big -->
 
