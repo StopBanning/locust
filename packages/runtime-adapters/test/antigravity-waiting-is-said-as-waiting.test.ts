@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agyHelpersIn, ANTIGRAVITY_STALLED_SENTENCE, createAgyEventNormalizer } from "../src/agy-events.js";
+import { agyHelpersIn, ANTIGRAVITY_REFUSED_SENTENCE, ANTIGRAVITY_STALLED_SENTENCE, createAgyEventNormalizer } from "../src/agy-events.js";
 import type { NormalizedRuntimeEvent } from "../src/codex-events.js";
 
 /**
@@ -67,6 +67,15 @@ describe("Antigravity waiting on a helper", () => {
   it("says the timeout that ended it in words", () => {
     const failed = run(turn).find((event) => event.type === "run.failed");
     expect((failed?.payload as { message?: string }).message).toBe(ANTIGRAVITY_STALLED_SENTENCE);
+  });
+
+  it("says Google's refusal of a long turn in words, with what to do (0.842)", () => {
+    const refused = run([
+      JSON.stringify({ event: "init", conversation_id: CONVERSATION, init: { model: "gemini-3.8-flash" } }),
+      step(1, { step_type: "tool", tool_name: "run_command", tool_info: { name: "run_command", parameters: { CommandLine: "git worktree add -b drums-adt D:\\work\\locust-wt\\drums-adt 39db1a3" }, output: "Preparing worktree" } }),
+      JSON.stringify({ event: "result", result: { conversation_id: CONVERSATION, status: "ERROR", response: "I will create the git worktree.", error: "INVALID_ARGUMENT (code 400): Request contains an invalid argument." } })
+    ]).find((event) => event.type === "run.failed");
+    expect((refused?.payload as { message?: string }).message).toBe(ANTIGRAVITY_REFUSED_SENTENCE);
   });
 
   it("keeps the last list through a call that is not one, and lets it go once no helper is left", () => {

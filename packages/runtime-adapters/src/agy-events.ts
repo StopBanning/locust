@@ -120,6 +120,15 @@ export const ANTIGRAVITY_QUOTA_SENTENCE =
 export const ANTIGRAVITY_STALLED_SENTENCE =
   "Antigravity's model stopped answering for five minutes, so Antigravity ended the turn. What it did so far is kept. Antigravity says this can be tried again: send \"continue\".";
 
+/**
+ * Google refused the turn's next request (0.842). MEASURED 2026-10-29, Colin's Gemini 3.8 Flash turn in Auto: forty-four
+ * tool calls and six minutes in, right after a command that finished, agy ended the turn ERROR with "INVALID_ARGUMENT
+ * (code 400): Request contains an invalid argument." (retryable: false). The card said Google's line and nothing of
+ * what to do; the turn's work so far was all there.
+ */
+export const ANTIGRAVITY_REFUSED_SENTENCE =
+  "Google refused this turn's next request as invalid, after it had already worked; what it did so far is kept. Send \"carry on\" to go on from there. If Google refuses again, start a new conversation and say what is already done.";
+
 /** A helper agy started, as its `manage_subagents` list says it: its role, its state, and its last step. */
 export interface AgyHelper { readonly role: string; readonly state: string; readonly lastStepAt?: string }
 
@@ -511,6 +520,8 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
               ? ANTIGRAVITY_QUOTA_SENTENCE
               : resultError !== undefined && /stream idle timeout|DEADLINE_EXCEEDED|context deadline exceeded/i.test(resultError)
               ? ANTIGRAVITY_STALLED_SENTENCE
+              : resultError !== undefined && /INVALID_ARGUMENT|Request contains an invalid argument/i.test(resultError)
+              ? ANTIGRAVITY_REFUSED_SENTENCE
               : resultError !== undefined
                 ? providerErrorSentence(resultError, "antigravity") !== resultError
                   ? providerErrorSentence(resultError, "antigravity")
