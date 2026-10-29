@@ -10063,7 +10063,9 @@ if (!ownsSingleInstanceLock) {
       routineSteps: () => routineRunner?.running() ?? [],
       routineLastStep: id => routineLastStep.get(id),
       // A model and effort another app asks for, checked against the window's own list (0.842).
-      models: async () => { const read = await readModelCatalog(); return read.ok ? read.data.models : [] }
+      models: async () => { const read = await readModelCatalog(); return read.ok ? read.data.models : [] },
+      // Where every turn works, by the folder's name alone: never the path above it (0.842).
+      folder: () => (workspaceChosen ? basename(workspacePath) : undefined)
     })
     const cliSessions = createLocustCliSessions({
       teammates: async () => {

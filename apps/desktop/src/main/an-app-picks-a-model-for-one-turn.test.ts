@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it, vi } from 'vitest'
 import type { CodexMissionStartResponse, MissionReadResponse, PublicModel, PublicRecoveredMission, TeammateListResponse } from '../shared/ipc.js'
 import { createLocustMcpTools } from './locust-mcp-tools.js'
@@ -29,6 +32,7 @@ function fixture(models: (() => Promise<readonly PublicModel[]>) | null = async 
   return { call, start }
 }
 const said = (result: { content: readonly { text: string }[] }): string => result.content[0]!.text
+const read = (path: string): string => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
 
 describe('an app picks a model for one turn', () => {
   it('runs that model and effort on the teammate’s own agent and account, in Ask, keeping the saved route', async () => {
@@ -96,6 +100,14 @@ describe('an app picks a model for one turn', () => {
     // Only true steps down; nothing named raises a turn above Ask.
     await f.call('start_conversation', { teammate: 'Wren', message: 'Go.', read_only: false, mode: 'auto' })
     expect(f.start).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'ask' }), { kind: 'mcp' })
+  })
+
+  it('says which folder its turns work in, by name only', async () => {
+    const f = fixture()
+    const named = createLocustMcpTools({ teammates: async () => teammates, busy: () => false, start: f.start, read: async () => ({ ok: true, data: { mission } }), newest: async (id) => id, owner: async () => 'tm_wren', live: () => false, background: async () => [], folder: () => 'now-coding' })
+    expect(JSON.parse(said(await named('list_teammates', {})))[0]).toMatchObject({ name: 'Wren', folder: 'now-coding' })
+    expect(JSON.parse(said(await named('start_conversation', { teammate: 'Wren', message: 'Go.' })))).toMatchObject({ folder: 'now-coding' })
+    expect(read('./index.ts')).toContain('folder: () => (workspaceChosen ? basename(workspacePath) : undefined)')
   })
 
   it('takes the same choice when a conversation goes on', async () => {

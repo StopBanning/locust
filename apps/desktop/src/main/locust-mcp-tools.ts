@@ -56,6 +56,11 @@ export function createLocustMcpTools(options: {
    * Undefined for a server that does not offer the choice (a voice call's).
    */
   readonly models?: () => Promise<readonly PublicModel[]>
+  /**
+   * THE FOLDER A TURN WORKS IN (0.842), by its name alone: a turn runs in the folder Locust has open, which the other
+   * app could not see. Colin's Duet asked for a change to Locust's code, and the turn ran in another project.
+   */
+  readonly folder?: () => string | undefined
 }) {
   const starting = new Set<string>()
   // The routines this server started. Their status is readable here; a person's own runs are not.
@@ -124,8 +129,9 @@ export function createLocustMcpTools(options: {
     // asked a question that changes nothing. Any other mode it names is ignored, as before.
     const mode = args.read_only === true ? 'ask' : await modeOf(request.teammateId!)
     const result = await options.start({ ...request, ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, options.origin ?? { kind: 'mcp' })
+    const folder = options.folder?.()
     return result.ok
-      ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode, ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }) }))
+      ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode, ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(folder === undefined ? {} : { folder }) }))
       : mcpText(result.error.message, true)
   }
   /** A finished turn's answer, or Locust's own words for why there is none. */
@@ -160,7 +166,8 @@ export function createLocustMcpTools(options: {
       const list = await options.teammates()
       if (!list.ok) return mcpText(list.error.message, true)
       const own = options.ownMode?.() === true
-      return mcpText(JSON.stringify(list.data.teammates.map(t => ({ id: t.teammateId, name: t.name, role: t.roleTitle ?? t.role,
+      const folder = options.folder?.()
+      return mcpText(JSON.stringify(list.data.teammates.map(t => ({ id: t.teammateId, name: t.name, role: t.roleTitle ?? t.role, ...(folder === undefined ? {} : { folder }),
         runtime: t.route?.runtime ?? null, model: t.route?.model ?? null, effort: t.route?.effort ?? null, busy: options.busy(t.teammateId),
         // What a turn started from here would use, so the other app is never surprised by an edit.
         runs_in: own ? t.route?.mode ?? 'ask' : 'ask' }))))
