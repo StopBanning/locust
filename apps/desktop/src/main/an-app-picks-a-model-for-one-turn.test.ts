@@ -86,6 +86,18 @@ describe('an app picks a model for one turn', () => {
     expect(f.start).not.toHaveBeenCalled()
   })
 
+  it('steps a turn down to Ask when the app asks for read only, and never up', async () => {
+    const f = fixture()
+    const own = createLocustMcpTools({ teammates: async () => teammates, busy: () => false, start: f.start, read: async () => ({ ok: true, data: { mission } }), newest: async (id) => id, owner: async () => 'tm_wren', live: () => false, background: async () => [], ownMode: () => true, models: async () => MODELS })
+    await own('start_conversation', { teammate: 'Wren', message: 'Change it.' })
+    expect(f.start).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'auto' }), { kind: 'mcp' })
+    await own('start_conversation', { teammate: 'Wren', message: 'Only look.', read_only: true })
+    expect(f.start).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'ask' }), { kind: 'mcp' })
+    // Only true steps down; nothing named raises a turn above Ask.
+    await f.call('start_conversation', { teammate: 'Wren', message: 'Go.', read_only: false, mode: 'auto' })
+    expect(f.start).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'ask' }), { kind: 'mcp' })
+  })
+
   it('takes the same choice when a conversation goes on', async () => {
     const f = fixture()
     await f.call('send_message', { conversation_id: 'mission_1', message: 'Again, harder.', effort: 'high' })

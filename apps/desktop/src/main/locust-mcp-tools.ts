@@ -120,7 +120,9 @@ export function createLocustMcpTools(options: {
     // argument named mode/route/etc. never widens it or changes a saved route.
     const choice = await choiceOf(request.teammateId!, args)
     if (typeof choice === 'string') return mcpText(`${choice} Nothing was started.`, true)
-    const mode = await modeOf(request.teammateId!)
+    // READ ONLY, ASKED FOR (0.842): an app may step a turn DOWN to Ask, never up -- a teammate set to Auto can still be
+    // asked a question that changes nothing. Any other mode it names is ignored, as before.
+    const mode = args.read_only === true ? 'ask' : await modeOf(request.teammateId!)
     const result = await options.start({ ...request, ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, options.origin ?? { kind: 'mcp' })
     return result.ok
       ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode, ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }) }))
