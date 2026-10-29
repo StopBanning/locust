@@ -65,16 +65,6 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
       </div>
       <button type="button" className={`lc-switch${state.ownMode ? ' is-on' : ''}`} role="switch" aria-label="Use each teammate's own mode" aria-checked={state.ownMode} disabled={busy} onClick={() => { void toggleOwnMode() }}><span /></button>
     </div>}
-    {/* THE PERSON'S CONVERSATIONS (0.842, Colin: "can duet start or look at active chats as well?"). */}
-    {state?.enabled && <div className="lc-settingline lc-settingline--sub">
-      <div className="lc-settingline__text">
-        <h3 className="lc-settings__heading">Let apps see your conversations</h3>
-        <p className="lc-settings__lede">{state.conversations === true
-          ? 'On. An app can list, read, continue and stop your conversations in this folder, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and cards answered only here.'
-          : 'Off. An app sees only the conversations it started. A turn it started that runs out can still be carried on to another AI agent.'}</p>
-      </div>
-      <button type="button" className={`lc-switch${state.conversations === true ? ' is-on' : ''}`} role="switch" aria-label="Let apps see your conversations" aria-checked={state.conversations === true} disabled={busy || api?.setConversations === undefined} onClick={() => { void toggleConversations() }}><span /></button>
-    </div>}
     {/*
       * EDITORS ANSWER ONLY WHEN YOU SAY SO (0.790). Every app connected to Locust holds the key an editor session is
       * opened with, so an editor answering its own turn's cards is the person's choice, like pairing a phone. Shown
@@ -88,6 +78,16 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
           : 'Off. Cards for a turn an editor starts wait in this window, and only you answer them.'}</p>
       </div>
       <button type="button" className={`lc-switch${state.editorAnswers === true ? ' is-on' : ''}`} role="switch" aria-label="Let editors answer cards for their own turns" aria-checked={state.editorAnswers === true} disabled={busy || api?.setEditorAnswers === undefined} onClick={() => { void toggleEditorAnswers() }}><span /></button>
+    </div>}
+    {/* THE PERSON'S CONVERSATIONS (0.842, Colin: "can duet start or look at active chats as well?"). */}
+    {state?.enabled && <div className="lc-settingline lc-settingline--sub">
+      <div className="lc-settingline__text">
+        <h3 className="lc-settings__heading">Let apps see your conversations</h3>
+        <p className="lc-settings__lede">{state.conversations === true
+          ? 'On. An app can list, read, continue and stop your conversations in this folder, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and cards answered only here.'
+          : 'Off. An app sees only the conversations it started. A turn it started that runs out can still be carried on to another AI agent.'}</p>
+      </div>
+      <button type="button" className={`lc-switch${state.conversations === true ? ' is-on' : ''}`} role="switch" aria-label="Let apps see your conversations" aria-checked={state.conversations === true} disabled={busy || api?.setConversations === undefined} onClick={() => { void toggleConversations() }}><span /></button>
     </div>}
     {/*
       * THE CLAUDE APP, IN ONE PRESS (0.740). Colin: "asking me to do the pythagorean theorem for a basic feature
