@@ -167,7 +167,7 @@ describe('an app from anywhere', () => {
     expect(init.json?.result).toMatchObject({ protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'locust' } })
     expect((await room.rpc(keys.access_token!, 'notifications/initialized', undefined, null)).status).toBe(202)
     const listed = await room.rpc(keys.access_token!, 'tools/list')
-    expect(listed.json?.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['list_teammates', 'start_conversation', 'send_message', 'read_reply', 'list_background_runs', 'list_routines', 'run_routine', 'routine_status'])
+    expect(listed.json?.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['list_teammates', 'start_conversation', 'send_message', 'read_reply', 'list_models', 'list_background_runs', 'list_routines', 'run_routine', 'routine_status'])
     const called = await room.rpc(keys.access_token!, 'tools/call', { name: 'list_teammates', arguments: {} })
     expect(called.json?.result.content[0].text).toContain('Wren')
     expect(room.calls).toEqual([['list_teammates', {}]])

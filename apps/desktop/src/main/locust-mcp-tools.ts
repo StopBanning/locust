@@ -1,5 +1,5 @@
 import type { MissionStarter } from '@teammate/mission-store'
-import type { CodexMissionStartRequest, CodexMissionStartResponse, MissionMode, MissionReadResponse, PublicRecoveredMission, PublicRoutine, RoutineRunResponse, TeammateListResponse } from '../shared/ipc.js'
+import type { CodexMissionStartRequest, CodexMissionStartResponse, MissionMode, MissionReadResponse, PublicModel, PublicRecoveredMission, PublicRoutine, RoutineRunResponse, TeammateListResponse, TeammateRoute } from '../shared/ipc.js'
 import type { PublicBackgroundRun } from '../shared/background.js'
 import { joinMessageFragments } from '../shared/messageFragments.js'
 import { unwrapProtocolTags } from '../shared/protocolTags.js'
@@ -50,6 +50,12 @@ export function createLocustMcpTools(options: {
   readonly routineSteps?: () => readonly McpRoutineStep[]
   /** The newest step a routine started, kept as each one starts, so a step that ended between two reads is not missed. */
   readonly routineLastStep?: (routineId: string) => string | undefined
+  /**
+   * THE MODELS A TURN MAY ASK FOR (0.842). The window's own catalog, after the organization's policy: a model and
+   * effort another app names are checked against what the teammate's AI agent offers here, and nothing else.
+   * Undefined for a server that does not offer the choice (a voice call's).
+   */
+  readonly models?: () => Promise<readonly PublicModel[]>
 }) {
   const starting = new Set<string>()
   // The routines this server started. Their status is readable here; a person's own runs are not.
@@ -74,12 +80,51 @@ export function createLocustMcpTools(options: {
     const list = await options.teammates()
     return (list.ok ? list.data.teammates.find(t => t.teammateId === teammateId)?.route?.mode : undefined) ?? 'ask'
   }
-  const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string): Promise<McpToolResult> => {
+  /** A teammate's saved route, from the roster. */
+  const routeOf = async (teammateId: string): Promise<TeammateRoute | undefined> => {
+    const list = await options.teammates()
+    return list.ok ? list.data.teammates.find(t => t.teammateId === teammateId)?.route : undefined
+  }
+  /** The models the teammate's AI agent offers here, with the efforts each takes. */
+  const modelsFor = async (route: TeammateRoute): Promise<readonly PublicModel[]> =>
+    (await options.models?.().catch(() => [] as readonly PublicModel[]) ?? []).filter(model => model.runtime === route.runtime && model.own !== true)
+  const efforts = (model: PublicModel): readonly string[] => [...new Set([...model.supportedEfforts, ...Object.keys(model.variants ?? {})])]
+  /**
+   * A MODEL AND EFFORT FOR THIS TURN ALONE (0.842; Colin's Duet asked for it: "run this on model X at high effort").
+   * Only on the teammate's own AI agent and account, only a model and effort that agent offers here, and never the
+   * mode: that stays Ask, or the teammate's own when the person said so. The saved route is not changed.
+   */
+  const choiceOf = async (teammateId: string, args: Record<string, unknown>): Promise<Partial<CodexMissionStartRequest> | string | undefined> => {
+    if (args.model === undefined && args.effort === undefined) return undefined
+    if (options.models === undefined) return 'This server does not take a model or effort. Leave them out to use the teammate’s own.'
+    if ((args.model !== undefined && !text(args.model)) || (args.effort !== undefined && !text(args.effort, 40))) return 'model and effort are short text: use the ids list_models gives.'
+    const route = await routeOf(teammateId)
+    if (route === undefined) return 'That teammate has no AI agent set up yet. Choose one for it in Locust first.'
+    const offered = await modelsFor(route)
+    const asked = typeof args.model === 'string' ? args.model.trim().toLowerCase() : route.model.toLowerCase()
+    const model = offered.find(one => one.id.toLowerCase() === asked || one.displayName.toLowerCase() === asked || Object.values(one.variants ?? {}).some(id => id.toLowerCase() === asked))
+    if (model === undefined) {
+      if (args.model === undefined) return 'The teammate runs on its account’s default model, whose efforts Locust cannot name: give a model too, from list_models.'
+      return `That model is not one ${route.runtime} offers in this Locust. Ask list_models for this teammate’s choices.`
+    }
+    const effort = typeof args.effort === 'string' ? args.effort.trim().toLowerCase() : undefined
+    if (effort !== undefined && !efforts(model).includes(effort)) {
+      return efforts(model).length === 0 ? `${model.displayName} takes no effort level here: leave effort out.` : `${model.displayName} takes these efforts here: ${efforts(model).join(', ')}.`
+    }
+    // The saved effort goes with a model asked for alone, when that model takes it.
+    const kept = effort ?? (route.effort !== undefined && efforts(model).includes(route.effort) ? route.effort : undefined)
+    return { runtime: route.runtime, model: model.id, ...(kept === undefined ? {} : { effort: kept }), ...(route.account === undefined ? {} : { account: route.account }), routeOverrideFor: teammateId }
+  }
+  const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string, args: Record<string, unknown> = {}): Promise<McpToolResult> => {
     // This is the only request shape that can reach the start path. A tool
     // argument named mode/route/etc. never widens it or changes a saved route.
+    const choice = await choiceOf(request.teammateId!, args)
+    if (typeof choice === 'string') return mcpText(`${choice} Nothing was started.`, true)
     const mode = await modeOf(request.teammateId!)
-    const result = await options.start({ ...request, mode, keepSavedRoute: true } as CodexMissionStartRequest, options.origin ?? { kind: 'mcp' })
-    return result.ok ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode })) : mcpText(result.error.message, true)
+    const result = await options.start({ ...request, ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, options.origin ?? { kind: 'mcp' })
+    return result.ok
+      ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode, ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }) }))
+      : mcpText(result.error.message, true)
   }
   /** A finished turn's answer, or Locust's own words for why there is none. */
   const answerOf = (mission: PublicRecoveredMission): McpToolResult => {
@@ -114,7 +159,7 @@ export function createLocustMcpTools(options: {
       if (!list.ok) return mcpText(list.error.message, true)
       const own = options.ownMode?.() === true
       return mcpText(JSON.stringify(list.data.teammates.map(t => ({ id: t.teammateId, name: t.name, role: t.roleTitle ?? t.role,
-        runtime: t.route?.runtime ?? null, model: t.route?.model ?? null, busy: options.busy(t.teammateId),
+        runtime: t.route?.runtime ?? null, model: t.route?.model ?? null, effort: t.route?.effort ?? null, busy: options.busy(t.teammateId),
         // What a turn started from here would use, so the other app is never surprised by an edit.
         runs_in: own ? t.route?.mode ?? 'ask' : 'ask' }))))
     }
@@ -125,7 +170,20 @@ export function createLocustMcpTools(options: {
       if (!list.ok) return mcpText(list.error.message, true)
       const matches = list.data.teammates.filter(t => t.teammateId === args.teammate || t.name.toLowerCase() === (args.teammate as string).toLowerCase())
       if (matches.length !== 1) return mcpText('That teammate could not be identified. Use its id from list_teammates. Nothing was started.', true)
-      return started({ prompt: args.message, teammateId: matches[0]!.teammateId })
+      return started({ prompt: args.message, teammateId: matches[0]!.teammateId }, undefined, args)
+    }
+    if (name === 'list_models') {
+      if (options.models === undefined) return mcpText('This server does not offer a choice of model.', true)
+      if (!text(args.teammate)) return mcpText('Name a teammate by its id or name from list_teammates.', true)
+      const list = await options.teammates()
+      if (!list.ok) return mcpText(list.error.message, true)
+      const matches = list.data.teammates.filter(t => t.teammateId === args.teammate || t.name.toLowerCase() === (args.teammate as string).toLowerCase())
+      if (matches.length !== 1) return mcpText('That teammate could not be identified. Use its id from list_teammates.', true)
+      const route = matches[0]!.route
+      if (route === undefined) return mcpText('That teammate has no AI agent set up yet. Choose one for it in Locust first.', true)
+      const offered = await modelsFor(route)
+      return mcpText(JSON.stringify({ teammate: matches[0]!.name, runtime: route.runtime, model: route.model, effort: route.effort ?? null,
+        models: offered.filter(one => one.older !== true).map(one => ({ id: one.id, name: one.displayName, efforts: efforts(one), ...(one.defaultEffort === undefined ? {} : { default_effort: one.defaultEffort }) })) }))
     }
     if (name === 'list_routines') {
       if (options.routines === undefined) return mcpText('This Locust does not offer routines to other apps.', true)
@@ -223,7 +281,7 @@ export function createLocustMcpTools(options: {
           const owner = await options.owner(mission.missionId)
           if (owner === undefined) return mcpText('That conversation no longer has a teammate. Nothing was sent.', true)
           // Keep the claim until startup settles, including the saved-mode lookup.
-          return await started({ prompt: args.message, teammateId: owner, followUpOf: mission.missionId }, id)
+          return await started({ prompt: args.message, teammateId: owner, followUpOf: mission.missionId }, id, args)
         }
         return answerOf(mission)
       } finally { if (name === 'send_message') starting.delete(id) }

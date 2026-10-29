@@ -3572,10 +3572,8 @@ if (!ownsSingleInstanceLock) {
       }, again === true)
     })
 
-    ipcMain.handle(MODEL_CATALOG_CHANNEL, async (event) => {
-      if (!fromOwnWindow(event)) {
-        return { ok: false, error: { code: 'MODELS_UNAVAILABLE', message: 'Models could not be read.' } } as const
-      }
+    /** The window's model list, after the organization's policy; other apps' tools read the same one (0.842). */
+    const readModelCatalog = async () => {
       const [read, accounts] = await Promise.all([modelCatalog.read(), policyFeatureRefusal(organizationPolicy, 'accounts') === undefined ? readAccountModels().catch(() => []) : Promise.resolve([])])
       const accountModels = accounts.flatMap(({ result }) => result.ok ? result.data.models : [])
       const accountUsage = Object.fromEntries(accounts.flatMap(({ account, result }) => !result.ok ? [] : Object.entries(result.data.usageWindows ?? {}).map(([runtime, said]) => [`${runtime}:${account.id}`, said])))
@@ -3587,6 +3585,12 @@ if (!ownsSingleInstanceLock) {
       if (own.length === 0 && added.length === 0 && !read.ok) return read
       // The usage reading rides along with the models it was read beside (0.390).
       return { ok: true, data: { ...(read.ok ? read.data : {}), usageWindows: { ...(read.ok ? read.data.usageWindows : {}), ...accountUsage }, models: policyModels(organizationPolicy, [...new Map([...own, ...added, ...(read.ok ? read.data.models : []), ...accountModels].map(model => [`${model.runtime}:${model.id}`, model])).values()]) } } as const
+    }
+    ipcMain.handle(MODEL_CATALOG_CHANNEL, async (event) => {
+      if (!fromOwnWindow(event)) {
+        return { ok: false, error: { code: 'MODELS_UNAVAILABLE', message: 'Models could not be read.' } } as const
+      }
+      return readModelCatalog()
     })
 
     ipcMain.handle(OWN_MODEL_LIST_CHANNEL, async (event) => {
@@ -10057,7 +10061,9 @@ if (!ownsSingleInstanceLock) {
       routines: async () => { await routineRunner?.reconcile(); return routines.list() },
       runRoutine: (id, values) => workspaceChosen ? routineIO.run(id, values) : Promise.resolve(routineRejected(NO_WORKSPACE_MESSAGE)),
       routineSteps: () => routineRunner?.running() ?? [],
-      routineLastStep: id => routineLastStep.get(id)
+      routineLastStep: id => routineLastStep.get(id),
+      // A model and effort another app asks for, checked against the window's own list (0.842).
+      models: async () => { const read = await readModelCatalog(); return read.ok ? read.data.models : [] }
     })
     const cliSessions = createLocustCliSessions({
       teammates: async () => {

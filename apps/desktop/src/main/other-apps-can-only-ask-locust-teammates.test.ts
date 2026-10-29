@@ -29,7 +29,7 @@ describe('other apps can only ask Locust teammates', () => {
   })
   it('lists public teammate identity, route and busy state, but never the stores or keys', async () => {
     const f = fixture()
-    expect(await f.call('list_teammates', {})).toEqual(mcpText(JSON.stringify([{ id: 'tm_wren', name: 'Wren', role: 'Reviewer', runtime: 'codex', model: 'model-test', busy: true, runs_in: 'ask' }])))
+    expect(await f.call('list_teammates', {})).toEqual(mcpText(JSON.stringify([{ id: 'tm_wren', name: 'Wren', role: 'Reviewer', runtime: 'codex', model: 'model-test', effort: null, busy: true, runs_in: 'ask' }])))
     expect(f.start).not.toHaveBeenCalled()
   })
   it('continues the newest turn in Ask and returns the stable conversation id', async () => {
