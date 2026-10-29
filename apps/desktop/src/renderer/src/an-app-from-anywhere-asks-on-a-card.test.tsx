@@ -45,6 +45,6 @@ describe('an app from anywhere', () => {
     const off = renderToStaticMarkup(<RemoteMcpSettings initial={{ enabled: false, apps: [], asking: [] }} />)
     expect(off).toContain('aria-checked="false"')
     expect(off).not.toContain('app.locust.lol')
-    expect(read('./components/Screens.tsx')).toMatch(/Let your other AI apps use Locust<\/h2>\} \/>\s*<RemoteMcpSettings \/>/)
+    expect(read('./components/Screens.tsx')).toMatch(/Let your other AI apps use Locust<\/h2>\} \/>\s*<RemoteMcpSettings stay=\{\{ loginItem, keepRunning,/)
   })
 })

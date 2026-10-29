@@ -46,7 +46,7 @@ export function mcpPage(shown: Exclude<McpPage, { readonly page: 'redirect' }>):
       + `<p>Nothing is decided on this page. If you did not start this, choose Deny in Locust.</p>`, script)
   }
   if (shown.page === 'offline') {
-    return page('Locust is not open', `<h1>Locust is not open on your computer</h1><p>The app can connect only while Locust is running there. Open Locust, then connect again from the app.</p>`)
+    return page('Locust is not open', `<h1>Locust is not open on your computer</h1><p>The app can connect only while Locust is running there. Open Locust, then connect again from the app. In its Settings, Keep it running under Use from anywhere keeps it reachable whenever the computer is on.</p>`)
   }
   if (shown.page === 'busy') {
     return page('Try again shortly', `<h1>Another sign-in is waiting</h1><p>Locust is already asking about one on your computer, or has been asked too often this hour. Answer that card, then connect again from the app.</p>`)

@@ -193,7 +193,7 @@ export class Room {
     if (reply.status === 503 || reply.status === 504) {
       const id = rpcId(body)
       if (id !== undefined) {
-        const message = reply.status === 503 ? 'Locust is not open on the computer it runs on. Open Locust there and try again.' : 'Locust did not answer in time. Nothing was retried; check Locust before asking again.'
+        const message = reply.status === 503 ? 'Locust is not running on the computer it runs on, so nothing there can open it. Open Locust there and try again. To keep it reachable, turn on Keep it running under Use from anywhere in its Settings.' : 'Locust did not answer in time. Nothing was retried; check Locust before asking again.'
         return json(200, { jsonrpc: '2.0', id, error: { code: -32000, message } })
       }
     }

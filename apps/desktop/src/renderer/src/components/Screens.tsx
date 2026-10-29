@@ -3408,7 +3408,7 @@ export function SettingsScreen({
         <section className="lc-settings__section lc-settings__section--line" data-setting="locust-mcp">
           <OrganizationPolicySettings heading={<h2 className="lc-settings__heading">Managed by your organization</h2>} />
           <LocustMcpSettings heading={<h2 className="lc-settings__heading">Let your other AI apps use Locust</h2>} />
-          <RemoteMcpSettings />
+          <RemoteMcpSettings stay={{ loginItem, keepRunning, ...(onLoginItemChange === undefined ? {} : { onLoginItemChange }), ...(onKeepRunningChange === undefined ? {} : { onKeepRunningChange }) }} />
         </section>
         )}
         {shownPage === 'app' && (

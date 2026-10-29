@@ -24861,3 +24861,6 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-remote-connect__match { font-family: var(--lc-font-mono); letter-spacing: 0.08em; color: var(--lc-text-primary); white-space: nowrap; }
 .lc-remote-connect__acts { display: flex; gap: var(--lc-space-2); }
 .lc-remote-mcp { margin-top: var(--lc-space-3); }
+/* Keep it running (0.842): the words, then the one button that turns on the Startup switches. */
+.lc-remote-mcp__stay { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-2) var(--lc-space-3); }
+.lc-remote-mcp__stay > p { flex: 1 1 320px; min-width: 0; margin: 0; }
