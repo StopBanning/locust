@@ -67,18 +67,40 @@ export function githubStart(url: URL, env: GithubEnv, note: NotePage): Response 
   })
 }
 
-/** GitHub's word for who signed in: its token and the account, or undefined when it gave none. */
-async function whoSignedIn(env: GithubEnv, code: string, back: string): Promise<{ readonly token: string; readonly user: number; readonly login: string } | undefined> {
-  const exchanged = await fetch(`${web(env)}/login/oauth/access_token`, {
+/** GitHub's own reason a sign-in gave no account (2026-10-29): its error code, or what came back instead. */
+interface SignInFailed { readonly failed: string }
+
+/**
+ * What the person is told for each of GitHub's reasons. The first live sign-in said only "could not be read", which
+ * named no one to fix it: a refused secret is the relay's to fix, a code that ran out is a fresh try.
+ */
+function failedWords(reason: string): string {
+  if (reason === 'bad_verification_code') return 'GitHub said this sign-in’s code ran out or was used already. Start the sign-in again.'
+  if (reason === 'incorrect_client_credentials') return 'GitHub refused this relay’s own sign-in key, so nobody can sign in here until it is set again. Pair with a code from Locust on your computer meanwhile.'
+  if (reason === 'redirect_uri_mismatch') return 'GitHub does not have this address as the one to come back to. Pair with a code from Locust on your computer meanwhile.'
+  return 'GitHub’s answer gave no account. Start the sign-in again; if it says this again, pair with a code from Locust on your computer.'
+}
+
+/** GitHub's word for who signed in: its token and the account, or GitHub's reason it gave none. */
+async function whoSignedIn(env: GithubEnv, code: string, back: string): Promise<{ readonly token: string; readonly user: number; readonly login: string } | SignInFailed> {
+  const exchange = await fetch(`${web(env)}/login/oauth/access_token`, {
     method: 'POST',
-    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    headers: { accept: 'application/json', 'content-type': 'application/json', 'user-agent': 'locust-relay' },
     body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: back })
-  }).then((answer) => (answer.ok ? answer.json() : undefined), () => undefined) as Record<string, unknown> | undefined
+  }).catch(() => undefined)
+  if (exchange === undefined) return { failed: 'unreachable' }
+  if (!exchange.ok) return { failed: `exchange-${String(exchange.status)}` }
+  const exchanged = await exchange.json().catch(() => undefined) as Record<string, unknown> | undefined
   const token = exchanged?.access_token
-  if (typeof token !== 'string' || !/^[A-Za-z0-9_]{20,255}$/.test(token)) return undefined
-  const user = await fetch(`${api(env)}/user`, { headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'user-agent': 'locust-relay' } })
-    .then((answer) => (answer.ok ? answer.json() : undefined), () => undefined) as Record<string, unknown> | undefined
-  if (typeof user?.id !== 'number' || !Number.isSafeInteger(user.id) || user.id <= 0 || typeof user.login !== 'string' || !GITHUB_LOGIN.test(user.login)) return undefined
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_]{20,255}$/.test(token)) {
+    // Only GitHub's own code, which is a word from its documented list: never anything that came with it.
+    const said = typeof exchanged?.error === 'string' && /^[a-z_]{1,60}$/.test(exchanged.error) ? exchanged.error : 'no-token'
+    return { failed: said }
+  }
+  const asked = await fetch(`${api(env)}/user`, { headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'user-agent': 'locust-relay' } }).catch(() => undefined)
+  if (asked === undefined || !asked.ok) return { failed: `user-${asked === undefined ? 'unreachable' : String(asked.status)}` }
+  const user = await asked.json().catch(() => undefined) as Record<string, unknown> | undefined
+  if (typeof user?.id !== 'number' || !Number.isSafeInteger(user.id) || user.id <= 0 || typeof user.login !== 'string' || !GITHUB_LOGIN.test(user.login)) return { failed: 'user-unreadable' }
   return { token, user: user.id, login: user.login }
 }
 
@@ -101,7 +123,8 @@ export async function githubBack(request: Request, url: URL, env: GithubEnv, not
     return note({ title: 'GitHub sign-in did not finish', words: url.searchParams.get('error') === 'access_denied' ? 'GitHub was told not to sign you in here. Nothing changed.' : 'This sign-in started somewhere else, or it ran out. Start it again.', links: [TRY_AGAIN] })
   }
   const who = await whoSignedIn(env, code, `${url.origin}/v1/github/back`)
-  if (who === undefined) return note({ title: 'GitHub did not say who you are', words: 'Its answer could not be read. Start the sign-in again.', links: [TRY_AGAIN] })
+  // GitHub's reason is said with it, in its own words, so the next try says what to fix.
+  if ('failed' in who) return note({ title: 'GitHub did not say who you are', words: `${failedWords(who.failed)} (GitHub: ${who.failed})`, links: [TRY_AGAIN] })
   const cleared = `${cookieName(url)}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${url.protocol === 'https:' ? '; Secure' : ''}`
   const withCleared = (response: Response): Response => { response.headers.append('set-cookie', cleared); return response }
 

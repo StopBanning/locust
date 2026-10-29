@@ -73,7 +73,9 @@ beforeEach(() => {
     asked.push(input)
     if (input === 'https://github.test/login/oauth/access_token') {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>
-      expect(body).toMatchObject({ client_id: 'Iv1.test', client_secret: 'not-a-real-secret' })
+      expect(body).toMatchObject({ client_id: 'Iv1.test' })
+      // GitHub's own answers: 200 with an error code, as it really sends them.
+      if (body.client_secret !== 'not-a-real-secret') return Response.json({ error: 'incorrect_client_credentials', error_description: `The client_id and/or client_secret passed are incorrect: ${String(body.client_secret)}` })
       return Response.json(body.code === 'good' ? { access_token: TOKEN, token_type: 'bearer', scope: '' } : { error: 'bad_verification_code' })
     }
     if (input === 'https://api.github.test/user') {
@@ -160,6 +162,20 @@ describe('GitHub sign-in checks its state', () => {
     expect(page.title).toBe('Which computer?')
     expect((page.links as { label: string }[]).map((link) => link.label)).toEqual(['DESKTOP-1', 'Laptop'])
     expect((await read(githubStart(new URL('https://app.test/v1/github/start'), anEnv({}, false).env, note))).title).toBe('GitHub sign-in is not on here')
+  })
+
+  it('says GitHub’s own reason when it gives no account, so the next try names what to fix', async () => {
+    const { env } = anEnv({})
+    const ran = await read(await signIn(env, 'https://app.test/v1/github/start', 'spent'))
+    expect(ran).toMatchObject({ title: 'GitHub did not say who you are' })
+    expect(String(ran.words)).toContain('code ran out or was used already')
+    expect(String(ran.words)).toContain('(GitHub: bad_verification_code)')
+    // A refused secret is the relay's to fix, not the person's.
+    const refused = await read(await signIn({ ...env, GITHUB_CLIENT_SECRET: 'the-wrong-one' }, 'https://app.test/v1/github/start'))
+    expect(String(refused.words)).toContain('refused this relay’s own sign-in key')
+    expect(String(refused.words)).toContain('(GitHub: incorrect_client_credentials)')
+    // Nothing GitHub sent is shown but its code.
+    expect(JSON.stringify(refused)).not.toContain('the-wrong-one')
   })
 
   it('keeps each computer once, newest last, at most ten', () => {
