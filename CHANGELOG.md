@@ -11,6 +11,25 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.840.0 - 2026-10-29
+<!-- big -->
+
+### New
+
+- **A routine step can wait for your OK.** From the second step on, tick Wait for my OK first and the routine stops before that step starts. Its card says what the next step will do and where to read the conversation so far, with Go ahead with step N and Stop here. Windows, your phone and your chat apps are told a teammate is waiting, naming who but not the routine or its words. Step 1 never waits: it starts when you run it. The setting goes with the routine when you save it as a file, share it as a team card or start from a template.
+
+- **An approval says in plain words what a command does.** Under the exact command, a line called In short says what it is for: "Replaces main on origin with this computer’s version: commits there that are not on this computer are lost." It turns amber when the command deletes files, forces a push, throws away changes, replaces what is in a file, or downloads a script and runs it unseen. It is worked out from the command’s own words, never asked of an AI, and when Locust cannot read every part of a command it says nothing rather than half of it. Your phone’s card now shows the command itself with that line, where it said only Run a command, and Discord, Slack and Telegram cards carry the line too.
+
+### Improved
+
+- **Settings tells a newcomer what to press, not what to type.** An agent’s row offers Install and then Sign in as buttons, instead of telling you to run it once in a terminal. The npm line shows only where Install cannot run, and Kilo’s free model is no longer told to sign in first.
+
+### Fixed
+
+- **A routine watching a folder is not started again by its teammate’s own files.** "When a file lands in inbox, write its summary there" ran again on its own summary, up to six times an hour. Files a teammate writes while it works are now told apart from yours, from the record Undo keeps of each turn, and a file you drop in while it works still starts the routine.
+- **An undone turn says so on its files card.** After Undo, the card’s heading ends with · undone, instead of still reading Edited 1 file.
+- **The form for reporting a problem names Linux** in its download link, beside Windows and Mac.
+
 ## 0.839.0 - 2026-10-28
 <!-- big -->
 
