@@ -64,6 +64,11 @@ export function createLocustMcpTools(options: {
    * app could not see. Colin's Duet asked for a change to Locust's code, and the turn ran in another project.
    */
   readonly folder?: () => string | undefined
+  /**
+   * STOPPING A TURN IT STARTED (0.842), by the turn's run id: the window's own Stop. Colin's Duet started a turn in
+   * Auto that went the wrong way, and only he could stop it. Undefined for a server that does not offer it.
+   */
+  readonly cancel?: (runId: string) => boolean
   /** How a read_reply that was asked to wait sleeps between looks; tests pass one that does not. */
   readonly pause?: (ms: number) => Promise<void>
 }) {
@@ -273,6 +278,17 @@ export function createLocustMcpTools(options: {
       const answer = answerOf(read.data.mission)
       if (answer.isError === true || routine.staged === undefined) return answer
       return mcpText(`Its changes are waiting in Locust under Routines for the person to Keep or Discard; nothing has reached the folder yet.\n\n${answer.content[0]!.text}`)
+    }
+    if (name === 'stop_turn' && options.cancel !== undefined) {
+      if (!text(args.conversation_id)) return mcpText('Give a conversation id returned by start_conversation.', true)
+      const mission = await lookup(args.conversation_id)
+      if (mission === undefined) return mcpText('That conversation could not be read from the local ledger. Use an id returned by this server.', true)
+      // Only a turn an app started: the person may have gone on in Locust's window, and that turn is theirs to stop.
+      if (mission.startedBy?.kind !== 'mcp') return mcpText('The newest turn there was started by the person in Locust. Only they can stop it. Nothing was stopped.', true)
+      if (!options.live(mission.missionId)) return mcpText('Nothing is running in that conversation now. Nothing was stopped.')
+      return options.cancel(mission.runId)
+        ? mcpText('Stopping it. What it already changed stays; the person can undo that turn in Locust.')
+        : mcpText('Locust could not stop it from here. The person can stop it in Locust.', true)
     }
     if (name === 'send_message' || name === 'read_reply') {
       if (!text(args.conversation_id)) return mcpText('Give a conversation id returned by start_conversation.', true)

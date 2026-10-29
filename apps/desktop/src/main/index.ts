@@ -10065,7 +10065,9 @@ if (!ownsSingleInstanceLock) {
       // A model and effort another app asks for, checked against the window's own list (0.842).
       models: async () => { const read = await readModelCatalog(); return read.ok ? read.data.models : [] },
       // Where every turn works, by the folder's name alone: never the path above it (0.842).
-      folder: () => (workspaceChosen ? basename(workspacePath) : undefined)
+      folder: () => (workspaceChosen ? basename(workspacePath) : undefined),
+      // The window's own Stop, for a turn an app started (0.842).
+      cancel: runId => codexMissions.cancel(runId).ok || antigravityMissions.cancel(runId)
     })
     const cliSessions = createLocustCliSessions({
       teammates: async () => {
