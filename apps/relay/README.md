@@ -42,6 +42,17 @@ steps cannot use a routine's writing mode, run its folder check or start a writa
 PC. A relay upgrade is needed before this desktop feature can confirm a working link; existing rooms need no storage
 migration. Keep HTTP access logs and tracing from recording full hook URLs: their path holds a password.
 
+## An account's copies
+
+A computer signed in with GitHub can keep a copy of its Locust here (`src/sync.ts`; the plan is
+`docs/PLAN-2026-10-30-ACCOUNTS.md`). Every file is sealed on the computer with a key the relay never has, under an id
+cut from its name with that key, so the relay sees how many files, how big and when, never names or contents. It
+asks at its own room with its own token: `GET /v1/room/<room>/sync` lists the account's copies, `PUT` and `DELETE
+/v1/room/<room>/sync/<id>` write the room's own, `GET /v1/room/<room>/sync/<from room>/<id>` reads any of the same
+account's, and `DELETE /v1/room/<room>/sync` deletes them all. An account keeps at most 1 GB, a file at most 8 MB, and
+makes at most 3,600 writes an hour. The files are in the R2 bucket `locust-sync` (make it once with `npx wrangler@4 r2
+bucket create locust-sync` before deploying); a relay without one answers `501`.
+
 ## Run your own
 
 ```
