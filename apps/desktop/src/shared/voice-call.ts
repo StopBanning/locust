@@ -56,6 +56,13 @@ export function isChatGptVoice(value: unknown): value is ChatGptVoice {
 }
 export const voiceName = (id: string): string => id.charAt(0).toUpperCase() + id.slice(1)
 
+/**
+ * WHERE TALK RUNS: Windows, and a Mac (the first Mac run, 2026-10-30). Nothing in a call is Windows' own -- Codex's
+ * app server places it, and the window holds the microphone and the WebRTC connection -- and on that Mac Codex,
+ * signed in with ChatGPT, took `thread/realtime/start` and passed it to the voice service. Linux waits for a run.
+ */
+export const talkRunsOn = (platform: string | undefined): boolean => platform === 'win32' || platform === 'darwin'
+
 export type VoiceCallAvailability = { readonly available: true } | { readonly available: false; readonly why: string }
 export type VoiceCallStartResult = { readonly ok: true; readonly answer: string } | { readonly ok: false; readonly message: string }
 

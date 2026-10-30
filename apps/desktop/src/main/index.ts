@@ -25,7 +25,7 @@ import { openingPlacement, readSavedWindow } from './window-bounds.js'
 import type { SavedWindow } from './window-bounds.js'
 import { app, BrowserWindow, clipboard, crashReporter, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, powerSaveBlocker, protocol, safeStorage, screen, session, shell, Tray } from 'electron'
 import { createVoiceHost } from './voice-host.js'
-import { voicePermission } from './voice-permission.js'
+import { microphoneRunsOn, voicePermission } from './voice-permission.js'
 import { windowChrome } from './window-chrome.js'
 import { macMenuTemplate } from './mac-menu.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from '../shared/voice.js'
@@ -45,7 +45,7 @@ import { SCOUT_AWAY_CHANGED, SCOUT_AWAY_SET, SCOUT_AWAY_STATUS } from '../shared
 import { createCommentReader, postComment } from './scout-comments.js'
 import { inQuietHours, SCOUT_CHANGED, SCOUT_POST, SCOUT_EDIT_POST, SCOUT_DISMISS, SCOUT_FIX_AGAIN, SCOUT_FIX_APPLY, SCOUT_FIX_SKIP, SCOUT_LOG, SCOUT_LOOK, SCOUT_NOTES, SCOUT_SET, SCOUT_STATE, SCOUT_TUNE, SCOUT_TURN_ON, type ScoutQuietHours } from '../shared/scout.js'
 import { FREE_MODELS_BEST_FIRST } from '../shared/free-models.js'
-import { DEFAULT_CHATGPT_VOICE, VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, VOICE_CALL_START, VOICE_CALL_STOP, VOICE_CALL_TOOLS, VOICE_CALL_VOICES, VOICE_PREVIEW_SAVE, VOICE_PREVIEW_SAVED, VOICE_PREVIEW_TRIGGER, isChatGptVoice, isVoiceCallOffer, isVoiceCallTarget, type ChatGptVoice, type VoiceAddOn, type VoiceCallTarget } from '../shared/voice-call.js'
+import { DEFAULT_CHATGPT_VOICE, VOICE_CALL_ANSWER, VOICE_CALL_AVAILABLE, VOICE_CALL_EVENT, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, VOICE_CALL_START, VOICE_CALL_STOP, VOICE_CALL_TOOLS, VOICE_CALL_VOICES, VOICE_PREVIEW_SAVE, VOICE_PREVIEW_SAVED, VOICE_PREVIEW_TRIGGER, isChatGptVoice, isVoiceCallOffer, isVoiceCallTarget, talkRunsOn, type ChatGptVoice, type VoiceAddOn, type VoiceCallTarget } from '../shared/voice-call.js'
 import { createVoiceCalls } from './voice-call.js'
 import { createCallLog } from './call-log.js'
 import { CALLS_LIST, CALLS_SAVE } from '../shared/calls.js'
@@ -135,7 +135,7 @@ import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHAN
 import type { AppearanceState, ThemeChoice } from '../shared/appearance.js'
 import { homedir, hostname, release } from 'node:os'
 import { execFile } from 'node:child_process'
-import { createVoicePreviews, speakHelloCommand } from './voice-preview.js'
+import { createVoicePreviews, speakHello } from './voice-preview.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { MAX_PROMPT_LENGTH, createCodexMissionService, resumableThreadOf, runtimeThreadIdOf } from './codex-mission.js'
 import { chosenLeaveOut, howTurnEnded } from './handoff.js'
@@ -1883,15 +1883,15 @@ if (!ownsSingleInstanceLock) {
       }
     }
 
-    // The renderer gets microphone audio only in its own main frame on Windows;
-    // cameras, subframes and every other device/web permission remain refused,
-    // and packaged builds get no network egress at all (the dev server needs
-    // loopback HTTP/WebSocket for Vite and HMR, so that stays dev-only).
+    // The renderer gets microphone audio only in its own main frame on Windows
+    // and a Mac; cameras, subframes and every other device/web permission
+    // remain refused, and packaged builds get no network egress at all (the dev
+    // server needs loopback HTTP/WebSocket for Vite and HMR, so that stays dev-only).
     session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
-      callback(voicePermission(process.platform === 'win32' && contents !== null && approvalWindow !== undefined && BrowserWindow.fromWebContents(contents) === approvalWindow && details.requestingUrl === contents.getURL(), permission, details.isMainFrame, 'mediaTypes' in details ? details.mediaTypes ?? [] : []))
+      callback(voicePermission(microphoneRunsOn(process.platform) && contents !== null && approvalWindow !== undefined && BrowserWindow.fromWebContents(contents) === approvalWindow && details.requestingUrl === contents.getURL(), permission, details.isMainFrame, 'mediaTypes' in details ? details.mediaTypes ?? [] : []))
     })
     session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) =>
-      voicePermission(process.platform === 'win32' && contents !== null && approvalWindow !== undefined && BrowserWindow.fromWebContents(contents) === approvalWindow && details.requestingUrl === contents.getURL(), permission, details.isMainFrame, details.mediaType === undefined ? [] : [details.mediaType]))
+      voicePermission(microphoneRunsOn(process.platform) && contents !== null && approvalWindow !== undefined && BrowserWindow.fromWebContents(contents) === approvalWindow && details.requestingUrl === contents.getURL(), permission, details.isMainFrame, details.mediaType === undefined ? [] : [details.mediaType]))
     /*
      * THE SPELLCHECKER FETCHES NOTHING (QA-2026-09-29 round 2, R23). Where
      * Electron spellchecks with Hunspell (Linux) it downloads a dictionary
@@ -4708,7 +4708,7 @@ if (!ownsSingleInstanceLock) {
     })
     const voiceCallRefused = { ok: false, message: 'A voice call could not start here.' } as const
     ipcMain.handle(VOICE_CALL_AVAILABLE, async (event) => {
-      if (!fromVoiceWindow(event) || process.platform !== 'win32') return { available: false, why: 'Voice calls are on Windows for now.' }
+      if (!fromVoiceWindow(event) || !talkRunsOn(process.platform)) return { available: false, why: 'Voice calls are on Windows and Mac for now.' }
       const answer = await voiceCalls.available()
       // Talk is ready: its keys may be taken now, if they were waiting for it (0.755).
       if (answer.available) void talkShortcut?.ensure()
@@ -4724,30 +4724,31 @@ if (!ownsSingleInstanceLock) {
       BrowserWindow.fromWebContents(event.sender)?.on('hide', () => { void voiceCalls.stop() })
     }
     ipcMain.handle(VOICE_CALL_START, (event, offer: unknown, target: unknown) => {
-      if (!fromVoiceWindow(event) || process.platform !== 'win32') return voiceCallRefused
+      if (!fromVoiceWindow(event) || !talkRunsOn(process.platform)) return voiceCallRefused
       if (!isVoiceCallOffer(offer)) return voiceCallRefused
       callWindow(event)
       return voiceCalls.start(offer, isVoiceCallTarget(target) ? target : undefined)
     })
     /*
      * HEARING A VOICE BEFORE CHOOSING IT (0.751): the first play is a short call with that voice alone, answering a
-     * spoken "Hello?" Windows' own speech makes once; the greeting the window records is kept, and plays after that.
+     * spoken "Hello?" the computer's own speech makes once; the greeting the window records is kept, and plays after that.
      */
     const voicePreviews = createVoicePreviews({
       root: join(app.getPath('userData'), 'voice-previews'),
       speak: (wavPath) => new Promise<void>((resolve, reject) => {
-        execFile('powershell.exe', [...speakHelloCommand(wavPath)], { windowsHide: true, timeout: 20_000 }, (error) => { if (error) reject(error); else resolve() })
+        const { command, args } = speakHello(process.platform, wavPath)
+        execFile(command, [...args], { windowsHide: true, timeout: 20_000 }, (error) => { if (error) reject(error); else resolve() })
       })
     })
     ipcMain.handle(VOICE_CALL_PREVIEW, (event, offer: unknown, voice: unknown) => {
-      if (!fromVoiceWindow(event) || process.platform !== 'win32') return voiceCallRefused
+      if (!fromVoiceWindow(event) || !talkRunsOn(process.platform)) return voiceCallRefused
       if (!isVoiceCallOffer(offer) || !isChatGptVoice(voice)) return voiceCallRefused
       callWindow(event)
       return voiceCalls.start(offer, undefined, voice)
     })
     ipcMain.handle(VOICE_PREVIEW_SAVED, (event, voice: unknown) => fromOwnWindow(event) ? voicePreviews.saved(voice) : undefined)
     ipcMain.handle(VOICE_PREVIEW_SAVE, (event, voice: unknown, audio: unknown) => fromOwnWindow(event) ? voicePreviews.save(voice, audio) : false)
-    ipcMain.handle(VOICE_PREVIEW_TRIGGER, (event) => fromVoiceWindow(event) && process.platform === 'win32' ? voicePreviews.trigger() : undefined)
+    ipcMain.handle(VOICE_PREVIEW_TRIGGER, (event) => fromVoiceWindow(event) && talkRunsOn(process.platform) ? voicePreviews.trigger() : undefined)
     ipcMain.handle(VOICE_CALL_STOP, (event) => fromVoiceWindow(event) ? voiceCalls.stop() : undefined)
     // What was said on each call with a teammate, kept with its conversation (0.747).
     const callLog = createCallLog(join(app.getPath('userData'), 'calls.json'))
@@ -4793,7 +4794,7 @@ if (!ownsSingleInstanceLock) {
       write: (keys) => keepTalkSetting({ shortcut: keys }),
       pressed: () => { void talkPressed() },
       ...(process.platform !== 'win32'
-        ? { refusedHere: 'Talk is on Windows for now.' }
+        ? { refusedHere: 'Talk from any app is on Windows for now.' }
         : driven
           ? { refusedHere: 'A window a test drive opened leaves your keys alone.', ...(isTalkShortcut(keysHere) ? { keysHere } : {}) }
           : {}),

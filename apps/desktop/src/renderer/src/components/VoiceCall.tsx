@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { voiceCallText, type VoiceCallApi, type VoiceCallAvailability, type VoiceCallRole } from '../../../shared/voice-call.js'
+import { talkRunsOn, voiceCallText, type VoiceCallApi, type VoiceCallAvailability, type VoiceCallRole } from '../../../shared/voice-call.js'
 import type { AvatarSpec } from '../../../shared/avatar.js'
 import type { TeammateHue } from '../../../shared/ipc.js'
 import { TeammateBot } from './TeammateBot.js'
@@ -108,7 +108,7 @@ export function VoiceCallButton({ platform, onText, api = typeof window === 'und
   }
 
   useEffect(() => {
-    if (given !== undefined || api === undefined || platform !== 'win32') return
+    if (given !== undefined || api === undefined || !talkRunsOn(platform)) return
     let alive = true
     void api.available().then((answer) => { if (alive) setAvailability(answer) }).catch(() => undefined)
     return () => { alive = false }
@@ -280,7 +280,7 @@ export function VoiceCallButton({ platform, onText, api = typeof window === 'und
    */
   const pressed = useRef<() => void>(() => undefined)
   pressed.current = () => { void (current.current === 'calling' || current.current === 'live' ? end() : start()) }
-  const ready = platform === 'win32' && api !== undefined && availability?.available === true
+  const ready = talkRunsOn(platform) && api !== undefined && availability?.available === true
   useEffect(() => {
     if (!ready) return
     const mine = (): void => { pressed.current() }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { CHATGPT_VOICES, isChatGptVoice, voiceName, type ChatGptVoice, type VoiceCallApi } from '../../../shared/voice-call.js'
+import { CHATGPT_VOICES, isChatGptVoice, talkRunsOn, voiceName, type ChatGptVoice, type VoiceCallApi } from '../../../shared/voice-call.js'
 import { Select } from './Select.js'
 import { VoicePlay } from './VoicePlay.js'
 
@@ -19,7 +19,7 @@ export function TalkVoice({ api = typeof window === 'undefined' ? undefined : wi
     void api?.voice().then((chosen) => { if (alive) setVoice(chosen) }).catch(() => { if (alive) setMessage('Talk’s voice could not be read. Calls use ChatGPT’s default.') })
     return () => { alive = false }
   }, [api])
-  if (api === undefined || platform !== 'win32') return null
+  if (api === undefined || !talkRunsOn(platform)) return null
   return <section className="lc-settings__section lc-settings__section--line" data-setting="talk-voice"><div className="lc-settingline">
     <div className="lc-settingline__text">
       <h2 className="lc-settings__heading">Talk’s voice</h2>

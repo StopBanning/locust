@@ -67,7 +67,7 @@ export async function playVoicePreview(
   }
   if (api.preview === undefined || api.previewTrigger === undefined) throw new VoicePreviewFailed(`${name} cannot be played here.`)
   const hello = await api.previewTrigger().catch(() => undefined)
-  if (hello === undefined) throw new VoicePreviewFailed(`Locust could not make the hello ${name} answers. Windows’ own speech is needed for it.`)
+  if (hello === undefined) throw new VoicePreviewFailed(`Locust could not make the hello ${name} answers. The computer’s own speech is needed for it.`)
   if (stopped()) return 'called'
 
   const context = new AudioContext()

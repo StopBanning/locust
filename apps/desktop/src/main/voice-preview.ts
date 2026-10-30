@@ -9,7 +9,7 @@ import { replaceFile } from './replace-file.js'
  * person (shared/voice-call.ts, voicePreviewRules); the window records the greeting and it is kept here, one file a
  * voice, so the next play is that recording, at once and on nobody's plan. A voice that is not one of ChatGPT's nine,
  * or audio that is not a short WebM recording, is refused. The spoken "Hello?" the voice answers is made once by
- * Windows' own speech and kept beside them.
+ * the computer's own speech -- Windows', or a Mac's `say` -- and kept beside them.
  */
 export interface VoicePreviews {
   saved(voice: unknown): Promise<Uint8Array | undefined>
@@ -24,7 +24,7 @@ const isWave = (bytes: Uint8Array): boolean =>
 
 export function createVoicePreviews(deps: {
   readonly root: string
-  /** Writes a short spoken "Hello?" as a WAV at this path (Windows' own speech, in the app). */
+  /** Writes a short spoken "Hello?" as a WAV at this path (the computer's own speech, in the app). */
   readonly speak: (wavPath: string) => Promise<void>
 }): VoicePreviews {
   const fileOf = (voice: string): string => join(deps.root, `${voice}.webm`)
@@ -91,4 +91,15 @@ export function speakHelloCommand(wavPath: string): readonly string[] {
     '$s.Dispose()'
   ].join('; ')
   return ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')]
+}
+
+/**
+ * The program that speaks "Hello?" into a WAV here: PowerShell on Windows, and a Mac's own `say` (the first Mac
+ * run, 2026-10-30), in the same 24 kHz mono 16-bit -- measured there: "1 ch, 24000 Hz, Int16". The path is one
+ * argument of its own, never parsed by a shell.
+ */
+export function speakHello(platform: string, wavPath: string): { readonly command: string; readonly args: readonly string[] } {
+  return platform === 'darwin'
+    ? { command: '/usr/bin/say', args: ['-o', wavPath, '--file-format=WAVE', '--data-format=LEI16@24000', 'Hello?'] }
+    : { command: 'powershell.exe', args: speakHelloCommand(wavPath) }
 }
