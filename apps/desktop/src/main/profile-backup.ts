@@ -99,8 +99,8 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'voice-call.json': 'the voice Talk speaks in, and the keys that start it from any app: preferences, picked again in a moment after a restore (0.745, 0.755)',
   'voice-previews': 'the greeting each voice gave the first time it was played: made again by playing it (0.751)',
   'claude-app.json': 'when Locust last changed the Claude app\'s settings on this machine, to say whether Claude needs a restart (0.741)',
-  'own-models.json': 'your own model keys: Windows locks them to this account, so add them again after a restore',
-  'voice-settings.json': 'your voice API key and consent: Windows locks the key to this account, so choose voice typing again after a restore',
+  'own-models.json': 'your own model keys: this computer locks them to your account, so add them again after a restore',
+  'voice-settings.json': 'your voice API key and consent: this computer locks the key to your account, so choose voice typing again after a restore',
   'claude-cloud.json': 'cloud sessions, which belong to this machine and its sign-in',
   'cloud-tasks.json': 'cloud tasks, which belong to this machine and its sign-in',
   'cloud-turns.json': "turns sent to your cloud computer, which name this machine's folders: their changes stay on the codespace, on GitHub (0.761)",
@@ -128,7 +128,21 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'locust-errors.log': 'this machine\'s error log',
   'pets-cache': 'a cache that rebuilds itself',
   'mac-updates': 'a Mac update being downloaded',
-  'dictionaries': 'the spelling dictionary this machine downloaded'
+  'dictionaries': 'the spelling dictionary this machine downloaded',
+  /*
+   * Named through constants, so the classification check never saw them, and a backup dropped them without saying
+   * so (the first Mac run's move-in check, 2026-10-30). Each is this computer's or its sign-in's.
+   */
+  'discord.json': 'your Discord bot and the account paired with it: this computer locks the bot token to your account, so set Discord up again after a restore',
+  'slack.json': 'your Slack app and the person paired with it: this computer locks its tokens to your account, so set Slack up again after a restore',
+  'telegram.json': 'your Telegram bot and the chat paired with it: this computer locks the bot token to your account, so set Telegram up again after a restore',
+  'remote-mcp.json': "the apps let in from anywhere, and their keys: they belong to this computer's room on the relay, so turn Use from anywhere on and allow each app again",
+  'acp-agents.json': 'your own agents, which name programs installed on this computer: add them again after a restore',
+  'teammate-keys.json': "each teammate's keys: this computer locks them to your account, so add them again after a restore",
+  'awake.json': 'whether Locust keeps this computer awake',
+  'scout-away.json': "Scout's looks while this computer is off: its key belongs to this computer's room on the relay, so turn it on again",
+  'pending-restore.json': "a restore's own note of what to restore when Locust next starts",
+  'last-restore.json': "a restore's own note of how it went, read once"
 }
 
 export interface BackupCounts {

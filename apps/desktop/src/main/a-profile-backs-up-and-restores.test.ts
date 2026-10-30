@@ -247,6 +247,9 @@ describe('every file the app keeps in its profile is classified', () => {
     for (const file of readdirSync(main).filter((name) => name.endsWith('.ts') && !name.includes('.test.'))) {
       const source = readFileSync(join(main, file), 'utf8')
       for (const match of source.matchAll(/join\((?:app\.getPath\('userData'\)|options\.rootDirectory|rootDirectory|userData), '([^']+)'\)/g)) named.add(match[1]!)
+      // And every store named through a constant, wherever it is joined: the literal-only scan let eight stores drop
+      // out of every backup unsaid (the first Mac run's move-in check, 2026-10-30).
+      for (const match of source.matchAll(/export const [A-Z_]+_FILE = '([^']+\.json)'/g)) named.add(match[1]!)
     }
     named.add(AWAY_FILE)
     named.add(BACKGROUND_FILE)
