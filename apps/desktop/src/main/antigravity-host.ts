@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, posix } from 'node:path'
 
 import type { RuntimeDiscovery } from '@teammate/runtime-adapters'
 import { parseAgyModelList, parseAntigravityProjects, projectIdForWorkspace } from '@teammate/runtime-adapters'
@@ -48,6 +48,8 @@ export interface AntigravityProbeOptions {
   readonly localAppData?: string
   readonly home?: string
   readonly platform?: NodeJS.Platform
+  /** Test seam: the PATH searched for `agy` off Windows (the app's own, which shellPath has built, by default). */
+  readonly pathEnv?: string
   /**
    * Test seam: the pids of every `language_server.exe`, as `tasklist`
    * reports them in tens of milliseconds -- or `undefined` when it could not
@@ -292,9 +294,19 @@ export function createAntigravityHostProbe(options: AntigravityProbeOptions = {}
   // Read at ASK time, not at construction: a probe built during module load
   // would latch whatever the environment said before the drive set it.
   const hidden = (): boolean => options.localAppData === undefined && process.env.LOCUST_HIDE_RUNTIMES === '1'
-  /** Where the Antigravity CLI installer puts `agy` (install.ps1, 2026-10-02). */
+  /**
+   * Where the Antigravity CLI installer puts `agy`: %LOCALAPPDATA%\agy\bin\agy.exe on Windows (install.ps1,
+   * 2026-10-02). On a Mac and Linux, install.sh puts it in ~/.local/bin, or wherever its `--dir` said, so that
+   * folder first and then PATH. Until the first Mac run (2026-10-30) only the Windows place was looked at, and a
+   * signed-in agy 1.4.11 read as "not installed".
+   */
   const agyPath = (): string | undefined => {
-    if (hidden() || platform !== 'win32' || localAppData.length === 0) return undefined
+    if (hidden()) return undefined
+    if (platform !== 'win32') {
+      const folders = [posix.join(home, '.local', 'bin'), ...(options.pathEnv ?? process.env.PATH ?? '').split(':')]
+      return folders.filter((folder) => posix.isAbsolute(folder)).map((folder) => posix.join(folder, 'agy')).find((file) => existsSync(file))
+    }
+    if (localAppData.length === 0) return undefined
     const candidate = join(localAppData, 'agy', 'bin', 'agy.exe')
     return existsSync(candidate) ? candidate : undefined
   }
