@@ -12,9 +12,9 @@
 // transport (gpt-6.1-sol, low effort; --model overrides it) and requires LOCUST_SPEND=1.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { copyFile, mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { cpus, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -64,8 +64,43 @@ const port = Number(arg('--port') ?? 9877)
 // experiment worth 1% needs longer. Pair it with --long-turn, so the reply is still streaming at the end.
 const SAMPLE_SECONDS = Number(arg('--seconds') ?? 5)
 const restMs = 46_000 // Sample after the 45-second rest deadline, finishing within 60 seconds.
+/*
+ * OFF WINDOWS (the first Mac run, 2026-10-30): this probe read every process through PowerShell, so the CPU budget
+ * could not be probed on a Mac at all. There `ps` lists the processes, and the CPU each used is read twice around the
+ * same sleep: `ps -o time=` on a Mac (to a hundredth of a second), /proc/<pid>/stat on Linux. Windows is unchanged.
+ */
+const POSIX = process.platform !== 'win32'
+/** Every process with its parent and command line: BSD's spelling on a Mac, POSIX's on Linux. */
+const processTable = () =>
+  execFileSync('ps', process.platform === 'darwin' ? ['-axo', 'pid=,ppid=,command='] : ['-eo', 'pid=,ppid=,args='], { encoding: 'utf8' })
+    .split('\n')
+    .map((line) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => ({ pid: Number(match[1]), ppid: Number(match[2]), command: match[3] }))
+/** Seconds of CPU a process has used so far ([dd-][hh:]mm:ss.ss on a Mac); undefined once it is gone. */
+const cpuSeconds = (pid) => {
+  try {
+    if (process.platform === 'linux') {
+      const stat = readFileSync(`/proc/${String(pid)}/stat`, 'utf8')
+      const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+      return (Number(fields[11]) + Number(fields[12])) / 100
+    }
+    const text = execFileSync('ps', ['-o', 'time=', '-p', String(pid)], { encoding: 'utf8' }).trim()
+    const [days, clock] = text.includes('-') ? text.split('-') : ['0', text]
+    return Number(days) * 86_400 + clock.split(':').reduce((sum, part) => sum * 60 + Number(part), 0)
+  } catch {
+    return undefined
+  }
+}
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 // An arena or another suite starting mid-probe invalidates the comparison too.
 const assertQuiet = () => {
+  if (POSIX) {
+    const busy = processTable().filter((row) => row.pid !== process.pid && /(^|\/)node$/.test(row.command.split(' ')[0] ?? '')
+      && /vitest|electron-builder|_tools\/(drive|probe|look|capture)[-/]/.test(row.command))
+    if (busy.length > 0) throw new Error(`Machine is not quiet: other test/build/UI-drive node processes ${busy.map((row) => row.pid).join(', ')}. Nothing here is a valid CPU comparison.`)
+    return
+  }
   const script = `$rows = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.ProcessId -ne ${String(process.pid)} -and ($_.CommandLine -match 'vitest|electron-builder' -or ([string]$_.CommandLine).Replace([char]92, [char]47) -match '_tools/(drive|probe|look|capture)[-/]') }); @($rows | ForEach-Object { [int]$_.ProcessId }) | ConvertTo-Json -Compress`
   const raw = execFileSync('powershell', ['-NoProfile', '-Command', script], { encoding: 'utf8', windowsHide: true }).trim()
   const pids = raw === '' ? [] : [JSON.parse(raw)].flat()
@@ -100,8 +135,38 @@ const drive = await startDrive({
 })
 say(`CPU probe requested route: ${JSON.stringify(route)}`)
 
+/** Off Windows: the same measure from `ps` and the CPU time each process used across the same sleep. */
+const cpuPosix = (seconds) => {
+  const table = processTable()
+  let mine = table.filter((row) => row.command.includes(drive.profile))
+  if (terminalOnly) {
+    const ids = new Set([drive.pid])
+    for (let added = true; added;) {
+      added = false
+      for (const row of table) if (ids.has(row.ppid) && !ids.has(row.pid)) { ids.add(row.pid); added = true }
+    }
+    mine = table.filter((row) => ids.has(row.pid))
+  }
+  const before = new Map(mine.map((row) => [row.pid, cpuSeconds(row.pid)]))
+  sleepSync(seconds * 1000)
+  const cores = cpus().length
+  return mine.flatMap((row) => {
+    const start = before.get(row.pid)
+    const end = cpuSeconds(row.pid)
+    if (start === undefined || end === undefined) return []
+    return [{ type: /--type=([a-z-]+)/.exec(row.command)?.[1] ?? 'main', pct: Math.round(((end - start) / seconds) * 100 / cores * 10) / 10 }]
+  })
+}
+
 /** This instance's processes' CPU over `seconds`, as a share of the whole machine (Task Manager's measure). */
 const cpu = (seconds) => {
+  if (POSIX) {
+    const rows = cpuPosix(seconds)
+    if (rows.length === 0) throw new Error('No Locust processes matched this profile; CPU was not measured')
+    const by = {}
+    for (const row of rows) by[row.type] = Math.round(((by[row.type] ?? 0) + row.pct) * 10) / 10
+    return { total: Math.round(rows.reduce((sum, row) => sum + row.pct, 0) * 10) / 10, by }
+  }
   const key = drive.profile.replace(/'/g, "''")
   const script = `
 $ps = @(Get-CimInstance Win32_Process -Filter "Name='Locust.exe' OR Name='electron.exe'" | Where-Object { $_.CommandLine -like ('*' + '${key}' + '*') })
