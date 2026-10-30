@@ -63,6 +63,27 @@ const NPM_DIR = process.platform === 'win32' ? join(homedir(), 'AppData', 'Roami
 // file cleanly that day (drive-a-file-written-elsewhere).
 export const FREE_ROUTE = { runtime: 'opencode', model: process.env.LOCUST_FREE_MODEL ?? 'opencode/deepseek-v4.1-flash-free', mode: 'accept-edits' }
 /**
+ * The free models OpenCode serves today, FREE_ROUTE's first (the first Mac run, 2026-10-30): drives that named
+ * `opencode/nemotron-3-ultra-free` stopped on "Model not found" once OpenCode dropped it. Read from `opencode models`
+ * as the Stop smoke does; LOCUST_FREE_MODELS (comma-separated) decides when given. With no list to read, FREE_ROUTE
+ * alone, and a drive that needs two says so.
+ */
+export function freeModels() {
+  if (process.env.LOCUST_FREE_MODELS !== undefined) return process.env.LOCUST_FREE_MODELS.split(',').map((model) => model.trim()).filter(Boolean)
+  let listed = []
+  // On PATH, or where OpenCode's installer puts it off Windows (a Mac's shell PATH may not have it; Locust's does).
+  for (const command of ['opencode', ...(process.platform === 'win32' ? [] : [join(homedir(), '.opencode', 'bin', 'opencode')])]) {
+    try {
+      listed = execFileSync(command, ['models'], { encoding: 'utf8', timeout: 60_000, shell: process.platform === 'win32' })
+        .split(/\r?\n/).map((line) => line.trim()).filter((line) => /^opencode\/\S+-free$/.test(line))
+      break
+    } catch {
+      // Not there, or no list to read: the next, then FREE_ROUTE alone.
+    }
+  }
+  return [FREE_ROUTE.model, ...listed.filter((model) => model !== FREE_ROUTE.model)]
+}
+/**
  * That model's row in the picker, as pickRouteScript takes it: the words of
  * its id in order, which is how the picker draws its name
  * (`opencode/muse-spark-1.3-contributor-free` is "Muse Spark 1.3 Contributor
