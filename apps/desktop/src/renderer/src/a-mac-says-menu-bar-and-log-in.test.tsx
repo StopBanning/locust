@@ -18,8 +18,8 @@ const draw = (s: StayingReachable, platform: string): string => renderToStaticMa
 
 describe('a Mac says menu bar and log in', () => {
   it('names each machine as its own settings do', () => {
-    expect(machineWords('darwin')).toEqual({ tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac' })
-    expect(machineWords('win32')).toEqual({ tray: 'tray', signIn: 'sign in to Windows', computer: 'PC' })
+    expect(machineWords('darwin')).toEqual({ tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac', logIn: 'log in' })
+    expect(machineWords('win32')).toEqual({ tray: 'tray', signIn: 'sign in to Windows', computer: 'PC', logIn: 'sign in' })
     expect(machineWords(undefined)).toEqual(machineWords('win32'))
   })
 

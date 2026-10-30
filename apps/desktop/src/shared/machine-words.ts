@@ -12,9 +12,11 @@ export interface MachineWords {
   readonly signIn: string
   /** What the person calls this computer: "this PC", "this Mac" (F8, the first Mac run). */
   readonly computer: string
+  /** The verb alone, for "Start Locust when you sign in" (F19). */
+  readonly logIn: string
 }
 
 export const machineWords = (platform: string | undefined): MachineWords =>
   platform === 'darwin'
-    ? { tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac' }
-    : { tray: 'tray', signIn: 'sign in to Windows', computer: 'PC' }
+    ? { tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac', logIn: 'log in' }
+    : { tray: 'tray', signIn: 'sign in to Windows', computer: 'PC', logIn: 'sign in' }

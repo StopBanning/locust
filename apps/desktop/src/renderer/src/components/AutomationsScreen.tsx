@@ -4,6 +4,7 @@ import { BOT_SIZE } from '../botSizes.js'
 
 import type { PublicFolder, PublicRoutine, PublicTeammate, RoutineTemplateInfo } from '../../../shared/ipc.js'
 import { shortAgo } from '../railFlyout.js'
+import { windowWords } from '../machineWords.js'
 import { routineChain, routineRunSummary, routineScheduleSummary, routineStepLabel, routineWaitsForYou } from '../routines.js'
 import { NOTHING_TO_SAVE_YET, savableConversations, turnsLabel } from '../savableConversations.js'
 import { RoutineChanges } from './RoutineChanges.js'
@@ -478,7 +479,7 @@ export function AutomationsScreen({
       )}
 
       <p className="lc-screen__note">
-        <Icon name="clock" size={12} /> Routines run while Locust is open. Start Locust when you sign in:{' '}
+        <Icon name="clock" size={12} /> {`Routines run while Locust is open. Start Locust when you ${windowWords().logIn}:`}{' '}
         {onOpenSignIn === undefined ? (
           signInOn ? 'On' : 'Off'
         ) : (
