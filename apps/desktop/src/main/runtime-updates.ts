@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { realpathSync } from 'node:fs'
 import { dirname, sep } from 'node:path'
 
 import { releaseProcessTree } from '@teammate/runtime-adapters'
@@ -222,17 +223,36 @@ export function decide(input: {
   return { kind: 'update', version: latest.version }
 }
 
-/** Where npm keeps an agent it installed, when it did: the package's own folder. */
-export function npmPackageDir(discovery: RuntimeDiscovery, npmRoot: string): string | undefined {
+/** Where a link really points, or nothing when it cannot be read. */
+const realPathOf = (path: string): string | undefined => {
+  try {
+    return realpathSync(path)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Where npm keeps an agent it installed, when it did: the package's own folder.
+ *
+ * AND ON A MAC OR LINUX (the first Mac run, 2026-10-30): npm's shim there is a link in `<prefix>/bin` to the
+ * package's own script, with `npm root -g` at `<prefix>/lib/node_modules`, so the Windows test -- a shim beside
+ * node_modules -- never matched, and codex from npm was never updated. The link is followed instead. Homebrew's
+ * own codex sits in the same bin, but its link leads into Homebrew's Cellar, not npm's folder, so it is left alone.
+ */
+export function npmPackageDir(discovery: RuntimeDiscovery, npmRoot: string, realPath: (path: string) => string | undefined = realPathOf): string | undefined {
   const facts = runtimeInstallFacts(discovery.id)
   if (facts === undefined || facts.install.kind !== 'npm' || discovery.executable === undefined) return undefined
-  const folder = [npmRoot, ...facts.install.packageName.split('/')].join(sep)
+  // Joined as npmRoot is spelled, so a Mac's root read on any machine stays a Mac's.
+  const folder = [npmRoot, ...facts.install.packageName.split('/')].join(npmRoot.includes('/') && !npmRoot.includes('\\') ? '/' : sep)
   const prefix = dirname(npmRoot)
   const executable = discovery.executable
   const same = (a: string, b: string): boolean => a.toLowerCase().replace(/[\\/]+/g, '/') === b.toLowerCase().replace(/[\\/]+/g, '/')
   const inside = (path: string, dir: string): boolean => path.toLowerCase().replace(/[\\/]+/g, '/').startsWith(`${dir.toLowerCase().replace(/[\\/]+/g, '/')}/`)
-  // npm's own shim in its own prefix, or a path inside the package itself.
-  const npmPut = same(dirname(executable.discoveredPath), prefix) || [executable.executablePath, ...executable.prefixArgs].some((path) => inside(path, folder))
+  // npm's own shim in its own prefix, a path inside the package itself, or a link that leads into it.
+  const npmPut = same(dirname(executable.discoveredPath), prefix)
+    || [executable.executablePath, ...executable.prefixArgs].some((path) => inside(path, folder))
+    || inside(realPath(executable.discoveredPath) ?? '', folder)
   return npmPut ? folder : undefined
 }
 

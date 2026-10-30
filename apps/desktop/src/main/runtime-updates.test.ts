@@ -116,6 +116,17 @@ describe('only what npm put there', () => {
   it('never names an agent that updates itself', () => {
     expect(npmPackageDir(codex({ id: 'cursor' } as Partial<RuntimeDiscovery>), ROOT)).toBeUndefined()
   })
+
+  // The first Mac run (2026-10-30): codex from npm, found as Homebrew's /opt/homebrew/bin/codex, was never updated.
+  it("is npm's on a Mac or Linux too, where its shim is a link into the package, and Homebrew's own copy is not", () => {
+    const MAC_ROOT = '/opt/homebrew/lib/node_modules'
+    const shim = { commandName: 'codex', discoveredPath: '/opt/homebrew/bin/codex', executablePath: '/opt/homebrew/bin/codex', prefixArgs: [] }
+    const onMac = codex({ executable: shim } as unknown as Partial<RuntimeDiscovery>)
+    const links: Record<string, string> = { '/opt/homebrew/bin/codex': '/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js' }
+    expect(npmPackageDir(onMac, MAC_ROOT, (path) => links[path])).toBe('/opt/homebrew/lib/node_modules/@openai/codex')
+    expect(npmPackageDir(onMac, MAC_ROOT, () => '/opt/homebrew/Cellar/codex/0.166.0/bin/codex')).toBeUndefined()
+    expect(npmPackageDir(onMac, MAC_ROOT, () => undefined)).toBeUndefined()
+  })
 })
 
 describe('a scripted launch', () => {
