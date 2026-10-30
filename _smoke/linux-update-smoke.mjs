@@ -31,12 +31,14 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { portFor, waitForPortFree } from './ports.mjs'
+
 const built = process.argv[2] === undefined ? undefined : resolve(process.argv[2])
 if (built === undefined) {
   console.log('usage: node _smoke/linux-update-smoke.mjs <Locust.AppImage>')
   process.exit(2)
 }
-const PORT = Number(process.env.LOCUST_SMOKE_PORT ?? 9335)
+const PORT = Number(process.env.LOCUST_SMOKE_PORT ?? portFor(import.meta.url))
 const FEED_FILE = 'Locust-9.9.9-linux-x86_64.AppImage'
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 let failures = 0
@@ -143,6 +145,10 @@ const readStartupLogs = (root) => {
   return texts.join('\n')
 }
 
+if (!(await waitForPortFree(PORT))) {
+  console.log(`LINUX UPDATE SMOKE: something already answers on ${String(PORT)}, so the window driven would not be this one`)
+  process.exit(1)
+}
 const child = spawn(APP, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], {
   cwd: dir,
   env: {

@@ -68,7 +68,11 @@ export const SMOKE_PORTS = Object.freeze({
   'login-item': 9270,
   // The Mac checks in ci.yml, one after the other on one runner (0.838): both took 9334 until then.
   'mac-first-hour': 9271,
-  'mac-update': 9272
+  'mac-update': 9272,
+  // Self-contained like the two above; ci.yml can still name a port with LOCUST_SMOKE_PORT (the first Mac run: 9333
+  // was another app's on that Mac, and the Stop check drove its window).
+  'posix-stop': 9273,
+  'linux-update': 9274
 })
 
 /**

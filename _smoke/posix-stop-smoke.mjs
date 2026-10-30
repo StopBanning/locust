@@ -22,6 +22,8 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { portFor, waitForPortFree } from './ports.mjs'
+
 const launchOnly = process.argv.includes('--launch-only')
 const given = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
 // Absolute: the app is started from its profile folder, not from here.
@@ -35,10 +37,28 @@ const SYSTEM = process.platform === 'darwin' ? 'macOS' : 'Linux'
 class LaunchOnly extends Error {}
 // Every process with its command line: BSD's spelling on a Mac, POSIX's on Linux, where procps reads `-axo` as a mistake.
 const PS_EVERY = process.platform === 'darwin' ? ['-axo', 'pid=,command='] : ['-eo', 'pid=,args=']
-const MODEL = process.env.LOCUST_FREE_MODEL ?? 'opencode/nemotron-3-ultra-free'
-// Its own port per check (0.789): a copy from the check before can still be closing on 9333, and a second copy
-// started then gets no debugging port at all -- on Linux the AppImage, right after the .deb.
-const PORT = Number(process.env.LOCUST_SMOKE_PORT ?? 9333)
+/**
+ * A free model OpenCode serves TODAY (the first Mac run, 2026-10-30): with a fixed `opencode/nemotron-3-ultra-free`
+ * the turn ended "Model not found" before Stop had anything to stop -- and `opencode models` still LISTED it, so a
+ * listing alone is not enough. The drives' own free route first (drive-lib's FREE_ROUTE), then the old one, then any
+ * free model `opencode models` lists; LOCUST_FREE_MODEL still decides when given.
+ */
+const freeModel = () => {
+  if (process.env.LOCUST_FREE_MODEL !== undefined) return process.env.LOCUST_FREE_MODEL
+  const preferred = ['opencode/deepseek-v4.1-flash-free', 'opencode/nemotron-3-ultra-free']
+  let listed = []
+  try {
+    listed = execFileSync('opencode', ['models'], { encoding: 'utf8', timeout: 60_000 }).split('\n').map((line) => line.trim())
+  } catch {
+    // No list to read: the first preference, and the run says what it was.
+  }
+  return preferred.find((model) => listed.includes(model)) ?? listed.find((model) => /^opencode\/\S+-free$/.test(model)) ?? preferred[0]
+}
+const MODEL = launchOnly ? 'opencode/nemotron-3-ultra-free' : freeModel()
+// Its own port per check (0.789), from _smoke/ports.mjs unless the workflow names one: a copy from the check before
+// can still be closing, and a second copy started then gets no debugging port at all -- on Linux the AppImage, right
+// after the .deb. On a Mac someone else's app can hold 9333 (Toaster's, the first Mac run): the port must be free.
+const PORT = Number(process.env.LOCUST_SMOKE_PORT ?? portFor(import.meta.url))
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 let failures = 0
 const check = (what, ok, detail) => {
@@ -80,6 +100,11 @@ await writeFile(join(profile, 'teammates.json'), JSON.stringify({
   settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off' }
 }), 'utf8')
 
+if (!(await waitForPortFree(PORT))) {
+  console.log(`${SYSTEM.toUpperCase()} STOP SMOKE: something already answers on ${String(PORT)}, so the window driven would not be this one`)
+  process.exit(1)
+}
+console.log(`model: ${MODEL}`)
 const before = new Set(opencodes())
 const child = spawn(app, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`, `--workspace=${workspace}`], {
   cwd: profile,
