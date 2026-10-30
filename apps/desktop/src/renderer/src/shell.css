@@ -5471,7 +5471,7 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   white-space: nowrap;
-  color: var(--lc-text-muted);
+  color: var(--lc-boot-ink-muted);
 }
 
 /* Too wide for the glass: out of the layout, still measured (HomeCover, 0.405). */
@@ -5535,6 +5535,11 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 
 .lc-cover .lc-lockup__name {
   font-size: calc(48px * var(--lc-cover-k));
+}
+
+/* Written on the glass, in the glass's own ink whatever the theme (F20). */
+.lc-cover__glass .lc-lockup {
+  color: var(--lc-boot-ink);
 }
 
 .lc-lockup path {

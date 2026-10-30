@@ -420,6 +420,11 @@
    * ten times too strong, and the logo read as a green slab rather than as
    * something lit from behind glass (measured on the first drive). */
   --lc-boot-lockup: rgba(201, 234, 74, 0.022);
+  /* What is written ON the glass. The glass is dark in both themes, so its ink is
+   * too: the light theme's dark text made the LOCUST wordmark vanish into it (the
+   * first Mac run, 2026-10-30, F20). The dark theme's own text and muted values. */
+  --lc-boot-ink: #f2efe9;
+  --lc-boot-ink-muted: #8b9190;
   --lc-clay-text: #f0aea6;
 
   /* --- Typography ------------------------------------------------------
