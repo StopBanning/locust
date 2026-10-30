@@ -198,6 +198,11 @@ mac:
   # downloaded app as "damaged"; ad hoc, it asks once and Open Anyway works.
   identity: null
   hardenedRuntime: false
+  # What macOS shows when Locust asks for the microphone. Electron's own reasons
+  # for the camera, Bluetooth and system audio are taken out before signing
+  # (scripts/mac-permissions.cjs): Locust uses none of them.
+  extendInfo:
+    NSMicrophoneUsageDescription: Locust uses the microphone only while you use voice typing or a voice call.
   target:
     - target: dmg
       arch:

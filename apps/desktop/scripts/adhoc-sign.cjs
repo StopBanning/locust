@@ -13,9 +13,13 @@
 const { execFileSync } = require('node:child_process')
 const { join } = require('node:path')
 
+const { trimUnusedPermissions } = require('./mac-permissions.cjs')
+
 exports.default = async function adhocSign(context) {
   if (context.electronPlatformName !== 'darwin') return
   const app = join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`)
+  // Before signing: the signature seals Info.plist as it is then.
+  trimUnusedPermissions(join(app, 'Contents', 'Info.plist'))
   execFileSync('codesign', ['--force', '--deep', '--sign', '-', app], { stdio: 'inherit' })
   execFileSync('codesign', ['--verify', '--deep', '--strict', '--verbose=2', app], { stdio: 'inherit' })
 }
