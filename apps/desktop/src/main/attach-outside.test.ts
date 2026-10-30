@@ -1,10 +1,16 @@
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { ATTACHMENT_DIR, attachmentDestination, excludeWith, GIT_EXCLUDE_LINE } from './attach-outside.js'
 
+// A file the person picked, as the machine running the test spells it: a backslash separates folders only on Windows.
+const WINDOWS = process.platform === 'win32'
+const DOWNLOADS = WINDOWS ? 'C:\\Users\\c\\Downloads' : '/Users/c/Downloads'
+
 describe('finding a home for a file from outside the workspace', () => {
   it('keeps the name it had', () => {
-    expect(attachmentDestination('C:\\Users\\c\\Downloads\\report.pdf', new Set())).toBe(
+    expect(attachmentDestination(join(DOWNLOADS, 'report.pdf'), new Set())).toBe(
       `${ATTACHMENT_DIR}/report.pdf`
     )
     expect(attachmentDestination('/home/c/shot.png', new Set())).toBe(`${ATTACHMENT_DIR}/shot.png`)
@@ -81,13 +87,14 @@ describe('a source that is not really a file name', () => {
     // The control. A guard that refused real filenames would be worse than
     // the hole it closes.
     for (const name of ['notes.md', 'my report (final).pdf', 'a b  c.txt', '.gitignore', 'ünïcodé.md', 'archive.tar.gz']) {
-      expect(attachmentDestination(`C:\\downloads\\${name}`, new Set())).toBe(`${ATTACHMENT_DIR}/${name}`)
+      expect(attachmentDestination(join(DOWNLOADS, name), new Set())).toBe(`${ATTACHMENT_DIR}/${name}`)
     }
   })
 
   it('a traversal INSIDE the source path is harmless, because only the name is used', () => {
     // `C:\a\..\..\evil.txt` is just a roundabout way of naming evil.txt, and
     // the file it points at was already chosen by the person.
-    expect(attachmentDestination('C:\\a\\..\\..\\evil.txt', new Set())).toBe(`${ATTACHMENT_DIR}/evil.txt`)
+    // Spelled out, not joined: join would take the `..` away before the code saw it.
+    expect(attachmentDestination(WINDOWS ? 'C:\\a\\..\\..\\evil.txt' : '/a/../../evil.txt', new Set())).toBe(`${ATTACHMENT_DIR}/evil.txt`)
   })
 })
