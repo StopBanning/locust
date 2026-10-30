@@ -560,7 +560,7 @@ import { cursorConfiguredConnectorNames, cursorReadyConnectors, warmCursorConnec
 import { pruneMissionRecords, readStorageReport } from './retention.js'
 import { applyPendingRestore, countProfile, readBackup, requestRestore, takeLastRestore, writeBackup, type RestoreOutcome } from './profile-backup.js'
 import { oneAtATime } from './one-at-a-time.js'
-import { createUpdateService } from './updates.js'
+import { createUpdateService, mayUpdateItself } from './updates.js'
 import type {
   CodexMissionCancelRequest,
   DiscoveryEvent,
@@ -9234,7 +9234,9 @@ if (!ownsSingleInstanceLock) {
      * are the Mac CI's check of the swap (mac-update-smoke.mjs), never set by
      * the app.
      */
-    const macBundle = process.platform === 'darwin' && app.isPackaged ? macSelfUpdateTarget(process.execPath) : undefined
+    // A driven copy never replaces the installed app, on any system (mayUpdateItself, the first Mac run).
+    const updatesItself = mayUpdateItself(process.argv, process.env)
+    const macBundle = process.platform === 'darwin' && app.isPackaged && updatesItself ? macSelfUpdateTarget(process.execPath) : undefined
     const macTestImage = process.env.LOCUST_MAC_UPDATE_TEST_DMG !== undefined && process.env.LOCUST_MAC_UPDATE_TEST_VERSION !== undefined
       ? { path: process.env.LOCUST_MAC_UPDATE_TEST_DMG, version: process.env.LOCUST_MAC_UPDATE_TEST_VERSION }
       : undefined
@@ -9271,7 +9273,7 @@ if (!ownsSingleInstanceLock) {
        * with nothing downloaded or installed.
        */
       supported: app.isPackaged && (macBundle !== undefined || (process.platform !== 'darwin' && (installedCopy || process.argv.includes('--update-check-only')))),
-      checkOnly: macBundle === undefined && !installedCopy,
+      checkOnly: macBundle === undefined && (!installedCopy || !updatesItself),
       liveMissionCount: () =>
         codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length,
       requestQuit: (finalise) => {

@@ -161,6 +161,27 @@ export function isNewer(a: string, b: string): boolean {
   return false
 }
 
+/**
+ * Whether this launch may download and install a new Locust over the
+ * installed one. A script drives the app with `--remote-debugging-port`, and
+ * on a Mac the drives start the INSTALLED app, /Applications/Locust.app, on a
+ * throwaway profile. On the first Mac run (2026-10-30) two smokes did, each
+ * downloaded 0.842 and began staging it into /Applications, and the smoke's
+ * kill left half a copy that stopped the person's own update. The Windows
+ * copies are held back the same way (0.507 kept test copies out; a drive of
+ * the installed copy is one too). The update smokes say what they test with
+ * hooks of their own, and `LOCUST_UPDATE_ITSELF=1` lets any other drive that
+ * is about updating do it, as `LOCUST_UPDATE_AGENTS` does for the agents.
+ */
+export function mayUpdateItself(
+  argv: readonly string[],
+  environment: Readonly<Record<string, string | undefined>>
+): boolean {
+  if (environment.LOCUST_UPDATE_ITSELF === '1') return true
+  if (environment.LOCUST_MAC_UPDATE_TEST_DMG !== undefined || environment.LOCUST_LINUX_UPDATE_TEST_FEED !== undefined) return true
+  return !argv.some((argument) => argument.startsWith('--remote-debugging-port'))
+}
+
 export function createUpdateService(options: UpdateServiceOptions): UpdateService {
   let everyBuild = options.everyBuild === true
   const takeLane = (): void => {
