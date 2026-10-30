@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { scratchRepository } from './drive-lib.mjs'
+import { localPath, scratchRepository } from './drive-lib.mjs'
 
 const hex24 = (n) => (String(n) + 'a'.repeat(24)).slice(0, 24)
 export const TEAM = [
@@ -47,7 +47,7 @@ export const CONVERSATIONS = [
  * Returns what `startDrive` needs and the teammates.json seed.
  */
 export async function seedEverydayLedger(prefix) {
-  const root = new URL('..', import.meta.url).pathname.slice(1)
+  const root = localPath(new URL('..', import.meta.url))
   const adapters = await import(pathToFileURL(join(root, 'packages', 'runtime-adapters', 'dist', 'index.js')).href)
   const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
   const workspace = await scratchRepository(`locust-drive-${prefix}-ws-`)

@@ -34,3 +34,12 @@ test('each system starts its own Electron', () => {
   assert.match(source, /'electron\.exe'/)
   assert.match(source, /'Electron\.app', 'Contents', 'MacOS', 'Electron'/)
 })
+
+test('the everyday ledger and the search drive find the repository on a Mac', () => {
+  // `pathname.slice(1)` made /Users/x the relative Users/x, and the ledger's sixteen drives stopped at their first import.
+  for (const file of ['everyday-ledger.mjs', 'drive-a-conversation-can-be-searched.mjs']) {
+    const text = readFileSync(new URL(`./${file}`, import.meta.url), 'utf8')
+    assert.match(text, /const root = localPath\(new URL\('\.\.', import\.meta\.url\)\)/, file)
+    assert.doesNotMatch(text, /pathname\.slice\(1\)/, file)
+  }
+})
