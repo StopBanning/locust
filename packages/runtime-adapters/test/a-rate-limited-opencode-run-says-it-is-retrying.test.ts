@@ -140,11 +140,13 @@ describe("the runner forwards stderr lines as records when a spec asks", () => {
     const process = Object.assign(new EventEmitter(), { stdin, stdout, stderr, kill: () => true });
     return { process: process as unknown as SpawnedRuntimeProcess, stdout, stderr, close: (code: number) => process.emit("close", code, null) };
   }
+  // The runner starts on the machine running the test, which takes only its own kind of absolute path.
+  const windows = process.platform === "win32";
   const base = {
     runtime: "opencode",
-    executablePath: "C:\\tools\\opencode.exe",
+    executablePath: windows ? "C:\\tools\\opencode.exe" : "/tools/opencode",
     args: ["run", "--format", "json"],
-    cwd: "C:\\work\\pebble",
+    cwd: windows ? "C:\\work\\pebble" : "/work/pebble",
     stdin: "prompt",
     stdout: "jsonl",
   } as const;

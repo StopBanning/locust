@@ -74,7 +74,9 @@ describe('voice typing refuses unchecked files', () => {
     controller.abort()
     await result
     const pid = Number(await readFile(marker, 'utf8'))
-    expect(() => process.kill(pid, 0)).toThrow()
+    // The cancel settles when the kill is sent. Windows ends the process then; elsewhere SIGKILL lands, and the child is
+    // reaped, a moment later, so the test waits for it to be gone (vi.waitFor's second, then it fails as before).
+    await vi.waitFor(() => { expect(() => process.kill(pid, 0)).toThrow() })
   })
   it('accepts only bounded canonical 16-kHz mono PCM', () => {
     const wav = voiceWav(new Float32Array(16000))

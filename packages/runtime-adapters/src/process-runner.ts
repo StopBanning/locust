@@ -452,14 +452,31 @@ export function windowsTaskkillPath(): string {
  * CLI and every command it started -- takes the signal together. `kill` on
  * the child alone left a dev server or a long command running after Stop.
  * `signal` is POSIX's; Windows always ends the tree outright.
+ *
+ * AND what left the group (the first Mac suite, 2026-10-30): a command the
+ * CLI started `detached` leads a session and group of its own, so the group
+ * signal never reached it, and stop-reaches-the-tree's grandchild wrote its
+ * file after Stop. Those are signalled one by one, the way tree-kill walks a
+ * tree. The rest of the group already has the signal: a second SIGINT can
+ * read as "force quit" to a CLI.
  */
 export function killProcessTree(pid: number | undefined, signal: NodeJS.Signals = "SIGKILL"): void {
   if (pid === undefined) return;
   if (process.platform !== "win32") {
+    // Read first: a parent that obeys the signal is gone a moment later, and
+    // what it started detached is reparented, with nothing linking it to the run.
+    const outside = descendantsOutsideGroup(pid);
     try {
       process.kill(-pid, signal);
     } catch {
       // No group (already gone, or not its own group): `child.kill` still runs.
+    }
+    for (const descendant of outside) {
+      try {
+        process.kill(descendant, signal);
+      } catch {
+        // Already ended.
+      }
     }
     return;
   }
@@ -470,6 +487,44 @@ export function killProcessTree(pid: number | undefined, signal: NodeJS.Signals 
     // Best effort. `child.kill` still runs, and the completion path does not
     // depend on either of them succeeding.
   }
+}
+
+/**
+ * Every process under `root` that is not in `root`'s process group, deepest
+ * first, from one read of the machine's process table. `/bin/ps` by its full
+ * path, as the terminal reads it; a table that cannot be read is no tree.
+ */
+function descendantsOutsideGroup(root: number): readonly number[] {
+  let table: string;
+  try {
+    table = execFileSync("/bin/ps", ["-axo", "pid=,ppid=,pgid="], {
+      encoding: "utf8",
+      timeout: 1_000,
+      maxBuffer: 4 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return [];
+  }
+  const children = new Map<number, number[]>();
+  const groups = new Map<number, number>();
+  for (const line of table.split("\n")) {
+    const [pid, parent, group] = line.trim().split(/\s+/).map(Number);
+    if (!Number.isSafeInteger(pid) || !Number.isSafeInteger(parent) || !Number.isSafeInteger(group) || pid! <= 1 || parent! < 1) continue;
+    children.set(parent!, [...(children.get(parent!) ?? []), pid!]);
+    groups.set(pid!, group!);
+  }
+  const tree = [root];
+  const seen = new Set(tree);
+  for (let i = 0; i < tree.length; i++) {
+    for (const pid of children.get(tree[i]!) ?? []) {
+      if (!seen.has(pid)) {
+        seen.add(pid);
+        tree.push(pid);
+      }
+    }
+  }
+  return tree.slice(1).filter((pid) => groups.get(pid) !== root).reverse();
 }
 
 /**

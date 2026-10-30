@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { skillMarkdown, type TuneSkill } from '../shared/tune.js'
 import { skillFoldersIn } from './claude-skills.js'
-import { skillNameIn, skillNameKey } from './skill-discovery.js'
+import { skillNameIn } from './skill-discovery.js'
 
 /**
  * SKILLS FOR CODEX, OPENCODE, COPILOT AND ANTIGRAVITY (0.813).
@@ -59,7 +59,10 @@ export async function prepareRunSkills(options: {
   readonly teammateSkills?: readonly string[]
   /** A tune column's one skill, for its run alone. */
   readonly candidate?: TuneSkill
-  /** The target machine's path semantics; explicit in portable collision tests. */
+  /**
+   * The target machine's path semantics; explicit in portable collision tests. Windows folds case whatever disk the
+   * run's folder is on; for any other platform the disk itself decides.
+   */
   readonly platform?: NodeJS.Platform
   /** The real copy by default; a failing disk copy can be exercised without a platform-specific file lock. */
   readonly copyFolder?: typeof cp
@@ -73,7 +76,15 @@ export async function prepareRunSkills(options: {
     const taken: string[] = []
     const names = new Set<string>()
     const destinations = new Set<string>()
-    const key = (name: string): string => skillNameKey(name, options.platform)
+    /*
+     * Two names that differ only in case are ONE folder on a disk that folds case: Windows, and a Mac's APFS as it
+     * ships (the first Mac suite, 2026-10-30). Read as two there, the second copy's rename met the first's folder,
+     * failed, and was dropped by the catch below without a word. So the run's own folder is asked, and a case-
+     * sensitive Mac volume or a case-folding Linux one is read as what it is; a test that names Windows folds anyway.
+     */
+    await mkdir(skillsDir, { recursive: true })
+    const folds = options.platform === 'win32' || await lstat(join(dir, 'SKILLS')).then(() => true, () => false)
+    const key = (name: string): string => (folds ? name.toLowerCase() : name)
     if (options.candidate !== undefined) {
       await mkdir(join(skillsDir, options.candidate.name), { recursive: true })
       await writeFile(join(skillsDir, options.candidate.name, 'SKILL.md'), skillMarkdown(options.candidate))

@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { voicePreviewRules, type VoiceAddOn, type VoiceCallEvent } from '../shared/voice-call.js'
 import { createVoiceCalls, type VoiceCallDeps } from './voice-call.js'
 
+// The window's folder, as the machine running the test spells it: the call names it by this machine's basename.
+const ACME = process.platform === 'win32' ? 'C:\\work\\acme' : '/work/acme'
+
 /*
  * A VOICE CALL, PLACED BY CODEX (0.737; 0.738 after Sol's review). Against a stand-in for `codex app-server`
  * that answers the way Codex 0.162.1 did for Colin's Plus sign-in: the call is asked for on a read-only,
@@ -78,7 +81,7 @@ function calls(fakes: () => ReturnType<typeof fakeCodex>, options: {
   const voice = createVoiceCalls({
     codex: options.codex ?? (async () => CODEX),
     spawn: () => { const fake = fakes(); spawned.push(fake); return fake.child },
-    folder: () => (options.folder === null ? undefined : options.folder ?? 'C:\\work\\acme'),
+    folder: () => (options.folder === null ? undefined : options.folder ?? ACME),
     send: (event) => sent.push(event),
     version: '0.738.0',
     answerTimeoutMs: 2_000,
@@ -106,7 +109,7 @@ describe('a voice call', () => {
     expect(spawned).toHaveLength(1)
     expect(by(fake, 'initialize')).toMatchObject({ capabilities: { experimentalApi: true } })
     expect(by(fake, 'thread/start')).toEqual({
-      cwd: 'C:\\work\\acme',
+      cwd: ACME,
       sandbox: 'read-only',
       approvalPolicy: 'untrusted',
       ephemeral: true,

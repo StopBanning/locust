@@ -1,3 +1,5 @@
+import { join, sep } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { createCursorConnectorKeeper } from './cursor-connector-allow.js'
@@ -15,8 +17,9 @@ import type { AllowIo, HoldStore } from './cursor-connector-allow.js'
  * and, at start, takes back what a store from an earlier Locust still names.
  */
 
-const FILE = 'C:\\work\\.cursor\\cli.json'
-const DIR = 'C:\\work\\.cursor'
+// Joined as the keeper joins them, by this machine's rules: C:\work\.cursor\cli.json on Windows.
+const DIR = join('C:\\work', '.cursor')
+const FILE = join(DIR, 'cli.json')
 
 /** A folder on disk, as the keeper sees it, and the profile's store. */
 function disk(files: Record<string, string> = {}, dirs: string[] = [], storeText?: string) {
@@ -40,7 +43,7 @@ function disk(files: Record<string, string> = {}, dirs: string[] = [], storeText
       delete held[path]
     },
     removeDir: async (path) => {
-      if (Object.keys(held).some((file) => file.startsWith(`${path}\\`))) throw new Error('ENOTEMPTY')
+      if (Object.keys(held).some((file) => file.startsWith(`${path}${sep}`))) throw new Error('ENOTEMPTY')
       present.delete(path)
     }
   }

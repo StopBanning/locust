@@ -1,7 +1,7 @@
 import { spawnShape } from "./cmd-line.js";
 import { windowsTaskkillPath } from "./process-runner.js";
 import { spawn, spawnSync } from "node:child_process";
-import { isAbsolute } from "node:path";
+import { posix, win32 } from "node:path";
 import type { CommandResult, CommandRunner, ProbeCommand } from "./types.js";
 
 interface ProbeReadable {
@@ -175,7 +175,8 @@ export function createNodeProbeRunner(options: NodeProbeRunnerOptions = {}): Pro
       if (disposed) {
         return Promise.reject(new Error("Probe runner was disposed"));
       }
-      if (!isAbsolute(command.executablePath)) {
+      // Absolute by the platform's own rules, as the spawn below is shaped for it.
+      if (!(platform === "win32" ? win32 : posix).isAbsolute(command.executablePath)) {
         return Promise.reject(new Error("Probe executable path must be absolute"));
       }
       if (command.args.some((argument) => argument.includes("\0"))) {

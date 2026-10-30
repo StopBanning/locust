@@ -101,11 +101,12 @@ describe('what to do about one agent', () => {
 })
 
 describe('only what npm put there', () => {
-  it("is npm's: its shim in npm's own folder, or its script inside the package", () => {
+  // npm's Windows layout (codex.cmd beside node_modules, run by node.exe), which only a Windows host joins this way.
+  it.skipIf(process.platform !== 'win32')("is npm's: its shim in npm's own folder, or its script inside the package", () => {
     expect(npmPackageDir(codex(), ROOT)).toBe(`${ROOT}\\@openai\\codex`)
   })
 
-  it('is not an agent found somewhere else: npm would put a second copy beside it', () => {
+  it.skipIf(process.platform !== 'win32')('is not an agent found somewhere else: npm would put a second copy beside it', () => {
     const elsewhere = codex({
       executable: { commandName: 'codex', discoveredPath: 'C:\\tools\\codex\\codex.exe', executablePath: 'C:\\tools\\codex\\codex.exe', prefixArgs: [] }
     } as unknown as Partial<RuntimeDiscovery>)

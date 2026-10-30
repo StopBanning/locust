@@ -1,7 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { discoverInstalledRuntimes } from "../src/discovery.js";
 import { KILO_AUTO_FREE_MODEL, createKiloAcpCommand, kiloModelForRun, kiloSessionMode, resolveGitOnPath, startKiloAcpRun, withKiloGitShim } from "../src/kilo-acp-run.js";
@@ -92,7 +93,10 @@ describe("Kilo's modes", () => {
 });
 
 describe("a Kilo child gets a git that cannot read the ACP pipe", () => {
-  const root = "C:\\work\\scratch\\kilo-shim-unit";
+  // Real files, so under the temp folder: a fixed C:\work\scratch path was a folder nobody cleaned on Windows,
+  // and a folder of that name inside the package anywhere else.
+  const root = mkdtempSync(join(tmpdir(), "locust-kilo-shim-unit-"));
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
   const pathKey = Object.keys(process.env).find((key) => key.toLowerCase() === "path") ?? "PATH";
 
   it("prefers git.exe over a git.cmd that appears earlier on PATH", () => {

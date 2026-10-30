@@ -1,19 +1,20 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { join, win32 } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { editorSpawn, editorsOnPath } from './installed-editors.js'
 
 describe('editors are taken from PATH', () => {
   it('lists one that is on PATH and skips one that is not, without guessing an install folder', () => {
+    // A Windows PATH, so it is built and read by Windows' rules whatever machine runs the test.
     const bin = 'C:/tools'
-    const there = new Set([join(bin, 'code.cmd'), join(bin, 'cursor.exe')])
-    const found = editorsOnPath('win32', { PATH: ['C:/empty', bin].join(delimiter) }, (file) => there.has(file))
+    const there = new Set([win32.join(bin, 'code.cmd'), win32.join(bin, 'cursor.exe')])
+    const found = editorsOnPath('win32', { PATH: ['C:/empty', bin].join(win32.delimiter) }, (file) => there.has(file))
     expect(found).toEqual([
-      { id: 'vscode', command: join(bin, 'code.cmd') },
-      { id: 'cursor', command: join(bin, 'cursor.exe') }
+      { id: 'vscode', command: win32.join(bin, 'code.cmd') },
+      { id: 'cursor', command: win32.join(bin, 'cursor.exe') }
     ])
     expect(editorsOnPath('win32', { PATH: 'C:/empty' }, () => false)).toEqual([])
     expect(editorsOnPath('linux', { PATH: '/usr/bin' }, (file) => file === '/usr/bin/code')).toEqual([{ id: 'vscode', command: '/usr/bin/code' }])

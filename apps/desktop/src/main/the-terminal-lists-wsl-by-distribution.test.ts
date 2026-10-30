@@ -19,7 +19,8 @@ describe('the terminal lists WSL by distribution', () => {
     expect(terminalShells('win32', {}, () => '').some(shell => shell.id === 'wsl')).toBe(false)
   })
 
-  it('lists one distribution by name, started with wsl.exe -d <name>', () => {
+  // wsl.exe's own path is read off a Windows host's System32 folder and joined by Windows' rules.
+  it.skipIf(process.platform !== 'win32')('lists one distribution by name, started with wsl.exe -d <name>', () => {
     expect(wslOf(regAnswer(['Ubuntu']))).toEqual([
       { id: 'wsl:Ubuntu', name: 'Ubuntu (WSL)', file: 'C:\\Windows\\System32\\wsl.exe', args: ['-d', 'Ubuntu'] }
     ])
@@ -33,7 +34,8 @@ describe('the terminal lists WSL by distribution', () => {
     expect(wslShells(['My Distro 22.04'], 'wsl.exe')[0]?.id).toBe('wsl:My Distro 22.04')
   })
 
-  it('the shell id the window sends still chooses only from what the host listed', async () => {
+  // The same: it starts wsl.exe from a Windows host's System32 folder.
+  it.skipIf(process.platform !== 'win32')('the shell id the window sends still chooses only from what the host listed', async () => {
     const folder = fileURLToPath(new URL('.', import.meta.url))
     const pty = { pid: 123, write: vi.fn(), resize: vi.fn(), kill: vi.fn(), pause: vi.fn(), resume: vi.fn(),
       onData: vi.fn(() => ({ dispose() {} })), onExit: vi.fn(() => ({ dispose() {} })) } as unknown as IPty

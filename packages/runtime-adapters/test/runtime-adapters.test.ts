@@ -1649,6 +1649,10 @@ function fakeProbe(command: ProbeCommand) {
 }
 
 describe("bounded Node probe runner", () => {
+  // A runner given no platform spawns for the machine running the test, so the probe is that machine's kind of absolute path.
+  const tool = (windowsName: string): string =>
+    process.platform === "win32" ? `C:\\tools\\${windowsName}` : `/tools/${windowsName.replace(/\.(?:cmd|exe)$/, "")}`;
+
   it("caps captured output and never asks Node for a shell", async () => {
     const stdout = new EventEmitter();
     const stderr = new EventEmitter();
@@ -1674,7 +1678,7 @@ describe("bounded Node probe runner", () => {
 
     const result = await runner.run({
       purpose: "version",
-      executablePath: "C:\\tools\\codex.exe",
+      executablePath: tool("codex.exe"),
       args: ["--version"],
       timeoutMs: 100,
     });
@@ -1706,7 +1710,7 @@ describe("bounded Node probe runner", () => {
 
     const result = await runner.run({
       purpose: "readiness",
-      executablePath: "C:\\tools\\codex.exe",
+      executablePath: tool("codex.exe"),
       args: ["login", "status"],
       timeoutMs: 5,
     });
@@ -1742,7 +1746,7 @@ describe("bounded Node probe runner", () => {
         return process;
       },
     });
-    const command = { purpose: "readiness", executablePath: "C:\\tools\\hung.cmd", args: ["--version"], timeoutMs: 10_000 } as const;
+    const command = { purpose: "readiness", executablePath: tool("hung.cmd"), args: ["--version"], timeoutMs: 10_000 } as const;
     // Two out, never answering; a third that closed on its own first.
     void runner.run(command);
     void runner.run(command);
@@ -1800,7 +1804,7 @@ describe("bounded Node probe runner", () => {
         return process;
       },
     });
-    const done = runner.run({ purpose: "readiness", executablePath: "C:\\tools\\quick.cmd", args: ["--version"], timeoutMs: 1_000 });
+    const done = runner.run({ purpose: "readiness", executablePath: tool("quick.cmd"), args: ["--version"], timeoutMs: 1_000 });
     spawned?.emit("close", 0);
     await done;
     runner.dispose();
@@ -1838,7 +1842,7 @@ describe("bounded Node probe runner", () => {
 
     const result = await runner.run({
       purpose: "readiness",
-      executablePath: "C:\\tools\\opencode.cmd",
+      executablePath: tool("opencode.cmd"),
       args: ["--version"],
       timeoutMs: 5,
     });

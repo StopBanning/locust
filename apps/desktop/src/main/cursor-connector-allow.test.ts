@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { allowCursorConnectors, cursorAllowRule, mergedCursorConfig } from './cursor-connector-allow.js'
@@ -100,7 +102,8 @@ describe('writing the workspace file', () => {
   })
 
   it('does not write over a file it could not read, and does not throw', async () => {
-    const fake = io({ 'C:\\work\\.cursor\\cli.json': '{ broken' })
+    // Joined as the code joins it, by this machine's rules: C:\work\.cursor\cli.json on Windows.
+    const fake = io({ [join('C:\\work', '.cursor', 'cli.json')]: '{ broken' })
     expect((await allowCursorConnectors('C:\\work', ['a'], fake.io)).added).toEqual([])
     expect(fake.writes).toEqual({})
     const failing = { ...fake.io, readFile: async () => { throw Object.assign(new Error('EACCES'), { code: 'EACCES' }) } }

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { join } from 'node:path'
+import { win32 } from 'node:path'
 
 import type { ExecutableLaunch, MissionRuntimeId } from '@teammate/runtime-adapters'
 
@@ -217,7 +217,8 @@ export async function openInTerminal(request: TerminalRequest, options: OpenInTe
    */
   const wtArgs = windowsTerminalArgs(program, request.cwd, request.title)
   if (options.prefer !== 'console' && request.launch.env === undefined && wtArgs !== undefined) {
-    const wt = options.localAppData === undefined ? 'wt.exe' : join(options.localAppData, 'Microsoft', 'WindowsApps', 'wt.exe')
+    // A Windows path, joined by Windows' rules whatever machine builds it.
+    const wt = options.localAppData === undefined ? 'wt.exe' : win32.join(options.localAppData, 'Microsoft', 'WindowsApps', 'wt.exe')
     try {
       const child = run(wt, [...wtArgs], { detached: true, stdio: 'ignore', windowsHide: false })
       if ((await started(child)) === true) {
@@ -265,7 +266,7 @@ export async function openProgramInTerminal(
   if (platform !== 'win32') return { ok: false, message: 'Opening a terminal works on Windows, macOS and Linux.' }
   const wtArgs = windowsTerminalArgs(program, cwd, title)
   if (options.prefer !== 'console' && wtArgs !== undefined) {
-    const wt = options.localAppData === undefined ? 'wt.exe' : join(options.localAppData, 'Microsoft', 'WindowsApps', 'wt.exe')
+    const wt = options.localAppData === undefined ? 'wt.exe' : win32.join(options.localAppData, 'Microsoft', 'WindowsApps', 'wt.exe')
     try {
       const child = run(wt, [...wtArgs], { detached: true, stdio: 'ignore', windowsHide: false })
       if ((await started(child)) === true) {

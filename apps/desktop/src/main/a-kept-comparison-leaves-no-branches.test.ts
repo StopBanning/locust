@@ -58,8 +58,11 @@ describe("a comparison's worktree", () => {
 
 describe('recordedBranchOf', () => {
   it("reads a tree's branch from `git worktree list --porcelain`, by path", () => {
-    const porcelain = 'worktree C:/r\nHEAD abc\nbranch refs/heads/main\n\nworktree C:/r/.locust/worktrees/t\nHEAD def\nbranch refs/heads/locust/compare-t\n'
-    expect(recordedBranchOf(porcelain, 'C:\\r\\.locust\\worktrees\\t')).toBe('locust/compare-t')
-    expect(recordedBranchOf(porcelain, 'C:/elsewhere')).toBe('')
+    // git's list and the tree's path as the machine running the test gives them: on Windows git writes C:/r for C:\r.
+    const windows = process.platform === 'win32'
+    const root = windows ? 'C:/r' : '/r'
+    const porcelain = `worktree ${root}\nHEAD abc\nbranch refs/heads/main\n\nworktree ${root}/.locust/worktrees/t\nHEAD def\nbranch refs/heads/locust/compare-t\n`
+    expect(recordedBranchOf(porcelain, windows ? 'C:\\r\\.locust\\worktrees\\t' : '/r/.locust/worktrees/t')).toBe('locust/compare-t')
+    expect(recordedBranchOf(porcelain, windows ? 'C:/elsewhere' : '/elsewhere')).toBe('')
   })
 })

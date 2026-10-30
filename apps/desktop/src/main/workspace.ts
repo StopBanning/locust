@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { isAbsolute, resolve, sep } from 'node:path'
+import { isAbsolute, posix, win32 } from 'node:path'
 
 /**
  * The id a mission records for the folder it ran in.
@@ -62,11 +62,12 @@ export function resolveWorkspacePath(options: {
   /** Windows' own folder (`%SystemRoot%`); a launch from inside it is not a workspace. */
   readonly systemDirectory?: string | undefined
 }): WorkspaceResolution {
+  const path = options.platform === 'win32' ? win32 : posix
   // An explicit argument wins: it is how the app reopens itself in a folder
   // the person just chose.
   const argument = options.argv.find((entry) => entry.startsWith(WORKSPACE_ARGUMENT))?.slice(WORKSPACE_ARGUMENT.length)
-  if (argument !== undefined && argument.length > 0 && isAbsolute(argument)) {
-    return { path: resolve(argument), source: 'argument' }
+  if (argument !== undefined && argument.length > 0 && path.isAbsolute(argument)) {
+    return { path: path.resolve(argument), source: 'argument' }
   }
   // Launched from a real folder -- a terminal, a shortcut with a start-in --
   // that folder is the workspace, as it always was. Not the home folder, an
@@ -75,21 +76,21 @@ export function resolveWorkspacePath(options: {
     !isInsideDirectory(options.cwd, options.installDirectory, options.platform)
     && notATeammateFolder(options.cwd, options.homeDirectory, options.platform, options.systemDirectory) === undefined
   ) {
-    return { path: resolve(options.cwd), source: 'launch-folder' }
+    return { path: path.resolve(options.cwd), source: 'launch-folder' }
   }
   if (
     options.remembered !== undefined
-    && isAbsolute(options.remembered)
+    && path.isAbsolute(options.remembered)
     && !isInsideDirectory(options.remembered, options.installDirectory, options.platform)
   ) {
-    return { path: resolve(options.remembered), source: 'remembered' }
+    return { path: path.resolve(options.remembered), source: 'remembered' }
   }
   if (
     options.defaultWorkspace !== undefined
-    && isAbsolute(options.defaultWorkspace)
+    && path.isAbsolute(options.defaultWorkspace)
     && !isInsideDirectory(options.defaultWorkspace, options.installDirectory, options.platform)
   ) {
-    return { path: resolve(options.defaultWorkspace), source: 'default' }
+    return { path: path.resolve(options.defaultWorkspace), source: 'default' }
   }
   return { path: undefined, source: 'none' }
 }
@@ -115,31 +116,36 @@ export function notATeammateFolder(
   platform: NodeJS.Platform,
   systemDirectory?: string
 ): string | undefined {
-  if (!isAbsolute(candidate)) return undefined
+  const path = platform === 'win32' ? win32 : posix
+  if (!path.isAbsolute(candidate)) return undefined
   if (systemDirectory !== undefined && isInsideDirectory(candidate, systemDirectory, platform)) return "Windows' own folder"
   if (homeDirectory === undefined) return undefined
   if (isInsideDirectory(homeDirectory, candidate, platform)) return 'your home folder'
   for (const name of AGENT_SETTINGS_FOLDERS) {
-    if (isInsideDirectory(candidate, resolve(homeDirectory, name), platform)) return `${name}, where the agents keep their own settings`
+    if (isInsideDirectory(candidate, path.resolve(homeDirectory, name), platform)) return `${name}, where the agents keep their own settings`
   }
   return undefined
 }
 
 
-/** Whether `candidate` is `directory` or somewhere under it. Case-blind on Windows, where the filesystem is. */
+/**
+ * Whether `candidate` is `directory` or somewhere under it. Case-blind on Windows, where the filesystem is.
+ * Read with the platform's own path rules, not the host's: a Windows folder is judged as Windows would judge it.
+ */
 export function isInsideDirectory(
   candidate: string,
   directory: string | undefined,
   platform: NodeJS.Platform
 ): boolean {
   if (directory === undefined) return false
+  const path = platform === 'win32' ? win32 : posix
   const fold = (value: string): string => {
-    const full = resolve(value).replace(/[\\/]+$/, '')
+    const full = path.resolve(value).replace(/[\\/]+$/, '')
     return platform === 'win32' ? full.toLowerCase() : full
   }
   const inner = fold(candidate)
   const outer = fold(directory)
-  return inner === outer || inner.startsWith(outer + sep)
+  return inner === outer || inner.startsWith(outer + path.sep)
 }
 
 interface RememberedWorkspaceFile {

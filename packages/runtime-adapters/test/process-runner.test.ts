@@ -562,7 +562,8 @@ describe("controlled runtime JSONL process runner", () => {
 // H8: a mission started through a .cmd launcher is spawned with the command
 // line cmd.exe reads correctly -- one verbatim argument, not Node's quoting.
 describe("a mission started through a .cmd launcher", () => {
-  it("gets one verbatim command line, launcher and every argument quoted", () => {
+  // cmd.exe and its .cmd launchers exist on a Windows host only, and only one takes System32's path as absolute.
+  it.skipIf(process.platform !== "win32")("gets one verbatim command line, launcher and every argument quoted", () => {
     const child = fakeChild();
     let launched: { readonly args: readonly string[]; readonly options: RuntimeSpawnOptions } | undefined;
     const runner = createNodeRuntimeProcessRunner({

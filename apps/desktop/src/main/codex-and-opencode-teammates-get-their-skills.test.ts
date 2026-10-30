@@ -123,7 +123,22 @@ describe('a run’s own skills folder', () => {
     // Windows itself cannot hold both directories; the key's semantics can still be proved on every host.
     const { skillNameKey } = await import('./skill-discovery.js')
     expect(skillNameKey('Review', 'linux')).not.toBe(skillNameKey('review', 'linux'))
-    if (process.platform !== 'win32') expect(prepared!.skills).toEqual(['review', 'Review'])
+    // Nor can a disk that folds case, which a Mac's APFS does as it ships: there the first is kept and the other left
+    // out on purpose, as on Windows. The disk decides, not the platform's name.
+    const folds = await lstat(join(root, 'LIBRARY')).then(() => true, () => false)
+    expect(prepared!.skills).toEqual(folds ? ['review'] : ['review', 'Review'])
+    expect(await readdir(prepared!.skillsDir)).toEqual(prepared!.skills)
+    expect(await readFile(join(prepared!.skillsDir, 'review', 'SKILL.md'), 'utf8')).toContain('First.')
+  })
+
+  it('asks the disk, not the platform, whether two names that differ only in case are one', async () => {
+    const root = await scratch('locust-skill-disk-')
+    await skill(join(root, 'library'), 'another-folder')
+    await writeFile(join(root, 'library', 'another-folder', 'SKILL.md'), '---\nname: ReView\ndescription: A case-only identity collision.\n---\nOffered only where case is kept.\n')
+    // No platform named: on a Mac this is APFS's answer, which folds case as it ships.
+    const prepared = await prepareRunSkills({ scratchRoot: join(root, 'runs'), libraryFolder: join(root, 'library'), candidate: { name: 'review', description: 'Candidate.', body: 'The candidate wins.' } })
+    const folds = await lstat(join(root, 'LIBRARY')).then(() => true, () => false)
+    expect(prepared!.skills).toEqual(folds ? ['review'] : ['review', 'another-folder'])
   })
 
   it('publishes no part of a skill whose copy fails after SKILL.md arrived', async () => {
