@@ -7,6 +7,7 @@ import { MAX_FRAME, ROOM_ID } from './protocol.js'
 import { WINDOW_PATH, WINDOW_VERSION, windowDirectory, windowFile, windowType, type WindowEntry, type ZipRange } from './window-zip.js'
 import type { RoomEnv } from './room.js'
 import { githubBack, githubOffered, githubStart, type NotePage } from './github.js'
+import { MAX_SYNC_OBJECT } from './sync.js'
 
 export { Room } from './room.js'
 export { Account } from './account.js'
@@ -154,8 +155,14 @@ export default {
       if (Number(request.headers.get('content-length') ?? '0') > MAX_FRAME) return new Response('{"error":"too-big"}', { status: 413, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
       return env.ROOMS.get(env.ROOMS.idFromName(mcpRoom)).fetch(request)
     }
+    // An account's sealed copies (docs/PLAN-2026-10-30-ACCOUNTS.md) are asked for at the PC's own room.
+    const sync = /^\/v1\/room\/([^/]+)\/sync(?:\/[^/]+){0,2}$/.exec(url.pathname)?.[1]
+    if (sync !== undefined && ROOM_ID.test(sync)) {
+      if (Number(request.headers.get('content-length') ?? '0') > MAX_SYNC_OBJECT) return new Response('{"error":"too-big"}', { status: 413, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
+      return env.ROOMS.get(env.ROOMS.idFromName(sync)).fetch(request)
+    }
     // Called links (2026-10-25) go to the same room, with their own readable letters.
-    const hook = /^\/v1\/room\/([^/]+)\/hook\/([^/]+)$/.exec(url.pathname)
+    const hook =/^\/v1\/room\/([^/]+)\/hook\/([^/]+)$/.exec(url.pathname)
     if (hook !== null && ROOM_ID.test(hook[1]!)) {
       if (request.method !== 'POST') return new Response('{"error":"method"}', { status: 405, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', allow: 'POST' } })
       if (Number(request.headers.get('content-length') ?? '0') > MAX_FRAME) return new Response('{"error":"too-big"}', { status: 413 })

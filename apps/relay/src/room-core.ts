@@ -653,6 +653,19 @@ export function roomCore(host: RoomHost) {
       return { status: 200, body: { ticket, key: held.github.key, name: held.github.name } }
     },
 
+    /**
+     * WHO MAY KEEP A COPY HERE (docs/PLAN-2026-10-30-ACCOUNTS.md): the room's own PC, by its token, once the room is
+     * tied to a GitHub account. The answer names the account and the room, which is all sync.ts's rules need: a copy is
+     * kept under the account, and written only under this room.
+     */
+    async syncWho(token: string | undefined): Promise<{ readonly status: 200; readonly user: number; readonly room: string } | { readonly status: number; readonly body: Readonly<Record<string, unknown>> }> {
+      const held = await meta()
+      if (held === undefined) return { status: 404, body: { error: 'room' } }
+      if (token === undefined || !TOKEN.test(token) || !same(held.owner, await host.sha256(token))) return { status: 401, body: { error: 'auth' } }
+      if (held.github === undefined || host.github === undefined) return { status: 403, body: { error: 'not-signed-in' } }
+      return { status: 200, user: held.github.user, room: held.github.room }
+    },
+
     /** Other apps from anywhere (0.841): the HTTP side, for room.ts. */
     mcp,
 
