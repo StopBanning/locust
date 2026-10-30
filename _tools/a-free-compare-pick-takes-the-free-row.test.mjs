@@ -35,9 +35,16 @@ test('a free pick ticks the row that says Free, though a paid row of the same mo
   assert.deepEqual(rows.map((one) => one.pressed), [false, true])
 })
 
-test('with no row saying Free, the pick takes the first that matches, as before', async () => {
+test('a free pick with no row saying Free fails, and ticks nothing', async () => {
   const rows = picker(['Mimo V2.6 Flash', 'Mimo V2.6 Flash Pro'])
   const got = JSON.parse(await eval(comparePickScript(0, comparePick('mimo-v2.6-flash-free'))))
+  assert.deepEqual(got, { picked: false, why: 'no free row for mimo-v2.6-flash-free' })
+  assert.deepEqual(rows.map((one) => one.pressed), [false, false])
+})
+
+test('a pick that is not free takes the first row that matches, as before', async () => {
+  const rows = picker(['Mimo V2.6 Flash', 'Mimo V2.6 Flash Pro'])
+  const got = JSON.parse(await eval(comparePickScript(0, comparePick('mimo-v2.6-flash'))))
   assert.equal(got.label, 'Mimo V2.6 Flash')
   assert.deepEqual(rows.map((one) => one.pressed), [true, false])
 })

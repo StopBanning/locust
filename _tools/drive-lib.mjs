@@ -1028,10 +1028,10 @@ export function comparePickScript(index, pick) {
     for (let i = 0; i < 20 && !row; i += 1) {
       await new Promise((r) => setTimeout(r, 200))
       const rows = [...document.querySelectorAll('.lc-picker__row:not(.is-recent)')].filter((one) => !one.disabled && wanted.test(one.querySelector('.lc-picker__label')?.textContent ?? ''))
-      // A free pick takes the row that says Free: another agent may list the same model by name, paid.
-      row = (${JSON.stringify(pick.free === true)} ? rows.find((one) => /\\bfree\\b/i.test(one.querySelector('.lc-picker__label')?.textContent ?? '')) : undefined) ?? rows[0]
+      // A free pick takes only a row that says Free: another agent may list the same model by name, paid.
+      row = ${JSON.stringify(pick.free === true)} ? rows.find((one) => /\\bfree\\b/i.test(one.querySelector('.lc-picker__label')?.textContent ?? '')) : rows[0]
     }
-    if (!row) return JSON.stringify({ picked: false, why: 'no row' })
+    if (!row) return JSON.stringify({ picked: false, why: ${JSON.stringify(pick.free === true ? `no free row for ${pick.id}` : 'no row')} })
     const label = row.querySelector('.lc-picker__label')?.textContent.trim() ?? ''
     if (row.getAttribute('aria-pressed') !== 'true') row.click()
     await new Promise((r) => setTimeout(r, 500))
@@ -1042,7 +1042,7 @@ export function comparePickScript(index, pick) {
 /** A free OpenCode model's id as a pick: searched by its first word, matched by its words in order ("Mimo V2.6 Flash"). */
 export function comparePick(id) {
   const words = id.replace(/^opencode\//, '').replace(/-free$/, '').split('-')
-  return { search: words[0], row: '^' + words.map((word) => word.replace(/[.*+?^$()|[\]\\{}]/g, (c) => '\\' + c)).join('.*'), free: /-free$/.test(id) }
+  return { search: words[0], row: '^' + words.map((word) => word.replace(/[.*+?^$()|[\]\\{}]/g, (c) => '\\' + c)).join('.*'), free: /-free$/.test(id), id }
 }
 
 /** Done in the picker, if it is open, and the columns' chips as they read after. Resolves to JSON `{ chips }`. */
