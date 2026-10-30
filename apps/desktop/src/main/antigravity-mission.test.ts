@@ -155,7 +155,8 @@ describe('finding the running Antigravity', () => {
     expect(parseServerCommandLine('language_server.exe --override_ide_name antigravity')).toBeUndefined()
   })
 
-  it('looks under both spellings of the install folder', () => {
+  // Antigravity's app route is looked for on a Windows host only (%LOCALAPPDATA%\Programs), which joins its path this way.
+  it.skipIf(process.platform !== 'win32')('looks under both spellings of the install folder', () => {
     expect(antigravityExecutableCandidates('C:\\lad')).toEqual([
       'C:\\lad\\Programs\\antigravity\\resources\\bin\\language_server.exe',
       'C:\\lad\\Programs\\Antigravity\\resources\\bin\\language_server.exe'
