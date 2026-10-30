@@ -10,6 +10,7 @@ import { DiffView } from './DiffView.js'
 import { Icon } from './Icon.js'
 import { InlineProse } from './ThreadItems.js'
 import { fileMenuEvent } from '../fileMenuOpen.js'
+import { isShowFilesChord, showFilesChordLabel } from '../changesKeys.js'
 
 /**
  * THE FOLDER'S CHANGES, IN ONE PANEL (0.732, shared/folder-diff.ts), laid out as Claude Code's own (claude.ai/code,
@@ -104,7 +105,7 @@ export function ChangesPanel({ workspacePath, running, onClose, walkWith, commit
           className={`lc-viewer__action${showFiles ? ' is-on' : ''}`}
           aria-pressed={showFiles}
           aria-label="Show files"
-          title="Show the files (Ctrl+Shift+Y)"
+          title={`Show the files (${showFilesChordLabel(window.desktop?.platform)})`}
           onClick={() => setShowFiles(!showFiles)}
         >
           <Icon name="columns" size={13} />
@@ -165,7 +166,7 @@ export function ChangesPanel({ workspacePath, running, onClose, walkWith, commit
       <div
         className="lc-changes__body"
         onKeyDown={(event) => {
-          if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'y') {
+          if (isShowFilesChord(event, window.desktop?.platform)) {
             event.preventDefault()
             setShowFiles(!showFiles)
           }

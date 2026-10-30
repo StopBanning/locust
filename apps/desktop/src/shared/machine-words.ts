@@ -14,9 +14,11 @@ export interface MachineWords {
   readonly computer: string
   /** The verb alone, for "Start Locust when you sign in" (F19). */
   readonly logIn: string
+  /** The key a shortcut is held with, as a title names it: "Cmd" on a Mac, "Ctrl" elsewhere (F24). */
+  readonly modifier: string
 }
 
 export const machineWords = (platform: string | undefined): MachineWords =>
   platform === 'darwin'
-    ? { tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac', logIn: 'log in' }
-    : { tray: 'tray', signIn: 'sign in to Windows', computer: 'PC', logIn: 'sign in' }
+    ? { tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac', logIn: 'log in', modifier: 'Cmd' }
+    : { tray: 'tray', signIn: 'sign in to Windows', computer: 'PC', logIn: 'sign in', modifier: 'Ctrl' }
