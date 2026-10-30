@@ -26,6 +26,7 @@ import type { SavedWindow } from './window-bounds.js'
 import { app, BrowserWindow, clipboard, crashReporter, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, powerSaveBlocker, protocol, safeStorage, screen, session, shell, Tray } from 'electron'
 import { createVoiceHost } from './voice-host.js'
 import { voicePermission } from './voice-permission.js'
+import { windowChrome } from './window-chrome.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from '../shared/voice.js'
 import { TALK_SHORTCUT_PENDING, TALK_SHORTCUT_PRESSED, TALK_SHORTCUT_READ, TALK_SHORTCUT_SET, isTalkShortcut, type TalkShortcutPress } from '../shared/talk-shortcut.js'
 import { LOCUST_LINK_TAKE, LOCUST_LINK_WAITING, linkInArguments, parseLocustLink, type LocustLink } from '../shared/locust-link.js'
@@ -1479,9 +1480,7 @@ const createWindow = (
     minHeight: opening.minHeight,
     center: opening.x === undefined,
     show: false,
-    frame: false,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: false,
+    ...windowChrome(process.platform),
     backgroundColor: windowGround(appearanceNow().resolved),
     // The Locust mark, rasterised by `_tools/render-icon.cjs`. Resolved from
     // the build output, which sits two levels below the app directory both in
