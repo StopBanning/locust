@@ -22,8 +22,9 @@ function disk(files: Readonly<Record<string, string>>) {
   }
 }
 
-const HOME = 'C:/Users/colin'
-const WS = 'C:/Users/colin/shop'
+// Absolute on the machine running the test: readRuntimeSetup reads that machine's own files, by its own path rules.
+const HOME = process.platform === 'win32' ? 'C:/Users/colin' : '/Users/colin'
+const WS = `${HOME}/shop`
 
 describe("what each runtime has set up for itself", () => {
   it('reads Claude Code hooks from user and project settings, and MCP servers from three places, names only', async () => {
@@ -31,13 +32,13 @@ describe("what each runtime has set up for itself", () => {
       workspacePath: WS,
       homeDirectory: HOME,
       read: disk({
-        'C:/Users/colin/.claude/settings.json': JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'secret.sh' }] }], PreToolUse: [{}, {}] } }),
-        'C:/Users/colin/shop/.claude/settings.json': JSON.stringify({ hooks: { PostToolUse: [{}] } }),
-        'C:/Users/colin/.claude.json': JSON.stringify({
+        [`${HOME}/.claude/settings.json`]: JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'secret.sh' }] }], PreToolUse: [{}, {}] } }),
+        [`${WS}/.claude/settings.json`]: JSON.stringify({ hooks: { PostToolUse: [{}] } }),
+        [`${HOME}/.claude.json`]: JSON.stringify({
           mcpServers: { github: { command: 'npx', args: ['--token', 'SECRET'] } },
-          projects: { 'C:\\Users\\colin\\shop': { mcpServers: { robinhood: {} } }, 'C:/elsewhere': { mcpServers: { other: {} } } }
+          projects: { [WS]: { mcpServers: { robinhood: {} } }, 'C:/elsewhere': { mcpServers: { other: {} } } }
         }),
-        'C:/Users/colin/shop/.mcp.json': JSON.stringify({ mcpServers: { playwright: {} } })
+        [`${WS}/.mcp.json`]: JSON.stringify({ mcpServers: { playwright: {} } })
       })
     })
     expect(setup.claude?.hooks).toEqual(['Stop (1)', 'PreToolUse (2)', 'PostToolUse (1)'])
@@ -52,7 +53,7 @@ describe("what each runtime has set up for itself", () => {
       workspacePath: undefined,
       homeDirectory: HOME,
       read: disk({
-        'C:/Users/colin/.codex/config.toml': [
+        [`${HOME}/.codex/config.toml`]: [
           'model = "gpt-5"',
           'notify = ["node", "C:\\\\scripts\\\\notify.mjs"]',
           '',
@@ -77,10 +78,10 @@ describe("what each runtime has set up for itself", () => {
       workspacePath: WS,
       homeDirectory: HOME,
       read: disk({
-        'C:/Users/colin/.cursor/mcp.json': JSON.stringify({ mcpServers: { figma: {} } }),
-        'C:/Users/colin/shop/.cursor/hooks.json': JSON.stringify({ hooks: { afterFileEdit: [{ command: 'fmt' }] } }),
-        'C:/Users/colin/shop/opencode.json': JSON.stringify({ mcp: { context7: {} } }),
-        'C:/Users/colin/.copilot/mcp-config.json': JSON.stringify({ mcpServers: { github: {} } })
+        [`${HOME}/.cursor/mcp.json`]: JSON.stringify({ mcpServers: { figma: {} } }),
+        [`${WS}/.cursor/hooks.json`]: JSON.stringify({ hooks: { afterFileEdit: [{ command: 'fmt' }] } }),
+        [`${WS}/opencode.json`]: JSON.stringify({ mcp: { context7: {} } }),
+        [`${HOME}/.copilot/mcp-config.json`]: JSON.stringify({ mcpServers: { github: {} } })
       })
     })
     expect(setup.cursor).toMatchObject({ mcpServers: ['figma'], hooks: ['afterFileEdit (1)'] })
@@ -93,22 +94,22 @@ describe("what each runtime has set up for itself", () => {
       workspacePath: WS,
       homeDirectory: HOME,
       read: disk({
-        'C:/Users/colin/.claude/settings.json': '{not json',
-        'C:/Users/colin/.cursor/mcp.json': '<<EACCES>>'
+        [`${HOME}/.claude/settings.json`]: '{not json',
+        [`${HOME}/.cursor/mcp.json`]: '<<EACCES>>'
       })
     })
     expect(setup.claude?.hooks).toEqual([])
-    expect(setup.claude?.unreadable.map((p) => p.replace(/\\/g, '/'))).toEqual(['C:/Users/colin/.claude/settings.json'])
-    expect(setup.cursor?.unreadable.map((p) => p.replace(/\\/g, '/'))).toEqual(['C:/Users/colin/.cursor/mcp.json'])
+    expect(setup.claude?.unreadable.map((p) => p.replace(/\\/g, '/'))).toEqual([`${HOME}/.claude/settings.json`])
+    expect(setup.cursor?.unreadable.map((p) => p.replace(/\\/g, '/'))).toEqual([`${HOME}/.cursor/mcp.json`])
     expect(setup.codex).toEqual({ mcpServers: [], hooks: [], skills: [], agents: [], sources: [], unreadable: [] })
   })
 
   // 0.824: the names an Ask or Plan run on Copilot leaves off, from the same file.
   it('names the MCP servers in the person’s own Copilot settings, and none when there are none to read', async () => {
-    const read = disk({ 'C:/Users/colin/.copilot/mcp-config.json': JSON.stringify({ mcpServers: { notes: { command: 'n' }, 'robinhood-trading': { url: 'https://x' } } }) })
+    const read = disk({ [`${HOME}/.copilot/mcp-config.json`]: JSON.stringify({ mcpServers: { notes: { command: 'n' }, 'robinhood-trading': { url: 'https://x' } } }) })
     expect(await copilotMcpServerNames({ homeDirectory: HOME, read })).toEqual(['notes', 'robinhood-trading'])
     expect(await copilotMcpServerNames({ homeDirectory: HOME, read: disk({}) })).toEqual([])
-    expect(await copilotMcpServerNames({ homeDirectory: HOME, read: disk({ 'C:/Users/colin/.copilot/mcp-config.json': '{not json' }) })).toEqual([])
+    expect(await copilotMcpServerNames({ homeDirectory: HOME, read: disk({ [`${HOME}/.copilot/mcp-config.json`]: '{not json' }) })).toEqual([])
   })
 })
 
@@ -132,15 +133,15 @@ describe('the skills each runtime finds', () => {
     }
   }
   const tree = {
-    'C:/Users/colin/.claude/skills': ['reskin/', 'new-lead/'],
-    'C:/Users/colin/.agents/skills': ['shared-one/'],
-    'C:/Users/colin/.codex/skills': ['.system/', 'codex-own/'],
-    'C:/Users/colin/shop/.agents/skills': ['project-agents/'],
-    'C:/Users/colin/shop/.opencode/skills': ['opencode-own/'],
-    'C:/Users/colin/.copilot/skills': ['copilot-own/'],
-    'C:/Users/colin/shop/.github/skills': ['github-project/'],
-    'C:/Users/colin/.cursor/skills': ['cursor-own/'],
-    'C:/Users/colin/.cursor/skills-cursor': ['canvas/']
+    [`${HOME}/.claude/skills`]: ['reskin/', 'new-lead/'],
+    [`${HOME}/.agents/skills`]: ['shared-one/'],
+    [`${HOME}/.codex/skills`]: ['.system/', 'codex-own/'],
+    [`${WS}/.agents/skills`]: ['project-agents/'],
+    [`${WS}/.opencode/skills`]: ['opencode-own/'],
+    [`${HOME}/.copilot/skills`]: ['copilot-own/'],
+    [`${WS}/.github/skills`]: ['github-project/'],
+    [`${HOME}/.cursor/skills`]: ['cursor-own/'],
+    [`${HOME}/.cursor/skills-cursor`]: ['canvas/']
   }
 
   it('lists Codex skills from ~/.codex/skills and the .agents folders, never the Claude folder or its built-ins', async () => {
