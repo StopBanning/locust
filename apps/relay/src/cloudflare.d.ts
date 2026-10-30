@@ -49,3 +49,34 @@ declare module '*.png' {
   const bytes: ArrayBuffer
   export default bytes
 }
+
+/** The parts of an R2 bucket the relay's sync uses (account.ts). https://developers.cloudflare.com/r2/api/workers/workers-api-reference/ */
+interface R2Object {
+  readonly key: string
+  readonly size: number
+  readonly uploaded: Date
+}
+
+interface R2ObjectBody extends R2Object {
+  readonly body: ReadableStream
+}
+
+interface R2Objects {
+  readonly objects: R2Object[]
+  readonly truncated: boolean
+  readonly cursor?: string
+}
+
+interface R2Bucket {
+  head(key: string): Promise<R2Object | null>
+  get(key: string): Promise<R2ObjectBody | null>
+  put(key: string, value: ReadableStream | ArrayBuffer): Promise<R2Object | null>
+  list(options?: { readonly prefix?: string; readonly cursor?: string; readonly limit?: number }): Promise<R2Objects>
+  delete(keys: string | string[]): Promise<void>
+}
+
+declare class FixedLengthStream {
+  constructor(length: number)
+  readonly readable: ReadableStream
+  readonly writable: WritableStream
+}

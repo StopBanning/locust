@@ -1,6 +1,8 @@
 import { roomCore, type Attachment, type Peer } from './room-core.js'
 import { vapidAuthorization, type VapidKeys } from './vapid.js'
 import { forgetAccountRoom, githubOffered } from './github.js'
+import { accountName } from './account.js'
+import { MAX_SYNC_OBJECT } from './sync.js'
 import { MAX_FRAME } from './protocol.js'
 import { MAX_MCP_BODY, MCP_ASK_MS } from './mcp.js'
 import { mcpPage, mcpPageHeaders } from './mcp-page.js'
@@ -94,7 +96,7 @@ export class Room {
     return next
   }
 
-  constructor(private readonly state: DurableObjectState, env: RoomEnv) {
+  constructor(private readonly state: DurableObjectState, private readonly env: RoomEnv) {
     const vapid = vapidKeysOf(env)
     state.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'))
     this.core = roomCore({
@@ -152,6 +154,44 @@ export class Room {
       clearTimeout(timer)
       this.waiting.delete(ask)
     }
+  }
+
+  /**
+   * THE ACCOUNT'S SEALED COPIES (docs/PLAN-2026-10-30-ACCOUNTS.md), over HTTPS with the PC's own token as a bearer:
+   * GET `sync` lists the account's copies; PUT and DELETE `sync/<id>` write this room's own; GET `sync/<room>/<id>`
+   * reads any of the account's; DELETE `sync` removes them all. The room answers who is asking (room-core.ts syncWho),
+   * and the account's object keeps and counts the files (account.ts, sync.ts).
+   */
+  private async syncFetch(request: Request, first: string | undefined, second: string | undefined): Promise<Response> {
+    const refuse = (status: number, error: string): Response => json(status, { error })
+    if (this.env.ACCOUNTS === undefined) return refuse(501, 'sync-off')
+    const bearer = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') ?? '')?.[1]
+    const who = await this.serial(() => this.core.syncWho(bearer))
+    if (who.status !== 200 || !('user' in who)) return json(who.status, 'body' in who ? who.body : {})
+    const ask = (op: string, method: string, query: Record<string, string>, body?: ArrayBuffer): Promise<Response> => {
+      const url = `https://account/sync/${op}?${new URLSearchParams({ user: String(who.user), ...query }).toString()}`
+      const headers: Record<string, string> = body === undefined ? {} : { 'content-length': String(body.byteLength) }
+      return this.env.ACCOUNTS!.get(this.env.ACCOUNTS!.idFromName(accountName(who.user))).fetch(new Request(url, { method, headers, ...(body === undefined ? {} : { body }) }))
+    }
+    const method = request.method
+    if (first === undefined) {
+      if (method === 'GET') return ask('list', 'GET', {})
+      if (method === 'DELETE') return ask('remove-all', 'DELETE', {})
+      return refuse(405, 'method')
+    }
+    if (second === undefined) {
+      if (method === 'PUT') {
+        // The length is checked before a byte is read.
+        const length = Number(request.headers.get('content-length') ?? Number.NaN)
+        if (!Number.isSafeInteger(length) || length < 1) return refuse(411, 'length')
+        if (length > MAX_SYNC_OBJECT) return refuse(413, 'too-big')
+        return ask('put', 'PUT', { room: who.room, id: first }, await request.arrayBuffer())
+      }
+      if (method === 'DELETE') return ask('remove', 'DELETE', { room: who.room, id: first })
+      return refuse(405, 'method')
+    }
+    if (method === 'GET') return ask('get', 'GET', { from: first, id: second })
+    return refuse(405, 'method')
   }
 
   /** Other apps from anywhere (0.841): signing in, and the MCP requests themselves. */
@@ -216,6 +256,9 @@ export class Room {
         : this.core.githubTicket({ user }))
       return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
     }
+    // The account's sealed copies (docs/PLAN-2026-10-30-ACCOUNTS.md): this room's PC, by its token, then the account.
+    const sync = /^\/v1\/room\/[^/]+\/sync(?:\/([^/]+))?(?:\/([^/]+))?$/.exec(path)
+    if (sync !== null) return this.syncFetch(request, sync[1], sync[2])
     const hook = /\/hook\/([^/]+)$/.exec(new URL(request.url).pathname)?.[1]
     if (hook !== undefined) {
       if (request.method !== 'POST') return new Response('{"error":"method"}', { status: 405, headers: { allow: 'POST' } })
