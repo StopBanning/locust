@@ -5,6 +5,8 @@ import { Select } from './Select.js'
 export function VoiceSettings({ api = typeof window === 'undefined' ? undefined : window.desktop?.voice, platform = typeof window === 'undefined' ? undefined : window.desktop?.platform }: { readonly api?: VoiceApi; readonly platform?: string }) {
   // Fast and Accurate run whisper.cpp's Windows build; elsewhere they say so (0.843, the first Mac run).
   const windowsOnly = platform !== undefined && platform !== 'win32' ? ' (Windows only for now)' : ''
+  // Where the saved key is locked: Windows' account, a Mac's keychain (the first Mac run, 2026-10-30).
+  const lockedTo = platform === 'darwin' ? "this Mac's keychain" : 'your Windows account'
   const [settings, setSettings] = useState<Settings>()
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
@@ -31,7 +33,7 @@ export function VoiceSettings({ api = typeof window === 'undefined' ? undefined 
       { value: 'openai', label: 'Your OpenAI account' }
     ]} />
     {settings?.mode === 'openai' && <div>
-      <p className="lc-settings__note">{settings.hasKey ? 'API key saved. It is locked to your Windows account.' : 'Add your OpenAI API key. A ChatGPT subscription does not include API usage.'}</p>
+      <p className="lc-settings__note">{settings.hasKey ? `API key saved. It is locked to ${lockedTo}.` : 'Add your OpenAI API key. A ChatGPT subscription does not include API usage.'}</p>
       <input className="lc-input" type="password" aria-label="OpenAI voice API key" autoComplete="off" spellCheck={false} value={key} disabled={busy} onChange={(event) => { setKey(event.target.value) }} placeholder={settings.hasKey ? 'Replace saved key' : 'API key'} />
       <button type="button" className="lc-control lc-control--boxed" disabled={busy || !key.trim()} onClick={() => { void save({ key }) }}>Save key</button>
       {settings.hasKey && <button type="button" className="lc-control" disabled={busy} onClick={() => { void save({ key: '' }) }}>Remove key</button>}

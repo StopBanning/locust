@@ -38,6 +38,13 @@ describe('a Mac says menu bar and log in', () => {
     }
   })
 
+  // A saved OpenAI key is locked to a Mac's keychain there, not to "your Windows account" (the first Mac run).
+  it('says where a saved voice key is locked on each machine', () => {
+    const voice = readFileSync(fileURLToPath(new URL('./components/VoiceSettings.tsx', import.meta.url)), 'utf8')
+    expect(voice).toContain(`platform === 'darwin' ? "this Mac's keychain" : 'your Windows account'`)
+    expect(voice).not.toContain("'API key saved. It is locked to your Windows account.'")
+  })
+
   it('keeps Windows exactly as it was', () => {
     expect(draw(stay(), 'win32')).toContain('Keep it running in the tray when you close its window, and start it when you sign in to Windows.')
   })
