@@ -11,6 +11,26 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.842.0 - 2026-10-30
+<!-- big -->
+
+### New
+
+- **An app like Claude Duet can carry on a conversation that ran out, with another AI agent.** In Settings > General, under Let your other AI apps use Locust, turn on Let apps see your conversations. An app can then list your 20 newest conversations in the folder Locust has open, see which stopped because a plan ran out or a provider failed, and carry one on with another agent and model, as Carry on does on its card. It runs in the stopped turn’s own mode, never above Ask unless you turned on each teammate’s own mode. With the switch off, an app can carry on only a conversation it started.
+- **An app can pick a teammate’s model and effort for one turn.** It can ask which models a teammate has, then name one, and an effort that model takes, when it starts a conversation or sends a message. Only models the teammate’s own AI agent offers, never your local ones, on the teammate’s own account; the mode stays Ask unless you turned on each teammate’s own mode.
+- **An app can wait for a reply, and stop a turn it started.** Instead of asking again and again, it can wait up to 20 seconds for a turn to finish. It can stop a turn it started, like Stop in the window: what the turn already changed stays, and you can undo it in Locust. It can never stop a turn you started.
+- **Keep it running, under Use from anywhere.** Once Locust quits, no app can open it again. Use from anywhere now says so, and its Keep it running button turns on the Startup switches that keep Locust reachable whenever the computer is on: keep running in the tray when you close the window, and start when you sign in to Windows. An app that finds Locust closed is told the same.
+
+### Improved
+
+- **An app can ask for a read-only turn.** It runs in Ask even when the teammate’s own mode is Auto, and nothing an app sends raises a turn’s mode.
+- **An app is told which folder its turns work in,** by the folder’s name, so it can tell when you have another project open.
+
+### Fixed
+
+- **When Google refuses an Antigravity turn, the card says what to do.** Instead of Google’s error line alone, it says the work so far is kept, to send "carry on", and to start a new conversation if Google refuses again.
+- **Signing in with GitHub at app.locust.lol/desk says why it failed** when GitHub gives no account: GitHub’s own reason, such as a code that ran out, where it said only that GitHub’s answer could not be read.
+
 ## 0.841.0 - 2026-10-29
 <!-- big -->
 
