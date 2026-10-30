@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import { bundledNpmBinDirectory, bundledNpmPaths, bundledNpmPrefix, findBundledNpm } from './bundled-npm.js'
 
+// The app's own folders are on the machine running the test, joined by its rules: as written on Windows, with / elsewhere.
+const here = (windowsPath: string): string =>
+  process.platform === 'win32' ? windowsPath : windowsPath.replace(/^C:/, '').replace(/\\/g, '/')
+
 /**
  * Where it installs to, and where the locator then looks.
  *
@@ -13,8 +17,8 @@ import { bundledNpmBinDirectory, bundledNpmPaths, bundledNpmPrefix, findBundledN
  */
 describe('where the bundled npm installs', () => {
   it('is a folder in the profile that Locust owns, not npm\'s guess from the binary', () => {
-    expect(bundledNpmPrefix('C:\\Users\\ian\\AppData\\Roaming\\Locust')).toBe(
-      'C:\\Users\\ian\\AppData\\Roaming\\Locust\\npm'
+    expect(bundledNpmPrefix(here('C:\\Users\\ian\\AppData\\Roaming\\Locust'))).toBe(
+      here('C:\\Users\\ian\\AppData\\Roaming\\Locust\\npm')
     )
   })
 
@@ -36,9 +40,9 @@ describe('where the bundled npm installs', () => {
  * these", and without Node every button on it was disabled.
  */
 
-const PACKAGED = 'C:\\Program Files\\Locust\\resources'
-const APP = 'C:\\Program Files\\Locust\\resources\\app.asar'
-const EXEC = 'C:\\Program Files\\Locust\\Locust.exe'
+const PACKAGED = here('C:\\Program Files\\Locust\\resources')
+const APP = here('C:\\Program Files\\Locust\\resources\\app.asar')
+const EXEC = here('C:\\Program Files\\Locust\\Locust.exe')
 
 describe('the npm this app carries', () => {
   it('is looked for beside the asar, the one route that carries the whole tree', () => {
@@ -50,7 +54,7 @@ describe('the npm this app carries', () => {
     // with "Cannot find module 'graceful-fs'".
     const [first] = bundledNpmPaths(PACKAGED, APP)
     expect(first).toBe(
-      'C:\\Program Files\\Locust\\resources\\app.asar.unpacked\\resources\\npm\\bin\\npm-cli.js'
+      here('C:\\Program Files\\Locust\\resources\\app.asar.unpacked\\resources\\npm\\bin\\npm-cli.js')
     )
   })
 
@@ -69,12 +73,12 @@ describe('the npm this app carries', () => {
 
   it('falls back to the workspace copy in development', () => {
     const found = findBundledNpm({
-      resourcesPath: 'C:\\nope',
-      appPath: 'C:\\repo\\apps\\desktop',
+      resourcesPath: here('C:\\nope'),
+      appPath: here('C:\\repo\\apps\\desktop'),
       execPath: EXEC,
-      exists: (path) => path === 'C:\\repo\\apps\\desktop\\node_modules\\npm\\bin\\npm-cli.js'
+      exists: (path) => path === here('C:\\repo\\apps\\desktop\\node_modules\\npm\\bin\\npm-cli.js')
     })
-    expect(found?.cliPath).toBe('C:\\repo\\apps\\desktop\\node_modules\\npm\\bin\\npm-cli.js')
+    expect(found?.cliPath).toBe(here('C:\\repo\\apps\\desktop\\node_modules\\npm\\bin\\npm-cli.js'))
   })
 
   it('is nothing at all when this build shipped none, rather than a path that is not there', () => {
