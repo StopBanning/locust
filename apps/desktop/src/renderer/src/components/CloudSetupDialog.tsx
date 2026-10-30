@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
+import { windowWords } from '../machineWords.js'
 
 import {
   CLOUD_AGENT_ACCOUNTS,
@@ -145,7 +146,7 @@ export function CloudSetupDialog({
         {(state.phase === 'ask' || state.phase === 'working' || state.phase === 'ready') && (
           <>
             <p className="lc-cloudsetup__lead">
-              {`${who} will work on a computer GitHub runs for you, with ${repoName ?? 'this repository'} on it, instead of on this PC. It keeps going when this PC sleeps, and nothing changes here until you apply it.`}
+              {`${who} will work on a computer GitHub runs for you, with ${repoName ?? 'this repository'} on it, instead of on this ${windowWords().computer}. It keeps going when this ${windowWords().computer} sleeps, and nothing changes here until you apply it.`}
             </p>
             <div className="lc-cloudsetup__facts">
               <div className="lc-cloudsetup__fact"><span className="lc-cloudsetup__label">Size</span><span>{CLOUD_MACHINE_WORDS.replace(', ', ' · ')} memory</span></div>
@@ -168,7 +169,7 @@ export function CloudSetupDialog({
         {(state.phase === 'sign-in' || state.phase === 'signing-in') && (
           <>
             <p className="lc-cloudsetup__lead">
-              {`${CLOUD_AGENT_NAMES[state.agent]} is not signed in on your cloud computer yet. Sign in once: Locust opens ${CLOUD_AGENT_MAKERS[state.agent]}'s own sign-in page in your browser, and you click Authorize, as you would on this PC. There is no code to copy.`}
+              {`${CLOUD_AGENT_NAMES[state.agent]} is not signed in on your cloud computer yet. Sign in once: Locust opens ${CLOUD_AGENT_MAKERS[state.agent]}'s own sign-in page in your browser, and you click Authorize, as you would on this ${windowWords().computer}. There is no code to copy.`}
             </p>
             <p className="lc-cloudsetup__note">
               The sign-in stays on that computer, and goes when the computer is deleted. Locust never sees it.

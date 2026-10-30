@@ -10,7 +10,11 @@ export interface MachineWords {
   readonly tray: string
   /** Starting with the computer, as its own settings say it. */
   readonly signIn: string
+  /** What the person calls this computer: "this PC", "this Mac" (F8, the first Mac run). */
+  readonly computer: string
 }
 
 export const machineWords = (platform: string | undefined): MachineWords =>
-  platform === 'darwin' ? { tray: 'menu bar', signIn: 'log in to this Mac' } : { tray: 'tray', signIn: 'sign in to Windows' }
+  platform === 'darwin'
+    ? { tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac' }
+    : { tray: 'tray', signIn: 'sign in to Windows', computer: 'PC' }

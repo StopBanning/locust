@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -15,8 +18,8 @@ const draw = (s: StayingReachable, platform: string): string => renderToStaticMa
 
 describe('a Mac says menu bar and log in', () => {
   it('names each machine as its own settings do', () => {
-    expect(machineWords('darwin')).toEqual({ tray: 'menu bar', signIn: 'log in to this Mac' })
-    expect(machineWords('win32')).toEqual({ tray: 'tray', signIn: 'sign in to Windows' })
+    expect(machineWords('darwin')).toEqual({ tray: 'menu bar', signIn: 'log in to this Mac', computer: 'Mac' })
+    expect(machineWords('win32')).toEqual({ tray: 'tray', signIn: 'sign in to Windows', computer: 'PC' })
     expect(machineWords(undefined)).toEqual(machineWords('win32'))
   })
 
@@ -26,6 +29,13 @@ describe('a Mac says menu bar and log in', () => {
     expect(html).not.toMatch(/tray|Windows/)
     const reached = draw(stay({ keepRunning: true, loginItem: { openAtLogin: true, available: true } }), 'darwin')
     expect(reached).toContain('it starts when you log in to this Mac, and it keeps running in the menu bar when you close its window. Quit from the menu bar')
+  })
+
+  // F8: Settings > AI agents said "this PC's sign-in" on a Mac; every place that named the PC now asks the machine.
+  it('names the computer by the machine, never "this PC" in the words themselves', () => {
+    for (const file of ['./agentAccounts.ts', './components/AgentAccountsSettings.tsx', './components/CloudSetupDialog.tsx', './components/Screens.tsx']) {
+      expect(readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8')).not.toMatch(/\bthis PC\b|\bThis PC\b/)
+    }
   })
 
   it('keeps Windows exactly as it was', () => {

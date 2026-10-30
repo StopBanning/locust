@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { accountFromRoute, type AgentAccount, type AccountAction, type AgentAccountsState } from '../../shared/agent-accounts.js'
+import { windowWords } from './machineWords.js'
 
 let accounts: readonly AgentAccount[] = []
 const listeners = new Set<() => void>()
@@ -24,5 +25,5 @@ export function useAgentAccounts() {
   useEffect(() => { void refreshAccounts() }, [])
   return list
 }
-export const accountName = (id: string | undefined) => id === undefined ? "This PC's sign-in" : accounts.find(a => a.id === id)?.name ?? 'Removed account'
+export const accountName = (id: string | undefined) => id === undefined ? `This ${windowWords().computer}'s sign-in` : accounts.find(a => a.id === id)?.name ?? 'Removed account'
 export const routeAccount = (route: { readonly account?: string; readonly resolvedRouteId?: string }) => route.account ?? accountFromRoute(route.resolvedRouteId ?? '')

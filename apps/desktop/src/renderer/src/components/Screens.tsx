@@ -2296,7 +2296,7 @@ export function SettingsScreen({
             */}
           {runtimes.some((runtime) => runtime.id === 'claude' && runtime.installed) && <RemoteControlSetting />}
           <p className="lc-settings__lede">
-            Each AI agent starts with this PC's sign-in. Claude Code and Codex can also use accounts you add here.
+            {`Each AI agent starts with this ${machineWords(startupPlatform()).computer}'s sign-in. Claude Code and Codex can also use accounts you add here.`}
           </p>
           {/*
             Only when NOTHING is installed, which is what someone who has just

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supportsAccounts, accountUsageKey, type AccountAction, type AgentAccount } from '../../../shared/agent-accounts.js'
 import { policyFeatureRefusal } from '../../../shared/organization-policy.js'
 import { accountAction, refreshAccounts, useAgentAccounts } from '../agentAccounts.js'
+import { windowWords } from '../machineWords.js'
 import { useOrganizationPolicy, ManagedPolicyNote } from '../organizationPolicy.js'
 import { Icon } from './Icon.js'
 import { UsageMeters } from './UsageMeters.js'
@@ -49,7 +50,7 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
   return <div className="lc-agentaccounts" data-runtime={runtime} aria-label={`${runtime} accounts`}>
     <div className="lc-agentaccounts__account">
       <span className="lc-agentaccounts__who">
-        <span className="lc-agentaccounts__name">This PC&apos;s sign-in</span>
+        <span className="lc-agentaccounts__name">{`This ${windowWords().computer}'s sign-in`}</span>
         <span className="lc-agentaccounts__state">Used when a teammate has no account picked.</span>
       </span>
     </div>
@@ -89,7 +90,7 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
     {message !== undefined && <p className="lc-settings__note" role="alert">{message}</p>}
     {removing !== undefined && <div className="lc-agentaccounts__confirm" role="alertdialog" aria-label={`Remove ${removing.name}?`}>
       <strong>Remove {removing.name}?</strong>
-      <p>This deletes only {removing.name}&apos;s agent home that Locust created: its sign-in, settings, session history and plugins. This PC&apos;s sign-in and your project files stay where they are. Teammates using this account will need another account selected.</p>
+      <p>This deletes only {removing.name}&apos;s agent home that Locust created: its sign-in, settings, session history and plugins. {`This ${windowWords().computer}'s sign-in and your project files stay where they are.`} Teammates using this account will need another account selected.</p>
       {removing.home !== undefined && <p className="lc-settings__note lc-mono">{removing.home}</p>}
       <span className="lc-agentaccounts__actions">
         <button type="button" className="lc-button lc-button--danger" disabled={busy} onClick={() => void act({ kind: 'remove', id: removing.id }).then(ok => { if (ok) setRemoving(undefined) })}>Delete this account</button>
