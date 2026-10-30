@@ -9273,6 +9273,8 @@ if (!ownsSingleInstanceLock) {
        * with nothing downloaded or installed.
        */
       supported: app.isPackaged && (macBundle !== undefined || (process.platform !== 'darwin' && (installedCopy || process.argv.includes('--update-check-only')))),
+      // Why not, when it is not: said in Settings in place of a guess (the first Mac run).
+      heldBack: !app.isPackaged ? 'development' : !updatesItself ? 'driven' : 'copy',
       checkOnly: macBundle === undefined && (!installedCopy || !updatesItself),
       liveMissionCount: () =>
         codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length,

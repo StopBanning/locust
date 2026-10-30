@@ -4,6 +4,7 @@ import { BOT_SIZE } from '../botSizes.js'
 import { boardSectionOf, teamBoard } from '../teamBoard.js'
 import { waitingLine } from '../homeTeamState.js'
 import { isConversationWait, type NeedsYouItem } from '../needsYou.js'
+import { heldBackLine } from '../updateLine.js'
 import { durationText, runSpanMs } from '../missionView.js'
 import { WhatsNew } from './WhatsNew.js'
 import { RemoteControlSetting } from './RemoteControlSetting.js'
@@ -1272,11 +1273,8 @@ function UpdateControl({
   const phase = update?.phase ?? 'idle'
   const line =
     phase === 'unsupported'
-      // macOS updates only a signed app, and the first Mac builds are not
-      // signed yet: said, with the way to the next build.
-      ? typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent)
-        ? 'On a Mac this build cannot update itself yet. Download the newest from the releases page and replace it.'
-        : 'This build cannot update itself. Installed copies check on their own.'
+      // This copy is held back, and why (updateLine.ts); the installed Locust updates itself on every system.
+      ? heldBackLine(update?.heldBack)
       : phase === 'checking'
         ? 'Checking…'
         : phase === 'current'

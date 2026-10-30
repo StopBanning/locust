@@ -354,6 +354,11 @@ export interface AppUpdateState {
   readonly percent?: number
   /** Set only when the phase is `failed`; never the provider's own text. */
   readonly message?: string
+  /**
+   * With the phase `unsupported`: why this copy does not update itself -- a development build, a launch a script
+   * drives (updates.ts mayUpdateItself), or a copy that is not the installed Locust.
+   */
+  readonly heldBack?: 'development' | 'driven' | 'copy'
 }
 
 export type AppUpdateResponse =

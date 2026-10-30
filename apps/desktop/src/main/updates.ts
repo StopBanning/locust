@@ -67,6 +67,8 @@ export interface UpdateServiceOptions {
   readonly currentVersion: string
   /** Whether this build can update itself at all. */
   readonly supported: boolean
+  /** Why it cannot, said with the `unsupported` phase so the window tells the truth. */
+  readonly heldBack?: AppUpdateState['heldBack']
   /** Ask the feed, never download or install: a copy run by the update smoke (0.507). */
   readonly checkOnly?: boolean
   /**
@@ -190,10 +192,12 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
     options.updater.allowDowngrade = false
   }
   takeLane()
+  const held = options.heldBack === undefined ? {} : { heldBack: options.heldBack }
   let state: AppUpdateState = {
     phase: options.supported ? 'idle' : 'unsupported',
     currentVersion: options.currentVersion,
-    everyBuild
+    everyBuild,
+    ...(options.supported ? {} : held)
   }
 
   // Every state carries the lane, so no phase change can drop it.
@@ -280,7 +284,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
     if (!options.supported) {
       // Said to the window too (0.507): the launch check is how Settings
       // learns it, and a copy showed "Not checked yet" with Check now live.
-      return { ok: true, data: publish({ phase: 'unsupported', currentVersion: options.currentVersion }) }
+      return { ok: true, data: publish({ phase: 'unsupported', currentVersion: options.currentVersion, ...held }) }
     }
     if (!quiet) publish({ phase: 'checking', currentVersion: options.currentVersion })
     try {
