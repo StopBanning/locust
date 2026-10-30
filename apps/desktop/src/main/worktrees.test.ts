@@ -72,21 +72,24 @@ describe('the pure parts', () => {
   })
 
   it('keeps only the trees Locust made under the folder out of a porcelain list', () => {
+    // git's list and the folder as the machine running the test gives them: on Windows git writes C:/w/shop for C:\w\shop.
+    const windows = process.platform === 'win32'
+    const shop = windows ? 'C:/w/shop' : '/w/shop'
     const output = [
-      'worktree C:/w/shop',
+      `worktree ${shop}`,
       'HEAD abc',
       'branch refs/heads/main',
       '',
-      'worktree C:/w/shop/.locust/worktrees/tm_wren',
+      `worktree ${shop}/.locust/worktrees/tm_wren`,
       'HEAD def',
       'branch refs/heads/locust/wren',
       '',
-      'worktree C:/elsewhere/other',
+      `worktree ${windows ? 'C:/elsewhere/other' : '/elsewhere/other'}`,
       'HEAD 123',
       'branch refs/heads/feature',
       ''
     ].join('\n')
-    expect(parseWorktreeList(output, 'C:\\w\\shop')).toEqual([{ teammateId: 'tm_wren', path: 'C:/w/shop/.locust/worktrees/tm_wren', branch: 'locust/wren' }])
+    expect(parseWorktreeList(output, windows ? 'C:\\w\\shop' : shop)).toEqual([{ teammateId: 'tm_wren', path: `${shop}/.locust/worktrees/tm_wren`, branch: 'locust/wren' }])
   })
 })
 
