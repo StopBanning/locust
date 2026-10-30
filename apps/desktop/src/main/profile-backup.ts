@@ -91,7 +91,7 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'reference-repositories': 'shallow reference copies: downloaded again after choosing a repository',
   'reference-trash': 'recoverable old reference copies on this machine, never permanently deleted by reference cleanup',
   'agent-accounts': 'added agent homes and sign-ins: they stay on this machine and are never copied into a backup',
-  'locust-mcp-connection.json': 'the local MCP server token and address: they belong to this computer's account and are minted again',
+  'locust-mcp-connection.json': 'the local MCP server token and address: they belong to this computer’s account and are minted again',
   'locust-mcp.json': 'whether other AI apps can use Locust on this machine: enable again after a restore',
   'phone.json': 'the key your phone on the home network was paired with: it belongs to this machine, so pair again after a restore',
   'phone-relay.json': "this computer's keys and the phones paired with it through Locust's relay: they belong to this machine, so pair again after a restore (0.826)",
