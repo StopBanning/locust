@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, posix } from 'node:path'
 
 import { MAC_RELEASES_API, newerMacRelease, type MacRelease } from './mac-release.js'
+import { removeStagedCopy } from './staged-copy.js'
 import type { UpdaterLike } from './updates.js'
 
 /**
@@ -178,7 +179,8 @@ export function createMacUpdater(options: MacUpdaterOptions): UpdaterLike {
     try {
       const source = join(mount, 'Locust.app')
       if (!existsSync(source)) throw new Error('The disk image holds no Locust.app.')
-      await rm(staged, { recursive: true, force: true })
+      // Not this file's `rm`: Electron's fs cannot remove a folder holding an app.asar (staged-copy.ts).
+      await removeStagedCopy(staged)
       const copied = await run('ditto', [source, staged])
       if (copied.code !== 0) throw new Error(`The new Locust could not be copied: ${copied.output.trim().slice(0, 200)}`)
       // Locust's own download carries no quarantine; a copy that somehow does would ask again.
