@@ -4,10 +4,11 @@ import { Icon } from './Icon.js'
 import { needsYouChip } from '../needsYou.js'
 
 /**
- * Window chrome. The design draws macOS traffic lights; this build runs on
- * Windows and owns its own window-control IPC, so the look is kept (mono
- * workspace title centered, run state at the right) and the controls are ours.
- * Per-platform chrome is worth revisiting when a mac build exists.
+ * Window chrome: the mono workspace title centered, run state at the right.
+ * On Windows and Linux the window is frameless and the controls are ours, at
+ * the right. On a Mac they are macOS's own traffic lights, which the window
+ * puts in this bar's empty left column (the first Mac run, 2026-10-30, found
+ * Windows' minimize, maximize and close drawn at the right there).
  */
 export function TitleBar({
   workspaceName,
@@ -50,8 +51,8 @@ export function TitleBar({
             {runningCount} running
           </span>
         )}
-        {/* In a browser (0.830) the browser's own window has these. */}
-        {(typeof window === 'undefined' || window.desktop?.remote === undefined) && <div className="lc-windowcontrols">
+        {/* In a browser (0.830) the browser's own window has these, and on a Mac macOS draws its own. */}
+        {(typeof window === 'undefined' || (window.desktop?.remote === undefined && window.desktop?.platform !== 'darwin')) && <div className="lc-windowcontrols">
           <button type="button" aria-label="Minimize" onClick={() => window.desktop?.minimize()}>
             <Icon name="minimize" size={14} />
           </button>
