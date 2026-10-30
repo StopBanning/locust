@@ -29,6 +29,9 @@ const check = (what, ok, detail) => {
   say(`  [${ok ? 'PASS' : 'FAIL'}] ${what}${detail === undefined ? '' : ` -- ${String(detail).slice(0, 260)}`}`)
 }
 const chip = `[...document.querySelectorAll('.lc-control')].find((b) => b.getAttribute('aria-haspopup') === 'listbox')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''`
+// The chip names the model and effort; the runtime is its mark and its title ("OpenCode / opencode/<model>"), and a
+// free model wears a Free badge (since after 0.709, when the chip read "OpenCode / Exo Free" in words).
+const route = `(() => { const c = [...document.querySelectorAll('.lc-control')].find((b) => b.getAttribute('aria-haspopup') === 'listbox'); return { title: c?.title ?? '', runtime: c?.querySelector('.lc-runtimemark')?.getAttribute('data-runtime') ?? '', free: c?.querySelector('.lc-control__free')?.textContent.trim() ?? '' } })()`
 
 try {
   await drive.capture('launch', () => drive.ready())
@@ -40,9 +43,10 @@ try {
   const freed = JSON.parse(String(await drive.capture('Use a free model pressed', () => drive.evaluate(`(async () => {
     ;[...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Use a free model')?.click()
     await new Promise((r) => setTimeout(r, 900))
-    return JSON.stringify({ chip: ${chip}, button: [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Use a free model') })
+    return JSON.stringify({ chip: ${chip}, route: ${route}, button: [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Use a free model') })
   })()`))))
-  check('pressed, the chat box is on OpenCode, on a free model', /OpenCode/.test(freed.chip) && /free/i.test(freed.chip), freed.chip)
+  check('pressed, the chat box is on OpenCode, on a free model',
+    freed.route?.runtime === 'opencode' && /^OpenCode \/ opencode\/[\w.-]+-free$/.test(freed.route?.title ?? '') && freed.route?.free === 'Free', JSON.stringify(freed))
   check('and the offer goes, having done its job', freed.button === false, JSON.stringify(freed))
 
   const form = JSON.parse(String(await drive.capture('New teammate, as it opens', () => drive.evaluate(`(async () => {

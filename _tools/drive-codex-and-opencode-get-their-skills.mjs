@@ -83,12 +83,13 @@ const SETUP = (name) => `(async () => {
   }
   return 'NO SETUP CARD: ' + (document.querySelector('.lc-setup')?.innerText.replace(/\\s+/g, ' ').slice(0, 300) ?? '')
 })()`
-const ask = async (name, routeWord) => {
+const ask = async (name, runtime) => {
   // A /setup card left open from the teammate before would cover this one's answer in the frame.
   await drive.evaluate(`document.querySelector('.lc-setup .lc-dialog__close')?.click()`)
   const opened = await drive.evaluate(openTeammateScript(name))
-  const route = String(await drive.evaluate(`document.querySelector('form.command-dock')?.innerText.replace(/\\s+/g, ' ').slice(0, 200) ?? ''`))
-  if (!routeWord.test(route)) throw new Error(`${name} is not on the route this drive asks for: ${route}`)
+  // The chip names the model; its runtime is the chip's mark and title (since after 0.709 it is not in the words).
+  const route = JSON.parse(String(await drive.evaluate(`(() => { const c = [...document.querySelectorAll('form.command-dock .lc-control')].find((b) => b.getAttribute('aria-haspopup') === 'listbox'); return JSON.stringify({ runtime: c?.querySelector('.lc-runtimemark')?.getAttribute('data-runtime') ?? '', title: c?.title ?? '' }) })()`)))
+  if (route.runtime !== runtime) throw new Error(`${name} is not on the route this drive asks for (${runtime}): ${JSON.stringify(route)}`)
   const sent = await drive.evaluate(sendAndWaitScript('What is the probe word? If one of your skills gives it, use that skill. Answer with the word alone.', { waitSeconds: 300 }))
   return `${String(opened)} | ${String(sent).slice(0, 80)} | ${String(await drive.evaluate(THREAD)).slice(-900)}`
 }
@@ -96,12 +97,12 @@ const ask = async (name, routeWord) => {
 try {
   await drive.ready()
   await drive.resize(1209, 770)
-  const cedar = String(await drive.capture('Cedar on OpenCode is asked for the probe word', () => ask('Cedar', /OpenCode/)))
+  const cedar = String(await drive.capture('Cedar on OpenCode is asked for the probe word', () => ask('Cedar', 'opencode')))
   check('OpenCode: the teammate’s own skill gave the word', cedar.includes(WORD), cedar)
   const cedarSetup = String(await drive.capture('/setup: what Cedar’s turns are given', () => drive.evaluate(SETUP('Cedar'))))
   check('OpenCode: /setup names its own skill and the folders OpenCode reads', /probe-word/.test(cedarSetup) && /\.opencode\/skills/.test(cedarSetup) && /in your skill folders, read by OpenCode itself/.test(cedarSetup), cedarSetup)
   if (withCodex) {
-    const wren = String(await drive.capture('Wren on Codex is asked for the probe word', () => ask('Wren', /Codex/)))
+    const wren = String(await drive.capture('Wren on Codex is asked for the probe word', () => ask('Wren', 'codex')))
     check('Codex: the teammate’s own skill gave the word', wren.includes(WORD), wren)
   } else {
     await drive.evaluate(openTeammateScript('Wren'))
@@ -109,7 +110,7 @@ try {
   const wrenSetup = String(await drive.capture('/setup: what Wren’s turns are given', () => drive.evaluate(SETUP('Wren'))))
   check('Codex: /setup names its own skill and .agents/skills', /probe-word/.test(wrenSetup) && /\.agents\/skills/.test(wrenSetup) && /in your skill folders, read by Codex( CLI)? itself/.test(wrenSetup), wrenSetup)
   if (withAgy) {
-    const ash = String(await drive.capture('Ash on Antigravity is asked for the probe word', () => ask('Ash', /Antigravity/)))
+    const ash = String(await drive.capture('Ash on Antigravity is asked for the probe word', () => ask('Ash', 'antigravity')))
     check('Antigravity: the teammate’s own skill gave the word', ash.includes(WORD), ash)
   }
 } catch (error) {
