@@ -19,14 +19,14 @@
 // send on any other route.
 
 import '../_tools/scratch-root.mjs'
-import { FREE_ROW, FREE_SEARCH } from './drive-lib.mjs'
+import { localPath, FREE_ROW, FREE_SEARCH } from './drive-lib.mjs'
 
 import { spawn } from 'node:child_process'
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
 const NPM_DIR = join(homedir(), 'AppData', 'Roaming', 'npm')
 const PORT = 9501

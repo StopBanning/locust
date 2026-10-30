@@ -28,10 +28,11 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { localPath } from './local-path.mjs'
 
 const VBOX = 'C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe'
 const VM = 'LocustBetaFresh-20260920'
-const SHOTS = new URL('../docs/beta-vm/', import.meta.url).pathname.slice(1)
+const SHOTS = localPath(new URL('../docs/beta-vm/', import.meta.url))
 const CDP_PORT = 9222
 
 const say = (line) => console.error(line)

@@ -19,8 +19,9 @@ import { spawnSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { localPath } from './local-path.mjs'
 
-const ROOT = new URL('../', import.meta.url).pathname.slice(1)
+const ROOT = localPath(new URL('../', import.meta.url))
 const [input, output] = process.argv.slice(2)
 if (input === undefined || output === undefined) {
   console.error('usage: node _tools/replay-claude-stream.mjs <stream.jsonl> <report.json>')

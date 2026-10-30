@@ -12,13 +12,14 @@ import { spawn } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
+import { localPath } from './local-path.mjs'
 
 const [profile, workspace] = process.argv.slice(2)
 if (!profile || !workspace) {
   console.error('usage: node _tools/probe-schedule-edit.mjs <profile> <workspace>')
   process.exit(2)
 }
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
 const NPM_DIR = join(homedir(), 'AppData', 'Roaming', 'npm')
 const PORT = 9297

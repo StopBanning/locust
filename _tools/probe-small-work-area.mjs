@@ -13,12 +13,12 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { say, scratchRepository, sleep, startDrive, teammateFace } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, sleep, startDrive, teammateFace } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag')
-const outPath = tag === undefined ? undefined : join(new URL('../docs/beta-fixes-2026-09-24/', import.meta.url).pathname.slice(1), `small-work-area-${tag}`)
+const outPath = tag === undefined ? undefined : join(localPath(new URL('../docs/beta-fixes-2026-09-24/', import.meta.url)), `small-work-area-${tag}`)
 if (outPath !== undefined) await mkdir(outPath, { recursive: true })
 
 const drive = await startDrive({

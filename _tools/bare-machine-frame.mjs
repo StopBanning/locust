@@ -23,8 +23,9 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { localPath } from './local-path.mjs'
 
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const EXE = join(APP_DIR, 'release', 'win-unpacked', 'Locust.exe')
 const PORT = 9506
 

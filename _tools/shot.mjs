@@ -10,11 +10,12 @@ import { spawn } from 'node:child_process'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { localPath } from './local-path.mjs'
 
 const OUT = process.argv[2] ?? 'shot.png'
 const WIDTH = Number(process.argv[3] ?? 1014)
 const HEIGHT = Number(process.argv[4] ?? 786)
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
 const PORT = 9304
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

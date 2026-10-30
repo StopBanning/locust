@@ -18,7 +18,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { FREE_ROUTE } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -81,7 +81,7 @@ const ENV = {
   'drive-handoff-refused': { LOCUST_SPEND: '1' }
 }
 
-const tools = new URL('./', import.meta.url).pathname.slice(1)
+const tools = localPath(new URL('./', import.meta.url))
 const drives = readdirSync(tools)
   .filter((name) => /^drive-.*\.mjs$/.test(name) && name !== 'drive-lib.mjs')
   .filter((name) => {
@@ -132,7 +132,7 @@ const PASS_LINE = /\[PASS\]|^\s*PASS:/
 const FAIL_LINE = /\[FAIL\]|^\s*FAIL:/
 async function runDrive(name, model, attempt = 0) {
   const child = spawn(process.execPath, [join(tools, name), '--packaged', packaged], {
-    cwd: new URL('../', import.meta.url).pathname.slice(1),
+    cwd: localPath(new URL('../', import.meta.url)),
     // The free model is the drives' own (drive-lib FREE_ROUTE) unless LOCUST_FREE_MODEL says otherwise. This forced
     // Ling 3.0, and on 2026-10-06 Ling 3.0's provider was down ("Endpoint is unavailable", then rate limits): 41 of
     // the first 83 drives failed on it while Muse Spark answered.

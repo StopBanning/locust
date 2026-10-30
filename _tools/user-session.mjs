@@ -14,9 +14,9 @@ import { spawn, execFile } from 'node:child_process'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FREE_ROW, FREE_SEARCH, teammateFace } from './drive-lib.mjs'
+import { localPath, FREE_ROW, FREE_SEARCH, teammateFace } from './drive-lib.mjs'
 
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
 const NPM_DIR = join(homedir(), 'AppData', 'Roaming', 'npm')
 const PORT = 9291
@@ -33,7 +33,7 @@ try {
 } catch { /* free */ }
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-const OUT = join(new URL('../docs/user-session/', import.meta.url).pathname.slice(1), stamp)
+const OUT = join(localPath(new URL('../docs/user-session/', import.meta.url)), stamp)
 await mkdir(OUT, { recursive: true })
 const workspace = await mkdtemp(join(tmpdir(), 'locust-session-ws-'))
 await git(['init', '-q', '-b', 'main'], workspace)

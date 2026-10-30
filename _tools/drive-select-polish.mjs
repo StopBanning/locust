@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { columnEvents } from './compare-layout-seed.mjs'
-import { FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const PROMPT = 'Two short answers side by side.'
 const COLUMNS = [
@@ -21,7 +21,7 @@ const COLUMNS = [
   { slot: 'b', runtime: 'opencode', model: 'opencode/mimo-v2.6-flash-free', label: 'Mimo', parts: [{ say: 'Another short answer, also one paragraph.' }] }
 ]
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const workspace = await scratchRepository('locust-drive-select-polish-ws-')
 const profilePath = await mkdtemp(join(process.env.LOCUST_SCRATCH ?? tmpdir(), 'locust-drive-select-polish-profile-'))

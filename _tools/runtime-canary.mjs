@@ -26,12 +26,13 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFileSync as run } from 'node:child_process'
+import { localPath } from './local-path.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const runtime = arg('--runtime') ?? 'codex'
 const force = process.argv.includes('--force')
-const ROOT = new URL('..', import.meta.url).pathname.slice(1)
+const ROOT = localPath(new URL('..', import.meta.url))
 // Beside the checkout, never inside it: the scratch folder the drives already use.
 const SCRATCH = process.env.LOCUST_SCRATCH ?? join(ROOT, '..', '.scratch')
 // The agents Locust keeps current itself, by their npm package and command.

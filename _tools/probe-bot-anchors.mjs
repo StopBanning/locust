@@ -19,12 +19,12 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { say, scratchRepository, startDrive, teammateFace } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, startDrive, teammateFace } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? (packaged === undefined ? 'local' : 'packaged')
-const OUT = join(new URL('../docs/beta-fixes-2026-09-23/', import.meta.url).pathname.slice(1), `bot-anchors-${tag}`)
+const OUT = join(localPath(new URL('../docs/beta-fixes-2026-09-23/', import.meta.url)), `bot-anchors-${tag}`)
 await mkdir(OUT, { recursive: true })
 
 const mate = (id, name, hue, shape) => ({

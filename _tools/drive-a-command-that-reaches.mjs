@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { openAllStepsScript, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, openAllStepsScript, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -27,7 +27,7 @@ const ORDINARY = 'python -m pytest -q'
 // 0.586: Windows' older kill, one more spelling the row names.
 const OLDER = 'tskill python'
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const adapters = await import(pathToFileURL(join(root, 'packages', 'runtime-adapters', 'dist', 'index.js')).href)
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const workspace = await scratchRepository('locust-drive-reach-ws-')

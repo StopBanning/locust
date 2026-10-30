@@ -24,10 +24,10 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { say, scratchRepository, startDrive } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, startDrive } from './drive-lib.mjs'
 
 const NAME = (process.argv[2] ?? 'now').replace(/[^a-z0-9.-]+/gi, '-')
-const OUT = new URL('../docs/chain-measure/', import.meta.url).pathname.slice(1)
+const OUT = localPath(new URL('../docs/chain-measure/', import.meta.url))
 
 const workspace = await scratchRepository('locust-metal-look-ws-')
 const drive = await startDrive({ name: 'metal-look', port: 9527, workspace, spends: false })

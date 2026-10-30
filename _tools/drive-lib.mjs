@@ -24,6 +24,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { localPath } from './local-path.mjs'
 
 /**
  * End the app AND its helper processes.
@@ -45,11 +46,7 @@ function endTree(child) {
   try { child.kill() } catch { /* gone */ }
 }
 
-/**
- * A file URL as a path on this machine. On Windows, as it always was (`/C:/x` less its slash); elsewhere a URL's
- * pathname IS the path, and slicing it made `/Users/x` the relative `Users/x` (the first Mac run, 2026-10-30).
- */
-export const localPath = (url) => (process.platform === 'win32' ? url.pathname.slice(1) : fileURLToPath(url))
+export { localPath }
 
 export const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = process.platform === 'win32'

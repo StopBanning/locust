@@ -15,12 +15,12 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { say, scratchRepository, startDrive } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? (packaged === undefined ? 'local' : 'packaged')
-const OUT = join(new URL('../docs/beta-fixes-2026-09-23/', import.meta.url).pathname.slice(1), `label-frames-${tag}`)
+const OUT = join(localPath(new URL('../docs/beta-fixes-2026-09-23/', import.meta.url)), `label-frames-${tag}`)
 await mkdir(OUT, { recursive: true })
 
 const workspace = resolve(await scratchRepository('locust-labels-ws-'))

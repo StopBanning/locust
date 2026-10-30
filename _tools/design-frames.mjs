@@ -30,10 +30,10 @@ import { spawnSync } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { FREE_ROUTE, pickRouteScript, say, scratchRepository, sendAndWaitScript, sleep, startDrive, teammateRows } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, pickRouteScript, say, scratchRepository, sendAndWaitScript, sleep, startDrive, teammateRows } from './drive-lib.mjs'
 
-const OUT = new URL('../docs/design-frames-2026-09-14/', import.meta.url).pathname.slice(1)
-const PS = new URL('./window-frame.ps1', import.meta.url).pathname.slice(1)
+const OUT = localPath(new URL('../docs/design-frames-2026-09-14/', import.meta.url))
+const PS = localPath(new URL('./window-frame.ps1', import.meta.url))
 
 const at = '2026-09-05T05:00:00.000Z'
 const workspace = await scratchRepository('locust-frames-ws-')

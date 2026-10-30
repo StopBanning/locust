@@ -21,7 +21,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { FREE_ROUTE, pickRouteScript, say, scratchRepository, sendAndWaitScript, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, pickRouteScript, say, scratchRepository, sendAndWaitScript, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const label = arg('--label')
@@ -29,7 +29,7 @@ if (label !== 'before' && label !== 'after') throw new Error('--label before|aft
 const packaged = arg('--packaged')
 const reuse = arg('--reuse')
 
-const OUT = join(new URL('../docs/font-frames-2026-09-22/', import.meta.url).pathname.slice(1), label)
+const OUT = join(localPath(new URL('../docs/font-frames-2026-09-22/', import.meta.url)), label)
 await mkdir(OUT, { recursive: true })
 
 const T0 = '2026-09-20T15:00:00.000Z'

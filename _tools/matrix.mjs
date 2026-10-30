@@ -23,7 +23,7 @@ import { execFile, spawn } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { FREE_ROUTE } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -61,7 +61,7 @@ const columns = (arg('--runtimes') ?? 'opencode').split(',').map((spec) => {
 })
 const spendAllowed = process.env.LOCUST_SPEND === '1'
 
-const repo = new URL('../', import.meta.url).pathname.slice(1)
+const repo = localPath(new URL('../', import.meta.url))
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 const folder = join(repo, 'docs', 'matrix', stamp)
 await mkdir(join(folder, 'logs'), { recursive: true })

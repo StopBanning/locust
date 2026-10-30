@@ -23,10 +23,10 @@ import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
-const OUT = new URL('../docs/design-frames-2026-09-15/', import.meta.url).pathname.slice(1)
-const PS = new URL('./window-frame.ps1', import.meta.url).pathname.slice(1)
+const OUT = localPath(new URL('../docs/design-frames-2026-09-15/', import.meta.url))
+const PS = localPath(new URL('./window-frame.ps1', import.meta.url))
 
 /** Mirrors `workspaceIdFor` in the main process; a mission is scoped by it. */
 const workspaceIdFor = (path) => `ws_${createHash('sha256').update(path, 'utf8').digest('hex').slice(0, 32)}`

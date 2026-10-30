@@ -2,8 +2,9 @@
 // vite would not start from this workspace root.
 import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
+import { localPath } from '../local-path.mjs'
 
-const HERE = new URL('.', import.meta.url).pathname.slice(1)
+const HERE = localPath(new URL('.', import.meta.url))
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript' }
 
 createServer((request, response) => {

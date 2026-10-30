@@ -7,6 +7,7 @@ import { test } from 'vitest'
 // (`/Users/x` sliced to `Users/x`), its Electron was `electron.exe`, and the app's PATH was joined with `;`.
 // Windows does exactly what it did; that half is read from the source, since a Windows path cannot be made here.
 const source = readFileSync(new URL('./drive-lib.mjs', import.meta.url), 'utf8')
+const localPathSource = readFileSync(new URL('./local-path.mjs', import.meta.url), 'utf8')
 
 test('its folders are absolute paths on the machine running it', async () => {
   const { APP_DIR, localPath, recordRoot } = await import('./drive-lib.mjs')
@@ -16,7 +17,8 @@ test('its folders are absolute paths on the machine running it', async () => {
 })
 
 test('on Windows, a file URL is read as it always was', () => {
-  assert.match(source, /process\.platform === 'win32' \? url\.pathname\.slice\(1\) : fileURLToPath\(url\)/)
+  assert.match(localPathSource, /process\.platform === 'win32' \? url\.pathname\.slice\(1\) : fileURLToPath\(url\)/)
+  assert.match(source, /export \{ localPath \}/)
 })
 
 test("the app's PATH is joined by the system's own separator, npm's folder first on Windows only", () => {
@@ -27,7 +29,7 @@ test("the app's PATH is joined by the system's own separator, npm's folder first
 
 test("a Mac drive never reads the person's keychain", () => {
   assert.match(source, /const keychain = process\.platform === 'darwin' \? \['--use-mock-keychain'\] : \[\]/)
-  assert.match(source, /\.\.\.extraArgs, \.\.\.keychain, `--remote-debugging-port/)
+  assert.match(source, /\.\.\.extraArgs, \.\.\.keychain, \x60--remote-debugging-port/)
 })
 
 test('each system starts its own Electron', () => {

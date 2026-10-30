@@ -13,9 +13,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const adapters = await import(pathToFileURL(join(root, 'packages', 'runtime-adapters', 'dist', 'index.js')).href)
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const workspace = await scratchRepository('locust-drive-rail-ws-')

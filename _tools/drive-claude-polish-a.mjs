@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const OUT = 'D:/work/scratch/grok-polish-a'
 // The window does not read the clipboard (it only writes it), so the drive reads it from outside, as a person pasting would.
@@ -25,7 +25,7 @@ const systemClipboard = () => process.platform === 'win32'
   : 'not read off Windows'
 await mkdir(OUT, { recursive: true })
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const adapters = await import(pathToFileURL(join(root, 'packages', 'runtime-adapters', 'dist', 'index.js')).href)
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 

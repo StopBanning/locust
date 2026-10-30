@@ -16,12 +16,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { FREE_ROUTE, recordRoot, say, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, recordRoot, say, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? (packaged === undefined ? 'local' : 'packaged')
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', windowsHide: true })
 const SERVER = (port) => `const http = require('http')\n\nconst port = ${String(port)}\n\nhttp.createServer((req, res) => res.end('ok')).listen(port)\n`

@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { recordRoot, say, scratchRepository, startDrive } from './drive-lib.mjs'
+import { localPath, recordRoot, say, scratchRepository, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -22,7 +22,7 @@ const tag = arg('--tag') ?? 'local'
 // Not the catalogue's first free model (that has been Ling, then Muse).
 const ANSWERED = process.env.LOCUST_ANSWERED_MODEL ?? 'opencode/mimo-v2.6-flash-free'
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const workspace = await scratchRepository('locust-drive-free-answered-ws-')
 const profilePath = await mkdtemp(join(process.env.LOCUST_SCRATCH ?? tmpdir(), 'locust-drive-free-answered-profile-'))

@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { FREE_ROUTE, recordRoot, say, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, recordRoot, say, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -33,7 +33,7 @@ git(workspace, 'commit', '-q', '-m', 'A small server')
 // The change the panel shows: not committed yet.
 await writeFile(join(workspace, 'app.js'), "const http = require('http')\n\nconst port = 3001\n\nhttp.createServer((req, res) => res.end('ok')).listen(port)\n", 'utf8')
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const profilePath = await mkdtemp(join(process.env.LOCUST_SCRATCH ?? tmpdir(), 'locust-drive-panel-note-profile-'))
 const workspaceId = `ws_${createHash('sha256').update(workspace, 'utf8').digest('hex').slice(0, 32)}`

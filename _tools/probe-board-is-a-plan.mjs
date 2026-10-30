@@ -24,9 +24,9 @@ import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 
-import { FREE_ROUTE } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE } from './drive-lib.mjs'
 
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
 const NPM_DIR = join(homedir(), 'AppData', 'Roaming', 'npm')
 // A `_tools` drive port, from the 9490-9599 range `_smoke/ports.mjs` reserves

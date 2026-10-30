@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { say, scratchRepository, sleep, startDrive, recordRoot } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, sleep, startDrive, recordRoot } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
@@ -23,8 +23,8 @@ const tag = arg('--tag')
 const outPath = tag === undefined ? undefined : join(recordRoot('beta-fixes-2026-09-24'), `menus-stay-open-${tag}`)
 if (outPath !== undefined) await mkdir(outPath, { recursive: true })
 
-const adapters = await import(pathToFileURL(join(new URL('..', import.meta.url).pathname.slice(1), 'packages', 'runtime-adapters', 'dist', 'index.js')).href)
-const store = await import(pathToFileURL(join(new URL('..', import.meta.url).pathname.slice(1), 'packages', 'mission-store', 'dist', 'index.js')).href)
+const adapters = await import(pathToFileURL(join(localPath(new URL('..', import.meta.url)), 'packages', 'runtime-adapters', 'dist', 'index.js')).href)
+const store = await import(pathToFileURL(join(localPath(new URL('..', import.meta.url)), 'packages', 'mission-store', 'dist', 'index.js')).href)
 const workspace = await scratchRepository('locust-drive-menus-ws-')
 const profilePath = await mkdtemp(join(tmpdir(), 'locust-drive-menus-profile-'))
 const workspaceId = `ws_${createHash('sha256').update(workspace, 'utf8').digest('hex').slice(0, 32)}`

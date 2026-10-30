@@ -16,7 +16,7 @@ import { copyFile, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { say, scratchRepository, startDrive, teammateFace } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, startDrive, teammateFace } from './drive-lib.mjs'
 
 const workspace = await scratchRepository('locust-drive-attachimg-ws-')
 // A real screenshot, from a drive record, kept outside the workspace so this
@@ -24,7 +24,7 @@ const workspace = await scratchRepository('locust-drive-attachimg-ws-')
 const elsewhere = await mkdtemp(join(tmpdir(), 'locust-photos-'))
 const photo = join(elsewhere, 'screenshot.png')
 await copyFile(
-  new URL('../docs/user-session/2026-09-08T13-41-08-attach/01-launch.png', import.meta.url).pathname.slice(1),
+  localPath(new URL('../docs/user-session/2026-09-08T13-41-08-attach/01-launch.png', import.meta.url)),
   photo
 )
 

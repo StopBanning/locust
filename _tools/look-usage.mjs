@@ -17,13 +17,13 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { TEAM } from './everyday-ledger.mjs'
-import { recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const sizes = (arg('--sizes') ?? '1209x770,1440x900,1920x1080,1120x720').split(',').map((size) => size.split('x').map(Number))
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const workspace = await scratchRepository('locust-look-usage-ws-')
 const profilePath = await mkdtemp(join(tmpdir(), 'locust-look-usage-profile-'))

@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { FREE_ROUTE, FREE_ROW, pickRouteScript, recordRoot, say, scratchRepository, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, FREE_ROW, pickRouteScript, recordRoot, say, scratchRepository, startDrive } from './drive-lib.mjs'
 
 // B ran on FREE_ROUTE.model (the RUNS table below), which is whichever free model LOCUST_FREE_MODEL names (drive-lib.mjs:
 // "LOCUST_FREE_MODEL picks another of OpenCode's free models when this one is down"). The check named Muse Spark, so the
@@ -31,7 +31,7 @@ const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.i
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? 'local'
 
-const root = new URL('..', import.meta.url).pathname.slice(1)
+const root = localPath(new URL('..', import.meta.url))
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const workspace = await scratchRepository('locust-drive-stay-put-ws-')
 const profilePath = await mkdtemp(join(process.env.LOCUST_SCRATCH ?? tmpdir(), 'locust-drive-stay-put-profile-'))

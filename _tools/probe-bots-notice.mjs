@@ -29,14 +29,14 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { pickRouteScript, say, scratchRepository, sleep, startDrive, teammateFace } from './drive-lib.mjs'
+import { localPath, pickRouteScript, say, scratchRepository, sleep, startDrive, teammateFace } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? (packaged === undefined ? 'local' : 'packaged')
 const MODEL = arg('--model') ?? 'lightning'
 const HAIKU = process.argv.includes('--haiku')
-const OUT = join(new URL('../docs/beta-fixes-2026-09-23/', import.meta.url).pathname.slice(1), `bots-notice-${tag}`)
+const OUT = join(localPath(new URL('../docs/beta-fixes-2026-09-23/', import.meta.url)), `bots-notice-${tag}`)
 await mkdir(OUT, { recursive: true })
 
 const mate = (id, name, hue, shape) => ({

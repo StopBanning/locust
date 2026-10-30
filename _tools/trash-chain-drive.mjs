@@ -21,8 +21,9 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { requiredPathArgument } from './required-path-argument.mjs'
+import { localPath } from './local-path.mjs'
 
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
 const FIXTURE = requiredPathArgument('--fixture')
 // The folder whose id the fixture already carries. The sidebar lists THIS

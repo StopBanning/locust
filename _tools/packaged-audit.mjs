@@ -25,10 +25,10 @@ import { writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
-const EXE = new URL('../apps/desktop/release/win-unpacked/Locust.exe', import.meta.url).pathname.slice(1)
-const OUT = new URL('../docs/packaged-audit-2026-09-15/', import.meta.url).pathname.slice(1)
+const EXE = localPath(new URL('../apps/desktop/release/win-unpacked/Locust.exe', import.meta.url))
+const OUT = localPath(new URL('../docs/packaged-audit-2026-09-15/', import.meta.url))
 
 if (!existsSync(EXE)) {
   say(`no packaged build at ${EXE} -- run node _tools/ship.mjs first`)

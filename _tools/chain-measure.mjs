@@ -15,14 +15,14 @@
 // Adapted from _smoke/relay-smoke.mjs; costs nothing (free model).
 
 import '../_tools/scratch-root.mjs'
-import { FREE_ROUTE, FREE_ROW, FREE_SEARCH } from './drive-lib.mjs'
+import { localPath, FREE_ROUTE, FREE_ROW, FREE_SEARCH } from './drive-lib.mjs'
 
 import { spawn } from 'node:child_process'
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
+const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
 const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
 const PORT = Number(process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : 9471)
 const NPM_DIR = join(homedir(), 'AppData', 'Roaming', 'npm')

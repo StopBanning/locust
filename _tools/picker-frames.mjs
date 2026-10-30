@@ -10,7 +10,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { say, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, say, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const label = arg('--label')
@@ -18,7 +18,7 @@ const reuse = arg('--reuse')
 const packaged = arg('--packaged')
 if (label === undefined || reuse === undefined) throw new Error('--label <name> --reuse <profile> [--packaged <exe>]')
 
-const OUT = join(new URL('../docs/picker-frames-2026-09-22/', import.meta.url).pathname.slice(1), label)
+const OUT = join(localPath(new URL('../docs/picker-frames-2026-09-22/', import.meta.url)), label)
 await mkdir(OUT, { recursive: true })
 await writeFile(join(reuse, 'window.json'), JSON.stringify({ x: 0, y: 0, width: 1477, height: 920, maximized: false }), 'utf8')
 

@@ -39,9 +39,9 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { SCRATCH_ROOT } from '../_tools/scratch-root.mjs'
-import { git, pickRouteScript, say, sendAndWaitScript, startDrive } from './drive-lib.mjs'
+import { localPath, git, pickRouteScript, say, sendAndWaitScript, startDrive } from './drive-lib.mjs'
 
-const REPO = resolve(new URL('..', import.meta.url).pathname.slice(1))
+const REPO = resolve(localPath(new URL('..', import.meta.url)))
 const SCRATCH = SCRATCH_ROOT
 
 /**

@@ -13,11 +13,11 @@
 
 import { join } from 'node:path'
 
-import { say, scratchRepository, startDrive, teammateFace } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, startDrive, teammateFace } from './drive-lib.mjs'
 
 const workspace = await scratchRepository('locust-waysin-ws-')
 const packaged = join(
-  new URL('../apps/desktop/release/win-unpacked/', import.meta.url).pathname.slice(1),
+  localPath(new URL('../apps/desktop/release/win-unpacked/', import.meta.url)),
   'Locust.exe'
 )
 

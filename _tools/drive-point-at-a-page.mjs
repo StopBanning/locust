@@ -16,10 +16,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { git, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, git, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const packaged = process.argv.includes('--packaged') ? process.argv[process.argv.indexOf('--packaged') + 1] : undefined
-const root = join(new URL('..', import.meta.url).pathname.slice(1))
+const root = join(localPath(new URL('..', import.meta.url)))
 const store = await import(pathToFileURL(join(root, 'packages', 'mission-store', 'dist', 'index.js')).href)
 const adapters = await import(pathToFileURL(join(root, 'packages', 'runtime-adapters', 'dist', 'index.js')).href)
 

@@ -12,11 +12,11 @@
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 
-import { say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { localPath, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
-const outPath = join(new URL('../docs/beta-fixes-2026-09-24/', import.meta.url).pathname.slice(1), 'heading-case-question')
+const outPath = join(localPath(new URL('../docs/beta-fixes-2026-09-24/', import.meta.url)), 'heading-case-question')
 await mkdir(outPath, { recursive: true })
 
 const T0 = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
