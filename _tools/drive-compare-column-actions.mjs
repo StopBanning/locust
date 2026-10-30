@@ -16,12 +16,13 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { FREE_ROUTE, recordRoot, say, scratchRepository, sleep, startDrive, comparePick, comparePickScript } from './drive-lib.mjs'
+import { recordRoot, say, scratchRepository, sleep, startDrive, comparePick, comparePickScript, enterCompareScript, freeModels } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? 'local'
-const PICKS = (process.env.LOCUST_COMPARE_PICKS ?? `nemotron-3-ultra-free,${FREE_ROUTE.model.replace(/^opencode\//, '')}`).split(',')
+// Two free models OpenCode serves today (freeModels), unless LOCUST_COMPARE_PICKS names them.
+const PICKS = (process.env.LOCUST_COMPARE_PICKS?.split(',') ?? freeModels().slice(0, 2).map((model) => model.replace(/^opencode\//, '')))
 const OUT = join(recordRoot('compare-column-actions-2026-09-28'), `compare-column-actions-${tag}`)
 await mkdir(OUT, { recursive: true })
 
@@ -43,21 +44,10 @@ try {
   await drive.ready()
   await drive.resize(1440, 900)
   await sleep(4000)
-  await drive.evaluate(`(async () => {
-    let button
-    for (let i = 0; i < 40 && !button; i += 1) {
-      button = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Compare models')
-      if (!button) await new Promise((r) => setTimeout(r, 500))
-    }
-    if (!button) return JSON.stringify({ button: false })
-    button.click()
-    await new Promise((r) => setTimeout(r, 900))
-    const box = document.querySelector('.lc-picker__input')
-    const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
-    setInput.call(box, 'free')
-    box.dispatchEvent(new Event('input', { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 700))
-  })()`)
+  // Home's "Compare models" button is gone: a person reaches Compare from the chat box's mode chip (Direct or
+  // compare), which drive-lib's enterCompareScript presses.
+  const entered = JSON.parse(String(await drive.evaluate(enterCompareScript())))
+  say(`  entered: ${entered.how}`)
   // CHANGELOG 0.460.0: "Compare picks its models like Arena." Choose both columns
   // before sending; choosing them after the ask only edits a later composer, not the run.
   const labels = []

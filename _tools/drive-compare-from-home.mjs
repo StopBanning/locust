@@ -6,20 +6,22 @@
 //
 // Colin, 2026-09-28: "shouldnt compare mode be implemented in regular chats as
 // well? You dont NEED a teammate assigned to complete the task and want new
-// users to be able to try that out". A profile with NO teammates: Home's AI
-// agents line offers Compare models; it opens the picker already on Compare;
+// users to be able to try that out". A profile with NO teammates: Home's chat
+// box offers Compare in its mode chip (Home's own button is gone); choosing it
+// puts the chat box on Compare;
 // two free models ticked, one ask, both columns answer at once with nobody's
 // name on them; Keep this one leaves an ordinary conversation of nobody's.
 
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { FREE_ROUTE, recordRoot, say, scratchRepository, sleep, startDrive, comparePick, comparePickScript } from './drive-lib.mjs'
+import { recordRoot, say, scratchRepository, sleep, startDrive, comparePick, comparePickScript, enterCompareScript, freeModels } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? 'local'
-const PICKS = (process.env.LOCUST_COMPARE_PICKS ?? `nemotron-3-ultra-free,${FREE_ROUTE.model.replace(/^opencode\//, '')}`).split(',')
+// Two free models OpenCode serves today (freeModels), unless LOCUST_COMPARE_PICKS names them.
+const PICKS = (process.env.LOCUST_COMPARE_PICKS?.split(',') ?? freeModels().slice(0, 2).map((model) => model.replace(/^opencode\//, '')))
 const OUT = join(recordRoot('compare-from-home-2026-09-28'), `compare-from-home-${tag}`)
 await mkdir(OUT, { recursive: true })
 
@@ -41,27 +43,23 @@ try {
   await drive.resize(1440, 900)
   await sleep(4000)
 
-  const opened = JSON.parse(String(await drive.capture('Home: Compare models opens the picker on Compare', () => drive.evaluate(`(async () => {
-    let button
-    for (let i = 0; i < 40 && !button; i += 1) {
-      button = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Compare models')
-      if (!button) await new Promise((r) => setTimeout(r, 500))
-    }
-    if (!button) return JSON.stringify({ button: false })
-    button.click()
-    await new Promise((r) => setTimeout(r, 900))
-    // Direct, Compare or Blind lives in the chat mode chip since 0.451.
-    const on = document.querySelector('.lc-control--chatmode')?.getAttribute('aria-label')?.replace('Chat mode: ', '') ?? ''
-    const box = document.querySelector('.lc-picker__input')
-    if (box) {
-      const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
-      setInput.call(box, 'free')
-      box.dispatchEvent(new Event('input', { bubbles: true }))
-      await new Promise((r) => setTimeout(r, 700))
-    }
-    const labels = []
-    return JSON.stringify({ button: true, picker: document.querySelector('.lc-picker') !== null, on, labels })
+  // Home's "Compare models" button is gone (by 0.842): with no teammate, a person reaches Compare from the chat
+  // box's own mode chip, "Direct or compare". The chip is read as offered, then pressed as a person presses it.
+  const offered = JSON.parse(String(await drive.capture('Home: the chat box offers Compare', () => drive.evaluate(`(async () => {
+    for (let i = 0; i < 40 && !document.querySelector('.lc-control--chatmode'); i += 1) await new Promise((r) => setTimeout(r, 500))
+    const chip = document.querySelector('.lc-control--chatmode')
+    if (!chip) return JSON.stringify({ chip: false })
+    chip.click()
+    await new Promise((r) => setTimeout(r, 400))
+    const items = [...document.querySelectorAll('[role="menu"][aria-label="Direct or compare"] [role="menuitemradio"], [role="menu"][aria-label="Direct or compare"] button')]
+      .map((item) => item.innerText.trim().split('\\n')[0])
+    chip.click()
+    await new Promise((r) => setTimeout(r, 300))
+    return JSON.stringify({ chip: true, items })
   })()`))))
+  const entered = JSON.parse(String(await drive.evaluate(enterCompareScript())))
+  const on = String(await drive.evaluate(`document.querySelector('.lc-control--chatmode')?.getAttribute('aria-label')?.replace('Chat mode: ', '') ?? ''`))
+  const opened = { ...offered, entered: entered.how, on, labels: [] }
   // Ticked one at a time through drive-lib (2026-10-06): the picker names rows by display name, draws only those
   // in view, and closes after a pick, leaving a chip per column -- comparePickScript handles all three.
   for (const [index, id] of PICKS.entries()) {
@@ -70,8 +68,8 @@ try {
     else say(`  pick ${id}: ${got.why}`)
   }
   say(`  opened: ${JSON.stringify(opened)}`)
-  check('Home offers Compare models, with no teammate at all', opened.button === true, JSON.stringify(opened))
-  check('it opens the picker already on Compare', opened.picker && opened.on === 'Compare', JSON.stringify(opened))
+  check("Home's chat box offers Compare, with no teammate at all", opened.chip === true && opened.items.some((item) => /^Compare/.test(item)), JSON.stringify(opened))
+  check('choosing it puts the chat box on Compare, ready for two models', ['picker', 'columns'].includes(opened.entered) && opened.on === 'Compare', JSON.stringify(opened))
   check('two free models tick', opened.labels?.length === 2, JSON.stringify(opened.labels))
 
   const answered = JSON.parse(String(await drive.capture('Both columns answer, nobody\'s', () => drive.evaluate(`(async () => {
