@@ -156,7 +156,8 @@ describe('other apps need a current local token', () => {
 })
 
 describe("the account-only lock uses Windows' own tools", () => {
-  it('names whoami and icacls by their System32 path, never by a PATH lookup that can find Git\'s coreutils', () => {
+  // The lock runs on a Windows host only (privateMcpFile returns first elsewhere), which joins System32's path this way.
+  it.skipIf(process.platform !== 'win32')('names whoami and icacls by their System32 path, never by a PATH lookup that can find Git\'s coreutils', () => {
     expect(windowsTool('whoami.exe', { SystemRoot: 'C:\\Windows' })).toBe('C:\\Windows\\System32\\whoami.exe')
     expect(windowsTool('icacls.exe', { windir: 'D:\\Win' })).toBe('D:\\Win\\System32\\icacls.exe')
     expect(windowsTool('whoami.exe', {})).toBe('C:\\Windows\\System32\\whoami.exe')
