@@ -13587,9 +13587,11 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   box-shadow: var(--lc-shadow-menu);
   overflow: hidden;
   /* Tall enough that a runtime's own section shows its heading under
-     Locust's seven on a bare slash (0.429): at 260px it began below the
-     fold, and the menu looked like it had only Locust's. */
-  max-height: 340px;
+     Locust's own rows on a bare slash (0.429): at 260px it began below the
+     fold, and the menu looked like it had only Locust's. Locust's rows grew to
+     nine in a teammate's conversation (/setup), and at 340px the heading sat at
+     327-356, under the fold again (the first Mac run's drives, 2026-10-30, F25). */
+  max-height: 384px;
   overflow-y: auto;
 }
 
