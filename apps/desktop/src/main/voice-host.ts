@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { VOICE_MAX_BYTES, VOICE_RATE, isVoiceMode, type VoiceMode, type VoiceResult } from '../shared/voice.js'
+import { VOICE_MAX_BYTES, VOICE_RATE, isVoiceMode, voiceLocalOnly, type VoiceMode, type VoiceResult } from '../shared/voice.js'
 import { VOICE_LICENSE } from '../shared/voice-license.js'
 import type { createVoiceSettingsStore } from './voice-settings.js'
 import { transcribeOpenAI } from './voice-openai.js'
@@ -113,27 +113,31 @@ export function validVoiceWav(input: unknown): input is Uint8Array {
     && (bytes.length - 44) % 2 === 0
 }
 
-export function createVoiceHost(directory: string, options: { readonly store?: ReturnType<typeof createVoiceSettingsStore>; readonly openaiFetch?: typeof fetch } = {}) {
+export function createVoiceHost(directory: string, options: { readonly store?: ReturnType<typeof createVoiceSettingsStore>; readonly openaiFetch?: typeof fetch; readonly platform?: string; readonly arch?: string } = {}) {
   let active: { controller: AbortController; done: Promise<VoiceResult> } | undefined
   let disposed = false
+  // whisper.cpp's Windows x64 build runs Fast and Accurate; the OpenAI route runs anywhere (0.843, the first Mac run).
+  const platform = options.platform ?? process.platform
+  const local = platform === 'win32' && (options.arch ?? process.arch) === 'x64'
   const selected = async (requested: unknown): Promise<VoiceMode> => {
     const mode = (await options.store?.settings())?.mode ?? 'fast'
     if (requested !== undefined && (!isVoiceMode(requested) || requested !== mode)) throw new Error('Voice typing changed in Settings. Your message is unchanged; press the microphone again.')
     return mode
   }
   const ready = async (requested?: unknown): Promise<boolean> => {
-    if (disposed || process.platform !== 'win32' || process.arch !== 'x64') return false
+    if (disposed) return false
     let mode: VoiceMode
     try { mode = await selected(requested) } catch { return false }
     if (mode === 'openai') {
       const settings = await options.store?.settings()
       return settings?.openaiConsent === true && Boolean(await options.store?.key())
     }
+    if (!local) return false
     for (const [name, hash] of Object.entries(VOICE_NATIVE)) if (!(await verified(join(directory, name), hash))) return false
     return verified(join(directory, modelNameFor(mode)), modelFor(mode).sha256)
   }
   const begin = (work: (signal: AbortSignal) => Promise<VoiceResult>): Promise<VoiceResult> => {
-    if (disposed || process.platform !== 'win32' || process.arch !== 'x64') return Promise.resolve({ ok: false, message: 'Voice typing is available on Windows x64. Your message is unchanged.' })
+    if (disposed) return Promise.resolve({ ok: false, message: 'Voice typing has closed. Your message is unchanged.' })
     if (active !== undefined) return Promise.resolve({ ok: false, message: 'Voice typing is already working. Your message is unchanged.' })
     const controller = new AbortController()
     const done = work(controller.signal).catch((error: unknown): VoiceResult => ({ ok: false, message: controller.signal.aborted ? 'Voice typing was cancelled. Nothing was inserted.' : error instanceof Error ? error.message : 'Voice typing could not finish. Your message is unchanged.' })).finally(() => { active = undefined })
@@ -150,6 +154,7 @@ export function createVoiceHost(directory: string, options: { readonly store?: R
     download: (progress: (percent: number) => void, requested?: unknown): Promise<VoiceResult> => begin(async (signal) => {
       const mode = await selected(requested)
       if (mode === 'openai') return { ok: false, message: 'OpenAI voice typing does not need a download. Your message is unchanged.' }
+      if (!local) return { ok: false, message: voiceLocalOnly(platform) }
       const model = modelFor(mode)
       await mkdir(directory, { recursive: true })
       const timed = AbortSignal.any([signal, AbortSignal.timeout(300_000)])
@@ -187,6 +192,7 @@ export function createVoiceHost(directory: string, options: { readonly store?: R
         signal.throwIfAborted()
         return transcribeOpenAI(input, await options.store?.key(), signal, options.openaiFetch)
       }
+      if (!local) return { ok: false, message: voiceLocalOnly(platform) }
       if (!(await ready(mode))) return { ok: false, message: 'Voice typing needs its checked files. Your message is unchanged; press the microphone to download them again.' }
       signal.throwIfAborted()
       const temp = await mkdtemp(join(directory, 'recording-'))

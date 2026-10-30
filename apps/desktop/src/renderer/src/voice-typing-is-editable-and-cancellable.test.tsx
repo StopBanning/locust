@@ -37,8 +37,12 @@ function escape(): void {
   expect(event.defaultPrevented).toBe(true)
 }
 describe('voice typing is editable and cancellable', () => {
-  it.each(['darwin', 'linux', 'unknown'])('does not draw a microphone on %s', (platform) => {
+  it.each(['linux', 'unknown'])('does not draw a microphone on %s', (platform) => {
     expect(renderToStaticMarkup(<VoiceButton platform={platform} onText={() => undefined} api={api()} />)).toBe('')
+  })
+  // A Mac types through the OpenAI route, and a local mode says it is Windows' (0.843, the first Mac run).
+  it('draws it on a Mac too', () => {
+    expect(renderToStaticMarkup(<VoiceButton platform="darwin" onText={() => undefined} api={api()} />)).toContain('aria-label="Voice typing"')
   })
   it('draws it on Windows and loads nothing on mount', () => {
     const bridge = api()

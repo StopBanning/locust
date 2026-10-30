@@ -16,6 +16,16 @@ export const VOICE_RATE = 16_000
 export const VOICE_MAX_SECONDS = 60
 export const VOICE_MAX_BYTES = 44 + VOICE_RATE * 2 * VOICE_MAX_SECONDS
 export type VoiceResult = { readonly ok: true; readonly text?: string } | { readonly ok: false; readonly message: string }
+/**
+ * FAST AND ACCURATE ARE WINDOWS' (the first Mac run, 2026-10-30). They run whisper.cpp's Windows x64 build; the
+ * OpenAI route is a web request and works anywhere. Elsewhere, a local mode says so, and a Mac names its own
+ * dictation, which is free and stays on the Mac.
+ */
+export const voiceLocalOnly = (platform: string | undefined): string =>
+  platform === 'darwin'
+    ? 'Fast and Accurate voice typing run on Windows for now. On a Mac, use its own dictation here (the microphone key, or Fn twice), or choose Your OpenAI account under Voice typing in Settings. Your message is unchanged.'
+    : 'Fast and Accurate voice typing run on Windows for now. Choose Your OpenAI account under Voice typing in Settings. Your message is unchanged.'
+
 export interface VoiceApi {
   settings?(): Promise<VoiceSettings>
   saveSettings?(change: VoiceSettingsChange): Promise<VoiceSettingsResult>

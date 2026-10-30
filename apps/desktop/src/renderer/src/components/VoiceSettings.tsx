@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { isVoiceMode, type VoiceApi, type VoiceSettings as Settings, type VoiceSettingsChange } from '../../../shared/voice.js'
 import { Select } from './Select.js'
 
-export function VoiceSettings({ api = typeof window === 'undefined' ? undefined : window.desktop?.voice }: { readonly api?: VoiceApi }) {
+export function VoiceSettings({ api = typeof window === 'undefined' ? undefined : window.desktop?.voice, platform = typeof window === 'undefined' ? undefined : window.desktop?.platform }: { readonly api?: VoiceApi; readonly platform?: string }) {
+  // Fast and Accurate run whisper.cpp's Windows build; elsewhere they say so (0.843, the first Mac run).
+  const windowsOnly = platform !== undefined && platform !== 'win32' ? ' (Windows only for now)' : ''
   const [settings, setSettings] = useState<Settings>()
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
@@ -24,8 +26,8 @@ export function VoiceSettings({ api = typeof window === 'undefined' ? undefined 
   }
   return <div className="lc-voice-settings">
     <Select className="lc-control" aria-label="Voice typing model" disabled={!settings || busy} value={settings?.mode ?? 'fast'} onChange={(next) => { if (isVoiceMode(next)) void save({ mode: next }) }} options={[
-      { value: 'fast', label: 'Fast — 41 MB' },
-      { value: 'accurate', label: 'Accurate — 69 MB, slower' },
+      { value: 'fast', label: `Fast — 41 MB${windowsOnly}` },
+      { value: 'accurate', label: `Accurate — 69 MB, slower${windowsOnly}` },
       { value: 'openai', label: 'Your OpenAI account' }
     ]} />
     {settings?.mode === 'openai' && <div>

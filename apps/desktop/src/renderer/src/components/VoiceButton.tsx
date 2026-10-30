@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { VoiceApi, VoiceMode } from '../../../shared/voice.js'
+import { voiceLocalOnly, type VoiceApi, type VoiceMode } from '../../../shared/voice.js'
 import type { VoiceCapture } from '../voiceCapture.js'
 import { Icon } from './Icon.js'
 import { setVoiceState } from '../voiceLevel.js'
@@ -100,6 +100,8 @@ export function VoiceButton({ platform, onText, disabled = false, api = typeof w
       if (generation.current !== token) return
       selectedMode.current = settings?.mode ?? 'fast'
       setMode(selectedMode.current)
+      // Off Windows, only the OpenAI route types (0.843): a local mode says so, instead of offering a download.
+      if (platform !== 'win32' && settings?.mode !== 'openai') { transition('idle'); setMessage(voiceLocalOnly(platform)); return }
       if (settings?.mode === 'openai') {
         if (!settings.hasKey) { transition('idle'); setMessage('Add your OpenAI API key in Settings > General. Your message is unchanged.'); return }
         if (!settings.openaiConsent) { transition('asking'); return }
@@ -127,7 +129,7 @@ export function VoiceButton({ platform, onText, disabled = false, api = typeof w
       await record(token)
     } catch (error) { fail(error, token) } finally { unsubscribe() }
   }
-  if (platform !== 'win32') return null
+  if (platform !== 'win32' && platform !== 'darwin') return null
   const recording = phase === 'recording'
   const busy = phase !== 'idle' && phase !== 'recording'
   const clock = `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, '0')}`
