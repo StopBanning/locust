@@ -11,6 +11,29 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.843.0 - 2026-10-30
+<!-- big -->
+
+### New
+
+- **Locust is ready for a Mac.** The first run on a real Mac, with every AI agent signed in, put right what it showed. The window has macOS’s own red, yellow and green buttons at the top left, and the app menu says Locust. Antigravity is found where its Mac installer puts it, and agents installed with npm, like Codex, Copilot and Kilo, are kept up to date there. macOS asks for the microphone once, in Locust’s words, and for nothing else.
+- **Talk on a Mac.** ChatGPT’s voice through your signed-in Codex, as on Windows. A Mac mini has no microphone of its own, so an iPhone or a headset does it. Talk from any app, with its keys, stays on Windows for now.
+- **Start Locust when you log in to a Mac.** Under Settings > General > Startup. macOS may ask you to allow it under System Settings > General > Login Items, and the switch says so while it waits.
+
+### Improved
+
+- **A Mac says Mac.** Menu bar where Windows says tray, log in where Windows says sign in, and this Mac where it said this PC. The Changes panel opens with Cmd+Shift+Y. Windows keeps every word it had.
+- **Voice typing on a Mac** goes through Your OpenAI account. Fast and Accurate run on Windows for now and say so, and a Mac’s own dictation types into the chat box too (the microphone key, or Fn twice).
+- **A bare slash shows an agent’s own commands without scrolling,** even in a teammate’s conversation, where Locust’s own rows grew to nine.
+
+### Fixed
+
+- **A Mac update no longer stalls.** A copy left behind by an interrupted update made every later one say "The update could not be downloaded" for good. A copy Locust tests itself with never updates the installed one either.
+- **Home’s LOCUST wordmark reads in the light theme.** The glass stays dark, and what is written on it now keeps its light ink.
+- **Stop ends a command an agent started in the background,** on a Mac and Linux too.
+- **Two skills whose names differ only in capitals** no longer land in one folder on a Mac.
+- **A backup says everything it leaves out.** Your chat apps’ bots, Use from anywhere, teammates’ keys and your own agents were left out without a word; the backup now lists them, with what to set up again after a restore.
+
 ## 0.842.0 - 2026-10-30
 <!-- big -->
 
