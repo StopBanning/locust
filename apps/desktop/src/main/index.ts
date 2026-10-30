@@ -27,6 +27,7 @@ import { app, BrowserWindow, clipboard, crashReporter, dialog, globalShortcut, i
 import { createVoiceHost } from './voice-host.js'
 import { voicePermission } from './voice-permission.js'
 import { windowChrome } from './window-chrome.js'
+import { macMenuTemplate } from './mac-menu.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from '../shared/voice.js'
 import { TALK_SHORTCUT_PENDING, TALK_SHORTCUT_PRESSED, TALK_SHORTCUT_READ, TALK_SHORTCUT_SET, isTalkShortcut, type TalkShortcutPress } from '../shared/talk-shortcut.js'
 import { LOCUST_LINK_TAKE, LOCUST_LINK_WAITING, linkInArguments, parseLocustLink, type LocustLink } from '../shared/locust-link.js'
@@ -1807,6 +1808,8 @@ if (!ownsSingleInstanceLock) {
   })
 
   void app.whenReady().then(async () => {
+    // A Mac's menu, named Locust rather than the package (mac-menu.ts). Windows and Linux keep theirs.
+    if (process.platform === 'darwin') Menu.setApplicationMenu(Menu.buildFromTemplate(macMenuTemplate('Locust')))
     /*
      * A RESTORE ASKED FOR IS APPLIED FIRST (0.614, profile-backup.ts), before
      * anything below reads the profile: a store holding its old state in
