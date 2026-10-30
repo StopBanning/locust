@@ -22,7 +22,8 @@ import { spawn, execFile, execFileSync } from 'node:child_process'
 import { readFileSync, rmSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /**
  * End the app AND its helper processes.
@@ -44,9 +45,20 @@ function endTree(child) {
   try { child.kill() } catch { /* gone */ }
 }
 
-export const APP_DIR = new URL('../apps/desktop/', import.meta.url).pathname.slice(1)
-const ELECTRON = join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
-const NPM_DIR = join(homedir(), 'AppData', 'Roaming', 'npm')
+/**
+ * A file URL as a path on this machine. On Windows, as it always was (`/C:/x` less its slash); elsewhere a URL's
+ * pathname IS the path, and slicing it made `/Users/x` the relative `Users/x` (the first Mac run, 2026-10-30).
+ */
+export const localPath = (url) => (process.platform === 'win32' ? url.pathname.slice(1) : fileURLToPath(url))
+
+export const APP_DIR = localPath(new URL('../apps/desktop/', import.meta.url))
+const ELECTRON = process.platform === 'win32'
+  ? join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe')
+  : process.platform === 'darwin'
+    ? join(APP_DIR, 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron')
+    : join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron')
+// npm's own folder goes first on Windows; elsewhere the app builds its PATH from the login shell (shell-path.ts).
+const NPM_DIR = process.platform === 'win32' ? join(homedir(), 'AppData', 'Roaming', 'npm') : undefined
 // LOCUST_FREE_MODEL picks another of OpenCode's free models when this one is
 // down (Muse Spark was, 9/22-9/24); `opencode models | grep free` lists them.
 // Muse Spark left OpenCode's free list by 2026-10-18, and every drive on this
@@ -76,7 +88,7 @@ export const FREE_SEARCH = FREE_ROUTE.model.replace(/^opencode\//, '').replace(/
  * never writes into the repository.
  */
 export const recordRoot = (folder) =>
-  process.env.LOCUST_DRIVE_OUT === undefined ? new URL(`../docs/${folder}/`, import.meta.url).pathname.slice(1) : join(process.env.LOCUST_DRIVE_OUT, folder)
+  process.env.LOCUST_DRIVE_OUT === undefined ? localPath(new URL(`../docs/${folder}/`, import.meta.url)) : join(process.env.LOCUST_DRIVE_OUT, folder)
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 export const say = (line) => console.error(line)
 export const reportRouteProbe = (route) => console.log(`route: ${String(route === '' ? 'no route control on this screen' : route)}`)
@@ -222,7 +234,7 @@ export async function startDrive({ name, port, workspace, seed, files = {}, env 
   // writing into the same record, numbering its steps after the first run's.
   // LOCUST_DRIVE_OUT moves the default record somewhere else -- the sweep
   // (sweep-drives.mjs) keeps a whole run's captures out of the repository.
-  const out = outPath ?? join(process.env.LOCUST_DRIVE_OUT ?? new URL('../docs/user-session/', import.meta.url).pathname.slice(1), `${stamp}-${name}`)
+  const out = outPath ?? join(process.env.LOCUST_DRIVE_OUT ?? localPath(new URL('../docs/user-session/', import.meta.url)), `${stamp}-${name}`)
   await mkdir(out, { recursive: true })
   const profile = profilePath ?? await mkdtemp(join(tmpdir(), `locust-drive-${name}-`))
   if (seed !== undefined) {
@@ -283,8 +295,9 @@ export async function startDrive({ name, port, workspace, seed, files = {}, env 
    */
   // LOCUST_DRIVE_PATH_FIRST: a folder found before npm's own -- the runtime canary's
   // isolated install of a new CLI release (_tools/runtime-canary.mjs).
-  const first = process.env.LOCUST_DRIVE_PATH_FIRST === undefined ? '' : `${process.env.LOCUST_DRIVE_PATH_FIRST};`
-  const appEnv = spendGuarded({ ...process.env, PATH: `${first}${NPM_DIR};${process.env.PATH ?? ''}`, ...env }, spends)
+  // Joined by the system's own separator: `;` on Windows as before, `:` elsewhere (the first Mac run).
+  const path = [process.env.LOCUST_DRIVE_PATH_FIRST, NPM_DIR, process.env.PATH ?? ''].filter((part) => part !== undefined).join(delimiter)
+  const appEnv = spendGuarded({ ...process.env, PATH: path, ...env }, spends)
   /*
    * Comparison copies under THIS drive's profile, not the person's ~/.locust/compare.
    *
@@ -330,7 +343,10 @@ export async function startDrive({ name, port, workspace, seed, files = {}, env 
    * folder of its own). `launchElsewhere` launches from the profile folder
    * and names the workspace the way the app reopens itself in one.
    */
-  const child = spawn(launch[0], [...launch[1], ...extraArgs, `--remote-debugging-port=${String(port)}`, `--user-data-dir=${profile}`, ...(launchElsewhere ? [`--workspace=${workspace}`] : [])], {
+  // A Mac drive never reads the person's keychain: a copy signed apart from the installed one makes macOS ask, and the
+  // app waits on the answer with its window frozen (the first Mac run). Windows' DPAPI never asks.
+  const keychain = process.platform === 'darwin' ? ['--use-mock-keychain'] : []
+  const child = spawn(launch[0], [...launch[1], ...extraArgs, ...keychain, `--remote-debugging-port=${String(port)}`, `--user-data-dir=${profile}`, ...(launchElsewhere ? [`--workspace=${workspace}`] : [])], {
     cwd: launchElsewhere ? profile : workspace,
     env: appEnv,
     stdio: ['ignore', 'pipe', 'pipe']

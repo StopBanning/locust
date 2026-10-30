@@ -151,8 +151,9 @@ function pruneOldScratch(root, days = 2) {
 }
 
 pruneOldScratch(SCRATCH_ROOT)
-// The old root, by the same rules, until nothing of the harness's is left in it.
-if (LEGACY_SCRATCH_ROOT !== SCRATCH_ROOT) pruneOldScratch(LEGACY_SCRATCH_ROOT)
+// The old root, by the same rules, until nothing of the harness's is left in it. Windows only: it never existed
+// elsewhere, and on a Mac reading ~/Documents can stop on a privacy prompt (the first Mac run, 2026-10-30).
+if (process.platform === 'win32' && LEGACY_SCRATCH_ROOT !== SCRATCH_ROOT) pruneOldScratch(LEGACY_SCRATCH_ROOT)
 
 /**
  * The instruction files a runtime would read in a run made under `path`: any
