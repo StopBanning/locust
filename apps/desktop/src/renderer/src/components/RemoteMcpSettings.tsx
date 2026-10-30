@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { LoginItemState } from '../../../shared/ipc.js'
+import { machineWords } from '../../../shared/machine-words.js'
 import type { RemoteMcpApi, RemoteMcpApp, RemoteMcpState } from '../../../shared/remote-mcp.js'
 import { CopyButton } from './CopyButton.js'
 
@@ -33,7 +34,8 @@ export function keepItRunning(stay: StayingReachable): void {
 }
 export const reachable = (stay: StayingReachable): boolean => stay.keepRunning && (stay.loginItem.openAtLogin || stay.loginItem.available !== true)
 
-export function RemoteMcpSettings({ api = typeof window === 'undefined' ? undefined : window.desktop?.remoteMcp, initial, stay }: { readonly api?: RemoteMcpApi; readonly initial?: RemoteMcpState; readonly stay?: StayingReachable }) {
+export function RemoteMcpSettings({ api = typeof window === 'undefined' ? undefined : window.desktop?.remoteMcp, initial, stay, platform = typeof window === 'undefined' ? undefined : window.desktop?.platform }: { readonly api?: RemoteMcpApi; readonly initial?: RemoteMcpState; readonly stay?: StayingReachable; readonly platform?: string }) {
+  const words = machineWords(platform)
   const [state, setState] = useState<RemoteMcpState | undefined>(initial)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
@@ -68,9 +70,9 @@ export function RemoteMcpSettings({ api = typeof window === 'undefined' ? undefi
       {stay === undefined
         ? <p>Locust must be open on this computer while an app uses it.</p>
         : reachable(stay)
-          ? <p>Locust stays reachable while this computer is on and awake: {stay.loginItem.openAtLogin ? 'it starts when you sign in to Windows, and ' : ''}it keeps running in the tray when you close its window. Quit from the tray, and no app can open it again.</p>
+          ? <p>Locust stays reachable while this computer is on and awake: {stay.loginItem.openAtLogin ? `it starts when you ${words.signIn}, and ` : ''}it keeps running in the {words.tray} when you close its window. Quit from the {words.tray}, and no app can open it again.</p>
           : <div className="lc-remote-mcp__stay">
-            <p>An app can reach Locust only while it is running here: once it quits, nothing on this computer can open it. Keep it running in the tray when you close its window{stay.loginItem.available === true ? ', and start it when you sign in to Windows' : ''}.</p>
+            <p>An app can reach Locust only while it is running here: once it quits, nothing on this computer can open it. Keep it running in the {words.tray} when you close its window{stay.loginItem.available === true ? `, and start it when you ${words.signIn}` : ''}.</p>
             <button type="button" className="lc-button" onClick={() => keepItRunning(stay)}>Keep it running</button>
           </div>}
       <p>The relay can read what an app asks and what Locust answers, as an app’s own servers can; it keeps none of it, and the keys are this computer’s.</p>

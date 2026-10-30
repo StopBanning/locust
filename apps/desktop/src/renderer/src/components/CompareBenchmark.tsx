@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
 
 import type { RerunProgress } from '../../../shared/compare.js'
+import { machineWords } from '../../../shared/machine-words.js'
 import type { BenchmarkChart, BenchmarkRow } from '../benchmark.js'
 import { costCell } from '../cost.js'
 import { durationText } from '../missionView.js'
@@ -93,7 +94,7 @@ export function CompareBenchmark({ view }: { readonly view: BenchmarkView }): Re
         </p>
         {actions}
         {view.problem !== undefined && <p className="lc-compare__problem" role="status">{view.problem}</p>}
-        <p className="lc-compare__judgenote">The runs go one after another and keep going with the window in the tray. They belong to this comparison, not to the conversation list.</p>
+        <p className="lc-compare__judgenote">{`The runs go one after another and keep going with the window in the ${machineWords(typeof window === 'undefined' ? undefined : window.desktop?.platform).tray}.`} They belong to this comparison, not to the conversation list.</p>
       </div>
     )
   }

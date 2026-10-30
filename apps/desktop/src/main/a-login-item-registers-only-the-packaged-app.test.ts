@@ -12,8 +12,8 @@ import type { LoginItemHost, LoginItemQuery } from './login-item.js'
  * would register electron.exe.
  */
 
-function host(): LoginItemHost & { readonly sets: { openAtLogin: boolean; path: string; args: string[] }[]; held: { openAtLogin: boolean } } {
-  const sets: { openAtLogin: boolean; path: string; args: string[] }[] = []
+function host(): LoginItemHost & { readonly sets: { openAtLogin: boolean; path?: string; args?: string[] }[]; held: { openAtLogin: boolean } } {
+  const sets: { openAtLogin: boolean; path?: string; args?: string[] }[] = []
   const state = { held: { openAtLogin: false } }
   return {
     sets,
@@ -56,8 +56,30 @@ describe('the login item', () => {
     expect(item.set(true)).toEqual({ openAtLogin: false, available: false, why: 'development' })
     expect(item.read()).toEqual({ openAtLogin: false, available: false, why: 'development' })
     expect(dev.sets).toEqual([])
-    const mac = host()
-    expect(createLoginItem({ host: mac, packaged: true, execPath: '/Locust', platform: 'darwin' }).set(true)).toEqual({ openAtLogin: false, available: false, why: 'platform' })
-    expect(mac.sets).toEqual([])
+    const linux = host()
+    expect(createLoginItem({ host: linux, packaged: true, execPath: '/opt/Locust/locust', platform: 'linux' }).set(true)).toEqual({ openAtLogin: false, available: false, why: 'platform' })
+    expect(linux.sets).toEqual([])
+    const macDev = host()
+    expect(createLoginItem({ host: macDev, packaged: false, execPath: '/electron', platform: 'darwin' }).set(true)).toEqual({ openAtLogin: false, available: false, why: 'development' })
+    expect(macDev.sets).toEqual([])
+  })
+
+  // The first Mac run (2026-10-30, 0.843): a Mac logs in with the app itself, with no path or arguments to give, and
+  // macOS may hold the item until the person allows it in System Settings.
+  it('registers the app itself on a Mac, and reads back when macOS waits for the person to allow it', () => {
+    const sets: { openAtLogin: boolean; path?: string; args?: string[] }[] = []
+    let held: { openAtLogin: boolean; status?: string } = { openAtLogin: false, status: 'not-registered' }
+    const mac: LoginItemHost = {
+      setLoginItemSettings(settings) { sets.push(settings); held = { openAtLogin: settings.openAtLogin, status: settings.openAtLogin ? 'requires-approval' : 'not-registered' } },
+      getLoginItemSettings(query) { expect(query).toBeUndefined(); return held }
+    }
+    const item = createLoginItem({ host: mac, packaged: true, execPath: '/Applications/Locust.app/Contents/MacOS/Locust', platform: 'darwin' })
+    expect(item.read()).toEqual({ openAtLogin: false, available: true })
+    // Held for approval, it reads as macOS reports it, and says it is waiting.
+    expect(item.set(true)).toEqual({ openAtLogin: true, available: true, approval: true })
+    expect(sets).toEqual([{ openAtLogin: true }])
+    held = { openAtLogin: false, status: 'enabled' }
+    expect(item.read()).toEqual({ openAtLogin: true, available: true })
+    expect(item.set(false)).toEqual({ openAtLogin: false, available: true })
   })
 })

@@ -5,6 +5,7 @@ import {
   DEFAULT_SCOUT_FIXES, MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_FIXES_PER_DAY, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
   type ScoutApi, type ScoutEvery, type ScoutQuietHours, type ScoutState, type ScoutWatches
 } from '../../../shared/scout.js'
+import { machineWords } from '../../../shared/machine-words.js'
 import type { ScoutAwayStatus } from '../../../shared/scout-away.js'
 import { lookLines, lookName, setSomethingAside, type ScoutHeldAlert, type ScoutLogEntry } from '../../../shared/scout-log.js'
 import { ago } from './ScoutCards.js'
@@ -351,7 +352,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
       <div className="lc-settingline lc-settingline--sub">
         <div className="lc-settingline__text">
           <h3 className="lc-settings__heading">Tell me in Windows</h3>
-          <p className="lc-settings__lede">Only for a card that needs you now, while Locust is minimized, in the tray or behind another app.</p>
+          <p className="lc-settings__lede">{`Only for a card that needs you now, while Locust is minimized, in the ${machineWords(typeof window === 'undefined' ? undefined : window.desktop?.platform).tray} or behind another app.`}</p>
         </div>
         {switchOf('Tell me in Windows', state.settings.notify, () => { void act(() => api.set({ notify: !state.settings.notify })) })}
       </div>

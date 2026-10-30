@@ -376,10 +376,12 @@ export const STAY_AWAKE_SET_CHANNEL = 'stay-awake:set'
 
 export interface LoginItemState {
   readonly openAtLogin: boolean
-  /** False in a development build and off Windows. */
+  /** False in a development build, and off Windows and a Mac. */
   readonly available: boolean
   /** Which of those it is (0.587), so the switch's note can say so. */
   readonly why?: 'development' | 'platform'
+  /** A Mac waits for the person to allow Locust under System Settings > General > Login Items (0.843). */
+  readonly approval?: true
 }
 
 export interface KeepRunningState {

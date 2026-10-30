@@ -14,6 +14,16 @@ import type { ScoutState } from '../../../shared/scout.js'
 import type { PlanRunsOut } from '../../../shared/carry-on.js'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
+import { machineWords } from '../../../shared/machine-words.js'
+
+/** Startup's words for this computer (0.843): a Mac logs in and keeps a closed Locust in the menu bar. */
+const startupPlatform = (): string | undefined => (typeof window === 'undefined' ? undefined : window.desktop?.platform)
+const loginItemNote = (why: 'development' | 'platform' | undefined): string =>
+  why === 'platform'
+    ? 'Windows and Mac only for now.'
+    : startupPlatform() === 'darwin'
+      ? 'Only the installed app can open when you log in. A development copy would register Electron.'
+      : 'Only the installed app can sign in with Windows. A development copy would register Electron.'
 import { VoiceSettings } from './VoiceSettings.js'
 import { LocustMcpSettings } from './LocustMcpSettings.js'
 import { RemoteMcpSettings } from './RemoteMcpSettings.js'
@@ -3469,21 +3479,23 @@ export function SettingsScreen({
         <section className="lc-settings__section">
           <h2 className="lc-settings__heading">Startup</h2>
           <p className="lc-settings__lede">
-            Routines run while Locust is open. Signing in can open it in the tray, with no window, until you ask for one.
+            {startupPlatform() === 'darwin'
+              ? 'Routines run while Locust is open. Logging in can open it.'
+              : 'Routines run while Locust is open. Signing in can open it in the tray, with no window, until you ask for one.'}
           </p>
           <div className="lc-settingrows">
             <div className="lc-settingrow">
-              <span className="lc-settings__note">Start Locust when you sign in to Windows.</span>
+              <span className="lc-settings__note">{`Start Locust when you ${machineWords(startupPlatform()).signIn}.`}</span>
               <button
                 type="button"
                 className={`lc-switch${loginItem.openAtLogin ? ' is-on' : ''}`}
                 role="switch"
                 aria-checked={loginItem.openAtLogin}
-                aria-label="Start Locust when you sign in to Windows."
+                aria-label={`Start Locust when you ${machineWords(startupPlatform()).signIn}.`}
                 disabled={loginItem.available !== true}
                 {...(loginItem.available === true
                   ? {}
-                  : { title: loginItem.why === 'platform' ? 'Windows only for now.' : 'Only the installed app can sign in with Windows. A development copy would register Electron.' })}
+                  : { title: loginItemNote(loginItem.why) })}
                 onClick={() => onLoginItemChange?.(loginItem.openAtLogin !== true)}
               >
                 <span className="lc-switch__knob" />
@@ -3524,7 +3536,12 @@ export function SettingsScreen({
           )}
           {loginItem.available !== true && (
             <p className="lc-settings__note">
-              {loginItem.why === 'platform' ? 'Windows only for now.' : 'Only the installed app can sign in with Windows. A development copy would register Electron.'}
+              {loginItemNote(loginItem.why)}
+            </p>
+          )}
+          {loginItem.approval === true && (
+            <p className="lc-settings__note">
+              macOS is waiting for you to allow Locust in System Settings, under General, then Login Items.
             </p>
           )}
         </section>
