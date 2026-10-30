@@ -1,9 +1,10 @@
-// The sidebar's working spark in monochrome, and a / menu that shows the
-// runtime's own section without scrolling (0.429).
+// The working sign in monochrome, and a / menu that shows the runtime's own
+// section without scrolling (0.429). The sidebar's spark this drive was named
+// for is gone; the sign is the live step's orb and the face's dot (2026-10-30).
 //
 //   node _tools/drive-spark-and-menu.mjs [--packaged <exe>] [--tag <name>]
 //
-// Free model (LOCUST_FREE_MODEL, Nemotron by default): spends nothing.
+// Free model (FREE_ROUTE: LOCUST_FREE_MODEL, DeepSeek V4.1 Flash by default): spends nothing.
 //
 // Colin, 2026-09-28: "since we don't really use any lime accents just make
 // the working/thinking sidebar notifier monochrome to match the rest of the
@@ -18,12 +19,13 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { openTeammateScript, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
+import { FREE_ROUTE, openTeammateScript, recordRoot, say, scratchRepository, sleep, startDrive } from './drive-lib.mjs'
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const packaged = arg('--packaged')
 const tag = arg('--tag') ?? 'local'
-const MODEL = process.env.LOCUST_FREE_MODEL ?? 'opencode/nemotron-3-ultra-free'
+// The drives' free route: nemotron-3-ultra-free, named here before, left OpenCode's free list by 2026-10-30.
+const MODEL = FREE_ROUTE.model
 const OUT = join(recordRoot('spark-and-menu-2026-09-28'), `spark-and-menu-${tag}`)
 await mkdir(OUT, { recursive: true })
 
@@ -70,19 +72,33 @@ try {
   await sleep(800)
   await drive.evaluate(type('Read every file in this folder and describe each in one sentence.'))
   await drive.evaluate(`document.querySelector('button[aria-label="Send"]')?.click()`)
-  const spark = JSON.parse(String(await drive.evaluate(`(async () => {
-    for (let i = 0; i < 80 && !document.querySelector('.lc-conv .lc-spark, .lc-spark'); i += 1) await new Promise((r) => setTimeout(r, 250))
-    const el = document.querySelector('.lc-spark')
+  // 0.392's sidebar spark is gone from the page, and lime is retired (--lc-lime is the primary text colour). The working
+  // sign is the live step's orb beside "Working…": every pixel and stroke it draws is read while Ada runs.
+  const orb = JSON.parse(String(await drive.evaluate(`(async () => {
+    for (let i = 0; i < 80 && !document.querySelector('.lc-livestep__orb'); i += 1) await new Promise((r) => setTimeout(r, 250))
+    const el = document.querySelector('.lc-livestep__orb')
     if (!el) return JSON.stringify({ found: false })
-    const colour = getComputedStyle(el, '::before').color
-    const primary = getComputedStyle(document.documentElement).getPropertyValue('--lc-text-primary').trim()
-    return JSON.stringify({ found: true, colour, primary })
+    await new Promise((r) => setTimeout(r, 600))
+    const colours = new Set()
+    for (const canvas of el.querySelectorAll('canvas')) {
+      const data = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data ?? []
+      for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 40) colours.add(data[i] + ',' + data[i + 1] + ',' + data[i + 2])
+    }
+    for (const shape of el.querySelectorAll('svg *')) {
+      const style = getComputedStyle(shape)
+      for (const paint of [style.fill, style.stroke]) {
+        const rgb = paint.match(/^rgba?\\((\\d+), (\\d+), (\\d+)/)
+        if (rgb) colours.add(rgb.slice(1, 4).join(','))
+      }
+    }
+    const spread = Math.max(0, ...[...colours].map((one) => { const [r, g, b] = one.split(',').map(Number); return Math.max(r, g, b) - Math.min(r, g, b) }))
+    return JSON.stringify({ found: true, drawn: colours.size, spread, sample: [...colours].slice(0, 6) })
   })()`)))
   await drive.capture('The sidebar while Ada works', () => drive.evaluate(`document.querySelector('.lc-sidebar, nav')?.innerText.replace(/\\s+/g, ' ').slice(0, 200) ?? ''`))
-  say(`  spark: ${JSON.stringify(spark)}`)
-  const hex = spark.primary?.replace('#', '') ?? ''
-  const primaryRgb = hex.length === 6 ? `rgb(${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)})` : ''
-  check('the working spark is drawn in the primary text colour, not lime', spark.found && spark.colour === primaryRgb, JSON.stringify({ ...spark, primaryRgb }))
+  say(`  orb: ${JSON.stringify(orb)}`)
+  check('the working orb beside "Working…" is drawn in greys alone, no colour', orb.found && orb.drawn > 0 && orb.spread <= 16, JSON.stringify(orb))
+  // The primary text colour as the page computes it, from a probe that wears it.
+  const primaryRgb = String(await drive.evaluate(`(() => { const probe = document.createElement('span'); probe.style.color = 'var(--lc-text-primary)'; document.body.append(probe); const colour = getComputedStyle(probe).color; probe.remove(); return colour })()`))
   // 0.430: the face's working dot and the title bar's running dot too.
   const dots = JSON.parse(String(await drive.evaluate(`(async () => {
     for (let i = 0; i < 40 && !document.querySelector('.lc-presence'); i += 1) await new Promise((r) => setTimeout(r, 250))
@@ -94,8 +110,8 @@ try {
     })
   })()`)))
   say(`  dots: ${JSON.stringify(dots)}`)
-  check("the working dot on Ada's face is the primary text colour", dots.face === primaryRgb, JSON.stringify(dots))
-  check('the dot beside "running" in the title bar is the primary text colour', dots.running === primaryRgb, JSON.stringify(dots))
+  check("the working dot on Ada's face is the primary text colour", dots.face === primaryRgb, JSON.stringify({ ...dots, primaryRgb }))
+  check('the dot beside "running" in the title bar is the primary text colour', dots.running === primaryRgb, JSON.stringify({ ...dots, primaryRgb }))
 
   await drive.evaluate(`(async () => {
     for (let i = 0; i < 600; i += 1) {
