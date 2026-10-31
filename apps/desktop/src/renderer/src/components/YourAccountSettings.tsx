@@ -38,6 +38,8 @@ export function YourAccountSettings({ heading, api = typeof window === 'undefine
   const [code, setCode] = useState<string | undefined>(initialCode)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState('')
+  const [typed, setTyped] = useState('')
+  const [bringing, setBringing] = useState<string>()
 
   useEffect(() => {
     let alive = true
@@ -97,6 +99,22 @@ export function YourAccountSettings({ heading, api = typeof window === 'undefine
               <button type="button" className="lc-control lc-control--boxed" onClick={() => { setCode(undefined) }}>I wrote it down</button>
             </div>
           )}
+          {!on && status.elsewhere !== undefined && (
+            <div className="lc-settingline">
+              <div className="lc-settingline__text">
+                <p className="lc-settings__lede">{status.elsewhere.computers === 1 ? 'Another computer keeps' : `${String(status.elsewhere.computers)} other computers keep`} a copy of your Locust, last changed {agoOf(status.elsewhere.at)}. Bring it here with your recovery code.</p>
+                <p className="lc-settings__note">Locust restarts once. What it replaces on this computer is moved aside first, not deleted.</p>
+                <input className="lc-input lc-mono lc-account__codeinput" aria-label="Recovery code" placeholder="XXXXX-XXXXX-…" spellCheck={false} autoComplete="off" value={typed} disabled={busy || bringing !== undefined} onChange={(event) => { setTyped(event.target.value) }} />
+              </div>
+              <ArmedButton className="lc-control lc-control--boxed" ariaLabel="Bring your Locust here" armedLabel="Restart and bring it" disabled={busy || bringing !== undefined || typed.trim().length < 10}
+                onConfirm={() => {
+                  void run(() => api!.accountBringHere!(typed), (answer) => {
+                    if (answer.ok) { setBringing(answer.computer); setTyped('') } else setFailure(answer.reason)
+                  })
+                }}>Bring it here</ArmedButton>
+            </div>
+          )}
+          {bringing !== undefined && <p className="lc-settings__note lc-tone-green" role="status">Your Locust from {bringing} is ready. Restarting to bring it in…</p>}
           {(on || status.hasKey) && (
             <div className="lc-settingline lc-account__acts">
               {on && <button type="button" className="lc-control lc-control--boxed" disabled={busy || status.syncing} onClick={() => { void run(() => api!.accountSyncNow!(), setStatus) }}>Sync now</button>}

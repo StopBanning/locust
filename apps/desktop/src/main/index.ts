@@ -193,7 +193,7 @@ import { acpScratch, createAcpAgents } from './acp-agents.js'
 import { acpCatalog, ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
 import { phonePage } from './phone-page.js'
 import { PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL } from '../shared/phone.js'
-import { ACCOUNT_CHANGED_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
+import { ACCOUNT_BRING_HERE_CHANNEL, ACCOUNT_CHANGED_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
 import { createKeepAwake, KEEP_AWAKE_BEAT_MS } from './keep-awake.js'
 import { attentionDot, needsYouCountFrom, taskbarAttention } from './taskbar-attention.js'
 import { CLOSE_BUTTONS, closeQuestion, hideToTrayOnClose, shouldAskBeforeClosing, trayLine, trayMenuLabels } from './quit-guard.js'
@@ -10561,6 +10561,15 @@ if (!ownsSingleInstanceLock) {
       busy: () => codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length > 0,
       changed: (status) => {
         if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(ACCOUNT_CHANGED_CHANNEL, status)
+      },
+      // A copy brought here is restored as a backup folder is: at the next start, with what it replaces moved aside.
+      restore: async (folder) => {
+        const liveRuns = new Set([...codexMissions.liveMissionIds(), ...antigravityMissions.liveMissionIds()]).size
+        const asked = await requestRestore(folder, app.getPath('userData'), { appVersion: app.getVersion(), liveRuns, now: () => new Date() })
+        if (!asked.ok) return asked
+        note('restore', 'asked for, from this account\'s copy on the relay; restarting to apply it')
+        setTimeout(() => { app.relaunch(); app.exit(0) }, 600)
+        return { ok: true } as const
       }
     })
     void phoneAnywhere.settings().then(() => yourAccount.start(), () => undefined)
@@ -10571,6 +10580,8 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(ACCOUNT_SYNC_OFF_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.turnOff() : NO_ACCOUNT)
     ipcMain.handle(ACCOUNT_SYNC_NOW_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.syncNow() : NO_ACCOUNT)
     ipcMain.handle(ACCOUNT_DELETE_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.deleteCopy() : NO_ACCOUNT)
+    ipcMain.handle(ACCOUNT_BRING_HERE_CHANNEL, (event, code: unknown) =>
+      fromOwnWindow(event) && typeof code === 'string' && code.length <= 200 ? yourAccount.bringHere(code) : { ok: false, reason: 'That was refused.' } as const)
     /*
      * LOCUST IN A BROWSER (0.830, desk-host.ts): a paired device Settings lets open the full window makes the window's
      * calls through the relay link; this computer's window shows a cover while it does.

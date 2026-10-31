@@ -47,7 +47,7 @@ import type { BrowserPointResponse } from './browser-point.js'
 import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL } from './appearance.js'
 import type { AppearanceState, ThemeChoice } from './appearance.js'
 import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from './acp-agents.js'
-import { ACCOUNT_CHANGED_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL, type YourAccountStatus } from './phone.js'
+import { ACCOUNT_BRING_HERE_CHANNEL, ACCOUNT_CHANGED_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL, type YourAccountStatus } from './phone.js'
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, type PhoneAnywhereSettings } from './phone.js'
 import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL } from './telegram.js'
 import { CHAT_ALERTS_CHANNEL, type ChatAppSettings } from './chat-apps.js'
@@ -565,6 +565,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       accountSyncOff: () => ipcRenderer.invoke(ACCOUNT_SYNC_OFF_CHANNEL),
       accountSyncNow: () => ipcRenderer.invoke(ACCOUNT_SYNC_NOW_CHANNEL),
       accountDelete: () => ipcRenderer.invoke(ACCOUNT_DELETE_CHANNEL),
+      accountBringHere: (code) => ipcRenderer.invoke(ACCOUNT_BRING_HERE_CHANNEL, code),
       onAccountChanged: (listener) => {
         const receive = (_event: IpcEvent, status: YourAccountStatus): void => { listener(status) }
         ipcRenderer.on(ACCOUNT_CHANGED_CHANNEL, receive)

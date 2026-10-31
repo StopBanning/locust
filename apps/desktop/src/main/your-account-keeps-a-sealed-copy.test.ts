@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { syncCore, type SyncObject } from '../../../relay/src/sync.js'
 import type { YourAccountStatus } from '../shared/phone.js'
-import { LEFT_OUT } from './profile-backup.js'
-import { profileKeyFromCode, recoveryCode } from './profile-sync-crypto.js'
+import { applyPendingRestore, LEFT_OUT, readBackup, requestRestore } from './profile-backup.js'
+import { newProfileKey, profileKeyFromCode, recoveryCode } from './profile-sync-crypto.js'
 import { PROFILE_SYNC_FILE, SyncRefused, type SyncAccountRemote } from './profile-sync.js'
 import { ACCOUNT_SYNC_FILE, createYourAccount, type AccountLink } from './your-account.js'
 
@@ -52,6 +52,10 @@ function aRelay(user: number, full = false) {
       const body = (await core.list({ user })).body as { used: number; quota: number }
       return { used: body.used, quota: body.quota }
     },
+    async copies() {
+      const body = (await core.list({ user })).body as { computers: { room: string; bytes: number; files: { at: number }[] }[] }
+      return body.computers.map((one) => ({ room: one.room, bytes: one.bytes, at: Math.max(0, ...one.files.map((file) => file.at)) }))
+    },
     async removeAll() { removedAll += 1; await core.removeAll({ user }) }
   })
   return { held, remote, removedAll: () => removedAll }
@@ -73,7 +77,7 @@ const lock = (available = true) => ({
 
 const linkAs = (user: number, login = 'colin'): AccountLink => ({ relay: 'https://relay.test', room: randomBytes(16).toString('base64url'), token: 't'.repeat(43), user, login })
 
-function anAccount(profile: string, options: { link?: AccountLink; relay?: ReturnType<typeof aRelay>; available?: boolean } = {}) {
+function anAccount(profile: string, options: { link?: AccountLink; relay?: ReturnType<typeof aRelay>; available?: boolean; computer?: string; restore?: (folder: string) => Promise<{ ok: true } | { ok: false; reason: string }> } = {}) {
   let link = options.link
   const relay = options.relay ?? aRelay(link?.user ?? 7)
   const told: YourAccountStatus[] = []
@@ -81,14 +85,15 @@ function anAccount(profile: string, options: { link?: AccountLink; relay?: Retur
     profile,
     link: async () => link,
     secrets: lock(options.available),
-    computer: () => "Colin's Mac",
+    computer: () => options.computer ?? "Colin's Mac",
     appVersion: '0.845.0',
     busy: () => false,
     remote: relay.remote,
     quietMs: 0,
     setInterval: () => 'look',
     clearInterval: () => undefined,
-    changed: (status) => { told.push(status) }
+    changed: (status) => { told.push(status) },
+    ...(options.restore === undefined ? {} : { restore: options.restore })
   })
   return { account, relay, told, signIn: (next: AccountLink | undefined) => { link = next } }
 }
@@ -195,5 +200,103 @@ describe('Your account', () => {
     await until(async () => (await account.status()).lastSynced !== undefined)
     expect(relay.held.size).toBeGreaterThan(0)
     account.stop()
+  })
+})
+
+describe('your Locust on a new computer, with the recovery code (slice 4)', () => {
+  /** The PC keeps a copy; the Mac signs in as the same GitHub account, with a room of its own. */
+  async function twoComputers() {
+    const relay = aRelay(7)
+    const pc = anAccount(await aProfile(), { link: linkAs(7), relay, computer: "Colin's PC" })
+    const first = await pc.account.turnOn()
+    await until(async () => (await pc.account.status()).lastSynced !== undefined)
+    pc.account.stop()
+    const macProfile = await fresh()
+    await writeFile(join(macProfile, 'teammates.json'), `${JSON.stringify({ schemaVersion: 15, teammates: [{ name: 'Atlas' }] })}\n`)
+    const restores: string[] = []
+    const mac = anAccount(macProfile, {
+      link: linkAs(7), relay,
+      restore: async (folder) => {
+        restores.push(folder)
+        return requestRestore(folder, macProfile, { appVersion: '0.845.0', liveRuns: 0, now: () => new Date() }).then((asked) => (asked.ok ? { ok: true as const } : asked))
+      }
+    })
+    return { relay, code: first.code!, mac, macProfile, restores }
+  }
+
+  it('a new computer is told another computer keeps a copy', async () => {
+    const { mac } = await twoComputers()
+    await mac.account.status()
+    await until(async () => (await mac.account.status()).elsewhere !== undefined)
+    expect((await mac.account.status()).elsewhere?.computers).toBe(1)
+  })
+
+  it('the code opens the newest copy, restores it at the next start, and keeps the key for sync', async () => {
+    const { code, mac, macProfile, restores } = await twoComputers()
+    const brought = await mac.account.bringHere(code.toLowerCase().replace(/-/g, ' '))
+    expect(brought).toEqual({ ok: true, computer: "Colin's PC" })
+    expect(restores).toHaveLength(1)
+    expect((await readBackup(restores[0]!, { appVersion: '0.845.0' })).ok).toBe(true)
+    // The next start applies it: the PC's teammates replace the Mac's, and what they replaced is kept aside.
+    const applied = await applyPendingRestore(macProfile, { appVersion: '0.845.0', now: () => new Date() })
+    expect(applied?.ok).toBe(true)
+    expect(await readFile(join(macProfile, 'teammates.json'), 'utf8')).toContain('Wren')
+    // Sync on afterwards uses the same key: no new code, and the PC's code still opens this computer's copy.
+    expect(await mac.account.status()).toMatchObject({ sync: 'off', hasKey: true })
+    expect((await mac.account.turnOn()).code).toBeUndefined()
+    mac.account.stop()
+  })
+
+  it('a code that does not open the copy changes nothing', async () => {
+    const { mac, macProfile, restores } = await twoComputers()
+    const wrong = await recoveryCode(newProfileKey())
+    const brought = await mac.account.bringHere(wrong)
+    expect(brought.ok).toBe(false)
+    expect(brought.ok ? '' : brought.reason).toContain('did not open with this key')
+    expect(restores).toEqual([])
+    await expect(stat(join(macProfile, ACCOUNT_SYNC_FILE))).rejects.toThrow()
+    expect(await readFile(join(macProfile, 'teammates.json'), 'utf8')).toContain('Atlas')
+  })
+
+  it('a code copied wrong is caught before the relay is asked', async () => {
+    const { code, mac } = await twoComputers()
+    // One character in the middle copied wrong: the two check bytes catch it.
+    const brought = await mac.account.bringHere(`${code.slice(0, 2)}${code[2] === '0' ? '1' : '0'}${code.slice(3)}`)
+    expect(brought).toEqual({ ok: false, reason: 'That code does not read right. It is 55 letters and digits in groups of five; check each group.' })
+  })
+
+  it('with no other computer keeping a copy, it says to turn Keep a copy on there first', async () => {
+    // This computer keeps its own copy: that one is never offered back to it, even with its own code.
+    const alone = anAccount(await aProfile(), { link: linkAs(7) })
+    const own = await alone.account.turnOn()
+    await until(async () => (await alone.account.status()).lastSynced !== undefined)
+    const brought = await alone.account.bringHere(own.code!)
+    expect(brought).toEqual({ ok: false, reason: 'No other computer keeps a copy for colin yet. Turn on Keep a copy there first.' })
+    alone.account.stop()
+  })
+})
+
+describe('the relay over HTTP', () => {
+  it('reads the relay’s own list into copies and usage, and refuses a room name it should not', async () => {
+    const relay = aRelay(7)
+    const pc = anAccount(await aProfile(), { link: linkAs(7), relay, computer: "Colin's PC" })
+    await pc.account.turnOn()
+    await until(async () => (await pc.account.status()).lastSynced !== undefined)
+    pc.account.stop()
+    const { httpSyncRemote } = await import('./profile-sync.js')
+    // The relay's list answer as its room route sends it, plus one entry that is not a room.
+    const listed = (await relay.remote(linkAs(7)).copies())
+    const body = JSON.stringify({ used: 1234, quota: 1 << 30, computers: [...listed.map((copy) => ({ room: copy.room, bytes: copy.bytes, files: [{ id: 'a', size: copy.bytes, at: copy.at }] })), { room: '../other', bytes: 5, files: [] }] })
+    const asked: { url: string; method: string; auth: string | null }[] = []
+    const remote = httpSyncRemote({
+      relay: 'https://relay.test/', room: 'R'.repeat(22), token: 'secret-token',
+      fetch: (async (url: string, init: RequestInit) => {
+        asked.push({ url, method: String(init.method), auth: new Headers(init.headers).get('authorization') })
+        return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } })
+      }) as typeof fetch
+    })
+    expect(await remote.copies()).toEqual(listed)
+    expect(await remote.usage()).toEqual({ used: 1234, quota: 1 << 30 })
+    expect(asked[0]).toEqual({ url: `https://relay.test/v1/room/${'R'.repeat(22)}/sync`, method: 'GET', auth: 'Bearer secret-token' })
   })
 })

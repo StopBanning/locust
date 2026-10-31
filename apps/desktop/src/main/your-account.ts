@@ -3,8 +3,8 @@ import { join } from 'node:path'
 
 import type { YourAccountStatus } from '../shared/phone.js'
 import type { SecretBox } from './own-models.js'
-import { newProfileKey, PROFILE_KEY_BYTES, recoveryCode, syncKeys } from './profile-sync-crypto.js'
-import { createSyncSchedule, forgetSync, httpSyncRemote, lastSync, pushProfile, SyncRefused, type SyncAccountRemote } from './profile-sync.js'
+import { newProfileKey, PROFILE_KEY_BYTES, profileKeyFromCode, recoveryCode, syncKeys } from './profile-sync-crypto.js'
+import { createSyncSchedule, forgetSync, httpSyncRemote, lastSync, pullProfile, pushProfile, SyncRefused, type SyncAccountRemote } from './profile-sync.js'
 
 /**
  * SETTINGS › YOUR ACCOUNT (accounts slice 3, docs/PLAN-2026-10-30-ACCOUNTS.md).
@@ -21,6 +21,10 @@ import { createSyncSchedule, forgetSync, httpSyncRemote, lastSync, pushProfile, 
 export const ACCOUNT_SYNC_FILE = 'account-sync.json'
 /** Changes are noticed by a look every few minutes as well as when a run ends. */
 export const ACCOUNT_LOOK_MS = 10 * 60_000
+/** Where a copy brought from another computer is opened before the restore applies it (left out of backups). */
+export const ACCOUNT_COPIES_FOLDER = 'account-copies'
+/** How long the list of the account's other copies is trusted before the relay is asked again. */
+export const COPIES_FRESH_MS = 60_000
 
 /** The room and the GitHub account this computer is tied to, from "Use from anywhere". */
 export interface AccountLink {
@@ -63,6 +67,8 @@ export function createYourAccount(options: {
   readonly setInterval?: (run: () => void, ms: number) => unknown
   readonly clearInterval?: (timer: unknown) => void
   readonly changed?: (status: YourAccountStatus) => void
+  /** Asks for the restore of a backup-shaped folder at the next start, and restarts: the restore Settings already has. */
+  readonly restore?: (folder: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }>
 }) {
   const file = join(options.profile, ACCOUNT_SYNC_FILE)
   const remoteOf = options.remote ?? ((link: AccountLink) => httpSyncRemote(link))
@@ -70,6 +76,9 @@ export function createYourAccount(options: {
   let message: { text: string; good: boolean } | undefined
   let storage: { used: number; quota: number } | undefined
   let syncing = false
+  /** The account's copies kept by other computers, as the relay last listed them. */
+  let elsewhere: { account: number; room: string; copies: readonly { room: string; bytes: number; at: number }[]; lookedAt: number } | undefined
+  let looking = false
   let look: unknown
   let queue: Promise<unknown> = Promise.resolve()
   const serial = <T>(work: () => Promise<T>): Promise<T> => {
@@ -95,6 +104,8 @@ export function createYourAccount(options: {
     const saved = await read()
     const ours = saved !== undefined && link !== undefined && saved.account === link.user
     const last = ours ? await lastSync(options.profile, link.user, link.room) : undefined
+    if (link !== undefined) lookElsewhere(link)
+    const others = link !== undefined && elsewhere?.account === link.user && elsewhere.room === link.room ? elsewhere.copies : []
     return {
       ...(link === undefined ? {} : { signedIn: { login: link.login } }),
       sync: ours && saved.on ? 'on' : 'off',
@@ -102,10 +113,23 @@ export function createYourAccount(options: {
       syncing,
       ...(last === undefined ? {} : { lastSynced: last }),
       ...(ours && storage !== undefined ? { storage } : {}),
+      ...(others.length === 0 ? {} : { elsewhere: { computers: others.length, at: new Date(Math.max(...others.map((copy) => copy.at))).toISOString() } }),
       ...(message === undefined ? {} : { message: message.text, good: message.good })
     }
   }
   const tell = (): void => { if (options.changed !== undefined) void status().then(options.changed, () => undefined) }
+  /** Asks the relay, at most once a minute, which other computers of the account keep a copy; says so when it changes. */
+  function lookElsewhere(link: AccountLink): void {
+    const fresh = elsewhere?.account === link.user && elsewhere.room === link.room && now().getTime() - elsewhere.lookedAt < COPIES_FRESH_MS
+    if (fresh || looking) return
+    looking = true
+    void remoteOf(link).copies().then((copies) => {
+      const others = copies.filter((copy) => copy.room !== link.room && copy.bytes > 0)
+      const changed = JSON.stringify(others) !== JSON.stringify(elsewhere?.copies ?? [])
+      elsewhere = { account: link.user, room: link.room, copies: others, lookedAt: now().getTime() }
+      if (changed) tell()
+    }, () => undefined).finally(() => { looking = false })
+  }
 
   /** One sync now: the copy, then how much of the account's storage it takes. */
   const push = (): Promise<boolean> => serial(async () => {
@@ -213,6 +237,34 @@ export function createYourAccount(options: {
       storage = undefined
       message = { text: 'Your copy on Locust’s relay is deleted. Everything on this computer stays.', good: true }
       return status()
+    }),
+    /**
+     * YOUR LOCUST ON THIS COMPUTER, WITH THE RECOVERY CODE (accounts slice 4). The newest copy another computer keeps is
+     * opened with the key the code holds, written as a backup folder, and restored through the restore Settings already
+     * has: what it replaces is moved aside, and Locust restarts once. The key is kept here, locked, so turning sync on
+     * afterwards shows no new code. A code that does not open the copy changes nothing.
+     */
+    bringHere: (code: string): Promise<{ readonly ok: true; readonly computer: string } | { readonly ok: false; readonly reason: string }> => serial(async () => {
+      const link = await options.link().catch(() => undefined)
+      if (link === undefined) return { ok: false, reason: 'Sign in with GitHub first, under Use from anywhere.' }
+      const key = await profileKeyFromCode(code)
+      if (key === undefined) return { ok: false, reason: 'That code does not read right. It is 55 letters and digits in groups of five; check each group.' }
+      if (!options.secrets.available()) return { ok: false, reason: 'This computer cannot lock a key, so your copy cannot be brought here safely.' }
+      let copies: readonly { room: string; bytes: number; at: number }[]
+      try {
+        copies = (await remoteOf(link).copies()).filter((copy) => copy.room !== link.room && copy.bytes > 0).sort((a, b) => b.at - a.at)
+      } catch (error) {
+        return { ok: false, reason: refusal(error) }
+      }
+      if (copies.length === 0) return { ok: false, reason: `No other computer keeps a copy for ${link.login} yet. Turn on Keep a copy there first.` }
+      const keys = await syncKeys(key, link.user)
+      const folder = join(options.profile, ACCOUNT_COPIES_FOLDER, now().toISOString().replace(/[:.]/g, '-'))
+      const pulled = await pullProfile({ keys, remote: remoteOf(link), from: copies[0]!.room, folder })
+      if (!pulled.ok) return pulled
+      await write({ v: 1, on: false, account: link.user, key: options.secrets.encrypt(Buffer.from(key).toString('base64url')).toString('base64') })
+      if (options.restore === undefined) return { ok: true, computer: pulled.computer }
+      const asked = await options.restore(folder)
+      return asked.ok ? { ok: true, computer: pulled.computer } : asked
     }),
     stop(): void {
       schedule.stop()

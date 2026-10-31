@@ -25003,3 +25003,4 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 /* Your account (accounts slice 3): the recovery code, shown once, large enough to copy by hand. */
 .lc-account__codetext { margin: var(--lc-space-2) 0; font-size: 15px; letter-spacing: 0.06em; color: var(--lc-text-primary); word-break: break-word; user-select: all; }
 .lc-account__acts { display: flex; flex-wrap: wrap; gap: var(--lc-space-2); }
+.lc-account__codeinput { width: 100%; max-width: 560px; margin-top: var(--lc-space-2); }

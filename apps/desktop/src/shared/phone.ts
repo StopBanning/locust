@@ -55,6 +55,7 @@ export const ACCOUNT_SYNC_OFF_CHANNEL = 'account:sync-off'
 export const ACCOUNT_SYNC_NOW_CHANNEL = 'account:sync-now'
 export const ACCOUNT_DELETE_CHANNEL = 'account:delete'
 export const ACCOUNT_CHANGED_CHANNEL = 'account:changed'
+export const ACCOUNT_BRING_HERE_CHANNEL = 'account:bring-here'
 
 export interface YourAccountStatus {
   /** Signed in with GitHub, through Use from anywhere. */
@@ -65,6 +66,8 @@ export interface YourAccountStatus {
   readonly syncing: boolean
   readonly lastSynced?: { readonly at: string; readonly files: number; readonly bytes: number }
   readonly storage?: { readonly used: number; readonly quota: number }
+  /** Other computers of the account keep a copy: how many, and when the newest last changed. */
+  readonly elsewhere?: { readonly computers: number; readonly at: string }
   readonly message?: string
   readonly good?: boolean
 }
@@ -134,6 +137,8 @@ export interface PhoneApi {
   accountSyncOff?(): Promise<YourAccountStatus>
   accountSyncNow?(): Promise<YourAccountStatus>
   accountDelete?(): Promise<YourAccountStatus>
+  /** Brings the account's newest copy here with the recovery code, and restarts to apply it. */
+  accountBringHere?(code: string): Promise<{ readonly ok: true; readonly computer: string } | { readonly ok: false; readonly reason: string }>
   onAccountChanged?(callback: (status: YourAccountStatus) => void): () => void
   /** Called when a phone pairs, comes and goes, or the connection to the relay changes. */
   onAnywhereChanged(callback: (settings: PhoneAnywhereSettings) => void): () => void

@@ -46,3 +46,14 @@ it('sizes and times read as a person says them', () => {
   expect(agoOf('2026-10-31T17:59:30Z', now)).toBe('just now')
   expect(agoOf('2026-10-31T15:00:00Z', now)).toBe('3 h ago')
 })
+
+it('on a new computer it offers to bring the copy here with the code, and says what a restart does', () => {
+  const at = new Date(Date.now() - 2 * 3600_000).toISOString()
+  const markup = renderToStaticMarkup(<YourAccountSettings initial={{ signedIn: { login: 'colin' }, sync: 'off', hasKey: false, syncing: false, elsewhere: { computers: 1, at } }} />)
+  expect(markup).toContain('Another computer keeps a copy of your Locust, last changed 2 h ago. Bring it here with your recovery code.')
+  expect(markup).toContain('What it replaces on this computer is moved aside first, not deleted.')
+  expect(markup).toContain('aria-label="Recovery code"')
+  expect(markup).toContain('Bring it here')
+  // Already syncing here, it is not offered: this computer's own copy is the one being kept.
+  expect(renderToStaticMarkup(<YourAccountSettings initial={{ signedIn: { login: 'colin' }, sync: 'on', hasKey: true, syncing: false, elsewhere: { computers: 1, at } }} />)).not.toContain('Bring it here')
+})

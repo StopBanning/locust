@@ -72,6 +72,8 @@ export interface SyncRemote {
 /** What Settings › Your account asks of the relay besides: the account's storage, and deleting every copy of it. */
 export interface SyncAccountRemote extends SyncRemote {
   usage(): Promise<{ readonly used: number; readonly quota: number }>
+  /** Every computer of the account that keeps a copy: its room, its bytes, and when it last changed. */
+  copies(): Promise<readonly { readonly room: string; readonly bytes: number; readonly at: number }[]>
   removeAll(): Promise<void>
 }
 
@@ -273,6 +275,20 @@ export function httpSyncRemote(config: { readonly relay: string; readonly room: 
       const body = (await answer.json().catch(() => ({}))) as { used?: unknown; quota?: unknown }
       const count = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
       return { used: count(body.used), quota: count(body.quota) }
+    },
+    async copies() {
+      const answer = await go(base, { method: 'GET', headers: { authorization } })
+      if (!answer.ok) throw await refused(answer)
+      const body = (await answer.json().catch(() => ({}))) as { computers?: unknown }
+      const out: { room: string; bytes: number; at: number }[] = []
+      for (const one of Array.isArray(body.computers) ? body.computers as unknown[] : []) {
+        if (typeof one !== 'object' || one === null) continue
+        const said = one as { room?: unknown; bytes?: unknown; files?: unknown }
+        if (typeof said.room !== 'string' || !/^[A-Za-z0-9_-]{22}$/.test(said.room)) continue
+        const times = (Array.isArray(said.files) ? said.files as { at?: unknown }[] : []).map((file) => (typeof file?.at === 'number' ? file.at : 0))
+        out.push({ room: said.room, bytes: typeof said.bytes === 'number' && said.bytes >= 0 ? said.bytes : 0, at: Math.max(0, ...times) })
+      }
+      return out
     },
     async removeAll() {
       const answer = await go(base, { method: 'DELETE', headers: { authorization } })
