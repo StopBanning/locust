@@ -38,6 +38,8 @@ export const BACKUP_MANIFEST = 'locust-backup.json'
 export const PENDING_RESTORE_FILE = 'pending-restore.json'
 /** What the last restore did, kept until the window has said so once. */
 export const LAST_RESTORE_FILE = 'last-restore.json'
+/** Where each conversation with a Kilo teammate keeps Kilo's own data (codex-mission.ts, `kiloHome`). */
+export const KILO_CONVERSATIONS_FOLDER = 'kilo-conversations'
 
 /** The files a backup carries: the person's setup. */
 export const BACKED_UP_FILES = [
@@ -105,6 +107,7 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'cloud-tasks.json': 'cloud tasks, which belong to this machine and its sign-in',
   'cloud-turns.json': "turns sent to your cloud computer, which name this machine's folders: their changes stay on the codespace, on GitHub (0.761)",
   'brief-sessions.json': 'each agent\'s own session names, which do not carry to another machine',
+  [KILO_CONVERSATIONS_FOLDER]: "Kilo's own record of each conversation with a Kilo teammate: it stays on this machine, and after a restore a reply starts a new Kilo session, told what was said before (0.845)",
   'runtime-commands.json': 'where each AI agent is installed on this machine',
   'runtime-facts.json': 'what was found out about the AI agents installed here',
   'runtime-updates.json': 'the agent updates this machine installed',

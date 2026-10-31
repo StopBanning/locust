@@ -561,7 +561,7 @@ import { TESTER_LANE, updateLaneFrom } from './update-lane.js'
 import { createCursorConnectorKeeper } from './cursor-connector-allow.js'
 import { cursorConfiguredConnectorNames, cursorReadyConnectors, warmCursorConnectors } from './cursor-connector-notice.js'
 import { pruneMissionRecords, readStorageReport } from './retention.js'
-import { applyPendingRestore, countProfile, readBackup, requestRestore, takeLastRestore, writeBackup, type RestoreOutcome } from './profile-backup.js'
+import { applyPendingRestore, countProfile, KILO_CONVERSATIONS_FOLDER, readBackup, requestRestore, takeLastRestore, writeBackup, type RestoreOutcome } from './profile-backup.js'
 import { oneAtATime } from './one-at-a-time.js'
 import { createUpdateService, mayUpdateItself } from './updates.js'
 import type {
@@ -2795,6 +2795,11 @@ if (!ownsSingleInstanceLock) {
       references,
       organizationPolicy,
       workspacePath,
+      kiloHome: async (conversation) => {
+        const folder = join(app.getPath('userData'), KILO_CONVERSATIONS_FOLDER, conversation)
+        // mkdir names the first folder it made, and nothing when the folder was there already
+        return { folder, made: (await mkdir(folder, { recursive: true })) !== undefined }
+      },
       claudeContext: {
         beforeStart: async () => { await claudeContextReader?.beforeStart() },
         remember: async (id, launch) => { await claudeContextReader?.remember(id, launch) }

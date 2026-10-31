@@ -635,6 +635,13 @@ interface CodexMissionServiceOptions {
    * folder's skills and the person's themselves.
    */
   readonly runSkills?: (run: { readonly teammateId?: string; readonly skill?: TuneSkill }) => Promise<PreparedRunSkills | undefined>
+  /**
+   * The folder a conversation with a Kilo teammate keeps Kilo's own data in (Kilo keeps its sessions there, in
+   * kilo.db), named for the conversation's first turn: every turn of it gets the same one, so a follow-up finds the
+   * session it continues. `made` says it was not there before this turn. Without it, each run gets a folder of its
+   * own in the temp folder, as every run did before 0.845.
+   */
+  readonly kiloHome?: (conversation: string) => Promise<{ readonly folder: string; readonly made: boolean }>
   /** Connectors a Cursor teammate can call, by name, for its briefing. */
   readonly readyConnectors?: () => Promise<string | undefined>
   /**
@@ -1467,6 +1474,22 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
     return turns
   }
 
+  /** The first turn of the conversation `missionId` is in, walked back through each turn's `continuesFrom`. */
+  const firstTurns = new Map<string, string>()
+  const firstTurnOf = async (missionId: string): Promise<string> => {
+    let first = missionId
+    const seen = new Set<string>()
+    while (!seen.has(first)) {
+      seen.add(first)
+      const known = firstTurns.get(first)
+      if (known !== undefined) return known
+      const earlier = (await options.ledger.getMission(first).catch(() => undefined))?.metadata.continuesFrom?.missionId
+      if (earlier === undefined) break
+      first = earlier
+    }
+    return first
+  }
+
   const scheduleConsume = (mission: ActiveCodexMission): void => {
     let resolveOperation!: () => void
     const operation = new Promise<void>((resolve) => {
@@ -2121,6 +2144,29 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
 
         const runId = `run_${createId()}`
         const missionId = `mission_${createId()}`
+        /*
+         * A CONVERSATION WITH A KILO TEAMMATE KEEPS ONE KILO FOLDER (0.845). Kilo keeps its sessions in its data
+         * folder, and every run had a new one in the temp folder, so a follow-up's session/load found nothing: every
+         * second message to a Kilo teammate failed with "Internal error: OpenCode service failure". A conversation's
+         * turns now share a folder in the profile, named for its first turn. One whose folder was not there (begun
+         * before this, or on another computer) starts afresh, told what was said before.
+         */
+        let kiloFolder: string | undefined
+        if (runtime === 'kilo' && options.kiloHome !== undefined) {
+          const conversation = followUpOf === undefined ? missionId : await firstTurnOf(followUpOf)
+          firstTurns.set(missionId, conversation)
+          const home = await options.kiloHome(conversation)
+          kiloFolder = home.folder
+          if (home.made && resumeThreadId !== undefined) {
+            const prior = followUpOf === undefined || rewind === true ? undefined : await options.ledger.getMission(followUpOf).catch(() => undefined)
+            if (prior !== undefined) {
+              const said = createTranscriptTracker()
+              said.track(prior.events)
+              coldEarlier = [...(await earlierTurnsOf(prior)), { asked: prior.metadata.prompt, answered: said.latestFinal }]
+            }
+            resumeThreadId = undefined
+          }
+        }
         const controller = new AbortController()
         const flushBeforeApproval = async (): Promise<void> => {
           await active.get(runId)?.flushEvents?.()
@@ -2436,7 +2482,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
           }
         }
         if (runSkills !== undefined) options.note?.('skills-given', `${missionId} ${runSkills.skills.join(' ')}`)
-        const kiloConfig = runtime !== 'kilo' ? undefined : await mkdtemp(join(tmpdir(), 'locust-kilo-run-'))
+        const kiloConfig = runtime !== 'kilo' ? undefined : kiloFolder ?? await mkdtemp(join(tmpdir(), 'locust-kilo-run-'))
         const kiloLaunch = kiloConfig === undefined ? undefined : { env: kiloIsolationEnv(kiloConfig), sandbox: effectiveSandbox }
         const openCodeAcpLaunch = !opencodeAcp ? undefined : openCode2Launch(executable, {
           workspacePath: runCwd,
