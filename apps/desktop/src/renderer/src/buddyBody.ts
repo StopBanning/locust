@@ -630,9 +630,13 @@ export interface FaceGlassLook {
  * his face's ink, cut to the shape of his face. Drawn in his head's place,
  * under nothing but his fringe (which is not his face) -- it is drawn after his
  * head, inside his face's shape only.
+ *
+ * In software, as his head is (2026-10-30): it is drawn shrunk onto him at every size, and a canvas kept on the
+ * graphics card shrinks badly on a Mac -- measured on the pet sheet, 2.6 to 5.1 out of 255 off the exact picture at
+ * 56 to 26 px where the same pixels from a software canvas are 0.3 to 1.5 (as Orb.tsx's PaintedDown found).
  */
-export function paintFaceGlass(canvas: { getContext: (kind: '2d') => CanvasRenderingContext2D | null }, face: FaceShape, look: FaceGlassLook, width = 192): boolean {
-  const context = canvas.getContext('2d')
+export function paintFaceGlass(canvas: { getContext: (kind: '2d', settings?: CanvasRenderingContext2DSettings) => CanvasRenderingContext2D | null }, face: FaceShape, look: FaceGlassLook, width = 192): boolean {
+  const context = canvas.getContext('2d', { willReadFrequently: true })
   if (context === null) return false
   const { box } = face
   const ground = context.createLinearGradient(0, box.y, 0, box.y + box.h)
