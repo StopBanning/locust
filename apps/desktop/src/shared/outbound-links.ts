@@ -1,4 +1,4 @@
-import { POPULAR_SKILLS } from './popular-skills.js'
+import { POPULAR_SKILLS, TRENDING_SKILLS } from './popular-skills.js'
 import { runtimeInstallFacts } from './runtime-install.js'
 
 /**
@@ -45,7 +45,7 @@ export const OPENPETS_REPORT_LINK = 'mailto:admin@openpets.dev?subject=A%20pet%2
 /** Every connection Locust itself makes, listed (0.618, the PRD's R22): docs/NETWORK.md in the public copy. */
 export const NETWORK_DOC_LINK = 'https://github.com/StopBanning/locust/blob/main/docs/NETWORK.md'
 
-export const OUTBOUND_LINKS: readonly string[] = [...new Set([...RUNTIME_LINKS, NODE_LINK, OPENPETS_LINK, OPENPETS_REPORT_LINK, NETWORK_DOC_LINK, ...POPULAR_SKILLS.map((pack) => `https://github.com/${pack.source}`)])]
+export const OUTBOUND_LINKS: readonly string[] = [...new Set([...RUNTIME_LINKS, NODE_LINK, OPENPETS_LINK, OPENPETS_REPORT_LINK, NETWORK_DOC_LINK, ...[...POPULAR_SKILLS, ...TRENDING_SKILLS].map((pack) => `https://github.com/${pack.source}`)])]
 
 /** Whether the host may open this, asked of the host's own list. */
 export function isOutboundLink(url: unknown): url is string {

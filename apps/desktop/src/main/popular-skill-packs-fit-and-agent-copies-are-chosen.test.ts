@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { createSkillLibrary, gitBlobId, type Fetcher } from './skill-library.js'
 import { prepareClaudeSkills } from './claude-skills.js'
-import { POPULAR_SKILLS, POPULAR_SKILLS_AS_OF, skillPreviewPicks } from '../shared/popular-skills.js'
+import { POPULAR_SKILLS, POPULAR_SKILLS_AS_OF, TRENDING_SKILLS, TRENDING_SKILLS_AS_OF, skillPreviewPicks } from '../shared/popular-skills.js'
 import { isOutboundLink } from '../shared/outbound-links.js'
 
 const sha = 'a'.repeat(40)
@@ -85,4 +85,18 @@ it('the five popular packs have dated stars and licenses and Claude Mem names it
   }
   expect(POPULAR_SKILLS[2].license).toBe('Apache-2.0 + source-available')
   expect(POPULAR_SKILLS[4].description).toContain('Needs its own install to work.')
+})
+
+it('the new-this-week packs are dated, licensed, younger than the snapshot and can be opened', () => {
+  expect(TRENDING_SKILLS_AS_OF).toBe('2026-10-31')
+  expect(TRENDING_SKILLS.map((pack) => pack.source)).toEqual(['t3dotgg/tstack', 'heydamir/unslop', 'morganlinton/BeautifulRust', 'daveebbelaar/bama'])
+  const popular = new Set<string>(POPULAR_SKILLS.map((pack) => pack.source))
+  for (const pack of TRENDING_SKILLS) {
+    expect(popular.has(pack.source)).toBe(false)
+    expect(pack.stars).toBeGreaterThan(0)
+    expect(pack.license.length).toBeGreaterThan(0)
+    expect(pack.since <= TRENDING_SKILLS_AS_OF).toBe(true)
+    expect(Date.parse(TRENDING_SKILLS_AS_OF) - Date.parse(pack.since)).toBeLessThanOrEqual(14 * 24 * 60 * 60 * 1000)
+    expect(isOutboundLink(`https://github.com/${pack.source}`)).toBe(true)
+  }
 })

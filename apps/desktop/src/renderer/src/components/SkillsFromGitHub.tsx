@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 
 import type { SkillLibraryPreview, SkillLibrarySkill, SkillLibrarySource } from '../../../shared/ipc.js'
-import { POPULAR_SKILLS, POPULAR_SKILLS_AS_OF, skillPreviewPicks } from '../../../shared/popular-skills.js'
+import { POPULAR_SKILLS, POPULAR_SKILLS_AS_OF, TRENDING_SKILLS, TRENDING_SKILLS_AS_OF, skillPreviewPicks } from '../../../shared/popular-skills.js'
 import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
 import { ArmedButton } from './ArmedButton.js'
 
@@ -24,6 +24,12 @@ export function sizeText(bytes: number): string {
   if (bytes < 1024) return `${String(bytes)} B`
   if (bytes < 1024 * 1024) return `${String(Math.round(bytes / 1024))} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** "Oct 24" from 2026-10-24, read as the calendar day it names wherever the computer is. */
+export function sinceText(day: string): string {
+  const [year, month, date] = day.split('-').map(Number)
+  return new Date(year ?? 0, (month ?? 1) - 1, date ?? 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 const plural = (count: number, one: string, many = `${one}s`): string => `${String(count)} ${count === 1 ? one : many}`
@@ -88,22 +94,30 @@ export function SkillsFromGitHub(): ReactElement {
       return next
     })
 
+  // One tile for both rows: a pack opens the same Look, and Keep stays a separate decision.
+  const packTile = (pack: { readonly source: string; readonly name: string; readonly description: string; readonly stars: number; readonly license: string }, meta: string): ReactElement => (
+    <div className="lc-skilllib__tile" key={pack.source}>
+      <button type="button" className="lc-skilllib__pack" disabled={busy !== undefined} onClick={() => { setLink(pack.source); look(pack.source, true) }}>
+        <span className="lc-skilllib__name">{pack.name}</span>
+        <span className="lc-skilllib__skills">{pack.description}</span>
+        <span className="lc-skilllib__meta">{meta}</span>
+      </button>
+      <button type="button" className="lc-linkbutton" onClick={() => { void window.desktop?.openLink(`https://github.com/${pack.source}`).then((answer) => setSaid(answer.ok ? undefined : { text: answer.message, good: false })) }}>Repository: {pack.source}</button>
+    </div>
+  )
+
   return (
     <div className="lc-skilllib">
       <section aria-label="Popular skills" className="lc-skilllib__popular">
         <div className="lc-skilllib__name">Popular skills</div>
         <p className="lc-skilllib__said">Look at a pack to see its skills and files that run, then keep them all. Stars as of {POPULAR_SKILLS_AS_OF}.</p>
         <div className="lc-skilllib__tiles">
-          {POPULAR_SKILLS.map((pack) => (
-            <div className="lc-skilllib__tile" key={pack.source}>
-              <button type="button" className="lc-skilllib__pack" disabled={busy !== undefined} onClick={() => { setLink(pack.source); look(pack.source, true) }}>
-                <span className="lc-skilllib__name">{pack.name}</span>
-                <span className="lc-skilllib__skills">{pack.description}</span>
-                <span className="lc-skilllib__meta">{pack.stars.toLocaleString('en-US')} stars · {pack.license}</span>
-              </button>
-              <button type="button" className="lc-linkbutton" onClick={() => { void window.desktop?.openLink(`https://github.com/${pack.source}`).then((answer) => setSaid(answer.ok ? undefined : { text: answer.message, good: false })) }}>Repository: {pack.source}</button>
-            </div>
-          ))}
+          {POPULAR_SKILLS.map((pack) => packTile(pack, `${pack.stars.toLocaleString('en-US')} stars · ${pack.license}`))}
+        </div>
+        <div className="lc-skilllib__name">New this week</div>
+        <p className="lc-skilllib__said">Packs made in the last two weeks that climbed fastest. Stars as of {TRENDING_SKILLS_AS_OF}.</p>
+        <div className="lc-skilllib__tiles">
+          {TRENDING_SKILLS.map((pack) => packTile(pack, `${pack.stars.toLocaleString('en-US')} stars since ${sinceText(pack.since)} · ${pack.license}`))}
         </div>
       </section>
       {sources !== undefined && sources.length > 0 && (
