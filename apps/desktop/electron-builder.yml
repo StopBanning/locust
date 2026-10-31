@@ -56,9 +56,13 @@ asarUnpack:
 extraResources:
   - from: resources/icon.ico
     to: icon.ico
-  # The macOS menu-bar icon: a small PNG, which macOS can read (an .ico it cannot).
+  # Linux keeps the existing small colour PNG.
   - from: resources/icon-32.png
     to: icon-32.png
+  - from: resources/trayTemplate.png
+    to: trayTemplate.png
+  - from: resources/trayTemplate@2x.png
+    to: trayTemplate@2x.png
   # Claude Code spawns this as a stdio MCP server, so it has to be a real
   # file on disk, never a path inside the archive (permission-host.ts).
   - from: resources/locust-permission-bridge.mjs

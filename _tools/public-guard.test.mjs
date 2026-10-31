@@ -31,6 +31,7 @@ test('lets a marked fixture, a test address and a 555 number through', () => {
   assert.deepEqual(lineProblems(`const key = '${openai}' // public-guard: allow`, undefined), [])
   assert.deepEqual(lineProblems('author: drive@locust.test, noreply@anthropic.com', undefined), [])
   assert.deepEqual(lineProblems('tel (352) 555-0100', undefined), [])
+  assert.deepEqual(lineProblems("const retina = 'trayTemplate@2x.png'", undefined), [])
 })
 
 test('refuses a private path, and reads only what a change adds', () => {

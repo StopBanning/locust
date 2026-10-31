@@ -32,8 +32,8 @@ import { SCAN_PATTERNS, accountRemains, denyHits, denyTerms, exclusionRule } fro
 
 const ALLOW_MARK = 'public-guard: allow'
 const WORKFLOWS = '.github/workflows/**'
-// Addresses that are product, vendor or made up -- not a person's inbox.
-const OK_EMAIL = /@(?:[a-z0-9-]+\.)*(?:test|example|invalid|local|locust\.lol|example\.com|example\.org|anthropic\.com|cursor\.com|github\.com|users\.noreply\.github\.com|openai\.com|google\.com)$/i
+// Addresses that are product, vendor or made up -- not a person's inbox. Retina image assets (@2x.png) are not emails.
+const OK_EMAIL = /@(?:[2-4]x\.png|(?:[a-z0-9-]+\.)*(?:test|example|invalid|local|locust\.lol|example\.com|example\.org|anthropic\.com|cursor\.com|github\.com|users\.noreply\.github\.com|openai\.com|google\.com))$/i
 const OK_PHONE = /(?:^|\D)555\D/
 
 function git(args) {

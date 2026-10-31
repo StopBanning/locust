@@ -10867,16 +10867,18 @@ if (!ownsSingleInstanceLock) {
       // The next tray starts without a menu; its first beat must build one.
       trayLabels = undefined
     }
-    const trayIcon = () =>
-      // macOS draws a menu-bar icon from a small PNG and cannot read an .ico
-      // at all: handed one, the icon is empty and a closed Locust has no
-      // way back but the Dock (the first macOS build, 2026-09-29).
-      // Linux's tray takes the same small PNG, at the size its panel draws it (0.789).
-      process.platform === 'darwin'
-        ? nativeImage.createFromPath(app.isPackaged ? join(process.resourcesPath, 'icon-32.png') : join(__dirname, '../../resources/icon-32.png')).resize({ width: 18, height: 18 })
-        : process.platform === 'linux'
-          ? nativeImage.createFromPath(app.isPackaged ? join(process.resourcesPath, 'icon-32.png') : join(__dirname, '../../resources/icon-32.png'))
-          : nativeImage.createFromPath(app.isPackaged ? join(process.resourcesPath, 'icon.ico') : join(__dirname, '../../resources/icon-512.png'))
+    const trayIcon = () => {
+      if (process.platform === 'darwin') {
+        // Keep the 16pt image and its @2x representation together. Resizing
+        // here would discard the Retina representation Electron loads.
+        const image = nativeImage.createFromPath(app.isPackaged ? join(process.resourcesPath, 'trayTemplate.png') : join(__dirname, '../../resources/trayTemplate.png'))
+        image.setTemplateImage(true)
+        return image
+      }
+      return process.platform === 'linux'
+        ? nativeImage.createFromPath(app.isPackaged ? join(process.resourcesPath, 'icon-32.png') : join(__dirname, '../../resources/icon-32.png'))
+        : nativeImage.createFromPath(app.isPackaged ? join(process.resourcesPath, 'icon.ico') : join(__dirname, '../../resources/icon-512.png'))
+    }
     /**
      * One tray, for --background and for a window that closed into it.
      * Open Locust, the next routine due, Quit.
