@@ -11,6 +11,25 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.845.0 - 2026-11-01
+<!-- big -->
+
+### New
+
+- **Your Locust on every computer you sign in to.** Settings > General > Your account. Sign in with GitHub (under Your phone, From anywhere), turn on Keep a copy, and Locust keeps a copy of your teammates, routines, memories and conversations on its relay, sealed on this computer first with a key only your computers hold, so the relay cannot read it. Agent sign-ins and keys are never sent. Your recovery code is shown once, when you turn it on. The card says when it last synced and how much of your 1 GB it uses, with Sync now and Delete my copy. An account is optional; Locust stays whole without one.
+- **Bring your Locust to a new computer.** Sign in on the new computer and Your account says another computer keeps a copy. Press Ask that computer and approve it there once both screens show the same short code, or type your recovery code. Locust restarts once to bring it in, and what it replaces is moved aside first, not deleted.
+- **New this week, on the skills shelf.** Under Popular skills, the packs made in the last two weeks that climbed fastest: tstack, Unslop, Beautiful Rust and Build Any Mac App. One click lists a pack's skills and the files in them that run; a second keeps them for every teammate.
+
+### Improved
+
+- **Conversations restored from another computer find their folders.** A backup made on a PC remembers folders like C:\work\demo. On a Mac, Locust now looks for each missing folder, matches it by its git remote or else its name, and offers them on one card: Apply folders, or Choose... for any it could not find. A moved conversation's next turn carries on with what was said.
+- **Your phone shows an answer as the window does.** Lists, bold, headings and code are drawn on the phone, instead of the marks as they were typed, and a conversation's line in the list leaves them out.
+
+### Fixed
+
+- **Sign in with GitHub works again**, in Settings and at app.locust.lol/desk. Since 0.838 GitHub had turned every sign-in away ("GitHub did not say who you are"), because Locust's relay held an out-of-date sign-in key.
+- **A reply to a Kilo teammate is answered.** Since Kilo arrived in 0.835, the second message in every conversation with a Kilo teammate failed with "Internal error: OpenCode service failure": each turn's Kilo started from an empty folder and could not find the conversation it was continuing. Each conversation now keeps its own Kilo folder, and one begun before this starts afresh, told what was said before.
+
 ## 0.844.0 - 2026-10-31
 <!-- big -->
 
