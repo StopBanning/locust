@@ -18,6 +18,7 @@
     "src/shared/**/*.ts",
     "../relay/src/protocol.ts",
     "../relay/src/room-core.ts",
-    "../relay/src/mcp.ts"
+    "../relay/src/mcp.ts",
+    "../relay/src/sync.ts"
   ]
 }

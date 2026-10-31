@@ -11,7 +11,7 @@
  * A file is copied in CHUNK_BYTES pieces at fixed offsets. A conversation is appended to, never rewritten, so a new
  * turn changes only its last piece, and only that piece goes up again.
  */
-import { webcrypto } from 'node:crypto'
+import { createHash, webcrypto } from 'node:crypto'
 
 const VERSION = 'locust-sync-v1'
 const subtle = webcrypto.subtle
@@ -55,8 +55,12 @@ export async function fileIdOf(keys: SyncKeys, name: string): Promise<string> {
 
 /** The id of one piece of a profile file. */
 export const chunkIdOf = (keys: SyncKeys, path: string, index: number): Promise<string> => fileIdOf(keys, `file|${path}|${String(index)}`)
-/** The id the copy's list of files is kept under. */
-export const manifestIdOf = (keys: SyncKeys): Promise<string> => fileIdOf(keys, 'manifest')
+/**
+ * The id the copy's list of files is kept under: the same for every account, not cut with the key. A new computer
+ * with the wrong key then finds the list and is told the key is wrong, not that there is no copy; and the relay learns
+ * nothing it did not already, since the list is the file written last on every sync.
+ */
+export const MANIFEST_ID = createHash('sha256').update(`${VERSION}|manifest`).digest('base64url')
 
 const aadOf = (keys: SyncKeys, id: string): Uint8Array => utf8.encode(`${VERSION}|${String(keys.account)}|${id}`)
 
