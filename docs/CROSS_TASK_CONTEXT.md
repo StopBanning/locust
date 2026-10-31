@@ -715,3 +715,21 @@ Entries since 2026-10-03, newest first. Earlier entries (2026-08-30 to
 - `_tools/drive-locust-in-a-github-comment.mjs` uses a free model and a fake `gh.exe` ahead of PATH. It was written for
   the owner to run; this task did not launch Locust or run any drive. The scoped controls are
   `_tools/control-locust-comments.mjs`.
+
+### 2026-10-30 — Installed Mac update images are discarded
+
+- Scope: `exec/mac-update-cleanup`, based on `8c751258`. No version,
+  changelog, release, installed application or user-profile changes.
+- The Mac updater synchronously removes cached regular files with exact
+  `Locust-X.Y.Z-mac-arm64.dmg` or `Locust-X.Y.Z-mac-x64.dmg` names whose
+  numeric version is at or below the running version, before exposing the
+  updater. Newer images survive; cleanup never runs during download or swap.
+  Ambiguous running versions and unreadable caches are left alone.
+- Coverage: `a-mac-discards-installed-update-images.test.ts`; the four
+  `mac-image-cleanup` controls prove startup deletion, pending-image retention,
+  equality and numeric ordering. The focused suites passed (10 tests) and all
+  four controls were caught. The full gate passed (exit 0: 1,083 adapters,
+  170 mission-store, 32 cli, 12,815 desktop tests). No real installed update
+  was run.
+- Status: committed on `exec/mac-update-cleanup` and pushed to `stopbanning`.
+  Ready for the Mac chat (Locustv2) to review and merge.
