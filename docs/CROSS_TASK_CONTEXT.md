@@ -39,6 +39,18 @@ or clean up changes you do not own. Inspect `git status` before editing.
 changelog entry and publishes. An executor session commits on its branch and
 stops: no version bump, no `CHANGELOG.md` edit, no push, no release.
 
+**How a release goes out** (since 2026-10-30). Every system is built by the
+public `ci.yml`, started by hand, and published from the main agent's machine
+with `bash _tools/publish-ci.sh NEW PREV` at the release commit on main, the
+changelog's markers in `LOCUST_MARKERS`, one a line. It runs the gates
+(`ship.mjs --check-only`), pushes and tags, takes the Windows build only once
+CI has checked it (`win-attach-dl.sh`, `check-artifact.mjs`), checks the
+differential update from the previous installer, attaches the Mac and Linux
+builds and makes the Releases page. Publishing to dl.locust.lol needs that
+machine's Cloudflare sign-in (wrangler), and pushing needs `gh` signed in to
+the account that holds the public repository. `publish-dl.sh` is the older
+way, which builds Windows on a Windows machine and runs its update smoke there.
+
 ## The gate
 
 ```
