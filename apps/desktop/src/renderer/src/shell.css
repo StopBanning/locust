@@ -6751,6 +6751,19 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   display: grid;
 }
 
+/* The same card over the chat box's model chip (2026-10-30, AgentCard): it opens on the chip's hover or focus, above
+   it, aligned to its right edge, because the chip sits at the window's right. */
+.lc-agentcard--chip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.lc-control__anchor:hover > .lc-agentcard--chip,
+.lc-control__anchor:focus-within > .lc-agentcard--chip {
+  display: grid;
+}
+
 /* The name, and the state UNDER it: side by side, "Cursor Agent" and
    "Ready · 2026.09.26" ran off the card's edge (Colin, 2026-09-27, with a
    frame of it). Each line ellipsises rather than ever running off. */

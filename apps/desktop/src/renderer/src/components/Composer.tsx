@@ -70,6 +70,7 @@ import type { ComparePicking } from './RoutePicker.js'
 import { MAX_COMPARE_SLOTS, MIN_COMPARE_SLOTS, versusLabel } from '../../../shared/compare.js'
 import type { RouteChoice } from './RoutePicker.js'
 import { RuntimeMark } from './RuntimeMark.js'
+import { AgentCard } from './AgentMark.js'
 import { noteTyping } from '../faceLife.js'
 import { VoiceButton } from './VoiceButton.js'
 import { VoiceCallButton, type VoiceCallTalkTo } from './VoiceCall.js'
@@ -2918,11 +2919,12 @@ export function Composer({
                    */
                   title={[
                     comparing ? versus : nothingConnected ? 'No AI agent on this machine can start yet.' : exactRoute,
-                    handoffTitle(handoff),
-                    usageSentence
+                    handoffTitle(handoff)
                   ]
                     .filter((part) => part !== undefined && part.length > 0)
                     .join('\n')}
+                  // The account's usage is drawn in the card below (AgentCard), not the system tooltip a Mac rarely shows.
+                  {...(usageSentence === undefined || comparing ? {} : { 'aria-description': usageSentence })}
                   onClick={() => {
                     onOpenRoutePicker()
                     setPickerOpen(!pickerOpen)
@@ -3001,6 +3003,20 @@ export function Composer({
                     */}
                   <ChevronGlyph />
                 </button>
+                {/*
+                  * ITS USAGE, ON HOVER (2026-10-30): the same card the agents' marks open on Home, above the chip and
+                  * aligned to its right, since the chip sits at the window's edge. Not while the picker is open, which
+                  * opens in the same place, and not for a comparison, which is several models at once.
+                  */}
+                {usageReading !== undefined && !pickerOpen && !comparing && !nothingConnected && (
+                  <AgentCard
+                    className="lc-agentcard--chip"
+                    runtime={shownRuntime}
+                    name={shownRuntimeStatus?.displayName ?? runtimeDisplayName(shownRuntime)}
+                    state={shownRuntimeStatus?.version === undefined || shownRuntimeStatus.version === null ? 'Ready' : `Ready · ${shownRuntimeStatus.version.replace(/-[0-9a-f]{6,}$/i, '')}`}
+                    usage={usageReading}
+                  />
+                )}
               </span>
               )}
               

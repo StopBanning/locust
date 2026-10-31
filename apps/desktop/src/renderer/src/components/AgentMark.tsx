@@ -35,41 +35,56 @@ export interface AgentMarkProps {
 
 export function AgentMark({ runtime, name, state, usage, now = new Date() }: AgentMarkProps): ReactElement {
   const windows = usage === undefined ? [] : usageWindowsOf(usage, now)
-  const read = usage === undefined ? undefined : usageReadLine(usage)
   const said = [name, state, ...(usage === undefined || windows.length === 0 ? [] : [usageWindowSentence(usage, now)])].join('. ')
   return (
     <span className="lc-agentmark" tabIndex={0} role="img" aria-label={said}>
       <RuntimeMark runtime={runtime} size={15} />
-      <span className="lc-agentcard" aria-hidden="true">
-        <span className="lc-agentcard__head">
-          <RuntimeMark runtime={runtime} size={16} />
-          <span className="lc-agentcard__name">{name}</span>
-          <span className="lc-agentcard__state">{state}</span>
-        </span>
-        {windows.map((window) => {
-          // Reset since the reading: its percentage is no longer true (0.406).
-          if (window.expired === true) {
-            return (
-              <span className="lc-agentcard__window is-reset" key={window.name}>
-                <span className="lc-agentcard__label">{window.name.charAt(0).toUpperCase() + window.name.slice(1)}</span>
-                <span className="lc-agentcard__resets">reset since{window.resets === undefined ? '' : ` (${window.resets})`}</span>
-              </span>
-            )
-          }
-          const tone = window.percent >= 100 ? ' is-spent' : window.percent >= 80 ? ' is-pressing' : ''
+      <AgentCard runtime={runtime} name={name} state={state} {...(usage === undefined ? {} : { usage })} now={now} />
+    </span>
+  )
+}
+
+/**
+ * THE CARD ITSELF (2026-10-30): the agent's name and state, a bar a usage window, and when its reading was taken.
+ * Drawn by the page, not left to the system's tooltip: a mark's SVG title was "not a hover a person can rely on"
+ * (0.389), and the chat box's model chip carried Codex's usage only in its `title`, which a Mac shows only while
+ * Locust is the app in front, and after a pause -- Colin, on the Mac: "hovering isnt showing usage window for codex
+ * ... model picker usually does it". So the chip shows this same card above it (Composer.tsx), as the marks on Home do.
+ * `className` places it: the marks centre it over themselves; the chip, at the window's right edge, aligns it right.
+ */
+export function AgentCard({ runtime, name, state, usage, now = new Date(), className }: AgentMarkProps & { readonly className?: string }): ReactElement {
+  const windows = usage === undefined ? [] : usageWindowsOf(usage, now)
+  const read = usage === undefined ? undefined : usageReadLine(usage)
+  return (
+    <span className={`lc-agentcard${className === undefined ? '' : ` ${className}`}`} aria-hidden="true">
+      <span className="lc-agentcard__head">
+        <RuntimeMark runtime={runtime} size={16} />
+        <span className="lc-agentcard__name">{name}</span>
+        <span className="lc-agentcard__state">{state}</span>
+      </span>
+      {windows.map((window) => {
+        // Reset since the reading: its percentage is no longer true (0.406).
+        if (window.expired === true) {
           return (
-            <span className={`lc-agentcard__window${tone}`} key={window.name}>
+            <span className="lc-agentcard__window is-reset" key={window.name}>
               <span className="lc-agentcard__label">{window.name.charAt(0).toUpperCase() + window.name.slice(1)}</span>
-              <span className="lc-agentcard__percent">{window.remaining ?? window.percent}%{window.remaining === undefined ? '' : ' left'}</span>
-              <span className="lc-agentcard__bar">
-                <span className="lc-agentcard__fill" style={{ width: `${String(window.percent)}%` }} />
-              </span>
-              {window.resets !== undefined && <span className="lc-agentcard__resets">resets {window.resets}</span>}
+              <span className="lc-agentcard__resets">reset since{window.resets === undefined ? '' : ` (${window.resets})`}</span>
             </span>
           )
-        })}
-        {windows.length > 0 && read !== undefined && <span className="lc-agentcard__read">{read}</span>}
-      </span>
+        }
+        const tone = window.percent >= 100 ? ' is-spent' : window.percent >= 80 ? ' is-pressing' : ''
+        return (
+          <span className={`lc-agentcard__window${tone}`} key={window.name}>
+            <span className="lc-agentcard__label">{window.name.charAt(0).toUpperCase() + window.name.slice(1)}</span>
+            <span className="lc-agentcard__percent">{window.remaining ?? window.percent}%{window.remaining === undefined ? '' : ' left'}</span>
+            <span className="lc-agentcard__bar">
+              <span className="lc-agentcard__fill" style={{ width: `${String(window.percent)}%` }} />
+            </span>
+            {window.resets !== undefined && <span className="lc-agentcard__resets">resets {window.resets}</span>}
+          </span>
+        )
+      })}
+      {windows.length > 0 && read !== undefined && <span className="lc-agentcard__read">{read}</span>}
     </span>
   )
 }
