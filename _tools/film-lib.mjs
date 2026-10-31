@@ -40,6 +40,34 @@ export async function startFilming(drive, folder, { quality = 92, maxWidth = 384
   }
 }
 
+/**
+ * What `expression` returns in the page, every `every` ms while filming: the boxes a cut frames its shots on. The
+ * expression returns JSON text; `evaluate` is a drive's (or a phone's). Each sample is { at, value }, `at` in the
+ * frames' own clock (seconds since 1970).
+ */
+export function startSampling(evaluate, expression, every = 150) {
+  const samples = []
+  let running = true
+  const loop = (async () => {
+    while (running) {
+      const at = Date.now() / 1000
+      try {
+        samples.push({ at, value: JSON.parse(String(await evaluate(expression))) })
+      } catch {
+        // a page between screens: the next sample has it
+      }
+      await new Promise((resolve) => setTimeout(resolve, every))
+    }
+  })()
+  return {
+    async stop() {
+      running = false
+      await loop
+      return samples
+    }
+  }
+}
+
 /** The frames as a constant-rate video: each held until the next was painted, the last for `tail` seconds. */
 export async function stitch(frames, out, { fps = 30, tail = 1, from = 0, to = Infinity } = {}) {
   if (frames.length === 0) throw new Error('No frames were painted.')

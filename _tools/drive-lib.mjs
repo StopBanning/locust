@@ -730,11 +730,12 @@ export async function startDrive({ name, port, workspace, seed, files = {}, env 
    * window around it does not move, which is fine -- everything measured here
    * is inside the page.
    */
-  const resize = async (width, height) => {
+  const resize = async (width, height, scale = 1) => {
+    // `scale` 2 paints at twice the pixels, as a high-density screen does: a film can then zoom in and stay sharp.
     await send('Emulation.setDeviceMetricsOverride', {
       width,
       height,
-      deviceScaleFactor: 1,
+      deviceScaleFactor: scale,
       mobile: false
     })
     return { width, height }
