@@ -12,7 +12,10 @@ file carried the August and September record, and git keeps them.
 A local-first desktop app that runs the AI coding agents a person already
 has, as a team they can watch, on the runtimes and models they choose, with an
 append-only record of everything the agents did. There is no model of
-Locust's own, no account with Locust, and no telemetry (`docs/NETWORK.md`).
+Locust's own, no telemetry, and no account needed (`docs/NETWORK.md`). An
+account is optional: signing in with GitHub can keep a copy of a person's
+Locust on Locust's relay, sealed on their computer with a key only their
+computers hold, so the relay cannot read it (`docs/PLAN-2026-10-30-ACCOUNTS.md`).
 It is open source under MIT (`LICENSE`); the public repository is a mirror
 brought up at each release (`_tools/publish-mirror.mjs`), where issues are
 welcome and code is by invitation (`CONTRIBUTING.md`).

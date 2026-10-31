@@ -47,6 +47,7 @@ until it is listed here.
 | Locust in a browser | Nothing new from this computer: the relay link Your phone already keeps; the browser loads the window from Locust's relay | Only for a paired device you let open the full window |
 | Other AI apps from anywhere | Nothing new from this computer: the relay link Your phone already keeps; an app such as Claude on the web calls Locust's relay at `app.locust.lol` | Only after you turn on Use from anywhere, under Let your other AI apps use Locust, and allow an app on its card |
 | Signing in with GitHub, for Locust in a browser | `api.github.com/user`, once for each browser that signs in, to ask GitHub whose account it is; GitHub's sign-in opens in your browser, through Locust's relay | Only after you choose Sign in with GitHub in Settings > General > Your phone, and then only when a browser signs in |
+| Your account: a copy on Locust's relay | Locust's relay at `app.locust.lol` (on Cloudflare): sealed files, sent over HTTPS, kept in the account's storage there | Only after you sign in with GitHub and turn on Keep a copy, in Settings > General > Your account; a quiet minute after a change, never during a run |
 | Your teammates in Discord | `discord.com` (Discord's API), over HTTPS, and one WebSocket to its gateway at `gateway.discord.gg`, for your own bot only | Only after you paste your bot's token in Settings > General > Chat apps, and then for as long as Locust is open |
 | Your teammates in Slack | `slack.com` (Slack's Web API), over HTTPS, and one Socket Mode WebSocket to a `*.slack.com` address Slack gives, for your own app only | Only after you paste your app's two tokens in Settings > General > Chat apps, and then for as long as Locust is open |
 | Your teammates in Telegram | `api.telegram.org` (Telegram's Bot API), over HTTPS, for your own bot only | Only after you paste your bot's token in Settings > General > Chat apps, and then for as long as Locust is open |
@@ -324,6 +325,16 @@ reads of your folder stays on this machine.
   lets the browser in only for yours. The token is used for that one question
   and kept nowhere. Sign out of GitHub in Settings and the relay forgets the
   account; browsers already in stay paired until you remove them.
+- **Your account** (Settings > General > Your account: Keep a copy on
+  Locust's relay) sends this computer's backup set -- teammates, routines,
+  memories and conversations, never agent sign-ins, keys or anything else a
+  backup leaves out -- to the relay, in pieces of up to 4 MB. Each piece is
+  sealed on this computer first (AES-256-GCM) with a profile key made here and
+  locked by the operating system; file names are replaced by keyed hashes. The
+  relay and its storage see sizes and times, never names or contents, and only
+  pieces that changed are sent again. The key is shown once as a recovery
+  code; Locust cannot open the copy without it. Delete my copy removes every
+  piece of the account from the relay.
 - **Use from anywhere** (Settings > General > Let your other AI apps use
   Locust) lets an app that takes a remote MCP server -- Claude on the web,
   Claude Duet -- use the team here at one address on Locust's relay,

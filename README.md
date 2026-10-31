@@ -17,8 +17,9 @@ approve what matters, undo a turn you don't like, and keep a record of
 everything they did. Reach the team from your phone or any browser while
 Locust runs at home.
 
-Free and open source (MIT). No Locust account, no model of Locust's own, no
-telemetry.
+Free and open source (MIT). No account needed, no model of Locust's own, no
+telemetry. Sign in with GitHub if you want a sealed copy of your Locust kept for
+your next computer.
 
 **[Download for Windows, Mac or Linux](https://locust.lol)** ·
 [Releases](https://github.com/StopBanning/locust/releases) ·
