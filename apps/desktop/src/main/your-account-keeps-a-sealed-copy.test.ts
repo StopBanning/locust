@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { syncCore, type SyncObject } from '../../../relay/src/sync.js'
 import type { YourAccountStatus } from '../shared/phone.js'
 import { applyPendingRestore, LEFT_OUT, readBackup, requestRestore } from './profile-backup.js'
-import { newProfileKey, profileKeyFromCode, recoveryCode } from './profile-sync-crypto.js'
+import { ASK_ID, grantIdOf, newAskKeys, newProfileKey, profileKeyFromCode, recoveryCode } from './profile-sync-crypto.js'
 import { PROFILE_SYNC_FILE, SyncRefused, type SyncAccountRemote } from './profile-sync.js'
 import { ACCOUNT_SYNC_FILE, createYourAccount, type AccountLink } from './your-account.js'
 
@@ -37,6 +37,8 @@ function aRelay(user: number, full = false) {
     now: () => Date.now()
   })
   let removedAll = 0
+  /** Every id read back, in order: who read what is the relay's to see, and a test's to check. */
+  const gets: string[] = []
   const remote = (link: AccountLink): SyncAccountRemote => ({
     async put(id, box) {
       if (full) throw new SyncRefused(507, 'Your copy on Locust’s relay is full (1 GB).')
@@ -44,6 +46,7 @@ function aRelay(user: number, full = false) {
       if (answer.status !== 204) throw new SyncRefused(answer.status, String(answer.body?.error))
     },
     async get(from, id) {
+      gets.push(id)
       const answer = await core.get({ user, from, id })
       return answer.status === 200 ? new Uint8Array(answer.bytes as ArrayBuffer) : undefined
     },
@@ -53,12 +56,12 @@ function aRelay(user: number, full = false) {
       return { used: body.used, quota: body.quota }
     },
     async copies() {
-      const body = (await core.list({ user })).body as { computers: { room: string; bytes: number; files: { at: number }[] }[] }
-      return body.computers.map((one) => ({ room: one.room, bytes: one.bytes, at: Math.max(0, ...one.files.map((file) => file.at)) }))
+      const body = (await core.list({ user })).body as { computers: { room: string; bytes: number; files: { id: string; at: number }[] }[] }
+      return body.computers.map((one) => ({ room: one.room, bytes: one.bytes, at: Math.max(0, ...one.files.map((file) => file.at)), ids: one.files.map((file) => file.id) }))
     },
     async removeAll() { removedAll += 1; await core.removeAll({ user }) }
   })
-  return { held, remote, removedAll: () => removedAll }
+  return { held, remote, gets, removedAll: () => removedAll }
 }
 
 async function aProfile(): Promise<string> {
@@ -77,7 +80,7 @@ const lock = (available = true) => ({
 
 const linkAs = (user: number, login = 'colin'): AccountLink => ({ relay: 'https://relay.test', room: randomBytes(16).toString('base64url'), token: 't'.repeat(43), user, login })
 
-function anAccount(profile: string, options: { link?: AccountLink; relay?: ReturnType<typeof aRelay>; available?: boolean; computer?: string; restore?: (folder: string) => Promise<{ ok: true } | { ok: false; reason: string }> } = {}) {
+function anAccount(profile: string, options: { link?: AccountLink; relay?: ReturnType<typeof aRelay>; available?: boolean; computer?: string; restore?: (folder: string) => Promise<{ ok: true } | { ok: false; reason: string }>; askForMs?: number } = {}) {
   let link = options.link
   const relay = options.relay ?? aRelay(link?.user ?? 7)
   const told: YourAccountStatus[] = []
@@ -93,11 +96,14 @@ function anAccount(profile: string, options: { link?: AccountLink; relay?: Retur
     setInterval: () => 'look',
     clearInterval: () => undefined,
     changed: (status) => { told.push(status) },
-    ...(options.restore === undefined ? {} : { restore: options.restore })
+    ...(options.restore === undefined ? {} : { restore: options.restore }),
+    ...(options.askForMs === undefined ? {} : { askForMs: options.askForMs }),
+    copiesFreshMs: 0
   })
   return { account, relay, told, signIn: (next: AccountLink | undefined) => { link = next } }
 }
 
+const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 const until = async (check: () => Promise<boolean>): Promise<void> => {
   for (let n = 0; n < 200; n += 1) {
     if (await check()) return
@@ -286,7 +292,7 @@ describe('the relay over HTTP', () => {
     const { httpSyncRemote } = await import('./profile-sync.js')
     // The relay's list answer as its room route sends it, plus one entry that is not a room.
     const listed = (await relay.remote(linkAs(7)).copies())
-    const body = JSON.stringify({ used: 1234, quota: 1 << 30, computers: [...listed.map((copy) => ({ room: copy.room, bytes: copy.bytes, files: [{ id: 'a', size: copy.bytes, at: copy.at }] })), { room: '../other', bytes: 5, files: [] }] })
+    const body = JSON.stringify({ used: 1234, quota: 1 << 30, computers: [...listed.map((copy) => ({ room: copy.room, bytes: copy.bytes, files: [...copy.ids.map((id) => ({ id, size: 1, at: copy.at })), { id: '../not-an-id', size: 1, at: 0 }] })), { room: '../other', bytes: 5, files: [] }] })
     const asked: { url: string; method: string; auth: string | null }[] = []
     const remote = httpSyncRemote({
       relay: 'https://relay.test/', room: 'R'.repeat(22), token: 'secret-token',
@@ -298,5 +304,135 @@ describe('the relay over HTTP', () => {
     expect(await remote.copies()).toEqual(listed)
     expect(await remote.usage()).toEqual({ used: 1234, quota: 1 << 30 })
     expect(asked[0]).toEqual({ url: `https://relay.test/v1/room/${'R'.repeat(22)}/sync`, method: 'GET', auth: 'Bearer secret-token' })
+  })
+})
+
+describe('approving a new computer from the one that has your Locust (slice 4b)', () => {
+  async function pcAndMac(options: { askForMs?: number } = {}) {
+    const relay = aRelay(7)
+    const pcLink = linkAs(7)
+    const pc = anAccount(await aProfile(), { link: pcLink, relay, computer: "Colin's PC" })
+    await pc.account.turnOn()
+    await until(async () => (await pc.account.status()).lastSynced !== undefined)
+    const macProfile = await fresh()
+    await writeFile(join(macProfile, 'teammates.json'), `${JSON.stringify({ schemaVersion: 15, teammates: [{ name: 'Atlas' }] })}\n`)
+    const restores: string[] = []
+    const mac = anAccount(macProfile, {
+      link: linkAs(7), relay, computer: "Colin's Mac",
+      restore: async (folder) => { restores.push(folder); return requestRestore(folder, macProfile, { appVersion: '0.845.0', liveRuns: 0, now: () => new Date() }).then((asked) => (asked.ok ? { ok: true as const } : asked)) },
+      ...(options.askForMs === undefined ? {} : { askForMs: options.askForMs })
+    })
+    return { relay, pc, pcLink, mac, macProfile, restores }
+  }
+  /** The PC's view once it has read the Mac's ask. */
+  const askSeen = async (pc: ReturnType<typeof anAccount>): Promise<YourAccountStatus> => {
+    let seen: YourAccountStatus | undefined
+    await until(async () => { seen = await pc.account.status(); return (seen.asks?.length ?? 0) > 0 })
+    return seen!
+  }
+
+  it('the Mac asks, both screens show one code, the PC approves, and the Mac brings the copy in with no recovery code', async () => {
+    const { pc, mac, macProfile, restores } = await pcAndMac()
+    const asked = await mac.account.ask()
+    expect(asked.asking?.match).toMatch(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/)
+    const onPc = await askSeen(pc)
+    expect(onPc.asks).toEqual([{ room: expect.any(String), name: "Colin's Mac", match: asked.asking!.match }])
+    // The Mac's waiting ask is not mistaken for a copy on either computer.
+    expect(onPc.elsewhere).toBeUndefined()
+    const approved = await pc.account.approve(onPc.asks![0]!.room, asked.asking!.match)
+    expect(approved).toMatchObject({ good: true, message: "Approved. Colin's Mac brings your Locust in and restarts." })
+    expect(approved.asks).toBeUndefined()
+    await mac.account.checkAsk()
+    expect(restores).toHaveLength(1)
+    const status = await mac.account.status()
+    expect(status.asking).toBeUndefined()
+    expect(status.message).toBe("Your Locust from Colin's PC is ready. Restarting to bring it in…")
+    expect((await applyPendingRestore(macProfile, { appVersion: '0.845.0', now: () => new Date() }))?.ok).toBe(true)
+    expect(await readFile(join(macProfile, 'teammates.json'), 'utf8')).toContain('Wren')
+    // The Mac now holds the same key: Keep a copy there shows no new code.
+    expect((await mac.account.turnOn()).code).toBeUndefined()
+    pc.account.stop()
+    mac.account.stop()
+  })
+
+  it('the ask leaves no trace: the Mac takes it down, and the PC then removes its grant', async () => {
+    const { relay, pc, mac } = await pcAndMac()
+    const asked = await mac.account.ask()
+    const onPc = await askSeen(pc)
+    await pc.account.approve(onPc.asks![0]!.room, asked.asking!.match)
+    await mac.account.checkAsk()
+    const idsAt = (room: string) => [...relay.held.keys()].filter((key) => key.includes(`/${room}/`)).map((key) => key.split('/').pop()!)
+    expect(idsAt(onPc.asks![0]!.room)).not.toContain(ASK_ID)
+    await until(async () => { await pc.account.status(); return [...relay.held.keys()].every((key) => !key.endsWith(grantIdOf(onPc.asks![0]!.room))) })
+    pc.account.stop()
+    mac.account.stop()
+  })
+
+  it('a code that is not the one the PC was shown sends nothing', async () => {
+    const { relay, pc, mac, restores } = await pcAndMac()
+    await mac.account.ask()
+    const onPc = await askSeen(pc)
+    const refused = await pc.account.approve(onPc.asks![0]!.room, 'AAAA-AAAA')
+    expect(refused).toMatchObject({ good: false, message: 'The code changed. Ask again on the new computer, and approve only if both screens show the same code.' })
+    expect([...relay.held.keys()].some((key) => key.endsWith(grantIdOf(onPc.asks![0]!.room)))).toBe(false)
+    await mac.account.checkAsk()
+    expect(restores).toEqual([])
+    pc.account.stop()
+    mac.account.stop()
+  })
+
+  it('a key swapped at the relay after the PC showed the code is refused: the PC reads the ask again before it seals', async () => {
+    const { relay, pc, mac } = await pcAndMac()
+    const asked = await mac.account.ask()
+    const onPc = await askSeen(pc)
+    // The relay puts its own key in the ask, keeping the Mac's name: the code it makes differs from the Mac's.
+    const room = onPc.asks![0]!.room
+    const forged = new TextEncoder().encode(JSON.stringify({ v: 1, name: "Colin's Mac", key: (await newAskKeys()).publicKey, at: Date.now() }))
+    await relay.remote({ ...linkAs(7), room }).put(ASK_ID, forged)
+    const refused = await pc.account.approve(room, asked.asking!.match)
+    expect(refused.good).toBe(false)
+    expect([...relay.held.keys()].some((key) => key.endsWith(grantIdOf(room)))).toBe(false)
+    pc.account.stop()
+    mac.account.stop()
+  })
+
+  it('Not mine puts the ask away on that computer and gives nothing', async () => {
+    const { relay, pc, mac } = await pcAndMac()
+    await mac.account.ask()
+    const onPc = await askSeen(pc)
+    const after = await pc.account.ignore(onPc.asks![0]!.room)
+    expect(after.asks).toBeUndefined()
+    expect((await pc.account.status()).asks).toBeUndefined()
+    expect([...relay.held.keys()].some((key) => key.endsWith(grantIdOf(onPc.asks![0]!.room)))).toBe(false)
+    pc.account.stop()
+    mac.account.stop()
+  })
+
+  it('a computer without the key is never shown an ask to approve', async () => {
+    const { relay, pc, mac } = await pcAndMac()
+    await mac.account.ask()
+    await askSeen(pc)
+    const third = anAccount(await aProfile(), { link: linkAs(7), relay, computer: 'A third computer' })
+    const before = relay.gets.length
+    await third.account.status()
+    await pause(50)
+    expect((await third.account.status()).asks).toBeUndefined()
+    // Not shown, and not read either: a computer that cannot approve has no business opening another's ask.
+    expect(relay.gets.slice(before).filter((id) => id === ASK_ID)).toEqual([])
+    pc.account.stop()
+    mac.account.stop()
+  })
+
+  it('after ten minutes with no approval the ask is given up and taken down', async () => {
+    const { relay, pc, mac } = await pcAndMac({ askForMs: 0 })
+    await mac.account.ask()
+    await pause(5)
+    await mac.account.checkAsk()
+    const status = await mac.account.status()
+    expect(status.asking).toBeUndefined()
+    expect(status.message).toBe('No computer approved this one in ten minutes. Ask again, or use your recovery code.')
+    expect([...relay.held.keys()].some((key) => key.endsWith(ASK_ID))).toBe(false)
+    pc.account.stop()
+    mac.account.stop()
   })
 })

@@ -57,3 +57,27 @@ it('on a new computer it offers to bring the copy here with the code, and says w
   // Already syncing here, it is not offered: this computer's own copy is the one being kept.
   expect(renderToStaticMarkup(<YourAccountSettings initial={{ signedIn: { login: 'colin' }, sync: 'on', hasKey: true, syncing: false, elsewhere: { computers: 1, at } }} />)).not.toContain('Bring it here')
 })
+
+it('a new computer can ask the one that has your Locust, and shows the code to compare while it waits', () => {
+  const at = new Date(Date.now() - 60_000).toISOString()
+  const offer = renderToStaticMarkup(<YourAccountSettings initial={{ signedIn: { login: 'colin' }, sync: 'off', hasKey: false, syncing: false, elsewhere: { computers: 1, at } }} />)
+  expect(offer).toContain('No code to hand? Ask the computer that has your Locust, and approve this one there.')
+  expect(offer).toContain('Ask that computer')
+  const waiting = renderToStaticMarkup(<YourAccountSettings initial={{ signedIn: { login: 'colin' }, sync: 'off', hasKey: false, syncing: false, elsewhere: { computers: 1, at }, asking: { match: 'ERDZ-QGKN', since: at } }} />)
+  expect(waiting).toContain('approve there only if it shows this code:')
+  expect(waiting).toContain('ERDZ-QGKN')
+  expect(waiting).toContain('Stop asking')
+  expect(waiting).not.toContain('Ask that computer')
+})
+
+it('the computer that has your Locust shows each ask with its code, Approve (asked twice) and Not mine', () => {
+  const markup = renderToStaticMarkup(<YourAccountSettings initial={{ signedIn: { login: 'colin' }, sync: 'on', hasKey: true, syncing: false, asks: [{ room: 'R'.repeat(22), name: "Colin's Mac", match: 'ERDZ-QGKN' }] }} />)
+  expect(markup).toContain('Colin&#x27;s Mac asks for your Locust. Approve only if its screen shows this code:')
+  expect(markup).toContain('ERDZ-QGKN')
+  expect(markup).toContain('If the codes differ, or it is not your computer, choose Not mine.')
+  expect(markup).toContain('aria-label="Approve Colin&#x27;s Mac"')
+  expect(markup).toContain('Not mine')
+  // Below Sync now and Delete my copy, set apart: Approve is never a slip away from either.
+  expect(markup.indexOf('Delete my copy')).toBeLessThan(markup.indexOf('asks for your Locust'))
+  expect(markup).toContain('lc-account__ask')
+})

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import type { YourAccountStatus } from '../shared/phone.js'
 import type { SecretBox } from './own-models.js'
-import { newProfileKey, PROFILE_KEY_BYTES, profileKeyFromCode, recoveryCode, syncKeys } from './profile-sync-crypto.js'
+import { ASK_ID, grantIdOf, MANIFEST_ID, matchOf, newAskKeys, newProfileKey, openGrant, PROFILE_KEY_BYTES, profileKeyFromCode, recoveryCode, sealGrant, syncKeys, type AskKeys } from './profile-sync-crypto.js'
 import { createSyncSchedule, forgetSync, httpSyncRemote, lastSync, pullProfile, pushProfile, SyncRefused, type SyncAccountRemote } from './profile-sync.js'
 
 /**
@@ -24,7 +24,30 @@ export const ACCOUNT_LOOK_MS = 10 * 60_000
 /** Where a copy brought from another computer is opened before the restore applies it (left out of backups). */
 export const ACCOUNT_COPIES_FOLDER = 'account-copies'
 /** How long the list of the account's other copies is trusted before the relay is asked again. */
-export const COPIES_FRESH_MS = 60_000
+export const COPIES_FRESH_MS = 10_000
+/** A new computer asking to be approved looks for the grant this often, for this long (accounts slice 4b). */
+export const ASK_EVERY_MS = 5_000
+export const ASK_FOR_MS = 10 * 60_000
+const ASK_NAME = 60
+const ASK_KEY = /^[A-Za-z0-9_-]{43}$/
+
+/** One computer's place at the relay, as listed: its room, its bytes, when it last changed, and its files' ids. */
+interface Listed { readonly room: string; readonly bytes: number; readonly at: number; readonly ids: readonly string[] }
+/** A new computer of the account asking for the profile key, as this computer read its ask. */
+interface Ask { readonly room: string; readonly name: string; readonly match: string; readonly key: string }
+
+/** An ask as the relay hands it back: the asking computer's name and its key's public half, or undefined. */
+function askOf(bytes: Uint8Array | undefined): { readonly name: string; readonly key: string } | undefined {
+  if (bytes === undefined || bytes.length > 2048) return undefined
+  try {
+    const said = JSON.parse(new TextDecoder().decode(bytes)) as { v?: unknown; name?: unknown; key?: unknown }
+    if (said.v !== 1 || typeof said.key !== 'string' || !ASK_KEY.test(said.key) || typeof said.name !== 'string') return undefined
+    const name = said.name.replace(/[^\p{L}\p{N} '.,()_-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, ASK_NAME)
+    return { name: name === '' ? 'A computer' : name, key: said.key }
+  } catch {
+    return undefined
+  }
+}
 
 /** The room and the GitHub account this computer is tied to, from "Use from anywhere". */
 export interface AccountLink {
@@ -69,6 +92,9 @@ export function createYourAccount(options: {
   readonly changed?: (status: YourAccountStatus) => void
   /** Asks for the restore of a backup-shaped folder at the next start, and restarts: the restore Settings already has. */
   readonly restore?: (folder: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }>
+  readonly copiesFreshMs?: number
+  readonly askEveryMs?: number
+  readonly askForMs?: number
 }) {
   const file = join(options.profile, ACCOUNT_SYNC_FILE)
   const remoteOf = options.remote ?? ((link: AccountLink) => httpSyncRemote(link))
@@ -76,9 +102,15 @@ export function createYourAccount(options: {
   let message: { text: string; good: boolean } | undefined
   let storage: { used: number; quota: number } | undefined
   let syncing = false
-  /** The account's copies kept by other computers, as the relay last listed them. */
-  let elsewhere: { account: number; room: string; copies: readonly { room: string; bytes: number; at: number }[]; lookedAt: number } | undefined
+  /** The account's other computers as the relay last listed them, and the asks this computer could approve. */
+  let elsewhere: { account: number; room: string; copies: readonly Listed[]; asks: readonly Ask[]; lookedAt: number } | undefined
   let looking = false
+  /** Asks the person said are not theirs, and rooms this computer granted, whose grant goes once their ask does. */
+  const ignored = new Set<string>()
+  const grantedTo = new Set<string>()
+  /** This computer asking to be approved: its fresh key, the code both screens show, and the look for the grant. */
+  let asking: { keys: AskKeys; match: string; since: number; room: string; account: number; timer: unknown } | undefined
+  let checking = false
   let look: unknown
   let queue: Promise<unknown> = Promise.resolve()
   const serial = <T>(work: () => Promise<T>): Promise<T> => {
@@ -105,7 +137,10 @@ export function createYourAccount(options: {
     const ours = saved !== undefined && link !== undefined && saved.account === link.user
     const last = ours ? await lastSync(options.profile, link.user, link.room) : undefined
     if (link !== undefined) lookElsewhere(link)
-    const others = link !== undefined && elsewhere?.account === link.user && elsewhere.room === link.room ? elsewhere.copies : []
+    const listed = link !== undefined && elsewhere?.account === link.user && elsewhere.room === link.room ? elsewhere : undefined
+    // A place with the copy's list is a copy; one holding only an ask is a computer waiting to be approved.
+    const others = (listed?.copies ?? []).filter((copy) => copy.ids.includes(MANIFEST_ID))
+    const asks = ours ? (listed?.asks ?? []).filter((ask) => !ignored.has(ask.room)) : []
     return {
       ...(link === undefined ? {} : { signedIn: { login: link.login } }),
       sync: ours && saved.on ? 'on' : 'off',
@@ -114,21 +149,108 @@ export function createYourAccount(options: {
       ...(last === undefined ? {} : { lastSynced: last }),
       ...(ours && storage !== undefined ? { storage } : {}),
       ...(others.length === 0 ? {} : { elsewhere: { computers: others.length, at: new Date(Math.max(...others.map((copy) => copy.at))).toISOString() } }),
+      ...(asks.length === 0 ? {} : { asks: asks.map((ask) => ({ room: ask.room, name: ask.name, match: ask.match })) }),
+      ...(asking !== undefined && link !== undefined && asking.room === link.room ? { asking: { match: asking.match, since: new Date(asking.since).toISOString() } } : {}),
       ...(message === undefined ? {} : { message: message.text, good: message.good })
     }
   }
   const tell = (): void => { if (options.changed !== undefined) void status().then(options.changed, () => undefined) }
-  /** Asks the relay, at most once a minute, which other computers of the account keep a copy; says so when it changes. */
+  /**
+   * Asks the relay, at most every few seconds, what the account's other computers keep: their copies, and their asks to
+   * be approved, which this computer reads only when it holds the key to give. Says so when anything changes.
+   */
   function lookElsewhere(link: AccountLink): void {
-    const fresh = elsewhere?.account === link.user && elsewhere.room === link.room && now().getTime() - elsewhere.lookedAt < COPIES_FRESH_MS
+    const fresh = elsewhere?.account === link.user && elsewhere.room === link.room && now().getTime() - elsewhere.lookedAt < (options.copiesFreshMs ?? COPIES_FRESH_MS)
     if (fresh || looking) return
     looking = true
-    void remoteOf(link).copies().then((copies) => {
-      const others = copies.filter((copy) => copy.room !== link.room && copy.bytes > 0)
-      const changed = JSON.stringify(others) !== JSON.stringify(elsewhere?.copies ?? [])
-      elsewhere = { account: link.user, room: link.room, copies: others, lookedAt: now().getTime() }
+    void (async () => {
+      const remote = remoteOf(link)
+      const listed = (await remote.copies()).filter((copy) => copy.bytes > 0)
+      const others = listed.filter((copy) => copy.room !== link.room)
+      const mine = listed.find((copy) => copy.room === link.room)
+      const saved = await read()
+      const asks: Ask[] = []
+      if (saved !== undefined && saved.account === link.user) {
+        for (const copy of others) {
+          if (!copy.ids.includes(ASK_ID) || ignored.has(copy.room) || mine?.ids.includes(grantIdOf(copy.room)) === true) continue
+          const ask = askOf(await remote.get(copy.room, ASK_ID).catch(() => undefined))
+          if (ask !== undefined) asks.push({ room: copy.room, name: ask.name, key: ask.key, match: await matchOf(ask.key) })
+        }
+      }
+      // A grant whose ask is gone was taken, or given up on: it is not left lying at the relay.
+      for (const room of [...grantedTo]) {
+        if (others.some((copy) => copy.room === room && copy.ids.includes(ASK_ID))) continue
+        await remote.remove(grantIdOf(room)).then(() => { grantedTo.delete(room) }, () => undefined)
+      }
+      const changed = JSON.stringify([others, asks]) !== JSON.stringify([elsewhere?.copies ?? [], elsewhere?.asks ?? []])
+      elsewhere = { account: link.user, room: link.room, copies: others, asks, lookedAt: now().getTime() }
       if (changed) tell()
-    }, () => undefined).finally(() => { looking = false })
+    })().catch(() => undefined).finally(() => { looking = false })
+  }
+
+  /** The newest copy another computer keeps, opened with this key, written as a backup folder and restored. */
+  const bringWithKey = async (link: AccountLink, key: Uint8Array): Promise<{ readonly ok: true; readonly computer: string } | { readonly ok: false; readonly reason: string }> => {
+    let copies: readonly Listed[]
+    try {
+      copies = (await remoteOf(link).copies()).filter((copy) => copy.room !== link.room && copy.ids.includes(MANIFEST_ID)).sort((a, b) => b.at - a.at)
+    } catch (error) {
+      return { ok: false, reason: refusal(error) }
+    }
+    if (copies.length === 0) return { ok: false, reason: `No other computer keeps a copy for ${link.login} yet. Turn on Keep a copy there first.` }
+    const keys = await syncKeys(key, link.user)
+    const folder = join(options.profile, ACCOUNT_COPIES_FOLDER, now().toISOString().replace(/[:.]/g, '-'))
+    const pulled = await pullProfile({ keys, remote: remoteOf(link), from: copies[0]!.room, folder })
+    if (!pulled.ok) return pulled
+    await write({ v: 1, on: false, account: link.user, key: options.secrets.encrypt(Buffer.from(key).toString('base64url')).toString('base64') })
+    if (options.restore === undefined) return { ok: true, computer: pulled.computer }
+    const asked = await options.restore(folder)
+    return asked.ok ? { ok: true, computer: pulled.computer } : asked
+  }
+
+  const clearAsk = (): void => {
+    if (asking !== undefined) (options.clearInterval ?? ((timer) => clearInterval(timer as ReturnType<typeof setInterval>)))(asking.timer)
+    asking = undefined
+  }
+
+  /**
+   * THE NEW COMPUTER'S LOOK FOR ITS GRANT, every few seconds while it asks. A grant that opens with this ask's key is
+   * the profile key: the ask is taken down and the copy brought here as with the recovery code. One that does not open
+   * (sealed to another key, or swapped on the way) is passed over. After ten minutes the ask is given up.
+   */
+  const checkAsk = async (): Promise<void> => {
+    if (asking === undefined || checking) return
+    checking = true
+    try {
+      const current = asking
+      const link = await options.link().catch(() => undefined)
+      if (link === undefined || link.room !== current.room || link.user !== current.account) { clearAsk(); tell(); return }
+      const remote = remoteOf(link)
+      if (now().getTime() - current.since > (options.askForMs ?? ASK_FOR_MS)) {
+        clearAsk()
+        await remote.remove(ASK_ID).catch(() => undefined)
+        message = { text: 'No computer approved this one in ten minutes. Ask again, or use your recovery code.', good: false }
+        tell()
+        return
+      }
+      for (const copy of await remote.copies()) {
+        if (copy.room === link.room || !copy.ids.includes(grantIdOf(link.room))) continue
+        const grant = await remote.get(copy.room, grantIdOf(link.room)).catch(() => undefined)
+        const opened = grant === undefined ? undefined : await openGrant(grant, current.keys, link.room)
+        if (opened === undefined) continue
+        clearAsk()
+        await remote.remove(ASK_ID).catch(() => undefined)
+        message = { text: 'Approved. Bringing your Locust here…', good: true }
+        tell()
+        const brought = await serial(() => bringWithKey(link, opened.profileKey))
+        message = brought.ok ? { text: `Your Locust from ${brought.computer} is ready. Restarting to bring it in…`, good: true } : { text: brought.reason, good: false }
+        tell()
+        return
+      }
+    } catch {
+      // The relay did not answer this time: the next look tries again.
+    } finally {
+      checking = false
+    }
   }
 
   /** One sync now: the copy, then how much of the account's storage it takes. */
@@ -250,25 +372,80 @@ export function createYourAccount(options: {
       const key = await profileKeyFromCode(code)
       if (key === undefined) return { ok: false, reason: 'That code does not read right. It is 55 letters and digits in groups of five; check each group.' }
       if (!options.secrets.available()) return { ok: false, reason: 'This computer cannot lock a key, so your copy cannot be brought here safely.' }
-      let copies: readonly { room: string; bytes: number; at: number }[]
+      return bringWithKey(link, key)
+    }),
+    /**
+     * ASK THE COMPUTER THAT HAS YOUR LOCUST (accounts slice 4b). A fresh key is made here and its ask left in this
+     * computer's own place at the relay; the screen shows the match code, and a look for the grant runs until one
+     * comes or ten minutes pass.
+     */
+    ask: (): Promise<YourAccountStatus> => serial(async () => {
+      const link = await options.link().catch(() => undefined)
+      if (link === undefined) { message = { text: 'Sign in with GitHub first, under Use from anywhere.', good: false }; return status() }
+      if (!options.secrets.available()) { message = { text: 'This computer cannot lock a key, so your copy cannot be brought here safely.', good: false }; return status() }
+      const remote = remoteOf(link)
       try {
-        copies = (await remoteOf(link).copies()).filter((copy) => copy.room !== link.room && copy.bytes > 0).sort((a, b) => b.at - a.at)
+        const copies = (await remote.copies()).filter((copy) => copy.room !== link.room && copy.ids.includes(MANIFEST_ID))
+        if (copies.length === 0) { message = { text: `No other computer keeps a copy for ${link.login} yet. Turn on Keep a copy there first.`, good: false }; return status() }
+        clearAsk()
+        const keys = await newAskKeys()
+        await remote.put(ASK_ID, new TextEncoder().encode(JSON.stringify({ v: 1, name: options.computer().slice(0, ASK_NAME), key: keys.publicKey, at: now().getTime() })))
+        asking = { keys, match: await matchOf(keys.publicKey), since: now().getTime(), room: link.room, account: link.user, timer: (options.setInterval ?? setInterval)(() => { void checkAsk() }, options.askEveryMs ?? ASK_EVERY_MS) }
+        message = undefined
       } catch (error) {
-        return { ok: false, reason: refusal(error) }
+        message = { text: refusal(error), good: false }
       }
-      if (copies.length === 0) return { ok: false, reason: `No other computer keeps a copy for ${link.login} yet. Turn on Keep a copy there first.` }
-      const keys = await syncKeys(key, link.user)
-      const folder = join(options.profile, ACCOUNT_COPIES_FOLDER, now().toISOString().replace(/[:.]/g, '-'))
-      const pulled = await pullProfile({ keys, remote: remoteOf(link), from: copies[0]!.room, folder })
-      if (!pulled.ok) return pulled
-      await write({ v: 1, on: false, account: link.user, key: options.secrets.encrypt(Buffer.from(key).toString('base64url')).toString('base64') })
-      if (options.restore === undefined) return { ok: true, computer: pulled.computer }
-      const asked = await options.restore(folder)
-      return asked.ok ? { ok: true, computer: pulled.computer } : asked
+      return status()
+    }),
+    /** The look for the grant, once: the timer runs it, and a test can. */
+    checkAsk,
+    stopAsking: (): Promise<YourAccountStatus> => serial(async () => {
+      const link = await options.link().catch(() => undefined)
+      clearAsk()
+      if (link !== undefined) await remoteOf(link).remove(ASK_ID).catch(() => undefined)
+      message = undefined
+      return status()
+    }),
+    /**
+     * Approve a computer's ask, from a computer that holds the key. The ask is read again, and its match code must be the
+     * one the person was shown: if the relay changed the key since, nothing is sent.
+     */
+    approve: (room: string, match: string): Promise<YourAccountStatus> => serial(async () => {
+      const link = await options.link().catch(() => undefined)
+      const saved = await read()
+      const key = link !== undefined && saved !== undefined && saved.account === link.user ? keyOf(saved) : undefined
+      if (link === undefined || key === undefined) {
+        message = { text: 'This computer does not hold your Locust’s key. Approve from the computer that keeps your copy.', good: false }
+        return status()
+      }
+      const shown = elsewhere?.asks.find((ask) => ask.room === room)
+      const remote = remoteOf(link)
+      try {
+        const ask = askOf(await remote.get(room, ASK_ID))
+        if (ask === undefined) { message = { text: 'That computer is not asking any more.', good: false }; return status() }
+        if (shown === undefined || shown.match !== match || (await matchOf(ask.key)) !== match) {
+          message = { text: 'The code changed. Ask again on the new computer, and approve only if both screens show the same code.', good: false }
+          return status()
+        }
+        await remote.put(grantIdOf(room), await sealGrant(key, ask.key, link.room, room))
+        grantedTo.add(room)
+        if (elsewhere !== undefined) elsewhere = { ...elsewhere, asks: elsewhere.asks.filter((one) => one.room !== room) }
+        message = { text: `Approved. ${ask.name} brings your Locust in and restarts.`, good: true }
+      } catch (error) {
+        message = { text: refusal(error), good: false }
+      }
+      return status()
+    }),
+    /** Not this person's computer: its ask is not shown again here. */
+    ignore: (room: string): Promise<YourAccountStatus> => serial(async () => {
+      ignored.add(room)
+      message = { text: 'Not approved. That computer gets nothing from this one.', good: true }
+      return status()
     }),
     stop(): void {
       schedule.stop()
       watch(false)
+      clearAsk()
     }
   }
 }

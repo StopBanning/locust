@@ -56,6 +56,11 @@ export const ACCOUNT_SYNC_NOW_CHANNEL = 'account:sync-now'
 export const ACCOUNT_DELETE_CHANNEL = 'account:delete'
 export const ACCOUNT_CHANGED_CHANNEL = 'account:changed'
 export const ACCOUNT_BRING_HERE_CHANNEL = 'account:bring-here'
+/** Approving a new computer from one that has your Locust (accounts slice 4b). */
+export const ACCOUNT_ASK_CHANNEL = 'account:ask'
+export const ACCOUNT_ASK_STOP_CHANNEL = 'account:ask-stop'
+export const ACCOUNT_APPROVE_CHANNEL = 'account:approve'
+export const ACCOUNT_IGNORE_CHANNEL = 'account:ignore'
 
 export interface YourAccountStatus {
   /** Signed in with GitHub, through Use from anywhere. */
@@ -68,6 +73,10 @@ export interface YourAccountStatus {
   readonly storage?: { readonly used: number; readonly quota: number }
   /** Other computers of the account keep a copy: how many, and when the newest last changed. */
   readonly elsewhere?: { readonly computers: number; readonly at: string }
+  /** New computers of the account asking for your Locust, which this computer holds the key to give. */
+  readonly asks?: readonly { readonly room: string; readonly name: string; readonly match: string }[]
+  /** This computer is asking to be approved: the code both screens show. */
+  readonly asking?: { readonly match: string; readonly since: string }
   readonly message?: string
   readonly good?: boolean
 }
@@ -138,6 +147,10 @@ export interface PhoneApi {
   accountSyncNow?(): Promise<YourAccountStatus>
   accountDelete?(): Promise<YourAccountStatus>
   /** Brings the account's newest copy here with the recovery code, and restarts to apply it. */
+  accountAsk?(): Promise<YourAccountStatus>
+  accountAskStop?(): Promise<YourAccountStatus>
+  accountApprove?(room: string, match: string): Promise<YourAccountStatus>
+  accountIgnore?(room: string): Promise<YourAccountStatus>
   accountBringHere?(code: string): Promise<{ readonly ok: true; readonly computer: string } | { readonly ok: false; readonly reason: string }>
   onAccountChanged?(callback: (status: YourAccountStatus) => void): () => void
   /** Called when a phone pairs, comes and goes, or the connection to the relay changes. */

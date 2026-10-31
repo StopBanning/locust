@@ -193,7 +193,7 @@ import { acpScratch, createAcpAgents } from './acp-agents.js'
 import { acpCatalog, ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
 import { phonePage } from './phone-page.js'
 import { PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL } from '../shared/phone.js'
-import { ACCOUNT_BRING_HERE_CHANNEL, ACCOUNT_CHANGED_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
+import { ACCOUNT_APPROVE_CHANNEL, ACCOUNT_ASK_CHANNEL, ACCOUNT_ASK_STOP_CHANNEL, ACCOUNT_BRING_HERE_CHANNEL, ACCOUNT_CHANGED_CHANNEL, ACCOUNT_IGNORE_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
 import { createKeepAwake, KEEP_AWAKE_BEAT_MS } from './keep-awake.js'
 import { attentionDot, needsYouCountFrom, taskbarAttention } from './taskbar-attention.js'
 import { CLOSE_BUTTONS, closeQuestion, hideToTrayOnClose, shouldAskBeforeClosing, trayLine, trayMenuLabels } from './quit-guard.js'
@@ -10556,7 +10556,8 @@ if (!ownsSingleInstanceLock) {
       profile: app.getPath('userData'),
       link: () => phoneAnywhere.accountLink(),
       secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
-      computer: () => hostname(),
+      // The name a new computer's ask and a copy go by: "Colins-Mac-Mini", not the network's "Colins-Mac-Mini.local".
+      computer: () => hostname().replace(/\.local$/i, ''),
       appVersion: app.getVersion(),
       busy: () => codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length > 0,
       changed: (status) => {
@@ -10580,6 +10581,12 @@ if (!ownsSingleInstanceLock) {
     ipcMain.handle(ACCOUNT_SYNC_OFF_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.turnOff() : NO_ACCOUNT)
     ipcMain.handle(ACCOUNT_SYNC_NOW_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.syncNow() : NO_ACCOUNT)
     ipcMain.handle(ACCOUNT_DELETE_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.deleteCopy() : NO_ACCOUNT)
+    const askingRoom = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{22}$/.test(value)
+    ipcMain.handle(ACCOUNT_ASK_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.ask() : NO_ACCOUNT)
+    ipcMain.handle(ACCOUNT_ASK_STOP_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.stopAsking() : NO_ACCOUNT)
+    ipcMain.handle(ACCOUNT_APPROVE_CHANNEL, (event, room: unknown, match: unknown) =>
+      fromOwnWindow(event) && askingRoom(room) && typeof match === 'string' && /^[0-9A-Z]{4}-[0-9A-Z]{4}$/.test(match) ? yourAccount.approve(room, match) : NO_ACCOUNT)
+    ipcMain.handle(ACCOUNT_IGNORE_CHANNEL, (event, room: unknown) => fromOwnWindow(event) && askingRoom(room) ? yourAccount.ignore(room) : NO_ACCOUNT)
     ipcMain.handle(ACCOUNT_BRING_HERE_CHANNEL, (event, code: unknown) =>
       fromOwnWindow(event) && typeof code === 'string' && code.length <= 200 ? yourAccount.bringHere(code) : { ok: false, reason: 'That was refused.' } as const)
     /*

@@ -10,6 +10,8 @@ import { join } from 'node:path'
 import { say, scratchRepository, startDrive } from './drive-lib.mjs'
 
 const LINKS = process.env.LOCUST_LIVE_LINKS ?? join(process.cwd(), 'live-links.txt')
+// How the Mac gets the key: approved from the PC (slice 4b, the default) or with the recovery code (LOCUST_LIVE_WAY=code).
+const WAY = process.env.LOCUST_LIVE_WAY === 'code' ? 'code' : 'approve'
 const LINK_ROUND_MS = 9.5 * 60_000
 const ROUNDS = 3
 let failed = 0
@@ -17,7 +19,10 @@ const check = (name, ok) => { if (!ok) failed += 1; say(`[${ok ? 'PASS' : 'FAIL'
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const teammate = (id, name, hue) => ({ teammateId: id, name, hue, role: 'Custom', roleTitle: 'Live test', createdAt: '2026-10-31T12:00:00.000Z', route: { runtime: 'opencode', model: 'account-default', mode: 'ask' } })
 const seedOf = (one) => ({ schemaVersion: 1, teammates: [one], missionOwners: {}, settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off' } })
-const json = async (drive, call) => JSON.parse(await drive.evaluate(`window.desktop.phone.${call}.then((answer) => JSON.stringify(answer))`))
+const json = async (drive, call) => {
+  const expression = `window.desktop.phone.${call}`
+  return JSON.parse(await drive.evaluate(`(${expression}).then((answer) => JSON.stringify(answer))`))
+}
 
 /** The relaunched window, which no drive started: Chrome's own debugging line on the same port. */
 async function cdpEvaluate(port, expression) {
@@ -99,9 +104,27 @@ try {
   await mac.capture('02. Mac: offered the copy, before the code', () => mac.evaluate(`document.querySelector('[data-setting="your-account"]')?.innerText ?? ''`))
   const wrong = await json(mac, `accountBringHere(${JSON.stringify(on.code.replace(/^(..)(.)/, (_, head, third) => head + (third === '0' ? '1' : '0')))})`)
   check('Mac: a code copied wrong changes nothing', wrong.ok === false && /does not read right/.test(wrong.reason))
-  const brought = await json(mac, `accountBringHere(${JSON.stringify(on.code)})`)
-  check('Mac: the code opens the PC’s copy and a restart is asked for', brought.ok === true)
-  macRelaunched = brought.ok === true
+  if (WAY === 'code') {
+    const brought = await json(mac, `accountBringHere(${JSON.stringify(on.code)})`)
+    check('Mac: the code opens the PC’s copy and a restart is asked for', brought.ok === true)
+    macRelaunched = brought.ok === true
+  } else {
+    const asked = await json(mac, 'accountAsk()')
+    const match = asked.asking?.match ?? ''
+    check('Mac: asks the PC, and shows a code to compare', /^[0-9A-Z]{4}-[0-9A-Z]{4}$/.test(match))
+    await pause(6000)
+    await mac.capture('03. Mac: asking, with the code to compare', () => mac.evaluate(`document.querySelector('[data-setting="your-account"]')?.innerText ?? ''`))
+    let seen
+    for (let n = 0; n < 60 && seen === undefined; n += 1) { seen = (await json(pc, 'account()')).asks?.[0]; if (seen === undefined) await pause(2000) }
+    check('PC: shows the Mac’s ask with the same code', seen?.match === match && typeof seen?.name === 'string')
+    await pause(6000)
+    await pc.evaluate(`document.querySelector('[data-setting="your-account"]')?.scrollIntoView({ block: 'start' })`)
+    await pc.capture('04. PC: the Mac’s ask, with Approve and Not mine', () => pc.evaluate(`document.querySelector('[data-setting="your-account"]')?.innerText ?? ''`))
+    const approved = await json(pc, `accountApprove(${JSON.stringify(seen?.room ?? '')}, ${JSON.stringify(match)})`)
+    check('PC: approving sends the key, sealed to the Mac', approved.good === true)
+    // The Mac's own look finds the grant within seconds, brings the copy in and restarts by itself.
+    macRelaunched = approved.good === true
+  }
 
   // The restart applies it, before any store is read.
   let applied = false

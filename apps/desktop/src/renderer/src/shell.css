@@ -25006,3 +25006,5 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-account__codeinput { width: 100%; max-width: 560px; margin-top: var(--lc-space-2); }
 /* Bring it here sits beside the code box it uses, not beside the middle of the words above it. */
 .lc-account__bring { align-items: flex-end; }
+/* A new computer's ask stands apart, below Sync now and Delete my copy, so Approve is never a slip away from either. */
+.lc-account__ask { margin-top: var(--lc-space-3); padding-top: var(--lc-space-3); border-top: 1px solid var(--lc-border-hairline); }

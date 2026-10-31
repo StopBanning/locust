@@ -128,3 +128,69 @@ export async function profileKeyFromCode(code: string): Promise<Uint8Array | und
   const check = new Uint8Array(await subtle.digest('SHA-256', key)).subarray(0, 2)
   return check[0] === bytes[32] && check[1] === bytes[33] ? key : undefined
 }
+
+/*
+ * APPROVING A NEW COMPUTER FROM ONE THAT HAS YOUR LOCUST (accounts slice 4b). The new computer makes a fresh X25519
+ * key and leaves an ask in its own place at the relay: its name and the key's public half. A computer with the profile
+ * key sees the ask and the person approves it there; that computer seals the profile key to the ask's key (X25519, then
+ * HKDF with both rooms bound in, then AES-256-GCM) and leaves the grant in its own place, for that room alone.
+ *
+ * The relay carries both, so it could swap the ask's key for its own. Both screens therefore show the MATCH CODE, cut
+ * from the key the ask carries: the person approves only when the two read the same. Eight letters and digits, 40 bits,
+ * so making a key with the same code would take far longer than the ten minutes an ask waits.
+ */
+export const ASK_ID = createHash('sha256').update(`${VERSION}|ask`).digest('base64url')
+/** Where a computer leaves the grant for one asking room: in its own place, under an id only that room looks for. */
+export const grantIdOf = (room: string): string => createHash('sha256').update(`${VERSION}|grant|${room}`).digest('base64url')
+
+export interface AskKeys {
+  readonly privateKey: webcrypto.CryptoKey
+  /** Raw X25519 public key, base64url. */
+  readonly publicKey: string
+}
+
+export async function newAskKeys(): Promise<AskKeys> {
+  const pair = await subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']) as unknown as webcrypto.CryptoKeyPair
+  return { privateKey: pair.privateKey, publicKey: base64url(new Uint8Array(await subtle.exportKey('raw', pair.publicKey))) }
+}
+
+/** The code both screens show for one ask's key: XXXX-XXXX in the recovery code's letters. */
+export async function matchOf(publicKey: string): Promise<string> {
+  const digest = new Uint8Array(await subtle.digest('SHA-256', utf8.encode(`${VERSION}|match|${publicKey}`)))
+  let bits = 0n
+  for (const byte of digest.subarray(0, 5)) bits = (bits << 8n) | BigInt(byte)
+  let text = ''
+  for (let shift = 35n; shift >= 0n; shift -= 5n) text += ALPHABET[Number((bits >> shift) & 31n)]
+  return `${text.slice(0, 4)}-${text.slice(4)}`
+}
+
+const grantKey = async (privateKey: webcrypto.CryptoKey, peer: string, info: string): Promise<webcrypto.CryptoKey> => {
+  const peerKey = await subtle.importKey('raw', Buffer.from(peer, 'base64url'), { name: 'X25519' }, false, [])
+  const shared = await subtle.deriveBits({ name: 'X25519', public: peerKey }, privateKey, 256)
+  const base = await subtle.importKey('raw', shared, 'HKDF', false, ['deriveKey'])
+  return subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: utf8.encode(VERSION), info: utf8.encode(info) }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+}
+const grantInfo = (from: string, to: string): string => `${VERSION}|grant|${from}|${to}`
+
+/** The profile key sealed to an ask's key, from room `from` to room `to`: what the grant file holds. */
+export async function sealGrant(profileKey: Uint8Array, askPublicKey: string, from: string, to: string): Promise<Uint8Array> {
+  if (profileKey.length !== PROFILE_KEY_BYTES) throw new Error('A profile key is 32 bytes.')
+  const mine = await newAskKeys()
+  const key = await grantKey(mine.privateKey, askPublicKey, grantInfo(from, to))
+  const nonce = webcrypto.getRandomValues(new Uint8Array(12))
+  const sealed = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv: nonce, additionalData: utf8.encode(grantInfo(from, to)) }, key, profileKey))
+  return utf8.encode(JSON.stringify({ v: 1, from, key: mine.publicKey, n: base64url(nonce), c: base64url(sealed) }))
+}
+
+/** The profile key a grant holds for this room, or undefined for one not sealed to this ask's key. */
+export async function openGrant(grant: Uint8Array, ask: AskKeys, to: string): Promise<{ readonly profileKey: Uint8Array; readonly from: string } | undefined> {
+  try {
+    const said = JSON.parse(new TextDecoder().decode(grant)) as { v?: unknown; from?: unknown; key?: unknown; n?: unknown; c?: unknown }
+    if (said.v !== 1 || typeof said.from !== 'string' || typeof said.key !== 'string' || typeof said.n !== 'string' || typeof said.c !== 'string') return undefined
+    const key = await grantKey(ask.privateKey, said.key, grantInfo(said.from, to))
+    const opened = new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: Buffer.from(said.n, 'base64url'), additionalData: utf8.encode(grantInfo(said.from, to)) }, key, Buffer.from(said.c, 'base64url')))
+    return opened.length === PROFILE_KEY_BYTES ? { profileKey: opened, from: said.from } : undefined
+  } catch {
+    return undefined
+  }
+}

@@ -334,7 +334,11 @@ reads of your folder stays on this machine.
   relay and its storage see sizes and times, never names or contents, and only
   pieces that changed are sent again. The key is shown once as a recovery
   code; Locust cannot open the copy without it. Delete my copy removes every
-  piece of the account from the relay.
+  piece of the account from the relay. Approving a new computer from one that
+  has your Locust leaves two small files at the relay for a few minutes: the
+  new computer's name and a fresh public key (readable by the relay), then the
+  profile key sealed to that key. Both screens show a code cut from that key,
+  and you approve only if they match, so the relay cannot slip in its own.
 - **Use from anywhere** (Settings > General > Let your other AI apps use
   Locust) lets an app that takes a remote MCP server -- Claude on the web,
   Claude Duet -- use the team here at one address on Locust's relay,

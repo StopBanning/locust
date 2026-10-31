@@ -27,6 +27,9 @@ export function agoOf(at: string, now: number = Date.now()): string {
   return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+/** How often an open card looks again while signed in. */
+export const ACCOUNT_LOOK_EVERY_MS = 5_000
+
 export function YourAccountSettings({ heading, api = typeof window === 'undefined' ? undefined : window.desktop?.phone, initial, initialCode }: {
   readonly heading?: ReactNode
   readonly api?: PhoneApi
@@ -49,6 +52,16 @@ export function YourAccountSettings({ heading, api = typeof window === 'undefine
     const stopPhone = api?.onAnywhereChanged(() => { void api.account?.().then((next) => { if (alive) setStatus(next) }, () => undefined) })
     return () => { alive = false; stop?.(); stopPhone?.() }
   }, [api])
+
+  // While signed in, the card looks again every few seconds: a new computer's ask, or the grant it waits for, shows up
+  // without anyone pressing anything. Main asks the relay at most once a look (your-account.ts COPIES_FRESH_MS).
+  const signedIn = status?.signedIn !== undefined
+  useEffect(() => {
+    if (!signedIn || api?.account === undefined) return undefined
+    let alive = true
+    const timer = setInterval(() => { void api.account!().then((next) => { if (alive) setStatus(next) }, () => undefined) }, ACCOUNT_LOOK_EVERY_MS)
+    return () => { alive = false; clearInterval(timer) }
+  }, [api, signedIn])
 
   if (api?.account === undefined && initial === undefined) return null
   const run = async <T,>(work: () => Promise<T>, take: (value: T) => void): Promise<void> => {
@@ -114,6 +127,22 @@ export function YourAccountSettings({ heading, api = typeof window === 'undefine
                 }}>Bring it here</ArmedButton>
             </div>
           )}
+          {!on && status.elsewhere !== undefined && bringing === undefined && (
+            <div className="lc-settingline lc-account__bring">
+              <div className="lc-settingline__text">
+                {status.asking === undefined
+                  ? <p className="lc-settings__lede">No code to hand? Ask the computer that has your Locust, and approve this one there.</p>
+                  : <>
+                    <p className="lc-settings__lede">Asking. On your other computer, open Settings › General › Your account, and approve there only if it shows this code:</p>
+                    <p className="lc-account__codetext lc-mono">{status.asking.match}</p>
+                    <p className="lc-settings__note">If the codes differ, choose Not mine there. Locust restarts here once it is approved.</p>
+                  </>}
+              </div>
+              {status.asking === undefined
+                ? <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void run(() => api!.accountAsk!(), setStatus) }}>Ask that computer</button>
+                : <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void run(() => api!.accountAskStop!(), setStatus) }}>Stop asking</button>}
+            </div>
+          )}
           {bringing !== undefined && <p className="lc-settings__note lc-tone-green" role="status">Your Locust from {bringing} is ready. Restarting to bring it in…</p>}
           {(on || status.hasKey) && (
             <div className="lc-settingline lc-account__acts">
@@ -122,6 +151,20 @@ export function YourAccountSettings({ heading, api = typeof window === 'undefine
                 onConfirm={() => { void run(() => api!.accountDelete!(), setStatus) }}>Delete my copy</ArmedButton>
             </div>
           )}
+          {(status.asks ?? []).map((ask) => (
+            <div className="lc-settingline lc-account__bring lc-account__ask" key={ask.room} role="alert">
+              <div className="lc-settingline__text">
+                <p className="lc-settings__lede">{ask.name} asks for your Locust. Approve only if its screen shows this code:</p>
+                <p className="lc-account__codetext lc-mono">{ask.match}</p>
+                <p className="lc-settings__note">Approving hands that computer the key to your copy, sealed so only it can open it. If the codes differ, or it is not your computer, choose Not mine.</p>
+              </div>
+              <div className="lc-account__acts">
+                <ArmedButton className="lc-control lc-control--boxed" ariaLabel={`Approve ${ask.name}`} armedLabel="Approve it" disabled={busy}
+                  onConfirm={() => { void run(() => api!.accountApprove!(ask.room, ask.match), setStatus) }}>Approve</ArmedButton>
+                <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void run(() => api!.accountIgnore!(ask.room), setStatus) }}>Not mine</button>
+              </div>
+            </div>
+          ))}
         </>
       )}
       {(failure !== '' || said !== undefined) && <p className={`lc-settings__note ${failure !== '' || status?.good !== true ? 'lc-tone-amber' : 'lc-tone-green'}`}>{failure !== '' ? failure : said}</p>}
