@@ -2418,7 +2418,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
          * wrong machine.
          */
         const runSkills =
-          cloud === undefined && options.runSkills !== undefined && !sealed && ((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')
+          cloud === undefined && options.runSkills !== undefined && !sealed && ((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity' || runtime === 'cursor')
             ? await options.runSkills({
               ...(peer?.self.teammateId === undefined ? {} : { teammateId: peer.self.teammateId }),
               ...(slot?.skill === undefined ? {} : { skill: slot.skill })
@@ -2632,6 +2632,7 @@ export function createCodexMissionService(options: CodexMissionServiceOptions): 
               })
             : runtime === 'cursor'
               ? createCursorPrintCommand(executable, {
+                  ...(runSkills === undefined ? {} : { skillPlugin: runSkills.dir }),
                   workspacePath: runCwd,
                   sandbox: effectiveSandbox,
                   platform: hostPlatform,

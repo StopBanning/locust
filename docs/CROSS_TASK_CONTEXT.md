@@ -189,6 +189,26 @@ continue; report exact validation results, and say what was not run.
 
 ## Handoff log
 
+### 2026-10-30 — Cursor teammates receive kept skills
+
+- Scope: `exec/cursor-skills`, based on `4e899848`; no version, changelog or release changes.
+- Cursor Agent 2026.10.22-27dcf5f reads a run's copied `skills/` through `--plugin-dir` and
+  `.cursor-plugin/plugin.json`. The manifest shares the existing run snapshot and cleanup; no project skill
+  installation, settings edit, extra workspace root or environment override is needed.
+- Measurement: `--help` and the installed plugin loader were inspected without a model. In a throwaway
+  workspace, `--plugin-dir <plugin> --mode ask --force --print --output-format stream-json` with the prompt
+  `Use locust-canary. Canary word?` read that plugin's SKILL.md and answered QUARTZFINCH, held only in its body,
+  in 8.9 seconds. A second invocation with `--sandbox enabled` also answered correctly in 8.9 seconds.
+  No model flag was supplied. The probe alone used --force to avoid persisting workspace trust;
+  normal launches retain their existing mode flags. An initial invocation without trust stopped before a call.
+- Cursor now appears among skill runtimes for GitHub skills, teammate skills and tune candidates.
+- Validation: the focused plugin and mission tests and three mutation controls cover the manifest, preparation,
+  flag delivery and cleanup. Full gate results are reported with the branch handoff.
+- Limits: the live probe used the CLI's existing Auto model selection on this Mac; Windows and a packaged app
+  were not exercised. No alternative rules, add-dir or environment path was needed or claimed measured.
+- Next step: review and merge this branch in the main chat.
+
+
 ### 2026-10-21 — A comparison judge reads the work
 
 - Scope: `exec/judge-reads-the-work`, based on `9da0a00d` (0.809.0). No changes to runtime routes, tune,

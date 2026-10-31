@@ -168,7 +168,7 @@ describe('Edit teammate', () => {
   })
 
   it('says when they wait for Claude Code, and shows nothing when there are none', () => {
-    expect(dialog({ initial: { ...mate, route: { runtime: 'gemini', model: 'account-default', mode: 'accept-edits' } }, skills: [kept] })).toContain('Only a Claude Code, Codex, OpenCode, Copilot or Antigravity run is handed these')
+    expect(dialog({ initial: { ...mate, route: { runtime: 'gemini', model: 'account-default', mode: 'accept-edits' } }, skills: [kept] })).toContain('Only a Claude Code, Codex, OpenCode, Copilot, Antigravity or Cursor run is handed these')
     expect(dialog({ initial: { ...mate, route: { runtime: 'codex', model: 'gpt-6', mode: 'accept-edits' } }, skills: [kept] })).toContain('A run loads one only when the work matches')
     expect(dialog({ skills: [] })).not.toContain('>Skills<')
   })

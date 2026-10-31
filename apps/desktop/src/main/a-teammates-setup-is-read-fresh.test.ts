@@ -133,7 +133,7 @@ describe('another runtime’s setup', () => {
     expect(gemini.connectors).toBeUndefined()
     const cursor = await gatherTeammateSetup({ teammate: mate({ route: { runtime: 'cursor', model: 'account-default', mode: 'ask' } }), projectPath: folder, settings: { memoryMode: 'off' }, memoryCount: async () => 0, ownSkills: async () => [], lessons: async () => 0, libraryFolder: folder, homeDirectory: folder })
     expect(cursor.runtimeFile).toBeUndefined()
-    expect(cursor.skills).toBeUndefined()
+    expect(cursor.skills).toMatchObject({ own: [], project: 0, personal: { count: 0, foundItself: true } })
   })
 
   it('counts a Codex or OpenCode teammate’s skills from the folders that agent reads itself (0.813)', async () => {
