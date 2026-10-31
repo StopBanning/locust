@@ -4,6 +4,8 @@ import { ThreadImagesContext } from '../threadImages.js'
 import { FilesElsewhere, RanOnTheCloud } from '../filesElsewhere.js'
 import type { EditCheckShown } from './EditCheckCard.js'
 import { Fragment, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { NextSteps } from './NextSteps.js'
+import type { NextStep } from '../../../shared/next-steps.js'
 import type { ReactElement, ReactNode } from 'react'
 
 import type { MissionRuntimeId, NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
@@ -221,10 +223,16 @@ export function ThreadItems({
   planMode = false,
   faces = true,
   busyModel,
-  onStop
+  onStop,
+  nextSteps
 }: {
   /** Stops the running turn from its live line's quiet note (0.758); only on the turn that runs. */
   readonly onStop?: () => void
+  /**
+   * What a suggested task's card does (2026-10-30, NextSteps.tsx). Given only for the turn on screen: an earlier
+   * turn's suggestions were for then, and are not drawn.
+   */
+  readonly nextSteps?: { readonly onHere?: (step: NextStep) => void; readonly onStart?: (step: NextStep) => void }
   readonly items: readonly ThreadItem[]
   readonly verbose?: boolean
   /**
@@ -402,6 +410,22 @@ export function ThreadItems({
                     {owner?.name ?? 'your teammate'} do it.
                   </p>
                 )}
+              </div>
+            </div>
+          )
+        }
+        if (item.type === 'next-steps') {
+          // Under the reply that suggested them, at its indent; only on the turn on screen (see `nextSteps`).
+          if (nextSteps === undefined) return null
+          return (
+            <div className="lc-agentline" key={item.key}>
+              <span className="lc-agentline__gutter" />
+              <div className="lc-agentline__body">
+                <NextSteps
+                  steps={item.steps}
+                  {...(nextSteps.onHere === undefined ? {} : { onHere: nextSteps.onHere })}
+                  {...(nextSteps.onStart === undefined ? {} : { onStart: nextSteps.onStart })}
+                />
               </div>
             </div>
           )
@@ -915,6 +939,10 @@ export interface ThreadProps {
    * with no way to answer it.
    */
   readonly onAnswer?: (option: DecisionOption) => void
+  /** A suggested task, as this conversation's next turn (2026-10-30, NextSteps.tsx); absent while it cannot be sent. */
+  readonly onNextHere?: (step: NextStep) => void
+  /** A suggested task, as a new conversation with the same teammate. */
+  readonly onNextStart?: (step: NextStep) => void
   /**
    * Go on with another free model when this turn's is busy (C9): App names
    * it and does the switch. Drawn only while the turn runs, under the latest
@@ -1123,6 +1151,8 @@ export function Thread({
   onOpenSenderRun,
   wasPlan,
   onAnswer,
+  onNextHere,
+  onNextStart,
   busyModel,
   onStopRun,
 onResume,
@@ -1795,6 +1825,7 @@ onResume,
            */
           key={restoredMission?.missionId ?? events.find((event) => event.missionId !== undefined)?.missionId ?? 'starting'}
           {...(onOpenFile === undefined ? {} : { onOpenFile })}
+          {...(running || (onNextHere === undefined && onNextStart === undefined) ? {} : { nextSteps: { ...(onNextHere === undefined ? {} : { onHere: onNextHere }), ...(onNextStart === undefined ? {} : { onStart: onNextStart }) } })}
           verbose={verbose}
           {...(onDraft === undefined ? {} : { onDraft })}
           items={items}

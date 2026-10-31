@@ -10,6 +10,7 @@ import { ASK_TAG } from '../shared/decision.js'
 import type { TeammateRole } from '../shared/ipc.js'
 import { BLOCK_PLACEMENT } from '../shared/trailer.js'
 import { FILE_BLOCK_EXAMPLE_PATH, FILE_TAG } from '../shared/handover.js'
+import { NEXT_PLACEHOLDERS, NEXT_TAG } from '../shared/next-steps.js'
 import { MEMORY_HEADING, MEMORY_RULES, MEMORY_TAG, MEMORY_WRITE } from '../shared/memory.js'
 import { ABOUT_YOU_HEADING } from '../shared/about-you.js'
 import { agentNamed } from '../shared/runtimes.js'
@@ -435,6 +436,23 @@ function filesSection(): string {
 }
 
 /**
+ * How to suggest the follow-ups a turn turned up (2026-10-30, shared/next-steps.ts): cards under the reply, each with
+ * Do it here and Start, as Claude Code draws its suggested tasks. Bounded to tasks of their own, for the reason the
+ * ask section bounds asking: a teammate that suggests the rest of its own task as a "task" has handed the person its
+ * work. Nothing runs until the person presses, so the block needs no care beyond saying so.
+ */
+function nextSection(): string {
+  return [
+    'Follow-ups that are tasks of their own, at most three, can end your reply as this text, not a tool call:',
+    `<${NEXT_TAG}>`,
+    `${NEXT_PLACEHOLDERS[0]} :: ${NEXT_PLACEHOLDERS[1]}`,
+    `</${NEXT_TAG}>`,
+    'Each becomes a card the person may start. Most turns need none.'
+  ].join('\n')
+}
+
+/**
+ * What a role MEANS, said to the teammate that has it./**
  * What a role MEANS, said to the teammate that has it.
  *
  * Until 2026-09-17 a role was a label: the roster line said "Wren (Code &
@@ -707,6 +725,7 @@ export function composeSoloPrompt(input: {
   if (input.narrate === true) standing.push(narrateSection())
   standing.push(askSection())
   standing.push(filesSection())
+  standing.push(nextSection())
   standing.push(answerSection())
   const brief = standingFor(standing, input.alreadyGiven)
   const composed = [...brief.sections, input.prompt].join(SECTION_GAP)
@@ -780,6 +799,7 @@ export function composeRuntimePrompt(input: RuntimePromptInput): RuntimePrompt {
   if (input.narrate === true) standing.push(narrateSection())
   standing.push(askSection())
   standing.push(filesSection())
+  standing.push(nextSection())
   standing.push(answerSection())
   // What arrived this turn and what the person said are never held back:
   // only the standing part is what a session can already have (A2.5).

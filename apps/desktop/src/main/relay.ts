@@ -6,6 +6,7 @@ import type { MissionPeerContext, PeerRosterEntry } from './workroom-briefing.js
 import { runtimeDisplayName } from '../shared/runtimes.js'
 import { stripDecisionBlocks } from '../shared/decision.js'
 import { stripFileBlocks } from '../shared/handover.js'
+import { stripNextBlocks } from '../shared/next-steps.js'
 import { stripMemoryBlocks } from '../shared/memory.js'
 import { boundedShareText, stripShareBlocks } from '../shared/peer-share.js'
 import { defangProtocolBlocks } from '../shared/protocolTags.js'
@@ -649,7 +650,7 @@ export function returnedAnswerPrompt(recipientName: string, readByPerson = false
 
 /** A final reply, as another teammate may be shown it: every protocol block out, whatever is left defanged. */
 function withoutProtocolBlocks(text: string): string {
-  return defangProtocolBlocks(stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(text))))))
+  return defangProtocolBlocks(stripNextBlocks(stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(text)))))))
 }
 
 export function createRelay(options: RelayOptions): Relay {

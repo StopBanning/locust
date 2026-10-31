@@ -23,6 +23,8 @@ import { stripTaskBlocks } from '../../shared/room-task.js'
 import { stripMemoryBlocks } from '../../shared/memory.js'
 import { parseDecision, stripDecisionBlocks } from '../../shared/decision.js'
 import { parseFileBlocks, refusedFileLines, stripFileBlocks } from '../../shared/handover.js'
+import { parseNextSteps, stripNextBlocks } from '../../shared/next-steps.js'
+import type { NextStep } from '../../shared/next-steps.js'
 import type { HandedFile } from '../../shared/handover.js'
 import type { DecisionRequest } from '../../shared/decision.js'
 import { isTidyPrompt } from '../../shared/memory-tidy.js'
@@ -1355,6 +1357,15 @@ export type ThreadItem =
       readonly key: string
       readonly type: 'files'
       readonly files: readonly HandedFile[]
+    }
+  | {
+      /**
+       * The follow-ups the reply suggests, as cards under it (2026-10-30, shared/next-steps.ts): each with Do it here
+       * and Start. Only once the reply is whole -- half a block is not a task.
+       */
+      readonly key: string
+      readonly type: 'next-steps'
+      readonly steps: readonly NextStep[]
     }
   | {
       readonly key: string
@@ -3959,7 +3970,7 @@ export function buildThread(
   // What each message reads as on screen: every block the thread draws on
   // its own taken out, as the reply below the fold does.
   const shownText = (text: string): string =>
-    unwrapProtocolTags(stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(text))))))
+    unwrapProtocolTags(stripNextBlocks(stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(text)))))))
   const messages = assistantMessages(events)
   /*
    * A MESSAGE SOMETHING CAME AFTER IS NOT STILL BEING WRITTEN (0.570).
@@ -4111,6 +4122,9 @@ export function buildThread(
       })
     }
     if (handedNow) items.push({ key: `files_${message.itemId}`, type: 'files', files: handed })
+    // The tasks it suggests, once it has said all it will (2026-10-30): never a card that appears and vanishes mid-stream.
+    const suggested = message.final || !options.running ? parseNextSteps(message.text) : []
+    if (suggested.length > 0) items.push({ key: `next_${message.itemId}`, type: 'next-steps', steps: suggested })
     if (refused.length > 0) {
       items.push({
         key: `files_refused_${message.itemId}`,

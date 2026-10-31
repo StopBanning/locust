@@ -125,6 +125,8 @@ import { stripMemoryBlocks } from '../../shared/memory.js'
 import { stripDecisionBlocks } from '../../shared/decision.js'
 import { stripShareBlocks } from '../../shared/peer-share.js'
 import { stripFileBlocks } from '../../shared/handover.js'
+import { nextStepPrompt, stripNextBlocks } from '../../shared/next-steps.js'
+import type { NextStep } from '../../shared/next-steps.js'
 import { Composer } from './components/Composer.js'
 import { ExchangeStrip } from './components/ExchangeStrip.js'
 import { RoomScreen } from './components/RoomScreen.js'
@@ -4456,7 +4458,7 @@ export default function App(): ReactElement {
       // Trimmed: a stripped share block leaves the blank lines that held it,
       // and the room drew a turn whose name and first sentence were an inch
       // apart for no reason a reader could see (MEASURED 2026-09-11).
-      const said = stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(raw))))).trim()
+      const said = stripNextBlocks(stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(raw)))))).trim()
       return said.length === 0 ? undefined : said
     }
     return sequenceOfPost({
@@ -4505,7 +4507,7 @@ export default function App(): ReactElement {
       // The words, not the blocks: what a reply shared, asked or moved on the
       // board is shown by those surfaces. The room smoke's first live run
       // drew a raw task block inside the card (2026-09-05).
-      const last = raw === undefined ? undefined : stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(raw)))))
+      const last = raw === undefined ? undefined : stripNextBlocks(stripFileBlocks(stripMemoryBlocks(stripTaskBlocks(stripDecisionBlocks(stripShareBlocks(raw))))))
       const phase = live !== undefined ? live.phase : recorded?.phase ?? 'unknown'
       const runtime = live?.data?.runtime ?? recorded?.runtime ?? 'codex'
       const model = live?.data?.model ?? recorded?.model ?? 'account-default'
@@ -10489,6 +10491,24 @@ export default function App(): ReactElement {
                       }
                     : undefined
                 }
+                /*
+                 * A SUGGESTED TASK'S CARD (2026-10-30, NextSteps.tsx). Do it here is this conversation's next turn, the
+                 * same path a typed reply takes. Start is a new conversation with the same teammate, as them, whole
+                 * (the tidy pass's way); a conversation that belongs to nobody gets a new one with the brief waiting in
+                 * the box, since there is nobody to start it as.
+                 */
+                {...(!running && liveRun.prompt.trim().length > 0 ? { onNextHere: (step: NextStep) => { void startMission(nextStepPrompt(step)) } } : {})}
+                onNextStart={(step: NextStep) => {
+                  const ownerId = ownerOf(liveRun)
+                  const teammate = ownerId === undefined ? undefined : teammates.find((one) => one.teammateId === ownerId)
+                  if (teammate === undefined) {
+                    setShownKey(undefined)
+                    setComposerFill((current) => ({ text: nextStepPrompt(step), seq: (current?.seq ?? 0) + 1 }))
+                    return
+                  }
+                  selectTeammate(teammate.teammateId)
+                  void startMission(nextStepPrompt(step), undefined, { as: startAs(teammate, { route, mode, effort }, pickerRoutes) })
+                }}
                 {...(liveRun.data?.sandbox === undefined ? {} : { sandbox: liveRun.data.sandbox })}
                 events={liveRun.events}
                 eventsTruncated={liveRun.eventsTruncated === true}

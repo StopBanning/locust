@@ -100,13 +100,18 @@ describe('the runtime prompt a teammate is sent', () => {
      * characters, cut down from 215 because 215 tripped this). At 5,400 the
      * prompt now measures 11,985 -- fifteen characters of room left.
      *
+     * 2026-10-30: 3,540, after the suggested-task block (255 characters, cut down from about 370 because that
+     * tripped this): Do it here and Start cards under a reply (shared/next-steps.ts). "Not a tool call" is in it
+     * because Kilo's free model tried to call the tag as a tool first. At 5,150 the prompt measures 11,989 -- eleven
+     * characters of room left.
+     *
      * A failure here is not a broken test. It is the briefing having grown
      * enough to cost a real teammate a real waiting message, which is the
      * thing every comment in workroom-briefing.ts about budget is about.
      * Re-measure, move the number, and record what grew.
      */
     const { prompt, delivered } = composeRuntimePrompt({
-      prompt: 'y'.repeat(5_400),
+      prompt: 'y'.repeat(5_150),
       peer: PEER,
       inbound,
       remaining: 1
