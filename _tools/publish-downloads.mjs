@@ -58,9 +58,16 @@ function put(key, file, { fresh = false } = {}) {
     fail(`uploading ${key} failed (exit ${String(run.status)}): ${said.slice(-400)}`)
   }
 }
+// Where node keeps npm: beside node.exe on Windows, and in ../lib/node_modules beside bin/node on a Mac or Linux
+// (Homebrew's and nodejs.org's layout). The Mac publishes since the PC's retirement (2026-10-30).
+const npxCliPlaces = (execPath) => [
+  join(execPath, '..', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
+  join(execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js')
+]
 function npxCli() {
-  const cli = join(process.execPath, '..', 'node_modules', 'npm', 'bin', 'npx-cli.js')
-  if (!existsSync(cli)) fail(`npx is not where node keeps it (${cli})`)
+  const places = npxCliPlaces(process.execPath)
+  const cli = places.find((place) => existsSync(place))
+  if (cli === undefined) fail(`npx is not where node keeps it (${places.join(' or ')})`)
   return cli
 }
 // What the world sees, not what the upload said: a HEAD over HTTPS, at the size on disk.
