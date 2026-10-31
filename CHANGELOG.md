@@ -11,6 +11,31 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.844.0 - 2026-10-31
+<!-- big -->
+
+### New
+
+- **Suggested tasks.** When a teammate's work turns up follow-ups worth doing, it can offer them as cards under its reply, as Claude Code does: each with Do it here, to carry on in this conversation, and Start, to begin a new conversation with that teammate on it, or Start all. Nothing runs until you press, and the cross puts a card away.
+- **Popular skills, one click away.** Settings > Teammates > Skills from GitHub opens with the most-starred skill packs on GitHub: Matt Pocock's skills, Superpowers, Anthropic's skills, Impeccable and Claude-Mem. One click lists a pack's skills and the files in them that run; a second keeps them, for every teammate.
+- **Cursor teammates get your skills too,** as Claude Code, Codex, OpenCode, Copilot and Antigravity teammates already did: the ones you kept from GitHub, and a teammate's own.
+
+### Improved
+
+- **A new folder gets suggestions that make something.** In the empty folder Locust makes for you, a teammate offers to make a small web page, set up the first files of what you want to build, or write a script, instead of asking to read a project that isn't there yet. Once the folder has files in it, its usual suggestions come back.
+- **Use a free model stays on Home until your first conversation,** not just until you make a team.
+- **Home's suggestions go to the right teammate.** With a team, Build a landing page goes to your coder and Review my changes to your reviewer, with the words waiting in their box.
+- **Usage says when it was all free.** A turn on a free model carries the agent's own instructions, so a small question can read as tens of thousands of tokens; the line on Home now says "all free" when every turn was.
+- **The model in the chat box shows its usage on hover,** on a Mac too: the same card as the agents on Home, with a bar for each window and when it resets.
+- **A skill pack that copies its skills for every agent** is kept once, from its best folder, instead of offering one copy and holding back the rest. A skill may now be up to 10 MB, so Anthropic's canvas-design, with its fonts, comes in.
+- **The Mac's menu bar shows Locust in one colour,** as macOS draws its own icons, light or dark with the menu bar.
+
+### Fixed
+
+- **The working orbs are as sharp on a Mac as on Windows.** On a Mac they were shrunk on the graphics card, which scattered their dots into bright specks.
+- **Codex Buddy's face is as sharp on a Mac,** for the same reason.
+- **A Mac no longer keeps every update it installed.** Each one left about 150 MB behind; the ones already installed are now cleared when Locust starts.
+
 ## 0.843.0 - 2026-10-30
 <!-- big -->
 
