@@ -100,7 +100,7 @@ export function YourAccountSettings({ heading, api = typeof window === 'undefine
             </div>
           )}
           {!on && status.elsewhere !== undefined && (
-            <div className="lc-settingline">
+            <div className="lc-settingline lc-account__bring">
               <div className="lc-settingline__text">
                 <p className="lc-settings__lede">{status.elsewhere.computers === 1 ? 'Another computer keeps' : `${String(status.elsewhere.computers)} other computers keep`} a copy of your Locust, last changed {agoOf(status.elsewhere.at)}. Bring it here with your recovery code.</p>
                 <p className="lc-settings__note">Locust restarts once. What it replaces on this computer is moved aside first, not deleted.</p>
