@@ -47,12 +47,16 @@ export function rangePhrase(range: UsageRange): string {
 /**
  * The Home line's facts: "142 turns · 3.1M tokens · $0.31 spent". Tokens only
  * when some turn reported them; money only when a runtime priced something.
+ *
+ * "all free" when every turn was on a free model (2026-10-30): a new person's one small question read "1 turn · 59k
+ * tokens" -- the agent's own instructions and tools ride with every turn -- and nothing said it had cost nothing.
  */
 export function usageLineFacts(summary: UsageSummary): string {
   const parts = [plural(summary.turns, 'turn')]
   const tokens = totalTokens(summary.tokens)
   if (tokens > 0) parts.push(`${compactCount(tokens)} tokens`)
   if (summary.pay.usd !== undefined && summary.pay.usd > 0) parts.push(`${dollars(summary.pay.usd)} spent`)
+  else if (summary.turns > 0 && summary.pay.freeTurns === summary.turns) parts.push('all free')
   return parts.join(' · ')
 }
 

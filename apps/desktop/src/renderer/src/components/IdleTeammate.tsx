@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 
 import type { MissionMode, PublicTeammate, TeammateRole } from '../../../shared/ipc.js'
 import { ROLE_DESCRIPTIONS, roleLabelOf } from '../../../shared/ipc.js'
+import { freshStartersFor } from '../../../shared/team-templates.js'
 import { modeSentence } from '../status.js'
 import { TeammateBot } from './TeammateBot.js'
 
@@ -74,12 +75,66 @@ const STARTERS: Readonly<Record<TeammateRole, readonly string[]>> = {
   ]
 }
 
+/**
+ * WHILE THE FOLDER HOLDS NOTHING YET (2026-10-30): starters that make something, for a teammate made by hand. A new
+ * person's first folder is the empty one Locust made, and every starter above asks about files that are not there.
+ * A template teammate brings its own (team-templates.ts freshStarters).
+ */
+const FRESH_STARTERS: Readonly<Record<TeammateRole, readonly string[]>> = {
+  'Code & Migrations': [
+    'Make a small web page here that shows today\'s date and a quote, and tell me how to open it.',
+    'Ask me what I want to build, then set up its first files here.',
+    'Write a small script here that renames photos by the date they were taken, and explain how to run it.'
+  ],
+  'Research & Briefs': [
+    'Ask me what I am researching, then write a one-page brief on it, with sources.',
+    'Compare three ways to make a simple website today: what each costs and how hard it is, with sources.',
+    'What should I know before I start a project like mine? Ask me two questions first.'
+  ],
+  'Ops & Scheduling': [
+    'Ask me what I do every week, then say which of it could run on a schedule.',
+    'Write a weekly plan I can fill in each Monday, as a file here.',
+    'Make me a checklist for the routine work of a small business, as a file here.'
+  ],
+  'Docs & QA': [
+    'Write me a checklist for testing a website before I share it.',
+    'Ask me about a project of mine, then write the README it should have.',
+    'Explain what a careful review looks for, with one short example of each point.'
+  ],
+  'Data & Reporting': [
+    'Make me a monthly budget spreadsheet here, with categories, totals and a line for savings.',
+    'Make a spreadsheet here to track hours worked, with a weekly total.',
+    'Ask me what I want to keep track of, then set up a spreadsheet for it here.'
+  ],
+  'Chief of Staff': [
+    'Look at the team and tell me who should take what.',
+    'Ask each teammate for one thing they would do first, and bring me the list.',
+    'Ask me what I am working on, then split it between the team.'
+  ],
+  Custom: [
+    'What can you help me with? Give me three concrete examples.',
+    'Ask me three questions about what I need, then suggest where to start.',
+    'Make something small here that shows what you can do, and tell me how to open it.'
+  ]
+}
+
+/** The starters to offer: a template teammate's own, or its role's; while the folder is empty, the ones that make something. */
+export function startersFor(teammate: Pick<PublicTeammate, 'role' | 'starters'>, folderEmpty: boolean): readonly string[] {
+  if (folderEmpty) {
+    if (teammate.starters === undefined) return FRESH_STARTERS[teammate.role] ?? FRESH_STARTERS.Custom
+    const fresh = freshStartersFor(teammate.starters)
+    if (fresh !== undefined) return fresh
+  }
+  return teammate.starters ?? STARTERS[teammate.role] ?? STARTERS.Custom
+}
+
 export function IdleTeammate({
   teammate,
   canStart,
   blocked,
   onStarter,
-  mode
+  mode,
+  folderEmpty = false
 }: {
   readonly teammate: PublicTeammate
   readonly canStart: boolean
@@ -95,8 +150,10 @@ export function IdleTeammate({
   readonly onStarter: (prompt: string) => void
   /** The composer's current permission mode: the sentence below must say what THIS mode does. */
   readonly mode: MissionMode
+  /** The folder holds nothing yet but Locust's own (dot) files: the starters make something rather than read it. */
+  readonly folderEmpty?: boolean
 }): ReactElement {
-  const starters = teammate.starters ?? STARTERS[teammate.role] ?? STARTERS.Custom
+  const starters = startersFor(teammate, folderEmpty)
   // A Custom teammate's title is what they do; a built-in role says it in a few words.
   const about = teammate.role === 'Custom' ? undefined : ROLE_DESCRIPTIONS[teammate.role]
 

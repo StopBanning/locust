@@ -301,7 +301,7 @@ import { boundedShutdown } from './bounded-shutdown.js'
 import { createPermissionHost } from './permission-host.js'
 import { codexCommandGuardConfig, otherCodexHooks, writeCommandGuard, writeCopilotCommandGuard, writeOpenCodeCommandGuard, writeOpenCode2CommandGuard } from './command-guard.js'
 import { writeOpenCodeGitReads } from './opencode-git-reads.js'
-import { isInsideDirectory, notATeammateFolder, readConfirmedFolders, readRememberedWorkspace, resolveWorkspacePath, sameFolder, WORKSPACE_ARGUMENT, writeConfirmedFolders, writeRememberedWorkspace, workspaceIdFor } from './workspace.js'
+import { holdsNothingYet, isInsideDirectory, notATeammateFolder, readConfirmedFolders, readRememberedWorkspace, resolveWorkspacePath, sameFolder, WORKSPACE_ARGUMENT, writeConfirmedFolders, writeRememberedWorkspace, workspaceIdFor } from './workspace.js'
 import { createUnwrittenAnswers } from './approval-record-note.js'
 import { createRaisedApprovals } from './raised-approvals.js'
 import { createOutstandingChecks } from './outstanding-checks.js'
@@ -9192,7 +9192,7 @@ if (!ownsSingleInstanceLock) {
     })
 
     ipcMain.handle(APP_INFO_CHANNEL, (event) => {
-      if (!fromOwnWindow(event)) return { name: 'Locust', version: 'unknown', packaged: app.isPackaged, platform: process.platform, workspaceName: '', workspacePath: '', workspaceMade: false, ledgerPath: '' } as const
+      if (!fromOwnWindow(event)) return { name: 'Locust', version: 'unknown', packaged: app.isPackaged, platform: process.platform, workspaceName: '', workspacePath: '', workspaceMade: false, workspaceEmpty: false, ledgerPath: '' } as const
       // The version electron-builder stamped, which is the one on the installer.
       return {
         name: 'Locust',
@@ -9203,6 +9203,8 @@ if (!ownsSingleInstanceLock) {
         workspaceName: workspaceChosen ? basename(workspacePath) || workspacePath : '',
         workspacePath: workspaceChosen ? workspacePath : '',
         workspaceMade,
+        // Nothing in it yet but dot files (2026-10-30): a teammate offers to make something instead (IdleTeammate).
+        workspaceEmpty: workspaceChosen && holdsNothingYet(workspacePath),
         // A folder like home or .claude (0.790): the folder chip says so, in amber, whatever was answered.
         ...(workspaceChosen && folderCaution(workspacePath) !== undefined ? { workspaceCaution: folderCaution(workspacePath)! } : {}),
         // Where the receipts live. The renderer needs it for one thing: when a

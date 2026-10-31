@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { isAbsolute, posix, win32 } from 'node:path'
 
@@ -202,4 +202,17 @@ export function sameFolder(left: string, right: string, platform: NodeJS.Platfor
 export async function writeConfirmedFolders(file: string, confirmed: readonly string[]): Promise<void> {
   const record: FolderCautionsFile = { schemaVersion: 1, confirmed }
   await writeFile(file, `${JSON.stringify(record, null, 2)}\n`, 'utf8')
+}
+
+/**
+ * WHETHER A FOLDER HOLDS NOTHING YET (2026-10-30): nothing but dot files, such as the `.locust` folder Locust keeps its
+ * team memory in. A new person's first folder is the one Locust made; while it is like this, a teammate offers to make
+ * something rather than to read a project that is not there. A folder that cannot be read is not called empty.
+ */
+export function holdsNothingYet(folder: string): boolean {
+  try {
+    return readdirSync(folder).every((name) => name.startsWith('.'))
+  } catch {
+    return false
+  }
 }

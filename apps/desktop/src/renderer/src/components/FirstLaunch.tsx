@@ -92,6 +92,7 @@ export function FirstLaunch({
   onUseFree,
   workspacePath,
   teammateCount,
+  noConversationsYet = false,
   onChooseFolder,
   onNewTeammate,
   onAddTeamFromCard,
@@ -152,6 +153,11 @@ export function FirstLaunch({
   /** The folder the teammates work in; undefined when none is chosen. */
   readonly workspacePath: string | undefined
   readonly teammateCount: number
+  /**
+   * No conversation has been had yet (2026-10-30). The first-run line and its "Use a free model" stay up until the
+   * first one: a new person who pressed a starter team lost them with one click, while the chat box sat on Claude.
+   */
+  readonly noConversationsYet?: boolean
   /** The team, for the cards Home leads with (HomeTeam). */
   readonly team?: readonly HomeTeammate[]
   /** Pressing a teammate's card: talk to them. */
@@ -902,7 +908,8 @@ export function FirstLaunch({
           * it, not a lockup.
           */}
         {/* For a first run only (0.610): on a returning person's Home it was first-run copy above their own team (Colin's mockup, 2026-10-04). */}
-        {discoveryPhase === 'ready' && teammateCount === 0 && (
+        {/* A first run lasts until the first conversation (2026-10-30), not until the first team: see noConversationsYet. */}
+        {discoveryPhase === 'ready' && (teammateCount === 0 || noConversationsYet) && (
           <p className="lc-intro">
             {/*
               * One line (Colin, 2026-09-23: "lets make the text under the tv

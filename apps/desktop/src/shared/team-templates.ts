@@ -31,6 +31,12 @@ export interface TemplateTeammate {
    * sent as it stands: nothing to fill in first.
    */
   readonly starters: readonly string[]
+  /**
+   * What they offer instead while the folder holds nothing yet (2026-10-30). A new person's first folder is the one
+   * Locust made, and it is empty: Wren offered "Read this project" and "Find the riskiest file in this repo" there,
+   * and answered, rightly, that there was no project. Absent where the starters already need no files.
+   */
+  readonly freshStarters?: readonly string[]
 }
 
 export interface TeamTemplate {
@@ -56,6 +62,11 @@ export const TEAM_TEMPLATES: readonly TeamTemplate[] = [
           'Read this project and tell me what it does, in one paragraph.',
           'Find the riskiest file in this repo and explain why.',
           'Pick one small thing here that is broken or missing, fix it, and show me what you changed.'
+        ],
+        freshStarters: [
+          'Make a small web page here that shows today\'s date and a quote, and tell me how to open it.',
+          'Ask me what I want to build, then set up its first files here.',
+          'Write a small script here that renames photos by the date they were taken, and explain how to run it.'
         ]
       },
       {
@@ -67,6 +78,11 @@ export const TEAM_TEMPLATES: readonly TeamTemplate[] = [
           'What is untested here that would hurt most if it broke?',
           'Find documentation in this repo that no longer matches the code.',
           'Review the most recent change in this repo as if it were a pull request.'
+        ],
+        freshStarters: [
+          'Write me a checklist for testing a website before I share it.',
+          'Ask me about a project of mine, then write the README it should have.',
+          'Explain what a careful code review looks for, with one short example of each point.'
         ]
       },
       {
@@ -78,6 +94,11 @@ export const TEAM_TEMPLATES: readonly TeamTemplate[] = [
           'Summarize what this codebase is for, for someone joining tomorrow.',
           'List the decisions this project has already made that would be expensive to reverse.',
           'Ask Wren what is hardest in this code, then find how other projects solve it, with sources.'
+        ],
+        freshStarters: [
+          'Compare three ways to make a simple website today: what each costs and how hard it is, with sources.',
+          'Ask me what I am researching, then write a one-page brief on it, with sources.',
+          'Ask Wren what we could build first, then find two or three projects like it, with sources.'
         ]
       }
     ]
@@ -175,3 +196,16 @@ export const TEAM_TEMPLATES: readonly TeamTemplate[] = [
     ]
   }
 ]
+
+/**
+ * The empty-folder starters of the template teammate whose starters these are, if it has any. Matched by the starters
+ * a teammate was made with, which a rename keeps; a teammate made by hand has none, and takes its role's (IdleTeammate).
+ */
+export function freshStartersFor(starters: readonly string[]): readonly string[] | undefined {
+  for (const template of TEAM_TEMPLATES) {
+    for (const mate of template.teammates) {
+      if (mate.starters.length === starters.length && mate.starters.every((one, at) => one === starters[at])) return mate.freshStarters
+    }
+  }
+  return undefined
+}

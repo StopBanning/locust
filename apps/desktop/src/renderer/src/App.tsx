@@ -141,6 +141,7 @@ import { KeyboardSheet } from './components/KeyboardSheet.js'
 import { SaveRecordDialog } from './components/SaveRecordDialog.js'
 import type { PaletteAction } from './components/CommandPalette.js'
 import { IdleTeammate } from './components/IdleTeammate.js'
+import { teammateForStarter } from './components/StarterList.js'
 import { Inspector } from './components/Inspector.js'
 import { FileViewer } from './components/FileViewer.js'
 import { MacUpdateBanner, MissionsScreen, SettingsScreen, TeammatesScreen, UpdateBanner } from './components/Screens.js'
@@ -2806,6 +2807,8 @@ export default function App(): ReactElement {
   // Only the ledger-failure card reads this: it offers to open the folder.
   const [ledgerPath, setLedgerPath] = useState<string | undefined>(undefined)
   const [workspaceMade, setWorkspaceMade] = useState(false)
+  // The folder holds nothing yet but dot files (2026-10-30): a teammate offers to make something (IdleTeammate).
+  const [workspaceEmpty, setWorkspaceEmpty] = useState(false)
   // A folder like home or .claude (0.790): the folder chip names why, in amber.
   const [workspaceCaution, setWorkspaceCaution] = useState<string | undefined>(undefined)
   // And the question over the box before its first conversation there, on the view it was asked from.
@@ -3504,6 +3507,7 @@ export default function App(): ReactElement {
           setWorkspaceName(info.workspaceName)
           setWorkspacePath(info.workspacePath.length === 0 ? undefined : info.workspacePath)
           setWorkspaceMade(info.workspaceMade === true)
+          setWorkspaceEmpty(info.workspaceEmpty === true)
           setWorkspaceCaution(info.workspaceCaution)
           setLedgerPath(info.ledgerPath.length === 0 ? undefined : info.ledgerPath)
         }
@@ -7319,6 +7323,11 @@ export default function App(): ReactElement {
     void window.desktop?.listFolders().then((listed) => setFolders(folderLabels(listed.folders))).catch(() => undefined)
   }
   useEffect(() => { refreshFolders() }, [history.length])
+  // A finished turn may have put the folder's first files in it: asked again, so the next starters fit.
+  useEffect(() => {
+    if (!workspaceEmpty) return
+    void window.desktop?.getAppInfo().then((info) => { setWorkspaceEmpty(info.workspaceEmpty === true) }).catch(() => undefined)
+  }, [history.length])
   const refreshForFolder = (): void => {
     const bridge = window.desktop
     if (bridge === undefined) return
@@ -7326,6 +7335,7 @@ export default function App(): ReactElement {
       setWorkspaceName(info.workspaceName)
       setWorkspacePath(info.workspacePath.length === 0 ? undefined : info.workspacePath)
       setWorkspaceMade(info.workspaceMade === true)
+      setWorkspaceEmpty(info.workspaceEmpty === true)
       setWorkspaceCaution(info.workspaceCaution)
       // Another folder: the question, if any, was about the one before.
       setFolderQuestion(undefined)
@@ -9806,6 +9816,7 @@ export default function App(): ReactElement {
               <IdleTeammate
                 teammate={pickedTeammate ?? selectedTeammate ?? teammates[0]!}
                 canStart={busyRun === undefined}
+                folderEmpty={workspaceEmpty}
                 /*
                  * Whether THIS teammate can actually start, which this screen
                  * did not know at all.
@@ -9920,6 +9931,7 @@ export default function App(): ReactElement {
                 workspacePath={workspacePath}
                 workspaceMade={workspaceMade}
                 teammateCount={teammates.length}
+                noConversationsYet={history.length === 0}
                 team={teammates.map((mate) => ({
                   teammateId: mate.teammateId,
                   name: mate.name,
@@ -9966,6 +9978,9 @@ export default function App(): ReactElement {
                 onStarter={(starter) => {
                   // The teammate on screen, in the mode the starter suits; the words wait in the box (StarterList.tsx).
                   setCompareOn(false)
+                  // Home has no teammate on screen: the one whose work it is, when the team has one (teammateForStarter).
+                  const suited = teammateForStarter(starter.id, teammates)
+                  if (suited !== undefined) selectTeammate(suited)
                   if (starter.mode !== undefined) setMode(starter.mode)
                   setComposerFill((current) => ({ text: starter.prompt, seq: (current?.seq ?? 0) + 1 }))
                 }}

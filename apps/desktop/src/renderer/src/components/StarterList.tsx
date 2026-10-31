@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 
-import type { MissionMode } from '../../../shared/ipc.js'
+import type { MissionMode, TeammateRole } from '../../../shared/ipc.js'
 import { Icon } from './Icon.js'
 import type { IconName } from './Icon.js'
 
@@ -30,6 +30,21 @@ export const STARTERS: readonly Starter[] = [
   { id: 'review', label: 'Review my changes', line: 'Read this branch’s changes like a careful reviewer', icon: 'eye', mode: 'ask', compareChanges: false, prompt: 'Review the changes on this branch as a careful reviewer. List bugs and risks by severity, each with its file and line. Change nothing.' },
   { id: 'page', label: 'Build a landing page', line: 'For whatever you’re launching, built and running', icon: 'page', compareChanges: true, prompt: 'Make index.html: a one-page landing page with a headline, what it offers, and a clear way to get in touch. One file, all CSS inside it. It is for: ' }
 ]
+
+/**
+ * WHO ON THE TEAM A HOME STARTER SUITS (2026-10-30). On Home no teammate is on screen, so a row's words went to the agent
+ * in the chat box by itself -- right after a new person had pressed Build software and made Wren, Juno and Atlas. With a
+ * team, the row goes to the teammate whose work it is: the coder for planning, debugging and a page, the reviewer for a
+ * review (the coder when there is none). Undefined when nobody's role fits, and the words wait in the box as before.
+ */
+export function teammateForStarter(starterId: string, team: readonly { readonly teammateId: string; readonly role: TeammateRole }[]): string | undefined {
+  const wanted: readonly TeammateRole[] = starterId === 'review' ? ['Docs & QA', 'Code & Migrations'] : ['Code & Migrations']
+  for (const role of wanted) {
+    const mate = team.find((one) => one.role === role)
+    if (mate !== undefined) return mate.teammateId
+  }
+  return undefined
+}
 
 /** The landing page drawn as itself (the 0.461 drawing): a browser window with a headline. */
 function PageIcon(): ReactElement {

@@ -551,6 +551,11 @@ export interface AppInfo {
    */
   readonly workspaceMade: boolean
   /**
+   * The folder holds nothing yet but dot files (2026-10-30), read when the window asks. A teammate offers starters
+   * that make something there rather than read a project that is not there. Absent from an older main side.
+   */
+  readonly workspaceEmpty?: boolean
+  /**
    * The folder is no place for teammates (0.790): "your home folder", or ".claude, where the agents keep their own
    * settings" (main/workspace.ts notATeammateFolder). The folder chip says so, in amber.
    */
