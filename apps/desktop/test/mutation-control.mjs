@@ -67,6 +67,128 @@ const ORG_VIEW_TEST = 'src/renderer/src/managed-controls-say-who-set-them.test.t
 
 const MUTATIONS = [
   ...[
+  {
+    "name": "popular-skills: library cap drops fonts",
+    "file": "src/main/skill-library.ts",
+    "from": "const MOST_BYTES_A_SKILL = 10 * 1024 * 1024",
+    "to": "const MOST_BYTES_A_SKILL = 5 * 1024 * 1024",
+    "expect": "a font-bearing skill above five MB is kept and handed to Claude Code but ten MB remains the ceiling",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: Claude cap drops fonts",
+    "file": "src/main/claude-skills.ts",
+    "from": "const MOST_BYTES_A_SKILL = 10 * 1024 * 1024",
+    "to": "const MOST_BYTES_A_SKILL = 5 * 1024 * 1024",
+    "expect": "a font-bearing skill above five MB is kept and handed to Claude Code but ten MB remains the ceiling",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: cap no longer bounds payloads",
+    "file": "src/main/skill-library.ts",
+    "from": "bytes > MOST_BYTES_A_SKILL",
+    "to": "false",
+    "expect": "a font-bearing skill above five MB is kept and handed to Claude Code but ten MB remains the ceiling",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: agent copies remain duplicates",
+    "file": "src/main/skill-library.ts",
+    "from": "folder.replace(AGENT_SKILLS, '$1skills/')",
+    "to": "folder",
+    "expect": "agent copies choose skills then Claude then agents then any without hiding real name clashes",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: agent preference reverses",
+    "file": "src/main/skill-library.ts",
+    "from": "copyRank(folder) < copyRank(previous)",
+    "to": "copyRank(folder) > copyRank(previous)",
+    "expect": "agent copies choose skills then Claude then agents then any without hiding real name clashes",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: real clashes are offered",
+    "file": "src/main/skill-library.ts",
+    "from": "twin !== undefined\n        ?",
+    "to": "false\n        ?",
+    "expect": "agent copies choose skills then Claude then agents then any without hiding real name clashes",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: held skills are preselected",
+    "file": "src/shared/popular-skills.ts",
+    "from": "skill.held === undefined && (all || skill.keptAt !== undefined)",
+    "to": "(all || skill.keptAt !== undefined)",
+    "expect": "a popular pack is only previewed on the first click and all offered skills are ready for the second",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: shelf picks none",
+    "file": "src/shared/popular-skills.ts",
+    "from": "(all || skill.keptAt !== undefined)",
+    "to": "(false || skill.keptAt !== undefined)",
+    "expect": "a popular pack is only previewed on the first click and all offered skills are ready for the second",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: memory install warning disappears",
+    "file": "src/shared/popular-skills.ts",
+    "from": "Needs its own install to work.",
+    "to": "Ready to work.",
+    "expect": "the five popular packs have dated stars and licenses and Claude Mem names its separate install",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  },
+  {
+    "name": "popular-skills: shelf uses pasted selection",
+    "file": "src/renderer/src/components/SkillsFromGitHub.tsx",
+    "from": "look(pack.source, true)",
+    "to": "look(pack.source, false)",
+    "expect": "the popular shelf shows five packs and opens the existing Look before any Keep",
+    "tests": [
+      "src/renderer/src/popular-skills-wait-for-keep.test.tsx"
+    ]
+  },
+  {
+    "name": "popular-skills: runtime files are shortened",
+    "file": "src/renderer/src/components/SkillsFromGitHub.tsx",
+    "from": "paths.join(', ')",
+    "to": "paths.slice(0, 4).join(', ')",
+    "expect": "every file that runs is named before keeping even when a skill has more than four scripts",
+    "tests": [
+      "src/renderer/src/popular-skills-wait-for-keep.test.tsx"
+    ]
+  },
+  {
+    "name": "popular-skills: repository links are refused",
+    "file": "src/shared/outbound-links.ts",
+    "from": "...POPULAR_SKILLS.map((pack) => `https://github.com/${pack.source}`)",
+    "to": "...[]",
+    "expect": "the five popular packs have dated stars and licenses and Claude Mem names its separate install",
+    "tests": [
+      "src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts"
+    ]
+  }
+].map((mutation) => ({ ...mutation, file: join(ROOT, mutation.file) })),
+  ...[
     ['a hook inherits a writing mode', 'src/main/routine-runner.ts', "mode: hook ? 'ask' : route.mode,", 'mode: route.mode,', 'keeps handed-on steps in Ask even if the teammate and saved routine both write', 'src/main/a-called-link-starts-its-routine.test.ts'],
     ['waiting calls are replayed twice', 'src/main/routine-runner.ts', "if (arrived !== undefined && 'kind' in arrived) await options.hooks?.fired(routine.routineId, arrived.batch)", '// The batch is left waiting.', 'folds two calls during a run into one more, using the newest body and saying how many', 'src/main/a-called-link-starts-its-routine.test.ts'],
     ['the password reaches the brief', 'src/main/routine-hooks.ts', "text = text.replaceAll(entry.secret, '[link password removed]')", 'text = text.replaceAll(entry.secret, entry.secret)', 'saves a hook schedule, keeps its password out of routines, exports, dispatches and notices, and fences the data in Ask', 'src/main/a-called-link-starts-its-routine.test.ts']

@@ -92,6 +92,10 @@ file id GitHub's list gives it. No sign-in is asked for or sent, so only public
 repositories can be read, and GitHub allows 60 looks an hour from one address.
 Redirects are followed only to those two hosts. Nothing is checked again on its
 own: a kept skill changes only when you look for changes and keep again.
+The Popular skills shelf uses dated star counts bundled with Locust; showing it makes no request.
+Choosing a tile runs the same Look. Keep is a separate click after the skill list and executable
+file names are shown. Repository buttons open the five named GitHub pages in your browser.
+Claude-Mem needs its own installation; keeping its skills does not install its worker service.
 
 **Voice typing's one-time files.** Download retrieves the pinned Windows x64 CPU
 archive `b5454/whisper-bin-x64.zip` and the selected pinned model:

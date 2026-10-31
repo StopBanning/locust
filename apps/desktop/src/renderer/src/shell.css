@@ -24871,3 +24871,44 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 /* Keep it running (0.842): the words, then the one button that turns on the Startup switches. */
 .lc-remote-mcp__stay { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lc-space-2) var(--lc-space-3); }
 .lc-remote-mcp__stay > p { flex: 1 1 320px; min-width: 0; margin: 0; }
+
+/* A pack opens the existing preview; Keep stays a separate decision. */
+.lc-skilllib__popular {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lc-space-3);
+}
+
+.lc-skilllib__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--lc-space-3);
+}
+
+.lc-skilllib__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lc-space-2);
+  padding: var(--lc-space-3);
+  border: 1px solid var(--lc-border-card);
+  border-radius: var(--lc-radius-card);
+}
+
+.lc-skilllib__pack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lc-space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lc-skilllib__pack:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}

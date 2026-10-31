@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 
 import type { SkillLibraryPreview, SkillLibrarySkill, SkillLibrarySource } from '../../../shared/ipc.js'
+import { POPULAR_SKILLS, POPULAR_SKILLS_AS_OF, skillPreviewPicks } from '../../../shared/popular-skills.js'
 import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
 import { ArmedButton } from './ArmedButton.js'
 
@@ -30,8 +31,7 @@ const plural = (count: number, one: string, many = `${one}s`): string => `${Stri
 /** The files of a skill that run, said in one line, or nothing. */
 export function runsText(paths: readonly string[]): string | undefined {
   if (paths.length === 0) return undefined
-  const shown = paths.slice(0, 4).join(', ')
-  return `Runs: ${shown}${paths.length > 4 ? ` and ${String(paths.length - 4)} more` : ''}`
+  return `Runs: ${paths.join(', ')}`
 }
 
 function keptDate(iso: string): string {
@@ -54,7 +54,7 @@ export function SkillsFromGitHub(): ReactElement {
   }
   useEffect(load, [])
 
-  const look = (target: string): void => {
+  const look = (target: string, all = false): void => {
     if (target.trim().length === 0 || busy !== undefined) return
     setBusy(SKILLS_LOOKING)
     setSaid(undefined)
@@ -67,8 +67,8 @@ export function SkillsFromGitHub(): ReactElement {
           return
         }
         setPreview(response.data)
-        // What is kept from it stays ticked; nothing else is ticked for the person.
-        setPicked(new Set(response.data.skills.filter((skill) => skill.keptAt !== undefined && skill.held === undefined).map((skill) => skill.name)))
+        // Shelf picks are ready for the second click; pasted links keep their opt-in behavior.
+        setPicked(skillPreviewPicks(response.data, all))
       })
       .catch(() => setSaid({ text: 'Locust could not look at that repository.', good: false }))
       .finally(() => setBusy(undefined))
@@ -90,6 +90,22 @@ export function SkillsFromGitHub(): ReactElement {
 
   return (
     <div className="lc-skilllib">
+      <section aria-label="Popular skills" className="lc-skilllib__popular">
+        <div className="lc-skilllib__name">Popular skills</div>
+        <p className="lc-skilllib__said">Look at a pack to see its skills and files that run, then keep them all. Stars as of {POPULAR_SKILLS_AS_OF}.</p>
+        <div className="lc-skilllib__tiles">
+          {POPULAR_SKILLS.map((pack) => (
+            <div className="lc-skilllib__tile" key={pack.source}>
+              <button type="button" className="lc-skilllib__pack" disabled={busy !== undefined} onClick={() => { setLink(pack.source); look(pack.source, true) }}>
+                <span className="lc-skilllib__name">{pack.name}</span>
+                <span className="lc-skilllib__skills">{pack.description}</span>
+                <span className="lc-skilllib__meta">{pack.stars.toLocaleString('en-US')} stars · {pack.license}</span>
+              </button>
+              <button type="button" className="lc-linkbutton" onClick={() => { void window.desktop?.openLink(`https://github.com/${pack.source}`).then((answer) => setSaid(answer.ok ? undefined : { text: answer.message, good: false })) }}>Repository: {pack.source}</button>
+            </div>
+          ))}
+        </div>
+      </section>
       {sources !== undefined && sources.length > 0 && (
         <div className="lc-settingrows">
           {sources.map((kept) => {
