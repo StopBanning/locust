@@ -1,0 +1,11 @@
+const { app, BrowserWindow } = require('electron')
+const { join } = require('node:path'); const { writeFileSync } = require('node:fs')
+app.whenReady().then(async () => {
+  const win = new BrowserWindow({ show: false, width: 820, height: 1400, useContentSize: true })
+  await win.loadFile(join(process.argv[2], 'gpu-sheet.html'))
+  await new Promise(r => setTimeout(r, 800))
+  const size = await win.webContents.executeJavaScript('JSON.stringify([document.getElementById("sheet").width, document.getElementById("sheet").height])')
+  const [w, h] = JSON.parse(size)
+  const img = await win.webContents.capturePage({ x: 0, y: 0, width: w, height: h })
+  writeFileSync(process.argv[3], img.toPNG()); app.quit()
+})

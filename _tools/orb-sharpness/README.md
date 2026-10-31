@@ -26,3 +26,10 @@ Result, 2026-09-22, DPR 1 (Colin's display):
 The contact sheet is `docs/orb-sharpness-2026-09-22.png`. The last row's
 method is on branch `orb-paint-down` (`PaintedDown` in `Orb.tsx`), not on
 main, until Colin has looked at it in the app.
+
+## The Mac, 2026-10-30
+
+On macOS the same 4x paint-down came out 3.2 to 7.0 off the ideal, because Chromium on the graphics card does not
+honour `imageSmoothingQuality = 'high'` for a 4:1 shrink there. `PaintedDown` now keeps both canvases in software
+(`willReadFrequently`), where it is 0.4 to 0.7 on the Mac. `gpu-sheet.js` draws the three side by side on any
+system (its first lines say how), and `_tools/look-orbs.mjs` photographs the live orb in the app.

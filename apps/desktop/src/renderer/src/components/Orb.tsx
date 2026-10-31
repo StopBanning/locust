@@ -173,11 +173,19 @@ function PaintedDown({
     const side = Math.round(box * dpr)
     canvas.width = side
     canvas.height = side
-    const shown = canvas.getContext('2d')
+    /*
+     * BOTH CANVASES DRAWN IN SOFTWARE (2026-10-30). Colin, on the Mac: "the thinking/working orbs appear to not look
+     * right on mac or be as clear as they are as windows". On the graphics card, macOS's Chromium does not honour
+     * 'high' for a 4:1 shrink: measured against the exact 8x average, at six moments of each density shape, the
+     * painted-down orb was 3.2 to 7.0 out of 255 off (composing worst), where Windows measured 0.9. Kept in software
+     * (`willReadFrequently`), the same shrink is 0.4 to 0.7 on the Mac, and the same code path on every system. Two
+     * small canvases at 30 frames a second, and only while a turn is running.
+     */
+    const shown = canvas.getContext('2d', { willReadFrequently: true })
     const big = document.createElement('canvas')
     big.width = side * PAINT_DOWN_FACTOR
     big.height = side * PAINT_DOWN_FACTOR
-    const drawn = big.getContext('2d')
+    const drawn = big.getContext('2d', { willReadFrequently: true })
     if (shown === null || drawn === null) return undefined
     const { mode, speed, opts } = resolvePreset(state, 64)
     const paint = MODE_DRAWS[mode]
