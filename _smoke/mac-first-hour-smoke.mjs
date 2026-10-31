@@ -23,7 +23,7 @@
 //
 // Self-contained, like posix-stop-smoke.mjs: the drive library assumes Windows.
 
-import { execFileSync, spawn } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import { appendFileSync, existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -101,7 +101,9 @@ if (!(await waitForPortFree(PORT))) {
 const timing = {}
 const launchedAt = Date.now()
 // Its own process group, so the app and everything it started (npm, OpenCode) can be stopped together.
-const child = spawn(app, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], { cwd: '/', env, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
+// A Mac drive never reads the person's keychain: an ad-hoc signed CI build makes macOS ask, and the window freezes on the dialog.
+const keychain = process.platform === 'darwin' ? ['--use-mock-keychain'] : []
+const child = spawn(app, [...keychain, `--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], { cwd: '/', env, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
 const output = []
 child.stdout.on('data', (data) => output.push(String(data)))
 child.stderr.on('data', (data) => output.push(String(data)))
@@ -124,15 +126,48 @@ const waiting = new Map()
 // 0.836's Mac run pressed Install and heard nothing more for 43 minutes, until the job's limit cancelled it and the
 // launch and update checks after it never ran. A window that stops answering is now a failure that says so, with the
 // app's own last lines, and the step ends.
+const targets = async () => {
+  try {
+    const response = await fetch(`http://127.0.0.1:${String(PORT)}/json/list`, { signal: AbortSignal.timeout(5_000) })
+    console.log(`   DevTools targets: ${JSON.stringify(await response.json())}`)
+  } catch (error) { console.log(`   DevTools targets unavailable: ${String(error)}`) }
+}
+const sampleRenderer = () => {
+  execFile('/bin/ps', ['-axo', 'pid=,command='], { timeout: 5_000 }, (error, stdout) => {
+    if (error) return
+    const renderer = stdout.split('\n').find((line) => line.includes(profile) && line.includes('--type=renderer'))
+    const pid = renderer?.trim().split(/\s+/)[0]
+    if (pid === undefined) return
+    console.log(`   Sampling renderer ${pid} while a DevTools call is pending`)
+    execFile('/usr/bin/sample', [pid, '1', '1', '-file', resolve('mac-first-hour-renderer-sample.txt')], { timeout: 8_000 }, (sampleError) => {
+      console.log(`   Renderer sample: ${sampleError === null ? 'mac-first-hour-renderer-sample.txt' : String(sampleError)}`)
+    })
+  })
+}
+const rejectPending = (error) => {
+  for (const held of waiting.values()) held.reject(error)
+  waiting.clear()
+}
 const SILENT_MS = 90_000
 const send = (method, params = {}) => new Promise((resolve, reject) => {
   const id = nextId++
-  const silent = setTimeout(() => {
+  const stalled = setTimeout(() => {
+    console.log(`   Still waiting for ${method} after 15 s`)
+    void targets()
+    sampleRenderer()
+  }, 15_000)
+  const silent = setTimeout(async () => {
     waiting.delete(id)
+    await targets()
     reject(new Error(`the window did not answer ${method} in ${String(SILENT_MS / 1000)} s; the app's last lines:\n${lastLines()}`))
   }, SILENT_MS)
-  waiting.set(id, { resolve: (value) => { clearTimeout(silent); resolve(value) }, reject: (error) => { clearTimeout(silent); reject(error) } })
-  socket.send(JSON.stringify({ id, method, params }))
+  waiting.set(id, { resolve: (value) => { clearTimeout(stalled); clearTimeout(silent); resolve(value) }, reject: (error) => { clearTimeout(stalled); clearTimeout(silent); reject(error) } })
+  try { socket.send(JSON.stringify({ id, method, params })) } catch (error) {
+    waiting.delete(id)
+    clearTimeout(stalled)
+    clearTimeout(silent)
+    reject(error)
+  }
 })
 const evaluate = async (expression) => {
   for (let attempt = 0; ; attempt += 1) {
@@ -167,13 +202,31 @@ try {
   socket = new WebSocket(page.webSocketDebuggerUrl)
   socket.addEventListener('message', (event) => {
     const message = JSON.parse(String(event.data))
+    if (message.method === 'Inspector.targetCrashed' || message.method === 'Inspector.detached') {
+      console.log(`   ${JSON.stringify(message)}`)
+      rejectPending(new Error(message.method))
+    }
+    if (['Runtime.exceptionThrown', 'Page.javascriptDialogOpening'].includes(message.method)) console.log(`   ${JSON.stringify(message)}`)
     const held = waiting.get(message.id)
     if (held === undefined) return
     waiting.delete(message.id)
     if (message.error !== undefined) held.reject(new Error(message.error.message))
     else held.resolve(message.result)
   })
-  await new Promise((resolve) => socket.addEventListener('open', resolve, { once: true }))
+  socket.addEventListener('close', (event) => {
+    const error = new Error(`DevTools socket closed (${String(event.code)}): ${event.reason}`)
+    console.log(`   ${error.message}`)
+    rejectPending(error)
+    void targets()
+  })
+  socket.addEventListener('error', () => rejectPending(new Error('DevTools socket failed')))
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true })
+    socket.addEventListener('error', () => reject(new Error('DevTools could not connect')), { once: true })
+  })
+  await send('Inspector.enable')
+  await send('Runtime.enable')
+  await send('Page.enable')
 
   console.log('1. the first screen, on a Mac with nothing on it')
   const first = JSON.parse(String(await evaluate(`(async () => {
@@ -189,10 +242,12 @@ try {
 
   console.log('2. Install, and wait for the version')
   await evaluate(`(() => { document.querySelector('.lc-runtimecell__install.is-primary').click(); return 'pressed' })()`)
+  console.log('   Install click answered')
   const installFrom = Date.now()
   let installed
   while (Date.now() - installFrom < WAIT_FOR_INSTALL_MS) {
     await sleep(3_000)
+    console.log(`   ${String(Math.round((Date.now() - installFrom) / 1000))} s: polling install`)
     const seen = JSON.parse(String(await evaluate(`JSON.stringify({
       failed: document.querySelector('.lc-installnote--failed')?.innerText.slice(0, 400) ?? null,
       opencode: [...document.querySelectorAll('.lc-runtimecell')].map((c) => c.innerText.replace(/\\s+/g, ' ').trim()).find((c) => /OpenCode/i.test(c)) ?? null
@@ -201,7 +256,7 @@ try {
     if (seen.failed !== null) { installed = { kind: 'failed', seen, seconds }; break }
     // A version on the row: the locator found what was installed AND ran it.
     if (seen.opencode !== null && /\d+\.\d+\.\d+/.test(seen.opencode) && !/Install\b/.test(seen.opencode)) { installed = { kind: 'connected', seen, seconds }; break }
-    if (seconds % 30 < 3) console.log(`   ${String(seconds)} s: ${seen.opencode ?? '(no row)'}`)
+    console.log(`   ${String(seconds)} s: ${seen.opencode ?? '(no row)'}`)
   }
   timing.install = installed?.seconds
   console.log(`   ${JSON.stringify(installed ?? { kind: 'timed out' })}`)

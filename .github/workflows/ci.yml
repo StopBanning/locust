@@ -160,6 +160,7 @@ jobs:
           path: |
             mac-first-hour-*.png
             mac-first-hour.log
+            mac-first-hour-renderer-sample.txt
           if-no-files-found: ignore
           retention-days: 7
       # npm runs OpenCode's install script, which fetches its program, only when asked.
