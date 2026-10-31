@@ -292,6 +292,7 @@ import { changelogPaths, entries as changelogEntries, readChangelog, splashEntri
 import type { ChangelogEntry } from './changelog.js'
 import type { CodexMissionService } from './codex-mission.js'
 import type { MissionPeerContext } from './workroom-briefing.js'
+import { findRestoredFolders, directoryExists } from './restored-folders.js'
 import { createFolderRegistry, recoverFolderPath, sameFolderAtStart } from './folders.js'
 import type { FolderContext } from './folders.js'
 import { createConnectorReader } from './connector-reader.js'
@@ -439,7 +440,7 @@ import {
   TEAMMATE_FOLDER_CHANNEL,
   WORKSPACE_CHOOSE_CHANNEL,
   WORKSPACE_CONFIRM_CHANNEL,
-  FOLDER_LIST_CHANNEL,
+  FOLDER_LIST_CHANNEL, FOLDER_RESTORE_LIST_CHANNEL, FOLDER_RESTORE_PICK_CHANNEL, FOLDER_RESTORE_APPLY_CHANNEL,
   SIDE_ASK_CHANNEL,
   FOLDER_SWITCH_CHANNEL,
   CLOUD_WHERE_CHANNEL,
@@ -4264,10 +4265,15 @@ if (!ownsSingleInstanceLock) {
       },
       // M15: where a routine was made; for an older one, where it was learned.
       homeOf: async (routine) => {
-        if (routine.workspaceId !== undefined) return routine.workspaceId
+        if (routine.workspaceId !== undefined) {
+          const path = await folders.pathOf(routine.workspaceId)
+          return path === undefined ? routine.workspaceId : workspaceIdFor(path)
+        }
         const first = routine.learnedFrom[0]
         if (first === undefined) return undefined
-        return (await missionLedger.getMission(first).catch(() => undefined))?.metadata.workspaceId
+        const id = (await missionLedger.getMission(first).catch(() => undefined))?.metadata.workspaceId
+        const path = id === undefined ? undefined : await folders.pathOf(id)
+        return path === undefined ? id : workspaceIdFor(path)
       },
       routines,
       peerContextFor,
@@ -5632,6 +5638,61 @@ if (!ownsSingleInstanceLock) {
       }
     })
 
+    let restoreOffers = new Map<string, Set<string>>()
+    ipcMain.handle(FOLDER_RESTORE_LIST_CHANNEL, async event => {
+      if (!fromOwnWindow(event)) return []
+      const missions = (await missionLedger.listMissions({ limit: Number.MAX_SAFE_INTEGER })).missions
+      await recoverFolders(missions.map(mission => mission.metadata))
+      await folders.learn((await teammates.list()).flatMap(teammate => teammate.folder === undefined ? [] : [{ id: workspaceIdFor(teammate.folder), path: teammate.folder }]))
+      const matches = await findRestoredFolders(await folders.list(), app.getPath('home'))
+      restoreOffers = new Map(matches.map(match => [match.id, new Set(match.candidate === undefined ? [] : [match.candidate])]))
+      return matches
+    })
+    ipcMain.handle(FOLDER_RESTORE_PICK_CHANNEL, async (event, id: unknown) => {
+      if (!fromOwnWindow(event) || typeof id !== 'string' || !restoreOffers.has(id)) return undefined
+      const picked = await dialog.showOpenDialog({ title: 'Find this folder on this computer', properties: ['openDirectory'] })
+      const path = picked.canceled ? undefined : picked.filePaths[0]
+      if (path === undefined || isInstallFolder(path) || folderCaution(path) !== undefined) return undefined
+      restoreOffers.get(id)!.add(path)
+      return path
+    })
+    ipcMain.handle(FOLDER_RESTORE_APPLY_CHANNEL, async (event, input: unknown) => {
+      if (!fromOwnWindow(event) || !Array.isArray(input) || input.length > 2000) return { ok: false }
+      const known = await folders.list()
+      const moves: { id: string; path: string; oldPath: string }[] = []
+      for (const row of input as unknown[]) {
+        if (typeof row !== 'object' || row === null) return { ok: false }
+        const { id, path } = row as { id?: unknown; path?: unknown }
+        if (typeof id !== 'string' || typeof path !== 'string' || !restoreOffers.get(id)?.has(path)) return { ok: false }
+        const old = known.find(folder => folder.id === id)
+        if (old === undefined || await directoryExists(old.path) || !await directoryExists(path) || isInstallFolder(path) || folderCaution(path) !== undefined) return { ok: false, message: 'The folders changed. Open the folder list again.' }
+        moves.push({ id, path, oldPath: old.path })
+      }
+      try {
+        if (codexMissions.liveMissionIds().length > 0 || antigravityMissions.liveMissionIds().length > 0) return { ok: false, message: 'Wait for the running conversations to finish, then apply these folders.' }
+        for (const move of moves) {
+          await folders.move(move.id, move.path)
+          const settings = await teammates.readSettings()
+          const newId = workspaceIdFor(move.path)
+          await teammates.writeSettings({ ...settings,
+            checkCommands: { ...settings.checkCommands, ...(settings.checkCommands?.[move.id] === undefined ? {} : { [newId]: settings.checkCommands[move.id] }) },
+            checkFixes: { ...settings.checkFixes, ...(settings.checkFixes?.[move.id] === undefined ? {} : { [newId]: settings.checkFixes[move.id] }) }
+          })
+          for (const teammate of await teammates.list()) if (teammate.folder === move.oldPath) await teammates.setFolder(teammate.teammateId, move.path)
+          if (workspacePath === move.oldPath || !workspaceChosen) await switchFolder(move.path)
+          for (const mission of (await missionLedger.listMissions({ limit: Number.MAX_SAFE_INTEGER })).missions) {
+            if (mission.metadata.workspaceId !== move.id) continue
+            const sequence = (mission.events.at(-1)?.sequence ?? 0) + 1
+            await missionLedger.appendEvents(mission.metadata.missionId, [{
+              id: `${mission.metadata.runId}:folder:${String(sequence)}`, runId: mission.metadata.runId, missionId: mission.metadata.missionId,
+              sequence, type: 'adapter.diagnostic', occurredAt: new Date().toISOString(), sourceAdapter: mission.metadata.runtime,
+              payload: { level: 'info', code: 'host.folder_moved', message: `Folder moved from ${move.oldPath} to ${move.path}.`, terminal: false, evidence: { redacted: true } }
+            } as NormalizedRuntimeEvent])
+          }
+        }
+        return { ok: true }
+      } catch { return { ok: false, message: 'Some folders could not be saved. Open the folder list to review what remains.' } }
+    })
     // Every folder worked in, newest first, and the one the window is in (0.458).
     ipcMain.handle(FOLDER_LIST_CHANNEL, async (event) => {
       if (!fromOwnWindow(event)) return { folders: [], currentId: undefined }

@@ -891,6 +891,7 @@ export function runtimeThreadIdOf(mission: RecoveredMission): string | undefined
  * The reply then starts fresh with the conversation so far.
  */
 export function resumableThreadOf(prior: RecoveredMission, runtime: string): string | undefined {
+  if (prior.events.some(event => event.type === 'adapter.diagnostic' && (event.payload as { code?: unknown }).code === 'host.folder_moved')) return undefined
   if (runtime === 'antigravity' && prior.metadata.resolvedRouteId === 'antigravity:hub') return undefined
   const ended = prior.events.some((event) => {
     if (event.type !== 'run.failed') return false

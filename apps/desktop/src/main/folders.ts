@@ -1,7 +1,8 @@
 import { readFileSync, statSync } from 'node:fs'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve, win32, posix } from 'node:path'
 
+import { folderRemote } from './restored-folders.js'
 import { workspaceIdFor } from './workspace.js'
 import { replaceFile } from './replace-file.js'
 
@@ -32,6 +33,10 @@ export interface KnownFolder {
   readonly path: string
   /** The folder's own name, as the sidebar heads its group. */
   readonly name: string
+  /** Original path before an explicit move to another computer. */
+  readonly previousPath?: string
+  /** Origin URL observed while the folder was available on this computer. */
+  readonly remote?: string
   /** When a conversation was last started or opened there; absent for one only recovered. */
   readonly lastUsedAt?: string
 }
@@ -42,7 +47,7 @@ interface FoldersFile {
 }
 
 export function folderName(path: string): string {
-  return basename(path) || path
+  return win32.basename(path) || posix.basename(path) || path
 }
 
 /**
@@ -78,6 +83,7 @@ function windowsParent(path: string): string | undefined {
 }
 
 export interface FolderRegistry {
+  move(id: string, path: string): Promise<void>
   list(): Promise<readonly KnownFolder[]>
   pathOf(id: string): Promise<string | undefined>
   /** A folder worked in now: kept, and marked as just used. */
@@ -98,7 +104,7 @@ export function sameFolderAtStart(file: string, path: string): string {
   try {
     const body = JSON.parse(readFileSync(file, 'utf8')) as Partial<FoldersFile>
     known = (Array.isArray(body.folders) ? body.folders : []).flatMap((entry) =>
-      typeof entry === 'object' && entry !== null && typeof entry.path === 'string' && isAbsolute(entry.path) ? [entry.path] : []
+      typeof entry === 'object' && entry !== null && typeof entry.path === 'string' && (isAbsolute(entry.path) || win32.isAbsolute(entry.path) || posix.isAbsolute(entry.path)) ? [entry.path] : []
     )
   } catch {
     return full
@@ -137,7 +143,7 @@ export function createFolderRegistry(options: { readonly file: string; readonly 
       const parsed = JSON.parse(await readFile(options.file, 'utf8')) as Partial<FoldersFile>
       held = (Array.isArray(parsed.folders) ? parsed.folders : []).filter(
         (entry): entry is KnownFolder =>
-          typeof entry === 'object' && entry !== null && typeof entry.id === 'string' && typeof entry.path === 'string' && isAbsolute(entry.path)
+          typeof entry === 'object' && entry !== null && typeof entry.id === 'string' && typeof entry.path === 'string' && (isAbsolute(entry.path) || win32.isAbsolute(entry.path) || posix.isAbsolute(entry.path))
       ).map((entry) => ({ ...entry, name: folderName(entry.path) }))
     } catch {
       held = []
@@ -146,22 +152,33 @@ export function createFolderRegistry(options: { readonly file: string; readonly 
   }
   // One write at a time, whole or not at all.
   let writing = Promise.resolve()
-  const save = (folders: KnownFolder[]): Promise<void> => {
+  const save = (folders: KnownFolder[], strict = false): Promise<void> => {
     held = folders
     writing = writing.then(async () => {
       await mkdir(dirname(options.file), { recursive: true })
       const body: FoldersFile = { schemaVersion: 1, folders }
       await writeFile(`${options.file}.tmp`, `${JSON.stringify(body, null, 2)}\n`, 'utf8')
       await replaceFile(`${options.file}.tmp`, options.file)
-    }).catch(() => undefined)
-    return writing
+    })
+    const result = writing
+    writing = result.catch(() => undefined)
+    return strict ? result.catch(error => { held = undefined; throw error }) : writing
   }
   return {
+    async move(id, path) {
+      const current = await read()
+      const old = current.find(entry => entry.id === id)
+      if (old === undefined) throw new Error('Unknown folder')
+      const full = resolve(path)
+      if (await identityOf(full) === undefined) throw new Error('Choose an existing folder')
+      await save(current.map(entry => entry.id === id ? { ...entry, previousPath: entry.previousPath ?? entry.path, path: full, name: folderName(full) } : entry), true)
+    },
     list: async () => [...(await read())].sort((a, b) => (b.lastUsedAt ?? '').localeCompare(a.lastUsedAt ?? '')),
     pathOf: async (id) => (await read()).find((entry) => entry.id === id)?.path,
     async use(path) {
       const full = resolve(path)
-      const entry: KnownFolder = { id: workspaceIdFor(full), path: full, name: folderName(full), lastUsedAt: now().toISOString() }
+      const remote = await folderRemote(full)
+      const entry: KnownFolder = { ...(remote === undefined ? {} : { remote }), id: workspaceIdFor(full), path: full, name: folderName(full), lastUsedAt: now().toISOString() }
       await save([...(await read()).filter((one) => one.id !== entry.id), entry])
       return entry
     },
@@ -175,8 +192,10 @@ export function createFolderRegistry(options: { readonly file: string; readonly 
      * folder.
      */
     async sameAs(path) {
-      const full = resolve(path)
       const known = await read()
+      const moved = known.find(entry => entry.previousPath === path)
+      if (moved !== undefined) return moved.path
+      const full = resolve(path)
       if (known.some((entry) => entry.path === full)) return full
       const identity = await identityOf(full)
       if (identity === undefined) return full

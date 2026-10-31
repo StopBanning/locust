@@ -3,7 +3,7 @@ import { parsedCheckFixes } from '../shared/check-fix.js'
 import { randomUUID } from 'node:crypto'
 import { constants as fsConstants } from 'node:fs'
 import { mkdir, open, readFile, unlink } from 'node:fs/promises'
-import { isAbsolute, join } from 'node:path'
+import { isAbsolute, join, win32, posix } from 'node:path'
 
 import { cleanAvatar, isAvatarSpec, seedAvatar } from '../shared/avatar.js'
 import { MAX_TEAMMATE_INSTRUCTIONS } from '../shared/ipc.js'
@@ -387,7 +387,7 @@ export function safeId(value: unknown): value is string {
  * quietly losing the setting.
  */
 export function isTeammateFolder(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0 && value.length <= 4096 && isAbsolute(value)
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= 4096 && (isAbsolute(value) || win32.isAbsolute(value) || posix.isAbsolute(value))
 }
 
 /**

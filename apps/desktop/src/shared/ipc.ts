@@ -874,6 +874,10 @@ export const WORKSPACE_CHOOSE_CHANNEL = 'workspace:choose'
 /** Start here, on the window's question about a folder like home or `.claude` (0.790): the current folder is kept. */
 export const WORKSPACE_CONFIRM_CHANNEL = 'workspace:confirm'
 /** Every folder worked in, and the window's (0.458). */
+export const FOLDER_RESTORE_LIST_CHANNEL = 'folder:restore-list'
+export const FOLDER_RESTORE_PICK_CHANNEL = 'folder:restore-pick'
+export const FOLDER_RESTORE_APPLY_CHANNEL = 'folder:restore-apply'
+export interface RestoredFolderMatch { readonly id: string; readonly path: string; readonly candidate?: string }
 export const FOLDER_LIST_CHANNEL = 'folder:list'
 /** Ask a question on the side of a conversation: read-only, on a copy of its session (0.461). */
 export const SIDE_ASK_CHANNEL = 'side:ask'
@@ -4012,6 +4016,9 @@ export interface DesktopApi {
   chooseWorkspace(): Promise<WorkspaceChooseResponse>
   /** Start here on the question about a folder like home or `.claude` (0.790): true when the folder was kept. */
   confirmWorkspace(): Promise<boolean>
+  restoredFolders(): Promise<readonly RestoredFolderMatch[]>
+  pickRestoredFolder(id: string): Promise<string | undefined>
+  applyRestoredFolders(matches: readonly { readonly id: string; readonly path: string }[]): Promise<{ readonly ok: boolean; readonly message?: string }>
   listFolders(): Promise<FolderListResponse>
   /** `of` is the conversation's (or the side chat's) latest turn; `question` counts from 1. */
   askOnTheSide(of: string, question: string, count: number): Promise<SideAskResponse>

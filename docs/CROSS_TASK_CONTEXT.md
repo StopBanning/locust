@@ -753,3 +753,20 @@ Entries since 2026-10-03, newest first. Earlier entries (2026-08-30 to
   was run.
 - Status: committed on `exec/mac-update-cleanup` and pushed to `stopbanning`.
   Ready for the Mac chat (Locustv2) to review and merge.
+
+## Folders after restoring on another computer (2026-10-30)
+
+- `folders.ts` retains foreign Windows and POSIX paths. An explicit move keeps the old folder id with
+  its new path and remembers its original path; past ledger records are never rewritten. New turns use
+  the new path's hash. Routine home ids are resolved through the registry before comparing them with
+  the current folder. Teammates' explicit folders and per-folder check settings follow an applied move.
+- `restored-folders.ts` scans at most 2,000 directories and three levels below the usual home-folder
+  locations, skipping links, hidden directories and dependency trees. A unique saved origin remote
+  takes precedence; a known remote never falls back to a different same-named repository. Without a
+  saved remote, only a unique name is offered. Git configuration is read without running git.
+- The restore notice opens one folder card; the folder button can reopen it later. Only offered paths
+  and native-picker choices are accepted by the host, and applying waits until conversations stop.
+  Each affected mission gets a `host.folder_moved` diagnostic; resuming it starts a fresh agent session
+  briefed with the recorded conversation because the old computer's session may not exist here.
+- All three folder-restore calls are desktop-only in `desk-calls.ts`. The drive is
+  `_tools/drive-folders-after-restore.mjs`; focused mutation controls use `restored-folders` as their filter.

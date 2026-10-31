@@ -124,6 +124,14 @@ describe('a turn that continues a conversation', () => {
     expect(recorded).toEqual([workspaceIdFor(there)])
   })
 
+  it('continues a restored Windows conversation in the chosen Mac folder', async () => {
+    const old = 'C:\\work\\demo'
+    const { spawned, recorded, followUp } = service(old, { [workspaceIdFor(old)]: there })
+    expect((await followUp()).ok).toBe(true)
+    expect(spawned).toEqual([there])
+    expect(recorded).toEqual([workspaceIdFor(there)])
+  })
+
   it('a new conversation still starts in the window\'s folder', async () => {
     const { missions, spawned, recorded } = service(there, { [workspaceIdFor(there)]: there })
     expect((await missions.start('Start something', 'codex', 'ask', {}, () => undefined)).ok).toBe(true)

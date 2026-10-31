@@ -66,6 +66,9 @@ const ORG_SPEND_TEST = 'src/main/a-person-cannot-lift-the-organizations-spend-li
 const ORG_VIEW_TEST = 'src/renderer/src/managed-controls-say-who-set-them.test.tsx'
 
 const MUTATIONS = [
+  { name: 'restored-folders: names are read in the source platform', file: join(ROOT, 'src/main/folders.ts'), from: 'return win32.basename(path) || posix.basename(path) || path', to: 'return posix.basename(path) || path', expect: 'keeps Windows and Mac paths and their names on either computer', tests: ['src/main/restored-folders-can-be-found-on-another-computer.test.ts'] },
+  { name: 'restored-folders: a move is forgotten', file: join(ROOT, 'src/main/folders.ts'), from: 'path: full, name: folderName(full) } : entry), true)', to: 'path: entry.path, name: folderName(full) } : entry), true)', expect: 'keeps the old conversation id after a chosen move and remembers the move after reopening', tests: ['src/main/restored-folders-can-be-found-on-another-computer.test.ts'] },
+  { name: 'restored-folders: ambiguity picks the first folder', file: join(ROOT, 'src/main/restored-folders.ts'), from: 'matches.length === 1', to: 'matches.length > 0', expect: 'leaves ambiguous folder names for the picker and uses a saved remote to distinguish them', tests: ['src/main/restored-folders-can-be-found-on-another-computer.test.ts'] },
   ...[
     ['startup cleanup is skipped', 'removeInstalledImages(options.cacheFolder, options.currentVersion)', '// cleanup skipped'],
     ['pending newer images are deleted', 'if (difference !== -1 && version[difference]! > current[difference]!) continue', 'if (false) continue'],

@@ -1385,11 +1385,21 @@ export default function App(): ReactElement {
   const restoreProfile = async (folder: string): Promise<ProfileRestoreResponse> =>
     window.desktop === undefined ? { ok: false, reason: noHost } : window.desktop.restoreProfile(folder)
   // What the last restore did, said once after the restart it needed; kept until dismissed.
+  const [restoreFolders, setRestoreFolders] = useState<readonly import('../../shared/ipc.js').RestoredFolderMatch[]>([])
+  const [restoreChoices, setRestoreChoices] = useState<Record<string, string>>({})
+  const [restoreFolderMessage, setRestoreFolderMessage] = useState('')
+  const [applyingFolders, setApplyingFolders] = useState(false)
+  const showRestoredFolders = async (): Promise<boolean> => {
+    const matches = await window.desktop?.restoredFolders() ?? []
+    setRestoreFolders(matches)
+    setRestoreChoices(Object.fromEntries(matches.flatMap(match => match.candidate === undefined ? [] : [[match.id, match.candidate]])))
+    return matches.length > 0
+  }
   const [lastRestore, setLastRestore] = useState<ProfileRestoreOutcome>()
   useEffect(() => {
     void window.desktop?.takeLastProfileRestore()
       .then((outcome) => {
-        if (outcome !== undefined) setLastRestore(outcome)
+        if (outcome !== undefined) { setLastRestore(outcome); void showRestoredFolders() }
       })
       .catch(() => undefined)
   }, [])
@@ -7108,6 +7118,9 @@ export default function App(): ReactElement {
    * does nothing, rather than taking the person's work down with the switch.
    */
   const chooseWorkspace = (): void => {
+    void showRestoredFolders().then(found => { if (!found) chooseWorkspaceNow() }).catch(() => chooseWorkspaceNow())
+  }
+  const chooseWorkspaceNow = (): void => {
     const bridge = window.desktop
     if (bridge === undefined) return
     setWorkspaceNotice(undefined)
@@ -10612,6 +10625,27 @@ export default function App(): ReactElement {
             <div className="lc-diagnostic lc-tone-amber" role="alert" data-talk-notice="">
               <Icon name="waveform" size={12} />
               <span>{talkNotice}</span>
+            </div>
+          )}
+          {restoreFolders.length > 0 && (
+            <div className="lc-card lc-diagnostic lc-tone-amber" role="region" aria-label="Find restored folders">
+              <div className="lc-card__body">
+                <p>Find your folders on this computer</p>
+                {restoreFolders.map(folder => <div key={folder.id}>
+                  <span>{folder.path}</span>{' '}
+                  {(restoreChoices[folder.id] ?? folder.candidate) !== undefined && <button type="button" className="lc-button" disabled={applyingFolders} onClick={() => setRestoreChoices(current => { const next = { ...current }; if (next[folder.id] === undefined && folder.candidate !== undefined) next[folder.id] = folder.candidate; else delete next[folder.id]; return next })}>Use {restoreChoices[folder.id] ?? folder.candidate}{restoreChoices[folder.id] === undefined ? '' : ' ✓'}</button>}
+                  <button type="button" className="lc-button" disabled={applyingFolders} onClick={() => { void window.desktop?.pickRestoredFolder(folder.id).then(path => { if (path !== undefined) setRestoreChoices(current => ({ ...current, [folder.id]: path })) }) }}>Choose…</button>
+                </div>)}
+                <p>{restoreFolderMessage || 'Unmatched folders can be found later from the folder button.'}</p>
+                <button type="button" className="lc-button" disabled={applyingFolders || Object.keys(restoreChoices).length === 0} onClick={() => {
+                  setApplyingFolders(true)
+                  void window.desktop?.applyRestoredFolders(Object.entries(restoreChoices).map(([id, path]) => ({ id, path }))).then(result => {
+                    if (result.ok) { setRestoreFolders([]); refreshForFolder() }
+                    else setRestoreFolderMessage(result.message ?? 'The folders could not be applied. Open the list again to try.')
+                  }).catch(() => setRestoreFolderMessage('The folders could not be applied. Open the list again to try.')).finally(() => setApplyingFolders(false))
+                }}>Apply folders</button>{' '}
+                <button type="button" className="lc-button" disabled={applyingFolders} onClick={() => setRestoreFolders([])}>Later</button>
+              </div>
             </div>
           )}
           {lastRestore !== undefined && (
