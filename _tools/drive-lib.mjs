@@ -397,8 +397,11 @@ export async function startDrive({ name, port, workspace, seed, files = {}, env 
   let id = 0
   const pending = new Map()
   const consoleErrors = []
+  // Anything else that wants the window's events (film-lib.mjs films the screen from them).
+  const listeners = new Set()
   socket.addEventListener('message', (event) => {
     const message = JSON.parse(event.data)
+    for (const listener of listeners) { try { listener(message) } catch { /* a listener's fault is its own */ } }
     if (message.method === 'Runtime.exceptionThrown') consoleErrors.push(message.params?.exceptionDetails?.text ?? 'exception')
     // Every argument, not the first: Electron's "sandboxed_renderer.bundle.js script failed to run" names the
     // preload's real error only in the second (2026-10-07, seen intermittently at launch).
@@ -786,7 +789,8 @@ export async function startDrive({ name, port, workspace, seed, files = {}, env 
    * NOT a native-window sizing pass. A design review counting pixels needs
    * the window a person actually has.
    */
-  return { evaluate, send, capture, ready, finish, profile, out, record, resize, waitFor, waitForSelector, pid: child.pid }
+  const on = (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } }
+  return { evaluate, send, on, capture, ready, finish, profile, out, record, resize, waitFor, waitForSelector, pid: child.pid }
 }
 
 /**
