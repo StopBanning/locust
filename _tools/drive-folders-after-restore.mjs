@@ -6,6 +6,11 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { FREE_ROUTE, startDrive, say } from './drive-lib.mjs'
 
+// OpenCode's free models refuse once the day's free use is spent ("Free usage exceeded"); LOCUST_DRIVE_ROUTE=kilo
+// continues the conversation on Kilo's free model instead.
+// The restored conversation was had on OpenCode either way; only the turn that continues it changes route.
+const ROUTE = process.env.LOCUST_DRIVE_ROUTE === 'kilo' ? { runtime: 'kilo', model: 'kilo/kilo-auto/free', mode: 'accept-edits' } : FREE_ROUTE
+
 const old = 'C:\\work\\demo'
 const hash = value => createHash('sha256').update(value).digest('hex')
 const id = `ws_${hash(old).slice(0, 32)}`
@@ -30,7 +35,7 @@ const ledger = [
 ].map(value => JSON.stringify(value) + '\n').join('')
 const files = {
   'folders.json': JSON.stringify({ schemaVersion: 1, folders: [{ id, path: old, name: 'demo' }] }),
-  'teammates.json': JSON.stringify({ schemaVersion: 1, teammates: [{ teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: at, folder: old, route: FREE_ROUTE }], missionOwners: { mission_restored: 'tm_wren' }, settings: { swarm: false, relay: false, memoryMode: 'off', autoMode: false } }),
+  'teammates.json': JSON.stringify({ schemaVersion: 1, teammates: [{ teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: at, folder: old, route: { runtime: ROUTE.runtime, model: ROUTE.model, mode: ROUTE.mode } }], missionOwners: { mission_restored: 'tm_wren' }, settings: { swarm: false, relay: false, memoryMode: 'off', autoMode: false } }),
   'mission-ledger/mission_restored.jsonl': ledger
 }
 const entries = []
@@ -61,7 +66,7 @@ try {
   if (!movedLedger.startsWith(ledger) || !movedLedger.includes('host.folder_moved')) throw new Error('History was rewritten or the move was not recorded')
   let continuedId
   try {
-    const response = JSON.parse(await drive.capture('the old conversation continues', () => drive.evaluate(`(async () => JSON.stringify(await window.desktop.startCodexMission(${JSON.stringify({ prompt: 'Reply with Ready. Do not call tools or edit files.', runtime: 'opencode', model: FREE_ROUTE.model, mode: 'ask', teammateId: 'tm_wren', followUpOf: 'mission_restored' })})))()`)))
+    const response = JSON.parse(await drive.capture('the old conversation continues', () => drive.evaluate(`(async () => JSON.stringify(await window.desktop.startCodexMission(${JSON.stringify({ prompt: 'Reply with Ready. Do not call tools or edit files.', runtime: ROUTE.runtime, model: ROUTE.model, mode: 'ask', teammateId: 'tm_wren', followUpOf: 'mission_restored' })})))()`)))
     if (!response.ok) throw new Error(JSON.stringify(response))
     continuedId = response.data.missionId
     await drive.waitFor(`(async () => {
@@ -74,9 +79,13 @@ try {
         throw new Error('Mission ' + mission.missionId + ' ended in ' + mission.phase + ': ' + (mission.hostFailureMessage ?? 'no error message'))
       }
       return false
-    })()`, { timeoutMs: 180_000, what: 'continuation on free OpenCode' })
+    })()`, { timeoutMs: 180_000, what: `continuation on ${ROUTE.model}` })
     const continued = await readFile(join(profile, 'mission-ledger', `${continuedId}.jsonl`), 'utf8')
     if (!continued.includes(`ws_${hash(target).slice(0, 32)}`)) throw new Error('Continued turn was not recorded in the chosen folder')
+    // Completed is not enough: the continued turn must have said something, in this folder.
+    const answer = continued.split('\n').filter(Boolean).map(line => JSON.parse(line).event).filter(event => event?.type === 'message.delta').map(event => event.payload.text ?? '').join('').trim()
+    if (answer.length === 0) throw new Error('The continued turn completed without answering')
+    say(`CONTINUED ANSWER (${ROUTE.model}): ${answer.slice(0, 200)}`)
     say('RESTORED FOLDERS PASSED: old id, teammate, append-only record and continued turn')
   } catch (error) {
     if (drive && continuedId) {
