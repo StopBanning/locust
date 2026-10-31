@@ -27,10 +27,16 @@ it('removes installed images at startup and preserves newer images and everythin
   const outside = join(root, removed[0]!)
   writeFileSync(outside, 'outside')
   const link = 'Locust-0.841.0-mac-arm64.dmg'
-  symlinkSync(outside, join(cacheFolder, link))
+  let linked = false
+  try {
+    symlinkSync(outside, join(cacheFolder, link))
+    linked = true
+  } catch {
+    // Windows without developer-mode symlink privilege refuses a file symlink; the link's row is then left out.
+  }
   const run = vi.fn(async () => ({ code: 0, output: '' }))
   const updater = createMacUpdater({ currentVersion: '0.843.0', arch: 'arm64', bundle: join(root, 'Locust.app'), cacheFolder, quit: vi.fn(), run, fetchReleases: async () => [] })
-  expect(readdirSync(cacheFolder).sort()).toEqual([...kept, directory, link].sort())
+  expect(readdirSync(cacheFolder).sort()).toEqual([...kept, directory, ...(linked ? [link] : [])].sort())
   expect(existsSync(outside)).toBe(true)
   // Cleanup is finished before the updater is exposed. Checks and install
   // requests must never run it again, even if another old image appears.
