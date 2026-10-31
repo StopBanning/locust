@@ -51,7 +51,7 @@ describe('a run’s own skills folder', () => {
     expect(prepared).toBeDefined()
     expect([...prepared!.skills].sort()).toEqual(['evidence-first', 'review', 'tune-candidate'])
     expect(prepared!.skillsDir).toBe(join(prepared!.dir, 'skills'))
-    expect([...(await readdir(prepared!.dir))].sort()).toEqual(['.agents', '.plugin', 'skills'])
+    expect([...(await readdir(prepared!.dir))].sort()).toEqual(['.agents', '.cursor-plugin', '.plugin', 'skills'])
     expect((await readdir(prepared!.skillsDir)).sort()).toEqual(['evidence-first', 'review', 'tune-candidate'])
     // The teammate's own copy, not the library's of the same name.
     expect(await readFile(join(prepared!.skillsDir, 'evidence-first', 'SKILL.md'), 'utf8')).toContain('The teammate’s own.')
@@ -152,14 +152,14 @@ describe('a run’s own skills folder', () => {
     expect(prepared!.skills).toEqual(['good'])
     expect(await readdir(prepared!.skillsDir)).toEqual(['good'])
     expect(await readdir(join(prepared!.dir, '.agents', 'skills'))).toEqual(['good'])
-    expect((await readdir(prepared!.dir)).sort()).toEqual(['.agents', '.plugin', 'skills'])
+    expect((await readdir(prepared!.dir)).sort()).toEqual(['.agents', '.cursor-plugin', '.plugin', 'skills'])
   })
 })
 
 describe('which agents take a skill', () => {
   it('is Claude Code, Codex, OpenCode, Copilot and Antigravity, and a comparison says so for any other', () => {
-    expect(['claude', 'codex', 'opencode', 'copilot', 'antigravity'].every(takesSkills)).toBe(true)
-    expect(['gemini', 'cursor', 'muse', 'kilo', 'acp', undefined].some(takesSkills)).toBe(false)
+    expect(['claude', 'codex', 'opencode', 'copilot', 'antigravity', 'cursor'].every(takesSkills)).toBe(true)
+    expect(['gemini', 'muse', 'kilo', 'acp', undefined].some(takesSkills)).toBe(false)
     const asked = { name: 'review', description: 'When reviewing.', body: 'Check.' }
     expect(compareSkillRefusal([{ runtime: 'codex', model: 'gpt-6-mini', skill: asked, instructions: 'x' } as never])).toBeUndefined()
     expect(compareSkillRefusal([{ runtime: 'gemini', model: 'account-default', skill: asked, instructions: 'x' } as never])).toBe(`A skill reaches only a ${SKILL_RUNTIME_ANY} teammate for now. Nothing was started.`)
@@ -196,7 +196,7 @@ describe('OpenCode 2', () => {
 describe('the mission service', () => {
   it('hands the folder to Codex on its app-server, OpenCode, Copilot and Antigravity, never on a cloud computer, and removes it after', () => {
     const source = readFileSync(new URL('./codex-mission.ts', import.meta.url), 'utf8')
-    expect(source).toContain("((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity')")
+    expect(source).toContain("((runtime === 'codex' && codexStreams) || runtime === 'opencode' || runtime === 'copilot' || runtime === 'antigravity' || runtime === 'cursor')")
     expect(source).toContain('skillPlugin: runSkills.dir')
     expect(source).toContain('skillWorkspace: runSkills.dir')
     expect(source).toContain('cloud === undefined && options.runSkills !== undefined')

@@ -526,7 +526,7 @@ export interface RuntimeCommandOptions {
   /**
    * Copilot's skills for this run (MEASURED 2026-10-22, copilot 1.0.101): one `--plugin-dir`, the run's folder.
    * Its `.plugin/plugin.json` points `skills` at `skills/<name>/SKILL.md`. `copilot skill list` shows those beside
-   * the person's own, and nothing is installed. Not `copilot skill add`, which would keep the directory. Copilot only.
+   * the person's own, and nothing is installed. Not `copilot skill add`, which would keep the directory. Cursor uses the same flag with `.cursor-plugin/plugin.json` (2026.10.22, measured 2026-10-30).
    */
   readonly skillPlugin?: string;
   /**
@@ -1212,6 +1212,7 @@ export function createCursorPrintCommand(
     "--workspace",
     options.workspacePath,
   ];
+  if (options.skillPlugin !== undefined) args.push("--plugin-dir", requireAbsolute(options.skillPlugin, "Skills plugin"));
   if (readOnly) {
     // Ask mode, not plan mode: plan mode wrote files when pushed, ask mode
     // refused every write it was pushed to make (cursorCanEnforceReadOnly).

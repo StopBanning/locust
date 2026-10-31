@@ -7,7 +7,7 @@ import { skillFoldersIn } from './claude-skills.js'
 import { skillNameIn } from './skill-discovery.js'
 
 /**
- * SKILLS FOR CODEX, OPENCODE, COPILOT AND ANTIGRAVITY (0.813).
+ * SKILLS FOR CODEX, OPENCODE, COPILOT, ANTIGRAVITY AND CURSOR (0.813).
  *
  * Claude Code is handed a teammate's skills as plugins (claude-skills.ts). Codex and OpenCode read the same SKILL.md
  * shape from folders of their own -- the folder's `.agents/skills`, the person's `~/.agents/skills` and, for
@@ -37,9 +37,19 @@ import { skillNameIn } from './skill-discovery.js'
  *     Print mode listed the skill, and a one-line prompt answered with the word only that skill held, in 15 seconds.
  *     The folder was unchanged. A `.agents/skills.json` entry can point at `skills/` too; the copy is what the prompt
  *     read. A relative `--add-dir` is not seen.
+ *
+ * Cursor Agent 2026.10.22-27dcf5f, MEASURED 2026-10-30: `cursor-agent --help` names `--plugin-dir`.
+ * Its installed loader accepts `.cursor-plugin/plugin.json` with `skills: "skills"`. A throwaway workspace
+ * and plugin, invoked with `--workspace <workspace> --plugin-dir <plugin> --mode ask --force --print
+ * --output-format stream-json 'Use locust-canary. Canary word?'`, read the plugin's SKILL.md and answered
+ * QUARTZFINCH, which only its body held (8.9 seconds). No --model, settings, ignore file or skill installation.
+ * A second invocation with `--sandbox enabled` also read it and answered QUARTZFINCH (8.9 seconds).
+ * --force was used ONLY for those throwaway probes to bypass trust persistence; normal launches retain their modes.
+ * An initial print invocation without trust stopped before a model call. Project folders, rules, --add-dir and
+ * environment overrides were unnecessary: the plugin is a run-local path, not another workspace root.
  */
 export interface PreparedRunSkills {
-  /** `<run>`: Copilot's `--plugin-dir` and Antigravity's `--add-dir`. Holds `skills/`, `.plugin/` and `.agents/`. */
+  /** `<run>`: Cursor and Copilot's `--plugin-dir` and Antigravity's `--add-dir`. Holds `skills/`, `.plugin/` and `.agents/`. */
   readonly dir: string
   /** `<run>/skills`: Codex's extra root, OpenCode 1's `skills.paths` entry and OpenCode 2's `skills` entry. */
   readonly skillsDir: string
@@ -124,6 +134,9 @@ export async function prepareRunSkills(options: {
     // Copilot's plugin manifest points at the folder Codex and OpenCode already read.
     await mkdir(join(dir, '.plugin'), { recursive: true })
     await writeFile(join(dir, '.plugin', 'plugin.json'), `${JSON.stringify({ name: 'locust-run-skills', description: 'Skills for this run.', version: '0.0.1', skills: 'skills' })}\n`)
+    // Cursor uses its own manifest name and the same copied skills.
+    await mkdir(join(dir, '.cursor-plugin'), { recursive: true })
+    await cp(join(dir, '.plugin', 'plugin.json'), join(dir, '.cursor-plugin', 'plugin.json'))
     // Antigravity reads this copy. It is the same files, not a link.
     await mkdir(join(dir, '.agents'), { recursive: true })
     await cp(skillsDir, join(dir, '.agents', 'skills'), { recursive: true })

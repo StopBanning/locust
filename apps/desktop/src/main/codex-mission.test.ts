@@ -475,6 +475,34 @@ describe('Codex mission service', () => {
     } finally { await rm(root, { recursive: true, force: true }) }
   })
 
+  it('gives a Cursor run its copied skills plugin and removes it when the process finishes', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-cursor-skills-'))
+    try {
+      let finish!: (value: RuntimeProcessCompletion) => void
+      const ended = new Promise<RuntimeProcessCompletion>((resolve) => { finish = resolve })
+      let command: RuntimeCommandSpec | undefined
+      const runSkills = vi.fn(async () => prepareRunSkills({ scratchRoot: root, candidate: { name: 'review', description: 'Review.', body: 'Read twice.' } }))
+      const { service, scheduled } = scheduledService({ start: (spec) => { command = spec; return { records: records([]), completion: ended } } }, fakeLedger(), {
+        platform: 'darwin',
+        discover: async () => [{ ...codexRuntime(), id: 'cursor' as const }],
+        runSkills
+      })
+      const response = await service.start('Review.', 'cursor', 'ask', {}, () => undefined)
+      if (!response.ok) throw new Error(response.error.message)
+      expect(response.ok).toBe(true)
+      expect(runSkills).toHaveBeenCalledOnce()
+      const copies = await readdir(root)
+      expect(copies).toHaveLength(1)
+      const at = command!.args.indexOf('--plugin-dir')
+      expect(at).toBeGreaterThan(-1)
+      expect(command!.args[at + 1]).toBe(join(root, copies[0]!))
+      expect(command!.args).not.toContain('--model')
+      finish(completion())
+      scheduled[0]?.()
+      await vi.waitFor(async () => { expect(await readdir(root)).toEqual([]) })
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
   it('records that a plan was a plan, while still holding it read-only', async () => {
     // Two facts that have to hold together. `plan` and `ask` are both
     // read-only, which is why the mode used to collapse into `ask` on its way
