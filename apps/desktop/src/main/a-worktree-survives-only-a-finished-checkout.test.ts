@@ -42,7 +42,9 @@ describe('only a finished worktree survives a checkout-hook failure', () => {
   it('refuses a hook failure that removes the worktree', { timeout: 30_000 }, async () => {
     // Release the hook's current-directory handle before removing its own
     // checkout on Windows. Only this fixture's linked worktree is removed.
-    const root = await repository('tree="$PWD"\ncommon=$(git rev-parse --git-common-dir)\ncd "$common/.." || exit 2\nunset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE\ngit worktree remove --force "$tree" || exit 2\necho removed-worktree >&2\nexit 1')
+    // Under the whole suite's load, Windows can still hold a just-written file
+    // in it for a moment, so the removal is tried again before the hook gives up.
+    const root = await repository('tree="$PWD"\ncommon=$(git rev-parse --git-common-dir)\ncd "$common/.." || exit 2\nunset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE\nfor attempt in 1 2 3 4 5 6 7 8 9 10; do\n  git worktree remove --force "$tree" 2>/dev/null && { echo removed-worktree >&2; exit 1; }\n  sleep 0.5\ndone\nexit 2')
     const note = vi.fn()
     await expect(createWorktreeManager({ workspacePath: root, note }).ensure(teammate)).rejects.toThrow('removed-worktree')
     const path = join(root, '.locust', 'worktrees', teammate.teammateId)
