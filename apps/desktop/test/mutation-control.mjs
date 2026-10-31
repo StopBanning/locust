@@ -78,6 +78,13 @@ const MUTATIONS = [
     ['plugin path is dropped', 'src/main/codex-mission.ts', "? createCursorPrintCommand(executable, {\n                  ...(runSkills === undefined ? {} : { skillPlugin: runSkills.dir }),", "? createCursorPrintCommand(executable, {", 'gives a Cursor run its copied skills plugin and removes it when the process finishes', 'src/main/codex-mission.test.ts']
   ].map(([name, file, from, to, expected, test]) => ({ name: `cursor-skills: ${name}`, file: join(ROOT, file), from, to, expect: expected, tests: [test] })),
   ...[
+    ['template flag is lost', 'image.setTemplateImage(true)', 'image.setTemplateImage(false)'],
+    ['mac uses the colour icon', "join(process.resourcesPath, 'trayTemplate.png')", "join(process.resourcesPath, 'icon-32.png')"],
+    ['linux uses the wrong icon', "return process.platform === 'linux'", "return process.platform === 'darwin'"]
+  ].map(([name, from, to]) => ({ name: `tray-template: ${name}`, file: join(ROOT, 'src/main/index.ts'), from, to,
+    expect: 'on darwin the tray uses the template image marked as a template and elsewhere the old icons',
+    tests: ['src/main/the-menu-bar-uses-a-template.test.ts'] })),
+  ...[
     ['a hook inherits a writing mode', 'src/main/routine-runner.ts', "mode: hook ? 'ask' : route.mode,", 'mode: route.mode,', 'keeps handed-on steps in Ask even if the teammate and saved routine both write', 'src/main/a-called-link-starts-its-routine.test.ts'],
     ['waiting calls are replayed twice', 'src/main/routine-runner.ts', "if (arrived !== undefined && 'kind' in arrived) await options.hooks?.fired(routine.routineId, arrived.batch)", '// The batch is left waiting.', 'folds two calls during a run into one more, using the newest body and saying how many', 'src/main/a-called-link-starts-its-routine.test.ts'],
     ['the password reaches the brief', 'src/main/routine-hooks.ts', "text = text.replaceAll(entry.secret, '[link password removed]')", 'text = text.replaceAll(entry.secret, entry.secret)', 'saves a hook schedule, keeps its password out of routines, exports, dispatches and notices, and fences the data in Ask', 'src/main/a-called-link-starts-its-routine.test.ts']
