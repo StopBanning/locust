@@ -20,7 +20,14 @@ import { ACCOUNT_SYNC_FILE, createYourAccount, type AccountLink } from './your-a
  */
 const folders: string[] = []
 const fresh = async (): Promise<string> => { const folder = await mkdtemp(join(tmpdir(), 'locust-account-')); folders.push(folder); return folder }
-afterEach(async () => { for (const folder of folders.splice(0)) await rm(folder, { recursive: true, force: true }) })
+// A sync a test set off may still be writing as it ends: the clearing tries again for a moment rather than racing it.
+afterEach(async () => {
+  for (const folder of folders.splice(0)) {
+    for (let tries = 0; ; tries += 1) {
+      try { await rm(folder, { recursive: true, force: true }); break } catch (error) { if (tries >= 20) throw error; await new Promise((resolve) => setTimeout(resolve, 50)) }
+    }
+  }
+})
 
 function aRelay(user: number, full = false) {
   const held = new Map<string, { bytes: Uint8Array; uploaded: number }>()
@@ -250,6 +257,8 @@ describe('your Locust on a new computer, with the recovery code (slice 4)', () =
     // Sync on afterwards uses the same key: no new code, and the PC's code still opens this computer's copy.
     expect(await mac.account.status()).toMatchObject({ sync: 'off', hasKey: true })
     expect((await mac.account.turnOn()).code).toBeUndefined()
+    // That turn-on syncs: let it finish before the folder is cleared, or the clearing races its writes.
+    await until(async () => (await mac.account.status()).lastSynced !== undefined)
     mac.account.stop()
   })
 
@@ -351,6 +360,7 @@ describe('approving a new computer from the one that has your Locust (slice 4b)'
     expect(await readFile(join(macProfile, 'teammates.json'), 'utf8')).toContain('Wren')
     // The Mac now holds the same key: Keep a copy there shows no new code.
     expect((await mac.account.turnOn()).code).toBeUndefined()
+    await until(async () => (await mac.account.status()).lastSynced !== undefined)
     pc.account.stop()
     mac.account.stop()
   })
