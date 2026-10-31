@@ -28,6 +28,7 @@ const loginItemNote = (why: 'development' | 'platform' | undefined): string =>
 import { VoiceSettings } from './VoiceSettings.js'
 import { LocustMcpSettings } from './LocustMcpSettings.js'
 import { RemoteMcpSettings } from './RemoteMcpSettings.js'
+import { YourAccountSettings } from './YourAccountSettings.js'
 import { PhoneSettings } from './PhoneSettings.js'
 import { ChatAppsSettings } from './ChatAppsSettings.js'
 import { policyFeatureRefusal, policyModeAllowed } from '../../../shared/organization-policy.js'
@@ -3417,6 +3418,11 @@ export function SettingsScreen({
           <OrganizationPolicySettings heading={<h2 className="lc-settings__heading">Managed by your organization</h2>} />
           <LocustMcpSettings heading={<h2 className="lc-settings__heading">Let your other AI apps use Locust</h2>} />
           <RemoteMcpSettings stay={{ loginItem, keepRunning, ...(onLoginItemChange === undefined ? {} : { onLoginItemChange }), ...(onKeepRunningChange === undefined ? {} : { onKeepRunningChange }) }} />
+        </section>
+        )}
+        {shownPage === 'app' && (
+        <section className="lc-settings__section lc-settings__section--line" data-setting="your-account">
+          <YourAccountSettings heading={<h2 className="lc-settings__heading">Your account</h2>} />
         </section>
         )}
         {shownPage === 'app' && (

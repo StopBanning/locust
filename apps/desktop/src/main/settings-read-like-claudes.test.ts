@@ -53,8 +53,8 @@ describe('the settings pane', () => {
 
   it('draws a setting that is one control as one line: name and description left, the control right (0.393, Appearance 0.394)', () => {
     // Six again since 0.510: Finances (0.501) was shelved. Seven with Terminal faces (0.561). Nine with What a face
-    // says (2026-10-05): a line whose right-hand side is a face to click, not a control. Ten with Your skills (0.679), eleven with Voice typing. Thirteen with Your phone (0.775). Fourteen with Theme (0.789). Fifteen with Telegram (0.831).
-    expect(SCREENS.split('lc-settings__section lc-settings__section--line').length - 1).toBe(15)
+    // says (2026-10-05): a line whose right-hand side is a face to click, not a control. Ten with Your skills (0.679), eleven with Voice typing. Thirteen with Your phone (0.775). Fourteen with Theme (0.789). Fifteen with Telegram (0.831). Sixteen with Your account (accounts slice 3).
+    expect(SCREENS.split('lc-settings__section lc-settings__section--line').length - 1).toBe(16)
     for (const name of ['Swarm', 'Auto mode', 'Plans', 'Your skills', 'Reply text size', 'Terminal faces', 'What a face says', 'Sidebar', 'Boot screen', 'Voice typing']) {
       const at = SCREENS.indexOf(`<h2 className="lc-settings__heading">${name}</h2>`)
       const line = SCREENS.lastIndexOf('<div className="lc-settingline">', at)
