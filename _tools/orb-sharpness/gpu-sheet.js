@@ -3,6 +3,8 @@
 // 3.2-7.0 out of 255 off the third and the second 0.4-0.7 (Orb.tsx, PaintedDown). Bundle and photograph:
 //   esbuild gpu-sheet.js --bundle --format=iife --outfile=gpu-sheet.bundle.js --alias:thinking-orbs/engine=<thinking-orbs dist/engine.es.js>
 //   electron gpu-sheet-shot.cjs "$(pwd)" sheet.png
+// There is no esbuild in the root node_modules/.bin: use pnpm's own copy,
+// node_modules/.pnpm/esbuild@<version>/node_modules/esbuild/bin/esbuild (0.25.12 and 0.28.2 are both there).
 import { resolvePreset, MODE_DRAWS } from 'thinking-orbs/engine'
 const STATES = ['composing', 'listening', 'solving', 'searching', 'connecting', 'weaving']
 const side = 26, Z = 8, T = 1.9
