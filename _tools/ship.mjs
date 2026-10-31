@@ -20,7 +20,7 @@
 // missing twice tonight, because an em-dash is three bytes.
 
 import { spawnSync } from 'node:child_process'
-import { readFileSync, existsSync, copyFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, existsSync, copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -69,13 +69,23 @@ const run = (command, argv, label) => {
  * file, a spring simulation): the whole suite's load on this PC, not the change. The default reporter is the one
  * whose log says "timed out".
  */
+/*
+ * The tests' scratch folder, as the gate's (gate.sh): beside the repository, never the system's temp folder. On a Mac
+ * that one is reached through a link (/var is /private/var), and 43 tests that compare a folder they made with the one
+ * the code resolved failed from the repository's root (2026-10-31, the first ship from a Mac); on Windows an antivirus
+ * scanning thousands of temp folders timed tests out, which is why the gate moved there first.
+ */
+const SCRATCH = process.env.LOCUST_GATE_TMP ?? join(ROOT, '..', '.tmp')
+mkdirSync(SCRATCH, { recursive: true })
+const TEST_ENV = { ...process.env, TMP: SCRATCH, TEMP: SCRATCH, TMPDIR: SCRATCH }
+
 const unitTests = () => {
   const label = 'unit tests'
-  const first = spawnSync('npx', ['vitest', 'run', '--reporter=default'], { cwd: ROOT, shell: true, encoding: 'utf8' })
+  const first = spawnSync('npx', ['vitest', 'run', '--reporter=default'], { cwd: ROOT, shell: true, encoding: 'utf8', env: TEST_ENV })
   if (first.status === 0) return ok(label)
   const decision = retryDecision(`${first.stdout ?? ''}${first.stderr ?? ''}`)
   if (!decision.retry) return failure(label, first)
-  const again = spawnSync('npx', ['vitest', 'run', '--reporter=default', ...decision.files], { cwd: ROOT, shell: true, encoding: 'utf8' })
+  const again = spawnSync('npx', ['vitest', 'run', '--reporter=default', ...decision.files], { cwd: ROOT, shell: true, encoding: 'utf8', env: TEST_ENV })
   if (again.status !== 0) return failure(`${label} (timed out, then failed again alone: ${decision.files.join(', ')})`, again)
   ok(`${label} (timed out in the full run, then passed alone: ${decision.files.join(', ')})`)
 }
@@ -85,7 +95,8 @@ console.log('\nGates')
 // 1. The real gate, both configs, exactly as CI would run it. The app's typecheck and tests read the workspace
 //    packages' BUILT types (their dist/), so the packages are built first: the 0.796.0 ship read the 0.795 build of
 //    runtime-adapters, which had none of the browser's types, and failed a typecheck that passed on a fresh build.
-run('pnpm', ['--filter', './packages/*', 'build'], 'build the workspace packages the app reads')
+// Quoted: through a shell on a Mac or Linux, a bare ./packages/* is expanded into folder names before pnpm sees it.
+run('pnpm', ['--filter', '"./packages/*"', 'build'], 'build the workspace packages the app reads')
 run('pnpm', ['typecheck'], 'pnpm typecheck (node AND web configs)')
 unitTests()
 
