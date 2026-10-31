@@ -87,10 +87,12 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
     label: 'General',
     group: 'Locust',
     icon: 'settings',
-    headings: ['Managed by your organization', 'Let your other AI apps use Locust', 'Your phone', 'Chat apps', 'Voice typing', 'Talk from any app', 'Scout keeps watch', 'Startup', 'Updates', 'Report a problem', 'Help'],
+    headings: ['Managed by your organization', 'Let your other AI apps use Locust', 'Your account', 'Your phone', 'Chat apps', 'Voice typing', 'Talk from any app', 'Scout keeps watch', 'Startup', 'Updates', 'Report a problem', 'Help'],
     alsoKnownAs: {
       'Managed by your organization': ['organization', 'organisation', 'policy', 'administrator', 'IT', 'managed settings'],
       'Let your other AI apps use Locust': ['MCP server', 'stdio', 'Claude Code', 'Codex', 'Cursor', 'other apps'],
+      // Accounts slice 3: the GitHub sign-in, and a sealed copy of this Locust on the relay.
+      'Your account': ['Locust account', 'sync', 'recovery code', 'new computer', 'move computers', 'cloud copy'],
       // A page on the home network, paired by a QR code (0.775).
       'Your phone': ['phone', 'mobile', 'QR code', 'iPhone', 'Android', 'away from your desk'],
       // Your teammates in chat apps (0.831 Telegram, 0.832 Discord and Slack): your own bot or app, paired to your own account.

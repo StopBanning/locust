@@ -48,6 +48,26 @@ export const PHONE_NIGHT_CHANNEL = 'phone:night-approvals'
 export const PHONE_OPEN_BROWSER_CHANNEL = 'phone:open-browser'
 export const PHONE_GITHUB_IN_CHANNEL = 'phone:github-in'
 export const PHONE_GITHUB_OUT_CHANNEL = 'phone:github-out'
+/** Settings › Your account (accounts slice 3): the account is the GitHub sign-in above, and sync keeps a sealed copy. */
+export const ACCOUNT_STATUS_CHANNEL = 'account:status'
+export const ACCOUNT_SYNC_ON_CHANNEL = 'account:sync-on'
+export const ACCOUNT_SYNC_OFF_CHANNEL = 'account:sync-off'
+export const ACCOUNT_SYNC_NOW_CHANNEL = 'account:sync-now'
+export const ACCOUNT_DELETE_CHANNEL = 'account:delete'
+export const ACCOUNT_CHANGED_CHANNEL = 'account:changed'
+
+export interface YourAccountStatus {
+  /** Signed in with GitHub, through Use from anywhere. */
+  readonly signedIn?: { readonly login: string }
+  readonly sync: 'on' | 'off'
+  /** A key was made here before for this account: turning on again shows no new code. */
+  readonly hasKey: boolean
+  readonly syncing: boolean
+  readonly lastSynced?: { readonly at: string; readonly files: number; readonly bytes: number }
+  readonly storage?: { readonly used: number; readonly quota: number }
+  readonly message?: string
+  readonly good?: boolean
+}
 
 /** How a phone reaches Locust: not at all, from anywhere through the relay, or on this Wi-Fi only. */
 export type PhoneMode = 'off' | 'anywhere' | 'wifi'
@@ -108,6 +128,13 @@ export interface PhoneApi {
   /** Sends the person to GitHub to tie this computer to their account (0.838). */
   githubSignIn?(): Promise<PhoneAnywhereSettings>
   githubSignOut?(): Promise<PhoneAnywhereSettings>
+  /** Settings › Your account. The recovery code comes back once, from the first turn-on for an account. */
+  account?(): Promise<YourAccountStatus>
+  accountSyncOn?(): Promise<{ readonly status: YourAccountStatus; readonly code?: string }>
+  accountSyncOff?(): Promise<YourAccountStatus>
+  accountSyncNow?(): Promise<YourAccountStatus>
+  accountDelete?(): Promise<YourAccountStatus>
+  onAccountChanged?(callback: (status: YourAccountStatus) => void): () => void
   /** Called when a phone pairs, comes and goes, or the connection to the relay changes. */
   onAnywhereChanged(callback: (settings: PhoneAnywhereSettings) => void): () => void
 }

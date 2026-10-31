@@ -144,6 +144,7 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'pending-restore.json': "a restore's own note of what to restore when Locust next starts",
   'last-restore.json': "a restore's own note of how it went, read once",
   // Your Locust on every computer you sign in to (profile-sync.ts): what this computer last sent, made again by the next sync.
+  'account-sync.json': "whether this computer syncs, and the key its copy is sealed with, locked by this computer: sign in and turn sync on again after a restore",
   'profile-sync.json': "what this computer last sent to its sealed copy on Locust's relay: the next sync works it out again"
 }
 

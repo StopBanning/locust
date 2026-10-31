@@ -821,6 +821,14 @@ export function createPhoneAnywhere(options: {
   return {
     settings: async (): Promise<PhoneAnywhereSettings> => { await queue; return settings() },
 
+    /** The room and GitHub account Settings › Your account syncs as (accounts slice 3): only once signed in with GitHub. */
+    accountLink: async (): Promise<{ readonly relay: string; readonly room: string; readonly token: string; readonly user: number; readonly login: string } | undefined> => {
+      await queue
+      return saved === undefined || saved.closing === true || saved.github === undefined
+        ? undefined
+        : { relay: saved.relay, room: saved.room, token: saved.token, user: saved.github.user, login: saved.github.login }
+    },
+
     load: () => serial(async () => {
       if (disposed || saved !== undefined) return settings()
       try {

@@ -125,6 +125,8 @@ import {
   PANEL_RUNS_CHANNEL
 } from './panel-runs.js'
 import {
+  ACCOUNT_CHANGED_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL,
+  ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL,
   PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL,
   PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SETTINGS_CHANNEL, PHONE_SET_ENABLED_CHANNEL,
   PHONE_SET_MODE_CHANNEL, PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL
@@ -278,6 +280,8 @@ const SOME: Readonly<Record<string, (args: readonly unknown[]) => DeskAccess | u
 
 /** Named so the coverage test sees each was decided: these stay in the window on this computer. */
 export const WINDOW_ONLY: readonly string[] = [
+  // Your account (accounts slice 3): sync, its recovery code and deleting the copy are this computer's alone.
+  ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_DELETE_CHANNEL,
   // Other apps from anywhere (0.841): a sign-in is allowed, and an app let in or out, only on the computer itself.
   REMOTE_MCP_GET, REMOTE_MCP_SET, REMOTE_MCP_REMOVE, REMOTE_MCP_DECIDE,
   ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL,
@@ -346,6 +350,7 @@ export const DESK_EVENTS: ReadonlySet<string> = new Set([
 
 /** Told the window on this computer only: a sign-in's code, a pairing code, the terminal, this computer's own keys. */
 export const WINDOW_ONLY_EVENTS: readonly string[] = [
+  ACCOUNT_CHANGED_CHANNEL,
   REMOTE_MCP_CHANGED,
   ATTENTION_OPEN_MISSION_CHANNEL, BROWSER_EVENT_CHANNEL, BROWSER_POINT_HOTKEY_CHANNEL, GITHUB_SIGN_IN_CODE_CHANNEL,
   LOCUST_LINK_WAITING, OWN_COMMAND_DONE, PHONE_ANYWHERE_CHANGED_CHANNEL, RUNTIME_SIGN_IN_CLOSED_CHANNEL,

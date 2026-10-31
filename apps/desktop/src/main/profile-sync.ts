@@ -20,7 +20,7 @@
  * v1 is each computer keeping its own copy, not two computers merged: a new computer starts from one copy.
  */
 import { createHash } from 'node:crypto'
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { BACKUP_MANIFEST, BACKUP_SCHEMA, carriedFiles, carries, countProfile, LEFT_OUT, type BackupCounts, type BackupManifest } from './profile-backup.js'
@@ -69,6 +69,12 @@ export interface SyncRemote {
   remove(id: string): Promise<void>
 }
 
+/** What Settings › Your account asks of the relay besides: the account's storage, and deleting every copy of it. */
+export interface SyncAccountRemote extends SyncRemote {
+  usage(): Promise<{ readonly used: number; readonly quota: number }>
+  removeAll(): Promise<void>
+}
+
 export type SyncPushed =
   | { readonly ok: true; readonly sent: number; readonly bytes: number; readonly removed: number; readonly files: number; readonly at: string }
   | { readonly ok: false; readonly reason: string }
@@ -93,6 +99,17 @@ async function readState(profile: string, account: number, room: string): Promis
   } catch {
     return undefined
   }
+}
+
+/** What this computer last sent, for "Last synced": when, how many files and their bytes; undefined before the first sync. */
+export async function lastSync(profile: string, account: number, room: string): Promise<{ readonly at: string; readonly files: number; readonly bytes: number } | undefined> {
+  const state = await readState(profile, account, room)
+  return state === undefined ? undefined : { at: state.pushedAt, files: state.files.length, bytes: state.files.reduce((sum, file) => sum + file.bytes, 0) }
+}
+
+/** Forgets what was sent, so the next sync sends everything: after the copy at the relay is deleted. */
+export async function forgetSync(profile: string): Promise<void> {
+  await rm(join(profile, PROFILE_SYNC_FILE), { force: true })
 }
 
 const said = (error: unknown): string => (error instanceof SyncRefused ? error.message : 'Locust’s relay could not be reached. Your Locust is safe here; the next sync tries again.')
@@ -223,7 +240,7 @@ export async function pullProfile(options: {
 }
 
 /** The relay's sync routes (apps/relay/src/room.ts syncFetch), with this computer's own room token as the bearer. */
-export function httpSyncRemote(config: { readonly relay: string; readonly room: string; readonly token: string; readonly fetch?: typeof fetch }): SyncRemote {
+export function httpSyncRemote(config: { readonly relay: string; readonly room: string; readonly token: string; readonly fetch?: typeof fetch }): SyncAccountRemote {
   const go = config.fetch ?? fetch
   const base = `${config.relay.replace(/\/+$/, '')}/v1/room/${config.room}/sync`
   const authorization = `Bearer ${config.token}`
@@ -248,6 +265,17 @@ export function httpSyncRemote(config: { readonly relay: string; readonly room: 
     },
     async remove(id) {
       const answer = await go(`${base}/${id}`, { method: 'DELETE', headers: { authorization } })
+      if (!answer.ok) throw await refused(answer)
+    },
+    async usage() {
+      const answer = await go(base, { method: 'GET', headers: { authorization } })
+      if (!answer.ok) throw await refused(answer)
+      const body = (await answer.json().catch(() => ({}))) as { used?: unknown; quota?: unknown }
+      const count = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
+      return { used: count(body.used), quota: count(body.quota) }
+    },
+    async removeAll() {
+      const answer = await go(base, { method: 'DELETE', headers: { authorization } })
       if (!answer.ok) throw await refused(answer)
     }
   }

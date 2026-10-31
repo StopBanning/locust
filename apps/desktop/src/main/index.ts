@@ -178,6 +178,7 @@ import { parsedCheckFixTries } from '../shared/check-fix.js'
 import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
 import { createPhoneAlerts, type PhoneAlert } from './phone-alerts.js'
 import { createPhoneAnywhere, DEFAULT_RELAY, githubUserOf } from './phone-anywhere.js'
+import { createYourAccount } from './your-account.js'
 import { createPhoneHost, type PhoneCalls } from './phone-host.js'
 import { createTelegramLink, TELEGRAM_API } from './telegram.js'
 import { TELEGRAM_CHANGED_CHANNEL, TELEGRAM_NEW_LINK_CHANNEL, TELEGRAM_REMOVE_CHANNEL, TELEGRAM_SET_TOKEN_CHANNEL, TELEGRAM_SETTINGS_CHANNEL } from '../shared/telegram.js'
@@ -192,7 +193,7 @@ import { acpScratch, createAcpAgents } from './acp-agents.js'
 import { acpCatalog, ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../shared/acp-agents.js'
 import { phonePage } from './phone-page.js'
 import { PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL } from '../shared/phone.js'
-import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
+import { ACCOUNT_CHANGED_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_MODES, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, phoneConversations, phoneTurns, type PhoneAnywhereSettings, type PhoneMode, type PhoneModeState } from '../shared/phone.js'
 import { createKeepAwake, KEEP_AWAKE_BEAT_MS } from './keep-awake.js'
 import { attentionDot, needsYouCountFrom, taskbarAttention } from './taskbar-attention.js'
 import { CLOSE_BUTTONS, closeQuestion, hideToTrayOnClose, shouldAskBeforeClosing, trayLine, trayMenuLabels } from './quit-guard.js'
@@ -10547,6 +10548,29 @@ if (!ownsSingleInstanceLock) {
       return phoneAnywhere.settings()
     })
     ipcMain.handle(PHONE_GITHUB_OUT_CHANNEL, (event) => fromOwnWindow(event) ? phoneAnywhere.githubSignOut() : NO_PHONE)
+    /*
+     * SETTINGS › YOUR ACCOUNT (accounts slice 3, your-account.ts): the GitHub sign-in above is the account, and sync
+     * keeps a sealed copy of this Locust at the relay. Its calls are this computer's alone (desk-calls.ts WINDOW_ONLY).
+     */
+    const yourAccount = createYourAccount({
+      profile: app.getPath('userData'),
+      link: () => phoneAnywhere.accountLink(),
+      secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
+      computer: () => hostname(),
+      appVersion: app.getVersion(),
+      busy: () => codexMissions.liveMissionIds().length + antigravityMissions.liveMissionIds().length > 0,
+      changed: (status) => {
+        if (approvalWindow !== undefined && !approvalWindow.isDestroyed() && !approvalWindow.webContents.isDestroyed()) approvalWindow.webContents.send(ACCOUNT_CHANGED_CHANNEL, status)
+      }
+    })
+    void phoneAnywhere.settings().then(() => yourAccount.start(), () => undefined)
+    app.once('will-quit', () => { yourAccount.stop() })
+    const NO_ACCOUNT = { sync: 'off', hasKey: false, syncing: false, message: 'Your account is set in the Locust window on this computer.' } as const
+    ipcMain.handle(ACCOUNT_STATUS_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.status() : NO_ACCOUNT)
+    ipcMain.handle(ACCOUNT_SYNC_ON_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.turnOn() : { status: NO_ACCOUNT })
+    ipcMain.handle(ACCOUNT_SYNC_OFF_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.turnOff() : NO_ACCOUNT)
+    ipcMain.handle(ACCOUNT_SYNC_NOW_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.syncNow() : NO_ACCOUNT)
+    ipcMain.handle(ACCOUNT_DELETE_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.deleteCopy() : NO_ACCOUNT)
     /*
      * LOCUST IN A BROWSER (0.830, desk-host.ts): a paired device Settings lets open the full window makes the window's
      * calls through the relay link; this computer's window shows a cover while it does.
