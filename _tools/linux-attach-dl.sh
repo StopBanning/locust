@@ -5,7 +5,10 @@
 # updated itself -- then uploaded to dl.locust.lol with their feed, and promoted. publish-dl.sh runs it after the Mac images.
 V="$1"; RUN="$2"
 PUB=StopBanning/locust
-R=/c/work/locust
+# Where this runs (2026-10-30): the PC, until it retires, or the Mac. The repository is the one holding this script.
+R=$(cd "$(dirname "$0")/.." && pwd)
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SCRATCH=/c/work/scratch ;; *) SCRATCH="$HOME/work/scratch" ;; esac
+TEMP="${TEMP:-${TMPDIR:-/tmp}}"; TEMP="${TEMP%/}"
 [ -n "$V" ] || { echo "usage: linux-attach-dl.sh VERSION [RUN_ID]"; exit 1; }
 cd "$R" || exit 1
 if curl -sfI "https://dl.locust.lol/Locust-$V-linux.json" > /dev/null; then
@@ -53,7 +56,7 @@ gh api --allow-escape-sequences "repos/$PUB/actions/jobs/$JOB/logs" > "$LOG" 2>&
 if ! grep -q "LINUX STOP SMOKE PASSED" "$LOG" || ! grep -q "LINUX LAUNCH SMOKE PASSED" "$LOG" || ! grep -q "LINUX UPDATE SMOKE PASSED" "$LOG"; then echo "LINUX: a Linux check did not pass (see $LOG)"; exit 1; fi
 echo "LINUX: $(grep -c '\[PASS\]' "$LOG") checks PASS on Linux, $(grep -c '\[FAIL\]' "$LOG") FAIL"
 # C:, not D: -- D: damages files at rest (memory d-drive-ntfs-corruption); these are deleted as soon as they are up.
-D=/c/work/scratch/linux-$V
+D=$SCRATCH/linux-$V
 rm -rf "$D"; mkdir -p "$D"
 gh run download "$RUN" -R "$PUB" -n locust-ubuntu-24.04 -D "$D" || { echo "LINUX: download failed"; exit 1; }
 IMG="$D/Locust-$V-linux-x86_64.AppImage"; DEB="$D/Locust-$V-linux-amd64.deb"; RPM="$D/Locust-$V-linux-x86_64.rpm"

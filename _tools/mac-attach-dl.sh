@@ -6,7 +6,10 @@
 # "latest release" link offered Mac users nothing.
 V="$1"; RUN="$2"
 PUB=StopBanning/locust
-R=/c/work/locust
+# Where this runs (2026-10-30): the PC, until it retires, or the Mac. The repository is the one holding this script.
+R=$(cd "$(dirname "$0")/.." && pwd)
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SCRATCH=/c/work/scratch ;; *) SCRATCH="$HOME/work/scratch" ;; esac
+TEMP="${TEMP:-${TMPDIR:-/tmp}}"; TEMP="${TEMP%/}"
 [ -n "$V" ] || { echo "usage: mac-attach-dl.sh VERSION [RUN_ID]"; exit 1; }
 cd "$R" || exit 1
 if curl -sfI "https://dl.locust.lol/Locust-$V-mac.json" > /dev/null; then echo "MAC: $V already has its Mac images"; exit 0; fi
@@ -48,7 +51,7 @@ gh api --allow-escape-sequences "repos/$PUB/actions/jobs/$JOB/logs" > "$LOG" 2>&
 if ! grep -q "MAC STOP SMOKE PASSED" "$LOG" || ! grep -q "MAC UPDATE SMOKE PASSED" "$LOG"; then echo "MAC: a macOS check did not pass (see $LOG)"; exit 1; fi
 echo "MAC: $(grep -c '\[PASS\]' "$LOG") checks PASS on macOS, $(grep -c '\[FAIL\]' "$LOG") FAIL"
 # C:, not D: -- D: damages files at rest (memory d-drive-ntfs-corruption); these are deleted as soon as they are up.
-D=/c/work/scratch/mac-$V
+D=$SCRATCH/mac-$V
 rm -rf "$D"; mkdir -p "$D"
 gh run download "$RUN" -R "$PUB" -n locust-macos-14 -D "$D" || { echo "MAC: download failed"; exit 1; }
 ARM="$D/Locust-$V-mac-arm64.dmg"; X64="$D/Locust-$V-mac-x64.dmg"
