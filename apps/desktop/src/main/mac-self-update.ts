@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { accessSync, constants as fsConstants, createWriteStream, existsSync } from 'node:fs'
+import { accessSync, constants as fsConstants, createWriteStream, existsSync, readdirSync, unlinkSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, posix } from 'node:path'
@@ -113,7 +113,27 @@ export interface MacUpdaterOptions {
   readonly testImage?: { readonly path: string; readonly version: string }
 }
 
+/** Only at startup, before an update can be downloaded or installed. */
+function removeInstalledImages(folder: string, currentVersion: string): void {
+  // Refuse ambiguous versions, including prereleases: a final release may
+  // still be waiting to replace one of those builds.
+  if (!/^\d+\.\d+\.\d+$/.test(currentVersion)) return
+  const current = currentVersion.split('.').map(BigInt)
+  try {
+    for (const entry of readdirSync(folder, { withFileTypes: true })) {
+      const match = /^Locust-(\d+\.\d+\.\d+)-mac-(?:arm64|x64)\.dmg$/.exec(entry.name)
+      if (!entry.isFile() || match === null) continue
+      const version = match[1]!.split('.').map(BigInt)
+      const difference = version.findIndex((part, index) => part !== current[index])
+      if (difference !== -1 && version[difference]! > current[difference]!) continue
+      // No recursive removal, and one refused file must not hold up startup.
+      try { unlinkSync(join(folder, entry.name)) } catch { /* Try again next start. */ }
+    }
+  } catch { /* A missing or unreadable cache leaves the updater available. */ }
+}
+
 export function createMacUpdater(options: MacUpdaterOptions): UpdaterLike {
+  removeInstalledImages(options.cacheFolder, options.currentVersion)
   const listeners = new Map<string, ((payload?: unknown) => void)[]>()
   const emit = (event: string, payload?: unknown): void => {
     for (const listener of listeners.get(event) ?? []) listener(payload)
