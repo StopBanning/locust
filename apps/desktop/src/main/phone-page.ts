@@ -54,6 +54,15 @@ li > button.convo { width: 100%; text-align: left; background: var(--raised); co
 .turns { display: grid; gap: 14px; padding-bottom: 120px; }
 .asked { justify-self: end; max-width: 85%; background: var(--bubble); border-radius: 16px 16px 4px 16px; padding: 10px 13px; white-space: pre-wrap; word-break: break-word; }
 .answer { white-space: pre-wrap; word-break: break-word; color: var(--text); }
+.answer p { margin: 0 0 8px; }
+.answer p.h { font-weight: 600; }
+.answer ul, .answer ol { display: block; margin: 0 0 8px; padding-left: 22px; list-style: disc; white-space: normal; }
+.answer ol { list-style: decimal; }
+.answer li { margin: 3px 0; white-space: pre-wrap; }
+.answer code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; background: var(--raised); border-radius: 5px; padding: 1px 5px; }
+.answer pre { margin: 0 0 8px; padding: 10px 12px; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; white-space: pre; }
+.answer pre code { background: none; padding: 0; }
+.answer > :last-child { margin-bottom: 0; }
 .by { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
 .working { color: var(--green); font-size: 14px; }
 form.compose { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -704,6 +713,74 @@ const RELAY = `
   })();
 `
 
+/**
+ * AN ANSWER READS AS IT DOES IN THE WINDOW (0.845). The phone showed an answer's markdown as typed: "- **Plan
+ * header**:" where the window draws a list with a bold name. `answerOf` draws paragraphs, lists, headings, code and
+ * bold the way the window does, every piece made with `el` and text nodes, so a word from a run still never goes in
+ * as HTML; a link shows its words. `plainOf` is the same words without the marks, for a conversation's snippet.
+ * Written for the page's own script: it uses the page's `el` and `txt`.
+ */
+export const PHONE_ANSWER = String.raw`
+  function inlineOf(text) {
+    var out = [], at = 0, found;
+    var marks = /\x60([^\x60\n]+)\x60|\*\*([^*\n]+)\*\*|__([^_\n]+)__|\*([^*\s][^*\n]*)\*|\[([^\]\n]+)\]\((?:[^()\s]|\([^()\s]*\))+\)/g;
+    while ((found = marks.exec(text)) !== null) {
+      if (found.index > at) out.push(txt(text.slice(at, found.index)));
+      if (found[1] !== undefined) out.push(el('code', { text: found[1] }));
+      else if (found[2] !== undefined || found[3] !== undefined) out.push(el('strong', { text: found[2] !== undefined ? found[2] : found[3] }));
+      else if (found[4] !== undefined) out.push(el('em', { text: found[4] }));
+      else out.push(txt(found[5]));
+      at = marks.lastIndex;
+    }
+    if (at < text.length) out.push(txt(text.slice(at)));
+    return out;
+  }
+  function answerOf(source) {
+    var box = el('div', { class: 'answer' });
+    var para = [], list = null, fence = null;
+    function endPara() { if (para.length) { box.append(el('p', null, inlineOf(para.join('\n')))); para = []; } }
+    function endList() { if (list) { box.append(list.node); list = null; } }
+    function endFence() { box.append(el('pre', null, [el('code', { text: fence.join('\n') })])); fence = null; }
+    String(source).replace(/\r\n?/g, '\n').split('\n').forEach(function (line) {
+      if (fence !== null) {
+        if (/^\s*\x60\x60\x60/.test(line)) endFence();
+        else fence.push(line);
+        return;
+      }
+      if (/^\s*\x60\x60\x60/.test(line)) { endPara(); endList(); fence = []; return; }
+      var item = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(line);
+      if (item) {
+        endPara();
+        var ordered = /\d/.test(item[1]);
+        if (list === null || list.ordered !== ordered) { endList(); list = { ordered: ordered, node: el(ordered ? 'ol' : 'ul') }; }
+        list.node.append(el('li', null, inlineOf(item[2])));
+        return;
+      }
+      // a line indented under an item carries the item on
+      if (list !== null && /^\s{2,}\S/.test(line)) { var last = list.node.lastChild; inlineOf(' ' + line.trim()).forEach(function (piece) { last.append(piece); }); return; }
+      if (line.trim() === '') { endPara(); endList(); return; }
+      var heading = /^\s*#{1,6}\s+(.*)$/.exec(line);
+      if (heading) { endPara(); endList(); box.append(el('p', { class: 'h' }, inlineOf(heading[1]))); return; }
+      endList();
+      para.push(line);
+    });
+    if (fence !== null) endFence();
+    endPara();
+    endList();
+    return box;
+  }
+  function plainOf(source) {
+    return String(source)
+      .replace(/\x60\x60\x60[^\n]*\n?/g, '')
+      .replace(/^\s*(#{1,6}|[-*+]|\d+[.)])\s+/gm, '')
+      .replace(/\*\*([^*\n]+)\*\*|__([^_\n]+)__/g, function (all, a, b) { return a !== undefined ? a : b; })
+      .replace(/\x60([^\x60\n]+)\x60/g, '$1')
+      .replace(/\[([^\]\n]+)\]\((?:[^()\s]|\([^()\s]*\))+\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+`
+
 /** What the phone shows and does, whichever way it asks. */
 const UI = `
   var root = document.getElementById('root');
@@ -723,6 +800,7 @@ const UI = `
     (children || []).forEach(function (child) { if (child) node.appendChild(child); });
     return node;
   }
+  function txt(text) { return document.createTextNode(text); }
   function when(at) {
     var then = new Date(at), now = new Date();
     if (isNaN(then)) return '';
@@ -836,7 +914,7 @@ const UI = `
       list.append(el('li', null, [el('button', { class: 'convo', type: 'button', on: { click: function () { open = c.missionId; openTitle = c.title; draft = ''; turns = null; render(); refresh(); } } }, [
         el('span', { class: 'title', text: c.title }),
         el('span', { class: 'meta', 'data-running': !kept && c.phase === 'running', text: kept ? c.agent + ' · ' + when(c.at) : c.agent + ' · ' + phaseWords(c.phase) + ' · ' + when(c.at) }),
-        c.snippet ? el('span', { class: 'snippet', text: c.snippet }) : null
+        c.snippet ? el('span', { class: 'snippet', text: plainOf(c.snippet) }) : null
       ])]));
     });
     convos.append(list);
@@ -968,7 +1046,7 @@ const UI = `
     else shown.forEach(function (turn) {
       if (turn.asked) list.append(el('div', { class: 'asked', text: turn.asked }));
       var said = el('div', null, [el('div', { class: 'by', text: turn.agent })]);
-      if (turn.answer) said.append(el('div', { class: 'answer', text: turn.answer }));
+      if (turn.answer) said.append(answerOf(turn.answer));
       if (turn.phase === 'running' && turns !== null) said.append(el('div', { class: 'working', text: 'Working…' }));
       else if (!turn.answer) said.append(el('div', { class: 'note', text: turns === null ? 'No answer had come when your phone last saw it.' : 'This turn ' + phaseWords(turn.phase) + ' without an answer.' }));
       list.append(said);
@@ -1058,7 +1136,7 @@ const UI = `
 export function phonePage(options: { readonly via?: 'lan' | 'relay'; readonly alertsKey?: string } = {}): string {
   const relay = options.via === 'relay'
   const alertsKey = relay && options.alertsKey !== undefined && /^[A-Za-z0-9_-]{87}$/.test(options.alertsKey) ? options.alertsKey : ''
-  const script = relay ? `(function () {var ALERTS_KEY = '${alertsKey}';${RELAY_LOCK}${RELAY}${UI}})();` : `(function () {${LAN}${UI}})();`
+  const script = relay ? `(function () {var ALERTS_KEY = '${alertsKey}';${RELAY_LOCK}${RELAY}${PHONE_ANSWER}${UI}})();` : `(function () {${LAN}${PHONE_ANSWER}${UI}})();`
   const app = relay ? '\n<link rel="manifest" href="/manifest.webmanifest">\n<link rel="apple-touch-icon" href="/icon-256.png">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="Locust">' : ''
   return `<!doctype html>
 <html lang="en">
