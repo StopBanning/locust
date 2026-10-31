@@ -7,8 +7,10 @@
 // a card to answer there: Kilo has no per-action approvals, and the phone said so. The runtimes that do ask are paid
 // or, tonight, out of free quota, and a drive stays on free models.)
 //
-//   node _tools/film-launch-clip.mjs [--take <name>] [--from <beat>]
+//   node _tools/film-launch-clip.mjs [--take <name>] [--from <beat>] [--folder <path>]
 //
+// --folder puts the project somewhere that reads like a project in a tool row ("Searched for ~/work/weekend-app",
+// not the film's scratch folder); it must not exist yet, and it is removed afterwards.
 // --from 3 films from the message to Kit on: a retake of the last beats, for a cut that takes the first ones from an
 // earlier take (the launch film reads up to two takes).
 //
@@ -17,7 +19,8 @@
 // Chrome at a phone's size on the home-network address Your phone gives (nothing leaves this computer); Kit runs on
 // Kilo's free model, so nothing is spent.
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import { say, startDrive } from './drive-lib.mjs'
@@ -49,7 +52,9 @@ const seed = {
 // A project folder with a name worth reading in the title bar; the footage lives beside it, out of the repository.
 const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
 const filmRoot = join(homedir(), 'locust-scratch', 'film', `launch-take-${TAKE}-${stamp}`)
-const workspace = join(filmRoot, 'weekend-app')
+const FOLDER = arg('--folder', undefined)
+if (FOLDER !== undefined && existsSync(FOLDER)) throw new Error(`${FOLDER} is there already: --folder must be a new folder`)
+const workspace = FOLDER ?? join(filmRoot, 'weekend-app')
 await mkdir(workspace, { recursive: true })
 await writeFile(join(workspace, 'index.html'), '<!doctype html>\n<title>Weekend App</title>\n<h1>Weekend App</h1>\n<p>Plan a weekend with friends: pick a place, split the costs, vote on the plan.</p>\n<button>Start a plan</button>\n', 'utf8')
 await writeFile(join(workspace, 'README.md'), '# Weekend App\n\nA small web app for planning a weekend with friends.\n', 'utf8')
@@ -315,5 +320,6 @@ finally {
     }
   } catch (error) { say(`saving the take: ${error instanceof Error ? error.message : String(error)}`) }
   phone?.close()
-  await drive.finish({ intro: 'Launch clip, take 2' })
+  await drive.finish({ intro: `Launch clip, take ${TAKE}` })
+  if (FOLDER !== undefined) await rm(FOLDER, { recursive: true, force: true })
 }
