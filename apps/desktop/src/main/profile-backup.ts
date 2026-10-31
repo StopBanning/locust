@@ -142,7 +142,9 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'awake.json': 'whether Locust keeps this computer awake',
   'scout-away.json': "Scout's looks while this computer is off: its key belongs to this computer's room on the relay, so turn it on again",
   'pending-restore.json': "a restore's own note of what to restore when Locust next starts",
-  'last-restore.json': "a restore's own note of how it went, read once"
+  'last-restore.json': "a restore's own note of how it went, read once",
+  // Your Locust on every computer you sign in to (profile-sync.ts): what this computer last sent, made again by the next sync.
+  'profile-sync.json': "what this computer last sent to its sealed copy on Locust's relay: the next sync works it out again"
 }
 
 export interface BackupCounts {
@@ -223,7 +225,7 @@ export async function countProfile(root: string): Promise<BackupCounts> {
 }
 
 /** Every file under `folder`, relative to it, with forward slashes; the never-copied left out. */
-async function filesUnder(folder: string, base = ''): Promise<string[]> {
+export async function filesUnder(folder: string, base = ''): Promise<string[]> {
   const entries = await readdir(join(folder, base), { withFileTypes: true }).catch(() => [])
   const found: string[] = []
   for (const entry of entries) {
@@ -236,7 +238,7 @@ async function filesUnder(folder: string, base = ''): Promise<string[]> {
 }
 
 /** The profile files a backup carries, relative to the profile, that exist. */
-async function carriedFiles(profile: string): Promise<string[]> {
+export async function carriedFiles(profile: string): Promise<string[]> {
   const files: string[] = []
   for (const name of BACKED_UP_FILES) if (await exists(join(profile, name))) files.push(name)
   for (const name of BACKED_UP_FOLDERS) files.push(...(await filesUnder(profile, name)))
@@ -340,7 +342,7 @@ export async function readBackup(folder: string, options: { readonly appVersion:
 }
 
 /** Whether a path in a manifest is one a backup carries: a named file, or under a named folder. */
-function carries(path: string): boolean {
+export function carries(path: string): boolean {
   const [first] = path.split('/')
   return (BACKED_UP_FILES as readonly string[]).includes(path) || (BACKED_UP_FOLDERS as readonly string[]).includes(first ?? '')
 }

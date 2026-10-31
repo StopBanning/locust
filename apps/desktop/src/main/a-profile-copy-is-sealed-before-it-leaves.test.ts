@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { CHUNK_BYTES, SEAL_OVERHEAD, chunkIdOf, chunksOf, fileIdOf, manifestIdOf, newProfileKey, openFile, profileKeyFromCode, recoveryCode, sealFile, syncKeys } from './profile-sync-crypto.js'
+import { CHUNK_BYTES, SEAL_OVERHEAD, chunkIdOf, chunksOf, fileIdOf, MANIFEST_ID, newProfileKey, openFile, profileKeyFromCode, recoveryCode, sealFile, syncKeys } from './profile-sync-crypto.js'
 
 /**
  * A PROFILE COPY IS SEALED BEFORE IT LEAVES (docs/PLAN-2026-10-30-ACCOUNTS.md). What the relay is given of a
@@ -46,13 +46,15 @@ describe('a sealed copy', () => {
 })
 
 describe('a file’s id', () => {
-  it('is the same on every computer of the account, and differs by name and by key', async () => {
+  it('is the same on every computer of the account, and differs by name and by key, but for the list', async () => {
     const profile = newProfileKey()
     const pc = await syncKeys(profile, 7)
     const mac = await syncKeys(profile, 7)
     expect(await chunkIdOf(pc, 'mission-ledger/mission_a.jsonl', 0)).toBe(await chunkIdOf(mac, 'mission-ledger/mission_a.jsonl', 0))
     expect(await chunkIdOf(pc, 'mission-ledger/mission_a.jsonl', 0)).not.toBe(await chunkIdOf(pc, 'mission-ledger/mission_a.jsonl', 1))
-    expect(await manifestIdOf(pc)).not.toBe(await manifestIdOf(await syncKeys(newProfileKey(), 7)))
+    // The list's id is the one id not cut with the key, so a wrong key finds the list and fails to open it.
+    expect(MANIFEST_ID).toMatch(/^[A-Za-z0-9_-]{43}$/)
+    expect(await chunkIdOf(pc, 'manifest', 0)).not.toBe(MANIFEST_ID)
   })
 
   it('is a relay file id that says nothing of the name', async () => {
