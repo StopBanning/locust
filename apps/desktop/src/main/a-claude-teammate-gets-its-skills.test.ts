@@ -105,7 +105,7 @@ describe('a Claude Code teammate gets its skills', () => {
     const root = await scratch('locust-skills-root-')
     await skill(root, 'small')
     await skill(root, 'huge')
-    await writeFile(join(root, 'huge', 'blob.bin'), Buffer.alloc(6 * 1024 * 1024))
+    await writeFile(join(root, 'huge', 'blob.bin'), Buffer.alloc(11 * 1024 * 1024))
     expect(await skillFoldersIn(root)).toEqual(['small'])
   })
 })

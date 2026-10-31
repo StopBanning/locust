@@ -42,7 +42,8 @@ const API = 'https://api.github.com'
 const RAW = 'https://raw.githubusercontent.com'
 const SKILL_FILE = 'SKILL.md'
 /** The same bounds a folder's own skills have (claude-skills.ts). */
-const MOST_BYTES_A_SKILL = 5 * 1024 * 1024
+// Bundled canvas-design fonts exceed 5 MB; 10 MB admits them with a bounded payload.
+const MOST_BYTES_A_SKILL = 10 * 1024 * 1024
 const MOST_BYTES_ALL = 40 * 1024 * 1024
 const MOST_SKILLS = 200
 const MOST_FILES_A_SKILL = 500
@@ -115,6 +116,10 @@ function megabytes(bytes: number): string {
   return `${String(Math.round(bytes / (1024 * 1024)))} MB`
 }
 
+/** Only agent skill roots collapse. Other same-named folders remain real clashes. */
+const AGENT_SKILLS = /(^|\/)(?:\.agent|\.agents|\.claude|\.codex|\.cursor|\.opencode|\.github|\.devin|\.dsh|\.gemini|\.grok|\.hermes|\.kiro|\.omp|\.pi|\.qoder|\.rovodev|\.trae-cn|\.trae|\.veto|\.vibe)\/skills\//
+const copyRank = (folder: string): number => !AGENT_SKILLS.test(folder) ? 0 : /(^|\/)\.claude\/skills\//.test(folder) ? 1 : /(^|\/)\.agents\/skills\//.test(folder) ? 2 : 3
+
 /** The skill folders a commit's tree holds, each with its files, bounded and checked. */
 export function skillsInTree(tree: readonly TreeEntry[], repo: string, under?: string): readonly FoundSkill[] {
   const inside = (path: string, folder: string): boolean => folder === '' || path.startsWith(`${folder}/`)
@@ -126,9 +131,16 @@ export function skillsInTree(tree: readonly TreeEntry[], repo: string, under?: s
     .sort((a, b) => a.localeCompare(b))
   // A SKILL.md inside another skill's folder is part of that skill, not one of its own.
   const outermost = folders.filter((folder) => !folders.some((other) => other !== folder && inside(folder, other) && other.length < folder.length))
+  const copies = new Map<string, string>()
+  for (const folder of outermost) {
+    const identity = folder.replace(AGENT_SKILLS, '$1skills/')
+    const previous = copies.get(identity)
+    if (previous === undefined || copyRank(folder) < copyRank(previous)) copies.set(identity, folder)
+  }
+  const unique = [...copies.values()].sort((a, b) => a.localeCompare(b))
   const found: FoundSkill[] = []
   const named = new Map<string, string>()
-  for (const folder of outermost.slice(0, MOST_SKILLS)) {
+  for (const folder of unique.slice(0, MOST_SKILLS)) {
     const name = folder === '' ? repo : folder.slice(folder.lastIndexOf('/') + 1)
     // Links and submodules are never carried: a kept skill holds only real files.
     const entries = tree.filter((entry) => entry.type === 'blob' && entry.mode !== '120000' && inside(entry.path, folder))

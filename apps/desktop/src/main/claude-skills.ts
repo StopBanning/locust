@@ -47,7 +47,8 @@ import { skillMarkdown, type TuneSkill } from '../shared/tune.js'
 /** Claude Code's own rule for a plugin's skill: `skills/<name>/SKILL.md`. */
 const SKILL_FILE = 'SKILL.md'
 /** One skill folder larger than this is left out: a skill is instructions, not a payload. */
-const MOST_BYTES_A_SKILL = 5 * 1024 * 1024
+// Bundled canvas-design fonts exceed 5 MB; 10 MB admits them with a bounded payload.
+const MOST_BYTES_A_SKILL = 10 * 1024 * 1024
 /** And all of them together, per plugin. */
 const MOST_BYTES_ALL = 40 * 1024 * 1024
 const MOST_SKILLS = 200
