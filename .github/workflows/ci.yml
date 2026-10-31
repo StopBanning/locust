@@ -1,7 +1,8 @@
 # Locust's public CI: typecheck and test on every push and pull request, and
-# unsigned Windows, macOS and Linux builds when started by hand. The Windows
-# build's artifact is what SignPath Foundation signs once the project is
-# accepted. No secrets are used.
+# unsigned Windows, macOS and Linux builds when started by hand. Since
+# 2026-10-30 each build is the release itself: the Mac publishes what this
+# makes (_tools/publish-ci.sh). The Windows build's artifact is what SignPath
+# Foundation signs once the project is accepted. No secrets are used.
 
 name: ci
 
@@ -16,6 +17,10 @@ on:
         type: choice
         options: [all, linux]
         default: all
+      markers:
+        description: Strings the release's changelog claims, one a line, that the Windows build must contain
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -73,6 +78,20 @@ jobs:
       - name: Load the packaged terminal native module (Windows)
         if: runner.os == 'Windows'
         run: node _smoke/terminal-native-smoke.mjs apps/desktop/release/win-unpacked/Locust.exe
+      # A release from the Mac (2026-10-30): the PC that built Windows releases is retired, so this build is the release.
+      # Its window zip is made from this build's own renderer, and what it holds is checked as ship.mjs checks it on the
+      # PC: the archive, the installer, its feed, the files beside the archive and every changelog marker.
+      # _tools/win-attach-dl.sh requires the PASSED line.
+      - name: The window zip (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: node _tools/window-zip.mjs "$(node -p "require('./apps/desktop/package.json').version")"
+      - name: Check what the release holds (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          LOCUST_MARKERS: ${{ inputs.markers }}
+        run: node _tools/check-artifact.mjs
       - name: Load the packaged terminal native module (Mac)
         if: runner.os == 'macOS'
         run: node _smoke/terminal-native-smoke.mjs apps/desktop/release/mac-arm64/Locust.app/Contents/MacOS/Locust
@@ -81,6 +100,9 @@ jobs:
           name: locust-${{ matrix.os }}
           path: |
             apps/desktop/release/*.exe
+            apps/desktop/release/*.exe.blockmap
+            apps/desktop/release/latest.yml
+            apps/desktop/release/Locust-*-window.zip
             apps/desktop/release/*.dmg
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
