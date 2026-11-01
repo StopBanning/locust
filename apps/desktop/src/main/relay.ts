@@ -44,7 +44,9 @@ import { stripTaskBlocks } from '../shared/room-task.js'
  *     still working, and both messages sit undelivered forever. MEASURED
  *     2026-09-11 -- two participants, hop zero, nothing said back.
  *   - The recipient's run uses the RECIPIENT's own runtime, model and mode,
- *     the route a person last started them on. Grok answers as Grok, Fable
+ *     the route a person last started them on -- or, continuing their own
+ *     turn in the exchange, the route that turn ran on, which is the model
+ *     picked in that conversation (0.854). Grok answers as Grok, Fable
  *     as Fable; a teammate who has never run yet borrows the sender's route,
  *     and the thread says so. A route that cannot start is refused, not
  *     widened -- with one exception, said in the thread: Cursor lent `ask`
@@ -426,6 +428,15 @@ export interface SharingMission {
   readonly startedBy?: MissionStarter
 }
 
+/** The route a turn ran on, as it was resolved: model, level, account and mode. */
+export interface TurnRoute {
+  readonly runtime: MissionRuntimeId
+  readonly model?: string
+  readonly effort?: string
+  readonly account?: string
+  readonly mode: MissionMode
+}
+
 export interface RelayOptions {
   readonly enabled: () => Promise<boolean>
   /** The autonomy budget for one exchange, read when a share is decided. Absent means the default. */
@@ -462,12 +473,19 @@ export interface RelayOptions {
    * Accept edits runs as Accept edits, and the thread says so.
    */
   readonly cursorHoldsReadOnly?: () => boolean
+  /**
+   * The route a turn ran on, or nothing when it is not known. A run that
+   * continues a teammate's own turn in an exchange starts on it (0.854):
+   * the model a person picked in that conversation, which since 0.552 need
+   * not be the teammate's saved one. Absent means the saved route, as before.
+   */
+  readonly routeOf?: (missionId: string) => Promise<TurnRoute | undefined>
   readonly start: (input: {
     readonly prompt: string
     readonly runtime: MissionRuntimeId
     readonly mode: MissionMode
     readonly model: string | undefined
-    /** The recipient's own saved effort; a borrowed route borrows none (M10). */
+    /** The recipient's own effort: their turn's in this exchange, else their saved one; a borrowed route borrows none (M10). */
     readonly effort?: string
     readonly account?: string
     readonly peer: MissionPeerContext
@@ -856,9 +874,25 @@ export function createRelay(options: RelayOptions): Relay {
     }
     const followUpOf = inExchange ?? hub
     const ontoHub = inExchange === undefined
-    // Their own route, so each teammate stays the model a person made
-    // them. Only a teammate who has never run borrows the sender's.
-    const own = recipient.self.route
+    /*
+     * THE CONVERSATION'S OWN MODEL (0.854). A run that continues their turn
+     * in this exchange starts on the route that turn ran on. The first-session
+     * drive, 2026-11-01: Sable's free model ran out, the person pressed Stop
+     * and switch to Nemotron, and the answer Penny brought back started Sable
+     * on the saved model again -- out of quota, stalled, offering the same
+     * switch. A conversation keeps the model picked in it (0.552).
+     */
+    let kept: TurnRoute | undefined
+    if (inExchange !== undefined && options.routeOf !== undefined) {
+      try {
+        kept = await options.routeOf(inExchange)
+      } catch {
+        kept = undefined
+      }
+    }
+    // Otherwise their own route, so each teammate stays the model a person
+    // made them. Only a teammate who has never run borrows the sender's.
+    const own = kept === undefined ? recipient.self.route : { ...kept, model: kept.model ?? 'account-default' }
     // A borrowed route never borrows the sender's PERMISSION beyond editing
     // the workspace: a sender on Auto lends `ask`, not the run of the whole
     // machine. Conservative on purpose -- the recipient never chose Auto --

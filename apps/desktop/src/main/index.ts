@@ -311,7 +311,7 @@ import { createOutstandingChecks } from './outstanding-checks.js'
 import { FIRST_SCREEN_DEADLINE_MS, keepWhatWasAnswered, settleWithin, type SweepCheck } from './sweep-settle.js'
 import { createAntigravityHostProbe } from './antigravity-host.js'
 import { AntigravityStartError, antigravityStartRefusal, createAntigravityMissionService } from './antigravity-mission.js'
-import type { Relay } from './relay.js'
+import type { Relay, TurnRoute } from './relay.js'
 import { createRuntimeDiscoveryService, RUNTIME_DISCOVERY_CHANNEL } from './runtime-discovery.js'
 import { bootOutcome, createDiscoveryLog } from './discovery-log.js'
 import { createRuntimeFactsStore } from './runtime-facts.js'
@@ -2294,13 +2294,32 @@ if (!ownsSingleInstanceLock) {
      * The route each turn started on, as it was resolved -- model, level, account and mode -- so a fix runs exactly as
      * the turn it fixes did, even where the person picked a route for that one message. Kept for this session only.
      */
-    const routeOfTurn = new Map<string, { readonly runtime: MissionRuntimeId; readonly model?: string; readonly effort?: string; readonly account?: string; readonly mode: MissionMode }>()
-    const rememberRouteOfTurn = (missionId: string, route: { readonly runtime: MissionRuntimeId; readonly model?: string; readonly effort?: string; readonly account?: string; readonly mode: MissionMode }): void => {
+    const routeOfTurn = new Map<string, TurnRoute>()
+    const rememberRouteOfTurn = (missionId: string, route: TurnRoute): void => {
       routeOfTurn.set(missionId, route)
       while (routeOfTurn.size > 500) {
         const oldest = routeOfTurn.keys().next().value
         if (oldest === undefined) break
         routeOfTurn.delete(oldest)
+      }
+    }
+    /**
+     * A turn's own route: as it was resolved when it started, else as its record has it. A fix runs on it (0.813), and
+     * so does an automatic run that continues the turn in an exchange (0.854, the relay's `routeOf`). A record from
+     * before modes were kept (v15) runs in `unrecordedMode`, or not at all: the relay never widens a mode it cannot see.
+     */
+    const routeOfTurnOrRecord = async (missionId: string, unrecordedMode?: MissionMode): Promise<TurnRoute | undefined> => {
+      const held = routeOfTurn.get(missionId)
+      if (held !== undefined) return held
+      const recorded = await missionLedger.getMission(missionId).catch(() => undefined)
+      const mode = recorded?.metadata.mode ?? unrecordedMode
+      if (recorded === undefined || mode === undefined) return undefined
+      const recordedAccount = accountFromRoute(recorded.metadata.resolvedRouteId)
+      return {
+        runtime: recorded.metadata.runtime,
+        ...(recorded.metadata.model === 'account-default' ? {} : { model: recorded.metadata.model }),
+        ...(recordedAccount === undefined ? {} : { account: recordedAccount }),
+        mode
       }
     }
     // Bound late for the same reason: it reads the ledger the service writes.
@@ -3993,6 +4012,7 @@ if (!ownsSingleInstanceLock) {
       },
       post: (input) => workroom.post(input),
       cursorHoldsReadOnly: () => cursorCanEnforceReadOnly(process.platform),
+      routeOf: (missionId) => routeOfTurnOrRecord(missionId),
       start: async (input) => {
         // The app route only when Antigravity CLI is not installed (0.540); the CLI runs as every other runtime does.
         if (input.runtime === 'antigravity' && antigravityProbe.cliPath() === undefined) {
@@ -4009,7 +4029,7 @@ if (!ownsSingleInstanceLock) {
             return antigravityStartRefusal(error)
           }
         }
-        return codexMissions.start(
+        const response = await codexMissions.start(
           input.prompt,
           input.runtime,
           input.mode,
@@ -4021,6 +4041,9 @@ if (!ownsSingleInstanceLock) {
           input.followUpOf,
           input.relay
         )
+        // As it was resolved, level and all (0.854): the exchange's next turn for them starts on it.
+        if (response.ok) rememberRouteOfTurn(response.data.missionId, { runtime: input.runtime, ...(input.model === undefined ? {} : { model: input.model }), ...(input.effort === undefined ? {} : { effort: input.effort }), ...(input.account === undefined ? {} : { account: input.account }), mode: input.mode })
+        return response
       },
       assignOwner: (teammateId, missionId) => assignOwner(teammateId, missionId),
       /*
@@ -10113,15 +10136,7 @@ if (!ownsSingleInstanceLock) {
       note: (missionId, message, level) => void noteCheckFix({ missionId, message, level }).catch(() => undefined),
       start: async ({ followUpOf, teammateId, prompt, startedBy }) => {
         // The failing turn's own route: as it was resolved when it started, else as its record has it.
-        const held = routeOfTurn.get(followUpOf)
-        const recorded = held === undefined ? await missionLedger.getMission(followUpOf).catch(() => undefined) : undefined
-        const recordedAccount = recorded === undefined ? undefined : accountFromRoute(recorded.metadata.resolvedRouteId)
-        const route = held ?? (recorded === undefined ? undefined : {
-          runtime: recorded.metadata.runtime,
-          ...(recorded.metadata.model === 'account-default' ? {} : { model: recorded.metadata.model }),
-          ...(recordedAccount === undefined ? {} : { account: recordedAccount }),
-          mode: recorded.metadata.mode ?? 'accept-edits'
-        })
+        const route = await routeOfTurnOrRecord(followUpOf, 'accept-edits')
         if (route === undefined) return { ok: false, message: 'The turn it would fix is not in the record any more.' }
         const owners = await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>))
         const wasHub = teammateId !== undefined && (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === teammateId)?.hubMissionId === followUpOf
