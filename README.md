@@ -199,8 +199,8 @@ pnpm dev
 
 `pnpm dev` starts the Electron app with the React renderer in development
 mode. `pnpm check` builds every package, runs the TypeScript checks and the
-whole test suite (about 14,100 tests across the desktop app, the adapters, the
-ledger and the relay, as of 0.844).
+whole test suite (about 14,300 tests across the desktop app, the adapters, the
+ledger and the relay, as of 0.848).
 
 Green tests are not the evidence here. Each package carries a mutation control
 (`test/mutation-control.mjs`) that breaks one behaviour at a time and requires
