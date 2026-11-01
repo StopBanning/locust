@@ -40,6 +40,14 @@ describe('a free model that has said nothing', () => {
     // Still starting: the live line says so.
     expect(quietFreeRun(free([]), later)).toBe(false)
   })
+
+  // 0.846's first hour on a bare Mac drew "Free usage exceeded" with Stop and switch, and the quiet line with another.
+  it('is not quiet while its provider is said to be busy: that note already carries the same press', () => {
+    const busy = { ...event('adapter.diagnostic', 30_000), payload: { level: 'warning', code: 'opencode.provider_busy.runtime_error', message: 'The model’s provider answered "Free usage exceeded"' } } as unknown as NormalizedRuntimeEvent
+    const other = { ...event('adapter.diagnostic', 30_000), payload: { level: 'info', code: 'opencode.starting', message: 'Setting up OpenCode for its first start' } } as unknown as NormalizedRuntimeEvent
+    expect(quietFreeRun(free([event('run.started'), busy]), BEGAN + 10 * QUIET_FREE_MS)).toBe(false)
+    expect(quietFreeRun(free([event('run.started'), other]), BEGAN + 10 * QUIET_FREE_MS)).toBe(true)
+  })
 })
 
 describe('the offer, while the turn runs', () => {

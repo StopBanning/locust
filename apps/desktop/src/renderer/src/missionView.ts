@@ -3911,7 +3911,7 @@ export function buildThread(
           type: 'diagnostic',
           level: event.payload.level,
           message: event.payload.message,
-          ...(/\.provider_busy\.runtime_error$/.test(event.payload.code) ? { busy: true } : {}),
+          ...(BUSY_NOTE.test(event.payload.code) ? { busy: true } : {}),
           ...(RETRYING_NOTE.test(event.payload.code) ? { retrying: true } : {})
         })
         break
@@ -4502,6 +4502,8 @@ export function buildThread(
  * kept "OpenCode is trying again on its own" over a failed Compare column).
  */
 const RETRYING_NOTE = /^opencode\.runtime_error$|\.provider_busy\.runtime_error$/
+/** The note a busy provider sends: the one ONE PRESS OFF A BUSY FREE MODEL (C9) is drawn under. */
+const BUSY_NOTE = /\.provider_busy\.runtime_error$/
 
 /**
  * The cancellation summary, derived from events rather than from file
@@ -5560,13 +5562,17 @@ export function retiredFreeModels(
  * when nothing at all has come back since its run began -- a word, a thought, a step, a tool -- so a model that is
  * slowly working is never told it is quiet. Its run began at its first event; with none, it is still starting, which
  * the live line says.
+ *
+ * Nor a model whose provider is said to be busy (0.847). Its note already carries the same press (C9), and 0.846's
+ * first hour on a bare Mac drew both: "Free usage exceeded" with Stop and switch, and under it the quiet line with a
+ * second Stop and switch to the same model, two buttons that read as two choices.
  */
 export const QUIET_FREE_MS = 2 * 60 * 1000
 export function quietFreeRun(run: { readonly runtime?: string; readonly model?: string; readonly events: readonly NormalizedRuntimeEvent[] }, now: number): boolean {
   if (run.runtime !== 'opencode' || run.model === undefined || !run.model.endsWith('-free')) return false
   const began = run.events[0] === undefined ? Number.NaN : Date.parse(run.events[0].occurredAt)
   if (!Number.isFinite(began) || now - began < QUIET_FREE_MS) return false
-  return run.events.every((event) => event.type === 'run.started' || event.type === 'adapter.diagnostic')
+  return run.events.every((event) => event.type === 'run.started' || (event.type === 'adapter.diagnostic' && !BUSY_NOTE.test(event.payload.code)))
 }
 
 /**
