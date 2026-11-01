@@ -106,7 +106,7 @@ try {
     for (let i = 0; i < 80 && document.querySelectorAll('.lc-compare__judgepick option').length <= 2; i += 1) await new Promise((r) => setTimeout(r, 250))
     return ${state}
   })()`))))
-  check('with the answers in, it offers a judge, and not one of the two compared first', before.ask && before.choices.length > 0 && !/Mimo V2.6|Ling 3.0/.test(before.choices[0] ?? ''), JSON.stringify(before.choices.slice(0, 4)))
+  check('with the answers in, it offers a judge, and not one of the two compared first', before.ask && before.choices.length > 0 && !/Mimo V2.6|Ling 3.0/i.test(before.choices[0] ?? ''), JSON.stringify(before.choices.slice(0, 4)))
   check('every model it can be is listed, under its agent (0.554)', before.groups.length >= 2 && before.choices.length > 16, `${before.choices.length} models; ${JSON.stringify(before.groups)}`)
   await drive.capture('the judge asked', () => drive.evaluate(`(async () => {
     const box = document.querySelector('.lc-compare__judgecriteria')

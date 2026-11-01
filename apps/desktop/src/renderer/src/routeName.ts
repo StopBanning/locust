@@ -49,8 +49,24 @@ export function shortRuntimeName(runtime: MissionRuntimeId): string {
  */
 const ACRONYMS: ReadonlySet<string> = new Set(['gpt', 'cli', 'ai'])
 
+/**
+ * MAKERS' OWN CASE (0.848). The free models a new person meets first read "Deepseek V4.1 Flash" on the chip,
+ * "Glm 5.3 Flash" and "Mimo V2.6 Flash Free" on its Stop and switch, and the picker listed another provider's
+ * "DeepSeek V4.1 Flash" a row above "Deepseek V4.1 Flash Free" (the bare Mac's first hour, 2026-11-01). These keep
+ * no hyphen before a number: OpenCode's and Kilo's own lists write "GLM 5.2", where GPT keeps one.
+ */
+const MAKERS_CASE: ReadonlyMap<string, string> = new Map([
+  ['deepseek', 'DeepSeek'],
+  ['glm', 'GLM'],
+  ['mimo', 'MiMo'],
+  ['minimax', 'MiniMax'],
+  ['vl', 'VL']
+])
+
 const capitalised = (token: string): string =>
-  ACRONYMS.has(token.toLowerCase()) ? token.toUpperCase() : token.charAt(0).toUpperCase() + token.slice(1)
+  ACRONYMS.has(token.toLowerCase())
+    ? token.toUpperCase()
+    : (MAKERS_CASE.get(token.toLowerCase()) ?? token.charAt(0).toUpperCase() + token.slice(1))
 
 const SHORT_NUMBER = /^\d{1,2}$/
 
@@ -129,7 +145,7 @@ const SPELLABLE_ID = /^[A-Za-z0-9.]+(?:-[A-Za-z0-9.]+)+$/
  * Like a catalog's id (rememberOwnModels), it is an identifier, not a spelling: it reads "Claude Haiku 5.5". Any
  * other name stands as the person wrote it. A label that is the route's whole id -- "opencode/deepseek-v4.1-flash-free",
  * as the packaged 0.810 benchmark's columns read -- is no name at all (0.811): undefined, so the caller names the model
- * as the picker does, "Deepseek V4.1 Flash Free".
+ * as the picker does, "DeepSeek V4.1 Flash Free".
  */
 export function shownRouteLabel(route: { readonly model: string; readonly label?: string }): string | undefined {
   const label = route.label?.trim()

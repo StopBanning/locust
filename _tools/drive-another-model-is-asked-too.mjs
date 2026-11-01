@@ -90,7 +90,7 @@ try {
     await new Promise((r) => setTimeout(r, 800))
     return ${state}
   })()`))))
-  check('it offers another model, never one already in it', before.choices.length > 0 && !before.choices.some((label) => /Mimo V2.6 Flash|Ling 3.0 Flash/.test(label)) && before.choices.some((label) => /Codex/.test(label)), JSON.stringify(before.choices.slice(0, 5)))
+  check('it offers another model, never one already in it', before.choices.length > 0 && !before.choices.some((label) => /Mimo V2.6 Flash|Ling 3.0 Flash/i.test(label)) && before.choices.some((label) => /Codex/.test(label)), JSON.stringify(before.choices.slice(0, 5)))
   await drive.capture('Ask it too, on Codex', () => drive.evaluate(`(async () => {
     const select = document.querySelector('select[aria-label="The model to ask too"]')
     const codex = [...select.options].find((o) => /Codex/.test(o.innerText))

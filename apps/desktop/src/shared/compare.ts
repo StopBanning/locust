@@ -299,7 +299,7 @@ export function blindName(slot: CompareSlotId, setups = false): string {
   return `${setups ? 'Setup' : 'Model'} ${slot.toUpperCase()}`
 }
 
-/** "How it works": the setup a tune's column tried, from its label ("Deepseek V4.1 Flash Free · How it works"). */
+/** "How it works": the setup a tune's column tried, from its label ("DeepSeek V4.1 Flash Free · How it works"). */
 export function setupName(route: CompareRoute): string | undefined {
   if (route.instructions === undefined) return undefined
   const angle = route.label?.split(' · ').at(-1)?.trim()

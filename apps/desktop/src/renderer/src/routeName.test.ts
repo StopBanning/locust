@@ -17,6 +17,16 @@ describe('how a route reads on a chip', () => {
     expect(modelDisplayName('cursor', 'composer-2.5')).toBe('Composer 2.5')
   })
 
+  it('spells the free models a new person meets first as their makers do', () => {
+    // The bare Mac's first hour, 2026-11-01: the chip read "Glm 5.3 Flash", a Stop and switch "Mimo V2.6 Flash
+    // Free", and the picker listed "DeepSeek V4.1 Flash" a row above "Deepseek V4.1 Flash Free".
+    expect(modelDisplayName('opencode', 'opencode/deepseek-v4.1-flash-free')).toBe('DeepSeek V4.1 Flash Free')
+    expect(modelDisplayName('opencode', 'opencode/glm-5.3-flash-free')).toBe('GLM 5.3 Flash Free')
+    expect(modelDisplayName('opencode', 'opencode/mimo-v2.6-flash-free')).toBe('MiMo V2.6 Flash Free')
+    expect(modelDisplayName('opencode', 'opencode/nemotron-3.5-super-vl-free')).toBe('Nemotron 3.5 Super VL Free')
+    expect(modelDisplayName('opencode', 'opencode/minimax-m2.5-free')).toBe('MiniMax M2.5 Free')
+  })
+
   it('does not touch a name that already reads as one', () => {
     // Providers give real display names, and this runs over those too. It
     // must be a no-op on them or it would slowly corrupt what they said.
