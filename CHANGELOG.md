@@ -11,6 +11,21 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.849.0 - 2026-11-01
+
+### Improved
+
+- **Plans, the look and what your team remembers change from Locust in a browser.** Plans, reply text size, the sidebar, faces, plush, the Send button, About you and how memory is kept now change from app.locust.lol too. The settings that grant something, such as Auto mode, what teammates may reach, Swarm and replies between teammates, stay on your computer.
+
+### Fixed
+
+- **Settings in a browser says what stays on your computer.** A setting that works only in Locust on your computer is shown as it is, disabled, with "This works in Locust on your computer." beside it, instead of failing after a press. The chat apps no longer say they could not be read, voice typing no longer says it could not be saved, and Allow it in GitHub no longer does nothing.
+- **Cloud computers' Check again says when it checked,** and Allow it in GitHub says why when it fails.
+- **Fast and Accurate voice typing are no longer offered where they cannot run,** on a Mac or Linux.
+- **Hovering a teammate names its model as the chat box does,** not by its id.
+- **A conversation started with only a file's path is titled by the file,** not by a path the sidebar cuts off.
+- **The connectors list no longer opens by saying it could not be read.**
+
 ## 0.848.0 - 2026-11-01
 
 ### Fixed
