@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { DEFAULT_TALK_SHORTCUT, shortcutFromPress, type TalkShortcutApi, type TalkShortcutState } from '../../../shared/talk-shortcut.js'
+import { DEFAULT_TALK_SHORTCUT, shortcutFromPress, TALK_SHORTCUT_SET, type TalkShortcutApi, type TalkShortcutState } from '../../../shared/talk-shortcut.js'
+import { failureSaid } from '../onTheComputer.js'
+import { OnTheComputer } from './OnTheComputer.js'
 
 /**
  * TALK FROM ANY APP (0.755, shared/talk-shortcut.ts): the keys, on or off, and changed by pressing the new ones. It
@@ -29,11 +31,11 @@ export function TalkShortcutSetting({ heading, api = typeof window === 'undefine
     setBusy(true); setMessage('')
     try {
       setState(await api.set(next))
-    } catch {
-      setMessage('The shortcut was not changed. Try again.')
+    } catch (error) {
+      setMessage(failureSaid(error, 'The shortcut was not changed. Try again.'))
     } finally { setBusy(false) }
   }
-  return <section className="lc-settings__section lc-settings__section--line" data-setting="talk-shortcut"><div className="lc-settingline">
+  return <section className="lc-settings__section lc-settings__section--line" data-setting="talk-shortcut"><OnTheComputer channel={TALK_SHORTCUT_SET}><div className="lc-settingline">
     <div className="lc-settingline__text">
       {heading}
       <p className="lc-settings__lede">{keys === undefined
@@ -64,5 +66,5 @@ export function TalkShortcutSetting({ heading, api = typeof window === 'undefine
       <button type="button" className={`lc-switch${keys !== undefined ? ' is-on' : ''}`} role="switch" aria-label="Talk from any app" aria-checked={keys !== undefined} disabled={state === undefined || busy}
         onClick={() => { setRecording(false); void change(keys === undefined ? DEFAULT_TALK_SHORTCUT : false) }}><span /></button>
     </span>
-  </div></section>
+  </div></OnTheComputer></section>
 }

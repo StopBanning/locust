@@ -12643,6 +12643,18 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   text-wrap: pretty;
 }
 
+/* Controls whose calls stay on the computer, in a browser (0.849, OnTheComputer.tsx): one disabled group, no frame. */
+.lc-oncomputer {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.lc-oncomputer__said {
+  margin-top: var(--lc-space-2);
+}
+
 .lc-mcp-setup {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

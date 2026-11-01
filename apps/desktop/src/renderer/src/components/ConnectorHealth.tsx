@@ -14,7 +14,8 @@ import { connectorDetail, connectorReport, connectorStateWords, connectorWhere }
  */
 export function ConnectorHealth({ now = () => new Date() }: { readonly now?: () => Date }): ReactElement {
   const [connectors, setConnectors] = useState<readonly PublicConnector[]>()
-  const [reading, setReading] = useState(false)
+  // Reading from the first frame (0.849): starting false drew "could not be read" before the first read began.
+  const [reading, setReading] = useState(() => typeof window !== 'undefined' && window.desktop !== undefined)
   const [notice, setNotice] = useState<string>()
 
   const read = (): void => {

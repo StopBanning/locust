@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
-  DEFAULT_SCOUT_FIXES, MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_FIXES_PER_DAY, SCOUT_QUIET_CHOICES, hourWords, inQuietHours,
+  DEFAULT_SCOUT_FIXES, MAX_SCOUT_GOAL, MAX_SCOUT_NOTE, MAX_SCOUT_NOTES, SCOUT_BRIEF_HOURS, SCOUT_EVERY_MINUTES, SCOUT_FIXES_PER_DAY, SCOUT_QUIET_CHOICES, SCOUT_SET, SCOUT_TURN_ON, hourWords, inQuietHours,
   type ScoutApi, type ScoutEvery, type ScoutQuietHours, type ScoutState, type ScoutWatches
 } from '../../../shared/scout.js'
 import { machineWords } from '../../../shared/machine-words.js'
-import type { ScoutAwayStatus } from '../../../shared/scout-away.js'
+import { SCOUT_AWAY_SET, type ScoutAwayStatus } from '../../../shared/scout-away.js'
+import { onTheComputer } from '../onTheComputer.js'
+import { OnTheComputer } from './OnTheComputer.js'
 import { lookLines, lookName, setSomethingAside, type ScoutHeldAlert, type ScoutLogEntry } from '../../../shared/scout-log.js'
 import { ago } from './ScoutCards.js'
 import { Select } from './Select.js'
@@ -30,7 +32,7 @@ function FixesLine({ state, team, busy, checkCommand, act, api, switchOf }: {
   const picked = team.find((mate) => mate.teammateId === fixes.teammateId)
   const set = (change: Partial<typeof fixes>): void => { void act(() => api.set({ fixes: { ...fixes, ...change } })) }
   const canFix = state.settings.watches.check && checkCommand !== undefined
-  return <div className="lc-settingline lc-settingline--sub lc-scout__goalline">
+  return <OnTheComputer channel={SCOUT_SET} args={[{ fixes }]}><div className="lc-settingline lc-settingline--sub lc-scout__goalline">
     <div className="lc-settingline__text">
       <h3 className="lc-settings__heading">Prepare fixes before I look</h3>
       <p className="lc-settings__lede">When the folder’s check starts failing, a teammate fixes it in a copy of the folder and Locust runs the check there again. Nothing reaches your folder until you press Apply, and it never pushes or opens a pull request. It runs on that teammate’s plan.</p>
@@ -45,7 +47,7 @@ function FixesLine({ state, team, busy, checkCommand, act, api, switchOf }: {
       </span>}
     </div>
     {switchOf('Prepare fixes before I look', fixes.on, () => { set(fixes.on ? { on: false } : { on: true, ...(picked === undefined && team[0] !== undefined ? { teammateId: team[0].teammateId } : {}) }) }, !fixes.on && !canFix)}
-  </div>
+  </div></OnTheComputer>
 }
 
 /*
@@ -80,7 +82,7 @@ export function AwayLine({ api, switchOf, lastLookWords, initial }: {
   const lede = status?.state === 'on'
     ? `On for ${status.repo}. A workflow there looks ${status.every === 1 ? 'every hour' : 'every two hours'} while your computer is off and leaves what it found for your phone; with Locust open it does nothing more. ${status.private ? 'It uses about 360 of the 2,000 free Actions minutes your private repository gets each month.' : 'Actions are free on a public repository.'}`
     : 'When your computer is off, a workflow in this folder’s GitHub repository looks for Scout and your phone shows what it found. Locust adds it with a pull request you merge; it reads with the workflow’s own read-only token, and what it finds is sealed for your devices.'
-  return <div className="lc-settingline lc-settingline--sub lc-scout__goalline">
+  return <OnTheComputer channel={SCOUT_AWAY_SET}><div className="lc-settingline lc-settingline--sub lc-scout__goalline">
     <div className="lc-settingline__text">
       <h3 className="lc-settings__heading">Look while my computer is off</h3>
       <p className="lc-settings__lede">{lede}</p>
@@ -102,7 +104,7 @@ export function AwayLine({ api, switchOf, lastLookWords, initial }: {
       {status !== undefined && 'message' in status && status.message !== undefined && <p className="lc-settings__note" role="status">{status.message}</p>}
     </div>
     {switchOf('Look while my computer is off', on, () => { set(!on) }, status === undefined || status.state === 'busy' || (status.state === 'off' && status.blocked !== undefined))}
-  </div>
+  </div></OnTheComputer>
 }
 
 /** Entries shown at first, and added by each Show more. */
@@ -198,6 +200,8 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
       setMessage('Scout’s setting was not changed. Try again.')
     } finally { setBusy(false) }
   }
+  // Turning Scout on starts looks that run models, so it is done on the computer; off works anywhere (0.849).
+  const turnOnStays = onTheComputer(SCOUT_TURN_ON)
   const toggle = (): void => {
     if (on) { void act(() => api.set({ on: false })); return }
     if (state?.settings.teammateId === undefined && route === undefined) { setMessage('Scout needs a model to read with: install OpenCode for a free one, then turn it on.'); return }
@@ -235,12 +239,13 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
         {on && status.length > 0 && <p className="lc-settings__note" role="status">{status.join(' ')}</p>}
         {state?.modelSaid !== undefined && on && <p className="lc-settings__note" role="status">{`Last look: ${state.modelSaid}`}</p>}
         {message && <p className="lc-settings__note" role="status">{message}</p>}
+        {!on && turnOnStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{turnOnStays}</p>}
       </div>
       <span className="lc-talkkeys">
         {/* Its model is its teammate's (Colin, 2026-10-12: "allow the user to change the model of proactive teammate"). */}
         {on && <button type="button" className="lc-control lc-control--boxed" disabled={busy} onClick={() => { void act(() => api.look()) }}>Look now</button>}
         {on && onChangeModel !== undefined && <button type="button" className="lc-control lc-control--boxed" onClick={onChangeModel}>Change its model</button>}
-        {switchOf('Scout keeps watch', on, toggle)}
+        {switchOf('Scout keeps watch', on, toggle, !on && turnOnStays !== undefined)}
       </span>
     </div>
     {on && state !== undefined && <>

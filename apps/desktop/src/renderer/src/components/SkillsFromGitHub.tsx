@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 
-import type { SkillLibraryPreview, SkillLibrarySkill, SkillLibrarySource } from '../../../shared/ipc.js'
+import { SKILL_LIBRARY_INSTALL_CHANNEL, SKILL_LIBRARY_REMOVE_CHANNEL, type SkillLibraryPreview, type SkillLibrarySkill, type SkillLibrarySource } from '../../../shared/ipc.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
+import { OnTheComputer } from './OnTheComputer.js'
 import { POPULAR_SKILLS, POPULAR_SKILLS_AS_OF, TRENDING_SKILLS, TRENDING_SKILLS_AS_OF, skillPreviewPicks } from '../../../shared/popular-skills.js'
 import { SKILL_RUNTIME_NAMES } from '../../../shared/skill-runtimes.js'
 import { ArmedButton } from './ArmedButton.js'
@@ -51,6 +53,7 @@ function keptDate(iso: string): string {
 }
 
 export function SkillsFromGitHub(): ReactElement {
+  const keepStays = onTheComputer(SKILL_LIBRARY_INSTALL_CHANNEL)
   const [sources, setSources] = useState<readonly SkillLibrarySource[]>()
   const [link, setLink] = useState('')
   const [busy, setBusy] = useState<string>()
@@ -153,7 +156,7 @@ export function SkillsFromGitHub(): ReactElement {
                 >
                   Look for changes
                 </button>
-                <ArmedButton
+                <OnTheComputer channel={SKILL_LIBRARY_REMOVE_CHANNEL}><ArmedButton
                   className="lc-button"
                   ariaLabel={`Remove the skills kept from ${kept.source}`}
                   armedLabel={`Remove ${plural(kept.skills.length, 'skill')}?`}
@@ -166,7 +169,7 @@ export function SkillsFromGitHub(): ReactElement {
                   }}
                 >
                   Remove
-                </ArmedButton>
+                </ArmedButton></OnTheComputer>
               </div>
             )
           })}
@@ -245,7 +248,9 @@ export function SkillsFromGitHub(): ReactElement {
             <button
               type="button"
               className="lc-primarybutton"
-              disabled={busy !== undefined || chosen.length === 0}
+              // Keeping copies the pack into this computer's skills, so it is done there (0.849); looking works anywhere.
+              disabled={busy !== undefined || chosen.length === 0 || keepStays !== undefined}
+              {...(keepStays === undefined ? {} : { title: keepStays })}
               onClick={() => {
                 setBusy('keeping')
                 setSaid(undefined)
@@ -264,13 +269,14 @@ export function SkillsFromGitHub(): ReactElement {
                       good: true
                     })
                   })
-                  .catch(() => setSaid({ text: 'Nothing was kept. Try again.', good: false }))
+                  .catch((error: unknown) => setSaid({ text: failureSaid(error, 'Nothing was kept. Try again.'), good: false }))
                   .finally(() => setBusy(undefined))
               }}
             >
               {busy === 'keeping' ? 'Keeping…' : behind ? `Keep ${plural(chosen.length, 'skill')} at ${shortSha(preview.sha)}` : `Keep ${plural(chosen.length, 'skill')}`}
             </button>
           </div>
+          {keepStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{keepStays}</p>}
         </div>
       )}
     </div>

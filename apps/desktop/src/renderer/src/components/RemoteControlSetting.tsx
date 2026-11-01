@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { REMOTE_CONTROL_LABEL, type RemoteControlState } from '../../../shared/claude-remote-control.js'
+import { REMOTE_CONTROL_LABEL, REMOTE_CONTROL_SET_CHANNEL, type RemoteControlState } from '../../../shared/claude-remote-control.js'
+import { OnTheComputer } from './OnTheComputer.js'
 import { policyFeatureRefusal, policyUnmeteredRefusal } from '../../../shared/organization-policy.js'
 import { ManagedPolicyNote, useOrganizationPolicy } from '../organizationPolicy.js'
 
@@ -21,12 +22,13 @@ export function RemoteControlSetting() {
     const timer = setInterval(() => { void read() }, 1000)
     return () => { alive = false; clearInterval(timer) }
   }, [])
-  return <RemoteControlView state={state} busy={busy} error={error} onToggle={async (enabled) => {
+  // Claude Code runs on the computer, so its switch is turned there (0.849).
+  return <OnTheComputer channel={REMOTE_CONTROL_SET_CHANNEL}><RemoteControlView state={state} busy={busy} error={error} onToggle={async (enabled) => {
     setBusy(true); setError(undefined)
     try { setState(await window.desktop?.setRemoteControl(enabled)) }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { setBusy(false) }
-  }} />
+  }} /></OnTheComputer>
 }
 
 /**

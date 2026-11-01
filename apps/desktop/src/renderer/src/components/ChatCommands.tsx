@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
-import type { ListedCommand } from '../../../shared/own-commands.js'
+import { OWN_COMMAND_OPEN, type ListedCommand } from '../../../shared/own-commands.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
 
 /** Settings > Chat: the commands on this computer and in this folder, and where their files are. */
 export function ChatCommands(): ReactElement {
   const [commands, setCommands] = useState<readonly ListedCommand[]>([])
   const [note, setNote] = useState<string>()
+  // The folder opens in the computer's file manager (0.849).
+  const openStays = onTheComputer(OWN_COMMAND_OPEN)
   useEffect(() => {
     let gone = false
     void window.desktop?.ownCommands?.list({}).then((answer) => {
@@ -16,7 +19,7 @@ export function ChatCommands(): ReactElement {
   const open = (which: 'global' | 'project'): void => {
     void window.desktop?.ownCommands?.openFolder(which, {}).then((answer) => {
       if (answer !== undefined && !answer.ok) setNote(answer.message)
-    }).catch(() => setNote('That folder could not be opened. Your commands are where they were.'))
+    }).catch((error: unknown) => setNote(failureSaid(error, 'That folder could not be opened. Your commands are where they were.')))
   }
   const global = commands.filter((command) => command.source === 'global')
   const project = commands.filter((command) => command.source === 'project')
@@ -41,14 +44,14 @@ export function ChatCommands(): ReactElement {
             <span className="lc-commandlist__where">On this computer</span>
             {rows(global, 'None yet. Add a Markdown file to the folder.')}
           </div>
-          <button type="button" className="lc-button" aria-label="Open your commands folder" onClick={() => open('global')}>Open folder</button>
+          <button type="button" className="lc-button" aria-label="Open your commands folder" disabled={openStays !== undefined} {...(openStays === undefined ? {} : { title: openStays })} onClick={() => open('global')}>Open folder</button>
         </div>
         <div className="lc-settingrow">
           <div className="lc-settingline__text">
             <span className="lc-commandlist__where">This folder</span>
             {rows(project, 'None in this folder yet.')}
           </div>
-          <button type="button" className="lc-button" aria-label="Open this folder's commands" onClick={() => open('project')}>Open folder</button>
+          <button type="button" className="lc-button" aria-label="Open this folder's commands" disabled={openStays !== undefined} {...(openStays === undefined ? {} : { title: openStays })} onClick={() => open('project')}>Open folder</button>
         </div>
       </div>
       {note !== undefined && <p className="lc-settings__note">{note}</p>}

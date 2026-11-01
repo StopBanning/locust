@@ -115,6 +115,20 @@ import { SkillsFromGitHub } from './SkillsFromGitHub.js'
 import { routineAwaitsReview } from '../../../shared/routine-recovery.js'
 import { SavedApprovalRules } from './SavedApprovalRules.js'
 import { windowKeys } from '../keyboardShortcuts.js'
+import { OnTheComputer, OnTheComputerOnly } from './OnTheComputer.js'
+import { onTheComputer } from '../onTheComputer.js'
+import {
+  APP_UPDATE_INSTALL_CHANNEL, APP_UPDATE_LANE_CHANNEL, DIAGNOSTICS_REVEAL_CHANNEL, FEEDBACK_CHANNEL, KEEP_RUNNING_SET_CHANNEL, RUNTIME_INSTALL_CHANNEL, RUNTIME_UPDATES_SET_CHANNEL,
+  OWN_MODEL_ADD_CHANNEL, OWN_MODEL_TEST_CHANNEL, WORKSPACE_CHOOSE_CHANNEL, WORKTREE_REMOVE_CHANNEL, APPROVAL_RULES_REMOVE_CHANNEL, APPROVAL_RULES_REMOVE_ALL_CHANNEL,
+  LOGIN_ITEM_SET_CHANNEL, MISSION_PRUNE_CHANNEL, MISSION_TRASH_EMPTY_CHANNEL, PROFILE_BACKUP_CHANNEL, PROFILE_RESTORE_CHANNEL,
+  STAY_AWAKE_SET_CHANNEL, WORKSPACE_SETTINGS_WRITE_CHANNEL
+} from '../../../shared/ipc.js'
+import { DISCORD_SETTINGS_CHANNEL } from '../../../shared/discord.js'
+import { LOCUST_MCP_SET } from '../../../shared/locust-mcp.js'
+import { ACCOUNT_STATUS_CHANNEL, PHONE_SETTINGS_CHANNEL } from '../../../shared/phone.js'
+import { ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../../../shared/acp-agents.js'
+import { CONNECTOR_ADD_CHANNEL, CONNECTOR_REMOVE_CHANNEL } from '../../../shared/connector-add.js'
+import { GITHUB_INSTALL_CHANNEL, GITHUB_SIGN_IN_CHANNEL } from '../../../shared/github-account.js'
 
 export type Screen = 'workroom' | 'missions' | 'teammates' | 'settings' | 'rooms' | 'memory' | 'automations' | 'board' | 'benchmarks'
 
@@ -978,6 +992,7 @@ function TrashControl({
   readonly onRestore: (missionId: string) => Promise<TrashMutationResponse>
   readonly onEmpty: () => Promise<TrashMutationResponse>
 }): ReactElement {
+  const emptyStays = onTheComputer(MISSION_TRASH_EMPTY_CHANNEL)
   const [held, setHeld] = useState<readonly PublicTrashedMission[] | undefined>(undefined)
   const [armed, setArmed] = useState(false)
   const [message, setMessage] = useState<string | undefined>(undefined)
@@ -1047,9 +1062,11 @@ function TrashControl({
               </li>
             ))}
           </ul>
-          <button type="button" className="lc-button lc-button--danger" onClick={empty}>
+          {/* Restore works from a browser; emptying the trash for good is done on the computer (0.849). */}
+          <button type="button" className="lc-button lc-button--danger" disabled={emptyStays !== undefined} {...(emptyStays === undefined ? {} : { title: emptyStays })} onClick={empty}>
             {armed ? `Delete ${String(count)} for good?` : 'Empty the trash'}
           </button>
+          {emptyStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{emptyStays}</p>}
         </>
       )}
       {message !== undefined && <p className="lc-settings__note">{message}</p>}
@@ -1268,6 +1285,8 @@ function UpdateControl({
   readonly onCheck: () => Promise<AppUpdateResponse>
   readonly onInstall: () => Promise<AppUpdateResponse>
 }): ReactElement {
+  // Checking works from a browser; installing restarts Locust on the computer, so it is done there (0.849).
+  const installStays = onTheComputer(APP_UPDATE_INSTALL_CHANNEL)
   const [busy, setBusy] = useState(false)
   const [refusal, setRefusal] = useState<string>()
   const [installing, setInstalling] = useState(false)
@@ -1334,7 +1353,8 @@ function UpdateControl({
           <button
             type="button"
             className="lc-button"
-            disabled={busy}
+            disabled={busy || installStays !== undefined}
+            {...(installStays === undefined ? {} : { title: installStays })}
             onClick={() => {
               setBusy(true)
               setRefusal(undefined)
@@ -1352,6 +1372,7 @@ function UpdateControl({
           </button>
         )}
       </div>
+      {phase === 'ready' && installStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{installStays}</p>}
       {refusal !== undefined && <span className="lc-settings__note lc-tone-red">{refusal}</span>}
     </div>
   )
@@ -1907,6 +1928,9 @@ export function SettingsScreen({
   readonly onPreviewProfileRestore: (folder: string) => Promise<ProfileRestorePreview>
   readonly onRestoreProfile: (folder: string) => Promise<ProfileRestoreResponse>
 }): ReactElement {
+  // In a browser, AI agents are installed, signed in to and updated on the computer (0.849): said once on their page.
+  const agentsStay = onTheComputer(RUNTIME_INSTALL_CHANNEL)
+  const folderStays = onTheComputer(WORKSPACE_CHOOSE_CHANNEL)
   const [page, setPage] = useState<SettingsPageId>(initialPage ?? 'app')
   const policy = useOrganizationPolicy()
   const autoManaged = !policyModeAllowed(policy, 'auto')
@@ -2109,11 +2133,14 @@ export function SettingsScreen({
               type="button"
               className="lc-button"
               onClick={onChooseFolder}
-              title={workspacePath === undefined ? 'Choose the folder your teammates work in' : 'Choose another folder. Locust reopens in it.'}
+              // The folder is picked in the computer's own file dialog (0.849).
+              disabled={folderStays !== undefined}
+              title={folderStays ?? (workspacePath === undefined ? 'Choose the folder your teammates work in' : 'Choose another folder. Locust reopens in it.')}
             >
               {workspacePath === undefined ? 'Choose folder' : 'Change'}
             </button>
           </div>
+          {folderStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{folderStays}</p>}
           {/*
             * Said in front of the button, not behind a fold.
             *
@@ -2139,12 +2166,14 @@ export function SettingsScreen({
             </div>
           )}
           {workspacePath !== undefined && onCheckCommandSave !== undefined && (
+            <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
             <CheckAfterEditsRow
               saved={checkCommand ?? ''}
               onSave={onCheckCommandSave}
               {...(checkFixTries === undefined ? {} : { fixTries: checkFixTries })}
               {...(onCheckFixTriesChange === undefined ? {} : { onFixTriesChange: onCheckFixTriesChange })}
             />
+            </OnTheComputer>
           )}
           {workspacePath !== undefined && worktrees !== undefined && (
             <div className="lc-policyrow lc-policyrow--stack">
@@ -2159,7 +2188,7 @@ export function SettingsScreen({
               {worktrees.list.length > 0 && (
                 <div className="lc-worktreelist">
                   {worktrees.list.map((tree) => (
-                    <WorktreeRow key={tree.teammateId} tree={tree} onRemove={onRemoveWorktree} />
+                    <OnTheComputer key={tree.teammateId} channel={WORKTREE_REMOVE_CHANNEL}><WorktreeRow tree={tree} onRemove={onRemoveWorktree} /></OnTheComputer>
                   ))}
                 </div>
               )}
@@ -2202,6 +2231,7 @@ export function SettingsScreen({
               their unfinished work stays in their own conversation either way.
             </p>
           </More>
+          <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
           <div className="lc-settingrows">
             <div className="lc-settingrow">
               <span className="lc-settings__note">
@@ -2286,6 +2316,7 @@ export function SettingsScreen({
               </div>
             </div>
           </div>
+          </OnTheComputer>
         </section>
         )}
 
@@ -2300,6 +2331,8 @@ export function SettingsScreen({
           <p className="lc-settings__lede">
             {`Each AI agent starts with this ${machineWords(startupPlatform()).computer}'s sign-in. Claude Code and Codex can also use accounts you add here.`}
           </p>
+          {/* Installing, signing in and updating each run on the computer: one note, and each button says it too (0.849). */}
+          {agentsStay !== undefined && <p className="lc-settings__note lc-oncomputer__said">{agentsStay}</p>}
           {/*
             Only when NOTHING is installed, which is what someone who has just
             installed Locust and nothing else is looking at. The list is
@@ -2437,7 +2470,7 @@ export function SettingsScreen({
                   {(status.tag === 'READY' || status.tag === 'ACTIVE') && runtime.auth === 'authenticated' && <SignInButton runtime={runtime.id} again />}
                   {/* A newer version is out: the download is the person's to start (0.303). */}
                   {offersUpdate(runtimeUpdates?.agents.find((agent) => agent.runtime === runtime.id)) && onUpdateAgent !== undefined && (
-                    <button type="button" className="lc-runtimecell__install" onClick={() => onUpdateAgent(runtime.id)}>
+                    <button type="button" className="lc-runtimecell__install" disabled={agentsStay !== undefined} {...(agentsStay === undefined ? {} : { title: agentsStay })} onClick={() => onUpdateAgent(runtime.id)}>
                       Update
                     </button>
                   )}
@@ -2446,13 +2479,13 @@ export function SettingsScreen({
                     <button
                       type="button"
                       className="lc-runtimecell__install"
-                      disabled={installing !== undefined || npmMissing === true}
+                      disabled={installing !== undefined || npmMissing === true || agentsStay !== undefined}
                       title={
-                        npmMissing === true
+                        agentsStay ?? (npmMissing === true
                           ? 'Node.js is not on this machine, and this installs through npm.'
                           : installing !== undefined && installing !== runtime.id
                             ? `Waiting for the ${installing} install to finish`
-                            : undefined
+                            : undefined)
                       }
                       onClick={() => onInstall(runtime.id)}
                     >
@@ -2488,6 +2521,7 @@ export function SettingsScreen({
             </div>
           )}
           {runtimeUpdates !== undefined && runtimeUpdates.heldHere !== true && onKeepAgentsCurrent !== undefined && (
+            <OnTheComputer channel={RUNTIME_UPDATES_SET_CHANNEL}>
             <div className="lc-settingrows">
               <div className="lc-settingrow">
                 <span className="lc-settings__note">{keepCurrentNote(runtimeUpdates.automatic)}</span>
@@ -2503,6 +2537,7 @@ export function SettingsScreen({
                 </button>
               </div>
             </div>
+            </OnTheComputer>
           )}
         </section>
         )}
@@ -2532,7 +2567,9 @@ export function SettingsScreen({
                 and changes no files.
               </p>
             </More>
-            <OwnModels onChanged={onOwnModelsChanged} />
+            <OnTheComputer channel={[OWN_MODEL_ADD_CHANNEL, OWN_MODEL_TEST_CHANNEL]}>
+              <OwnModels onChanged={onOwnModelsChanged} />
+            </OnTheComputer>
           </section>
         )}
         {/*
@@ -2588,7 +2625,9 @@ export function SettingsScreen({
                 logout in a terminal.
               </p>
             </More>
-            <GitHubAccount />
+            <OnTheComputer channel={[GITHUB_SIGN_IN_CHANNEL, GITHUB_INSTALL_CHANNEL]}>
+              <GitHubAccount />
+            </OnTheComputer>
           </section>
         )}
         {shownPage === 'connectors' && (
@@ -2656,10 +2695,12 @@ export function SettingsScreen({
                 agent&rsquo;s own command; OpenCode has none, so it says where its copy is kept.
               </p>
             </More>
-            <AddConnector
-              installed={runtimes.filter((runtime) => runtime.installed).map((runtime) => runtime.id).filter(isConnectorAgent)}
-              onChanged={() => setConnectorsRead((read) => read + 1)}
-            />
+            <OnTheComputer channel={[CONNECTOR_ADD_CHANNEL, CONNECTOR_REMOVE_CHANNEL]}>
+              <AddConnector
+                installed={runtimes.filter((runtime) => runtime.installed).map((runtime) => runtime.id).filter(isConnectorAgent)}
+                onChanged={() => setConnectorsRead((read) => read + 1)}
+              />
+            </OnTheComputer>
           </section>
         )}
         {shownPage === 'runtimes' && (
@@ -2684,6 +2725,7 @@ export function SettingsScreen({
                 ? `${carryOnChoices.find((choice) => choice.runtime === planRunsOut.runtime)?.label ?? planRunsOut.runtime} carries the work on by itself when another agent's plan runs out, or its provider fails before it does anything, told what was done.`
                 : `A run whose plan runs out, or whose provider fails before it does anything, stops where it is, and its card offers to carry the work on with ${carryOnChoices.find((choice) => choice.runtime === planRunsOut.runtime)?.label ?? planRunsOut.runtime}.`}
           </p>
+          <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
           <div className="lc-carryon" role="radiogroup" aria-label="Carry on with">
             <button
               type="button"
@@ -2736,6 +2778,7 @@ export function SettingsScreen({
               <span className="lc-switch__knob" />
             </button>
           </div>
+          </OnTheComputer>
           <More>
             <p>
               Wherever the work goes on, Locust carries it there with a summary of what was done and what
@@ -2791,12 +2834,15 @@ export function SettingsScreen({
               own, and runs the command directly, never through a shell.
             </p>
           </More>
-          <AcpAgentsSettings onChanged={() => onOwnModelsChanged?.()} />
+          <OnTheComputer channel={[ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL]}>
+            <AcpAgentsSettings onChanged={() => onOwnModelsChanged?.()} />
+          </OnTheComputer>
         </section>
         )}
 
         {shownPage === 'teammates' && (
         <section className="lc-settings__section lc-settings__section--line">
+          <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
           <div className="lc-settingline">
             <div className="lc-settingline__text">
               <h2 className="lc-settings__heading">Swarm</h2>
@@ -2817,6 +2863,7 @@ export function SettingsScreen({
               <span className="lc-switch__knob" />
             </button>
           </div>
+          </OnTheComputer>
           <More>
             <p>
               Swarm is a statement about every run rather than about one of them: while it is on, each
@@ -2834,6 +2881,7 @@ export function SettingsScreen({
         )}
         {shownPage === 'teammates' && (
         <section className="lc-settings__section lc-settings__section--line">
+          <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
           <div className="lc-settingline">
             <div className="lc-settingline__text">
               <h2 className="lc-settings__heading">Auto mode</h2>
@@ -2856,6 +2904,7 @@ export function SettingsScreen({
               <span className="lc-switch__knob" />
             </button>
           </div>
+          </OnTheComputer>
           <More>
             <p>
               Every other mode confines a run to the folder you chose for it, and a runtime that wants to
@@ -2917,6 +2966,7 @@ export function SettingsScreen({
         )}
         {shownPage === 'teammates' && (
         <section className="lc-settings__section lc-settings__section--line" data-setting="claude-skills">
+          <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
           <div className="lc-settingline">
             <div className="lc-settingline__text">
               <h2 className="lc-settings__heading">Your skills</h2>
@@ -2937,6 +2987,7 @@ export function SettingsScreen({
               <span className="lc-switch__knob" />
             </button>
           </div>
+          </OnTheComputer>
           <More>
             <p>
               A Claude Code teammate can use the skills in the folder's .claude/skills, the way Claude Code
@@ -2983,7 +3034,9 @@ export function SettingsScreen({
         {shownPage === 'teammates' && (
         <section className="lc-settings__section">
           <h2 className="lc-settings__heading">Saved approvals</h2>
-          <SavedApprovalRules />
+          <OnTheComputer channel={[APPROVAL_RULES_REMOVE_CHANNEL, APPROVAL_RULES_REMOVE_ALL_CHANNEL]}>
+            <SavedApprovalRules />
+          </OnTheComputer>
         </section>
         )}
         {shownPage === 'memory' && (
@@ -3417,17 +3470,28 @@ export function SettingsScreen({
         {shownPage === 'app' && (
         <section className="lc-settings__section lc-settings__section--line" data-setting="locust-mcp">
           <OrganizationPolicySettings heading={<h2 className="lc-settings__heading">Managed by your organization</h2>} />
-          <LocustMcpSettings heading={<h2 className="lc-settings__heading">Let your other AI apps use Locust</h2>} />
-          <RemoteMcpSettings stay={{ loginItem, keepRunning, ...(onLoginItemChange === undefined ? {} : { onLoginItemChange }), ...(onKeepRunningChange === undefined ? {} : { onKeepRunningChange }) }} />
+          {onTheComputer(LOCUST_MCP_SET) === undefined ? (
+            <>
+              <LocustMcpSettings heading={<h2 className="lc-settings__heading">Let your other AI apps use Locust</h2>} />
+              <RemoteMcpSettings stay={{ loginItem, keepRunning, ...(onLoginItemChange === undefined ? {} : { onLoginItemChange }), ...(onKeepRunningChange === undefined ? {} : { onKeepRunningChange }) }} />
+            </>
+          ) : (
+            <OnTheComputerOnly heading={<h2 className="lc-settings__heading">Let your other AI apps use Locust</h2>} lede="Claude and your other AI apps can ask your teammates and read their replies, on this computer or from anywhere." />
+          )}
         </section>
         )}
         {shownPage === 'app' && (
         <section className="lc-settings__section lc-settings__section--line" data-setting="your-account">
-          <YourAccountSettings heading={<h2 className="lc-settings__heading">Your account</h2>} />
+          {onTheComputer(ACCOUNT_STATUS_CHANNEL) === undefined
+            ? <YourAccountSettings heading={<h2 className="lc-settings__heading">Your account</h2>} />
+            : <OnTheComputerOnly heading={<h2 className="lc-settings__heading">Your account</h2>} lede="Sign in once, and your teammates, routines, memories and conversations follow you to any computer where you sign in." />}
         </section>
         )}
         {shownPage === 'app' && (
         <section className="lc-settings__section lc-settings__section--line" data-setting="phone">
+          {onTheComputer(PHONE_SETTINGS_CHANNEL) !== undefined ? (
+            <OnTheComputerOnly heading={<h2 className="lc-settings__heading">Your phone</h2>} lede="Check on your teammates from your phone or a browser, answer approval cards and send the next message." />
+          ) : (
           <PhoneSettings
             heading={<h2 className="lc-settings__heading">Your phone</h2>}
             more={
@@ -3442,10 +3506,14 @@ export function SettingsScreen({
               </More>
             }
           />
+          )}
         </section>
         )}
         {shownPage === 'app' && (
         <section className="lc-settings__section lc-settings__section--line" data-setting="chat-apps">
+          {onTheComputer(DISCORD_SETTINGS_CHANNEL) !== undefined ? (
+            <OnTheComputerOnly heading={<h2 className="lc-settings__heading">Chat apps</h2>} lede="Write to your teammates from Discord, Slack or Telegram, get their answers there, and answer their approval cards, while Locust is open on your computer." />
+          ) : (
           <ChatAppsSettings
             heading={<h2 className="lc-settings__heading">Chat apps</h2>}
             more={
@@ -3461,6 +3529,7 @@ export function SettingsScreen({
               </More>
             }
           />
+          )}
         </section>
         )}
         {shownPage === 'app' && (
@@ -3488,6 +3557,7 @@ export function SettingsScreen({
               ? 'Routines run while Locust is open. Logging in can open it.'
               : 'Routines run while Locust is open. Signing in can open it in the tray, with no window, until you ask for one.'}
           </p>
+          <OnTheComputer channel={[LOGIN_ITEM_SET_CHANNEL, KEEP_RUNNING_SET_CHANNEL, STAY_AWAKE_SET_CHANNEL]}>
           <div className="lc-settingrows">
             <div className="lc-settingrow">
               <span className="lc-settings__note">{`Start Locust when you ${machineWords(startupPlatform()).signIn}.`}</span>
@@ -3533,6 +3603,7 @@ export function SettingsScreen({
               </button>
             </div>
           </div>
+          </OnTheComputer>
           {stayAwake && (
             <p className="lc-settings__note">
               Only the sleep that comes when nobody uses it is held off, while Locust is open. The screen still turns off,
@@ -3581,6 +3652,7 @@ export function SettingsScreen({
             * says whether it is on.
             */}
           {onUpdateLane !== undefined && update !== undefined && update.phase !== 'unsupported' && (
+            <OnTheComputer channel={APP_UPDATE_LANE_CHANNEL}>
             <div className="lc-settingrows">
               <div className="lc-settingrow">
                 <span className="lc-settings__note">Beta builds</span>
@@ -3596,6 +3668,7 @@ export function SettingsScreen({
                 </button>
               </div>
             </div>
+            </OnTheComputer>
           )}
           <p className="lc-settings__note">
             This is {changelog?.version ?? 'this version'}. Every version, and what it changed, is in{' '}
@@ -3664,7 +3737,9 @@ export function SettingsScreen({
               when it is old.
             </p>
           </More>
-          <RetentionControl report={storage} onPreview={onPreviewPrune} onPrune={onPrune} />
+          <OnTheComputer channel={MISSION_PRUNE_CHANNEL}>
+            <RetentionControl report={storage} onPreview={onPreviewPrune} onPrune={onPrune} />
+          </OnTheComputer>
         </section>
         )}
         {shownPage === 'privacy' && (
@@ -3684,12 +3759,14 @@ export function SettingsScreen({
             A backup is a folder you choose, holding your teammates, routines, memories, saved approvals and
             conversations. Your own model keys are never in it.
           </p>
-          <BackupControl
-            onPick={onPickProfileFolder}
-            onBackUp={onBackUpProfile}
-            onPreview={onPreviewProfileRestore}
-            onRestore={onRestoreProfile}
-          />
+          <OnTheComputer channel={[PROFILE_BACKUP_CHANNEL, PROFILE_RESTORE_CHANNEL]}>
+            <BackupControl
+              onPick={onPickProfileFolder}
+              onBackUp={onBackUpProfile}
+              onPreview={onPreviewProfileRestore}
+              onRestore={onRestoreProfile}
+            />
+          </OnTheComputer>
         </section>
         )}
         {shownPage === 'app' && (
@@ -3698,7 +3775,9 @@ export function SettingsScreen({
           <p className="lc-settings__lede">
             If Locust crashes or behaves oddly, send feedback and say what happened. The log below helps.
           </p>
-          <ProblemReport />
+          <OnTheComputer channel={[FEEDBACK_CHANNEL, DIAGNOSTICS_REVEAL_CHANNEL]}>
+            <ProblemReport />
+          </OnTheComputer>
         </section>
         )}
         {shownPage === 'app' && (

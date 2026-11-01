@@ -8,6 +8,8 @@ import { MAX_ABOUT_YOU } from '../../../shared/about-you.js'
 import type { AboutYouSuggestion } from '../../../shared/about-you.js'
 import { TIDY_NUDGE_AT, readableReason } from '../../../shared/memory-tidy.js'
 import { Icon } from './Icon.js'
+import { OnTheComputer } from './OnTheComputer.js'
+import { MEMORY_CLEAR_CHANNEL } from '../../../shared/ipc.js'
 import { TeammateBot } from './TeammateBot.js'
 
 /**
@@ -538,6 +540,8 @@ export function MemoryScreen({
         {kept + proposed.length > 0 && (
           <section className="lc-settings__section">
             <h2 className="lc-settings__heading">Forget</h2>
+            {/* Forgetting them all at once is done on the computer (0.849); one memory at a time is forgotten anywhere. */}
+            <OnTheComputer channel={MEMORY_CLEAR_CHANNEL}>
             {confirmClear === undefined ? (
               <div className="lc-memoryform__row lc-memoryform__row--start">
                 <button type="button" className="lc-ghostbutton" onClick={() => setConfirmClear('workspace')}>
@@ -571,6 +575,7 @@ export function MemoryScreen({
                 </button>
               </div>
             )}
+            </OnTheComputer>
           </section>
         )}
       </div>

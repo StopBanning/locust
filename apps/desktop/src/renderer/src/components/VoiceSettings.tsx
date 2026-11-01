@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { isVoiceMode, type VoiceApi, type VoiceSettings as Settings, type VoiceSettingsChange } from '../../../shared/voice.js'
+import { isVoiceMode, VOICE_SETTINGS_SAVE, type VoiceApi, type VoiceSettings as Settings, type VoiceSettingsChange } from '../../../shared/voice.js'
+import { failureSaid } from '../onTheComputer.js'
+import { OnTheComputer } from './OnTheComputer.js'
 import { Select } from './Select.js'
 
 export function VoiceSettings({ api = typeof window === 'undefined' ? undefined : window.desktop?.voice, platform = typeof window === 'undefined' ? undefined : window.desktop?.platform }: { readonly api?: VoiceApi; readonly platform?: string }) {
@@ -23,13 +25,15 @@ export function VoiceSettings({ api = typeof window === 'undefined' ? undefined 
       const result = await api.saveSettings(change)
       if (result.ok) { setSettings(result.settings); setMessage(change.key === undefined ? '' : change.key ? 'API key saved on this computer.' : 'API key removed.') }
       else setMessage(result.message)
-    } catch { setMessage('Voice typing settings could not be saved. The previous choice is still in use.') }
+    } catch (error) { setMessage(failureSaid(error, 'Voice typing settings could not be saved. The previous choice is still in use.')) }
     finally { setKey(''); setBusy(false) }
   }
   return <div className="lc-voice-settings">
+    <OnTheComputer channel={VOICE_SETTINGS_SAVE}>
     <Select className="lc-control" aria-label="Voice typing model" disabled={!settings || busy} value={settings?.mode ?? 'fast'} onChange={(next) => { if (isVoiceMode(next)) void save({ mode: next }) }} options={[
-      { value: 'fast', label: `Fast — 41 MB${windowsOnly}` },
-      { value: 'accurate', label: `Accurate — 69 MB, slower${windowsOnly}` },
+      // Not offered where they cannot run (0.849): a Mac could pick Fast and type nothing.
+      { value: 'fast', label: `Fast — 41 MB${windowsOnly}`, disabled: windowsOnly !== '' },
+      { value: 'accurate', label: `Accurate — 69 MB, slower${windowsOnly}`, disabled: windowsOnly !== '' },
       { value: 'openai', label: 'Your OpenAI account' }
     ]} />
     {settings?.mode === 'openai' && <div>
@@ -38,6 +42,7 @@ export function VoiceSettings({ api = typeof window === 'undefined' ? undefined 
       <button type="button" className="lc-control lc-control--boxed" disabled={busy || !key.trim()} onClick={() => { void save({ key }) }}>Save key</button>
       {settings.hasKey && <button type="button" className="lc-control" disabled={busy} onClick={() => { void save({ key: '' }) }}>Remove key</button>}
     </div>}
+    </OnTheComputer>
     {message && <p className="lc-settings__note" role="status">{message}</p>}
   </div>
 }

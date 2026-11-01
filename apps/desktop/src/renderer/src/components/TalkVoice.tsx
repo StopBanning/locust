@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 
-import { CHATGPT_VOICES, isChatGptVoice, talkRunsOn, voiceName, type ChatGptVoice, type VoiceCallApi } from '../../../shared/voice-call.js'
+import { CHATGPT_VOICES, isChatGptVoice, talkRunsOn, voiceName, VOICE_CALL_PREVIEW, VOICE_CALL_SET_VOICE, type ChatGptVoice, type VoiceCallApi } from '../../../shared/voice-call.js'
+import { failureSaid } from '../onTheComputer.js'
+import { OnTheComputer } from './OnTheComputer.js'
 import { Select } from './Select.js'
 import { VoicePlay } from './VoicePlay.js'
 
@@ -26,7 +28,7 @@ export function TalkVoice({ api = typeof window === 'undefined' ? undefined : wi
       <p className="lc-settings__lede">The voice ChatGPT speaks in when you press Talk. The next call uses it; a call already on keeps its voice.</p>
       {message && <p className="lc-settings__note" role="status">{message}</p>}
     </div>
-    <span className="lc-voicepick"><Select
+    <OnTheComputer channel={[VOICE_CALL_SET_VOICE, VOICE_CALL_PREVIEW]}><span className="lc-voicepick"><Select
       className="lc-control"
       aria-label="Talk’s voice"
       disabled={voice === undefined}
@@ -34,11 +36,11 @@ export function TalkVoice({ api = typeof window === 'undefined' ? undefined : wi
       onChange={(next) => {
         if (!isChatGptVoice(next)) return
         setVoice(next)
-        void api.setVoice(next).then(setVoice).catch(() => { setMessage('That voice could not be kept. Try again.') })
+        void api.setVoice(next).then(setVoice).catch((error: unknown) => { setMessage(failureSaid(error, 'That voice could not be kept. Try again.')) })
       }}
       options={CHATGPT_VOICES.map((entry) => ({ value: entry.id, label: `${voiceName(entry.id)} — ${entry.about}` }))}
     />
     {/* Hear it before choosing it (0.751). */}
-    <VoicePlay voice={voice} api={api} /></span>
+    <VoicePlay voice={voice} api={api} /></span></OnTheComputer>
   </div></section>
 }

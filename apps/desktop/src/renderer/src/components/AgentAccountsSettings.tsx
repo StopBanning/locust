@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supportsAccounts, accountUsageKey, type AccountAction, type AgentAccount } from '../../../shared/agent-accounts.js'
+import { AGENT_ACCOUNTS_CHANNEL, supportsAccounts, accountUsageKey, type AccountAction, type AgentAccount } from '../../../shared/agent-accounts.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
 import { policyFeatureRefusal } from '../../../shared/organization-policy.js'
 import { accountAction, refreshAccounts, useAgentAccounts } from '../agentAccounts.js'
 import { windowWords } from '../machineWords.js'
@@ -26,7 +27,9 @@ function stateSentence(state: AgentAccount['state']): string {
 export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: string; readonly usage?: ReadonlyMap<string, string> }) {
   const accounts = useAgentAccounts()
   const policy = useOrganizationPolicy()
-  const blocked = policyFeatureRefusal(policy, 'accounts') !== undefined
+  // A browser reads the accounts but adds, signs in, renames and removes none of them (0.849, desk-calls.ts SOME).
+  const stays = onTheComputer(AGENT_ACCOUNTS_CHANNEL, [{ kind: 'add' }])
+  const blocked = policyFeatureRefusal(policy, 'accounts') !== undefined || stays !== undefined
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [editing, setEditing] = useState<string>()
@@ -44,7 +47,7 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
   const act = async (action: AccountAction) => {
     setBusy(true); setMessage(undefined)
     try { const answer = await accountAction(action); if (!answer.ok) setMessage(answer.message); return answer.ok }
-    catch { setMessage('The account could not be changed. Your other accounts are unchanged.'); return false }
+    catch (error) { setMessage(failureSaid(error, 'The account could not be changed. Your other accounts are unchanged.')); return false }
     finally { setBusy(false) }
   }
   return <div className="lc-agentaccounts" data-runtime={runtime} aria-label={`${runtime} accounts`}>
@@ -69,7 +72,7 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
             ? <button type="button" className="lc-button" disabled={busy} onClick={() => void act({ kind: 'cancel', id: a.id })}>Cancel sign-in</button>
             : <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => void act({ kind: 'login', id: a.id })}>{a.state === 'ready' ? 'Sign in again' : 'Sign in'}</button>}
           <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => { setEditing(a.id); setName(a.name) }}>Rename</button>
-          <button type="button" className="lc-button" disabled={busy || a.state === 'waiting'} onClick={() => setRemoving(a)}>Remove</button>
+          <button type="button" className="lc-button" disabled={busy || a.state === 'waiting' || stays !== undefined} onClick={() => setRemoving(a)}>Remove</button>
         </span>
         {usage?.get(accountUsageKey(runtime, a.id)) !== undefined && <div className="lc-agentaccounts__usage"><UsageMeters said={usage.get(accountUsageKey(runtime, a.id))!} /></div>}
       </>}
@@ -86,7 +89,7 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
       <Icon name="plus" size={13} />
       Add another account
     </button>}
-    {blocked && <ManagedPolicyNote />}
+    {stays !== undefined ? <p className="lc-settings__note lc-oncomputer__said">{stays}</p> : blocked && <ManagedPolicyNote />}
     {message !== undefined && <p className="lc-settings__note" role="alert">{message}</p>}
     {removing !== undefined && <div className="lc-agentaccounts__confirm" role="alertdialog" aria-label={`Remove ${removing.name}?`}>
       <strong>Remove {removing.name}?</strong>

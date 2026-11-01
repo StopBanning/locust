@@ -162,6 +162,7 @@ import {
   SPLASH_DONE_CHANNEL,
   WORKSPACE_SETTINGS_READ_CHANNEL,
   WORKSPACE_SETTINGS_WRITE_CHANNEL,
+  WORKSPACE_SETTINGS_CHANGE_CHANNEL,
   WORKSPACE_CHOOSE_CHANNEL,
   WORKSPACE_CONFIRM_CHANNEL,
   FOLDER_LIST_CHANNEL, FOLDER_RESTORE_LIST_CHANNEL, FOLDER_RESTORE_PICK_CHANNEL, FOLDER_RESTORE_APPLY_CHANNEL,
@@ -1107,6 +1108,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
     removeSkillLibrary: (source: string) => ipcRenderer.invoke(SKILL_LIBRARY_REMOVE_CHANNEL, source) as Promise<SkillLibraryListResponse>,
     writeWorkspaceSettings: (settings: WorkspaceSettings) =>
       ipcRenderer.invoke(WORKSPACE_SETTINGS_WRITE_CHANNEL, settings) as Promise<WorkspaceSettings>,
+    changeWorkspaceSettings: (change) => ipcRenderer.invoke(WORKSPACE_SETTINGS_CHANGE_CHANNEL, change) as Promise<WorkspaceSettings>,
     listApprovalRules: () => ipcRenderer.invoke(APPROVAL_RULES_LIST_CHANNEL) as Promise<ApprovalRulesResponse>,
     removeApprovalRule: (ruleId: string) => ipcRenderer.invoke(APPROVAL_RULES_REMOVE_CHANNEL, ruleId) as Promise<ApprovalRulesResponse>,
     removeAllApprovalRules: () => ipcRenderer.invoke(APPROVAL_RULES_REMOVE_ALL_CHANNEL) as Promise<ApprovalRulesResponse>,

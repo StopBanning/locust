@@ -435,6 +435,7 @@ import {
   WORKTREE_RESOLVE_CHANNEL,
   WORKSPACE_SETTINGS_READ_CHANNEL,
   WORKSPACE_SETTINGS_WRITE_CHANNEL,
+  WORKSPACE_SETTINGS_CHANGE_CHANNEL,
   CONNECTOR_LIST_CHANNEL,
   TEAMMATE_CONNECTORS_CHANNEL,
   TEAMMATE_OWN_BROWSER_CHANNEL,
@@ -591,6 +592,7 @@ import { COMMIT_DRAFT_CHANNEL, commitDraftPrompt, draftedCommitMessage, type Com
 import { WALKTHROUGH_CHANNEL, changedPaths, readWalkthrough, walkthroughPrompt, type WalkthroughResponse } from '../shared/walkthrough.js'
 import { createViewDiagramDrawer, diagramViewOn } from './diagram-view.js'
 import { createDeskHost, keepHandlers, type DeskHost } from './desk-host.js'
+import { settingsChangeKept } from './workspace-settings-change.js'
 import { DESK_COVER_QUERY, DESK_TAKE_BACK_CHANNEL, DESK_WHERE_CHANNEL, PHONE_DESK_CHANNEL } from '../shared/desk.js'
 import { keptDiagrams } from './diagrams.js'
 import { DIAGRAM_DRAW_CHANNEL } from '../shared/diagram.js'
@@ -7115,6 +7117,14 @@ if (!ownsSingleInstanceLock) {
           layout: 'auto'
         } as const))
       }
+    })
+
+    // The settings that grant nothing (0.849), from a browser or the window: only these keys of a change are kept,
+    // merged into the settings on disk, so a change that names Auto, reach, swarm or relay changes none of them.
+    ipcMain.handle(WORKSPACE_SETTINGS_CHANGE_CHANNEL, async (event, change: unknown) => {
+      if (!fromOwnWindow(event)) throw new Error('Not from Locust’s own window.')
+      const held = await teammates.readSettings()
+      return forThisFolder(await teammates.writeSettings({ ...held, ...settingsChangeKept(change) }))
     })
 
     const listTeammates = async () => {

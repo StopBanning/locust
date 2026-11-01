@@ -60,7 +60,8 @@ describe('the settings pages', () => {
   })
 
   it('index every heading the screen renders, and invent none', () => {
-    expect([...indexedHeadings()].sort()).toEqual([...renderedHeadings()].sort())
+    // One heading may be written on two branches (0.849): a section a browser draws in its place, and the section.
+    expect([...indexedHeadings()].sort()).toEqual([...new Set(renderedHeadings())].sort())
   })
 
   it('are the areas the screen actually splits on', () => {

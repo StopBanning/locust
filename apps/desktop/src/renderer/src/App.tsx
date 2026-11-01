@@ -1672,7 +1672,7 @@ export default function App(): ReactElement {
     const before = tube
     setTube(next)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube: next })
+      ?.changeWorkspaceSettings({ tube: next })
       .then((settings) => setTube(settings.tube))
       .catch(() => setTube(before))
   }
@@ -1693,7 +1693,7 @@ export default function App(): ReactElement {
     setMetalMotion(wanted.metalMotion)
     setMetalBend(wanted.metalBend)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, ...wanted })
+      ?.changeWorkspaceSettings({ ...wanted })
       .then((settings) => {
         setMetal(settings.metal ?? wanted.metal)
         setMetalStrength(settings.metalStrength ?? wanted.metalStrength)
@@ -1714,7 +1714,7 @@ export default function App(): ReactElement {
     const before = terminalFaces
     setTerminalFacesShown(next)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, terminalFaces: next })
+      ?.changeWorkspaceSettings({ terminalFaces: next })
       .then((settings) => setTerminalFacesShown(settings.terminalFaces !== false))
       .catch(() => setTerminalFacesShown(before))
   }
@@ -1723,7 +1723,7 @@ export default function App(): ReactElement {
     const before = plush
     setPlushShown(next)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, plush: next })
+      ?.changeWorkspaceSettings({ plush: next })
       .then((settings) => setPlushShown(settings.plush === true))
       .catch(() => setPlushShown(before))
   }
@@ -1777,8 +1777,7 @@ export default function App(): ReactElement {
     if (suggestion === undefined) return undefined
     const rest = aboutYouSuggestions.filter((entry) => entry.id !== id)
     try {
-      const settings = await bridge.writeWorkspaceSettings({
-        swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube,
+      const settings = await bridge.changeWorkspaceSettings({
         ...(add ? { aboutYou: withSuggestion(aboutYou, suggestion.text) } : {}),
         aboutYouSuggestions: rest
       })
@@ -1796,7 +1795,7 @@ export default function App(): ReactElement {
     const secret = secretIn(next)
     if (secret !== undefined) return aboutYouSecretRefusal(secret)
     try {
-      const settings = await bridge.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, aboutYou: next })
+      const settings = await bridge.changeWorkspaceSettings({ aboutYou: next })
       setAboutYou(settings.aboutYou ?? '')
       return undefined
     } catch {
@@ -1807,7 +1806,7 @@ export default function App(): ReactElement {
     const before = replySize
     setReplySize(next)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize: next, layout, tube })
+      ?.changeWorkspaceSettings({ replySize: next })
       .then((settings) => setReplySize(settings.replySize))
       .catch(() => setReplySize(before))
   }
@@ -1824,7 +1823,7 @@ export default function App(): ReactElement {
     const before = layout
     setLayout(next)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout: next, tube })
+      ?.changeWorkspaceSettings({ layout: next })
       .then((settings) => setLayout(isLayoutPreference(settings.layout) ? settings.layout : 'auto'))
       .catch(() => setLayout(before))
   }
@@ -4637,7 +4636,7 @@ export default function App(): ReactElement {
     const before = memoryMode
     setMemoryMode(next)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode: next, autoMode, askConnectors, keepATodoList, replySize, layout, tube })
+      ?.changeWorkspaceSettings({ memoryMode: next })
       .then((settings) => setMemoryMode(settings.memoryMode))
       .catch(() => setMemoryMode(before))
   }
@@ -9702,7 +9701,7 @@ export default function App(): ReactElement {
               onKeepATodoListChange={(next) => {
                 setKeepATodoList(next)
                 void window.desktop
-                  ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList: next, replySize, layout, tube })
+                  ?.changeWorkspaceSettings({ keepATodoList: next })
                   .then((settings) => setKeepATodoList(settings.keepATodoList === true))
                   .catch(() => setKeepATodoList(!next))
               }}

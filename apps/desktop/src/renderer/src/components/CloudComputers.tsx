@@ -3,6 +3,9 @@ import type { ReactElement } from 'react'
 
 import { CLOUD_AGENT_ACCOUNTS, CLOUD_AGENT_MAKERS, CLOUD_AGENT_NAMES, CLOUD_FREE_HOURS, CLOUD_MACHINE_WORDS, CLOUD_PRO_HOURS, CLOUD_USAGE_PAGE, cloudHoursWords, type CloudAgent, type CloudSignInStep, type CloudUse, type PublicCloudComputer } from '../../../shared/cloud-computer.js'
 import { agoLabel } from '../teammateWork.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
+import { OnTheComputer } from './OnTheComputer.js'
+import { CLOUD_COMPUTER_ALLOW_CHANNEL, CLOUD_COMPUTER_REMOVE_CHANNEL, CLOUD_COMPUTER_SIGN_IN_CHANNEL, CLOUD_COMPUTER_STOP_CHANNEL } from '../../../shared/ipc.js'
 import { Icon } from './Icon.js'
 import { policyCloudTerminalRefusal, policyFeatureRefusal } from '../../../shared/organization-policy.js'
 import { ManagedPolicyNote, useOrganizationPolicy } from '../organizationPolicy.js'
@@ -63,6 +66,10 @@ export function CloudComputers(): ReactElement {
   const [busy, setBusy] = useState<string>()
   const [confirming, setConfirming] = useState<string>()
   const [said, setSaid] = useState<string>()
+  // Check again's answer, said (0.849): GitHub saying no again looked like a button that did nothing.
+  const [checkedAgain, setCheckedAgain] = useState(false)
+  // Allowing it, signing the agents in and out, stopping and deleting run on the computer; listing works anywhere.
+  const allowStays = onTheComputer(CLOUD_COMPUTER_ALLOW_CHANNEL)
   /** The sign-in under way here, and its step as main says it. */
   const [signing, setSigning] = useState<{ readonly name: string; readonly agent: CloudAgent; readonly step: CloudSignInStep }>()
   useEffect(() => window.desktop?.onCodexMissionUpdate((update) => {
@@ -128,12 +135,29 @@ export function CloudComputers(): ReactElement {
     return (
       <div className="lc-cloudcomputers">
         <p className="lc-settings__note" role="alert">{listing.message}</p>
+        {checkedAgain && <p className="lc-settings__note" role="status">Checked just now.</p>}
         <div className="lc-cloudcomputers__actions">
           {listing.permission && (
-            <button type="button" className="lc-button" onClick={() => void window.desktop?.allowCloudComputers().catch(() => undefined)}>Allow it in GitHub</button>
+            <button
+              type="button"
+              className="lc-button"
+              disabled={allowStays !== undefined}
+              {...(allowStays === undefined ? {} : { title: allowStays })}
+              // Its failure is said (0.849): it was swallowed, so a press that did nothing said nothing.
+              onClick={() => {
+                setSaid(undefined)
+                void window.desktop?.allowCloudComputers()
+                  .then((answer) => { if (!answer.ok) setSaid(answer.message) })
+                  .catch((error: unknown) => setSaid(failureSaid(error, 'GitHub could not be asked from here. Try again in a moment.')))
+              }}
+            >
+              Allow it in GitHub
+            </button>
           )}
-          <button type="button" className="lc-button" disabled={managedMessage !== undefined} onClick={() => { setListing({ phase: 'loading' }); load() }}>Check again</button>
+          <button type="button" className="lc-button" disabled={managedMessage !== undefined} onClick={() => { setCheckedAgain(true); setListing({ phase: 'loading' }); load() }}>Check again</button>
         </div>
+        {listing.permission && allowStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{allowStays}</p>}
+        {said !== undefined && <p className="lc-cloudcomputers__said" role="alert">{said}</p>}
       </div>
     )
   }
@@ -148,6 +172,7 @@ export function CloudComputers(): ReactElement {
     <div className="lc-cloudcomputers">
       {listing.use !== undefined && <CloudHours use={listing.use} />}
       {said !== undefined && <p className="lc-cloudcomputers__said" role="alert">{said}</p>}
+      <OnTheComputer channel={[CLOUD_COMPUTER_SIGN_IN_CHANNEL, CLOUD_COMPUTER_STOP_CHANNEL, CLOUD_COMPUTER_REMOVE_CHANNEL]}>
       {listing.computers.map((computer) => {
         const name = computer.repo.split('/').pop() ?? computer.repo
         const used = computer.lastUsedAt === undefined ? undefined : agoLabel(computer.lastUsedAt)
@@ -223,6 +248,7 @@ export function CloudComputers(): ReactElement {
           </article>
         )
       })}
+      </OnTheComputer>
     </div>
   )
 }

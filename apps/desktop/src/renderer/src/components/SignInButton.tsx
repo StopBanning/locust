@@ -5,6 +5,8 @@ import { signInCommand, signInOpenedLine } from '../../../shared/runtime-install
 import { runtimeDisplayName } from '../../../shared/runtimes.js'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
 import { SIGN_IN_OPENED_EVENT } from '../signInEvents.js'
+import { onTheComputer } from '../onTheComputer.js'
+import { RUNTIME_SIGN_IN_CHANNEL } from '../../../shared/ipc.js'
 
 /** Runtimes whose sign-in command removes the current sign-in before it finishes (measured). */
 const SIGNS_OUT_AT_START: ReadonlySet<string> = new Set(['codex'])
@@ -47,6 +49,7 @@ export function SignInButton({ runtime, again = false }: { readonly runtime: str
     }
   }, [state, runtime])
   if (command === undefined) return null
+  const stays = onTheComputer(RUNTIME_SIGN_IN_CHANNEL)
   if (state === 'opened') {
     return <span className="lc-runtimecell__signin">{signInOpenedLine(runtime, again)}</span>
   }
@@ -100,8 +103,9 @@ export function SignInButton({ runtime, again = false }: { readonly runtime: str
     <button
       type="button"
       className={again ? 'lc-runtimecell__again' : 'lc-runtimecell__install'}
-      title={again ? `Opens a window that runs: ${command.replace(/^run /, '')}. Sign in there as this account or another; the agent uses whichever signed in last.` : `Opens a window that runs: ${command.replace(/^run /, '')}`}
-      disabled={state === 'opening'}
+      // The sign-in window opens on the computer, so a browser's button says so on it (0.849).
+      title={stays ?? (again ? `Opens a window that runs: ${command.replace(/^run /, '')}. Sign in there as this account or another; the agent uses whichever signed in last.` : `Opens a window that runs: ${command.replace(/^run /, '')}`)}
+      disabled={state === 'opening' || stays !== undefined}
       onClick={again ? () => setState('confirm') : open}
     >
       {again ? 'Sign in again' : 'Sign in'}
