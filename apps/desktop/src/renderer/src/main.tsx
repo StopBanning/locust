@@ -43,6 +43,15 @@ if (!isSplash) {
   })
 }
 
+/*
+ * A MAC'S WINDOW IS GLASS BEHIND THE PAGE (polish pass, 2026-11-01; main/window-chrome.ts): the sidebar and the title
+ * bar let it through, as Finder's and Notes' do, and every other pane paints its own ground (shell.css). Only in the
+ * Mac window itself: never the loading window, the cover a browser leaves on the computer, or Locust in a browser.
+ */
+if (!isSplash && !isElsewhere && window.desktop?.platform === 'darwin' && window.desktop.remote === undefined) {
+  document.documentElement.dataset.glass = 'mac'
+}
+
 // Behind other windows, nothing moves (0.611, windowPresence.ts): watched from the start, so the
 // stylesheet's hold works before any face is on screen. The loading window is never held.
 watchWindowPresence()

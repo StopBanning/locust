@@ -26,7 +26,7 @@ import type { SavedWindow } from './window-bounds.js'
 import { app, BrowserWindow, clipboard, crashReporter, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, powerSaveBlocker, protocol, safeStorage, screen, session, shell, Tray } from 'electron'
 import { createVoiceHost } from './voice-host.js'
 import { microphoneRunsOn, voicePermission } from './voice-permission.js'
-import { windowChrome } from './window-chrome.js'
+import { MAC_GLASS_GROUND, windowChrome } from './window-chrome.js'
 import { macMenuTemplate } from './mac-menu.js'
 import { VOICE_READY, VOICE_DOWNLOAD, VOICE_TRANSCRIBE, VOICE_CANCEL, VOICE_PROGRESS, VOICE_SETTINGS_READ, VOICE_SETTINGS_SAVE, VOICE_OPENAI_CONSENT } from '../shared/voice.js'
 import { TALK_SHORTCUT_PENDING, TALK_SHORTCUT_PRESSED, TALK_SHORTCUT_READ, TALK_SHORTCUT_SET, isTalkShortcut, type TalkShortcutPress } from '../shared/talk-shortcut.js'
@@ -1289,12 +1289,14 @@ const windowFile = (): string => join(app.getPath('userData'), 'window.json')
 const appearanceFile = (): string => join(app.getPath('userData'), 'appearance.json')
 let themeChoice: ThemeChoice = 'dark'
 const appearanceNow = (): AppearanceState => ({ theme: themeChoice, resolved: resolvedTheme(themeChoice, nativeTheme.shouldUseDarkColors) })
+/** A Mac's main window, glass behind its page (window-chrome.ts): its ground stays clear through a theme change. */
+const glassWindows = new WeakSet<BrowserWindow>()
 /** Every window is told, and repainted in the new ground, so none shows the old theme behind its page. */
 const broadcastAppearance = (): void => {
   const state = appearanceNow()
   for (const target of BrowserWindow.getAllWindows()) {
     if (target.isDestroyed()) continue
-    target.setBackgroundColor(windowGround(state.resolved))
+    if (!glassWindows.has(target)) target.setBackgroundColor(windowGround(state.resolved))
     target.webContents.send(APPEARANCE_CHANGED_CHANNEL, state)
   }
 }
@@ -1477,6 +1479,8 @@ const createWindow = (
     show: false,
     ...windowChrome(process.platform),
     backgroundColor: windowGround(appearanceNow().resolved),
+    // A Mac's window is glass behind the page (window-chrome.ts): its own ground is clear, so the glass shows.
+    ...(process.platform === 'darwin' ? { backgroundColor: MAC_GLASS_GROUND } : {}),
     // The Locust mark, rasterised by `_tools/render-icon.cjs`. Resolved from
     // the build output, which sits two levels below the app directory both in
     // dev and in the unpackaged build; a packaged build will carry its own
@@ -1524,6 +1528,7 @@ const createWindow = (
   })
 
   reportPreloadErrors(window, 'main')
+  if (process.platform === 'darwin') glassWindows.add(window)
   onWindow(window)
 
   window.once('ready-to-show', () => {

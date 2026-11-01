@@ -15,7 +15,8 @@ import { windowChrome } from './window-chrome.js'
 describe("the main window's frame", () => {
   it('on a Mac keeps its frame, with the title bar hidden and inset and the lights in its left column', () => {
     const mac = windowChrome('darwin')
-    expect(mac).toEqual({ titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 13 } })
+    // And glass behind the page, as Finder's sidebar is (a-macs-sidebar-is-glass.test.ts).
+    expect(mac).toEqual({ titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 13 }, vibrancy: 'sidebar', visualEffectState: 'followWindow' })
     expect('frame' in mac).toBe(false)
   })
 

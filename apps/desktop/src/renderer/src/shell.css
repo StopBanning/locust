@@ -25266,3 +25266,26 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-account__bring { align-items: flex-end; }
 /* A new computer's ask stands apart, below Sync now and Delete my copy, so Approve is never a slip away from either. */
 .lc-account__ask { margin-top: var(--lc-space-3); padding-top: var(--lc-space-3); border-top: 1px solid var(--lc-border-hairline); }
+
+/*
+ * A MAC'S SIDEBAR IS GLASS (polish pass, 2026-11-01). On a Mac the window is made with the sidebar material behind the
+ * page (main/window-chrome.ts), as Finder's, Notes' and Mail's are, and `data-glass` is set only in that window
+ * (main.tsx). The page lets the glass through the sidebar and the title bar under a light wash of its own ground, and
+ * paints every other pane of the body in the window's ground. That last rule weighs nothing (`:where`), so a panel
+ * that paints its own ground -- the terminal, the browser, a file -- keeps it; only a pane that painted none (the main
+ * column, which took the shell's) is given one. Last in the sheet, so it settles ties with the compact rail's rules.
+ */
+:root[data-glass='mac'] body,
+:root[data-glass='mac'] .lc-shell,
+:root[data-glass='mac'] .lc-body {
+  background: transparent;
+}
+
+:root[data-glass='mac'] .lc-titlebar,
+:root[data-glass='mac'] .lc-sidebar {
+  background: var(--lc-glass-tint);
+}
+
+:where(:root[data-glass='mac'] .lc-body > :not(.lc-sidebar, .lc-context)) {
+  background: var(--lc-bg-window);
+}

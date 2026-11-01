@@ -3,6 +3,7 @@
 //
 //   node _tools/polish-frames.mjs --out <folder outside the repo> [--usage <usage-carried.jsonl>]
 //        [--sizes 1440x900,1120x720,1920x1080] [--themes dark,light] [--scale 1] [--only home,usage,settings,dialogs,screens,thread]
+//        [--glass-check]
 //
 // Spends nothing: it opens screens and dialogs and closes them. `thread` writes a finished two-turn conversation with
 // Wren into the ledger before launch -- two commands, a reply with headings, a list, a table and code, and a follow-up
@@ -163,6 +164,9 @@ for (const theme of themes) {
     say(`${theme} ${String(width)}x${String(height)}`)
     await drive.resize(width, height, scale)
     await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}, true`)
+    // --glass-check: the Mac's glass page on any computer, magenta standing in for the glass, so a frame shows every
+    // place that lets it through -- which must be the sidebar and the title bar only.
+    if (process.argv.includes('--glass-check')) await evaluate(`document.documentElement.dataset.glass = 'mac', document.documentElement.style.background = '#ff00ff', true`)
     await key('1', { ctrl: true })
     await sleep(900)
 
