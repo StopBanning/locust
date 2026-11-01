@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.846.0 - 2026-11-01
+
+### Improved
+
+- **Home's starters fit your team.** A team without a coder, like Research & money or Write & design, no longer gets Debug an issue and Build a landing page. It gets a row for each teammate's own work, such as Research a question, Work out the numbers or Write a first draft, and Plan before making, each going to the teammate whose work it is. A team with a coder keeps its four.
+- **A free model that says nothing is offered another.** Free models sometimes take a message and then go quiet for hours, without an error. After two minutes with nothing back, the conversation says so and offers Stop and switch to another free model, with your message put back in the chat box to send there.
+
+### Fixed
+
+- **Ask mode's look at your changes misses nothing.** On OpenCode, in Ask and Plan, a teammate reading your changes could be told "No difference" about a file changed in the same second as your last commit, when the change kept the file's size. It now sees the change.
+
 ## 0.845.0 - 2026-11-01
 <!-- big -->
 
