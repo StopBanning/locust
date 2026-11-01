@@ -69,10 +69,12 @@ textarea {
   flex-shrink: 0;
 }
 
+/* The window's name, as a Mac titles a window: the folder's name in the reading face, a touch of weight, quiet (polish
+   pass, 2026-11-01). It was mono, and read as a path printed across the top of the window. */
 .lc-titlebar__title {
   grid-column: 2;
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-caption);
+  font-size: var(--lc-text-description);
+  font-weight: 600;
   color: var(--lc-text-muted);
   justify-self: center;
   white-space: nowrap;
