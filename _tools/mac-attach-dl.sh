@@ -53,7 +53,10 @@ echo "MAC: $(grep -c '\[PASS\]' "$LOG") checks PASS on macOS, $(grep -c '\[FAIL\
 # C:, not D: -- D: damages files at rest (memory d-drive-ntfs-corruption); these are deleted as soon as they are up.
 D=$SCRATCH/mac-$V
 rm -rf "$D"; mkdir -p "$D"
-gh run download "$RUN" -R "$PUB" -n locust-macos-14 -D "$D" || { echo "MAC: download failed"; exit 1; }
+# The image's name from the job's (0.848): "package (macos-15)" uploads locust-macos-15. It was written in as
+# macos-14, which GitHub retires on 2026-11-02, so the next image change needs no edit here.
+IMAGE=$(gh run view "$RUN" -R "$PUB" --json jobs -q "$MACJOB.name" | sed -E 's/.*\((macos[^)]*)\).*/\1/')
+gh run download "$RUN" -R "$PUB" -n "locust-$IMAGE" -D "$D" || { echo "MAC: download of locust-$IMAGE failed"; exit 1; }
 ARM="$D/Locust-$V-mac-arm64.dmg"; X64="$D/Locust-$V-mac-x64.dmg"
 [ -f "$ARM" ] && [ -f "$X64" ] || { echo "MAC: the images are not named for $V: $(ls "$D")"; exit 1; }
 # A disk image ends in its 512-byte "koly" trailer; a cut-off download does not.

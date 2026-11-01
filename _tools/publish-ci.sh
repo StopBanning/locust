@@ -63,4 +63,11 @@ if [ "$LOCUST_GITHUB_RELEASE" != 0 ]; then
 else
   echo "GitHub release page: skipped (LOCUST_GITHUB_RELEASE=0)"
 fi
+# What reached people, said as it is (0.848): this printed "RELEASED 0.848.0" and exited 0 with the Mac build cancelled
+# by GitHub and the Releases page refused for want of it. Windows is out by here; anything else missing is named.
+MISSING=""
+grep -q "MAC ATTACHED\|already has its Mac images" "$TEMP/mac-$NEW.out" || MISSING="$MISSING, Mac images"
+grep -q "LINUX ATTACHED\|already has its Linux packages" "$TEMP/linux-$NEW.out" || MISSING="$MISSING, Linux packages"
+if [ "$LOCUST_GITHUB_RELEASE" != 0 ]; then grep -q "RELEASED $NEW on" "$TEMP/github-$NEW.out" || MISSING="$MISSING, the GitHub Releases page"; fi
+[ -z "$MISSING" ] || { echo "NOT ALL RELEASED: $NEW is out for Windows, without${MISSING#,}"; exit 1; }
 echo "RELEASED $NEW"

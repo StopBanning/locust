@@ -52,7 +52,9 @@ jobs:
       # Linux check that fails must not cancel the Mac build, nor the other way round.
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.only == 'linux' && '["ubuntu-24.04"]' || '["windows-latest", "macos-14", "ubuntu-24.04"]') }}
+        # macos-15, not macos-14 (0.848): GitHub retires the macOS 14 images on 2026-11-02, and their last brownout
+        # cancelled 0.848's Mac build (actions/runner-images#13518). mac-attach-dl.sh reads the image from the job name.
+        os: ${{ fromJSON(inputs.only == 'linux' && '["ubuntu-24.04"]' || '["windows-latest", "macos-15", "ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:

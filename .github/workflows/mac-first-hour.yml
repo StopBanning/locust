@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: The ci.yml run whose locust-macos-14 images to use
+        description: The ci.yml run whose locust-macos-15 images to use
         required: true
 
 permissions:
@@ -18,13 +18,13 @@ permissions:
 
 jobs:
   first-hour:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: locust-macos-14
+          name: locust-macos-15
           run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
           path: images
