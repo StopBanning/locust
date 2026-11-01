@@ -13,7 +13,7 @@
 // told (git-guard.ts: core.fsmonitor off; plain diffs, no external diff program and no textconv filter).
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { copyFile, rm } from 'node:fs/promises'
+import { copyFile, rm, stat, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
@@ -202,7 +202,13 @@ async function indexCopy(env) {
   if (found.error) return undefined
   const copy = join(tmpdir(), `locust-git-index-${randomUUID()}`)
   try {
-    await copyFile(resolve(FOLDER, String(found.stdout).trim()), copy)
+    const index = resolve(FOLDER, String(found.stdout).trim())
+    await copyFile(index, copy)
+    // The copy keeps the index's own times. Git checks the contents of a file changed in the same second as the index
+    // was written ("racy git"); a copy dated a second later made git trust that entry's times instead, and a change of
+    // the same size read as "No difference" (MEASURED 2026-11-01, Apple Git 2.54: 2 runs in 240 under load).
+    const { atime, mtime } = await stat(index)
+    await utimes(copy, atime, mtime)
     return copy
   } catch {
     return undefined

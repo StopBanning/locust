@@ -90,6 +90,36 @@ describe('Locust’s git tool, for a run with no shell', () => {
     expect((await tool.call('diff', { staged: true })).text).toBe('No difference.')
   })
 
+  /*
+   * RACY GIT (MEASURED 2026-11-01: 2 runs in 240 under load). A diff reads a copy of the index. Git compares a file's
+   * times with its entry to whole seconds, and when they match it checks the contents only if the entry is no older
+   * than the index file itself. A copy dated a second later made git trust a changed entry, and a change of the same
+   * size read as "No difference". Forced here: the entry, the changed file and the index all carry one time.
+   */
+  it('sees a change of the same size made in the same second as the index was written', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'locust-git-racy-'))
+    roots.push(root)
+    git(root, 'init', '-q', 'project')
+    const folder = join(root, 'project')
+    git(folder, 'config', 'core.autocrlf', 'false')
+    // A file's change time cannot be set; in the measured race it fell in the same second too.
+    git(folder, 'config', 'core.trustctime', 'false')
+    const file = join(folder, 'calc.py')
+    const then = new Date('2026-01-01T12:00:00.000Z')
+    await writeFile(file, 'def add(a, b):\n    return a + b\n')
+    // Dated before the commit, so git keeps the entry's times as they are rather than marking it for a content check.
+    await utimes(file, then, then)
+    git(folder, 'add', 'calc.py')
+    git(folder, 'commit', '-q', '-m', 'add calc')
+    await writeFile(file, 'def add(a, b):\n    return a - b\n')
+    await utimes(file, then, then)
+    await utimes(join(folder, '.git', 'index'), then, then)
+    // The index itself makes git look: the change is there.
+    expect(git(folder, 'diff', '--stat')).toContain('1 file changed')
+    const diff = await start(folder).call('diff')
+    expect(diff.text).toContain('+    return a - b')
+  })
+
   it('takes no option, no path outside the folder, and nothing it does not name', async () => {
     const { root, folder } = await repository()
     const tool = start(folder)
