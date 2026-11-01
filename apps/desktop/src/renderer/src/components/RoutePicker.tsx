@@ -581,7 +581,7 @@ export function RoutePicker({
           {/* A shortcut row carries neither detail nor tag: the
             * canonical row below owns those, so ACTIVE appears exactly
             * once on screen. */}
-          {showDetail && <span className="lc-picker__detail lc-mono">{spoken}</span>}
+          {showDetail && <span className="lc-picker__detail">{spoken}</span>}
         </span>
         {recent ? (
           pointsAt === undefined ? null : (

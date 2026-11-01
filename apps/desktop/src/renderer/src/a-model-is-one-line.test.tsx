@@ -59,7 +59,8 @@ const draw = (models: readonly PublicModel[]): string =>
 /** The visible detail line of the row whose label is `label`. */
 const detailOf = (html: string, label: string): string => {
   const row = html.slice(html.indexOf(`>${label}<`))
-  return /class="lc-picker__detail lc-mono">([^<]*)</.exec(row)?.[1] ?? ''
+  // The line is in the reading face since the polish pass (2026-11-01): words about the model, not machine output.
+  return /class="lc-picker__detail">([^<]*)</.exec(row)?.[1] ?? ''
 }
 
 describe('a model is one line in the picker', () => {

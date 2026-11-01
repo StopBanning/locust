@@ -2,7 +2,7 @@
 // design pass (Colin, 2026-11-01: "its like youve never put eyes on the app ... world class apple quality").
 //
 //   node _tools/polish-frames.mjs --out <folder outside the repo> [--usage <usage-carried.jsonl>]
-//        [--sizes 1440x900,1120x720,1920x1080] [--themes dark,light] [--scale 1] [--only home,usage,settings,dialogs,screens,thread]
+//        [--sizes 1440x900,1120x720,1920x1080] [--themes dark,light] [--scale 1] [--only home,usage,settings,dialogs,screens,thread,menus]
 //        [--glass-check]
 //
 // Spends nothing: it opens screens and dialogs and closes them. `thread` writes a finished two-turn conversation with
@@ -193,6 +193,25 @@ for (const theme of themes) {
       await shot('thread')
       await evaluate(`document.querySelector('.lc-thread')?.scrollTo(0, 0), true`)
       await shot('thread-top')
+    }
+
+    // The chat box's menus, on the open conversation: the model, the permission mode, the chat mode, the + menu.
+    if (want('menus')) {
+      await evaluate(openTeammateScript('Wren'))
+      await sleep(900)
+      for (const [name, selector] of [
+        ['menu-model', '.command-dock .lc-control[aria-haspopup="listbox"]'],
+        ['menu-permission', '.command-dock [aria-label^="Permission"]'],
+        ['menu-chatmode', '.command-dock .lc-control--chatmode'],
+        ['menu-plus', '.command-dock .lc-plusmenu__main']
+      ]) {
+        if (await click(`document.querySelector(${JSON.stringify(selector)})`)) {
+          await sleep(700)
+          await shot(name)
+          await escape()
+          await sleep(300)
+        } else say(`  no ${name} control`)
+      }
     }
 
     if (want('usage')) {

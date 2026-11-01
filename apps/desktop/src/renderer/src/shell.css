@@ -14020,8 +14020,15 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   z-index: 5;
 }
 
+/* As the palette's (polish pass, 2026-11-01): the search is focused whenever the picker is open, so its edge only
+   brightens a step, and the box wears no ring of its own -- tokens.css's ring on every focused input drew a heavy
+   frame around it. */
 .lc-picker__head:focus-within {
-  border-bottom-color: var(--lc-focus-ring);
+  border-bottom-color: var(--lc-border-hover);
+}
+
+.lc-picker__input:focus-visible {
+  outline: none;
 }
 
 .lc-picker__head {
@@ -14143,12 +14150,12 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   padding: var(--lc-space-3);
 }
 
+/* A group of models is named as the palette names its sections: a short heading in the reading face, not stamped
+   capitals (polish pass, 2026-11-01). */
 .lc-picker__group {
-  padding: var(--lc-space-4) var(--lc-space-4) var(--lc-space-2);
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-label);
-  letter-spacing: var(--lc-tracking-label-wide);
-  text-transform: uppercase;
+  padding: var(--lc-space-5) var(--lc-space-4) var(--lc-space-2);
+  font-size: var(--lc-text-mono-caption);
+  font-weight: 600;
   color: var(--lc-text-muted);
 }
 
@@ -14279,7 +14286,7 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--lc-text-mono-caption);
+  font-size: var(--lc-text-description);
   color: var(--lc-text-muted);
 }
 
@@ -14290,9 +14297,8 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 
 .lc-picker__foot {
   padding: 10px var(--lc-space-5);
-  border-top: 1px solid var(--lc-border-card);
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-caption);
+  border-top: 1px solid var(--lc-border-hairline);
+  font-size: var(--lc-text-description);
   color: var(--lc-text-muted);
 }
 
@@ -16854,8 +16860,8 @@ textarea.lc-compare__judgecriteria {
 }
 
 .lc-picker__grouphint {
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-label);
+  font-weight: 400;
+  font-size: var(--lc-text-mono-caption);
   letter-spacing: 0;
   text-transform: none;
   color: var(--lc-text-muted);
