@@ -157,26 +157,32 @@ const pageScript = (label) => `(async () => {
 })()`
 
 /** Every window.desktop function, nested groups too, wrapped to note a refusal that says it works on the computer. */
-const listenScript = `(() => {
-  if (window.__refused !== undefined) return 'already'
-  window.__refused = []
+const listenScript = `(async () => {
   const SAYS = 'This works in Locust on your computer.'
-  const wrap = (holder, path, depth) => {
-    for (const key of Object.keys(holder)) {
-      const value = holder[key]
-      if (typeof value === 'function') {
-        try {
-          holder[key] = function (...args) {
-            const answer = value.apply(this, args)
-            if (answer && typeof answer.then === 'function') answer.then(undefined, (error) => { if (error?.message === SAYS) window.__refused.push(path + key) })
-            return answer
-          }
-        } catch { /* fixed */ }
-      } else if (value && typeof value === 'object' && depth < 3) wrap(value, path + key + '.', depth + 1)
+  if (window.__refused === undefined) {
+    window.__refused = []
+    const wrap = (holder, path, depth) => {
+      for (const key of Object.keys(holder)) {
+        const value = holder[key]
+        if (typeof value === 'function') {
+          try {
+            holder[key] = function (...args) {
+              const answer = value.apply(this, args)
+              if (answer && typeof answer.then === 'function') answer.then(undefined, (error) => { if (error?.message === SAYS) window.__refused.push(path + key) })
+              return answer
+            }
+          } catch { /* fixed */ }
+        } else if (value && typeof value === 'object' && depth < 3) wrap(value, path + key + '.', depth + 1)
+      }
     }
+    wrap(window.desktop, '', 0)
   }
-  wrap(window.desktop, '', 0)
-  return 'listening'
+  // Proven once (0.850, the PC chat's review): a call a browser is always refused, made here, must be noted. A
+  // window.desktop that could not be wrapped would otherwise let every press pass by noting nothing.
+  const before = window.__refused.length
+  await window.desktop.writeWorkspaceSettings({}).catch(() => undefined)
+  await new Promise((r) => setTimeout(r, 50))
+  return window.__refused.slice(before).includes('writeWorkspaceSettings') ? 'listening' : 'not listening'
 })()`
 /** Each pressable control on the page, pressed in turn: which ones made a call a browser is refused. */
 const pressScript = `(async () => {
