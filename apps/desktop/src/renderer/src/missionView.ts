@@ -4382,10 +4382,14 @@ export function buildThread(
         // saying so, while OpenCode waited out the provider (drive-busy-model,
         // packaged 0.368).
         const spoken = events.some((event) => event.type !== 'run.started' && event.type !== 'adapter.diagnostic')
+        // Nor is it still starting once the provider has answered and OpenCode is trying again (0.847): 0.846's first
+        // hour on a bare Mac read "Setting up OpenCode for its first start, about a minute and a half" at four minutes,
+        // under the note that said so. The line says what is happening.
+        const retrying = !spoken && events.some((event) => event.type === 'adapter.diagnostic' && RETRYING_NOTE.test(event.payload.code))
         items.push({
           key: 'live-step',
           type: 'live-step',
-          label: spoken ? 'Working' : (options.startingLabel ?? 'Starting'),
+          label: spoken ? 'Working' : retrying ? 'Trying the model again' : (options.startingLabel ?? 'Starting'),
           register: spoken ? ('working' as const) : ('starting' as const),
           ...(spoken && planAction !== undefined ? { action: planAction } : {}),
           detail: planAside,

@@ -1490,10 +1490,11 @@ describe('runtime notices in the thread', () => {
     } as unknown as NormalizedRuntimeEvent
     const items = buildThread([retrying], { running: true })
     expect(items.some((item) => item.type === 'diagnostic' && /trying again on its own/.test(item.message))).toBe(true)
-    // And the line under it still says Starting: the provider refusing is not
+    // And the line under it never says Working: the provider refusing is not
     // the run working (drive-busy-model, packaged 0.368, read "Working...").
+    // Since 0.847 it says what is happening instead of Starting.
     const started = { ...retrying, id: 'd9', sequence: 0, type: 'run.started', payload: {} } as unknown as NormalizedRuntimeEvent
-    expect(buildThread([started, retrying], { running: true, startedAt: at }).find((item) => item.type === 'live-step')).toMatchObject({ label: 'Starting' })
+    expect(buildThread([started, retrying], { running: true, startedAt: at }).find((item) => item.type === 'live-step')).toMatchObject({ label: 'Trying the model again', register: 'starting' })
   })
 
   it('shows a notice raised while the work was under way', () => {
@@ -3360,6 +3361,21 @@ describe('the live line while nothing has arrived (0.602)', () => {
     expect(withPhase?.type === 'live-step' ? withPhase.label : undefined).toBe('Reading the folder')
     const plain = buildThread([], { running: true, startedAt: '2026-10-04T20:00:00.000Z' }).find((item) => item.type === 'live-step')
     expect(plain?.type === 'live-step' ? plain.label : undefined).toBe('Starting')
+  })
+
+  // 0.846's first hour on a bare Mac: the first start's estimate at four minutes, under the note that OpenCode was
+  // trying the model again.
+  it('says the model is being tried again once its provider has answered busy, not the start it is past', () => {
+    const label = (events: readonly NormalizedRuntimeEvent[]): string | undefined => {
+      const line = buildThread(events, { running: true, startedAt: '2026-11-01T05:00:00.000Z', startingLabel: 'Setting up OpenCode for its first start, about a minute and a half' }).find((item) => item.type === 'live-step')
+      return line?.type === 'live-step' ? line.label : undefined
+    }
+    const busy = event('adapter.diagnostic', { level: 'warning', code: 'opencode.provider_busy.runtime_error', message: 'The model’s provider answered "Free usage exceeded"', terminal: false })
+    expect(label([event('run.started', {}), busy])).toBe('Trying the model again')
+    expect(label([event('run.started', {})])).toBe('Setting up OpenCode for its first start, about a minute and a half')
+    expect(label([event('run.started', {}), event('adapter.diagnostic', { level: 'info', code: 'opencode.starting', message: 'Starting', terminal: false })])).toBe('Setting up OpenCode for its first start, about a minute and a half')
+    // Its first words: the line reads as the model writing, as for any run.
+    expect(label([event('run.started', {}), busy, delta('m1', 'Hello', 'append')])).toBe('Writing')
   })
 })
 
