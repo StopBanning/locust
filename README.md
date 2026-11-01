@@ -62,7 +62,7 @@ whichever agent it runs on.
 Open **Settings › Teammates › Skills from GitHub**. The shelf has the
 most-starred packs (Matt Pocock's skills, Superpowers, Anthropic's skills,
 Impeccable, Claude-Mem) and a **New this week** row of the packs climbing
-fastest right now (tstack, Unslop, Beautiful Rust, Build Any Mac App). Or paste
+fastest right now (Unslop, tstack, pixelfx, Dimensional Drawing). Or paste
 any public repository. Locust lists every skill and names every file in it
 that runs before anything is kept, and keeps the exact commit you looked at.
 
