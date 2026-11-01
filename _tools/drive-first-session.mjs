@@ -171,6 +171,32 @@ try {
     }
     return 'no notes in time'
   })()`))
+  // A free model whose provider is busy (C9), or that has said nothing for two minutes (0.846), is met as a person
+  // meets it: its Stop and switch, then Send, up to twice. 2026-11-01: this connection's Deepseek allowance was spent,
+  // and the run sat on "Free usage exceeded" to its end with nothing written.
+  for (let switched = 0; switched < 2; switched += 1) {
+    const offer = await drive.evaluate(`(async () => {
+      for (let i = 0; i < 300; i += 1) {
+        const button = [...document.querySelectorAll('button')].find((b) => /^Stop and switch to /.test(b.innerText.trim()))
+        const running = document.querySelector('button[aria-label^="Stop the running"]') !== null
+        if (button && running) { const words = button.innerText.trim(); button.click(); return words }
+        if (!running && i > 10) return ''
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      return ''
+    })()`)
+    if (offer === '') break
+    await sleep(1500)
+    await drive.capture(`${String(offer)}, then Send`, () => drive.evaluate(`(async () => {
+      const box = document.querySelector('form.command-dock textarea')
+      for (let i = 0; i < 120; i += 1) {
+        await new Promise((r) => setTimeout(r, 250))
+        const send = document.querySelector('button[aria-label="Send"]')
+        if (send && !send.disabled && box && box.value.length > 0) { const words = box.value.slice(0, 80); send.click(); return 'sent: ' + words }
+      }
+      return 'Send never enabled'
+    })()`))
+  }
   const quiet = await drive.capture('the whole team, once quiet', () => drive.evaluate(quietScript(480)))
   // A teammate that ends by asking reads "waiting on you": stopped, not busy (0.695 sweep: the wait outlived
   // the evaluate, and `quiet` came back undefined).
@@ -200,13 +226,21 @@ try {
   const rootOverflow = await drive.evaluate(`JSON.stringify({ y: Math.round(document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight), x: Math.round(document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth), top: document.scrollingElement.scrollTop })`)
   say(`root overflow in a conversation: ${rootOverflow}`)
   verdicts.push(`the window root does not scroll: ${/"y":0,"x":0/.test(rootOverflow) ? 'PASS' : 'FAIL'} (${rootOverflow})`)
-  // A new document shows in the conversation as the page it is (0.363).
+  // A new document shows in the conversation as the page it is (0.363), once its row is open. The steps fold and its
+  // file rows start closed now (the 0.845 walkthrough found no preview), so this opens them as a person does.
   await drive.capture('the document it wrote, in the conversation', () => drive.evaluate(`(async () => {
-    const preview = document.querySelector('.lc-docpreview')
+    let preview = document.querySelector('.lc-docpreview')
+    if (!preview) {
+      for (const fold of document.querySelectorAll('.lc-steps__line[aria-expanded="false"], .lc-activity[aria-expanded="false"]')) fold.click()
+      await new Promise((r) => setTimeout(r, 400))
+      ;[...document.querySelectorAll('.lc-filerow[aria-expanded="false"]')].find((row) => /\\.(md|txt|html?)$/i.test(row.querySelector('.lc-filerow__name')?.textContent.trim() ?? ''))?.click()
+      await new Promise((r) => setTimeout(r, 600))
+      preview = document.querySelector('.lc-docpreview')
+    }
     if (!preview) return 'no document preview'
     // The thread's own scroller only: scrollIntoView moves every scrollable
     // ancestor, the window's root included.
-    const card = preview.closest('.lc-card')
+    const card = preview.closest('.lc-card, .lc-steps')
     let scroller = card?.parentElement
     while (scroller && scroller !== document.body && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
     if (card && scroller && scroller !== document.body) scroller.scrollTop += card.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12

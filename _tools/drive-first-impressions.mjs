@@ -114,7 +114,7 @@ const openCodeRun = (session) => {
 const seedOpenCode = async (missionId, prompt, at, build) => {
   await ledger.createMission({
     missionId, runId: `run_${missionId}`, prompt,
-    runtime: 'opencode', model: 'opencode/ling-3.0-flash-fin-free', requestedRouteId: 'opencode', resolvedRouteId: 'opencode-account:default', cliVersion: '1.18.27',
+    runtime: 'opencode', model: 'opencode/nemotron-3.5-lightning-free', requestedRouteId: 'opencode', resolvedRouteId: 'opencode-account:default', cliVersion: '1.18.27',
     workspaceId, sandbox: 'workspace-write', mode: 'accept-edits', executionPolicyVersion: 1, createdAt: at
   })
   const run = openCodeRun(missionId.replace(/[^a-z]/g, ''))
@@ -197,8 +197,8 @@ const drive = await startDrive({
     schemaVersion: 1,
     teammates: [
       { teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: T0, route: { runtime: 'codex', model: 'account-default', mode: 'accept-edits' } },
-      { teammateId: 'tm_penny', name: 'Penny', hue: 'butter', role: 'Custom', roleTitle: 'Money', createdAt: T0, route: { runtime: 'opencode', model: 'opencode/ling-3.0-flash-fin-free', mode: 'ask' } },
-      { teammateId: 'tm_iris', name: 'Iris', hue: 'rose', role: 'Custom', roleTitle: 'Design', createdAt: T0, route: { runtime: 'opencode', model: 'opencode/ling-3.0-flash-fin-free', mode: 'accept-edits' } }
+      { teammateId: 'tm_penny', name: 'Penny', hue: 'butter', role: 'Custom', roleTitle: 'Money', createdAt: T0, route: { runtime: 'opencode', model: 'opencode/nemotron-3.5-lightning-free', mode: 'ask' } },
+      { teammateId: 'tm_iris', name: 'Iris', hue: 'rose', role: 'Custom', roleTitle: 'Design', createdAt: T0, route: { runtime: 'opencode', model: 'opencode/nemotron-3.5-lightning-free', mode: 'accept-edits' } }
     ],
     missionOwners: { mission_wren: 'tm_wren', mission_penny: 'tm_penny', mission_iris: 'tm_iris' },
     settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'on' }
@@ -271,9 +271,10 @@ try {
   await drive.capture('1440 Memory (Ctrl 5)', () => screen('5'))
   // The surfaces the first pass never photographed (0.354): the Routines
   // screen, a conversation's Activity panel, the teammate dialog, the
-  // command palette, and New teammate from Home.
+  // command palette, and New teammate from Home. By its words or, for an icon (the conversation's Activity is one now),
+  // by its label.
   const press = (label) => drive.evaluate(`(async () => {
-    const button = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(label)})
+    const button = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(label)} || b.getAttribute('aria-label') === ${JSON.stringify(label)})
     if (!button) return 'no ' + ${JSON.stringify(label)} + ' button'
     button.click()
     await new Promise((r) => setTimeout(r, 1100))
