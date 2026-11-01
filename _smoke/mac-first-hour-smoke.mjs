@@ -346,7 +346,8 @@ try {
   timing.answered = answered
   timing.total = Math.round((Date.now() - launchedAt) / 1000)
   const model = String(await evaluate(onTheBox))
-  console.log(`   answered on ${model}${switches.length === 0 ? '' : ` after ${switches.join(', ')}`}`)
+  // Said either way, on one line (0.848): it read "answered on GLM 5.3 Flash" over a run still waiting on a busy provider.
+  console.log(`   ${answered === undefined ? 'no answer yet' : 'answered'} on ${model.replace(/\s+/g, ' ').trim()}${switches.length === 0 ? '' : ` after ${switches.join(', ')}`}`)
   check('the free model answered', answered !== undefined, JSON.stringify(timing))
   check('from a bare Mac to a first answer in under five minutes', answered !== undefined && timing.total < 300, JSON.stringify(timing))
   await picture('3-answered')
