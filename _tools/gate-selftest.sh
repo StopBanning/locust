@@ -19,7 +19,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(mktemp -d)"
 trap 'rm -rf "$ROOT"' EXIT
 FAKE="$ROOT/repo"
-mkdir -p "$FAKE/_tools" "$FAKE/packages/runtime-adapters" "$FAKE/packages/mission-store" "$FAKE/apps/desktop" "$ROOT/bin" "$ROOT/state" "$ROOT/scratch"
+mkdir -p "$FAKE/_tools" "$FAKE/packages/runtime-adapters" "$FAKE/packages/mission-store" "$FAKE/packages/cli" "$FAKE/apps/desktop" "$ROOT/bin" "$ROOT/state" "$ROOT/scratch"
 cp "$HERE/gate.sh" "$HERE/gate-support.mjs" "$FAKE/_tools/"
 echo "process.exit(0)" > "$FAKE/_tools/vendor-recall.mjs"
 
@@ -88,11 +88,11 @@ AssertionError: expected 3 to be 4 // Object.is equality
 # desktop suite failing on timeouts, then passing when run again.
 cat > "$ROOT/bin/npx" <<'PRETEND'
 #!/usr/bin/env bash
-if [ "$1" = "tsc" ]; then exit 0; fi
+if [ "$1" = "tsc" ] || [ "$1" = "electron-vite" ]; then exit 0; fi
 shift # vitest
 shift # run
 suite="$(basename "$PWD")"
-case "$suite" in desktop) key=d ;; mission-store) key=m ;; *) key=a ;; esac
+case "$suite" in desktop) key=d ;; mission-store) key=m ;; cli) key=c ;; *) key=a ;; esac
 n=$(( $(cat "$FAKE_STATE/$key" 2>/dev/null || echo 0) + 1 ))
 echo "$n" > "$FAKE_STATE/$key"
 echo "$* " >> "$FAKE_STATE/$key.args"
@@ -143,7 +143,7 @@ run() {
 }
 
 run "green: desktop runs once, no retry" "" 0 1 "GATE PASSED" "Tests  12 passed (12)"
-check "green: the three suites' own Tests lines, as before" "$(grep -c 'Tests  12 passed (12)' "$ROOT/last.out")" "3"
+check "green: the four suites' own Tests lines, as before" "$(grep -c 'Tests  12 passed (12)' "$ROOT/last.out")" "4"
 check "green: vitest is asked for its default reporter, and for no particular file" "$(asked d 1)" "--reporter=default "
 run "timeouts only, then green: retried once, says so, exits 0" "d1=timeouts d2=green" 0 2 \
   "GATE: desktop failed ONLY by timing out; running 2 file(s) once more" "GATE:   src/main/slow.test.ts" "GATE:   src/main/other.test.ts" \
@@ -154,6 +154,12 @@ run "an assertion: never retried, red, exit 1, the reason is in the log" "d1=ass
   "GATE: not retried:" "[assertion] src/main/wrong.test.ts > a sum > adds -- AssertionError: expected 3 to be 4" "GATE: desktop FAILED"
 run "a timeout beside an assertion: never retried" "d1=mixed" 1 1 "GATE: not retried:" "[timeout] src/main/slow.test.ts" "[assertion] src/main/wrong.test.ts" "GATE: desktop FAILED"
 run "a red package suite: stops there, desktop never runs" "a1=assertion" 1 0 "GATE: adapters FAILED" "[assertion] src/main/wrong.test.ts"
+
+# A helper that answers "retry" and names no file: the whole suite is not run again, and the gate is red.
+cp "$FAKE/_tools/gate-support.mjs" "$ROOT/gate-support.real"
+echo "process.exit(0)" > "$FAKE/_tools/gate-support.mjs"
+run "a retry that names no file: red, the suite not run again" "d1=assertion" 1 1 "GATE: desktop FAILED"
+cp "$ROOT/gate-support.real" "$FAKE/_tools/gate-support.mjs"
 
 # A machine that is not quiet: a decoy process with "vitest" on its command line.
 node -e 'setTimeout(function () {}, 60000)' vitest-decoy &

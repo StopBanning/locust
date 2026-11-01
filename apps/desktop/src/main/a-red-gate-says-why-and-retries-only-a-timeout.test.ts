@@ -35,11 +35,14 @@ interface GateSupport {
   MIN_FREE_BYTES: number
   retryDecision(text: string): { retry: boolean; files: string[]; reason: string }
   failureReport(suite: string, text: string, logPath: string, digestOnly?: boolean): string[]
+  processesFromPs(output: string, now?: number): Row[]
+  probePosix(): { freeVirtualBytes?: number | undefined; processes: Row[] }
   otherWork(processes: Row[], repository: string, ownPid: number): { vitest: Row[]; builders: Row[]; locusts: Row[] }
   assess(input: { probe: { freeVirtualBytes?: number | undefined; freePhysicalBytes?: number | undefined; processes: Row[] }; repository: string; ownPid: number; scratch: string; entries?: number | undefined; platformName: string }): {
     lines: string[]
     refusals: string[]
     roots: Row[]
+    stops: string[]
   }
 }
 const support = (await import(new URL('../../../../_tools/gate-support.mjs', import.meta.url).href)) as GateSupport
@@ -255,9 +258,46 @@ describe('whether the machine is quiet', () => {
   })
 
   it('refuses while another vitest is running, and offers the root of its tree to stop, not a worker', () => {
-    const { refusals, roots } = reading(8 * 1024 ** 3, table)
+    const { refusals, roots, stops } = reading(8 * 1024 ** 3, table)
     expect(refusals).toEqual(['another vitest is running, and two suites at once is how timeouts happen'])
     expect(roots.map((found) => found.pid)).toEqual([500])
+    expect(stops).toEqual(['taskkill /PID 500 /T /F'])
+  })
+
+  it('says how to stop it in a Mac\'s own words, where there is no taskkill', () => {
+    const { stops } = support.assess({ probe: { freeVirtualBytes: undefined, processes: table }, repository: REPO, ownPid: 400, scratch: '/scratch', entries: 1200, platformName: 'darwin' })
+    expect(stops).toEqual(['pkill -P 500; kill 500'])
+  })
+
+  // macOS's ps knows no `etimes`, and refusing that one column made the whole probe fail, so the Mac's gate never
+  // looked for another vitest (2026-10-31). `etime` is [[dd-]hh:]mm:ss on both systems.
+  it('reads a Mac\'s process table, how long each has run included, and finds another vitest in it', () => {
+    const now = Date.parse('2026-10-31T22:00:00.000Z')
+    const vitest = '/Users/a/work/other/node_modules/.pnpm/vitest@4.1.11/node_modules/vitest'
+    const rows = support.processesFromPs(
+      [
+        '    1     0 01-22:18:27 /sbin/launchd',
+        `  900     1    1:02:03 /opt/homebrew/opt/node@24/bin/node ${vitest}/vitest.mjs run`,
+        `  901   900       00:05 /opt/homebrew/opt/node@24/bin/node ${vitest}/dist/workers/forks.js`,
+        '  902     1  not-a-time /usr/bin/odd',
+        ''
+      ].join('\n'),
+      now
+    )
+    expect(rows.map((found) => [found.pid, found.ppid, found.name, found.started])).toEqual([
+      [1, 0, 'launchd', '2026-10-29T23:41:33.000Z'],
+      [900, 1, 'node', '2026-10-31T20:57:57.000Z'],
+      [901, 900, 'node', '2026-10-31T21:59:55.000Z'],
+      [902, 1, 'odd', null]
+    ])
+    expect(rows[1]?.cmd).toBe(`/opt/homebrew/opt/node@24/bin/node ${vitest}/vitest.mjs run`)
+    expect(support.otherWork(rows, '/Users/a/work/locust', 400).vitest.map((found) => found.pid)).toEqual([900, 901])
+  })
+
+  it.runIf(process.platform !== 'win32')('reads this machine\'s own process table, this test among it', () => {
+    const own = support.probePosix().processes.find((found) => found.pid === process.pid)
+    expect(own?.started).toEqual(expect.any(String))
+    expect(Date.parse(own?.started ?? '')).toBeLessThanOrEqual(Date.now())
   })
 
   it('says both reasons when there are two', () => {

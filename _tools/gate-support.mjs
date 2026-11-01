@@ -28,7 +28,7 @@
 // out" nowhere in it. The default report is the one place the reason is.
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { platform } from 'node:os'
 import { resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -190,13 +190,28 @@ function probeWindows() {
   }
 }
 
-function probePosix() {
-  const output = execFileSync('ps', ['-eo', 'pid=,ppid=,etimes=,args='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30_000 })
-  const processes = output
+// How long a process has run, as `ps -o etime` writes it: [[dd-]hh:]mm:ss on Linux and macOS alike. The column used
+// to be `etimes` (plain seconds), which only Linux's ps knows: macOS's refused the whole probe, so on the Mac the gate
+// said "could not read the machine's state" and never checked for another vitest (2026-10-31).
+const ELAPSED = /^(?:(?:(\d+)-)?(\d+):)?(\d+):(\d+)$/
+
+/** The rows of `ps -eo pid=,ppid=,etime=,args=`, each one's start worked back from how long it has run. */
+export function processesFromPs(output, now = Date.now()) {
+  return output
     .split('\n')
-    .map((line) => /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(line))
+    .map((line) => /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line))
     .filter((found) => found !== null)
-    .map(([, pid, ppid, age, cmd]) => ({ pid: Number(pid), ppid: Number(ppid), name: cmd.split(' ')[0].split('/').pop(), path: cmd.split(' ')[0], cmd, started: new Date(Date.now() - Number(age) * 1000).toISOString() }))
+    .map(([, pid, ppid, elapsed, cmd]) => {
+      const parts = ELAPSED.exec(elapsed)
+      const seconds = parts === null ? undefined : ((Number(parts[1] ?? 0) * 24 + Number(parts[2] ?? 0)) * 60 + Number(parts[3])) * 60 + Number(parts[4])
+      const started = seconds === undefined ? null : new Date(now - seconds * 1000).toISOString()
+      return { pid: Number(pid), ppid: Number(ppid), name: cmd.split(' ')[0].split('/').pop(), path: cmd.split(' ')[0], cmd, started }
+    })
+}
+
+export function probePosix() {
+  const output = execFileSync('ps', ['-eo', 'pid=,ppid=,etime=,args='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30_000 })
+  const processes = processesFromPs(output)
   let freeVirtualBytes
   try {
     const meminfo = readFileSync('/proc/meminfo', 'utf8')
@@ -293,7 +308,9 @@ export function assess({ probe, repository, ownPid, scratch, entries, platformNa
   if (work.vitest.length > 0) refusals.push('another vitest is running, and two suites at once is how timeouts happen')
   // Kill a whole tree from its root: a worker's pid would leave its parent running.
   const roots = work.vitest.filter((row) => !work.vitest.some((other) => other.pid === row.ppid))
-  return { lines, refusals, roots }
+  // How to stop one, in this system's own words: taskkill takes the tree; elsewhere the workers are the root's children.
+  const stops = roots.slice(0, 3).map((row) => (platformName === 'win32' ? `taskkill /PID ${String(row.pid)} /T /F` : `pkill -P ${String(row.pid)}; kill ${String(row.pid)}`))
+  return { lines, refusals, roots, stops }
 }
 
 export function quiet(repository, scratch, log = console.log) {
@@ -311,11 +328,11 @@ export function quiet(repository, scratch, log = console.log) {
   } catch {
     // Said as "could not be read" in the lines.
   }
-  const { lines, refusals, roots } = assess({ probe, repository, ownPid: process.pid, scratch, entries, platformName: platform() })
+  const { lines, refusals, stops } = assess({ probe, repository, ownPid: process.pid, scratch, entries, platformName: platform() })
   for (const line of lines) say(line)
   if (refusals.length > 0) {
     log(`GATE REFUSED: ${refusals.join('; ')}. Nothing was run. Wait for the other work to finish and run the gate again (exit ${String(REFUSED)}).`)
-    if (roots.length > 0) log(`GATE REFUSED: if one of those is yours and stuck: ${roots.slice(0, 3).map((row) => `taskkill /PID ${String(row.pid)} /T /F`).join('   ')}`)
+    if (stops.length > 0) log(`GATE REFUSED: if one of those is yours and stuck: ${stops.join('   ')}`)
     return REFUSED
   }
   say('quiet enough; going ahead')
@@ -356,6 +373,10 @@ function main(argv) {
   return 2
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+// Run as a program, not imported by a test. Compared by real path: on a Mac the temp folder is /var/folders/..., a link
+// to /private/var/folders/... where import.meta.url points, and the plain path never matched, so from such a folder
+// every command exited 0 having said nothing -- the quiet check passed unasked, and an empty retry list reran the
+// whole suite after an assertion failure (2026-10-31, the self-test).
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
   process.exitCode = main(process.argv.slice(2))
 }

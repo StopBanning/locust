@@ -74,7 +74,9 @@ suite ms "$W/packages/mission-store" || red ms mission-store
 suite cli "$W/packages/cli" || red cli cli
 RETRIED=
 if ! suite d "$W/apps/desktop"; then
-  if again="$(node "$SUPPORT" retry-files "$LOGS/d.log")"; then
+  # A retry that names no file is red: run with no file, vitest runs the whole suite, and a second green would hide
+  # the first run's assertion (2026-10-31: the helper had exited 0 unasked, from a folder reached through a link).
+  if again="$(node "$SUPPORT" retry-files "$LOGS/d.log")" && [ -n "$again" ]; then
     files=()
     while IFS= read -r file; do files+=("$file"); done <<< "$again"
     # Green or not, what timed out is kept in the log: a flake that passed on
