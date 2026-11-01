@@ -4,6 +4,7 @@ import type { CSSProperties, ReactElement, ReactNode } from 'react'
 import type { AvatarSpec } from '../../../shared/avatar.js'
 import type { TeammateHue } from '../../../shared/ipc.js'
 import type { TeamCardState } from '../homeTeamState.js'
+import { freeTagOf } from '../routeName.js'
 import { Icon } from './Icon.js'
 import { RuntimeMark } from './RuntimeMark.js'
 import { TeammateBot } from './TeammateBot.js'
@@ -103,6 +104,7 @@ export function HomeTeam({
           // While they work or wait, the line under the name says what on (0.610); otherwise it is the role.
           const doing = mate.state !== undefined && mate.state.tone !== 'red' ? mate.doing : undefined
           const watching = watch !== undefined && watch.teammateId === mate.teammateId ? watch : undefined
+          const model = mate.runtime !== undefined && mate.model !== undefined ? freeTagOf(mate.model) : undefined
           const card = (
           <button
             type="button"
@@ -150,12 +152,21 @@ export function HomeTeam({
               {/* No fixed model: no line. A line saying so sat on every such card and told nobody anything (declutter, 0.723). */}
               {/* A model OpenCode dropped reads amber, and its hover says what to do (0.819). */}
               {mate.route !== undefined && (
-                <span className={`lc-hometeam__route${mate.dropped === true ? ' is-dropped' : ''}`}
+                <span className={`lc-hometeam__route${mate.dropped === true ? ' is-dropped' : ''}${model?.free === true ? ' has-free' : ''}`}
                   title={mate.dropped === true ? `OpenCode no longer offers ${mate.model ?? mate.route}. Open ${mate.name} to switch.` : mate.route}>
-                  {mate.runtime !== undefined && mate.model !== undefined ? (
+                  {mate.runtime !== undefined && model !== undefined ? (
                     <>
                       <RuntimeMark runtime={mate.runtime} size={11} className="is-inline" />
-                      {mate.model}
+                      {/* A FREE MODEL KEEPS ITS TAG (0.848): two of three cards read "Nemotron 3.5 Lightning Fr...", the
+                          word that says it costs nothing cut. The name gives way and the tag stays, as on the chip. */}
+                      {model.free ? (
+                        <>
+                          <span className="lc-hometeam__model">{model.name}</span>
+                          <span className="lc-hometeam__free">Free</span>
+                        </>
+                      ) : (
+                        model.name
+                      )}
                     </>
                   ) : (
                     mate.route

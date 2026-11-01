@@ -36,9 +36,9 @@ describe('a free model OpenCode dropped', () => {
   it('reads amber on the teammate’s card, and its hover says what to do', () => {
     const pip = { teammateId: 'tm_pip', name: 'Pip', hue: 'violet' as const, avatar: seedAvatar('tm_pip'), role: 'Docs & QA', route: 'OpenCode · Longcat 2.5 Preview Free', model: 'Longcat 2.5 Preview Free', runtime: 'opencode' as const, working: false }
     const dropped = renderToStaticMarkup(<HomeTeam team={[{ ...pip, dropped: true }]} onMessage={() => undefined} />)
-    expect(dropped).toContain('class="lc-hometeam__route is-dropped" title="OpenCode no longer offers Longcat 2.5 Preview Free. Open Pip to switch."')
+    expect(dropped).toContain('class="lc-hometeam__route is-dropped has-free" title="OpenCode no longer offers Longcat 2.5 Preview Free. Open Pip to switch."')
     const listed = renderToStaticMarkup(<HomeTeam team={[pip]} onMessage={() => undefined} />)
-    expect(listed).toContain('class="lc-hometeam__route" title="OpenCode · Longcat 2.5 Preview Free"')
+    expect(listed).toContain('class="lc-hometeam__route has-free" title="OpenCode · Longcat 2.5 Preview Free"')
   })
 
   it('reads amber on the Team screen’s card too', () => {

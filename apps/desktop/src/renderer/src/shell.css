@@ -7468,6 +7468,30 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   color: var(--lc-text-muted);
 }
 
+/* A free model's line (0.848): the name gives way, the Free tag stays, as on the composer's chip. */
+.lc-hometeam__route.has-free {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.lc-hometeam__model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-hometeam__free {
+  flex: none;
+  margin-left: var(--lc-space-2);
+  padding: 0 4px;
+  border: 1px solid var(--lc-border-control);
+  border-radius: 4px;
+  font-size: var(--lc-text-mono-caption);
+  line-height: 14px;
+}
+
 /* A free model OpenCode no longer lists (0.819): the card says so before anyone sends, on Home and on Team. */
 .lc-hometeam__route.is-dropped,
 .lc-rostercard__model.is-dropped {

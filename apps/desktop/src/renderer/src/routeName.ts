@@ -354,5 +354,8 @@ export function homeRouteOf(
   const effort = routeEffortOf(route, models)
   const level = effort === undefined ? undefined : splitEffort(effort)
   const withLevel = level === undefined ? name : `${name} · ${effortName(level.base)}${level.fast ? ' · Fast' : ''}`
-  return { route: routeChrome(route.runtime, route.model, withLevel, ' · '), model: name, ...(isOwnRoute(route.model) ? {} : { runtime: route.runtime }) }
+  // The account's own default, with no version known for it, is the runtime's name (0.848), as the chip and the
+  // Team screen say it: Home's card read "Account Default" beside Codex's mark, a model nobody runs by that name.
+  const model = route.model === ACCOUNT_DEFAULT_ID && sameName(name) === 'account default' ? shortRuntimeName(route.runtime) : name
+  return { route: routeChrome(route.runtime, route.model, withLevel, ' · '), model, ...(isOwnRoute(route.model) ? {} : { runtime: route.runtime }) }
 }
