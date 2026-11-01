@@ -261,6 +261,7 @@ import { kiloStartModel } from '../../shared/kilo-models.js'
 import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effortAfterRouteChange, routeAfterKeep, effortIsInModelId, modelFamily, listedAsMission, modeFacts, modeRunsOn, modesFor, modeUnavailableReason, ownerToSelect, facePresenceFor, keepWhatWasKnown, runtimeOfTeammate, runtimeIsUsable, runtimeReach, teammateStatusView, startRoute, freeStartStillFree, freeStartModel, nextFreeModel, droppedFreeModel, integrationOf, ACCOUNT_DEFAULT_MODEL} from './status.js'
 import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName, shownRouteLabel } from './routeName.js'
 import { windowKeys } from './keyboardShortcuts.js'
+import { pathOnlyTitle } from './pathTitle.js'
 import { restoreNoticeLine } from './backupWords.js'
 import { FeedbackDialog } from './components/FeedbackDialog.js'
 import { conversationText } from './feedback.js'
@@ -789,7 +790,7 @@ function missionTitle(prompt: string): string {
    * The first line and the attachment split stay, because those are about
    * WHAT the title is rather than how long it may be.
    */
-  return trimmed
+  return pathOnlyTitle(trimmed) ?? trimmed
 }
 
 /** Discovery is asked again while a runtime is still CHECKING, and on focus after this gap. */

@@ -72,7 +72,8 @@ describe('the title is cut by the column, not before it', () => {
      */
     const body = APP.slice(APP.indexOf('function missionTitle'), APP.indexOf('function missionTitle') + 1400)
     expect(body).not.toContain('slice(0, 44)')
-    expect(body).toContain('return trimmed')
+    // Uncapped either way; a first line that is only a path is titled by its file (0.849, pathTitle.ts).
+    expect(body).toContain('return pathOnlyTitle(trimmed) ?? trimmed')
   })
 
   it('still takes the first line and drops the attachment preamble', () => {
