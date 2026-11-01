@@ -1,11 +1,18 @@
 import { useRef } from 'react'
 import type { ReactElement } from 'react'
 
-import { shortcutGroups } from '../keyboardShortcuts.js'
+import { keysOn, shortcutGroups } from '../keyboardShortcuts.js'
 import { useModal } from '../useModal.js'
 
 /** Every shortcut, grouped. Ctrl+/ opens it; Escape closes it. */
-export function KeyboardSheet({ onClose }: { readonly onClose: () => void }): ReactElement {
+export function KeyboardSheet({
+  onClose,
+  platform = typeof window === 'undefined' ? undefined : window.desktop?.platform
+}: {
+  readonly onClose: () => void
+  /** Whose keys to name: a Mac says Cmd and Option (keysOn). */
+  readonly platform?: string
+}): ReactElement {
   const box = useRef<HTMLDivElement>(null)
   useModal(box, onClose)
   return (
@@ -23,7 +30,7 @@ export function KeyboardSheet({ onClose }: { readonly onClose: () => void }): Re
                 {group.rows.map((row) => (
                   <li key={`${group.name}:${row.keys}:${row.does}`}>
                     <span>{row.does}</span>
-                    <kbd>{row.keys}</kbd>
+                    <kbd>{keysOn(row.keys, platform, row.controlOnMac === true)}</kbd>
                   </li>
                 ))}
               </ul>

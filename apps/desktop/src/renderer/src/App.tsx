@@ -260,6 +260,7 @@ import type { SettledEntry } from './settled.js'
 import { kiloStartModel } from '../../shared/kilo-models.js'
 import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effortAfterRouteChange, routeAfterKeep, effortIsInModelId, modelFamily, listedAsMission, modeFacts, modeRunsOn, modesFor, modeUnavailableReason, ownerToSelect, facePresenceFor, keepWhatWasKnown, runtimeOfTeammate, runtimeIsUsable, runtimeReach, teammateStatusView, startRoute, freeStartStillFree, freeStartModel, nextFreeModel, droppedFreeModel, integrationOf, ACCOUNT_DEFAULT_MODEL} from './status.js'
 import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName, shownRouteLabel } from './routeName.js'
+import { windowKeys } from './keyboardShortcuts.js'
 import { restoreNoticeLine } from './backupWords.js'
 import { FeedbackDialog } from './components/FeedbackDialog.js'
 import { conversationText } from './feedback.js'
@@ -11326,7 +11327,7 @@ export default function App(): ReactElement {
                 id: 'keyboard-shortcuts',
                 group: 'This conversation',
                 label: 'Keyboard shortcuts',
-                hint: 'Ctrl+/',
+                hint: windowKeys('Ctrl+/'),
                 run: () => setShortcutsOpen(true)
               },
               {
@@ -11349,19 +11350,19 @@ export default function App(): ReactElement {
                 }
               },
               // In the order of their shortcuts (design pass, 0.715): listed 1, 4, 5, 2, 3, they read as unsorted.
-              { id: 'go-missions', group: 'Go to', label: 'Conversations', hint: 'Ctrl 1', run: () => setScreen('missions') },
+              { id: 'go-missions', group: 'Go to', label: 'Conversations', hint: windowKeys('Ctrl 1'), run: () => setScreen('missions') },
               {
                 id: 'go-teammates',
                 group: 'Go to',
                 label: 'Team',
-                hint: 'Ctrl 2',
+                hint: windowKeys('Ctrl 2'),
                 run: () => setScreen('teammates')
               },
               {
                 id: 'go-settings',
                 group: 'Go to',
                 label: 'Settings',
-                hint: 'Ctrl 3',
+                hint: windowKeys('Ctrl 3'),
                 // Same as the rail button: the storage number is read when
                 // the screen that shows it opens, by every route in.
                 run: () => {
@@ -11369,8 +11370,8 @@ export default function App(): ReactElement {
                   setScreen('settings')
                 }
               },
-              { id: 'go-rooms', group: 'Go to', label: 'Rooms', hint: 'Ctrl 4', run: () => setScreen('rooms') },
-              { id: 'go-memory', group: 'Go to', label: 'Memory', hint: 'Ctrl 5', run: () => setScreen('memory') },
+              { id: 'go-rooms', group: 'Go to', label: 'Rooms', hint: windowKeys('Ctrl 4'), run: () => setScreen('rooms') },
+              { id: 'go-memory', group: 'Go to', label: 'Memory', hint: windowKeys('Ctrl 5'), run: () => setScreen('memory') },
               // Claude Code's /usage, for every agent (0.714's dialog), from anywhere.
               { id: 'go-usage', group: 'Go to', label: 'Usage', hint: 'every agent and model', run: () => setUsageOpen(true) },
               {
@@ -11386,7 +11387,7 @@ export default function App(): ReactElement {
                 id: 'inspector',
                 group: 'Conversation',
                 label: inspectorOpen ? 'Close the Activity panel' : 'Open the Activity panel',
-                hint: 'Ctrl I',
+                hint: windowKeys('Ctrl I'),
                 run: () => setInspectorOpen(!inspectorOpen)
               },
               ...(running

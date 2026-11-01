@@ -27,6 +27,7 @@ import {
 } from '../status.js'
 import { defaultEffort, sendBlockedReason } from '../status.js'
 import { freeTagOf, isOwnRoute, routeFamilyName, routeModelName, shortRuntimeName } from '../routeName.js'
+import { windowKeys } from '../keyboardShortcuts.js'
 import { routeChipReading } from '../routeChipReading.js'
 import { isTypingTarget, menuRowFromDigit } from '../menuDigit.js'
 import type { MissionRuntimeId } from '@teammate/runtime-adapters'
@@ -1920,7 +1921,7 @@ export function Composer({
               {workingNow && onSendQueuedNow !== undefined && (
                 /* Claude Code's ctrl+enter, as a button: the run stops and
                    this goes now, rather than when it finishes (0.485). */
-                <button type="button" className="lc-queued__action" title={`Stops ${workingName} and sends this now (Ctrl+Enter while typing)`} onClick={onSendQueuedNow}>
+                <button type="button" className="lc-queued__action" title={`Stops ${workingName} and sends this now (${windowKeys('Ctrl+Enter')} while typing)`} onClick={onSendQueuedNow}>
                   Stop and send now
                 </button>
               )}

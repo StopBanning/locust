@@ -114,6 +114,7 @@ import { OwnModels } from './OwnModels.js'
 import { SkillsFromGitHub } from './SkillsFromGitHub.js'
 import { routineAwaitsReview } from '../../../shared/routine-recovery.js'
 import { SavedApprovalRules } from './SavedApprovalRules.js'
+import { windowKeys } from '../keyboardShortcuts.js'
 
 export type Screen = 'workroom' | 'missions' | 'teammates' | 'settings' | 'rooms' | 'memory' | 'automations' | 'board' | 'benchmarks'
 
@@ -3027,7 +3028,7 @@ export function SettingsScreen({
               {memoryCount === 0 ? 'Nothing remembered yet.' : `${String(memoryCount)} ${memoryCount === 1 ? 'memory' : 'memories'} kept.`}
               {memoryWaiting > 0 ? ` ${String(memoryWaiting)} waiting for you.` : ''}
             </span>
-            <button type="button" className="lc-ghostbutton" title="Ctrl 5" onClick={onOpenMemory}>
+            <button type="button" className="lc-ghostbutton" title={windowKeys('Ctrl 5')} onClick={onOpenMemory}>
               Open memory
             </button>
           </div>

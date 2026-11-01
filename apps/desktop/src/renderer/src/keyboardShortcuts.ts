@@ -8,7 +8,23 @@ export interface ShortcutRow {
   readonly mark: string
   /** Path from this folder's test, where the mark is found. */
   readonly file: string
+  /** Held with Control on a Mac too: its handler listens for Ctrl alone, or Electron's accelerator says Ctrl. */
+  readonly controlOnMac?: true
 }
+
+/**
+ * KEYS AS THIS COMPUTER SAYS THEM (0.848). A Mac read "Ctrl+K" in this sheet and "Ctrl 1" in the palette, where the
+ * same chords take Cmd (App.tsx's `accel` is Ctrl or Cmd). The terminal, the message rail and Talk listen for Control
+ * itself, so they keep it. A Mac's Alt is Option. Every other computer reads the keys as written.
+ */
+export function keysOn(keys: string, platform: string | undefined, controlOnMac = false): string {
+  if (platform !== 'darwin') return keys
+  return (controlOnMac ? keys : keys.replace(/\bCtrl\b/g, 'Cmd')).replace(/\bAlt\b/g, 'Option')
+}
+
+/** `keysOn` for this window's own computer. */
+export const windowKeys = (keys: string, controlOnMac = false): string =>
+  keysOn(keys, typeof window === 'undefined' ? undefined : window.desktop?.platform, controlOnMac)
 
 /**
  * Every shortcut a person can press, in the words the sheet uses.
@@ -28,8 +44,8 @@ export const SHORTCUTS: readonly ShortcutRow[] = [
   { group: 'Conversations', keys: 'Ctrl+3', does: 'Settings', mark: "setScreen('settings')", file: './App.tsx' },
   { group: 'Conversations', keys: 'Ctrl+4', does: 'Rooms', mark: "setScreen('rooms')", file: './App.tsx' },
   { group: 'Conversations', keys: 'Ctrl+5', does: 'Memory', mark: "setScreen('memory')", file: './App.tsx' },
-  { group: 'Conversations', keys: 'Ctrl+`', does: 'Terminal', mark: 'isTerminalToggle', file: './App.tsx' },
-  { group: 'Conversations', keys: 'Ctrl+Alt+Up / Ctrl+Alt+Down', does: 'Move among your own messages', mark: 'promptRailStep', file: './components/PromptRail.tsx' },
+  { group: 'Conversations', keys: 'Ctrl+`', does: 'Terminal', mark: 'isTerminalToggle', file: './App.tsx', controlOnMac: true },
+  { group: 'Conversations', keys: 'Ctrl+Alt+Up / Ctrl+Alt+Down', does: 'Move among your own messages', mark: 'promptRailStep', file: './components/PromptRail.tsx', controlOnMac: true },
   { group: 'Conversations', keys: 'Ctrl+O', does: 'Normal or Verbose steps', mark: 'toggleTranscriptView', file: './App.tsx' },
   { group: 'The message box', keys: 'Enter', does: 'Send', mark: "keyEvent.key === 'Enter' && !keyEvent.shiftKey", file: './components/Composer.tsx' },
   { group: 'The message box', keys: 'Shift+Enter', does: 'A new line', mark: 'shortcut:newline', file: './components/Composer.tsx' },
@@ -45,7 +61,7 @@ export const SHORTCUTS: readonly ShortcutRow[] = [
   { group: 'Menus', keys: 'Ctrl+Shift+E', does: 'Effort', mark: "which === 'effort'", file: './components/Composer.tsx' },
   { group: 'Menus', keys: '1–9', does: 'Pick that row in an open menu', mark: 'menuRowFromDigit', file: './components/Select.tsx' },
   { group: 'Menus', keys: '1–9', does: 'Answer a question card', mark: 'numberKeyAnswer', file: './components/DecisionCard.tsx' },
-  { group: 'Menus', keys: 'Ctrl+Alt+Space', does: 'Talk, from any app', mark: 'DEFAULT_TALK_SHORTCUT', file: '../../shared/talk-shortcut.ts' }
+  { group: 'Menus', keys: 'Ctrl+Alt+Space', does: 'Talk, from any app', mark: 'DEFAULT_TALK_SHORTCUT', file: '../../shared/talk-shortcut.ts', controlOnMac: true }
 ]
 
 export function shortcutGroups(): readonly { readonly name: ShortcutGroup; readonly rows: readonly ShortcutRow[] }[] {

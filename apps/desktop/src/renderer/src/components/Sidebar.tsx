@@ -36,6 +36,7 @@ import { conversationRows, heldFor, narrowingLine, ownerOf, unreadableSentence, 
 import { RailFlyout } from './RailFlyout.js'
 import { useLiveCallPlace } from '../liveCall.js'
 import { routineStepLabel } from '../routines.js'
+import { windowKeys } from '../keyboardShortcuts.js'
 
 /**
  * A teammate's sidebar line is "<role> · <state>". When the state is the
@@ -1131,11 +1132,11 @@ export function Sidebar({
           * change). The list below already shows what each holds; the row stays
           * three words.
           */}
-        <button type="button" onClick={() => { railClose(); onOpenMissions() }} title="All conversations (Ctrl 1)">
+        <button type="button" onClick={() => { railClose(); onOpenMissions() }} title={`All conversations (${windowKeys('Ctrl 1')})`}>
           <Icon name="inbox" size={14} />
           <span>Conversations</span>
         </button>
-        <button type="button" onClick={() => { railClose(); onOpenRooms() }} title="Rooms — ask several teammates at once (Ctrl 4)">
+        <button type="button" onClick={() => { railClose(); onOpenRooms() }} title={`Rooms — ask several teammates at once (${windowKeys('Ctrl 4')})`}>
           <Icon name="users" size={14} />
           <span>Rooms</span>
         </button>
@@ -1276,7 +1277,7 @@ export function Sidebar({
               +{restOfTeam}
             </button>
           )}
-          <button type="button" className="lc-faces__team" aria-current={screenKey === 'teammates' ? 'page' : undefined} onClick={onOpenTeammates} title="Team (Ctrl 2)">
+          <button type="button" className="lc-faces__team" aria-current={screenKey === 'teammates' ? 'page' : undefined} onClick={onOpenTeammates} title={`Team (${windowKeys('Ctrl 2')})`}>
             <Icon name="users" size={13} />
             <span>Team</span>
           </button>
@@ -1983,7 +1984,7 @@ export function Sidebar({
           * 371px-into-266px scar cannot reopen.
           */}
         <div className={`lc-sidebar__nav${onOpenBoard === undefined ? '' : ' lc-sidebar__nav--board'}`}>
-          <button type="button" onClick={() => { railClose(); onOpenSettings() }} title="Settings (Ctrl 3)">
+          <button type="button" onClick={() => { railClose(); onOpenSettings() }} title={`Settings (${windowKeys('Ctrl 3')})`}>
             <Icon name="settings" size={14} />
             <span>Settings</span>
           </button>

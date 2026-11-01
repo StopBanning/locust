@@ -12,6 +12,7 @@ import {
   promptRailShows,
   promptRailStep
 } from '../promptRail.js'
+import { windowKeys } from '../keyboardShortcuts.js'
 
 interface RailMark {
   readonly line: string
@@ -216,7 +217,7 @@ export function PromptRail({
             {open === index && (
               <span className="lc-promptrail__tip" role="tooltip">
                 <span className="lc-promptrail__line">{mark.line}</span>
-                <span className="lc-promptrail__keys">{PROMPT_RAIL_KEYS}</span>
+                <span className="lc-promptrail__keys">{windowKeys(PROMPT_RAIL_KEYS, true)}</span>
               </span>
             )}
           </button>
