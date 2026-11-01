@@ -1,4 +1,5 @@
-import { isMissionRuntime, runtimeDisplayName } from '../../shared/runtimes.js'
+import { isMissionRuntime } from '../../shared/runtimes.js'
+import { modelDisplayName, routeChrome } from './routeName.js'
 
 /**
  * What hovering a teammate tells you.
@@ -30,9 +31,9 @@ export function teammateTooltip(teammate: {
   if (teammate.route !== undefined) {
     // A runtime id this build does not know reads as itself rather than
     // being forced through a lookup that would refuse it.
+    // The route in the chip's words (0.848): it said the id, "OpenCode / opencode/nemotron-3.5-lightning-free".
     const runtime = teammate.route.runtime
-    const shown = isMissionRuntime(runtime) ? runtimeDisplayName(runtime) : runtime
-    parts.push(`${shown} / ${teammate.route.model}`)
+    parts.push(isMissionRuntime(runtime) ? routeChrome(runtime, teammate.route.model, modelDisplayName(runtime, teammate.route.model)) : `${runtime} / ${teammate.route.model}`)
   }
   return parts.join(' · ')
 }

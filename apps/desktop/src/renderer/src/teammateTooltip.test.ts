@@ -6,7 +6,15 @@ describe('what hovering a teammate says', () => {
   it('gives the name, the role and the model', () => {
     expect(
       teammateTooltip({ name: 'Wren', role: 'Code & Migrations', route: { runtime: 'cursor', model: 'cursor-grok-4.6-medium' } })
-    ).toBe('Message Wren · Code & Migrations · Cursor Agent / cursor-grok-4.6-medium')
+    ).toBe('Message Wren · Code & Migrations · Cursor / Grok 4.6 Medium')
+  })
+
+  it('names the model as the chip does, never by its id', () => {
+    // The rail at 1024x684 (macOS 15 runners, 2026-11-01) said "OpenCode / opencode/nemotron-3.5-lightning-free".
+    expect(teammateTooltip({ name: 'Ash', role: 'Custom', route: { runtime: 'opencode', model: 'opencode/nemotron-3.5-lightning-free' } }))
+      .toBe('Message Ash · Custom · OpenCode / Nemotron 3.5 Lightning Free')
+    // The account's own default is the runtime alone, as every chip says it.
+    expect(teammateTooltip({ name: 'Wren', role: 'Custom', route: { runtime: 'codex', model: 'account-default' } })).toBe('Message Wren · Custom · Codex')
   })
 
   it('stops after the role when the teammate has never run', () => {
