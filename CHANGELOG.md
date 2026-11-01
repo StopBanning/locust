@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.851.0 - 2026-11-01
+
+### Fixed
+
+- **An approval card in Locust in a browser offers what a browser can give.** It shows Approve once and Deny, and says that "Always" and saved rules are given in Locust on your computer. "Always allow this session" was drawn there and did nothing when pressed, and saving a rule said only that it could not be saved.
+- **A folder's commands are allowed on your computer.** In a browser, the card asking to allow them holds Allow and says where it works, where the press did nothing.
+- **In a browser, setting up your own cloud computer, forgetting a Claude cloud session and combining a tune's two edits say they work in Locust on your computer,** instead of saying GitHub could not be reached, a forgotten session coming back, or a failure.
+
 ## 0.850.0 - 2026-11-01
 
 ### Improved
