@@ -18,19 +18,26 @@ const wav = voiceWav(new Float32Array(160))
 describe('voice model settings and key boundary', () => {
   it('defaults existing profiles to Fast, without creating anything', async () => {
     const root = await folder()
-    const store = createVoiceSettingsStore(root, box)
+    const store = createVoiceSettingsStore(root, box, 'win32')
     expect(await store.settings()).toEqual({ mode: 'fast', hasKey: false, openaiConsent: false })
     await expect(readFile(join(root, 'voice-settings.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+  it('opens a Mac on your OpenAI account, where Fast and Accurate cannot run, and reads a stored local choice so', async () => {
+    const root = await folder()
+    expect((await createVoiceSettingsStore(root, box, 'darwin').settings()).mode).toBe('openai')
+    expect((await createVoiceSettingsStore(root, box, 'win32').save({ mode: 'accurate' })).ok).toBe(true)
+    expect((await createVoiceSettingsStore(root, box, 'darwin').settings()).mode).toBe('openai')
+    expect((await createVoiceSettingsStore(root, box, 'win32').settings()).mode).toBe('accurate')
   })
   it('round trips all three choices through a reopened store', async () => {
     const root = await folder()
     for (const mode of ['accurate', 'openai', 'fast'] as const) {
-      expect((await createVoiceSettingsStore(root, box).save({ mode })).ok).toBe(true)
-      expect((await createVoiceSettingsStore(root, box).settings()).mode).toBe(mode)
+      expect((await createVoiceSettingsStore(root, box, 'win32').save({ mode })).ok).toBe(true)
+      expect((await createVoiceSettingsStore(root, box, 'win32').settings()).mode).toBe(mode)
     }
   })
   it('returns only saved status, never the key or ciphertext, even on consent/save', async () => {
-    const root = await folder(); const store = createVoiceSettingsStore(root, box)
+    const root = await folder(); const store = createVoiceSettingsStore(root, box, 'win32')
     const results = [await store.save({ mode: 'openai', key }), await store.consent(), await store.settings()]
     const publicText = JSON.stringify(results)
     expect(publicText).not.toContain(key)
@@ -38,7 +45,7 @@ describe('voice model settings and key boundary', () => {
     expect(Object.keys(await store.settings()).sort()).toEqual(['hasKey', 'mode', 'openaiConsent'])
     expect(await readFile(join(root, 'voice-settings.json'), 'utf8')).not.toContain(key)
     expect(await store.key()).toBe(key)
-    expect((await createVoiceSettingsStore(root, box).settings()).openaiConsent).toBe(true)
+    expect((await createVoiceSettingsStore(root, box, 'win32').settings()).openaiConsent).toBe(true)
     expect(LEFT_OUT).toHaveProperty('voice-settings.json')
   })
   it('refuses plaintext storage when OS encryption is unavailable', async () => {
@@ -47,7 +54,7 @@ describe('voice model settings and key boundary', () => {
     expect((await store.settings()).hasKey).toBe(false)
   })
   it('key removal clears consent and never echoes an invalid input', async () => {
-    const store = createVoiceSettingsStore(await folder(), box)
+    const store = createVoiceSettingsStore(await folder(), box, 'win32')
     await store.save({ mode: 'openai', key }); await store.consent()
     await store.save({ key: '' })
     expect(await store.settings()).toEqual({ mode: 'openai', hasKey: false, openaiConsent: false })
@@ -55,7 +62,7 @@ describe('voice model settings and key boundary', () => {
     expect((await store.save({ mode: 'https://evil.test' })).ok).toBe(false)
   })
   it('cannot consent without the selected OpenAI mode and saved key', async () => {
-    const store = createVoiceSettingsStore(await folder(), box)
+    const store = createVoiceSettingsStore(await folder(), box, 'win32')
     expect((await store.consent()).ok).toBe(false)
     await store.save({ key })
     expect((await store.consent()).ok).toBe(false)
@@ -71,7 +78,7 @@ describe('voice model settings and key boundary', () => {
     await expect(readFile(path + '.part')).rejects.toMatchObject({ code: 'ENOENT' })
   })
   it('main refuses upload before consent, and stale local capture cannot switch to cloud', async () => {
-    const root = await folder(); const store = createVoiceSettingsStore(root, box)
+    const root = await folder(); const store = createVoiceSettingsStore(root, box, 'win32')
     await store.save({ mode: 'openai', key })
     const fetcher = vi.fn(async () => Response.json({ text: 'Allowed words.' }))
     const host = createVoiceHost(join(root, 'voice'), { store, openaiFetch: fetcher })

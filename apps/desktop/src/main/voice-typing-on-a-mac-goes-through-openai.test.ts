@@ -31,7 +31,8 @@ describe('voice typing on a Mac', () => {
   })
 
   it('says Fast and Accurate run on Windows, and names the Mac’s own dictation, downloading nothing', async () => {
-    const root = await folder(); const store = createVoiceSettingsStore(root, box)
+    // A store still holding Fast, as a profile carried from Windows does: a Mac's own reads it as OpenAI (0.850).
+    const root = await folder(); const store = createVoiceSettingsStore(root, box, 'win32')
     const host = createVoiceHost(join(root, 'voice'), { store, platform: 'darwin', arch: 'arm64' })
     expect(await host.ready('fast')).toBe(false)
     for (const result of [await host.download(() => undefined, 'fast'), await host.transcribe(wav, 'fast')]) {

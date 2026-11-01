@@ -5,8 +5,13 @@ import type { SecretBox } from './own-models.js'
 import { replaceFile } from './replace-file.js'
 
 /** Separate from public workspace settings: an OS-account-encrypted key never leaves main. */
-export function createVoiceSettingsStore(directory: string, secrets: SecretBox) {
+export function createVoiceSettingsStore(directory: string, secrets: SecretBox, platform: string = process.platform) {
   const path = join(directory, 'voice-settings.json')
+  /*
+   * WHERE LOCAL VOICE TYPING RUNS (0.850): Fast and Accurate are whisper.cpp's Windows build. Elsewhere the default, and
+   * a stored local choice, read as your OpenAI account: a Mac opened on Fast, which Settings now draws unavailable.
+   */
+  const usable = (mode: VoiceSettings['mode']): VoiceSettings['mode'] => (platform === 'win32' || mode === 'openai' ? mode : 'openai')
   let queue: Promise<unknown> = Promise.resolve()
   type Stored = { mode: VoiceSettings['mode']; encryptedKey?: string; openaiConsent: boolean }
   const read = async (): Promise<Stored> => {
@@ -14,11 +19,11 @@ export function createVoiceSettingsStore(directory: string, secrets: SecretBox) 
       const value: unknown = JSON.parse(await readFile(path, 'utf8'))
       if (typeof value === 'object' && value !== null) {
         const row = value as Record<string, unknown>
-        return { mode: isVoiceMode(row.mode) ? row.mode : 'fast', openaiConsent: row.openaiConsent === true,
+        return { mode: usable(isVoiceMode(row.mode) ? row.mode : 'fast'), openaiConsent: row.openaiConsent === true,
           ...(typeof row.encryptedKey === 'string' ? { encryptedKey: row.encryptedKey } : {}) }
       }
     } catch { /* A new or unreadable profile stays local by default. */ }
-    return { mode: 'fast', openaiConsent: false }
+    return { mode: usable('fast'), openaiConsent: false }
   }
   const publicOf = (row: Stored): VoiceSettings => ({ mode: row.mode, hasKey: Boolean(row.encryptedKey), openaiConsent: row.openaiConsent })
   const mutate = (change: unknown, consent = false): Promise<VoiceSettingsResult> => {
