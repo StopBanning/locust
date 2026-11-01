@@ -9272,6 +9272,8 @@ if (!ownsSingleInstanceLock) {
         version: appVersion,
         packaged: app.isPackaged,
         platform: process.platform,
+        osRelease: release(),
+        arch: process.arch,
         organizationPolicy,
         workspaceName: workspaceChosen ? basename(workspacePath) || workspacePath : '',
         workspacePath: workspaceChosen ? workspacePath : '',

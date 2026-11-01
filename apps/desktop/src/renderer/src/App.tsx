@@ -74,7 +74,7 @@ import type {
 } from '../../shared/ipc.js'
 import {
   APPROVAL_RULE_FROM_CARD_CHANNEL, CLAUDE_CLOUD_APPLY_CHANNEL, CLAUDE_CLOUD_FORGET_CHANNEL, CLAUDE_CLOUD_SEND_CHANNEL, CLOUD_COMPUTER_SETUP_CHANNEL, CLAUDE_CLOUD_START_CHANNEL, CLAUDE_CLOUD_TERMINAL_CHANNEL, CLOUD_START_CHANNEL, CLOUD_TURN_APPLY_CHANNEL, CLOUD_TURN_DISCARD_CHANNEL,
-  CLOUD_TURN_PULL_REQUEST_CHANNEL, FEEDBACK_CHANNEL, MISSION_RECORD_SAVE_CHANNEL, OPEN_IN_TERMINAL_CHANNEL, roleLabelOf,
+  CLOUD_TURN_PULL_REQUEST_CHANNEL, MISSION_RECORD_SAVE_CHANNEL, OPEN_IN_TERMINAL_CHANNEL, roleLabelOf,
   ROUTINE_EXPORT_CHANNEL, ROUTINE_IMPORT_PREVIEW_CHANNEL, SESSION_IMPORT_CHANNEL, TEAM_CARD_ADD_CHANNEL, WORKSPACE_OPEN_CHANNEL
 } from '../../shared/ipc.js'
 import { addPagePoint, MAX_PAGE_POINTS, noteOnPagePoint, withoutPagePoint, type PagePointChip } from '../../shared/browser-point.js'
@@ -8823,8 +8823,8 @@ export default function App(): ReactElement {
    * bug reporting we can use what claude code does"), carrying what was said
    * here, which is what a report about it needs. Words only (feedback.ts).
    */
-  // Each way it sends opens something on the computer -- its browser, its mail app, a save dialog (0.850): a browser has none.
-  if (liveRun !== undefined && onTheComputer(FEEDBACK_CHANNEL) === undefined) {
+  // From a browser too (0.853): the box builds the report there, and sends it that browser's way (reportHere.ts).
+  if (liveRun !== undefined) {
     const shown = liveRun
     headerActions.push({
       label: 'Send feedback',

@@ -118,7 +118,7 @@ import { windowKeys } from '../keyboardShortcuts.js'
 import { OnTheComputer, OnTheComputerOnly } from './OnTheComputer.js'
 import { onTheComputer } from '../onTheComputer.js'
 import {
-  APP_UPDATE_INSTALL_CHANNEL, APP_UPDATE_LANE_CHANNEL, DIAGNOSTICS_REVEAL_CHANNEL, FEEDBACK_CHANNEL, KEEP_RUNNING_SET_CHANNEL, RUNTIME_INSTALL_CHANNEL, RUNTIME_UPDATES_SET_CHANNEL,
+  APP_UPDATE_INSTALL_CHANNEL, APP_UPDATE_LANE_CHANNEL, DIAGNOSTICS_REVEAL_CHANNEL, KEEP_RUNNING_SET_CHANNEL, RUNTIME_INSTALL_CHANNEL, RUNTIME_UPDATES_SET_CHANNEL,
   OWN_MODEL_ADD_CHANNEL, OWN_MODEL_TEST_CHANNEL, WORKSPACE_CHOOSE_CHANNEL, WORKTREE_REMOVE_CHANNEL, APPROVAL_RULES_REMOVE_CHANNEL, APPROVAL_RULES_REMOVE_ALL_CHANNEL,
   LOGIN_ITEM_SET_CHANNEL, MISSION_PRUNE_CHANNEL, MISSION_TRASH_EMPTY_CHANNEL, PROFILE_BACKUP_CHANNEL, PROFILE_RESTORE_CHANNEL,
   STAY_AWAKE_SET_CHANNEL, WORKSPACE_SETTINGS_WRITE_CHANNEL, OWN_MODEL_CHAT_ONLY_CHANNEL, OWN_MODEL_REMOVE_CHANNEL, PROFILE_PICK_FOLDER_CHANNEL,
@@ -1507,6 +1507,8 @@ function RuntimeSetupLine({ setup }: { readonly setup: PublicRuntimeSetup }): Re
 function ProblemReport(): ReactElement {
   const [report, setReport] = useState<DiagnosticsReport>()
   const [asking, setAsking] = useState(false)
+  // Send feedback works from a browser (0.853, reportHere.ts); the log is shown in the computer's own file manager.
+  const logStays = onTheComputer(DIAGNOSTICS_REVEAL_CHANNEL)
   useEffect(() => {
     const bridge = window.desktop
     if (bridge === undefined) return
@@ -1543,6 +1545,8 @@ function ProblemReport(): ReactElement {
         <button
           type="button"
           className="lc-button"
+          disabled={logStays !== undefined}
+          {...(logStays === undefined ? {} : { title: logStays })}
           onClick={() => {
             void window.desktop?.revealDiagnostics()
           }}
@@ -1550,6 +1554,7 @@ function ProblemReport(): ReactElement {
           Show the log
         </button>
       </div>
+      {logStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{`Show the log: ${logStays}`}</p>}
       {asking && <FeedbackDialog onClose={() => setAsking(false)} />}
     </>
   )
@@ -3781,9 +3786,7 @@ export function SettingsScreen({
           <p className="lc-settings__lede">
             If Locust crashes or behaves oddly, send feedback and say what happened. The log below helps.
           </p>
-          <OnTheComputer channel={[FEEDBACK_CHANNEL, DIAGNOSTICS_REVEAL_CHANNEL]}>
-            <ProblemReport />
-          </OnTheComputer>
+          <ProblemReport />
         </section>
         )}
         {shownPage === 'app' && (

@@ -529,6 +529,9 @@ export interface AppInfo {
   readonly name: string
   readonly version: string
   readonly packaged: boolean
+  /** `os.release()` and `process.arch` (0.853): what a report from Locust in a browser names, as one from the window does. */
+  readonly osRelease?: string
+  readonly arch?: string
   /**
    * The platform this build is running on. Some containment is platform
    * specific -- Cursor's sandbox exists on macOS and Linux only -- and the

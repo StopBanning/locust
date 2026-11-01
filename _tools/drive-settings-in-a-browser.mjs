@@ -4,7 +4,8 @@
 // or changed". Then Plans is turned off from the browser, and this computer's settings are read to see it landed.
 // Colin found four dead controls in Safari by hand (2026-11-01); this is the sweep that finds them instead.
 // The chat box too (0.850): a file attached in the browser must arrive in the folder on the computer, Choose a folder
-// and Talk are held there, and the microphone says where its setup is done.
+// and Talk are held there, and the microphone says where its setup is done. And Send feedback opens the issue in the
+// browser itself (0.853).
 //
 //   node _tools/drive-settings-in-a-browser.mjs [--packaged <exe>] [--tag <name>] [--relay <address>]
 //
@@ -315,6 +316,33 @@ try {
   })()`))
   await browser.capture('browser: the microphone says where its setup is done')
   check('the microphone, in the browser: says where its setup is done, not that it could not finish', /in Locust on your computer/.test(mic), mic)
+
+  // Send feedback from the browser (0.853): the report is built there and opened in a new tab. window.open is
+  // recorded rather than called, so nothing reaches GitHub.
+  const sent = JSON.parse(String(await browser.evaluate(`(async () => {
+    window.__opened = []
+    window.open = (url) => { window.__opened.push(String(url)); return null }
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '3', ctrlKey: true, bubbles: true }))
+    for (let i = 0; i < 20 && !document.querySelector('.lc-settings__navitem'); i += 1) await new Promise((r) => setTimeout(r, 250))
+    ;[...document.querySelectorAll('.lc-settings__navitem')].find((one) => one.innerText.trim().startsWith('General'))?.click()
+    await new Promise((r) => setTimeout(r, 900))
+    const open = [...document.querySelectorAll('button')].find((one) => one.innerText.trim() === 'Send feedback')
+    if (!open) return JSON.stringify({ step: 'no Send feedback button' })
+    if (open.disabled || open.closest('fieldset[disabled]')) return JSON.stringify({ step: 'Send feedback is held' })
+    open.click()
+    await new Promise((r) => setTimeout(r, 1500))
+    const area = document.querySelector('.lc-feedback__text')
+    if (!area) return JSON.stringify({ step: 'no feedback box' })
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(area, 'Sent from the browser drive.')
+    area.dispatchEvent(new Event('input', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 300))
+    ;[...document.querySelectorAll('.lc-feedback button, .lc-dialog__foot button')].find((one) => one.innerText.trim() === 'Send')?.click()
+    await new Promise((r) => setTimeout(r, 700))
+    return JSON.stringify({ step: 'sent', opened: window.__opened, said: document.querySelector('.lc-feedback')?.innerText ?? '' })
+  })()`)))
+  await browser.capture('browser: Send feedback from the browser')
+  const issue = new URL(sent.opened?.[0] ?? 'about:blank')
+  check('Send feedback, in the browser: opens the GitHub issue there, with the words and the computer\'s version', sent.step === 'sent' && issue.href.startsWith('https://github.com/StopBanning/locust/issues/new') && (issue.searchParams.get('body') ?? '').includes('Sent from the browser drive.'), JSON.stringify(sent).slice(0, 400))
 } catch (error) {
   failures += 1
   say(`  [FAIL] ${error instanceof Error ? error.message : String(error)}`)

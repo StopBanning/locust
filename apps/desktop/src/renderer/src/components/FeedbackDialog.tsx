@@ -1,10 +1,14 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 
 import { useModal } from '../useModal.js'
 import { SUPPORT_ADDRESS } from '../../../shared/support.js'
+import { FEEDBACK_CHANNEL, FEEDBACK_EMAIL_CHANNEL, FEEDBACK_SAVE_CHANNEL } from '../../../shared/ipc.js'
+import type { ReportFacts } from '../../../shared/report-problem.js'
+import { onTheComputer } from '../onTheComputer.js'
+import { reportHere } from '../reportHere.js'
 
-/** The words the host keeps (main/report-problem.ts MAX_DESCRIPTION). */
+/** The words the host keeps (shared/report-problem.ts MAX_DESCRIPTION). */
 const MOST = 2_000
 
 /**
@@ -39,8 +43,32 @@ export function FeedbackDialog({
   // The private ways (0.593, R23): the mail app, or a file saved whole.
   const [saved, setSaved] = useState<string>()
   const report = (): { description: string; conversation?: string } => ({ description: text.trim(), ...(conversation === undefined || !withConversation ? {} : { conversation }) })
+  // In a browser the report is built here (0.853, reportHere.ts), from the computer's own version and system.
+  const [facts, setFacts] = useState<ReportFacts>()
+  useEffect(() => {
+    if (onTheComputer(FEEDBACK_CHANNEL) === undefined) return undefined
+    let live = true
+    void window.desktop?.getAppInfo().then((info) => {
+      if (live) setFacts({ version: info.version, release: info.osRelease ?? '', arch: info.arch ?? '', platform: info.platform })
+    }).catch(() => undefined)
+    return () => { live = false }
+  }, [])
+  /** Sent this browser's way, in the press; undefined when this is the window on the computer. */
+  const here = (how: 'issue' | 'email' | 'file', refusedHere: string | undefined): boolean => {
+    if (refusedHere === undefined) return false
+    if (facts === undefined) {
+      setRefused('Locust on your computer has not answered yet. What you wrote is still here; try again in a moment.')
+      return true
+    }
+    setRefused(undefined)
+    const name = reportHere(how, facts, report())
+    if (name !== undefined) setSaved(`${name}, in this browser's downloads`)
+    else onClose()
+    return true
+  }
   const email = (): void => {
     if (!ready) return
+    if (here('email', onTheComputer(FEEDBACK_EMAIL_CHANNEL))) return
     const bridge = window.desktop
     if (bridge === undefined) return
     setSending(true)
@@ -59,6 +87,7 @@ export function FeedbackDialog({
   }
   const saveFile = (): void => {
     if (!ready) return
+    if (here('file', onTheComputer(FEEDBACK_SAVE_CHANNEL))) return
     const bridge = window.desktop
     if (bridge === undefined) return
     setSending(true)
@@ -80,6 +109,7 @@ export function FeedbackDialog({
   const ready = text.trim().length > 0 && !sending
   const send = (): void => {
     if (!ready) return
+    if (here('issue', onTheComputer(FEEDBACK_CHANNEL))) return
     const bridge = window.desktop
     if (bridge === undefined) {
       setRefused('Locust is not ready yet.')
@@ -131,7 +161,7 @@ export function FeedbackDialog({
             </label>
           )}
           <p className="lc-feedback__claim">
-            {`This report will include your description${withConversation && conversation !== undefined ? ', this conversation,' : ''} and your Locust and ${typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent) ? 'macOS' : 'Windows'} versions. It opens on GitHub as a public issue that anyone can read, and you send it from there.`}
+            {`This report will include your description${withConversation && conversation !== undefined ? ', this conversation,' : ''} and your Locust and ${facts !== undefined ? (facts.platform === 'darwin' ? 'macOS' : facts.platform === 'linux' ? 'Linux' : 'Windows') : typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent) ? 'macOS' : 'Windows'} versions. It opens on GitHub as a public issue that anyone can read, and you send it from there.`}
           </p>
           {refused !== undefined && <p className="lc-feedback__claim lc-tone-amber">{refused}</p>}
           {saved !== undefined && <p className="lc-feedback__claim" role="status">Saved to {saved}. Send it to {SUPPORT_ADDRESS}, or attach it to an issue.</p>}

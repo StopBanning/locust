@@ -1,3 +1,4 @@
+import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -15,7 +16,8 @@ import { NewTeammateDialog } from './components/NewTeammateDialog.js'
 import { PetPickTiles, PetRemovalControls, type PetRemoval } from './components/PetPicks.js'
 import { PlusMenu } from './components/PlusMenu.js'
 import { SaveRecordDialog } from './components/SaveRecordDialog.js'
-import { UpdateBanner } from './components/Screens.js'
+import { SettingsScreen, UpdateBanner } from './components/Screens.js'
+import { reportFileName, reportHere, type ReportPlace } from './reportHere.js'
 import { ShareTeamDialog } from './components/TeamCard.js'
 import { VoiceCallButton } from './components/VoiceCall.js'
 import APP from './App.tsx?raw'
@@ -26,6 +28,7 @@ import INSPECTOR from './components/Inspector.tsx?raw'
 import REPLY_PAGE from './components/ReplyPage.tsx?raw'
 import THREAD from './components/Thread.tsx?raw'
 import VIEWER from './components/FileViewer.tsx?raw'
+import FEEDBACK from './components/FeedbackDialog.tsx?raw'
 
 /**
  * THE WINDOW IN A BROWSER SAYS WHAT STAYS ON THE COMPUTER (0.850). After Settings (0.849), the rest of the window:
@@ -216,10 +219,59 @@ describe('an approval card in a browser', () => {
   })
 })
 
+describe('feedback from a browser', () => {
+  const facts = { version: '0.853.0', release: '25.1.0', arch: 'arm64', platform: 'darwin' }
+  const report = { description: 'The Board froze after a theme switch.', conversation: 'Ash: done.' }
+  const recorded = (): { opened: string[], mailed: string[], downloaded: [string, string][], place: ReportPlace } => {
+    const seen = { opened: [] as string[], mailed: [] as string[], downloaded: [] as [string, string][] }
+    return { ...seen, place: { open: (url) => seen.opened.push(url), mail: (url) => seen.mailed.push(url), download: (name, text) => seen.downloaded.push([name, text]) } }
+  }
+
+  it("opens the report as a GitHub issue in this browser, with the computer's version and system", () => {
+    const seen = recorded()
+    expect(reportHere('issue', facts, report, seen.place)).toBeUndefined()
+    expect(seen.opened).toHaveLength(1)
+    expect(seen.opened[0]).toMatch(/^https:\/\/github\.com\/StopBanning\/locust\/issues\/new\?body=/)
+    const body = new URL(seen.opened[0]!).searchParams.get('body') ?? ''
+    expect(body).toContain('The Board froze after a theme switch.')
+    expect(body).toContain('0.853.0')
+    expect(seen.mailed).toEqual([])
+  })
+
+  it("mails it from this device, and downloads it whole under the name the computer's save dialog offers", () => {
+    const seen = recorded()
+    reportHere('email', facts, report, seen.place)
+    expect(seen.mailed[0]).toMatch(/^mailto:/)
+    expect(decodeURIComponent(seen.mailed[0]!)).toContain('The Board froze after a theme switch.')
+    const now = new Date('2026-11-01T21:40:00Z')
+    expect(reportHere('file', facts, report, seen.place, now)).toBe('Locust report 2026-11-01 21.40.txt')
+    expect(reportFileName(now)).toBe('Locust report 2026-11-01 21.40.txt')
+    expect(seen.downloaded[0]![1]).toContain('Ash: done.')
+    expect(seen.opened).toEqual([])
+  })
+
+  it('builds the report in a browser only where the computer would have, for all three ways', () => {
+    expect(FEEDBACK).toContain("if (here('issue', onTheComputer(FEEDBACK_CHANNEL))) return")
+    expect(FEEDBACK).toContain("if (here('email', onTheComputer(FEEDBACK_EMAIL_CHANNEL))) return")
+    expect(FEEDBACK).toContain("if (here('file', onTheComputer(FEEDBACK_SAVE_CHANNEL))) return")
+  })
+
+  it('draws Send feedback in Settings in a browser, with only Show the log held', () => {
+    browser()
+    const html = renderToStaticMarkup(createElement(SettingsScreen as never, { initialPage: 'app', runtimes: [] } as never))
+    const from = html.indexOf('>Report a problem</h2>')
+    const section = html.slice(from, html.indexOf('</section>', from))
+    expect(section).toContain(`<button type="button" class="lc-button">Send feedback</button><button type="button" class="lc-button" disabled="" title="${WINDOW_ONLY_SAYS}">Show the log</button>`)
+    // Nor is the section held whole, which would hold Send feedback with it.
+    expect(section).not.toContain('<fieldset class="lc-oncomputer" disabled="">')
+  })
+})
+
 describe('the menus and sends in a browser', () => {
-  it('offers neither Open in terminal nor Send feedback, and holds Save the record and Import with the reason', () => {
+  it('offers no Open in terminal, holds Save the record and Import with the reason, and offers Send feedback', () => {
     expect(APP).toContain('&& onTheComputer(OPEN_IN_TERMINAL_CHANNEL) === undefined) {')
-    expect(APP).toContain('if (liveRun !== undefined && onTheComputer(FEEDBACK_CHANNEL) === undefined) {')
+    // Send feedback works from a browser (0.853): the box sends its report that browser's way.
+    expect(APP).not.toContain('onTheComputer(FEEDBACK_CHANNEL)')
     expect(APP).toContain('{ disabledReason: onTheComputer(MISSION_RECORD_SAVE_CHANNEL)! }')
     expect(APP).toContain('{ disabledReason: onTheComputer(SESSION_IMPORT_CHANNEL)! }')
   })
