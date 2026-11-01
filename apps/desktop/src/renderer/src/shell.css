@@ -238,23 +238,28 @@ textarea {
   filter: var(--lc-logo-filter);
 }
 
+/*
+ * AN ICON BUTTON HAS NO BOX (polish pass, 2026-11-01): the glyph alone, and a fill under the pointer, as the header's
+ * buttons and every dialog's close are drawn. Bordered 26px boxes on every card and row read as a grid of little
+ * frames -- the shape Colin pointed at on the Usage dialog's X.
+ */
 .lc-iconbutton {
   width: 26px;
   height: 26px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--lc-border-card);
-  border-radius: var(--lc-radius-control);
+  border: 1px solid transparent;
+  border-radius: var(--lc-radius-button);
   background: transparent;
   color: var(--lc-text-muted);
   cursor: pointer;
-  transition: background var(--lc-motion-hover) var(--lc-ease), border-color var(--lc-motion-hover) var(--lc-ease);
+  transition: background var(--lc-motion-hover) var(--lc-ease), color var(--lc-motion-hover) var(--lc-ease);
 }
 
 .lc-iconbutton:hover:not(:disabled) {
-  background: var(--lc-hover-surface);
-  border-color: var(--lc-hover-border);
-  color: var(--lc-text-secondary);
+  background: var(--lc-hover-surface-strong);
+  border-color: transparent;
+  color: var(--lc-text-primary);
 }
 
 .lc-iconbutton:active:not(:disabled) {
@@ -11470,6 +11475,50 @@ svg.lc-filetype.is-image .lc-filetype__dot {
  * page, and the row's meta slot holds the count without one.
  * -------------------------------------------------------------------- */
 
+/*
+ * AN EMPTY SCREEN SAYS SO IN THE MIDDLE OF IT (polish pass, 2026-11-01): a glyph on a soft tile, one line saying what
+ * is not here yet, one saying how it comes. It was a single line of small grey type in the top-left corner of an
+ * otherwise empty window, which reads as a page that failed to load rather than one with nothing in it.
+ */
+.lc-emptystate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lc-space-3);
+  max-width: 440px;
+  margin: 14vh auto 0;
+  padding: 0 var(--lc-space-6);
+  text-align: center;
+}
+
+.lc-emptystate__icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--lc-space-2);
+  border-radius: 12px;
+  background: var(--lc-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--lc-border-hairline);
+  color: var(--lc-text-muted);
+}
+
+.lc-emptystate__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--lc-text-name);
+}
+
+.lc-emptystate__text {
+  margin: 0;
+  font-size: var(--lc-text-description);
+  line-height: 1.55;
+  color: var(--lc-text-muted);
+  text-wrap: pretty;
+}
+
 /* The closing note under the routines: quiet, and kept off the window edge
    the way every other block on this screen is. */
 .lc-screen__note {
@@ -12015,10 +12064,11 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 .lc-rostercard__plus {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 5px;
-  border: 1px solid var(--lc-border-card);
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--lc-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--lc-border-hairline);
   color: var(--lc-text-muted);
   font-size: 16px;
 }
@@ -12048,10 +12098,7 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 }
 
 .lc-rostercard__facts dt {
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-label);
-  letter-spacing: var(--lc-tracking-label);
-  text-transform: uppercase;
+  font-size: var(--lc-text-mono-caption);
   color: var(--lc-text-muted);
 }
 
@@ -16559,18 +16606,21 @@ textarea.lc-compare__judgecriteria {
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid var(--lc-border-card);
+  border: 1px solid transparent;
+  border-radius: var(--lc-radius-button);
   font-size: inherit;
 }
 
 .lc-rostercard__message:hover,
 .lc-rostercard__edit:hover {
-  background: var(--lc-hover-surface);
-  color: var(--lc-text-secondary);
+  background: var(--lc-hover-surface-strong);
+  border-color: transparent;
+  color: var(--lc-text-primary);
 }
 
 .lc-rostercard__remove:hover {
   background: var(--lc-red-tint);
+  border-color: transparent;
   color: var(--lc-red-text);
 }
 
@@ -16606,19 +16656,18 @@ textarea.lc-compare__judgecriteria {
   margin: 0;
 }
 
+/* A card's numbers sit on a quiet fill, their names said as words (polish pass, 2026-11-01): framed tiles with
+   stamped capitals inside a framed card were boxes in boxes. */
 .lc-rostercard__stat {
   min-width: 0;
-  padding: var(--lc-space-4) 10px;
+  padding: var(--lc-space-4) 11px;
   border-radius: var(--lc-radius-control);
-  border: 1px solid var(--lc-border-hairline);
-  background: var(--lc-bg-window);
+  border: 0;
+  background: var(--lc-chip-bg);
 }
 
 .lc-rostercard__stat dt {
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-label);
-  letter-spacing: var(--lc-tracking-label);
-  text-transform: uppercase;
+  font-size: var(--lc-text-mono-caption);
   color: var(--lc-text-muted);
 }
 
@@ -17609,7 +17658,7 @@ textarea.lc-compare__judgecriteria {
   color: var(--lc-text-muted);
 }
 
-/* A square button holding one glyph, sized to sit beside a worded one. */
+/* A square button holding one glyph, sized to sit beside a worded one. No border, whatever else it carries. */
 .lc-iconbutton {
   display: inline-flex;
   align-items: center;
@@ -17617,6 +17666,15 @@ textarea.lc-compare__judgecriteria {
   width: 28px;
   height: 28px;
   padding: 0;
+  border-color: transparent;
+  border-radius: var(--lc-radius-button);
+  color: var(--lc-text-muted);
+}
+
+.lc-iconbutton:hover:not(:disabled) {
+  background: var(--lc-hover-surface-strong);
+  border-color: transparent;
+  color: var(--lc-text-primary);
 }
 
 /*
@@ -17627,7 +17685,8 @@ textarea.lc-compare__judgecriteria {
  */
 .lc-automations .lc-routinerow__remove:hover,
 .lc-automations .lc-routinerow__remove:focus-visible {
-  border-color: var(--lc-red-border);
+  background: var(--lc-red-tint);
+  border-color: transparent;
   color: var(--lc-red-text);
 }
 

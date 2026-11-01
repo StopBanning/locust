@@ -485,12 +485,14 @@ export function MissionsScreen({
         </div>
       )}
       <div className="lc-screen__scroll">
-        {shown.length === 0 ? (
-          <p className="lc-inspector__empty">
-            {missions.length === 0
-              ? 'No conversations on this machine yet.'
-              : 'No conversations match this filter.'}
-          </p>
+        {shown.length === 0 && missions.length === 0 ? (
+          <div className="lc-emptystate">
+            <span className="lc-emptystate__icon" aria-hidden="true"><Icon name="inbox" size={18} /></span>
+            <p className="lc-emptystate__title">No conversations on this machine yet.</p>
+            <p className="lc-emptystate__text">Start one from Home, or pick a teammate on the left. Every conversation is kept here, on this computer.</p>
+          </div>
+        ) : shown.length === 0 ? (
+          <p className="lc-inspector__empty">No conversations match this filter.</p>
         ) : (
           <div className="lc-missionrows">
             {shown.map((entry) => {

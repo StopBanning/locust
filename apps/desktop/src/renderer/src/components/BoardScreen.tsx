@@ -308,9 +308,17 @@ export function BoardScreen({
       <div className="lc-screen__scroll">
         {board === undefined && waiting.length === 0 ? (
           <>
-            <p className="lc-screen__note">
-              <Icon name="columns" size={12} /> Nothing is waiting on you and nothing is running. Conversations land here by what they need from you: a card to answer, work under way, a finish you have not looked at.
-            </p>
+            {quiet.length === 0 ? (
+              <div className="lc-emptystate">
+                <span className="lc-emptystate__icon" aria-hidden="true"><Icon name="columns" size={18} /></span>
+                <p className="lc-emptystate__title">Your board is clear</p>
+                <p className="lc-emptystate__text">Nothing is waiting on you and nothing is running. Conversations land here by what they need from you: a card to answer, work under way, a finish you have not looked at.</p>
+              </div>
+            ) : (
+              <p className="lc-screen__note">
+                <Icon name="columns" size={12} /> Nothing is waiting on you and nothing is running. Conversations land here by what they need from you: a card to answer, work under way, a finish you have not looked at.
+              </p>
+            )}
             {quiet.length > 0 && (
               <section className="lc-boardsection lc-boardsection--done" data-column="done" aria-label="Done">
                 <h2 className="lc-boardsection__title">
