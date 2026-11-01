@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.848.0 - 2026-11-01
+
+### Fixed
+
+- **Model names are spelled the way their makers write them.** DeepSeek, GLM, MiMo, MiniMax and VL, where the chat box said "Deepseek V4.1 Flash" a row away from the picker's "DeepSeek". The free model every new person starts on was one of them.
+- **Kilo's models each have one name.** The picker's Kilo group drew rows that all began "Kilo Gateway/NVIDIA: Nemotr..." and could not be told apart, and the chat box spelled the same models from their ids, such as "Kilo Auto/Free". Rows now read "NVIDIA: Nemotron 3 Nano 30B A3B", and the chat box says what the picker says, "Kilo Auto Free".
+- **Home's team cards name a model the way the chat box does.** A free model keeps its Free tag, where "Nemotron 3.5 Lightning Fr..." cut that word, and a teammate on its account's default model names the agent, "Codex", not "Account Default".
+- **A Mac names its own shortcut keys.** The command palette, the shortcuts sheet and the sidebar's tooltips said Ctrl on a Mac, where those keys take Cmd. They say Cmd and Option now, and Ctrl only for the terminal, the message rail and Talk, which use Control.
+- **Settings' widest buttons keep clear of the scrollbar** on a 1280 by 800 window, where they sat a pixel from it.
+- **The model picker spells "Account Default" one way in every group,** where Antigravity's said "Account default".
+
 ## 0.847.0 - 2026-11-01
 
 ### Improved
