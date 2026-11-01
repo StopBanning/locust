@@ -5965,6 +5965,8 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  /* F21: at 1280x800 the 720px sections filled the pane, and its widest controls met the scrollbar (1px apart). */
+  padding-right: var(--lc-space-6);
   padding-bottom: 22px;
 }
 
