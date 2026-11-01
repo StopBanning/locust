@@ -3,7 +3,7 @@
 //
 //   node _tools/polish-frames.mjs --out <folder outside the repo> [--usage <usage-carried.jsonl>]
 //        [--sizes 1440x900,1120x720,1920x1080] [--themes dark,light] [--scale 1] [--only home,usage,settings,dialogs,screens,thread,menus]
-//        [--glass-check]
+//        [--glass-check] [--fresh]
 //
 // Spends nothing: it opens screens and dialogs and closes them. `thread` writes a finished two-turn conversation with
 // Wren into the ledger before launch -- two commands, a reply with headings, a list, a table and code, and a follow-up
@@ -124,7 +124,8 @@ const drive = await startDrive({
   ...(seededProfile === undefined ? {} : { profilePath: seededProfile }),
   seed: {
     schemaVersion: 1,
-    teammates: [
+    // --fresh: nobody on the team yet, as a person who just installed Locust sees it first.
+    teammates: process.argv.includes('--fresh') ? [] : [
       { teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: at, route: FREE_ROUTE },
       { teammateId: 'tm_atlas', name: 'Atlas', hue: 'blue', role: 'Research & Briefs', createdAt: at, route: FREE_ROUTE },
       { teammateId: 'tm_sable', name: 'Sable', hue: 'clay', role: 'Docs & QA', createdAt: at, route: FREE_ROUTE },
