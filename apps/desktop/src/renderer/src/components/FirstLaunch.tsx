@@ -21,6 +21,8 @@ import { SignInButton } from './SignInButton.js'
 import { INSTALL_PAGE_OPENED_EVENT } from '../signInEvents.js'
 import { UsageChip, UsageLine, useUsageSummary } from './UsageLine.js'
 import type { UsageReadResponse } from '../../../shared/ipc.js'
+import { RUNTIME_INSTALL_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 import type { UsageRange } from '../../../shared/usage.js'
 
 /**
@@ -804,13 +806,14 @@ export function FirstLaunch({
                   <button
                     type="button"
                     className={runtime.id === FREE_START_RUNTIME ? 'lc-runtimecell__install is-primary' : 'lc-runtimecell__quiet'}
-                    disabled={waiting || npmMissing}
+                    // An install runs on the computer (0.850): in a browser it is held, and says where it works.
+                    disabled={waiting || npmMissing || onTheComputer(RUNTIME_INSTALL_CHANNEL) !== undefined}
                     title={
-                      npmMissing
+                      onTheComputer(RUNTIME_INSTALL_CHANNEL) ?? (npmMissing
                         ? 'Node.js is not on this machine, and this installs through npm.'
                         : waiting
                           ? `Waiting for the ${installing ?? ''} install to finish`
-                          : installSentence(runtime.id, runtime.displayName)
+                          : installSentence(runtime.id, runtime.displayName))
                     }
                     onClick={() => onInstall(runtime.id)}
                   >

@@ -11,6 +11,8 @@ import { Icon } from './Icon.js'
 import { InlineProse } from './ThreadItems.js'
 import { fileMenuEvent } from '../fileMenuOpen.js'
 import { isShowFilesChord, showFilesChordLabel } from '../changesKeys.js'
+import { WALKTHROUGH_CHANNEL } from '../../../shared/walkthrough.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /**
  * THE FOLDER'S CHANGES, IN ONE PANEL (0.732, shared/folder-diff.ts), laid out as Claude Code's own (claude.ai/code,
@@ -126,7 +128,8 @@ export function ChangesPanel({ workspacePath, running, onClose, walkWith, commit
         )}
         <span className="lc-viewer__spacer" />
         {walkWith !== undefined && read.length > 0 && (walk === undefined || walk.phase === 'failed') && (
-          <button type="button" className="lc-changes__walk" title={`${walkWith.teammate} goes through the change as its author would in a review`} onClick={() => void walkThrough()}>
+          // A walk runs a teammate on the computer (0.850): in a browser the button is held, and says so.
+          <button type="button" className="lc-changes__walk" disabled={onTheComputer(WALKTHROUGH_CHANNEL) !== undefined} title={onTheComputer(WALKTHROUGH_CHANNEL) ?? `${walkWith.teammate} goes through the change as its author would in a review`} onClick={() => void walkThrough()}>
             <Icon name="message" size={12} />
             Walk me through it
           </button>

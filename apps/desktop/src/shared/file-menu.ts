@@ -100,13 +100,16 @@ export function looksLikeFilePath(text: string): boolean {
  *
  * Inside the conversation's folder: attach, the editors that are actually
  * installed, the default app (only for a file it shows), the file manager, and the
- * three copies. Outside that folder: the three copies only.
+ * three copies. Outside that folder: the three copies only. In a browser
+ * (0.850), neither the default app nor the file manager: both would open on the
+ * computer, out of sight.
  */
 export function fileMenuChoices(input: {
   readonly path: string
   readonly folder: string | undefined
   readonly platform: string
   readonly editors: readonly ('vscode' | 'cursor')[]
+  readonly inBrowser?: boolean
 }): readonly FileMenuChoice[] {
   const copies: readonly FileMenuChoice[] = [
     { id: 'copy-path', label: 'Copy path' },
@@ -117,6 +120,7 @@ export function fileMenuChoices(input: {
   const open: FileMenuChoice[] = [{ id: 'attach', label: 'Add to my next message' }]
   if (input.editors.includes('vscode')) open.push({ id: 'vscode', label: 'Open in VS Code' })
   if (input.editors.includes('cursor')) open.push({ id: 'cursor', label: 'Open in Cursor' })
+  if (input.inBrowser === true) return [...open, ...copies]
   if (defaultAppMayOpen(input.path)) open.push({ id: 'default', label: 'Open in the default app' })
   const reveal = input.platform === 'darwin' ? 'Show in Finder' : input.platform === 'linux' ? 'Show in the file manager' : 'Show in Explorer'
   open.push({ id: 'reveal', label: reveal })

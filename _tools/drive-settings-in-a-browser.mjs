@@ -3,6 +3,8 @@
 // notes that say a setting works on the computer, the controls a person can press, and any "could not be read, saved
 // or changed". Then Plans is turned off from the browser, and this computer's settings are read to see it landed.
 // Colin found four dead controls in Safari by hand (2026-11-01); this is the sweep that finds them instead.
+// The chat box too (0.850): a file attached in the browser must arrive in the folder on the computer, Choose a folder
+// and Talk are held there, and the microphone says where its setup is done.
 //
 //   node _tools/drive-settings-in-a-browser.mjs [--packaged <exe>] [--tag <name>] [--relay <address>]
 //
@@ -14,7 +16,7 @@
 // sent to a model.
 
 import { spawn } from 'node:child_process'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -40,6 +42,24 @@ const pagesScript = `(async () => {
 const CHANGELOG = /^What/
 /** Pressed in the browser: not ones that only open a link or another page. */
 const NOT_PRESSED = /^(Repository:|What’s new|What's new|Show older versions)/
+/** What a control held for the computer says (shared/desk-calls.ts WINDOW_ONLY_SAYS). */
+const SAYS = 'This works in Locust on your computer.'
+/** The chat box, from wherever the window is: Home, by the logo (Ctrl+1 opens the conversations list instead). */
+const chatBoxScript = `(async () => {
+  for (let i = 0; i < 3 && !document.querySelector('.lc-plusmenu__main'); i += 1) {
+    document.querySelector('button[aria-label="Home"]')?.click()
+    for (let j = 0; j < 12 && !document.querySelector('.lc-plusmenu__main'); j += 1) await new Promise((r) => setTimeout(r, 250))
+  }
+  const folder = document.querySelector('[data-satellite="folder"]')
+  const talk = document.querySelector('.lc-call__button')
+  return JSON.stringify({
+    box: document.querySelector('.lc-plusmenu__main') !== null,
+    picker: document.querySelector('input.lc-filepick[type="file"]') !== null,
+    folderHeld: folder?.disabled === true,
+    folderTitle: folder?.getAttribute('title') ?? '',
+    talk: talk === null ? 'none' : { held: talk.disabled, label: talk.getAttribute('aria-label') }
+  })
+})()`
 
 const reachable = await fetch(`${RELAY}/desk/`, { signal: AbortSignal.timeout(5000) }).then((answer) => answer.ok, () => false)
 if (!reachable) {
@@ -95,6 +115,7 @@ async function openBrowser(url) {
   await sleep(2500)
   let shot = 0
   browser = {
+    call,
     evaluate: async (expression) => (await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result?.result?.value,
     navigate: async (to) => { await call('Page.navigate', { url: to }); await sleep(2500) },
     capture: async (label) => {
@@ -221,6 +242,8 @@ try {
     // What's new quotes the old failures it says were fixed, so only its holding nothing back is checked.
     check(`${label}, in the window: nothing says a setting could not be read, saved or changed, and nothing is held for a browser`, (CHANGELOG.test(label) || (there.broken?.length ?? 0) === 0) && there.notes === 0, JSON.stringify(there))
   }
+  const box = JSON.parse(String(await drive.capture('window: the chat box', () => drive.evaluate(chatBoxScript))))
+  check('the chat box, in the window: the computer’s own picker, and nothing held for a browser', box.box && !box.picker && !box.folderHeld && box.talk?.held !== true, JSON.stringify(box))
 
   const on = JSON.parse(String(await drive.evaluate(phoneScript(`
     section?.querySelector('[role="switch"]')?.click()
@@ -268,12 +291,36 @@ try {
     ...rows.map(({ label, there, here, pressed }) => `| ${label} | ${String(there.pressable ?? '-')} | ${String(here.pressable ?? '-')} | ${String(pressed.pressed)} | ${pressed.refused.length === 0 ? 'none' : pressed.refused.join('; ')} | ${String(here.held ?? '-')} | ${String(here.notes ?? '-')} |`)].join('\n')
   await writeFile(join(outPath, 'TABLE.md'), `${table}\n`, 'utf8')
   say(table)
+
+  // The chat box in the browser (0.850).
+  const here = JSON.parse(String(await browser.evaluate(chatBoxScript)))
+  await browser.capture('browser: the chat box')
+  check('the chat box, in the browser: the browser’s own picker, and Choose a folder held with the words', here.box && here.picker && here.folderHeld && here.folderTitle === SAYS, JSON.stringify(here))
+  check('Talk, in the browser: held, or not drawn where this computer has no Talk', here.talk === 'none' || (here.talk.held === true && here.talk.label === 'Talk, on your computer'), JSON.stringify(here.talk))
+  const picked = join(await mkdtemp(join(tmpdir(), 'locust-drive-attach-')), 'drive-attach.txt')
+  await writeFile(picked, 'Sent from Locust in a browser.\n', 'utf8')
+  const root = (await browser.call('DOM.getDocument', { depth: 1 })).result?.root?.nodeId
+  const input = root === undefined ? undefined : (await browser.call('DOM.querySelector', { nodeId: root, selector: 'input.lc-filepick' })).result?.nodeId
+  if (input !== undefined && input !== 0) await browser.call('DOM.setFileInputFiles', { nodeId: input, files: [picked] })
+  const tile = await browserWait(/drive-attach/, 30)
+  const attached = await readdir(join(workspace, '.locust', 'attachments')).catch(() => [])
+  await browser.capture('browser: a file attached from the browser')
+  check('Attach files, in the browser: the file picked there is on its tile, and in the folder on the computer', /drive-attach/.test(tile) && attached.some((name) => name.startsWith('drive-attach')), `on the computer: ${attached.join(', ') || 'nothing'}`)
+  const mic = String(await browser.evaluate(`(async () => {
+    const button = document.querySelector('.lc-voice__button')
+    if (!button) return 'no microphone'
+    button.click()
+    for (let i = 0; i < 40 && !document.querySelector('.lc-voice__message'); i += 1) await new Promise((r) => setTimeout(r, 250))
+    return document.querySelector('.lc-voice__message')?.textContent ?? 'nothing said'
+  })()`))
+  await browser.capture('browser: the microphone says where its setup is done')
+  check('the microphone, in the browser: says where its setup is done, not that it could not finish', /in Locust on your computer/.test(mic), mic)
 } catch (error) {
   failures += 1
   say(`  [FAIL] ${error instanceof Error ? error.message : String(error)}`)
 } finally {
   browser?.close()
-  await drive.finish({ intro: 'Every Settings page in the window and in Locust in a browser, with what each holds back, and Plans changed from the browser.' })
+  await drive.finish({ intro: 'Every Settings page in the window and in Locust in a browser, with what each holds back, Plans changed from the browser, and the chat box: a file attached from the browser, and what it holds back.' })
 }
 say(failures === 0 ? 'SETTINGS IN A BROWSER: PASSED' : `SETTINGS IN A BROWSER: ${String(failures)} check(s) failed`)
 process.exit(failures === 0 ? 0 : 1)

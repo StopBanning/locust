@@ -29,6 +29,13 @@
 export const MAX_ATTACHMENTS = 8
 
 /**
+ * The most one pasted file may weigh: it crosses IPC in one message. Generous for a screenshot -- a full 4K PNG is well
+ * under it -- and short of anything that would stall a window. A browser's chosen files go the same way (0.850), so it
+ * says so before sending.
+ */
+export const MAX_PASTED_BYTES = 24 * 1024 * 1024
+
+/**
  * The line that goes above the person's own words.
  *
  * Above, not below: the runtime should know what it is working from before it

@@ -57,6 +57,8 @@ import { AgentText, PlanSteps } from './ThreadItems.js'
 import { runtimeDisplayName } from '../../../shared/runtimes.js'
 import { commandReach } from '../../../shared/command-reach.js'
 import { CODEX_SANDBOX_DID_NOT_START, codexSandboxDidNotStart } from '../../../shared/codex-sandbox.js'
+import { WORKSPACE_REVEAL_CHANNEL } from '../../../shared/ipc.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
 
 /** A changed file's whole text, for its row's Copy; refused in words when it cannot be had as text. */
 async function readWholeFile(path: string, workspacePath: string | undefined): Promise<string | { readonly refused: string }> {
@@ -399,8 +401,10 @@ export function ActivityCard({
       .then((response) => {
         if (!response.ok) setRevealNotice(response.message)
       })
-      .catch(() => setRevealNotice('That file could not be shown. It is still where it was written.'))
+      .catch((error: unknown) => setRevealNotice(failureSaid(error, 'That file could not be shown. It is still where it was written.')))
   }
+  // A row's folder button shows the file in the computer's file manager (0.850): a browser has none of it, so it is not drawn.
+  const revealHere = onTheComputer(WORKSPACE_REVEAL_CHANNEL) === undefined
   // A turn's files: one row per file, its net change where the host looked (0.494).
   const entries = oneRowPerFile ? netFileEntries(activityEntries(details, workspacePath), workspacePath) : activityEntries(details, workspacePath)
   const fileEntries = entries.filter((entry): entry is ActivityEntry & { readonly kind: 'file' } => entry.kind === 'file')
@@ -614,7 +618,7 @@ export function ActivityCard({
                         text={() => readWholeFile(entry.file.path, workspacePath)}
                       />
                     )}
-                    {elsewhere === undefined && (
+                    {elsewhere === undefined && revealHere && (
                       <button
                         type="button"
                         className="lc-filerow__reveal"
@@ -912,7 +916,7 @@ export function ActivityCard({
                       <Icon name="maximize" size={13} />
                     </button>
                   )}
-                  {elsewhere === undefined && (
+                  {elsewhere === undefined && revealHere && (
                     <button
                       type="button"
                       className="lc-filerow__reveal"

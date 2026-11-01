@@ -8,6 +8,8 @@ import { DiffView } from './DiffView.js'
 import { Icon } from './Icon.js'
 import { SheetView } from './SheetView.js'
 import { AgentText } from './ThreadItems.js'
+import { WORKSPACE_PAGE_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /**
  * A NEW DOCUMENT, SHOWN AS ONE (0.363).
@@ -43,8 +45,11 @@ function isPageFile(path: string): boolean {
  */
 export function PagePreview({ path, name, column }: { readonly path: string; readonly name: string; readonly column?: { readonly compareId: string; readonly slot: string } }): ReactElement {
   const [url, setUrl] = useState<string>()
-  const [refused, setRefused] = useState<string>()
+  // Served by the computer at an address only it reaches (0.850): a browser says where the page runs.
+  const stays = onTheComputer(WORKSPACE_PAGE_CHANNEL) === undefined ? undefined : 'This page runs in Locust on your computer.'
+  const [refused, setRefused] = useState<string | undefined>(stays)
   useEffect(() => {
+    if (stays !== undefined) return
     let live = true
     void window.desktop?.pageUrlFor(path, column).then((answer) => {
       if (!live) return

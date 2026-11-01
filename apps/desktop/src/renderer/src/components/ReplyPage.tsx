@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
+import { REPLY_PAGE_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /**
  * A WHOLE WEB PAGE IN A REPLY, RUNNING (0.553, shared/reply-page.ts).
@@ -23,6 +25,11 @@ export function ReplyPage({ code, language }: { readonly code: string; readonly 
     const bridge = window.desktop
     if (bridge?.replyPageUrl === undefined) {
       setRefused('This page cannot run here. Its code is in the Code tab.')
+      return
+    }
+    // Served by the computer at an address only it reaches (0.850): a browser says where it runs, and keeps the code.
+    if (onTheComputer(REPLY_PAGE_CHANNEL) !== undefined) {
+      setRefused('This page runs in Locust on your computer. Its code is in the Code tab.')
       return
     }
     void bridge.replyPageUrl(code).then((answer) => {

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { talkRunsOn, voiceCallText, type VoiceCallApi, type VoiceCallAvailability, type VoiceCallRole } from '../../../shared/voice-call.js'
+import { talkRunsOn, VOICE_CALL_START, voiceCallText, type VoiceCallApi, type VoiceCallAvailability, type VoiceCallRole } from '../../../shared/voice-call.js'
+import { onTheComputer } from '../onTheComputer.js'
 import type { AvatarSpec } from '../../../shared/avatar.js'
 import type { TeammateHue } from '../../../shared/ipc.js'
 import { TeammateBot } from './TeammateBot.js'
@@ -303,15 +304,18 @@ export function VoiceCallButton({ platform, onText, api = typeof window === 'und
   const loud = Math.max(levels.you, levels.voice)
   // On a call with a teammate whose conversation is on screen, a connector's question is a card there (0.749).
   const asksInThread = talkTo?.asksInThread === true
+  // A call is the computer's microphone and speakers (0.850): in a browser, Talk is held and says where it works.
+  const stays = on ? undefined : onTheComputer(VOICE_CALL_START)
   return <span className="lc-call" ref={anchor}>
     <button
       type="button"
       className={`lc-control lc-call__button${on ? ' is-on' : ''}`}
       onMouseDown={(event) => { event.preventDefault() }}
       onClick={() => { void (on ? end() : start()) }}
-      aria-label={on ? 'End the voice call' : 'Talk'}
+      disabled={stays !== undefined}
+      aria-label={on ? 'End the voice call' : stays === undefined ? 'Talk' : 'Talk, on your computer'}
       aria-pressed={on}
-      title={on ? 'End the call' : talkTo === undefined ? VOICE_CALL_TITLE : `Talk to ${talkTo.name}. What you ask goes to ${talkTo.name} in this conversation; the voice is ChatGPT’s.`}
+      title={on ? 'End the call' : stays ?? (talkTo === undefined ? VOICE_CALL_TITLE : `Talk to ${talkTo.name}. What you ask goes to ${talkTo.name} in this conversation; the voice is ChatGPT’s.`)}
     >
       <Icon name="waveform" size={17} />
     </button>

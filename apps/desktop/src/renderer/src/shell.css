@@ -1105,9 +1105,15 @@ textarea {
   transition: color var(--lc-motion-hover) var(--lc-ease), border-color var(--lc-motion-hover) var(--lc-ease);
 }
 
-.lc-sentfile:hover {
+.lc-sentfile:hover:not(:disabled) {
   color: var(--lc-text-primary);
   border-color: var(--lc-border-strong);
+}
+
+/* Held in a browser with nowhere to open it (0.850): the name stays readable; only the press is gone. */
+.lc-sentfile:disabled,
+.lc-handedfile__open:disabled {
+  cursor: default;
 }
 
 .lc-sentfile__path {
@@ -1188,7 +1194,7 @@ textarea {
   transition: color var(--lc-motion-hover) var(--lc-ease);
 }
 
-.lc-handedfile__open:hover {
+.lc-handedfile__open:hover:not(:disabled) {
   color: var(--lc-text-primary);
 }
 
@@ -8000,9 +8006,14 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   cursor: pointer;
   transition: color var(--lc-motion-hover) var(--lc-ease), background var(--lc-motion-hover) var(--lc-ease);
 }
-.lc-changes__walk:hover {
+.lc-changes__walk:hover:not(:disabled) {
   color: var(--lc-text-primary);
   background: var(--lc-bg-control);
+}
+/* Held in a browser (0.850): a walk runs a teammate on the computer. */
+.lc-changes__walk:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .lc-changes__walk:focus-visible {
   outline: 2px solid var(--lc-text-secondary);
@@ -17769,11 +17780,17 @@ textarea.lc-compare__judgecriteria {
   cursor: pointer;
 }
 
-.lc-queued__action:hover,
+.lc-queued__action:hover:not(:disabled),
 .lc-queued__action:focus-visible {
   color: var(--lc-text-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Held in a browser (0.850): the folder question is answered on the computer. */
+.lc-queued__action:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* "Open the run this reached" on an exchange message. Quiet: it is a way
@@ -21781,8 +21798,24 @@ textarea.lc-compare__judgecriteria {
   pointer-events: auto;
 }
 
-.lc-plusmenu.is-open .lc-plusmenu__satellite:hover {
+.lc-plusmenu.is-open .lc-plusmenu__satellite:hover:not(:disabled) {
   background: var(--lc-hover-surface);
+}
+
+/* A browser's own file picker (0.850): pressed from Attach files, never seen. Not display:none, which some
+   phones' browsers will not open from a press elsewhere. */
+.lc-filepick {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* The icons hold back while the blob is merged, then materialise with a soft

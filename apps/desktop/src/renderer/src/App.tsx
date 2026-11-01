@@ -72,7 +72,11 @@ import type {
   PublicWorktree,
   PublicConnector
 } from '../../shared/ipc.js'
-import { roleLabelOf } from '../../shared/ipc.js'
+import {
+  CLAUDE_CLOUD_APPLY_CHANNEL, CLAUDE_CLOUD_SEND_CHANNEL, CLAUDE_CLOUD_START_CHANNEL, CLAUDE_CLOUD_TERMINAL_CHANNEL, CLOUD_START_CHANNEL, CLOUD_TURN_APPLY_CHANNEL, CLOUD_TURN_DISCARD_CHANNEL,
+  CLOUD_TURN_PULL_REQUEST_CHANNEL, FEEDBACK_CHANNEL, MISSION_RECORD_SAVE_CHANNEL, OPEN_IN_TERMINAL_CHANNEL, roleLabelOf,
+  ROUTINE_EXPORT_CHANNEL, ROUTINE_IMPORT_PREVIEW_CHANNEL, SESSION_IMPORT_CHANNEL, TEAM_CARD_ADD_CHANNEL, WORKSPACE_OPEN_CHANNEL
+} from '../../shared/ipc.js'
 import { addPagePoint, MAX_PAGE_POINTS, noteOnPagePoint, withoutPagePoint, type PagePointChip } from '../../shared/browser-point.js'
 import { isPanelRunKind } from '../../shared/panel-runs.js'
 import { carryOnOffer, carryOnReason, providerFailedFirst } from '../../shared/carry-on.js'
@@ -186,13 +190,17 @@ import { TuneTeammate, tuneSkillReady, type TuneCard } from './components/TuneTe
 import { KeptInstructions } from './components/KeptInstructions.js'
 import { TeammateSetup } from './components/TeammateSetup.js'
 import type { TeammateSetup as SetupFacts } from '../../shared/teammate-setup.js'
-import { currentDrafts, parseTuneDrafts, tuneRefusal, tuneRoutes, TUNE_SKILL_INCOMPLETE, type PublicTeammateSkill, type PublicTuneLesson } from '../../shared/tune.js'
+import {
+  currentDrafts, parseTuneDrafts, TEAMMATE_SKILL_REMOVE_CHANNEL, TEAMMATE_SKILL_USE_CHANNEL, TUNE_DRAFT_CHANNEL, TUNE_LESSON_NOTE_CHANNEL, TUNE_LESSON_REMOVE_CHANNEL,
+  tuneRefusal, tuneRoutes,
+  TUNE_SKILL_INCOMPLETE, type PublicTeammateSkill, type PublicTuneLesson
+} from '../../shared/tune.js'
 import { assistantMessages } from './missionView.js'
 import { CloudTasks } from './components/CloudTasks.js'
 import { CloudSetupDialog, type CloudSetupState } from './components/CloudSetupDialog.js'
 import { CLOUD_AGENT_NAMES, type CloudAgent, type PublicCloudTurn } from '../../shared/cloud-computer.js'
 import { BackgroundRuns } from './components/BackgroundRuns.js'
-import type { PublicBackgroundRun } from '../../shared/background.js'
+import { BACKGROUND_START_CHANNEL, type PublicBackgroundRun } from '../../shared/background.js'
 import { ReviewChanges } from './components/ReviewChanges.js'
 import { CommitChanges } from './components/CommitChanges.js'
 import { PullRequestChip } from './components/PullRequestChip.js'
@@ -262,7 +270,8 @@ import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effo
 import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName, shownRouteLabel } from './routeName.js'
 import { windowKeys } from './keyboardShortcuts.js'
 import { pathOnlyTitle } from './pathTitle.js'
-import { onTheComputer } from './onTheComputer.js'
+import { failureSaid, inABrowser, onTheComputer } from './onTheComputer.js'
+import { copyText } from './copyText.js'
 import { TERMINAL_CREATE } from '../../shared/terminal.js'
 import { BROWSER_OPEN_PANEL_CHANNEL } from '../../shared/browser.js'
 import { restoreNoticeLine } from './backupWords.js'
@@ -999,7 +1008,8 @@ export default function App(): ReactElement {
         { label: 'New teammate', shortcut: 't', onSelect: startNewTeammate },
         { label: 'New room', shortcut: 'r', onSelect: openRoomsScreen },
         // Colin, 2026-09-29: "look into how claude code and codex allow you to import conversations".
-        { label: 'Import a conversation…', shortcut: 'i', onSelect: () => setImportOpen(true) },
+        // Brought in by the computer, from its own agents' sessions (0.850): a browser is told so on the row.
+        { label: 'Import a conversation…', shortcut: 'i', ...(onTheComputer(SESSION_IMPORT_CHANNEL) === undefined ? {} : { disabledReason: onTheComputer(SESSION_IMPORT_CHANNEL)! }), onSelect: () => setImportOpen(true) },
         /*
          * PROJECTS ARE BACK (Colin, 2026-09-29): "claude has projects/and
          * workspace folders, like they arent the same thing so just use that
@@ -1328,7 +1338,8 @@ export default function App(): ReactElement {
           // The whole conversation as one file, to read before it is sent anywhere (0.575; mission-export.ts).
           label: 'Save the record…',
           shortcut: 'e',
-          ...(notYet !== undefined ? { disabledReason: notYet } : {}),
+          // Saved through the computer's save dialog (0.850): a browser is told where it works.
+          ...(notYet !== undefined ? { disabledReason: notYet } : onTheComputer(MISSION_RECORD_SAVE_CHANNEL) !== undefined ? { disabledReason: onTheComputer(MISSION_RECORD_SAVE_CHANNEL)! } : {}),
           onSelect: () => setSavingRecordOf(missionId)
         },
         {
@@ -2782,7 +2793,7 @@ export default function App(): ReactElement {
     const platform = window.desktop?.platform ?? 'win32'
     bindFileMenu((given, x, y) => {
       const path = rootedPath(given, workspacePath)
-      const choices = fileMenuChoices({ path, folder: workspacePath, platform, editors: installedEditors })
+      const choices = fileMenuChoices({ path, folder: workspacePath, platform, editors: installedEditors, inBrowser: inABrowser() })
       setRowMenu({
         x,
         y,
@@ -2797,6 +2808,11 @@ export default function App(): ReactElement {
               }
               if (choice.id === 'copy-path' || choice.id === 'copy-relative' || choice.id === 'copy-name') {
                 const text = choice.id === 'copy-name' ? fileBaseName(path) : systemPath(choice.id === 'copy-relative' ? relativeToFolder(path, workspacePath, platform) : path, platform)
+                // A browser's own clipboard (0.850): the computer's is out of reach from here, and of no use.
+                if (inABrowser()) {
+                  await copyText(text)
+                  return
+                }
                 const wrote = await window.desktop?.writeClipboard(text)
                 if (wrote !== true) await navigator.clipboard?.writeText(text).catch(() => undefined)
                 return
@@ -4866,6 +4882,9 @@ export default function App(): ReactElement {
   /** The send, when a comparison is ticked or on screen; otherwise the ordinary one. */
   const openTune = (): string | undefined => {
     if (window.desktop === undefined) return 'Locust is not ready. Nothing was started.'
+    // A tune drafts on the teammate's model, from the computer (0.850): a browser's /tune says so, and keeps the words.
+    const stays = onTheComputer(TUNE_DRAFT_CHANNEL)
+    if (stays !== undefined) return `${stays} Nothing was started.`
     if (tuning !== undefined) return 'The tune card is already open. Nothing else was started.'
     const teammate = liveRun === undefined ? undefined : teammates.find((mate) => mate.teammateId === ownerOf(liveRun))
     const of = liveRun?.data?.missionId
@@ -4945,6 +4964,9 @@ export default function App(): ReactElement {
   const noteTuneLesson = async (compare: PublicCompare, usedInstructions: boolean): Promise<{ readonly lesson?: PublicTuneLesson | null; readonly message?: string } | undefined> => {
     const bridge = window.desktop
     if (bridge === undefined) return { lesson: null, message: 'Locust is not ready. No lesson was saved.' }
+    // A lesson is read by a model on the computer (0.850): a browser is told so, and nothing is saved.
+    const stays = onTheComputer(TUNE_LESSON_NOTE_CHANNEL)
+    if (stays !== undefined) return { lesson: null, message: `${stays} No lesson was saved.` }
     setNotingCompareId(compare.compareId)
     try {
       // A tune run again (0.811): what its benchmark counted for each setup, so the note has more than one run to read.
@@ -4966,6 +4988,8 @@ export default function App(): ReactElement {
   const useTuneSkill = async (compare: PublicCompare, which: 'kept' | 'other'): Promise<string | undefined> => {
     const bridge = window.desktop
     if (bridge === undefined) return 'Locust is not ready. The teammate is unchanged.'
+    const stays = onTheComputer(TEAMMATE_SKILL_USE_CHANNEL)
+    if (stays !== undefined) return `${stays} The teammate is unchanged.`
     const answer = await bridge.useTuneSkill(compare.compareId, which).catch(() => undefined)
     if (answer === undefined || !answer.ok) return answer?.ok === false ? answer.message : 'That skill could not be saved. The teammate is unchanged.'
     setTeammateSkills(answer.data.skills)
@@ -4974,6 +4998,9 @@ export default function App(): ReactElement {
   const removeTeammateSkill = async (teammateId: string, name: string): Promise<string | undefined> => {
     const bridge = window.desktop
     if (bridge === undefined) return 'Locust is not ready. The teammate’s skills are unchanged.'
+    // A teammate's skills are files on the computer (0.850): a browser is told so, and nothing is changed.
+    const stays = onTheComputer(TEAMMATE_SKILL_REMOVE_CHANNEL)
+    if (stays !== undefined) return `${stays} The teammate’s skills are unchanged.`
     const answer = await bridge.removeTeammateSkill(teammateId, name).catch(() => undefined)
     if (answer === undefined || !answer.ok) return answer?.ok === false ? answer.message : 'That skill could not be removed. The teammate’s skills are unchanged.'
     setTeammateSkills(answer.data.skills)
@@ -4982,6 +5009,8 @@ export default function App(): ReactElement {
   const removeTuneLesson = async (lessonId: string): Promise<string | undefined> => {
     const bridge = window.desktop
     if (bridge === undefined) return 'Locust is not ready. Your lessons are unchanged.'
+    const stays = onTheComputer(TUNE_LESSON_REMOVE_CHANNEL)
+    if (stays !== undefined) return `${stays} Your lessons are unchanged.`
     const answer = await bridge.removeTuneLesson(lessonId).catch(() => undefined)
     if (answer === undefined || !answer.ok) return answer?.ok === false ? answer.message : 'That tune lesson could not be removed. Your lessons are unchanged.'
     setTuneLessons(answer.data.lessons)
@@ -6655,7 +6684,7 @@ export default function App(): ReactElement {
           rememberRosterNames(listed.data)
         })
       })
-      .catch(() => setTeammateError('That teammate could not be updated. Their details are unchanged.'))
+      .catch((error: unknown) => setTeammateError(failureSaid(error, 'That teammate could not be updated. Their details are unchanged.')))
   }
 
   /**
@@ -6701,7 +6730,7 @@ export default function App(): ReactElement {
           rememberRosterNames(listed.data)
         })
       })
-      .catch(() => setFolderNotice('That could not be changed. The setting is as it was.'))
+      .catch((error: unknown) => setFolderNotice(failureSaid(error, 'That could not be changed. The setting is as it was.')))
   }
 
   /** Own browser sign-ins on or off (0.839). The host answers with the teammate; off, it has cleared them. */
@@ -6723,7 +6752,7 @@ export default function App(): ReactElement {
           rememberRosterNames(listed.data)
         })
       })
-      .catch(() => setFolderNotice('That could not be changed. The setting is as it was.'))
+      .catch((error: unknown) => setFolderNotice(failureSaid(error, 'That could not be changed. The setting is as it was.')))
   }
 
   const chooseTeammateFolder = (teammateId: string, clear: boolean): void => {
@@ -6746,7 +6775,7 @@ export default function App(): ReactElement {
           rememberRosterNames(listed.data)
         })
       })
-      .catch(() => setFolderNotice('That folder could not be chosen. The workspace is unchanged.'))
+      .catch((error: unknown) => setFolderNotice(failureSaid(error, 'That folder could not be chosen. The workspace is unchanged.')))
   }
 
   const reloadRoutines = async (): Promise<void> => {
@@ -7022,7 +7051,7 @@ export default function App(): ReactElement {
     void window.desktop?.previewRoutineImport().then((answer) => {
       if (!answer.ok) { setRoutineNotice(answer.error.message); return }
       setRoutineImport(answer.data.preview)
-    }).catch(() => setRoutineNotice('That routine file could not be opened. Choose a readable .locust-routine.json file.'))
+    }).catch((error: unknown) => setRoutineNotice(failureSaid(error, 'That routine file could not be opened. Choose a readable .locust-routine.json file.')))
   }
   const startRoutine = async (routineId: string, values?: RoutineValues): Promise<void> => {
     if (!window.desktop) throw new Error('Desktop connection is unavailable.')
@@ -7918,7 +7947,7 @@ export default function App(): ReactElement {
         const left = answer.routinesLeft.length === 0 ? '' : ` Not brought: ${answer.routinesLeft.join(', ')}.`
         setTeamNotice(`${added}${skipped}${instructed}${routines}${left}`)
       })
-      .catch(() => setTeamNotice('That image could not be read as a Locust team card.'))
+      .catch((error: unknown) => setTeamNotice(failureSaid(error, 'That image could not be read as a Locust team card.')))
   }
   // It confirms a thing that already happened, so it goes away on its own. A
   // standing green line would become furniture, and furniture is not read.
@@ -8423,7 +8452,8 @@ export default function App(): ReactElement {
         id: answer.id,
         ...(early === undefined ? {} : { output: early.output, exitCode: early.exitCode, stopped: early.stopped, running: false, ...(early.omitted === undefined ? {} : { omitted: early.omitted }) })
       })
-    }).catch(() => place({ ...entry, running: false, output: 'That command could not be started. Nothing was run.', exitCode: 1 }))
+    // A command of yours runs on the computer (0.850): a browser's is refused before it leaves, and says so.
+    }).catch((error: unknown) => place({ ...entry, running: false, output: failureSaid(error, 'That command could not be started. Nothing was run.'), exitCode: 1 }))
   }
   useEffect(() => { setPagePoints([]) }, [composerDraftKey])
   const besideRow = besideId === undefined ? undefined : sidebarMissions.find((entry) => (entry.memberIds ?? [entry.missionId]).includes(besideId))
@@ -8752,7 +8782,8 @@ export default function App(): ReactElement {
           teammateName: teammates.find((teammate) => teammate.teammateId === ownerOf(liveRun))?.name,
           antigravityCli
         })
-  if (shownTerminal !== undefined && shownTerminal.disabled === undefined && terminalMissionId !== undefined) {
+  // A terminal window opens on the computer, out of a browser's sight (0.850): there, the entry is absent.
+  if (shownTerminal !== undefined && shownTerminal.disabled === undefined && terminalMissionId !== undefined && onTheComputer(OPEN_IN_TERMINAL_CHANNEL) === undefined) {
     const id = terminalMissionId
     const offer = shownTerminal
     headerActions.push({ label: `Open in terminal (${shownTerminal.runtimeName})`, onSelect: () => openConversationInTerminal(id, offer) })
@@ -8790,7 +8821,8 @@ export default function App(): ReactElement {
    * bug reporting we can use what claude code does"), carrying what was said
    * here, which is what a report about it needs. Words only (feedback.ts).
    */
-  if (liveRun !== undefined) {
+  // Each way it sends opens something on the computer -- its browser, its mail app, a save dialog (0.850): a browser has none.
+  if (liveRun !== undefined && onTheComputer(FEEDBACK_CHANNEL) === undefined) {
     const shown = liveRun
     headerActions.push({
       label: 'Send feedback',
@@ -9044,6 +9076,9 @@ export default function App(): ReactElement {
   const cloudTurnAct = async (missionId: string, act: 'apply' | 'discard'): Promise<string | undefined> => {
     const bridge = window.desktop
     if (bridge === undefined) return 'Locust is not ready yet.'
+    // Applied or discarded from the computer (0.850): a browser says so, not that the cloud computer was out of reach.
+    const stays = onTheComputer(act === 'apply' ? CLOUD_TURN_APPLY_CHANNEL : CLOUD_TURN_DISCARD_CHANNEL)
+    if (stays !== undefined) return stays
     const done = await (act === 'apply' ? bridge.applyCloudTurn(missionId) : bridge.discardCloudTurn(missionId)).catch(() => undefined)
     if (done === undefined) return 'Locust could not reach your cloud computer. Try again in a moment.'
     if (!done.ok) return done.message
@@ -9054,6 +9089,8 @@ export default function App(): ReactElement {
   const cloudTurnPullRequest = async (missionId: string, message: string): Promise<string | undefined> => {
     const bridge = window.desktop
     if (bridge === undefined) return 'Locust is not ready yet.'
+    const stays = onTheComputer(CLOUD_TURN_PULL_REQUEST_CHANNEL)
+    if (stays !== undefined) return stays
     const done = await bridge.pullRequestCloudTurn(missionId, message).catch(() => undefined)
     if (done === undefined) return 'Locust could not reach your cloud computer. Try again in a moment.'
     if (!done.ok) return done.message
@@ -9487,7 +9524,8 @@ export default function App(): ReactElement {
             <TeammatesScreen
               droppedTeammates={droppedTeammates}
               onShareTeam={() => setSharingTeam(true)}
-              onAddTeamFromCard={() => addTeamFromCard()}
+              // The image is picked with the computer's file picker (0.850): a browser is not offered it.
+              {...(onTheComputer(TEAM_CARD_ADD_CHANNEL) === undefined ? { onAddTeamFromCard: () => addTeamFromCard() } : {})}
               {...(teamNotice === undefined ? {} : { teamNotice })}
               finishedUnseen={finishedUnseen}
               runningMissionIds={runningMissionIds}
@@ -9570,11 +9608,12 @@ export default function App(): ReactElement {
               folders={folders}
               onSaveRoutine={openSaveRoutine}
               onNewRoutine={openNewRoutine}
-              onImportRoutine={previewRoutineImport}
+              // A routine file is picked and written with the computer's own dialogs (0.850): a browser is not offered either.
+              {...(onTheComputer(ROUTINE_IMPORT_PREVIEW_CHANNEL) === undefined ? { onImportRoutine: previewRoutineImport } : {})}
               templates={routineTemplates}
               onUseTemplate={openRoutineTemplate}
               onBrowseTemplates={() => setTemplatePicker(true)}
-              onExportRoutine={(id) => { void exportRoutine(id).catch((error: unknown) => setRoutineNotice(error instanceof Error ? error.message : 'That routine could not be exported. Check the destination folder and try again.')) }}
+              {...(onTheComputer(ROUTINE_EXPORT_CHANNEL) === undefined ? { onExportRoutine: (id: string) => { void exportRoutine(id).catch((error: unknown) => setRoutineNotice(error instanceof Error ? error.message : 'That routine could not be exported. Check the destination folder and try again.')) } } : {})}
               onSettleRoutine={settleRoutine}
               {...(bringIntoView?.kind === 'routine' ? { focusRoutineId: bringIntoView.routineId } : {})}
               signInOn={loginItem.openAtLogin}
@@ -9969,7 +10008,7 @@ export default function App(): ReactElement {
                   if (scout === undefined || scoutId === undefined || !teammates.some((one) => one.teammateId === scoutId)) return {}
                   return { teamWatch: { teammateId: scoutId, line: <ScoutLooked state={scout} looking={scoutLooking} />, looking: scoutLooking, onLookNow: lookWithScout } }
                 })()}
-                onAddTeamFromCard={() => addTeamFromCard(true)}
+                {...(onTheComputer(TEAM_CARD_ADD_CHANNEL) === undefined ? { onAddTeamFromCard: () => addTeamFromCard(true) } : {})}
                 rosterUnreadable={unreadableStores.includes('teammates')}
                 runtimes={runtimes}
                 freeStart={freeStartStillFree(runtimes, models)}
@@ -10335,7 +10374,8 @@ export default function App(): ReactElement {
                     </button>
                   )}
                   <BrowserToggle open={browserOpen} refusal={browserRefusal} onToggle={toggleBrowser} />
-                  {workspacePath !== undefined && (
+                  {/* The computer's file manager (0.850): not drawn in a browser, which has none of it. */}
+                  {workspacePath !== undefined && onTheComputer(WORKSPACE_OPEN_CHANNEL) === undefined && (
                     <button
                       type="button"
                       className="lc-headicon"
@@ -10908,7 +10948,8 @@ export default function App(): ReactElement {
             onStart={sendOrCompare}
             // Compare (0.441): the picker's switch, and a comparison on screen.
             {...(comparePicking === undefined ? {} : { compare: comparePicking })}
-            {...(composerRoute.runtime === 'claude' && comparing === undefined
+            // A background turn is Claude Code's own session on the computer (0.850): a browser is not offered it.
+            {...(composerRoute.runtime === 'claude' && comparing === undefined && onTheComputer(BACKGROUND_START_CHANNEL) === undefined
               ? {
                   background: {
                     on: backgroundOn,
@@ -10956,7 +10997,11 @@ export default function App(): ReactElement {
                 value: cloudEnvironment.folder === workspacePath ? cloudEnvironment.value : '',
                 onChange: (value) => setCloudEnvironment({ folder: workspacePath ?? '', value, edited: true })
               },
-              ...(composerRoute.runtime === 'claude' || composerRoute.runtime === 'opencode'
+              // Its makers' clouds are started from the computer (0.850): a browser is told so on the choice. Your own
+              // cloud computer is a turn of this conversation, and is offered as ever.
+              ...((composerRoute.runtime === 'claude' || composerRoute.runtime === 'codex') && onTheComputer(composerRoute.runtime === 'claude' ? CLAUDE_CLOUD_START_CHANNEL : CLOUD_START_CHANNEL) !== undefined
+                ? { refusal: onTheComputer(CLOUD_START_CHANNEL)! }
+                : composerRoute.runtime === 'claude' || composerRoute.runtime === 'opencode'
                 ? {}
                 : composerRoute.runtime !== 'codex'
                 ? { refusal: 'Cloud runs on Codex, Claude or OpenCode: pick one of their models first.' }
@@ -11142,11 +11187,12 @@ export default function App(): ReactElement {
           <BackgroundRuns
             runs={backgroundRuns}
             {...(backgroundNote === undefined ? {} : { note: backgroundNote })}
-            onOpen={(id) => void window.desktop?.openBackground(id).then((answer) => { if (!answer.ok && answer.message !== undefined) setBackgroundNote({ text: answer.message }) })}
-            onStop={(id) => void window.desktop?.stopBackground(id)}
+            onOpen={(id) => void window.desktop?.openBackground(id).then((answer) => { if (!answer.ok && answer.message !== undefined) setBackgroundNote({ text: answer.message }) }).catch((error: unknown) => setBackgroundNote({ text: failureSaid(error, 'Claude Code could not be opened. The turn goes on as it was.') }))}
+            // Claude Code's own sessions are the computer's to stop, open and set up (0.850): a browser is told so.
+            onStop={(id) => void window.desktop?.stopBackground(id).catch((error: unknown) => setBackgroundNote({ text: failureSaid(error, 'That background turn could not be stopped. It may still be working.') }))}
             onShow={(missionId) => openMission(missionId)}
-            onDismiss={(id) => void window.desktop?.dismissBackground(id).then(() => setBackgroundRuns((current) => current.filter((run) => run.id !== id)))}
-            onSetUp={() => void window.desktop?.setUpBackground().then((answer) => setBackgroundNote(answer.ok ? { text: 'Claude Code is open in a terminal. Answer its question about this folder, then send again.' } : { text: answer.message ?? 'Claude Code could not be opened. Nothing was sent; open it in this folder yourself, answer its question, then send again.' }))}
+            onDismiss={(id) => void window.desktop?.dismissBackground(id).then(() => setBackgroundRuns((current) => current.filter((run) => run.id !== id))).catch((error: unknown) => setBackgroundNote({ text: failureSaid(error, 'That background turn could not be put away. It is still in the list.') }))}
+            onSetUp={() => void window.desktop?.setUpBackground().then((answer) => setBackgroundNote(answer.ok ? { text: 'Claude Code is open in a terminal. Answer its question about this folder, then send again.' } : { text: answer.message ?? 'Claude Code could not be opened. Nothing was sent; open it in this folder yourself, answer its question, then send again.' })).catch((error: unknown) => setBackgroundNote({ text: failureSaid(error, 'Claude Code could not be opened. Nothing was sent.') }))}
             onClose={() => setBackgroundPanel(false)}
           />
         ) : cloudPanel && screen === 'workroom' ? (
@@ -11166,7 +11212,7 @@ export default function App(): ReactElement {
                 } else {
                   setCloudProblem(answer.message)
                 }
-              }).catch(() => setCloudProblem('The change could not be applied. Nothing in the folder was changed by Locust.')).finally(() => setCloudApplying(undefined))
+              }).catch((error: unknown) => setCloudProblem(failureSaid(error, 'The change could not be applied. Nothing in the folder was changed by Locust.'))).finally(() => setCloudApplying(undefined))
             }}
             onOpen={(url) => void window.desktop?.openLink(url).catch(() => undefined)}
             onClose={() => setCloudPanel(false)}
@@ -11185,7 +11231,7 @@ export default function App(): ReactElement {
                       ? 'Claude Code opened in this folder and is bringing this session’s work into it.'
                       : 'Claude Code opened in this folder with its list of cloud sessions. Pick this one, and its work comes into this folder.'
                     : answer.message)
-                }).catch(() => setClaudeCloudNote('Claude Code could not be opened. Run claude --teleport in a terminal in this folder to bring it home.'))
+                }).catch((error: unknown) => setClaudeCloudNote(failureSaid(error, 'Claude Code could not be opened. Run claude --teleport in a terminal in this folder to bring it home.')))
               },
               onForget: (id) => {
                 setClaudeCloud((current) => current.filter((one) => one.id !== id))
@@ -11193,16 +11239,23 @@ export default function App(): ReactElement {
               },
               onOpenWeb: (url) => void window.desktop?.openLink(url ?? 'https://claude.ai/code').catch(() => undefined),
               onContinue: async (id) => {
+                const stays = onTheComputer(CLAUDE_CLOUD_TERMINAL_CHANNEL)
+                if (stays !== undefined) return stays
                 const answer = await window.desktop?.continueClaudeCloudInTerminal(id).catch(() => undefined)
                 return answer === undefined ? 'The terminal could not be opened. Open this session on claude.ai.' : answer.ok ? undefined : answer.message
               },
               onSend: async (id, message) => {
+                // Refused in a browser before anything left it (0.850): known unsent, so it is not said to be unknown.
+                const stays = onTheComputer(CLAUDE_CLOUD_SEND_CHANNEL)
+                if (stays !== undefined) return stays
                 const answer = await window.desktop?.sendClaudeCloud(id, message).catch(() => undefined)
                 // The bridge failing mid-send leaves it unknown, not unsent (0.568).
                 return answer === undefined ? 'Locust could not confirm whether that was sent. Look at the session on claude.ai before sending it again.' : answer.ok ? undefined : answer.message
               },
               onCheck: async (id) => (await window.desktop?.checkClaudeCloud(id).catch(() => undefined)) ?? { ok: false, message: 'Claude Code could not be reached to read it. See it on claude.ai.' },
               onApply: async (id) => {
+                const stays = onTheComputer(CLAUDE_CLOUD_APPLY_CHANNEL)
+                if (stays !== undefined) return stays
                 const answer = await window.desktop?.applyClaudeCloud(id).catch(() => undefined)
                 return answer === undefined ? 'Its change could not be applied. Nothing was changed.' : answer.ok ? undefined : answer.message
               }
@@ -11429,8 +11482,9 @@ export default function App(): ReactElement {
                     }
                   ]
                 : []),
-              // Only where a conversation is on screen: the record is of that one (0.575).
-              ...(terminalMissionId === undefined || terminalMissionId.startsWith('pending:')
+              // Only where a conversation is on screen: the record is of that one (0.575). Not in a browser, which has
+              // no save dialog of the computer's (0.850).
+              ...(terminalMissionId === undefined || terminalMissionId.startsWith('pending:') || onTheComputer(MISSION_RECORD_SAVE_CHANNEL) !== undefined
                 ? []
                 : [
                     {

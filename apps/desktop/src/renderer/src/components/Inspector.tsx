@@ -11,6 +11,8 @@ import { modelDisplayName } from '../routeName.js'
 import { runtimeDisplayName } from '../../../shared/runtimes.js'
 import { whatItMayDo } from '../../../shared/may-do.js'
 import { Icon } from './Icon.js'
+import { WORKSPACE_REVEAL_CHANNEL } from '../../../shared/ipc.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
 
 const TABS = ['Activity', 'Details', 'Artifacts', 'Receipt'] as const
 type Tab = (typeof TABS)[number]
@@ -232,7 +234,8 @@ export function Inspector({
                     {artifact.shown}
                   </span>
                   {artifact.status !== undefined && <span className="lc-artifacts__status">{artifact.status}</span>}
-                  <button
+                  {/* The computer's file manager (0.850): not drawn in a browser, which has none of it. */}
+                  {onTheComputer(WORKSPACE_REVEAL_CHANNEL) === undefined && <button
                     type="button"
                     className="lc-filerow__reveal"
                     title={`Show ${artifact.shown} in the file manager`}
@@ -246,11 +249,11 @@ export function Inspector({
                         .then((response) => {
                           if (!response.ok) setArtifactNotice(response.message)
                         })
-                        .catch(() => setArtifactNotice('That file could not be shown. It is still where it was written.'))
+                        .catch((error: unknown) => setArtifactNotice(failureSaid(error, 'That file could not be shown. It is still where it was written.')))
                     }}
                   >
                     <Icon name="folder" size={13} />
-                  </button>
+                  </button>}
                 </li>
               ))}
               {artifactNotice !== undefined && <li className="lc-filerow__notice">{artifactNotice}</li>}

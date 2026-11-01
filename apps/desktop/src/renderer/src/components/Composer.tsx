@@ -52,7 +52,9 @@ import { effortFooter, effortName } from '../effortLevels.js'
 import { EffortSlider } from './EffortSlider.js'
 import { CloudEnvironmentField } from './CloudEnvironmentField.js'
 import { effortScale, joinEffort, splitEffort } from '../effortScale.js'
-import { ATTACHMENT_DIR, attachmentLabel, MAX_ATTACHMENTS, withAttachments } from '../../../shared/attachments.js'
+import { ATTACHMENT_DIR, attachmentLabel, MAX_ATTACHMENTS, MAX_PASTED_BYTES, withAttachments } from '../../../shared/attachments.js'
+import { WORKSPACE_ATTACH_CHANNEL, WORKSPACE_CHOOSE_CHANNEL, WORKSPACE_CONFIRM_CHANNEL } from '../../../shared/ipc.js'
+import { inABrowser, onTheComputer } from '../onTheComputer.js'
 import { messageOfPagePoints, type PagePointChip } from '../../../shared/browser-point.js'
 import { diffNotesTile, withDiffNotes } from '../diffNotes.js'
 import type { DiffNote } from '../diffNotes.js'
@@ -1355,6 +1357,8 @@ export function Composer({
   const field = useRef<HTMLTextAreaElement>(null)
   // Start here on the folder question sends through the form itself, so it goes exactly as Send would (0.790).
   const formRef = useRef<HTMLFormElement>(null)
+  /** A browser's own file picker (0.850): the computer's opens on the computer, out of sight. */
+  const filePick = useRef<HTMLInputElement>(null)
   // Handed back (C9): the words and files return to the box, ready to send.
   useEffect(() => {
     if (handBack === undefined) return
@@ -1396,16 +1400,18 @@ export function Composer({
     input.setSelectionRange(input.value.length, input.value.length)
   }
 
-  const paste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
+  /** Files handed over here -- pasted, or picked in a browser (0.850) -- sent to the computer as their bytes. */
+  const attachChosen = (files: readonly File[]): void => {
     const bridge = window.desktop
-    const files = [...(event.clipboardData?.files ?? [])]
-    if (bridge === undefined || files.length === 0 || running) return
-    // Only once there is something to attach: calling this on every text
-    // paste would swallow the paste.
-    event.preventDefault()
+    if (bridge === undefined || files.length === 0) return
     setAttaching(true)
     void (async () => {
       for (const file of files.slice(0, MAX_ATTACHMENTS)) {
+        // From a browser it would cross the relay before the computer refused it: said here instead (0.850).
+        if (inABrowser() && file.size > MAX_PASTED_BYTES) {
+          setNote(`${file.name.length > 0 ? file.name : 'That file'} is too large to send from a browser (24 MB at most). Attach it in Locust on your computer.`)
+          continue
+        }
         const bytes = new Uint8Array(await file.arrayBuffer())
         // A pasted bitmap has no name of its own -- the browser calls it
         // `image.png` at best -- so it gets one that says where it came from
@@ -1424,6 +1430,15 @@ export function Composer({
     })()
       .catch(() => setNote('That could not be attached. Your message is untouched.'))
       .finally(() => setAttaching(false))
+  }
+
+  const paste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
+    const files = [...(event.clipboardData?.files ?? [])]
+    if (window.desktop === undefined || files.length === 0 || running) return
+    // Only once there is something to attach: calling this on every text
+    // paste would swallow the paste.
+    event.preventDefault()
+    attachChosen(files)
   }
 
   const keyDown = (keyEvent: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -1726,6 +1741,11 @@ export function Composer({
   const attachFiles = (): void => {
     const bridge = window.desktop
     if (bridge === undefined) return
+    // The computer's picker would open there, out of sight (0.850): a browser's own picks, and they go as a paste does.
+    if (onTheComputer(WORKSPACE_ATTACH_CHANNEL) !== undefined) {
+      filePick.current?.click()
+      return
+    }
     setAttaching(true)
     void bridge
       .attachFiles()
@@ -1760,6 +1780,10 @@ export function Composer({
       .catch(() => setNote('Those files could not be attached. Your message is untouched.'))
       .finally(() => setAttaching(false))
   }
+  // Choosing a folder opens the computer's own picker, and starting in a folder that reaches sign-in files is
+  // decided there (0.850): in a browser both are held, and say so.
+  const folderStays = onTheComputer(WORKSPACE_CHOOSE_CHANNEL)
+  const confirmStays = onTheComputer(WORKSPACE_CONFIRM_CHANNEL)
 
   // Listening, typing your words, or off: the glow's state (voiceLevel.ts).
   const [voice, setVoice] = useState<VoiceState>(voiceState.get())
@@ -1849,11 +1873,12 @@ export function Composer({
               <span className="lc-queued__note">
                 <span className="lc-folderask__question">Start this conversation in {folderQuestion.name}?</span>{' '}
                 This is {folderQuestion.why}, and a teammate here reads it as its project, sign-in files included.
+                {confirmStays !== undefined && <> {confirmStays}</>}
               </span>
-              <button type="button" className="lc-queued__action" onClick={onChooseFolder}>
+              <button type="button" className="lc-queued__action" onClick={onChooseFolder} disabled={folderStays !== undefined} title={folderStays}>
                 Choose another folder
               </button>
-              <button type="button" className="lc-queued__action" onClick={() => {
+              <button type="button" className="lc-queued__action" disabled={confirmStays !== undefined} title={confirmStays} onClick={() => {
                 void onConfirmFolder?.().then((kept) => { if (kept) formRef.current?.requestSubmit() })
               }}>
                 Start here
@@ -2258,7 +2283,24 @@ export function Composer({
                 folderMissing={workspacePath === undefined}
                 onAttach={attachFiles}
                 onChooseFolder={onChooseFolder}
+                {...(folderStays === undefined ? {} : { folderStays })}
               />
+              {inABrowser() && (
+                <input
+                  ref={filePick}
+                  type="file"
+                  multiple
+                  className="lc-filepick"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onChange={(event) => {
+                    const chosen = [...(event.currentTarget.files ?? [])]
+                    // Emptied, so the same file picked again is a change again.
+                    event.currentTarget.value = ''
+                    attachChosen(chosen)
+                  }}
+                />
+              )}
             </div>
             <div className="lc-composer__group">
 <VoiceButton key={draftKey ?? ''} platform={platform ?? 'unknown'} disabled={workingNow && queued !== undefined} onText={(text) => {
@@ -2640,6 +2682,8 @@ export function Composer({
                       type="button"
                       role="menuitem"
                       className="lc-menu__item"
+                      disabled={folderStays !== undefined}
+                      title={folderStays}
                       onClick={() => {
                         setFolderOpen(false)
                         onChooseFolder()

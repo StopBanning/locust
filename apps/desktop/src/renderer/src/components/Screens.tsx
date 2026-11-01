@@ -3873,6 +3873,8 @@ export function UpdateBanner({
   const [refusal, setRefusal] = useState<string>()
   const [installing, setInstalling] = useState(false)
   if (update === undefined || update.phase !== 'ready') return null
+  // The computer restarts to install it (0.850): a browser is told it is ready, and the button is held.
+  const installStays = onTheComputer(APP_UPDATE_INSTALL_CHANNEL)
   return (
     <div className="lc-updatebanner" role="status">
       <span className="lc-updatebanner__text">
@@ -3882,7 +3884,8 @@ export function UpdateBanner({
       <button
         type="button"
         className="lc-button"
-        disabled={busy}
+        disabled={busy || installStays !== undefined}
+        {...(installStays === undefined ? {} : { title: installStays })}
         onClick={() => {
           setBusy(true)
           setRefusal(undefined)

@@ -3,6 +3,8 @@ import type { ReactElement } from 'react'
 import type { RoutineInput, RoutineInputKind, RoutineValues } from '../../../shared/routine-inputs.js'
 import { MAX_INPUTS, MAX_INPUT_VALUE, resolveValues } from '../../../shared/routine-inputs.js'
 import type { PublicRoutine } from '../../../shared/ipc.js'
+import { ROUTINE_FOLDER_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 import { useModal } from '../useModal.js'
 import { Select } from './Select.js'
 
@@ -50,7 +52,8 @@ export function RoutineRunDialog({ routine, onRun, onCancel }: { readonly routin
     <div className="lc-dialog__head"><span className="lc-dialog__title">Run {routine.name}</span><button className="lc-dialog__close" aria-label="Close" onClick={onCancel}>×</button></div>
     <div className="lc-dialog__body lc-routineinputs">
       {inputs.map((input) => <label key={input.key}>{input.label}{input.required ? ' (required)' : ''}
-        {input.kind === 'folder' ? <><output>{values[input.key] || 'No folder chosen'}</output><button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => {
+        {/* The computer's own folder picker (0.850): held in a browser, which says so. */}
+        {input.kind === 'folder' ? <><output>{values[input.key] || 'No folder chosen'}</output><button type="button" className="lc-ghostbutton" disabled={busy || onTheComputer(ROUTINE_FOLDER_CHANNEL) !== undefined} title={onTheComputer(ROUTINE_FOLDER_CHANNEL)} onClick={() => {
           void window.desktop?.chooseRoutineFolder().then((answer) => {
             if (answer.ok) { setError(undefined); setValues((held) => ({ ...held, [input.key]: answer.data.path })) }
             else if (answer.error.code !== 'CANCELLED') setError(answer.error.message)

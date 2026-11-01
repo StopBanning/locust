@@ -232,7 +232,7 @@ import { GITHUB_ACCOUNT_CHANNEL, GITHUB_CLI_VERSIONS_CHANNEL, GITHUB_INSTALL_CHA
 import type { AgentLaunch } from './connector-add.js'
 import { CONNECTOR_ADD_CHANNEL, CONNECTOR_REMOVE_CHANNEL, isConnectorAgent } from '../shared/connector-add.js'
 import type { ConnectorAgent } from '../shared/connector-add.js'
-import { MAX_ATTACHMENTS } from '../shared/attachments.js'
+import { MAX_ATTACHMENTS, MAX_PASTED_BYTES } from '../shared/attachments.js'
 import { ATTACHMENT_DIR, attachmentDestination, excludeWith } from './attach-outside.js'
 import { extensionOf, isViewableText, MAX_TEXT_BYTES, viewerMode } from '../shared/text-files.js'
 import { aboutYouSection, MAX_ABOUT_YOU_SUGGESTIONS } from '../shared/about-you.js'
@@ -648,17 +648,6 @@ function readAttachedPdfs(folder: string, paths: readonly string[]): void {
     if (isPdfPath(path)) void pdfReadings.prepare(folder, path, basename(path)).catch(() => undefined)
   }
 }
-
-/**
- * How large a single paste may be.
- *
- * It crosses IPC in one message, so this is a bound on what the renderer can
- * hand the host at once. Generous for a screenshot -- a full 4K PNG is well
- * under it -- and short of anything that would stall a window. Bigger things
- * still go through the + button, which streams from a path rather than
- * carrying bytes.
- */
-const MAX_PASTED_BYTES = 24 * 1024 * 1024
 
 const probeRunner = createNodeProbeRunner()
 const sessionProbeRunner = createNodeProbeRunner({ maximumTimeoutMs: 30_000, maxOutputBytes: 16 * 1024 * 1024 })

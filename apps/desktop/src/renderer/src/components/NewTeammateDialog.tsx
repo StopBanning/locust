@@ -33,6 +33,9 @@ import { Select } from './Select.js'
 import { VoicePlay } from './VoicePlay.js'
 import { Icon } from './Icon.js'
 import { tuneLessonLine, type PublicTeammateSkill, type PublicTuneLesson } from '../../../shared/tune.js'
+import { TEAMMATE_CONNECTORS_CHANNEL, TEAMMATE_FOLDER_CHANNEL, TEAMMATE_OWN_BROWSER_CHANNEL, TEAMMATE_UPDATE_CHANNEL } from '../../../shared/ipc.js'
+import { OnTheComputer } from './OnTheComputer.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /** What the dialog hands back. A limit is `null` when an edit removes one. */
 export interface TeammateDraft {
@@ -839,6 +842,8 @@ export function NewTeammateDialog({
           {editing && onChooseFolder !== undefined && (
             <div className="lc-field lc-field--folder">
               <span className="lc-fieldlabel lc-mono">Works in</span>
+              {/* What a teammate may reach is decided on the computer (0.850): in a browser these are held, and say so. */}
+              <OnTheComputer channel={TEAMMATE_FOLDER_CHANNEL}>
               <div className="lc-folderrow">
                 <span
                   className={`lc-folderrow__path lc-mono${initial?.folder === undefined ? ' is-default' : ''}`}
@@ -855,6 +860,7 @@ export function NewTeammateDialog({
                   </button>
                 )}
               </div>
+              </OnTheComputer>
               <span className="lc-field__hint">
                 Its conversations run here instead of the project folder, which is also how it reaches a connector (an MCP server) set up
                 for that folder. History and memory stay with the project either way.
@@ -881,6 +887,7 @@ export function NewTeammateDialog({
           {editing && onSetConnectors !== undefined && connectors !== undefined && connectors.length > 0 && (
             <div className="lc-field lc-field--connectors">
               <span className="lc-fieldlabel lc-mono">Connectors</span>
+              <OnTheComputer channel={TEAMMATE_CONNECTORS_CHANNEL}>
               <div className="lc-connectorgrid" role="group" aria-label="Connectors this teammate may use">
                 {connectors.map((connector) => {
                   const narrowed = initial?.connectors ?? []
@@ -904,6 +911,7 @@ export function NewTeammateDialog({
                   )
                 })}
               </div>
+              </OnTheComputer>
               <span className="lc-field__hint">
                 {(initial?.connectors ?? []).length === 0
                   ? 'Off. This teammate works without your connectors, which keeps each Claude Code turn about ten times lighter. Tick the ones it may use.'
@@ -918,6 +926,7 @@ export function NewTeammateDialog({
             * the host writes it onto a record. Takes effect at once, and off clears what it had signed in to.
             */}
           {editing && onSetOwnBrowser !== undefined && (
+            <OnTheComputer channel={TEAMMATE_OWN_BROWSER_CHANNEL}>
             <div className="lc-field lc-field--switch">
               <button
                 type="button"
@@ -938,6 +947,7 @@ export function NewTeammateDialog({
                 </span>
               </span>
             </div>
+            </OnTheComputer>
           )}
 
           <label className="lc-field lc-field--limit">
@@ -949,7 +959,8 @@ export function NewTeammateDialog({
                 type="text"
                 inputMode="decimal"
                 value={limitText}
-                disabled={policyLimit === 0}
+                // What a teammate may spend is changed on the computer (0.834); in a browser an edit holds it (0.850).
+                disabled={policyLimit === 0 || (editing && onTheComputer(TEAMMATE_UPDATE_CHANNEL, [{ monthlyLimitUsd: 0 }]) !== undefined)}
                 placeholder={policyLimit === undefined ? 'No limit' : policyLimit.toFixed(2)}
                 aria-invalid={limit === 'invalid' || overPolicyLimit}
                 onChange={(event) => setLimitText(event.target.value)}
@@ -963,6 +974,9 @@ export function NewTeammateDialog({
                 ? 'Enter an amount like 5 or 12.50, or leave it empty for no limit.'
                 : limitHint(trimmed.length === 0 ? 'This teammate' : trimmed, spentThisMonth, editing)}
             </span>
+            {editing && onTheComputer(TEAMMATE_UPDATE_CHANNEL, [{ monthlyLimitUsd: 0 }]) !== undefined && (
+              <span className="lc-field__hint lc-oncomputer__said">{onTheComputer(TEAMMATE_UPDATE_CHANNEL, [{ monthlyLimitUsd: 0 }])}</span>
+            )}
           </label>
 
           <label className="lc-field lc-field--instructions">

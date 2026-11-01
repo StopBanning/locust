@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 
 import { useModal } from '../useModal.js'
+import { MISSION_RECORD_SAVE_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 import { Icon } from './Icon.js'
 
 /**
@@ -21,7 +23,9 @@ export function SaveRecordDialog({ missionId, onClose }: { readonly missionId: s
   useModal(box, onClose)
   const [includeRaw, setIncludeRaw] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [said, setSaid] = useState<string>()
+  // The computer's save dialog (0.850): in a browser, Save is held and says where it works.
+  const saveStays = onTheComputer(MISSION_RECORD_SAVE_CHANNEL)
+  const [said, setSaid] = useState<string | undefined>(saveStays)
   const save = (): void => {
     const bridge = window.desktop
     if (bridge === undefined) {
@@ -66,7 +70,7 @@ export function SaveRecordDialog({ missionId, onClose }: { readonly missionId: s
           <button type="button" className="lc-button" onClick={onClose}>
             Close
           </button>
-          <button type="button" className="lc-primarybutton" disabled={busy} onClick={save}>
+          <button type="button" className="lc-primarybutton" disabled={busy || saveStays !== undefined} {...(saveStays === undefined ? {} : { title: saveStays })} onClick={save}>
             Save the record…
           </button>
         </div>

@@ -3,6 +3,8 @@ import type { ReactElement } from 'react'
 
 import type { PetRef } from '../../../shared/avatar.js'
 import type { PublicPet } from '../../../shared/ipc.js'
+import { PET_ADD_CHANNEL, PET_REMOVE_CHANNEL } from '../../../shared/ipc.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
 import { OPENPETS_LINK, OPENPETS_REPORT_LINK } from '../../../shared/outbound-links.js'
 import { PET_PICKS } from '../../../shared/pet-picks.js'
 import type { PetPick } from '../../../shared/pet-picks.js'
@@ -156,8 +158,10 @@ export function usePetRemoval(onNotice: (notice: string | undefined) => void): P
 /** Remove some... / Remove N, Cancel: beside the Pets heading. */
 export function PetRemovalControls({ removal }: { readonly removal: PetRemoval }): ReactElement {
   if (removal.ticked === undefined) {
+    // A pet's files are the computer's to remove (0.850): in a browser the button is held, and says so.
+    const stays = onTheComputer(PET_REMOVE_CHANNEL)
     return (
-      <button type="button" className="lc-linkbutton lc-pets__action" onClick={removal.start}>
+      <button type="button" className="lc-linkbutton lc-pets__action" onClick={removal.start} disabled={stays !== undefined} {...(stays === undefined ? {} : { title: stays })}>
         Remove some…
       </button>
     )
@@ -227,12 +231,14 @@ export function PetPickTiles({
         await refreshPetList()
         onWear(answer.data.pet)
       })
-      .catch(() => onNotice(`${pick.displayName} could not be added. Nothing of it was kept on this computer.`))
+      .catch((error: unknown) => onNotice(failureSaid(error, `${pick.displayName} could not be added. Nothing of it was kept on this computer.`)))
       .finally(() => setAdding(undefined))
   }
 
   const ticked = removal?.ticked
   const isRemoved = new Set(removed)
+  // A pick not on the computer yet is downloaded there (0.850): in a browser its tile is held, and says so.
+  const addStays = onTheComputer(PET_ADD_CHANNEL)
   // Removed picks are left out, unless the person asked to see them (and is not choosing more to remove).
   const shown = PET_PICKS.filter((pick) => !isRemoved.has(pick.id) || (removal?.showRemoved === true && ticked === undefined))
   return (
@@ -270,13 +276,13 @@ export function PetPickTiles({
             aria-checked={chosen}
             aria-label={pick.displayName}
             aria-busy={busy}
-            title={gone ? `${pick.displayName}: removed; pick it to bring it back` : here ? pick.displayName : `${pick.displayName}: downloads from openpets.dev when picked`}
+            title={addStays !== undefined && (!here || gone) ? `${pick.displayName}. ${addStays}` : gone ? `${pick.displayName}: removed; pick it to bring it back` : here ? pick.displayName : `${pick.displayName}: downloads from openpets.dev when picked`}
             data-pet={pick.id}
             data-source="gallery"
             data-here={here ? 'yes' : 'no'}
             {...(gone ? { 'data-removed': 'yes' } : {})}
             className={`lc-look lc-pettile${chosen ? ' is-selected' : ''}${busy ? ' is-busy' : ''}${gone ? ' is-removed' : ''}`}
-            disabled={adding !== undefined && !busy}
+            disabled={(adding !== undefined && !busy) || (addStays !== undefined && (!here || gone))}
             onClick={() => wear(pick, gone)}
           >
             <PickPicture id={pick.id} />

@@ -1,5 +1,6 @@
-import { isVoicePreviewAudio, voiceName, type ChatGptVoice, type VoiceCallApi } from '../../shared/voice-call.js'
+import { isVoicePreviewAudio, VOICE_PREVIEW_TRIGGER, voiceName, type ChatGptVoice, type VoiceCallApi } from '../../shared/voice-call.js'
 import { gathered } from './voiceCall.js'
+import { onTheComputer } from './onTheComputer.js'
 
 /**
  * A VOICE, HEARD BEFORE IT IS CHOSEN (0.751). See shared/voice-call.ts (voicePreviewRules) for why it is a call.
@@ -66,6 +67,8 @@ export async function playVoicePreview(
     return 'kept'
   }
   if (api.preview === undefined || api.previewTrigger === undefined) throw new VoicePreviewFailed(`${name} cannot be played here.`)
+  // The first hello is a short call from the computer (0.850): a browser plays a kept one, and says where the first is made.
+  if (onTheComputer(VOICE_PREVIEW_TRIGGER) !== undefined) throw new VoicePreviewFailed(`${name}’s first hello is made in Locust on your computer. After that, it plays here too.`)
   const hello = await api.previewTrigger().catch(() => undefined)
   if (hello === undefined) throw new VoicePreviewFailed(`Locust could not make the hello ${name} answers. The computer’s own speech is needed for it.`)
   if (stopped()) return 'called'

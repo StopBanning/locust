@@ -102,13 +102,16 @@ export function PlusMenu({
   disabled,
   folderMissing,
   onAttach,
-  onChooseFolder
+  onChooseFolder,
+  folderStays
 }: {
   readonly disabled: boolean
   /** No folder yet: the folder satellite then says so. */
   readonly folderMissing: boolean
   readonly onAttach: () => void
   readonly onChooseFolder: () => void
+  /** In a browser (0.850): the computer's folder picker would open there, so the satellite is held and says this. */
+  readonly folderStays?: string
 }): ReactElement {
   // Re-read when the window changes theme (drawnTheme.ts).
   const theme = useDrawnTheme()
@@ -184,8 +187,9 @@ export function PlusMenu({
               type="button"
               className="lc-plusmenu__button lc-plusmenu__satellite"
               data-satellite={satellite.key}
-              aria-label={satellite.key === 'folder' && folderMissing ? 'Choose a folder — none is chosen yet' : satellite.label}
-              title={satellite.label}
+              aria-label={satellite.key === 'folder' && folderStays !== undefined ? 'Choose a folder, on your computer' : satellite.key === 'folder' && folderMissing ? 'Choose a folder — none is chosen yet' : satellite.label}
+              title={satellite.key === 'folder' ? folderStays ?? satellite.label : satellite.label}
+              disabled={satellite.key === 'folder' && folderStays !== undefined}
               tabIndex={open ? 0 : -1}
               aria-hidden={!open}
               onClick={() => choose(satellite.key)}

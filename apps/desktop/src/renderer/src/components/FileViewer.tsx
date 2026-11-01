@@ -18,6 +18,8 @@ import { ZoomableImage } from './ZoomableImage.js'
 import type { OfficeDocument } from '../../../shared/office-document.js'
 import type { Workbook } from '../../../shared/sheet.js'
 import { quoteOfPagePick, VIEWER_FRAME_NAME } from '../../../shared/page-pick.js'
+import { WORKSPACE_REVEAL_CHANNEL, WORKSPACE_SAVE_COPY_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /** The file's language for colouring its code (0.719), when Locust carries one. */
 const languageProp = (path: string): { language?: string } => {
@@ -179,12 +181,17 @@ export function FileViewer({
             )}
           </>
         )}
-        <button type="button" className="lc-viewer__action" title="Show it in the file manager" onClick={onReveal}>
-          <Icon name="folder" size={13} />
-        </button>
-        <button type="button" className="lc-viewer__action" title="Save a copy…" onClick={onSave}>
-          <Icon name="download" size={13} />
-        </button>
+        {/* The computer's file manager and save dialog (0.850): not drawn in a browser, which has neither. */}
+        {onTheComputer(WORKSPACE_REVEAL_CHANNEL) === undefined && (
+          <button type="button" className="lc-viewer__action" title="Show it in the file manager" onClick={onReveal}>
+            <Icon name="folder" size={13} />
+          </button>
+        )}
+        {onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL) === undefined && (
+          <button type="button" className="lc-viewer__action" title="Save a copy…" onClick={onSave}>
+            <Icon name="download" size={13} />
+          </button>
+        )}
         <button type="button" className="lc-viewer__close" aria-label="Close the file" onClick={onClose}>
           <Icon name="close" size={13} />
         </button>

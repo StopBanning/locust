@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactElement } from 'react'
 
-import { keyNameRefusal, KEYS_REACH_SAID, type KeyRequest, type TeammateKeysApi } from '../../../shared/teammate-keys.js'
+import { keyNameRefusal, KEYS_REACH_SAID, TEAMMATE_KEYS_LIST_CHANNEL, TEAMMATE_KEYS_SET_CHANNEL, type KeyRequest, type TeammateKeysApi } from '../../../shared/teammate-keys.js'
 import { Icon } from './Icon.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /*
  * A KEY A TEAMMATE ASKED FOR (0.833, shared/teammate-keys.ts): under the answer that asked, each key by its name and
@@ -60,6 +61,16 @@ function KeyRequestRow({ teammateId, name, request, has, api, onKept }: {
       </span>
     )
   }
+  // A key is given on the computer alone (0.833); a browser is not offered a box to type it into (0.850).
+  const stays = onTheComputer(TEAMMATE_KEYS_SET_CHANNEL)
+  if (stays !== undefined) {
+    return (
+      <span className="lc-keycard__row">
+        <span>{`${name} asks for a key: `}<code>{request.name}</code>{why}</span>
+        <span className="lc-interview__note">{`Keys are given in Locust on your computer, never from a browser. ${stays}`}</span>
+      </span>
+    )
+  }
   return (
     <form className="lc-keycard__row lc-keycard__form" onSubmit={(event) => {
       event.preventDefault()
@@ -93,15 +104,17 @@ export function TeammateKeysField({ teammateId, name, api = typeof window === 'u
   readonly kept?: readonly string[]
 }): ReactElement {
   const [kept, setKept] = useState<readonly string[]>(initial ?? [])
+  const stays = onTheComputer(TEAMMATE_KEYS_LIST_CHANNEL)
   const [keyName, setKeyName] = useState('')
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string>()
   useEffect(() => {
+    if (stays !== undefined) return
     let alive = true
     void api?.list(teammateId).then((result) => { if (alive) setKept(result.names) }, () => undefined)
     return () => { alive = false }
-  }, [api, teammateId])
+  }, [api, teammateId, stays])
   const change = (work: () => Promise<{ readonly ok: boolean; readonly names: readonly string[]; readonly message?: string }>, after?: () => void): void => {
     if (api === undefined || busy) return
     setBusy(true)
@@ -110,6 +123,15 @@ export function TeammateKeysField({ teammateId, name, api = typeof window === 'u
       .then((result) => { setKept(result.names); if (result.ok) after?.(); else setProblem(result.message) })
       .catch(() => setProblem('The keys could not be changed. They are unchanged.'))
       .finally(() => setBusy(false))
+  }
+  // A browser neither lists nor gives keys (0.833): it says where they are kept.
+  if (stays !== undefined) {
+    return (
+      <div className="lc-field lc-field--lessons">
+        <span className="lc-fieldlabel lc-mono">Keys</span>
+        <span className="lc-field__hint">{`${name}’s keys are kept encrypted on your computer, and given there. ${stays}`}</span>
+      </div>
+    )
   }
   return (
     <div className="lc-field lc-field--lessons">

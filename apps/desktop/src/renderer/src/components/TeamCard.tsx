@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 
 import type { PublicTeammate } from '../../../shared/ipc.js'
-import { roleLabelOf } from '../../../shared/ipc.js'
+import { roleLabelOf, TEAM_CARD_SAVE_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 import { routeModelName } from '../routeName.js'
 import { useModal } from '../useModal.js'
 import { RuntimeMark } from './RuntimeMark.js'
@@ -56,7 +57,9 @@ export function ShareTeamDialog({ teammates, onClose }: { readonly teammates: re
   const box = useRef<HTMLDivElement>(null)
   useModal(box, onClose)
   const [busy, setBusy] = useState(false)
-  const [said, setSaid] = useState<string>()
+  // The image is taken from the computer's window and saved there (0.850): a browser shows the card, and says so.
+  const saveStays = onTheComputer(TEAM_CARD_SAVE_CHANNEL)
+  const [said, setSaid] = useState<string | undefined>(saveStays)
   const save = async (): Promise<void> => {
     const bridge = window.desktop
     const box = card.current?.getBoundingClientRect()
@@ -98,7 +101,7 @@ export function ShareTeamDialog({ teammates, onClose }: { readonly teammates: re
           <button type="button" className="lc-button" onClick={onClose}>
             Close
           </button>
-          <button type="button" className="lc-primarybutton" disabled={busy} onClick={() => void save()}>
+          <button type="button" className="lc-primarybutton" disabled={busy || saveStays !== undefined} {...(saveStays === undefined ? {} : { title: saveStays })} onClick={() => void save()}>
             Save image
           </button>
         </div>

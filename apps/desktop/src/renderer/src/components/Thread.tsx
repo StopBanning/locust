@@ -75,6 +75,8 @@ import { KeyCard } from './KeyCard.js'
 import { KEYS_REACH, keyRequestsInEvents } from '../../../shared/teammate-keys.js'
 import { instructionsIn, isInterview } from '../../../shared/interview.js'
 import type { LiveCallAsk } from '../liveCall.js'
+import { WORKSPACE_REVEAL_CHANNEL, WORKSPACE_SAVE_COPY_CHANNEL } from '../../../shared/ipc.js'
+import { failureSaid, onTheComputer } from '../onTheComputer.js'
 
 /**
  * The files a teammate handed over, and what the host said when a press
@@ -110,6 +112,9 @@ function HandedFiles({
   const [refused, setRefused] = useState<string>()
   // Not in this folder (0.762, filesElsewhere.ts): named, with nothing offered that would act on this folder's file.
   const elsewhere = useContext(FilesElsewhere)
+  // The file manager and the save dialog are the computer's (0.850): in a browser the name is held, and the save is not drawn.
+  const revealStays = onTheComputer(WORKSPACE_REVEAL_CHANNEL)
+  const saveStays = onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL)
   const ask = (action: 'revealFile' | 'saveCopy', path: string): void => {
     const bridge = window.desktop
     setRefused(undefined)
@@ -117,7 +122,7 @@ function HandedFiles({
     void bridge[action](handedFileOnDisk(workspacePath, path))
       .then((answer) => setRefused(answer.ok ? undefined : answer.message))
       // The host never answered. Say what is still true: nothing moved.
-      .catch(() => setRefused('Locust could not reach that file. Nothing was changed.'))
+      .catch((error: unknown) => setRefused(failureSaid(error, 'Locust could not reach that file. Nothing was changed.')))
   }
   return (
     <div className="lc-handedfiles">
@@ -144,9 +149,10 @@ function HandedFiles({
               * (2026-09-20: "evening continuation: workroom/relay/q…").
               */
             title={(() => {
-              const what = onOpenFile === undefined ? `Show ${file.path} in the file manager` : `Open ${file.path}`
+              const what = onOpenFile === undefined ? revealStays ?? `Show ${file.path} in the file manager` : `Open ${file.path}`
               return file.note === undefined ? what : `${file.note}\n\n${what}`
             })()}
+            disabled={onOpenFile === undefined && revealStays !== undefined}
             onClick={() => (onOpenFile === undefined ? ask('revealFile', file.path) : onOpenFile(file.path))}
           >
             <Icon name="file" size={12} />
@@ -178,15 +184,17 @@ function HandedFiles({
               }}
             />
           )}
-          <button
-            type="button"
-            className="lc-handedfile__save"
-            aria-label={`Save a copy of ${file.path}`}
-            title="Save a copy…"
-            onClick={() => ask('saveCopy', file.path)}
-          >
-            <Icon name="download" size={12} />
-          </button>
+          {saveStays === undefined && (
+            <button
+              type="button"
+              className="lc-handedfile__save"
+              aria-label={`Save a copy of ${file.path}`}
+              title="Save a copy…"
+              onClick={() => ask('saveCopy', file.path)}
+            >
+              <Icon name="download" size={12} />
+            </button>
+          )}
         </span>
       ))}
       {refused !== undefined && (
@@ -1309,6 +1317,8 @@ onResume,
     [earlierTurns, shownMissionId]
   )
   const [openCalls, setOpenCalls] = useState<ReadonlySet<string>>(() => new Set())
+  // The computer's file manager (0.850): a browser opens a sent file beside the conversation, and holds the ledger's folder.
+  const revealStays = onTheComputer(WORKSPACE_REVEAL_CHANNEL)
   const callsAt = (place: CallPlace) => (callPlaces.get(place) ?? []).map((piece) => {
     const source = (calls ?? []).find((call) => call.callId === piece.call.callId)
     const id = piece.call.callId
@@ -1519,8 +1529,14 @@ onResume,
                 key={path}
                 type="button"
                 className="lc-sentfile"
-                title={`Show ${path} in the file manager`}
+                // No file manager of the computer's in a browser (0.850): the file opens beside the conversation, where there is that.
+                title={revealStays === undefined ? `Show ${path} in the file manager` : onOpenFile === undefined ? revealStays : `Open ${path}`}
+                disabled={revealStays !== undefined && onOpenFile === undefined}
                 onClick={() => {
+                  if (revealStays !== undefined) {
+                    onOpenFile?.(path)
+                    return
+                  }
                   const bridge = window.desktop
                   if (bridge === undefined || workspacePath === undefined) return
                   void bridge.revealFile(`${workspacePath}/${path}`).catch(() => undefined)
@@ -2009,6 +2025,8 @@ onResume,
                     <button
                       type="button"
                       className="lc-button"
+                      disabled={revealStays !== undefined}
+                      title={revealStays}
                       onClick={() => {
                         const bridge = window.desktop
                         if (bridge === undefined) return

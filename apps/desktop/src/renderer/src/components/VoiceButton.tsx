@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { voiceLocalOnly, type VoiceApi, type VoiceMode } from '../../../shared/voice.js'
+import { VOICE_DOWNLOAD, VOICE_OPENAI_CONSENT, voiceLocalOnly, type VoiceApi, type VoiceMode } from '../../../shared/voice.js'
 import type { VoiceCapture } from '../voiceCapture.js'
+import { failureSaid, inABrowser, onTheComputer } from '../onTheComputer.js'
 import { Icon } from './Icon.js'
 import { setVoiceState } from '../voiceLevel.js'
 
@@ -8,6 +9,10 @@ type Phase = 'idle' | 'asking' | 'checking' | 'downloading' | 'opening' | 'recor
 export const VOICE_DOWNLOAD_WORDS = 'Voice typing needs a one-time 41 MB download. It runs on this computer; nothing you say leaves it.'
 export const VOICE_ACCURATE_WORDS = 'Accurate voice typing needs a one-time 69 MB download. It is slower than Fast, and it runs on this computer; nothing you say leaves it.'
 export const VOICE_OPENAI_WORDS = 'Voice typing will send your recordings to OpenAI using your API key. OpenAI API charges apply. Allow this for future recordings?'
+/** In a browser (0.850): it records here and the computer types, but allowing OpenAI and the download are the computer's. */
+export const VOICE_ALLOW_THERE = 'Press the microphone in Locust on your computer once, to allow OpenAI voice typing. Your message is unchanged.'
+export const VOICE_DOWNLOAD_THERE = 'Press the microphone in Locust on your computer once, for voice typing’s one-time download. Your message is unchanged.'
+export const VOICE_KEY_THERE = 'Add your OpenAI API key in Settings > General in Locust on your computer. Your message is unchanged.'
 export function VoiceButton({ platform, onText, disabled = false, api = typeof window === 'undefined' ? undefined : window.desktop?.voice }: {
   readonly platform: string; readonly onText: (text: string) => void; readonly disabled?: boolean; readonly api?: VoiceApi
 }) {
@@ -59,7 +64,14 @@ export function VoiceButton({ platform, onText, disabled = false, api = typeof w
   const fail = (error: unknown, token: number): void => {
     if (generation.current !== token) return
     transition('idle')
-    setMessage(error instanceof Error && error.message.includes('Your message') ? error.message : 'Voice typing could not finish. Your message is unchanged; check microphone access and try again.')
+    setMessage(error instanceof Error && error.message.includes('Your message') ? error.message : failureSaid(error, 'Voice typing could not finish. Your message is unchanged; check microphone access and try again.'))
+  }
+  // Allowing OpenAI, and the one-time download, are asked on the computer (0.850): a browser says so in place of the ask.
+  const ask = (): void => {
+    const openai = selectedMode.current === 'openai'
+    if (onTheComputer(openai ? VOICE_OPENAI_CONSENT : VOICE_DOWNLOAD) === undefined) { transition('asking'); return }
+    transition('idle')
+    setMessage(openai ? VOICE_ALLOW_THERE : VOICE_DOWNLOAD_THERE)
   }
   const stop = async (): Promise<void> => {
     if (current.current !== 'recording' || capture.current === undefined || api === undefined) return
@@ -100,17 +112,18 @@ export function VoiceButton({ platform, onText, disabled = false, api = typeof w
       if (generation.current !== token) return
       selectedMode.current = settings?.mode ?? 'fast'
       setMode(selectedMode.current)
-      // Off Windows, only the OpenAI route types (0.843): a local mode says so, instead of offering a download.
-      if (platform !== 'win32' && settings?.mode !== 'openai') { transition('idle'); setMessage(voiceLocalOnly(platform)); return }
+      // Off Windows, only the OpenAI route types (0.843): a local mode says so, instead of offering a download. In a
+      // browser the computer types, and its settings already name only what runs there (0.850): this system is not asked.
+      if (!inABrowser() && platform !== 'win32' && settings?.mode !== 'openai') { transition('idle'); setMessage(voiceLocalOnly(platform)); return }
       if (settings?.mode === 'openai') {
-        if (!settings.hasKey) { transition('idle'); setMessage('Add your OpenAI API key in Settings > General. Your message is unchanged.'); return }
-        if (!settings.openaiConsent) { transition('asking'); return }
+        if (!settings.hasKey) { transition('idle'); setMessage(inABrowser() ? VOICE_KEY_THERE : 'Add your OpenAI API key in Settings > General. Your message is unchanged.'); return }
+        if (!settings.openaiConsent) { ask(); return }
         await record(token)
         return
       }
       const ready = await api.ready(selectedMode.current)
       if (generation.current !== token) return
-      if (!ready) { transition('asking'); return }
+      if (!ready) { ask(); return }
       await record(token)
     } catch (error) { fail(error, token) }
   }
