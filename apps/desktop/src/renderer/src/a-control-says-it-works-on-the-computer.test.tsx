@@ -5,6 +5,9 @@ import { APPEARANCE_SET_CHANNEL } from '../../shared/appearance.js'
 import { WINDOW_ONLY_SAYS } from '../../shared/desk-calls.js'
 import { DISCORD_SETTINGS_CHANNEL } from '../../shared/discord.js'
 import { OnTheComputer } from './components/OnTheComputer.js'
+import { BrowserToggle } from './components/BrowserToggle.js'
+import { TerminalToggle } from './components/TerminalToggle.js'
+import APP from './App.tsx?raw'
 import { failureSaid, inABrowser, onTheComputer } from './onTheComputer.js'
 
 /**
@@ -43,5 +46,15 @@ describe('a control whose call stays on the computer', () => {
     expect(failureSaid(new Error(WINDOW_ONLY_SAYS), 'This setting could not be read.')).toBe(WINDOW_ONLY_SAYS)
     expect(failureSaid(new Error('disk full'), 'This setting could not be read.')).toBe('This setting could not be read.')
     expect(failureSaid('not an error', 'This setting could not be read.')).toBe('This setting could not be read.')
+  })
+
+  it("draws the header's terminal and browser as this computer's in a browser, not as an organization's choice", () => {
+    expect(APP).toContain('?? onTheComputer(TERMINAL_CREATE)')
+    expect(APP).toContain('?? onTheComputer(BROWSER_OPEN_PANEL_CHANNEL)')
+    const terminal = renderToStaticMarkup(<TerminalToggle open={false} refusal={WINDOW_ONLY_SAYS} onToggle={() => undefined} />)
+    expect(terminal).toContain('aria-label="Terminal, on your computer"')
+    expect(terminal).toContain(`title="${WINDOW_ONLY_SAYS}"`)
+    expect(terminal).toContain('disabled=""')
+    expect(renderToStaticMarkup(<BrowserToggle open={false} refusal={WINDOW_ONLY_SAYS} onToggle={() => undefined} />)).toContain('aria-label="Browser, on your computer"')
   })
 })

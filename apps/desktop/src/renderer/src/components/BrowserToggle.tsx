@@ -1,3 +1,4 @@
+import { WINDOW_ONLY_SAYS } from '../../../shared/desk-calls.js'
 import { Icon } from './Icon.js'
 
 /**
@@ -18,7 +19,7 @@ export function BrowserToggle({
     <button
       type="button"
       className={`lc-headicon${open ? ' is-active' : ''}`}
-      aria-label={refusal === undefined ? 'Browser' : 'Browser, set by your organization'}
+      aria-label={refusal === undefined ? 'Browser' : refusal === WINDOW_ONLY_SAYS ? 'Browser, on your computer' : 'Browser, set by your organization'}
       aria-pressed={open}
       disabled={refusal !== undefined}
       title={refusal ?? 'Browser'}

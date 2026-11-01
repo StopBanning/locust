@@ -262,6 +262,9 @@ import { collapseConversations, staleChecking, defaultEffort, defaultRoute, effo
 import { homeRouteOf, isOwnRoute, modelDisplayName, rememberOwnModels, routeChrome, routeModelName, shownRouteLabel } from './routeName.js'
 import { windowKeys } from './keyboardShortcuts.js'
 import { pathOnlyTitle } from './pathTitle.js'
+import { onTheComputer } from './onTheComputer.js'
+import { TERMINAL_CREATE } from '../../shared/terminal.js'
+import { BROWSER_OPEN_PANEL_CHANNEL } from '../../shared/browser.js'
 import { restoreNoticeLine } from './backupWords.js'
 import { FeedbackDialog } from './components/FeedbackDialog.js'
 import { conversationText } from './feedback.js'
@@ -2016,8 +2019,9 @@ export default function App(): ReactElement {
   const [terminalMounted, setTerminalMounted] = useState(false)
   const [browserOpen, setBrowserOpen] = useState(false)
   const [browserMounted, setBrowserMounted] = useState(false)
-  const terminalRefusal = policyTerminalRefusal(build?.organizationPolicy)
-  const browserRefusal = policyBrowserRefusal(build?.organizationPolicy)
+  // In a browser the terminal and the browser panel are this computer's (0.850): disabled, the reason on them.
+  const terminalRefusal = policyTerminalRefusal(build?.organizationPolicy) ?? onTheComputer(TERMINAL_CREATE)
+  const browserRefusal = policyBrowserRefusal(build?.organizationPolicy) ?? onTheComputer(BROWSER_OPEN_PANEL_CHANNEL)
   const closeBrowserPanel = () => {
     setBrowserOpen(false)
     void window.desktop?.browser?.closePanel().catch(() => undefined)
