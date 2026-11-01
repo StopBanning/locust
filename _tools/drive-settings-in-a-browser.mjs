@@ -27,8 +27,19 @@ const RELAY = (arg('--relay') ?? 'http://127.0.0.1:8790').replace(/\/+$/, '')
 const CHROME = process.env.LOCUST_CHROME ?? (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'C:/Program Files/Google/Chrome/Application/chrome.exe')
 const BROWSER_PORT = 9799
 
-/** Settings' pages, by the names its list gives them (settingsPages.ts); "What" is What's new, whatever its apostrophe. */
-const PAGES = ['General', 'Chat', 'Appearance', 'Privacy & data', 'Teammates', 'Memory', 'Between teammates', 'AI agents', 'Your own models', 'Connectors', 'Cloud computers', 'Project folder', 'What']
+/** Settings' pages, as its own list names them, read from the window, so a page added later is swept too (0.850). */
+let PAGES = []
+const pagesScript = `(async () => {
+  if (!document.querySelector('.lc-settings__navitem')) {
+    ;[...document.querySelectorAll('button')].find((one) => one.innerText.trim() === 'Settings')?.click()
+    for (let i = 0; i < 20 && !document.querySelector('.lc-settings__navitem'); i += 1) await new Promise((r) => setTimeout(r, 250))
+  }
+  return JSON.stringify([...document.querySelectorAll('.lc-settings__navitem')].map((one) => one.innerText.trim()).filter(Boolean))
+})()`
+/** A changelog quotes the failures it says were fixed: its page is checked for holding nothing back only. */
+const CHANGELOG = /^What/
+/** Pressed in the browser: not ones that only open a link or another page. */
+const NOT_PRESSED = /^(Repository:|What’s new|What's new|Show older versions)/
 
 const reachable = await fetch(`${RELAY}/desk/`, { signal: AbortSignal.timeout(5000) }).then((answer) => answer.ok, () => false)
 if (!reachable) {
@@ -123,7 +134,8 @@ const phoneScript = (body) => `(async () => {
 /** One Settings page opened, and what it holds: words that say a setting works on the computer, controls, failures. */
 const pageScript = (label) => `(async () => {
   if (!document.querySelector('.lc-settings__navitem')) {
-    ;[...document.querySelectorAll('button')].find((one) => one.innerText.trim() === 'Settings')?.click()
+    // Its shortcut, whatever the sidebar's layout: a press on Appearance may have chosen the rail, where it is an icon.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '3', ctrlKey: true, bubbles: true }))
     for (let i = 0; i < 20 && !document.querySelector('.lc-settings__navitem'); i += 1) await new Promise((r) => setTimeout(r, 250))
   }
   const item = [...document.querySelectorAll('.lc-settings__navitem')].find((one) => one.innerText.trim().startsWith(${JSON.stringify(label)}))
@@ -144,18 +156,64 @@ const pageScript = (label) => `(async () => {
   })
 })()`
 
+/** Every window.desktop function, nested groups too, wrapped to note a refusal that says it works on the computer. */
+const listenScript = `(() => {
+  if (window.__refused !== undefined) return 'already'
+  window.__refused = []
+  const SAYS = 'This works in Locust on your computer.'
+  const wrap = (holder, path, depth) => {
+    for (const key of Object.keys(holder)) {
+      const value = holder[key]
+      if (typeof value === 'function') {
+        try {
+          holder[key] = function (...args) {
+            const answer = value.apply(this, args)
+            if (answer && typeof answer.then === 'function') answer.then(undefined, (error) => { if (error?.message === SAYS) window.__refused.push(path + key) })
+            return answer
+          }
+        } catch { /* fixed */ }
+      } else if (value && typeof value === 'object' && depth < 3) wrap(value, path + key + '.', depth + 1)
+    }
+  }
+  wrap(window.desktop, '', 0)
+  return 'listening'
+})()`
+/** Each pressable control on the page, pressed in turn: which ones made a call a browser is refused. */
+const pressScript = `(async () => {
+  const pane = document.querySelector('.lc-settings__pane')
+  if (pane === null) return JSON.stringify({ pressed: 0, refused: [], left: 'not on Settings' })
+  const off = (one) => one.disabled === true || one.closest('fieldset[disabled]') !== null
+  const label = (one) => (one.getAttribute('aria-label') ?? one.innerText ?? '').replace(/\\s+/g, ' ').trim().slice(0, 50)
+  const controls = [...pane.querySelectorAll('button, [role="switch"], [role="radio"]')].filter((one) => !off(one) && !${NOT_PRESSED}.test(label(one)))
+  const refused = []
+  let left
+  for (const one of controls) {
+    if (document.querySelector('.lc-settings__pane') === null) { left = 'left Settings'; break }
+    if (!one.isConnected || off(one)) continue
+    const before = window.__refused.length
+    one.click()
+    await new Promise((r) => setTimeout(r, 700))
+    if (window.__refused.length > before) refused.push(label(one) + ' -> ' + window.__refused.slice(before).join(', '))
+    // A menu or dialog it opened is closed again, so the next control is the page's own.
+    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  }
+  return JSON.stringify({ pressed: controls.length, refused, ...(left === undefined ? {} : { left }) })
+})()`
+
 const rows = []
 try {
   await drive.capture('launch', () => drive.ready())
   await drive.resize(1280, 820)
 
   // The window first: once the browser has Locust's window, this computer's window says so in its place.
+  PAGES = JSON.parse(String(await drive.evaluate(pagesScript)))
+  check('Settings lists its pages', PAGES.length > 5, PAGES.join(', '))
   const window = new Map()
   for (const label of PAGES) {
     const there = JSON.parse(String(await drive.capture(`window: ${label}`, () => drive.evaluate(pageScript(label)))))
     window.set(label, there)
     // What's new quotes the old failures it says were fixed, so only its holding nothing back is checked.
-    check(`${label}, in the window: nothing says a setting could not be read, saved or changed, and nothing is held for a browser`, (label === 'What' || (there.broken?.length ?? 0) === 0) && there.notes === 0, JSON.stringify(there))
+    check(`${label}, in the window: nothing says a setting could not be read, saved or changed, and nothing is held for a browser`, (CHANGELOG.test(label) || (there.broken?.length ?? 0) === 0) && there.notes === 0, JSON.stringify(there))
   }
 
   const on = JSON.parse(String(await drive.evaluate(phoneScript(`
@@ -175,13 +233,6 @@ try {
   await browser.navigate(`${RELAY}/desk/`)
   check('the browser opens the whole window', /Settings/.test(await browserWait(/[1-9]\d* agents? ready|Settings/, 90)))
 
-  for (const label of PAGES) {
-    const here = JSON.parse(String(await browser.evaluate(pageScript(label))))
-    await browser.capture(`browser: ${label}`)
-    rows.push({ label, there: window.get(label) ?? {}, here })
-    check(`${label}, in the browser: nothing says a setting could not be read, saved or changed`, here.missing !== true && (label === 'What' || (here.broken?.length ?? 0) === 0), JSON.stringify(here))
-  }
-
   // Plans, turned off from the browser, is off on the computer.
   await browser.evaluate(pageScript('Teammates'))
   const pressed = String(await browser.evaluate(`(async () => {
@@ -196,8 +247,19 @@ try {
   const landed = await drive.evaluate(`window.desktop.readWorkspaceSettings().then((settings) => settings.keepATodoList)`)
   check('Plans turns off from the browser, and the computer keeps it', pressed === 'false' && landed === false, `browser says ${pressed}; the computer keeps ${String(landed)}`)
 
-  const table = ['| Page | Window: pressable | Browser: pressable | Browser: held | Browser: notes | Pressable in the browser |', '|---|---|---|---|---|---|',
-    ...rows.map(({ label, there, here }) => `| ${label} | ${String(there.pressable ?? '-')} | ${String(here.pressable ?? '-')} | ${String(here.held ?? '-')} | ${String(here.notes ?? '-')} | ${(here.pressed ?? []).join('; ')} |`)].join('\n')
+  // Then every page in the browser: what it holds, and each pressable control pressed, failing on a refusal.
+  check('the browser notes every call refused because it stays on the computer', String(await browser.evaluate(listenScript)) === 'listening')
+  for (const label of PAGES) {
+    const here = JSON.parse(String(await browser.evaluate(pageScript(label))))
+    await browser.capture(`browser: ${label}`)
+    const pressed = CHANGELOG.test(label) ? { pressed: 0, refused: [] } : JSON.parse(String(await browser.evaluate(pressScript)))
+    rows.push({ label, there: window.get(label) ?? {}, here, pressed })
+    check(`${label}, in the browser: nothing says a setting could not be read, saved or changed`, here.missing !== true && (CHANGELOG.test(label) || (here.broken?.length ?? 0) === 0), JSON.stringify(here))
+    check(`${label}, in the browser: every control it lets a person press works from here (${String(pressed.pressed)} pressed)`, pressed.refused.length === 0, pressed.refused.join('; '))
+  }
+
+  const table = ['| Page | Window: pressable | Browser: pressable | Browser: pressed | Browser: refused | Browser: held | Browser: notes |', '|---|---|---|---|---|---|---|',
+    ...rows.map(({ label, there, here, pressed }) => `| ${label} | ${String(there.pressable ?? '-')} | ${String(here.pressable ?? '-')} | ${String(pressed.pressed)} | ${pressed.refused.length === 0 ? 'none' : pressed.refused.join('; ')} | ${String(here.held ?? '-')} | ${String(here.notes ?? '-')} |`)].join('\n')
   await writeFile(join(outPath, 'TABLE.md'), `${table}\n`, 'utf8')
   say(table)
 } catch (error) {
