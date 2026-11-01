@@ -33,12 +33,13 @@ describe('shortcut keys on a Mac', () => {
     expect(PROMPT_RAIL).toContain('if (!event.ctrlKey || !event.altKey || event.metaKey || event.shiftKey) return undefined')
   })
 
-  it("draws the shortcuts sheet in a Mac's words, and a PC's in its own", () => {
+  it("draws the shortcuts sheet in a Mac's marks, and a PC's in its own words, a key to a cap", () => {
     const mac = renderToStaticMarkup(<KeyboardSheet onClose={() => undefined} platform="darwin" />)
-    expect(mac).toContain('<kbd>Cmd+K</kbd>')
-    expect(mac).toContain('<kbd>Ctrl+`</kbd>')
-    expect(mac).not.toContain('<kbd>Ctrl+K</kbd>')
-    expect(renderToStaticMarkup(<KeyboardSheet onClose={() => undefined} platform="win32" />)).toContain('<kbd>Ctrl+K</kbd>')
+    expect(mac).toContain('<kbd>⌘</kbd><kbd>K</kbd>')
+    // Control where the handler listens for Control alone: the Mac's own mark for it.
+    expect(mac).toContain('<kbd>⌃</kbd><kbd>`</kbd>')
+    expect(mac).not.toContain('<kbd>Ctrl</kbd><kbd>K</kbd>')
+    expect(renderToStaticMarkup(<KeyboardSheet onClose={() => undefined} platform="win32" />)).toContain('<kbd>Ctrl</kbd><kbd>K</kbd>')
   })
 
   it('leaves no Ctrl written into a palette hint or a button title', () => {

@@ -83,7 +83,7 @@ export function UsageDialog({
       <div ref={box} className="lc-dialog lc-usage" role="dialog" aria-modal="true" aria-label="Usage">
         <div className="lc-dialog__head">
           <span className="lc-dialog__title">Usage</span>
-          <span className="lc-dialog__sub lc-mono">every agent and model, on this machine</span>
+          <span className="lc-dialog__sub">every agent and model, on this machine</span>
           <div className="lc-segmented lc-usage__range" role="radiogroup" aria-label="Which days">
             {USAGE_RANGES.map((value) => (
               <button
@@ -91,6 +91,7 @@ export function UsageDialog({
                 type="button"
                 role="radio"
                 aria-checked={range === value}
+                autoFocus={range === value}
                 className={`lc-button${range === value ? ' is-active' : ''}`}
                 onClick={() => setRange(value)}
               >
@@ -112,8 +113,8 @@ export function UsageDialog({
             <>
               <section className="lc-usage__section" aria-label="Activity">
                 <div className="lc-usage__sectionhead">
-                  <span className="lc-agenthead__label">Activity</span>
-                  <span className="lc-agenthead__note">{rangePhrase(range)}</span>
+                  <h3 className="lc-usage__heading">Activity</h3>
+                  <span className="lc-usage__headnote">{rangePhrase(range)}</span>
                 </div>
                 <div className="lc-usage__activity">
                   <Heatmap summary={summary} />
@@ -132,8 +133,8 @@ export function UsageDialog({
 
               <section className="lc-usage__section" aria-label="Limits">
                 <div className="lc-usage__sectionhead">
-                  <span className="lc-agenthead__label">Limits</span>
-                  <span className="lc-agenthead__note">what each account said at its last reading</span>
+                  <h3 className="lc-usage__heading">Limits</h3>
+                  <span className="lc-usage__headnote">what each account said at its last reading</span>
                 </div>
                 {limits.length === 0 ? (
                   <p className="lc-usage__empty">No agent has reported a limit yet. Claude Code and Codex report theirs with each turn.</p>
@@ -181,8 +182,8 @@ export function UsageDialog({
               </section>
               <section className="lc-usage__section" aria-label="Models">
                 <div className="lc-usage__sectionhead">
-                  <span className="lc-agenthead__label">Models</span>
-                  <span className="lc-agenthead__note">most turns first</span>
+                  <h3 className="lc-usage__heading">Models</h3>
+                  <span className="lc-usage__headnote">most turns first</span>
                 </div>
                 {summary.models.length === 0 ? (
                   <p className="lc-usage__empty">Nothing ran in {rangePhrase(range)}.</p>

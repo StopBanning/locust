@@ -28,9 +28,9 @@ export function RoutineHookLink({ routineId }: { readonly routineId?: string }):
     return () => { live = false }
   }, [routineId, here])
   if (!here) return <div className="lc-routinesched__days">
-    <p className="lc-dialog__note lc-mono">{LINK_ON_THIS_COMPUTER}</p>
-    <p className="lc-dialog__note lc-mono">{HOOK_WARNING}</p>
-    <p className="lc-dialog__note lc-mono">{HOOK_ASK}</p>
+    <p className="lc-dialog__note">{LINK_ON_THIS_COMPUTER}</p>
+    <p className="lc-dialog__note">{HOOK_WARNING}</p>
+    <p className="lc-dialog__note">{HOOK_ASK}</p>
   </div>
   const replace = async (): Promise<void> => {
     if (routineId === undefined || !window.desktop) return
@@ -48,10 +48,10 @@ export function RoutineHookLink({ routineId }: { readonly routineId?: string }):
       <button type="button" className="lc-ghostbutton" onClick={() => { void navigator.clipboard.writeText(state.url!).then(() => setCopied(true), () => setCopied(false)) }}>{copied ? 'Copied' : 'Copy'}</button>
       <button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => { void replace() }}>New link</button>
     </>}
-    {state.message !== undefined && <p className="lc-dialog__note lc-mono">{state.message}</p>}
+    {state.message !== undefined && <p className="lc-dialog__note">{state.message}</p>}
     {state.url === undefined && state.canMake === true && routineId !== undefined && <button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => { void replace() }}>Make link</button>}
-    <p className="lc-dialog__note lc-mono">{HOOK_WARNING}</p>
-    <p className="lc-dialog__note lc-mono">{HOOK_ASK}</p>
+    <p className="lc-dialog__note">{HOOK_WARNING}</p>
+    <p className="lc-dialog__note">{HOOK_ASK}</p>
   </div>
 }
 
@@ -228,7 +228,7 @@ export function RoutineDialog({
       <div ref={box} className="lc-dialog" role="dialog" aria-modal="true" aria-label={editing ? 'Edit routine' : fresh ? 'New routine' : 'Save as routine'}>
         <div className="lc-dialog__head">
           <span className="lc-dialog__title">{title}</span>
-          <span className="lc-dialog__sub lc-mono">replayed step by step</span>
+          <span className="lc-dialog__sub">replayed step by step</span>
           <button type="button" className="lc-dialog__close" aria-label="Close" onClick={onCancel}>
             ×
           </button>
@@ -236,7 +236,7 @@ export function RoutineDialog({
 
         <div className="lc-dialog__body">
           <div className="lc-dialog__fields">
-            <label className="lc-fieldlabel lc-mono" htmlFor="routine-name">
+            <label className="lc-fieldlabel" htmlFor="routine-name">
               Name
             </label>
             <input
@@ -250,7 +250,7 @@ export function RoutineDialog({
           </div>
 
           {teammate !== undefined && (
-            <p className="lc-dialog__note lc-mono">
+            <p className="lc-dialog__note">
               <TeammateBot hue={teammate.hue} avatar={teammate.avatar} size={BOT_SIZE.pickerMark} /> {teammate.name} runs it
               {routeLabel === undefined ? '' : ` on ${routeLabel}`}
               {shownMode === undefined ? '' : `, in ${shownMode}`}.
@@ -269,7 +269,7 @@ export function RoutineDialog({
           )}
           {modeName !== undefined && (
             <div className="lc-dialog__section">
-              <span className="lc-fieldlabel lc-mono" id="routine-may-label">
+              <span className="lc-fieldlabel" id="routine-may-label">
                 What a run may do
               </span>
               {/*
@@ -299,7 +299,7 @@ export function RoutineDialog({
                 ))}
               </div>
               </div>
-              <p className="lc-dialog__note lc-mono">
+              <p className="lc-dialog__note">
                 {readsOnly
                   ? 'It reads and answers; nothing in the folder changes.'
                   : copies
@@ -320,7 +320,7 @@ export function RoutineDialog({
                   teammate is asked to fix what it says -- a few times at most, so a
                   check that can never pass stops instead of spending on.
                 */}
-                <span className="lc-fieldlabel lc-mono" id="routine-goal-label">
+                <span className="lc-fieldlabel" id="routine-goal-label">
                   When its steps are done
                 </span>
                 <div className="lc-routinesched">
@@ -347,7 +347,7 @@ export function RoutineDialog({
                     </label>
                   )}
                 </div>
-                <p className="lc-dialog__note lc-mono">
+                <p className="lc-dialog__note">
                   {!hasCheck
                     ? 'This folder has no check command yet. Set one in Settings > Project folder, such as npm test, to keep going until it passes.'
                     : goalTries === undefined
@@ -393,7 +393,7 @@ export function RoutineDialog({
             */}
           {mustPick && (
             <div className="lc-dialog__fields">
-              <label className="lc-fieldlabel lc-mono" htmlFor="routine-runner">
+              <label className="lc-fieldlabel" htmlFor="routine-runner">
                 Who runs it
               </label>
               <Select
@@ -406,7 +406,7 @@ export function RoutineDialog({
                   ...(chooseFrom ?? []).map((entry) => ({ value: entry.teammateId, label: entry.name }))
                 ]}
               />
-              <p className="lc-dialog__note lc-mono">
+              <p className="lc-dialog__note">
                 This conversation was not assigned to anyone. It replays on the teammate you pick, on their route.
               </p>
             </div>
@@ -419,13 +419,13 @@ export function RoutineDialog({
             * keeps being about.
             */}
           {nobodyToRun && (
-            <p className="lc-dialog__note lc-mono">
+            <p className="lc-dialog__note">
               A routine runs on a teammate&apos;s route, and there are no teammates yet. Add one, then save this again.
             </p>
           )}
 
           <div className="lc-dialog__section">
-            <span className="lc-fieldlabel lc-mono">
+            <span className="lc-fieldlabel">
               Steps <span className="lc-queued__note">{String(steps.length)} of {String(MAX_ROUTINE_STEPS)}</span>
             </span>
             {steps.map((step, index) => {
@@ -560,7 +560,7 @@ export function RoutineDialog({
           </div>
 
           <div className="lc-dialog__section">
-            <span className="lc-fieldlabel lc-mono" id="routine-schedule-label">
+            <span className="lc-fieldlabel" id="routine-schedule-label">
               Runs on its own
             </span>
             <div className="lc-routinesched">
@@ -687,7 +687,7 @@ export function RoutineDialog({
                 {!watchedFolderValid(filesFolder.trim()) && (
                   <span className="lc-routinesched__detail lc-mono">A folder inside the project, by name, such as inbox.</span>
                 )}
-                <p className="lc-dialog__note lc-mono">
+                <p className="lc-dialog__note">
                   A file that lands there starts a run once it stops changing, up to six an hour, and the run is told its name.
                   What is there already starts nothing.{' '}
                   {/*
@@ -725,7 +725,7 @@ export function RoutineDialog({
               </div>
             )}
             {schedule !== undefined && schedule.kind !== 'hook' && (
-              <p className="lc-dialog__note lc-mono">
+              <p className="lc-dialog__note">
                 Only while Locust is open, and only when {teammate?.name ?? 'the teammate'} is free. A run missed while
                 Locust was closed happens once, the next time it is open.
                 {folder !== undefined && <span title={folder.path}>{` On a schedule it runs in ${folder.name}.`}</span>}
@@ -736,11 +736,11 @@ export function RoutineDialog({
           <RoutineInputEditor inputs={inputs} onChange={setInputs} />
           {inputError !== undefined && <p className="lc-dialog__error">{inputError}</p>}
           {truncated && (
-            <p className="lc-dialog__note lc-mono">
+            <p className="lc-dialog__note">
               This conversation had more turns than a routine can hold, so the first {String(MAX_ROUTINE_STEPS)} are here.
             </p>
           )}
-          <p className="lc-dialog__note lc-mono">
+          <p className="lc-dialog__note">
             Each step runs only after the one before it finishes. A step that fails ends the routine there.
             {steps.length > 1 ? ' A step set to wait for your OK starts when you go ahead on the routine’s card, and your phone and chat apps are told.' : ''}
             {canHandOff

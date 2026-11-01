@@ -19,6 +19,8 @@ describe('the Ctrl K palette input', () => {
   })
 
   it('keeps the head’s lit edge as the focus it shows', () => {
-    expect(shell).toMatch(/\.lc-palette__head:focus-within \{\s*border-bottom-color: var\(--lc-focus-ring\);\s*\}/)
+    // A step brighter than the hairline, not ivory (polish pass, 2026-11-01): the box is focused whenever the palette
+    // is open, so an ivory rule read as a stray line across the sheet; it still dims when focus leaves for the list.
+    expect(shell).toMatch(/\.lc-palette__head:focus-within \{\s*border-bottom-color: var\(--lc-border-hover\);\s*\}/)
   })
 })

@@ -138,7 +138,7 @@ export function CommandPalette({
             autoComplete="off"
           />
           <button type="button" className="lc-dialog__close" aria-label="Close palette" onClick={onClose}>
-            ✕
+            <Icon name="close" size={13} />
           </button>
         </div>
         <div className="lc-palette__list">

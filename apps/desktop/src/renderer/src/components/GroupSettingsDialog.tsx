@@ -61,7 +61,7 @@ export function GroupSettingsDialog({
       <div ref={box} className="lc-dialog lc-groupsettings" role="dialog" aria-modal="true" aria-label={`Project settings for ${group.name}`}>
         <div className="lc-dialog__head">
           <span className="lc-dialog__title">Project settings</span>
-          <span className="lc-dialog__sub lc-mono">{group.name}</span>
+          <span className="lc-dialog__sub">{group.name}</span>
           <button type="button" className="lc-dialog__close" aria-label="Close" onClick={onCancel}>
             ×
           </button>

@@ -146,11 +146,11 @@ export function OwnModels({ onChanged }: { readonly onChanged: () => void }): Re
         }}
       >
         <label className="lc-ownmodel__field">
-          <span className="lc-fieldlabel lc-mono">Name</span>
+          <span className="lc-fieldlabel">Name</span>
           <input className="lc-input" value={name} maxLength={60} placeholder="Acme Chat" autoComplete="off" onChange={(event) => setName(event.target.value)} />
         </label>
         <label className="lc-ownmodel__field">
-          <span className="lc-fieldlabel lc-mono">Model</span>
+          <span className="lc-fieldlabel">Model</span>
           <input
             className="lc-input lc-mono"
             value={model}
@@ -162,7 +162,7 @@ export function OwnModels({ onChanged }: { readonly onChanged: () => void }): Re
           />
         </label>
         <label className="lc-ownmodel__field lc-ownmodel__field--wide">
-          <span className="lc-fieldlabel lc-mono">Address</span>
+          <span className="lc-fieldlabel">Address</span>
           <input
             className="lc-input lc-mono"
             value={baseUrl}
@@ -174,7 +174,7 @@ export function OwnModels({ onChanged }: { readonly onChanged: () => void }): Re
           />
         </label>
         <label className="lc-ownmodel__field lc-ownmodel__field--wide">
-          <span className="lc-fieldlabel lc-mono">Key</span>
+          <span className="lc-fieldlabel">Key</span>
           <input
             className="lc-input lc-mono"
             type="password"

@@ -142,7 +142,7 @@ export function RailFlyout({
       ) : (
         <>
           <div className="lc-railflyout__label">
-            <span className="lc-fieldlabel lc-mono">Conversations</span>
+            <span className="lc-fieldlabel">Conversations</span>
             <span className="lc-mono lc-railflyout__count">{countLabel}</span>
           </div>
           <div className="lc-railflyout__list">

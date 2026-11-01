@@ -22,12 +22,13 @@ describe('Settings switches', () => {
     expect(screens).not.toContain("'Switch this off' : 'Switch this on'")
   })
 
-  it('show an off knob you can see: muted text on the track, not a raised surface (0.419)', () => {
+  it('show an off knob you can see: the lifted knob on the track, not a raised surface (0.419)', () => {
     const css = readFileSync(fileURLToPath(new URL('../renderer/src/shell.css', import.meta.url)), 'utf8')
     // The later of the two switch blocks is the one that paints the knob.
     // At a line start: `.is-on .lc-switch__knob {` holds the same words.
     const later = css.slice(css.lastIndexOf('\n.lc-switch__knob {'))
-    expect(later.slice(0, later.indexOf('}'))).toContain('background: var(--lc-text-muted);')
+    // Since the polish pass (2026-11-01) the off knob is the light lifted knob a Mac draws, on a track you can see.
+    expect(later.slice(0, later.indexOf('}'))).toContain('background: var(--lc-switch-knob);')
   })
 
   it('and the two between teammates say their name before their state', () => {

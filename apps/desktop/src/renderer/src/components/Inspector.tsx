@@ -110,7 +110,7 @@ export function Inspector({
           */}
         <span className="lc-inspector__title">About this reply</span>
         <button type="button" className="lc-inspector__close" aria-label="Close About this reply" onClick={onClose}>
-          ✕
+          <Icon name="close" size={13} />
         </button>
       </div>
 
@@ -156,7 +156,7 @@ export function Inspector({
             {mayDo !== undefined && (
               <div className="lc-permissions">
                 <div className="lc-permissions__head">
-                  <span className="lc-fieldlabel lc-mono">What it may do</span>
+                  <span className="lc-fieldlabel">What it may do</span>
                   <span className="lc-rail__meta">{sandboxPhrase(sandbox)}</span>
                 </div>
                 <div className="lc-permissions__rows">

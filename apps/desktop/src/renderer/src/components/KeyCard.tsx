@@ -128,14 +128,14 @@ export function TeammateKeysField({ teammateId, name, api = typeof window === 'u
   if (stays !== undefined) {
     return (
       <div className="lc-field lc-field--lessons">
-        <span className="lc-fieldlabel lc-mono">Keys</span>
+        <span className="lc-fieldlabel">Keys</span>
         <span className="lc-field__hint">{`${name}’s keys are kept encrypted on your computer, and given there. ${stays}`}</span>
       </div>
     )
   }
   return (
     <div className="lc-field lc-field--lessons">
-      <span className="lc-fieldlabel lc-mono">Keys</span>
+      <span className="lc-fieldlabel">Keys</span>
       {kept.length > 0 && (
         <ul className="lc-tunelessons" aria-label={`Keys for ${name}`}>
           {kept.map((one) => (

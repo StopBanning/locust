@@ -93,11 +93,11 @@ export function AcpAgentsSettings({ onChanged, api = typeof window === 'undefine
         }}
       >
         <label className="lc-ownmodel__field">
-          <span className="lc-fieldlabel lc-mono">Name</span>
+          <span className="lc-fieldlabel">Name</span>
           <input className="lc-input" value={name} maxLength={40} placeholder="Goose" autoComplete="off" onChange={(event) => setName(event.target.value)} />
         </label>
         <label className="lc-ownmodel__field lc-ownmodel__field--wide">
-          <span className="lc-fieldlabel lc-mono">Command</span>
+          <span className="lc-fieldlabel">Command</span>
           <input
             className="lc-input lc-mono"
             value={commandLine}

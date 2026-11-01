@@ -99,7 +99,7 @@ export function TuneTeammate({ card, onChange, onRun, onCancel }: {
                     {!skillReady && <span className="lc-dialog__note lc-tone-red" role="status">{TUNE_SKILL_INCOMPLETE}</span>}
                   </div>
                   <span className="lc-tune__foot">
-                    <span className="lc-dialog__note lc-mono">{skill.body.length} / {MAX_SKILL_BODY}</span>
+                    <span className="lc-dialog__note">{skill.body.length} / {MAX_SKILL_BODY}</span>
                     <button type="button" className="lc-linkbutton" disabled={card.starting} onClick={useInstructions}>Use instructions instead</button>
                   </span>
                 </div>
@@ -115,7 +115,7 @@ export function TuneTeammate({ card, onChange, onRun, onCancel }: {
                   value={text} disabled={card.starting || (key !== 'current' && card.drafting)}
                   onChange={(event) => { const text = event.target.value; onChange((current) => key === 'current' ? { ...current, current: text } : { ...current, drafts: { ...current.drafts, [key]: { ...current.drafts[key], instructions: text } } }) }} />
                 <span className="lc-tune__foot">
-                  <span className="lc-dialog__note lc-mono">{text.length} / {MAX_TEAMMATE_INSTRUCTIONS}</span>
+                  <span className="lc-dialog__note">{text.length} / {MAX_TEAMMATE_INSTRUCTIONS}</span>
                   {key !== 'current' && repeats[key] !== undefined && <span className="lc-dialog__note lc-tune__same">Same as {repeats[key]}</span>}
                   {toggle && <button type="button" className="lc-linkbutton" disabled={card.starting} onClick={writeSkill}>Write a skill instead</button>}
                 </span>

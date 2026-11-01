@@ -750,6 +750,31 @@
    * with the suggestion.
    */
   --lc-focus-edge-box: rgba(255, 255, 255, 0.4);
+  /*
+   * THE PARTS EVERY DIALOG, SEGMENTED CONTROL AND PRIMARY BUTTON SHARE (polish pass, 2026-11-01). Colin, holding up
+   * the Usage dialog: "look at that X ... world class apple quality". Named here so each theme draws them its own way.
+   *
+   * A dialog is a raised sheet: a hairline edge, a lit top edge as a Mac window has, and the window behind it
+   * softened rather than only dimmed. A segmented control is a recessed track with the choice raised out of it.
+   * The primary button is solid -- the one filled control in a dialog, so the eye finds the way forward first.
+   */
+  --lc-dialog-edge: rgba(255, 255, 255, 0.1);
+  --lc-dialog-highlight: rgba(255, 255, 255, 0.05);
+  --lc-scrim-blur: 4px;
+  --lc-segment-track: rgba(255, 255, 255, 0.055);
+  --lc-segment-thumb: #2b2f30;
+  --lc-segment-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --lc-primary-bg: #f2efe9;
+  --lc-primary-bg-hover: #ffffff;
+  --lc-primary-fg: #141617;
+  --lc-ease-out: cubic-bezier(0.22, 0.8, 0.24, 1);
+  /* A switch: a track you can see when it is off, a knob lifted off it; on, the track fills and the knob turns. */
+  --lc-switch-off: rgba(255, 255, 255, 0.16);
+  --lc-switch-off-hover: rgba(255, 255, 255, 0.22);
+  --lc-switch-on: #f2efe9;
+  --lc-switch-knob: #f4f1eb;
+  --lc-switch-knob-on: #1b1e1f;
+  --lc-switch-knob-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 /*
@@ -902,6 +927,20 @@
   --lc-focus-glow: rgba(28, 30, 29, 0.05);
   --lc-focus-edge: rgba(28, 30, 29, 0.24);
   --lc-focus-edge-box: rgba(28, 30, 29, 0.4);
+  --lc-dialog-edge: rgba(28, 30, 29, 0.12);
+  --lc-dialog-highlight: rgba(255, 255, 255, 0.9);
+  --lc-segment-track: rgba(28, 30, 29, 0.06);
+  --lc-segment-thumb: #ffffff;
+  --lc-segment-thumb-shadow: 0 1px 2px rgba(28, 30, 29, 0.16), 0 0 0 0.5px rgba(28, 30, 29, 0.12);
+  --lc-primary-bg: #1c1e1d;
+  --lc-primary-bg-hover: #2e3130;
+  --lc-primary-fg: #fbfaf7;
+  --lc-switch-off: rgba(28, 30, 29, 0.16);
+  --lc-switch-off-hover: rgba(28, 30, 29, 0.22);
+  --lc-switch-on: #1c1e1d;
+  --lc-switch-knob: #ffffff;
+  --lc-switch-knob-on: #ffffff;
+  --lc-switch-knob-shadow: 0 1px 2px rgba(28, 30, 29, 0.28), 0 0 0 0.5px rgba(28, 30, 29, 0.08);
   color-scheme: light;
 }
 

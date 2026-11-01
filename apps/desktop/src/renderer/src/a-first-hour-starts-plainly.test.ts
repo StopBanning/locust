@@ -22,7 +22,7 @@ describe('a first hour that starts plainly', () => {
   it('a new teammate\'s model is chosen right under its name, before how it looks', () => {
     expect(DIALOG.indexOf('<div className="lc-teammatemodel">')).toBeGreaterThan(0)
     expect(DIALOG.indexOf('<div className="lc-teammatemodel">')).toBeLessThan(DIALOG.indexOf('CHOOSE A LOOK'))
-    expect(DIALOG.indexOf('<div className="lc-teammatemodel">')).toBeLessThan(DIALOG.indexOf('<span className="lc-fieldlabel lc-mono">Connectors</span>'))
+    expect(DIALOG.indexOf('<div className="lc-teammatemodel">')).toBeLessThan(DIALOG.indexOf('<span className="lc-fieldlabel">Connectors</span>'))
   })
 
   it('a connector is named for a person, its id kept for hover', () => {

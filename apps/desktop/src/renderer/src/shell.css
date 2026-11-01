@@ -3526,27 +3526,45 @@ svg.lc-filetype.is-image .lc-filetype__dot {
  */
 .lc-segmented {
   display: inline-flex;
-  gap: 0;
-  border: 1px solid var(--lc-border-control);
-  border-radius: var(--lc-radius-control);
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--lc-segment-track);
+  box-shadow: inset 0 0 0 1px var(--lc-border-hairline);
   overflow: hidden;
 }
+/*
+ * A TRACK WITH THE CHOICE RAISED OUT OF IT (polish pass, 2026-11-01), as a Mac's segmented control is drawn. It was
+ * a bordered strip of joined buttons with the chosen one tinted -- two near-identical greys to tell apart, and a
+ * divider between every pair. Now the segments are words on the track and the chosen one is a lifted pill.
+ */
 .lc-segmented > .lc-button {
   min-width: 34px;
-  height: 26px;
-  padding: 0 var(--lc-space-3);
+  height: 24px;
+  padding: 0 var(--lc-space-5);
   justify-content: center;
   border: 0;
-  border-left: 1px solid var(--lc-border-control);
-  border-radius: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--lc-text-muted);
+  font-weight: 500;
+  transition: background var(--lc-motion-hover) var(--lc-ease), color var(--lc-motion-hover) var(--lc-ease), box-shadow var(--lc-motion-hover) var(--lc-ease);
 }
-.lc-segmented > .lc-button:first-child { border-left: 0; }
+.lc-segmented > .lc-button:hover:not(:disabled):not(.is-active) {
+  background: var(--lc-hover-surface);
+  color: var(--lc-text-secondary);
+}
+.lc-segmented > .lc-button.is-active,
+.lc-segmented > .lc-button.is-active:hover:not(:disabled) {
+  background: var(--lc-segment-thumb);
+  color: var(--lc-text-primary);
+  box-shadow: var(--lc-segment-thumb-shadow);
+}
 
-/* The divider beside the chosen segment stays a divider (design pass, 0.715):
-   the button's own active border lit only its LEFT edge -- one bright stroke
-   on one side of the choice. The tint and the text say which is chosen. */
-.lc-segmented > .lc-button.is-active {
-  border-left-color: var(--lc-border-control);
+.lc-segmented > .lc-button:focus-visible {
+  outline-offset: 0;
 }
 
 /* Who carries the work on when a plan runs out (0.774): one choice of up to eight agents, so a row that wraps
@@ -3686,36 +3704,13 @@ svg.lc-filetype.is-image .lc-filetype__dot {
  * simple on or off just use something similar to this"). One class now, in
  * the palette the settings cards already use.
  */
-.lc-switch {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 20px;
-  padding: 2px;
-  border: 1px solid var(--lc-border-card);
-  border-radius: 999px;
-  background: var(--lc-bg-control);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  transition: background-color 120ms ease, border-color 120ms ease;
-}
-
 .lc-switch.is-on {
-  background: var(--lc-lime);
-  border-color: var(--lc-lime);
+  background: var(--lc-switch-on);
 }
 
 .lc-switch:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
-}
-
-.lc-switch__knob {
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: var(--lc-text-muted);
-  transition: transform 120ms ease, background-color 120ms ease;
 }
 
 /*
@@ -3735,32 +3730,34 @@ svg.lc-filetype.is-image .lc-filetype__dot {
  * every switched-on toggle in Settings put its knob 2px past the padding
  * box, flush against the border. The other block's twin already says 12.
  */
-.lc-switch.is-on .lc-switch__knob {
-  transform: translateX(12px);
-  background: var(--lc-bg-raised);
+.lc-switch.is-on .lc-switch__knob,
+.lc-switch.is-on > span {
+  transform: translateX(14px);
+  background: var(--lc-switch-knob-on);
 }
 
 .lc-memory__switch {
   flex: 0 0 auto;
-  width: 28px;
-  height: 16px;
-  margin-top: 3px;
+  width: 32px;
+  height: 18px;
+  margin-top: 1px;
   padding: 2px;
-  border: 1px solid var(--lc-border-card);
+  border: 0;
   border-radius: 999px;
-  background: var(--lc-bg-control);
+  background: var(--lc-switch-off);
+  box-shadow: inset 0 0 0 0.5px var(--lc-border-hairline);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  transition: background 160ms var(--lc-ease-out);
 }
 
 .lc-memory__switch.is-on {
-  background: var(--lc-lime);
-  border-color: var(--lc-lime);
+  background: var(--lc-switch-on);
 }
 
 .lc-memory__switch:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
 }
 
@@ -3770,17 +3767,18 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   flex: 0 0 auto;
   display: inline-flex;
   justify-content: center;
-  width: 28px;
+  width: 32px;
   margin-top: 3px;
   color: var(--lc-text-muted);
 }
 
 .lc-memory__knob {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
-  background: var(--lc-text-primary);
-  transition: transform 120ms ease;
+  background: var(--lc-switch-knob);
+  box-shadow: var(--lc-switch-knob-shadow);
+  transition: transform 180ms var(--lc-ease-out), background 160ms var(--lc-ease-out);
 }
 
 /*
@@ -3794,7 +3792,7 @@ svg.lc-filetype.is-image .lc-filetype__dot {
  */
 .lc-memory__switch.is-on .lc-memory__knob {
   transform: translateX(14px);
-  background: var(--lc-bg-raised);
+  background: var(--lc-switch-knob-on);
 }
 
 .lc-memory__notice {
@@ -9273,20 +9271,30 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 
 .lc-inspector__close {
   margin-left: auto;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--lc-radius-control);
-  border: 1px solid var(--lc-border-control);
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--lc-radius-button);
   background: transparent;
   color: var(--lc-text-muted);
-  font-size: var(--lc-text-description);
   cursor: pointer;
-  transition: background var(--lc-motion-hover) var(--lc-ease), border-color var(--lc-motion-hover) var(--lc-ease);
+  transition: background var(--lc-motion-hover) var(--lc-ease), color var(--lc-motion-hover) var(--lc-ease);
+}
+
+.lc-inspector__close > svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
 }
 
 .lc-inspector__close:hover {
   background: var(--lc-hover-surface-strong);
-  border-color: var(--lc-hover-border);
+  color: var(--lc-text-primary);
 }
 
 .lc-tabs {
@@ -10577,9 +10585,23 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   position: absolute;
   inset: var(--lc-titlebar-height) 0 0 0;
   background: var(--lc-overlay-scrim);
+  -webkit-backdrop-filter: blur(var(--lc-scrim-blur));
+  backdrop-filter: blur(var(--lc-scrim-blur));
   display: grid;
   place-items: center;
   z-index: 22;
+  animation: lcScrimIn 160ms var(--lc-ease-out);
+}
+
+@keyframes lcScrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* A dialog rises into place, a few pixels and a hair of scale, as a Mac sheet settles. */
+@keyframes lcDialogIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }
 
 /*
@@ -10601,10 +10623,11 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   display: flex;
   flex-direction: column;
   background: var(--lc-bg-raised-2);
-  border: 1px solid var(--lc-border-button);
-  border-radius: 13px;
-  box-shadow: var(--lc-shadow-palette);
+  border: 1px solid var(--lc-dialog-edge);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--lc-dialog-highlight), var(--lc-shadow-palette);
   overflow: hidden;
+  animation: lcDialogIn 220ms var(--lc-ease-out);
 }
 
 .lc-dialog__head {
@@ -10612,36 +10635,65 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   flex-shrink: 0;
   align-items: center;
   gap: 10px;
-  padding: 15px 18px;
-  border-bottom: 1px solid var(--lc-border-card);
+  min-height: 56px;
+  padding: 12px 12px 12px 20px;
+  border-bottom: 1px solid var(--lc-border-hairline);
 }
 
 .lc-dialog__title {
-  font-size: var(--lc-text-teammate-name);
-  font-weight: 500;
+  flex: none;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--lc-text-name);
 }
 
+/* What the dialog is about, in the reading face beside the title (it was mono, and read as a code comment). */
 .lc-dialog__sub {
-  font-size: var(--lc-text-mono-caption);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--lc-text-description);
   color: var(--lc-text-muted);
 }
 
+/*
+ * THE CLOSE BUTTON (polish pass, 2026-11-01). Colin: "look at that X". It was a 24px box with a hard border and
+ * nothing centring its icon, so the X rode the text baseline and sat high in the box, beside a segmented control 4px
+ * taller than it. Now it is drawn as the header's other icon buttons are: no border, the glyph centred in a 28px
+ * target, a fill on hover. The glyph is a touch larger and heavier, so it does not go thin at this size.
+ */
 .lc-dialog__close {
   margin-left: auto;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--lc-radius-control);
-  border: 1px solid var(--lc-border-strong);
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--lc-radius-button);
   background: transparent;
   color: var(--lc-text-muted);
-  font-size: var(--lc-text-mono-caption);
   cursor: pointer;
-  transition: background var(--lc-motion-hover) var(--lc-ease);
+  transition: background var(--lc-motion-hover) var(--lc-ease), color var(--lc-motion-hover) var(--lc-ease);
+}
+
+.lc-dialog__close > svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
 }
 
 .lc-dialog__close:hover {
   background: var(--lc-hover-surface-strong);
-  border-color: var(--lc-hover-border);
+  color: var(--lc-text-primary);
+}
+
+.lc-dialog__close:active {
+  background: var(--lc-lime-tint-strong);
 }
 
 .lc-dialog__body {
@@ -10669,12 +10721,15 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   gap: var(--lc-space-4);
 }
 
+/*
+ * A FIELD'S NAME IS A WORD, NOT A STAMP (polish pass, 2026-11-01). It was mono capitals spaced wide -- NAME, MODEL,
+ * LOOK, PETS -- a spec sheet's voice over a form a person fills in. Now the name is said in the reading face, a step
+ * stronger than the text around it, as a Mac's form labels are; mono stays for what the machine says (paths, ids).
+ */
 .lc-fieldlabel {
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-label);
-  letter-spacing: var(--lc-tracking-label-wide);
-  text-transform: uppercase;
-  color: var(--lc-text-muted);
+  font-size: var(--lc-text-description);
+  font-weight: 600;
+  color: var(--lc-text-secondary);
 }
 
 .lc-input {
@@ -10753,28 +10808,41 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   gap: var(--lc-space-3);
 }
 
+/* One face of three -- a segmented control's shape, the chosen one raised (polish pass, 2026-11-01). */
 .lc-lookface {
   display: inline-flex;
-  gap: 4px;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
   margin-left: auto;
+  border-radius: 9px;
+  background: var(--lc-segment-track);
+  box-shadow: inset 0 0 0 1px var(--lc-border-hairline);
 }
 
 .lc-lookface button {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: var(--lc-radius-control);
-  border: 1px solid var(--lc-border-strong);
+  height: 24px;
+  padding: 0 var(--lc-space-5);
+  border-radius: 7px;
+  border: 0;
   background: transparent;
   color: var(--lc-text-muted);
   font: inherit;
   font-size: var(--lc-text-description);
+  font-weight: 500;
   cursor: pointer;
+  transition: background var(--lc-motion-hover) var(--lc-ease), color var(--lc-motion-hover) var(--lc-ease), box-shadow var(--lc-motion-hover) var(--lc-ease);
+}
+
+.lc-lookface button:hover:not(:disabled):not(.is-selected) {
+  background: var(--lc-hover-surface);
+  color: var(--lc-text-secondary);
 }
 
 .lc-lookface button.is-selected {
   color: var(--lc-text-primary);
-  border-color: var(--lc-lime-border);
-  background: var(--lc-lime-tint);
+  background: var(--lc-segment-thumb);
+  box-shadow: var(--lc-segment-thumb-shadow);
 }
 
 /* A face this look cannot take: a screen with Terminal faces off, or eyes and a mouth on Prompt (0.562). */
@@ -10816,7 +10884,7 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 .lc-look:focus-visible,
 .lc-lookface button:focus-visible {
   outline: 2px solid var(--lc-focus-ring);
-  outline-offset: 2px;
+  outline-offset: 0;
 }
 
 /* A pet keeps its own face, so the face choice steps aside: Shuffle takes the
@@ -11093,9 +11161,10 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 
 .lc-dialog__note {
   margin: 0;
-  font-size: var(--lc-text-mono-caption);
+  font-size: var(--lc-text-description);
   color: var(--lc-text-muted);
   line-height: 1.5;
+  text-wrap: pretty;
 }
 
 .lc-dialog__error {
@@ -11108,9 +11177,9 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 9px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--lc-border-card);
+  gap: 10px;
+  padding: 12px 16px 12px 20px;
+  border-top: 1px solid var(--lc-border-hairline);
   background: var(--lc-bg-raised);
 }
 
@@ -11153,21 +11222,27 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   border-color: var(--lc-hover-border);
 }
 
+/*
+ * SOLID (polish pass, 2026-11-01). It was a 13% ivory tint with an ivory hairline: beside a Cancel drawn in the
+ * control grey, the way forward was the second-lightest grey on the sheet, and hovering it changed nothing. Now it is
+ * the one filled control in a dialog -- ivory on the dark theme, ink on the light -- and it brightens under the
+ * pointer, so the eye finds it first, as a Mac's default button.
+ */
 .lc-primarybutton {
   height: 32px;
   padding: 0 var(--lc-space-6);
-  border-radius: var(--lc-radius-control);
-  border: 1px solid var(--lc-lime-border);
-  background: var(--lc-lime-tint-strong);
-  color: var(--lc-lime-text);
+  border-radius: var(--lc-radius-button);
+  border: 1px solid transparent;
+  background: var(--lc-primary-bg);
+  color: var(--lc-primary-fg);
   font-size: var(--lc-text-control);
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: background var(--lc-motion-hover) var(--lc-ease), transform var(--lc-motion-press) var(--lc-ease);
 }
 
 .lc-primarybutton:hover:not(:disabled) {
-  background: var(--lc-lime-tint-strong);
+  background: var(--lc-primary-bg-hover);
 }
 
 .lc-primarybutton:active:not(:disabled) {
@@ -11175,7 +11250,7 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 }
 
 .lc-primarybutton:disabled {
-  opacity: 0.45;
+  opacity: 0.38;
   cursor: default;
 }
 
@@ -13056,22 +13131,26 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   width: 620px;
   max-width: calc(100% - var(--lc-space-8));
   background: var(--lc-bg-raised-2);
-  border: 1px solid var(--lc-border-button);
-  border-radius: 13px;
-  box-shadow: var(--lc-shadow-palette);
+  border: 1px solid var(--lc-dialog-edge);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--lc-dialog-highlight), var(--lc-shadow-palette);
   overflow: hidden;
+  animation: lcDialogIn 200ms var(--lc-ease-out);
 }
 
+/* The box is always focused while the palette is open, so its edge only brightens a step: an ivory rule under it
+   read as a stray line across the sheet (polish pass, 2026-11-01). */
 .lc-palette__head:focus-within {
-  border-bottom-color: var(--lc-focus-ring);
+  border-bottom-color: var(--lc-border-hover);
 }
 
 .lc-palette__head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px var(--lc-space-6);
-  border-bottom: 1px solid var(--lc-border-card);
+  padding: 10px 10px 10px var(--lc-space-6);
+  border-bottom: 1px solid var(--lc-border-hairline);
+  color: var(--lc-text-muted);
 }
 
 .lc-palette__input {
@@ -18633,18 +18712,30 @@ textarea.lc-compare__judgecriteria {
   color: var(--lc-text-primary);
 }
 
-/* A switch track. Small, and the state is the knob's position rather than the
-   whole row filling with colour. */
+/*
+ * THE SWITCH (polish pass, 2026-11-01): a track you can see when it is off and a knob lifted off it, as a Mac's is.
+ * It was 26x14 at 12% white with a 10px grey knob, and twelve Settings switches wrote a bare `<span />` for their
+ * knob, which no rule reached, so they drew as an empty pill ("Let your other AI apps use Locust", your phone, chat
+ * apps, Scout). Any child span is the knob now. Two markups still meet here: Settings puts `is-on` on the switch
+ * itself, the composer on an ancestor (a-switch-knob-stays-in-its-track.test.ts).
+ */
 .lc-switch {
   flex: none;
-  width: 26px;
-  height: 14px;
+  width: 32px;
+  height: 18px;
   padding: 2px;
+  border: 0;
   border-radius: 999px;
-  background: var(--lc-border-button);
+  background: var(--lc-switch-off);
+  box-shadow: inset 0 0 0 0.5px var(--lc-border-hairline);
   display: inline-flex;
   align-items: center;
-  transition: background var(--lc-motion-hover) var(--lc-ease);
+  cursor: pointer;
+  transition: background 160ms var(--lc-ease-out);
+}
+
+button.lc-switch:hover:not(:disabled):not(.is-on) {
+  background: var(--lc-switch-off-hover);
 }
 
 /*
@@ -18654,21 +18745,23 @@ textarea.lc-compare__judgecriteria {
  * what the first switch block asked for, and it stands off the track; on,
  * the knob goes dark against lime, as it was.
  */
+.lc-switch > span,
 .lc-switch__knob {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
-  background: var(--lc-text-muted);
-  transition: transform var(--lc-motion-hover) var(--lc-ease);
+  background: var(--lc-switch-knob);
+  box-shadow: var(--lc-switch-knob-shadow);
+  transition: transform 180ms var(--lc-ease-out), background 160ms var(--lc-ease-out);
 }
 
 .is-on .lc-switch {
-  background: var(--lc-lime);
+  background: var(--lc-switch-on);
 }
 
 .is-on .lc-switch__knob {
-  transform: translateX(12px);
-  background: var(--lc-bg-raised);
+  transform: translateX(14px);
+  background: var(--lc-switch-knob-on);
 }
 
 /*
@@ -23810,7 +23903,7 @@ textarea.lc-compare__judgecriteria {
 }
 
 .lc-usage {
-  width: 800px;
+  width: 820px;
 }
 
 .lc-usage__range {
@@ -23818,24 +23911,38 @@ textarea.lc-compare__judgecriteria {
 }
 
 .lc-usage__range + .lc-dialog__close {
-  margin-left: 2px;
+  margin-left: 4px;
 }
 
 .lc-usage__body {
-  gap: 28px;
-  padding: 20px 22px 24px;
+  gap: 30px;
+  padding: 22px 24px 26px;
 }
 
 .lc-usage__section {
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  gap: 14px;
 }
 
+/* A section is a sentence one step above what it holds, as Settings' are (0.356): it was the mono label, spaced
+   capitals beside a mono note, and read as a code comment. */
 .lc-usage__sectionhead {
   display: flex;
   align-items: baseline;
-  gap: 9px;
+  gap: 8px;
+}
+
+.lc-usage__heading {
+  margin: 0;
+  font-size: var(--lc-text-body);
+  font-weight: 600;
+  color: var(--lc-text-name);
+}
+
+.lc-usage__headnote {
+  font-size: var(--lc-text-description);
+  color: var(--lc-text-muted);
 }
 
 .lc-usage__empty {
@@ -23856,6 +23963,10 @@ textarea.lc-compare__judgecriteria {
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  padding: 14px 16px 13px;
+  border: 1px solid var(--lc-border-hairline);
+  border-radius: var(--lc-radius-card);
+  background: var(--lc-chip-bg);
 }
 
 .lc-usage__agentname {
@@ -23890,7 +24001,7 @@ textarea.lc-compare__judgecriteria {
   height: 6px;
   overflow: hidden;
   border-radius: 3px;
-  background: var(--lc-border-card);
+  background: var(--lc-hover-surface-strong);
 }
 
 .lc-usage__fill {
@@ -23911,8 +24022,8 @@ textarea.lc-compare__judgecriteria {
 .lc-usage__percent {
   flex: none;
   white-space: nowrap;
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-caption);
+  font-size: var(--lc-text-description);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: var(--lc-text-secondary);
@@ -23920,6 +24031,7 @@ textarea.lc-compare__judgecriteria {
 
 .lc-usage__resets {
   font-size: var(--lc-text-mono-caption);
+  font-variant-numeric: tabular-nums;
   color: var(--lc-text-muted);
 }
 
@@ -23929,6 +24041,8 @@ textarea.lc-compare__judgecriteria {
 
 .lc-usage__read {
   margin-top: -2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lc-border-hairline);
   font-size: var(--lc-text-mono-caption);
   line-height: 1.4;
   color: var(--lc-text-muted);
@@ -23956,8 +24070,7 @@ textarea.lc-compare__judgecriteria {
   column-gap: 3px;
   height: 12px;
   margin-left: 30px;
-  font-family: var(--lc-font-mono);
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 12px;
   color: var(--lc-text-muted);
   white-space: nowrap;
@@ -23978,8 +24091,7 @@ textarea.lc-compare__judgecriteria {
   grid-template-rows: repeat(7, 13px);
   row-gap: 3px;
   width: 24px;
-  font-family: var(--lc-font-mono);
-  font-size: 9.5px;
+  font-size: 10px;
   line-height: 13px;
   text-align: right;
   color: var(--lc-text-muted);
@@ -24033,8 +24145,7 @@ textarea.lc-compare__judgecriteria {
   align-items: center;
   gap: 3px;
   margin-left: 30px;
-  font-family: var(--lc-font-mono);
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--lc-text-muted);
 }
 
@@ -24047,18 +24158,18 @@ textarea.lc-compare__judgecriteria {
 }
 
 .lc-usage__stats {
-  flex: 0 1 440px;
+  flex: 1 1 400px;
   min-width: 300px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 11px 28px;
+  gap: 16px 28px;
   margin: 0;
 }
 
 .lc-usage__stats > div {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -24067,14 +24178,18 @@ textarea.lc-compare__judgecriteria {
   color: var(--lc-text-muted);
 }
 
+/* The number is what you came for: it leads, a size up and in the face's own weight, its digits even. */
 .lc-usage__stats dd {
   margin: 0;
   overflow: hidden;
-  font-size: 13.5px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: var(--lc-text-primary);
+  color: var(--lc-text-name);
 }
 
 /* Models: one row each, the share drawn, the numbers in mono. */
@@ -24087,18 +24202,15 @@ textarea.lc-compare__judgecriteria {
 .lc-usage__models th {
   padding: 0 12px 8px 0;
   border-bottom: 1px solid var(--lc-border-hairline);
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-label);
-  font-weight: 400;
-  letter-spacing: var(--lc-tracking-label);
+  font-size: var(--lc-text-mono-caption);
+  font-weight: 500;
   text-align: left;
-  text-transform: uppercase;
   white-space: nowrap;
   color: var(--lc-text-muted);
 }
 
 .lc-usage__models td {
-  padding: 9px 12px 9px 0;
+  padding: 10px 12px 10px 0;
   border-bottom: 1px solid var(--lc-border-hairline);
   vertical-align: middle;
   white-space: nowrap;
@@ -24122,8 +24234,6 @@ textarea.lc-compare__judgecriteria {
 
 .lc-usage__models .is-number {
   text-align: right;
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-caption);
   font-variant-numeric: tabular-nums;
 }
 
@@ -24170,8 +24280,6 @@ textarea.lc-compare__judgecriteria {
 
 .lc-usage__sharetext {
   min-width: 30px;
-  font-family: var(--lc-font-mono);
-  font-size: var(--lc-text-mono-caption);
   font-variant-numeric: tabular-nums;
   color: var(--lc-text-muted);
 }
@@ -24935,12 +25043,32 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 }
 .lc-composer__under .lc-control__model { max-width: 24ch; }
 .lc-picker__effortnote { margin: 0 0 8px; color: var(--lc-text-muted); }
-.lc-shortcuts { width: min(440px, calc(100% - var(--lc-space-8))); }
+.lc-shortcuts { width: min(540px, calc(100% - var(--lc-space-8))); }
 .lc-shortcuts__body { overflow: auto; display: flex; flex-direction: column; gap: 16px; }
 .lc-shortcuts__group h2 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--lc-text-secondary); }
 .lc-shortcuts__group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.lc-shortcuts__group li { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
-.lc-shortcuts__group kbd { color: var(--lc-text-muted); font-family: inherit; font-size: 12px; white-space: nowrap; }
+.lc-shortcuts__group li { display: flex; justify-content: space-between; gap: 16px; align-items: center; min-height: 26px; }
+/* A key to a cap (polish pass, 2026-11-01): a small raised key, its lower edge a shade deeper, as a keyboard's is. */
+.lc-shortcuts__keys { flex: none; display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 8px; max-width: 60%; }
+.lc-shortcuts__chord { display: inline-flex; align-items: center; gap: 3px; }
+.lc-shortcuts__or { margin-right: 5px; font-size: var(--lc-text-mono-caption); color: var(--lc-text-muted); }
+.lc-shortcuts__group kbd {
+  min-width: 22px;
+  height: 21px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--lc-border-control);
+  border-radius: 6px;
+  background: var(--lc-chip-bg);
+  box-shadow: inset 0 -1px 0 var(--lc-border-control);
+  font-family: inherit;
+  font-size: var(--lc-text-mono-caption);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--lc-text-secondary);
+}
 
 /*
  * THE QUIET ROW, CHECKED BY EYE (0.836 review). The rules for the old row inside the box are scoped to

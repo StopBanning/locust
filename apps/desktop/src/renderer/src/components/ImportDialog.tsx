@@ -75,7 +75,7 @@ export function ImportDialog({
       <div ref={box} className="lc-dialog lc-importdialog" role="dialog" aria-modal="true" aria-label="Import a conversation">
         <div className="lc-dialog__head">
           <span className="lc-dialog__title">Import a conversation</span>
-          <span className="lc-dialog__sub lc-mono">the last 30 days</span>
+          <span className="lc-dialog__sub">the last 30 days</span>
           <button type="button" className="lc-dialog__close" aria-label="Close" onClick={onCancel}>
             ×
           </button>

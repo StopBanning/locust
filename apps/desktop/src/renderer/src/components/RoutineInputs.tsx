@@ -12,7 +12,7 @@ import { Select } from './Select.js'
 export function RoutineInputEditor({ inputs, onChange }: { readonly inputs: readonly RoutineInput[]; readonly onChange: (inputs: readonly RoutineInput[]) => void }): ReactElement {
   const change = (at: number, value: RoutineInput): void => onChange(inputs.map((held, index) => index === at ? value : held))
   return <div className="lc-dialog__section lc-routineinputs">
-    <span className="lc-fieldlabel lc-mono">Inputs</span>
+    <span className="lc-fieldlabel">Inputs</span>
     <p className="lc-dialog__note">Write {'{{key}}'} in a step where an answer belongs. Automatic runs use defaults; required answers without defaults must be entered by hand.</p>
     {inputs.map((input, at) => <fieldset className="lc-routineinputs__entry" key={at}>
       <legend>Input {at + 1}</legend>

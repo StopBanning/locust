@@ -142,7 +142,7 @@ export function AddConnector({ installed, onChanged }: { readonly installed: rea
           }}
         >
           <label className="lc-addconnector__field">
-            <span className="lc-fieldlabel lc-mono">Name</span>
+            <span className="lc-fieldlabel">Name</span>
             <input
               className="lc-input lc-mono"
               value={name}
@@ -154,7 +154,7 @@ export function AddConnector({ installed, onChanged }: { readonly installed: rea
             />
           </label>
           <div className="lc-addconnector__field">
-            <span className="lc-fieldlabel lc-mono" id="lc-addconnector-runs">
+            <span className="lc-fieldlabel" id="lc-addconnector-runs">
               It runs as
             </span>
             <div className="lc-segmented" role="radiogroup" aria-labelledby="lc-addconnector-runs">
@@ -167,7 +167,7 @@ export function AddConnector({ installed, onChanged }: { readonly installed: rea
             </div>
           </div>
           <label className="lc-addconnector__field lc-addconnector__field--wide">
-            <span className="lc-fieldlabel lc-mono">{kind === 'command' ? 'Command' : 'Address'}</span>
+            <span className="lc-fieldlabel">{kind === 'command' ? 'Command' : 'Address'}</span>
             <input
               className="lc-input lc-mono"
               value={value}
@@ -184,7 +184,7 @@ export function AddConnector({ installed, onChanged }: { readonly installed: rea
             </span>
           </label>
           <div className="lc-addconnector__field lc-addconnector__field--wide">
-            <span className="lc-fieldlabel lc-mono" id="lc-addconnector-agents">
+            <span className="lc-fieldlabel" id="lc-addconnector-agents">
               Give it to
             </span>
             <div className="lc-addconnector__agents" role="group" aria-labelledby="lc-addconnector-agents">
@@ -231,7 +231,7 @@ export function AddConnector({ installed, onChanged }: { readonly installed: rea
       )}
       {results !== undefined && (
         <div className="lc-addconnector__results" role="status" aria-label={`What each agent said about ${results.name}`}>
-          <span className="lc-fieldlabel lc-mono">{results.name}</span>
+          <span className="lc-fieldlabel">{results.name}</span>
           <ul className="lc-connectorhealth__list">
             {results.rows.map((row) => {
               const words = rowWords(row)

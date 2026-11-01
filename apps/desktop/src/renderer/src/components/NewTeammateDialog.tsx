@@ -498,7 +498,7 @@ export function NewTeammateDialog({
       <div ref={box} className="lc-dialog" role="dialog" aria-modal="true" aria-label={editing ? 'Edit teammate' : 'New teammate'}>
         <div className="lc-dialog__head">
           <span className="lc-dialog__title">{editing ? 'Edit teammate' : 'New teammate'}</span>
-          <span className="lc-dialog__sub lc-mono">lives on this machine</span>
+          <span className="lc-dialog__sub">lives on this machine</span>
           <button type="button" className="lc-dialog__close" aria-label="Close" onClick={onCancel}>
             <Icon name="close" size={13} />
           </button>
@@ -506,7 +506,7 @@ export function NewTeammateDialog({
 
         <div className="lc-dialog__body">
           {/* First, not at the foot below the fold (a practice tester on 0.306 found it there). */}
-          <p className="lc-dialog__note lc-mono">
+          <p className="lc-dialog__note">
             A teammate is a name, a face and a place to keep conversations. It grants no new access.
           </p>
           <div className="lc-dialog__identity">
@@ -514,7 +514,7 @@ export function NewTeammateDialog({
                 teammate has -- all of it, as the face in a conversation does. */}
             <TeammateBot hue={hue} avatar={avatar} size={64} activity="working" presence="working" motion="full" />
             <div className="lc-dialog__fields">
-              <label className="lc-fieldlabel lc-mono" htmlFor="lc-teammate-name">
+              <label className="lc-fieldlabel" htmlFor="lc-teammate-name">
                 Name
               </label>
               <input
@@ -574,7 +574,7 @@ export function NewTeammateDialog({
             modes need a write-capable sandbox to mean anything.
           */}
           <div className="lc-teammatemodel">
-            <span className="lc-fieldlabel lc-mono">Model</span>
+            <span className="lc-fieldlabel">Model</span>
             <div className="lc-teammatemodel__row">
               <span className="lc-teammatemodel__name">
                 {shownRoute?.account !== undefined && <span>{accountName(shownRoute.account)}{' \u00b7 '}</span>}
@@ -630,7 +630,7 @@ export function NewTeammateDialog({
             */}
           <div className="lc-dialog__section">
             <div className="lc-lookhead">
-              <span className="lc-fieldlabel lc-mono">Look</span>
+              <span className="lc-fieldlabel">Look</span>
               {wornPet === undefined && (
                 <div className="lc-lookface" role="radiogroup" aria-label="Face">
                   {(['eyes', 'mouth', 'screen'] as const).map((face) => {
@@ -726,7 +726,7 @@ export function NewTeammateDialog({
 
             <div className="lc-pets" role="group" aria-label="Pets">
               <div className="lc-pets__head">
-                <span className="lc-fieldlabel lc-mono">Pets</span>
+                <span className="lc-fieldlabel">Pets</span>
                 <PetRemovalControls removal={petRemoval} />
               </div>
               <div className="lc-lookgrid" role="radiogroup" aria-label="Pets">
@@ -767,7 +767,7 @@ export function NewTeammateDialog({
           </div>
 
           <div className="lc-dialog__section">
-            <span className="lc-fieldlabel lc-mono">Role</span>
+            <span className="lc-fieldlabel">Role</span>
             <div className="lc-rolegrid" role="radiogroup" aria-label="Role">
               {ROLES.map((option) => (
                 <button
@@ -788,7 +788,7 @@ export function NewTeammateDialog({
               // name in the sidebar, and in the brief every runtime on the
               // roster is given. Short, because it sits in both places.
               <label className="lc-field lc-field--roletitle">
-                <span className="lc-fieldlabel lc-mono">What they do</span>
+                <span className="lc-fieldlabel">What they do</span>
                 <input
                   type="text"
                   value={roleTitle}
@@ -819,7 +819,7 @@ export function NewTeammateDialog({
               <span className="lc-memory__knob" />
             </button>
             <span className="lc-field__text">
-              <span className="lc-fieldlabel lc-mono">Own copy</span>
+              <span className="lc-fieldlabel">Own copy</span>
               <span className="lc-field__hint">
                 Works in its own copy of the folder, on branch {branchNameFor(name.trim().length === 0 ? 'teammate' : name)}. Needs the folder to be a git repository.
                 Merging back is yours to do.
@@ -841,7 +841,7 @@ export function NewTeammateDialog({
             */}
           {editing && onChooseFolder !== undefined && (
             <div className="lc-field lc-field--folder">
-              <span className="lc-fieldlabel lc-mono">Works in</span>
+              <span className="lc-fieldlabel">Works in</span>
               {/* What a teammate may reach is decided on the computer (0.850): in a browser these are held, and say so. */}
               <OnTheComputer channel={TEAMMATE_FOLDER_CHANNEL}>
               <div className="lc-folderrow">
@@ -886,7 +886,7 @@ export function NewTeammateDialog({
             */}
           {editing && onSetConnectors !== undefined && connectors !== undefined && connectors.length > 0 && (
             <div className="lc-field lc-field--connectors">
-              <span className="lc-fieldlabel lc-mono">Connectors</span>
+              <span className="lc-fieldlabel">Connectors</span>
               <OnTheComputer channel={TEAMMATE_CONNECTORS_CHANNEL}>
               <div className="lc-connectorgrid" role="group" aria-label="Connectors this teammate may use">
                 {connectors.map((connector) => {
@@ -939,7 +939,7 @@ export function NewTeammateDialog({
                 <span className="lc-memory__knob" />
               </button>
               <span className="lc-field__text">
-                <span className="lc-fieldlabel lc-mono">Own browser sign-ins</span>
+                <span className="lc-fieldlabel">Own browser sign-ins</span>
                 <span className="lc-field__hint">
                   {initial?.ownBrowser === true
                     ? `On. In the browser panel, ${trimmed.length === 0 ? 'this teammate' : trimmed} signs in to sites apart from you and every other teammate, and its tabs carry its color. To sign it in, press + in the browser panel and pick ${trimmed.length === 0 ? 'its name' : trimmed}. Turning this off forgets those sign-ins.`
@@ -951,7 +951,7 @@ export function NewTeammateDialog({
           )}
 
           <label className="lc-field lc-field--limit">
-            <span className="lc-fieldlabel lc-mono">Monthly limit</span>
+            <span className="lc-fieldlabel">Monthly limit</span>
             {policyLimit !== undefined && <><ManagedPolicyNote /><span className="lc-field__hint">Maximum {policyLimit.toFixed(2)} USD. You can set a lower amount.</span></>}
             <span className="lc-limitinput">
               <span className="lc-limitinput__currency lc-mono" aria-hidden="true">$</span>
@@ -980,7 +980,7 @@ export function NewTeammateDialog({
           </label>
 
           <label className="lc-field lc-field--instructions">
-            <span className="lc-fieldlabel lc-mono">Instructions</span>
+            <span className="lc-fieldlabel">Instructions</span>
             <textarea
               className="lc-input lc-field__text"
               aria-label="Instructions for this teammate"
@@ -1009,7 +1009,7 @@ export function NewTeammateDialog({
 
           {editing && lessons !== undefined && lessons.length > 0 && (
             <div className="lc-field lc-field--lessons">
-              <span className="lc-fieldlabel lc-mono">Tune lessons</span>
+              <span className="lc-fieldlabel">Tune lessons</span>
               <ul className="lc-tunelessons" aria-label={`Tune lessons for ${trimmed.length === 0 ? 'this teammate' : trimmed}`}>
                 {lessons.map((lesson) => (
                   <li key={lesson.lessonId} className="lc-tunelessons__row">
@@ -1031,7 +1031,7 @@ export function NewTeammateDialog({
 
           {editing && skills !== undefined && skills.length > 0 && (
             <div className="lc-field lc-field--lessons">
-              <span className="lc-fieldlabel lc-mono">Skills</span>
+              <span className="lc-fieldlabel">Skills</span>
               <ul className="lc-tunelessons" aria-label={`Skills for ${trimmed.length === 0 ? 'this teammate' : trimmed}`}>
                 {skills.map((skill) => (
                   <li key={skill.name} className="lc-tunelessons__row">
@@ -1069,7 +1069,7 @@ export function NewTeammateDialog({
           )}
 
           <label className="lc-field">
-            <span className="lc-fieldlabel lc-mono">Voice</span>
+            <span className="lc-fieldlabel">Voice</span>
             <span className="lc-voicepick">
               <Select className="lc-input" aria-label="Voice for this teammate" value={voice} onChange={setVoice} options={[
                 { value: '', label: 'Talk’s own voice, from Settings' },
