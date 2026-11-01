@@ -5,7 +5,10 @@ import { CLOUD_AGENT_ACCOUNTS, CLOUD_AGENT_MAKERS, CLOUD_AGENT_NAMES, CLOUD_FREE
 import { agoLabel } from '../teammateWork.js'
 import { failureSaid, onTheComputer } from '../onTheComputer.js'
 import { OnTheComputer } from './OnTheComputer.js'
-import { CLOUD_COMPUTER_ALLOW_CHANNEL, CLOUD_COMPUTER_REMOVE_CHANNEL, CLOUD_COMPUTER_SIGN_IN_CHANNEL, CLOUD_COMPUTER_STOP_CHANNEL } from '../../../shared/ipc.js'
+import {
+  CLOUD_COMPUTER_ALLOW_CHANNEL, CLOUD_COMPUTER_REMOVE_CHANNEL, CLOUD_COMPUTER_SIGN_IN_CHANNEL, CLOUD_COMPUTER_SIGN_IN_STOP_CHANNEL, CLOUD_COMPUTER_SIGN_OUT_CHANNEL,
+  CLOUD_COMPUTER_STOP_CHANNEL, CLOUD_COMPUTER_TERMINAL_CHANNEL
+} from '../../../shared/ipc.js'
 import { Icon } from './Icon.js'
 import { policyCloudTerminalRefusal, policyFeatureRefusal } from '../../../shared/organization-policy.js'
 import { ManagedPolicyNote, useOrganizationPolicy } from '../organizationPolicy.js'
@@ -173,7 +176,7 @@ export function CloudComputers(): ReactElement {
     <div className="lc-cloudcomputers">
       {listing.use !== undefined && <CloudHours use={listing.use} />}
       {said !== undefined && <p className="lc-cloudcomputers__said" role="alert">{said}</p>}
-      <OnTheComputer channel={[CLOUD_COMPUTER_SIGN_IN_CHANNEL, CLOUD_COMPUTER_STOP_CHANNEL, CLOUD_COMPUTER_REMOVE_CHANNEL]}>
+      <OnTheComputer channel={[CLOUD_COMPUTER_SIGN_IN_CHANNEL, CLOUD_COMPUTER_STOP_CHANNEL, CLOUD_COMPUTER_REMOVE_CHANNEL, CLOUD_COMPUTER_TERMINAL_CHANNEL, CLOUD_COMPUTER_SIGN_OUT_CHANNEL, CLOUD_COMPUTER_SIGN_IN_STOP_CHANNEL]}>
       {listing.computers.map((computer) => {
         const name = computer.repo.split('/').pop() ?? computer.repo
         const used = computer.lastUsedAt === undefined ? undefined : agoLabel(computer.lastUsedAt)

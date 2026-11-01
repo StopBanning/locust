@@ -15,6 +15,7 @@ import {
   type PublicTeammateSkill,
   type PublicTuneLesson
 } from '../../../shared/tune.js'
+import { failureSaid } from '../onTheComputer.js'
 
 export interface NoteTuneOutcome {
   readonly lesson?: PublicTuneLesson | null
@@ -134,7 +135,7 @@ export function KeptInstructions({
           setCombineMessage(outcome.message)
         }
       })
-      .catch(() => setCombineMessage(TUNE_COMBINE_FALLBACK))
+      .catch((error: unknown) => setCombineMessage(failureSaid(error, TUNE_COMBINE_FALLBACK)))
       .finally(() => setCombining(false))
   }
   const combineButton = setups === undefined || combined !== undefined ? null : (

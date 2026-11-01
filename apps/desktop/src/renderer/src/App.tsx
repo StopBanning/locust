@@ -73,7 +73,7 @@ import type {
   PublicConnector
 } from '../../shared/ipc.js'
 import {
-  CLAUDE_CLOUD_APPLY_CHANNEL, CLAUDE_CLOUD_SEND_CHANNEL, CLAUDE_CLOUD_START_CHANNEL, CLAUDE_CLOUD_TERMINAL_CHANNEL, CLOUD_START_CHANNEL, CLOUD_TURN_APPLY_CHANNEL, CLOUD_TURN_DISCARD_CHANNEL,
+  APPROVAL_RULE_FROM_CARD_CHANNEL, CLAUDE_CLOUD_APPLY_CHANNEL, CLAUDE_CLOUD_FORGET_CHANNEL, CLAUDE_CLOUD_SEND_CHANNEL, CLOUD_COMPUTER_SETUP_CHANNEL, CLAUDE_CLOUD_START_CHANNEL, CLAUDE_CLOUD_TERMINAL_CHANNEL, CLOUD_START_CHANNEL, CLOUD_TURN_APPLY_CHANNEL, CLOUD_TURN_DISCARD_CHANNEL,
   CLOUD_TURN_PULL_REQUEST_CHANNEL, FEEDBACK_CHANNEL, MISSION_RECORD_SAVE_CHANNEL, OPEN_IN_TERMINAL_CHANNEL, roleLabelOf,
   ROUTINE_EXPORT_CHANNEL, ROUTINE_IMPORT_PREVIEW_CHANNEL, SESSION_IMPORT_CHANNEL, TEAM_CARD_ADD_CHANNEL, WORKSPACE_OPEN_CHANNEL
 } from '../../shared/ipc.js'
@@ -4074,6 +4074,8 @@ export default function App(): ReactElement {
    * from the request it holds, which also answers the card.
    */
   const ruleOfCard = (request: MissionApprovalRequest): CardRule | undefined => {
+    // A standing rule is the computer's to save (0.830): a browser's card offers none (0.850).
+    if (onTheComputer(APPROVAL_RULE_FROM_CARD_CHANNEL) !== undefined) return undefined
     const teammateId = missionOwners[request.missionId]
     const candidate = ruleCandidateOf(ruledActionOf(request), { ...(teammateId === undefined ? {} : { teammateId }), ...(request.cwd === null ? {} : { folder: request.cwd }) })
     if (candidate === undefined) return undefined
@@ -9133,6 +9135,12 @@ export default function App(): ReactElement {
   }
   const setUpCloudComputer = async (repo: string, agent?: CloudAgent): Promise<void> => {
     const withAgent = agent === undefined ? {} : { agent }
+    // Made through the computer's own GitHub sign-in (0.850): a browser says so, not that GitHub was out of reach.
+    const stays = onTheComputer(CLOUD_COMPUTER_SETUP_CHANNEL)
+    if (stays !== undefined) {
+      setCloudSetup({ phase: 'failed', repo, message: stays, ...withAgent })
+      return
+    }
     setCloudSetup({ phase: 'working', repo, step: 'making', ...withAgent })
     const done = await window.desktop?.setUpCloudComputer(agent).catch(() => undefined)
     if (done === undefined) {
@@ -11234,6 +11242,12 @@ export default function App(): ReactElement {
                 }).catch((error: unknown) => setClaudeCloudNote(failureSaid(error, 'Claude Code could not be opened. Run claude --teleport in a terminal in this folder to bring it home.')))
               },
               onForget: (id) => {
+                // Forgotten on the computer (0.850): from a browser it would come back on the next read.
+                const stays = onTheComputer(CLAUDE_CLOUD_FORGET_CHANNEL)
+                if (stays !== undefined) {
+                  setClaudeCloudNote(stays)
+                  return
+                }
                 setClaudeCloud((current) => current.filter((one) => one.id !== id))
                 void window.desktop?.forgetClaudeCloud(id).catch(() => undefined)
               },

@@ -121,14 +121,15 @@ import {
   APP_UPDATE_INSTALL_CHANNEL, APP_UPDATE_LANE_CHANNEL, DIAGNOSTICS_REVEAL_CHANNEL, FEEDBACK_CHANNEL, KEEP_RUNNING_SET_CHANNEL, RUNTIME_INSTALL_CHANNEL, RUNTIME_UPDATES_SET_CHANNEL,
   OWN_MODEL_ADD_CHANNEL, OWN_MODEL_TEST_CHANNEL, WORKSPACE_CHOOSE_CHANNEL, WORKTREE_REMOVE_CHANNEL, APPROVAL_RULES_REMOVE_CHANNEL, APPROVAL_RULES_REMOVE_ALL_CHANNEL,
   LOGIN_ITEM_SET_CHANNEL, MISSION_PRUNE_CHANNEL, MISSION_TRASH_EMPTY_CHANNEL, PROFILE_BACKUP_CHANNEL, PROFILE_RESTORE_CHANNEL,
-  STAY_AWAKE_SET_CHANNEL, WORKSPACE_SETTINGS_WRITE_CHANNEL
+  STAY_AWAKE_SET_CHANNEL, WORKSPACE_SETTINGS_WRITE_CHANNEL, OWN_MODEL_CHAT_ONLY_CHANNEL, OWN_MODEL_REMOVE_CHANNEL, PROFILE_PICK_FOLDER_CHANNEL,
+  PROFILE_RESTORE_PREVIEW_CHANNEL, RUNTIME_UPDATES_NOW_CHANNEL
 } from '../../../shared/ipc.js'
 import { DISCORD_SETTINGS_CHANNEL } from '../../../shared/discord.js'
 import { LOCUST_MCP_SET } from '../../../shared/locust-mcp.js'
 import { ACCOUNT_STATUS_CHANNEL, PHONE_SETTINGS_CHANNEL } from '../../../shared/phone.js'
-import { ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../../../shared/acp-agents.js'
+import { ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from '../../../shared/acp-agents.js'
 import { CONNECTOR_ADD_CHANNEL, CONNECTOR_REMOVE_CHANNEL } from '../../../shared/connector-add.js'
-import { GITHUB_INSTALL_CHANNEL, GITHUB_SIGN_IN_CHANNEL } from '../../../shared/github-account.js'
+import { GITHUB_INSTALL_CHANNEL, GITHUB_SIGN_IN_CANCEL_CHANNEL, GITHUB_SIGN_IN_CHANNEL, GITHUB_UPDATE_CHANNEL } from '../../../shared/github-account.js'
 
 export type Screen = 'workroom' | 'missions' | 'teammates' | 'settings' | 'rooms' | 'memory' | 'automations' | 'board' | 'benchmarks'
 
@@ -1929,7 +1930,8 @@ export function SettingsScreen({
   readonly onRestoreProfile: (folder: string) => Promise<ProfileRestoreResponse>
 }): ReactElement {
   // In a browser, AI agents are installed, signed in to and updated on the computer (0.849): said once on their page.
-  const agentsStay = onTheComputer(RUNTIME_INSTALL_CHANNEL)
+  // Install and Update now both run npm on the computer (0.849, 0.850).
+  const agentsStay = onTheComputer(RUNTIME_INSTALL_CHANNEL) ?? onTheComputer(RUNTIME_UPDATES_NOW_CHANNEL)
   const folderStays = onTheComputer(WORKSPACE_CHOOSE_CHANNEL)
   const [page, setPage] = useState<SettingsPageId>(initialPage ?? 'app')
   const policy = useOrganizationPolicy()
@@ -2567,7 +2569,7 @@ export function SettingsScreen({
                 and changes no files.
               </p>
             </More>
-            <OnTheComputer channel={[OWN_MODEL_ADD_CHANNEL, OWN_MODEL_TEST_CHANNEL]}>
+            <OnTheComputer channel={[OWN_MODEL_ADD_CHANNEL, OWN_MODEL_TEST_CHANNEL, OWN_MODEL_CHAT_ONLY_CHANNEL, OWN_MODEL_REMOVE_CHANNEL]}>
               <OwnModels onChanged={onOwnModelsChanged} />
             </OnTheComputer>
           </section>
@@ -2625,7 +2627,7 @@ export function SettingsScreen({
                 logout in a terminal.
               </p>
             </More>
-            <OnTheComputer channel={[GITHUB_SIGN_IN_CHANNEL, GITHUB_INSTALL_CHANNEL]}>
+            <OnTheComputer channel={[GITHUB_SIGN_IN_CHANNEL, GITHUB_INSTALL_CHANNEL, GITHUB_UPDATE_CHANNEL, GITHUB_SIGN_IN_CANCEL_CHANNEL]}>
               <GitHubAccount />
             </OnTheComputer>
           </section>
@@ -2836,7 +2838,7 @@ export function SettingsScreen({
               own, and runs the command directly, never through a shell.
             </p>
           </More>
-          <OnTheComputer channel={[ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL]}>
+          <OnTheComputer channel={[ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL]}>
             <AcpAgentsSettings onChanged={() => onOwnModelsChanged?.()} />
           </OnTheComputer>
         </section>
@@ -3761,7 +3763,7 @@ export function SettingsScreen({
             A backup is a folder you choose, holding your teammates, routines, memories, saved approvals and
             conversations. Your own model keys are never in it.
           </p>
-          <OnTheComputer channel={[PROFILE_BACKUP_CHANNEL, PROFILE_RESTORE_CHANNEL]}>
+          <OnTheComputer channel={[PROFILE_BACKUP_CHANNEL, PROFILE_RESTORE_CHANNEL, PROFILE_PICK_FOLDER_CHANNEL, PROFILE_RESTORE_PREVIEW_CHANNEL]}>
             <BackupControl
               onPick={onPickProfileFolder}
               onBackUp={onBackUpProfile}

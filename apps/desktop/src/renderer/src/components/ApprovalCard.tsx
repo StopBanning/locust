@@ -14,6 +14,8 @@ import { DiffNotesContext } from './DiffNotes.js'
 import { fileCounts, parseUnifiedDiff } from '../diff.js'
 import { ApprovalRuleContext } from '../approvalRuleContext.js'
 import { numberKeyAnswer } from '../questionKeys.js'
+import { MISSION_APPROVAL_DECIDE_CHANNEL } from '../../../shared/ipc.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /** How long a card that has just appeared takes no approval (N9): a double click's second half. */
 export const FRESH_CARD_MS = 500
@@ -287,6 +289,8 @@ export function ApprovalCard({
    * card takes no approval.
    */
   const shownAt = useRef(Date.now())
+  // A browser allows once and denies (0.830); Always is given on the computer, so it is not offered there (0.850).
+  const alwaysStays = onTheComputer(MISSION_APPROVAL_DECIDE_CHANNEL, [{ decision: 'approve-always' }])
   const approve = (decision: MissionApprovalDecision): void => {
     if (Date.now() - shownAt.current < FRESH_CARD_MS) return
     onDecide(decision)
@@ -537,7 +541,7 @@ export function ApprovalCard({
                 * with "taskkill *", every taskkill for the run -- and Locust
                 * cannot narrow it, so it is not offered.
                 */}
-              {reach === undefined && (
+              {reach === undefined && alwaysStays === undefined && (
                 <button type="button" className="lc-ghostbutton" disabled={busy} onClick={() => approve('approve-always')}>
                   Always allow this session
                 </button>
@@ -563,11 +567,13 @@ export function ApprovalCard({
               ? `Nothing has happened yet. ${request.askedAgain}`
               : reach !== undefined
               ? 'Nothing has happened yet. A command that reaches beyond this run is asked about every time.'
+              : alwaysStays !== undefined
+              ? 'Nothing has happened yet. “Always” and saved rules are given in Locust on your computer.'
               : request.alwaysCovers === undefined
                 ? 'Nothing has happened yet. “Always” lasts until this run ends.'
                 : `Nothing has happened yet. “Always” allows ${request.alwaysCovers}, until this run ends.`}
             {/* Where Locust keeps the Always (0.616), a rule saying no still wins over it; Codex keeps its own. */}
-            {request.askedAgain === undefined && reach === undefined && request.alwaysKey !== undefined && ' Your saved rules still come first.'}
+            {request.askedAgain === undefined && reach === undefined && alwaysStays === undefined && request.alwaysKey !== undefined && ' Your saved rules still come first.'}
             {/* A saved rule outlives the run, so what it would save is said before it is pressed (0.521). */}
             {rule !== undefined && reach === undefined && ` “Don’t ask again” saves a rule: ${rule.allowSentence} Settings > Teammates lists your rules.`}
           </p>

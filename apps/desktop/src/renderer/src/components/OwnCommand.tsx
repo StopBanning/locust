@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
-import type { ConversationCommand } from '../../../shared/own-commands.js'
+import { OWN_COMMAND_ALLOW, type ConversationCommand } from '../../../shared/own-commands.js'
+import { onTheComputer } from '../onTheComputer.js'
 
 /** The box, once a draft starts with `!`. Escape leaves it; nothing is sent. */
 export function CommandModeNote(): ReactElement {
@@ -19,14 +20,17 @@ export function CommandAsk({ lines, onAllow, onNotNow }: {
   readonly onAllow: () => void
   readonly onNotNow: () => void
 }): ReactElement {
+  // A folder's commands are allowed on the computer they run on (0.850): a browser holds Allow, and says so.
+  const stays = onTheComputer(OWN_COMMAND_ALLOW)
   return (
     <div className="lc-commandask" role="dialog" aria-label="Allow this folder's commands">
       <p>This folder&apos;s commands have not been allowed to run yet. Allow them once, and these will run:</p>
       <ul className="lc-commandask__lines">
         {lines.map((line) => <li key={line} className="lc-mono">{line}</li>)}
       </ul>
+      {stays !== undefined && <p className="lc-oncomputer__said">{stays}</p>}
       <div className="lc-commandask__actions">
-        <button type="button" className="lc-button" onClick={onAllow}>Allow</button>
+        <button type="button" className="lc-button" onClick={onAllow} disabled={stays !== undefined} {...(stays === undefined ? {} : { title: stays })}>Allow</button>
         <button type="button" className="lc-button" onClick={onNotNow}>Not now</button>
       </div>
     </div>

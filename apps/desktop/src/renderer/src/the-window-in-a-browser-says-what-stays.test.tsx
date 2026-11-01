@@ -3,10 +3,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { WINDOW_ONLY_SAYS } from '../../shared/desk-calls.js'
 import { fileMenuChoices } from '../../shared/file-menu.js'
-import type { AppUpdateState, PublicTeammate, TeammateRoute } from '../../shared/ipc.js'
+import type { AppUpdateState, MissionApprovalRequest, PublicTeammate, TeammateRoute } from '../../shared/ipc.js'
 import type { TeammateKeysApi } from '../../shared/teammate-keys.js'
 import type { VoiceCallApi } from '../../shared/voice-call.js'
+import { ApprovalCard } from './components/ApprovalCard.js'
 import { Composer, type ComposerProps } from './components/Composer.js'
+import { CommandAsk } from './components/OwnCommand.js'
 import { PagePreview } from './components/DocPreview.js'
 import { KeyCard, TeammateKeysField } from './components/KeyCard.js'
 import { NewTeammateDialog } from './components/NewTeammateDialog.js'
@@ -187,6 +189,30 @@ describe('the cards and dialogs in a browser', () => {
     expect(html).toMatch(/inputMode="decimal"[^>]*disabled=""/)
     // The name and the instructions still change from here.
     expect(html).not.toMatch(/aria-label="Instructions for this teammate"[^>]*disabled=""/)
+  })
+})
+
+describe('an approval card in a browser', () => {
+  const request = { approvalId: 'ap_1', kind: 'command', summary: 'Run a command', detail: 'npm test', runtimeId: 'codex' } as unknown as MissionApprovalRequest
+  const card = (): string => renderToStaticMarkup(<ApprovalCard request={request} onDecide={noop} onAnswer={noop} busy={false} />)
+
+  it('offers Allow once and Deny, never an Always a browser may not give, and says where Always is given', () => {
+    expect(card()).toContain('Always allow this session')
+    browser()
+    expect(card()).not.toContain('Always allow this session')
+    expect(card()).toContain('Approve once')
+    expect(card()).toContain('Deny…')
+    expect(card()).toContain('Nothing has happened yet. “Always” and saved rules are given in Locust on your computer.')
+    // Nor a standing rule: the card's rule comes from the window, which offers none in a browser.
+    expect(APP).toContain('if (onTheComputer(APPROVAL_RULE_FROM_CARD_CHANNEL) !== undefined) return undefined')
+  })
+
+  it("holds Allow on a folder's commands, which are allowed on the computer they run on", () => {
+    const ask = (): string => renderToStaticMarkup(<CommandAsk lines={['npm test']} onAllow={noop} onNotNow={noop} />)
+    expect(ask()).not.toContain('disabled=""')
+    browser()
+    expect(ask()).toContain(`<button type="button" class="lc-button" disabled="" title="${WINDOW_ONLY_SAYS}">Allow</button>`)
+    expect(ask()).toContain('>Not now</button>')
   })
 })
 
