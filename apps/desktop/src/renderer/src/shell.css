@@ -11600,12 +11600,25 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   padding: 14px var(--lc-space-7) 22px;
 }
 
+/*
+ * ONE LIST, NOT A STACK OF CARDS (polish pass, 2026-11-01): the conversations sit in one rounded group, a hairline
+ * between rows, as a Mac's grouped list does. Each row was its own bordered card with its checkbox outside it, eight
+ * boxes in a column; the hover and the pick light the whole row, checkbox and all.
+ */
 .lc-missionrows {
   display: flex;
   flex-direction: column;
-  gap: var(--lc-space-3);
+  gap: 0;
+  border: 1px solid var(--lc-border-hairline);
+  border-radius: 12px;
+  background: var(--lc-bg-raised);
+  overflow: hidden;
   /* The rows' width decides their shape; see the container query below. */
   container-type: inline-size;
+}
+
+.lc-missionrows > * + * {
+  border-top: 1px solid var(--lc-border-hairline);
 }
 
 /*
@@ -11660,8 +11673,7 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 }
 
 .lc-missionrow:hover {
-  background: var(--lc-bg-control);
-  border-color: var(--lc-border-button);
+  background: var(--lc-hover-surface);
 }
 
 /* Title over the live word. One grid cell, two lines -- the row keeps its
@@ -11713,9 +11725,15 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   text-overflow: ellipsis;
 }
 
+/* A row's state in a word, said as a word (the view's label): "Completed", not COMPLETED in mono on every line. The
+   rare longer one ("Completed · receipt incomplete") keeps to its column. */
 .lc-missionrow__tag {
-  font-size: var(--lc-text-mono-label);
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--lc-text-description);
   text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The consequence of the button above it, in front of the person rather than
@@ -20252,13 +20270,27 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
 .lc-missionrowwrap {
   display: flex;
   align-items: center;
-  gap: var(--lc-space-3);
+  gap: 0;
+  padding-left: var(--lc-space-6);
+  transition: background var(--lc-motion-hover) var(--lc-ease);
 }
 
-/* The row keeps the whole width it had; only the checkbox is new beside it. */
+.lc-missionrowwrap:hover {
+  background: var(--lc-hover-surface);
+}
+
+/* The row keeps the whole width it had; only the checkbox is new beside it. Inside the group a row is a line of it,
+   not a card of its own. */
 .lc-missionrowwrap > .lc-missionrow {
   flex: 1;
   min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.lc-missionrowwrap > .lc-missionrow:hover {
+  background: transparent;
 }
 
 .lc-missionrow__pick {
@@ -20274,8 +20306,7 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
   opacity: 0.35;
 }
 
-.lc-missionrowwrap.is-picked > .lc-missionrow {
-  border-color: var(--lc-focus-edge);
+.lc-missionrowwrap.is-picked {
   background: var(--lc-bg-selected);
 }
 

@@ -52,7 +52,7 @@ const KICKOFF = [
   'Want me to start on the fix?'
 ].join('\n')
 
-/** A finished two-turn conversation with Wren, in a fresh profile's ledger. No model runs. */
+/** A finished two-turn conversation with Wren and seven shorter ones across the team, in a fresh profile's ledger. No model runs. */
 async function seedConversation(folder) {
   const { createFileMissionLedger } = await import('../packages/mission-store/dist/index.js')
   const profile = await mkdtemp(join(tmpdir(), 'locust-polish-profile-'))
@@ -61,6 +61,7 @@ async function seedConversation(folder) {
   const turns = [
     {
       missionId: 'mission_polish_first',
+      owner: 'tm_wren',
       prompt: 'Look at the files in this folder and tell me what this project is, then sketch a kickoff note.',
       tools: [
         { command: 'ls -la', title: 'Listed the files in the folder', output: 'README.md\nissue.md\nsrc\ntests' },
@@ -70,19 +71,28 @@ async function seedConversation(folder) {
     },
     {
       missionId: 'mission_polish_second',
+      owner: 'tm_wren',
+      follows: 'mission_polish_first',
       prompt: 'Yes, start on the fix. Keep it to the one function.',
       tools: [{ command: 'python -m pytest -q', title: 'Ran the tests', output: '3 passed in 0.12s' }],
       answer: 'Fixed. `total()` now adds each item once, and the three tests pass.\n\nThe change is one line in `src/cart.py`.'
-    }
+    },
+    { missionId: 'mission_polish_pay', owner: 'tm_atlas', prompt: 'Compare the three payment providers we could use for checkout.', tools: [], answer: 'Stripe is the quickest to wire in; Adyen costs less at volume; Square fits if the shop sells in person too.', at: '2026-10-31T17:20:00.000Z' },
+    { missionId: 'mission_polish_readme', owner: 'tm_sable', prompt: 'Write the README section on running the tests.', tools: [], answer: 'Added a Testing section: install the dev requirements, then run `python -m pytest -q`.', at: '2026-10-31T15:05:00.000Z' },
+    { missionId: 'mission_polish_weekly', owner: 'tm_quill', prompt: 'Every Monday, summarise what changed in the repo last week.', tools: [], answer: 'Saved as a routine for Mondays at 9am. The first summary lands next week.', at: '2026-10-31T11:40:00.000Z' },
+    { missionId: 'mission_polish_tax', owner: 'tm_wren', prompt: 'Why does the tax test fail on Windows only?', tools: [], answer: 'The fixture file has CRLF line endings, so the parsed rate keeps a trailing carriage return.', at: '2026-10-30T16:10:00.000Z' },
+    { missionId: 'mission_polish_brief', owner: 'tm_atlas', prompt: 'Draft a one-page brief on the cart redesign.', tools: [], answer: 'Drafted: goals, the three screens that change, and what we measure after launch.', at: '2026-10-30T10:25:00.000Z' },
+    { missionId: 'mission_polish_links', owner: 'tm_sable', prompt: 'Check the docs for broken links.', tools: [], answer: 'Two broken links, both to the old API guide. Fixed them to point at the new one.', at: '2026-10-29T14:00:00.000Z' },
+    { missionId: 'mission_polish_release', owner: 'tm_quill', prompt: 'Plan the release checklist for Friday.', tools: [], answer: 'Checklist ready: freeze Thursday noon, run the full suite, tag, then post the notes.', at: '2026-10-29T09:30:00.000Z' }
   ]
   for (const [index, turn] of turns.entries()) {
     const runId = `run_polish_${String(index)}`
-    const at = `2026-11-01T1${String(index)}:00:00.000Z`
+    const at = turn.at ?? `2026-11-01T1${String(index)}:00:00.000Z`
     await ledger.createMission({
       missionId: turn.missionId, runId, prompt: turn.prompt, runtime: 'opencode', model: FREE_ROUTE.model,
       requestedRouteId: 'opencode', resolvedRouteId: 'opencode-account:default', cliVersion: null, workspaceId,
       sandbox: 'workspace-write', executionPolicyVersion: 1, createdAt: at,
-      ...(index === 0 ? {} : { continuesFrom: { missionId: turns[0].missionId, checkpointEpoch: 1, reason: 'follow-up' } })
+      ...(turn.follows === undefined ? {} : { continuesFrom: { missionId: turn.follows, checkpointEpoch: 1, reason: 'follow-up' } })
     })
     let sequence = 0
     const event = (type, payload) => ({
@@ -100,9 +110,10 @@ async function seedConversation(folder) {
     await ledger.appendEvents(turn.missionId, events)
   }
   await ledger.flush()
-  return profile
+  return { profile, owners: Object.fromEntries(turns.map((turn) => [turn.missionId, turn.owner])) }
 }
-const seededProfile = want('thread') ? await seedConversation(workspace) : undefined
+const seeded = want('thread') ? await seedConversation(workspace) : undefined
+const seededProfile = seeded?.profile
 const at = '2026-10-20T09:00:00.000Z'
 const drive = await startDrive({
   name: 'polish-frames',
@@ -119,7 +130,7 @@ const drive = await startDrive({
       { teammateId: 'tm_sable', name: 'Sable', hue: 'clay', role: 'Docs & QA', createdAt: at, route: FREE_ROUTE },
       { teammateId: 'tm_quill', name: 'Quill', hue: 'violet', role: 'Ops & Scheduling', createdAt: at, route: FREE_ROUTE }
     ],
-    missionOwners: seededProfile === undefined ? {} : { mission_polish_first: 'tm_wren', mission_polish_second: 'tm_wren' },
+    missionOwners: seeded?.owners ?? {},
     settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
   },
   files: usage === undefined ? {} : { 'usage-carried.jsonl': await readFile(usage, 'utf8') }

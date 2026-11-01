@@ -595,7 +595,7 @@ export function MissionsScreen({
                   <span className="lc-missionrow__cost lc-mono" title="What the runtime reported this run cost">
                     {costGlanceCell(sumCosts(entry.members.map((turn) => missionCost(turn))), mission.model)}
                   </span>
-                  <span className={`lc-missionrow__tag lc-mono lc-tone-${listTone(view)}`}>{view.tag}</span>
+                  <span className={`lc-missionrow__tag lc-tone-${listTone(view)}`}>{view.label}</span>
                 </button>
                 </div>
               )
