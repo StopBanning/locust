@@ -18,8 +18,10 @@
 // and refuses to measure anything if one is still there. Then: the first
 // screen, Install on the free runtime, the version it reports, a first message
 // on the free model, and its answer, each timed. A provider that is down is
-// met the way a person would meet it: the card's "Switch to ..." and Send.
-// Free models only (LOCUST_FREE_ONLY); nothing is spent.
+// met the way a person would meet it: the card's "Switch to ..." and Send. So
+// is a free model that is busy or says nothing (C9, 0.846; pressed since
+// 0.847): its "Stop and switch to ...", and Send. Free models only
+// (LOCUST_FREE_ONLY); nothing is spent.
 //
 // Self-contained, like posix-stop-smoke.mjs: the drive library assumes Windows.
 
@@ -301,7 +303,9 @@ try {
     running: Boolean(document.querySelector('button[aria-label^="Stop the running"]')),
     failures: document.querySelectorAll('.lc-diagnostic.lc-tone-red, .lc-card.is-terminal.is-red').length,
     failed: [...document.querySelectorAll('.lc-diagnostic.lc-tone-red, .lc-card.is-terminal.is-red')].pop()?.innerText.replace(/\\s+/g, ' ').slice(0, 240) ?? null,
-    offer: [...document.querySelectorAll('button')].map((b) => b.innerText.trim()).find((t) => /^Switch to /.test(t)) ?? null
+    offer: [...document.querySelectorAll('button')].map((b) => b.innerText.trim()).find((t) => /^Switch to /.test(t)) ?? null,
+    stop: [...document.querySelectorAll('button')].map((b) => b.innerText.trim()).find((t) => /^Stop and switch to /.test(t)) ?? null,
+    quiet: Boolean(document.querySelector('.lc-rerun[data-quiet-free]'))
   })`
   let before = JSON.parse(String(await evaluate(reading)))
   let sent = String(await sendIt('Say hello to me in five words.'))
@@ -315,9 +319,21 @@ try {
     const words = now.text - before.text
     if (firstWords === undefined && words > 0) firstWords = Math.round((Date.now() - sentAt) / 1000)
     if (words > 0 && !now.running) { answered = Math.round((Date.now() - sentAt) / 1000); break }
+    // A free model whose provider is busy (C9), or that has said nothing for two minutes (0.846): the note's own
+    // press stops it, moves the chat box on and puts the message back, and a person presses it and Send. 0.846's
+    // run sat four minutes beside both offers ("Free usage exceeded") and timed out.
+    if (now.stop !== null && now.running && switches.length < 3) {
+      console.log(`   the model ${now.quiet ? 'said nothing for two minutes' : 'is busy'}; pressing "${now.stop}"`)
+      switches.push(now.stop)
+      await evaluate(`(() => { [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === ${JSON.stringify(now.stop)})?.click(); return 'pressed' })()`)
+      await sleep(1_500)
+      before = JSON.parse(String(await evaluate(reading)))
+      sent = String(await sendIt(''))
+      continue
+    }
     if (now.failures > before.failures && !now.running) {
       // A free provider down is not Locust's failure; the card says what a person does next, and this does it.
-      if (now.offer === null || switches.length >= 2) { console.log(`   failed: ${now.failed}`); break }
+      if (now.offer === null || switches.length >= 3) { console.log(`   failed: ${now.failed}`); break }
       console.log(`   the model failed (${now.failed}); pressing "${now.offer}"`)
       switches.push(now.offer)
       await evaluate(`(() => { [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === ${JSON.stringify(now.offer)})?.click(); return 'pressed' })()`)
