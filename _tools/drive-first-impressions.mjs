@@ -87,8 +87,21 @@ const completion = (at, count) => ({ exitCode: 0, signal: null, stderr: '', stde
     ].join('\n') } },
     { type: 'turn.completed', usage: { input_tokens: 18240, cached_input_tokens: 12800, output_tokens: 612 } }
   ]
-  const events = records.flatMap((record, index) => codex.accept({ sequence: index + 1, raw: JSON.stringify(record) }))
-  await ledger.appendEvents('mission_wren', [...events, ...codex.finish(completion(at, records.length))])
+  const events = [...records.flatMap((record, index) => codex.accept({ sequence: index + 1, raw: JSON.stringify(record) })), ...codex.finish(completion(at, records.length))]
+  // What the app adds after a real Codex turn (disk-observation.ts, observedEditEvents): the change read off the disk,
+  // laid on Codex's own row. Without it the seeded row read "Codex CLI did not report the change" (0.848).
+  const observed = { itemId: 'disk-observed-1', toolKind: 'observed_edit', name: 'edit', command: join(workspace, 'src', 'signup.ts'), status: 'reported by the runtime, read from disk', evidence: { redacted: true } }
+  const patch = {
+    text: ['--- a/src/signup.ts', '+++ b/src/signup.ts', '@@ -1,3 +1,3 @@', ' export function validEmail(value: string): boolean {', "-  return value.includes('@')", '+  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value.trim())', ' }', ''].join('\n'),
+    added: 1, removed: 1, truncated: false
+  }
+  const next = Math.max(...events.map((event) => event.sequence)) + 1
+  const base = { runId: 'run_wren', missionId: 'mission_wren', occurredAt: at, sourceAdapter: 'codex' }
+  events.push(
+    { ...base, id: `run_wren:disk:${String(next)}`, sequence: next, type: 'tool.started', payload: { ...observed, phase: 'started' } },
+    { ...base, id: `run_wren:disk:${String(next + 1)}`, sequence: next + 1, type: 'tool.completed', payload: { ...observed, phase: 'completed', patch } }
+  )
+  await ledger.appendEvents('mission_wren', events)
 }
 
 // OpenCode records, in the shape `opencode run --format json` prints them.
