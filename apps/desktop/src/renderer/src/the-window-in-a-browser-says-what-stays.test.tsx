@@ -18,6 +18,10 @@ import { PlusMenu } from './components/PlusMenu.js'
 import { SaveRecordDialog } from './components/SaveRecordDialog.js'
 import { SettingsScreen, UpdateBanner } from './components/Screens.js'
 import { reportFileName, reportHere, type ReportPlace } from './reportHere.js'
+import { downloadCopy } from './saveHere.js'
+import { deskAccess } from '../../shared/desk-calls.js'
+import { WORKSPACE_DOWNLOAD_CHANNEL, WORKSPACE_SAVE_COPY_CHANNEL } from '../../shared/ipc.js'
+import MAIN from '../../main/index.ts?raw'
 import { ShareTeamDialog } from './components/TeamCard.js'
 import { VoiceCallButton } from './components/VoiceCall.js'
 import APP from './App.tsx?raw'
@@ -102,12 +106,13 @@ describe("a conversation's files in a browser", () => {
   })
 
   it("draws no folder button on a file's row, in the viewer, or in the header, and holds a sent file without a panel", () => {
+    // Save a copy downloads in a browser instead (0.853): drawn there, with its own words.
     expect(ACTIVITY.match(/elsewhere === undefined && revealHere && \(/g)).toHaveLength(2)
     expect(INSPECTOR).toContain('{onTheComputer(WORKSPACE_REVEAL_CHANNEL) === undefined && <button')
     expect(VIEWER).toContain('{onTheComputer(WORKSPACE_REVEAL_CHANNEL) === undefined && (')
-    expect(VIEWER).toContain('{onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL) === undefined && (')
+    expect(VIEWER).toContain("title={onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL) === undefined ? 'Save a copy…' : 'Download a copy'}")
     expect(APP).toContain('{workspacePath !== undefined && onTheComputer(WORKSPACE_OPEN_CHANNEL) === undefined && (')
-    expect(THREAD).toContain('{saveStays === undefined && (')
+    expect(THREAD).toContain('void downloadCopy(handedFileOnDisk(workspacePath, file.path)).then(setRefused)')
     expect(THREAD).toContain('disabled={revealStays !== undefined && onOpenFile === undefined}')
   })
 
@@ -264,6 +269,29 @@ describe('feedback from a browser', () => {
     expect(section).toContain(`<button type="button" class="lc-button">Send feedback</button><button type="button" class="lc-button" disabled="" title="${WINDOW_ONLY_SAYS}">Show the log</button>`)
     // Nor is the section held whole, which would hold Send feedback with it.
     expect(section).not.toContain('<fieldset class="lc-oncomputer" disabled="">')
+  })
+})
+
+describe('a copy of a file, from a browser', () => {
+  it("downloads it into the browser: the computer sends its bytes, with Save a copy's containment", async () => {
+    const saved: [string, Uint8Array][] = []
+    const bytes = new Uint8Array([1, 2, 3])
+    const api = { downloadFile: async () => ({ ok: true as const, name: 'notes.md', bytes }) }
+    expect(await downloadCopy('/Users/me/shop/notes.md', api, (name, data) => saved.push([name, data]))).toBeUndefined()
+    expect(saved).toEqual([['notes.md', bytes]])
+    // What went wrong is said, and nothing is saved.
+    const refused = { downloadFile: async () => ({ ok: false as const, message: 'That file is too large to send to a browser (24 MB at most). Save a copy in Locust on your computer.' }) }
+    expect(await downloadCopy('/x', refused, () => saved.push(['never', bytes]))).toMatch(/too large/)
+    expect(await downloadCopy('/x', { downloadFile: async () => { throw new Error('gone') } }, () => saved.push(['never', bytes]))).toBe('Locust on your computer did not answer. Nothing was saved.')
+    expect(saved).toHaveLength(1)
+  })
+
+  it('is a call a browser makes, never kept in its snapshot, while Save a copy itself stays on the computer', () => {
+    expect(deskAccess(WORKSPACE_DOWNLOAD_CHANNEL, ['/x'])).toBe('act')
+    expect(deskAccess(WORKSPACE_SAVE_COPY_CHANNEL, ['/x'])).toBeUndefined()
+    const handler = MAIN.slice(MAIN.indexOf('ipcMain.handle(WORKSPACE_DOWNLOAD_CHANNEL'))
+    expect(handler.slice(0, 1500)).toContain('await decideTeammateFile(requested, [')
+    expect(handler.slice(0, 1500)).toContain('> MAX_PASTED_BYTES')
   })
 })
 

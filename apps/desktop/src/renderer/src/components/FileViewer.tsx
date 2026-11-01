@@ -82,7 +82,8 @@ export function FileViewer({
   readonly onClose: () => void
   /** Show it in the file manager -- the thing the pill did before this existed. */
   readonly onReveal: () => void
-  readonly onSave: () => void
+  /** In Locust in a browser it downloads, and answers what went wrong (0.853, saveHere.ts). */
+  readonly onSave: () => Promise<string | undefined> | void
   /**
    * A web page's address in the preview (0.425): shown WORKING, in a frame
    * with its own origin (main/page-preview.ts), its source one tab away.
@@ -102,6 +103,7 @@ export function FileViewer({
   const [asLines, setAsLines] = useState(false)
   const [asSource, setAsSource] = useState(false)
   const [reloads, setReloads] = useState(0)
+  const [saveSaid, setSaveSaid] = useState<string>()
   const [pointing, setPointing] = useState<'idle' | 'pointing' | { readonly said: string }>('idle')
   const frame = useRef<HTMLIFrameElement>(null)
   const running = pageUrl !== undefined && !asSource
@@ -187,15 +189,27 @@ export function FileViewer({
             <Icon name="folder" size={13} />
           </button>
         )}
-        {onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL) === undefined && (
-          <button type="button" className="lc-viewer__action" title="Save a copy…" onClick={onSave}>
-            <Icon name="download" size={13} />
-          </button>
-        )}
+        <button
+          type="button"
+          className="lc-viewer__action"
+          title={onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL) === undefined ? 'Save a copy…' : 'Download a copy'}
+          onClick={() => {
+            setSaveSaid(undefined)
+            const said = onSave()
+            if (said instanceof Promise) void said.then(setSaveSaid)
+          }}
+        >
+          <Icon name="download" size={13} />
+        </button>
         <button type="button" className="lc-viewer__close" aria-label="Close the file" onClick={onClose}>
           <Icon name="close" size={13} />
         </button>
       </div>
+      {saveSaid !== undefined && (
+        <div className="lc-diagnostic lc-tone-amber" role="status">
+          <span>{saveSaid}</span>
+        </div>
+      )}
       {/*
         * WHAT THIS FILE HAS BEEN THROUGH, when this conversation put it there.
         *

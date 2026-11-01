@@ -1105,6 +1105,16 @@ export const CLIPBOARD_WRITE_CHANNEL = 'clipboard:write'
 export const WORKSPACE_SAVE_COPY_CHANNEL = 'workspace:save-copy'
 
 /**
+ * A COPY FOR A BROWSER (0.853). Save a copy from Locust in a browser: the computer's save dialog would open out of its
+ * sight, so the file's bytes go to the browser, which keeps them in its own downloads. The containment is Save a
+ * copy's, exactly, and nothing is written on the computer; a file past MAX_PASTED_BYTES is said, not sent.
+ */
+export const WORKSPACE_DOWNLOAD_CHANNEL = 'workspace:download'
+export type WorkspaceDownloadResponse =
+  | { readonly ok: true; readonly name: string; readonly bytes: Uint8Array }
+  | { readonly ok: false; readonly message: string }
+
+/**
  * Show the diagnostics log, so a person can send it.
  *
  * Takes NO path. `workspace:reveal` has to check the renderer's path against
@@ -4110,6 +4120,8 @@ export interface DesktopApi {
   writeClipboard(text: string): Promise<boolean>
   /** Save a copy of a file a teammate wrote, to a place the person picks. */
   saveCopy(path: string): Promise<RevealFileResponse>
+  /** The same file's bytes, for Locust in a browser to keep in its own downloads (0.853). */
+  downloadFile(path: string): Promise<WorkspaceDownloadResponse>
   /** Read a workspace text file for the viewer. */
   readTextFile(path: string): Promise<WorkspaceTextResponse>
   /** Where a web page in the folder is served for the preview frame (0.425). */

@@ -75,7 +75,8 @@ import type {
 import {
   APPROVAL_RULE_FROM_CARD_CHANNEL, CLAUDE_CLOUD_APPLY_CHANNEL, CLAUDE_CLOUD_FORGET_CHANNEL, CLAUDE_CLOUD_SEND_CHANNEL, CLOUD_COMPUTER_SETUP_CHANNEL, CLAUDE_CLOUD_START_CHANNEL, CLAUDE_CLOUD_TERMINAL_CHANNEL, CLOUD_START_CHANNEL, CLOUD_TURN_APPLY_CHANNEL, CLOUD_TURN_DISCARD_CHANNEL,
   CLOUD_TURN_PULL_REQUEST_CHANNEL, MISSION_RECORD_SAVE_CHANNEL, OPEN_IN_TERMINAL_CHANNEL, roleLabelOf,
-  ROUTINE_EXPORT_CHANNEL, ROUTINE_IMPORT_PREVIEW_CHANNEL, SESSION_IMPORT_CHANNEL, TEAM_CARD_ADD_CHANNEL, WORKSPACE_OPEN_CHANNEL
+  ROUTINE_EXPORT_CHANNEL, ROUTINE_IMPORT_PREVIEW_CHANNEL, SESSION_IMPORT_CHANNEL, TEAM_CARD_ADD_CHANNEL, WORKSPACE_OPEN_CHANNEL,
+  WORKSPACE_SAVE_COPY_CHANNEL
 } from '../../shared/ipc.js'
 import { addPagePoint, MAX_PAGE_POINTS, noteOnPagePoint, withoutPagePoint, type PagePointChip } from '../../shared/browser-point.js'
 import { isPanelRunKind } from '../../shared/panel-runs.js'
@@ -272,6 +273,7 @@ import { windowKeys } from './keyboardShortcuts.js'
 import { pathOnlyTitle } from './pathTitle.js'
 import { failureSaid, inABrowser, onTheComputer } from './onTheComputer.js'
 import { copyText } from './copyText.js'
+import { downloadCopy } from './saveHere.js'
 import { TERMINAL_CREATE } from '../../shared/terminal.js'
 import { BROWSER_OPEN_PANEL_CHANNEL } from '../../shared/browser.js'
 import { restoreNoticeLine } from './backupWords.js'
@@ -11187,8 +11189,11 @@ export default function App(): ReactElement {
             }}
             onSave={() => {
               const bridge = window.desktop
-              if (bridge === undefined || workspacePath === undefined) return
+              if (bridge === undefined || workspacePath === undefined) return undefined
+              // In a browser it downloads (0.853, saveHere.ts): the computer sends the bytes, and the browser keeps them.
+              if (onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL) !== undefined) return downloadCopy(viewingFile.path)
               void bridge.saveCopy(viewingFile.path).catch(() => undefined)
+              return undefined
             }}
           />
         ) : backgroundPanel && screen === 'workroom' ? (

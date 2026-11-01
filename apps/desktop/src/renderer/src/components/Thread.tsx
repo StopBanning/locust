@@ -77,6 +77,7 @@ import { instructionsIn, isInterview } from '../../../shared/interview.js'
 import type { LiveCallAsk } from '../liveCall.js'
 import { WORKSPACE_REVEAL_CHANNEL, WORKSPACE_SAVE_COPY_CHANNEL } from '../../../shared/ipc.js'
 import { failureSaid, onTheComputer } from '../onTheComputer.js'
+import { downloadCopy } from '../saveHere.js'
 
 /**
  * The files a teammate handed over, and what the host said when a press
@@ -112,7 +113,8 @@ function HandedFiles({
   const [refused, setRefused] = useState<string>()
   // Not in this folder (0.762, filesElsewhere.ts): named, with nothing offered that would act on this folder's file.
   const elsewhere = useContext(FilesElsewhere)
-  // The file manager and the save dialog are the computer's (0.850): in a browser the name is held, and the save is not drawn.
+  // The file manager and the save dialog are the computer's (0.850): in a browser the name is held, and a save downloads
+  // the copy into the browser instead (0.853, saveHere.ts).
   const revealStays = onTheComputer(WORKSPACE_REVEAL_CHANNEL)
   const saveStays = onTheComputer(WORKSPACE_SAVE_COPY_CHANNEL)
   const ask = (action: 'revealFile' | 'saveCopy', path: string): void => {
@@ -184,17 +186,23 @@ function HandedFiles({
               }}
             />
           )}
-          {saveStays === undefined && (
-            <button
-              type="button"
-              className="lc-handedfile__save"
-              aria-label={`Save a copy of ${file.path}`}
-              title="Save a copy…"
-              onClick={() => ask('saveCopy', file.path)}
-            >
-              <Icon name="download" size={12} />
-            </button>
-          )}
+          <button
+            type="button"
+            className="lc-handedfile__save"
+            aria-label={saveStays === undefined ? `Save a copy of ${file.path}` : `Download a copy of ${file.path}`}
+            title={saveStays === undefined ? 'Save a copy…' : 'Download a copy'}
+            onClick={() => {
+              if (saveStays === undefined) {
+                ask('saveCopy', file.path)
+                return
+              }
+              if (workspacePath === undefined) return
+              setRefused(undefined)
+              void downloadCopy(handedFileOnDisk(workspacePath, file.path)).then(setRefused)
+            }}
+          >
+            <Icon name="download" size={12} />
+          </button>
         </span>
       ))}
       {refused !== undefined && (

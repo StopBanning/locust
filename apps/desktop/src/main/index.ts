@@ -489,6 +489,7 @@ import {
   FILE_OPEN_CHANNEL,
   CLIPBOARD_WRITE_CHANNEL,
   WORKSPACE_SAVE_COPY_CHANNEL,
+  WORKSPACE_DOWNLOAD_CHANNEL,
   WORKSPACE_TEXT_CHANNEL,
   WORKSPACE_PAGE_CHANNEL,
   REPLY_PAGE_CHANNEL,
@@ -6542,6 +6543,35 @@ if (!ownsSingleInstanceLock) {
         return { ok: true } as const
       } catch {
         return { ok: false, message: 'That file could not be copied. Nothing was changed.' } as const
+      }
+    })
+
+    // A COPY FOR A BROWSER (0.853, ipc.ts WORKSPACE_DOWNLOAD_CHANNEL): Save a copy's containment, exactly; the bytes go
+    // to Locust in a browser, which keeps them in its own downloads. Nothing is written here.
+    ipcMain.handle(WORKSPACE_DOWNLOAD_CHANNEL, async (event, requested: unknown) => {
+      if (!fromOwnWindow(event)) return { ok: false, message: 'That request was rejected.' } as const
+      const decision = await decideTeammateFile(requested, [
+        ...(await workedInFolders()),
+        ...(await teammateFolders()),
+        ledgerDirectory,
+        compareRoot()
+      ], namedFile)
+      if (!decision.ok) {
+        return {
+          ok: false,
+          message:
+            decision.reason === 'no-path'
+              ? 'There is no file to save.'
+              : 'That file is outside the folders your teammates work in, and no teammate wrote it or handed it over, so Locust will not copy it.'
+        } as const
+      }
+      try {
+        if ((await stat(decision.path)).size > MAX_PASTED_BYTES) {
+          return { ok: false, message: 'That file is too large to send to a browser (24 MB at most). Save a copy in Locust on your computer.' } as const
+        }
+        return { ok: true, name: basename(decision.path), bytes: new Uint8Array(await readFile(decision.path)) } as const
+      } catch {
+        return { ok: false, message: 'That file could not be read. Nothing was changed.' } as const
       }
     })
 

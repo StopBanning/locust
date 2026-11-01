@@ -1,5 +1,6 @@
 import type { FeedbackReport } from '../../shared/ipc.js'
 import { feedbackUrl, reportFileText, supportMailtoUrl, type ReportFacts } from '../../shared/report-problem.js'
+import { saveInDownloads } from './saveHere.js'
 
 /**
  * SEND FEEDBACK FROM LOCUST IN A BROWSER (0.853). The computer opens its own browser, mail app or save dialog, out of
@@ -16,16 +17,7 @@ export interface ReportPlace {
 export const browserPlace: ReportPlace = {
   open: (url) => { window.open(url, '_blank', 'noopener,noreferrer') },
   mail: (url) => { window.location.href = url },
-  download: (name, text) => {
-    const href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = href
-    link.download = name
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(href), 10_000)
-  }
+  download: saveInDownloads
 }
 
 /** The file's name, as the computer's save dialog offers it: "Locust report 2026-11-01 21.40.txt". */

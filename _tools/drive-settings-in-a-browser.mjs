@@ -307,6 +307,10 @@ try {
   const attached = await readdir(join(workspace, '.locust', 'attachments')).catch(() => [])
   await browser.capture('browser: a file attached from the browser')
   check('Attach files, in the browser: the file picked there is on its tile, and in the folder on the computer', /drive-attach/.test(tile) && attached.some((name) => name.startsWith('drive-attach')), `on the computer: ${attached.join(', ') || 'nothing'}`)
+  // And back (0.853): a copy of a file downloads into the browser, its bytes sent by the computer through the relay.
+  const back = attached.find((name) => name.startsWith('drive-attach'))
+  const copy = back === undefined ? { ok: false, message: 'nothing attached' } : JSON.parse(String(await browser.evaluate(`window.desktop.downloadFile(${JSON.stringify(join(workspace, '.locust', 'attachments', back))}).then((answer) => JSON.stringify(answer.ok ? { ok: true, name: answer.name, text: new TextDecoder().decode(answer.bytes) } : answer))`)))
+  check('a copy, in the browser: the computer sends the file\'s bytes for the browser\'s downloads', copy.ok === true && copy.text === 'Sent from Locust in a browser.\n', JSON.stringify(copy).slice(0, 300))
   const mic = String(await browser.evaluate(`(async () => {
     const button = document.querySelector('.lc-voice__button')
     if (!button) return 'no microphone'
