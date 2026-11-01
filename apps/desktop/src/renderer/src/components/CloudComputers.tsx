@@ -66,8 +66,9 @@ export function CloudComputers(): ReactElement {
   const [busy, setBusy] = useState<string>()
   const [confirming, setConfirming] = useState<string>()
   const [said, setSaid] = useState<string>()
-  // Check again's answer, said (0.849): GitHub saying no again looked like a button that did nothing.
-  const [checkedAgain, setCheckedAgain] = useState(false)
+  // Check again's answer, said (0.849): GitHub saying no again looked like a button that did nothing. When, so it is
+  // never stale (0.850): "Checked just now" stayed for as long as the page did.
+  const [checkedAt, setCheckedAt] = useState<string>()
   // Allowing it, signing the agents in and out, stopping and deleting run on the computer; listing works anywhere.
   const allowStays = onTheComputer(CLOUD_COMPUTER_ALLOW_CHANNEL)
   /** The sign-in under way here, and its step as main says it. */
@@ -135,7 +136,7 @@ export function CloudComputers(): ReactElement {
     return (
       <div className="lc-cloudcomputers">
         <p className="lc-settings__note" role="alert">{listing.message}</p>
-        {checkedAgain && <p className="lc-settings__note" role="status">Checked just now.</p>}
+        {checkedAt !== undefined && <p className="lc-settings__note" role="status">{`Checked again at ${checkedAt}.`}</p>}
         <div className="lc-cloudcomputers__actions">
           {listing.permission && (
             <button
@@ -154,7 +155,7 @@ export function CloudComputers(): ReactElement {
               Allow it in GitHub
             </button>
           )}
-          <button type="button" className="lc-button" disabled={managedMessage !== undefined} onClick={() => { setCheckedAgain(true); setListing({ phase: 'loading' }); load() }}>Check again</button>
+          <button type="button" className="lc-button" disabled={managedMessage !== undefined} onClick={() => { setCheckedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); setListing({ phase: 'loading' }); load() }}>Check again</button>
         </div>
         {listing.permission && allowStays !== undefined && <p className="lc-settings__note lc-oncomputer__said">{allowStays}</p>}
         {said !== undefined && <p className="lc-cloudcomputers__said" role="alert">{said}</p>}

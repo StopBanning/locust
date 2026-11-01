@@ -69,7 +69,7 @@ export function AgentAccountsSettings({ runtime, usage }: { readonly runtime: st
         </span>
         <span className="lc-agentaccounts__actions">
           {a.state === 'waiting'
-            ? <button type="button" className="lc-button" disabled={busy} onClick={() => void act({ kind: 'cancel', id: a.id })}>Cancel sign-in</button>
+            ? <button type="button" className="lc-button" disabled={busy || stays !== undefined} onClick={() => void act({ kind: 'cancel', id: a.id })}>Cancel sign-in</button>
             : <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => void act({ kind: 'login', id: a.id })}>{a.state === 'ready' ? 'Sign in again' : 'Sign in'}</button>}
           <button type="button" className="lc-button" disabled={busy || blocked} onClick={() => { setEditing(a.id); setName(a.name) }}>Rename</button>
           <button type="button" className="lc-button" disabled={busy || a.state === 'waiting' || stays !== undefined} onClick={() => setRemoving(a)}>Remove</button>
