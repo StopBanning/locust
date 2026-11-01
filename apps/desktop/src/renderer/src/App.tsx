@@ -1736,7 +1736,7 @@ export default function App(): ReactElement {
   const [editChecks, setEditChecks] = useState<ReadonlyMap<string, EditCheckShown>>(new Map())
   const saveCheckCommand = (next: string): void => {
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, checkCommand: next })
+      ?.writeWorkspaceSettings({ checkCommand: next })
       .then((settings) => setCheckCommand(settings.checkCommand ?? ''))
       .catch(() => undefined)
   }
@@ -1746,7 +1746,7 @@ export default function App(): ReactElement {
     const before = checkFixTries
     setCheckFixTries(next)
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, checkFixTries: next ?? 0 })
+      ?.writeWorkspaceSettings({ checkFixTries: next ?? 0 })
       .then((settings) => setCheckFixTries(settings.checkFixTries))
       .catch(() => setCheckFixTries(before))
   }
@@ -1806,6 +1806,31 @@ export default function App(): ReactElement {
       return 'Your note could not be saved. What your teammates read is unchanged.'
     }
   }
+  /*
+   * WHAT A BROWSER CHANGED, SHOWN HERE (0.850). Locust in a browser now changes Plans, the look and what the team
+   * remembers; the window reads them again whenever it is looked at again, rather than drawing a switch as it was.
+   */
+  useEffect(() => {
+    const rereadSettings = (): void => {
+      void window.desktop?.readWorkspaceSettings().then((settings) => {
+        setKeepATodoList(settings.keepATodoList === true)
+        setReplySize(settings.replySize)
+        setLayout(isLayoutPreference(settings.layout) ? settings.layout : 'auto')
+        setTube(settings.tube)
+        setMemoryMode(settings.memoryMode)
+        setAboutYou(settings.aboutYou ?? '')
+        setAboutYouSuggestions(settings.aboutYouSuggestions ?? [])
+        setTerminalFacesShown(settings.terminalFaces !== false)
+        setPlushShown(settings.plush === true)
+        if (settings.metal !== undefined) setMetal(settings.metal)
+        if (settings.metalStrength !== undefined) setMetalStrength(settings.metalStrength)
+        if (settings.metalMotion !== undefined) setMetalMotion(settings.metalMotion)
+        if (settings.metalBend !== undefined) setMetalBend(settings.metalBend)
+      }).catch(() => undefined)
+    }
+    window.addEventListener('focus', rereadSettings)
+    return () => window.removeEventListener('focus', rereadSettings)
+  }, [])
   const chooseReplySize = (next: ReplyTextSize): void => {
     const before = replySize
     setReplySize(next)
@@ -4634,7 +4659,7 @@ export default function App(): ReactElement {
     const newChatRoute = { runtime: next.runtime, model: next.model, ...(next.account === undefined ? {} : { account: next.account }), mode: nextMode, ...(nextEffort === undefined ? {} : { effort: nextEffort }) }
     setNewChatSetup({ mode: nextMode, effort: nextEffort })
     void window.desktop
-      ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, newChatRoute })
+      ?.changeWorkspaceSettings({ newChatRoute })
       .catch(() => undefined)
   }
   const changeMemoryMode = (next: MemoryMode): void => {
@@ -8343,7 +8368,7 @@ export default function App(): ReactElement {
     if (answer.mode !== undefined && policyModeAllowed(build?.organizationPolicy, answer.mode)) {
       if (answer.mode === 'auto' && autoMode !== true) {
         setAutoMode(true)
-        void window.desktop?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode: true, askConnectors, keepATodoList, replySize, layout, tube }).then((settings) => setAutoMode(settings.autoMode === true)).catch(() => setAutoMode(false))
+        void window.desktop?.writeWorkspaceSettings({ autoMode: true }).then((settings) => setAutoMode(settings.autoMode === true)).catch(() => setAutoMode(false))
       }
       setMode(answer.mode)
     }
@@ -9671,7 +9696,7 @@ export default function App(): ReactElement {
                 setSwarm(next)
                 if (next) setSwarmCalls((count) => count + 1)
                 void window.desktop
-                  ?.writeWorkspaceSettings({ swarm: next, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube })
+                  ?.writeWorkspaceSettings({ swarm: next })
                   .then((settings) => setSwarm(settings.swarm === true))
                   .catch(() => setSwarm(!next))
               }}
@@ -9679,7 +9704,7 @@ export default function App(): ReactElement {
               onAutoModeChange={(next) => {
                 setAutoMode(next)
                 void window.desktop
-                  ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode: next, askConnectors, keepATodoList, replySize, layout, tube })
+                  ?.writeWorkspaceSettings({ autoMode: next })
                   .then((settings) => setAutoMode(settings.autoMode === true))
                   .catch(() => setAutoMode(!next))
               }}
@@ -9689,7 +9714,7 @@ export default function App(): ReactElement {
                 const before = planRunsOut
                 setPlanRunsOut(next ?? undefined)
                 void window.desktop
-                  ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, planRunsOut: next })
+                  ?.writeWorkspaceSettings({ planRunsOut: next })
                   .then((settings) => setPlanRunsOut(settings.planRunsOut ?? undefined))
                   .catch(() => setPlanRunsOut(before))
               }}
@@ -9698,7 +9723,7 @@ export default function App(): ReactElement {
               onAskConnectorsChange={(next) => {
                 setAskConnectors(next)
                 void window.desktop
-                  ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors: next, keepATodoList, replySize, layout, tube })
+                  ?.writeWorkspaceSettings({ askConnectors: next })
                   .then((settings) => setAskConnectors(settings.askConnectors === true))
                   .catch(() => setAskConnectors(!next))
               }}
@@ -9714,7 +9739,7 @@ export default function App(): ReactElement {
               onClaudeOwnSkillsChange={(next) => {
                 setClaudeOwnSkills(next)
                 void window.desktop
-                  ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube, claudeOwnSkills: next })
+                  ?.writeWorkspaceSettings({ claudeOwnSkills: next })
                   .then((settings) => setClaudeOwnSkills(settings.claudeOwnSkills === true))
                   .catch(() => setClaudeOwnSkills(!next))
               }}
@@ -9730,14 +9755,14 @@ export default function App(): ReactElement {
               onRelayHopCapChange={(next) => {
                 setRelayHopCap(next)
                 void window.desktop
-                  ?.writeWorkspaceSettings({ swarm, relay, relayHopCap: next, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube })
+                  ?.writeWorkspaceSettings({ relayHopCap: next })
                   .then((settings) => setRelayHopCap(settings.relayHopCap))
                   .catch(() => undefined)
               }}
             onRelayChange={(next) => {
               setRelay(next)
               void window.desktop
-                ?.writeWorkspaceSettings({ swarm, relay: next, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube })
+                ?.writeWorkspaceSettings({ relay: next })
                 .then((settings) => setRelay(settings.relay === true))
                 .catch(() => setRelay(!next))
             }}
@@ -9745,7 +9770,7 @@ export default function App(): ReactElement {
             onInterruptChange={(next) => {
               setInterrupt(next)
               void window.desktop
-                ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt: next, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube })
+                ?.writeWorkspaceSettings({ interrupt: next })
                 .then((settings) => setInterrupt(settings.interrupt === true))
                 .catch(() => setInterrupt(!next))
             }}
@@ -10810,7 +10835,7 @@ export default function App(): ReactElement {
               // same answer the composer just showed.
               setAutoMode(true)
               void window.desktop
-                ?.writeWorkspaceSettings({ swarm, relay, relayHopCap, interrupt, memoryMode, autoMode: true, askConnectors, keepATodoList, replySize, layout, tube })
+                ?.writeWorkspaceSettings({ autoMode: true })
                 .then((settings) => setAutoMode(settings.autoMode === true))
                 .catch(() => setAutoMode(false))
             }}
@@ -10838,7 +10863,7 @@ export default function App(): ReactElement {
               setSwarm(next)
               if (next) setSwarmCalls((count) => count + 1)
               void window.desktop
-                ?.writeWorkspaceSettings({ swarm: next, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube })
+                ?.writeWorkspaceSettings({ swarm: next })
                 .then((settings) => setSwarm(settings.swarm === true))
                 .catch(() => setSwarm(!next))
             }}
@@ -11348,7 +11373,7 @@ export default function App(): ReactElement {
                   setSwarm(next)
                   if (next) setSwarmCalls((count) => count + 1)
                   void window.desktop
-                    ?.writeWorkspaceSettings({ swarm: next, relay, relayHopCap, interrupt, memoryMode, autoMode, askConnectors, keepATodoList, replySize, layout, tube })
+                    ?.writeWorkspaceSettings({ swarm: next })
                     .then((settings) => setSwarm(settings.swarm === true))
                     .catch(() => setSwarm(!next))
                 }

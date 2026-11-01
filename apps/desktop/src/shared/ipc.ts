@@ -874,10 +874,11 @@ export const WORKSPACE_SETTINGS_WRITE_CHANNEL = 'workspace-settings:write'
  * THE SETTINGS THAT GRANT NOTHING (0.849), changed alone. The whole write stays on the computer, since it carries Auto,
  * what teammates may reach, swarm and relay; so in a browser Colin could not turn Plans off (2026-11-01). These change
  * the look, the asking for a plan, and what teammates remember, which a browser already adds to; the computer merges
- * only them into its own settings, whatever else a change names.
+ * only them into its own settings, whatever else a change names. The model a new chat starts on is one too (0.850):
+ * a browser already starts a run on any model.
  */
 export const WORKSPACE_SETTINGS_CHANGE_CHANNEL = 'workspace-settings:change'
-export const SETTINGS_A_BROWSER_MAY_CHANGE = ['keepATodoList', 'replySize', 'layout', 'tube', 'terminalFaces', 'plush', 'metal', 'metalStrength', 'metalMotion', 'metalBend', 'aboutYou', 'aboutYouSuggestions', 'memoryMode'] as const
+export const SETTINGS_A_BROWSER_MAY_CHANGE = ['keepATodoList', 'replySize', 'layout', 'tube', 'terminalFaces', 'plush', 'metal', 'metalStrength', 'metalMotion', 'metalBend', 'aboutYou', 'aboutYouSuggestions', 'memoryMode', 'newChatRoute'] as const
 export const WORKSPACE_CHOOSE_CHANNEL = 'workspace:choose'
 /** Start here, on the window's question about a folder like home or `.claude` (0.790): the current folder is kept. */
 export const WORKSPACE_CONFIRM_CHANNEL = 'workspace:confirm'
@@ -4265,7 +4266,8 @@ export interface DesktopApi {
   listSkillLibrary(): Promise<SkillLibraryListResponse>
   /** Remove every skill kept from one repository (`owner/repo`). */
   removeSkillLibrary(source: string): Promise<SkillLibraryListResponse>
-  writeWorkspaceSettings(settings: WorkspaceSettings): Promise<WorkspaceSettings>
+  /** A change, laid over what is stored (teammate-store's writeSettings): only the keys a control changes (0.850). */
+  writeWorkspaceSettings(settings: Partial<WorkspaceSettings>): Promise<WorkspaceSettings>
   /** Only the settings that grant nothing (SETTINGS_A_BROWSER_MAY_CHANGE), merged by the computer into its own: works from a browser. */
   changeWorkspaceSettings(change: Partial<Pick<WorkspaceSettings, (typeof SETTINGS_A_BROWSER_MAY_CHANGE)[number]>>): Promise<WorkspaceSettings>
   decideMissionApproval(answer: MissionApprovalAnswer): Promise<{ readonly ok: boolean }>

@@ -1106,7 +1106,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       ipcRenderer.invoke(SKILL_LIBRARY_INSTALL_CHANNEL, request) as Promise<SkillLibraryListResponse>,
     listSkillLibrary: () => ipcRenderer.invoke(SKILL_LIBRARY_LIST_CHANNEL) as Promise<SkillLibraryListResponse>,
     removeSkillLibrary: (source: string) => ipcRenderer.invoke(SKILL_LIBRARY_REMOVE_CHANNEL, source) as Promise<SkillLibraryListResponse>,
-    writeWorkspaceSettings: (settings: WorkspaceSettings) =>
+    writeWorkspaceSettings: (settings: Partial<WorkspaceSettings>) =>
       ipcRenderer.invoke(WORKSPACE_SETTINGS_WRITE_CHANNEL, settings) as Promise<WorkspaceSettings>,
     changeWorkspaceSettings: (change) => ipcRenderer.invoke(WORKSPACE_SETTINGS_CHANGE_CHANNEL, change) as Promise<WorkspaceSettings>,
     listApprovalRules: () => ipcRenderer.invoke(APPROVAL_RULES_LIST_CHANNEL) as Promise<ApprovalRulesResponse>,

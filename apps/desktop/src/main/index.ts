@@ -7124,8 +7124,8 @@ if (!ownsSingleInstanceLock) {
     // merged into the settings on disk, so a change that names Auto, reach, swarm or relay changes none of them.
     ipcMain.handle(WORKSPACE_SETTINGS_CHANGE_CHANNEL, async (event, change: unknown) => {
       if (!fromOwnWindow(event)) throw new Error('Not from Locust’s own window.')
-      const held = await teammates.readSettings()
-      return forThisFolder(await teammates.writeSettings({ ...held, ...settingsChangeKept(change) }))
+      // writeSettings lays it over what is stored inside its own lock, so a write landing meanwhile is kept (0.850).
+      return forThisFolder(await teammates.writeSettings(settingsChangeKept(change)))
     })
 
     const listTeammates = async () => {
