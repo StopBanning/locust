@@ -40,6 +40,11 @@ export function runsText(paths: readonly string[]): string | undefined {
   return `Runs: ${paths.join(', ')}`
 }
 
+/** How many of a kept pack's files run, on its row: "1 file that runs" (it said "1 file that run" until 0.847). */
+export function filesThatRun(count: number): string {
+  return `${plural(count, 'file')} that ${count === 1 ? 'runs' : 'run'}`
+}
+
 function keptDate(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString([], { month: 'short', day: 'numeric' })
@@ -132,7 +137,7 @@ export function SkillsFromGitHub(): ReactElement {
                     {kept.ref === kept.sha ? shortSha(kept.sha) : `${kept.ref} @ ${shortSha(kept.sha)}`} · kept {keptDate(kept.keptAt)}
                     {' · '}
                     {plural(kept.skills.length, 'skill')}
-                    {runs > 0 ? ` · ${plural(runs, 'file')} that run` : ''}
+                    {runs > 0 ? ` · ${filesThatRun(runs)}` : ''}
                   </span>
                   <span className="lc-skilllib__skills">{kept.skills.map((skill) => skill.name).join(', ')}</span>
                 </span>

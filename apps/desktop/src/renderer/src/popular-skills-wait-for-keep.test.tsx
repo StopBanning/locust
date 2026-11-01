@@ -1,8 +1,16 @@
 import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { SkillsFromGitHub, runsText, sinceText } from './components/SkillsFromGitHub.js'
+import { SkillsFromGitHub, filesThatRun, runsText, sinceText } from './components/SkillsFromGitHub.js'
 import { POPULAR_SKILLS, TRENDING_SKILLS } from '../../shared/popular-skills.js'
+
+// The trending drive's kept tstack row (2026-11-01) read "9 skills · 1 file that run".
+it('a kept pack says how many of its files run, in a sentence that agrees', () => {
+  expect(filesThatRun(1)).toBe('1 file that runs')
+  expect(filesThatRun(3)).toBe('3 files that run')
+  const source = readFileSync(new URL('./components/SkillsFromGitHub.tsx', import.meta.url), 'utf8')
+  expect(source).toContain("{runs > 0 ? ` · ${filesThatRun(runs)}` : ''}")
+})
 
 it('the popular shelf shows five packs and opens the existing Look before any Keep', () => {
   const markup = renderToStaticMarkup(<SkillsFromGitHub />)
