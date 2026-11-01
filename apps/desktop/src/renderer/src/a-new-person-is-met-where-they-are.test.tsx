@@ -64,7 +64,8 @@ describe('Home with a team just made', () => {
     expect(teammateForStarter('review', [team[0]!])).toBe('wren')
     // A team with no coder: the words wait in the box as before.
     expect(teammateForStarter('page', [{ teammateId: 'sable', role: 'Research & Briefs' }])).toBeUndefined()
-    expect(source('./App.tsx')).toContain('const suited = teammateForStarter(starter.id, teammates)')
+    // By the role on each card, its title for a custom one (2026-11-01): Writer, Designer and Editor are custom roles.
+    expect(source('./App.tsx')).toContain('const suited = teammateForStarter(starter.id, teammates.map((mate) => ({ teammateId: mate.teammateId, role: roleLabelOf(mate) })))')
   })
 })
 

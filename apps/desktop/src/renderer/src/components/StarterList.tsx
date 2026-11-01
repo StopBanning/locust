@@ -32,12 +32,52 @@ export const STARTERS: readonly Starter[] = [
 ]
 
 /**
+ * HOME'S STARTERS FOR A TEAM WITH NO CODER (2026-11-01). The four rows above are a coder's work. A new person who pressed
+ * Research & money was offered "Debug an issue" and "Build a landing page" with nobody on the team to do them (the
+ * first-session drive on 0.845). A team without a coder gets a row for each teammate's own work instead, by the role
+ * on their card (its title for a custom one), and a row to plan first; each goes to the teammate whose work it is.
+ */
+const ROLE_STARTERS: Readonly<Record<string, Omit<Starter, 'id'>>> = {
+  'Research & Briefs': { label: 'Research a question', line: 'What the sources say, then a conclusion', icon: 'search', compareChanges: false, prompt: 'Research this and write a short brief: what the sources say, each with its date, then your own conclusion, kept apart: ' },
+  'Data & Reporting': { label: 'Work out the numbers', line: 'Every step shown, the result in a table', icon: 'grid', compareChanges: false, prompt: 'Work this out with every step of the arithmetic shown, and put the result in a table: ' },
+  'Chief of Staff': { label: 'Ask the whole team', line: 'Each teammate’s part, brought back as one answer', icon: 'users', compareChanges: false, prompt: 'Ask the team about this: get each teammate’s part, then bring me one answer: ' },
+  'Ops & Scheduling': { label: 'Put it on a schedule', line: 'What comes first, and when each part is done', icon: 'clock', compareChanges: false, prompt: 'Put this on a schedule: what comes first, what can wait, and when each part will be done: ' },
+  'Docs & QA': { label: 'Check a document', line: 'What is wrong, unclear or missing', icon: 'eye', compareChanges: false, prompt: 'Check this carefully and list what is wrong, unclear or missing, most important first: ' },
+  Writer: { label: 'Write a first draft', line: 'One page, in the voice you ask for', icon: 'pencil', compareChanges: false, prompt: 'Write a first draft of this, one page, and say which voice you chose: ' },
+  Designer: { label: 'Make a design', line: 'Colours, fonts and a layout, as a file', icon: 'palette', compareChanges: false, prompt: 'Design this as a file in this folder: a colour palette with hex codes, two font pairings and a layout: ' },
+  Editor: { label: 'Edit for clarity', line: 'What is unclear, wrong or too long', icon: 'check', compareChanges: false, prompt: 'Edit this for clarity: mark what is unclear, wrong or too long, then give me the edited version: ' }
+}
+/** "Plan before building", for work that is not code: it fills the row a third teammate leaves in a grid of two. */
+const PLAN_MAKING: Starter = { id: 'plan-make', label: 'Plan before making', line: 'Agree on the approach before anything is made', icon: 'route', mode: 'plan', compareChanges: false, prompt: 'Change nothing yet, and plan how to: ' }
+
+/**
+ * The rows Home offers a team: the coder's four while anyone on it codes (or nobody is on it yet); otherwise one for each
+ * teammate's own work, in the team's order, up to three, and Plan before making. A team whose roles say nothing that fits
+ * keeps the four.
+ */
+export function startersForTeam(team: readonly { readonly role: string }[]): readonly Starter[] {
+  if (team.length === 0 || team.some((mate) => mate.role === 'Code & Migrations')) return STARTERS
+  const rows: Starter[] = []
+  for (const mate of team) {
+    const starter = ROLE_STARTERS[mate.role]
+    if (starter === undefined || rows.some((row) => row.id === `role:${mate.role}`)) continue
+    rows.push({ id: `role:${mate.role}`, ...starter })
+    if (rows.length === STARTERS.length - 1) break
+  }
+  return rows.length === 0 ? STARTERS : [...rows, PLAN_MAKING]
+}
+
+/**
  * WHO ON THE TEAM A HOME STARTER SUITS (2026-10-30). On Home no teammate is on screen, so a row's words went to the agent
  * in the chat box by itself -- right after a new person had pressed Build software and made Wren, Juno and Atlas. With a
  * team, the row goes to the teammate whose work it is: the coder for planning, debugging and a page, the reviewer for a
- * review (the coder when there is none). Undefined when nobody's role fits, and the words wait in the box as before.
+ * review (the coder when there is none). A role's own row goes to that role, and Plan before making to the chief of
+ * staff, else the first teammate (2026-11-01). `role` is the card's role, its title for a custom one (roleLabelOf).
+ * Undefined when nobody's role fits, and the words wait in the box as before.
  */
-export function teammateForStarter(starterId: string, team: readonly { readonly teammateId: string; readonly role: TeammateRole }[]): string | undefined {
+export function teammateForStarter(starterId: string, team: readonly { readonly teammateId: string; readonly role: string }[]): string | undefined {
+  if (starterId.startsWith('role:')) return team.find((one) => one.role === starterId.slice('role:'.length))?.teammateId
+  if (starterId === PLAN_MAKING.id) return (team.find((one) => one.role === 'Chief of Staff') ?? team[0])?.teammateId
   const wanted: readonly TeammateRole[] = starterId === 'review' ? ['Docs & QA', 'Code & Migrations'] : ['Code & Migrations']
   for (const role of wanted) {
     const mate = team.find((one) => one.role === role)
@@ -58,7 +98,9 @@ function PageIcon(): ReactElement {
   )
 }
 
-export function StarterList({ onStart, onCompareStart, onCompare, onIssue }: {
+export function StarterList({ starters = STARTERS, onStart, onCompareStart, onCompare, onIssue }: {
+  /** The rows to offer: startersForTeam's for the team on Home. */
+  readonly starters?: readonly Starter[]
   readonly onStart: (starter: Starter) => void
   readonly onCompareStart: (starter: Starter) => void
   /** Compare on words of the person's own, from an empty box. */
@@ -91,7 +133,7 @@ export function StarterList({ onStart, onCompareStart, onCompare, onIssue }: {
         )}
       </div>
       <ul className="lc-homestarts__list">
-        {STARTERS.map((starter) => (
+        {starters.map((starter) => (
           <li key={starter.id} className="lc-homestart">
             <button type="button" className="lc-homestart__start" title={`${starter.line}. Puts the words in the box for your teammate${starter.mode === undefined ? '' : `, in ${starter.mode === 'plan' ? 'Plan' : 'Ask'} mode`}. Nothing is sent until you press Send.`} onClick={() => onStart(starter)}>
               <span className="lc-homestart__icon" aria-hidden="true">{starter.icon === 'page' ? <PageIcon /> : <Icon name={starter.icon} size={16} />}</span>

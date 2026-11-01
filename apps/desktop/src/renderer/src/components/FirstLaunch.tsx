@@ -15,7 +15,7 @@ import type { HomeTeamInvite, HomeTeammate, HomeTeamWatch } from './HomeTeam.js'
 import { TeamTemplates } from './TeamTemplates.js'
 import type { TeamTemplate } from '../../../shared/team-templates.js'
 import { Icon } from './Icon.js'
-import { StarterList } from './StarterList.js'
+import { StarterList, startersForTeam } from './StarterList.js'
 import type { Starter } from './StarterList.js'
 import { SignInButton } from './SignInButton.js'
 import { INSTALL_PAGE_OPENED_EVENT } from '../signInEvents.js'
@@ -863,7 +863,7 @@ export function FirstLaunch({
     )
   })()
   const startersBlock = startersShown && onStarter !== undefined && onCompareStarter !== undefined
-    ? <StarterList onStart={onStarter} onCompareStart={onCompareStarter} {...(onCompare === undefined ? {} : { onCompare })} {...(onStartFromIssue === undefined ? {} : { onIssue: onStartFromIssue })} />
+    ? <StarterList starters={startersForTeam(team)} onStart={onStarter} onCompareStart={onCompareStarter} {...(onCompare === undefined ? {} : { onCompare })} {...(onStartFromIssue === undefined ? {} : { onIssue: onStartFromIssue })} />
     : null
   const accountsAbove = team.length > 0
 

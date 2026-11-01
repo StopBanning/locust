@@ -9994,7 +9994,7 @@ export default function App(): ReactElement {
                   // The teammate on screen, in the mode the starter suits; the words wait in the box (StarterList.tsx).
                   setCompareOn(false)
                   // Home has no teammate on screen: the one whose work it is, when the team has one (teammateForStarter).
-                  const suited = teammateForStarter(starter.id, teammates)
+                  const suited = teammateForStarter(starter.id, teammates.map((mate) => ({ teammateId: mate.teammateId, role: roleLabelOf(mate) })))
                   if (suited !== undefined) selectTeammate(suited)
                   if (starter.mode !== undefined) setMode(starter.mode)
                   setComposerFill((current) => ({ text: starter.prompt, seq: (current?.seq ?? 0) + 1 }))
