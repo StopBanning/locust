@@ -2651,6 +2651,7 @@ export function SettingsScreen({
               follows the switch without a restart. Auto never asks either way.
             </p>
           </More>
+          <OnTheComputer channel={WORKSPACE_SETTINGS_WRITE_CHANNEL}>
           <div className="lc-settingrows">
             <div className="lc-settingrow">
               <span className="lc-settings__note">
@@ -2670,6 +2671,7 @@ export function SettingsScreen({
               </button>
             </div>
           </div>
+          </OnTheComputer>
           {/* W8 (0.567): each connector's state, what to do, when it last worked, and a report to copy. */}
           <ConnectorHealth key={connectorsRead} />
         </section>

@@ -56,6 +56,12 @@ describe('Settings in a browser', () => {
     browser()
     expect(page('appearance')).not.toContain('lc-oncomputer')
   })
+
+  it('keeps asking before connector calls on the computer: it is what teammates may reach', () => {
+    // The sweep in a real browser (drive-settings-in-a-browser.mjs) found it pressable, and a press sprang back.
+    browser()
+    expect(page('connectors', { askConnectors: false })).toMatch(/<fieldset class="lc-oncomputer" disabled=""><div class="lc-settingrows">(?:(?!<\/fieldset>).)*aria-label="Ask before every connector call"/)
+  })
 })
 
 describe('Settings in the window on the computer', () => {
