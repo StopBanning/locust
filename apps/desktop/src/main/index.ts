@@ -283,6 +283,7 @@ import { readOneMission, deleteMissionRecord, knownDigests, namedByATeammate, ne
 import { createReferenceStore } from './conversation-references.js'
 import { REFERENCES_CHANNEL, type ReferenceRequest } from '../shared/references.js'
 import { isUsageRange, usageSummary } from '../shared/usage.js'
+import { carriedUsage, USAGE_CARRIED_FILE } from './usage-carried.js'
 import { monthOf } from '../shared/spend.js'
 import { createOwnModelStore, OwnModelRefusal, ownModelAddress, ownModelId, testOwnEndpoint } from './own-models.js'
 import { createPriceList, openCodePriceListPath } from './listed-prices.js'
@@ -7222,7 +7223,8 @@ if (!ownsSingleInstanceLock) {
       try {
         const turns = await usageTurns(missionLedger)
         if (turns === undefined) return unavailable
-        return { ok: true, summary: usageSummary(turns, range, new Date()) } as const
+        // And what another computer's Usage carried here, numbers only (0.849, usage-carried.ts).
+        return { ok: true, summary: usageSummary([...turns, ...(await carriedUsage(join(app.getPath('userData'), USAGE_CARRIED_FILE)))], range, new Date()) } as const
       } catch {
         return unavailable
       }
