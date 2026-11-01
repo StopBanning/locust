@@ -25,7 +25,7 @@ it('the popular shelf shows five packs and opens the existing Look before any Ke
 it('the new-this-week row uses the same tile and says how long each pack has been climbing', () => {
   const markup = renderToStaticMarkup(<SkillsFromGitHub />)
   expect(markup).toContain('New this week')
-  expect(markup).toContain('Stars as of 2026-10-31')
+  expect(markup).toContain('Stars as of 2026-11-01')
   for (const pack of TRENDING_SKILLS) {
     expect(markup).toContain(pack.source)
     expect(markup).toContain(`${pack.stars.toLocaleString('en-US')} stars since ${sinceText(pack.since)} · ${pack.license}`)

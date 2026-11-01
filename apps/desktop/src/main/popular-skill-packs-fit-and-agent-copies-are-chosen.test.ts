@@ -88,8 +88,8 @@ it('the five popular packs have dated stars and licenses and Claude Mem names it
 })
 
 it('the new-this-week packs are dated, licensed, younger than the snapshot and can be opened', () => {
-  expect(TRENDING_SKILLS_AS_OF).toBe('2026-10-31')
-  expect(TRENDING_SKILLS.map((pack) => pack.source)).toEqual(['t3dotgg/tstack', 'heydamir/unslop', 'morganlinton/BeautifulRust', 'daveebbelaar/bama'])
+  expect(TRENDING_SKILLS_AS_OF).toBe('2026-11-01')
+  expect(TRENDING_SKILLS.map((pack) => pack.source)).toEqual(['heydamir/unslop', 't3dotgg/tstack', 'patch-gg/pixelfx', 'enesozturk/dimensional-drawing'])
   const popular = new Set<string>(POPULAR_SKILLS.map((pack) => pack.source))
   for (const pack of TRENDING_SKILLS) {
     expect(popular.has(pack.source)).toBe(false)

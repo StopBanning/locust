@@ -1,4 +1,5 @@
-// Real GitHub pack from the New this week row, previewed then kept in a throwaway profile. No model calls.
+// Every real GitHub pack on the New this week row listed by Locust's skill finder, and one previewed then kept, in a
+// throwaway profile. No model calls.
 // Negative control: a build without the row has four tiles fewer and fails the row check.
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -23,8 +24,19 @@ try {
   await drive.evaluate(`[...${section}.querySelectorAll('.lc-skilllib__name')].find(el => el.innerText === 'New this week')?.scrollIntoView({ block: 'start' })`)
   const shelf = await drive.capture('01. New this week under Popular skills', () => drive.evaluate(`({ tiles: ${section}.querySelectorAll('.lc-skilllib__pack').length, text: ${section}.querySelector('.lc-skilllib__popular')?.innerText ?? '' })`))
   check('nine packs: five popular and four new this week', shelf.tiles === 9)
-  check('the row is named, dated and says how long each pack has climbed', shelf.text.includes('New this week') && shelf.text.includes('Stars as of 2026-10-31') && shelf.text.includes('stars since Oct 24 · MIT'))
+  check('the row is named, dated and says how long each pack has climbed', shelf.text.includes('New this week') && shelf.text.includes('Stars as of 2026-11-01') && shelf.text.includes('stars since Oct 24 · MIT'))
   if (shelf.tiles !== 9) throw Error('New this week row absent (negative control)')
+  // Every pack on the row is listed by Locust's own skill finder (2026-11-01): a pack that cannot be listed would be a
+  // tile that answers its first press with a refusal. Each is looked at, counted, and put away with Cancel.
+  const fresh = await drive.evaluate(`[...${section}.querySelectorAll('.lc-skilllib__tile')].slice(5).map(tile => tile.innerText.match(/[\\w.-]+\\/[\\w.-]+/)?.[0] ?? '')`)
+  for (const [index, source] of fresh.entries()) {
+    await drive.evaluate(`[...${section}.querySelectorAll('.lc-skilllib__tile')][${5 + index}].querySelector('.lc-skilllib__pack').click()`)
+    await wait(`!!${section}.querySelector('.lc-skilllib__preview') || !!${section}.querySelector('.lc-skilllib__said.lc-tone-amber')`)
+    const look = await drive.evaluate(`({ skills: ${section}.querySelectorAll('.lc-skilllib__skill').length, refused: ${section}.querySelector('.lc-skilllib__said.lc-tone-amber')?.innerText ?? null })`)
+    check(`${source} is listed: ${String(look.skills)} skill(s)`, look.refused === null && look.skills > 0)
+    await drive.evaluate(`[...(${section}.querySelector('.lc-skilllib__actions')?.querySelectorAll('button') ?? [])].find(b => b.innerText.trim() === 'Cancel')?.click()`)
+    await wait(`!${section}.querySelector('.lc-skilllib__preview')`, 10)
+  }
   await drive.evaluate(`[...${section}.querySelectorAll('.lc-skilllib__tile')].find(tile => tile.innerText.includes('t3dotgg/tstack')).querySelector('.lc-skilllib__pack').click()`)
   await wait(`!!${section}.querySelector('.lc-skilllib__preview') || !!${section}.querySelector('.lc-skilllib__said.lc-tone-amber')`)
   if (!await drive.evaluate(`!!${section}.querySelector('.lc-skilllib__preview')`)) throw Error(await drive.evaluate(`${section}.querySelector('.lc-skilllib__said').innerText`))
