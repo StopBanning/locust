@@ -53,7 +53,7 @@ export function UsageDialog({
   readonly now?: () => Date
 }): ReactElement {
   const box = useRef<HTMLDivElement>(null)
-  useModal(box, onClose)
+  useModal(box, onClose, { focusSelf: true })
   const [range, setRange] = useState<UsageRange>('30d')
   const [summaries, setSummaries] = useState<Partial<Record<UsageRange, UsageSummary>>>({})
   const [problem, setProblem] = useState<string>()
@@ -80,7 +80,7 @@ export function UsageDialog({
     .filter((entry) => entry.windows.length > 0)
   return (
     <div className="lc-scrim">
-      <div ref={box} className="lc-dialog lc-usage" role="dialog" aria-modal="true" aria-label="Usage">
+      <div ref={box} className="lc-dialog lc-usage" role="dialog" aria-modal="true" aria-label="Usage" tabIndex={-1}>
         <div className="lc-dialog__head">
           <span className="lc-dialog__title">Usage</span>
           <span className="lc-dialog__sub">every agent and model, on this machine</span>
@@ -91,7 +91,6 @@ export function UsageDialog({
                 type="button"
                 role="radio"
                 aria-checked={range === value}
-                autoFocus={range === value}
                 className={`lc-button${range === value ? ' is-active' : ''}`}
                 onClick={() => setRange(value)}
               >

@@ -11,7 +11,9 @@ import type { RefObject } from 'react'
  * and group dialogs caught Escape only while focus happened to be inside.
  *
  * So every dialog gets the same four things:
- *   - focus moves INTO it when it opens (unless something inside already has it)
+ *   - focus moves INTO it when it opens (unless something inside already has it): to its `[autofocus]`, else its
+ *     first control -- or, for a sheet with nothing to type in (`focusSelf`), to the dialog itself, so no control
+ *     wears a focus ring before the keyboard asks for one (polish pass, 2026-11-01)
  *   - Tab and Shift+Tab cycle inside it and never reach the page behind
  *   - Escape closes it, wherever focus is
  *   - focus goes back to whatever opened it, once it is gone
@@ -25,7 +27,7 @@ export function focusablesIn(root: HTMLElement): HTMLElement[] {
   )
 }
 
-export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void): void {
+export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void, { focusSelf = false }: { readonly focusSelf?: boolean } = {}): void {
   // The latest close, without re-running the effect (and re-stealing focus)
   // every time a parent hands down a fresh function.
   const close = useRef(onClose)
@@ -47,7 +49,7 @@ export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void
     const opener = opened.current
     const root = ref.current
     if (root !== null && !root.contains(document.activeElement)) {
-      const wanted = root.querySelector<HTMLElement>('[autofocus]') ?? focusablesIn(root)[0]
+      const wanted = root.querySelector<HTMLElement>('[autofocus]') ?? (focusSelf ? root : focusablesIn(root)[0])
       wanted?.focus()
     }
 
@@ -69,11 +71,12 @@ export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void
       const first = inside[0]!
       const last = inside[inside.length - 1]!
       const at = document.activeElement
-      // Wrap at either end, and pull focus back in if it was ever outside.
-      if (event.shiftKey && (at === first || !box.contains(at))) {
+      // Wrap at either end, and pull focus back in if it was ever outside. The dialog itself (focusSelf) is the
+      // start: Shift+Tab from it goes to the last control, Tab to the first.
+      if (event.shiftKey && (at === first || at === box || !box.contains(at))) {
         event.preventDefault()
         last.focus()
-      } else if (!event.shiftKey && (at === last || !box.contains(at))) {
+      } else if (!event.shiftKey && (at === last || at === box || !box.contains(at))) {
         event.preventDefault()
         first.focus()
       }

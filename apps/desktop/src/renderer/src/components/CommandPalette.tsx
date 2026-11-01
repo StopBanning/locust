@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactElement } from 'react'
 
 import { Icon } from './Icon.js'
+import { isChord, Keycaps } from './Keycaps.js'
 
 export interface PaletteAction {
   readonly id: string
@@ -163,7 +164,9 @@ export function CommandPalette({
                     }}
                   >
                     <span className="lc-palette__label">{action.label}</span>
-                    {action.hint !== undefined && <span className="lc-palette__hint">{action.hint}</span>}
+                    {action.hint !== undefined && (isChord(action.hint)
+                      ? <Keycaps keys={action.hint} mac={typeof window !== 'undefined' && window.desktop?.platform === 'darwin'} />
+                      : <span className="lc-palette__hint">{action.hint}</span>)}
                   </button>
                 </div>
               )
