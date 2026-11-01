@@ -61,6 +61,30 @@ secret is read, and the token is read-only.
   `app.asar`'s hash (printed beside the installer's) and the size; if
   `app.asar` differs, that is worth finding out why.
 
+## The first hour on a bare Windows machine (0.847)
+
+Since 2026-10-30 the Windows release is the one `ci.yml` builds, and the PC
+that opened every Windows build by hand (`_tools/install-without-node-drive.mjs`)
+is retired. So `ci.yml`'s Windows package job now runs
+`_smoke/windows-first-hour-smoke.mjs` on the installer it just made, after the
+release's files are uploaded:
+
+1. The installer runs as a person runs it, silently (`/S`), for this account,
+   into `%LOCALAPPDATA%\Programs`.
+2. The installed app starts with the PATH Explorer gives an account nobody has
+   used, and an empty home and AppData. The smoke refuses to measure anything
+   if node, npm or opencode can still be found where Locust looks.
+3. The first screen, Install on the free runtime, the version it reports, a
+   first message on the free model and its answer, each timed. A free model
+   that fails or says nothing is switched the way a person would switch it.
+
+Its frames and log are the run's `windows-first-hour-frames` artifact. Like the
+Mac's first hour, it is reported, not required: a free provider can be down for
+hours. To work on the smoke without a full build, run
+`gh workflow run windows-first-hour.yml -f run_id=<a ci.yml run with a Windows build>`.
+Given an installer, the smoke runs only on a CI runner, since it replaces the
+Locust installed for that account; on a PC, give it an unpacked `Locust.exe`.
+
 ## The one difference from `ship.mjs`
 
 `ship.mjs` packages with `pnpm --filter @teammate/desktop package`. Its

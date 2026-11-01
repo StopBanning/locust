@@ -110,6 +110,28 @@ jobs:
             apps/desktop/release/latest-linux.yml
           if-no-files-found: error
           retention-days: 7
+      # The first hour on a Windows machine with nothing on it (0.847). The PC that opened every Windows build is
+      # retired, so this build's installer is run here as a person runs it, and the app it installs starts with a new
+      # account's PATH and an empty home and AppData: the npm Locust carries installs the free runtime from the first
+      # screen, and a first answer is timed (the smoke refuses to measure a machine that is not bare). Reported, not
+      # yet required, like the Mac's: a free provider can be down for hours. After the upload, so nothing here can
+      # touch what the release holds.
+      - name: First hour on a bare Windows machine
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        timeout-minutes: 12
+        shell: bash
+        run: node _smoke/windows-first-hour-smoke.mjs "$(ls apps/desktop/release/*-setup.exe | head -1)"
+      - name: Keep the Windows first hour's frames
+        if: runner.os == 'Windows' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-first-hour-frames
+          path: |
+            windows-first-hour-*.png
+            windows-first-hour.log
+          if-no-files-found: ignore
+          retention-days: 7
       # The Mac images are launched on a real Mac before they reach a release
       # (2026-10-07). The private repository's mac-build did this; the public
       # one built the images and never opened them. Minutes are free here.
