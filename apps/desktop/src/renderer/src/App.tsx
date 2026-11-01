@@ -216,6 +216,7 @@ import {
   modelUnavailable,
   retiredFreeModels,
   downFreeModels,
+  quietFreeRun,
   failedOnProviderSide,
   recentlyUsedRoutes,
   freeModelsThatAnswered,
@@ -6369,6 +6370,28 @@ export default function App(): ReactElement {
   })()
 
   /*
+   * A FREE MODEL THAT HAS SAID NOTHING (2026-11-01, missionView.quietFreeRun). ONE PRESS OFF A BUSY FREE MODEL (C9,
+   * busyOffer above) is drawn under a busy notice, and a model that simply goes quiet sends none: on 2026-10-31's
+   * evening they sat for hours that way. After two minutes with nothing back, the same press is offered with a line of
+   * its own. The clock that brings it out runs only while a free turn has had nothing back.
+   */
+  const [quietNow, setQuietNow] = useState(() => Date.now())
+  const quietWatch = liveRun !== undefined && (liveRun.phase === 'starting' || liveRun.phase === 'running') && liveRun.data?.runtime === 'opencode' && liveRun.data.model.endsWith('-free')
+    && liveRun.events.every((event) => event.type === 'run.started' || event.type === 'adapter.diagnostic')
+  useEffect(() => {
+    if (!quietWatch) return undefined
+    setQuietNow(Date.now())
+    const timer = setInterval(() => setQuietNow(Date.now()), 10_000)
+    return () => clearInterval(timer)
+  }, [quietWatch])
+  const quietOffer = ((): { readonly model: string; readonly label: string; readonly onPress: () => void } | undefined => {
+    const shown = liveRun
+    if (!quietWatch || busyOffer === undefined || shown?.data === undefined) return undefined
+    if (!quietFreeRun({ runtime: shown.data.runtime, model: shown.data.model, events: shown.events }, quietNow)) return undefined
+    return { model: modelDisplayName(shown.data.runtime, shown.data.model), label: busyOffer.label, onPress: busyOffer.onPress }
+  })()
+
+  /*
    * A FREE MODEL OPENCODE DROPPED, SAID BEFORE THE SEND (0.819, status.droppedFreeModel). A teammate saved on one
    * failed at its next send, and was only then offered another. The chat box says so first, naming the steadiest free
    * model listed. In a conversation with the teammate whose own model it is, the press moves the teammate too, as a
@@ -10530,6 +10553,7 @@ export default function App(): ReactElement {
                 /* The same press as the chat box's Stop, from a live line gone quiet (0.758). */
                 onStopRun={cancelMission}
                 {...(limitOffer === undefined ? {} : { limitModel: limitOffer })}
+                {...(quietOffer === undefined ? {} : { quietModel: quietOffer })}
                 {...(continueOffer === undefined || running ? {} : { onContinueAfterBusy: continueOffer })}
                 {...(carryOnShown === undefined || running ? {} : { carryOn: carryOnShown })}
                 {...(signInOffer === undefined ? {} : { signInRuntime: signInOffer })}

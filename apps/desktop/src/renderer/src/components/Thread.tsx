@@ -923,6 +923,8 @@ export interface ThreadProps {
    * the sentence over the button; absent, it is the limit's.
    */
   readonly limitModel?: { readonly label: string; readonly onPress: () => void; readonly why?: 'retired' | 'down' | 'limit' }
+  /** A free model that has said nothing for two minutes while its turn runs (2026-11-01): another one, the message handed back. */
+  readonly quietModel?: { readonly model: string; readonly label: string; readonly onPress: () => void }
   /** The provider's servers were busy (0.511): carry the same conversation on. */
   readonly onContinueAfterBusy?: () => void
   /** The agent's plan ran out (0.774): carry the work on with another agent, briefed with what was done. */
@@ -1145,6 +1147,7 @@ export function Thread({
   runAgainNote,
   onSendAgain,
   limitModel,
+  quietModel,
   onContinueAfterBusy,
   carryOn,
   signInRuntime,
@@ -1909,6 +1912,16 @@ onResume,
             onAnswer={(answers) => onAnswerQuestion(request.approvalId, answers)}
           />
         ))}
+
+        {/* A free model that has said nothing for two minutes, while it runs (2026-11-01): the failed run's offer, early. */}
+        {quietModel !== undefined && (
+          <div className="lc-rerun" data-quiet-free="">
+            <span>{quietModel.model} has said nothing in two minutes. Free models get busy; your message goes back in the chat box, to send there.</span>
+            <button type="button" className="lc-button" onClick={quietModel.onPress}>
+              {quietModel.label}
+            </button>
+          </div>
+        )}
 
         {stopped !== undefined && <CancellationCard summary={stopped} stoppedAt={stoppedAt} byPerson={stoppedByPerson} />}
         {stopped !== undefined && stoppedBeforeAnyTool(stopped) && onSendAgain !== undefined && (

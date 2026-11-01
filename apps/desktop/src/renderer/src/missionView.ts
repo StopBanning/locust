@@ -5553,6 +5553,23 @@ export function retiredFreeModels(
 }
 
 /**
+ * A FREE MODEL THAT HAS SAID NOTHING (2026-11-01). The free models stop answering for hours at a time, and not always
+ * with an error: on 2026-10-31's evening every OpenCode free model took a message and said nothing (the launch-clip
+ * filming, and the CI's first hour on a bare Mac at 00:14). A failed run already offers a free model that answers
+ * (0.711); one that has said nothing for two minutes offers it too, while it runs. Only an OpenCode free model, and only
+ * when nothing at all has come back since its run began -- a word, a thought, a step, a tool -- so a model that is
+ * slowly working is never told it is quiet. Its run began at its first event; with none, it is still starting, which
+ * the live line says.
+ */
+export const QUIET_FREE_MS = 2 * 60 * 1000
+export function quietFreeRun(run: { readonly runtime?: string; readonly model?: string; readonly events: readonly NormalizedRuntimeEvent[] }, now: number): boolean {
+  if (run.runtime !== 'opencode' || run.model === undefined || !run.model.endsWith('-free')) return false
+  const began = run.events[0] === undefined ? Number.NaN : Date.parse(run.events[0].occurredAt)
+  if (!Number.isFinite(began) || now - began < QUIET_FREE_MS) return false
+  return run.events.every((event) => event.type === 'run.started' || event.type === 'adapter.diagnostic')
+}
+
+/**
  * FREE MODELS THAT ARE DOWN RIGHT NOW (0.711). Ling 3.0 answered "Model is
  * unavailable" from 2026-10-08 into 2026-10-09 -- more than twelve hours --
  * and, as the first free model listed, it was still what "Use a free model"
