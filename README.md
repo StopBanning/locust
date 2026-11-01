@@ -28,6 +28,10 @@ your next computer.
 
 If Locust is useful to you, a star on this repository helps other people find it.
 
+<p align="center"><img src="docs/assets/locust-launch.gif" alt="A 36-second film of the real Locust app: a team of four on Claude Code, Codex, Antigravity and Kilo; this week's trending skills kept once for every agent; a question answered by Kit on Kilo's free model; the same conversation carried on from a phone" width="100%"></p>
+
+<sub>The real app (0.845), filmed by Locust's own test drives (`_tools/film-launch-clip.mjs`).</sub>
+
 <table>
 <tr>
 <td><img src="docs/assets/shots/01-home.png" alt="Locust home: a team of six, each teammate on its own AI and model, and Connected accounts: 8 ready"><br><sub>Your team of six, each teammate on its own AI and model. Connected accounts: 8 ready.</sub></td>
