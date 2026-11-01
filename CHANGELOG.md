@@ -11,6 +11,15 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.853.0 - 2026-11-01
+
+### Improved
+
+- **Send feedback works from Locust in a browser.** The box builds the report there and opens the GitHub issue in a new tab, mails it from your device, or saves it to your downloads, with your computer's Locust version and system. In Settings' Report a problem only Show the log stays on your computer.
+- **Save a copy works from a browser too.** A file a teammate handed you, or the one open in the viewer, downloads into your browser, up to 24 MB.
+- **The Conversations screen is one list.** Your conversations sit in one rounded group with fine lines between them, each with its status in words, such as Completed.
+- **The model picker draws as the command palette does,** with its groups and each model's line in the reading face, and no ring around its search.
+
 ## 0.852.0 - 2026-11-01
 
 ### Improved
