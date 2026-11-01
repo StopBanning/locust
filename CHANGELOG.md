@@ -11,6 +11,25 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.850.0 - 2026-11-01
+
+### Improved
+
+- **Attach files works from Locust in a browser.** The + button's Attach files opens your browser's own picker (on a phone, your photos and files) and sends what you pick to your computer, as a pasted picture is sent. Up to 24 MB a file.
+
+### Fixed
+
+- **Voice typing in a browser says where it is set up.** Allowing OpenAI, adding its key and the one-time download are done in Locust on your computer. A browser now says so, instead of offering a button that failed or telling you to check your microphone.
+- **The rest of the window in a browser says what stays on your computer.** Talk, Choose a folder, Walk me through it, Restart and install, Install on Home, a pet that needs downloading, Remove some pets, Save the record, Save image on a team card, and what a teammate may reach or spend are shown held, with "This works in Locust on your computer.", instead of failing after a press or doing nothing. The file manager buttons, Open in terminal, Send feedback, background turns and Add team from image are not offered there.
+- **A key a teammate asks for is never typed into a browser.** The card names the key and says it is given in Locust on your computer, with no box to paste it into.
+- **A web page in a reply or a card says it runs in Locust on your computer,** where it said Opening the page… for good. A reply's page keeps its Code tab.
+- **Copying a file's path from its right-click menu works in a browser,** where it did nothing.
+- **A message to a Claude cloud session that a browser could not send is said to be not sent,** never "could not confirm whether that was sent".
+- **A setting changed in a browser is no longer undone by the window on your computer.** The window wrote all its settings back on its next change, putting back what the browser had just changed.
+- **In a browser, asking before connector calls, the header's terminal and browser buttons, and an account's Cancel sign-in are held,** and say they are your computer's.
+- **Voice typing on a Mac starts on your OpenAI account,** where it opened on Fast, which runs only on Windows.
+- **Cloud computers' Check again names the time it checked,** where "Checked just now" stayed on screen.
+
 ## 0.849.0 - 2026-11-01
 
 ### Improved
