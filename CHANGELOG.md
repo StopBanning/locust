@@ -11,6 +11,18 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.847.0 - 2026-11-01
+
+### Improved
+
+- **New this week has this week's packs.** Settings > Teammates > Skills from GitHub now shows Unslop, tstack, pixelfx (pixel-art effects, and a skill that makes new ones) and Dimensional Drawing (your interface parts drawn as Apple-style spec sheets): the packs made in the last two weeks that climbed fastest.
+
+### Fixed
+
+- **A busy free model offers one Stop and switch.** When a free model's provider was busy and two minutes passed, the conversation showed two identical Stop and switch buttons. It shows one now.
+- **A busy free model's line says what is happening.** While OpenCode waited on a busy provider, the line under your message still read "Setting up OpenCode for its first start, about a minute and a half", minutes after that. It now says Trying the model again.
+- **A kept skill pack with one file that runs says so correctly,** not "1 file that run".
+
 ## 0.846.0 - 2026-11-01
 
 ### Improved
