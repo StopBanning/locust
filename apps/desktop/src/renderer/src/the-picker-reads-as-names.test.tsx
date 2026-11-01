@@ -67,3 +67,12 @@ describe('a model row whose runtime never named it', () => {
     expect(html).toContain('Cursor Grok 4.6')
   })
 })
+
+describe("the account's own default", () => {
+  it('reads "Account Default" in every group, as Claude Code\'s row does', () => {
+    // First impressions, 0.848: Antigravity's group listed "Account default" a group above Claude Code's "Account Default".
+    const html = drawn([model('account-default', 'Account default')])
+    expect(html).toContain('>Account Default<')
+    expect(html).not.toContain('>Account default<')
+  })
+})

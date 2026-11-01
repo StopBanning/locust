@@ -180,12 +180,15 @@ function buildRows(
               label:
                 runtime.id === 'claude'
                   ? routeModelName(runtime.id, model.id, name)
-                  : model.displayName === model.id || model.id.endsWith(`/${model.displayName}`)
+                  : model.displayName === model.id || model.id.endsWith(`/${model.displayName}`) || model.id === 'account-default'
                     ? // OpenCode's catalogue names a model by its id without
                       // the provider: `ling-3.0-flash-fin-free` for
                       // `opencode/ling-3.0-flash-fin-free`, which the picker
                       // drew raw while the chip said "Ling 3.0 Flash Fin"
-                      // (seen on the packaged 0.482).
+                      // (seen on the packaged 0.482). The account's own
+                      // default reads "Account Default" in every group, as
+                      // Claude's does: Antigravity's said "Account default"
+                      // a group above it (first impressions, 0.848).
                       modelDisplayName(runtime.id, model.id)
                     : model.displayName,
               /*
@@ -213,11 +216,11 @@ function buildRows(
             }
           })
         : // The catalogue could not be read for this runtime, so there is one
-          // row and it is the account's own default. It is labelled the way
-          // the catalogue labels it -- a person reading a lowercase
+          // row and it is the account's own default. It is labelled as every
+          // group's row says it -- a person reading a lowercase
           // `account-default` on the only ACTIVE row is reading a placeholder
           // that leaked (outside review, 2026-09-07).
-          [{ model: 'account-default', label: 'Account default', detail: status.detail, fullDetail: status.detail, older: false, own: false }]
+          [{ model: 'account-default', label: 'Account Default', detail: status.detail, fullDetail: status.detail, older: false, own: false }]
 
     for (const entry of entries) {
       // A route saved on one of a family's variants is still on that row: a
