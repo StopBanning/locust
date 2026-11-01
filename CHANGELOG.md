@@ -11,6 +11,21 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.852.0 - 2026-11-01
+
+### Improved
+
+- **On a Mac, the sidebar and the title bar are glass.** They take the blur of what is behind the window, as Finder and Notes do, and follow Locust's own light or dark setting even when the Mac's differs.
+- **Dialogs, switches and choices are drawn the way a Mac draws them.** A dialog rises into place over a softly blurred backdrop, with a fine edge and a centred close button. Switches show their track and a lifted knob, a choice sits raised in a recessed track, and the main button is solid. With Reduce Motion on, dialogs appear without the rise.
+- **Shortcuts show keycaps.** The shortcuts sheet and the command palette draw each key as a cap, with ⌘ ⌥ ⇧ ⌃ on a Mac.
+- **Usage is redone,** with your activity, each account's limits and your models in sections of their own.
+- **Team cards and empty screens are calmer.** A card's buttons lose their boxes and its numbers sit on a soft fill, and the Board and the Conversations list say so in the middle when they are empty.
+- **Labels and notes are in the reading face,** not small mono capitals: in dialogs, the command palette and the window's title.
+
+### Fixed
+
+- **Twelve switches in Settings had no knob.** Let your other AI apps use Locust, Use from anywhere, Your phone, the chat apps, Scout, Talk's keys and Your account drew theirs as empty pills. Each shows its knob now.
+
 ## 0.851.0 - 2026-11-01
 
 ### Fixed
