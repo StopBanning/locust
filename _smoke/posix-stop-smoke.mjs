@@ -180,8 +180,10 @@ try {
   const opened = await evaluate(`(async () => {
     for (let i = 0; i < 60; i += 1) {
       // The face in the full sidebar, or, in a window under 1200px wide, the same teammate in the narrow layout's rail.
+      // The rail's label reads "Message Ash · Custom · ..." (0.848): macOS 15 runners give the window 1024x684, the
+      // first to reach the rail, and a label starting "Ash" found nothing there.
       const face = [...document.querySelectorAll('.lc-faces__one')].find((one) => (one.getAttribute('aria-label') ?? '').startsWith('Ash — '))
-        ?? [...document.querySelectorAll('.lc-railslot .lc-row--button')].find((one) => (one.getAttribute('aria-label') ?? '').startsWith('Ash'))
+        ?? [...document.querySelectorAll('.lc-railslot .lc-row--button')].find((one) => /^(Message )?Ash\\b/.test(one.getAttribute('aria-label') ?? ''))
       if (face) { face.click(); await new Promise((r) => setTimeout(r, 800)); return 'opened' }
       await new Promise((r) => setTimeout(r, 500))
     }
