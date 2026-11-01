@@ -28,6 +28,21 @@ export function kiloModelDescription(id: string): string {
   return 'Through Kilo. A paid model needs a sign-in.'
 }
 
+/**
+ * A Kilo model's name without its gateway (0.848).
+ *
+ * Kilo names every model it lists "Kilo Gateway/<maker>: <model>", so the
+ * picker's Kilo group drew five rows that each read "Kilo Gateway/NVIDIA:
+ * Nemotr..." and could not be told apart. The group, the row's "Through Kilo"
+ * and the chip's "Kilo" already say whose gateway it is. Kilo's own router,
+ * `kilo/kilo-auto/<tier>`, keeps its product's word: left "Auto Free", the
+ * chip drew a bare "Auto" beside its Free tag, which reads as the Auto mode.
+ */
+export function kiloModelName(id: string, name: string): string {
+  const bare = name.replace(/^Kilo Gateway\//i, '')
+  return /^kilo\/kilo-/i.test(id) && !/^kilo /i.test(bare) ? `Kilo ${bare}` : bare
+}
+
 /** A new Kilo conversation sits on Auto Free once the catalogue lists it. */
 export function kiloStartModel(runtime: string, model: string, listed: readonly { readonly runtime: string; readonly id: string }[]): string | undefined {
   if (runtime !== 'kilo' || model !== 'account-default') return undefined

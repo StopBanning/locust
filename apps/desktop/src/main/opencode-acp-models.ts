@@ -7,7 +7,7 @@ import type { AppServerRunProcess, RuntimeDiscovery } from '@teammate/runtime-ad
 import { kiloIsolationEnv } from '@teammate/runtime-adapters'
 
 import { modelOptionOf } from '../shared/acp-agents.js'
-import { KILO_AUTO_FREE_MODEL, kiloModelDescription } from '../shared/kilo-models.js'
+import { KILO_AUTO_FREE_MODEL, kiloModelDescription, kiloModelName } from '../shared/kilo-models.js'
 import type { PublicModel } from '../shared/ipc.js'
 
 const CATALOG_DEADLINE_MS = 20_000
@@ -116,7 +116,7 @@ export async function readOpenCodeAcpModels(runtime: RuntimeDiscovery, options: 
       return [{
         id: model.value,
         runtime: which,
-        displayName: model.name,
+        displayName: which === 'kilo' ? kiloModelName(model.value, model.name) : model.name,
         description: which === 'kilo' ? kiloModelDescription(model.value) : model.value.endsWith('-free') ? 'Free · no sign-in' : 'Through OpenCode',
         // An ACP effort option applies to the session's current model. It is
         // not a catalog-wide promise and cannot be assigned to every row.

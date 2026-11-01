@@ -215,6 +215,8 @@ const ACCOUNT_DEFAULT_ID = 'account-default'
  */
 export function routeChrome(runtime: MissionRuntimeId, modelId: string, model: string, separator = ' / '): string {
   if (isOwnRoute(modelId)) return model
+  // A name that already starts with the runtime's says it once (0.848): "Kilo Auto Free", not "Kilo / Kilo Auto Free".
+  if (model.toLowerCase().startsWith(`${shortRuntimeName(runtime).toLowerCase()} `)) return model
   // The account's own default is the runtime's name alone: "Codex", not "Codex / Account Default" on every row
   // (declutter, 0.723). What follows the model's name -- a level, " · Medium" -- stays.
   if (modelId === ACCOUNT_DEFAULT_ID) {
@@ -238,6 +240,11 @@ export function modelDisplayName(runtime: string, modelId: string): string {
   // bare, beside a mode, it read as the Auto MODE -- "Auto · running" over an
   // Approve-each turn (drive-copilot-approve-each, 0.377). It says it is one.
   if (modelId.trim().toLowerCase() === 'auto') return 'Auto model'
+  // Kilo names every model it lists, and the names are names, not descriptions (0.848): the chip says what the
+  // picker says, "Auto Free" and "NVIDIA: Nemotron 3.5 Lightning (free)", where it spelled the ids "Kilo Auto/Free"
+  // and "Nvidia/Nemotron 3.5 Lightning:free".
+  const kilos = runtime === 'kilo' ? catalogSpellings.get(`kilo:${modelId}`) : undefined
+  if (kilos !== undefined) return kilos
   const named = modelLabelFor(runtime, modelId)
   const slash = named.indexOf('/')
   if (slash > 0) {
