@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.854.0 - 2026-11-02
+
+### Fixed
+
+- **After Stop and switch, a teammate's automatic follow-up stays on the model you switched to.** When an answer from another teammate came back, or one wrote back, the follow-up ran on the model saved on the teammate's profile, often the one that had just run out, and stalled offering the same switch. It now runs on the model that conversation last ran on, at its level and account.
+- **A Mac no longer asks for your password after an update unless Locust keeps a key there.** Locust read the keychain on every launch and every run, keys or none, so after each update macOS asked for your password, and the window froze until you answered. Now only a key you keep opens it: a teammate's key, a voice key, a chat app's bot, your own model's key, a called link or your account's sync.
+- **When it must ask, the window says so first.** On the first launch after an update, with a key kept, Locust opens its window and says that macOS may ask for your Mac's password, and that the box may be behind the window. Only then does it open the keychain.
+
 ## 0.853.0 - 2026-11-01
 
 ### Improved
