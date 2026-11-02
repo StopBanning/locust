@@ -25473,3 +25473,92 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 :root[data-look='liquid'] .lc-composer__box:hover {
   box-shadow: inset 0 0 0 0.5px var(--lc-border-hover), inset 0 1px 0 var(--lc-liquid-rim-top), 0 10px 30px rgba(0, 0, 0, 0.22);
 }
+
+/*
+ * SETTINGS AND HOME, SET LIKE A MAC'S (0.857). Colin, 2026-11-02: "our settings and homepage look a little sloppy
+ * compared to everything else ... try to replicate apple or claude". Held against the HIG (typography.md: a Mac's
+ * body is 13pt and hierarchy is carried by size and weight; layout.md: group, align, give a control a consistent
+ * place) and Claude's own settings. The hairline rows Colin chose in 0.393, the wordmark capitals and the badges stay.
+ *
+ * Settings had one size for everything above a row: the page's name, "Your account" and "Send button" all read at
+ * 16px, so a page had no top. Its rows read at 13px over 12px lines, smaller than a Mac's own. Paragraphs ran to
+ * whatever width they were given (Your account's spanned the pane), and a sentence ending in a button left the
+ * button wherever the words stopped.
+ */
+/* Every page opens on its name at one size: the three that open on switches carry a pagehead, the rest a heading. */
+.lc-settings__pane .lc-settings__pagehead,
+.lc-settings__pane > :first-child > .lc-settings__heading:first-child:not(.lc-settings__heading--section) {
+  margin: 2px 0 var(--lc-space-4);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.lc-settings__pane .lc-settings__heading:not(.lc-settings__heading--section) {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.lc-settings__pane .lc-settingline .lc-settings__heading:not(.lc-settings__heading--section) {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+.lc-settings__pane .lc-settings__lede,
+.lc-settings__pane .lc-settings__note {
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.lc-settings__pane .lc-settings__section--line {
+  padding: 16px 0;
+}
+
+/* A sentence that ends in a button: the words at the left, the button at the right edge, as every row's control. */
+.lc-settings__pane p.lc-settings__note:has(> .lc-control:last-child) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lc-space-5);
+  max-width: none;
+}
+
+.lc-settings__pane p.lc-settings__note > .lc-control:last-child {
+  flex: none;
+}
+
+/* A setting under another: indented, with a quiet rule rather than a control's border. */
+.lc-settings__pane .lc-settingline--sub {
+  border-left-color: var(--lc-border-hairline);
+}
+
+/*
+ * Home's four starters each said Compare at full strength, four times down one column. On a Mac pointer the button
+ * waits for its row, as a Finder row's actions do; on a touch screen, where nothing hovers, it stays (its 0.610 rule).
+ */
+@media (hover: hover) and (pointer: fine) {
+  .lc-homestart__compare {
+    opacity: 0;
+    transition: opacity var(--lc-motion-hover) var(--lc-ease), color var(--lc-motion-hover) var(--lc-ease), border-color var(--lc-motion-hover) var(--lc-ease), background var(--lc-motion-hover) var(--lc-ease);
+  }
+
+  .lc-homestart:hover .lc-homestart__compare,
+  .lc-homestart:focus-within .lc-homestart__compare {
+    opacity: 1;
+  }
+}
+
+/* A free model's tag: said in the line's own muted voice, not a box beside the name. */
+.lc-hometeam__free {
+  padding: 0;
+  border: 0;
+  color: var(--lc-text-muted);
+  font-size: var(--lc-text-description);
+}
+
+.lc-hometeam__free::before {
+  content: '·' / '';
+  margin-right: var(--lc-space-2);
+}

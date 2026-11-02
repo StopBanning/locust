@@ -2057,7 +2057,11 @@ export function SettingsScreen({
           * Skills from GitHub, Send button -- so a section mid-page outranked everything above it. Claude's own
           * settings open each group with its name at that size. The other pages already open on a heading.
           */}
-        {(shownPage === 'app' || shownPage === 'teammates' || shownPage === 'appearance') && (
+        {/*
+          * And a page whose first heading names one part of it (0.857): Chat opened on "Your commands", Connectors on
+          * "GitHub", Memory and What's new on a section of theirs. Pages whose first heading is their own name keep it.
+          */}
+        {(shownPage === 'app' || shownPage === 'teammates' || shownPage === 'appearance' || shownPage === 'chat' || shownPage === 'memory' || shownPage === 'connectors' || shownPage === 'whatsnew') && (
           <p className="lc-settings__pagehead">{SETTINGS_PAGES.find((entry) => entry.id === shownPage)?.label}</p>
         )}
         {/*
