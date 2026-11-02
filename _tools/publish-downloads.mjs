@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 
 const BUCKET = 'locust-downloads'
 const DOWNLOADS = 'https://dl.locust.lol/'
@@ -59,15 +59,18 @@ function put(key, file, { fresh = false } = {}) {
   }
 }
 // Where node keeps npm: beside node.exe on Windows, and in ../lib/node_modules beside bin/node on a Mac or Linux
-// (Homebrew's and nodejs.org's layout). The Mac publishes since the PC's retirement (2026-10-30).
-const npxCliPlaces = (execPath) => [
+// (Homebrew's and nodejs.org's layout). The Mac publishes since the PC's retirement (2026-10-30). Homebrew's node
+// runs from its versioned Cellar folder while npm lives under the prefix (/opt/homebrew/lib/node_modules), so each
+// folder on PATH is looked beside too: 0.855's upload found no npx after a node update (2026-11-02).
+const npxCliPlaces = (execPath, path = process.env.PATH ?? '') => [
   join(execPath, '..', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
-  join(execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js')
+  join(execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js'),
+  ...path.split(delimiter).filter((folder) => folder !== '').map((folder) => join(folder, '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js'))
 ]
 function npxCli() {
   const places = npxCliPlaces(process.execPath)
   const cli = places.find((place) => existsSync(place))
-  if (cli === undefined) fail(`npx is not where node keeps it (${places.join(' or ')})`)
+  if (cli === undefined) fail(`npx is not where node keeps it (${places.slice(0, 2).join(' or ')}, nor beside a folder on PATH)`)
   return cli
 }
 // What the world sees, not what the upload said: a HEAD over HTTPS, at the size on disk.
