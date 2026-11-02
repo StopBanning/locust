@@ -35,7 +35,10 @@ if (built === undefined || image === undefined) {
   console.log('usage: node _smoke/mac-update-smoke.mjs <Locust.app> <Locust.dmg>')
   process.exit(2)
 }
-const APP = '/Applications/Locust.app'
+// /Applications on GitHub's Mac. On Colin's own Mac, the CI runner since 2026-11-02, a folder of the job's: his
+// Locust lives in /Applications, and this check replaces what it finds there.
+const APPLICATIONS = process.env.LOCUST_SMOKE_APPLICATIONS ?? '/Applications'
+const APP = `${APPLICATIONS}/Locust.app`
 const BINARY = `${APP}/Contents/MacOS/Locust`
 const MARKER = `${APP}/Contents/Resources/locust-update-smoke-old.txt`
 const PORT = portFor(import.meta.url)
@@ -66,6 +69,7 @@ const running = () => {
 }
 
 // 1. Installed, as a person's drag leaves it, and marked as the old copy.
+execFileSync('mkdir', ['-p', APPLICATIONS])
 execFileSync('rm', ['-rf', APP])
 execFileSync('ditto', [built, APP])
 await writeFile(MARKER, 'the copy that was installed first\n', 'utf8')
@@ -78,7 +82,8 @@ if (!(await waitForPortFree(PORT))) {
 
 // 2. Started with its own disk image offered as a newer version.
 const profile = await mkdtemp(join(tmpdir(), 'locust-mac-update-profile-'))
-const child = spawn(BINARY, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], {
+// The mock keychain: a test copy never opens the keychain item the person's own Locust keeps.
+const child = spawn(BINARY, ['--use-mock-keychain', `--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`], {
   cwd: profile,
   env: { ...process.env, LOCUST_FREE_ONLY: '1', LOCUST_MAC_UPDATE_TEST_DMG: image, LOCUST_MAC_UPDATE_TEST_VERSION: '9.9.9' },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -178,7 +183,7 @@ try {
   })()`)
   const state = JSON.parse(String(ready))
   check('the update service says 9.9.9 is downloaded and ready', state?.phase === 'ready' && state?.availableVersion === '9.9.9', String(ready))
-  check('the new copy is staged beside the old one', existsSync('/Applications/.Locust-update.app'))
+  check('the new copy is staged beside the old one', existsSync(`${APPLICATIONS}/.Locust-update.app`))
   const firstPid = child.pid
 
   const pressed = await evaluate(`window.desktop.installUpdate().then((answer) => JSON.stringify(answer.ok ? { ok: true } : answer.error))`).catch((error) => JSON.stringify({ gone: String(error?.message ?? error) }))
@@ -193,7 +198,7 @@ try {
     again = running().filter((pid) => pid !== String(firstPid))
   }
   check('the app in /Applications is the new copy: the old one\'s marker is gone', !existsSync(MARKER))
-  check('nothing staged or set aside is left', !existsSync('/Applications/.Locust-update.app') && !existsSync(`${APP}.replaced`))
+  check('nothing staged or set aside is left', !existsSync(`${APPLICATIONS}/.Locust-update.app`) && !existsSync(`${APP}.replaced`))
   check('and Locust is running again from /Applications', again.length > 0, again.join(','))
   for (const pid of again) {
     try { process.kill(Number(pid)) } catch { /* gone */ }

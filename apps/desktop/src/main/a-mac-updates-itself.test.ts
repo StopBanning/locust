@@ -42,7 +42,7 @@ describe('where a Mac Locust can replace itself', () => {
 })
 
 describe('a Mac update, from check to swap', () => {
-  const setup = async (digest: string) => {
+  const setup = async (digest: string, more: Partial<Parameters<typeof createMacUpdater>[0]> = {}) => {
     root = await mkdtemp(join(tmpdir(), 'locust-mac-update-'))
     const commands: string[] = []
     const swaps: { script: string; args: readonly string[] }[] = []
@@ -65,7 +65,8 @@ describe('a Mac update, from check to swap', () => {
         if (command === 'hdiutil' && args[0] === 'attach') await mkdir(join(args[args.length - 1]!, 'Locust.app'), { recursive: true })
         return { code: 0, output: '' }
       },
-      startSwap: (script, args) => swaps.push({ script, args })
+      startSwap: (script, args) => swaps.push({ script, args }),
+      ...more
     })
     for (const event of ['download-progress', 'update-downloaded', 'error']) updater.on(event, () => events.push(event))
     updater.autoDownload = true
@@ -103,6 +104,25 @@ describe('a Mac update, from check to swap', () => {
     expect(await readFile(swaps[0]!.script, 'utf8')).toBe(SWAP_SCRIPT)
   })
 
+  it("a person's update reopens Locust as it always has: the check's relaunch arguments are never passed", async () => {
+    const { updater, swaps, quitCount } = await setup(sha, { relaunch: ['--user-data-dir=/elsewhere'] })
+    await (await updater.checkForUpdates())?.downloadPromise
+    updater.quitAndInstall(true, true)
+    await vi.waitFor(() => expect(quitCount()).toBe(1))
+    expect(swaps[0]!.args).toHaveLength(3)
+  })
+
+  it("the Mac CI's check reopens its copy on its own profile, so on Colin's Mac it never opens his", async () => {
+    const { updater, swaps, quitCount } = await setup(sha, {
+      testImage: { path: '/tmp/Locust-9.9.9-mac-arm64.dmg', version: '9.9.9' },
+      relaunch: ['--user-data-dir=/tmp/check-profile', '--use-mock-keychain']
+    })
+    await (await updater.checkForUpdates())?.downloadPromise
+    updater.quitAndInstall(true, true)
+    await vi.waitFor(() => expect(quitCount()).toBe(1))
+    expect(swaps[0]!.args.slice(3)).toEqual(['--user-data-dir=/tmp/check-profile', '--use-mock-keychain'])
+  })
+
   it('offers nothing when this is already the newest', async () => {
     root = await mkdtemp(join(tmpdir(), 'locust-mac-update-'))
     const updater = createMacUpdater({ currentVersion: '0.517.0', arch: 'arm64', bundle: join(root, 'Locust.app'), cacheFolder: root, quit: () => undefined, fetchReleases: async () => releases(sha) })
@@ -134,6 +154,25 @@ describe.runIf(shell)('the swap script, run', () => {
     expect(await readFile(join(app, 'version'), 'utf8')).toBe('new')
     expect(existsSync(next)).toBe(false)
     expect(existsSync(`${app}.replaced`)).toBe(false)
+  })
+
+  it('opens the app as a person expects, and only with more arguments, behind the windows in front, with them', async () => {
+    root = await mkdtemp(join(tmpdir(), 'locust-swap-'))
+    const bin = join(root, 'bin')
+    await mkdir(bin)
+    // `open` stood in for: it writes down how it was asked.
+    await writeFile(join(bin, 'open'), `#!/bin/sh\necho "$@" >> "${join(root, 'opened').replace(/\\/g, '/')}"\n`, { mode: 0o755 })
+    const script = join(root, 'swap.sh')
+    await writeFile(script, SWAP_SCRIPT)
+    const env = { ...process.env, PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` }
+    for (const extra of [[], ['--user-data-dir=/tmp/check profile', '--use-mock-keychain']]) {
+      const app = join(root, 'Locust.app').replace(/\\/g, '/')
+      await mkdir(app, { recursive: true })
+      try { execFileSync('sh', [script, '999999', app, join(root, 'missing.app').replace(/\\/g, '/'), ...extra], { stdio: 'ignore', env }) } catch { /* reported by the file */ }
+    }
+    const opened = (await readFile(join(root, 'opened'), 'utf8')).trim().split('\n')
+    expect(opened[0]).toMatch(/^\S*Locust\.app$/)
+    expect(opened[1]).toMatch(/^-g \S*Locust\.app --args --user-data-dir=\/tmp\/check profile --use-mock-keychain$/)
   })
 
   it('and when the new one cannot be moved in, puts the old one back', async () => {

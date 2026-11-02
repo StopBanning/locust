@@ -2,7 +2,7 @@
 # mac-retry.sh RUN [TRIES] (2026-11-01): rerun a release run's macOS job while GitHub has no arm64 runner for it --
 # only when the last attempt was cancelled with no runner assigned, never after a real failure. Prints one line when it
 # ends. Then mac-attach-dl.sh VERSION RUN and github-release.mjs VERSION.
-RUN="$1"; TRIES="${2:-10}"; REPO=StopBanning/locust
+RUN="$1"; TRIES="${2:-2}"; REPO=StopBanning/locust
 mac_state() { gh run view "$RUN" -R "$REPO" --json jobs --jq '.jobs[] | select(.name|test("macos")) | "\(.status) \(.conclusion)"' 2>/dev/null; }
 last_runner() {
   local attempt; attempt=$(gh run view "$RUN" -R "$REPO" --json attempt --jq .attempt 2>/dev/null)

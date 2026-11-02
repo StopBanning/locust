@@ -86,7 +86,9 @@ export const SWAP_SCRIPT = [
   'if mv "$APP" "$OLD"; then',
   '  if mv "$NEW" "$APP"; then rm -rf "$OLD"; else mv "$OLD" "$APP"; fi',
   'fi',
-  'open "$APP"',
+  '# Only the Mac CI check passes more: its copy reopens on its own profile, behind the windows in front.',
+  'shift 3',
+  'if [ "$#" -gt 0 ]; then open -g "$APP" --args "$@"; else open "$APP"; fi',
   ''
 ].join('\n')
 
@@ -111,6 +113,12 @@ export interface MacUpdaterOptions {
    * by the app itself.
    */
   readonly testImage?: { readonly path: string; readonly version: string }
+  /**
+   * With `testImage` only: what the reopened copy starts with, so the check's
+   * copy comes back on its own profile, never the person's, and behind their
+   * windows. The check now also runs on Colin's own Mac (2026-11-02).
+   */
+  readonly relaunch?: readonly string[]
 }
 
 /** Only at startup, before an update can be downloaded or installed. */
@@ -247,7 +255,7 @@ export function createMacUpdater(options: MacUpdaterOptions): UpdaterLike {
       if (ready === undefined || !existsSync(staged)) return
       const script = join(tmpdir(), `locust-swap-${String(Date.now())}.sh`)
       void writeFile(script, SWAP_SCRIPT, { encoding: 'utf8', mode: 0o755 }).then(() => {
-        const args = [String(options.pid ?? process.pid), options.bundle, staged]
+        const args = [String(options.pid ?? process.pid), options.bundle, staged, ...(options.testImage === undefined ? [] : options.relaunch ?? [])]
         if (options.startSwap !== undefined) options.startSwap(script, args)
         else spawn('/bin/sh', [script, ...args], { detached: true, stdio: 'ignore' }).unref()
         options.quit()

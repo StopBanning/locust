@@ -9450,7 +9450,10 @@ if (!ownsSingleInstanceLock) {
             bundle: macBundle,
             cacheFolder: join(app.getPath('userData'), 'mac-updates'),
             quit: () => app.quit(),
-            ...(macTestImage === undefined ? {} : { testImage: macTestImage })
+            ...(macTestImage === undefined ? {} : {
+              testImage: macTestImage,
+              relaunch: [`--user-data-dir=${app.getPath('userData')}`, ...(app.commandLine.hasSwitch('use-mock-keychain') ? ['--use-mock-keychain'] : [])]
+            })
           }),
       everyBuild: lane.everyBuild,
       currentVersion: appVersion,

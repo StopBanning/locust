@@ -106,7 +106,9 @@ if (!(await waitForPortFree(PORT))) {
 }
 console.log(`model: ${MODEL}`)
 const before = new Set(opencodes())
-const child = spawn(app, [`--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`, `--workspace=${workspace}`], {
+// On a Mac the mock keychain: a test copy never opens the keychain item the person's own Locust keeps.
+const keychain = process.platform === 'darwin' ? ['--use-mock-keychain'] : []
+const child = spawn(app, [...keychain, `--remote-debugging-port=${String(PORT)}`, `--user-data-dir=${profile}`, `--workspace=${workspace}`], {
   cwd: profile,
   env: { ...process.env, LOCUST_FREE_ONLY: '1' },
   stdio: ['ignore', 'pipe', 'pipe']

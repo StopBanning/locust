@@ -55,11 +55,19 @@ jobs:
         # macos-15, not macos-14 (0.848): GitHub retires the macOS 14 images on 2026-11-02, and their last brownout
         # cancelled 0.848's Mac build (actions/runner-images#13518). mac-attach-dl.sh reads the image from the job name.
         os: ${{ fromJSON(inputs.only == 'linux' && '["ubuntu-24.04"]' || '["windows-latest", "macos-15", "ubuntu-24.04"]') }}
-    runs-on: ${{ matrix.os }}
+    # The Mac build runs on Colin's Mac mini (2026-11-02): GitHub's macos-15 queue gave 0.851-0.855 no runner for hours,
+    # thirteen times for 0.855. The job keeps its name. The runner's own hook refuses every job but this workflow,
+    # started by hand on main (_tools/mac-runner-guard.sh), so no pull request reaches that Mac.
+    runs-on: ${{ matrix.os == 'macos-15' && fromJSON('["self-hosted", "macOS", "ARM64", "locust-mac"]') || matrix.os }}
     timeout-minutes: 45
+    env:
+      # Colin's Mac: no signing identity is looked for in his keychain.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -164,8 +172,9 @@ jobs:
       # not bare). Reported, not yet required: a free provider can be down for
       # hours, and that is not Locust's to fix. Runs before anything below
       # installs OpenCode.
+      # Not on Colin's Mac: it moves node and npm out of Homebrew's folders with sudo.
       - name: First hour on a bare Mac
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && runner.environment != 'self-hosted'
         continue-on-error: true
         # It passes in under two minutes. 0.836's hung for 43, and the job's limit then took the checks that gate the dmgs.
         timeout-minutes: 12
@@ -186,7 +195,7 @@ jobs:
       - name: Nothing left from the first hour
         if: runner.os == 'macOS' && always()
         run: |
-          pkill -9 -f 'release/mac-arm64/Locust.app/Contents/MacOS/' || true
+          pkill -9 -f "$GITHUB_WORKSPACE/apps/desktop/release/mac-arm64/Locust.app/Contents/MacOS/" || true
           for d in /opt/homebrew/bin /usr/local/bin; do
             for f in "$d"/*.locust-hidden; do
               if [ -e "$f" ] || [ -L "$f" ]; then sudo mv "$f" "${f%.locust-hidden}"; echo "put back ${f%.locust-hidden}"; fi
@@ -204,9 +213,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       # npm runs OpenCode's install script, which fetches its program, only when asked.
+      # Into a folder of the job's, never Colin's own global npm.
       - name: Install OpenCode for the Mac launch check
         if: runner.os == 'macOS'
-        run: npm install -g --allow-scripts=opencode-ai opencode-ai
+        run: |
+          npm install -g --prefix "$RUNNER_TEMP/opencode" --allow-scripts=opencode-ai opencode-ai
+          echo "$RUNNER_TEMP/opencode/bin" >> "$GITHUB_PATH"
       - name: Launch, run and Stop on macOS
         if: runner.os == 'macOS'
         run: |
@@ -216,6 +228,9 @@ jobs:
         if: runner.os == 'macOS'
         # It passes in under a minute and stops itself at six.
         timeout-minutes: 8
+        # On Colin's Mac it installs into a folder of the job's, never the /Applications his own Locust is in.
+        env:
+          LOCUST_SMOKE_APPLICATIONS: ${{ runner.environment == 'self-hosted' && format('{0}/Applications', runner.temp) || '/Applications' }}
         run: node _smoke/mac-update-smoke.mjs apps/desktop/release/mac-arm64/Locust.app "$(ls apps/desktop/release/*-mac-arm64.dmg | head -1)"
       - name: Keep the update check's log
         if: runner.os == 'macOS' && always()
