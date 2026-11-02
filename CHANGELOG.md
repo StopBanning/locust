@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.856.0 - 2026-11-02
+
+### Fixed
+
+- **Liquid glass reaches the Mac.** 0.855 went out for Windows and Linux only: its Mac build waited all morning for a Mac that GitHub never had free. Mac copies now update straight from 0.854 to this build, with Settings > Appearance > Look > Liquid glass in it. Mac builds are now made on Locust's own Mac, so a busy queue at GitHub no longer holds them up.
+
 ## 0.855.0 - 2026-11-02
 
 ### New
