@@ -124,6 +124,19 @@ export function createRoutineHooks(options: {
     } catch { return [] }
   }
   /**
+   * Whether a link is kept at all, read without opening one (0.854): the keychain is asked only when one is. A file
+   * that is there but cannot be read counts as kept, so load says what is wrong with it, as before.
+   */
+  const keepsAny = async (): Promise<boolean> => {
+    if (loaded) return Object.keys(saved.entries).length > 0
+    try {
+      const disk = JSON.parse(await readFile(options.file, 'utf8')) as { readonly entries?: unknown }
+      return typeof disk.entries !== 'object' || disk.entries === null || Object.keys(disk.entries).length > 0
+    } catch (error) {
+      return (error as NodeJS.ErrnoException).code !== 'ENOENT'
+    }
+  }
+  /**
    * A LINK THE RECORD CANNOT OPEN IS STILL CLOSED (2026-10-26). Closing needs only the hook id, which is the routine's
    * id, never the password. When the file cannot be read or this computer cannot decrypt it, every link that could be
    * registered is closed at the relay (those the file names, and every routine that is called by a link) so it stops
@@ -200,15 +213,22 @@ export function createRoutineHooks(options: {
   }
   return {
     state: (id: string, replace = false) => serial(() => state(id, replace)),
+    keepsKey: keepsAny,
     /** Close tombstones survive a disconnected editor and are sent on reconnection. */
     sync: (): Promise<void> => {
       if (syncing !== undefined) return syncing
       const work = serial(async () => {
+      const routines = await options.routines()
+      /*
+       * Nothing kept, and no routine called by a link: the keychain is not asked (0.854). On a Mac, asking whether a key
+       * can be locked reads the keychain, so every launch's first sync did -- and after an update macOS asked for the
+       * password then, with the window frozen until it was answered.
+       */
+      if (!routines.some((routine) => routine.schedule?.kind === 'hook') && !(await keepsAny())) return
       if (!options.secrets.available()) { await closeUnusable(); return }
       try { await load() } catch (error) { await closeUnusable(); throw error }
       const relay = options.relay()
       const room = relay?.room()
-      const routines = await options.routines()
       for (const [id, old] of Object.entries(saved.entries)) {
         const retiredNow = freshRetired(old.retired, now())
         let current = old

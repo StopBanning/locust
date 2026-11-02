@@ -124,6 +124,7 @@ export const LEFT_OUT: Readonly<Record<string, string>> = {
   'queued-messages.json': 'messages waiting to send from here: a restore never sends anything',
   'away.json': 'what happened while this machine was away',
   'seen-version.json': 'which version this machine last showed',
+  'keychain-opened.json': 'which version last opened this machine\'s keychain',
   'update-lane.json': 'this machine\'s update choice',
   'window.json': 'this machine\'s window size and place',
   'workspace.json': 'the folder this machine last had open',

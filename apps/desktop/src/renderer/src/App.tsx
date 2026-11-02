@@ -174,6 +174,7 @@ import { interviewPrompt } from '../../shared/interview.js'
 import type { StartAs } from '../../shared/route-at-start.js'
 import type { Screen } from './components/Screens.js'
 import { Icon } from './components/Icon.js'
+import { KeychainNote } from './components/KeychainNote.js'
 import { NewTeammateDialog } from './components/NewTeammateDialog.js'
 import type { TeammateDraft } from './components/NewTeammateDialog.js'
 import { templateAvatar } from './components/TeamTemplates.js'
@@ -519,6 +520,8 @@ function applyMissionUpdate(run: LiveRunState, update: CodexMissionUpdate): Live
   // A scheduled routine that would not start has no run to belong to.
   if (update.kind === 'routine-blocked') return live
   if (update.kind === 'routine-recovery-changed') return live
+  // macOS may be asking for the keychain (0.854): the window's, not a run's.
+  if (update.kind === 'keychain') return live
 
   if (update.kind === 'message-deltas') {
     return {
@@ -2179,6 +2182,8 @@ export default function App(): ReactElement {
   const [computerOn, setComputerOn] = useState(false)
   /** Ctrl+F, counted (0.769): the conversation on screen opens its find bar on each new number. */
   const [findRequest, setFindRequest] = useState(0)
+  // MACOS MAY BE ASKING (0.854, KeychainNote): the host says so before it opens the keys it keeps.
+  const [keychainAsking, setKeychainAsking] = useState(false)
   // YOUR CLOUD COMPUTER (0.761): the turns that ran there, by mission, and the first-time dialog.
   const [cloudTurns, setCloudTurns] = useState<ReadonlyMap<string, PublicCloudTurn>>(() => new Map())
   const [cloudSetup, setCloudSetup] = useState<CloudSetupState>()
@@ -3234,6 +3239,10 @@ export default function App(): ReactElement {
     })
 
     const removeMissionListener = bridge.onCodexMissionUpdate((update) => {
+      if (update.kind === 'keychain') {
+        setKeychainAsking(update.asking)
+        return
+      }
       // A start's phase (0.602) arrives before the run knows its id: matched by teammate, not by id.
       if (update.kind === 'start-phase') setRuns((current) => withStartPhase(current, update))
       if (update.kind === 'cloud-turn') setCloudTurns((current) => new Map(current).set(update.turn.missionId, update.turn))
@@ -3548,6 +3557,8 @@ export default function App(): ReactElement {
       const isDelta = update.kind === 'event' && update.event.type === 'message.delta'
       frameBatcher.current.push(update, !isDelta)
     })
+    // Asked once this window listens, which is what the host waits for before it says anything (0.854).
+    void bridge.keychainAsking?.().then((said) => { if (active) setKeychainAsking(said.asking) }).catch(() => undefined)
 
     const stopUpdates = bridge.onUpdateState((state) => {
       if (active) setUpdate(state)
@@ -10725,6 +10736,7 @@ export default function App(): ReactElement {
               <span>{rowNotice}</span>
             </div>
           )}
+          <KeychainNote asking={keychainAsking} />
           {talkNotice !== undefined && (
             <div className="lc-diagnostic lc-tone-amber" role="alert" data-talk-notice="">
               <Icon name="waveform" size={12} />

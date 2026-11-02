@@ -266,6 +266,8 @@ export const MISSION_HISTORY_CHANNEL = 'mission-history:list'
 export const MISSION_READ_CHANNEL = 'mission-history:read'
 export const MISSION_DELETE_CHANNEL = 'mission:delete'
 export const APP_INFO_CHANNEL = 'app:info'
+/** 0.854: whether macOS may be asking for the keychain now (main/keychain.ts), asked once the window listens. */
+export const KEYCHAIN_ASKING_CHANNEL = 'keychain:asking'
 /** 0.379: how many things need the person, for the taskbar's dot and flash. */
 export const NEEDS_YOU_COUNT_CHANNEL = 'attention:needs-you-count'
 /** 0.379: a long run the person started finished; main says it if the window is elsewhere. */
@@ -3315,6 +3317,11 @@ export type CodexMissionUpdate =
       readonly events: readonly Extract<NormalizedRuntimeEvent, { readonly type: 'message.delta' }>[]
     }
   | {
+      /** macOS may be asking for the person's password to open the keys Locust keeps (0.854, main/keychain.ts). */
+      readonly kind: 'keychain'
+      readonly asking: boolean
+    }
+  | {
       /** A turn on the cloud computer: where it ran, and what became of its change (0.761). */
       readonly kind: 'cloud-turn'
       readonly turn: PublicCloudTurn
@@ -3846,6 +3853,8 @@ export interface DesktopApi {
   toggleMaximize(): void
   close(): void
   getAppInfo(): Promise<AppInfo>
+  /** Whether macOS may be asking for the keychain now (0.854). Asked once the window listens, which the host waits for. */
+  keychainAsking(): Promise<{ readonly asking: boolean }>
   /** What changed in the running build, and whether this is its first launch. */
   getChangelog(): Promise<AppChangelog>
   /**

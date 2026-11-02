@@ -27,6 +27,8 @@ export interface TeammateKeys {
   runKeys(teammateId: string): Promise<readonly RunKey[]>
   /** A removed teammate's keys go with it. */
   forget(teammateId: string): Promise<void>
+  /** Whether any teammate has a key kept, read without opening one (0.854, keychain.ts). */
+  keepsKey(): Promise<boolean>
 }
 
 export function createTeammateKeys(options: {
@@ -102,6 +104,9 @@ export function createTeammateKeys(options: {
     },
     async runKeys(teammateId) {
       const kept = (await load()).teammates[teammateId] ?? {}
+      // None kept for them: the keychain is not asked (0.854). Every run start asked it, so on a Mac the first message
+      // after an update brought up macOS's password box, with the window frozen until it was answered.
+      if (Object.keys(kept).length === 0) return []
       if (!options.secrets.available()) return []
       const keys: RunKey[] = []
       for (const [name, cipher] of Object.entries(kept)) {
@@ -118,6 +123,9 @@ export function createTeammateKeys(options: {
         delete teammates[teammateId]
         await save({ schemaVersion: 1, teammates })
       })
+    },
+    async keepsKey() {
+      return Object.values((await load()).teammates).some((kept) => Object.keys(kept).length > 0)
     }
   }
 }

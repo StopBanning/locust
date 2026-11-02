@@ -294,6 +294,8 @@ export function createYourAccount(options: {
     async start(): Promise<void> {
       if ((await read())?.on === true) { watch(true); schedule.touched() }
     },
+    /** Whether a locked profile key is kept here, on or off, read without opening it (0.854, keychain.ts). */
+    keepsKey: async (): Promise<boolean> => (await read()) !== undefined,
     /** Something changed, or a run ended. */
     touched(): void { schedule.touched() },
     /**

@@ -312,6 +312,7 @@ import { FIRST_SCREEN_DEADLINE_MS, keepWhatWasAnswered, settleWithin, type Sweep
 import { createAntigravityHostProbe } from './antigravity-host.js'
 import { AntigravityStartError, antigravityStartRefusal, createAntigravityMissionService } from './antigravity-mission.js'
 import type { Relay, TurnRoute } from './relay.js'
+import { createKeychain } from './keychain.js'
 import { createRuntimeDiscoveryService, RUNTIME_DISCOVERY_CHANNEL } from './runtime-discovery.js'
 import { bootOutcome, createDiscoveryLog } from './discovery-log.js'
 import { createRuntimeFactsStore } from './runtime-facts.js'
@@ -341,6 +342,7 @@ import {
   MISSION_HANDOFF_CHANNEL,
   MISSION_RESUME_CHANNEL,
   APP_INFO_CHANNEL,
+  KEYCHAIN_ASKING_CHANNEL,
   NEEDS_YOU_COUNT_CHANNEL,
   AWAY_SINCE_GET_CHANNEL,
   AWAY_SINCE_CHANNEL,
@@ -2063,17 +2065,36 @@ if (!ownsSingleInstanceLock) {
     // from the app -- so every memory names who, where and from what.
     const memories = createMemoryStore({ rootDirectory: app.getPath('userData') })
     /*
+     * THE KEYCHAIN (0.854, keychain.ts): asked only for a key, and on a Mac's first launch of a build said in the window
+     * first. Every store that keeps keys is given its `secrets`; the launch's step begins once they all exist.
+     */
+    const keychainOpenedFile = join(app.getPath('userData'), 'keychain-opened.json')
+    let windowListens: () => void = () => undefined
+    const windowListening = new Promise<void>((resolve) => { windowListens = resolve })
+    let keepsAnyKey: () => Promise<boolean> = async () => true
+    const keychain = createKeychain({
+      backend: safeStorage,
+      // A drive reads a mock keychain (drive-lib), which never asks. LOCUST_KEYCHAIN_ASKS=1 has one say the note
+      // anyway, so a drive can see it -- never in a packaged app.
+      mayAsk: process.platform === 'darwin'
+        && (!app.commandLine.hasSwitch('use-mock-keychain') || (!app.isPackaged && process.env.LOCUST_KEYCHAIN_ASKS === '1')),
+      version: app.getVersion(),
+      openedBy: async () => (JSON.parse(await readFile(keychainOpenedFile, 'utf8')) as { readonly version?: string }).version,
+      rememberOpened: (version) => writeFile(keychainOpenedFile, JSON.stringify({ version }), 'utf8'),
+      keepsKey: () => keepsAnyKey(),
+      windowListening: () => windowListening,
+      say: (asking) => sendToWindow({ kind: 'keychain', asking }),
+      // The drive's note stays up 3 s, long enough to be seen and pictured.
+      ...(app.isPackaged || process.env.LOCUST_KEYCHAIN_ASKS !== '1' ? {} : { drawMs: 3_000 })
+    })
+    /*
      * The person's own models (0.357): their company's endpoint, or one on
      * this machine, run through OpenCode. A key is kept only as the
      * operating system encrypts it (safeStorage: DPAPI on Windows).
      */
     const ownModels = createOwnModelStore({
       rootDirectory: app.getPath('userData'),
-      secrets: {
-        available: () => safeStorage.isEncryptionAvailable(),
-        encrypt: (text) => safeStorage.encryptString(text),
-        decrypt: (cipher) => safeStorage.decryptString(cipher)
-      },
+      secrets: keychain.secrets,
       // Priced from OpenCode's own copy of models.dev's list (0.810), where the model is its provider's own.
       prices: createPriceList({ path: openCodePriceListPath(process.env, homedir()) })
     })
@@ -2082,7 +2103,7 @@ if (!ownsSingleInstanceLock) {
     // Keys a teammate needs (0.833, teammate-keys.ts): by name to the window, by value only to that teammate's runs.
     const teammateKeys = createTeammateKeys({
       directory: app.getPath('userData'),
-      secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) }
+      secrets: keychain.secrets
     })
     let memoryWorkspaceId = workspaceChosen ? workspaceIdFor(workspacePath) : 'ws_none'
     let memoryWorkspaceName = workspaceChosen ? basename(workspacePath) || workspacePath : 'no folder'
@@ -4246,13 +4267,14 @@ if (!ownsSingleInstanceLock) {
     turnWrote = (workspace, paths) => fileArrivals.wrote(workspace, paths)
     let hookRelay: HookRelay | undefined
     const routineHooks = createRoutineHooks({
-      secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
+      secrets: keychain.secrets,
       file: join(app.getPath('userData'), ROUTINE_HOOKS_FILE), relay: () => hookRelay,
       routines: () => routines.list(),
       lost: async (id, count, at) => { await routines.recordHookLoss(id, count, at); sendToWindow({ kind: 'routine-recovery-changed' }) },
       tick: () => { if (workspaceChosen) void routineRunner?.tick(new Date()).catch(() => undefined) }
     })
-    const syncHooks = (): void => { void routineHooks.sync().catch(() => note('routine', 'The called links could not be collected. They will be tried again when the relay connects.')) }
+    // After the keychain's step (0.854): a sync with links kept opens them, and macOS may ask then.
+    const syncHooks = (): void => { void keychain.settled().then(() => routineHooks.sync()).catch(() => note('routine', 'The called links could not be collected. They will be tried again when the relay connects.')) }
     const routineCopies = createRoutineCopies()
     /*
      * The folder's own check (0.534): this folder's command from Settings, the one the after-edits check runs -- never a
@@ -4629,11 +4651,7 @@ if (!ownsSingleInstanceLock) {
       && event.senderFrame.parent === null
 
     // Constructing the host starts no I/O, download, microphone, timer, or sidecar.
-    const voiceSettings = createVoiceSettingsStore(app.getPath('userData'), {
-      available: () => safeStorage.isEncryptionAvailable(),
-      encrypt: (text) => safeStorage.encryptString(text),
-      decrypt: (bytes) => safeStorage.decryptString(bytes)
-    })
+    const voiceSettings = createVoiceSettingsStore(app.getPath('userData'), keychain.secrets)
     const voice = createVoiceHost(join(app.getPath('userData'), 'voice'), { store: voiceSettings })
     voiceForShutdown = voice
     const fromVoiceWindow = (event: Electron.IpcMainInvokeEvent): boolean =>
@@ -9317,6 +9335,16 @@ if (!ownsSingleInstanceLock) {
       }
     })
 
+    // 0.854: the window asks once it listens; once it is showing too, the keychain's step may say its note.
+    ipcMain.handle(KEYCHAIN_ASKING_CHANNEL, (event) => {
+      const window = fromOwnWindow(event) ? BrowserWindow.fromWebContents(event.sender) : null
+      if (window !== null) {
+        if (window.isVisible()) windowListens()
+        else window.once('show', () => windowListens())
+      }
+      return { asking: keychain.asking }
+    })
+
     ipcMain.handle(APP_INFO_CHANNEL, (event) => {
       if (!fromOwnWindow(event)) return { name: 'Locust', version: 'unknown', packaged: app.isPackaged, platform: process.platform, workspaceName: '', workspacePath: '', workspaceMade: false, workspaceEmpty: false, ledgerPath: '' } as const
       // The version electron-builder stamped, which is the one on the installer.
@@ -10499,7 +10527,7 @@ if (!ownsSingleInstanceLock) {
     }
     const chatOptions = (changedChannel: string): ChatLinkOptions => ({
       directory: app.getPath('userData'),
-      secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
+      secrets: keychain.secrets,
       refusal: () => policyFeatureRefusal(organizationPolicy, 'chatApps'),
       computer: () => hostname(),
       team: async () => {
@@ -10537,9 +10565,12 @@ if (!ownsSingleInstanceLock) {
     const slackLink = createSlackLink({ ...chatOptions(SLACK_CHANGED_CHANNEL), api: standIn('LOCUST_SLACK_API', SLACK_API) })
     chatLinks = [discordLink, slackLink, telegramLink]
     app.once('will-quit', () => { for (const link of chatLinks) void link.dispose() })
-    void discordLink.load().catch(() => note('discord', 'Discord could not start. It is off.'))
-    void slackLink.load().catch(() => note('slack', 'Slack could not start. It is off.'))
-    void telegramLink.load().catch(() => note('telegram', 'Telegram could not start. It is off.'))
+    // After the keychain's step (0.854): a kept bot token is opened at load.
+    void keychain.settled().then(() => {
+      void discordLink.load().catch(() => note('discord', 'Discord could not start. It is off.'))
+      void slackLink.load().catch(() => note('slack', 'Slack could not start. It is off.'))
+      void telegramLink.load().catch(() => note('telegram', 'Telegram could not start. It is off.'))
+    })
     const NO_CHAT: ChatAppSettings = { connected: false }
     ipcMain.handle(DISCORD_SETTINGS_CHANNEL, (event) => fromOwnWindow(event) ? discordLink.settings() : NO_CHAT)
     ipcMain.handle(DISCORD_SET_TOKEN_CHANNEL, (event, token: unknown) => fromOwnWindow(event) ? discordLink.setToken(token) : NO_CHAT)
@@ -10613,7 +10644,7 @@ if (!ownsSingleInstanceLock) {
     const yourAccount = createYourAccount({
       profile: app.getPath('userData'),
       link: () => phoneAnywhere.accountLink(),
-      secrets: { available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (cipher) => safeStorage.decryptString(cipher) },
+      secrets: keychain.secrets,
       // The name a new computer's ask and a copy go by: "Colins-Mac-Mini", not the network's "Colins-Mac-Mini.local".
       computer: () => hostname().replace(/\.local$/i, ''),
       appVersion: app.getVersion(),
@@ -10631,7 +10662,21 @@ if (!ownsSingleInstanceLock) {
         return { ok: true } as const
       }
     })
-    void phoneAnywhere.settings().then(() => yourAccount.start(), () => undefined)
+    void phoneAnywhere.settings().then(() => keychain.settled()).then(() => yourAccount.start(), () => undefined)
+    // Every store that keeps a key exists now: the keychain's step may begin (keychain.ts).
+    keepsAnyKey = async () => {
+      const kept = [
+        async () => (await ownModels.list()).some((model) => model.hasKey),
+        () => teammateKeys.keepsKey(),
+        () => routineHooks.keepsKey(),
+        async () => (await voiceSettings.settings()).hasKey,
+        ...chatLinks.map((link) => () => link.keepsKey()),
+        () => yourAccount.keepsKey()
+      ]
+      for (const keeps of kept) if (await keeps().catch(() => true)) return true
+      return false
+    }
+    void keychain.begin()
     app.once('will-quit', () => { yourAccount.stop() })
     const NO_ACCOUNT = { sync: 'off', hasKey: false, syncing: false, message: 'Your account is set in the Locust window on this computer.' } as const
     ipcMain.handle(ACCOUNT_STATUS_CHANNEL, (event) => fromOwnWindow(event) ? yourAccount.status() : NO_ACCOUNT)

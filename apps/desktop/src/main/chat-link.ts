@@ -73,6 +73,8 @@ export interface ChatLinkOptions {
 
 export interface ChatLink {
   load(): Promise<void>
+  /** Whether a bot's token is kept, read without opening it (0.854, keychain.ts). */
+  keepsKey(): Promise<boolean>
   settings(): Promise<ChatAppSettings>
   setToken(token: unknown): Promise<ChatAppSettings>
   newLink(): Promise<ChatAppSettings>
@@ -853,6 +855,11 @@ export function createChatLink(app: ChatApp, options: ChatLinkOptions): ChatLink
   }
 
   return {
+    async keepsKey() {
+      const text = await readFile(file, 'utf8').catch(() => undefined)
+      if (text === undefined) return false
+      try { return typeof (JSON.parse(text) as Record<string, unknown>).token === 'string' } catch { return false }
+    },
     async load() {
       const text = await readFile(file, 'utf8').catch(() => undefined)
       if (text === undefined) return
