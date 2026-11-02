@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.855.0 - 2026-11-02
+
+### New
+
+- **Liquid glass, on a Mac.** Settings > Appearance > Look > Liquid glass puts the whole window on macOS's own glass, the material Finder, Messages and Settings are drawn on in macOS 26. The sidebar floats on a rounded glass panel with the window controls in its corner, the conversation sits on smoked glass your desktop's colour comes through, and the chat box, menus, the palette and dialogs are frosted glass over what scrolls beneath them. It works in the dark and light themes and with the compact sidebar, and the window changes in place, with no restart. It is brightest over a colourful desktop; over a dark one it is quiet, as macOS's own windows are. Offered on macOS 26 and later; Standard is unchanged.
+
 ## 0.854.0 - 2026-11-02
 
 ### Fixed
