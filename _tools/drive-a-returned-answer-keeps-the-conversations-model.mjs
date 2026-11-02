@@ -21,7 +21,9 @@ const tag = arg('--tag')
 const outPath = tag === undefined ? undefined : join(recordRoot('beta-fixes-2026-09-24'), `returned-answer-keeps-model-${tag}`)
 if (outPath !== undefined) await mkdir(outPath, { recursive: true })
 
-const [saved, picked] = freeModels()
+const [saved, picked, third] = freeModels()
+// Booty only answers, so any model that answers in plain text will do; a third free model when there is one.
+const bootyModel = third ?? picked
 if (picked === undefined) {
   say('this drive needs two free models, and OpenCode lists one: nothing to tell apart.')
   process.exit(1)
@@ -43,7 +45,7 @@ const drive = await startDrive({
     schemaVersion: 1,
     teammates: [
       { teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: T0, route: { runtime: 'opencode', model: saved, mode: 'accept-edits' } },
-      { teammateId: 'tm_booty', name: 'Booty', hue: 'violet', role: 'Custom', roleTitle: 'Reviewer', createdAt: T0, route: { runtime: 'opencode', model: picked, mode: 'accept-edits' } }
+      { teammateId: 'tm_booty', name: 'Booty', hue: 'violet', role: 'Custom', roleTitle: 'Reviewer', createdAt: T0, route: { runtime: 'opencode', model: bootyModel, mode: 'accept-edits' } }
     ],
     missionOwners: {},
     settings: { swarm: false, relay: true, relayHopCap: 2, memoryMode: 'off' }
@@ -92,15 +94,22 @@ try {
     }
     return 'no send'
   })()`))
-  // A model out of free usage waits on its provider for minutes: said and given up on (GLM, the third run, 2026-11-01).
-  await drive.capture('wait for the whole exchange to settle', () => drive.evaluate(`(async () => {
-    for (let i = 0; i < 700; i += 1) {
-      await new Promise(r => setTimeout(r, 500))
-      if (/usage exceeded|rate limit/i.test(document.querySelector('.lc-thread')?.innerText ?? '')) return 'a model is out of free usage after ' + String(i / 2) + 's'
-      if (i > 30 && !document.querySelector('button[aria-label^="Stop the running"]') && !${busy}) return 'settled after ' + String(i / 2) + 's'
+  // Polled from here, up to ten minutes: one evaluate may not run past drive-lib's 400 s. A model out of free usage
+  // waits on its provider for minutes, so it is said and given up on (GLM, the third run, 2026-11-01).
+  await drive.capture('wait for the whole exchange to settle', async () => {
+    const t0 = Date.now()
+    while (Date.now() - t0 < 600_000) {
+      await new Promise((r) => setTimeout(r, 2000))
+      const state = String(await drive.evaluate(`(() => {
+        if (/usage exceeded|rate limit/i.test(document.querySelector('.lc-thread')?.innerText ?? '')) return 'stalled'
+        return !document.querySelector('button[aria-label^="Stop the running"]') && !${busy} ? 'settled' : 'busy'
+      })()`))
+      const s = Math.round((Date.now() - t0) / 1000)
+      if (state === 'stalled') return `a model is out of free usage after ${String(s)}s`
+      if (state === 'settled' && s > 15) return `settled after ${String(s)}s`
     }
-    return 'still going'
-  })()`))
+    return 'still going after 10 minutes'
+  })
   const updates = JSON.parse(String(await drive.evaluate(`JSON.stringify(window.__updates ?? [])`)))
   await writeFile(join(drive.out, 'host-updates.json'), JSON.stringify(updates, null, 2), 'utf8')
   const starts = updates.filter((u) => u.kind === 'mission-started' && u.startedBy?.kind === 'relay')
@@ -108,7 +117,7 @@ try {
     starts.map((u) => `${u.teammateId} hop ${String(u.startedBy?.hop)} on ${String(u.model)}`).join(' / ') || 'no automatic runs')
   const booty = starts.find((u) => u.teammateId === 'tm_booty')
   const wrenBack = starts.find((u) => u.teammateId === 'tm_wren')
-  judge('Booty answered on their own saved model', booty?.model === picked, String(booty?.model))
+  judge('Booty answered on their own saved model', booty?.model === bootyModel, String(booty?.model))
   judge("Wren's turn to take the answer ran on the model picked in the conversation, not the saved one", wrenBack?.model === picked, wrenBack === undefined ? 'no returned-answer turn was started' : String(wrenBack.model))
   await drive.capture("Wren's thread: Booty's answer, brought back, and the model it shows", () => drive.evaluate(`(async () => {
     const row = ${teammateRows()}.find(r => /Wren/.test(r.innerText))
@@ -124,7 +133,7 @@ try {
   say(`drive failed: ${error instanceof Error ? error.message : String(error)}`)
 } finally {
   await drive.finish({
-    intro: `Build: ${packaged ?? 'whatever pnpm build last wrote to out/'}. Wren saved on ${saved}, this conversation on ${picked}; Booty on ${picked}; replies on, budget 2.`,
+    intro: `Build: ${packaged ?? 'whatever pnpm build last wrote to out/'}. Wren saved on ${saved}, this conversation on ${picked}; Booty on ${bootyModel}; replies on, budget 2.`,
     extra: verdicts.length === 0 ? '' : ['## Verdicts', '', ...verdicts.map((line) => `- ${line}`)].join('\n')
   })
 }
