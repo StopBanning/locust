@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-import type { ThemeChoice } from '../shared/appearance.js'
+import type { LookChoice, ThemeChoice } from '../shared/appearance.js'
 
 /**
  * LIGHT, DARK, OR THE COMPUTER'S (0.789).
@@ -25,9 +25,22 @@ export function readTheme(file: string, read: (file: string) => string = (path) 
   }
 }
 
-export function writeTheme(file: string, theme: ThemeChoice): void {
+export const LOOK_CHOICES: readonly LookChoice[] = ['standard', 'liquid']
+
+/** The look (Settings > General > Look, 0.855), kept in the same file: Standard unless Liquid glass was chosen. */
+export function readLook(file: string, read: (file: string) => string = (path) => readFileSync(path, 'utf8')): LookChoice {
+  try {
+    const saved = (JSON.parse(read(file)) as { look?: unknown }).look
+    return LOOK_CHOICES.includes(saved as LookChoice) ? (saved as LookChoice) : 'standard'
+  } catch {
+    return 'standard'
+  }
+}
+
+/** Both choices, written together, so saving one never drops the other. */
+export function writeAppearance(file: string, theme: ThemeChoice, look: LookChoice): void {
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, `${JSON.stringify({ theme }, null, 2)}\n`, 'utf8')
+  writeFileSync(file, `${JSON.stringify({ theme, look }, null, 2)}\n`, 'utf8')
 }
 
 /** The theme a choice comes to now: the computer's, for Match the computer. */

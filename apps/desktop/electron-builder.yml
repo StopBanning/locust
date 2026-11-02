@@ -48,6 +48,8 @@ files:
 # writes shims, none of which works from inside the archive.
 asarUnpack:
   - node_modules/@lydell/**/*
+  # Liquid glass's addon (scripts/build-mac-glass.cjs, Mac builds only): macOS loads it from a real file.
+  - out/native/**/*
   - resources/npm/**/*
   - '!resources/npm/node_modules/.bin/**/*'
 

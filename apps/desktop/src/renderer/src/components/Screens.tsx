@@ -97,6 +97,7 @@ import { NETWORK_DOC_LINK } from '../../../shared/outbound-links.js'
 import { keepCurrentNote, offersUpdate, updateLine } from '../agentUpdates.js'
 import { Icon } from './Icon.js'
 import { ThemeSetting } from './ThemeSetting.js'
+import { LookSetting } from './LookSetting.js'
 import { costGlanceCell, costTotal, missionCost, monthSpendLine, sumCosts } from '../cost.js'
 import { conversationsOf } from '../missionsList.js'
 import { shortAgo } from '../railFlyout.js'
@@ -3106,6 +3107,8 @@ export function SettingsScreen({
           <ThemeSetting />
         </section>
         )}
+        {/* Liquid glass, under the theme it is drawn in (0.855); only on a Mac that has macOS's glass. */}
+        {shownPage === 'appearance' && <LookSetting />}
 
         {/*
           * READING COMFORT FIRST. The one setting here that changes how a

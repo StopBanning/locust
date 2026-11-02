@@ -25,8 +25,11 @@ export type WindowChrome =
 /** A Mac window's own ground: clear, so the glass behind the page shows where the page lets it through. */
 export const MAC_GLASS_GROUND = '#00000000'
 
+/** Where a Mac's traffic lights sit: centred on the 38px title bar's empty left column. */
+export const STANDARD_LIGHTS = { x: 14, y: 13 }
+
 export function windowChrome(platform: NodeJS.Platform): WindowChrome {
   return platform === 'darwin'
-    ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 13 }, vibrancy: 'sidebar', visualEffectState: 'followWindow' }
+    ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { ...STANDARD_LIGHTS }, vibrancy: 'sidebar', visualEffectState: 'followWindow' }
     : { frame: false, titleBarStyle: 'hidden', titleBarOverlay: false }
 }

@@ -6,7 +6,7 @@ import {
   AGENT_ACCOUNTS_CHANNEL
 } from './agent-accounts.js'
 import {
-  APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL
+  APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, APPEARANCE_SET_LOOK_CHANNEL, GLASS_PANEL_CHANNEL
 } from './appearance.js'
 import {
   BACKGROUND_DISMISS_CHANNEL, BACKGROUND_LIST_CHANNEL, BACKGROUND_OPEN_CHANNEL, BACKGROUND_SETUP_CHANNEL,
@@ -286,6 +286,8 @@ const SOME: Readonly<Record<string, (args: readonly unknown[]) => DeskAccess | u
 
 /** Named so the coverage test sees each was decided: these stay in the window on this computer. */
 export const WINDOW_ONLY: readonly string[] = [
+  // Liquid glass (0.855): the Mac window's own look, and where its glass sits; a browser draws neither.
+  APPEARANCE_SET_LOOK_CHANNEL, GLASS_PANEL_CHANNEL,
   // Your account (accounts slice 3): sync, its recovery code and deleting the copy are this computer's alone.
   ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_BRING_HERE_CHANNEL,
   ACCOUNT_ASK_CHANNEL, ACCOUNT_ASK_STOP_CHANNEL, ACCOUNT_APPROVE_CHANNEL, ACCOUNT_IGNORE_CHANNEL,

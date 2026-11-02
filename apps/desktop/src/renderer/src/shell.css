@@ -25344,3 +25344,132 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 :where(:root[data-glass='mac'] .lc-body > :not(.lc-sidebar, .lc-context)) {
   background: var(--lc-bg-window);
 }
+
+/*
+ * LIQUID GLASS (0.855; main/mac-glass.ts, glassPanel.ts). Colin, 2026-11-02: "a way for whole app to be liquid glass".
+ *
+ * Settings > Appearance > Look, on a Mac that has macOS 26's glass. Behind the page are two of macOS's own glass views:
+ * the window's whole ground, and a floating panel the sidebar sits on, set in 8px from the window's edges with its
+ * corners rounded, as Finder's, Messages' and Settings' are. The page paints nothing where the glass should show:
+ *   - the sidebar is clear, under a faint wash of the panel's own (`.lc-shell::before`, exactly over the panel);
+ *   - the main column, title bar included, lies under one smoked ground (`.lc-shell`'s), dark enough to read a long
+ *     reply on over any desktop, and clear enough that the desktop's colour still comes through;
+ *   - the surfaces inside it (cards, fields, controls, bubbles) are washes of white instead of solid greys, so they sit
+ *     on the glass rather than cover it;
+ *   - everything that floats (menus, the palette, dialogs, the composer) is frosted glass of the page's own: it blurs
+ *     what scrolls beneath it, with a lit rim on top.
+ * Over a dark desktop the window reads grey and quiet, as macOS's own do; over a colourful one, it is coloured.
+ */
+:root[data-look='liquid'] {
+  --lc-liquid-inset: 8px;
+  --lc-liquid-radius: 16px;
+  /* The sidebar 8px wider than Standard's: the panel is set in 8px, and the sidebar's own rows keep their width. */
+  --lc-sidebar-width: 276px;
+  /* As tall as macOS 26's own title bars, so the traffic lights sit inside the panel's corner (mac-glass.ts). */
+  --lc-titlebar-height: 50px;
+  --lc-liquid-side: var(--lc-sidebar-width);
+  --lc-liquid-ground: rgba(13, 14, 15, 0.62);
+  --lc-liquid-panel: rgba(13, 14, 15, 0.4);
+  --lc-liquid-rim: rgba(255, 255, 255, 0.13);
+  --lc-liquid-rim-top: rgba(255, 255, 255, 0.2);
+  --lc-liquid-float: rgba(30, 33, 34, 0.68);
+  --lc-liquid-blur: blur(26px) saturate(1.7);
+  --lc-bg-window: transparent;
+  --lc-bg-chrome: rgba(255, 255, 255, 0.025);
+  --lc-bg-sidebar: transparent;
+  --lc-bg-raised: rgba(255, 255, 255, 0.045);
+  --lc-bg-raised-2: rgba(255, 255, 255, 0.06);
+  --lc-bg-selected: rgba(255, 255, 255, 0.09);
+  --lc-bg-bubble-user: rgba(255, 255, 255, 0.085);
+  --lc-bg-bubble-peer: rgba(255, 255, 255, 0.055);
+  --lc-bg-field: rgba(255, 255, 255, 0.05);
+  --lc-bg-control: rgba(255, 255, 255, 0.065);
+  --lc-chat-bg: rgba(255, 255, 255, 0.06);
+  --lc-border-card: rgba(255, 255, 255, 0.09);
+}
+
+:root[data-look='liquid'][data-theme='light'] {
+  --lc-liquid-ground: rgba(250, 249, 246, 0.62);
+  --lc-liquid-panel: rgba(255, 255, 255, 0.38);
+  --lc-liquid-rim: rgba(255, 255, 255, 0.55);
+  --lc-liquid-rim-top: rgba(255, 255, 255, 0.85);
+  --lc-liquid-float: rgba(252, 251, 249, 0.74);
+  --lc-bg-chrome: rgba(255, 255, 255, 0.22);
+  --lc-bg-raised: rgba(255, 255, 255, 0.5);
+  --lc-bg-raised-2: rgba(255, 255, 255, 0.6);
+  --lc-bg-selected: rgba(28, 30, 29, 0.07);
+  --lc-bg-bubble-user: rgba(255, 255, 255, 0.62);
+  --lc-bg-bubble-peer: rgba(255, 255, 255, 0.45);
+  --lc-bg-field: rgba(255, 255, 255, 0.55);
+  --lc-bg-control: rgba(255, 255, 255, 0.45);
+  --lc-chat-bg: rgba(255, 255, 255, 0.55);
+  --lc-border-card: rgba(28, 30, 29, 0.08);
+}
+
+:root[data-look='liquid'] .lc-shell.is-compact {
+  /* Wide enough that the traffic lights sit inside the rail's panel, not across its edge. */
+  --lc-sidebar-rail-width: 82px;
+  --lc-liquid-side: var(--lc-sidebar-rail-width);
+}
+
+/* The smoked ground: everything right of the sidebar's panel, from the window's top to its bottom. */
+:root[data-look='liquid'] .lc-shell {
+  background: linear-gradient(to right, transparent var(--lc-liquid-side), var(--lc-liquid-ground) var(--lc-liquid-side));
+}
+
+/* The panel's wash and rim, over the glass panel behind the page and exactly its shape. */
+:root[data-look='liquid'] .lc-shell::before {
+  content: '';
+  position: absolute;
+  top: var(--lc-liquid-inset);
+  left: var(--lc-liquid-inset);
+  bottom: var(--lc-liquid-inset);
+  width: calc(var(--lc-liquid-side) - var(--lc-liquid-inset));
+  border-radius: var(--lc-liquid-radius);
+  background: var(--lc-liquid-panel);
+  box-shadow: inset 0 0 0 0.5px var(--lc-liquid-rim), inset 0 1px 0 var(--lc-liquid-rim-top);
+  pointer-events: none;
+}
+
+/* The title bar and the sidebar paint nothing: the panel and the ground are already under them. */
+:root[data-look='liquid'] .lc-titlebar,
+:root[data-look='liquid'] .lc-sidebar {
+  background: transparent;
+  border-color: transparent;
+}
+
+:root[data-look='liquid'] .lc-sidebar {
+  /* Over a bright desktop the quiet words would fade into it: on the panel they are a step stronger. */
+  --lc-text-muted: var(--lc-text-secondary);
+  --lc-text-faint: var(--lc-text-control-fg);
+  /* Inside the panel, not against its edge. */
+  padding-left: var(--lc-liquid-inset);
+  padding-bottom: var(--lc-liquid-inset);
+  border-right: 0;
+}
+
+/* Every pane of the body over the ground, not on a ground of its own (the glass rule above gave them one). */
+:where(:root[data-look='liquid'] .lc-body > :not(.lc-sidebar, .lc-context)) {
+  background: transparent;
+}
+
+/* What floats is frosted glass of the page's own: it blurs what scrolls beneath it. */
+:root[data-look='liquid'] :is(.lc-dialog, .lc-palette, .lc-menu, .lc-slash, .lc-picker, .lc-context, .lc-context__sub,
+  .lc-railflyout, .lc-jumpdown, .lc-commit, .lc-statusmenu, .lc-changes__menu, .lc-terminal__menu, .lc-threadfind__bar,
+  .lc-promptrail__tip, .lc-zoomimage__tools) {
+  background: var(--lc-liquid-float);
+  -webkit-backdrop-filter: var(--lc-liquid-blur);
+  backdrop-filter: var(--lc-liquid-blur);
+  border-color: var(--lc-liquid-rim);
+}
+
+/* The composer is a glass pill: the thread blurs under it, its top edge catches the light. */
+:root[data-look='liquid'] .lc-composer__box {
+  -webkit-backdrop-filter: var(--lc-liquid-blur);
+  backdrop-filter: var(--lc-liquid-blur);
+  box-shadow: inset 0 0 0 0.5px var(--lc-liquid-rim), inset 0 1px 0 var(--lc-liquid-rim-top), 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-look='liquid'] .lc-composer__box:hover {
+  box-shadow: inset 0 0 0 0.5px var(--lc-border-hover), inset 0 1px 0 var(--lc-liquid-rim-top), 0 10px 30px rgba(0, 0, 0, 0.22);
+}

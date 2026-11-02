@@ -97,6 +97,22 @@ jobs:
       - name: Load the packaged terminal native module (Mac)
         if: runner.os == 'macOS'
         run: node _smoke/terminal-native-smoke.mjs apps/desktop/release/mac-arm64/Locust.app/Contents/MacOS/Locust
+      # Liquid glass (0.855): its addon is in the app, outside the archive, for both chips, and loads. This runner's
+      # macOS has no glass, so it answers that it is not offered here; a Mac on macOS 26 or later offers it.
+      - name: Load the packaged glass addon (Mac)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Every Mac build's folder (electron-builder names them by chip), both of them checked.
+          found=0
+          for addon in apps/desktop/release/mac*/Locust.app/Contents/Resources/app.asar.unpacked/out/native/mac-glass.node; do
+            [ -f "$addon" ] || continue
+            found=$((found + 1))
+            archs="$(lipo -archs "$addon")"
+            case "$archs" in *arm64*x86_64*|*x86_64*arm64*) echo "$addon: $archs" ;; *) echo "$addon is: $archs"; exit 1 ;; esac
+          done
+          [ "$found" -ge 2 ] || { echo "a glass addon in $found Mac build(s), not both"; exit 1; }
+          node -e "const glass = require(process.argv[1]); for (const call of ['supported', 'attach', 'panel', 'detach']) if (typeof glass[call] !== 'function') throw new Error('no ' + call); console.log('glass addon loads; offered on this Mac:', glass.supported())" "$PWD/apps/desktop/release/mac-arm64/Locust.app/Contents/Resources/app.asar.unpacked/out/native/mac-glass.node"
       - uses: actions/upload-artifact@v4
         with:
           name: locust-${{ matrix.os }}

@@ -28,7 +28,7 @@ describe("a Mac's sidebar is glass", () => {
     expect(MAC_GLASS_GROUND).toBe('#00000000')
     const made = MAIN.slice(MAIN.indexOf('const window = new BrowserWindow({'), MAIN.indexOf('webPreferences: {', MAIN.indexOf('const window = new BrowserWindow({')))
     expect(made.indexOf("...(process.platform === 'darwin' ? { backgroundColor: MAC_GLASS_GROUND } : {})")).toBeGreaterThan(made.indexOf('backgroundColor: windowGround(appearanceNow().resolved)'))
-    expect(MAIN).toContain("if (process.platform === 'darwin') glassWindows.add(window)")
+    expect(MAIN).toContain("if (process.platform === 'darwin') {\n    glassWindows.add(window)")
     expect(MAIN).toContain('if (!glassWindows.has(target)) target.setBackgroundColor(windowGround(state.resolved))')
   })
 

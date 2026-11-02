@@ -1,5 +1,5 @@
 import type { AccountAction, AgentAccountsState } from './agent-accounts.js'
-import type { AppearanceState, ThemeChoice } from './appearance.js'
+import type { AppearanceState, GlassPanel, LookChoice, ThemeChoice } from './appearance.js'
 import type { ReverseChange } from './reverse-diff.js'
 import type { AwaySummaryCounts } from './away.js'
 import type { RemoteControlState } from './claude-remote-control.js'
@@ -3883,6 +3883,12 @@ export interface DesktopApi {
   setTheme(theme: ThemeChoice): Promise<AppearanceState>
   /** The theme changed: by the person, in another window, or by the computer under Match the computer. */
   onAppearance(listener: (state: AppearanceState) => void): () => void
+  /** The window started drawn in Liquid glass (0.855), read from its own command line like the theme. */
+  readonly initialLiquid: boolean
+  /** Standard or Liquid glass; answers with what the windows are now drawn in. */
+  setLook(look: LookChoice): Promise<AppearanceState>
+  /** Where the sidebar's floating panel is, so the glass behind the page is placed there; null takes it away. */
+  placeGlassPanel(panel: GlassPanel | null): void
   onUpdateState(listener: (state: AppUpdateState) => void): () => void
   pruneMissions(request: MissionPruneRequest): Promise<MissionPruneResponse>
   /** A folder for a backup to go in, or a backup to restore; undefined when the picker was cancelled. */

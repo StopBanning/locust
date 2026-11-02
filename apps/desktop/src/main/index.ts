@@ -130,9 +130,21 @@ import { pathToFileURL } from 'node:url'
 import { shellPath } from './shell-path.js'
 import { linuxInstallOf, linuxPackageUrl, linuxUpdateTestOf } from './linux-install.js'
 import { DOWNLOADS, SITE } from '../shared/locust-home.js'
-import { readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeTheme } from './appearance.js'
-import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, THEME_ARGUMENT } from '../shared/appearance.js'
-import type { AppearanceState, ThemeChoice } from '../shared/appearance.js'
+import { LOOK_CHOICES, readLook, readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeAppearance } from './appearance.js'
+import {
+  APPEARANCE_CHANGED_CHANNEL,
+  APPEARANCE_GET_CHANNEL,
+  APPEARANCE_SET_CHANNEL,
+  APPEARANCE_SET_LOOK_CHANNEL,
+  drawsLiquid,
+  GLASS_PANEL_CHANNEL,
+  LOOK_ARGUMENT,
+  THEME_ARGUMENT
+} from '../shared/appearance.js'
+import type { AppearanceState, LookChoice, ThemeChoice } from '../shared/appearance.js'
+import { createMacGlass, readGlassPanel } from './mac-glass.js'
+import type { MacGlassAddon } from './mac-glass.js'
+import { createRequire } from 'node:module'
 import { homedir, hostname, release } from 'node:os'
 import { execFile } from 'node:child_process'
 import { createVoicePreviews, speakHello } from './voice-preview.js'
@@ -1291,7 +1303,23 @@ const windowFile = (): string => join(app.getPath('userData'), 'window.json')
 // The person's theme (0.789, appearance.ts), read once the app is ready and before the window is made.
 const appearanceFile = (): string => join(app.getPath('userData'), 'appearance.json')
 let themeChoice: ThemeChoice = 'dark'
-const appearanceNow = (): AppearanceState => ({ theme: themeChoice, resolved: resolvedTheme(themeChoice, nativeTheme.shouldUseDarkColors) })
+// Standard, or Liquid glass (0.855, mac-glass.ts), read with the theme.
+let lookChoice: LookChoice = 'standard'
+// macOS's glass, reached through native/mac-glass.mm (built beside the main bundle, out/native); none off a Mac.
+let macGlassReached: ReturnType<typeof createMacGlass> | undefined
+const macGlass = (): ReturnType<typeof createMacGlass> =>
+  (macGlassReached ??= createMacGlass(
+    process.platform,
+    () => createRequire(import.meta.url)(join(__dirname, '../native/mac-glass.node')) as MacGlassAddon,
+    // A drive's picture under the glass (drive-liquid-glass.mjs); never in a build a person installs.
+    app.isPackaged ? undefined : process.env.LOCUST_GLASS_BACKDROP
+  ))
+const appearanceNow = (): AppearanceState => ({
+  theme: themeChoice,
+  resolved: resolvedTheme(themeChoice, nativeTheme.shouldUseDarkColors),
+  look: lookChoice,
+  liquidOffered: macGlass().offered
+})
 /** A Mac's main window, glass behind its page (window-chrome.ts): its ground stays clear through a theme change. */
 const glassWindows = new WeakSet<BrowserWindow>()
 /** Every window is told, and repainted in the new ground, so none shows the old theme behind its page. */
@@ -1505,7 +1533,11 @@ const createWindow = (
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       // The theme it starts in, so its first frame is already drawn in it (appearance.ts).
-      additionalArguments: [`${THEME_ARGUMENT}${appearanceNow().resolved}`],
+      // And the look (0.855): a window drawn in Liquid glass is marked so from its first frame too.
+      additionalArguments: [
+        `${THEME_ARGUMENT}${appearanceNow().resolved}`,
+        ...(process.platform === 'darwin' && drawsLiquid(appearanceNow()) ? [`${LOOK_ARGUMENT}liquid`] : [])
+      ],
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
@@ -1531,7 +1563,11 @@ const createWindow = (
   })
 
   reportPreloadErrors(window, 'main')
-  if (process.platform === 'darwin') glassWindows.add(window)
+  if (process.platform === 'darwin') {
+    glassWindows.add(window)
+    // Liquid glass, when chosen (mac-glass.ts): put behind the page before the window is first shown.
+    if (drawsLiquid(appearanceNow())) macGlass().apply(window, true)
+  }
   onWindow(window)
 
   window.once('ready-to-show', () => {
@@ -1845,6 +1881,7 @@ if (!ownsSingleInstanceLock) {
     }))
     // Dark unless the person chose Light or Match the computer (0.789); native menus and dialogs follow it too.
     themeChoice = readTheme(appearanceFile())
+    lookChoice = readLook(appearanceFile())
     nativeTheme.themeSource = themeChoice
     nativeTheme.on('updated', broadcastAppearance)
     // Windows shows a notification only for an app it can name. Development
@@ -9494,13 +9531,34 @@ if (!ownsSingleInstanceLock) {
       if (!fromOwnWindow(event) || !THEME_CHOICES.includes(theme as ThemeChoice)) return appearanceNow()
       themeChoice = theme as ThemeChoice
       try {
-        writeTheme(appearanceFile(), themeChoice)
+        writeAppearance(appearanceFile(), themeChoice, lookChoice)
       } catch {
         // Kept for this run; the next start reads Dark again.
       }
       nativeTheme.themeSource = themeChoice
       broadcastAppearance()
       return appearanceNow()
+    })
+    // Standard or Liquid glass (0.855, mac-glass.ts): the Mac window changes in place, and every window is told.
+    ipcMain.handle(APPEARANCE_SET_LOOK_CHANNEL, (event, look: unknown) => {
+      if (!fromOwnWindow(event) || !LOOK_CHOICES.includes(look as LookChoice)) return appearanceNow()
+      lookChoice = look as LookChoice
+      try {
+        writeAppearance(appearanceFile(), themeChoice, lookChoice)
+      } catch {
+        // Kept for this run; the next start reads Standard again.
+      }
+      for (const target of BrowserWindow.getAllWindows()) {
+        if (glassWindows.has(target)) macGlass().apply(target, drawsLiquid(appearanceNow()))
+      }
+      broadcastAppearance()
+      return appearanceNow()
+    })
+    // Where the page's sidebar panel is now, so the glass behind it is placed there (mac-glass.ts).
+    ipcMain.handle(GLASS_PANEL_CHANNEL, (event, panel: unknown) => {
+      const target = BrowserWindow.fromWebContents(event.sender)
+      if (!fromOwnWindow(event) || target === null || !glassWindows.has(target)) return
+      macGlass().panel(target, readGlassPanel(panel))
     })
     ipcMain.handle(KEEP_RUNNING_GET_CHANNEL, (event) => {
       if (!fromOwnWindow(event)) return { keepRunning: false }
