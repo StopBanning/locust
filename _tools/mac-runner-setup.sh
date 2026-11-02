@@ -29,5 +29,21 @@ grep -v '^ACTIONS_RUNNER_HOOK_JOB_STARTED=' .env > .env.new 2>/dev/null || true
 echo "ACTIONS_RUNNER_HOOK_JOB_STARTED=$DIR/guard.sh" >> .env.new
 mv .env.new .env
 ./svc.sh install >/dev/null 2>&1 || true
+# 0.856's first Mac job (2026-11-02): under svc.sh's agent, the job's git could not resolve github.com, though the
+# runner's own downloads worked; from a Terminal it checked out fine. svc.sh's SessionCreate was suspected, but git
+# under the agent with it resolves (this script's own check). So each start first asks GitHub through git, as a job
+# would, into _diag/lookup.log, which this script reads back.
+PLIST="$HOME/Library/LaunchAgents/actions.runner.StopBanning-locust.mac-mini.plist"
+cat > start.sh <<'START'
+#!/bin/bash
+cd "$(dirname "$0")"
+{ date -u; /usr/bin/git ls-remote https://github.com/StopBanning/locust HEAD 2>&1 && echo "LOOKUP OK" || echo "LOOKUP FAILED"; } > _diag/lookup.log
+exec ./runsvc.sh
+START
+chmod 755 start.sh
+plutil -replace ProgramArguments -json "[\"$DIR/start.sh\"]" "$PLIST"
+rm -f _diag/lookup.log
 ./svc.sh start
 ./svc.sh status | tail -3
+for i in $(seq 1 20); do grep -q "LOOKUP" _diag/lookup.log 2>/dev/null && break; sleep 1; done
+cat _diag/lookup.log 2>/dev/null || echo "no lookup log"
