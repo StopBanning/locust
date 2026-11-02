@@ -11,6 +11,13 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.857.0 - 2026-11-02
+
+### Improved
+
+- **Settings reads like a Mac's.** Every page opens on its own name, sections and settings step down from it, and the text is a Mac's size instead of a size smaller. Paragraphs keep one comfortable width, and a button at the end of a sentence sits at the right edge with every other control.
+- **A calmer Home.** The Compare button on each starter waits until you point at its row, and a free model's tag reads as part of its line instead of a box beside it.
+
 ## 0.856.0 - 2026-11-02
 
 ### Fixed
