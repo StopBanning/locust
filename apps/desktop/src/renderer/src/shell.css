@@ -25881,3 +25881,178 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-settings__pane .lc-settings__section > :last-child {
   margin-bottom: 0;
 }
+
+
+/*
+ * ONE OF THE BEST APPS ON THE MARKET (0.862, round 1). Colin, 2026-11-03: "please make an extreme effort to fix up our
+ * settings, ui, and home page. try to be like claude, codex (yuck) or even apple". Held beside Claude's app and macOS's
+ * own the same night, two things set Locust apart from them on every screen, and both are fixed here at the root:
+ *
+ * 1. The chrome read a size small: controls at 13px and the line under them at 12, where Claude's are 14 and 13 (the
+ *    tokens, tokens.css). The reply stays at 15px: that size was Colin's call (0.3xx) and is not chrome.
+ * 2. A label over every group was spaced-out mono capitals -- YOUR TEAM, RECENT, STARTED NOV 1 -- so every screen read
+ *    like a terminal. Apple and Claude name a group in the interface's own face, sentence case, a weight up and a
+ *    shade down. Every such label below says so. What stays in capitals is what is a mark or a badge: the page's
+ *    wordmark title and the LOCUST lockup (the brand), the status badges (one badge system, decided 11/1), a code
+ *    block's language, a connector's state and the mode chips.
+ */
+.lc-sectionlabel,
+.lc-thread__marker,
+.lc-receipt dt,
+.lc-cliartifacts__summary,
+.lc-cliartifacts__note,
+.lc-cliartifacts__kind,
+.lc-folder__label,
+.lc-exchange__label,
+.lc-roomcardform__label,
+.lc-roomwaiting__label,
+.lc-release__label,
+.lc-agenthead__label,
+.lc-scout__heading,
+.lc-scoutcard__draftlabel,
+.lc-away__heading,
+.lc-hometeam__head,
+.lc-changes__walkwho,
+.lc-boardsection__title,
+.lc-settings__group,
+.lc-settings__heading--section,
+.lc-select__group,
+.lc-shellnotice__source,
+.lc-slash__group,
+.lc-picker__swarmhint,
+.lc-handoff__label,
+.lc-rostercard__cost dt,
+.lc-rostercard__recentlabel,
+.lc-sectionlabel--fold,
+.lc-ledgerfail__label,
+.lc-question__header,
+.lc-docchange__what,
+.lc-cloudsetup__label,
+.lc-cloudhours__label,
+.lc-calldivider,
+.lc-calltodos__label {
+  font-family: var(--lc-font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--lc-text-secondary);
+}
+
+/* Round 1's larger chrome, kept where a row was measured to fit: the three places under the search, and a home card's
+   model line, stay at 12px, as they were (0.609: three words in one row; a card's model whole at 280px). */
+.lc-sidebar__nav.lc-sidebar__places > button {
+  font-size: 12px;
+}
+
+.lc-hometeam__route {
+  font-size: 12px;
+}
+
+/* A page's count beside its title ("4 teammates", "8 conversations") in the interface's face, a shade down, as a Mac
+   window's subtitle is -- not machine mono beside the wordmark. */
+.lc-screen__meta {
+  font-family: var(--lc-font-ui);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--lc-text-muted);
+}
+
+/*
+ * A teammate's card on Team, without boxes in boxes. Its model was mono (the machine's voice for a person's choice),
+ * its two numbers sat in two grey tiles inside the card, and its cost in a framed strip inside that. Apple and Claude
+ * set a card's facts as quiet lines: the model in the interface's face, the numbers as label over value with no tile
+ * behind them, the cost as one more line.
+ */
+.lc-rostercard__route {
+  font-family: var(--lc-font-ui);
+  font-size: 12.5px;
+  letter-spacing: 0;
+}
+
+.lc-rostercard__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 28px;
+}
+
+.lc-rostercard__stat {
+  padding: 0;
+  background: none;
+}
+
+.lc-rostercard__stat dt {
+  font-size: 12px;
+}
+
+.lc-rostercard__stat dd {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lc-rostercard__cost {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* Rooms, centred: the new-room form sat against the page's top left with the rest of the page empty beside it. One
+   column in the middle, as Apple sets a sheet's form and Claude its project page, with room above it. */
+.lc-screen__scroll:has(.lc-roomform) > .lc-settings__section {
+  width: 100%;
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lc-screen__scroll:has(.lc-roomform) > .lc-settings__section:first-child {
+  margin-top: 40px;
+}
+
+.lc-roomform {
+  max-width: none;
+}
+
+/* Routines, one column: its sentence was centred across the page and its two lists in a narrower column under it, so
+   their left edges disagreed. Now they share one 680px column, read from its left edge, and a template's facts are
+   said in the interface's face, not mono. */
+.lc-empty:has(> .lc-savable) {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  align-items: stretch;
+  text-align: left;
+}
+
+.lc-empty:has(> .lc-savable) > p:first-child {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--lc-text-secondary);
+}
+
+.lc-savable {
+  max-width: none;
+}
+
+.lc-templates__meta,
+.lc-savable__turns,
+.lc-savable__at {
+  font-family: var(--lc-font-ui);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+/* Home's section names a step up from the 12px group labels elsewhere: on Home they head the page's three parts. */
+.lc-agenthead__label,
+.lc-hometeam__head {
+  font-size: 13px;
+}
+
+/* A conversation's model on the Conversations page, said as the team cards now say it: a person's choice, in the
+   interface's face, not the machine's. */
+.lc-missionrow__route {
+  font-family: var(--lc-font-ui);
+  font-size: 12.5px;
+  letter-spacing: 0;
+}

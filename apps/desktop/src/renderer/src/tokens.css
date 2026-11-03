@@ -524,11 +524,11 @@
    * grew and the card a person must read to decide stayed at 12px. These grow
    * with the reply size below; the rest of the app's chrome does not.
    */
-  --lc-text-said: 13.5px;
+  --lc-text-said: 14.5px;
   --lc-text-ask: 12px;
   --lc-text-ask-foot: 10.5px;
-  --lc-text-control: 13px;
-  --lc-text-description: 12px;
+  --lc-text-control: 14px;
+  --lc-text-description: 13px;
 
   /*
    * Retired 2026-09-06, design review: three steps nobody could see.
@@ -548,7 +548,7 @@
    * Two mono sizes remain (11 machine meta, 10.5 uppercase labels) and three
    * text sizes (13.5 body, 13 control, 12 supporting).
    */
-  --lc-text-mono-caption: 11px;
+  --lc-text-mono-caption: 11.5px;
   --lc-text-mono-label: 10.5px;
 
   --lc-tracking-label: 0.14em;
