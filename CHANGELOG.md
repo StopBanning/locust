@@ -11,6 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.859.0 - 2026-11-02
+
+### New
+
+- **Rainbow behind the glass.** On a Mac in Liquid glass, Settings > Appearance > Behind the glass > Rainbow puts Locust's own painted rainbow under the glass inside the window, so the sidebar and the window glow in colour over any desktop, even a dark one. Your desktop is still the default.
+
+### Fixed
+
+- **Nothing reads through a hover card in Liquid glass.** An agent's usage card, the Ask that appears over selected text and the image viewer's hint were drawn almost clear in Liquid glass, so a reply under them ran straight through their words. They are frosted glass now, like the menus and the palette.
+
 ## 0.858.0 - 2026-11-02
 
 ### Improved
