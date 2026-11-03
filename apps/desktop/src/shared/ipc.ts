@@ -1,5 +1,5 @@
 import type { AccountAction, AgentAccountsState } from './agent-accounts.js'
-import type { AppearanceState, GlassPanel, LookChoice, ThemeChoice } from './appearance.js'
+import type { AppearanceState, GlassGround, GlassPanel, LookChoice, ThemeChoice } from './appearance.js'
 import type { ReverseChange } from './reverse-diff.js'
 import type { AwaySummaryCounts } from './away.js'
 import type { RemoteControlState } from './claude-remote-control.js'
@@ -3887,6 +3887,8 @@ export interface DesktopApi {
   readonly initialLiquid: boolean
   /** Standard or Liquid glass; answers with what the windows are now drawn in. */
   setLook(look: LookChoice): Promise<AppearanceState>
+  /** What Liquid glass shows through it: the desktop, or Locust's Rainbow (0.859). */
+  setGlassGround(ground: GlassGround): Promise<AppearanceState>
   /** Where the sidebar's floating panel is, so the glass behind the page is placed there; null takes it away. */
   placeGlassPanel(panel: GlassPanel | null): void
   onUpdateState(listener: (state: AppUpdateState) => void): () => void

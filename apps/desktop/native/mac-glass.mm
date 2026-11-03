@@ -118,9 +118,9 @@ static napi_value Panel(napi_env env, napi_callback_info info) {
   return nullptr;
 }
 
-// backdrop(handle, path): a picture under the glass, inside the window -- for a drive only (a development build with
-// LOCUST_GLASS_BACKDROP set, main/mac-glass.ts). The glass then shows a known desktop, and a capture of this window
-// alone shows it, with no other window put behind this one and nobody's own windows in the frame.
+// backdrop(handle, path): a picture under the glass, inside the window. Settings > Appearance > Behind the glass >
+// Rainbow puts Locust's own painting there (0.859); a drive puts a known desktop there (LOCUST_GLASS_BACKDROP, a
+// development build only), so a capture of this window alone shows it. An empty path takes the picture away.
 static napi_value Backdrop(napi_env env, napi_callback_info info) {
   size_t argc = 2;
   napi_value argv[2];
@@ -131,7 +131,12 @@ static napi_value Backdrop(napi_env env, napi_callback_info info) {
   if (argc > 1) napi_get_value_string_utf8(env, argv[1], path, sizeof(path), &length);
   NSString *file = [NSString stringWithUTF8String:path];
   onMain(^{
-    if (root == nil || file.length == 0) return;
+    if (root == nil) return;
+    if (file.length == 0) {
+      [objc_getAssociatedObject(root, kBackdrop) removeFromSuperview];
+      objc_setAssociatedObject(root, kBackdrop, nil, OBJC_ASSOCIATION_RETAIN);
+      return;
+    }
     NSImage *image = [[NSImage alloc] initWithContentsOfFile:file];
     NSView *picture = nil;
     if (image != nil) {

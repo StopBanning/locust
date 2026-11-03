@@ -39,6 +39,8 @@ export interface MacGlass {
   apply(window: GlassWindow, liquid: boolean): boolean
   /** Places the sidebar's panel, or takes it away. */
   panel(window: GlassWindow, panel: GlassPanel | null): void
+  /** Puts a picture under the glass inside the window (Rainbow, 0.859), or takes it away (null): the desktop again. */
+  ground(window: GlassWindow, picture: string | null): void
 }
 
 /** A panel worth placing: finite, positive, and inside a sane window. */
@@ -106,6 +108,15 @@ export function createMacGlass(platform: NodeJS.Platform, load: () => MacGlassAd
         addon.panel(window.getNativeWindowHandle(), panel)
       } catch {
         // No panel: the sidebar sits on the window's glass.
+      }
+    },
+    ground(window, picture) {
+      if (addon === undefined || window.isDestroyed() || !drawn.has(window)) return
+      try {
+        // An empty path takes the picture away (native/mac-glass.mm), and the glass shows the desktop again.
+        addon.backdrop(window.getNativeWindowHandle(), picture ?? '')
+      } catch {
+        // The glass shows the desktop.
       }
     }
   }

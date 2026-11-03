@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 
-import type { AppearanceState, LookChoice } from '../../../shared/appearance.js'
+import type { AppearanceState, GlassGround, LookChoice } from '../../../shared/appearance.js'
 
 /**
  * Standard or Liquid glass (0.855, main/mac-glass.ts), beside the theme. Shown only in the window of a Mac that has
@@ -12,6 +12,18 @@ const CHOICES: readonly (readonly [LookChoice, string])[] = [
   ['standard', 'Standard'],
   ['liquid', 'Liquid glass']
 ]
+
+const GROUNDS: readonly (readonly [GlassGround, string])[] = [
+  ['desktop', 'Your desktop'],
+  ['rainbow', 'Rainbow']
+]
+
+/** Behind the glass (0.859): what the glass shows through it. */
+export function groundLede(ground: GlassGround): string {
+  return ground === 'rainbow'
+    ? 'Locust’s own rainbow, under the glass inside the window, so it glows the same over any desktop.'
+    : 'Whatever is behind the window: brightest over a colourful desktop.'
+}
 
 export function lookLede(look: LookChoice): string {
   return look === 'liquid'
@@ -59,6 +71,30 @@ export function LookSetting(): ReactElement | null {
           ))}
         </div>
       </div>
+      {look === 'liquid' && (
+        <div className="lc-settingline lc-settingline--sub">
+          <div className="lc-settingline__text">
+            <h3 className="lc-settings__heading">Behind the glass</h3>
+            <p className="lc-settings__lede">{groundLede(state.glassGround)}</p>
+          </div>
+          <div className="lc-segmented" role="radiogroup" aria-label="What the glass shows through it">
+            {GROUNDS.map(([option, label]) => (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={state.glassGround === option}
+                className={`lc-button${state.glassGround === option ? ' is-active' : ''}`}
+                onClick={() => {
+                  void window.desktop?.setGlassGround(option).then(setState)
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

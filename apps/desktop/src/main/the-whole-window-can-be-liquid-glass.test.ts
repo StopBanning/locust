@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { readLook, writeAppearance } from './appearance.js'
+import { readGlassGround, readLook, writeAppearance } from './appearance.js'
 import { createMacGlass, LIQUID_LIGHTS, readGlassPanel } from './mac-glass.js'
 import type { GlassWindow, MacGlassAddon } from './mac-glass.js'
 import { STANDARD_LIGHTS } from './window-chrome.js'
@@ -62,8 +62,38 @@ describe('the whole window can be Liquid glass', () => {
     expect(readLook('/f', () => JSON.stringify({ theme: 'dark', look: 'liquid' }))).toBe('liquid')
     const file = join(mkdtempSync(join(tmpdir(), 'locust-look-')), 'appearance.json')
     writeAppearance(file, 'light', 'liquid')
-    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ theme: 'light', look: 'liquid' })
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ theme: 'light', look: 'liquid', glassGround: 'desktop' })
     expect(readLook(file)).toBe('liquid')
+  })
+
+  it('what the glass shows is kept with the look: the desktop unless Rainbow was chosen, and kept by every save', () => {
+    expect(readGlassGround('/nowhere', () => { throw new Error('ENOENT') })).toBe('desktop')
+    expect(readGlassGround('/f', () => JSON.stringify({ theme: 'dark', look: 'liquid' }))).toBe('desktop')
+    expect(readGlassGround('/f', () => JSON.stringify({ glassGround: 'sparkles' }))).toBe('desktop')
+    expect(readGlassGround('/f', () => JSON.stringify({ glassGround: 'rainbow' }))).toBe('rainbow')
+    const file = join(mkdtempSync(join(tmpdir(), 'locust-ground-')), 'appearance.json')
+    writeAppearance(file, 'dark', 'liquid', 'rainbow')
+    expect([readLook(file), readGlassGround(file)]).toEqual(['liquid', 'rainbow'])
+    // Every save in main/index.ts passes it on, so changing the theme or the look never drops the Rainbow.
+    const main = read('index.ts')
+    expect(main.match(/writeAppearance\(appearanceFile\(\), themeChoice, lookChoice, glassGroundChoice\)/g)).toHaveLength(3)
+    expect(main).not.toMatch(/writeAppearance\(appearanceFile\(\), themeChoice, lookChoice\)/)
+  })
+
+  it('Rainbow puts its picture under the glass, the desktop takes it away, and neither touches a window off the glass', () => {
+    const native = addon()
+    const glass = createMacGlass('darwin', () => native)
+    const window = glassWindow([])
+    glass.ground(window, '/resources/glass-rainbow.jpg')
+    expect(native.calls).toEqual([])
+    glass.apply(window, true)
+    glass.ground(window, '/resources/glass-rainbow.jpg')
+    glass.ground(window, null)
+    expect(native.calls).toEqual(['attach', 'backdrop /resources/glass-rainbow.jpg', 'backdrop '])
+    // The addon takes an empty path as "take the picture away", and the build ships the picture beside the app.
+    expect(read('../../native/mac-glass.mm')).toMatch(/if \(file\.length == 0\) \{\s*\[objc_getAssociatedObject\(root, kBackdrop\) removeFromSuperview\];/)
+    expect(read('../../electron-builder.yml')).toMatch(/- from: resources\/glass-rainbow\.jpg\s+to: glass-rainbow\.jpg/)
+    expect(read('index.ts')).toContain("join(process.resourcesPath, 'glass-rainbow.jpg')")
   })
 
   it('a window is drawn in it only when it is chosen and offered, and starts marked so from its own command line', () => {

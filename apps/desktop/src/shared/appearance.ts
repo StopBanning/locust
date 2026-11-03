@@ -9,6 +9,13 @@ export type ThemeChoice = 'dark' | 'light' | 'system'
  */
 export type LookChoice = 'standard' | 'liquid'
 
+/**
+ * What Liquid glass shows through it (0.859). Colin, 2026-11-02, over a bright desktop: "you should let this rainbow
+ * mode be a color setting in locust just wow". Your desktop, as macOS draws it; or Rainbow, Locust's own painting put
+ * under the glass inside the window, so the window glows the same over a dark desktop.
+ */
+export type GlassGround = 'desktop' | 'rainbow'
+
 /** What the window is drawn in now: the choice, and what Match the computer comes to. */
 export interface AppearanceState {
   readonly theme: ThemeChoice
@@ -17,11 +24,14 @@ export interface AppearanceState {
   readonly look: LookChoice
   /** This computer has macOS's glass and this build can reach it. */
   readonly liquidOffered: boolean
+  /** What the glass shows through it, while it is drawn. */
+  readonly glassGround: GlassGround
 }
 
 export const APPEARANCE_GET_CHANNEL = 'appearance:get'
 export const APPEARANCE_SET_CHANNEL = 'appearance:set'
 export const APPEARANCE_SET_LOOK_CHANNEL = 'appearance:set-look'
+export const APPEARANCE_SET_GLASS_GROUND_CHANNEL = 'appearance:set-glass-ground'
 /**
  * Where the sidebar's floating panel sits, measured by the page from the window's top left (0.855): the glass behind
  * the page is placed there. `null` when there is no panel to draw (the sidebar is hidden).

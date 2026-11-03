@@ -130,18 +130,19 @@ import { pathToFileURL } from 'node:url'
 import { shellPath } from './shell-path.js'
 import { linuxInstallOf, linuxPackageUrl, linuxUpdateTestOf } from './linux-install.js'
 import { DOWNLOADS, SITE } from '../shared/locust-home.js'
-import { LOOK_CHOICES, readLook, readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeAppearance } from './appearance.js'
+import { GLASS_GROUNDS, LOOK_CHOICES, readGlassGround, readLook, readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeAppearance } from './appearance.js'
 import {
   APPEARANCE_CHANGED_CHANNEL,
   APPEARANCE_GET_CHANNEL,
   APPEARANCE_SET_CHANNEL,
+  APPEARANCE_SET_GLASS_GROUND_CHANNEL,
   APPEARANCE_SET_LOOK_CHANNEL,
   drawsLiquid,
   GLASS_PANEL_CHANNEL,
   LOOK_ARGUMENT,
   THEME_ARGUMENT
 } from '../shared/appearance.js'
-import type { AppearanceState, LookChoice, ThemeChoice } from '../shared/appearance.js'
+import type { AppearanceState, GlassGround, LookChoice, ThemeChoice } from '../shared/appearance.js'
 import { createMacGlass, readGlassPanel } from './mac-glass.js'
 import type { MacGlassAddon } from './mac-glass.js'
 import { createRequire } from 'node:module'
@@ -1305,6 +1306,15 @@ const appearanceFile = (): string => join(app.getPath('userData'), 'appearance.j
 let themeChoice: ThemeChoice = 'dark'
 // Standard, or Liquid glass (0.855, mac-glass.ts), read with the theme.
 let lookChoice: LookChoice = 'standard'
+// What the glass shows through it (0.859): the desktop, or Locust's Rainbow under it inside the window.
+let glassGroundChoice: GlassGround = 'desktop'
+const rainbowPicture = (): string => app.isPackaged ? join(process.resourcesPath, 'glass-rainbow.jpg') : join(__dirname, '../../resources/glass-rainbow.jpg')
+/** The window on glass or off it, and the Rainbow under the glass or not, as chosen. */
+const drawGlass = (window: BrowserWindow): void => {
+  const liquid = macGlass().apply(window, drawsLiquid(appearanceNow()))
+  // A drive's own picture stays under the glass in a development build (LOCUST_GLASS_BACKDROP).
+  if (liquid && (app.isPackaged || !process.env.LOCUST_GLASS_BACKDROP)) macGlass().ground(window, glassGroundChoice === 'rainbow' ? rainbowPicture() : null)
+}
 // macOS's glass, reached through native/mac-glass.mm (built beside the main bundle, out/native); none off a Mac.
 let macGlassReached: ReturnType<typeof createMacGlass> | undefined
 const macGlass = (): ReturnType<typeof createMacGlass> =>
@@ -1318,7 +1328,8 @@ const appearanceNow = (): AppearanceState => ({
   theme: themeChoice,
   resolved: resolvedTheme(themeChoice, nativeTheme.shouldUseDarkColors),
   look: lookChoice,
-  liquidOffered: macGlass().offered
+  liquidOffered: macGlass().offered,
+  glassGround: glassGroundChoice
 })
 /** A Mac's main window, glass behind its page (window-chrome.ts): its ground stays clear through a theme change. */
 const glassWindows = new WeakSet<BrowserWindow>()
@@ -1566,7 +1577,7 @@ const createWindow = (
   if (process.platform === 'darwin') {
     glassWindows.add(window)
     // Liquid glass, when chosen (mac-glass.ts): put behind the page before the window is first shown.
-    if (drawsLiquid(appearanceNow())) macGlass().apply(window, true)
+    if (drawsLiquid(appearanceNow())) drawGlass(window)
   }
   onWindow(window)
 
@@ -1882,6 +1893,7 @@ if (!ownsSingleInstanceLock) {
     // Dark unless the person chose Light or Match the computer (0.789); native menus and dialogs follow it too.
     themeChoice = readTheme(appearanceFile())
     lookChoice = readLook(appearanceFile())
+    glassGroundChoice = readGlassGround(appearanceFile())
     nativeTheme.themeSource = themeChoice
     nativeTheme.on('updated', broadcastAppearance)
     // Windows shows a notification only for an app it can name. Development
@@ -9534,7 +9546,7 @@ if (!ownsSingleInstanceLock) {
       if (!fromOwnWindow(event) || !THEME_CHOICES.includes(theme as ThemeChoice)) return appearanceNow()
       themeChoice = theme as ThemeChoice
       try {
-        writeAppearance(appearanceFile(), themeChoice, lookChoice)
+        writeAppearance(appearanceFile(), themeChoice, lookChoice, glassGroundChoice)
       } catch {
         // Kept for this run; the next start reads Dark again.
       }
@@ -9547,12 +9559,27 @@ if (!ownsSingleInstanceLock) {
       if (!fromOwnWindow(event) || !LOOK_CHOICES.includes(look as LookChoice)) return appearanceNow()
       lookChoice = look as LookChoice
       try {
-        writeAppearance(appearanceFile(), themeChoice, lookChoice)
+        writeAppearance(appearanceFile(), themeChoice, lookChoice, glassGroundChoice)
       } catch {
         // Kept for this run; the next start reads Standard again.
       }
       for (const target of BrowserWindow.getAllWindows()) {
-        if (glassWindows.has(target)) macGlass().apply(target, drawsLiquid(appearanceNow()))
+        if (glassWindows.has(target)) drawGlass(target)
+      }
+      broadcastAppearance()
+      return appearanceNow()
+    })
+    // Behind the glass (0.859): the desktop, or Locust's Rainbow under the glass; the window changes in place.
+    ipcMain.handle(APPEARANCE_SET_GLASS_GROUND_CHANNEL, (event, ground: unknown) => {
+      if (!fromOwnWindow(event) || !GLASS_GROUNDS.includes(ground as GlassGround)) return appearanceNow()
+      glassGroundChoice = ground as GlassGround
+      try {
+        writeAppearance(appearanceFile(), themeChoice, lookChoice, glassGroundChoice)
+      } catch {
+        // Kept for this run; the next start shows the desktop again.
+      }
+      for (const target of BrowserWindow.getAllWindows()) {
+        if (glassWindows.has(target)) drawGlass(target)
       }
       broadcastAppearance()
       return appearanceNow()

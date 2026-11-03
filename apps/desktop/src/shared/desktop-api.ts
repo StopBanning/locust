@@ -44,8 +44,8 @@ import {
   type BrowserPanelState
 } from './browser.js'
 import type { BrowserPointResponse } from './browser-point.js'
-import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, APPEARANCE_SET_LOOK_CHANNEL, GLASS_PANEL_CHANNEL } from './appearance.js'
-import type { AppearanceState, GlassPanel, LookChoice, ThemeChoice } from './appearance.js'
+import { APPEARANCE_CHANGED_CHANNEL, APPEARANCE_GET_CHANNEL, APPEARANCE_SET_CHANNEL, APPEARANCE_SET_GLASS_GROUND_CHANNEL, APPEARANCE_SET_LOOK_CHANNEL, GLASS_PANEL_CHANNEL } from './appearance.js'
+import type { AppearanceState, GlassGround, GlassPanel, LookChoice, ThemeChoice } from './appearance.js'
 import { ACP_AGENTS_LIST_CHANNEL, ACP_AGENTS_REMOVE_CHANNEL, ACP_AGENTS_SAVE_CHANNEL, ACP_AGENTS_TEST_CHANNEL } from './acp-agents.js'
 import { ACCOUNT_APPROVE_CHANNEL, ACCOUNT_ASK_CHANNEL, ACCOUNT_ASK_STOP_CHANNEL, ACCOUNT_BRING_HERE_CHANNEL, ACCOUNT_CHANGED_CHANNEL, ACCOUNT_IGNORE_CHANNEL, ACCOUNT_DELETE_CHANNEL, ACCOUNT_STATUS_CHANNEL, ACCOUNT_SYNC_NOW_CHANNEL, ACCOUNT_SYNC_OFF_CHANNEL, ACCOUNT_SYNC_ON_CHANNEL, PHONE_GITHUB_IN_CHANNEL, PHONE_GITHUB_OUT_CHANNEL, PHONE_OPEN_BROWSER_CHANNEL, type YourAccountStatus } from './phone.js'
 import { PHONE_ANYWHERE_CHANGED_CHANNEL, PHONE_ANYWHERE_CHANNEL, PHONE_FORGET_CHANNEL, PHONE_NEW_CODE_CHANNEL, PHONE_NIGHT_CHANNEL, PHONE_REMOVE_CHANNEL, PHONE_SET_ENABLED_CHANNEL, PHONE_SET_MODE_CHANNEL, PHONE_SETTINGS_CHANNEL, type PhoneAnywhereSettings } from './phone.js'
@@ -777,6 +777,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
     setTheme: (theme: ThemeChoice) => ipcRenderer.invoke(APPEARANCE_SET_CHANNEL, theme) as Promise<AppearanceState>,
     initialLiquid: given.initialLiquid === true,
     setLook: (look: LookChoice) => ipcRenderer.invoke(APPEARANCE_SET_LOOK_CHANNEL, look) as Promise<AppearanceState>,
+    setGlassGround: (ground: GlassGround) => ipcRenderer.invoke(APPEARANCE_SET_GLASS_GROUND_CHANNEL, ground) as Promise<AppearanceState>,
     placeGlassPanel: (panel: GlassPanel | null) => {
       void ipcRenderer.invoke(GLASS_PANEL_CHANNEL, panel).catch(() => undefined)
     },

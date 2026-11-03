@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-import type { LookChoice, ThemeChoice } from '../shared/appearance.js'
+import type { GlassGround, LookChoice, ThemeChoice } from '../shared/appearance.js'
 
 /**
  * LIGHT, DARK, OR THE COMPUTER'S (0.789).
@@ -37,10 +37,22 @@ export function readLook(file: string, read: (file: string) => string = (path) =
   }
 }
 
-/** Both choices, written together, so saving one never drops the other. */
-export function writeAppearance(file: string, theme: ThemeChoice, look: LookChoice): void {
+export const GLASS_GROUNDS: readonly GlassGround[] = ['desktop', 'rainbow']
+
+/** What Liquid glass shows through it (0.859), kept in the same file: the desktop unless Rainbow was chosen. */
+export function readGlassGround(file: string, read: (file: string) => string = (path) => readFileSync(path, 'utf8')): GlassGround {
+  try {
+    const saved = (JSON.parse(read(file)) as { glassGround?: unknown }).glassGround
+    return GLASS_GROUNDS.includes(saved as GlassGround) ? (saved as GlassGround) : 'desktop'
+  } catch {
+    return 'desktop'
+  }
+}
+
+/** Every choice, written together, so saving one never drops another. */
+export function writeAppearance(file: string, theme: ThemeChoice, look: LookChoice, glassGround: GlassGround = 'desktop'): void {
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, `${JSON.stringify({ theme, look }, null, 2)}\n`, 'utf8')
+  writeFileSync(file, `${JSON.stringify({ theme, look, glassGround }, null, 2)}\n`, 'utf8')
 }
 
 /** The theme a choice comes to now: the computer's, for Match the computer. */

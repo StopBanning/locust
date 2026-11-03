@@ -1,6 +1,6 @@
 // Liquid glass (0.855): the Mac window as macOS composites it, over a known desktop.
 //
-//   node _tools/drive-liquid-glass.mjs [--tag <name>]
+//   node _tools/drive-liquid-glass.mjs [--tag <name>] [--desk bright|dark-desktop|rainbow]
 //
 // Glass shows what is behind it, and a drive's page capture shows none of it, so each frame is macOS's own capture of
 // this one window (screencapture -l): never another app's window, and nothing is brought to the front -- the window
@@ -25,6 +25,8 @@ if (process.platform !== 'darwin') {
 }
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined)
 const tag = arg('--tag')
+// --desk <name>: one pass only (bright, dark-desktop or rainbow).
+const onlyDesk = arg('--desk')
 
 const pictures = await mkdtemp(join(tmpdir(), 'locust-glass-backdrop-'))
 const bright = join(pictures, 'sonoma.jpg')
@@ -61,7 +63,10 @@ const seed = {
   settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off', autoMode: false }
 }
 
-for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'dark', 9571], ['dark-desktop', 'dark', 9573]]) {
+// Rainbow (0.859): no drive picture -- Locust's own Rainbow fills the window under the glass, so the capture shows only
+// Locust. It is chosen before the glass goes on and taken off only after the last frame, so no frame shows the desktop.
+for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'dark', 9571], ['dark-desktop', 'dark', 9573], ['rainbow', null, 9575]]) {
+  if (onlyDesk !== undefined && onlyDesk !== desk) continue
   const outPath = tag === undefined ? undefined : join(recordRoot('beta-fixes-2026-09-24'), `liquid-glass-${tag}-${desk}`)
   if (outPath !== undefined) await mkdir(outPath, { recursive: true })
   const drive = await startDrive({
@@ -69,7 +74,7 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     port,
     workspace: await scratchRepository('locust-drive-liquid-glass-ws-'),
     sendsNothing: desk !== 'bright',
-    env: { LOCUST_GLASS_BACKDROP: picture },
+    env: picture === null ? {} : { LOCUST_GLASS_BACKDROP: picture },
     seed,
     ...(outPath === undefined ? {} : { outPath })
   })
@@ -107,6 +112,10 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     say(String(await drive.ready()))
     await sleep(800)
     await home()
+    if (desk === 'rainbow') {
+      const ground = String(await evaluate(`window.desktop.setGlassGround('rainbow').then((s) => s.glassGround)`))
+      judge('rainbow: Behind the glass is Rainbow before the glass goes on', ground === 'rainbow', ground)
+    }
     const set = await look('liquid')
     await sleep(800)
     judge(`${desk}: Liquid glass is offered and drawn`, /liquid offered true/.test(set) && (await drawn()) === 'liquid', `${set}; page ${await drawn()}`)
@@ -125,6 +134,12 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     await evaluate(`(() => { for (const t of [document.activeElement ?? document.body, document, window]) t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return true })()`)
     await sleep(400)
     await settings()
+    if (desk === 'rainbow') {
+      await click(startsWith('.lc-settings__navitem', 'Appearance'))
+      await sleep(500)
+      const row = String(await evaluate(`[...document.querySelectorAll('.lc-settingline--sub .lc-settings__heading')].map((h) => h.textContent).join('|')`))
+      judge('rainbow: Appearance shows Behind the glass under Look', row.includes('Behind the glass'), row)
+    }
     await snap(`${desk}-3-liquid-settings`)
     await theme('light')
     await home()
@@ -141,6 +156,11 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     await snap(`${desk}-6-liquid-rail`)
     await settings()
     await click(startsWith('.lc-segmented .lc-button', 'Auto'))
+    if (desk === 'rainbow') {
+      // Off the glass first, so taking the Rainbow away never shows the desktop to a capture.
+      await look('standard')
+      await evaluate(`window.desktop.setGlassGround('desktop')`)
+    }
     await look('standard')
     await home()
     judge(`${desk}: back to Standard`, (await drawn()) === 'standard', await drawn())

@@ -103,6 +103,7 @@ function callsIn(text: string): ReadonlyMap<string, number> {
 const QUIET: Readonly<Record<string, string>> = {
   "placeGlassPanel": "Liquid glass's panel is placed only from the Mac window itself: main.tsx marks no browser glass",
   "setLook": "the Look row is drawn only in the Mac window (LookSetting returns nothing where desktop.remote is set)",
+  "setGlassGround": "Behind the glass is drawn inside the Look row, only in the Mac window (LookSetting returns nothing where desktop.remote is set)",
   "applyCloudTask": "the cloud panel's buttons say the refusal (failureSaid); the makers' clouds are refused on the chat box's choice",
   "applyRestoredFolders": "on the restored folders' card, which a browser never gets (restoredFolders)",
   "bringClaudeCloudHome": "the cloud panel's buttons say the refusal (failureSaid); the makers' clouds are refused on the chat box's choice",
@@ -290,6 +291,7 @@ components/SavedApprovalRules.tsx removeAllApprovalRules 1
 components/SavedApprovalRules.tsx removeApprovalRule 1
 components/ScoutSetting.tsx scout.turnOn 1
 components/Screens.tsx revealDiagnostics 1
+components/LookSetting.tsx setGlassGround 1
 components/LookSetting.tsx setLook 1
 main.tsx placeGlassPanel 1
 components/SignInButton.tsx signInRuntime 1

@@ -65,6 +65,9 @@ extraResources:
     to: trayTemplate.png
   - from: resources/trayTemplate@2x.png
     to: trayTemplate@2x.png
+  # Behind the glass > Rainbow (mac-glass.ts): Locust's own painting, put under Liquid glass inside the window.
+  - from: resources/glass-rainbow.jpg
+    to: glass-rainbow.jpg
   # Claude Code spawns this as a stdio MCP server, so it has to be a real
   # file on disk, never a path inside the archive (permission-host.ts).
   - from: resources/locust-permission-bridge.mjs
