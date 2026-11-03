@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.862.0 - 2026-11-03
+
+### Fixed
+
+- **A teammate whose plan is used up is not started to answer another.** When one teammate hands work to another whose plan has run out (the agent said so, and its reset has not come yet), Locust no longer starts a run that can only fail. The message waits for their next run, and the sender's conversation says why, when the plan resets, and that giving them another model on the Team screen gets it answered sooner.
+
 ## 0.861.0 - 2026-11-02
 
 ### Improved
