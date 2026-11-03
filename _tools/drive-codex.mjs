@@ -1,7 +1,11 @@
 // A full session on Codex CLI: an edit, a follow-up that builds on it, the
 // diff in the fold, the conversation in the sidebar, the archive screen.
 //
-//   node _tools/drive-codex.mjs
+//   node _tools/drive-codex.mjs [--model <codex model id>]
+//
+// --model (0.864): Wren on a named model rather than the account's default, so the follow-up reopens a thread
+// recorded on it -- where Codex warned "resuming with <the person's default>" until the thread was reopened on the
+// turn's own model. The drive then checks the conversation shows no such warning.
 //
 // Wren on Codex CLI (account-default), Accept edits. Two turns of one
 // conversation. Spends two short Codex runs on Colin's account.
@@ -11,6 +15,7 @@ import { join } from 'node:path'
 
 import { say, scratchRepository, sendAndWaitScript, startDrive, teammateFace } from './drive-lib.mjs'
 
+const modelArg = process.argv.includes('--model') ? process.argv[process.argv.indexOf('--model') + 1] : undefined
 const workspace = await scratchRepository('locust-drive-codex-ws-')
 const drive = await startDrive({
   spends: true,
@@ -19,7 +24,7 @@ const drive = await startDrive({
   workspace,
   seed: {
     schemaVersion: 1,
-    teammates: [{ teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: '2026-09-05T05:00:00.000Z', route: { runtime: 'codex', model: 'account-default', mode: 'accept-edits' } }],
+    teammates: [{ teammateId: 'tm_wren', name: 'Wren', hue: 'lime', role: 'Code & Migrations', createdAt: '2026-09-05T05:00:00.000Z', route: { runtime: 'codex', model: modelArg ?? 'account-default', mode: 'accept-edits' } }],
     missionOwners: {},
     settings: { swarm: false, relay: false, relayHopCap: 2, memoryMode: 'off' }
   }
@@ -44,6 +49,10 @@ try {
   })
   await drive.capture('the fold after turn 1', () => drive.evaluate(fold))
   await drive.capture('turn 2: a follow-up that builds on turn 1', () => drive.evaluate(sendAndWaitScript('Append one more line to NOTES.md: "Second entry." Keep the first two lines. Do not run shell commands. Reply with the single word DONE.')))
+  await drive.capture('turn 2 says nothing about resuming on another model', () => drive.evaluate(`(() => {
+    const said = document.querySelector('.lc-thread')?.innerText ?? ''
+    return /resuming with/i.test(said) ? 'WARNED: ' + said.slice(said.search(/recorded with model/i), said.search(/recorded with model/i) + 160) : 'no resuming warning'
+  })()`))
   await drive.capture('the fold after turn 2, and the sidebar', () => drive.evaluate(`(async () => {
     const folds = [...document.querySelectorAll('.lc-activity')]
     const last = folds[folds.length - 1]

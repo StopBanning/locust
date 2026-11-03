@@ -412,7 +412,19 @@ ${said}` : why;
         sandbox: options.sandbox,
         approvalPolicy: options.approvalPolicy,
         ...(() => {
-          const route = options.slashCommand === undefined ? {} : threadRoute(options.model, options.effort);
+          /*
+           * The model on the THREAD too (0.864), not only on the turn. Colin's 2026-11-03: a follow-up resumed the thread
+           * with no model, so Codex opened it on the person's own default (gpt-6-astra) and warned in the conversation
+           * that a thread "recorded with model gpt-6.1-sol" was "resuming with gpt-6-astra" -- though the turn then ran
+           * on sol. Reopening the thread on the turn's own model says nothing to warn about. A new thread has no model
+           * recorded to disagree with, so `thread/start` is as it was. Effort stays per turn.
+           */
+          const reopening = options.resumeThreadId !== undefined;
+          const route = options.slashCommand !== undefined
+            ? threadRoute(options.model, options.effort)
+            : reopening && typeof options.model === "string" && options.model.trim().length > 0
+              ? { model: options.model }
+              : {};
           const config = {
             ...(typeof route.config === "object" && route.config !== null && !Array.isArray(route.config) ? route.config : {}),
             ...fromSettings,

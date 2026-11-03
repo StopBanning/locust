@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { conversationKeys, heldFor } from './conversationList.js'
+import { conversationKeys, conversationTitleFor, heldFor } from './conversationList.js'
 import type { SidebarMission } from './components/Sidebar.js'
 
 /**
@@ -73,5 +73,31 @@ describe('finding what was saved', () => {
 
   it('works for a single-turn conversation with no root recorded', () => {
     expect(heldFor(row({ missionId: 'only' }), { only: 'named' })).toBe('named')
+  })
+})
+
+describe("a conversation's header says the name its sidebar row says (0.864)", () => {
+  // Colin's 2026-11-03: the sidebar read "handoff-export-polish.md" and the header of the same conversation, which
+  // belongs to no teammate, read "continue mb" -- the newest turn's prompt.
+  const rows = [
+    row({ missionId: 'leaf', rootId: 'root', memberIds: ['root', 'mid', 'leaf'], title: 'handoff-export-polish.md' }),
+    row({ missionId: 'other', title: 'Something else' })
+  ]
+
+  it('finds the row by any turn the conversation has had', () => {
+    expect(conversationTitleFor(rows, 'leaf')).toBe('handoff-export-polish.md')
+    expect(conversationTitleFor(rows, 'mid')).toBe('handoff-export-polish.md')
+    expect(conversationTitleFor(rows, 'root')).toBe('handoff-export-polish.md')
+  })
+
+  it('says nothing for a run no row holds, so the header falls back to the prompt', () => {
+    expect(conversationTitleFor(rows, 'pending:3')).toBeUndefined()
+    expect(conversationTitleFor(rows, undefined)).toBeUndefined()
+  })
+
+  it('the header reads it before the prompt, after a teammate', async () => {
+    const { readFileSync } = await import('node:fs')
+    const app = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
+    expect(app).toContain('{missionOwner?.name ?? shownConversationTitle ?? missionTitle(shownPrompt(liveRun))}')
   })
 })

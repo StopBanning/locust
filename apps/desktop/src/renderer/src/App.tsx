@@ -260,7 +260,7 @@ import { installCommand } from '../../shared/runtime-install.js'
 import { splitAttachments, withAttachments } from '../../shared/attachments.js'
 // Only `heldFor`: this file has its own `ownerOf` for live runs, which is a
 // different question from who owns a recorded mission.
-import { conversationKeys, heldFor, liveRunLastAt, routineOf } from './conversationList.js'
+import { conversationKeys, conversationTitleFor, heldFor, liveRunLastAt, routineOf } from './conversationList.js'
 import { stepConversation } from './conversationSteps.js'
 import { snoozeChoices } from './settled.js'
 import { PullRequestNewsBanner } from './components/PullRequestNewsBanner.js'
@@ -8366,6 +8366,8 @@ export default function App(): ReactElement {
     const parents = nestedUnder(named, sentFrom)
     return named.map((row) => (parents.has(row.missionId) ? { ...row, nestedUnder: parents.get(row.missionId)! } : row))
   }, [historyRows, historyById, runs, workspaceId, missionTitles, compares, hiddenRunIds])
+  // The shown conversation's name as its sidebar row says it, renamed or not, for a header with no teammate to name (0.864).
+  const shownConversationTitle = useMemo(() => conversationTitleFor(sidebarMissions, liveRun?.data?.missionId), [sidebarMissions, liveRun?.data?.missionId])
   // The conversation the box writes in, so an unsent message stays with it (0.551).
   const shownConversation = liveRun?.data?.missionId ?? shownKey
   const shownRow = shownConversation === undefined ? undefined : sidebarMissions.find((entry) => (entry.memberIds ?? [entry.missionId]).includes(shownConversation))
@@ -10172,7 +10174,7 @@ export default function App(): ReactElement {
                   <div style={{ minWidth: 0 }}>
                     <div className="lc-workroom__titleline">
                       <span className="lc-workroom__name">
-                        {missionOwner?.name ?? missionTitle(shownPrompt(liveRun))}
+                        {missionOwner?.name ?? shownConversationTitle ?? missionTitle(shownPrompt(liveRun))}
                       </span>
                       <span className="lc-workroom__role">
                         {missionOwner === undefined ? '' : `${roleLabelOf(missionOwner)} · `}

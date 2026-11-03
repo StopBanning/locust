@@ -184,6 +184,16 @@ export function routineOf(startedBy: { readonly kind: string; readonly routineId
   return startedBy?.kind === 'routine' ? startedBy.routineId : undefined
 }
 
+/**
+ * The name the sidebar gives the conversation a run belongs to (0.864), so the conversation's header says the same:
+ * it named the run's own prompt instead, and Colin's sidebar read "handoff-export-polish.md" over a header that said
+ * "continue mb", his latest follow-up. Undefined when no row holds the run (a send not yet a mission).
+ */
+export function conversationTitleFor(rows: readonly SidebarMission[], missionId: string | undefined): string | undefined {
+  if (missionId === undefined) return undefined
+  return rows.find((row) => conversationKeys(row).includes(missionId))?.title
+}
+
 /** The first value stored against any id this conversation has worn. */
 export function heldFor<T>(mission: SidebarMission, byKey: Readonly<Record<string, T>>): T | undefined {
   for (const key of conversationKeys(mission)) {

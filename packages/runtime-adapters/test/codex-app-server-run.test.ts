@@ -176,6 +176,21 @@ describe("a turn over app-server", () => {
     });
   });
 
+  it("reopens a thread on the turn's own model, so Codex does not warn it is resuming on another (0.864)", async () => {
+    // Colin's 2026-11-03: a follow-up resumed with no model, Codex opened the thread on his default (gpt-6-astra) and
+    // warned the conversation that a thread "recorded with model gpt-6.1-sol" was "resuming with gpt-6-astra".
+    const resumed = (await handshaken({ resumeThreadId: "thread_earlier", model: "gpt-6.1-sol", effort: "high" })).server;
+    expect(resumed.paramsOf("thread/resume")).toMatchObject({ threadId: "thread_earlier", model: "gpt-6.1-sol" });
+    // Effort stays the turn's own, as it was.
+    expect(resumed.paramsOf("thread/resume")).not.toHaveProperty("config.model_reasoning_effort");
+    const forked = (await handshaken({ resumeThreadId: "thread_earlier", forkThread: true, model: "gpt-6.1-sol" })).server;
+    expect(forked.paramsOf("thread/fork")).toMatchObject({ model: "gpt-6.1-sol" });
+    // A new thread has no model recorded to disagree with: as it was.
+    expect((await handshaken({ model: "gpt-6.1-sol" })).server.paramsOf("thread/start")).not.toHaveProperty("model");
+    // No model named: nothing sent, and Codex keeps its own.
+    expect((await handshaken({ resumeThreadId: "thread_earlier" })).server.paramsOf("thread/resume")).not.toHaveProperty("model");
+  });
+
   it("forks the thread for a question on the side, a copy the side can fork again (0.461)", async () => {
     const { server } = await handshaken({ resumeThreadId: "thread_earlier", forkThread: true, sandbox: "read-only" });
     expect(server.idOf("thread/resume")).toBeUndefined();
