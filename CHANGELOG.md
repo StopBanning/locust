@@ -11,6 +11,13 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.861.0 - 2026-11-02
+
+### Improved
+
+- **Conversations in the sidebar read at Claude's size.** Their names are 14px instead of 12px, on taller rows, so the list is easy to read at a glance.
+- **A running conversation's shimmer shows in every look.** The bright band that rolls through a working conversation's name was nearly invisible in Liquid glass, where the sidebar's grey text is lifted for a bright desktop. It now runs from a dimmer grey to white in every look, wider and a little quicker.
+
 ## 0.860.0 - 2026-11-02
 
 ### Fixed
