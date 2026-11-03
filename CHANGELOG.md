@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.858.0 - 2026-11-02
+
+### Improved
+
+- **Settings, set out like a Mac's.** Every page is now rounded boxes of rows, as in macOS's own System Settings: each setting's name on the left, its control on the right, a hairline between the rows of a box, and what a setting does said in one quieter line under its name. A setting with more to it gets a box of its own. Skill packs on Teammates are a list instead of a grid of cards, and links no longer underline until you point at them.
+
 ## 0.857.0 - 2026-11-02
 
 ### Improved
