@@ -25562,3 +25562,304 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   content: '·' / '';
   margin-right: var(--lc-space-2);
 }
+
+/*
+ * SETTINGS AS A MAC'S OWN (0.858). Colin, 2026-11-02: "our settings is still an absoltue dumpster fire, literally
+ * look at how actual good companies do it, claude apple, etc. just do that, cause its so deep fried". Held beside
+ * macOS 26's System Settings the same evening: every setting a row, its name at the left and its control at the
+ * right; rows gathered in rounded boxes with a hairline between them, inset from the box's edges; a box's own name
+ * in small bold above or inside it; explanations one quiet size down; no box inside a box, no underlined links.
+ * The 0.393 rows keep their order and words; this puts them in groups. One block, so it can be lifted out whole.
+ */
+.lc-settings__pane {
+  --lc-settings-box: color-mix(in srgb, var(--lc-text-primary) 3.5%, transparent);
+  --lc-settings-box-edge: color-mix(in srgb, var(--lc-text-primary) 7%, transparent);
+  --lc-settings-rule: color-mix(in srgb, var(--lc-text-primary) 8%, transparent);
+  --lc-settings-box-pad: 16px;
+}
+
+/* Every section is a box. */
+.lc-settings__pane .lc-settings__section,
+.lc-settings__pane .lc-settings__section--line {
+  max-width: 680px;
+  margin: 0 0 20px;
+  padding: 14px var(--lc-settings-box-pad);
+  border: 0;
+  border-radius: 12px;
+  background: var(--lc-settings-box);
+  box-shadow: inset 0 0 0 0.5px var(--lc-settings-box-edge);
+}
+
+/* A run of one-switch rows is one box: joined, with a hairline inset from its edges between each. A row with more
+   in it (a choice under it, a list, a second line of controls) is a box of its own, and so breaks the run. Said
+   without a :has() inside another, which Chromium drops whole. */
+.lc-settings__pane .lc-settings__section--line:has(+ .lc-settings__section--line) {
+  margin-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: inset 0.5px 0 0 var(--lc-settings-box-edge), inset -0.5px 0 0 var(--lc-settings-box-edge), inset 0 0.5px 0 var(--lc-settings-box-edge);
+}
+
+.lc-settings__pane .lc-settings__section--line + .lc-settings__section--line {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  background:
+    linear-gradient(var(--lc-settings-rule), var(--lc-settings-rule)) top center / calc(100% - 2 * var(--lc-settings-box-pad)) 1px no-repeat,
+    var(--lc-settings-box);
+  box-shadow: inset 0.5px 0 0 var(--lc-settings-box-edge), inset -0.5px 0 0 var(--lc-settings-box-edge), inset 0 -0.5px 0 var(--lc-settings-box-edge);
+}
+
+.lc-settings__pane .lc-settings__section--line + .lc-settings__section--line:has(+ .lc-settings__section--line) {
+  box-shadow: inset 0.5px 0 0 var(--lc-settings-box-edge), inset -0.5px 0 0 var(--lc-settings-box-edge);
+}
+
+/* The row before a box of its own closes its run. */
+.lc-settings__pane .lc-settings__section--line:has(+ .lc-settings__section--line > :not(.lc-settingline, .lc-settings__more)) {
+  margin-bottom: 20px;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.lc-settings__pane :not(.lc-settings__section--line) + .lc-settings__section--line:has(+ .lc-settings__section--line > :not(.lc-settingline, .lc-settings__more)),
+.lc-settings__pane .lc-settings__section--line:first-child:has(+ .lc-settings__section--line > :not(.lc-settingline, .lc-settings__more)) {
+  box-shadow: inset 0 0 0 0.5px var(--lc-settings-box-edge);
+}
+
+.lc-settings__pane .lc-settings__section--line + .lc-settings__section--line:has(+ .lc-settings__section--line > :not(.lc-settingline, .lc-settings__more)) {
+  box-shadow: inset 0.5px 0 0 var(--lc-settings-box-edge), inset -0.5px 0 0 var(--lc-settings-box-edge), inset 0 -0.5px 0 var(--lc-settings-box-edge);
+}
+
+/* A box of its own, and the row after it opens a new run. */
+.lc-settings__pane .lc-settings__section--line:has(> :not(.lc-settingline, .lc-settings__more)),
+.lc-settings__pane .lc-settings__section--line:has(> :not(.lc-settingline, .lc-settings__more)) + .lc-settings__section--line {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  background: var(--lc-settings-box);
+}
+
+.lc-settings__pane .lc-settings__section--line:has(> :not(.lc-settingline, .lc-settings__more)) {
+  margin-bottom: 20px;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  box-shadow: inset 0 0 0 0.5px var(--lc-settings-box-edge);
+}
+
+.lc-settings__pane .lc-settings__section--line:has(> :not(.lc-settingline, .lc-settings__more)) + .lc-settings__section--line {
+  box-shadow: inset 0.5px 0 0 var(--lc-settings-box-edge), inset -0.5px 0 0 var(--lc-settings-box-edge), inset 0 0.5px 0 var(--lc-settings-box-edge);
+}
+
+.lc-settings__pane .lc-settings__section--line:has(> :not(.lc-settingline, .lc-settings__more)) + .lc-settings__section--line:not(:has(+ .lc-settings__section--line)) {
+  box-shadow: inset 0 0 0 0.5px var(--lc-settings-box-edge);
+}
+
+.lc-settings__pane .lc-settings__section--line + .lc-settings__section--line:not(:has(+ .lc-settings__section--line)) {
+  margin-bottom: 20px;
+}
+
+.lc-settings__pane .lc-settings__section--line:first-child {
+  padding-top: 14px;
+}
+
+/* The page's name stands above its boxes, as a Mac pane's title does. */
+.lc-settings__pane .lc-settings__pagehead,
+.lc-settings__pane > :first-child > .lc-settings__heading:first-child:not(.lc-settings__heading--section) {
+  margin: 2px 0 18px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* A page that opens on a section whose heading is its name: the heading stands above the box, not inside it. */
+.lc-settings__pane > .lc-settings__section:first-child:has(> .lc-settings__heading:first-child:not(.lc-settings__heading--section)) {
+  padding-top: 0;
+  background: none;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* A box's name: a Mac's bold 13, one step over its rows. */
+.lc-settings__pane .lc-settings__section > .lc-settings__heading:not(.lc-settings__heading--section) {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* A row's name, in the row. */
+.lc-settings__pane .lc-settingline .lc-settings__heading:not(.lc-settings__heading--section) {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* What a setting is doing, said one size down and quieter, at a reading width. */
+.lc-settings__pane .lc-settings__lede,
+.lc-settings__pane .lc-settings__note {
+  max-width: 58ch;
+  font-size: 12px;
+  line-height: 1.42;
+  color: var(--lc-text-secondary);
+}
+
+.lc-settings__pane .lc-settings__section > .lc-settings__lede {
+  margin: 0 0 10px;
+}
+
+.lc-settings__pane .lc-settings__section > .lc-settings__lede:last-child,
+.lc-settings__pane .lc-settings__section > .lc-settings__note:last-child {
+  margin-bottom: 0;
+}
+
+.lc-settings__pane .lc-settingline {
+  gap: 24px;
+  min-height: 24px;
+}
+
+.lc-settings__pane .lc-settingline__text {
+  gap: 1px;
+}
+
+/* "How it works": a quiet line under the words, nearer to them. */
+.lc-settings__pane .lc-settings__more {
+  margin: 6px 0 0;
+}
+
+.lc-settings__pane .lc-settings__more > summary {
+  font-size: 12px;
+  color: var(--lc-text-muted);
+}
+
+/* A setting under another: the next row of the same box, set off by the same inset hairline, not a left rule. */
+.lc-settings__pane .lc-settingline--sub {
+  margin-top: 14px;
+  padding: 14px 0 0;
+  border-left: 0;
+  background: linear-gradient(var(--lc-settings-rule), var(--lc-settings-rule)) top left / 100% 1px no-repeat;
+}
+
+/* Rows inside a box: hairlines between them, no box of their own. */
+.lc-settings__pane .lc-settingrows,
+.lc-settings__pane .lc-settingcard {
+  margin-top: 4px;
+  border-top: 0;
+}
+
+.lc-settings__pane .lc-settingrow,
+.lc-settings__pane .lc-settingcard > .lc-folder,
+.lc-settings__pane .lc-settingcard > .lc-policyrow,
+.lc-settings__pane .lc-settingcard > .lc-runtimerow,
+.lc-settings__pane .lc-policyrow {
+  padding: 11px 0;
+  border-top: 1px solid var(--lc-settings-rule);
+}
+
+.lc-settings__pane .lc-settingrow:first-child,
+.lc-settings__pane .lc-settingcard > :first-child {
+  border-top: 0;
+}
+
+.lc-settings__pane .lc-settingrow > .lc-settings__note {
+  font-size: 13px;
+  color: var(--lc-text-primary);
+}
+
+/* Links read as a Mac's: the accent, no underline until pointed at. */
+.lc-settings__pane .lc-linkbutton,
+.lc-settings__pane a {
+  color: var(--lc-text-secondary);
+  text-decoration: none;
+}
+
+.lc-settings__pane .lc-linkbutton:hover,
+.lc-settings__pane a:hover {
+  color: var(--lc-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Skill packs: a list inside the box, as a Mac lists apps -- not a grid of cards inside it. */
+.lc-settings__pane .lc-skilllib__tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 2px 0 6px;
+}
+
+.lc-settings__pane .lc-skilllib__tile {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--lc-settings-rule);
+  border-radius: 0;
+}
+
+.lc-settings__pane .lc-skilllib__tile:first-child {
+  border-top: 0;
+}
+
+.lc-settings__pane .lc-skilllib__pack {
+  gap: 1px;
+  min-width: 0;
+}
+
+.lc-settings__pane .lc-skilllib__tile .lc-skilllib__name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.lc-settings__pane .lc-skilllib__tile .lc-skilllib__skills,
+.lc-settings__pane .lc-skilllib__tile .lc-skilllib__meta {
+  font-size: 12px;
+  color: var(--lc-text-secondary);
+}
+
+.lc-settings__pane .lc-skilllib__tile .lc-skilllib__meta {
+  color: var(--lc-text-muted);
+}
+
+.lc-settings__pane .lc-skilllib__tile > .lc-linkbutton {
+  flex: none;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.lc-settings__pane .lc-skilllib__popular > .lc-skilllib__name {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lc-text-secondary);
+}
+
+.lc-settings__pane .lc-skilllib__popular > .lc-skilllib__said {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--lc-text-muted);
+}
+
+/* A page whose one section carries the page's name (AI agents & accounts, What's new): the name stands above, and
+   the rows under it go in boxes of their own, with the sentences between them said under the boxes, as a Mac's are. */
+.lc-settings__pane > .lc-settings__section:first-child:has(> .lc-settings__heading:first-child:not(.lc-settings__heading--section)) > .lc-settingline,
+.lc-settings__pane > .lc-settings__section:first-child:has(> .lc-settings__heading:first-child:not(.lc-settings__heading--section)) > .lc-settingcard,
+.lc-settings__pane > .lc-settings__section:first-child:has(> .lc-settings__heading:first-child:not(.lc-settings__heading--section)) > .lc-settingrows {
+  margin: 0 0 10px;
+  padding: 12px var(--lc-settings-box-pad);
+  border-radius: 12px;
+  background: var(--lc-settings-box);
+  box-shadow: inset 0 0 0 0.5px var(--lc-settings-box-edge);
+}
+
+.lc-settings__pane > .lc-settings__section:first-child:has(> .lc-settings__heading:first-child:not(.lc-settings__heading--section)) > .lc-settingcard,
+.lc-settings__pane > .lc-settings__section:first-child:has(> .lc-settings__heading:first-child:not(.lc-settings__heading--section)) > .lc-settingrows {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* Nothing trails a box's last line: its padding is the whole of the room under it. */
+.lc-settings__pane .lc-settings__section > :last-child {
+  margin-bottom: 0;
+}
