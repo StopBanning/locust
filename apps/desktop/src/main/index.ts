@@ -145,6 +145,7 @@ import {
 import type { AppearanceState, GlassGround, LookChoice, ThemeChoice } from '../shared/appearance.js'
 import { createMacGlass, readGlassPanel } from './mac-glass.js'
 import type { MacGlassAddon } from './mac-glass.js'
+import { createWindowsGlass } from './windows-glass.js'
 import { createRequire } from 'node:module'
 import { homedir, hostname, release } from 'node:os'
 import { execFile } from 'node:child_process'
@@ -1311,6 +1312,11 @@ let glassGroundChoice: GlassGround = 'desktop'
 const rainbowPicture = (): string => app.isPackaged ? join(process.resourcesPath, 'glass-rainbow.jpg') : join(__dirname, '../../resources/glass-rainbow.jpg')
 /** The window on glass or off it, and the Rainbow under the glass or not, as chosen. */
 const drawGlass = (window: BrowserWindow): void => {
+  // Windows (windows-glass.ts): the window on Acrylic or off it; the page paints the Rainbow itself.
+  if (process.platform === 'win32') {
+    windowsGlass().apply(window, drawsLiquid(appearanceNow()))
+    return
+  }
   const liquid = macGlass().apply(window, drawsLiquid(appearanceNow()))
   // A drive's own picture stays under the glass in a development build (LOCUST_GLASS_BACKDROP).
   if (liquid && (app.isPackaged || !process.env.LOCUST_GLASS_BACKDROP)) macGlass().ground(window, glassGroundChoice === 'rainbow' ? rainbowPicture() : null)
@@ -1324,21 +1330,27 @@ const macGlass = (): ReturnType<typeof createMacGlass> =>
     // A drive's picture under the glass (drive-liquid-glass.mjs); never in a build a person installs.
     app.isPackaged ? undefined : process.env.LOCUST_GLASS_BACKDROP
   ))
+// Windows 11's glass, Acrylic (windows-glass.ts, 0.864); none off Windows 11 22H2+.
+let windowsGlassReached: ReturnType<typeof createWindowsGlass> | undefined
+const windowsGlass = (): ReturnType<typeof createWindowsGlass> =>
+  (windowsGlassReached ??= createWindowsGlass(process.platform, () => windowGround(appearanceNow().resolved)))
 const appearanceNow = (): AppearanceState => ({
   theme: themeChoice,
   resolved: resolvedTheme(themeChoice, nativeTheme.shouldUseDarkColors),
   look: lookChoice,
-  liquidOffered: macGlass().offered,
+  liquidOffered: macGlass().offered || windowsGlass().offered,
   glassGround: glassGroundChoice
 })
 /** A Mac's main window, glass behind its page (window-chrome.ts): its ground stays clear through a theme change. */
 const glassWindows = new WeakSet<BrowserWindow>()
+/** The main window on either system: the one Liquid glass is drawn on, changed in place when the look changes. */
+const liquidWindows = new WeakSet<BrowserWindow>()
 /** Every window is told, and repainted in the new ground, so none shows the old theme behind its page. */
 const broadcastAppearance = (): void => {
   const state = appearanceNow()
   for (const target of BrowserWindow.getAllWindows()) {
     if (target.isDestroyed()) continue
-    if (!glassWindows.has(target)) target.setBackgroundColor(windowGround(state.resolved))
+    if (!glassWindows.has(target) && !windowsGlass().drawn(target)) target.setBackgroundColor(windowGround(state.resolved))
     target.webContents.send(APPEARANCE_CHANGED_CHANNEL, state)
   }
 }
@@ -1547,7 +1559,7 @@ const createWindow = (
       // And the look (0.855): a window drawn in Liquid glass is marked so from its first frame too.
       additionalArguments: [
         `${THEME_ARGUMENT}${appearanceNow().resolved}`,
-        ...(process.platform === 'darwin' && drawsLiquid(appearanceNow()) ? [`${LOOK_ARGUMENT}liquid`] : [])
+        ...((process.platform === 'darwin' || process.platform === 'win32') && drawsLiquid(appearanceNow()) ? [`${LOOK_ARGUMENT}liquid`] : [])
       ],
       sandbox: true,
       contextIsolation: true,
@@ -1574,11 +1586,10 @@ const createWindow = (
   })
 
   reportPreloadErrors(window, 'main')
-  if (process.platform === 'darwin') {
-    glassWindows.add(window)
-    // Liquid glass, when chosen (mac-glass.ts): put behind the page before the window is first shown.
-    if (drawsLiquid(appearanceNow())) drawGlass(window)
-  }
+  if (process.platform === 'darwin') glassWindows.add(window)
+  liquidWindows.add(window)
+  // Liquid glass, when chosen (mac-glass.ts, windows-glass.ts): put behind the page before the window is first shown.
+  if (drawsLiquid(appearanceNow())) drawGlass(window)
   onWindow(window)
 
   window.once('ready-to-show', () => {
@@ -9571,7 +9582,7 @@ if (!ownsSingleInstanceLock) {
         // Kept for this run; the next start reads Standard again.
       }
       for (const target of BrowserWindow.getAllWindows()) {
-        if (glassWindows.has(target)) drawGlass(target)
+        if (liquidWindows.has(target)) drawGlass(target)
       }
       broadcastAppearance()
       return appearanceNow()
@@ -9586,7 +9597,7 @@ if (!ownsSingleInstanceLock) {
         // Kept for this run; the next start shows the desktop again.
       }
       for (const target of BrowserWindow.getAllWindows()) {
-        if (glassWindows.has(target)) drawGlass(target)
+        if (liquidWindows.has(target)) drawGlass(target)
       }
       broadcastAppearance()
       return appearanceNow()

@@ -7,6 +7,7 @@ import { WindowFallback } from './components/WindowFallback'
 import { watchWindowPresence } from './windowPresence'
 import { watchGlassPanel } from './glassPanel'
 import { drawsLiquid } from '../../shared/appearance.js'
+import type { GlassGround } from '../../shared/appearance.js'
 // Tokens first: the shell's palette, type and motion, plus the vendored Geist
 // faces. Then the shell itself, which consumes only those tokens.
 import './tokens.css'
@@ -70,6 +71,23 @@ if (!isSplash && !isElsewhere && window.desktop?.platform === 'darwin' && window
   }
   drawLiquid(desktop.initialLiquid)
   desktop.onAppearance((state) => drawLiquid(drawsLiquid(state)))
+}
+
+/*
+ * LIQUID GLASS ON WINDOWS (0.864, main/windows-glass.ts): the window on Windows 11's Acrylic. The sidebar's panel is the
+ * page's own wash and rim over it (no second pane of glass inside a Windows window), and the Rainbow is painted by the
+ * page under everything. Only the Windows window itself, as the Mac's above.
+ */
+if (!isSplash && !isElsewhere && window.desktop?.platform === 'win32' && window.desktop.remote === undefined) {
+  document.documentElement.dataset.glass = 'windows'
+  const drawLiquid = (liquid: boolean, ground: GlassGround): void => {
+    if (liquid) document.documentElement.dataset.look = 'liquid'
+    else delete document.documentElement.dataset.look
+    document.documentElement.dataset.glassGround = ground
+  }
+  drawLiquid(window.desktop.initialLiquid, 'desktop')
+  void window.desktop.readAppearance().then((state) => drawLiquid(drawsLiquid(state), state.glassGround))
+  window.desktop.onAppearance((state) => drawLiquid(drawsLiquid(state), state.glassGround))
 }
 
 // Behind other windows, nothing moves (0.611, windowPresence.ts): watched from the start, so the

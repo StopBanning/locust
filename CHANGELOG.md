@@ -13,9 +13,14 @@ heading: the home screen then shows it once, as a splash.
 
 ## 0.864.0 - 2026-11-03
 
+### New
+
+- **Liquid glass on Windows 11.** Settings > Appearance > Look now offers Liquid glass on Windows 11 (version 22H2 and later), as it does on a Mac: the window sits on Windows' own frosted glass, which blurs your desktop and the windows behind it, with the sidebar on a floating panel. Rainbow, under Behind the glass, works there too. The blur needs Transparency effects on in Windows' Settings; without it the window is a quiet frosted grey.
+
 ### Fixed
 
 - **No more "resuming with another model" warning on Codex follow-ups.** A follow-up reopened its Codex thread without naming the model, so Codex opened it on its own default and warned in the conversation that a thread recorded on one model was resuming on another, even though the turn itself then ran on the model you picked. The thread is now reopened on the turn's own model.
+- **Liquid glass's sidebar reads clearly to the bottom.** The sidebar panel's tint was drawn over its last row, so Settings, Board and the agents line were dimmed, most over a bright desktop or the Rainbow. The tint now lies under the words.
 - **A conversation's header shows the conversation's name.** A conversation with no teammate showed your latest message in its header ("continue mb") while the sidebar showed its real name. The header now says what the sidebar says, renamed titles included.
 
 ## 0.863.0 - 2026-11-03

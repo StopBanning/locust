@@ -5,8 +5,8 @@ import type { AppearanceState, GlassGround, LookChoice } from '../../../shared/a
 
 /**
  * Standard or Liquid glass (0.855, main/mac-glass.ts), beside the theme. Shown only in the window of a Mac that has
- * macOS's glass: anywhere else, a browser showing Locust included, there is nothing to choose. The window changes in
- * place.
+ * macOS's glass, or of a PC on Windows 11 (0.864, main/windows-glass.ts): anywhere else, a browser showing Locust
+ * included, there is nothing to choose. The window changes in place.
  */
 const CHOICES: readonly (readonly [LookChoice, string])[] = [
   ['standard', 'Standard'],
@@ -25,10 +25,12 @@ export function groundLede(ground: GlassGround): string {
     : 'Whatever is behind the window: brightest over a colourful desktop.'
 }
 
-export function lookLede(look: LookChoice): string {
-  return look === 'liquid'
-    ? 'The window on macOS’s glass, the sidebar on a floating panel. It shows your desktop through it, so it is brightest over a colourful one.'
-    : 'Locust as it is drawn everywhere, with the sidebar on the Mac’s glass.'
+export function lookLede(look: LookChoice, platform: string = 'darwin'): string {
+  const windows = platform === 'win32'
+  if (look === 'liquid') {
+    return `The window on ${windows ? 'Windows’' : 'macOS’s'} glass, the sidebar on a floating panel. It shows your desktop through it, so it is brightest over a colourful one.`
+  }
+  return windows ? 'Locust as it is drawn everywhere.' : 'Locust as it is drawn everywhere, with the sidebar on the Mac’s glass.'
 }
 
 export function LookSetting(): ReactElement | null {
@@ -52,7 +54,7 @@ export function LookSetting(): ReactElement | null {
       <div className="lc-settingline">
         <div className="lc-settingline__text">
           <h2 className="lc-settings__heading">Look</h2>
-          <p className="lc-settings__lede">{lookLede(look)}</p>
+          <p className="lc-settings__lede">{lookLede(look, window.desktop?.platform)}</p>
         </div>
         <div className="lc-segmented" role="radiogroup" aria-label="How the window is drawn">
           {CHOICES.map(([option, label]) => (

@@ -25438,6 +25438,10 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   background: var(--lc-liquid-panel);
   box-shadow: inset 0 0 0 0.5px var(--lc-liquid-rim), inset 0 1px 0 var(--lc-liquid-rim-top);
   pointer-events: none;
+  /* Under the sidebar's words, not over them: positioned, it painted over the footer (the one part of the sidebar not
+     positioned) and dimmed Settings, Board and the agents line (0.864). Below the shell's own ground, which is clear
+     over the sidebar; no stacking context is made, so every menu keeps its place. */
+  z-index: -1;
 }
 
 /* The title bar and the sidebar paint nothing: the panel and the ground are already under them. */
@@ -26228,4 +26232,36 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   color: var(--lc-text-secondary);
   font-size: 11.5px;
   text-transform: capitalize;
+}
+
+/*
+ * LIQUID GLASS ON WINDOWS (0.864; main/windows-glass.ts). The window is on Windows 11's Acrylic, and `data-glass` is
+ * 'windows' only in that window (main.tsx). The page's own grounds go clear so the Acrylic shows; the Liquid glass
+ * rules above paint the smoked ground and the sidebar panel's wash and rim over it, as on a Mac. Windows has no second
+ * pane of glass inside a window, so the panel is the page's alone, and reads the same. Rainbow is painted by the page
+ * under everything, where a Mac puts it under the glass (main/index.ts drawGlass).
+ */
+:root[data-glass='windows'][data-look='liquid'] body,
+:root[data-glass='windows'][data-look='liquid'] .lc-body {
+  background: transparent;
+}
+
+/* No pane of glass under the sidebar to darken it, as a Mac's has: the panel's own wash is stronger instead. */
+:root[data-glass='windows'][data-look='liquid'] {
+  --lc-liquid-panel: rgba(13, 14, 15, 0.58);
+}
+
+:root[data-glass='windows'][data-look='liquid'][data-theme='light'] {
+  --lc-liquid-panel: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-glass='windows'][data-look='liquid'][data-glass-ground='rainbow'] body {
+  background: #1b1233 url('./assets/glass-rainbow.jpg') center / cover no-repeat;
+}
+
+/* The page's frost sees a Rainbow the page paints, where a Mac's sees only the smoked ground (macOS's glass is out of
+   its sight), and saturates it: the composer's thin fill glowed neon green. It lies on the ground as a Mac shows it. */
+:root[data-glass='windows'][data-look='liquid'][data-glass-ground='rainbow'] .lc-composer__box {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }

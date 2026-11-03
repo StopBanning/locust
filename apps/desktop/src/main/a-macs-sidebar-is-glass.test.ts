@@ -28,8 +28,9 @@ describe("a Mac's sidebar is glass", () => {
     expect(MAC_GLASS_GROUND).toBe('#00000000')
     const made = MAIN.slice(MAIN.indexOf('const window = new BrowserWindow({'), MAIN.indexOf('webPreferences: {', MAIN.indexOf('const window = new BrowserWindow({')))
     expect(made.indexOf("...(process.platform === 'darwin' ? { backgroundColor: MAC_GLASS_GROUND } : {})")).toBeGreaterThan(made.indexOf('backgroundColor: windowGround(appearanceNow().resolved)'))
-    expect(MAIN).toContain("if (process.platform === 'darwin') {\n    glassWindows.add(window)")
-    expect(MAIN).toContain('if (!glassWindows.has(target)) target.setBackgroundColor(windowGround(state.resolved))')
+    expect(MAIN).toContain("if (process.platform === 'darwin') glassWindows.add(window)")
+    // A Windows window on Acrylic stays clear too (windows-glass.ts, 0.864).
+    expect(MAIN).toContain('if (!glassWindows.has(target) && !windowsGlass().drawn(target)) target.setBackgroundColor(windowGround(state.resolved))')
   })
 
   it('the page marks itself glass only in the Mac window, never in a browser, the loading window or the cover', () => {

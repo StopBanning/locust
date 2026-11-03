@@ -21,6 +21,12 @@ describe('the look is offered only where it can be drawn', () => {
     expect(lookLede('standard')).toMatch(/everywhere/)
   })
 
+  it("says Windows' glass on a Windows 11 PC (0.864), and macOS's on a Mac", () => {
+    expect(lookLede('liquid', 'win32')).toContain('Windows’ glass')
+    expect(lookLede('liquid', 'darwin')).toContain('macOS’s glass')
+    expect(lookLede('standard', 'win32')).not.toMatch(/Mac/)
+  })
+
   it('is hidden in a browser, and sits under the theme on the Appearance page', () => {
     const row = readFileSync(join(__dirname, 'components/LookSetting.tsx'), 'utf8')
     expect(row).toContain("if (state?.liquidOffered !== true || window.desktop?.remote !== undefined) return null")

@@ -1,6 +1,6 @@
 // Liquid glass (0.855): the Mac window as macOS composites it, over a known desktop.
 //
-//   node _tools/drive-liquid-glass.mjs [--tag <name>] [--desk bright|dark-desktop|rainbow]
+//   node _tools/drive-liquid-glass.mjs [--tag <name>] [--desk bright|dark-desktop|rainbow] [--as-windows]
 //
 // Glass shows what is behind it, and a drive's page capture shows none of it, so each frame is macOS's own capture of
 // this one window (screencapture -l): never another app's window, and nothing is brought to the front -- the window
@@ -9,6 +9,10 @@
 // wallpaper in one run, near-black, as a dark desktop is, in another. In each: Liquid glass on, Home, a conversation,
 // a reply in it, the palette, Settings, the light theme, then back to Standard. One message, on the free model, in the
 // bright run only: the thread's bubbles and cards have to be seen on the glass.
+//
+// --as-windows (0.864): the page drawn as Windows 11's window draws it (main/windows-glass.ts) -- the sidebar's panel
+// the page's own wash over the glass, and Rainbow painted by the page, which covers the glass entirely, so the rainbow
+// frames are what Windows shows, title bar buttons aside. Over a desktop, macOS's glass stands in for Acrylic.
 //
 // A development build only: a packaged build takes no backdrop.
 import { execFileSync } from 'node:child_process'
@@ -27,6 +31,7 @@ const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.i
 const tag = arg('--tag')
 // --desk <name>: one pass only (bright, dark-desktop or rainbow).
 const onlyDesk = arg('--desk')
+const asWindows = process.argv.includes('--as-windows')
 
 const pictures = await mkdtemp(join(tmpdir(), 'locust-glass-backdrop-'))
 const bright = join(pictures, 'sonoma.jpg')
@@ -67,7 +72,7 @@ const seed = {
 // Locust. It is chosen before the glass goes on and taken off only after the last frame, so no frame shows the desktop.
 for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'dark', 9571], ['dark-desktop', 'dark', 9573], ['rainbow', null, 9575]]) {
   if (onlyDesk !== undefined && onlyDesk !== desk) continue
-  const outPath = tag === undefined ? undefined : join(recordRoot('beta-fixes-2026-09-24'), `liquid-glass-${tag}-${desk}`)
+  const outPath = tag === undefined ? undefined : join(recordRoot('beta-fixes-2026-09-24'), `liquid-glass-${tag}-${desk}${asWindows ? '-windows' : ''}`)
   if (outPath !== undefined) await mkdir(outPath, { recursive: true })
   const drive = await startDrive({
     name: `liquid-glass-${desk}`,
@@ -119,6 +124,15 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     const set = await look('liquid')
     await sleep(800)
     judge(`${desk}: Liquid glass is offered and drawn`, /liquid offered true/.test(set) && (await drawn()) === 'liquid', `${set}; page ${await drawn()}`)
+    if (asWindows) {
+      const body = String(await evaluate(`(() => {
+        document.documentElement.dataset.glass = 'windows'
+        document.documentElement.dataset.glassGround = ${JSON.stringify(desk === 'rainbow' ? 'rainbow' : 'desktop')}
+        return getComputedStyle(document.body).backgroundImage + ' / ' + getComputedStyle(document.body).backgroundColor
+      })()`))
+      judge(`${desk}: drawn as Windows draws it`, desk === 'rainbow' ? /glass-rainbow/.test(body) : /none \/ rgba\(0, 0, 0, 0\)/.test(body), body)
+      await sleep(500)
+    }
     await snap(`${desk}-1-liquid-home`)
     await agentCard(`${desk}-1b-liquid-agentcard`)
     await conversation()
