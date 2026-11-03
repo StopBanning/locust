@@ -26105,3 +26105,131 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 .lc-screen__scroll:has(.lc-memoryform) > .lc-settings__section > :last-child {
   margin-bottom: 0;
 }
+
+/*
+ * ROUND 3 (0.862's polish, Colin 2026-11-03: "ill trust all your suggestions big dog"). Each change below was framed
+ * before and after, and kept only where the after read better.
+ *
+ * A page's title in bold sentence case, as Apple's and Claude's are: "Settings", not S E T T I N G S. The spaced
+ * capitals were the wordmark's voice on every page, so the LOCUST lockup in the sidebar no longer stood alone; it
+ * does again.
+ */
+.lc-screen__title {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  text-transform: none;
+}
+
+/*
+ * A status said as a Mac says one: a small dot in the state's colour and the word in the interface's face -- "Ready",
+ * not READY in boxed mono capitals. The words are the same (tests and readers see them unchanged); only how loud
+ * they are changed. One rule for the badge system, so every badge moves together (decided 11/1: one system).
+ */
+.lc-tag,
+.lc-connectorhealth__state {
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--lc-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Only the first word's first letter: `capitalize` made "not working" read "Not Working". A block container, so
+   ::first-letter applies (it does not on a flex box). */
+.lc-tag,
+.lc-connectorhealth__state {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.lc-tag::first-letter,
+.lc-connectorhealth__state::first-letter {
+  text-transform: uppercase;
+}
+
+.lc-tag::before,
+.lc-connectorhealth__state::before {
+  content: '';
+  flex: none;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+/*
+ * Send, solid when there is something to send, as Claude's and ChatGPT's are: the outlined ring read as switched off
+ * until pointed at. The metal Colin chose (Settings > Send button) is the ring around the disc and still shines under the
+ * pointer; the fill stays. Empty, the button is as it was; Stop and Queue keep their own looks.
+ */
+/* Its inset glow is the empty disc's depth; over a fill it painted the disc dark again, so it goes while it is solid.
+   The metal library sets the button's own background to transparent inline (it paints the dark disc on a layer under
+   the button), so the fill is marked important -- for this one property, measured by _tools/probe-send-button.mjs. */
+.lc-send:not(:disabled):not(.is-stop):not(.is-queue) {
+  border-color: transparent;
+  background: var(--lc-text-primary) !important;
+  box-shadow: none;
+  color: var(--lc-bg-app);
+}
+
+/* The gooey +'s words, a little larger and frosted, edged like a menu: over a conversation the reply's lines ran
+   around the droplets and their small labels, and the open + read as a glitch in a still frame. The goo is untouched. */
+.lc-plusmenu__label {
+  padding: 5px 11px;
+  border-radius: 9px;
+  box-shadow: var(--lc-plusmenu-shadow), inset 0 0 0 0.5px var(--lc-border-card);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* The AI agent's mark on each bot in the sidebar's team row, shown when the bot is pointed at: at that size, on every
+   bot at once, the little logo discs read as noise beside the faces. The Team page and the cards keep them. */
+.lc-sidebar .lc-bot__mark {
+  opacity: 0;
+  transition: opacity var(--lc-motion-hover) var(--lc-ease);
+}
+
+.lc-sidebar :hover > .lc-bot .lc-bot__mark,
+.lc-sidebar .lc-bot:hover .lc-bot__mark,
+.lc-sidebar :focus-visible .lc-bot__mark {
+  opacity: 1;
+}
+
+/* Conversations: a row's checkbox shows when it is pointed at, focused or picked, and every row's shows once one is
+   picked -- as Mail and Finder show selection only while selecting. With a pointer only: a touch screen keeps them. */
+@media (hover: hover) and (pointer: fine) {
+  .lc-missionrowwrap > .lc-missionrow__pick {
+    opacity: 0;
+    transition: opacity var(--lc-motion-hover) var(--lc-ease);
+  }
+
+  .lc-missionrowwrap:hover > .lc-missionrow__pick,
+  .lc-missionrowwrap > .lc-missionrow__pick:focus-visible,
+  .lc-missionrowwrap > .lc-missionrow__pick:checked,
+  :has(> .lc-missionrowwrap > .lc-missionrow__pick:checked) > .lc-missionrowwrap > .lc-missionrow__pick:not(:disabled) {
+    opacity: 1;
+  }
+}
+
+/* A teammate's mode under their model ("edit") as a small tag, as a mode is shown in the chat box, rather than a
+   lone lowercase word. */
+.lc-rostercard__route > span:last-child {
+  display: inline-flex;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--lc-chip-bg);
+  color: var(--lc-text-secondary);
+  font-size: 11.5px;
+  text-transform: capitalize;
+}

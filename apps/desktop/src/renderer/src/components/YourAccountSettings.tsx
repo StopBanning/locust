@@ -85,7 +85,7 @@ export function YourAccountSettings({ heading, api = typeof window === 'undefine
         <div className="lc-settingline">
           <div className="lc-settingline__text">
             <p className="lc-settings__lede">Sign in once, and your teammates, routines, memories and conversations follow you to any computer where you sign in.</p>
-            <p className="lc-settings__note">Your account is your GitHub sign-in. Turn on From anywhere under Your phone, then press Sign in with GitHub there. Locust stays whole without an account.</p>
+            <p className="lc-settings__note">It is your GitHub sign-in. Turn on From anywhere under Your phone, then press Sign in with GitHub there. Locust works fully without one.</p>
           </div>
         </div>
       ) : (

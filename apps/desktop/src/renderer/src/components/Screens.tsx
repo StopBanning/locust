@@ -3555,7 +3555,7 @@ export function SettingsScreen({
           <div className="lc-settingline">
             <div className="lc-settingline__text">
               <h2 className="lc-settings__heading">Voice typing</h2>
-              <p className="lc-settings__lede">Fast is local, with a 41 MB first-use download. Accurate is local, with a 69 MB first-use download, and is slower. Your OpenAI account sends audio to OpenAI using your API key; API charges apply.</p>
+              <p className="lc-settings__lede">Fast and Accurate run on this computer (a one-time 41 or 69 MB download; Accurate is slower). Your OpenAI account sends audio to OpenAI on your API key, which OpenAI bills.</p>
             </div>
             <VoiceSettings />
           </div>

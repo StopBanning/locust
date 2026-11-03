@@ -102,7 +102,7 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
             : claudeApp.kind === 'not-added'
               ? claudeApp.restart === true
                 ? 'Removed. The Claude app keeps using Locust until it restarts; restarting closes everything running in it.'
-                : 'Add Locust to the Claude app’s tools, so a Claude chat can ask your teammates and read their replies. One press; Locust keeps a copy of Claude’s settings first.'
+                : 'Lets a Claude chat ask your teammates and read their replies. Locust backs up Claude’s settings first.'
               : claudeApp.stale === true ? 'Added, but for a copy of Locust that is not this one, or that has moved. Update points it here.'
                 : claudeApp.restart === true ? 'Added. The Claude app reads it when it starts, and it is open now: restart it to finish. Restarting closes everything running in the Claude app.'
                   : 'Added. Ask a Claude chat about your Locust teammates; it asks before it uses them.'

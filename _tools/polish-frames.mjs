@@ -186,6 +186,11 @@ for (const theme of themes) {
       await click(`document.querySelector('[aria-label="Home"]')`)
       await sleep(1600)
       await shot('home')
+      // With words in the box, so the send button is seen ready, not only empty.
+      await evaluate(`(() => { const box = document.querySelector('.lc-composer__box textarea'); if (!box) return false; const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(box, 'Plan the release checklist for Friday'); box.dispatchEvent(new Event('input', { bubbles: true })); return true })()`)
+      await sleep(500)
+      await shot('home-typed')
+      await evaluate(`(() => { const box = document.querySelector('.lc-composer__box textarea'); if (!box) return false; const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(box, ''); box.dispatchEvent(new Event('input', { bubbles: true })); return true })()`)
     }
 
     if (want('thread')) {

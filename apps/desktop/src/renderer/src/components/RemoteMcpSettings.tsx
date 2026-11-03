@@ -58,7 +58,7 @@ export function RemoteMcpSettings({ api = typeof window === 'undefined' ? undefi
         <h3 className="lc-settings__heading">Use from anywhere</h3>
         <p className="lc-settings__lede">{on
           ? 'On. Claude on the web, Claude Duet and other apps that take a remote MCP server can use your team through Locust’s relay, by the same rules as an app on this computer. Each one connects only after you allow it on a card here.'
-          : 'Off. Turn on to use your team from Claude on the web, Claude Duet, or another app that takes a remote MCP server. It goes through the same relay as your phone from anywhere.'}</p>
+          : 'Off. Turn on to use your team from Claude on the web, Claude Duet, or any app that takes a remote MCP server.'}</p>
       </div>
       <button type="button" className={`lc-switch${on ? ' is-on' : ''}`} role="switch" aria-label="Use your team from anywhere" aria-checked={on} disabled={busy || state === undefined}
         onClick={() => { void run(() => api!.setEnabled(!on)) }}><span /></button>

@@ -230,7 +230,7 @@ export function ScoutSetting({ heading, state, model, route, checkCommand, onCha
         {heading}
         <p className="lc-settings__lede">{on
           ? `On. Scout looks every ${String(state?.settings.everyMinutes ?? 10)} minutes while Locust runs, and tells you on Home what needs you, with the next step drafted. It never sends, merges or changes anything by itself.${model === undefined ? '' : ` It reads with ${model}.`}`
-          : 'Off. Turn it on and Scout joins your team: it looks at your pull requests and their checks, the reviews asked of you and your teammates’ turns, and tells you on Home what needs you.'}</p>
+          : 'Off. Turn it on and Scout joins your team: it watches your pull requests, their checks and reviews, and tells you on Home what needs you.'}</p>
         {/*
           * Where it stands, as one line (0.815): when it last looked (0.768: a Scout with nothing to say otherwise shows
           * nothing at all), what today used -- a quiet Scout costs nothing, and this says so in numbers -- and that it

@@ -118,6 +118,14 @@ export function coverRoomFor(usable: number, others: number, base: number): numb
  */
 export const COVER_REACH = 48
 
+/**
+ * THE MACHINE A SIZE SMALLER (0.863 polish). Colin, 2026-11-03, asking for Home to stand with Claude's and Apple's: it
+ * led the page as a large dark slab -- in light mode a black one -- above the team it introduces. Everything on the
+ * cover is drawn at `drawn`, so one factor here shrinks the machine, its bots and the room kept above them together,
+ * and gives the space to the team below. 0.8 was tried and dropped: its claim no longer fit the glass and was hidden.
+ */
+export const COVER_HOME_SCALE = 0.9
+
 /** Home's normal spacing (`.lc-empty` padding, `.lc-empty__inner` gap); `.is-tight` uses less. */
 export const HOME_PAD = 32
 export const HOME_GAP = 12
@@ -580,7 +588,7 @@ export function HomeCover({
   // the page gives (`grow`), about the canvas's centre -- so `left` is offset
   // by half of what the canvas outgrew, and the drawing stays centred on a
   // card that did not move.
-  const drawn = Math.round(scale * Math.min(Math.max(coverFloor((COVER_HEIGHT + COVER_REACH) * scale), grow), COVER_MAX_GROW, coverWidthGrow()) * 1000) / 1000
+  const drawn = Math.round(scale * Math.min(Math.max(coverFloor((COVER_HEIGHT + COVER_REACH) * scale), grow), COVER_MAX_GROW, coverWidthGrow()) * COVER_HOME_SCALE * 1000) / 1000
   const originX = Math.round((scale - drawn) * COVER_WIDTH / 2)
   const at = (value: number): number => Math.round(value * drawn)
   const atX = (value: number): number => originX + at(value)
