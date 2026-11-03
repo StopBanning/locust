@@ -61,6 +61,8 @@ function harness(options: {
   steers?: boolean
   /** Whether Cursor can be held read-only here; absent reads as yes, the way the relay reads it. */
   cursorHoldsReadOnly?: boolean
+  /** Why the recipient's plan cannot take a run (0.862); absent: the relay asks nothing. */
+  outOfPlan?: RelayOptions['outOfPlan']
 } = {}) {
   const starts: Parameters<RelayOptions['start']>[0][] = []
   const owners: [string, string][] = []
@@ -73,6 +75,7 @@ function harness(options: {
   const relay = createRelay({
     ...(options.cursorHoldsReadOnly === undefined ? {} : { cursorHoldsReadOnly: () => options.cursorHoldsReadOnly === true }),
     enabled: async () => enabled,
+    ...(options.outOfPlan === undefined ? {} : { outOfPlan: options.outOfPlan }),
     note: async (input: { missionId: string; message: string }) => {
       kept.push(input)
     },
@@ -291,6 +294,38 @@ describe('relaying a share', () => {
     expect(starts).toHaveLength(0)
     expect(notices).toHaveLength(1)
     expect((notices[0] as { message?: string }).message).toMatch(/Booty could not reply on their own: the roster could not be read/)
+  })
+
+  it('starts no reply on a plan that is used up, and says so where the share was made (0.862)', async () => {
+    // Colin's 2026-11-03: Codec handed a job to Argon, whose Antigravity plan was out until 9 November. Argon was
+    // started anyway and failed twelve seconds in. Now nothing starts, and the sender's conversation says why.
+    const asked: [string, string | undefined][] = []
+    const h = harness({
+      outOfPlan: async (runtime, account) => {
+        asked.push([runtime, account])
+        return 'their Claude Code plan is used up until Mon, Nov 9, 6:52 PM.'
+      }
+    })
+    await h.relay.onShared(sharing(), [message(BOOTY)])
+    expect(h.starts).toHaveLength(0)
+    expect(h.owners).toHaveLength(0)
+    expect(asked).toEqual([['claude', undefined]])
+    const told = said(h.notices)
+    expect(told).toEqual([
+      'Booty did not reply on their own: their Claude Code plan is used up until Mon, Nov 9, 6:52 PM. The message waits for their next run. To have it answered sooner, give Booty another model on the Team screen.'
+    ])
+    // Kept in the sender's own record too, so reopening the thread later still says why.
+    expect(h.kept.map((entry) => entry.message)).toEqual(told)
+    expect(h.notices.some((update) => update.kind === 'relay-starting')).toBe(false)
+  })
+
+  it('a plan that can take the run is started as before, and a check that fails never blocks it', async () => {
+    const fine = harness({ outOfPlan: async () => undefined })
+    await fine.relay.onShared(sharing(), [message(BOOTY)])
+    expect(fine.starts).toHaveLength(1)
+    const broken = harness({ outOfPlan: async () => { throw new Error('the ledger could not be read') } })
+    await broken.relay.onShared(sharing(), [message(BOOTY)])
+    expect(broken.starts).toHaveLength(1)
   })
 
   it("starts the recipient's run on the recipient's OWN route, owned by the recipient", async () => {

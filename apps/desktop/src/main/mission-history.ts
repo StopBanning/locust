@@ -138,6 +138,23 @@ export function limitedRuntimesFrom(missions: readonly RecoveredMission[]): Reco
 }
 
 /**
+ * Why a plan cannot take a run now, said for a person, or nothing (0.862: the relay asks before it starts a reply).
+ * Out when `limitedRuntimesFrom` says so for this runtime and account, unless the reset the agent named has passed:
+ * then the next run is how to find out, so it is allowed. `key` is `accountUsageKey(runtime, account)`.
+ */
+export function planOutSentence(missions: readonly RecoveredMission[], key: string, runtimeName: string, now: Date = new Date()): string | undefined {
+  const said = limitedRuntimesFrom(missions)[key]
+  if (said === undefined) return undefined
+  const reset = /resets (\S+)/.exec(said)?.[1]
+  const at = reset === undefined ? Number.NaN : Date.parse(reset)
+  if (Number.isFinite(at) && at <= now.getTime()) return undefined
+  const until = Number.isFinite(at)
+    ? ` until ${new Date(at).toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`
+    : ''
+  return `their ${runtimeName} plan is used up${until}.`
+}
+
+/**
  * The latest still-allowed rate-limit reading per runtime, from the ledger,
  * so a reload does not forget what the route chip said. A limit that hit
  * (`route.limit_detected`) is the other map; this one is the number before it.

@@ -11,7 +11,7 @@ import { combineSetups, keptSkill, otherSkill, parseTuneCombine, tuneMeasuredOf,
 import { tuneCombinePrompt } from './tune-combine.js'
 import { createClaudeContextReader, prepareClaudeContextLaunch, recordedClaudeContextLaunch, type ClaudeContextReader } from './claude-context.js'
 import { CONTEXT_BREAKDOWN_CHANNEL } from '../shared/context-breakdown.js'
-import { AGENT_ACCOUNTS_CHANNEL, accountFromRoute, supportsAccounts, type AccountAction } from '../shared/agent-accounts.js'
+import { AGENT_ACCOUNTS_CHANNEL, accountFromRoute, accountUsageKey, supportsAccounts, type AccountAction } from '../shared/agent-accounts.js'
 import { createAgentAccounts } from './agent-accounts.js'
 import { startAccountLogin } from './agent-account-login.js'
 import { OrganizationPolicyError, readOrganizationPolicy } from './organization-policy.js'
@@ -292,7 +292,7 @@ import { changedSince } from './memory-provenance.js'
 const ROUTINE_TICK_MS = 60_000
 const ROUTINE_FIRST_TICK_MS = 15_000
 import type { RoutineRunner } from './routine-runner.js'
-import { readOneMission, deleteMissionRecord, knownDigests, namedByATeammate, newestTurnOf, readMissionHistory, spendByTeammate, usageTurns, withLiveMissionIds } from './mission-history.js'
+import { readOneMission, deleteMissionRecord, knownDigests, namedByATeammate, newestTurnOf, planOutSentence, readMissionHistory, spendByTeammate, usageTurns, withLiveMissionIds } from './mission-history.js'
 import { createReferenceStore } from './conversation-references.js'
 import { REFERENCES_CHANNEL, type ReferenceRequest } from '../shared/references.js'
 import { isUsageRange, usageSummary } from '../shared/usage.js'
@@ -4064,6 +4064,13 @@ if (!ownsSingleInstanceLock) {
     relay = createRelay({
       enabled: async () => (await teammates.readSettings()).relay === true,
       hopCap: async () => (await teammates.readSettings()).relayHopCap,
+      // 0.862: never start a reply on a plan the agent said is used up; the recent runs say so, as the window's do.
+      outOfPlan: async (runtime, account) =>
+        planOutSentence(
+          (await missionLedger.listMissions({ limit: 20 })).missions,
+          accountUsageKey(runtime, account),
+          runtimeDisplayName(runtime)
+        ),
       // A2.4: every run a room post started is one exchange, so the budget
       // bounds the post -- not each member's own corner of it.
       exchangeOf: async (missionId) => exchangeOfRoomPost(await rooms.list(), missionId),

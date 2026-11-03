@@ -480,6 +480,12 @@ export interface RelayOptions {
    * not be the teammate's saved one. Absent means the saved route, as before.
    */
   readonly routeOf?: (missionId: string) => Promise<TurnRoute | undefined>
+  /**
+   * Why the recipient's plan cannot take a run now, or nothing (0.862). The agent said its plan ran out
+   * (`route.limit_detected`, `quota-exhausted`) and no run on it has finished since, and the reset it named has not
+   * passed. Asked once the route a reply would run on is settled.
+   */
+  readonly outOfPlan?: (runtime: MissionRuntimeId, account: string | undefined) => Promise<string | undefined>
   readonly start: (input: {
     readonly prompt: string
     readonly runtime: MissionRuntimeId
@@ -932,6 +938,28 @@ export function createRelay(options: RelayOptions): Relay {
         }. To give ${recipient.self.name} their own, edit ${recipient.self.name} on the Team screen.`,
         'info'
       )
+    }
+    /*
+     * NOT ON A PLAN THAT IS OUT (0.862). Colin, 2026-11-03: Codec finished a job and handed it to Argon, whose
+     * Antigravity plan had run out the night before and resets on 9 November. The relay started Argon anyway; it
+     * failed twelve seconds in, and the sender's conversation said only that Argon "failed". Locust already knew the
+     * plan was out. Now the message waits, as a message does with replies off, and the sender's conversation says why
+     * and what to do instead.
+     */
+    if (options.outOfPlan !== undefined) {
+      let out: string | undefined
+      try {
+        out = await options.outOfPlan(route.runtime, own?.account)
+      } catch {
+        out = undefined
+      }
+      if (out !== undefined) {
+        const why = `${recipient.self.name} did not reply on their own: ${out} The message waits for their next run. To have it answered sooner, give ${recipient.self.name} another model on the Team screen.`
+        input.notice(why, 'info')
+        // Kept in the sender's own record as well, so a thread reopened later still says why nothing came back.
+        await options.note?.({ missionId: from.missionId, message: why }).catch(() => undefined)
+        return { kind: 'refused' }
+      }
     }
     /*
      * Say it is coming before it exists.
