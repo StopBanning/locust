@@ -25463,6 +25463,15 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   border-color: var(--lc-liquid-rim);
 }
 
+/* The plan "step N of M" opens over the thread (0.860): the card inside the floating peek is what paints, so it is
+   frosted on its own -- in the list above it would raise every listed rule's weight. */
+:root[data-look='liquid'] .lc-livestep__peekcard .lc-plancard {
+  background: var(--lc-liquid-float);
+  -webkit-backdrop-filter: var(--lc-liquid-blur);
+  backdrop-filter: var(--lc-liquid-blur);
+  border-color: var(--lc-liquid-rim);
+}
+
 /* The composer is a glass pill: the thread blurs under it, its top edge catches the light. */
 :root[data-look='liquid'] .lc-composer__box {
   -webkit-backdrop-filter: var(--lc-liquid-blur);

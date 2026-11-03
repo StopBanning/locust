@@ -210,6 +210,38 @@ describe('the whole window can be Liquid glass', () => {
     expect(floating.filter((one) => !frosted.has(one))).toEqual([])
   })
 
+  it('a floating panel that paints through a card inside it is frosted too', () => {
+    // 0.860, Colin's screen of 2026-11-02: the plan that "step 3 of 3" opens floats as .lc-livestep__peekcard, but
+    // its fill and shadow are on the .lc-plancard inside it, so the check above, which looks for one rule doing both,
+    // never saw it, and the reply under it read through its steps. A rule `.floater .inner` that paints a page fill
+    // with a shadow, under a class placed absolute or fixed and raised, needs a frosted rule of its own (or its inner
+    // class in the list).
+    const shell = read('../renderer/src/shell.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const listStart = shell.indexOf(":root[data-look='liquid'] :is(.lc-dialog")
+    const listed = new Set(shell.slice(listStart, shell.indexOf('{', listStart)).match(/\.lc-[a-z_-]+/g))
+    const blocks = [...shell.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selector, body]) => [selector.trim(), body] as const)
+    const floaters = new Set<string>()
+    for (const [selector, body] of blocks) {
+      if (!/position:\s*(absolute|fixed)/.test(body) || !body.includes('z-index')) continue
+      for (const one of selector.split(',').map((part) => part.trim())) if (/^\.lc-[a-z_-]+$/.test(one)) floaters.add(one)
+    }
+    const frostedOwn = new Set(
+      blocks
+        .filter(([selector, body]) => selector.startsWith(":root[data-look='liquid'] ") && body.includes('var(--lc-liquid-float)') && body.includes('var(--lc-liquid-blur)'))
+        .flatMap(([selector]) => selector.split(',').map((part) => part.trim().replace(":root[data-look='liquid'] ", '')))
+    )
+    const painted: string[] = []
+    for (const [selector, body] of blocks) {
+      if (!/background:\s*var\(--lc-bg-(raised|raised-2|control|chrome|field)\)/.test(body) || !body.includes('box-shadow')) continue
+      for (const one of selector.split(',').map((part) => part.trim())) {
+        const pair = /^(\.lc-[a-z_-]+) (\.lc-[a-z_-]+)$/.exec(one)
+        if (pair !== null && floaters.has(pair[1] ?? '')) painted.push(one)
+      }
+    }
+    expect(painted).toContain('.lc-livestep__peekcard .lc-plancard')
+    expect(painted.filter((one) => !frostedOwn.has(one) && !listed.has(one.split(' ')[1] ?? ''))).toEqual([])
+  })
+
   it('the addon is built after the bundle on a Mac, unpacked from the archive, loaded from beside the main bundle', () => {
     const pkg = JSON.parse(read('../../package.json')) as { scripts: Record<string, string> }
     for (const script of ['build', 'package', 'package:dir']) expect(pkg.scripts[script]).toMatch(/^electron-vite build && node scripts\/build-mac-glass\.cjs/)

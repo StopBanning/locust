@@ -123,6 +123,20 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     await agentCard(`${desk}-1b-liquid-agentcard`)
     await conversation()
     await snap(`${desk}-2-liquid-conversation`)
+    // The plan "step N of M" opens (0.860), placed over the conversation as the live step places it: frosted, so the
+    // words under it do not read through its steps.
+    const peek = String(await evaluate(`(() => {
+      const host = document.querySelector('.lc-thread, .lc-conversation, main') ?? document.body
+      const anchor = document.createElement('div')
+      anchor.id = 'drive-peek'
+      anchor.style.cssText = 'position:absolute;left:380px;top:420px;width:340px;height:0;z-index:30'
+      anchor.innerHTML = '<div class="lc-livestep__peekcard"><div class="lc-plancard"><div class="lc-plancard__head"><span>PLAN</span><span class="lc-plancard__counts"><span>2 of 3 done</span></span></div><ol class="lc-plan"><li>Read the handoff and the results</li><li>Finish the changes and check them</li><li>Report what was found</li></ol></div></div>'
+      document.body.appendChild(anchor)
+      return getComputedStyle(anchor.querySelector('.lc-plancard')).backdropFilter
+    })()`))
+    judge(`${desk}: the plan a step opens is frosted`, /blur/.test(peek), peek)
+    await snap(`${desk}-2e-liquid-plan`)
+    await evaluate(`(() => { document.getElementById('drive-peek')?.remove(); return true })()`)
     if (desk === 'bright') {
       say(`  ${String(await evaluate(sendAndWaitScript('In two short paragraphs, say what a git worktree is and when one helps. Then a three-item bullet list of commands. Do not read or change any files.', { waitSeconds: 240 }))).slice(0, 160)}`)
       await snap(`${desk}-2b-liquid-reply`)
