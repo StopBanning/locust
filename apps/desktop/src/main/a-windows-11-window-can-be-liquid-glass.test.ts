@@ -100,12 +100,14 @@ describe('a Windows 11 window can be Liquid glass', () => {
     expect(windows).toMatch(/:root\[data-glass='windows'\]\[data-look='liquid'\] body,\s*:root\[data-glass='windows'\]\[data-look='liquid'\] \.lc-body \{\s*background: transparent;/)
     expect(windows).toContain("[data-glass-ground='rainbow'] body {\n  background: #1b1233 url('./assets/glass-rainbow.jpg') center / cover no-repeat;")
     expect(existsSync(join(__dirname, '../renderer/src/assets/glass-rainbow.jpg'))).toBe(true)
-    // No pane of glass darkens the sidebar on Windows, so its wash is stronger; and over the page's own Rainbow the
-    // composer is not frosted, which would saturate the picture under its thin fill.
-    expect(windows).toMatch(/:root\[data-glass='windows'\]\[data-look='liquid'\] \{\s*--lc-liquid-panel: rgba\(13, 14, 15, 0\.58\);/)
+    // Over the page's own Rainbow the composer is not frosted, which would saturate the picture under its thin fill.
     expect(windows).toMatch(/\[data-glass-ground='rainbow'\] \.lc-composer__box \{\s*-webkit-backdrop-filter: none;\s*backdrop-filter: none;/)
     // The panel's wash lies under the sidebar's words (0.864): positioned over them, it dimmed the footer.
     const wash = sheet.slice(sheet.indexOf(":root[data-look='liquid'] .lc-shell::before {"))
     expect(wash.slice(0, wash.indexOf('}'))).toContain('z-index: -1;')
+    // And it floats on the smoked ground on all four sides: the ground is the panel's outer shadow, not a column
+    // beginning at its right edge (Colin, 2026-11-03: "looks a little odd the way it's attached").
+    expect(wash.slice(0, wash.indexOf('}'))).toContain('0 0 0 200vmax var(--lc-liquid-ground)')
+    expect(sheet).not.toContain('linear-gradient(to right, transparent var(--lc-liquid-side), var(--lc-liquid-ground) var(--lc-liquid-side))')
   })
 })

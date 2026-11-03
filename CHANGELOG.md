@@ -17,6 +17,10 @@ heading: the home screen then shows it once, as a splash.
 
 - **Liquid glass on Windows 11.** Settings > Appearance > Look now offers Liquid glass on Windows 11 (version 22H2 and later), as it does on a Mac: the window sits on Windows' own frosted glass, which blurs your desktop and the windows behind it, with the sidebar on a floating panel. Rainbow, under Behind the glass, works there too. The blur needs Transparency effects on in Windows' Settings; without it the window is a quiet frosted grey.
 
+### Improved
+
+- **Liquid glass's sidebar floats on its own.** The sidebar's panel was set in from the window's edge on three sides and joined to the conversation on the fourth. It now floats on the same smoked glass all the way round, as the sidebars in macOS's own apps do.
+
 ### Fixed
 
 - **No more "resuming with another model" warning on Codex follow-ups.** A follow-up reopened its Codex thread without naming the model, so Codex opened it on its own default and warned in the conversation that a thread recorded on one model was resuming on another, even though the turn itself then ran on the model you picked. The thread is now reopened on the turn's own model.

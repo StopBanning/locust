@@ -25421,12 +25421,18 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   --lc-liquid-side: var(--lc-sidebar-rail-width);
 }
 
-/* The smoked ground: everything right of the sidebar's panel, from the window's top to its bottom. */
+/* The smoked ground is the panel's (below): it lies all around the panel, the margin at the window's edges included. */
 :root[data-look='liquid'] .lc-shell {
-  background: linear-gradient(to right, transparent var(--lc-liquid-side), var(--lc-liquid-ground) var(--lc-liquid-side));
+  background: transparent;
 }
 
-/* The panel's wash and rim, over the glass panel behind the page and exactly its shape. */
+/*
+ * The panel's wash and rim, over the glass panel behind the page and exactly its shape. Its outer shadow is the smoked
+ * ground, everywhere but the panel, its corners followed: the panel floats on the same ground on all four sides.
+ * Colin, 2026-11-03: "Sidebar looks a little odd the way it's attached" -- the ground began at the panel's right edge,
+ * so the panel was set in from the window on three sides, with bright glass in the margin, and stuck to the column on
+ * the fourth.
+ */
 :root[data-look='liquid'] .lc-shell::before {
   content: '';
   position: absolute;
@@ -25436,7 +25442,7 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   width: calc(var(--lc-liquid-side) - var(--lc-liquid-inset));
   border-radius: var(--lc-liquid-radius);
   background: var(--lc-liquid-panel);
-  box-shadow: inset 0 0 0 0.5px var(--lc-liquid-rim), inset 0 1px 0 var(--lc-liquid-rim-top);
+  box-shadow: inset 0 0 0 0.5px var(--lc-liquid-rim), inset 0 1px 0 var(--lc-liquid-rim-top), 0 0 0 200vmax var(--lc-liquid-ground);
   pointer-events: none;
   /* Under the sidebar's words, not over them: positioned, it painted over the footer (the one part of the sidebar not
      positioned) and dimmed Settings, Board and the agents line (0.864). Below the shell's own ground, which is clear
@@ -26244,15 +26250,6 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 :root[data-glass='windows'][data-look='liquid'] body,
 :root[data-glass='windows'][data-look='liquid'] .lc-body {
   background: transparent;
-}
-
-/* No pane of glass under the sidebar to darken it, as a Mac's has: the panel's own wash is stronger instead. */
-:root[data-glass='windows'][data-look='liquid'] {
-  --lc-liquid-panel: rgba(13, 14, 15, 0.58);
-}
-
-:root[data-glass='windows'][data-look='liquid'][data-theme='light'] {
-  --lc-liquid-panel: rgba(255, 255, 255, 0.5);
 }
 
 :root[data-glass='windows'][data-look='liquid'][data-glass-ground='rainbow'] body {
