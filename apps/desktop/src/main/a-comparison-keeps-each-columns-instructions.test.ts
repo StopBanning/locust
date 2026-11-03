@@ -80,7 +80,8 @@ describe('a comparison’s standing instructions', () => {
     const begun: PublicCompare[] = []
     const runner = createCompareReruns({ compares: store, begin: async (one) => { begun.push(one) }, judge: async () => undefined, retry: async () => undefined, phaseOf: async () => 'completed', live: () => false, stopMission: () => undefined, tidy: async () => undefined, tell: () => undefined })
     expect((await runner.start(origin.compareId, 1)).ok).toBe(true)
-    await vi.waitFor(() => expect(runner.progress()).toHaveLength(0))
+    // A slow Windows runner took 1.3 s to settle the rerun (0.864's release); waitFor gives up at 1 s by default.
+    await vi.waitFor(() => expect(runner.progress()).toHaveLength(0), { timeout: 5_000 })
     expect(begun[0]?.slots.map((slot) => slot.route.instructions)).toEqual(['Saved.', '', 'Check twice.'])
   })
   it('threads the override through each start, rather than reading mutable compare state in the brief builder', () => {
