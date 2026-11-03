@@ -93,9 +93,10 @@ describe('what the home screen draws', () => {
   })
 
   it('places each bot on the cover grid at the starting scale, in whole pixels', () => {
-    // Wren is 96 across at (245, -10) on the cover; at 0.792 that is 76 at (194, -8).
-    expect(after).toMatch(/<span class="lc-cover__face" style="left:194px;top:-8px">/)
-    expect(after).toMatch(/class="lc-bot is-floating" data-bot="ghost" data-state="default" data-beat="thinking" style="width:76px;height:76px"/)
+    // Wren is 96 across at (245, -10) on the cover; at 0.792 that was 76 at (194, -8). Home draws the machine a size
+    // smaller since the 0.863 polish (COVER_HOME_SCALE 0.9): 0.713, so 68 at (213, -7), still centred on the card.
+    expect(after).toMatch(/<span class="lc-cover__face" style="left:213px;top:-7px">/)
+    expect(after).toMatch(/class="lc-bot is-floating" data-bot="ghost" data-state="default" data-beat="thinking" style="width:68px;height:68px"/)
   })
 
   it('is decorative apart from its words: no bot answers to a name', () => {

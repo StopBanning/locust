@@ -26136,7 +26136,8 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
-  text-transform: none;
+  /* Some badge words are written in capitals in the markup (READY): lowered here, then the first letter raised. */
+  text-transform: lowercase;
 }
 
 /* Only the first word's first letter: `capitalize` made "not working" read "Not Working". A block container, so
@@ -26149,20 +26150,15 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 
 .lc-tag::first-letter,
 .lc-connectorhealth__state::first-letter {
-  text-transform: uppercase;
+  text-transform: capitalize;
 }
 
-.lc-tag::before,
-.lc-connectorhealth__state::before {
-  content: '';
-  flex: none;
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  vertical-align: middle;
+/* The dot is painted behind the word rather than set before it: a box before the word took the place of its first
+   letter, and "ready" stayed lowercase. */
+.lc-tag,
+.lc-connectorhealth__state {
+  padding-left: 12px;
+  background: radial-gradient(circle at 3px 55%, currentColor 0 3px, transparent 3.5px) no-repeat;
 }
 
 /*
