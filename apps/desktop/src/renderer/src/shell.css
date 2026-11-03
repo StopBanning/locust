@@ -25456,7 +25456,7 @@ textarea.lc-tune__skillwhen { height: auto; min-height: 34px; max-height: calc(4
 /* What floats is frosted glass of the page's own: it blurs what scrolls beneath it. */
 :root[data-look='liquid'] :is(.lc-dialog, .lc-palette, .lc-menu, .lc-slash, .lc-picker, .lc-context, .lc-context__sub,
   .lc-railflyout, .lc-jumpdown, .lc-commit, .lc-statusmenu, .lc-changes__menu, .lc-terminal__menu, .lc-threadfind__bar,
-  .lc-promptrail__tip, .lc-zoomimage__tools) {
+  .lc-promptrail__tip, .lc-zoomimage__tools, .lc-agentcard, .lc-selectionask, .lc-viewer__pointhint) {
   background: var(--lc-liquid-float);
   -webkit-backdrop-filter: var(--lc-liquid-blur);
   backdrop-filter: var(--lc-liquid-blur);

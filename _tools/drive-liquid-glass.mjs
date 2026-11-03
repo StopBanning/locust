@@ -92,6 +92,14 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     await click(startsWith('.lc-settings__navitem', 'Appearance'))
     await sleep(900)
   }
+  // An agent's usage card, held open over what is under it (0.859): frosted, so nothing under it reads through.
+  const agentCard = async (name) => {
+    const seen = String(await evaluate(`(() => { const c = document.querySelector('.lc-agentcard'); if (!c) return 'none'; c.style.display = 'grid'; return getComputedStyle(c).backdropFilter })()`))
+    if (seen === 'none') return say(`  ${name}: no agent card on this screen`)
+    judge(`${name}: the agent card is frosted`, /blur/.test(seen), seen)
+    await snap(name)
+    await evaluate(`(() => { const c = document.querySelector('.lc-agentcard'); if (c) c.style.display = ''; return true })()`)
+  }
   const look = async (choice) => String(await evaluate(`window.desktop.setLook(${JSON.stringify(choice)}).then((s) => s.look + ' offered ' + s.liquidOffered)`))
   const theme = async (choice) => String(await evaluate(`window.desktop.setTheme(${JSON.stringify(choice)}).then((s) => s.resolved)`))
   const drawn = async () => String(await evaluate(`document.documentElement.dataset.look ?? 'standard'`))
@@ -103,11 +111,13 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
     await sleep(800)
     judge(`${desk}: Liquid glass is offered and drawn`, /liquid offered true/.test(set) && (await drawn()) === 'liquid', `${set}; page ${await drawn()}`)
     await snap(`${desk}-1-liquid-home`)
+    await agentCard(`${desk}-1b-liquid-agentcard`)
     await conversation()
     await snap(`${desk}-2-liquid-conversation`)
     if (desk === 'bright') {
       say(`  ${String(await evaluate(sendAndWaitScript('In two short paragraphs, say what a git worktree is and when one helps. Then a three-item bullet list of commands. Do not read or change any files.', { waitSeconds: 240 }))).slice(0, 160)}`)
       await snap(`${desk}-2b-liquid-reply`)
+      await agentCard(`${desk}-2d-liquid-agentcard`)
     }
     await key('k')
     await sleep(700)

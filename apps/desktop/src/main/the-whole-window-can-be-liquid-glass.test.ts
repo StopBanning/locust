@@ -162,6 +162,24 @@ describe('the whole window can be Liquid glass', () => {
     expect(liquid).toContain(":root[data-look='liquid'][data-theme='light'] {")
   })
 
+  it('everything that floats over the page is frosted, so nothing under it reads through', () => {
+    // 0.859, Colin's screen of 2026-11-02 ("lmao"): an agent's usage card hovering over a conversation was drawn in
+    // --lc-bg-raised, which Liquid glass makes 4.5% white, so the reply under it ran straight through its numbers. A
+    // panel that floats -- placed absolute or fixed, raised over the page, with a shadow, on one of the page's fills --
+    // has to be in the frosted list, or it is see-through in Liquid glass.
+    const shell = read('../renderer/src/shell.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const listStart = shell.indexOf(":root[data-look='liquid'] :is(.lc-dialog")
+    const frosted = new Set(shell.slice(listStart, shell.indexOf('{', listStart)).match(/\.lc-[a-z_-]+/g))
+    const floating: string[] = []
+    for (const [, selector, body] of shell.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!/position: (absolute|fixed)/.test(body) || !body.includes('z-index') || !body.includes('box-shadow')) continue
+      if (!/background:\s*var\(--lc-bg-(raised|raised-2|control|chrome)\)/.test(body)) continue
+      for (const one of selector.split(',').map((part) => part.trim())) if (/^\.lc-[a-z_-]+$/.test(one)) floating.push(one)
+    }
+    expect(floating).toContain('.lc-agentcard')
+    expect(floating.filter((one) => !frosted.has(one))).toEqual([])
+  })
+
   it('the addon is built after the bundle on a Mac, unpacked from the archive, loaded from beside the main bundle', () => {
     const pkg = JSON.parse(read('../../package.json')) as { scripts: Record<string, string> }
     for (const script of ['build', 'package', 'package:dir']) expect(pkg.scripts[script]).toMatch(/^electron-vite build && node scripts\/build-mac-glass\.cjs/)
