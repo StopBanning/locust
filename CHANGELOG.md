@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.860.0 - 2026-11-02
+
+### Fixed
+
+- **The plan a step opens is frosted in Liquid glass.** Pointing at "step 3 of 3" opens the run's plan over the conversation, and in Liquid glass the conversation read straight through its steps. It is frosted glass now, like the other cards that open over a reply.
+
 ## 0.859.0 - 2026-11-02
 
 ### New
