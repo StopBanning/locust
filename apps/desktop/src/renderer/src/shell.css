@@ -19927,7 +19927,8 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
   display: flex;
   align-items: center;
   gap: var(--lc-space-3);
-  height: 28px;
+  /* 32px, as Claude's own sidebar rows nearly are (34): Colin, 2026-11-02, "they use much larger font" (0.861). */
+  height: 32px;
   /* No strip held for the `...`: it sits over the age's slot on hover
      (`.lc-convrow:hover` above). */
   padding: 0 var(--lc-space-3);
@@ -20008,7 +20009,8 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
 .lc-conv__title {
   flex: 1;
   min-width: 0;
-  font-size: var(--lc-text-description);
+  /* A conversation's name at 14px, Claude's sidebar size, not the 12px of a description under something (0.861). */
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -20020,13 +20022,20 @@ button.lc-switch:hover:not(:disabled):not(.is-on) {
  * with a band of the primary white passing through it left to right, slowly. Grey and white are the theme's own
  * tokens, so light mode flips with them. The spark it replaces turned a glyph on every running row.
  */
+/*
+ * And seen in every look (0.861). Colin, 2026-11-02: "the effect more intense to show an active chat". Its grey was
+ * --lc-text-muted, which Liquid glass lifts in the sidebar to near white (so words read over a bright desktop), so
+ * there the band was white passing through near white, and nothing showed. The grey is now the theme's own white at
+ * a third, the same in every look, and the band is wider and a little quicker.
+ */
 .lc-conv__title.is-working {
-  background-image: linear-gradient(90deg, var(--lc-text-muted) 0%, var(--lc-text-muted) 38%, var(--lc-text-primary) 50%, var(--lc-text-muted) 62%, var(--lc-text-muted) 100%);
+  --lc-shimmer-dim: color-mix(in srgb, var(--lc-text-primary) 34%, transparent);
+  background-image: linear-gradient(90deg, var(--lc-shimmer-dim) 0%, var(--lc-shimmer-dim) 32%, var(--lc-text-primary) 50%, var(--lc-shimmer-dim) 68%, var(--lc-shimmer-dim) 100%);
   background-size: 250% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: lc-shimmer 2.4s linear infinite;
+  animation: lc-shimmer 2s linear infinite;
 }
 
 /* The dot's footprint, kept empty while the title shimmers, so a run starting never moves the row. */

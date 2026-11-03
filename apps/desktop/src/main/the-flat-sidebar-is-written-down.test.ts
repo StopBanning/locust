@@ -33,7 +33,7 @@ describe('the conversation row', () => {
   it('is one line, never two', () => {
     // A list you scan stops being scannable the moment its rows differ in
     // height.
-    expect(rule('.lc-conv {')).toContain('height: 28px')
+    expect(rule('.lc-conv {')).toContain('height: 32px')
     expect(rule('.lc-conv__title {')).toContain('white-space: nowrap')
   })
 

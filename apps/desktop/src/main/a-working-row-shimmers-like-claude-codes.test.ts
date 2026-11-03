@@ -21,7 +21,11 @@ const rule = (selector: string): string => {
 describe('a working row shimmers like Claude Code’s', () => {
   it('is the grey title with one white band passing through it, from the theme’s own tokens', () => {
     const shimmer = rule('.lc-conv__title.is-working')
-    expect(shimmer).toContain('linear-gradient(90deg, var(--lc-text-muted) 0%, var(--lc-text-muted) 38%, var(--lc-text-primary) 50%')
+    // 0.861: the grey is the theme's white at a third, never --lc-text-muted, which Liquid glass lifts in the sidebar
+    // to near white and so hid the band there.
+    expect(shimmer).toContain('--lc-shimmer-dim: color-mix(in srgb, var(--lc-text-primary) 34%, transparent);')
+    expect(shimmer).toContain('linear-gradient(90deg, var(--lc-shimmer-dim) 0%, var(--lc-shimmer-dim) 32%, var(--lc-text-primary) 50%')
+    expect(shimmer).not.toContain('--lc-text-muted')
     expect(shimmer).toContain('background-clip: text;')
     expect(shimmer).toContain('color: transparent;')
     // No colour of its own: only the theme's greys, so light mode flips with them.
@@ -29,7 +33,7 @@ describe('a working row shimmers like Claude Code’s', () => {
   })
 
   it('passes slowly, left to right, and stands still for a person who asked for less motion', () => {
-    expect(rule('.lc-conv__title.is-working')).toContain('animation: lc-shimmer 2.4s linear infinite;')
+    expect(rule('.lc-conv__title.is-working')).toContain('animation: lc-shimmer 2s linear infinite;')
     const keyframes = css.slice(css.indexOf('@keyframes lc-shimmer {'), css.indexOf('\n}', css.indexOf('@keyframes lc-shimmer {')) + 2)
     expect(keyframes).toContain('from { background-position: 100% 0; }')
     expect(keyframes).toContain('to { background-position: 0% 0; }')

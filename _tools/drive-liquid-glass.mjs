@@ -141,6 +141,14 @@ for (const [desk, picture, port] of [['bright', existsSync(bright) ? bright : 'd
       say(`  ${String(await evaluate(sendAndWaitScript('In two short paragraphs, say what a git worktree is and when one helps. Then a three-item bullet list of commands. Do not read or change any files.', { waitSeconds: 240 }))).slice(0, 160)}`)
       await snap(`${desk}-2b-liquid-reply`)
       await agentCard(`${desk}-2d-liquid-agentcard`)
+      // A running row's shimmer (0.861), on the real row this reply made: held in its running look for three frames.
+      const row = String(await evaluate(`(() => { const t = document.querySelector('.lc-sidebar .lc-conv__title'); if (!t) return 'none'; t.classList.add('is-working'); return getComputedStyle(t).fontSize + ' ' + getComputedStyle(t).animationName })()`))
+      judge(`${desk}: a running row is 14px and shimmers`, row === '14px lc-shimmer', row)
+      for (const frame of ['a', 'b', 'c']) {
+        await snap(`${desk}-2f-liquid-shimmer-${frame}`)
+        await sleep(500)
+      }
+      await evaluate(`(() => { document.querySelector('.lc-sidebar .lc-conv__title')?.classList.remove('is-working'); return true })()`)
     }
     await key('k')
     await sleep(700)
