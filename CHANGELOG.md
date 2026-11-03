@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.863.0 - 2026-11-03
+
+### Improved
+
+- **Locust reads like the best apps on your Mac.** Buttons, labels and the lines under them are a size larger, as Claude's are. Section names are plain words in place of spaced capitals ("Your team", not YOUR TEAM), page titles read "Settings" and "Team", and a status is a coloured dot and a word: "Ready", "Connected", "Not working". Models, counts and times are in Locust's own typeface; only code and numbers stay in mono.
+- **A solid send button.** With something typed, the send button is a solid disc, light on dark and dark on light, with your metal around it.
+- **Calmer pages.** Home's machine is a size smaller with the team in view. Team cards have no boxes inside them. Rooms and Routines sit in one tidy column, Memory is set out like Settings, the + menu's words sit on frosted labels, each bot's agent mark in the sidebar shows when you point at it, and checkboxes on Conversations appear while you select. Several long settings say the same in fewer words.
+
 ## 0.862.0 - 2026-11-03
 
 ### Fixed
