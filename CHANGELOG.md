@@ -11,6 +11,12 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.866.0 - 2026-11-04
+
+### Improved
+
+- **An AI agent you have not added yet reads "ready to install".** On the first screen, a row such as OpenCode's used to say "not installed", the words an error uses, next to the one button that gets you started. It now says "ready to install · no account needed", which is what pressing Install does.
+
 ## 0.865.0 - 2026-11-04
 
 ### Improved
