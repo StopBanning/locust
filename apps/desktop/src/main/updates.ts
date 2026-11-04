@@ -148,6 +148,32 @@ export function periodicCheckDue(state: AppUpdateState, liveMissions: number): b
   return state.phase === 'idle' || state.phase === 'current' || state.phase === 'failed' || state.phase === 'ready'
 }
 
+/**
+ * THE UPDATER'S OWN LOG LINES (0.865). electron-updater writes to the console by default, and a check made with no
+ * network printed `Error: Error: net::ERR_INTERNET_DISCONNECTED` and its stack: the AppImage catalog's offline test
+ * read that as Locust failing to start. A computer that is offline is not a fault. That one line goes to Locust's own
+ * log, short; every other line still reaches the console as before, so a real failure is still seen.
+ */
+const OFFLINE = /net::ERR_(INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|NETWORK_CHANGED|NETWORK_IO_SUSPENDED|ADDRESS_UNREACHABLE|PROXY_CONNECTION_FAILED)/
+
+export interface UpdaterLogger {
+  info(message?: unknown): void
+  warn(message?: unknown): void
+  error(message?: unknown): void
+}
+
+export function updaterLogger(console: UpdaterLogger, note: (detail: string) => void): UpdaterLogger {
+  return {
+    info: (message) => { console.info(message) },
+    warn: (message) => { console.warn(message) },
+    error: (message) => {
+      const offline = OFFLINE.exec(String(message))
+      if (offline === null) console.error(message)
+      else note(`check skipped, offline (${offline[0]})`)
+    }
+  }
+}
+
 /** `a` is a later version than `b`, by major.minor.patch; unreadable is never later. */
 export function isNewer(a: string, b: string): boolean {
   const parse = (text: string): readonly number[] | undefined => {

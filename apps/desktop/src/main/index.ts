@@ -582,7 +582,7 @@ import { cursorConfiguredConnectorNames, cursorReadyConnectors, warmCursorConnec
 import { pruneMissionRecords, readStorageReport } from './retention.js'
 import { applyPendingRestore, countProfile, KILO_CONVERSATIONS_FOLDER, readBackup, requestRestore, takeLastRestore, writeBackup, type RestoreOutcome } from './profile-backup.js'
 import { oneAtATime } from './one-at-a-time.js'
-import { createUpdateService, mayUpdateItself } from './updates.js'
+import { createUpdateService, mayUpdateItself, updaterLogger } from './updates.js'
 import type {
   CodexMissionCancelRequest,
   DiscoveryEvent,
@@ -9480,6 +9480,8 @@ if (!ownsSingleInstanceLock) {
       : undefined
     // The Linux CI's check of an AppImage update (linux-update-smoke.mjs): a local generic feed, never set by the app.
     if (linuxUpdateTest?.feedUrl !== undefined) autoUpdater.setFeedURL(linuxUpdateTest.feedUrl)
+    // An offline check is a short line in Locust's own log, not an error and stack on the console (0.865).
+    autoUpdater.logger = updaterLogger(console, (detail) => { note('update', detail) })
     const updates = createUpdateService({
       updater: macBundle === undefined
         ? autoUpdater
