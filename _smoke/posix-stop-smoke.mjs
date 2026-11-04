@@ -1,7 +1,7 @@
 // Launch the packaged app on a Mac or on Linux, run one free turn, press Stop (CI, 0.496; Linux since 0.789).
 //
 //   node _smoke/posix-stop-smoke.mjs <Locust.app/Contents/MacOS/Locust | the installed /opt/Locust/locust>
-//   node _smoke/posix-stop-smoke.mjs --launch-only <Locust-...-linux-x86_64.AppImage>
+//   node _smoke/posix-stop-smoke.mjs --launch-only <Locust-...-x86_64.AppImage>
 //
 // The process-group Stop (0.476) was written for macOS and had never run on a
 // real Mac: the Windows machine builds and drives everything, and a Mac build

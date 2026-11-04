@@ -51,7 +51,7 @@ test('an old build: the day, its entry and the comparison with the one before', 
 
 test('a build that carries files says which one is for which computer', () => {
   const [newest] = changelogEntries(CHANGELOG)
-  const names = ['Locust-Setup.exe', 'Locust-0.789.0-linux-x86_64.AppImage', 'Locust-0.789.0-mac-arm64.dmg', 'Locust-0.789.0-linux-amd64.deb', 'Locust-0.789.0-mac-x64.dmg', 'Locust-0.789.0-linux-x86_64.rpm']
+  const names = ['Locust-Setup.exe', 'Locust-0.789.0-x86_64.AppImage', 'Locust-0.789.0-mac-arm64.dmg', 'Locust-0.789.0-linux-amd64.deb', 'Locust-0.789.0-mac-x64.dmg', 'Locust-0.789.0-linux-x86_64.rpm']
   const files = names.map((name) => ({ name: releaseFileName(name, '0.789.0') }))
   const notes = releaseNotes(newest, { previous: '0.788.0', files })
   const rows = notes.split('\n').filter((line) => line.startsWith('| ') && !line.startsWith('| Your') && !line.startsWith('| ---'))

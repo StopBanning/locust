@@ -113,7 +113,7 @@ if (macDir !== undefined) {
   // The three Linux packages (0.789), a small file naming them for the site, then their feed: the AppImage's copies
   // read it to update themselves, a .deb's or .rpm's to say a new version is out. `beta-linux.yml` is every build's
   // lane at once; --promote makes it the tester lane's as `latest-linux.yml`.
-  const expected = [`Locust-${version}-linux-x86_64.AppImage`, `Locust-${version}-linux-amd64.deb`, `Locust-${version}-linux-x86_64.rpm`]
+  const expected = [`Locust-${version}-x86_64.AppImage`, `Locust-${version}-linux-amd64.deb`, `Locust-${version}-linux-x86_64.rpm`]
   const missing = expected.filter((name) => !existsSync(join(linuxDir, name)))
   if (missing.length > 0) fail(`${linuxDir} is missing ${missing.join(', ')}; it holds ${readdirSync(linuxDir).join(', ') || 'nothing'}`)
   const feedFile = join(linuxDir, 'latest-linux.yml')

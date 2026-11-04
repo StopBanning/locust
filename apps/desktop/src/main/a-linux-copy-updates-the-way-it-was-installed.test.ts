@@ -31,7 +31,7 @@ describe('how a Linux copy was installed', () => {
   })
 
   it("hands a .deb copy the feed's .deb, and an .rpm copy its .rpm, as full addresses", () => {
-    const files = [{ url: 'Locust-0.790.0-linux-x86_64.AppImage' }, { url: 'Locust-0.790.0-linux-amd64.deb' }, { url: 'Locust-0.790.0-linux-x86_64.rpm' }]
+    const files = [{ url: 'Locust-0.790.0-x86_64.AppImage' }, { url: 'Locust-0.790.0-linux-amd64.deb' }, { url: 'Locust-0.790.0-linux-x86_64.rpm' }]
     expect(linuxPackageUrl('deb', files, 'https://dl.locust.lol/')).toBe('https://dl.locust.lol/Locust-0.790.0-linux-amd64.deb')
     expect(linuxPackageUrl('rpm', files, 'https://dl.locust.lol/')).toBe('https://dl.locust.lol/Locust-0.790.0-linux-x86_64.rpm')
     expect(linuxPackageUrl('deb', [{ url: 7 }], 'https://dl.locust.lol/')).toBeUndefined()

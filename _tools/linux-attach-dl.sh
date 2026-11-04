@@ -59,7 +59,7 @@ echo "LINUX: $(grep -c '\[PASS\]' "$LOG") checks PASS on Linux, $(grep -c '\[FAI
 D=$SCRATCH/linux-$V
 rm -rf "$D"; mkdir -p "$D"
 gh run download "$RUN" -R "$PUB" -n locust-ubuntu-24.04 -D "$D" || { echo "LINUX: download failed"; exit 1; }
-IMG="$D/Locust-$V-linux-x86_64.AppImage"; DEB="$D/Locust-$V-linux-amd64.deb"; RPM="$D/Locust-$V-linux-x86_64.rpm"
+IMG="$D/Locust-$V-x86_64.AppImage"; DEB="$D/Locust-$V-linux-amd64.deb"; RPM="$D/Locust-$V-linux-x86_64.rpm"
 [ -f "$IMG" ] && [ -f "$DEB" ] && [ -f "$RPM" ] && [ -f "$D/latest-linux.yml" ] || { echo "LINUX: the packages are not named for $V: $(ls "$D")"; exit 1; }
 # Each by its own signature: an ELF that says it is a type-2 AppImage, an ar archive, an RPM lead. The AppImage's
 # whole length is held to the feed's sha512 by publish-downloads.mjs.

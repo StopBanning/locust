@@ -1,6 +1,6 @@
 // A Linux AppImage updates itself: download from a generic feed, Restart and install, back on the new copy (CI, 0.789).
 //
-//   node _smoke/linux-update-smoke.mjs <path to the built Locust-...-linux-x86_64.AppImage>
+//   node _smoke/linux-update-smoke.mjs <path to the built Locust-...-x86_64.AppImage>
 //
 // An AppImage is one file the person keeps where they like; the AppImage
 // runtime names it in $APPIMAGE, and electron-updater replaces that file with
@@ -39,7 +39,7 @@ if (built === undefined) {
   process.exit(2)
 }
 const PORT = Number(process.env.LOCUST_SMOKE_PORT ?? portFor(import.meta.url))
-const FEED_FILE = 'Locust-9.9.9-linux-x86_64.AppImage'
+const FEED_FILE = 'Locust-9.9.9-x86_64.AppImage'
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 let failures = 0
 const check = (what, ok, detail) => {

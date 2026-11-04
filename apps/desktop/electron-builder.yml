@@ -193,6 +193,10 @@ linux:
   artifactName: Locust-${version}-linux-${arch}.${ext}
 
 # Installed as `locust`, not as the workspace's package name.
+appImage:
+  # No "linux" in the AppImage's name (0.865): every AppImage is for Linux, and the AppImage catalog's test asks for
+  # App-1.0-x86_64.AppImage. The .deb and .rpm keep theirs.
+  artifactName: Locust-${version}-${arch}.${ext}
 deb:
   packageName: locust
 rpm:
