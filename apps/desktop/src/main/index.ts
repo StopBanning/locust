@@ -130,7 +130,7 @@ import { pathToFileURL } from 'node:url'
 import { shellPath } from './shell-path.js'
 import { linuxInstallOf, linuxPackageUrl, linuxUpdateTestOf } from './linux-install.js'
 import { DOWNLOADS, SITE } from '../shared/locust-home.js'
-import { GLASS_GROUNDS, LOOK_CHOICES, readGlassGround, readLook, readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeAppearance } from './appearance.js'
+import { firstTheme, GLASS_GROUNDS, LOOK_CHOICES, readGlassGround, readLook, readTheme, resolvedTheme, THEME_CHOICES, windowGround, writeAppearance } from './appearance.js'
 import {
   APPEARANCE_CHANGED_CHANNEL,
   APPEARANCE_GET_CHANNEL,
@@ -1902,7 +1902,16 @@ if (!ownsSingleInstanceLock) {
       packaged: app.isPackaged
     }))
     // Dark unless the person chose Light or Match the computer (0.789); native menus and dialogs follow it too.
-    themeChoice = readTheme(appearanceFile())
+    // A new Linux install starts on the computer's theme (0.865, firstTheme), kept so it reads the same next time.
+    const startingTheme = firstTheme(process.platform, !existsSync(appearanceFile()) && !existsSync(join(app.getPath('userData'), 'teammates.json')))
+    if (startingTheme !== undefined) {
+      try {
+        writeAppearance(appearanceFile(), startingTheme, 'standard')
+      } catch {
+        // Kept for this run below; the next start, with a teammates file by then, reads Dark.
+      }
+    }
+    themeChoice = startingTheme ?? readTheme(appearanceFile())
     lookChoice = readLook(appearanceFile())
     glassGroundChoice = readGlassGround(appearanceFile())
     nativeTheme.themeSource = themeChoice

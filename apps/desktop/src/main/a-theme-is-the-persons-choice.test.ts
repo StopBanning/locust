@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { themeFromArguments } from '../shared/appearance.js'
-import { readTheme, resolvedTheme, windowGround } from './appearance.js'
+import { firstTheme, readTheme, resolvedTheme, windowGround } from './appearance.js'
 
 /**
  * A THEME IS THE PERSON'S CHOICE (0.789). Locust forced the window dark; now
@@ -19,6 +19,18 @@ describe('the saved theme', () => {
   it('is what the person chose', () => {
     expect(readTheme('/f', () => JSON.stringify({ theme: 'light' }))).toBe('light')
     expect(readTheme('/f', () => JSON.stringify({ theme: 'system' }))).toBe('system')
+  })
+})
+
+describe('the theme a new copy starts on (0.865)', () => {
+  it("is the computer's on a Linux profile that has never run", () => {
+    expect(firstTheme('linux', true)).toBe('system')
+  })
+
+  it('leaves a Linux profile that has run, and every Windows and Mac profile, to what was saved', () => {
+    expect(firstTheme('linux', false)).toBeUndefined()
+    expect(firstTheme('win32', true)).toBeUndefined()
+    expect(firstTheme('darwin', true)).toBeUndefined()
   })
 })
 

@@ -25,6 +25,16 @@ export function readTheme(file: string, read: (file: string) => string = (path) 
   }
 }
 
+/**
+ * THE THEME A NEW LINUX INSTALL STARTS ON (0.865): the computer's. Linux desktops say light or dark through GTK and
+ * Qt, and the AppImage catalog asks every app to follow that unless the person picks otherwise. Only a profile that
+ * has never run (no saved theme, no teammates file) starts this way, so nobody's Locust changes under them; Windows
+ * and Mac keep Dark, the look Locust was drawn in.
+ */
+export function firstTheme(platform: NodeJS.Platform, profileIsNew: boolean): ThemeChoice | undefined {
+  return platform === 'linux' && profileIsNew ? 'system' : undefined
+}
+
 export const LOOK_CHOICES: readonly LookChoice[] = ['standard', 'liquid']
 
 /** The look (Settings > General > Look, 0.855), kept in the same file: Standard unless Liquid glass was chosen. */
