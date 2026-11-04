@@ -744,10 +744,10 @@ export function FirstLaunch({
                         ? { detail: `needs ${facts.account}` }
                         : undefined
                       : facts?.account !== undefined
-                        ? { state: 'not installed', detail: `needs ${facts.account}` }
+                        ? { state: 'ready to install', detail: `needs ${facts.account}` }
                         : facts?.install.kind === 'vendor'
-                          ? { state: 'not installed', detail: `from ${new URL(facts.install.url).host}` }
-                          : { state: 'not installed', detail: 'no account needed', free: true }
+                          ? { state: 'ready to install', detail: `from ${new URL(facts.install.url).host}` }
+                          : { state: 'ready to install', detail: 'no account needed', free: true }
             const needSaid = need === undefined ? undefined : [need.state, need.detail].filter((part) => part !== undefined).join(' · ')
             const dot = usable ? ' is-green' : checking ? ' is-checking' : signIn ? ' is-red' : onRamp ? ' is-lime' : ' is-muted'
             const waiting = installing !== undefined
@@ -764,8 +764,11 @@ export function FirstLaunch({
                     * columns leave the text about twenty characters, and
                     * "installed · not signe…" cut off exactly the half
                     * that told the two cases apart (frame, 2026-09-22).
-                    * "not installed" / "not signed in" is parallel, fits,
-                    * and is what decides the button beside it.
+                    * "ready to install" / "not signed in" fits, and is what
+                    * decides the button beside it. Not "not installed" (0.866):
+                    * an agent nobody has added yet is an offer, not a fault, and
+                    * the AppImage catalog's test read those words on Home as an
+                    * error message on screen.
                     */
                   <span className="lc-runtimecell__need" title={needSaid}>
                     {need.state !== undefined ? (

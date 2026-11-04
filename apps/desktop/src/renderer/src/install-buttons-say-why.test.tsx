@@ -220,6 +220,19 @@ describe('what the cold first screen does not say yet', () => {
     expect(cold).toContain('no account needed')
   })
 
+  it('offers an agent nobody has added yet as ready to install, never as "not installed"', () => {
+    /*
+     * 0.866: the AppImage catalog's test reads the first window's words and fails an app whose screen says "not
+     * installed", the words an install error uses. On Home they were OpenCode's row, the one step that works: an
+     * offer, not a fault, so the row says what pressing Install does.
+     */
+    const cold = panel({ connected: 0, npmMissing: false, npmIsBundled: true })
+    expect(cold).toContain('ready to install')
+    expect(cold).not.toMatch(/not installed/i)
+    const warm = panel({ connected: 1, npmMissing: false })
+    expect(warm).not.toMatch(/not installed/i)
+  })
+
   it('shows every agent again the moment one of them works', () => {
     // The control. Once anything is connected, "what else can this drive" is
     // a real question and the catalogue is the right answer to it.
