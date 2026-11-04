@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.865.0 - 2026-11-04
+
+### Improved
+
+- **On Linux, a new Locust follows your desktop's light or dark setting.** A first install on Linux used to open dark whatever the desktop was set to. It now starts on Match the computer, so a light desktop gets a light Locust. Anyone who has already used Locust keeps the theme they had, and Windows and Mac still start dark. You can change it any time in Settings > Appearance.
+- **The Linux AppImage's name no longer says "linux".** It is now `Locust-0.865.0-x86_64.AppImage`, as the AppImage catalog asks, since every AppImage is for Linux. Copies already installed update to it as usual. The .deb and .rpm keep their names.
+
+### Fixed
+
+- **No error in the log when Locust starts offline.** The update check printed a network error and its stack when the computer had no connection. It now writes one short line to Locust's own log and tries again at the next check.
+
 ## 0.864.0 - 2026-11-03
 
 ### New
