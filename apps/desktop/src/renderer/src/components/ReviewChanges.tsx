@@ -6,6 +6,7 @@ import { fileCounts, parseUnifiedDiff } from '../diff.js'
 import { agoLabel } from '../teammateWork.js'
 import { DiffView } from './DiffView.js'
 import { Icon } from './Icon.js'
+import { LineCounts } from './LineCounts.js'
 
 /**
  * REVIEW CHANGES (0.439): a teammate's own branch, seen as a whole.
@@ -203,7 +204,7 @@ export function ReviewChanges({
                     <div className="lc-review__path lc-mono">
                       <span className="lc-review__name">{file.path}</span>
                       {file.status !== 'MODIFIED' && <span className="lc-review__status">{file.status.toLowerCase()}</span>}
-                      <span className="lc-diff__addmark">+{counts.added}</span> <span className="lc-diff__delmark">−{counts.removed}</span>
+                      <LineCounts added={counts.added} removed={counts.removed} />
                     </div>
                     <DiffView file={file} truncated={false} reported={undefined} />
                   </section>

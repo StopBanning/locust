@@ -12,6 +12,7 @@ import { CopyButton } from './CopyButton.js'
 import { useDiffNotes } from './DiffNotes.js'
 import type { DiffNotesPlace } from './DiffNotes.js'
 import { Icon } from './Icon.js'
+import { LineCounts } from './LineCounts.js'
 
 /**
  * One file's change, unified, never side by side: the thread column caps at
@@ -75,7 +76,7 @@ export function DiffView({
             {truncated && reported !== undefined && (
               <>
                 {' · the runtime counted '}
-                <span className="lc-diff__addmark">+{reported.added}</span> <span className="lc-diff__delmark">−{reported.removed}</span>
+                <LineCounts added={reported.added} removed={reported.removed} />
                 {' in all'}
               </>
             )}

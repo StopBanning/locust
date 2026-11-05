@@ -118,6 +118,7 @@ export function CommitChanges({
         className={`lc-button${open ? ' is-active' : ''}`}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label="Commit"
         title={count > 0 ? `${String(count)} ${count === 1 ? 'file' : 'files'} changed in this folder and not committed` : 'Commit this folder\'s changes'}
         onClick={() => {
           if (open) {
@@ -132,7 +133,7 @@ export function CommitChanges({
           void read()
         }}
       >
-        <Icon name="commit" size={13} /> Commit
+        <Icon name="commit" size={13} /> <span className="lc-commitwrap__word">Commit</span>
       </button>
       {open && (
         <div className="lc-commit" role="dialog" aria-label="Commit" ref={panel}>

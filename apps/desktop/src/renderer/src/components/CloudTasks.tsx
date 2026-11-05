@@ -8,6 +8,7 @@ import { cloudUpdatedLabel, startCloudWatch } from '../cloudWatch.js'
 import { DiffView } from './DiffView.js'
 import { Icon } from './Icon.js'
 import { AgentText } from './ThreadItems.js'
+import { LineCounts } from './LineCounts.js'
 
 /**
  * CLOUD TASKS (0.503): what was handed to Codex Cloud from this folder, how
@@ -237,7 +238,7 @@ export function CloudTasks({
                         <div className="lc-review__path lc-mono">
                           <span className="lc-review__name">{file.path}</span>
                           {file.status !== 'MODIFIED' && <span className="lc-review__status">{file.status.toLowerCase()}</span>}
-                          <span className="lc-diff__addmark">+{fileCountsNow.added}</span> <span className="lc-diff__delmark">−{fileCountsNow.removed}</span>
+                          <LineCounts added={fileCountsNow.added} removed={fileCountsNow.removed} />
                         </div>
                         <DiffView file={file} truncated={false} reported={undefined} />
                       </section>
@@ -471,7 +472,7 @@ function ClaudeCloudRow({
                         <div className="lc-review__path lc-mono">
                           <span className="lc-review__name">{file.path}</span>
                           {file.status !== 'MODIFIED' && <span className="lc-review__status">{file.status.toLowerCase()}</span>}
-                          <span className="lc-diff__addmark">+{counts.added}</span> <span className="lc-diff__delmark">−{counts.removed}</span>
+                          <LineCounts added={counts.added} removed={counts.removed} />
                         </div>
                         <DiffView file={file} truncated={false} reported={undefined} />
                       </section>

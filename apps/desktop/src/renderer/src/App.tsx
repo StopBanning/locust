@@ -10171,7 +10171,7 @@ export default function App(): ReactElement {
                       presence={workroomOwnerView === undefined ? 'none' : facePresenceFor(workroomOwnerView.status)}
                     />
                   )}
-                  <div style={{ minWidth: 0 }}>
+                  <div className="lc-workroom__who">
                     <div className="lc-workroom__titleline">
                       <span className="lc-workroom__name">
                         {missionOwner?.name ?? shownConversationTitle ?? missionTitle(shownPrompt(liveRun))}

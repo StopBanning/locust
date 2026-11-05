@@ -11,6 +11,21 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.867.0 - 2026-11-05
+
+### Fixed
+
+- **A conversation beside the built-in browser keeps every part whole.** With the browser open, the conversation gets about half the window, and several things were cut off at the edge:
+  - The running line's "step 2 of 5" was cut, and a sideways scrollbar appeared under it. The command name now shortens instead.
+  - The header's name was crushed to "Cas…". In a narrow header the role line goes first, and Commit shows only its icon.
+  - A turn's closing line lost its last parts ("4 o"). It now wraps whole parts onto a second line.
+  - A file a teammate handed you ran off the edge mid-word. In a narrow reply it shows the file and keeps the note in its hover text.
+  - The open and copy buttons in an edited-files card stay inside the card.
+- **A long name in the header gets the room beside it.** At full width a long conversation name was cut at about a third of the header, with the rest empty.
+- **Line counts say only what changed.** A new file reads "+299", not "+299 −0". The red zero is gone wherever counts are shown.
+- **Home's agent marks stay in a row.** At the smallest window with the browser open, they stacked in a column down the middle.
+- **The startup screen says "ready to install" for an agent you have not added**, as Home has since 0.866, instead of "not installed".
+
 ## 0.866.0 - 2026-11-04
 
 ### Improved

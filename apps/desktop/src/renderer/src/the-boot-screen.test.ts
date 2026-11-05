@@ -104,6 +104,18 @@ describe('what the screen is made of', () => {
     expect(bootView(state, 'settled', 20).rows[0]?.result).toBe('ready')
   })
 
+  it('says an agent not added yet is ready to install, never "not installed"', () => {
+    // 0.867: the boot screen still said "not installed", the words 0.866 took off Home because they read as an error.
+    const state = fold([
+      at('started', { at: 0 }),
+      at('probe.started', { id: 'muse', bin: 'muse', product: 'Muse Code', at: 0 }),
+      at('probe.finished', { id: 'muse', at: 10, outcome: 'missing' })
+    ])
+    const result = bootView(state, 'settled', 20).rows[0]?.result
+    expect(result).toBe('ready to install')
+    expect(result).not.toMatch(/not installed/i)
+  })
+
   it('a second sweep is a new log, not more rows under the old one', () => {
     const state = fold([
       at('started', { at: 0 }),

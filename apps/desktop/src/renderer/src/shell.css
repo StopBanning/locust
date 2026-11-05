@@ -575,6 +575,8 @@ textarea {
   padding: 0 20px;
   border-bottom: 1px solid var(--lc-border-hairline);
   background: var(--lc-bg-chrome);
+  /* Its width decides what it gives up first (the narrow header below, 0.867). */
+  container: lc-workhead / inline-size;
 }
 
 .lc-workroom__identity {
@@ -610,6 +612,17 @@ textarea {
   align-items: baseline;
   min-width: 0;
 }
+
+/*
+ * The name and the line under it take the room beside the face (0.867). They were as wide as their own words, so
+ * the name's "up to 60%" below was 60% of itself: at 1600px with nothing beside it a 22-letter name read
+ * "handoff-0501-polish..." with half the header empty (Colin's screenshot of 0.866).
+ */
+.lc-workroom__who {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 
 .lc-workroom__name {
   font-size: var(--lc-text-teammate-name);
@@ -648,6 +661,26 @@ textarea {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/*
+ * A NARROW HEADER (a panel open beside the thread): the name before everything else in it. The role and the runtime
+ * go first, since the line under the name and the composer's chip both say the model; then Commit says itself as its
+ * icon, the others' way (its name is its title and its label). Beside the browser at 1205px the header is ~420px and
+ * the name was cut to "Cas..." for a six-letter "Casper". After the name's own rules, which it overrides.
+ */
+@container lc-workhead (max-width: 560px) {
+  .lc-workroom__role {
+    display: none;
+  }
+
+  .lc-workroom__name {
+    max-width: 100%;
+  }
+
+  .lc-workroom__actions .lc-commitwrap__word {
+    display: none;
+  }
 }
 
 .lc-button {
@@ -1154,6 +1187,15 @@ textarea {
   flex-wrap: wrap;
   gap: var(--lc-space-2);
   margin-top: var(--lc-space-2);
+  container: lc-handedfiles / inline-size;
+}
+
+/* In a narrow reply (beside the browser) a pill is its file: the note, cut to "Bl..." or a bare "R", said nothing
+   there. It stays the pill's title, on hover (0.867). */
+@container lc-handedfiles (max-width: 520px) {
+  .lc-handedfile__note {
+    display: none;
+  }
 }
 
 /*
@@ -1166,6 +1208,14 @@ textarea {
 .lc-handedfile {
   display: inline-flex;
   align-items: stretch;
+  /*
+   * Never wider than the reply it is under (0.867). Its parts had fixed caps (320px for the path, 260px for the
+   * note) and nothing smaller, so in a column beside the browser the pill ran past the reply and the column cut it
+   * mid-word, "Blocker eviden", with no ellipsis. Now the note gives way first, then the path, each to its ellipsis;
+   * the save buttons keep their size.
+   */
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--lc-border-control);
   border-radius: 999px;
   overflow: hidden;
@@ -1190,6 +1240,8 @@ textarea {
 .lc-handedfile__open {
   display: flex;
   align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
   gap: var(--lc-space-2);
   padding: 3px 8px;
   border: 0;
@@ -1212,6 +1264,7 @@ textarea {
 .lc-handedfile__save {
   display: flex;
   align-items: center;
+  flex: none;
   padding: 3px 8px;
   border: 0;
   border-left: 1px solid var(--lc-border-control);
@@ -1227,6 +1280,8 @@ textarea {
 }
 
 .lc-handedfile__path {
+  flex: 0 1 auto;
+  min-width: 6ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1249,6 +1304,9 @@ textarea {
   /* Muted, not faint: faint fails AA on copy and this is copy. */
   color: var(--lc-text-muted);
   opacity: 0.85;
+  /* Gives way before the path does: the file is the thing, the note is about it. */
+  flex: 0 1000 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2077,6 +2135,12 @@ textarea {
 .lc-filerow__line {
   display: flex;
   align-items: center;
+}
+
+/* The row gives way to its controls, never they to it (0.867): a flex item will not shrink below its content
+   without this, so beside the browser the row's own width pushed its open and copy buttons past the card's edge. */
+.lc-filerow__line > .lc-filerow {
+  min-width: 0;
 }
 
 .lc-filerow__line:hover {
@@ -6416,6 +6480,12 @@ svg.lc-filetype.is-image .lc-filetype__dot {
   margin-top: var(--lc-space-3);
 }
 
+/* The folded row wraps as a row: its usage and Show all go under it rather than squeezing the marks (0.867). */
+.lc-agenthead.is-folded {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
 .lc-agenthead__label {
   font-family: var(--lc-font-mono);
   font-size: var(--lc-text-mono-label);
@@ -6705,7 +6775,12 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 /* The ready agents as their marks (0.383), in the words' own quiet colour
    where a mark has no colour of its own. */
 .lc-agenthead__marks {
-  flex: 1;
+  /*
+   * As wide as the marks, then the room left (0.867). It was `flex: 1` from nothing, so in a short window (the usage
+   * chip and its 30 bars join this row below 740px) beside the browser the chip took the room and the marks got
+   * ~20px: seven marks stacked in a column down the middle of Home. Now the row wraps (below) before the marks do.
+   */
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   /* In a narrow Home (a conversation beside it) the marks ran under Show
@@ -10273,9 +10348,13 @@ svg.lc-filetype.is-image .lc-filetype__dot {
  * its card is not cut off; the card is anchored to the row (not to the
  * control) so it stays inside a narrow compare column.
  */
+/*
+ * The plan pill keeps its width; the words before it give way, to their ellipsis (0.867). It shrank with them, and
+ * the pill inside it does not shrink, so beside the browser (a 418px column, Colin's 1205px window) "step 2 of 5"
+ * painted past the column's edge, cut at "step 2 of", and the thread grew a sideways scrollbar under it.
+ */
 .lc-livestep__peek {
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: none;
   margin-left: calc(-1 * var(--lc-space-4) + var(--lc-space-3));
   /* The separator and the control share one clickable word. */
   white-space: nowrap;
@@ -15034,27 +15113,32 @@ textarea.lc-compare__judgecriteria {
 }
 
 /*
- * A turn's closing line wraps in a column (2026-10-05). It is one line in the
- * thread, cut at its edge; in a third of the window that cut a whole part off
- * with nothing to say so ("ran 6 commands: mkdir, node and 1 more" and no
- * "4 other tool calls"). Here it runs as text: its time stays whole, the rest
- * wraps at its spaces, and each dot ends the part before it, so a wrapped
- * line never starts with one.
+ * A turn's closing line wraps when its column is narrow (2026-10-05 in a Compare column; 0.867 everywhere). It was
+ * one line in the thread, cut at its edge; in a third of the window that cut a whole part off with nothing to say
+ * so ("ran 6 commands: mkdir, node and 1 more" and no "4 other tool calls"). The thread did the same beside the
+ * browser: "3 exited non-zero · 4 o", no ellipsis, because the Copy button after the last part meant the rule that
+ * ellipsises the last part never applied (Colin's 0.866 screenshot). It runs as text: its time stays whole, the rest
+ * wraps at its spaces, and each dot ends the part before it, so a wrapped line never starts with one. A wide column
+ * still fits it on one line, as before.
  */
-.lc-compare__cell .lc-turnfoot__trace {
+.lc-turnfoot__trace {
   display: block;
   line-height: 1.6;
 }
 
-.lc-compare__cell .lc-turnfoot__trace .lc-trace__seg:not(:first-child) {
+.lc-turnfoot__trace .lc-trace__seg:not(:first-child) {
+  /* A part moves to the next line whole ("4 other tool calls", not "4" then "other tool calls"); one longer than
+     the line still wraps inside itself. */
+  display: inline-block;
+  max-width: 100%;
   white-space: normal;
 }
 
-.lc-compare__cell .lc-turnfoot__trace .lc-trace__seg + .lc-trace__seg::before {
+.lc-turnfoot__trace .lc-trace__seg + .lc-trace__seg::before {
   content: none;
 }
 
-.lc-compare__cell .lc-turnfoot__trace .lc-trace__seg:has(+ .lc-trace__seg)::after {
+.lc-turnfoot__trace .lc-trace__seg:has(+ .lc-trace__seg)::after {
   /* Spaced as the thread's dots are; the zero-width space is where a line may break. */
   content: '·\200b';
   margin-inline: var(--lc-space-3);

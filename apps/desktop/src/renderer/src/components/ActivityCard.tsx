@@ -59,6 +59,7 @@ import { commandReach } from '../../../shared/command-reach.js'
 import { CODEX_SANDBOX_DID_NOT_START, codexSandboxDidNotStart } from '../../../shared/codex-sandbox.js'
 import { WORKSPACE_REVEAL_CHANNEL } from '../../../shared/ipc.js'
 import { failureSaid, onTheComputer } from '../onTheComputer.js'
+import { LineCounts } from './LineCounts.js'
 
 /** A changed file's whole text, for its row's Copy; refused in words when it cannot be had as text. */
 async function readWholeFile(path: string, workspacePath: string | undefined): Promise<string | { readonly refused: string }> {
@@ -492,8 +493,7 @@ export function ActivityCard({
           ))}
           {counts !== undefined && !inComparison && (
             <span className="lc-steps__counts lc-mono">
-              <span className="lc-diff__addmark">+{counts.added}</span>
-              <span className="lc-diff__delmark">−{counts.removed}</span>
+              <LineCounts added={counts.added} removed={counts.removed} />
             </span>
           )}
           <span className="lc-steps__chev" aria-hidden="true">
@@ -516,8 +516,7 @@ export function ActivityCard({
         )}
         {counts !== undefined && !inComparison && (
           <span className="lc-activity__counts lc-mono">
-            <span className="lc-diff__addmark">+{counts.added}</span>
-            <span className="lc-diff__delmark">−{counts.removed}</span>
+            <LineCounts added={counts.added} removed={counts.removed} />
           </span>
         )}
         <span className={`lc-activity__chev${anyPatch ? '' : ' is-alone'}`} aria-hidden="true">
@@ -563,8 +562,7 @@ export function ActivityCard({
                         if (counts === undefined) return null
                         return (
                           <span className="lc-filerow__result">
-                            <span className="lc-diff__addmark">+{counts.added}</span>
-                            <span className="lc-diff__delmark">−{counts.removed}</span>
+                            <LineCounts added={counts.added} removed={counts.removed} />
                           </span>
                         )
                       })()}
@@ -1098,8 +1096,7 @@ export function HelperCalls({
                 if (counts === undefined) return null
                 return (
                   <span className="lc-filerow__result">
-                    <span className="lc-diff__addmark">+{counts.added}</span>
-                    <span className="lc-diff__delmark">−{counts.removed}</span>
+                    <LineCounts added={counts.added} removed={counts.removed} />
                   </span>
                 )
               })()}

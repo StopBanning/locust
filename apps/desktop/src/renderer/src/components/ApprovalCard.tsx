@@ -16,6 +16,7 @@ import { ApprovalRuleContext } from '../approvalRuleContext.js'
 import { numberKeyAnswer } from '../questionKeys.js'
 import { MISSION_APPROVAL_DECIDE_CHANNEL } from '../../../shared/ipc.js'
 import { onTheComputer } from '../onTheComputer.js'
+import { LineCounts } from './LineCounts.js'
 
 /** How long a card that has just appeared takes no approval (N9): a double click's second half. */
 export const FRESH_CARD_MS = 500
@@ -442,8 +443,7 @@ export function ApprovalCard({
                 "as Codex would apply it" (beta pass on 0.390, 2026-09-27). */}
             <span>{`The change, as ${runtimeDisplayName(request.runtime ?? 'codex')} would apply it`}</span>
             <span className="lc-activity__counts">
-              <span className="lc-diff__addmark">+{request.patch.added}</span>
-              <span className="lc-diff__delmark">−{request.patch.removed}</span>
+              <LineCounts added={request.patch.added} removed={request.patch.removed} />
             </span>
           </div>
           {files.length === 0 ? (

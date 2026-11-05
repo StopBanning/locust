@@ -16,6 +16,8 @@ const rule = (selector: string): string => {
   const start = shell.indexOf(`\n${selector} {`)
   return start < 0 ? '' : shell.slice(start, shell.indexOf('}', start))
 }
+/** Every rule for the selector, in order: a later one can add to or override the first. */
+const rules = (selector: string): string => shell.split(`\n${selector} {`).slice(1).map((part) => part.slice(0, part.indexOf('}'))).join('\n')
 
 describe('the compare view', () => {
   it("wraps a foot's numbers between their parts instead of cutting the line short", () => {
@@ -37,8 +39,10 @@ describe('the compare view', () => {
   })
 
   it("lets a turn's closing line wrap in a column, not lose its last parts", () => {
-    expect(rule('.lc-compare__cell .lc-turnfoot__trace')).toContain('display: block')
-    expect(rule('.lc-compare__cell .lc-turnfoot__trace .lc-trace__seg:not(:first-child)')).toContain('white-space: normal')
+    // Since 0.867 the thread's own closing line wraps the same way (beside the browser it lost "4 other tool calls"),
+    // so the rule is no longer a Compare cell's alone; a column is one of the places it applies.
+    expect(rules('.lc-turnfoot__trace')).toContain('display: block')
+    expect(rule('.lc-turnfoot__trace .lc-trace__seg:not(:first-child)')).toContain('white-space: normal')
   })
 
   it('gives up the runtime word before the name in a narrow head, except where it says the column is in a copy', () => {

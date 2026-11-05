@@ -8,6 +8,7 @@ import { agoLabel } from '../teammateWork.js'
 import { DiffView } from './DiffView.js'
 import { GitHubMark } from './GitHubAccount.js'
 import { Icon } from './Icon.js'
+import { LineCounts } from './LineCounts.js'
 
 /**
  * A TURN ON YOUR CLOUD COMPUTER, IN THE THREAD (0.761). The turn's work streams in like any turn's; these two say
@@ -163,8 +164,14 @@ export function CloudChangeCard({
         <h3 className="lc-cloudchange__title">The change is on your cloud computer</h3>
         <span className="lc-cloudchange__counts lc-mono">
           {`${String(files.length)} ${files.length === 1 ? 'file' : 'files'} · `}
-          <span className="lc-diff__addmark">{`+${String(added)}`}</span> <span className="lc-diff__delmark">{`−${String(removed)}`}</span>
-          {' · not here yet'}
+          {/* Counts that are both zero draw nothing, and their dot goes with them. */}
+          {added + removed > 0 && (
+            <>
+              <LineCounts added={added} removed={removed} />
+              {' · '}
+            </>
+          )}
+          {'not here yet'}
         </span>
       </div>
       <ul className="lc-cloudchange__files lc-mono">
@@ -173,8 +180,7 @@ export function CloudChangeCard({
             <span className="lc-cloudchange__path">{file.path}</span>
             {file.binary === true ? <span className="lc-cloudchange__binary">binary</span> : (
               <>
-                <span className="lc-diff__addmark">{`+${String(file.added)}`}</span>
-                <span className="lc-diff__delmark">{`−${String(file.removed)}`}</span>
+                <LineCounts added={file.added} removed={file.removed} />
               </>
             )}
           </li>
@@ -268,7 +274,7 @@ export function CloudChangeCard({
                 <div className="lc-review__path lc-mono">
                   <span className="lc-review__name">{file.path}</span>
                   {file.status !== 'MODIFIED' && <span className="lc-review__status">{file.status.toLowerCase()}</span>}
-                  <span className="lc-diff__addmark">+{counts.added}</span> <span className="lc-diff__delmark">−{counts.removed}</span>
+                  <LineCounts added={counts.added} removed={counts.removed} />
                 </div>
                 <DiffView file={file} truncated={false} reported={undefined} />
               </section>

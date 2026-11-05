@@ -141,7 +141,8 @@ export function homeRelative(path: string): string {
 }
 
 function resultText(outcome: string, version: string | undefined): string {
-  if (outcome === 'missing') return 'not installed'
+  // Not "not installed" (0.867): the words an error uses, and the ones 0.866 took off Home for an agent not added yet.
+  if (outcome === 'missing') return 'ready to install'
   if (outcome === 'needs-signin') return 'sign-in required'
   if (outcome === 'error') return 'did not answer'
   return version === undefined ? 'ready' : `ready · ${version}`

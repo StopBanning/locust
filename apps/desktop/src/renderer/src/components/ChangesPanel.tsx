@@ -13,6 +13,7 @@ import { fileMenuEvent } from '../fileMenuOpen.js'
 import { isShowFilesChord, showFilesChordLabel } from '../changesKeys.js'
 import { WALKTHROUGH_CHANNEL } from '../../../shared/walkthrough.js'
 import { onTheComputer } from '../onTheComputer.js'
+import { LineCounts } from './LineCounts.js'
 
 /**
  * THE FOLDER'S CHANGES, IN ONE PANEL (0.732, shared/folder-diff.ts), laid out as Claude Code's own (claude.ai/code,
@@ -123,7 +124,7 @@ export function ChangesPanel({ workspacePath, running, onClose, walkWith, commit
         </span>
         {files.length > 0 && (
           <span className="lc-changes__count lc-mono">
-            <span className="lc-diff__addmark">+{totals.added}</span> <span className="lc-diff__delmark">−{totals.removed}</span>
+            <LineCounts added={totals.added} removed={totals.removed} />
           </span>
         )}
         <span className="lc-viewer__spacer" />
@@ -257,7 +258,7 @@ export function ChangesPanel({ workspacePath, running, onClose, walkWith, commit
                       <span className="lc-changes__filename">{at < 0 ? file.path : file.path.slice(at + 1)}</span>
                       {at > 0 && <span className="lc-changes__filedir lc-mono">{file.path.slice(0, at)}</span>}
                       <span className="lc-changes__filecount lc-mono">
-                        <span className="lc-diff__addmark">+{added}</span> <span className="lc-diff__delmark">−{removed}</span>
+                        <LineCounts added={added} removed={removed} />
                       </span>
                     </button>
                     {note !== undefined && (
@@ -367,7 +368,7 @@ function FileTree({ files, onJump }: { readonly files: readonly DiffFile[]; read
         >
           <span className="lc-changes__treename">{file.path.split('/').pop()}</span>
           <span className="lc-changes__treecount lc-mono">
-            <span className="lc-diff__addmark">+{added}</span> <span className="lc-diff__delmark">−{removed}</span>
+            <LineCounts added={added} removed={removed} />
           </span>
         </button>
       )
