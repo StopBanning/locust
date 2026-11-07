@@ -3995,7 +3995,9 @@ if (!ownsSingleInstanceLock) {
       }
     }
     // A file outside every folder above that a teammate's own record names (0.787, named-files.ts).
-    const namedFile = (path: string): Promise<boolean> => namedByATeammate(missionLedger, path).catch(() => false)
+    // And one handed over by a path relative to the folder its turn ran in (0.868), resolved against that folder only.
+    const namedFile = async (path: string): Promise<boolean> =>
+      namedByATeammate(missionLedger, path, [...(await workedInFolders()), ...(await teammateFolders())]).catch(() => false)
 
     const antigravityStartData = (mission: {
       readonly runId: string

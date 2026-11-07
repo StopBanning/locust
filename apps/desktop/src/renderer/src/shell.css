@@ -14382,6 +14382,20 @@ svg.lc-filetype.is-image .lc-filetype__dot {
 }
 
 /*
+ * The effort slider at the picker's foot (0.868): laid out as its own panel is (.lc-effortpanel), and only as wide as
+ * its track. The foot is the picker's width, so "Smarter" sat at the far edge with the track ending halfway, and the
+ * Settings line touched the track.
+ */
+.lc-picker__foot > [data-effort-focus] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lc-space-4);
+  /* EffortSlider's EFFORT_TRACK_WIDTH: the goo is drawn for a track of this width. */
+  width: 216px;
+  margin-bottom: var(--lc-space-4);
+}
+
+/*
  * COMPARE IN THE PICKER (0.441): One / Compare beside the search, a tick on
  * each picked row, and a foot that says how many times the ask will run.
  */

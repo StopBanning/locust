@@ -17,7 +17,7 @@ import type { MissionReadResponse,
   PublicRecoveredMission
 } from '../shared/ipc.js'
 import { replaceFile } from './replace-file.js'
-import { filesNamedIn, namedFileKey } from './named-files.js'
+import { filesNamedIn, namedFileKey, relativeFilesNamedIn, relativeNamedKey } from './named-files.js'
 
 const MAX_HISTORY_MISSIONS = 20
 /**
@@ -560,6 +560,8 @@ interface CachedLedgerFile {
   readonly turn?: UsageTurnRead
   /** The whole paths its record names as the teammate's (0.787, named-files.ts), as keys. */
   readonly named?: readonly string[]
+  /** The relative paths its file blocks hand over (0.868), resolved only against the folder it ran in. */
+  readonly namedRelative?: readonly string[]
   /** The whole record, kept only while it is among the newest. */
   full?: RecoveredMission
 }
@@ -624,6 +626,7 @@ async function refreshedLedger(ledger: MissionLedger): Promise<{
     const unpricedAt = unpricedRunAt(mission.events, isOwnModel(mission.metadata.runtime, mission.metadata.model))
     const turn = usageTurnOf(mission)
     const named = filesNamedIn(mission.events)
+    const namedRelative = relativeFilesNamedIn(mission.events)
     cache.set(missionId, {
       missionId,
       stamp,
@@ -635,6 +638,7 @@ async function refreshedLedger(ledger: MissionLedger): Promise<{
       ...(unpricedAt === undefined ? {} : { unpricedAt }),
       turn,
       ...(named.length === 0 ? {} : { named }),
+      ...(namedRelative.length === 0 ? {} : { namedRelative }),
       full: mission
     })
   }
@@ -655,11 +659,20 @@ async function refreshedLedger(ledger: MissionLedger): Promise<{
  * when it changes: a turn still running is read as it grows, so a file it
  * handed over a moment ago is found.
  */
-export async function namedByATeammate(ledger: MissionLedger, path: string): Promise<boolean> {
+export async function namedByATeammate(ledger: MissionLedger, path: string, folders: readonly string[] = []): Promise<boolean> {
   const key = namedFileKey(path)
   if (key === undefined) return false
   const refreshed = await refreshedLedger(ledger)
-  return refreshed?.entries.some((entry) => entry.named?.includes(key) === true) ?? false
+  if (refreshed === undefined) return false
+  // A relative handover (0.868) counts against the one folder its turn ran in: a folder the host knows, matched by the id
+  // the record keeps for it (workspace.ts), never tried against every folder until one fits.
+  const folderOf = new Map(folders.map((folder) => [workspaceIdFor(folder), folder] as const))
+  return refreshed.entries.some((entry) => {
+    if (entry.named?.includes(key) === true) return true
+    if (entry.namedRelative === undefined) return false
+    const folder = folderOf.get(entry.light?.metadata.workspaceId ?? '')
+    return folder !== undefined && entry.namedRelative.some((relative) => relativeNamedKey(folder, relative) === key)
+  })
 }
 
 /** A turn's usage as its file was read: everything but which conversation it is in, found from the whole ledger. */

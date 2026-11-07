@@ -8,8 +8,9 @@ import type { MissionLedger, MissionLedgerMetadata } from '@teammate/mission-sto
 import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 
 import { namedByATeammate } from './mission-history.js'
-import { filesNamedIn, namedFileKey } from './named-files.js'
+import { filesNamedIn, namedFileKey, relativeFilesNamedIn } from './named-files.js'
 import { decideTeammateFile, readRoots } from './reveal-file.js'
+import { workspaceIdFor } from './workspace.js'
 
 /**
  * A FILE A TEAMMATE WROTE OUTSIDE THE FOLDER OPENS (0.787).
@@ -154,5 +155,68 @@ describe('the host, asked to open a file outside every folder it knows', () => {
     const inFolder = join(WORKSPACE, 'notes.md')
     expect(await decideTeammateFile(inFolder, [WORKSPACE], named)).toEqual({ ok: true, path: inFolder })
     expect(asked).toEqual([])
+  })
+})
+
+/**
+ * A REPORT HANDED OVER FROM THE FOLDER IT RAN IN (0.868).
+ *
+ * Colin, 2026-11-06, with a screenshot: Codex, working in now-coding, built in a worktree beside it and handed over
+ * `../locust-wt/spotify-artist/REPORT.md`. The copy button said "Not copied" ("wont let me copy"): only a whole path
+ * counted as named. A relative handover now counts, resolved against the one folder that turn ran in.
+ */
+describe('a file handed over by a path from the folder its turn ran in', () => {
+  const FOLDER = WINDOWS ? 'C:\\work\\now-coding' : '/work/now-coding'
+  const ELSEWHERE_FOLDER = WINDOWS ? 'C:\\work\\other' : '/work/other'
+  const WORKTREE_REPORT = WINDOWS ? 'C:\\work\\locust-wt\\spotify-artist\\REPORT.md' : '/work/locust-wt/spotify-artist/REPORT.md'
+  const handedRelative = (): readonly NormalizedRuntimeEvent[] => [
+    said('Committed on `exec/spotify-artist`.\n\n<locust-file>\n../locust-wt/spotify-artist/REPORT.md :: Implementation and verification limits\n</locust-file>', true)
+  ]
+  let root: string
+  let ledger: MissionLedger
+
+  beforeEach(async () => {
+    sequence = 0
+    root = await mkdtemp(join(tmpdir(), 'locust-named-relative-'))
+    ledger = createFileMissionLedger({ rootDirectory: root })
+    await ledger.createMission({
+      missionId: 'mission_review',
+      runId: 'run_review',
+      prompt: 'Build the Spotify artist pages in a worktree and write a report',
+      runtime: 'codex',
+      model: 'gpt-6.1-sol',
+      requestedRouteId: 'codex:gpt-6.1-sol',
+      resolvedRouteId: 'codex:gpt-6.1-sol',
+      cliVersion: '0.160.0',
+      workspaceId: workspaceIdFor(FOLDER),
+      createdAt: '2026-11-06T20:00:00.000Z',
+      sandbox: 'workspace-write',
+      executionPolicyVersion: 1
+    } as MissionLedgerMetadata)
+    await ledger.appendEvents('mission_review', handedRelative())
+  })
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true }).catch(() => undefined)
+  })
+
+  it('keeps the relative path a file block hands over, and no whole path for it', () => {
+    expect(relativeFilesNamedIn(handedRelative())).toEqual(['../locust-wt/spotify-artist/REPORT.md'])
+    expect(filesNamedIn(handedRelative())).toEqual([])
+    expect(relativeFilesNamedIn([said('<locust-file>\n//server/share/report.md\n</locust-file>', true)])).toEqual([])
+  })
+
+  it('copies it when the folder its turn ran in is one Locust knows', async () => {
+    const named = (path: string): Promise<boolean> => namedByATeammate(ledger, path, [ELSEWHERE_FOLDER, FOLDER])
+    expect(await decideTeammateFile(join(FOLDER, '..', 'locust-wt', 'spotify-artist', 'REPORT.md'), [FOLDER], named)).toEqual({ ok: true, path: WORKTREE_REPORT, named: true })
+  })
+
+  it('resolves it against that folder only, never another one it knows', async () => {
+    // From the other folder the same words would name /work/locust-wt/... too, so ask for a file only another folder resolves to.
+    const fromOther = WINDOWS ? 'C:\\locust-wt\\spotify-artist\\REPORT.md' : '/locust-wt/spotify-artist/REPORT.md'
+    expect(await namedByATeammate(ledger, fromOther, [FOLDER, ELSEWHERE_FOLDER.replace(/other$/, 'deep/other')])).toBe(false)
+    // And without the folder it ran in among the known ones, nothing counts.
+    expect(await namedByATeammate(ledger, WORKTREE_REPORT, [ELSEWHERE_FOLDER])).toBe(false)
+    expect(await namedByATeammate(ledger, WORKTREE_REPORT)).toBe(false)
   })
 })

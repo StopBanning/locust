@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.868.0 - 2026-11-06
+
+### Fixed
+
+- A file a teammate hands over by a path from its own folder, like `../worktree/REPORT.md`, copies and saves again.
+  Locust only counted a handed file as the teammate's when it was named by its whole path, so a report written in a
+  worktree beside the project said "Not copied". The path is read from the folder that conversation ran in, and only
+  that folder.
+- The Effort slider under the model list lines up: "Faster" and "Smarter" sit at the ends of the track, and the
+  Settings line below it has room.
+
 ## 0.867.0 - 2026-11-05
 
 ### Fixed

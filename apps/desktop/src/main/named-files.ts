@@ -67,3 +67,36 @@ export function filesNamedIn(events: readonly NormalizedRuntimeEvent[]): readonl
   }
   return [...named]
 }
+
+/**
+ * A HANDED FILE NAMED FROM THE FOLDER IT RAN IN (0.868).
+ *
+ * Codex, working in now-coding, built in a worktree beside it and handed its
+ * report over as `../locust-wt/spotify-artist/REPORT.md`. The thread drew it
+ * from the conversation's folder, and the copy button said "Not copied":
+ * only a whole path counted as named. Colin, 2026-11-06: "wont let me copy".
+ *
+ * So a relative path in a file block the teammate wrote is kept as it was
+ * written, and the host resolves it only against the folder that turn ran in
+ * (namedByATeammate), never against every folder it knows. Only file blocks:
+ * a step's target was always a whole path, and a shell command is not read.
+ */
+export function relativeFilesNamedIn(events: readonly NormalizedRuntimeEvent[]): readonly string[] {
+  const named = new Set<string>()
+  for (const event of joinMessageFragments(events)) {
+    if (event.type !== 'message.delta' || !event.payload.text.includes('<locust-file')) continue
+    for (const file of parseFileBlocks(event.payload.text)) {
+      const path = file.path.trim()
+      if (path.length === 0 || path.length > 400 || /[\u0000-\u001f\u007f]/.test(path)) continue
+      // A whole path is filesNamedIn's; a network or drive-relative spelling is never one.
+      if (isAbsolute(path) || /^[\\/]/.test(path) || /^[a-z]:/i.test(path)) continue
+      named.add(path)
+    }
+  }
+  return [...named]
+}
+
+/** The key a relative handed path names once it is resolved against the folder its turn ran in. */
+export function relativeNamedKey(folder: string, path: string): string | undefined {
+  return namedFileKey(resolve(folder, path))
+}
