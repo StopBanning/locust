@@ -11,6 +11,14 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.870.0 - 2026-11-08
+
+### Improved
+
+- A command that carries a key, like a token in a `curl` header, is never offered as an "Always allow" rule. A rule
+  keeps the command as written, so it would have kept the key too; such a command is allowed once instead. Rules
+  were already kept in Locust's own data folder rather than your project, so they could never be committed by mistake.
+
 ## 0.869.0 - 2026-11-07
 
 ### Improved
