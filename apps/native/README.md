@@ -19,8 +19,9 @@ Measured on a Mac mini (M-series), 8 Nov 2026:
 | | Electron app | Native preview |
 |---|---|---|
 | App size | 320 MB | 21 MB (9 MB compressed) |
-| Memory | ~430 MB at rest, all processes | ~66 MB, rendering headless (a window adds some) |
-| First frame | — | 0.11 s including GPU start |
+| Memory at rest | ~430 MB, all processes | ~92 MB, window open |
+| CPU at rest | ~0% | 0% |
+| First frame | — | 0.11 s including GPU start (headless) |
 
 The waiting in Locust is mostly the agents and models, but a lighter window matters for teammates that stay on all
 day, and it moves at 120 Hz.
