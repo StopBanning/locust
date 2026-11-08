@@ -32,3 +32,4 @@ _tools/orb-samples/bundle.js
 
 # Chromium profile from a local UI run. A session record, not source.
 apps/desktop/_ui-profile/
+apps/native/target/

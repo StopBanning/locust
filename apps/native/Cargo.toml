@@ -1,0 +1,20 @@
+[package]
+name = "locust-native"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Locust Native (preview): a native Locust window on Rune, a client of the Locust engine's local MCP server."
+publish = false
+
+[[bin]]
+name = "locust-native"
+path = "src/main.rs"
+
+[dependencies]
+# Rune is pre-release: pin one commit of `dev` (never rewritten). Bump on purpose, never by accident.
+rune = { git = "https://github.com/anomalyco/rune", rev = "39301f6793266450a057f270da06b048a689be96" }
+serde_json = "1"
+ureq = { version = "2", default-features = false, features = ["json"] }
+
+[profile.release]
+codegen-units = 16
