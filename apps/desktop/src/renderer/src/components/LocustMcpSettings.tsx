@@ -60,7 +60,7 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
       <div className="lc-settingline__text">
         <h3 className="lc-settings__heading">Use each teammate's own mode</h3>
         <p className="lc-settings__lede">{state.ownMode
-          ? `On. A turn another app starts runs in the mode the teammate is set to here, so it can edit files. ${state.editorAnswers === true ? 'Approval cards appear in this window, and an editor can answer the ones for turns it started.' : 'Approval cards appear in this window and only you can answer them.'} Auto runs only if Auto is on in Settings.`
+          ? `On. A turn another app starts runs in the mode the teammate is set to here, or the mode and folder the app asks for, so it can edit files. A folder must be one Locust knows or a worktree of one. ${state.editorAnswers === true ? 'Approval cards appear in this window, and an editor can answer the ones for turns it started.' : 'Approval cards appear in this window and only you can answer them.'} Auto runs only if Auto is on in Settings.`
           : 'Off. Every turn another app starts is Ask mode (read only), whatever mode the teammate is set to.'}</p>
       </div>
       <button type="button" className={`lc-switch${state.ownMode ? ' is-on' : ''}`} role="switch" aria-label="Use each teammate's own mode" aria-checked={state.ownMode} disabled={busy} onClick={() => { void toggleOwnMode() }}><span /></button>

@@ -54,6 +54,7 @@ import { createVoiceSettingsStore } from './voice-settings.js'
 import { MCP_CONNECTION_FILE, createLocustMcpHost } from './locust-mcp-host.js'
 import { claudeAppConfigFile, claudeAppStartedAt, createClaudeAppConnector, relaunchClaudeApp } from './claude-app-connection.js'
 import { createLocustMcpTools } from './locust-mcp-tools.js'
+import { checkAppFolder } from './app-folder.js'
 import { createLocustCliSessions } from './locust-cli-sessions.js'
 import { REMOTE_MCP_CHANGED, REMOTE_MCP_DECIDE, REMOTE_MCP_GET, REMOTE_MCP_REMOVE, REMOTE_MCP_SET } from '../shared/remote-mcp.js'
 import { createRemoteMcp, REMOTE_MCP_FILE } from './remote-mcp.js'
@@ -10041,7 +10042,15 @@ if (!ownsSingleInstanceLock) {
       const { runtime, model, effort, account } = routeAtStart(payload, savedTeammate)
       const managed = policyTurnRefusal(organizationPolicy, { runtime, model, mode, cloud: payload.cloud === true })
       if (managed !== undefined) return { ok: false, error: { code: 'POLICY_REFUSED', message: managed } } as const
-      const peer = await peerContextFor(payload.teammateId)
+      const standing = await peerContextFor(payload.teammateId)
+      /*
+       * A FOLDER AN APP NAMED (0.869, locust-mcp-tools.ts): checked by `mcpFolder` before it got here, and recorded on
+       * the turn as `startedBy.folder`. The turn stands there in place of the teammate's own folder or worktree.
+       */
+      const appFolder = startedBy?.kind === 'mcp' ? startedBy.folder : undefined
+      const peer = appFolder === undefined || standing === undefined
+        ? standing
+        : { ...standing, cwd: appFolder, repositoryRoot: undefined, worktreeRefused: undefined } as MissionPeerContext
       /*
        * A QUESTION TO SCOUT (0.828, shared/scout-log.ts): the person's own turn with Scout's teammate is answered from
        * What Scout saw, and sealed as its looks are -- no tool, no file, no command -- since the log quotes other
@@ -10339,7 +10348,7 @@ if (!ownsSingleInstanceLock) {
       start: async (request, origin) => {
         const response = await startMission(request, sendToWindow, origin)
         if (response.ok) sendToWindow({ kind: 'mission-started', runId: response.data.runId, missionId: response.data.missionId,
-          teammateId: request.teammateId, prompt: request.prompt, data: response.data, startedBy: { kind: 'mcp' } })
+          teammateId: request.teammateId, prompt: request.prompt, data: response.data, startedBy: { kind: 'mcp', ...(origin.kind === 'mcp' && origin.folder !== undefined ? { folder: origin.folder } : {}) } })
         return response
       },
       read: id => readOneMission(missionLedger, workroom, id),
@@ -10349,6 +10358,13 @@ if (!ownsSingleInstanceLock) {
       background: async () => (await backgroundRuns.list()).map(publicRun),
       // Called per tool call, after mcpHost below exists.
       ownMode: () => mcpHost.ownMode(),
+      // The app may name a turn's mode and folder when that switch is on (0.869).
+      appChooses: true,
+      // A folder the app names for a turn (0.869): one Locust knows, inside one, or a worktree of one's repository.
+      checkFolder: path => checkAppFolder(path, {
+        known: async () => [...(await workedInFolders()), ...(await teammateFolders())],
+        commonDir: async folder => { const dir = (await gitText(ownGitArgs(['rev-parse', '--path-format=absolute', '--git-common-dir']), folder)).trim(); return dir.length > 0 ? dir : undefined }
+      }),
       waiting: id => raisedApprovals.waitingOn(id),
       // The routine card's own Run path, with the same folder check (0.704).
       routines: async () => { await routineRunner?.reconcile(); return routines.list() },

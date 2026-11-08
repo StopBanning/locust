@@ -3458,7 +3458,7 @@ export type CodexMissionUpdate =
        * Absent: the person's own next message, sent from their phone (0.775) -- as their record says it.
        */
       readonly startedBy?:
-        | { readonly kind: 'mcp'; readonly via?: 'voice' }
+        | { readonly kind: 'mcp'; readonly via?: 'voice'; readonly folder?: string }
         | { readonly kind: 'relay'; readonly hop: number }
         | { readonly kind: 'routine'; readonly routineId: string; readonly step: number }
         | { readonly kind: 'room'; readonly roomId: string; readonly postId: string }
@@ -3677,7 +3677,7 @@ export interface PublicRecoveredMission {
    * which is why the renderer must never title a mission with it.
    */
   readonly startedBy?:
-    | { readonly kind: 'mcp'; readonly via?: 'voice' }
+    | { readonly kind: 'mcp'; readonly via?: 'voice'; readonly folder?: string }
     | {
         readonly kind: 'relay'
         /** Which automatic turn of the exchange this is, counting from 1. */

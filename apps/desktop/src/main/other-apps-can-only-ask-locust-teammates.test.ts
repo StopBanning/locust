@@ -6,7 +6,7 @@ import { seedAvatar } from '../shared/avatar.js'
 
 const teammates: TeammateListResponse = { ok: true, data: { teammates: [{ teammateId: 'tm_wren', name: 'Wren', role: 'Custom', roleTitle: 'Reviewer', hue: 'lime', avatar: seedAvatar('tm_wren'), createdAt: '2026-10-07', route: { runtime: 'codex', model: 'model-test', mode: 'auto' } }], missionOwners: {}, missionTitles: {} } }
 const mission = (overrides: Partial<PublicRecoveredMission> = {}): PublicRecoveredMission => ({ missionId: 'mission_1', startedBy: { kind: 'mcp' }, phase: 'completed', events: [], ...overrides }) as PublicRecoveredMission
-function fixture(extra: { ownMode?: () => boolean; waiting?: (id: string) => boolean } = {}) {
+function fixture(extra: { ownMode?: () => boolean; waiting?: (id: string) => boolean; appChooses?: boolean; checkFolder?: (path: string) => Promise<{ readonly path: string } | { readonly refused: string }> } = {}) {
   const start = vi.fn(async (): Promise<CodexMissionStartResponse> => ({ ok: true, data: { missionId: 'mission_1' } } as CodexMissionStartResponse))
   const read = vi.fn(async (): Promise<MissionReadResponse> => ({ ok: true, data: { mission: mission() } }))
   const background = vi.fn(async () => [])
@@ -14,12 +14,21 @@ function fixture(extra: { ownMode?: () => boolean; waiting?: (id: string) => boo
   return { ...deps, call: createLocustMcpTools({ ...deps, ...extra }) }
 }
 describe('other apps can only ask Locust teammates', () => {
-  it('starts a writing teammate in Ask, ignores caller mode/route, and keeps the saved route', async () => {
-    const f = fixture()
-    const result = await f.call('start_conversation', { teammate: 'wReN', message: 'Review this.', mode: 'auto', runtime: 'claude' })
+  it('starts a writing teammate in Ask, ignores a caller route, and keeps the saved route', async () => {
+    const f = fixture({ appChooses: true })
+    const result = await f.call('start_conversation', { teammate: 'wReN', message: 'Review this.', runtime: 'claude' })
     expect(f.start).toHaveBeenCalledWith({ teammateId: 'tm_wren', prompt: 'Review this.', mode: 'ask', keepSavedRoute: true }, { kind: 'mcp' })
     expect(result).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'ask' })))
     expect(teammates.ok && teammates.data.teammates[0]?.route?.mode).toBe('auto')
+  })
+  it('refuses a mode or folder in words while the switch is off, and starts nothing (0.869)', async () => {
+    const f = fixture({ appChooses: true, checkFolder: async path => ({ path }) })
+    for (const args of [{ mode: 'auto' }, { folder: '/tmp' }, { mode: 'ask' }]) {
+      const result = await f.call('start_conversation', { teammate: 'Wren', message: 'Go.', ...args })
+      expect(result.isError).toBe(true)
+      expect(result.content[0]!.text).toMatch(/Use each teammate's own mode.*Nothing was started\./)
+    }
+    expect(f.start).not.toHaveBeenCalled()
   })
   it('uses an exact teammate id and reports the host monthly-limit sentence verbatim', async () => {
     const f = fixture()
@@ -36,7 +45,7 @@ describe('other apps can only ask Locust teammates', () => {
     const f = fixture()
     f.newest.mockResolvedValue('mission_2')
     f.read.mockResolvedValueOnce({ ok: true, data: { mission: mission() } }).mockResolvedValueOnce({ ok: true, data: { mission: mission({ missionId: 'mission_2' }) } })
-    expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'And this?', mode: 'auto' })).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'ask' })))
+    expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'And this?' })).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'ask' })))
     expect(f.start).toHaveBeenCalledWith({ teammateId: 'tm_wren', prompt: 'And this?', followUpOf: 'mission_2', mode: 'ask', keepSavedRoute: true }, { kind: 'mcp' })
   })
   it('reports activity and does not queue a message while the turn is running', async () => {
@@ -133,11 +142,54 @@ describe('other apps can only ask Locust teammates', () => {
 })
 
 describe(`with "each teammate's own mode" on (0.703)`, () => {
-  it('starts the teammate in the mode saved in Locust, never one the caller names', async () => {
-    const f = fixture({ ownMode: () => true })
-    const result = await f.call('start_conversation', { teammate: 'Wren', message: 'Fix it.', mode: 'ask' })
+  it('starts the teammate in the mode saved in Locust when the app names none', async () => {
+    const f = fixture({ ownMode: () => true, appChooses: true })
+    const result = await f.call('start_conversation', { teammate: 'Wren', message: 'Fix it.' })
     expect(f.start).toHaveBeenCalledWith({ teammateId: 'tm_wren', prompt: 'Fix it.', mode: 'auto', keepSavedRoute: true }, { kind: 'mcp' })
     expect(result).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'auto' })))
+  })
+  it('starts it in the mode the app names, and says so (0.869)', async () => {
+    const f = fixture({ ownMode: () => true, appChooses: true })
+    for (const mode of ['ask', 'plan', 'accept-edits', 'approve-each', 'auto']) {
+      expect(await f.call('start_conversation', { teammate: 'Wren', message: 'Fix it.', mode })).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode })))
+      expect(f.start).toHaveBeenLastCalledWith({ teammateId: 'tm_wren', prompt: 'Fix it.', mode, keepSavedRoute: true }, { kind: 'mcp' })
+    }
+    // read_only still steps it down; a mode Locust has not got is refused.
+    await f.call('start_conversation', { teammate: 'Wren', message: 'Look.', mode: 'auto', read_only: true })
+    expect(f.start).toHaveBeenLastCalledWith({ teammateId: 'tm_wren', prompt: 'Look.', mode: 'ask', keepSavedRoute: true }, { kind: 'mcp' })
+    expect((await f.call('start_conversation', { teammate: 'Wren', message: 'Go.', mode: 'yolo' })).isError).toBe(true)
+  })
+  it('refuses a mode on a server whose apps may not choose (a voice call), even with the switch on', async () => {
+    const f = fixture({ ownMode: () => true })
+    const result = await f.call('start_conversation', { teammate: 'Wren', message: 'Fix it.', mode: 'auto' })
+    expect(result).toEqual(mcpText('This server does not take a mode or folder. Leave them out. Nothing was started.', true))
+    expect(f.start).not.toHaveBeenCalled()
+  })
+  it("continues in the CONVERSATION's mode, not the teammate's saved one (0.869)", async () => {
+    // Colin set two app-started conversations to Auto; the app's next turns ran in the saved Edit.
+    const f = fixture({ ownMode: () => true, appChooses: true })
+    f.teammates.mockResolvedValue({ ok: true, data: { ...(teammates.ok ? teammates.data : { missionOwners: {}, missionTitles: {} }), teammates: [{ ...(teammates.ok ? teammates.data.teammates[0]! : ({} as never)), route: { runtime: 'codex', model: 'model-test', mode: 'accept-edits' } }] } } as TeammateListResponse)
+    f.read.mockResolvedValue({ ok: true, data: { mission: mission({ mode: 'auto' }) } })
+    expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'next' })).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'auto' })))
+    // And a mode named for the next turn wins over both.
+    await f.call('send_message', { conversation_id: 'mission_1', message: 'look only', mode: 'plan' })
+    expect(f.start).toHaveBeenLastCalledWith({ teammateId: 'tm_wren', prompt: 'look only', followUpOf: 'mission_1', mode: 'plan', keepSavedRoute: true }, { kind: 'mcp' })
+  })
+  it('works in the folder the app names, records it, and the conversation stays there (0.869)', async () => {
+    const checkFolder = vi.fn(async (path: string) => path.startsWith('/work/') ? { path: `${path}/` .replace(/\/$/, '') } : { refused: `${path} is not a folder Locust knows.` })
+    const f = fixture({ ownMode: () => true, appChooses: true, checkFolder })
+    expect(await f.call('start_conversation', { teammate: 'Wren', message: 'Build it.', mode: 'auto', folder: '/work/wt/a' })).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'auto', folder: '/work/wt/a' })))
+    expect(f.start).toHaveBeenLastCalledWith({ teammateId: 'tm_wren', prompt: 'Build it.', mode: 'auto', keepSavedRoute: true }, { kind: 'mcp', folder: '/work/wt/a' })
+    // The follow-up, with no folder named, stands in the conversation's folder, checked again.
+    f.read.mockResolvedValue({ ok: true, data: { mission: mission({ mode: 'auto', startedBy: { kind: 'mcp', folder: '/work/wt/a' } }) } })
+    await f.call('send_message', { conversation_id: 'mission_1', message: 'Now test it.' })
+    expect(f.start).toHaveBeenLastCalledWith({ teammateId: 'tm_wren', prompt: 'Now test it.', followUpOf: 'mission_1', mode: 'auto', keepSavedRoute: true }, { kind: 'mcp', folder: '/work/wt/a' })
+    expect(checkFolder).toHaveBeenLastCalledWith('/work/wt/a')
+    // A folder Locust does not know is refused, in the host's words, and nothing starts.
+    const calls = f.start.mock.calls.length
+    const refused = await f.call('start_conversation', { teammate: 'Wren', message: 'Go.', folder: '/etc' })
+    expect(refused).toEqual(mcpText('/etc is not a folder Locust knows. Nothing was started.', true))
+    expect(f.start).toHaveBeenCalledTimes(calls)
   })
   it('reads the switch on every turn: turned off, the next turn is Ask', async () => {
     let on = true
@@ -149,7 +201,7 @@ describe(`with "each teammate's own mode" on (0.703)`, () => {
   })
   it("continues in the owner's saved mode, and a teammate with no route is Ask", async () => {
     const f = fixture({ ownMode: () => true })
-    await f.call('send_message', { conversation_id: 'mission_1', message: 'next', mode: 'ask' })
+    await f.call('send_message', { conversation_id: 'mission_1', message: 'next' })
     expect(f.start).toHaveBeenLastCalledWith({ teammateId: 'tm_wren', prompt: 'next', followUpOf: 'mission_1', mode: 'auto', keepSavedRoute: true }, { kind: 'mcp' })
     f.teammates.mockResolvedValue({ ok: true, data: { ...(teammates.ok ? teammates.data : { missionOwners: {}, missionTitles: {} }), teammates: [{ ...(teammates.ok ? teammates.data.teammates[0]! : ({} as never)), route: undefined }] } } as TeammateListResponse)
     await f.call('start_conversation', { teammate: 'Wren', message: 'hi' })

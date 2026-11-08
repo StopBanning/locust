@@ -770,3 +770,15 @@ Entries since 2026-10-03, newest first. Earlier entries (2026-08-30 to
   briefed with the recorded conversation because the old computer's session may not exist here.
 - All three folder-restore calls are desktop-only in `desk-calls.ts`. The drive is
   `_tools/drive-folders-after-restore.mjs`; focused mutation controls use `restored-folders` as their filter.
+
+## Apps choose a turn's mode and folder over MCP (2026-11-07)
+
+- Colin: "mcp should allow main agent to choose perms honestly". This replaces the 0.703 rule that an app never names a
+  mode. With MCP on and "Use each teammate's own mode" on, `start_conversation` and `send_message` take `mode` (ask, plan,
+  accept-edits, approve-each, auto) and `folder`. With the switch off, naming either is refused in words and nothing
+  starts. `read_only` still steps a turn down to Ask. Auto still needs Settings' Auto, and approval cards still go only
+  to Locust's window. The voice call's server (`appChooses` unset) refuses both.
+- `app-folder.ts`: a folder must be one Locust knows (open, worked in, a teammate's), inside one, or a worktree sharing
+  one's git common dir. It is recorded as `startedBy.folder` on the mcp starter (older readers ignore it). The turn
+  stands there in place of the teammate's folder or worktree, and follow-ups reuse it after checking it again.
+- With no mode named, a follow-up keeps the conversation's own last mode, not the teammate's saved one.

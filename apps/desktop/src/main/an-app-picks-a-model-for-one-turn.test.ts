@@ -37,7 +37,7 @@ const read = (path: string): string => readFileSync(fileURLToPath(new URL(path, 
 describe('an app picks a model for one turn', () => {
   it('runs that model and effort on the teammate’s own agent and account, in Ask, keeping the saved route', async () => {
     const f = fixture()
-    const result = await f.call('start_conversation', { teammate: 'Wren', message: 'Review this.', model: 'GPT-6.1 Mini', effort: 'LOW', mode: 'auto', runtime: 'claude' })
+    const result = await f.call('start_conversation', { teammate: 'Wren', message: 'Review this.', model: 'GPT-6.1 Mini', effort: 'LOW', runtime: 'claude' })
     expect(f.start).toHaveBeenCalledWith({ teammateId: 'tm_wren', prompt: 'Review this.', runtime: 'codex', model: 'gpt-6.1-mini', effort: 'low', account: 'work', routeOverrideFor: 'tm_wren', mode: 'ask', keepSavedRoute: true }, { kind: 'mcp' })
     expect(JSON.parse(said(result))).toEqual({ conversation_id: 'mission_1', mode: 'ask', model: 'gpt-6.1-mini', effort: 'low' })
   })

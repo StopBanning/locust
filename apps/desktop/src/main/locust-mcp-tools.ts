@@ -38,8 +38,18 @@ export function createLocustMcpTools(options: {
   readonly owner: (missionId: string) => Promise<string | undefined>
   readonly live: (missionId: string) => boolean
   readonly background: () => Promise<readonly PublicBackgroundRun[]>
-  /** The person's switch in Settings: the teammate's own mode instead of Ask. Read on every turn. */
+  /**
+   * The person's switch in Settings: the teammate's own mode instead of Ask. Read on every turn. Since 0.869 it also
+   * lets the app NAME the mode and folder for a turn (`appChooses` below), on the servers that pass `checkFolder`.
+   */
   readonly ownMode?: () => boolean
+  /**
+   * Whether this server's apps may name a turn's mode and folder (0.869), when the switch above is on. Off for a voice
+   * call's Codex, whose `mode` and `folder` are refused in words.
+   */
+  readonly appChooses?: boolean
+  /** A folder the app names (0.869), checked by the host: the full path it resolves to, or why it is refused. */
+  readonly checkFolder?: (path: string) => Promise<{ readonly path: string } | { readonly refused: string }>
   /** Who a conversation started here is recorded as started by: another app, or a voice call's Codex (0.739). */
   readonly origin?: MissionStarter
   /** A card of this turn is waiting in Locust's window. */
@@ -108,11 +118,16 @@ export function createLocustMcpTools(options: {
    * Auto is still refused on the host's one path unless Settings allows it,
    * and approval cards still go only to Locust's window.
    */
-  const modeOf = async (teammateId: string): Promise<MissionMode> => {
+  const modeOf = async (teammateId: string, previous?: PublicRecoveredMission): Promise<MissionMode> => {
     if (options.ownMode?.() !== true) return 'ask'
+    // A follow-up keeps the CONVERSATION's mode (0.869): Colin set two app-started conversations to Auto in Locust,
+    // and the app's next turns ran in the teammate's saved Edit, "Operation not permitted".
+    if (previous?.mode !== undefined) return previous.mode
     const list = await options.teammates()
     return (list.ok ? list.data.teammates.find(t => t.teammateId === teammateId)?.route?.mode : undefined) ?? 'ask'
   }
+  /** Whether this server lets the app name a turn's mode and folder: the person's switch, where folders are checked. */
+  const appChooses = (): boolean => options.ownMode?.() === true && options.appChooses === true
   /** A teammate's saved route, from the roster. */
   const routeOf = async (teammateId: string): Promise<TeammateRoute | undefined> => {
     const list = await options.teammates()
@@ -148,18 +163,46 @@ export function createLocustMcpTools(options: {
     const kept = effort ?? (route.effort !== undefined && efforts(model).includes(route.effort) ? route.effort : undefined)
     return { runtime: route.runtime, model: model.id, ...(kept === undefined ? {} : { effort: kept }), ...(route.account === undefined ? {} : { account: route.account }), routeOverrideFor: teammateId }
   }
-  const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string, args: Record<string, unknown> = {}): Promise<McpToolResult> => {
-    // This is the only request shape that can reach the start path. A tool
-    // argument named mode/route/etc. never widens it or changes a saved route.
+  const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string, args: Record<string, unknown> = {}, previous?: PublicRecoveredMission): Promise<McpToolResult> => {
+    // This is the only request shape that can reach the start path. A saved route is never changed from here.
     const choice = await choiceOf(request.teammateId!, args)
     if (typeof choice === 'string') return mcpText(`${choice} Nothing was started.`, true)
-    // READ ONLY, ASKED FOR (0.842): an app may step a turn DOWN to Ask, never up -- a teammate set to Auto can still be
-    // asked a question that changes nothing. Any other mode it names is ignored, as before.
-    const mode = args.read_only === true ? 'ask' : await modeOf(request.teammateId!)
-    const result = await options.start({ ...request, ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, options.origin ?? { kind: 'mcp' })
-    const folder = options.folder?.()
+    /*
+     * THE APP CHOOSES, HONESTLY (0.869; Colin: "mcp should allow main agent to choose perms honestly"). With the
+     * person's switch on, the app may name the mode and the folder for a turn; the reply says exactly what was used,
+     * the turn is recorded as started by an app in that mode and folder, Auto is still refused unless Locust's Settings
+     * allow it, and every approval card still goes only to Locust's window. With the switch off, naming either is
+     * refused in words rather than silently ignored.
+     */
+    const named = args.mode !== undefined || args.folder !== undefined
+    if (named && !appChooses()) {
+      return mcpText(options.appChooses !== true
+        ? 'This server does not take a mode or folder. Leave them out. Nothing was started.'
+        : 'Choosing the mode or folder is off: the person can turn on "Use each teammate\'s own mode" in Locust\'s Settings. Leave mode and folder out to run in Ask. Nothing was started.', true)
+    }
+    if (args.mode !== undefined && (typeof args.mode !== 'string' || !(args.mode in MODE_NAME))) {
+      return mcpText(`mode is one of: ${Object.keys(MODE_NAME).join(', ')}. Nothing was started.`, true)
+    }
+    let folder: string | undefined
+    if (args.folder !== undefined) {
+      if (options.checkFolder === undefined) return mcpText('This server does not take a folder. Leave it out. Nothing was started.', true)
+      if (!text(args.folder, 1_000)) return mcpText('folder is a full path to a folder on this computer. Nothing was started.', true)
+      const checked = await options.checkFolder!(args.folder)
+      if ('refused' in checked) return mcpText(`${checked.refused} Nothing was started.`, true)
+      folder = checked.path
+    } else if (previous?.startedBy?.kind === 'mcp' && previous.startedBy.folder !== undefined && options.checkFolder !== undefined) {
+      // A follow-up stays in the folder its conversation was started in, checked again: it may be gone.
+      const checked = await options.checkFolder(previous.startedBy.folder)
+      if ('refused' in checked) return mcpText(`This conversation worked in ${previous.startedBy.folder}: ${checked.refused} Name another folder. Nothing was started.`, true)
+      folder = checked.path
+    }
+    // READ ONLY, ASKED FOR (0.842): an app may always step a turn DOWN to Ask.
+    const mode: MissionMode = args.read_only === true ? 'ask' : typeof args.mode === 'string' ? args.mode as MissionMode : await modeOf(request.teammateId!, previous)
+    const origin: MissionStarter = { ...(options.origin ?? { kind: 'mcp' }), ...(folder === undefined ? {} : { folder }) } as MissionStarter
+    const result = await options.start({ ...request, ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, origin)
+    const shown = folder ?? options.folder?.()
     return result.ok
-      ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode, ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(folder === undefined ? {} : { folder }) }))
+      ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode, ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(shown === undefined ? {} : { folder: shown }) }))
       : mcpText(result.error.message, true)
   }
   /** A finished turn's answer, or Locust's own words for why there is none. */
@@ -379,7 +422,7 @@ export function createLocustMcpTools(options: {
           const owner = await options.owner(mission.missionId)
           if (owner === undefined) return mcpText('That conversation no longer has a teammate. Nothing was sent.', true)
           // Keep the claim until startup settles, including the saved-mode lookup.
-          return await started({ prompt: args.message, teammateId: owner, followUpOf: mission.missionId }, id, args)
+          return await started({ prompt: args.message, teammateId: owner, followUpOf: mission.missionId }, id, args, mission)
         }
         return answerOf(mission)
       } finally { if (name === 'send_message') starting.delete(id) }

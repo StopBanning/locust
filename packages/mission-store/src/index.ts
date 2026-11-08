@@ -294,6 +294,11 @@ export type MissionStarter =
        * would. Older readers ignore it and say "another app", which is still true.
        */
       readonly via?: 'voice'
+      /**
+       * The folder the app named for this turn (0.869), when not the one Locust has open. Older readers ignore it
+       * and show the turn as another app's, which is still true.
+       */
+      readonly folder?: string
     }
   | {
       readonly kind: 'relay'
@@ -934,6 +939,7 @@ function validateMetadata(metadata: MissionLedgerMetadata): MissionLedgerMetadat
     }
     if (starter.kind === 'routine') requireText(starter.routineId, 'startedBy.routineId', 200)
     if (starter.kind === 'side') requireSafeId(starter.of, 'startedBy.of')
+    if (starter.kind === 'mcp' && starter.folder !== undefined) requireText(starter.folder, 'startedBy.folder', 1_024)
   }
   return metadata
 }
