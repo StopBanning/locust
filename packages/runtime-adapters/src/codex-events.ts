@@ -390,6 +390,10 @@ export function stringValue(value: unknown): string | undefined {
 const MAX_IDENTITY_LENGTH = 512;
 // The ledger reader's cap for free text.
 const MAX_MESSAGE_TEXT_LENGTH = 16_384;
+// Its cap for an answer, `message.delta`'s text (mission-store's
+// LEDGER_MESSAGE_TEXT_LIMIT, 0.869): at 16,384 a long answer lost its middle,
+// in the window and for every app reading it over Locust's MCP server.
+const MAX_ANSWER_TEXT_LENGTH = 131_072;
 
 /**
  * How much of the END is always kept.
@@ -418,15 +422,20 @@ const TRUNCATION_MARK = "\n\u2026[truncated]\u2026\n";
  * The middle is what nobody misses: the start says what the answer is about,
  * and the end carries the blocks the host has to parse.
  */
-export function boundedMessageText(value: string): string {
+export function boundedMessageText(value: string, limit = MAX_MESSAGE_TEXT_LENGTH): string {
   // Scrubbed as well as bounded: every message text an adapter records goes
   // through here, and a key a model repeats in its answer or its thinking
   // is a secret wherever it sits. MEASURED 2026-09-17 on a live Cursor turn:
   // the evidence read [redacted], the answer text carried the key verbatim.
   const clean = redactSecrets(value);
-  if (clean.length <= MAX_MESSAGE_TEXT_LENGTH) return clean;
-  const head = clean.slice(0, MAX_MESSAGE_TEXT_LENGTH - MESSAGE_TAIL_KEPT - TRUNCATION_MARK.length);
+  if (clean.length <= limit) return clean;
+  const head = clean.slice(0, limit - MESSAGE_TAIL_KEPT - TRUNCATION_MARK.length);
   return `${head}${TRUNCATION_MARK}${clean.slice(-MESSAGE_TAIL_KEPT)}`;
+}
+
+/** An answer: what a `message.delta` carries, bounded at the ledger's own, larger, limit for it. */
+export function boundedAnswerText(value: string): string {
+  return boundedMessageText(value, MAX_ANSWER_TEXT_LENGTH);
 }
 
 export function identityValue(value: unknown): string | undefined {
@@ -866,7 +875,7 @@ export function createCodexEventNormalizer(
     // then hand the result to `redactText`, which cut it again at the
     // 8,192 EVIDENCE limit -- so every long Codex answer lost its second
     // half in the ledger while the thread had shown all of it.
-    text = boundedMessageText(text);
+    text = boundedAnswerText(text);
 
     return emit("message.delta", {
       itemId: state.id,

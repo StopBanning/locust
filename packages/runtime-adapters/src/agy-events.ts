@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -313,7 +314,7 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
       spoken.add(index);
       lastMessageItem = `msg_${String(index)}`;
       spokenText.set(lastMessageItem, (spokenText.get(lastMessageItem) ?? "") + text);
-      return [emit("message.delta", { itemId: lastMessageItem, operation: "append", text: boundedMessageText(text), final: false, evidence })];
+      return [emit("message.delta", { itemId: lastMessageItem, operation: "append", text: boundedAnswerText(text), final: false, evidence })];
     }
 
     if (type === "tool") {
@@ -423,7 +424,7 @@ export function createAgyEventNormalizer(context: AgyInvocationContext): AgyEven
         whole = left;
       }
       if (whole !== undefined && whole.trim().length > 0) {
-        events.push(emit("message.delta", { itemId: lastMessageItem ?? "msg_final", operation: "replace", text: boundedMessageText(whole.trimStart()), final: true, evidence }));
+        events.push(emit("message.delta", { itemId: lastMessageItem ?? "msg_final", operation: "replace", text: boundedAnswerText(whole.trimStart()), final: true, evidence }));
       }
       const denied = Array.isArray(result.denied_actions)
         ? result.denied_actions.flatMap((entry) => (isObject(entry) && typeof entry.action === "string" ? [entry.action] : []))

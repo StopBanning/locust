@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -510,7 +511,7 @@ export function createAntigravityEventNormalizer(
           itemId: `msg_${String(stepIndex)}`,
           operation: "replace",
           // Both ends: the blocks the host acts on are at the end (M1).
-          text: boundedMessageText(content),
+          text: boundedAnswerText(content),
           final: true,
           evidence,
         }),
@@ -608,7 +609,7 @@ export function createAntigravityEventNormalizer(
           itemId: `msg_${String(stepIndex)}`,
           operation: "replace",
           // Both ends: the blocks the host acts on are at the end (M1).
-          text: boundedMessageText(content),
+          text: boundedAnswerText(content),
           final: false,
           evidence,
         }),
@@ -878,6 +879,6 @@ export function withRestoredGaps(events: readonly NormalizedRuntimeEvent[], cand
   return events.map((event) => {
     if (event.type !== "message.delta" || !GAP.test(event.payload.text)) return event;
     const full = restoreTruncated(event.payload.text, scrubbed);
-    return full === undefined ? event : { ...event, payload: { ...event.payload, text: boundedMessageText(full) } };
+    return full === undefined ? event : { ...event, payload: { ...event.payload, text: boundedAnswerText(full) } };
   });
 }

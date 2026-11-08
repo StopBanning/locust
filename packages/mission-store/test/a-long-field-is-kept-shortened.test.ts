@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 
-import { createFileMissionLedger, fitEventToLedger, LEDGER_TEXT_LIMIT } from '../src/index.js'
+import { createFileMissionLedger, fitEventToLedger, LEDGER_MESSAGE_TEXT_LIMIT, LEDGER_TEXT_LIMIT } from '../src/index.js'
 
 /**
  * A LONG FIELD IS KEPT SHORTENED, NEVER REFUSED (review 2026-10-15, C1 and D2).
@@ -106,13 +106,48 @@ describe('a long field', () => {
     // Read by a fresh reader: what is on disk, not what this one remembers.
     const read = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_fit')
     expect(read?.events.map((event) => event.type)).toEqual(payloads.map(([type]) => type))
+    // An answer this long is kept WHOLE now (0.869); every other free-text
+    // field is still shortened, both ends kept, the middle said to be missing.
     const message = read?.events.find((event) => event.type === 'message.delta')
-    const text = (message?.payload as { text: string }).text
-    // Both ends kept, the middle said to be missing.
+    expect((message?.payload as { text: string }).text).toBe(LONG)
+    const said = read?.events.find((event) => event.type === 'adapter.diagnostic')
+    const text = (said?.payload as { message: string }).message
     expect(text.length).toBeLessThanOrEqual(LEDGER_TEXT_LIMIT)
     expect(text.startsWith('www')).toBe(true)
     expect(text.endsWith('www')).toBe(true)
     expect(text).toContain('[shortened]')
+  })
+
+  it('keeps a long answer whole up to its own limit, and shortens one past it (0.869)', async () => {
+    // Colin, 2026-11-07: a Codex report an app read over Locust's MCP server
+    // arrived "with the middle cut out", cut here at 16,384.
+    const root = await mkdtemp(join(tmpdir(), 'teammate-fit-'))
+    roots.push(root)
+    const ledger = createFileMissionLedger({ rootDirectory: root })
+    await ledger.createMission({
+      missionId: 'mission_answer', runId: 'run_answer', prompt: 'Write the report.', runtime: 'codex', model: 'account-default',
+      requestedRouteId: 'codex', resolvedRouteId: 'codex:cli', cliVersion: '1.0.0', workspaceId: 'ws_test', sandbox: 'read-only',
+      mode: 'approve-each', executionPolicyVersion: 1, createdAt: NOW
+    })
+    const report = Array.from({ length: 1_000 }, (_, i) => `## Part ${String(i)}\n${'word '.repeat(16)}`).join('\n')
+    expect(report.length).toBeGreaterThan(80_000)
+    const tooLong = `START${'x'.repeat(LEDGER_MESSAGE_TEXT_LIMIT)}END`
+    // Within the character limit, past a record's bytes: JSON writes each as six.
+    const wide = '\u0001'.repeat(LEDGER_MESSAGE_TEXT_LIMIT - 10)
+    const answer = (sequence: number, itemId: string, text: string) => ({
+      id: `run_answer:codex:${String(sequence)}`, runId: 'run_answer', missionId: 'mission_answer', sequence, occurredAt: NOW,
+      sourceAdapter: 'codex', type: 'message.delta', payload: { itemId, operation: 'replace', text, final: true, evidence: { redacted: false } }
+    }) as unknown as NormalizedRuntimeEvent
+    await ledger.appendEvents('mission_answer', [answer(1, 'a1', report), answer(2, 'a2', tooLong), answer(3, 'a3', wide)])
+    const read = await createFileMissionLedger({ rootDirectory: root }).getMission('mission_answer')
+    const texts = read?.events.map((event) => (event.payload as { text: string }).text) ?? []
+    expect(texts[0]).toBe(report)
+    expect(texts[1]!.length).toBeLessThanOrEqual(LEDGER_MESSAGE_TEXT_LIMIT)
+    expect(texts[1]!.startsWith('START')).toBe(true)
+    expect(texts[1]!.endsWith('END')).toBe(true)
+    expect(texts[1]).toContain('[shortened]')
+    expect(texts[2]!.length).toBeLessThan(wide.length)
+    expect(texts[2]).toContain('[shortened]')
   })
 
   it('is refused as before when it is not long but wrong', async () => {

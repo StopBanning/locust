@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   failureKind,
   redactText,
@@ -391,7 +392,7 @@ export function createAppServerEventNormalizer(
         emit("message.delta", {
           itemId,
           operation: "replace",
-          text: boundedMessageText(text),
+          text: boundedAnswerText(text),
           final: true,
           evidence: evidence(notification),
         }),
@@ -591,7 +592,7 @@ export function createAppServerEventNormalizer(
             emit("message.delta", {
               itemId,
               operation: "append",
-              text: boundedMessageText(delta),
+              text: boundedAnswerText(delta),
               final: false,
               evidence: evidence(notification),
             }),

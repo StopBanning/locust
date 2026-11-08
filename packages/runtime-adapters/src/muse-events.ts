@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -442,7 +443,7 @@ export function createMuseEventNormalizer(
         emit("message.delta", {
           itemId: MESSAGE_ITEM,
           operation: "append",
-          text: boundedMessageText(text),
+          text: boundedAnswerText(text),
           final: false,
           evidence,
         }),
@@ -466,7 +467,7 @@ export function createMuseEventNormalizer(
           emit("message.delta", {
             itemId: MESSAGE_ITEM,
             operation: "replace",
-            text: boundedMessageText(finalText),
+            text: boundedAnswerText(finalText),
             final: true,
             evidence,
           }),

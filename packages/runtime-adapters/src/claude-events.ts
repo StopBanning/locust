@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -998,7 +999,7 @@ export function createClaudeEventNormalizer(
           emit("message.delta", {
             itemId: textBlockId,
             operation: "append",
-            text: boundedMessageText(text),
+            text: boundedAnswerText(text),
             final: false,
             evidence,
           }),
@@ -1163,7 +1164,7 @@ export function createClaudeEventNormalizer(
         emit("message.delta", {
           itemId: streamedHere ? textBlockId! : `${messageId ?? `m${String(messageOrdinal)}`}:text`,
           operation: "replace",
-          text: boundedMessageText(text),
+          text: boundedAnswerText(text),
           final: true,
           evidence,
         }),

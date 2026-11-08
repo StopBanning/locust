@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -180,7 +181,7 @@ export function acpCallIsShell(kind: string | undefined, title: string | undefin
 /** Usage keys kept from one run; an agent's own names beyond this are dropped. */
 const MAX_USAGE_KEYS = 32;
 /** What a held message or thought keeps of each end while it is still growing. */
-const HELD_END = 16_384;
+const HELD_END = 32_768;
 
 /**
  * A growing text, held with both ends. What is written is bounded at its close,
@@ -290,7 +291,7 @@ export function createAcpEventNormalizer(context: AcpInvocationContext): AcpEven
     if (message === undefined) return [];
     const { itemId, text } = message;
     message = undefined;
-    return text.length === 0 ? [] : [emit("message.delta", { itemId, operation: "replace", text: boundedMessageText(text), final: true, evidence })];
+    return text.length === 0 ? [] : [emit("message.delta", { itemId, operation: "replace", text: boundedAnswerText(text), final: true, evidence })];
   };
 
   const openMessage = (agentId: string | undefined): { readonly itemId: string; readonly agentId: string | undefined; text: string } => {
@@ -345,7 +346,7 @@ export function createAcpEventNormalizer(context: AcpInvocationContext): AcpEven
       current.text = heldText(current.text + text);
       // An agent may send its answer whole rather than token by token; the
       // chunk is bounded like every other message text (review 2026-10-15, C1).
-      events.push(emit("message.delta", { itemId: current.itemId, operation: "append", text: boundedMessageText(text), final: false, evidence }));
+      events.push(emit("message.delta", { itemId: current.itemId, operation: "append", text: boundedAnswerText(text), final: false, evidence }));
       return events;
     }
 

@@ -11,7 +11,7 @@ import type { FileHandle } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 
 import { parsedCheckpoint, reconcileMission } from './checkpoint.js'
-import { fitEventsToLedger, LEDGER_TEXT_LIMIT } from './fit.js'
+import { fitEventsToLedger, LEDGER_MESSAGE_TEXT_LIMIT, LEDGER_TEXT_LIMIT } from './fit.js'
 import type { CheckpointReason, ReconciledCheckpoint } from './checkpoint.js'
 
 /**
@@ -1314,7 +1314,7 @@ function isEventPayload(type: NormalizedRuntimeEventType, value: JsonObject): bo
   if (type === 'message.delta') {
     return isNonemptyText(value.itemId, 512)
       && (value.operation === 'append' || value.operation === 'replace')
-      && isText(value.text)
+      && isText(value.text, LEDGER_MESSAGE_TEXT_LIMIT)
       && typeof value.final === 'boolean'
       && isEvidence(value.evidence)
   }
@@ -2611,6 +2611,7 @@ export {
   fitEventsToLedger,
   fitJson,
   fitText,
+  LEDGER_MESSAGE_TEXT_LIMIT,
   LEDGER_NAME_LIMIT,
   LEDGER_TEXT_LIMIT
 } from './fit.js'

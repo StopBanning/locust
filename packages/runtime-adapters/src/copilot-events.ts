@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -487,7 +488,7 @@ export function createCopilotEventNormalizer(
       // records report those, so there is no message to write.
       if (text === undefined || messageId === undefined) return [];
       const itemId = `msg_${messageId}`;
-      const bounded = boundedMessageText(text);
+      const bounded = boundedAnswerText(text);
       // A REPLACE shorter than what the fragments already delivered would take
       // text back out of the ledger. Fragments are bounded individually and so
       // are never truncated; the whole message can be.

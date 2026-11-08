@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -416,7 +417,7 @@ export function createCursorEventNormalizer(
           emit("message.delta", {
             itemId,
             operation: "append",
-            text: boundedMessageText(text),
+            text: boundedAnswerText(text),
             final: false,
             evidence,
           }),

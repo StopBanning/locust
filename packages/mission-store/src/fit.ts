@@ -17,6 +17,17 @@ import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 
 /** Must match the reader's limits in index.ts. */
 export const LEDGER_TEXT_LIMIT = 16_384
+/**
+ * A teammate's answer: `message.delta`'s `text`, and only that field (0.869).
+ *
+ * At 16,384 a long answer was kept with its middle cut out, in the window and
+ * for every app reading it: Colin, 2026-11-07, a Codex report that an app read
+ * over Locust's MCP server "with the middle cut out", everything between two
+ * of its headings missing, so the app had to ask for that part again. A record
+ * may take 512 KB, and 131,072 characters fits with room to spare; `fitWeight`
+ * shortens the rare answer whose bytes still do not fit.
+ */
+export const LEDGER_MESSAGE_TEXT_LIMIT = 131_072
 export const LEDGER_NAME_LIMIT = 512
 export const LEDGER_THREAD_LIMIT = 2_048
 export const LEDGER_ROUTE_LIMIT = 256
@@ -105,7 +116,7 @@ function fitProcess(value: unknown): unknown {
   return value
 }
 
-function fitPayload(payload: Record<string, unknown>): Record<string, unknown> {
+function fitPayload(payload: Record<string, unknown>, message = false): Record<string, unknown> {
   let changed = false
   const next: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(payload)) {
@@ -114,7 +125,7 @@ function fitPayload(payload: Record<string, unknown>): Record<string, unknown> {
     else if (key === 'process') fitted = fitProcess(value)
     else if (JSON_FIELDS.has(key)) fitted = fitJson(value)
     else if (typeof value === 'string' && !STRUCTURAL_FIELDS.has(key)) {
-      fitted = fitText(value, key === 'runtimeThreadId' ? LEDGER_THREAD_LIMIT : NAME_FIELDS.has(key) ? LEDGER_NAME_LIMIT : LEDGER_TEXT_LIMIT)
+      fitted = fitText(value, key === 'runtimeThreadId' ? LEDGER_THREAD_LIMIT : NAME_FIELDS.has(key) ? LEDGER_NAME_LIMIT : message && key === 'text' ? LEDGER_MESSAGE_TEXT_LIMIT : LEDGER_TEXT_LIMIT)
     }
     if (fitted !== value) changed = true
     next[key] = fitted
@@ -149,6 +160,12 @@ function fitWeight(event: NormalizedRuntimeEvent): NormalizedRuntimeEvent {
     next = { ...event, payload } as unknown as NormalizedRuntimeEvent
     if (weight(next) <= LEDGER_EVENT_BYTES) return next
   }
+  // An answer whose characters fit and whose bytes do not -- wide scripts,
+  // escaped control characters -- is shortened, both ends kept, until it does.
+  while (typeof payload.text === 'string' && payload.text.length > TAIL_KEPT * 2 && weight(next) > LEDGER_EVENT_BYTES) {
+    payload = { ...payload, text: fitText(payload.text, Math.max(TAIL_KEPT * 2, Math.floor(payload.text.length * 0.7))) }
+    next = { ...event, payload } as unknown as NormalizedRuntimeEvent
+  }
   return next
 }
 
@@ -169,7 +186,7 @@ export function fitEventToLedger(event: NormalizedRuntimeEvent): NormalizedRunti
   }
   const payload = event.payload as unknown
   const fittedPayload = payload !== null && typeof payload === 'object' && !Array.isArray(payload)
-    ? fitPayload(payload as Record<string, unknown>)
+    ? fitPayload(payload as Record<string, unknown>, event.type === 'message.delta')
     : payload
   if (Object.keys(top).length > 0 || fittedPayload !== payload) {
     next = { ...event, ...top, payload: fittedPayload } as unknown as NormalizedRuntimeEvent

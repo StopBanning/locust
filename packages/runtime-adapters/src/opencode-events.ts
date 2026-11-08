@@ -1,4 +1,5 @@
 import {
+  boundedAnswerText,
   boundedMessageText,
   evidenceFor,
   identityValue,
@@ -455,7 +456,7 @@ export function createOpenCodeEventNormalizer(
         emit("message.delta", {
           itemId: held.itemId,
           operation: grew ? "append" : "replace",
-          text: boundedMessageText(delta),
+          text: boundedAnswerText(delta),
           final: false,
           evidence,
         }),
@@ -498,7 +499,7 @@ export function createOpenCodeEventNormalizer(
         emit("message.delta", {
           itemId,
           operation: "replace",
-          text: boundedMessageText(text),
+          text: boundedAnswerText(text),
           final: true,
           evidence,
         }),
@@ -684,7 +685,7 @@ export function createOpenCodeEventNormalizer(
         for (const held of partItems.values()) {
           if (held.closed === true || held.said.length === 0) continue;
           held.closed = true;
-          closing.push(emit("message.delta", { itemId: held.itemId, operation: "replace", text: boundedMessageText(held.said), final: true, evidence: evidenceFor(record, parsed, kind) }));
+          closing.push(emit("message.delta", { itemId: held.itemId, operation: "replace", text: boundedAnswerText(held.said), final: true, evidence: evidenceFor(record, parsed, kind) }));
         }
       }
       return closing.length === 0 ? acceptParsed(record, parsed) : [...closing, ...acceptParsed(record, parsed)];
