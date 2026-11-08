@@ -134,12 +134,15 @@ describe('other apps need a current local token', () => {
     expect(body).not.toHaveBeenCalled()
   })
   it('keeps setup text token-free and safely quotes spaces, backslashes and PowerShell expansion', () => {
-    const setup = mcpSetup('C:\\Program Files\\Locust\\Locust.exe', 'C:\\Locust $name\\bridge.mjs', 'C:\\Profile\\locust-mcp-connection.json')
+    const setup = mcpSetup('C:\\Program Files\\Locust\\Locust.exe', 'C:\\Locust $name\\bridge.mjs', 'C:\\Profile\\locust-mcp-connection.json', 'win32')
     expect(setup.claudeCommand).toBe('claude mcp add --env ELECTRON_RUN_AS_NODE=1 --transport stdio --scope user locust -- "C:\\Program Files\\Locust\\Locust.exe" "C:\\Locust `$name\\bridge.mjs" "C:\\Profile\\locust-mcp-connection.json"')
     expect(setup.codexConfig).toBe('[mcp_servers.locust]\ncommand = "C:\\\\Program Files\\\\Locust\\\\Locust.exe"\nargs = ["C:\\\\Locust $name\\\\bridge.mjs", "C:\\\\Profile\\\\locust-mcp-connection.json"]\nenv = { ELECTRON_RUN_AS_NODE = "1" }')
     // OpenClaw (0.754): its `mcp add` flags, as its own --help gives them, quoted for PowerShell like Claude Code's.
     expect(setup.openclawCommand).toBe('openclaw mcp add locust --command "C:\\Program Files\\Locust\\Locust.exe" --arg "C:\\Locust `$name\\bridge.mjs" --arg "C:\\Profile\\locust-mcp-connection.json" --env ELECTRON_RUN_AS_NODE=1')
     expect(JSON.stringify(setup)).not.toContain('token')
+    // On a Mac (0.871) the same lines go into a POSIX shell: single quotes, where `$` and backticks stay literal.
+    const mac = mcpSetup('/Applications/Locust.app/Contents/MacOS/Locust', "/Users/ian/Library/Application Support/@teammate/desktop/it's $HOME`x`.mjs", '/Users/ian/conn.json', 'darwin')
+    expect(mac.claudeCommand).toBe("claude mcp add --env ELECTRON_RUN_AS_NODE=1 --transport stdio --scope user locust -- '/Applications/Locust.app/Contents/MacOS/Locust' '/Users/ian/Library/Application Support/@teammate/desktop/it'\\''s $HOME`x`.mjs' '/Users/ian/conn.json'")
   })
   it('remembers enabling across app restarts but never reuses the old token, and disposes without reopening', { timeout: 20_000 }, async () => {
     const f = await fixture()

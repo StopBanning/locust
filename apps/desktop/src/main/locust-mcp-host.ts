@@ -12,10 +12,13 @@ export type McpToolResult = { readonly content: readonly { readonly type: 'text'
 export const mcpText = (text: string, isError = false): McpToolResult => ({ content: [{ type: 'text', text }], ...(isError ? { isError: true } : {}) })
 
 /** The setup carries a file path, never the bearer token or a changing port. */
-export function mcpSetup(node: string, bridge: string, connection: string): Pick<LocustMcpState, 'claudeCommand' | 'codexConfig' | 'openclawCommand'> {
+export function mcpSetup(node: string, bridge: string, connection: string, platform: NodeJS.Platform = process.platform): Pick<LocustMcpState, 'claudeCommand' | 'codexConfig' | 'openclawCommand'> {
   // Double-quoted PowerShell arguments (the shipped Windows app). Escape
   // expansion as well as quotes; a folder name is data, not shell syntax.
-  const quote = (value: string) => `"${value.replace(/`/g, '``').replace(/\$/g, '`$').replace(/"/g, '`"')}"`
+  // On a Mac or Linux the command is pasted into a POSIX shell (0.871): single quotes, where nothing expands.
+  const quote = platform === 'win32'
+    ? (value: string) => `"${value.replace(/`/g, '``').replace(/\$/g, '`$').replace(/"/g, '`"')}"`
+    : (value: string) => `'${value.replace(/'/g, `'\\''`)}'`
   return {
     // --env is variadic: another option must separate it from the server name.
     claudeCommand: `claude mcp add --env ELECTRON_RUN_AS_NODE=1 --transport stdio --scope user locust -- ${quote(node)} ${quote(bridge)} ${quote(connection)}`,

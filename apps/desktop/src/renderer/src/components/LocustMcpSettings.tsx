@@ -5,6 +5,9 @@ import { policyFeatureRefusal } from '../../../shared/organization-policy.js'
 import { ManagedPolicyNote, useOrganizationPolicy } from '../organizationPolicy.js'
 
 export function LocustMcpSettings({ heading, api = typeof window === 'undefined' ? undefined : window.desktop?.locustMcp }: { readonly heading?: ReactNode; readonly api?: LocustMcpApi }) {
+  // Where the setup lines are pasted (0.871): they said PowerShell on a Mac too.
+  const platform = typeof window === 'undefined' ? undefined : window.desktop?.platform
+  const shellName = platform === 'darwin' ? 'Terminal' : platform === 'linux' ? 'a terminal' : 'PowerShell'
   const managed = policyFeatureRefusal(useOrganizationPolicy(), 'otherApps') !== undefined
   const [state, setState] = useState<LocustMcpState>()
   const [busy, setBusy] = useState(false)
@@ -124,7 +127,7 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
       <summary>Add Locust to Claude Code, Codex or OpenClaw by hand</summary>
       <div className="lc-settings__note">
       {/* A Copy on each (0.691): the lines run to three paths, and selecting a wrapped block by hand is fiddly. */}
-      <p>Claude Code — run this in PowerShell:</p>
+      <p>Claude Code — run this in {shellName}:</p>
       <div className="lc-mcp-setupwrap"><pre className="lc-mcp-setup lc-mono">{state.claudeCommand}</pre>
         {state.claudeCommand !== undefined && <CopyButton className="lc-mcp-setup__copy" label="the Claude Code command" text={state.claudeCommand} />}</div>
       <p>Codex — add this to ~/.codex/config.toml:</p>
@@ -136,7 +139,7 @@ export function LocustMcpSettings({ heading, api = typeof window === 'undefined'
         * its chats may use the tools.
         */}
       {state.openclawCommand !== undefined && <>
-        <p>OpenClaw — run this in PowerShell. It checks the connection first, and its tool policy decides which of its chats can use it:</p>
+        <p>OpenClaw — run this in {shellName}. It checks the connection first, and its tool policy decides which of its chats can use it:</p>
         <div className="lc-mcp-setupwrap"><pre className="lc-mcp-setup lc-mono">{state.openclawCommand}</pre>
           <CopyButton className="lc-mcp-setup__copy" label="the OpenClaw command" text={state.openclawCommand} /></div>
       </>}
