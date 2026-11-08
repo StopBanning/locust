@@ -210,8 +210,22 @@ export function createLocustMcpTools(options: {
     const failed = mission.events.findLast(e => e.type === 'run.failed')
     if (mission.phase === 'failed') return mcpText(mission.hostFailureMessage ?? (failed?.type === 'run.failed' ? failed.payload.message : 'The AI agent ended without an answer.'), true)
     if (mission.phase !== 'completed') return mcpText('The run was interrupted or stopped before it finished.', true)
-    const final = joinMessageFragments(mission.events).findLast(e => e.type === 'message.delta' && e.payload.final)
-    return mcpText(final?.type === 'message.delta' ? unwrapProtocolTags(final.payload.text) : 'The AI agent finished without a text answer.')
+    const joined = joinMessageFragments(mission.events)
+    const finalAt = joined.findLastIndex(e => e.type === 'message.delta' && e.payload.final)
+    const final = finalAt < 0 ? undefined : joined[finalAt]
+    /*
+     * WHY IT STOPPED, TOLD TO THE APP TOO (0.871). A turn can end because Locust refused something the agent tried --
+     * Antigravity in Ask running a command to read a file -- and its last words are then only "I will read the three
+     * files". The window shows Locust's warning under them; an app read only the half sentence and could not tell the
+     * turn had stopped short (found 8 Nov, handing Argon a review over MCP). Warnings after the last answer ride along.
+     */
+    // Joining rebuilds a split answer as a new event, so find its LAST fragment in the record by its item.
+    const item = final?.type === 'message.delta' ? final.payload.itemId : undefined
+    const lastPiece = item === undefined ? -1 : mission.events.findLastIndex(e => e.type === 'message.delta' && e.payload.itemId === item)
+    const after = mission.events.slice(lastPiece + 1)
+    const warned = [...new Set(after.flatMap(e => e.type === 'adapter.diagnostic' && (e.payload.level === 'warning' || e.payload.level === 'error') ? [e.payload.message] : []))]
+    const text = final?.type === 'message.delta' ? unwrapProtocolTags(final.payload.text) : 'The AI agent finished without a text answer.'
+    return mcpText(warned.length === 0 ? text : `${text}\n\nLocust: ${warned.join(' ')}`)
   }
   /*
    * The mode each step runs in, as the runner decides it: the routine's saved
