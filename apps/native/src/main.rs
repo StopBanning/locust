@@ -3,9 +3,10 @@ mod engine;
 use engine::{Engine, Reply, Started, Teammate};
 use rune::tok::type_;
 use rune::{
-    Align, App, AppSpec, Chrome, Color, Cx, El, Latest, ScrollSpec, TextEdit, Tx, Waker,
-    col, el, row, text, text_input,
+    Align, App, AppSpec, Chrome, Color, Cycle, Cx, El, Latest, ScrollSpec, TextEdit,
+    Tx, Waker, col, el, row, text, text_input,
 };
+use rune_kit::{Markdown, MarkdownStyle};
 use std::time::Duration;
 
 const BG: &str = "#121415";
@@ -13,7 +14,6 @@ const SIDEBAR: &str = "#17191a";
 const CARD: &str = "#191c1d";
 const SELECTED: &str = "#1e2223";
 const YOUR_BUBBLE: &str = "#23282a";
-const TEAMMATE_BUBBLE: &str = "#202324";
 const FIELD: &str = "#1a1d1e";
 const TEXT: &str = "#f2efe9";
 const SECONDARY: &str = "#c7c3bc";
@@ -140,8 +140,7 @@ fn send(s: &mut State, _: &mut Tx) {
 
 fn request_reply(s: &State, index: usize) {
     if let Some(id) = s.conversations[index].conversation_id.clone() {
-        s.waiting
-            .request(id, |id| Engine::local()?.reply(&id, 20));
+        s.waiting.request(id, |id| Engine::local()?.reply(&id, 20));
     }
 }
 
@@ -250,9 +249,34 @@ fn agent(teammate: &Teammate) -> String {
         .map(engine::runtime_name)
         .unwrap_or("Agent");
     match teammate.model.as_deref() {
-        Some(model) => format!("{runtime} · {model}"),
+        Some(model) => format!(
+            "{runtime} · {}",
+            model.rsplit('/').next().unwrap_or(model)
+        ),
         None => runtime.into(),
     }
+}
+
+fn mode_word(mode: &str) -> &str {
+    match mode {
+        "ask" => "Ask",
+        "plan" => "Plan",
+        "accept-edits" => "Edit",
+        "approve-each" => "Approve each action",
+        "auto" => "Auto",
+        other => other,
+    }
+}
+
+fn markdown_style() -> MarkdownStyle {
+    MarkdownStyle::neutral(true)
+        .text(color(TEXT))
+        .muted(color(MUTED))
+        .link(color(GREEN))
+        .inline_code_bg(color(CARD))
+        .code_block(color(CARD), hairline())
+        .rule(hairline())
+        .body_font(type_::BODY)
 }
 
 fn view(s: &State, _: &mut Cx<State>) -> El {
@@ -378,56 +402,133 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
                     .on_press(load_team),
             )
     } else if let Some(teammate) = s.teammates.get(s.selected) {
-        let mut messages = col().w_full().gap(12.0).padding(24.0);
+        let style = markdown_style();
+        let mut messages = col().w_full().gap(24.0).padding(24.0);
 
         for (index, (who, body)) in
             s.conversations[s.selected].turns.iter().enumerate()
         {
-            let yours = who == "You";
-            let bubble = col()
+            let key = format!("turn-{}-{index}", teammate.id);
+            if who == "You" {
+                // The right-aligned wrapper bounds the bubble to 70%; the text
+                // keeps its intrinsic width until it needs to wrap.
+                messages = messages.child(
+                    row()
+                        .key(key)
+                        .w_full()
+                        .justify_end()
+                        .child(
+                            row()
+                                .w_frac(0.7)
+                                .justify_end()
+                                .child(
+                                    text(body.clone())
+                                        .font(type_::BODY)
+                                        .color(color(TEXT))
+                                        .shrink()
+                                        .wrap_anywhere()
+                                        .selectable(true)
+                                        .padding(12.0)
+                                        .radius(10.0)
+                                        .fill(color(YOUR_BUBBLE))
+                                        .border(1.0, hairline()),
+                                ),
+                        ),
+                );
+            } else {
+                messages = messages.child(
+                    col()
+                        .key(key.clone())
+                        .w_full()
+                        .gap(8.0)
+                        .child(
+                            text(who.clone())
+                                .font(type_::LABEL)
+                                .color(color(MUTED)),
+                        )
+                        .child(
+                            Markdown::new(body.clone())
+                                .selectable(true)
+                                .render(&style)
+                                .key(format!("{key}-markdown"))
+                                .w_full(),
+                        ),
+                );
+            }
+        }
+
+        let transcript = if s.conversations[s.selected].turns.is_empty() {
+            col()
+                .key("messages")
                 .w_full()
-                .gap(6.0)
-                .padding(16.0)
-                .radius(10.0)
-                .fill(color(if yours {
-                    YOUR_BUBBLE
-                } else {
-                    TEAMMATE_BUBBLE
-                }))
-                .border(1.0, hairline())
+                .grow(1.0)
+                .min_h(0.0)
+                .center()
+                .padding(24.0)
+                .gap(10.0)
                 .child(
-                    text(who.clone())
-                        .font(type_::LABEL)
-                        .color(color(SECONDARY)),
-                )
-                .child(
-                    text(body.clone())
-                        .font(type_::BODY)
+                    text(format!("Ask {} anything", teammate.name))
+                        .font(type_::TITLE)
                         .color(color(TEXT))
                         .w_full()
-                        .wrap_anywhere()
-                        .selectable(true),
-                );
-
-            messages = messages.child(
-                row()
-                    .key(format!("turn-{}-{index}", teammate.id))
-                    .w_full()
-                    .pl(if yours { 48.0 } else { 0.0 })
-                    .pr(if yours { 0.0 } else { 48.0 })
-                    .child(bubble),
-            );
-        }
-
-        if s.conversations[s.selected].turns.is_empty() {
-            messages = messages.child(
-                text(format!("Start a conversation with {}.", teammate.name))
-                    .font(type_::BODY)
+                        .align(Align::Center)
+                        .wrap(),
+                )
+                .child(
+                    text(format!(
+                        "{} · runs in {}",
+                        agent(teammate),
+                        mode_word(&teammate.runs_in)
+                    ))
+                    .font(type_::LABEL)
                     .color(color(MUTED))
                     .w_full()
-                    .wrap(),
+                    .align(Align::Center)
+                    .wrap_anywhere(),
+                )
+        } else {
+            col()
+                .key("messages")
+                .w_full()
+                .grow(1.0)
+                .min_h(0.0)
+                .scroll(ScrollSpec { stick_bottom: true })
+                .child(messages)
+        };
+
+        let mut status = row()
+            .w_full()
+            .center_y()
+            .gap(8.0)
+            .px(24.0)
+            .py(10.0);
+
+        if s.flight.is_some() {
+            status = status.child(
+                el()
+                    .key("activity-dot")
+                    .size(6.0, 6.0)
+                    .radius(3.0)
+                    .fill(s.status_color)
+                    .cycle(Cycle {
+                        period: 1.6,
+                        phase: 0.0,
+                        stops: &[(0.0, 0.35), (0.5, 1.0), (1.0, 0.35)],
+                        still: 1.0,
+                        fps: 30.0,
+                    }),
             );
         }
+
+        status = status.child(
+            text(s.status.clone())
+                .font(type_::LABEL)
+                .color(s.status_color)
+                .grow(1.0)
+                .shrink()
+                .wrap_anywhere()
+                .selectable(true),
+        );
 
         let composer = text_input(&s.draft, type_::BODY)
             .key("composer")
@@ -487,25 +588,8 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
                             .color(color(MUTED)),
                     ),
             )
-            .child(
-                col()
-                    .key("messages")
-                    .w_full()
-                    .grow(1.0)
-                    .min_h(0.0)
-                    .scroll(ScrollSpec { stick_bottom: true })
-                    .child(messages),
-            )
-            .child(
-                text(s.status.clone())
-                    .font(type_::LABEL)
-                    .color(s.status_color)
-                    .w_full()
-                    .px(24.0)
-                    .py(10.0)
-                    .wrap_anywhere()
-                    .selectable(true),
-            )
+            .child(transcript)
+            .child(status)
             .child(
                 row()
                     .w_full()
@@ -594,6 +678,13 @@ fn team_scene(s: &mut State) {
     s.status_color = color(MUTED);
 }
 
+fn empty_scene(s: &mut State) {
+    team_scene(s);
+    for conversation in &mut s.conversations {
+        *conversation = Conversation::default();
+    }
+}
+
 /*
  * A REAL EXCHANGE, CHECKED WITHOUT A WINDOW. `--ask <teammate> <message>` runs the window's own engine calls (start,
  * then read_reply until the turn ends) against the running Locust and saves what came back; the "replay" scene draws
@@ -656,7 +747,11 @@ fn main() {
         min_size: Some((720.0, 480.0)),
         setup: Some(setup),
         poll: Some(poll),
-        scenes: &[("team", team_scene), ("replay", replay_scene)],
+        scenes: &[
+            ("team", team_scene),
+            ("empty", empty_scene),
+            ("replay", replay_scene),
+        ],
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })
     .chrome(Chrome {

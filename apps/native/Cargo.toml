@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 # Rune is pre-release: pin one commit of `dev` (never rewritten). Bump on purpose, never by accident.
 rune = { git = "https://github.com/anomalyco/rune", rev = "39301f6793266450a057f270da06b048a689be96" }
+rune-kit = { git = "https://github.com/anomalyco/rune", rev = "39301f6793266450a057f270da06b048a689be96", features = ["markdown"] }
 serde_json = "1"
 ureq = { version = "2", default-features = false, features = ["json"] }
 
