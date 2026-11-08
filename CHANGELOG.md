@@ -11,6 +11,24 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.869.0 - 2026-11-07
+
+### Improved
+
+- **An app using Locust from another chat can choose a turn's mode and folder.** With "Use each teammate's own mode"
+  on in Settings, an app such as Claude Code can ask for Ask, Plan, Edit, Approve each or Auto, and name the folder the
+  turn works in. The folder must be one Locust already knows, a folder inside one, or a worktree of one of their
+  repositories. The reply says exactly which mode and folder the turn used. Auto still needs Auto on in Settings, and
+  approval cards still appear only in this window. With the switch off, the app is told plainly that it can't choose.
+
+### Fixed
+
+- A teammate's long answer arrives whole. Answers were kept to 16,384 characters with the middle cut out, so a long
+  report read by another app, or reopened in the window, had a gap. An answer now keeps up to 131,072 characters, about
+  30 pages, before anything is shortened.
+- An app's next message in a conversation runs in that conversation's mode. A conversation you set to Auto stayed in the
+  teammate's saved mode when the app wrote again.
+
 ## 0.868.0 - 2026-11-06
 
 ### Fixed
