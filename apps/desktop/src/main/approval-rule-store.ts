@@ -5,6 +5,7 @@ import { isAbsolute, join } from 'node:path'
 
 import type { ApprovalRule, RuleEffect, RuleKind } from '../shared/approval-rules.js'
 import { replaceFile } from './replace-file.js'
+import { secretIn } from '../shared/secrets.js'
 
 /**
  * SAVED APPROVAL RULES, remembered (0.521, shared/approval-rules.ts).
@@ -132,6 +133,9 @@ export function createApprovalRuleStore(options: { readonly rootDirectory: strin
       serialize(async () => {
         const candidate = parsedRule({ ...input, ruleId: `rule_${randomUUID().replace(/-/g, '').slice(0, 16)}`, createdAt: now().toISOString() })
         if (candidate === undefined) throw new Error('That rule could not be saved.')
+        // A rule is the command as written, kept for good (0.870): one carrying a key would keep the key too.
+        const secret = secretIn(candidate.pattern)
+        if (secret !== undefined) throw new Error(`That command holds ${secret}, so it isn't saved as a rule: a rule keeps the command as written. Allow it once instead.`)
         const file = await read()
         // The same rule twice is one rule.
         const same = file.rules.find((rule) => rule.effect === candidate.effect && rule.kind === candidate.kind && rule.pattern === candidate.pattern && rule.teammateId === candidate.teammateId && rule.folder === candidate.folder)

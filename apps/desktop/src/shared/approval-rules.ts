@@ -22,6 +22,7 @@
  */
 
 import { commandReach } from './command-reach.js'
+import { secretIn } from './secrets.js'
 import type { CommandReach } from './command-reach.js'
 
 export type RuleEffect = 'allow' | 'deny'
@@ -305,6 +306,9 @@ export function ruleCandidateOf(
   const scope = { ...(context.teammateId === undefined ? {} : { teammateId: context.teammateId }), ...(context.folder === undefined ? {} : { folder: context.folder }) }
   if (action.kind === 'command') {
     if (COMPOUND.test(action.command) || flat(action.command).length === 0 || flat(action.command).length > 400) return undefined
+    // No rule is offered for a command carrying a key (0.870): the rule would keep the command, key and all, for good.
+    // Claude Code's "Don't ask again" was found saving such rules into public repositories (HN, 2026-11-08).
+    if (secretIn(action.command) !== undefined) return undefined
     return { effect: 'allow', kind: 'command', pattern: flat(action.command), ...scope }
   }
   if (action.kind === 'edit' || action.kind === 'read') {
