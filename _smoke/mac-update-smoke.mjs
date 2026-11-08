@@ -192,13 +192,18 @@ try {
   // 4. Gone, swapped, and back.
   for (let i = 0; i < 60 && child.exitCode === null; i += 1) await sleep(500)
   check('Locust quits for the install', child.exitCode !== null, `exit ${String(child.exitCode)}`)
+  // The swap script removes the staged and set-aside copies BEFORE it reopens Locust (mac-self-update.ts), so wait
+  // for that first: 0.868's run once looked for the new copy too early, found a process before the swap had
+  // finished, and failed this check with the update itself fine.
+  const leftovers = () => existsSync(`${APPLICATIONS}/.Locust-update.app`) || existsSync(`${APP}.replaced`)
+  for (let i = 0; i < 60 && leftovers(); i += 1) await sleep(500)
+  check('nothing staged or set aside is left', !leftovers(), `staged ${String(existsSync(`${APPLICATIONS}/.Locust-update.app`))}, set aside ${String(existsSync(`${APP}.replaced`))}`)
+  check('the app in /Applications is the new copy: the old one\'s marker is gone', !existsSync(MARKER))
   let again = []
   for (let i = 0; i < 60 && again.length === 0; i += 1) {
     await sleep(1_000)
     again = running().filter((pid) => pid !== String(firstPid))
   }
-  check('the app in /Applications is the new copy: the old one\'s marker is gone', !existsSync(MARKER))
-  check('nothing staged or set aside is left', !existsSync(`${APPLICATIONS}/.Locust-update.app`) && !existsSync(`${APP}.replaced`))
   check('and Locust is running again from /Applications', again.length > 0, again.join(','))
   for (const pid of again) {
     try { process.kill(Number(pid)) } catch { /* gone */ }
