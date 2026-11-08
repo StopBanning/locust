@@ -57,13 +57,15 @@ pub enum Reply {
 
 /// Where Locust keeps its data on this platform (Electron's `userData` for the package `@teammate/desktop`).
 pub fn default_data_folder() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    // An empty variable counts as unset, as Electron and the XDG rules read it (Argon's review, 8 Nov).
+    let set = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty());
+    let home = set("HOME").map(PathBuf::from);
     if cfg!(target_os = "macos") {
         home.map(|h| h.join("Library/Application Support/@teammate/desktop"))
     } else if cfg!(target_os = "windows") {
-        std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("@teammate").join("desktop"))
+        set("APPDATA").map(|a| PathBuf::from(a).join("@teammate").join("desktop"))
     } else {
-        std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).or_else(|| home.map(|h| h.join(".config"))).map(|c| c.join("@teammate/desktop"))
+        set("XDG_CONFIG_HOME").map(PathBuf::from).or_else(|| home.map(|h| h.join(".config"))).map(|c| c.join("@teammate/desktop"))
     }
 }
 
@@ -144,7 +146,9 @@ pub fn read_door(path: &Path) -> Result<(String, String), String> {
     let value: Value = serde_json::from_str(&text).map_err(|_| NOT_ON.to_string())?;
     let url = value.get("url").and_then(Value::as_str).unwrap_or_default();
     let token = value.get("token").and_then(Value::as_str).unwrap_or_default();
-    let local = url.starts_with("http://127.0.0.1:") && url.ends_with("/tools/call");
+    // The part between must be a port and nothing else: `http://127.0.0.1:80@elsewhere/tools/call` would carry the
+    // token to another host (Argon's review, 8 Nov).
+    let local = url.strip_prefix("http://127.0.0.1:").and_then(|rest| rest.strip_suffix("/tools/call")).is_some_and(|port| !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) && port.parse::<u16>().is_ok());
     let shaped = token.len() == 64 && token.bytes().all(|b| b.is_ascii_hexdigit());
     if !local || !shaped { return Err(NOT_ON.to_string()); }
     Ok((url.to_string(), token.to_string()))
@@ -240,10 +244,15 @@ mod tests {
                     let lower = line.to_ascii_lowercase();
                     if let Some(v) = lower.strip_prefix("authorization: ") { auth = line[15..].trim().to_string(); let _ = v; }
                     if let Some(v) = lower.strip_prefix("content-length: ") { length = v.trim().parse().unwrap(); }
-                    if line == "\r\n" { break; }
+                    if line.is_empty() || line == "\r\n" || line == "\n" { break; }
                 }
                 let mut body = vec![0; length];
                 reader.read_exact(&mut body).unwrap();
+                // Refused as Locust refuses it: a call without the right token gets 401, so a test can't pass without it.
+                if auth != format!("Bearer {TOKEN}") {
+                    write!(stream, "HTTP/1.1 401 Unauthorized\r\ncontent-length: 0\r\nconnection: close\r\n\r\n").unwrap();
+                    continue;
+                }
                 log.lock().unwrap().push((auth, serde_json::from_slice(&body).unwrap()));
                 let text = answer.to_string();
                 write!(stream, "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}", text.len(), text).unwrap();
@@ -322,6 +331,13 @@ mod tests {
         assert_eq!(read_door(&path).unwrap_err(), NOT_ON);
         std::fs::write(&path, json!({ "url": "http://127.0.0.1:5/tools/call", "token": "short" }).to_string()).unwrap();
         assert_eq!(read_door(&path).unwrap_err(), NOT_ON);
+        // A host smuggled in after the port, or no port at all.
+        for url in ["http://127.0.0.1:80@example.com/tools/call", "http://127.0.0.1:/tools/call", "http://127.0.0.1:99999/tools/call", "http://127.0.0.1:80/x/tools/call"] {
+            std::fs::write(&path, json!({ "url": url, "token": TOKEN }).to_string()).unwrap();
+            assert_eq!(read_door(&path).unwrap_err(), NOT_ON, "{url}");
+        }
+        std::fs::write(&path, json!({ "url": "http://127.0.0.1:64838/tools/call", "token": TOKEN }).to_string()).unwrap();
+        assert!(read_door(&path).is_ok(), "the control: a real door is taken");
     }
 
     /// Against the Locust running on this computer: `cargo test -- --ignored real_locust`.
