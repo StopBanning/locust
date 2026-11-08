@@ -11,6 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.871.0 - 2026-11-08
+
+### Fixed
+
+- **An app reading a reply hears why a turn stopped short.** When a teammate's turn ends early (say Antigravity in Ask
+  tried to run a command and was refused), the reply an app such as Claude Code reads now carries Locust's note on why,
+  after the teammate's last words, instead of a half sentence alone.
+- **The MCP setup lines work in a Mac or Linux terminal.** Settings said "run this in PowerShell" everywhere; on a Mac
+  it now says Terminal (a terminal on Linux) and quotes the command for that shell, so it pastes and runs as shown.
+
 ## 0.870.0 - 2026-11-08
 
 ### Improved
