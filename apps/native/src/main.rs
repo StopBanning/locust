@@ -7,6 +7,7 @@ use rune::{
     ScrollSpec, TextEdit, Tx, Waker, col, el, row, text, text_input,
 };
 use rune_kit::{Markdown, MarkdownStyle};
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 fn color(value: &str) -> Color {
@@ -96,17 +97,18 @@ struct Conversation {
     turns: Vec<(String, String)>,
 }
 
-// A single flight protects side-effecting sends from Latest's replacement semantics.
-// Selection can change while it runs; results still belong to this index.
+// Fix: requests keep stable teammate IDs, never positions in a reloadable list.
 struct Flight {
-    index: usize,
-    message: String,
+    teammate_id: String,
+    // Some only until start/send lands; reply failures must not restore sent text.
+    message: Option<String>,
 }
 
 struct State {
     teammates: Vec<Teammate>,
     selected: usize,
-    conversations: Vec<Conversation>,
+    // Fix: histories and conversation IDs survive team reordering and reloads.
+    conversations: HashMap<String, Conversation>,
     draft: TextEdit,
     status: String,
     status_tone: StatusTone,
@@ -117,7 +119,7 @@ struct State {
     appearance: Option<bool>,
     recent: Vec<ConversationRow>,
     recent_error: Option<String>,
-    opening_index: Option<usize>,
+    opening_teammate: Option<String>,
     recents: Latest<Result<Vec<ConversationRow>, String>>,
     opening: Latest<Result<Reply, String>>,
     team: Latest<Result<Vec<Teammate>, String>>,
@@ -130,7 +132,7 @@ impl Default for State {
         Self {
             teammates: Vec::new(),
             selected: 0,
-            conversations: Vec::new(),
+            conversations: HashMap::new(),
             draft: TextEdit::new(""),
             status: "Loading teammates…".into(),
             status_tone: StatusTone::Muted,
@@ -140,14 +142,12 @@ impl Default for State {
             appearance: None,
             recent: Vec::new(),
             recent_error: None,
-            opening_index: None,
+            opening_teammate: None,
             recents: Latest::default(),
             opening: Latest::default(),
             team: Latest::default(),
             sending: Latest::default(),
-            // WaitingForYou can return immediately. Pace repeat requests without
-            // sleeping in poll or spinning the UI thread.
-            waiting: Latest::default().debounce(Duration::from_millis(500)),
+            waiting: Latest::default(),
         }
     }
 }
@@ -172,18 +172,27 @@ fn setup(s: &mut State, waker: Waker) {
     load_team(s);
 }
 
+fn selected_conversation(s: &State) -> Option<(&Teammate, &Conversation)> {
+    let teammate = s.teammates.get(s.selected)?;
+    Some((teammate, s.conversations.get(&teammate.id)?))
+}
+
 fn can_send(s: &State) -> bool {
+    // Fix: validate both the teammate and its conversation before dispatch.
     !s.demo
         && s.load_error.is_none()
         && !s.team.is_pending()
         && s.flight.is_none()
-        && s.opening_index.is_none()
-        && s.selected < s.teammates.len()
+        && s.opening_teammate.is_none()
+        && selected_conversation(s).is_some()
         && !s.draft.text.trim().is_empty()
 }
 
-fn set_status(s: &mut State, index: usize, message: &str, ink: StatusTone) {
-    s.status = format!("{}: {message}", s.teammates[index].name);
+fn set_status(s: &mut State, teammate_id: &str, message: &str, ink: StatusTone) {
+    // Fix: a removed teammate cannot make status rendering panic.
+    let name = s.teammates.iter().find(|t| t.id == teammate_id)
+        .map(|t| t.name.as_str()).unwrap_or("Locust");
+    s.status = format!("{name}: {message}");
     s.status_tone = ink;
 }
 
@@ -191,18 +200,21 @@ fn send(s: &mut State, _: &mut Tx) {
     if !can_send(s) {
         return;
     }
-    let index = s.selected;
+    let Some((teammate, conversation)) = selected_conversation(s) else {
+        return;
+    };
+    let teammate_id = teammate.id.clone();
+    let conversation_id = conversation.conversation_id.clone();
     let message = s.draft.text.clone();
-    let teammate_id = s.teammates[index].id.clone();
-    let conversation_id = s.conversations[index].conversation_id.clone();
 
     s.flight = Some(Flight {
-        index,
-        message: message.clone(),
+        teammate_id: teammate_id.clone(),
+        message: Some(message.clone()),
     });
-    set_status(s, index, "Sending…", StatusTone::Muted);
+    // Fix: new typing starts a separate draft while start/send is in transit.
+    s.draft.clear();
+    set_status(s, &teammate_id, "Sending…", StatusTone::Muted);
 
-    // Keep the draft until the engine confirms acceptance.
     s.sending.request(
         (teammate_id, conversation_id, message),
         |(id, conversation, message)| {
@@ -215,30 +227,91 @@ fn send(s: &mut State, _: &mut Tx) {
     );
 }
 
-fn request_reply(s: &State, index: usize) {
-    if let Some(id) = s.conversations[index].conversation_id.clone() {
-        s.waiting.request(id, |id| Engine::local()?.reply(&id, 20));
-    }
-}
-
 fn refresh_recent(s: &mut State) {
-    if s.demo {
-        return;
+    if !s.demo {
+        s.recents.request((), |()| Engine::local()?.conversations());
     }
-    s.recents.request((), |()| Engine::local()?.conversations());
 }
 
-// Detaching never cancels an engine turn. Latest suppresses detached results,
-// including a start/send that was already running when navigation occurred.
+// Detaching stops local observation, not a turn already running in Locust.
 fn detach(s: &mut State) {
     s.sending.cancel();
     s.waiting.cancel();
     s.opening.cancel();
     s.flight = None;
-    s.opening_index = None;
+    s.opening_teammate = None;
+}
+
+fn tracking_error(s: &mut State, teammate_id: &str, message: &str) {
+    detach(s);
+    set_status(s, teammate_id, message, StatusTone::Red);
+}
+
+fn target_index(s: &mut State, teammate_id: &str) -> Option<usize> {
+    match s.teammates.iter().position(|t| t.id == teammate_id) {
+        Some(index) => Some(index),
+        None => {
+            // Fix: removal cancels all local tracking, including landed stale results.
+            tracking_error(
+                s,
+                teammate_id,
+                "Teammate is no longer in the team; stopped watching. The turn goes on in Locust",
+            );
+            None
+        }
+    }
+}
+
+fn request_reply(s: &mut State, teammate_id: &str, delay: Duration) {
+    if target_index(s, teammate_id).is_none() {
+        return;
+    }
+    let conversation_id = s.conversations.get(teammate_id)
+        .and_then(|c| c.conversation_id.clone())
+        .filter(|id| !id.is_empty());
+
+    let Some(id) = conversation_id else {
+        // Fix: missing IDs end the flight instead of leaving Send locked forever.
+        tracking_error(s, teammate_id, "No active conversation ID; stopped watching");
+        return;
+    };
+
+    // Fix: retain this handle's waker while choosing each request's debounce.
+    s.waiting = std::mem::take(&mut s.waiting).debounce(delay);
+    s.waiting.request(id, |id| Engine::local()?.reply(&id, 20));
+}
+
+fn apply_team(s: &mut State, team: Vec<Teammate>) {
+    let selected_id = s.teammates.get(s.selected).map(|t| t.id.clone());
+
+    // Fix: keep histories by ID, including the ID selected through Recent.
+    for teammate in &team {
+        s.conversations.entry(teammate.id.clone()).or_default();
+    }
+    s.teammates = team;
+    s.selected = selected_id.as_deref()
+        .and_then(|id| s.teammates.iter().position(|t| t.id == id))
+        .unwrap_or(0);
+    s.load_error = None;
+
+    let active_id = s.flight.as_ref().map(|f| f.teammate_id.clone())
+        .or_else(|| s.opening_teammate.clone());
+    if let Some(id) = active_id {
+        let _ = target_index(s, &id);
+    } else {
+        s.status = if s.teammates.is_empty() {
+            "No teammates yet. Add a teammate in Locust.".into()
+        } else {
+            "Ready".into()
+        };
+        s.status_tone = StatusTone::Muted;
+    }
 }
 
 fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
+    if s.team.is_pending() {
+        return;
+    }
     let Some(index) = s.teammates.iter()
         .position(|t| t.name.eq_ignore_ascii_case(&row.teammate))
     else {
@@ -246,37 +319,45 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
         s.status_tone = StatusTone::Muted;
         return;
     };
-    if s.team.is_pending() {
+    let Some(teammate_id) = s.teammates.get(index).map(|t| t.id.clone()) else {
         return;
-    }
+    };
 
     detach(s);
     s.selected = index;
-    s.conversations[index] = Conversation {
+    s.conversations.insert(teammate_id.clone(), Conversation {
         conversation_id: Some(row.id.clone()),
         turns: vec![("You".into(), row.title)],
-    };
-    set_status(s, index, "Loading…", StatusTone::Muted);
+    });
+    set_status(s, &teammate_id, "Loading…", StatusTone::Muted);
     tx.scroll_to_bottom("messages");
 
     if !s.demo {
-        s.opening_index = Some(index);
+        // Fix: recent-thread loading also survives team reordering.
+        s.opening_teammate = Some(teammate_id);
         s.opening.request(row.id, |id| Engine::local()?.reply(&id, 0));
     }
 }
 
 fn fresh_conversation(s: &mut State) {
-    if s.selected >= s.teammates.len() {
+    let Some(id) = s.teammates.get(s.selected).map(|t| t.id.clone()) else {
         return;
-    }
+    };
     detach(s);
-    s.conversations[s.selected] = Conversation::default();
-    set_status(s, s.selected, "Ready", StatusTone::Muted);
+    s.conversations.insert(id.clone(), Conversation::default());
+    set_status(s, &id, "Ready", StatusTone::Muted);
 }
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if event.key == Key::Escape {
-        s.draft.clear();
+        // Fix: stop observing an active turn; otherwise retain draft-clear behavior.
+        if s.flight.is_some() || s.opening_teammate.is_some() {
+            detach(s);
+            s.status = "Stopped watching; the turn goes on in Locust".into();
+            s.status_tone = StatusTone::Muted;
+        } else {
+            s.draft.clear();
+        }
         return true;
     }
     if event.mods.shift || event.mods.alt {
@@ -290,7 +371,7 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     for digit in '1'..='9' {
         if event.is_command(digit) {
             let index = (digit as u8 - b'1') as usize;
-            if index < s.teammates.len() {
+            if s.teammates.get(index).is_some() {
                 s.selected = index;
                 tx.scroll_to_bottom("messages");
             }
@@ -383,13 +464,16 @@ fn clock_seconds() -> i64 {
         .unwrap_or(0)
 }
 
-// Both an opened recent thread and a newly sent message share the same reply path.
+// Both opened recent threads and sent messages resolve their target when results land.
 fn land_reply(
     s: &mut State,
-    index: usize,
+    teammate_id: &str,
     result: Result<Reply, String>,
     tx: &mut Tx,
 ) {
+    let Some(index) = target_index(s, teammate_id) else {
+        return;
+    };
     match result {
         Ok(Reply::Working(message)) => {
             let message = if message.is_empty() {
@@ -397,17 +481,27 @@ fn land_reply(
             } else {
                 message
             };
-            set_status(s, index, &message, StatusTone::Green);
-            request_reply(s, index);
+            set_status(s, teammate_id, &message, StatusTone::Green);
+            request_reply(s, teammate_id, Duration::from_millis(500));
         }
         Ok(Reply::WaitingForYou(message)) => {
-            set_status(s, index, &message, StatusTone::Amber);
-            request_reply(s, index);
+            set_status(s, teammate_id, &message, StatusTone::Amber);
+            // Fix: approval cards return immediately; re-ask only after three seconds.
+            request_reply(s, teammate_id, Duration::from_secs(3));
         }
         Ok(Reply::Answer(message)) => {
-            s.conversations[index].turns
-                .push((s.teammates[index].name.clone(), message));
-            set_status(s, index, "Ready", StatusTone::Muted);
+            let Some(who) = s.teammates.get(index).map(|t| t.name.clone()) else {
+                return;
+            };
+            let Some(conversation) = s.conversations.get_mut(teammate_id) else {
+                tracking_error(
+                    s, teammate_id,
+                    "Conversation is no longer available; stopped watching",
+                );
+                return;
+            };
+            conversation.turns.push((who, message));
+            set_status(s, teammate_id, "Ready", StatusTone::Muted);
             s.flight = None;
             refresh_recent(s);
             if s.selected == index {
@@ -415,11 +509,21 @@ fn land_reply(
             }
         }
         Ok(Reply::Failed(error)) | Err(error) => {
-            set_status(s, index, &error, StatusTone::Red);
+            set_status(s, teammate_id, &error, StatusTone::Red);
             s.flight = None;
             refresh_recent(s);
         }
     }
+}
+
+fn restore_failed_draft(s: &mut State, message: String) {
+    // Fix: restore only failed sends; never overwrite text typed after dispatch.
+    let text = if s.draft.text.is_empty() {
+        message
+    } else {
+        format!("{message}\n\n{}", s.draft.text)
+    };
+    s.draft.replace_text(text);
 }
 
 fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
@@ -431,19 +535,7 @@ fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
     if let Some(result) = s.team.take() {
         changed = true;
         match result {
-            Ok(team) => {
-                s.conversations = (0..team.len())
-                    .map(|_| Conversation::default()).collect();
-                s.teammates = team;
-                s.selected = 0;
-                s.load_error = None;
-                s.status = if s.teammates.is_empty() {
-                    "No teammates yet. Add a teammate in Locust.".into()
-                } else {
-                    "Ready".into()
-                };
-                s.status_tone = StatusTone::Muted;
-            }
+            Ok(team) => apply_team(s, team),
             Err(error) => {
                 s.status = error.clone();
                 s.status_tone = StatusTone::Red;
@@ -454,27 +546,42 @@ fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
 
     if let Some(result) = s.sending.take() {
         changed = true;
-        if let Some(flight) = s.flight.as_ref() {
-            let index = flight.index;
-            let message = flight.message.clone();
-            match result {
-                Ok(started) => {
-                    s.conversations[index].conversation_id =
-                        Some(started.conversation_id);
-                    s.conversations[index].turns
-                        .push(("You".into(), message.clone()));
-                    if s.draft.text == message {
-                        s.draft.clear();
+        if let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone()) {
+            // Fix: resolve the current index, not the index when sending began.
+            if let Some(index) = target_index(s, &id) {
+                let message = s.flight.as_mut().and_then(|f| f.message.take());
+                match result {
+                    Ok(started) => {
+                        if let Some(conversation) = s.conversations.get_mut(&id) {
+                            conversation.conversation_id = Some(started.conversation_id);
+                            if let Some(message) = message {
+                                conversation.turns.push(("You".into(), message));
+                            }
+                            set_status(s, &id, "Working…", StatusTone::Green);
+                            request_reply(s, &id, Duration::ZERO);
+                            if s.selected == index {
+                                tx.scroll_to_bottom("messages");
+                            }
+                        } else {
+                            tracking_error(
+                                s, &id,
+                                "Conversation is no longer available; stopped watching",
+                            );
+                        }
                     }
-                    set_status(s, index, "Working…", StatusTone::Green);
-                    request_reply(s, index);
-                    if s.selected == index {
-                        tx.scroll_to_bottom("messages");
+                    Err(error) => {
+                        let restored = message.is_some();
+                        if let Some(message) = message {
+                            restore_failed_draft(s, message);
+                        }
+                        let error = if restored {
+                            format!("{error} Unsent message restored to the draft.")
+                        } else {
+                            error
+                        };
+                        set_status(s, &id, &error, StatusTone::Red);
+                        s.flight = None;
                     }
-                }
-                Err(error) => {
-                    set_status(s, index, &error, StatusTone::Red);
-                    s.flight = None;
                 }
             }
         }
@@ -496,23 +603,31 @@ fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
 
     if let Some(result) = s.opening.take() {
         changed = true;
-        if let Some(index) = s.opening_index.take() {
+        if let Some(id) = s.opening_teammate.take() {
             s.flight = Some(Flight {
-                index,
-                message: String::new(),
+                teammate_id: id.clone(),
+                message: None,
             });
-            land_reply(s, index, result, tx);
+            land_reply(s, &id, result, tx);
         }
     }
 
     if let Some(result) = s.waiting.take() {
         changed = true;
-        if let Some(index) = s.flight.as_ref().map(|f| f.index) {
-            land_reply(s, index, result, tx);
+        if let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone()) {
+            land_reply(s, &id, result, tx);
         }
     }
-
     changed
+}
+
+fn on_close(s: &mut State, _: &mut Tx) {
+    // Fix: cancelled handles never land; clear their flight and visible status too.
+    s.team.cancel();
+    s.recents.cancel();
+    detach(s);
+    s.status.clear();
+    s.status_tone = StatusTone::Muted;
 }
 
 fn agent(teammate: &Teammate) -> String {
@@ -574,12 +689,15 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                     .color(p.text).grow(1.0).shrink(),
             );
 
-        if teammate.busy || s.flight.as_ref().is_some_and(|f| f.index == index) {
+        if teammate.busy
+            || s.flight.as_ref().is_some_and(|f| f.teammate_id == teammate.id)
+        {
             title = title.child(
                 el().size(6.0, 6.0).radius(3.0).fill(p.green),
             );
         }
 
+        let teammate_id = teammate.id.clone();
         team_rows = team_rows.child(
             col().key(format!("teammate-{}", teammate.id))
                 .w_full().padding(12.0).gap(5.0).radius(8.0)
@@ -594,8 +712,12 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                         .color(p.muted).w_full().pl(30.0).wrap_anywhere(),
                 )
                 .on_press_tx(move |s: &mut State, tx| {
-                    s.selected = index;
-                    tx.scroll_to_bottom("messages");
+                    if let Some(index) = s.teammates.iter()
+                        .position(|t| t.id == teammate_id)
+                    {
+                        s.selected = index;
+                        tx.scroll_to_bottom("messages");
+                    }
                 }),
         );
     }
@@ -632,7 +754,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     } else {
         for item in s.recent.iter().take(12) {
             let picked = s.teammates.get(s.selected)
-                .and_then(|_| s.conversations.get(s.selected))
+                .and_then(|t| s.conversations.get(&t.id))
                 .and_then(|c| c.conversation_id.as_deref())
                 == Some(item.id.as_str());
 
@@ -692,13 +814,12 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                     .child(text("Try again").font(type_::LABEL).color(p.text))
                     .on_press(load_team),
             )
-    } else if let Some(teammate) = s.teammates.get(s.selected) {
+    // Fix: view requires both records and never indexes a conversation directly.
+    } else if let Some((teammate, conversation)) = selected_conversation(s) {
         let style = markdown_style(&p);
         let mut messages = col().w_full().gap(24.0).padding(24.0);
 
-        for (index, (who, body)) in
-            s.conversations[s.selected].turns.iter().enumerate()
-        {
+        for (index, (who, body)) in conversation.turns.iter().enumerate() {
             let key = format!("turn-{}-{index}", teammate.id);
             if who == "You" {
                 // The right-aligned wrapper bounds the bubble to 70%; the text
@@ -730,7 +851,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             }
         }
 
-        let transcript = if s.conversations[s.selected].turns.is_empty() {
+        let transcript = if conversation.turns.is_empty() {
             col().key("messages").w_full().grow(1.0).min_h(0.0)
                 .center().padding(24.0).gap(10.0)
                 .child(
@@ -753,7 +874,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         };
 
         let mut status = row().w_full().center_y().gap(8.0).px(24.0).py(10.0);
-        if s.flight.is_some() || s.opening_index.is_some() {
+        if s.flight.is_some() || s.opening_teammate.is_some() {
             status = status.child(
                 el().key("activity-dot").size(6.0, 6.0).radius(3.0)
                     .fill(p.status(s.status_tone))
@@ -848,26 +969,28 @@ fn team_scene(s: &mut State) {
     })
     .collect();
 
-    s.conversations = (0..s.teammates.len())
-        .map(|_| Conversation::default()).collect();
-    s.conversations[0].turns = vec![
-        (
-            "You".into(),
-            "How is the native preview coming along?".into(),
-        ),
-        (
-            "Codec".into(),
-            "The window is taking shape. Teammates live on the left, and your conversation stays here.".into(),
-        ),
-        (
-            "You".into(),
-            "Let's keep it simple and make it feel like Locust.".into(),
-        ),
-        (
-            "Codec".into(),
-            "Agreed. A clear conversation, a quiet status line, and room to write.".into(),
-        ),
-    ];
+    s.conversations = s.teammates.iter()
+        .map(|t| (t.id.clone(), Conversation::default())).collect();
+    if let Some(conversation) = s.conversations.get_mut("codec") {
+        conversation.turns = vec![
+            (
+                "You".into(),
+                "How is the native preview coming along?".into(),
+            ),
+            (
+                "Codec".into(),
+                "The window is taking shape. Teammates live on the left, and your conversation stays here.".into(),
+            ),
+            (
+                "You".into(),
+                "Let's keep it simple and make it feel like Locust.".into(),
+            ),
+            (
+                "Codec".into(),
+                "Agreed. A clear conversation, a quiet status line, and room to write.".into(),
+            ),
+        ];
+    }
     s.recent = [
         (
             "sample-1", "Scout", "A real Markdown answer",
@@ -904,7 +1027,7 @@ fn team_scene(s: &mut State) {
 
 fn empty_scene(s: &mut State) {
     team_scene(s);
-    for conversation in &mut s.conversations {
+    for conversation in s.conversations.values_mut() {
         *conversation = Conversation::default();
     }
 }
@@ -918,42 +1041,77 @@ fn empty_scene(s: &mut State) {
 const REPLAY_FILE: &str = "locust-native-replay.json";
 
 fn replay_path() -> std::path::PathBuf {
-    std::env::var_os("LOCUST_NATIVE_REPLAY").map(Into::into).unwrap_or_else(|| std::env::temp_dir().join(REPLAY_FILE))
+    std::env::var_os("LOCUST_NATIVE_REPLAY").map(Into::into)
+        .unwrap_or_else(|| std::env::temp_dir().join(REPLAY_FILE))
 }
 
 fn ask_cli(who: &str, message: &str) -> Result<(), String> {
     let engine = Engine::local()?;
     let team = engine.teammates()?;
-    let teammate = team.iter().find(|t| t.name.eq_ignore_ascii_case(who) || t.id == who).ok_or_else(|| format!("No teammate called {who}."))?;
+    let teammate = team.iter()
+        .find(|t| t.name.eq_ignore_ascii_case(who) || t.id == who)
+        .ok_or_else(|| format!("No teammate called {who}."))?;
     let started = engine.start(&teammate.id, message)?;
     eprintln!("started {} in {}", started.conversation_id, started.mode);
+
     let answer = loop {
         match engine.reply(&started.conversation_id, engine::WAIT_LIMIT_S)? {
             Reply::Working(doing) => eprintln!("working: {doing}"),
-            Reply::WaitingForYou(words) => { eprintln!("waiting for you in Locust: {words}"); std::thread::sleep(Duration::from_secs(2)); }
+            Reply::WaitingForYou(words) => {
+                eprintln!("waiting for you in Locust: {words}");
+                std::thread::sleep(Duration::from_secs(3));
+            }
             Reply::Answer(text) => break text,
             Reply::Failed(words) => return Err(words),
         }
     };
     println!("{answer}");
-    let saved = serde_json::json!({ "team": team.iter().map(|t| serde_json::json!({ "id": t.id, "name": t.name, "role": t.role, "runtime": t.runtime, "model": t.model, "busy": t.busy, "runs_in": t.runs_in })).collect::<Vec<_>>(), "teammate": teammate.id, "message": message, "answer": answer });
+    let saved = serde_json::json!({
+        "team": team.iter().map(|t| serde_json::json!({
+            "id": t.id,
+            "name": t.name,
+            "role": t.role,
+            "runtime": t.runtime,
+            "model": t.model,
+            "busy": t.busy,
+            "runs_in": t.runs_in,
+        })).collect::<Vec<_>>(),
+        "teammate": teammate.id,
+        "message": message,
+        "answer": answer,
+    });
     std::fs::write(replay_path(), saved.to_string()).map_err(|e| e.to_string())
 }
 
 fn replay_scene(s: &mut State) {
     s.demo = true;
     s.appearance = Some(true);
-    let Some(saved) = std::fs::read_to_string(replay_path()).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()) else {
+    let Some(saved) = std::fs::read_to_string(replay_path()).ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+    else {
         s.status = "No saved exchange: run --ask first.".into();
         return;
     };
-    s.teammates = engine::parse_teammates(&saved["team"].to_string()).unwrap_or_default();
-    s.conversations = (0..s.teammates.len()).map(|_| Conversation::default()).collect();
-    let picked = s.teammates.iter().position(|t| saved["teammate"] == t.id.as_str()).unwrap_or(0);
-    if let Some(conversation) = s.conversations.get_mut(picked) {
+
+    s.teammates = engine::parse_teammates(&saved["team"].to_string())
+        .unwrap_or_default();
+    s.conversations = s.teammates.iter()
+        .map(|t| (t.id.clone(), Conversation::default())).collect();
+    let picked = s.teammates.iter()
+        .position(|t| saved["teammate"] == t.id.as_str()).unwrap_or(0);
+
+    if let Some(teammate) = s.teammates.get(picked)
+        && let Some(conversation) = s.conversations.get_mut(&teammate.id)
+    {
         conversation.turns = vec![
-            ("You".into(), saved["message"].as_str().unwrap_or_default().into()),
-            (s.teammates[picked].name.clone(), saved["answer"].as_str().unwrap_or_default().into()),
+            (
+                "You".into(),
+                saved["message"].as_str().unwrap_or_default().into(),
+            ),
+            (
+                teammate.name.clone(),
+                saved["answer"].as_str().unwrap_or_default().into(),
+            ),
         ];
     }
     s.selected = picked;
@@ -979,10 +1137,17 @@ fn replay_light_scene(s: &mut State) {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("--ask") {
-        let (who, message) = (args.get(2).cloned().unwrap_or_default(), args.get(3).cloned().unwrap_or_default());
-        if let Err(words) = ask_cli(&who, &message) { eprintln!("{words}"); std::process::exit(1); }
+        let (who, message) = (
+            args.get(2).cloned().unwrap_or_default(),
+            args.get(3).cloned().unwrap_or_default(),
+        );
+        if let Err(words) = ask_cli(&who, &message) {
+            eprintln!("{words}");
+            std::process::exit(1);
+        }
         return;
     }
+
     App::new(AppSpec {
         min_size: Some((720.0, 480.0)),
         setup: Some(setup),
@@ -1003,12 +1168,132 @@ fn main() {
         traffic_lights: Some((20.0, 18.0)),
         drag_regions: true,
     })
-    .on_close(|s, _| {
-        s.team.cancel();
-        s.sending.cancel();
-        s.waiting.cancel();
-        s.recents.cancel();
-        s.opening.cancel();
-    })
+    .on_close(on_close)
     .run();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample() -> State {
+        let mut s = State::default();
+        team_scene(&mut s);
+        s
+    }
+
+    #[test]
+    fn reload_preserves_history_recent_selection_and_reply_target() {
+        let mut s = sample();
+        let conversation = s.conversations.get_mut("codec").unwrap();
+        conversation.conversation_id = Some("sample-3".into());
+        let turns = conversation.turns.clone();
+        s.flight = Some(Flight {
+            teammate_id: "codec".into(),
+            message: None,
+        });
+        let mut team = s.teammates.clone();
+        team.reverse();
+        apply_team(&mut s, team);
+
+        assert_eq!(s.teammates.get(s.selected).unwrap().id, "codec");
+        let conversation = s.conversations.get("codec").unwrap();
+        assert_eq!(conversation.conversation_id.as_deref(), Some("sample-3"));
+        assert_eq!(conversation.turns, turns);
+        assert!(s.recent.iter().any(|r| r.id == "sample-3"));
+
+        land_reply(
+            &mut s, "codec", Ok(Reply::Answer("landed".into())),
+            &mut Tx::default(),
+        );
+        assert_eq!(
+            s.conversations.get("codec").unwrap().turns.last().unwrap(),
+            &("Codec".into(), "landed".into()),
+        );
+        assert!(s.flight.is_none());
+    }
+
+    #[test]
+    fn removed_teammate_clears_active_and_opening_requests() {
+        let mut s = sample();
+        s.flight = Some(Flight {
+            teammate_id: "codec".into(),
+            message: None,
+        });
+        s.opening_teammate = Some("codec".into());
+        let team = s.teammates.iter()
+            .filter(|t| t.id != "codec").cloned().collect();
+        apply_team(&mut s, team);
+
+        assert!(s.flight.is_none() && s.opening_teammate.is_none());
+        assert!(s.status.contains("no longer in the team"));
+    }
+
+    #[test]
+    fn missing_conversation_id_ends_the_flight() {
+        let mut s = sample();
+        s.flight = Some(Flight {
+            teammate_id: "codec".into(),
+            message: None,
+        });
+        request_reply(&mut s, "codec", Duration::ZERO);
+
+        assert!(s.flight.is_none());
+        assert!(!s.waiting.is_pending());
+        assert!(s.status.contains("No active conversation ID"));
+    }
+
+    #[test]
+    fn escape_stops_watching_then_clears_draft_and_close_clears_state() {
+        let mut s = sample();
+        s.draft.replace_text("new draft");
+        s.flight = Some(Flight {
+            teammate_id: "codec".into(),
+            message: None,
+        });
+        let escape = KeyEvent {
+            key: Key::Escape,
+            mods: rune::Mods::default(),
+        };
+        let mut tx = Tx::default();
+
+        assert!(on_key(&mut s, &escape, &mut tx));
+        assert!(s.flight.is_none());
+        assert_eq!(s.status, "Stopped watching; the turn goes on in Locust");
+        assert_eq!(s.draft.text, "new draft");
+
+        assert!(on_key(&mut s, &escape, &mut tx));
+        assert!(s.draft.text.is_empty());
+
+        s.flight = Some(Flight {
+            teammate_id: "codec".into(),
+            message: None,
+        });
+        s.opening_teammate = Some("codec".into());
+        on_close(&mut s, &mut tx);
+
+        assert!(s.flight.is_none() && s.opening_teammate.is_none());
+        assert!(s.status.is_empty());
+    }
+
+    #[test]
+    fn failed_send_restores_unsent_text_without_losing_new_typing() {
+        let mut s = sample();
+        s.demo = false;
+        s.draft.replace_text("new typing");
+        s.flight = Some(Flight {
+            teammate_id: "codec".into(),
+            message: Some("unsent text".into()),
+        });
+        // A local result exercises poll without contacting the engine.
+        s.sending.request((), |()| Err("send failed".into()));
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while s.sending.is_pending() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(!s.sending.is_pending(), "fake result did not land");
+        assert!(poll(&mut s, 0.0, &mut Tx::default()));
+        assert_eq!(s.draft.text, "unsent text\n\nnew typing");
+        assert!(s.flight.is_none());
+    }
 }
