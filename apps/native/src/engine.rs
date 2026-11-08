@@ -36,6 +36,19 @@ pub struct Teammate {
     pub folder: Option<String>,
 }
 
+/// One recent conversation, as `list_conversations` gives it: its newest turn, newest first.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConversationRow {
+    pub id: String,
+    pub teammate: String,
+    pub title: String,
+    /// "the person" or "an app".
+    pub started_by: String,
+    /// completed, running, failed, cancelled ... as the ledger says it.
+    pub state: String,
+    pub updated: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Started {
     pub conversation_id: String,
@@ -123,6 +136,14 @@ impl Engine {
         parse_teammates(&said.text)
     }
 
+    /// Recent conversations in the folder Locust has open, the person's own too, when they let apps see them; else
+    /// Locust's own words for why not (its "Let apps see your conversations" switch).
+    pub fn conversations(&self) -> Result<Vec<ConversationRow>, String> {
+        let said = self.call("list_conversations", json!({}))?;
+        if said.is_error { return Err(said.text); }
+        parse_conversations(&said.text)
+    }
+
     pub fn start(&self, teammate_id: &str, message: &str) -> Result<Started, String> {
         let said = self.call("start_conversation", json!({ "teammate": teammate_id, "message": message }))?;
         parse_started(&said)
@@ -181,6 +202,20 @@ pub fn parse_teammates(text: &str) -> Result<Vec<Teammate>, String> {
             folder: optional(row, "folder"),
         })
     }).collect())
+}
+
+pub fn parse_conversations(text: &str) -> Result<Vec<ConversationRow>, String> {
+    // Off, Locust answers in words ("Off: this app sees only the conversations it started ..."): that is the reason.
+    let list: Value = serde_json::from_str(text).map_err(|_| text.to_string())?;
+    let rows = list.as_array().ok_or_else(|| text.to_string())?;
+    Ok(rows.iter().filter_map(|row| Some(ConversationRow {
+        id: optional(row, "conversation_id")?,
+        teammate: optional(row, "teammate").unwrap_or_default(),
+        title: optional(row, "title").unwrap_or_else(|| "Untitled".into()),
+        started_by: optional(row, "started_by").unwrap_or_default(),
+        state: optional(row, "state").unwrap_or_default(),
+        updated: optional(row, "updated").unwrap_or_default(),
+    })).collect())
 }
 
 pub fn parse_started(said: &ToolText) -> Result<Started, String> {
@@ -338,6 +373,14 @@ mod tests {
         }
         std::fs::write(&path, json!({ "url": "http://127.0.0.1:64838/tools/call", "token": TOKEN }).to_string()).unwrap();
         assert!(read_door(&path).is_ok(), "the control: a real door is taken");
+    }
+
+    #[test]
+    fn reads_recent_conversations_or_says_why_it_cannot() {
+        let rows = parse_conversations(r#"[{"conversation_id":"mission_1","teammate":"Scout","title":"Hello","started_by":"an app","runtime":"opencode","model":"m","state":"completed","updated":"2026-11-08T21:23:37.380Z"}]"#).unwrap();
+        assert_eq!(rows, vec![ConversationRow { id: "mission_1".into(), teammate: "Scout".into(), title: "Hello".into(), started_by: "an app".into(), state: "completed".into(), updated: "2026-11-08T21:23:37.380Z".into() }]);
+        let off = "Off: this app sees only the conversations it started. The person can turn on \"Let apps see your conversations\" in Locust's Settings.";
+        assert_eq!(parse_conversations(off).unwrap_err(), off);
     }
 
     /// Against the Locust running on this computer: `cargo test -- --ignored real_locust`.
