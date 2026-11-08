@@ -9,25 +9,85 @@ use rune::{
 use rune_kit::{Markdown, MarkdownStyle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-const BG: &str = "#121415";
-const SIDEBAR: &str = "#17191a";
-const CARD: &str = "#191c1d";
-const SELECTED: &str = "#1e2223";
-const YOUR_BUBBLE: &str = "#23282a";
-const FIELD: &str = "#1a1d1e";
-const TEXT: &str = "#f2efe9";
-const SECONDARY: &str = "#c7c3bc";
-const MUTED: &str = "#8b9190";
-const GREEN: &str = "#7fc97f";
-const AMBER: &str = "#e9b949";
-const RED: &str = "#e4685d";
-
 fn color(value: &str) -> Color {
     rune::color::hex(value).expect("valid Locust colour")
 }
 
-fn hairline() -> Color {
-    Color::WHITE.alpha(0.06)
+#[derive(Clone, Copy)]
+enum StatusTone {
+    Muted,
+    Green,
+    Amber,
+    Red,
+}
+
+struct Palette {
+    dark: bool,
+    bg: Color,
+    sidebar: Color,
+    raised: Color,
+    selected: Color,
+    your_bubble: Color,
+    field: Color,
+    hairline: Color,
+    text: Color,
+    secondary: Color,
+    muted: Color,
+    green: Color,
+    amber: Color,
+    red: Color,
+}
+
+impl Palette {
+    fn new(dark: bool) -> Self {
+        let tokens = if dark {
+            [
+                "#121415", "#17191a", "#191c1d", "#1e2223", "#23282a",
+                "#1a1d1e", "#f2efe9", "#c7c3bc", "#8b9190",
+                "#7fc97f", "#e9b949", "#e4685d",
+            ]
+        } else {
+            [
+                "#faf9f6", "#f1f0ec", "#ffffff", "#e7e6e1", "#ebeae5",
+                "#ffffff", "#1c1e1d", "#3a3e3d", "#5f6563",
+                "#2e8540", "#b8790a", "#c9443a",
+            ]
+        };
+        let [
+            bg, sidebar, raised, selected, your_bubble, field,
+            text, secondary, muted, green, amber, red,
+        ] = tokens.map(color);
+
+        Self {
+            dark,
+            bg,
+            sidebar,
+            raised,
+            selected,
+            your_bubble,
+            field,
+            hairline: if dark {
+                Color::WHITE.alpha(0.06)
+            } else {
+                text.alpha(0.08)
+            },
+            text,
+            secondary,
+            muted,
+            green,
+            amber,
+            red,
+        }
+    }
+
+    fn status(&self, tone: StatusTone) -> Color {
+        match tone {
+            StatusTone::Muted => self.muted,
+            StatusTone::Green => self.green,
+            StatusTone::Amber => self.amber,
+            StatusTone::Red => self.red,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -49,10 +109,12 @@ struct State {
     conversations: Vec<Conversation>,
     draft: TextEdit,
     status: String,
-    status_color: Color,
+    status_tone: StatusTone,
     load_error: Option<String>,
     flight: Option<Flight>,
     demo: bool,
+    // None follows the system; snapshot scenes explicitly choose an appearance.
+    appearance: Option<bool>,
     recent: Vec<ConversationRow>,
     recent_error: Option<String>,
     opening_index: Option<usize>,
@@ -71,10 +133,11 @@ impl Default for State {
             conversations: Vec::new(),
             draft: TextEdit::new(""),
             status: "Loading teammates…".into(),
-            status_color: color(MUTED),
+            status_tone: StatusTone::Muted,
             load_error: None,
             flight: None,
             demo: false,
+            appearance: None,
             recent: Vec::new(),
             recent_error: None,
             opening_index: None,
@@ -95,7 +158,7 @@ fn load_team(s: &mut State) {
     }
     s.load_error = None;
     s.status = "Loading teammates…".into();
-    s.status_color = color(MUTED);
+    s.status_tone = StatusTone::Muted;
     s.team.request((), |()| Engine::local()?.teammates());
     refresh_recent(s);
 }
@@ -119,9 +182,9 @@ fn can_send(s: &State) -> bool {
         && !s.draft.text.trim().is_empty()
 }
 
-fn set_status(s: &mut State, index: usize, message: &str, ink: &str) {
+fn set_status(s: &mut State, index: usize, message: &str, ink: StatusTone) {
     s.status = format!("{}: {message}", s.teammates[index].name);
-    s.status_color = color(ink);
+    s.status_tone = ink;
 }
 
 fn send(s: &mut State, _: &mut Tx) {
@@ -137,7 +200,7 @@ fn send(s: &mut State, _: &mut Tx) {
         index,
         message: message.clone(),
     });
-    set_status(s, index, "Sending…", MUTED);
+    set_status(s, index, "Sending…", StatusTone::Muted);
 
     // Keep the draft until the engine confirms acceptance.
     s.sending.request(
@@ -180,7 +243,7 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
         .position(|t| t.name.eq_ignore_ascii_case(&row.teammate))
     else {
         s.status = format!("{} is not in the current team.", row.teammate);
-        s.status_color = color(MUTED);
+        s.status_tone = StatusTone::Muted;
         return;
     };
     if s.team.is_pending() {
@@ -193,7 +256,7 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
         conversation_id: Some(row.id.clone()),
         turns: vec![("You".into(), row.title)],
     };
-    set_status(s, index, "Loading…", MUTED);
+    set_status(s, index, "Loading…", StatusTone::Muted);
     tx.scroll_to_bottom("messages");
 
     if !s.demo {
@@ -208,7 +271,7 @@ fn fresh_conversation(s: &mut State) {
     }
     detach(s);
     s.conversations[s.selected] = Conversation::default();
-    set_status(s, s.selected, "Ready", MUTED);
+    set_status(s, s.selected, "Ready", StatusTone::Muted);
 }
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
@@ -334,17 +397,17 @@ fn land_reply(
             } else {
                 message
             };
-            set_status(s, index, &message, GREEN);
+            set_status(s, index, &message, StatusTone::Green);
             request_reply(s, index);
         }
         Ok(Reply::WaitingForYou(message)) => {
-            set_status(s, index, &message, AMBER);
+            set_status(s, index, &message, StatusTone::Amber);
             request_reply(s, index);
         }
         Ok(Reply::Answer(message)) => {
             s.conversations[index].turns
                 .push((s.teammates[index].name.clone(), message));
-            set_status(s, index, "Ready", MUTED);
+            set_status(s, index, "Ready", StatusTone::Muted);
             s.flight = None;
             refresh_recent(s);
             if s.selected == index {
@@ -352,7 +415,7 @@ fn land_reply(
             }
         }
         Ok(Reply::Failed(error)) | Err(error) => {
-            set_status(s, index, &error, RED);
+            set_status(s, index, &error, StatusTone::Red);
             s.flight = None;
             refresh_recent(s);
         }
@@ -379,11 +442,11 @@ fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
                 } else {
                     "Ready".into()
                 };
-                s.status_color = color(MUTED);
+                s.status_tone = StatusTone::Muted;
             }
             Err(error) => {
                 s.status = error.clone();
-                s.status_color = color(RED);
+                s.status_tone = StatusTone::Red;
                 s.load_error = Some(error);
             }
         }
@@ -403,14 +466,14 @@ fn poll(s: &mut State, _: f64, tx: &mut Tx) -> bool {
                     if s.draft.text == message {
                         s.draft.clear();
                     }
-                    set_status(s, index, "Working…", GREEN);
+                    set_status(s, index, "Working…", StatusTone::Green);
                     request_reply(s, index);
                     if s.selected == index {
                         tx.scroll_to_bottom("messages");
                     }
                 }
                 Err(error) => {
-                    set_status(s, index, &error, RED);
+                    set_status(s, index, &error, StatusTone::Red);
                     s.flight = None;
                 }
             }
@@ -475,52 +538,60 @@ fn mode_word(mode: &str) -> &str {
     }
 }
 
-fn markdown_style() -> MarkdownStyle {
-    MarkdownStyle::neutral(true)
-        .text(color(TEXT))
-        .muted(color(MUTED))
-        .link(color(GREEN))
-        .inline_code_bg(color(CARD))
-        .code_block(color(CARD), hairline())
-        .rule(hairline())
+fn markdown_style(p: &Palette) -> MarkdownStyle {
+    MarkdownStyle::neutral(p.dark)
+        .text(p.text)
+        .muted(p.muted)
+        .link(p.green)
+        .inline_code_bg(p.raised)
+        .code_block(p.raised, p.hairline)
+        .rule(p.hairline)
         .body_font(type_::BODY)
 }
 
-fn view(s: &State, _: &mut Cx<State>) -> El {
+fn view(s: &State, cx: &mut Cx<State>) -> El {
+    let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
     let mut sidebar = col()
-        .w(248.0).h_full().fill(color(SIDEBAR))
-        .border_sides([0.0, 1.0, 0.0, 0.0], hairline())
+        .w(248.0).h_full().fill(p.sidebar)
+        .border_sides([0.0, 1.0, 0.0, 0.0], p.hairline)
         .child(
-            col().w_full().h(88.0).pt(48.0).px(20.0).window_drag()
-                .child(text("LOCUST").font(type_::LABEL).color(color(SECONDARY))),
+            col().w_full().h(88.0).pt(48.0).pl(52.0).pr(20.0).window_drag()
+                .child(text("LOCUST").font(type_::LABEL).color(p.secondary)),
         );
 
     let mut team_rows = col().w_full().gap(6.0).padding(10.0);
     for (index, teammate) in s.teammates.iter().enumerate() {
+        let initial = teammate.name.trim_start().chars().next()
+            .map(|c| c.to_uppercase().collect::<String>())
+            .unwrap_or_else(|| "?".into());
+        let badge = el().size(22.0, 22.0).radius(11.0).center()
+            .fill(p.raised)
+            .child(text(initial).font(type_::LABEL).color(p.secondary));
         let mut title = row().w_full().center_y().gap(8.0)
+            .child(badge)
             .child(
                 text(teammate.name.clone()).font(type_::TITLE)
-                    .color(color(TEXT)).grow(1.0).shrink(),
+                    .color(p.text).grow(1.0).shrink(),
             );
 
         if teammate.busy || s.flight.as_ref().is_some_and(|f| f.index == index) {
             title = title.child(
-                el().size(6.0, 6.0).radius(3.0).fill(color(GREEN)),
+                el().size(6.0, 6.0).radius(3.0).fill(p.green),
             );
         }
 
         team_rows = team_rows.child(
             col().key(format!("teammate-{}", teammate.id))
                 .w_full().padding(12.0).gap(5.0).radius(8.0)
-                .fill(color(if s.selected == index { SELECTED } else { SIDEBAR }))
+                .fill(if s.selected == index { p.selected } else { p.sidebar })
                 .child(title)
                 .child(
                     text(teammate.role.clone()).font(type_::BODY)
-                        .color(color(SECONDARY)).w_full().wrap_anywhere(),
+                        .color(p.secondary).w_full().pl(30.0).wrap_anywhere(),
                 )
                 .child(
                     text(agent(teammate)).font(type_::LABEL)
-                        .color(color(MUTED)).w_full().wrap_anywhere(),
+                        .color(p.muted).w_full().pl(30.0).wrap_anywhere(),
                 )
                 .on_press_tx(move |s: &mut State, tx| {
                     s.selected = index;
@@ -534,18 +605,18 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
         row().w_full().center_y().px(12.0).py(10.0)
             .child(
                 text("Recent").font(type_::LABEL)
-                    .color(color(SECONDARY)).grow(1.0),
+                    .color(p.secondary).grow(1.0),
             )
             .child(
                 text("Refresh").key("refresh-recent").font(type_::LABEL)
-                    .color(color(MUTED)).on_press(refresh_recent),
+                    .color(p.muted).on_press(refresh_recent),
             ),
     );
 
     let now = clock_seconds();
     if let Some(words) = &s.recent_error {
         recent = recent.child(
-            text(words.clone()).font(type_::LABEL).color(color(MUTED))
+            text(words.clone()).font(type_::LABEL).color(p.muted)
                 .w_full().px(12.0).wrap_anywhere(),
         );
     } else if s.recent.is_empty() {
@@ -555,7 +626,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
             } else {
                 "No recent conversations."
             })
-            .font(type_::LABEL).color(color(MUTED))
+            .font(type_::LABEL).color(p.muted)
             .w_full().px(12.0).wrap(),
         );
     } else {
@@ -568,16 +639,16 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
             let mut title = row().w_full().center_y().gap(6.0)
                 .child(
                     text(item.title.clone()).font(type_::BODY)
-                        .color(color(TEXT)).grow(1.0).shrink().truncate(),
+                        .color(p.text).grow(1.0).shrink().truncate(),
                 );
             let dot = match item.state.as_str() {
-                "running" => Some(GREEN),
-                "failed" => Some(RED),
+                "running" => Some(p.green),
+                "failed" => Some(p.red),
                 _ => None,
             };
             if let Some(ink) = dot {
                 title = title.child(
-                    el().size(5.0, 5.0).radius(2.5).fill(color(ink)),
+                    el().size(5.0, 5.0).radius(2.5).fill(ink),
                 );
             }
 
@@ -585,7 +656,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
             recent = recent.child(
                 col().key(format!("recent-{}", item.id)).w_full()
                     .padding(12.0).gap(5.0).radius(8.0)
-                    .fill(color(if picked { SELECTED } else { SIDEBAR }))
+                    .fill(if picked { p.selected } else { p.sidebar })
                     .child(title)
                     .child(
                         text(format!(
@@ -593,7 +664,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
                             item.teammate,
                             when(&item.updated, now)
                         ))
-                        .font(type_::LABEL).color(color(MUTED))
+                        .font(type_::LABEL).color(p.muted)
                         .w_full().truncate(),
                     )
                     .on_press_tx(move |s: &mut State, tx| {
@@ -612,17 +683,17 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
     let right = if let Some(error) = &s.load_error {
         col().grow(1.0).shrink().h_full().center().padding(32.0).gap(18.0)
             .child(
-                text(error.clone()).font(type_::BODY).color(color(RED))
+                text(error.clone()).font(type_::BODY).color(p.red)
                     .align(Align::Center).w_full().wrap_anywhere().selectable(true),
             )
             .child(
                 el().key("retry").h(40.0).px(18.0).center().radius(8.0)
-                    .fill(color(CARD)).border(1.0, hairline())
-                    .child(text("Try again").font(type_::LABEL).color(color(TEXT)))
+                    .fill(p.raised).border(1.0, p.hairline)
+                    .child(text("Try again").font(type_::LABEL).color(p.text))
                     .on_press(load_team),
             )
     } else if let Some(teammate) = s.teammates.get(s.selected) {
-        let style = markdown_style();
+        let style = markdown_style(&p);
         let mut messages = col().w_full().gap(24.0).padding(24.0);
 
         for (index, (who, body)) in
@@ -638,18 +709,18 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
                             row().w_frac(0.7).justify_end()
                                 .child(
                                     text(body.clone()).font(type_::BODY)
-                                        .color(color(TEXT)).shrink()
+                                        .color(p.text).shrink()
                                         .wrap_anywhere().selectable(true)
                                         .padding(12.0).radius(10.0)
-                                        .fill(color(YOUR_BUBBLE))
-                                        .border(1.0, hairline()),
+                                        .fill(p.your_bubble)
+                                        .border(1.0, p.hairline),
                                 ),
                         ),
                 );
             } else {
                 messages = messages.child(
                     col().key(key.clone()).w_full().gap(8.0)
-                        .child(text(who.clone()).font(type_::LABEL).color(color(MUTED)))
+                        .child(text(who.clone()).font(type_::LABEL).color(p.muted))
                         .child(
                             Markdown::new(body.clone()).selectable(true)
                                 .render(&style)
@@ -664,7 +735,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
                 .center().padding(24.0).gap(10.0)
                 .child(
                     text(format!("Ask {} anything", teammate.name))
-                        .font(type_::TITLE).color(color(TEXT))
+                        .font(type_::TITLE).color(p.text)
                         .w_full().align(Align::Center).wrap(),
                 )
                 .child(
@@ -673,7 +744,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
                         agent(teammate),
                         mode_word(&teammate.runs_in)
                     ))
-                    .font(type_::LABEL).color(color(MUTED))
+                    .font(type_::LABEL).color(p.muted)
                     .w_full().align(Align::Center).wrap_anywhere(),
                 )
         } else {
@@ -685,7 +756,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
         if s.flight.is_some() || s.opening_index.is_some() {
             status = status.child(
                 el().key("activity-dot").size(6.0, 6.0).radius(3.0)
-                    .fill(s.status_color)
+                    .fill(p.status(s.status_tone))
                     .cycle(Cycle {
                         period: 1.6,
                         phase: 0.0,
@@ -696,25 +767,26 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
             );
         }
         status = status.child(
-            text(s.status.clone()).font(type_::LABEL).color(s.status_color)
+            text(s.status.clone()).font(type_::LABEL)
+                .color(p.status(s.status_tone))
                 .grow(1.0).shrink().wrap_anywhere().selectable(true),
         );
 
         let composer = text_input(&s.draft, type_::BODY)
             .key("composer").single_line()
-            .placeholder(format!("Message {}", teammate.name), color(MUTED))
-            .color(color(TEXT)).grow(1.0).shrink().h(48.0).padding(12.0)
-            .radius(9.0).fill(color(FIELD)).border(1.0, hairline())
+            .placeholder(format!("Message {}", teammate.name), p.muted)
+            .color(p.text).grow(1.0).shrink().h(48.0).padding(12.0)
+            .radius(9.0).fill(p.field).border(1.0, p.hairline)
             .on_edit(|s: &mut State| &mut s.draft)
             .on_submit(send)
             .on_input_key(on_key);
 
         let enabled = can_send(s);
         let mut button = el().key("send").h(48.0).px(18.0).center().radius(9.0)
-            .fill(color(CARD)).border(1.0, hairline()).disabled(!enabled)
+            .fill(p.raised).border(1.0, p.hairline).disabled(!enabled)
             .child(
                 text("Send").font(type_::LABEL)
-                    .color(color(if enabled { TEXT } else { MUTED })),
+                    .color(if enabled { p.text } else { p.muted }),
             );
         if enabled {
             button = button.on_press_tx(send);
@@ -723,11 +795,11 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
         col().grow(1.0).shrink().h_full()
             .child(
                 col().w_full().h(88.0).px(24.0).pt(30.0).gap(5.0).window_drag()
-                    .border_sides([0.0, 0.0, 1.0, 0.0], hairline())
+                    .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
                     .child(
-                        text(teammate.name.clone()).font(type_::TITLE).color(color(TEXT)),
+                        text(teammate.name.clone()).font(type_::TITLE).color(p.text),
                     )
-                    .child(text(agent(teammate)).font(type_::LABEL).color(color(MUTED))),
+                    .child(text(agent(teammate)).font(type_::LABEL).color(p.muted)),
             )
             .child(transcript)
             .child(status)
@@ -738,16 +810,17 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
     } else {
         col().grow(1.0).shrink().h_full().center().padding(32.0)
             .child(
-                text(s.status.clone()).font(type_::BODY).color(s.status_color)
-                    .w_full().wrap(),
+                text(s.status.clone()).font(type_::BODY)
+                    .color(p.status(s.status_tone)).w_full().wrap(),
             )
     };
 
-    row().w_full().h_full().fill(color(BG)).child(sidebar).child(right)
+    row().w_full().h_full().fill(p.bg).child(sidebar).child(right)
 }
 
 fn team_scene(s: &mut State) {
     s.demo = true;
+    s.appearance = Some(true);
     s.teammates = [
         (
             "codec", "Codec", "Code & Migrations",
@@ -826,7 +899,7 @@ fn team_scene(s: &mut State) {
     .collect();
     s.selected = 0;
     s.status = "Ready".into();
-    s.status_color = color(MUTED);
+    s.status_tone = StatusTone::Muted;
 }
 
 fn empty_scene(s: &mut State) {
@@ -869,6 +942,7 @@ fn ask_cli(who: &str, message: &str) -> Result<(), String> {
 
 fn replay_scene(s: &mut State) {
     s.demo = true;
+    s.appearance = Some(true);
     let Some(saved) = std::fs::read_to_string(replay_path()).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()) else {
         s.status = "No saved exchange: run --ask first.".into();
         return;
@@ -884,7 +958,22 @@ fn replay_scene(s: &mut State) {
     }
     s.selected = picked;
     s.status = "Ready".into();
-    s.status_color = color(MUTED);
+    s.status_tone = StatusTone::Muted;
+}
+
+fn team_light_scene(s: &mut State) {
+    team_scene(s);
+    s.appearance = Some(false);
+}
+
+fn empty_light_scene(s: &mut State) {
+    empty_scene(s);
+    s.appearance = Some(false);
+}
+
+fn replay_light_scene(s: &mut State) {
+    replay_scene(s);
+    s.appearance = Some(false);
 }
 
 fn main() {
@@ -903,6 +992,9 @@ fn main() {
             ("team", team_scene),
             ("empty", empty_scene),
             ("replay", replay_scene),
+            ("team-light", team_light_scene),
+            ("empty-light", empty_light_scene),
+            ("replay-light", replay_light_scene),
         ],
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })
