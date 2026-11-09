@@ -11,6 +11,8 @@ teammates, on the agents and models you picked, and every approval card still ap
 
 - Your team, with each teammate's agent and model, and who is busy.
 - Ask a teammate, see what it is doing while it works, and read the answer.
+- **Quick Ask**: `locust-native --quick` waits in the background; Option+Space (or `LOCUST_QUICK_CHORD`) opens a small
+  panel over any app. Ask, Tab to switch teammate, Escape or click away to hide; the answer is still there next time.
 
 ## Why native
 
