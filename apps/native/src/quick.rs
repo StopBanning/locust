@@ -15,7 +15,7 @@ use rune::{
 };
 use rune_kit::Markdown;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 const WIDTH: f32 = 680.0;
 const MAX_HEIGHT: f32 = 520.0;
@@ -27,16 +27,29 @@ const STOPPED: &str =
 
 // Same cadence as main.rs's ledger_tick (now + 0.25) while the panel is drawn.
 const LEDGER_VISIBLE: Duration = Duration::from_millis(250);
-// Hidden, nobody sees the text grow; only the end matters. 2 s also matches how
-// often Session rescans the directory, so polling faster than this gains nothing.
+// Hidden, nobody sees the text grow; only the end matters.
 const LEDGER_HIDDEN: Duration = Duration::from_secs(2);
+// Hidden, a running tip does not need the folder listed again (that only finds follow-up
+// files, which Quick Ask never makes): at most one scan per this long. A finished tip is
+// always rescanned by Session, and that ends the flight anyway.
+const HIDDEN_RESCAN: Duration = Duration::from_secs(30);
+// start_conversation has returned, but the ledger file may not be flushed yet.
+const LEDGER_FIRST: Duration = Duration::from_millis(400);
+// A missing ledger file this soon after the follow began is "starting", not an error.
+const LEDGER_STARTING: Duration = Duration::from_secs(3);
+// The ledger has no event we can read as "an approval or question is pending", so a turn
+// that has not ended but wrote nothing for this long is shown as waiting for the person.
+const QUIET_WAITING: Duration = Duration::from_secs(60);
+// Re-ask pace while waiting for the person (3 s shown, 15 s hidden), for both follow modes.
+const WAITING_VISIBLE: Duration = Duration::from_secs(3);
+const WAITING_HIDDEN: Duration = Duration::from_secs(15);
 // After a failed ledger read, retry at this pace whether shown or hidden.
 const LEDGER_ERROR_RETRY: Duration = Duration::from_secs(1);
 // A readable folder that still cannot give us this conversation (no file, bad
 // read) for this long counts as "ledger unavailable" and we fall back to reply.
 const LEDGER_GRACE: Duration = Duration::from_secs(10);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum Activity {
     Working,
     WaitingForYou,
@@ -53,12 +66,13 @@ enum Follow {
 }
 
 struct LedgerFollow {
-    dir: PathBuf,
     // None while a background job owns the Session; its landing hands it back
     // (main.rs does the same, so the Session's byte offsets and header cache survive).
     session: Option<ledger::Session>,
     // Last time a read succeeded (or the follow began). Drives the grace period.
     healthy: Instant,
+    // When the follow began; a missing file is only "starting" for LEDGER_STARTING after it.
+    begun: Instant,
     // When the last poll landed; None until the first one.
     last: Option<Instant>,
     // True after a failed read, to retry at LEDGER_ERROR_RETRY.
@@ -69,6 +83,8 @@ struct Flight {
     teammate_id: String,
     name: String,
     conversation_id: Option<String>,
+    // Tags the send's result, so a result of an older flight never lands in a newer one.
+    serial: u64,
     started_at: Instant,
     unsent: Option<String>,
     follow: Follow,
@@ -87,13 +103,27 @@ struct Retry {
     kind: RetryKind,
 }
 
+// Why a ledger read failed. Decided on the worker thread, from what Session::poll already
+// found out, so nothing lists the folder a second time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReadFail {
+    // The folder itself could not be listed (or the id is unusable): use Engine::reply.
+    Unreadable,
+    // The folder is fine but this conversation's file is not there (yet).
+    Missing,
+    // Anything else (a bad read of the file).
+    Other,
+}
+
 // Both outcomes return the Session so a transient error never rebuilds it
-// (as main.rs's LedgerAnswer). The bool on Err says whether the folder itself
-// could still be listed, which is decided on the worker thread, not the UI thread.
+// (as main.rs's LedgerAnswer).
 type StreamAnswer = Result<
     (ledger::Session, ledger::Snapshot),
-    (ledger::Session, bool),
+    (ledger::Session, ReadFail),
 >;
+// Tagged with the flight serial (send) or the conversation id (reply) they were asked for.
+type StartAnswer = (u64, Result<Started, String>);
+type ReplyAnswer = (String, Result<Reply, String>);
 
 // Public only because scenes() returns AppSpec<State>; its fields stay private.
 pub struct State {
@@ -109,14 +139,18 @@ pub struct State {
     question: String,
     answer: Option<String>,
     answer_name: String,
+    // A failed turn (or a failed send). Only a new send clears it.
     error: Option<String>,
+    // list_teammates failures. Kept apart so reloading the team never touches `error`/`notice`.
+    team_error: Option<String>,
     notice: Option<String>,
+    next_serial: u64,
     retry: Option<Retry>,
     activity: Activity,
     flight: Option<Flight>,
     team: Latest<Result<Vec<Teammate>, String>>,
-    sending: Latest<Result<Started, String>>,
-    waiting: Latest<Result<Reply, String>>,
+    sending: Latest<StartAnswer>,
+    waiting: Latest<ReplyAnswer>,
     stream: Latest<StreamAnswer>,
 }
 
@@ -135,7 +169,9 @@ impl Default for State {
             answer: None,
             answer_name: String::new(),
             error: None,
+            team_error: None,
             notice: None,
+            next_serial: 0,
             retry: None,
             activity: Activity::Working,
             flight: None,
@@ -167,7 +203,8 @@ fn begin_show_at(s: &mut State, now: Instant) {
 
     // Fix: a re-show never restarts a pending load or reloads an active flight.
     if s.flight.is_none() && !s.team.is_pending() {
-        s.error = None;
+        // Only the team-load error: a failed turn or the 30-minute notice stays visible.
+        s.team_error = None;
         if !s.demo {
             s.team.request((), |()| Engine::local()?.teammates());
         }
@@ -272,10 +309,16 @@ fn error_words(words: String) -> String {
     }
 }
 
+// A failed turn (or send): ends the flight and shows why.
 fn show_failure(s: &mut State, words: String) {
     stop_watching(s);
     s.notice = None;
     s.error = Some(error_words(words));
+}
+
+// A failed team load: touches nothing else, so it cannot wipe a turn's failure or notice.
+fn show_team_failure(s: &mut State, words: String) {
+    s.team_error = Some(error_words(words));
 }
 
 fn land_team(s: &mut State, result: Result<Vec<Teammate>, String>) {
@@ -292,15 +335,15 @@ fn land_team(s: &mut State, result: Result<Vec<Teammate>, String>) {
                 .or_else(|| team.iter().position(|t| t.name == "Codec"))
                 .unwrap_or(0);
             s.teammates = team;
-            s.error = None;
+            s.team_error = None;
         }
         Ok(_) => {
             s.teammates.clear();
             s.selected = 0;
             // A reachable engine with no teammates is not a connection failure.
-            show_failure(s, "No teammates are available in Locust.".into());
+            show_team_failure(s, "No teammates are available in Locust.".into());
         }
-        Err(words) => show_failure(s, words),
+        Err(words) => show_team_failure(s, words),
     }
 }
 
@@ -326,7 +369,7 @@ fn send_at(s: &mut State, tx: &mut Tx, now: Instant) {
         if s.team.is_pending() {
             s.notice = Some("Loading teammates… Press Enter again when ready.".into());
         } else {
-            show_failure(s, "No teammates are available in Locust.".into());
+            show_team_failure(s, "No teammates are available in Locust.".into());
         }
         return;
     };
@@ -336,27 +379,43 @@ fn send_at(s: &mut State, tx: &mut Tx, now: Instant) {
     let name = teammate.name.clone();
     let message = s.draft.text.clone();
 
+    let serial = start_flight(s, id.clone(), name, message.clone(), now);
+    s.sending.request((id, message, serial), |(id, message, serial)| {
+        (serial, Engine::local().and_then(|engine| engine.start(&id, &message)))
+    });
+    arm_deadline(s, now, tx);
+}
+
+// The state change of a send, apart from dispatching it. Whatever was watched before is
+// stopped first, so no handle of an older flight can land into this one.
+fn start_flight(
+    s: &mut State,
+    teammate_id: String,
+    name: String,
+    message: String,
+    now: Instant,
+) -> u64 {
+    stop_watching(s);
+    s.next_serial += 1;
+    let serial = s.next_serial;
     s.question = message.clone();
     s.answer = None;
     s.answer_name.clear();
     s.error = None;
+    s.team_error = None;
     s.notice = None;
     s.activity = Activity::Working;
     s.flight = Some(Flight {
-        teammate_id: id.clone(),
+        teammate_id,
         name,
         conversation_id: None,
+        serial,
         started_at: now,
-        unsent: Some(message.clone()),
+        unsent: Some(message),
         follow: Follow::Starting,
     });
-    s.retry = None;
     s.draft.clear();
-
-    s.sending.request((id, message), |(id, message)| {
-        Engine::local()?.start(&id, &message)
-    });
-    arm_deadline(s, now, tx);
+    serial
 }
 
 fn restore_failed_draft(s: &mut State, message: String) {
@@ -369,8 +428,19 @@ fn restore_failed_draft(s: &mut State, message: String) {
     s.draft.replace_text(draft);
 }
 
-fn land_started(s: &mut State, result: Result<Started, String>, now: Instant) {
-    if expire(s, now) || s.flight.is_none() {
+fn land_started(
+    s: &mut State,
+    tag: u64,
+    result: Result<Started, String>,
+    now: Instant,
+) {
+    if expire(s, now) {
+        return;
+    }
+    // Only the flight this send belongs to, and only while it is still waiting for its id.
+    let current = s.flight.as_ref()
+        .is_some_and(|f| f.serial == tag && matches!(f.follow, Follow::Starting));
+    if !current {
         return;
     }
     match result {
@@ -401,11 +471,11 @@ fn begin_follow(s: &mut State, dir: Option<PathBuf>, now: Instant) {
     match dir {
         // Session::poll would refuse an unsafe id with InvalidInput; skip the pointless poll.
         Some(dir) if ledger::safe_id(&id) => {
-            let session = ledger::Session::new(dir.clone(), id);
+            let session = ledger::Session::new(dir, id);
             flight.follow = Follow::Ledger(LedgerFollow {
-                dir,
                 session: Some(session),
                 healthy: now,
+                begun: now,
                 last: None,
                 erred: false,
             });
@@ -420,6 +490,8 @@ fn fall_back_to_reply(s: &mut State, now: Instant) {
     if let Some(flight) = s.flight.as_mut() {
         flight.follow = Follow::Reply;
     }
+    // Engine::reply reports its own activity; do not carry the ledger's over.
+    s.activity = Activity::Working;
     s.retry = Some(Retry {
         since: now,
         kind: RetryKind::Immediate,
@@ -432,13 +504,18 @@ fn retry_due(s: &State) -> Option<Instant> {
         RetryKind::Immediate => Duration::ZERO,
         RetryKind::Working => Duration::from_millis(500),
         // Fix: visibility changes adjust an already scheduled approval retry too.
-        RetryKind::Approval => Duration::from_secs(if s.visible { 3 } else { 15 }),
+        RetryKind::Approval => if s.visible { WAITING_VISIBLE } else { WAITING_HIDDEN },
     };
     Some(retry.since + delay)
 }
 
-fn ledger_interval(visible: bool) -> Duration {
-    if visible { LEDGER_VISIBLE } else { LEDGER_HIDDEN }
+fn ledger_interval(visible: bool, waiting: bool) -> Duration {
+    match (visible, waiting) {
+        (true, false) => LEDGER_VISIBLE,
+        (false, false) => LEDGER_HIDDEN,
+        (true, true) => WAITING_VISIBLE,
+        (false, true) => WAITING_HIDDEN,
+    }
 }
 
 // When the next ledger read is due. Computed from the last landing and the CURRENT
@@ -450,16 +527,22 @@ fn ledger_due(s: &State) -> Option<Instant> {
     };
     f.session.as_ref()?;
     Some(match f.last {
-        None => f.healthy,
+        // The file may not be flushed the instant start_conversation returns.
+        None => f.healthy + LEDGER_FIRST,
         Some(last) => last + if f.erred {
             LEDGER_ERROR_RETRY
         } else {
-            ledger_interval(s.visible)
+            ledger_interval(s.visible, s.activity == Activity::WaitingForYou)
         },
     })
 }
 
 fn request_reply(s: &mut State) {
+    // Engine::reply belongs to the fallback only; any other mode has nothing to re-ask.
+    if !s.flight.as_ref().is_some_and(|f| matches!(f.follow, Follow::Reply)) {
+        s.retry = None;
+        return;
+    }
     let Some(id) = s.flight.as_ref()
         .and_then(|f| f.conversation_id.clone())
         .filter(|id| !id.is_empty())
@@ -468,24 +551,34 @@ fn request_reply(s: &mut State) {
         return;
     };
     s.retry = None;
-    s.waiting.request(id, |id| Engine::local()?.reply(&id, 20));
+    s.waiting.request(id, |id| {
+        let result = Engine::local().and_then(|engine| engine.reply(&id, 20));
+        (id, result)
+    });
 }
 
 // Move the Session onto a worker for one poll (as main.rs does with ledger_job).
 fn request_stream(s: &mut State) {
+    // Hidden, a running tip is not re-listed more than every HIDDEN_RESCAN.
+    let rescan = if s.visible { ledger::RESCAN } else { HIDDEN_RESCAN };
     let taken = match s.flight.as_mut().map(|f| &mut f.follow) {
-        Some(Follow::Ledger(f)) => {
-            f.session.take().map(|session| (session, f.dir.clone()))
-        }
+        Some(Follow::Ledger(f)) => f.session.take(),
         _ => None,
     };
-    let Some((mut session, dir)) = taken else { return };
+    let Some(mut session) = taken else { return };
+    session.set_rescan(rescan);
     s.stream.request((), move |()| match session.poll() {
         Ok(snapshot) => Ok((session, snapshot)),
-        Err(_) => {
-            // Decided here, off the UI thread: can the folder still be listed at all?
-            let readable = std::fs::read_dir(&dir).is_ok();
-            Err((session, readable))
+        Err(error) => {
+            // Session::poll already listed the folder (or failed to); do not list it again.
+            let fail = if !session.dir_listed() {
+                ReadFail::Unreadable
+            } else if error.kind() == std::io::ErrorKind::NotFound {
+                ReadFail::Missing
+            } else {
+                ReadFail::Other
+            };
+            Err((session, fail))
         }
     });
 }
@@ -543,6 +636,14 @@ fn finish_stream(s: &mut State, snapshot: &ledger::Snapshot, tx: &mut Tx) {
     tx.scroll_to_bottom("quick-messages");
 }
 
+// True when a turn that has not ended has been silent long enough to be waiting on the
+// person. ledger.rs reads no event for a pending approval or question (its types are
+// message.delta, tool/step.*, plan.updated, adapter.diagnostic, route.limit_detected and
+// run.*), so quiet-for-QUIET_WAITING stands in for it.
+fn waiting_after(quiet: Option<Duration>) -> bool {
+    quiet.is_some_and(|quiet| quiet >= QUIET_WAITING)
+}
+
 // Returns whether anything drawn changed, so an unchanged poll does not redraw.
 fn land_stream(
     s: &mut State,
@@ -566,58 +667,87 @@ fn land_stream(
         return false;
     }
 
-    match result {
-        Ok((_, snapshot)) if !snapshot.running => {
-            finish_stream(s, &snapshot, tx);
-            true
-        }
-        Ok((session, snapshot)) => {
-            let body = streamed_text(&snapshot.items);
-            if let Some(flight) = s.flight.as_mut() {
-                s.answer_name = flight.name.clone();
-                if let Follow::Ledger(f) = &mut flight.follow {
-                    f.session = Some(session);
-                    f.last = Some(now);
-                    f.healthy = now;
-                    f.erred = false;
-                }
-            }
-            s.activity = Activity::Working;
-            let answer = (!body.is_empty()).then_some(body);
-            // stick_bottom on quick-messages follows the growing text; no explicit scroll.
-            let changed = s.answer != answer;
-            s.answer = answer;
-            changed
-        }
-        Err((session, readable)) => {
-            let stale = s.flight.as_ref().is_some_and(|f| {
-                matches!(&f.follow, Follow::Ledger(l)
-                    if now.saturating_duration_since(l.healthy) >= LEDGER_GRACE)
-            });
-            if !readable || stale {
-                // The ledger cannot be read: this is the one case that uses Engine::reply.
-                fall_back_to_reply(s, now);
-            } else if let Some(Follow::Ledger(f)) =
-                s.flight.as_mut().map(|f| &mut f.follow)
-            {
-                // Keep the Session (as main.rs does) and retry soon; the file may
-                // simply not exist yet right after start.
-                f.session = Some(session);
-                f.last = Some(now);
-                f.erred = true;
-            }
-            false
+    let (session, snapshot) = match result {
+        Ok(read) => read,
+        Err((session, fail)) => return land_read_failure(s, session, fail, now),
+    };
+    // Snapshot::running also turns false when the file merely goes quiet for 15 minutes.
+    // Only the ledger's own run.completed / run.failed / run.cancelled ends the flight
+    // here; a quiet turn goes on until the 30-minute watchdog (expire) stops it.
+    if session.tip_ended() {
+        finish_stream(s, &snapshot, tx);
+        return true;
+    }
+
+    let activity = if waiting_after(session.tip_quiet(SystemTime::now())) {
+        Activity::WaitingForYou
+    } else {
+        Activity::Working
+    };
+    let body = streamed_text(&snapshot.items);
+    if let Some(flight) = s.flight.as_mut() {
+        s.answer_name = flight.name.clone();
+        if let Follow::Ledger(f) = &mut flight.follow {
+            f.session = Some(session);
+            f.last = Some(now);
+            f.healthy = now;
+            f.erred = false;
         }
     }
+    let answer = (!body.is_empty()).then_some(body);
+    // stick_bottom on quick-messages follows the growing text; no explicit scroll.
+    let changed = s.answer != answer || s.activity != activity;
+    s.activity = activity;
+    s.answer = answer;
+    changed
+}
+
+// A failed ledger read. Returns false: nothing drawn changed.
+fn land_read_failure(
+    s: &mut State,
+    session: ledger::Session,
+    fail: ReadFail,
+    now: Instant,
+) -> bool {
+    let (stale, starting) = s.flight.as_ref().map_or((false, false), |f| {
+        match &f.follow {
+            Follow::Ledger(l) => (
+                now.saturating_duration_since(l.healthy) >= LEDGER_GRACE,
+                now.saturating_duration_since(l.begun) < LEDGER_STARTING,
+            ),
+            _ => (false, false),
+        }
+    });
+    if fail == ReadFail::Unreadable || stale {
+        // The ledger cannot be read: this is the one case that uses Engine::reply.
+        fall_back_to_reply(s, now);
+    } else if let Some(Follow::Ledger(f)) = s.flight.as_mut().map(|f| &mut f.follow) {
+        // Keep the Session (as main.rs does) and retry soon; the file may simply not
+        // exist yet right after start. Within LEDGER_STARTING that is not an error, so it
+        // keeps the normal pace instead of the one-second error retry.
+        f.session = Some(session);
+        f.last = Some(now);
+        f.erred = !(fail == ReadFail::Missing && starting);
+    }
+    false
 }
 
 fn land_reply(
     s: &mut State,
+    tag: &str,
     result: Result<Reply, String>,
     tx: &mut Tx,
     now: Instant,
 ) {
-    if expire(s, now) || s.flight.is_none() {
+    if expire(s, now) {
+        return;
+    }
+    // Same guard as land_stream: only the flight this reply was asked for, and only while
+    // it is following by Engine::reply. Anything else is dropped without a trace.
+    let current = s.flight.as_ref().is_some_and(|f| {
+        matches!(f.follow, Follow::Reply) && f.conversation_id.as_deref() == Some(tag)
+    });
+    if !current {
         return;
     }
     match result {
@@ -637,11 +767,10 @@ fn land_reply(
         }
         Ok(Reply::Answer(answer)) => {
             // Fix: use the answering flight's identity at landing, not a dispatch-time label.
-            if let Some(flight) = s.flight.take() {
-                s.answer_name = flight.name;
-            }
+            let name = s.flight.as_ref().map(|f| f.name.clone()).unwrap_or_default();
+            stop_watching(s);
+            s.answer_name = name;
             s.answer = Some(answer);
-            s.retry = None;
             s.notice = None;
             s.error = None;
             tx.scroll_to_bottom("quick-messages");
@@ -680,13 +809,13 @@ fn poll_at(s: &mut State, tx: &mut Tx, now: Instant) -> bool {
         changed = true;
         land_team(s, result);
     }
-    if let Some(result) = s.sending.take() {
+    if let Some((tag, result)) = s.sending.take() {
         changed = true;
-        land_started(s, result, now);
+        land_started(s, tag, result, now);
     }
-    if let Some(result) = s.waiting.take() {
+    if let Some((tag, result)) = s.waiting.take() {
         changed = true;
-        land_reply(s, result, tx, now);
+        land_reply(s, &tag, result, tx, now);
     }
     if let Some(result) = s.stream.take() {
         changed |= land_stream(s, result, tx, now);
@@ -793,7 +922,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .wrap_anywhere().selectable(true),
         );
     }
-    if let Some(error) = &s.error {
+    if let Some(error) = s.error.as_ref().or(s.team_error.as_ref()) {
         output = output.child(
             text(error.clone()).font(type_::BODY)
                 .color(p.red).w_full().wrap_anywhere().selectable(true),
@@ -836,6 +965,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
 
     if !s.question.is_empty()
         || s.error.is_some()
+        || s.team_error.is_some()
         || s.notice.is_some()
         || s.flight.is_some()
         || s.answer.is_some()
@@ -900,6 +1030,7 @@ fn working_scene(s: &mut State) {
         teammate_id: "codec".into(),
         name: "Codec".into(),
         conversation_id: Some("sample".into()),
+        serial: 0,
         started_at: Instant::now(),
         unsent: None,
         // Demo scenes never poll (poll_at returns early); Reply keeps the old test shape.
@@ -1019,10 +1150,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    // Carried over from quick.r7.rs, none dropped. Only `escape_during_flight_...`
-    // changed (it also checks the new `stream` handle). The rest compile as before
-    // because working_scene() now sets Follow::Reply, which keeps the old retry timing.
-    // New: the three `streams_...`, `hiding_...` and `missing_...` tests at the end.
+    // Earlier tests are kept. Edited only where the new signatures or decisions force it:
+    // land_reply/land_started take a tag; the first ledger poll is LEDGER_FIRST after the
+    // follow begins; a missing file in the first LEDGER_STARTING keeps the normal pace;
+    // a team-load failure lands in `team_error`, not `error`. New tests are at the end.
     use super::*;
     use serde_json::{Value, json};
     use std::fs::{self, OpenOptions};
@@ -1179,7 +1310,7 @@ mod tests {
         let now = Instant::now();
         let mut s = working(now);
         let mut tx = Tx::default();
-        land_reply(&mut s, Ok(Reply::WaitingForYou("approve".into())), &mut tx, now);
+        land_reply(&mut s, "sample", Ok(Reply::WaitingForYou("approve".into())), &mut tx, now);
         assert_eq!(retry_due(&s), Some(now + Duration::from_secs(3)));
 
         toggle(&mut s, &mut tx);
@@ -1195,6 +1326,7 @@ mod tests {
 
         land_reply(
             &mut s,
+            "sample",
             Ok(Reply::Answer("finished while hidden".into())),
             &mut tx,
             now + Duration::from_secs(2),
@@ -1218,6 +1350,7 @@ mod tests {
 
         land_reply(
             &mut s,
+            "sample",
             Ok(Reply::Answer("late".into())),
             &mut Tx::default(),
             now + MAX_FLIGHT_AGE + Duration::from_secs(1),
@@ -1245,7 +1378,7 @@ mod tests {
         land_team(&mut s, Err(engine::NOT_ON.into()));
         assert_eq!(s.teammates, team);
         assert!(s.flight.is_some());
-        assert!(s.error.is_none());
+        assert!(s.error.is_none() && s.team_error.is_none());
     }
 
     #[test]
@@ -1260,7 +1393,7 @@ mod tests {
             flight.name = "Codec renamed".into();
         }
         s.answer_name = "stale".into();
-        land_reply(&mut s, Ok(Reply::Answer("answer".into())), &mut Tx::default(), now);
+        land_reply(&mut s, "sample", Ok(Reply::Answer("answer".into())), &mut Tx::default(), now);
         assert_eq!(s.answer_name, "Codec renamed");
     }
 
@@ -1270,10 +1403,12 @@ mod tests {
         let mut s = working(now);
         if let Some(flight) = s.flight.as_mut() {
             flight.unsent = Some("unsent question".into());
+            // land_started only accepts a flight still waiting for its conversation id.
+            flight.follow = Follow::Starting;
         }
         s.draft.replace_text("new typing");
         let refusal = "Choose a teammate with an AI agent. Nothing was started.";
-        land_started(&mut s, Err(refusal.into()), now);
+        land_started(&mut s, 0, Err(refusal.into()), now);
 
         assert_eq!(s.draft.text, "unsent question\n\nnew typing");
         assert_eq!(s.error.as_deref(), Some(refusal));
@@ -1299,11 +1434,16 @@ mod tests {
 
         let now = Instant::now();
         let mut s = working(now);
-        land_reply(&mut s, Err(refusal.into()), &mut Tx::default(), now);
+        land_reply(&mut s, "sample", Err(refusal.into()), &mut Tx::default(), now);
         assert_eq!(s.error.as_deref(), Some(refusal));
 
+        // A team-load failure has its own slot (decision 2): the turn error stays.
         land_team(&mut s, Ok(Vec::new()));
-        assert_eq!(s.error.as_deref(), Some("No teammates are available in Locust."));
+        assert_eq!(s.error.as_deref(), Some(refusal));
+        assert_eq!(
+            s.team_error.as_deref(),
+            Some("No teammates are available in Locust."),
+        );
     }
 
     // ---- new: live streaming from the ledger ----
@@ -1315,26 +1455,28 @@ mod tests {
         append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
         let mut s = streaming(&temp.0, t0);
         assert_eq!(mode(&s), "ledger");
+        // The first poll waits LEDGER_FIRST after the follow began.
+        let t1 = t0 + LEDGER_FIRST;
 
         // First poll: partial text shows while the flight is still running.
-        assert!(pump(&mut s, t0));
+        assert!(pump(&mut s, t1));
         assert_eq!(s.answer.as_deref(), Some("Hello"));
         assert_eq!(s.answer_name, "Codec");
         assert!(s.flight.is_some() && s.error.is_none());
-        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_VISIBLE));
+        assert_eq!(ledger_due(&s), Some(t1 + LEDGER_VISIBLE));
 
         // Second poll: the same text grew; it is replaced, not duplicated.
         append(&temp.0, "conv1", &[delta(2, " world", false)]);
-        assert!(pump(&mut s, t0 + Duration::from_millis(300)));
+        assert!(pump(&mut s, t1 + Duration::from_millis(300)));
         assert_eq!(s.answer.as_deref(), Some("Hello world"));
 
         // A poll that finds nothing new reports no change (no pointless redraw).
-        assert!(!pump(&mut s, t0 + Duration::from_millis(600)));
+        assert!(!pump(&mut s, t1 + Duration::from_millis(600)));
         assert_eq!(s.answer.as_deref(), Some("Hello world"));
 
         // The run ends: final text stays, the flight is released, nothing used Engine::reply.
         append(&temp.0, "conv1", &[delta(3, "!", true), ev(4, "run.completed", json!({}))]);
-        assert!(pump(&mut s, t0 + Duration::from_secs(1)));
+        assert!(pump(&mut s, t1 + Duration::from_secs(1)));
         assert_eq!(s.answer.as_deref(), Some("Hello world!"));
         assert!(s.flight.is_none() && s.retry.is_none() && s.error.is_none());
         assert!(!s.waiting.is_pending() && !s.stream.is_pending());
@@ -1347,26 +1489,27 @@ mod tests {
         append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
         let mut s = streaming(&temp.0, t0);
         assert!(s.visible);
-        pump(&mut s, t0);
+        let t1 = t0 + LEDGER_FIRST;
+        pump(&mut s, t1);
         assert_eq!(s.answer.as_deref(), Some("Hello"));
-        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_VISIBLE));
+        assert_eq!(ledger_due(&s), Some(t1 + LEDGER_VISIBLE));
 
         // Hiding keeps the flight and moves the already scheduled poll out to 2 s.
         hide(&mut s);
         assert!(!s.visible && s.flight.is_some());
-        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_HIDDEN));
+        assert_eq!(ledger_due(&s), Some(t1 + LEDGER_HIDDEN));
 
         // New text on disk is NOT read at +300 ms while hidden...
         append(&temp.0, "conv1", &[delta(2, " world", false)]);
-        pump(&mut s, t0 + Duration::from_millis(300));
+        pump(&mut s, t1 + Duration::from_millis(300));
         assert_eq!(s.answer.as_deref(), Some("Hello"));
         // ...but is read once the slow interval has passed.
-        pump(&mut s, t0 + LEDGER_HIDDEN);
+        pump(&mut s, t1 + LEDGER_HIDDEN);
         assert_eq!(s.answer.as_deref(), Some("Hello world"));
 
         // Showing again (flight active, so no team reload) brings the fast pace back.
-        begin_show_at(&mut s, t0 + Duration::from_millis(2100));
-        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_HIDDEN + LEDGER_VISIBLE));
+        begin_show_at(&mut s, t1 + Duration::from_millis(2100));
+        assert_eq!(ledger_due(&s), Some(t1 + LEDGER_HIDDEN + LEDGER_VISIBLE));
 
         // Finishing while hidden still lands the final answer; the panel stays hidden.
         hide(&mut s);
@@ -1417,7 +1560,8 @@ mod tests {
         let result = s.stream.take().expect("job result");
         land_stream(&mut s, result, &mut tx, t0);
         assert_eq!(mode(&s), "ledger");
-        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_ERROR_RETRY));
+        // Within LEDGER_STARTING a missing file is "starting": normal pace, no error pace.
+        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_VISIBLE));
 
         // Still nothing once the grace period is over: now the fallback applies.
         request_stream(&mut s);
@@ -1425,5 +1569,238 @@ mod tests {
         let result = s.stream.take().expect("job result");
         land_stream(&mut s, result, &mut tx, t0 + LEDGER_GRACE);
         assert_eq!(mode(&s), "reply");
+    }
+
+    // ---- new: one test per finding of argon-review-5 ----
+
+    fn follow(s: &State) -> &LedgerFollow {
+        match s.flight.as_ref().map(|f| &f.follow) {
+            Some(Follow::Ledger(f)) => f,
+            _ => panic!("not following the ledger"),
+        }
+    }
+
+    // Make the ledger file look as if it was last written `ago` ago.
+    fn age(dir: &Path, id: &str, ago: Duration) {
+        let file = OpenOptions::new().write(true)
+            .open(dir.join(format!("{id}.jsonl"))).unwrap();
+        file.set_times(fs::FileTimes::new().set_modified(SystemTime::now() - ago))
+            .unwrap();
+    }
+
+    // One ledger read at `now` that is expected to fail, landed directly.
+    fn fail_once(s: &mut State, now: Instant) {
+        request_stream(s);
+        wait(s);
+        let result = s.stream.take().expect("job result");
+        assert!(result.is_err());
+        land_stream(s, result, &mut Tx::default(), now);
+    }
+
+    // A job that finishes later; stop_watching must make it never land.
+    fn slow_start(s: &mut State) {
+        s.sending.request((), |()| {
+            std::thread::sleep(Duration::from_millis(60));
+            (0, Err("late".to_string()))
+        });
+    }
+    fn slow_reply(s: &mut State) {
+        s.waiting.request((), |()| {
+            std::thread::sleep(Duration::from_millis(60));
+            ("sample".to_string(), Ok(Reply::Working("late".into())))
+        });
+    }
+    fn nothing_lands(s: &mut State) {
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(s.sending.take().is_none() && s.waiting.take().is_none());
+    }
+
+    // Finding 1: a quiet turn is not finished at 15 minutes, shows "waiting for you",
+    // re-asks at 3 s / 15 s, and is stopped only by the 30-minute watchdog.
+    #[test]
+    fn a_quiet_unfinished_turn_waits_until_the_watchdog_and_shows_waiting() {
+        let temp = TempDir::new();
+        let t0 = Instant::now();
+        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Partial", false)]);
+        age(&temp.0, "conv1", Duration::from_secs(20 * 60));
+        let mut s = streaming(&temp.0, t0);
+        let t1 = t0 + LEDGER_FIRST;
+
+        // 20 minutes of silence: Session::poll reports running == false, the ledger has no
+        // run.completed, so the flight goes on with its partial text.
+        pump(&mut s, t1);
+        assert!(s.flight.is_some() && s.error.is_none());
+        assert_eq!(s.answer.as_deref(), Some("Partial"));
+        assert!(s.activity == Activity::WaitingForYou);
+        assert_eq!(ledger_due(&s), Some(t1 + WAITING_VISIBLE));
+        hide(&mut s);
+        assert_eq!(ledger_due(&s), Some(t1 + WAITING_HIDDEN));
+
+        // Only the watchdog ends it, with its notice.
+        assert!(expire(&mut s, t0 + MAX_FLIGHT_AGE));
+        assert!(s.flight.is_none());
+        assert_eq!(s.notice.as_deref(), Some(STOPPED));
+    }
+
+    // Finding 1: hidden polling does not rescan the folder every 2 s.
+    #[test]
+    fn hidden_polling_asks_for_a_slow_folder_rescan() {
+        let temp = TempDir::new();
+        let t0 = Instant::now();
+        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
+        let mut s = streaming(&temp.0, t0);
+        let t1 = t0 + LEDGER_FIRST;
+        pump(&mut s, t1);
+        let shown = follow(&s).session.as_ref().expect("session").rescan();
+        assert_eq!(shown, ledger::RESCAN);
+
+        hide(&mut s);
+        pump(&mut s, t1 + LEDGER_HIDDEN);
+        let hidden = follow(&s).session.as_ref().expect("session").rescan();
+        assert_eq!(hidden, HIDDEN_RESCAN);
+        assert!(hidden >= Duration::from_secs(30));
+        assert_eq!(s.answer.as_deref(), Some("Hello"));
+    }
+
+    // Finding 2: a failure or notice from a turn survives re-showing and a failed team load.
+    #[test]
+    fn re_showing_keeps_turn_errors_and_notices_apart_from_team_errors() {
+        let now = Instant::now();
+        let mut s = working(now);
+        let mut tx = Tx::default();
+        land_reply(&mut s, "sample", Ok(Reply::Failed("Codec crashed".into())), &mut tx, now);
+        hide(&mut s);
+        begin_show_at(&mut s, now + Duration::from_secs(1));
+        assert_eq!(s.error.as_deref(), Some("Codec crashed"));
+        land_team(&mut s, Err(engine::NOT_ON.into()));
+        assert_eq!(s.error.as_deref(), Some("Codec crashed"));
+        assert_eq!(s.team_error.as_deref(), Some(UNAVAILABLE));
+        // Showing again clears only the team-load error.
+        begin_show_at(&mut s, now + Duration::from_secs(2));
+        assert_eq!(s.error.as_deref(), Some("Codec crashed"));
+        assert!(s.team_error.is_none());
+
+        // The 30-minute notice survives a failed reload too.
+        let mut s = working(now);
+        hide(&mut s);
+        assert!(expire(&mut s, now + MAX_FLIGHT_AGE));
+        begin_show_at(&mut s, now + MAX_FLIGHT_AGE);
+        land_team(&mut s, Err("Locust refused the request (403).".into()));
+        assert_eq!(s.notice.as_deref(), Some(STOPPED));
+        assert_eq!(s.team_error.as_deref(), Some("Locust refused the request (403)."));
+    }
+
+    // Finding 3: replies carry their conversation id and follow mode.
+    #[test]
+    fn replies_for_another_conversation_or_mode_are_ignored() {
+        let now = Instant::now();
+        let mut tx = Tx::default();
+
+        // Wrong conversation id.
+        let mut s = working(now);
+        land_reply(&mut s, "other", Ok(Reply::Answer("not mine".into())), &mut tx, now);
+        assert!(s.flight.is_some() && s.answer.is_none());
+
+        // Right id, but the flight is following the ledger (or still starting).
+        for other in [Follow::Starting, Follow::Ledger(LedgerFollow {
+            session: None,
+            healthy: now,
+            begun: now,
+            last: None,
+            erred: false,
+        })] {
+            let mut s = working(now);
+            if let Some(f) = s.flight.as_mut() {
+                f.follow = other;
+            }
+            land_reply(&mut s, "sample", Ok(Reply::WaitingForYou("card".into())), &mut tx, now);
+            assert!(s.retry.is_none() && s.flight.is_some());
+            assert!(s.activity == Activity::Working);
+            land_reply(&mut s, "sample", Err("boom".into()), &mut tx, now);
+            assert!(s.flight.is_some() && s.error.is_none());
+        }
+
+        // A start result of an older send does not touch a newer flight.
+        let mut s = working(now);
+        if let Some(f) = s.flight.as_mut() {
+            f.follow = Follow::Starting;
+            f.serial = 7;
+        }
+        let started = Started { conversation_id: "conv9".into(), mode: "ask".into() };
+        land_started(&mut s, 6, Ok(started), now);
+        assert_eq!(mode(&s), "starting");
+        assert_eq!(s.flight.as_ref().unwrap().conversation_id.as_deref(), Some("sample"));
+        // Nor does one that lands after the flight fell back to Engine::reply.
+        let mut s = working(now);
+        land_started(&mut s, 0, Err("late".into()), now);
+        assert!(s.flight.is_some() && s.error.is_none());
+    }
+
+    // Finding 3: Reply::Answer and a new send stop every handle of the old flight.
+    #[test]
+    fn answer_and_new_send_cancel_background_handles() {
+        let now = Instant::now();
+        let mut tx = Tx::default();
+
+        let mut s = working(now);
+        slow_start(&mut s);
+        land_reply(&mut s, "sample", Ok(Reply::Answer("done".into())), &mut tx, now);
+        assert!(s.flight.is_none() && s.retry.is_none());
+        assert_eq!(s.answer.as_deref(), Some("done"));
+        nothing_lands(&mut s);
+
+        let mut s = working(now);
+        s.retry = Some(Retry { since: now, kind: RetryKind::Working });
+        slow_reply(&mut s);
+        let serial = start_flight(&mut s, "scout".into(), "Scout".into(), "next".into(), now);
+        assert!(s.retry.is_none());
+        assert_eq!(serial, 1);
+        assert_eq!(mode(&s), "starting");
+        nothing_lands(&mut s);
+        // The old send's tag (0) no longer matches the new flight.
+        land_started(&mut s, 0, Err("old".into()), now);
+        assert!(s.flight.is_some() && s.error.is_none());
+    }
+
+    // Finding 4: first poll 400 ms after the follow begins; a missing file in the first
+    // 3 s is "starting"; a folder that was listed is not listed again.
+    #[test]
+    fn the_first_poll_waits_and_a_missing_file_is_starting_not_an_error() {
+        let temp = TempDir::new(); // readable folder, no conv1.jsonl yet
+        let t0 = Instant::now();
+        let mut s = streaming(&temp.0, t0);
+        let mut tx = Tx::default();
+
+        // Nothing is dispatched at t = 0, nor just before LEDGER_FIRST.
+        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_FIRST));
+        poll_at(&mut s, &mut tx, t0);
+        poll_at(&mut s, &mut tx, t0 + LEDGER_FIRST - Duration::from_millis(1));
+        assert!(!s.stream.is_pending() && follow(&s).session.is_some());
+
+        // Missing file inside the first 3 s: not an error, normal pace.
+        request_stream(&mut s);
+        wait(&s);
+        let result = s.stream.take().expect("job result");
+        // One listing by Session::poll answers it: folder readable, file missing.
+        assert!(matches!(&result, Err((_, ReadFail::Missing))));
+        let t1 = t0 + LEDGER_FIRST;
+        land_stream(&mut s, result, &mut tx, t1);
+        assert!(!follow(&s).erred);
+        assert_eq!(ledger_due(&s), Some(t1 + LEDGER_VISIBLE));
+        assert!(s.error.is_none() && s.flight.is_some());
+
+        // After 3 s it is an error (1 s retry), still short of the 10 s fallback.
+        let t2 = t0 + LEDGER_STARTING;
+        fail_once(&mut s, t2);
+        assert!(follow(&s).erred);
+        assert_eq!(ledger_due(&s), Some(t2 + LEDGER_ERROR_RETRY));
+        assert_eq!(mode(&s), "ledger");
+
+        // A folder that cannot be listed at all is told apart without any second listing.
+        let mut gone = streaming(&temp.0.join("nope"), t0);
+        request_stream(&mut gone);
+        wait(&gone);
+        let result = gone.stream.take().expect("job result");
+        assert!(matches!(&result, Err((_, ReadFail::Unreadable))));
     }
 }

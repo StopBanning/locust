@@ -10,6 +10,8 @@ pub const MAX_LINE: usize = 1024 * 1024;
 pub const MAX_ASSISTANT: usize = 131_072;
 // Fix 4: keep running conversations active until silent for 15 minutes instead of 120 seconds.
 pub const ACTIVE_WINDOW: Duration = Duration::from_secs(15 * 60);
+/// How often a Session re-lists the folder (for follow-up files) unless told otherwise.
+pub const RESCAN: Duration = Duration::from_secs(2);
 const HEAD: u64 = MAX_LINE as u64 + 1;
 const TAIL: u64 = 2 * MAX_LINE as u64;
 pub type Record = Value;
@@ -636,6 +638,8 @@ pub struct Session {
     readers: Vec<Reader>,
     scanned: Option<Instant>,
     headers: HashMap<PathBuf, (u64, Metadata)>,
+    rescan: Duration,
+    listed: bool,
 }
 
 impl Session {
@@ -646,7 +650,35 @@ impl Session {
             readers: Vec::new(),
             scanned: None,
             headers: HashMap::new(),
+            rescan: RESCAN,
+            listed: false,
         }
+    }
+
+    /// How long a running tip may go between folder scans (default RESCAN). A caller that
+    /// is not looking (a hidden window) can ask for less. Ended tips are always re-scanned.
+    pub fn set_rescan(&mut self, every: Duration) {
+        self.rescan = every;
+    }
+
+    /// Whether the last folder scan could list the folder at all. When poll() fails, this
+    /// tells "folder unreadable" from "folder fine, this conversation's file not there".
+    pub fn dir_listed(&self) -> bool {
+        self.listed
+    }
+
+    /// True once the newest file records its run as completed, failed or cancelled. Unlike
+    /// Snapshot::running this does not turn false when the file merely goes quiet.
+    pub fn tip_ended(&self) -> bool {
+        self.readers.last().is_some_and(|r| {
+            r.transcript.metadata.is_some() && !r.transcript.running
+        })
+    }
+
+    /// How long the newest file has gone without being written, as of `now`.
+    pub fn tip_quiet(&self, now: SystemTime) -> Option<Duration> {
+        let modified = self.readers.last()?.tail.modified?;
+        Some(now.duration_since(modified).unwrap_or_default())
     }
 
     pub fn anchor(&self) -> &str {
@@ -658,13 +690,18 @@ impl Session {
         self.headers.len()
     }
 
+    #[cfg(test)]
+    pub fn rescan(&self) -> Duration {
+        self.rescan
+    }
+
     pub fn poll(&mut self) -> io::Result<Snapshot> {
         if !safe_id(&self.anchor) {
             return Err(io::ErrorKind::InvalidInput.into());
         }
         let tip_finished = self.readers.last()
             .is_none_or(|r| !r.transcript.running && r.tail.offset > 0);
-        if self.scanned.is_none_or(|at| at.elapsed() >= Duration::from_secs(2))
+        if self.scanned.is_none_or(|at| at.elapsed() >= self.rescan)
             || tip_finished
         {
             let paths = self.chain()?;
@@ -723,8 +760,11 @@ impl Session {
 
     fn chain(&mut self) -> io::Result<Vec<(String, PathBuf)>> {
         let mut all = HashMap::new();
+        self.listed = false;
+        let entries = fs::read_dir(&self.dir)?;
+        self.listed = true;
         // Fix 3: skip unreadable directory entries instead of failing the whole session.
-        for entry in fs::read_dir(&self.dir)? {
+        for entry in entries {
             let Ok(entry) = entry else { continue };
             if !entry.file_type().is_ok_and(|t| t.is_file())
                 || entry.path().extension().is_none_or(|e| e != "jsonl")
@@ -1130,5 +1170,76 @@ mod tests {
             i,
             Item::Assistant { text, .. } if text == "Branch B answer"
         )));
+    }
+
+    fn set_modified(path: &Path, ago: Duration) {
+        let file = OpenOptions::new().write(true).open(path).unwrap();
+        file.set_times(fs::FileTimes::new().set_modified(SystemTime::now() - ago))
+            .unwrap();
+    }
+
+    #[test]
+    fn a_quiet_tip_is_not_ended_until_the_ledger_says_so() {
+        let temp = Temp::new();
+        write(&temp.path("quiet"), &[
+            created("quiet", "Prompt"),
+            delta(1, "Partial", "append", false),
+        ]);
+        set_modified(&temp.path("quiet"), ACTIVE_WINDOW + Duration::from_secs(60));
+
+        let mut session = Session::new(temp.0.clone(), "quiet".into());
+        let snapshot = session.poll().unwrap();
+        // Snapshot::running goes false after the 15-minute window; the run has not ended.
+        assert!(!snapshot.running && !snapshot.failed);
+        assert!(!session.tip_ended());
+        assert!(session.tip_quiet(SystemTime::now()).unwrap() >= ACTIVE_WINDOW);
+
+        write(&temp.path("quiet"), &[
+            created("quiet", "Prompt"),
+            delta(1, "Partial", "append", false),
+            event(2, "run.completed", json!({})),
+        ]);
+        session.poll().unwrap();
+        assert!(session.tip_ended());
+        assert!(session.tip_quiet(SystemTime::now()).unwrap() < ACTIVE_WINDOW);
+
+        // A failed run has ended too.
+        write(&temp.path("failed"), &[
+            created("failed", "Prompt"),
+            event(1, "run.failed", json!({"message":"Synthetic failure"})),
+        ]);
+        let mut failed = Session::new(temp.0.clone(), "failed".into());
+        assert!(failed.poll().unwrap().failed);
+        assert!(failed.tip_ended());
+    }
+
+    #[test]
+    fn set_rescan_defers_the_folder_scan_of_a_running_tip() {
+        let temp = Temp::new();
+        write(&temp.path("root"), &[created("root", "Root prompt")]);
+        let mut session = Session::new(temp.0.clone(), "root".into());
+        assert_eq!(session.rescan(), RESCAN);
+        session.set_rescan(Duration::from_secs(3600));
+        assert_eq!(session.poll().unwrap().tip, "root");
+
+        let mut child = created("child", "Follow-up");
+        child["metadata"]["continuesFrom"] = json!({"missionId":"root"});
+        write(&temp.path("child"), &[child]);
+        // Within the interval the running tip is not re-listed, so the child is unseen.
+        assert_eq!(session.poll().unwrap().tip, "root");
+        session.set_rescan(Duration::ZERO);
+        assert_eq!(session.poll().unwrap().tip, "child");
+    }
+
+    #[test]
+    fn dir_listed_tells_a_missing_folder_from_a_missing_file() {
+        let temp = Temp::new();
+        let mut nowhere = Session::new(temp.0.join("nope"), "root".into());
+        assert!(nowhere.poll().is_err());
+        assert!(!nowhere.dir_listed());
+
+        let mut absent = Session::new(temp.0.clone(), "root".into());
+        assert_eq!(absent.poll().unwrap_err().kind(), io::ErrorKind::NotFound);
+        assert!(absent.dir_listed());
     }
 }
