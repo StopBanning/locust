@@ -224,7 +224,7 @@ pub fn safe_id(id: &str) -> bool {
         && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
 }
 
-fn metadata(record: &Record) -> Option<Metadata> {
+pub(crate) fn metadata(record: &Record) -> Option<Metadata> {
     if record.get("recordType")?.as_str()? != "mission.created" {
         return None;
     }
@@ -851,6 +851,9 @@ pub struct Snapshot {
 /// A follow-up is a NEW mission file although MCP returns the original conversation ID.
 pub struct Session {
     dir: PathBuf,
+    /// Further read-only folders listed with `dir` (the native engine's own ledger folder): a continuation file may
+    /// live in a different folder from the conversation it continues.
+    extra: Vec<PathBuf>,
     anchor: String,
     readers: Vec<Reader>,
     scanned: Option<Instant>,
@@ -863,6 +866,7 @@ impl Session {
     pub fn new(dir: PathBuf, mission_id: String) -> Self {
         Self {
             dir,
+            extra: Vec::new(),
             anchor: mission_id,
             readers: Vec::new(),
             scanned: None,
@@ -870,6 +874,14 @@ impl Session {
             rescan: RESCAN,
             listed: false,
         }
+    }
+
+    /// Also list `dir` when scanning. A folder that cannot be listed is skipped as long as another one can.
+    pub fn also_read(mut self, dir: PathBuf) -> Self {
+        if dir != self.dir && !self.extra.contains(&dir) {
+            self.extra.push(dir);
+        }
+        self
     }
 
     /// How long a running tip may go between folder scans (default RESCAN). A caller that
@@ -979,13 +991,39 @@ impl Session {
         Ok(snapshot)
     }
 
+    /// The conversation's newest turn, read fresh from every folder this session lists (never a cached view).
+    pub fn chain_tip(&mut self) -> io::Result<String> {
+        if !safe_id(&self.anchor) {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        self.headers.clear();
+        self.chain()?
+            .pop()
+            .map(|(id, _)| id)
+            .ok_or_else(|| io::ErrorKind::NotFound.into())
+    }
+
     fn chain(&mut self) -> io::Result<Vec<(String, PathBuf)>> {
         let mut all = HashMap::new();
         self.listed = false;
-        let entries = fs::read_dir(&self.dir)?;
-        self.listed = true;
+        let mut folders = Vec::new();
+        let mut first_error = None;
+        for dir in std::iter::once(&self.dir).chain(self.extra.iter()) {
+            match fs::read_dir(dir) {
+                Ok(entries) => {
+                    self.listed = true;
+                    folders.push(entries);
+                }
+                Err(error) => {
+                    first_error.get_or_insert(error);
+                }
+            }
+        }
+        if !self.listed {
+            return Err(first_error.unwrap_or_else(|| io::ErrorKind::NotFound.into()));
+        }
         // Fix 3: skip unreadable directory entries instead of failing the whole session.
-        for entry in entries {
+        for entry in folders.into_iter().flatten() {
             let Ok(entry) = entry else { continue };
             if !entry.file_type().is_ok_and(|t| t.is_file())
                 || entry.path().extension().is_none_or(|e| e != "jsonl")

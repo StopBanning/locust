@@ -8,6 +8,10 @@ pub struct Turn {
     pub prompt: String,
     pub folder: PathBuf,
     pub model: Option<String>,
+    /// Reasoning effort for this turn only: a plain lowercase word, as codex-app-server-run.ts passes it.
+    pub effort: Option<String>,
+    /// A prior Codex thread to reopen with `thread/resume` instead of `thread/start` (the follow-up path).
+    pub resume: Option<String>,
 }
 pub struct Event {
     pub kind: String,

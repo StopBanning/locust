@@ -69,3 +69,15 @@ Each milestone has an exit test. A milestone is done when its test passes, not w
   - Electron's TypeScript reader accepted both ledgers with no issues.
   - Codec drafted it and Cursor reviewed it. The review found an `O_NOFOLLOW` race and a stream deadlock, and both
     are fixed and tested.
+- **M2:** built on 9 Nov 2026, with the real exit test pending.
+  - The window starts, continues and stops Codex conversations through the Rust engine. The status line shows
+    "Engine: native".
+  - Teammates are read from Electron's `teammates.json` without writing to it. Recent and transcripts merge both
+    folders.
+  - Every send rescans both folders for the newest turn first.
+  - Ledger files are created by walking the path one directory at a time with `O_NOFOLLOW`, and `~/.codex` is
+    refused.
+  - Sage built it, Codec reviewed it, and all five review findings are fixed. 112 tests pass.
+  - Real check: turn 1 ran and its continuation's resume was accepted. Then Codex's usage limit ended the turn, and
+    the limit was recorded the way Electron records it. To finish: `cargo test --release real_codex_continue --
+    --ignored` once the limit resets, then use the window with Electron quit.

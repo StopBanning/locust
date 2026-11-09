@@ -7,6 +7,11 @@ if os.environ.get("M1_PID_FILE"):
     with open(os.environ["M1_PID_FILE"], "w") as f:
         f.write(str(os.getpid()))
 scenario = sys.argv[1] if len(sys.argv) > 1 else 'success'
+# M2: `resume` / `resume-interrupt` / `resume-failure` / `resume-refused` run the follow-up path (thread/resume, never
+# thread/start) with the follow-up prompt; the rest are the M1 scenarios.
+resuming = scenario.startswith('resume')
+base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
+PROMPT = 'Synthetic follow-up' if resuming else 'Synthetic prompt'
 def send(v):
     print(json.dumps(dict(jsonrpc='2.0', **v)), flush=True)
 def notify(method, **params):
@@ -23,7 +28,19 @@ for line in sys.stdin:
         pass
     elif method == 'config/read':
         send(dict(id=msg['id'], result={'config': {'mcp_servers': {'local': {'command':'node'}, 'remote': {'url':'https://example.invalid'}}}}))
+    elif method == 'thread/resume':
+        assert resuming, 'thread/resume outside a resume scenario'
+        # codex-app-server-run.ts: reopen by the stored id, without the whole history, under the same policy.
+        assert p['threadId'] == 'thread_fake' and p['excludeTurns'] is True, p
+        assert p['sandbox'] == 'read-only' and p['approvalPolicy'] == 'never'
+        assert p['config']['mcp_servers.local.enabled'] is False and p['config']['features.plugins'] is False
+        assert p['model'] == 'synthetic-model'
+        if base == 'refused':
+            send(dict(id=msg['id'], error={'code': -32600, 'message': 'no rollout found for thread id thread_fake'}))
+        else:
+            send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'thread/start':
+        assert not resuming, 'a follow-up must resume, not start a new thread'
         assert p['sandbox'] == 'read-only' and p['approvalPolicy'] == 'never'
         assert p['config']['mcp_servers.local.enabled'] is False
         assert p['config']['features.plugins'] is False
@@ -31,21 +48,21 @@ for line in sys.stdin:
         send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'turn/start':
         assert p['summary'] == 'detailed' and p['approvalPolicy'] == 'never'
-        assert p['input'] == [{'type':'text','text':'Synthetic prompt'}]
+        assert p['input'] == [{'type':'text','text':PROMPT}]
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})
         send(dict(method='turn/completed', params={'threadId':'other_thread'}))
-        if scenario == 'lost':
+        if base == 'lost':
             sys.exit(0)
-        if scenario == 'failure':
+        if base == 'failure':
             notify('error', error={'message':'Usage limit reached', 'codexErrorInfo':'usageLimitExceeded'})
             continue
-        if scenario == 'flood':
+        if base == 'flood':
             time.sleep(0.3)  # Allow the CLI to record run.started and receive SIGINT.
             while True:  # Never read stdin again, including interrupt/approval replies.
                 notify('item/agentMessage/delta', itemId='answer', delta='x' * 4096)
-        if scenario == 'interrupt':
+        if base == 'interrupt':
             continue
         notify('item/agentMessage/delta', itemId='answer', delta='Hello ')
         time.sleep(0.4)  # CLI test must observe this delta before the turn can end.

@@ -69,6 +69,8 @@ fn run(scenario: &str, keep: Option<PathBuf>) {
             prompt: "Synthetic prompt".into(),
             folder: temp.0.clone(),
             model: Some("synthetic-model".into()),
+            effort: None,
+            resume: None,
         })
         .unwrap();
     if scenario == "interrupt" {

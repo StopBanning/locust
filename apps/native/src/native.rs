@@ -1,0 +1,597 @@
+//! M2: the native engine behind the window. No Electron, no MCP door, no Node.
+//!
+//! * `roster` reads Electron's `teammates.json` READ-ONLY (shape from `apps/desktop/src/main/teammate-store.ts`).
+//! * `send` starts or continues a Codex turn: a new native ledger (`ledger_write`), the runtime (`runtime::codex`),
+//!   all on a thread of its own. The window never waits for it; it tails the ledger file, as it does for Electron's.
+//! * `stop` asks the turn this process started to interrupt; the runtime records it as cancelled.
+//!
+//! Every write goes through `store::Store`, which refuses Electron's data folder. Nothing here opens a credential.
+use crate::{
+    engine::{self, Started, Teammate},
+    ledger::{self, Tail},
+    ledger_write::{Continuation, LedgerWriter},
+    runtime::{Runtime, Turn, codex::Codex, events::Normalizer},
+    store::Store,
+};
+use serde_json::{Value, json};
+use std::{
+    collections::{HashMap, HashSet},
+    io::{self, Read},
+    path::{Path, PathBuf},
+    process::Command,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
+};
+
+/// Which engine the window is using. Shown in the status line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Door,
+    Native,
+}
+impl Kind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Kind::Door => "Engine: Locust door",
+            Kind::Native => "Engine: native",
+        }
+    }
+}
+
+/// `runs_in` of a teammate native cannot run yet; the window words it "runs in Locust for now".
+pub const IN_LOCUST: &str = "in-locust";
+
+/// `LOCUST_NATIVE_ENGINE=1` picks native whether or not Electron is up.
+pub fn forced() -> bool {
+    std::env::var_os("LOCUST_NATIVE_ENGINE").is_some_and(|v| v == "1")
+}
+
+/// Item 1, as a pure decision: forced native; else the door while it answers; native only when the door is unreachable
+/// (a door that answered and refused is not down). When native has nothing either, the door's own words are shown.
+pub fn choose(
+    forced: bool,
+    door: impl FnOnce() -> Result<Vec<Teammate>, String>,
+    native: impl FnOnce() -> Result<Vec<Teammate>, String>,
+) -> Result<(Kind, Vec<Teammate>), String> {
+    if forced {
+        return native().map(|team| (Kind::Native, team));
+    }
+    match door() {
+        Ok(team) => Ok((Kind::Door, team)),
+        Err(words) if door_unreachable(&words) => native().map(|team| (Kind::Native, team)).map_err(|_| words),
+        Err(words) => Err(words),
+    }
+}
+
+/// The door could not be reached at all (not: it answered and refused).
+pub fn door_unreachable(words: &str) -> bool {
+    words == engine::NOT_ON || words == engine::DOWN || words.starts_with("Locust's data folder could not be found")
+}
+
+/// Can native run this teammate this milestone? Codex only, and never a Codex account of its own (that needs its own
+/// login home, which native does not touch).
+pub fn supported(t: &Teammate) -> bool {
+    t.runtime.as_deref() == Some("codex") && t.runs_in != IN_LOCUST
+}
+
+// ---- test hooks: one place, compiled only into tests -------------------------------------------------------------
+#[cfg(test)]
+pub(crate) mod hooks {
+    use super::*;
+    pub static LOCK: Mutex<()> = Mutex::new(());
+    pub static STATE: Mutex<(Option<Store>, Option<(PathBuf, Vec<String>)>)> = Mutex::new((None, None));
+    pub struct Guard(#[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
+    /// Serialises tests that point the engine at a temporary store and a fake `codex`.
+    pub fn install(store: Store, command: Option<(PathBuf, Vec<String>)>) -> Guard {
+        let guard = Guard(LOCK.lock().unwrap_or_else(|e| e.into_inner()));
+        *STATE.lock().unwrap() = (Some(store), command);
+        guard
+    }
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            *STATE.lock().unwrap() = (None, None);
+        }
+    }
+}
+
+/// Native's own data folder, or None when it cannot be determined.
+pub fn store() -> Option<Store> {
+    #[cfg(test)]
+    if let Some(store) = hooks::STATE.lock().unwrap().0.clone() {
+        return Some(store);
+    }
+    Store::local().ok()
+}
+
+fn electron_dir() -> Option<PathBuf> {
+    store().map(|s| s.electron().to_path_buf()).or_else(engine::default_data_folder)
+}
+
+/// Electron's ledger folder: only ever read.
+pub fn electron_ledger_dir() -> Option<PathBuf> {
+    electron_dir().map(|d| d.join("mission-ledger"))
+}
+
+fn command_for_turn() -> io::Result<Command> {
+    #[cfg(test)]
+    if let Some((program, args)) = hooks::STATE.lock().unwrap().1.clone() {
+        let mut c = Command::new(program);
+        c.args(args);
+        return Ok(c);
+    }
+    crate::runtime::codex::command()
+}
+
+// ---- the roster: teammates.json, read-only -----------------------------------------------------------------------
+const MAX_FILE_BYTES: u64 = 1_000_000;
+const MAX_TEAMMATES: usize = 64;
+const HUES: [&str; 11] = [
+    "lime", "blue", "violet", "clay", "teal", "butter", "rose", "slate", "pearl", "indigo", "coral",
+];
+const ROLES: [&str; 7] = [
+    "Code & Migrations",
+    "Research & Briefs",
+    "Ops & Scheduling",
+    "Docs & QA",
+    "Data & Reporting",
+    "Chief of Staff",
+    "Custom",
+];
+// shared/runtimes.ts DISPLAY_NAMES (isMissionRuntime)
+const RUNTIMES: [&str; 10] = [
+    "codex", "claude", "cursor", "gemini", "opencode", "copilot", "antigravity", "muse", "kilo", "acp",
+];
+const MODES: [&str; 5] = ["ask", "accept-edits", "approve-each", "plan", "auto"];
+
+fn control(c: char) -> bool {
+    matches!(c, '\u{0}'..='\u{1f}' | '\u{7f}')
+}
+/// teammate-store.ts: safeId
+fn safe_id(v: &Value) -> Option<&str> {
+    let s = v.as_str()?;
+    (!s.is_empty() && s.len() <= 64 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')).then_some(s)
+}
+/// teammate-store.ts: validName (length counted in UTF-16 units, as JavaScript counts it)
+fn valid_name(v: &Value) -> Option<String> {
+    let t = v.as_str()?.trim();
+    let n = t.encode_utf16().count();
+    (n > 0 && n <= 40 && !t.chars().any(control)).then(|| t.to_owned())
+}
+/// teammate-store.ts: validRoleTitle
+fn valid_role_title(v: &Value) -> Option<String> {
+    let t = v.as_str()?.trim();
+    let n = t.encode_utf16().count();
+    (n > 0 && n <= 60 && !t.chars().any(control)).then(|| t.to_owned())
+}
+/// teammate-store.ts: isTeammateFolder (absolute on either platform, bounded)
+fn teammate_folder(v: &Value) -> Option<String> {
+    let s = v.as_str()?;
+    let windows = {
+        let b = s.as_bytes();
+        (b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/')) || s.starts_with("\\\\")
+    };
+    (!s.trim().is_empty() && s.len() <= 4096 && (s.starts_with('/') || windows)).then(|| s.to_owned())
+}
+
+struct Route {
+    runtime: String,
+    model: String,
+    account: bool,
+}
+/// teammate-store.ts: isTeammateRoute. A malformed route reads as no route.
+fn route_of(v: &Value) -> Option<Route> {
+    let runtime = v["runtime"].as_str().filter(|r| RUNTIMES.contains(r))?;
+    let model = v["model"].as_str().filter(|m| !m.is_empty() && m.encode_utf16().count() <= 200)?;
+    v["mode"].as_str().filter(|m| MODES.contains(m))?;
+    let account = match &v["account"] {
+        Value::Null => false,
+        Value::String(a) => {
+            let ok = a.strip_prefix("account_").is_some_and(|h| h.len() == 32 && h.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')));
+            if !ok {
+                return None;
+            }
+            true
+        }
+        _ => return None,
+    };
+    if !v["effort"].is_null() && !v["effort"].as_str().is_some_and(|e| !e.is_empty() && e.len() <= 40) {
+        return None;
+    }
+    Some(Route { runtime: runtime.into(), model: model.into(), account })
+}
+
+/// teammate-store.ts: parsedFile / parsedTeammate, for the fields the window shows. The file is untrusted: a bad record
+/// is dropped (the rest of the roster stays usable); a file that does not parse, or has another schema, is unreadable.
+pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
+    const UNREADABLE: &str = "Locust's teammates.json could not be read.";
+    let file: Value = serde_json::from_str(text).map_err(|_| UNREADABLE.to_string())?;
+    if !file.is_object() || file["schemaVersion"] != 1 {
+        return Err(UNREADABLE.into());
+    }
+    let mut out: Vec<Teammate> = Vec::new();
+    for entry in file["teammates"].as_array().into_iter().flatten().take(MAX_TEAMMATES) {
+        let (Some(id), Some(name)) = (safe_id(&entry["teammateId"]), valid_name(&entry["name"])) else { continue };
+        let role = entry["role"].as_str().filter(|r| ROLES.contains(r));
+        let hue = entry["hue"].as_str().filter(|h| HUES.contains(h));
+        let created = entry["createdAt"].as_str().is_some_and(|c| chrono::DateTime::parse_from_rfc3339(c).is_ok());
+        let (Some(role), Some(_), true) = (role, hue, created) else { continue };
+        if out.iter().any(|t| t.id == id) {
+            continue;
+        }
+        let title = if role == "Custom" { valid_role_title(&entry["roleTitle"]) } else { None };
+        let route = route_of(&entry["route"]);
+        let (runtime, model, runs_in) = match &route {
+            Some(r) if r.runtime == "codex" && !r.account => (Some(r.runtime.clone()), Some(r.model.clone()), "ask".to_string()),
+            Some(r) => (Some(r.runtime.clone()), Some(r.model.clone()), IN_LOCUST.to_string()),
+            None => (None, None, IN_LOCUST.to_string()),
+        };
+        out.push(Teammate {
+            id: id.into(),
+            name,
+            role: title.unwrap_or_else(|| role.to_string()),
+            runtime,
+            model: model.filter(|m| m != "account-default"),
+            busy: false,
+            runs_in,
+            folder: teammate_folder(&entry["folder"]),
+        });
+    }
+    Ok(out)
+}
+
+/// Electron's roster. The file is opened for reading only; a missing file is an empty roster, as in Electron.
+pub fn roster(electron: &Path) -> Result<Vec<Teammate>, String> {
+    let path = electron.join("teammates.json");
+    let file = match std::fs::File::open(&path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(_) => return Err("Locust's teammates.json could not be read.".into()),
+    };
+    let mut text = String::new();
+    file.take(MAX_FILE_BYTES + 1).read_to_string(&mut text).map_err(|_| "Locust's teammates.json could not be read.".to_string())?;
+    if text.len() as u64 > MAX_FILE_BYTES {
+        return Err("Locust's teammates.json could not be read.".into());
+    }
+    parse_roster(&text)
+}
+
+pub fn load_roster() -> Result<Vec<Teammate>, String> {
+    roster(&electron_dir().ok_or("Locust's data folder could not be found on this computer.")?)
+}
+
+/// The folder Locust last had open (`workspace.json`, read-only), else Locust's default `~/Documents/Locust` if it exists.
+fn workspace_folder(electron: &Path) -> Option<PathBuf> {
+    let file = std::fs::File::open(electron.join("workspace.json")).ok()?;
+    let mut text = String::new();
+    file.take(64 * 1024).read_to_string(&mut text).ok()?;
+    let value: Value = serde_json::from_str(&text).ok()?;
+    let path = PathBuf::from(value["path"].as_str()?);
+    path.is_absolute().then_some(path).filter(|p| p.is_dir())
+}
+
+fn folder_for(teammate: &Teammate, electron: &Path) -> Result<PathBuf, String> {
+    let candidates = [
+        teammate.folder.as_ref().map(PathBuf::from),
+        workspace_folder(electron),
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Documents").join("Locust")),
+    ];
+    candidates
+        .into_iter()
+        .flatten()
+        .find(|p| p.is_absolute() && p.is_dir())
+        .and_then(|p| p.canonicalize().ok())
+        .ok_or_else(|| "No folder to work in. Open Locust once and choose a project folder.".to_string())
+}
+
+// ---- recents: both folders, native ones marked -------------------------------------------------------------------
+pub struct Listed {
+    pub summaries: Vec<ledger::Summary>,
+    pub native: HashSet<String>,
+}
+/// Electron's read-only list merged with the native one, newest first. None when neither folder could be listed.
+pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
+    let native_dir = store().and_then(|s| s.ledger_dir().ok());
+    let theirs = electron_ledger_dir().and_then(|d| ledger::try_list_recent(&d, limit).ok());
+    let mut ours = native_dir.as_ref().and_then(|d| ledger::try_list_recent(d, limit).ok());
+    // A native folder not made yet is simply empty; only the native engine reads that as "nothing to show".
+    if ours.is_none() && native_engine && native_dir.is_some_and(|d| !d.exists()) {
+        ours = Some(Vec::new());
+    }
+    if theirs.is_none() && ours.is_none() {
+        return None;
+    }
+    let native: HashSet<String> = ours.iter().flatten().map(|m| m.mission_id.clone()).collect();
+    let mut all: Vec<ledger::Summary> = theirs.into_iter().flatten().chain(ours.into_iter().flatten()).collect();
+    all.sort_by(|a, b| b.updated.cmp(&a.updated).then_with(|| a.mission_id.cmp(&b.mission_id)));
+    all.dedup_by(|a, b| a.mission_id == b.mission_id);
+    all.truncate(limit);
+    Some(Listed { summaries: all, native })
+}
+
+/// A Session over both folders (Electron's read-only, then native's), for any conversation.
+pub fn session(dir: PathBuf, id: String) -> ledger::Session {
+    let session = ledger::Session::new(dir, id);
+    match store().and_then(|s| s.ledger_dir().ok()) {
+        Some(native) => session.also_read(native),
+        None => session,
+    }
+}
+
+// ---- resume point: which Codex thread a follow-up reopens ---------------------------------------------------------
+fn find_ledger(id: &str) -> Option<PathBuf> {
+    if !ledger::safe_id(id) {
+        return None;
+    }
+    let native = store().and_then(|s| s.ledger_dir().ok());
+    [native, electron_ledger_dir()]
+        .into_iter()
+        .flatten()
+        .map(|d| d.join(format!("{id}.jsonl")))
+        .find(|p| p.is_file())
+}
+
+/// The conversation's newest turn right now: the chain walked from `conversation` over Electron's folder (read-only)
+/// and native's. A conversation that cannot be found is an error, never a guess.
+pub fn real_tip(conversation: &str) -> Result<String, String> {
+    let dir = electron_ledger_dir()
+        .or_else(|| store().and_then(|s| s.ledger_dir().ok()))
+        .ok_or("The conversation's ledger could not be found.")?;
+    session(dir, conversation.to_owned())
+        .chain_tip()
+        .map_err(|_| "The conversation's ledger could not be found.".to_string())
+}
+
+pub struct Prior {
+    pub runtime: String,
+    /// Its newest turn is still running (written to within the last 15 minutes, no terminal record).
+    pub running: bool,
+    /// The stored `runtimeThreadId`, when the session is still resumable.
+    pub thread: Option<String>,
+}
+/// Ports codex-mission.ts `runtimeThreadIdOf` and `resumableThreadOf`: the last runtimeThreadId in the mission's events;
+/// nothing after a failure that ended the session or a moved folder; else the one its own `continuesFrom` carried.
+pub fn prior_of(tip: &str) -> Result<Prior, String> {
+    let path = find_ledger(tip).ok_or("The conversation's ledger could not be found.")?;
+    let records = Tail::new(&path, 0).poll();
+    let meta = records.clone();
+    let meta = meta.iter().find(|r| r["recordType"] == "mission.created").map(|r| &r["metadata"]).ok_or("The conversation's ledger could not be read.")?;
+    let runtime = meta["runtime"].as_str().unwrap_or_default().to_owned();
+    let mut held: Option<String> = None;
+    let mut ended = false;
+    let mut moved = false;
+    for event in records.iter().filter_map(|r| r.get("event")) {
+        let payload = &event["payload"];
+        if event["type"] == "run.failed" && payload["sessionEnded"] == true {
+            held = None;
+            ended = true;
+            continue;
+        }
+        if event["type"] == "adapter.diagnostic" && payload["code"] == "host.folder_moved" {
+            moved = true;
+        }
+        if let Some(t) = payload["runtimeThreadId"].as_str().filter(|t| !t.is_empty()) {
+            held = Some(t.to_owned());
+        }
+    }
+    let thread = if moved || ended {
+        None
+    } else {
+        held.or_else(|| meta["continuesFrom"]["runtimeThreadId"].as_str().filter(|t| !t.is_empty() && t.len() <= 2048).map(str::to_owned))
+    };
+    let mut transcript = ledger::Transcript::default();
+    transcript.apply(records);
+    let fresh = std::fs::metadata(&path).and_then(|m| m.modified()).ok()
+        .and_then(|m| std::time::SystemTime::now().duration_since(m).ok())
+        .is_none_or(|age| age < ledger::ACTIVE_WINDOW);
+    Ok(Prior { runtime, running: transcript.running && fresh, thread })
+}
+
+// ---- running turns, stop ------------------------------------------------------------------------------------------
+static RUNNING: Mutex<Option<HashMap<String, Arc<AtomicBool>>>> = Mutex::new(None);
+
+fn with_running<T>(f: impl FnOnce(&mut HashMap<String, Arc<AtomicBool>>) -> T) -> T {
+    let mut guard = RUNNING.lock().unwrap_or_else(|e| e.into_inner());
+    f(guard.get_or_insert_with(HashMap::new))
+}
+
+struct Registered(Vec<String>);
+impl Drop for Registered {
+    fn drop(&mut self) {
+        with_running(|m| self.0.iter().for_each(|k| drop(m.remove(k))));
+    }
+}
+
+/// Did this process start a turn in this conversation that is still running? (Stop shows only for those.)
+pub fn owns(conversation: &str) -> bool {
+    with_running(|m| m.contains_key(conversation))
+}
+
+pub fn stop(conversation: &str) -> Result<String, String> {
+    with_running(|m| m.get(conversation).cloned())
+        .map(|flag| {
+            flag.store(true, Ordering::Relaxed);
+            "Stop requested".to_string()
+        })
+        .ok_or_else(|| "This window did not start that turn, so it will not stop it.".to_string())
+}
+
+static SHUTDOWN: Mutex<Option<std::thread::JoinHandle<()>>> = Mutex::new(None);
+
+/// On window close: ask every turn to stop, at once and without waiting. A background thread watches for each turn to
+/// write its terminal record (the runtime's own watchdog kills an unresponsive server after five seconds). The UI
+/// thread never waits here; `wait_for_shutdown` runs after the window is gone.
+pub fn shutdown_in_background() {
+    shutdown_in_background_for(Duration::from_secs(8));
+}
+
+pub fn shutdown_in_background_for(limit: Duration) {
+    with_running(|m| m.values().for_each(|f| f.store(true, Ordering::Relaxed)));
+    let handle = std::thread::Builder::new().name("native-shutdown".into()).spawn(move || {
+        let deadline = Instant::now() + limit;
+        while with_running(|m| !m.is_empty()) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    });
+    if let Ok(handle) = handle {
+        *SHUTDOWN.lock().unwrap_or_else(|e| e.into_inner()) = Some(handle);
+    }
+}
+
+/// After the window has closed (nothing is drawing any more): let the cancelled records land, bounded by the same
+/// limit the background thread uses. Returns at once when no turn was running.
+pub fn wait_for_shutdown() {
+    let handle = SHUTDOWN.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(handle) = handle {
+        let _ = handle.join();
+    }
+}
+
+/// The registry key of the turn the window may stop right now: the newest turn of what it shows, or the
+/// conversation itself, but only when THIS process started it. Ownership is the registry, not a flag the window keeps
+/// (which is cleared whenever the view changes).
+pub fn owned_key(tip: Option<&str>, conversation: Option<&str>) -> Option<String> {
+    [tip, conversation].into_iter().flatten().find(|k| !k.is_empty() && owns(k)).map(str::to_owned)
+}
+
+// ---- send --------------------------------------------------------------------------------------------------------
+pub struct Send {
+    pub teammate: Teammate,
+    /// The conversation being continued (its anchor id). The newest turn is never taken from the window: it is read
+    /// from disk, in both folders, when sending.
+    pub conversation: Option<String>,
+    pub prompt: String,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+}
+
+fn new_id() -> String {
+    format!(
+        "mission_native_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    )
+}
+
+/// Start (or continue) a Codex turn natively. Returns once the ledger exists and the turn is running on its own thread;
+/// the window follows the ledger file. `conversation_id` is the conversation's anchor, as Locust's door returns it.
+/// Never retried: a failure after the ledger exists is recorded in it, not tried again.
+pub fn send(job: Send) -> Result<Started, String> {
+    if !supported(&job.teammate) {
+        return Err(format!("{} runs in Locust for now.", job.teammate.name));
+    }
+    // One turn at a time per conversation: refused before anything is read or created.
+    if job.conversation.as_deref().is_some_and(owns) {
+        return Err("A turn is already running in this conversation.".into());
+    }
+    let store = store().ok_or("Native data folder could not be determined.")?;
+    let electron = store.electron().to_path_buf();
+    let (continues, resume) = match job.conversation.as_deref() {
+        None => (None, None),
+        Some(conversation) => {
+            // The newest turn is read from disk, in BOTH folders, at the moment of sending. What the window shows may
+            // be stale: Electron can have written a newer turn since the pane stopped polling. Electron does the same catch-up before it resumes (codex-mission.ts: `followUpOf =
+            // (await catchUpTerminal(named))?.latestMissionId ?? named`), then checks the turn it will continue.
+            let tip = real_tip(conversation)?;
+            let tip = tip.as_str();
+            if owns(tip) {
+                return Err("A turn is still running in that conversation. Wait for it or stop it first.".into());
+            }
+            let prior = prior_of(tip)?;
+            if prior.running {
+                return Err("A turn is still running in that conversation. Wait for it or stop it first.".into());
+            }
+            if prior.runtime != "codex" {
+                return Err("This conversation ran on another agent. Native continues Codex conversations only for now.".into());
+            }
+            let thread = prior.thread.ok_or("This conversation has no Codex session to continue.")?;
+            (Some(Continuation { mission_id: tip.to_owned(), thread: Some(thread.clone()) }), Some(thread))
+        }
+    };
+    let folder = folder_for(&job.teammate, &electron)?;
+    let mut command = command_for_turn().map_err(|e| e.to_string())?;
+    command.current_dir(&folder);
+    let model = job.model.clone().or_else(|| job.teammate.model.clone()).filter(|m| !m.is_empty() && m != "account-default");
+    let id = new_id();
+    let anchor = job.conversation.clone().unwrap_or_else(|| id.clone());
+    let flag = Arc::new(AtomicBool::new(false));
+    // Under the conversation's anchor and under this turn's own id: either opens the same turn.
+    let registered = with_running(|m| {
+        if m.contains_key(&anchor) {
+            return None;
+        }
+        m.insert(anchor.clone(), flag.clone());
+        m.insert(id.clone(), flag.clone());
+        Some(Registered(vec![anchor.clone(), id.clone()]))
+    })
+    .ok_or("A turn is already running in this conversation.")?;
+    let writer = LedgerWriter::create_continuing(
+        &store,
+        &id,
+        &job.prompt,
+        model.as_deref().unwrap_or("account-default"),
+        &command.get_program().to_string_lossy(),
+        continues.as_ref(),
+    )
+    .map_err(|e| e.to_string())?;
+    let turn = Turn { prompt: job.prompt, folder, model, effort: job.effort, resume };
+    std::thread::Builder::new()
+        .name("native-turn".into())
+        .spawn(move || run_turn(writer, command, turn, flag, registered))
+        .map_err(|e| format!("Could not start the turn: {e}"))?;
+    Ok(Started { conversation_id: anchor, mode: "ask".into() })
+}
+
+fn terminal(kind: &str) -> bool {
+    matches!(kind, "run.completed" | "run.failed" | "run.cancelled")
+}
+
+fn record_failure(writer: &mut LedgerWriter, cancelled: bool, error: &io::Error) {
+    let event = Normalizer::default().finish(cancelled, &error.to_string());
+    let _ = writer.append(&event.kind, json!(event.payload), event.thread.as_deref());
+}
+
+fn run_turn(mut writer: LedgerWriter, mut command: Command, turn: Turn, flag: Arc<AtomicBool>, registered: Registered) {
+    // Released the moment the ledger's last record is written, so the next send is not told this turn still runs.
+    let mut registered = Some(registered);
+    let mut runtime = match Codex::spawn(&mut command) {
+        Ok(r) => r.with_cancel(flag.clone()),
+        Err(e) => {
+            record_failure(&mut writer, false, &e);
+            return drop(registered.take());
+        }
+    };
+    if let Err(e) = runtime.start(&turn) {
+        let cancelled = flag.load(Ordering::Relaxed);
+        if cancelled {
+            let _ = runtime.stop();
+        }
+        record_failure(&mut writer, cancelled, &e);
+        return drop(registered.take());
+    }
+    let mut stopped = false;
+    loop {
+        if !stopped && flag.load(Ordering::Relaxed) {
+            stopped = true;
+            let _ = runtime.stop();
+        }
+        match runtime.next_event() {
+            Ok(Some(event)) => {
+                // An append that fails leaves the ledger as it is: nothing is retried, and the runtime is dropped.
+                if writer.append(&event.kind, event.payload, event.thread.as_deref()).is_err() || terminal(&event.kind) {
+                    return drop(registered.take());
+                }
+            }
+            Ok(None) => {}
+            Err(e) => {
+                record_failure(&mut writer, stopped, &e);
+                return drop(registered.take());
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;

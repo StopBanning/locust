@@ -2,11 +2,13 @@ mod engine;
 mod ledger;
 mod quick;
 mod store;
+mod native;
 mod ledger_write;
 mod runtime;
 mod run_cli;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
+use native::Kind;
 use rune::tok::type_;
 use rune::{
     Align, App, AppSpec, Chrome, Color, Cycle, Cx, El, Key, KeyEvent, Latest,
@@ -119,6 +121,8 @@ struct TurnPick { model: String, effort: Option<String> }
 struct OwnTurn { conversation: String, tip: Option<String>, before: Option<String> }
 
 struct State {
+    // Which engine this window runs on, shown in the status line. None until the team has loaded.
+    engine: Option<Kind>,
     teammates: Vec<Teammate>,
     selected: usize,
     // Fix: histories and conversation IDs survive team reordering and reloads.
@@ -149,7 +153,7 @@ struct State {
     ledger: Option<LedgerPane>,
     ledger_job: Latest<LedgerAnswer>,
     opening: Latest<Result<Reply, String>>,
-    team: Latest<Result<Vec<Teammate>, String>>,
+    team: Latest<Result<(Kind, Vec<Teammate>), String>>,
     sending: Latest<Result<Started, String>>,
     waiting: Latest<Result<Reply, String>>,
 }
@@ -157,6 +161,7 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
+            engine: None,
             teammates: Vec::new(),
             selected: 0,
             conversations: HashMap::new(),
@@ -222,8 +227,11 @@ type LedgerAnswer = Result<
     (ledger::Session, String),
 >;
 
+// Electron's ledger folder (read-only); native's own folder when there is no Electron one. A Session also reads
+// native's folder (`native::session`), so a conversation continues across both.
 fn ledger_dir() -> Option<std::path::PathBuf> {
-    engine::default_data_folder().map(|dir| dir.join("mission-ledger"))
+    native::electron_ledger_dir()
+        .or_else(|| native::store().and_then(|store| store.ledger_dir().ok()))
 }
 
 // Fix 2: check whether a request's (teammate_id, conversation_id) tag still matches the open view.
@@ -265,13 +273,13 @@ fn begin_ledger(
             if prev.conversation.conversation_id.as_deref() == Some(id.as_str()) =>
         {
             let worker = prev.worker.take().unwrap_or_else(|| {
-                ledger::Session::new(dir.clone(), id.clone())
+                native::session(dir.clone(), id.clone())
             });
             (prev.items, worker, prev.snapshot)
         }
         _ => (
             Vec::new(),
-            ledger::Session::new(dir.clone(), id.clone()),
+            native::session(dir.clone(), id.clone()),
             ledger::Snapshot::default(),
         ),
     };
@@ -794,6 +802,16 @@ fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) ->
     messages
 }
 
+/// Item 1: pick the engine. `LOCUST_NATIVE_ENGINE=1` forces native; otherwise the Electron door is used while it
+/// answers, and native takes over only when the door is unreachable (a door that answered and refused is not down).
+fn choose_engine() -> Result<(Kind, Vec<Teammate>), String> {
+    native::choose(
+        native::forced(),
+        || Engine::local().and_then(|engine| engine.teammates()),
+        native::load_roster,
+    )
+}
+
 fn load_team(s: &mut State) {
     if s.demo || s.team.is_pending() || s.flight.is_some() {
         return;
@@ -801,7 +819,7 @@ fn load_team(s: &mut State) {
     s.load_error = None;
     s.status = "Loading teammates…".into();
     s.status_tone = StatusTone::Muted;
-    s.team.request((), |()| Engine::local()?.teammates());
+    s.team.request((), |()| choose_engine());
     refresh_recent(s);
 }
 
@@ -833,7 +851,14 @@ fn can_send(s: &State) -> bool {
         && s.opening_teammate.is_none()
         && !s.ledger.as_ref().is_some_and(|p| p.loading)
         && selected_conversation(s).is_some()
+        && !native_blocked(s)
         && !s.draft.text.trim().is_empty()
+}
+
+/// On the native engine, a teammate that is not a Codex one runs in Locust for now: nothing is sent.
+fn native_blocked(s: &State) -> bool {
+    s.engine == Some(Kind::Native)
+        && selected_conversation(s).is_some_and(|(teammate, _)| !native::supported(teammate))
 }
 
 fn set_status(s: &mut State, id: &str, message: &str, ink: StatusTone) {
@@ -886,11 +911,23 @@ fn send(s: &mut State, _: &mut Tx) {
 
     let pick = take_turn_pick(s, &teammate_id);
     s.model_menu = None;
+    // On the native engine the turn runs here, in this process, not through the Electron door.
+    let native_job = (s.engine == Some(Kind::Native)).then(|| flight_teammate(s, &teammate_id));
     s.sending.request(
-        (teammate_id, conversation_id, message, pick),
-        |(id, conversation, message, pick)| {
+        (teammate_id, conversation_id, message, pick, native_job),
+        |(id, conversation, message, pick, native_job)| {
             let model = pick.as_ref().map(|p| p.model.as_str());
             let effort = pick.as_ref().and_then(|p| p.effort.as_deref());
+            if let Some(teammate) = native_job {
+                let teammate = teammate.ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
+                return native::send(native::Send {
+                    teammate,
+                    conversation,
+                    prompt: message,
+                    model: model.map(str::to_owned),
+                    effort: effort.map(str::to_owned),
+                });
+            }
             let engine = Engine::local()?;
             match conversation {
                 Some(id) => engine.send(&id, &message, model, effort),
@@ -900,12 +937,23 @@ fn send(s: &mut State, _: &mut Tx) {
     );
 }
 
+fn flight_teammate(s: &State, id: &str) -> Option<Teammate> {
+    s.flight.as_ref().and_then(|f| f.header.clone()).filter(|h| h.id == id)
+        .or_else(|| s.teammates.iter().find(|t| t.id == id).cloned())
+}
+
 fn take_turn_pick(s: &mut State, teammate: &str) -> Option<TurnPick> {
     s.picks.remove(teammate)
 }
 
 fn open_models(s: &mut State, id: String) {
     if s.demo { return; }
+    if s.engine == Some(Kind::Native) {
+        // The model list comes from Locust's door; native runs the teammate's own model for now.
+        s.status = "Choosing a model for a turn runs in Locust for now; native uses the teammate's own model.".into();
+        s.status_tone = StatusTone::Muted;
+        return;
+    }
     if s.model_menu.as_ref() == Some(&id) { s.model_menu = None; return; }
     if s.models.get(&id).is_some_and(Vec::is_empty) {
         s.models.remove(&id);
@@ -917,8 +965,20 @@ fn open_models(s: &mut State, id: String) {
     });
 }
 
+/// Native: the turn this window may stop, from the process's own registry. It survives leaving the view and
+/// reopening the turn from Recent, because ownership is the registry and not `own_turn` (cleared on every view change).
+fn native_stop_key(s: &State) -> Option<String> {
+    if s.engine != Some(Kind::Native) { return None; }
+    match &s.ledger {
+        Some(p) if p.snapshot.running => native::owned_key(Some(&p.snapshot.tip), p.conversation.conversation_id.as_deref()),
+        Some(_) => None,
+        None => selected_conversation(s).and_then(|(_, c)| native::owned_key(None, c.conversation_id.as_deref())),
+    }
+}
+
 fn can_stop(s: &State) -> bool {
     if s.demo || s.sending.is_pending() || s.flight.is_none() { return false; }
+    if s.engine == Some(Kind::Native) { return native_stop_key(s).is_some(); }
     let Some(own) = &s.own_turn else { return false; };
     let Some((_, c)) = selected_conversation(s) else { return false; };
     c.conversation_id.as_deref() == Some(own.conversation.as_str())
@@ -927,9 +987,18 @@ fn can_stop(s: &State) -> bool {
 
 fn stop(s: &mut State) {
     if !can_stop(s) || s.stopping.is_pending() { return; }
+    if let Some(key) = native_stop_key(s) {
+        s.stopping.request(key, |id| {
+            let result = native::stop(&id);
+            (id, result)
+        });
+        return;
+    }
     if let Some(own) = &s.own_turn {
         s.stopping.request(own.conversation.clone(), |id| {
-            let result = Engine::local().and_then(|e| e.stop_turn(&id));
+            // A turn this process runs stops through the runtime (turn/interrupt, recorded as cancelled); any other
+            // goes through Locust's door.
+            let result = if native::owns(&id) { native::stop(&id) } else { Engine::local().and_then(|e| e.stop_turn(&id)) };
             (id, result)
         });
     }
@@ -937,6 +1006,12 @@ fn stop(s: &mut State) {
 
 fn carry(s: &mut State, id: String, runtime: String, model: String) {
     if s.flight.is_some() || s.sending.is_pending() { return; }
+    if s.engine == Some(Kind::Native) {
+        s.status = "Carrying on with another agent runs in Locust for now.".into();
+        s.status_tone = StatusTone::Muted;
+        s.model_menu = None;
+        return;
+    }
     let Some((header, c)) = selected_conversation(s) else { return; };
     let header_id = header.id.clone();
     let conversation_id = c.conversation_id.clone();
@@ -966,30 +1041,33 @@ fn refresh_recent(s: &mut State) {
     if s.demo {
         return;
     }
-    s.recents.request((), |()| {
-        if let Some(dir) = ledger_dir() {
-            if let Ok(summaries) = ledger::try_list_recent(&dir, 12) {
-                let rows = summaries.iter().map(|m| ConversationRow {
-                    id: m.mission_id.clone(),
-                    teammate: engine::runtime_name(&m.runtime).into(),
-                    title: m.title.clone(),
-                    started_by: "ledger".into(),
-                    state: if m.running {
-                        "running"
-                    } else if m.failed {
-                        "failed"
-                    } else {
-                        "completed"
-                    }.into(),
-                    updated: m.updated.clone(),
-                }).collect();
-                return Ok(RecentBatch {
-                    rows,
-                    summaries: summaries.into_iter()
-                        .map(|m| (m.mission_id.clone(), m)).collect(),
-                    local: true,
-                });
-            }
+    let on_native = s.engine == Some(Kind::Native);
+    s.recents.request((), move |()| {
+        // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
+        if let Some(listed) = native::list_recent(12, on_native) {
+            let rows = listed.summaries.iter().map(|m| ConversationRow {
+                id: m.mission_id.clone(),
+                teammate: engine::runtime_name(&m.runtime).into(),
+                title: m.title.clone(),
+                started_by: if listed.native.contains(&m.mission_id) { "native" } else { "ledger" }.into(),
+                state: if m.running {
+                    "running"
+                } else if m.failed {
+                    "failed"
+                } else {
+                    "completed"
+                }.into(),
+                updated: m.updated.clone(),
+            }).collect();
+            return Ok(RecentBatch {
+                rows,
+                summaries: listed.summaries.into_iter()
+                    .map(|m| (m.mission_id.clone(), m)).collect(),
+                local: true,
+            });
+        }
+        if on_native {
+            return Err("Local conversations could not be read.".to_string());
         }
         // An unreadable local folder falls back to MCP and its visibility rules.
         Ok(RecentBatch {
@@ -1187,7 +1265,11 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if event.key == Key::Escape {
         if s.flight.is_some() || s.opening_teammate.is_some() {
             detach(s);
-            s.status = "Stopped watching; the turn goes on in Locust".into();
+            s.status = if s.engine == Some(Kind::Native) {
+                "Stopped watching; the turn goes on in this window"
+            } else {
+                "Stopped watching; the turn goes on in Locust"
+            }.into();
             s.status_tone = StatusTone::Muted;
         } else {
             s.draft.clear();
@@ -1396,6 +1478,9 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     s.own_turn = None;
                     s.status = "Stop requested".into();
                     s.status_tone = StatusTone::Muted;
+                } else if s.engine == Some(Kind::Native) {
+                    s.status = "Stop requested".into();
+                    s.status_tone = StatusTone::Muted;
                 }
             }
             Err(error) => { s.status = error; s.status_tone = StatusTone::Red; }
@@ -1405,7 +1490,9 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if !s.model_job.is_pending() && s.load_error.is_none() {
         let id = selected_conversation(s)
             .and_then(|(t, _)| t.runtime.as_ref().map(|_| t.id.clone()));
-        if let Some(id) = id && id != LEDGER_TARGET && !s.models.contains_key(&id) {
+        if let Some(id) = id && id != LEDGER_TARGET && !s.models.contains_key(&id)
+            && s.engine != Some(Kind::Native)
+        {
             s.model_job.request(id, |id| {
                 let result = Engine::local().and_then(|e| e.list_models(Some(&id)));
                 (id, result)
@@ -1416,7 +1503,15 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if let Some(result) = s.team.take() {
         changed = true;
         match result {
-            Ok(team) => apply_team(s, team),
+            Ok((kind, team)) => {
+                let changed_engine = s.engine != Some(kind);
+                s.engine = Some(kind);
+                apply_team(s, team);
+                // The first list was asked before the engine was known; native reads its own folder too.
+                if changed_engine {
+                    refresh_recent(s);
+                }
+            }
             Err(error) => {
                 s.status = error.clone();
                 s.status_tone = StatusTone::Red;
@@ -1441,7 +1536,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             match result {
                 Ok(started) => {
                     let same_conv = flight_conv.as_deref() == Some(started.conversation_id.as_str());
-                    let use_ledger = s.ledger_available || s.ledger.is_some();
+                    let use_ledger = s.ledger_available || s.ledger.is_some() || s.engine == Some(Kind::Native);
                     s.own_turn = if !same_conv {
                         Some(OwnTurn {
                             conversation: started.conversation_id.clone(),
@@ -1518,7 +1613,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         if pane.worker.is_none()
                             && let Some(id) = &pane.conversation.conversation_id
                         {
-                            pane.worker = Some(ledger::Session::new(
+                            pane.worker = Some(native::session(
                                 pane.dir.clone(), id.clone(),
                             ));
                         }
@@ -1596,6 +1691,18 @@ fn on_close(s: &mut State, _: &mut Tx) {
     s.ledger = None;
     s.status.clear();
     s.status_tone = StatusTone::Muted;
+    // Native turns live in this process: ask each to stop now and let a background thread watch them write their
+    // cancelled records. The UI thread does not wait; `main` waits after the window is gone.
+    native::shutdown_in_background();
+}
+
+/// The agent line, plus what native cannot yet run: "runs in Locust for now".
+fn agent_line(s: &State, teammate: &Teammate) -> String {
+    if s.engine == Some(Kind::Native) && !native::supported(teammate) {
+        format!("{} · runs in Locust for now", agent(teammate))
+    } else {
+        agent(teammate)
+    }
 }
 
 fn agent(teammate: &Teammate) -> String {
@@ -1617,6 +1724,7 @@ fn mode_word(mode: &str) -> &str {
         "accept-edits" => "Edit",
         "approve-each" => "Approve each action",
         "auto" => "Auto",
+        native::IN_LOCUST => "Locust for now",
         other => other,
     }
 }
@@ -1674,7 +1782,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                         .color(p.secondary).w_full().pl(30.0).wrap_anywhere(),
                 )
                 .child(
-                    text(agent(teammate)).font(type_::LABEL)
+                    text(agent_line(s, teammate)).font(type_::LABEL)
                         .color(p.muted).w_full().pl(30.0).wrap_anywhere(),
                 )
                 .on_press_tx(move |s: &mut State, tx| {
@@ -1737,8 +1845,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                     .child(title)
                     .child(
                         text(format!(
-                            "{} · {}",
+                            "{}{} · {}",
                             item.teammate,
+                            if item.started_by == "native" { " · native" } else { "" },
                             when(&item.updated, clock_seconds()),
                         ))
                         .font(type_::LABEL).color(p.muted).w_full().truncate(),
@@ -1849,10 +1958,23 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .color(p.status(s.status_tone))
                 .grow(1.0).shrink().wrap_anywhere().selectable(true),
         );
+        // Which engine this window is on, always visible (AGENTS.md: a switch is never silent).
+        if let Some(kind) = s.engine {
+            status = status.child(
+                text(kind.label()).key("engine-label").font(type_::LABEL).color(p.muted),
+            );
+        }
 
         let composer = text_input(&s.draft, type_::BODY)
             .key("composer").single_line()
-            .placeholder(format!("Message {}", teammate.name), p.muted)
+            .placeholder(
+                if native_blocked(s) {
+                    format!("{} runs in Locust for now", teammate.name)
+                } else {
+                    format!("Message {}", teammate.name)
+                },
+                p.muted,
+            )
             .color(p.text).grow(1.0).shrink().h(48.0).padding(12.0)
             .radius(9.0).fill(p.field).border(1.0, p.hairline)
             .on_edit(|s: &mut State| &mut s.draft)
@@ -1915,7 +2037,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                     .child(
                         text(teammate.name.clone()).font(type_::TITLE).color(p.text),
                     )
-                    .child(text(agent(teammate)).font(type_::LABEL).color(p.muted)),
+                    .child(text(agent_line(s, teammate)).font(type_::LABEL).color(p.muted)),
             )
             .child(transcript)
             .child(status)
@@ -2229,6 +2351,32 @@ fn thread_rich_open_scene(s: &mut State) {
 fn thread_rich_open_light_scene(s: &mut State) { thread_rich_open_scene(s); s.appearance=Some(false); }
 fn thread_rich_light_scene(s: &mut State) { thread_rich_scene(s); s.appearance=Some(false); }
 
+/// The native engine, synthetic: a native-run Codex conversation streaming, a teammate that runs in Locust for now, and
+/// a native-marked row in Recent. No data folder is read.
+fn native_scene(s: &mut State, live: bool) {
+    ledger_scene(s, live, false);
+    s.engine = Some(Kind::Native);
+    if let Some(t) = s.teammates.get_mut(1) {
+        t.runs_in = native::IN_LOCUST.into();
+    }
+    if let Some(row) = s.recent.get_mut(0) {
+        row.started_by = "native".into();
+        row.teammate = "Codex".into();
+        row.title = "Continue the native preview".into();
+    }
+    if live {
+        // This window started the turn, so Stop shows.
+        s.own_turn = Some(OwnTurn {
+            conversation: "synthetic-ledger".into(),
+            tip: Some("synthetic-ledger".into()),
+            before: None,
+        });
+    }
+}
+
+fn native_scene_idle(s: &mut State) { native_scene(s, false); }
+fn native_scene_live(s: &mut State) { native_scene(s, true); }
+
 fn ledger_transcript_scene(s: &mut State) {
     ledger_scene(s, false, false);
 }
@@ -2369,6 +2517,8 @@ fn main() {
             ("ledger-live", ledger_live_scene),
             ("ledger-transcript-light", ledger_transcript_light_scene),
             ("ledger-live-light", ledger_live_light_scene),
+            ("native", native_scene_idle),
+            ("native-live", native_scene_live),
         ],
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })
@@ -2379,6 +2529,8 @@ fn main() {
     })
     .on_close(on_close)
     .run();
+    // The window is gone: let cancelled records land (bounded; an unresponsive server is killed by its watchdog).
+    native::wait_for_shutdown();
 }
 
 #[cfg(test)]
@@ -2620,6 +2772,8 @@ mod tests {
 
     #[test]
     fn escape_stops_watching_then_clears_draft_and_close_clears_state() {
+        // on_close asks every native turn in this process to stop; hold the lock the native tests run under.
+        let _serial = native::hooks::LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let mut s = sample();
         s.draft.replace_text("new draft");
         s.flight = Some(Flight {
@@ -3031,5 +3185,227 @@ mod daily_controls_tests {
         ledger_tick(&mut s, 1.1, &mut tx);
         assert!(s.flight.is_some(), "window follows the external turn");
         assert!(!can_stop(&s), "external turn must not expose Stop");
+    }
+}
+
+#[cfg(test)]
+mod native_window_tests {
+    //! The window's own functions (`send`, `poll`, `can_stop`, `stop`) on the native engine, against the fake
+    //! app-server and a temporary data folder. No window, no Codex, no Electron.
+    use super::*;
+    use crate::{ledger::Item, ledger_write::LedgerWriter, store::Store};
+    use serde_json::json;
+    use std::path::PathBuf;
+
+    struct Dirs(PathBuf);
+    impl Drop for Dirs {
+        fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
+    }
+
+    fn setup() -> (Dirs, Store, State) {
+        let root = std::env::temp_dir().join(format!("locust-m2-window-{}-{}", std::process::id(),
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
+        std::fs::create_dir_all(root.join("work")).unwrap();
+        let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+        let mut s = State::default();
+        s.engine = Some(Kind::Native);
+        apply_team(&mut s, vec![
+            Teammate { id: "tm_codec".into(), name: "Codec".into(), role: "Code & Migrations".into(), runtime: Some("codex".into()),
+                model: Some("synthetic-model".into()), busy: false, runs_in: "ask".into(), folder: Some(root.join("work").to_string_lossy().into()) },
+            Teammate { id: "tm_argon".into(), name: "Argon".into(), role: "Code & Migrations".into(), runtime: Some("antigravity".into()),
+                model: Some("m".into()), busy: false, runs_in: native::IN_LOCUST.into(), folder: None },
+        ]);
+        (Dirs(root), store, s)
+    }
+
+    fn fake(scenario: &str) -> Option<(PathBuf, Vec<String>)> {
+        Some((PathBuf::from("python3"), vec![
+            concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixtures/m1-app-server.py").into(), scenario.into()]))
+    }
+
+    /// Pump `poll` the way the window does until `done`, or fail.
+    fn pump(s: &mut State, what: &str, mut done: impl FnMut(&State) -> bool) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(20);
+        let mut now = 0.0;
+        let mut tx = Tx::default();
+        while !done(s) {
+            assert!(std::time::Instant::now() < deadline, "timed out waiting for {what}: status {:?}", s.status);
+            poll(s, now, &mut tx);
+            now += 0.3;
+            std::thread::sleep(Duration::from_millis(15));
+        }
+    }
+
+    fn answers(s: &State) -> usize {
+        s.ledger.as_ref().map_or(0, |p| p.items.iter().filter(|i| matches!(i, Item::Assistant { text, .. } if text == "Hello world")).count())
+    }
+    fn idle(s: &State) -> bool {
+        s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running && p.after_tip.is_none())
+    }
+
+    #[test]
+    fn a_native_window_starts_continues_and_stops_a_codex_conversation_without_electron() {
+        let (_dirs, store, mut s) = setup();
+        let _g = native::hooks::install(store, fake("success"));
+        let mut tx = Tx::default();
+
+        // Start. The status line names the engine; Argon (not Codex) is marked as running in Locust for now.
+        assert_eq!(s.engine.unwrap().label(), "Engine: native");
+        assert_eq!(agent_line(&s, &s.teammates[1]), "Antigravity · m · runs in Locust for now");
+        assert_eq!(agent_line(&s, &s.teammates[0]), "Codex · synthetic-model");
+        s.draft.replace_text("Synthetic prompt");
+        assert!(can_send(&s));
+        send(&mut s, &mut tx);
+        pump(&mut s, "the first answer", |s| answers(s) == 1 && idle(s));
+        let first = s.ledger.as_ref().unwrap().conversation.conversation_id.clone().unwrap();
+        assert!(first.starts_with("mission_native_"));
+        assert!(!can_stop(&s), "a finished turn has no Stop");
+
+        // Continue: the same conversation, a second prompt, thread/resume under the fake's checks.
+        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("resume"));
+        s.draft.replace_text("Synthetic follow-up");
+        send(&mut s, &mut tx);
+        pump(&mut s, "the continued answer", |s| answers(s) == 2 && idle(s));
+        let pane = s.ledger.as_ref().unwrap();
+        assert_eq!(pane.conversation.conversation_id.as_deref(), Some(first.as_str()));
+        assert_ne!(pane.snapshot.tip, first, "a continuation is a new ledger file chained to the first");
+        let users: Vec<_> = pane.items.iter().filter_map(|i| if let Item::User(u) = i { Some(u.clone()) } else { None }).collect();
+        assert_eq!(users, ["Synthetic prompt", "Synthetic follow-up"]);
+
+        // Stop: only for the turn this window started.
+        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("resume-interrupt"));
+        s.draft.replace_text("Synthetic follow-up");
+        send(&mut s, &mut tx);
+        pump(&mut s, "Stop to appear", can_stop);
+        assert!(s.own_turn.is_some());
+        stop(&mut s);
+        pump(&mut s, "the stopped turn", |s| s.stopping.is_pending() == false && s.ledger.as_ref().is_some_and(|p| !p.snapshot.running)
+            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped"))));
+        assert!(s.own_turn.is_none() && !can_stop(&s));
+        assert!(!s.ledger.as_ref().unwrap().snapshot.failed, "stopped is cancelled, not failed");
+
+        // Recent shows the native conversation, marked.
+        s.recents.request((), move |()| {
+            let listed = native::list_recent(12, true).ok_or_else(|| "none".to_string())?;
+            Ok(RecentBatch { rows: listed.summaries.iter().map(|m| ConversationRow { id: m.mission_id.clone(), teammate: "Codex".into(),
+                title: m.title.clone(), started_by: if listed.native.contains(&m.mission_id) { "native" } else { "ledger" }.into(),
+                state: "completed".into(), updated: m.updated.clone() }).collect(), summaries: HashMap::new(), local: true })
+        });
+        pump(&mut s, "recents", |s| !s.recent.is_empty());
+        assert!(s.recent.iter().all(|r| r.started_by == "native"));
+        assert!(s.recent.len() >= 3, "every native turn is a row: {}", s.recent.len());
+    }
+
+    #[test]
+    fn stop_is_never_offered_for_a_turn_another_process_started() {
+        let (_dirs, store, mut s) = setup();
+        let _g = native::hooks::install(store.clone(), None);
+        // A running ledger this process did not start (no registry entry).
+        let mut w = LedgerWriter::create(&store, "someone_elses", "Prompt", "m", "x").unwrap();
+        w.append("run.started", json!({"runtimeThreadId":"t"}), Some("t")).unwrap();
+        let header = s.teammates[0].clone();
+        begin_ledger(&mut s, "someone_elses".into(), String::new(), header, None, &mut Tx::default());
+        pump(&mut s, "the live view", |s| s.ledger.as_ref().is_some_and(|p| p.snapshot.running));
+        assert!(!can_stop(&s));
+        // Even a forged ownership record is not enough on the native engine: the process must hold the turn.
+        s.own_turn = Some(OwnTurn { conversation: "someone_elses".into(), tip: Some("someone_elses".into()), before: None });
+        assert!(!can_stop(&s), "native ownership is the registry, not a flag in the window");
+        assert!(native::stop("someone_elses").is_err());
+    }
+
+    #[test]
+    fn stop_survives_reopening_an_owned_native_turn_from_recent() {
+        let (_dirs, store, mut s) = setup();
+        let _g = native::hooks::install(store, fake("resume-interrupt"));
+        // An earlier native conversation to continue.
+        let mut tx = Tx::default();
+        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("success"));
+        s.draft.replace_text("Synthetic prompt");
+        send(&mut s, &mut tx);
+        pump(&mut s, "the first answer", |s| answers(s) == 1 && idle(s));
+        let anchor = s.ledger.as_ref().unwrap().conversation.conversation_id.clone().unwrap();
+        // Start a long turn and wait for Stop.
+        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("resume-interrupt"));
+        s.draft.replace_text("Synthetic follow-up");
+        send(&mut s, &mut tx);
+        pump(&mut s, "Stop to appear", can_stop);
+        // Leave the view (another teammate), then reopen the running turn from Recent.
+        select_teammate(&mut s, "tm_argon", &mut tx);
+        assert!(s.ledger.is_none() && !can_stop(&s));
+        let listed = native::list_recent(12, true).unwrap();
+        let running = listed.summaries.iter().find(|m| m.running).expect("a running native turn").clone();
+        s.ledger_summaries.insert(running.mission_id.clone(), running.clone());
+        open_recent(&mut s, ConversationRow { id: running.mission_id.clone(), teammate: "Codex".into(), title: running.title.clone(),
+            started_by: "native".into(), state: "running".into(), updated: running.updated.clone() }, &mut tx);
+        assert!(s.own_turn.is_none(), "the window's own flag was cleared by leaving the view");
+        pump(&mut s, "the reopened turn to stream", |s| s.ledger.as_ref().is_some_and(|p| p.snapshot.running) && s.flight.is_some());
+        assert!(can_stop(&s), "ownership is the process registry: Stop stays for an owned turn after reopening");
+        stop(&mut s);
+        pump(&mut s, "the stopped turn", |s| s.ledger.as_ref().is_some_and(|p| !p.snapshot.running)
+            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped"))));
+        assert!(!can_stop(&s));
+        let _ = anchor;
+    }
+
+    #[test]
+    fn a_stale_completed_pane_cannot_send_beside_a_turn_started_elsewhere() {
+        let (dirs, store, mut s) = setup();
+        let _g = native::hooks::install(store.clone(), fake("resume"));
+        // Electron's completed conversation, shown in the pane.
+        let ledger = dirs.0.join("electron/mission-ledger");
+        let mk = |id: &str, parent: Option<&str>, thread: &str, done: bool| {
+            let mut meta = json!({"missionId":id,"prompt":format!("prompt {id}"),"runtime":"codex","model":"synthetic-model","createdAt":"2026-11-01T00:00:00.000Z"});
+            if let Some(p) = parent { meta["continuesFrom"] = json!({"missionId":p,"checkpointEpoch":1,"reason":"follow-up"}); }
+            let mut lines = vec![json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"metadata":meta}),
+                json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-11-01T00:00:01.000Z","type":"run.started","payload":{"runtimeThreadId":thread}}})];
+            if done { lines.push(json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"occurredAt":"2026-11-01T00:00:02.000Z","type":"run.completed","payload":{"runtimeThreadId":thread}}})); }
+            std::fs::write(ledger.join(format!("{id}.jsonl")), lines.iter().map(|l| format!("{l}\n")).collect::<String>()).unwrap();
+        };
+        mk("win_a", None, "thread_old", true);
+        let old = std::time::SystemTime::now() - Duration::from_secs(3600);
+        std::fs::File::options().write(true).open(ledger.join("win_a.jsonl")).unwrap().set_modified(old).unwrap();
+        let header = s.teammates[0].clone();
+        let mut tx = Tx::default();
+        begin_ledger(&mut s, "win_a".into(), String::new(), header, None, &mut tx);
+        pump(&mut s, "the completed view", |s| s.ledger.as_ref().is_some_and(|p| !p.loading));
+        assert_eq!(s.ledger.as_ref().unwrap().snapshot.tip, "win_a");
+        // Electron starts child B while the idle pane has stopped polling.
+        mk("win_b", Some("win_a"), "thread_fake", false);
+        s.draft.replace_text("Synthetic follow-up");
+        assert!(can_send(&s), "the pane still looks idle: the window cannot know");
+        send(&mut s, &mut tx);
+        pump(&mut s, "the refusal", |s| s.sending.is_pending() == false && s.flight.is_none() && s.status.contains("still running"));
+        assert!(s.status.contains("still running"), "{}", s.status);
+        assert_eq!(s.status_tone as u8, StatusTone::Red as u8, "a refusal is shown, not swallowed");
+        assert_eq!(s.draft.text, "Synthetic follow-up", "the unsent message is put back");
+        assert!(!dirs.0.join("native/mission-ledger").exists() || std::fs::read_dir(dirs.0.join("native/mission-ledger")).unwrap().count() == 0);
+    }
+
+    #[test]
+    fn a_teammate_native_cannot_run_sends_nothing() {
+        let (dirs, store, mut s) = setup();
+        let _g = native::hooks::install(store, fake("success"));
+        select_teammate(&mut s, "tm_argon", &mut Tx::default());
+        s.draft.replace_text("Synthetic prompt");
+        assert!(native_blocked(&s));
+        assert!(!can_send(&s), "Send is off for a teammate that runs in Locust for now");
+        // Even if a send were forced, the engine refuses and creates no ledger.
+        let refused = native::send(native::Send { teammate: s.teammates[1].clone(), conversation: None,
+            prompt: "x".into(), model: None, effort: None });
+        assert!(refused.unwrap_err().contains("runs in Locust for now"));
+        assert!(!dirs.0.join("native/mission-ledger").exists());
+    }
+
+    #[test]
+    fn door_engine_still_goes_through_the_door_path() {
+        let (_dirs, _store, mut s) = setup();
+        s.engine = Some(Kind::Door);
+        select_teammate(&mut s, "tm_argon", &mut Tx::default());
+        s.draft.replace_text("hello");
+        assert!(!native_blocked(&s), "on the door every teammate sends as before");
+        assert!(can_send(&s));
+        assert_eq!(agent_line(&s, &s.teammates[1]), "Antigravity · m");
+        assert!(!can_stop(&s));
     }
 }

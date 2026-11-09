@@ -6,6 +6,7 @@ use std::{
     process::{Child, Command, Stdio},
     sync::{
         Arc, Condvar, Mutex,
+        atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
     },
     time::{Duration, Instant},
@@ -20,6 +21,10 @@ pub struct Codex {
     queued: VecDeque<Event>,
     request_id: u64,
     stopping: Option<Instant>,
+    /// Set by a host (the window) that wants the handshake abandoned; the CLI uses `run_cli::interrupted`.
+    cancel: Option<Arc<AtomicBool>>,
+    /// A stop was asked before the turn id was known; the interrupt goes out as soon as it is.
+    interrupt_owed: bool,
 }
 #[derive(Default)]
 struct ControlState {
@@ -143,7 +148,16 @@ impl Codex {
             queued: VecDeque::new(),
             request_id: 0,
             stopping: None,
+            cancel: None,
+            interrupt_owed: false,
         })
+    }
+    pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
+        self.cancel = Some(flag);
+        self
+    }
+    fn cancelled(&self) -> bool {
+        crate::run_cli::interrupted() || self.cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
     }
     fn send(&mut self, v: Value) -> io::Result<()> {
         let mut bytes = serde_json::to_vec(&v)?;
@@ -212,7 +226,7 @@ impl Codex {
             if Instant::now() >= deadline {
                 return Err(err(format!("Codex timed out answering {method}")));
             }
-            if crate::run_cli::interrupted() {
+            if self.cancelled() {
                 return Err(err("Interrupted before the turn started"));
             }
             let Some(v) = self.receive()? else { continue };
@@ -267,7 +281,19 @@ impl Runtime for Codex {
         self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
         let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
         let config = read_only_config(&settings["config"])?;
-        let result = self.request("thread/start",json!({"cwd":turn.folder,"sandbox":"read-only","approvalPolicy":"never","config":config}))?;
+        // Ports codex-app-server-run.ts handshake: `thread/start`, or `thread/resume` with the prior thread id and
+        // `excludeTurns` (without it the answer carries the whole history as one line, past the 8 MiB limit).
+        let result = match &turn.resume {
+            None => self.request("thread/start",json!({"cwd":turn.folder,"sandbox":"read-only","approvalPolicy":"never","config":config}))?,
+            Some(prior) => {
+                let mut params = json!({"threadId":prior,"excludeTurns":true,"cwd":turn.folder,"sandbox":"read-only","approvalPolicy":"never","config":config});
+                // The model on the THREAD too (0.864): reopening on the turn's own model leaves nothing to warn about.
+                if let Some(model) = turn.model.as_deref().filter(|m| !m.trim().is_empty()) {
+                    params["model"] = json!(model);
+                }
+                self.request("thread/resume", params)?
+            }
+        };
         let thread = result["thread"]["id"]
             .as_str()
             .filter(|s| !s.is_empty())
@@ -277,6 +303,10 @@ impl Runtime for Codex {
         let mut params = json!({"threadId":thread,"approvalPolicy":"never","input":[{"type":"text","text":turn.prompt}],"summary":"detailed"});
         if let Some(model) = &turn.model {
             params["model"] = json!(model);
+        }
+        // Only a plain word is passed as effort: a malformed one is refused by the server and takes the turn with it.
+        if let Some(effort) = turn.effort.as_deref().filter(|e| (1..=16).contains(&e.len()) && e.bytes().all(|b| b.is_ascii_lowercase())) {
+            params["effort"] = json!(effort);
         }
         let result = self.request("turn/start", params)?;
         self.normal.turn = result["turn"]["id"]
@@ -303,6 +333,9 @@ impl Runtime for Codex {
                     .finish(true, "Codex cancellation timed out; process killed"),
             ));
         }
+        if self.stopping.is_some() {
+            self.send_interrupt();
+        }
         if let Some(e) = self.queued.pop_front() {
             return Ok(Some(e));
         }
@@ -328,12 +361,22 @@ impl Runtime for Codex {
             state.deadline = Some(now + Duration::from_secs(5));
             self.control.wake.notify_one();
         }
-        if let (Some(thread), Some(turn)) = (&self.normal.thread, &self.normal.turn) {
+        self.interrupt_owed = true;
+        self.send_interrupt();
+        Ok(())
+    }
+}
+impl Codex {
+    fn send_interrupt(&mut self) {
+        if !self.interrupt_owed {
+            return;
+        }
+        if let (Some(thread), Some(turn)) = (self.normal.thread.clone(), self.normal.turn.clone()) {
+            self.interrupt_owed = false;
             self.request_id += 1;
             // A queue failure is recorded by next_event; it must not bypass the terminal ledger event.
             let _ = self.send(json!({"jsonrpc":"2.0","id":self.request_id,"method":"turn/interrupt","params":{"threadId":thread,"turnId":turn}}));
         }
-        Ok(())
     }
 }
 impl Drop for Codex {

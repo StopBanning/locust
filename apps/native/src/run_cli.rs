@@ -24,6 +24,8 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
         prompt: args[1].clone(),
         folder: std::env::current_dir()?,
         model: None,
+        effort: None,
+        resume: None,
     };
     let mut i = 2;
     while i < args.len() {

@@ -128,6 +128,9 @@ pub fn connection_path() -> Option<PathBuf> {
     std::env::var_os("LOCUST_MCP_CONNECTION").map(PathBuf::from).or_else(|| default_data_folder().map(|f| f.join(CONNECTION_FILE)))
 }
 
+/// What a call says when nothing answers at the door (Locust not running).
+pub const DOWN: &str = "Locust isn't running, or isn't taking requests from other apps right now. Open Locust and try again.";
+
 pub const NOT_ON: &str = "Locust isn't taking requests from other apps. Open Locust, then in Settings, General, turn on \"Let your other AI apps use Locust\".";
 
 #[derive(Debug, Clone)]
@@ -166,7 +169,7 @@ impl Engine {
             Ok(ok) => ok.into_json().map_err(|_| "Locust answered with something that isn't JSON.".to_string())?,
             Err(ureq::Error::Status(401, _)) => return Err("Locust refused the request: its connection has changed. Try again; if it keeps happening, restart Locust.".into()),
             Err(ureq::Error::Status(code, _)) => return Err(format!("Locust refused the request ({code}).")),
-            Err(ureq::Error::Transport(_)) => return Err("Locust isn't running, or isn't taking requests from other apps right now. Open Locust and try again.".into()),
+            Err(ureq::Error::Transport(_)) => return Err(DOWN.into()),
         };
         Ok(tool_text(&body))
     }

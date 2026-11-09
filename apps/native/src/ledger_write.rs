@@ -2,12 +2,18 @@
 use crate::store::Store;
 use serde_json::{Value, json};
 use std::{
-    fs::{File, OpenOptions},
+    fs::File,
     io::{self, Write},
     path::PathBuf,
 };
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+/// `continuesFrom` of a follow-up turn, as `codex-mission.ts` writes it: checkpointEpoch 1 (a follow-up reconciles
+/// nothing, so epoch 1 is the only one a reader could mean), reason `follow-up`, the resumed thread when there is one.
+pub struct Continuation {
+    pub mission_id: String,
+    pub thread: Option<String>,
 }
 pub struct LedgerWriter {
     file: File,
@@ -27,6 +33,16 @@ impl LedgerWriter {
         model: &str,
         executable: &str,
     ) -> io::Result<Self> {
+        Self::create_continuing(store, id, prompt, model, executable, None)
+    }
+    pub fn create_continuing(
+        store: &Store,
+        id: &str,
+        prompt: &str,
+        model: &str,
+        executable: &str,
+        continues: Option<&Continuation>,
+    ) -> io::Result<Self> {
         if prompt.trim().is_empty() || prompt.contains('\0') || prompt.encode_utf16().count() > 8000
         {
             return Err(io::Error::other("Prompt must be nonempty text without NUL"));
@@ -34,9 +50,18 @@ impl LedgerWriter {
         if model.is_empty() || model.len() > 250 || model.contains('\0') {
             return Err(io::Error::other("Invalid model ID"));
         }
+        // Validated before anything is created: a bad link leaves no empty ledger.
+        if let Some(c) = continues {
+            let safe = |v: &str| {
+                !v.is_empty() && v.len() <= 128 && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            };
+            if !safe(&c.mission_id) || c.thread.as_deref().is_some_and(|t| t.is_empty() || t.len() > 2048) {
+                return Err(io::Error::other("Invalid continuation"));
+            }
+        }
         let path = store.write_path(id)?;
-        std::fs::create_dir_all(path.parent().unwrap())?;
-        let path = store.write_path(id)?; // Recheck after directory creation.
+        // The directory is created and walked without following any symlink (`Store::create_new_file_in`), so the
+        // ancestor race closes: no file is ever created through a swapped component.
         let file = open_checked(store, &path)?;
         let route = format!("codex:{model}");
         let mut writer = Self {
@@ -50,12 +75,23 @@ impl LedgerWriter {
             bytes: 0,
         };
         let at = now();
-        writer.line(json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
+        let continuation = continues.map(|c| {
+            let mut link = json!({"missionId":c.mission_id,"checkpointEpoch":1,"reason":"follow-up"});
+            if let Some(thread) = &c.thread {
+                link["runtimeThreadId"] = json!(thread);
+            }
+            link
+        });
+        let mut record = json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
             "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":"codex","model":model,
             "requestedRouteId":writer.route,"resolvedRouteId":writer.route,"cliVersion":null,"workspaceId":"native",
             "sandbox":"read-only","mode":"ask","executionPolicyVersion":1,"createdAt":at,
             "command":{"executablePath":executable,"args":["app-server"]}
-        }}))?;
+        }});
+        if let Some(link) = continuation {
+            record["metadata"]["continuesFrom"] = link;
+        }
+        writer.line(record)?;
         if let Ok(dir) = File::open(writer.path.parent().unwrap()) {
             let _ = dir.sync_all();
         }
@@ -111,16 +147,14 @@ impl LedgerWriter {
     }
 }
 
-// Keep opening and descriptor validation together: no ledger byte precedes this check.
+// Keep opening and descriptor validation together: no ledger byte precedes this check. The file is created by
+// `openat` relative to a directory descriptor walked without following symlinks, so nothing is created through a
+// swapped path component; `check_open_file` then confirms the descriptor's own location (defence in depth).
 fn open_checked(store: &Store, path: &std::path::Path) -> io::Result<File> {
-    let mut options = OpenOptions::new();
-    options.write(true).append(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
-    }
-    let file = options.open(path)?;
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name().and_then(|n| n.to_str())) else {
+        return Err(io::Error::other("Invalid ledger path"));
+    };
+    let file = store.create_new_file_in(dir, name)?;
     store.check_open_file(&file)?;
     Ok(file)
 }
@@ -128,29 +162,60 @@ fn open_checked(store: &Store, path: &std::path::Path) -> io::Result<File> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    fn temp(tag: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("locust-open-{tag}-{}", std::process::id()))
+    }
     #[test]
-    fn swapped_ancestor_leaves_only_reported_empty_file() {
-        let temp = std::env::temp_dir().join(format!("locust-open-{}", std::process::id()));
+    fn swapped_ancestor_is_refused_and_nothing_is_created_in_electrons_folder() {
+        let temp = temp("race");
+        let _ = std::fs::remove_dir_all(&temp);
         let native = temp.join("native");
         let electron = temp.join("electron");
         std::fs::create_dir_all(native.join("mission-ledger")).unwrap();
         std::fs::create_dir_all(electron.join("mission-ledger")).unwrap();
         let store = Store::new(native.clone(), electron.clone()).unwrap();
+        // The path was checked while it was good ...
         let checked = store.write_path("race").unwrap();
+        // ... then an ancestor is swapped for a symlink into Electron's folder.
         std::fs::rename(&native, temp.join("old-native")).unwrap();
         std::os::unix::fs::symlink(&electron, &native).unwrap();
         let error = open_checked(&store, &checked).unwrap_err().to_string();
+        assert!(error.contains("nothing was created") || error.contains("Refusing"), "{error}");
         let leaked = electron.join("mission-ledger/race.jsonl");
-        assert!(
-            error.contains("empty file left") && error.contains(leaked.to_str().unwrap()),
-            "{error}"
-        );
-        assert_eq!(std::fs::metadata(&leaked).unwrap().len(), 0);
-        // Exclusive create + NOFOLLOW must also refuse a final-component symlink.
-        let link = temp.join("link.jsonl");
-        std::os::unix::fs::symlink(&leaked, &link).unwrap();
-        assert!(open_checked(&store, &link).is_err());
-        assert_eq!(std::fs::metadata(&leaked).unwrap().len(), 0);
+        assert!(!leaked.exists(), "nothing may be created inside Electron's folder");
+        assert_eq!(std::fs::read_dir(electron.join("mission-ledger")).unwrap().count(), 0);
+        std::fs::remove_dir_all(temp).unwrap();
+    }
+    #[test]
+    fn a_symlink_in_the_final_directory_or_the_file_name_is_refused_and_creates_nothing() {
+        let temp = temp("final");
+        let _ = std::fs::remove_dir_all(&temp);
+        let native = temp.join("native");
+        let electron = temp.join("electron");
+        std::fs::create_dir_all(&native).unwrap();
+        std::fs::create_dir_all(electron.join("mission-ledger")).unwrap();
+        let store = Store::new(native.clone(), electron.clone()).unwrap();
+        // mission-ledger itself is a symlink into Electron's folder.
+        let checked = store.write_path("x").unwrap();
+        std::os::unix::fs::symlink(electron.join("mission-ledger"), native.join("mission-ledger")).unwrap();
+        assert!(open_checked(&store, &checked).is_err());
+        assert_eq!(std::fs::read_dir(electron.join("mission-ledger")).unwrap().count(), 0);
+        // A final-component symlink (even a dangling one) is never followed or created through.
+        std::fs::remove_file(native.join("mission-ledger")).unwrap();
+        std::fs::create_dir_all(native.join("mission-ledger")).unwrap();
+        let target = electron.join("mission-ledger/victim.jsonl");
+        std::os::unix::fs::symlink(&target, native.join("mission-ledger/link.jsonl")).unwrap();
+        assert!(open_checked(&store, &native.join("mission-ledger/link.jsonl")).is_err());
+        assert!(!target.exists());
+        // A good path still works, makes missing directories with mode 0700, and refuses a second create.
+        let good = store.write_path("good").unwrap();
+        std::fs::remove_dir_all(native.join("mission-ledger")).unwrap();
+        let file = open_checked(&store, &good).unwrap();
+        drop(file);
+        assert!(open_checked(&store, &good).is_err(), "exclusive");
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(native.join("mission-ledger")).unwrap().permissions().mode() & 0o777, 0o700);
+        assert_eq!(std::fs::metadata(&good).unwrap().permissions().mode() & 0o777, 0o600);
         std::fs::remove_dir_all(temp).unwrap();
     }
 }
