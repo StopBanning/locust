@@ -36,6 +36,12 @@ Locust must be running with **Let your other AI apps use Locust** on.
 cargo run --release
 ```
 
+Make a Mac app you can double-click (`Locust Native.app` in the target folder, Locust's own icon, not notarized):
+
+```bash
+sh scripts/bundle-mac.sh
+```
+
 Check it without opening a window:
 
 ```bash
