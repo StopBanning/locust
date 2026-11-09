@@ -34,7 +34,7 @@ export interface CarryOnRoute {
 }
 
 export type CarryOnResponse =
-  | { readonly ok: true; readonly missionId: string }
+  | { readonly ok: true; readonly missionId: string; /** The folder an app named for the conversation, worked in again (0.872). */ readonly folder?: string }
   | { readonly ok: false; readonly message: string }
 
 /**

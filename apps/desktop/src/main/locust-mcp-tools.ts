@@ -6,6 +6,7 @@ import { carryOnReason, type CarryOnReason, type CarryOnResponse, type CarryOnRo
 import { joinMessageFragments } from '../shared/messageFragments.js'
 import { unwrapProtocolTags } from '../shared/protocolTags.js'
 import { mcpText, type McpToolResult } from './locust-mcp-host.js'
+import { conversationFolder } from './conversation-folder.js'
 
 /** A routine step in flight, as the routine runner reports it. */
 export interface McpRoutineStep {
@@ -190,10 +191,12 @@ export function createLocustMcpTools(options: {
       const checked = await options.checkFolder!(args.folder)
       if ('refused' in checked) return mcpText(`${checked.refused} Nothing was started.`, true)
       folder = checked.path
-    } else if (previous?.startedBy?.kind === 'mcp' && previous.startedBy.folder !== undefined && options.checkFolder !== undefined) {
-      // A follow-up stays in the folder its conversation was started in, checked again: it may be gone.
-      const checked = await options.checkFolder(previous.startedBy.folder)
-      if ('refused' in checked) return mcpText(`This conversation worked in ${previous.startedBy.folder}: ${checked.refused} Name another folder. Nothing was started.`, true)
+    } else if (conversationFolder(previous?.startedBy) !== undefined && options.checkFolder !== undefined) {
+      // A follow-up stays in the folder its conversation was started in -- through a carried-on turn too (0.872) --
+      // checked again: it may be gone.
+      const was = conversationFolder(previous?.startedBy)!
+      const checked = await options.checkFolder(was)
+      if ('refused' in checked) return mcpText(`This conversation worked in ${was}: ${checked.refused} Name another folder. Nothing was started.`, true)
       folder = checked.path
     }
     // READ ONLY, ASKED FOR (0.842): an app may always step a turn DOWN to Ask.
@@ -201,9 +204,14 @@ export function createLocustMcpTools(options: {
     const origin: MissionStarter = { ...(options.origin ?? { kind: 'mcp' }), ...(folder === undefined ? {} : { folder }) } as MissionStarter
     const result = await options.start({ ...request, ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, origin)
     const shown = folder ?? options.folder?.()
-    return result.ok
-      ? mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode, ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(shown === undefined ? {} : { folder: shown }) }))
-      : mcpText(result.error.message, true)
+    if (!result.ok) return mcpText(result.error.message, true)
+    /*
+     * WHAT RAN, NOT WHAT WAS ASKED (0.872). The host decides the mode a turn really runs in -- a question to Scout is
+     * always Ask -- and its receipt says so. The reply used to echo the app's own mode back, so a turn held in Ask
+     * was reported as Auto (found 9 Nov handing Scout a review). When the two differ, the reply names both.
+     */
+    const ran: MissionMode = result.data.mode ?? mode
+    return mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode: ran, ...(ran === mode ? {} : { mode_asked: mode }), ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(shown === undefined ? {} : { folder: shown }) }))
   }
   /** A finished turn's answer, or Locust's own words for why there is none. */
   const answerOf = (mission: PublicRecoveredMission): McpToolResult => {
@@ -391,7 +399,7 @@ export function createLocustMcpTools(options: {
       if (text(args.model) && asked === undefined) return mcpText(`${args.runtime} does not offer that model here. Use one from list_models. Nothing was started.`, true)
       const carried = await options.carryOn(mission.missionId, { runtime: args.runtime as MissionRuntimeId, ...(asked === undefined ? {} : { model: asked.id }) })
       return carried.ok
-        ? mcpText(JSON.stringify({ conversation_id: carried.missionId, runtime: args.runtime, ...(asked === undefined ? {} : { model: asked.id }), mode }))
+        ? mcpText(JSON.stringify({ conversation_id: carried.missionId, runtime: args.runtime, ...(asked === undefined ? {} : { model: asked.id }), mode, ...(carried.folder === undefined ? {} : { folder: carried.folder }) }))
         : mcpText(`${carried.message} Nothing was started.`, true)
     }
     if (name === 'stop_turn' && options.cancel !== undefined) {

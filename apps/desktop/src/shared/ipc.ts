@@ -3477,7 +3477,7 @@ export type CodexMissionUpdate =
         /** A walk through a change (0.771): its answer is the Changes panel's, never a conversation. */
         | { readonly kind: 'walkthrough' }
         /** The turn before ran out of `from`'s plan, and Locust carried the work on (0.774). */
-        | { readonly kind: 'carry-on'; readonly from: MissionRuntimeId }
+        | { readonly kind: 'carry-on'; readonly from: MissionRuntimeId; readonly folder?: string }
         /** The person's check failed after the turn before, and Locust sent it back to fix (0.812, shared/check-fix.ts). */
         | { readonly kind: 'check-fix'; readonly fix: number; readonly of: number; readonly command: string }
       /**
@@ -3717,6 +3717,8 @@ export interface PublicRecoveredMission {
         /** The turn before ran out of `from`'s plan, and Locust carried the work on (0.774). Nobody typed it. */
         readonly kind: 'carry-on'
         readonly from: MissionRuntimeId
+        /** The folder an app named for the conversation, carried on in it (0.872). */
+        readonly folder?: string
       }
     | {
         /**

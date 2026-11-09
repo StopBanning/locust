@@ -5,6 +5,7 @@ import { carryOnPrompt, carryOnReason, carryOnRefusal } from '../shared/carry-on
 import type { MissionMode } from '../shared/ipc.js'
 import type { CarryOnReason, CarryOnResponse, CarryOnRoute, PlanRunsOut } from '../shared/carry-on.js'
 import { runtimeDisplayName } from '../shared/runtimes.js'
+import { conversationFolder } from './conversation-folder.js'
 
 /**
  * CARRYING THE WORK ON WHEN A PLAN RUNS OUT (0.774, shared/carry-on.ts).
@@ -32,6 +33,8 @@ export interface CarryOnStart {
   readonly followUpOf: string
   /** The agent whose plan ran out. */
   readonly from: MissionRuntimeId
+  /** The folder an app named for this conversation (0.872, conversation-folder.ts): the carried turn stands there. */
+  readonly folder?: string
 }
 
 export interface CarryOnOptions {
@@ -106,7 +109,8 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     remember(missionId)
     let response: CarryOnResponse
     try {
-      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from })
+      const folder = conversationFolder(recovered.metadata.startedBy)
+      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from, ...(folder === undefined ? {} : { folder }) })
     } catch {
       response = { ok: false, message: 'The turn could not be started. The work stays where it stopped.' }
     }

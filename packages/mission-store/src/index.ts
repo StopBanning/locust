@@ -346,6 +346,11 @@ export type MissionStarter =
       readonly kind: 'carry-on'
       /** The runtime whose plan ran out. */
       readonly from: MissionRuntimeId
+      /**
+       * The folder an app named for the conversation (0.872), carried on in it rather than in the teammate's own.
+       * Older readers ignore it.
+       */
+      readonly folder?: string
     }
   | {
       /**
@@ -939,7 +944,7 @@ function validateMetadata(metadata: MissionLedgerMetadata): MissionLedgerMetadat
     }
     if (starter.kind === 'routine') requireText(starter.routineId, 'startedBy.routineId', 200)
     if (starter.kind === 'side') requireSafeId(starter.of, 'startedBy.of')
-    if (starter.kind === 'mcp' && starter.folder !== undefined) requireText(starter.folder, 'startedBy.folder', 1_024)
+    if ((starter.kind === 'mcp' || starter.kind === 'carry-on') && starter.folder !== undefined) requireText(starter.folder, 'startedBy.folder', 1_024)
   }
   return metadata
 }
