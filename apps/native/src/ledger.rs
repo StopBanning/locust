@@ -1242,4 +1242,38 @@ mod tests {
         assert_eq!(absent.poll().unwrap_err().kind(), io::ErrorKind::NotFound);
         assert!(absent.dir_listed());
     }
+
+    /// Reads every REAL ledger on this computer and prints only counts, never text. Run by hand:
+    /// `cargo test --release real_ledgers -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn real_ledgers_parse_without_printing_text() {
+        let Some(root) = crate::engine::default_data_folder().map(|f| f.join("mission-ledger")) else { return };
+        let started = Instant::now();
+        let (mut files, mut no_meta, mut errors, mut users, mut assistants, mut tools, mut plans, mut notes) = (0, 0, 0, 0, 0, 0, 0, 0);
+        let (mut biggest, mut running) = (0usize, 0usize);
+        for entry in fs::read_dir(&root).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("jsonl") { continue; }
+            files += 1;
+            let t = read_transcript(&path);
+            if t.metadata.is_none() { no_meta += 1; }
+            if t.error.is_some() { errors += 1; }
+            if t.running { running += 1; }
+            for item in &t.items {
+                match item {
+                    Item::User(_) => users += 1,
+                    Item::Assistant { text, .. } => { assistants += 1; biggest = biggest.max(text.chars().count()); }
+                    Item::Tool { .. } => tools += 1,
+                    Item::Plan(_) => plans += 1,
+                    Item::Note { .. } => notes += 1,
+                }
+            }
+        }
+        let recent = list_recent(&root, 50);
+        eprintln!("files {files}, no metadata {no_meta}, read errors {errors}, running {running}");
+        eprintln!("items: user {users}, assistant {assistants}, tool {tools}, plan {plans}, note {notes}; longest answer {biggest} chars");
+        eprintln!("recent list: {} rows, {} with a title, took {:?}", recent.len(), recent.iter().filter(|r| r.title != "Untitled").count(), started.elapsed());
+        assert!(biggest <= MAX_ASSISTANT);
+    }
 }
