@@ -1,5 +1,11 @@
-//! Retained Quick Ask panel. All engine I/O stays off the UI thread.
+//! Retained Quick Ask panel. All engine and ledger I/O stays off the UI thread.
+//!
+//! A send goes out through Engine::start. Once that returns a conversation_id, the
+//! panel follows the conversation through ledger::Session, the way main.rs's
+//! ledger_tick does, so the answer streams in as it is written. Engine::reply is
+//! only the fallback, used when the ledger folder cannot be read.
 use crate::engine::{self, Engine, Reply, Started, Teammate};
+use crate::ledger::{self, Item};
 use crate::{Palette, markdown_style};
 use rune::tok::type_;
 use rune::{
@@ -8,6 +14,7 @@ use rune::{
     TextEdit, Tx, Waker, WindowOptions, WindowSpec, col, el, row, text, text_input,
 };
 use rune_kit::Markdown;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 const WIDTH: f32 = 680.0;
@@ -18,10 +25,44 @@ const MAX_FLIGHT_AGE: Duration = Duration::from_secs(30 * 60);
 const STOPPED: &str =
     "Stopped watching after 30 minutes; the turn goes on in Locust";
 
+// Same cadence as main.rs's ledger_tick (now + 0.25) while the panel is drawn.
+const LEDGER_VISIBLE: Duration = Duration::from_millis(250);
+// Hidden, nobody sees the text grow; only the end matters. 2 s also matches how
+// often Session rescans the directory, so polling faster than this gains nothing.
+const LEDGER_HIDDEN: Duration = Duration::from_secs(2);
+// After a failed ledger read, retry at this pace whether shown or hidden.
+const LEDGER_ERROR_RETRY: Duration = Duration::from_secs(1);
+// A readable folder that still cannot give us this conversation (no file, bad
+// read) for this long counts as "ledger unavailable" and we fall back to reply.
+const LEDGER_GRACE: Duration = Duration::from_secs(10);
+
 #[derive(Clone, Copy)]
 enum Activity {
     Working,
     WaitingForYou,
+}
+
+// How the answer of a flight is being followed.
+enum Follow {
+    // The send has not returned a conversation_id yet.
+    Starting,
+    // Streaming from the ledger (the normal path).
+    Ledger(LedgerFollow),
+    // Fallback: Engine::reply polling, with the Retry machinery below.
+    Reply,
+}
+
+struct LedgerFollow {
+    dir: PathBuf,
+    // None while a background job owns the Session; its landing hands it back
+    // (main.rs does the same, so the Session's byte offsets and header cache survive).
+    session: Option<ledger::Session>,
+    // Last time a read succeeded (or the follow began). Drives the grace period.
+    healthy: Instant,
+    // When the last poll landed; None until the first one.
+    last: Option<Instant>,
+    // True after a failed read, to retry at LEDGER_ERROR_RETRY.
+    erred: bool,
 }
 
 struct Flight {
@@ -30,6 +71,7 @@ struct Flight {
     conversation_id: Option<String>,
     started_at: Instant,
     unsent: Option<String>,
+    follow: Follow,
 }
 
 #[derive(Clone, Copy)]
@@ -44,6 +86,14 @@ struct Retry {
     since: Instant,
     kind: RetryKind,
 }
+
+// Both outcomes return the Session so a transient error never rebuilds it
+// (as main.rs's LedgerAnswer). The bool on Err says whether the folder itself
+// could still be listed, which is decided on the worker thread, not the UI thread.
+type StreamAnswer = Result<
+    (ledger::Session, ledger::Snapshot),
+    (ledger::Session, bool),
+>;
 
 // Public only because scenes() returns AppSpec<State>; its fields stay private.
 pub struct State {
@@ -67,6 +117,7 @@ pub struct State {
     team: Latest<Result<Vec<Teammate>, String>>,
     sending: Latest<Result<Started, String>>,
     waiting: Latest<Result<Reply, String>>,
+    stream: Latest<StreamAnswer>,
 }
 
 impl Default for State {
@@ -91,6 +142,7 @@ impl Default for State {
             team: Latest::default(),
             sending: Latest::default(),
             waiting: Latest::default(),
+            stream: Latest::default(),
         }
     }
 }
@@ -98,7 +150,8 @@ impl Default for State {
 fn setup(s: &mut State, waker: Waker) {
     s.team.set_waker(waker.clone());
     s.sending.set_waker(waker.clone());
-    s.waiting.set_waker(waker);
+    s.waiting.set_waker(waker.clone());
+    s.stream.set_waker(waker);
     // The hidden launcher's prepared first frame must not contact the engine.
 }
 
@@ -125,6 +178,8 @@ fn begin_show_at(s: &mut State, now: Instant) {
 fn stop_watching(s: &mut State) {
     s.sending.cancel();
     s.waiting.cancel();
+    // A cancelled Latest never lands, so a late ledger result cannot revive a stopped flight.
+    s.stream.cancel();
     s.flight = None;
     s.retry = None;
 }
@@ -160,6 +215,9 @@ fn toggle(s: &mut State, tx: &mut Tx) {
     }
 
     begin_show(s);
+    // Showing shortens the poll interval (2 s hidden -> 250 ms), so re-arm the timer
+    // now instead of waiting out a wake that was scheduled while hidden.
+    arm_deadline(s, Instant::now(), tx);
     if let Some(app) = &s.app {
         app.place(
             DisplayTarget::Primary,
@@ -290,6 +348,7 @@ fn send_at(s: &mut State, tx: &mut Tx, now: Instant) {
         conversation_id: None,
         started_at: now,
         unsent: Some(message.clone()),
+        follow: Follow::Starting,
     });
     s.retry = None;
     s.draft.clear();
@@ -320,10 +379,8 @@ fn land_started(s: &mut State, result: Result<Started, String>, now: Instant) {
                 flight.conversation_id = Some(started.conversation_id);
                 flight.unsent = None;
             }
-            s.retry = Some(Retry {
-                since: now,
-                kind: RetryKind::Immediate,
-            });
+            // crate::ledger_dir is private to main.rs, but a child module may use it.
+            begin_follow(s, crate::ledger_dir(), now);
         }
         Err(words) => {
             let unsent = s.flight.as_mut().and_then(|f| f.unsent.take());
@@ -333,6 +390,40 @@ fn land_started(s: &mut State, result: Result<Started, String>, now: Instant) {
             show_failure(s, words);
         }
     }
+}
+
+// Choose how to follow the conversation. `dir` is injected so tests can use a temp
+// folder; production passes crate::ledger_dir(). Readability is NOT probed here: that
+// would touch the disk on the UI thread. The first job reports it instead.
+fn begin_follow(s: &mut State, dir: Option<PathBuf>, now: Instant) {
+    let Some(flight) = s.flight.as_mut() else { return };
+    let id = flight.conversation_id.clone().unwrap_or_default();
+    match dir {
+        // Session::poll would refuse an unsafe id with InvalidInput; skip the pointless poll.
+        Some(dir) if ledger::safe_id(&id) => {
+            let session = ledger::Session::new(dir.clone(), id);
+            flight.follow = Follow::Ledger(LedgerFollow {
+                dir,
+                session: Some(session),
+                healthy: now,
+                last: None,
+                erred: false,
+            });
+            s.retry = None;
+        }
+        _ => fall_back_to_reply(s, now),
+    }
+}
+
+// Engine::reply is kept only for this: the ledger folder (or id) cannot be used.
+fn fall_back_to_reply(s: &mut State, now: Instant) {
+    if let Some(flight) = s.flight.as_mut() {
+        flight.follow = Follow::Reply;
+    }
+    s.retry = Some(Retry {
+        since: now,
+        kind: RetryKind::Immediate,
+    });
 }
 
 fn retry_due(s: &State) -> Option<Instant> {
@@ -346,6 +437,28 @@ fn retry_due(s: &State) -> Option<Instant> {
     Some(retry.since + delay)
 }
 
+fn ledger_interval(visible: bool) -> Duration {
+    if visible { LEDGER_VISIBLE } else { LEDGER_HIDDEN }
+}
+
+// When the next ledger read is due. Computed from the last landing and the CURRENT
+// visibility, so showing or hiding moves an already scheduled poll (like Approval above).
+// None while a job owns the Session: its landing wakes us through the Latest waker.
+fn ledger_due(s: &State) -> Option<Instant> {
+    let Follow::Ledger(f) = &s.flight.as_ref()?.follow else {
+        return None;
+    };
+    f.session.as_ref()?;
+    Some(match f.last {
+        None => f.healthy,
+        Some(last) => last + if f.erred {
+            LEDGER_ERROR_RETRY
+        } else {
+            ledger_interval(s.visible)
+        },
+    })
+}
+
 fn request_reply(s: &mut State) {
     let Some(id) = s.flight.as_ref()
         .and_then(|f| f.conversation_id.clone())
@@ -356,6 +469,146 @@ fn request_reply(s: &mut State) {
     };
     s.retry = None;
     s.waiting.request(id, |id| Engine::local()?.reply(&id, 20));
+}
+
+// Move the Session onto a worker for one poll (as main.rs does with ledger_job).
+fn request_stream(s: &mut State) {
+    let taken = match s.flight.as_mut().map(|f| &mut f.follow) {
+        Some(Follow::Ledger(f)) => {
+            f.session.take().map(|session| (session, f.dir.clone()))
+        }
+        _ => None,
+    };
+    let Some((mut session, dir)) = taken else { return };
+    s.stream.request((), move |()| match session.poll() {
+        Ok(snapshot) => Ok((session, snapshot)),
+        Err(_) => {
+            // Decided here, off the UI thread: can the folder still be listed at all?
+            let readable = std::fs::read_dir(&dir).is_ok();
+            Err((session, readable))
+        }
+    });
+}
+
+// The assistant text of THIS turn: everything after the last user message, joined.
+// Session also yields earlier turns of a continued chain; Quick Ask never continues one,
+// but the cut keeps that safe. Tool, plan and note items are left out of the answer.
+fn streamed_text(items: &[Item]) -> String {
+    let from = items.iter()
+        .rposition(|i| matches!(i, Item::User(_)))
+        .map_or(0, |i| i + 1);
+    items.iter().skip(from)
+        .filter_map(|i| match i {
+            Item::Assistant { text, .. } if !text.trim().is_empty() => {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+// Locust's own words for a failed run: the ledger's last error note.
+fn failure_words(items: &[Item], name: &str) -> String {
+    items.iter().rev()
+        .find_map(|i| match i {
+            Item::Note { level, text }
+                if level == "error" && !text.trim().is_empty() =>
+            {
+                Some(text.clone())
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| format!("{name} stopped before finishing."))
+}
+
+// The conversation ended in the ledger: show the final text (or the failure) and stop.
+fn finish_stream(s: &mut State, snapshot: &ledger::Snapshot, tx: &mut Tx) {
+    let name = s.flight.as_ref().map(|f| f.name.clone()).unwrap_or_default();
+    let body = streamed_text(&snapshot.items);
+    stop_watching(s);
+    s.answer_name = name.clone();
+    s.notice = None;
+    s.answer = (!body.is_empty()).then_some(body);
+    s.error = if snapshot.failed {
+        // A failed run keeps whatever text streamed before it failed.
+        Some(failure_words(&snapshot.items, &name))
+    } else if s.answer.is_none() {
+        Some(format!(
+            "{name} finished without an answer. Open Locust to see the conversation.",
+        ))
+    } else {
+        None
+    };
+    tx.scroll_to_bottom("quick-messages");
+}
+
+// Returns whether anything drawn changed, so an unchanged poll does not redraw.
+fn land_stream(
+    s: &mut State,
+    result: StreamAnswer,
+    tx: &mut Tx,
+    now: Instant,
+) -> bool {
+    if expire(s, now) {
+        return true;
+    }
+    // Same guard as main.rs: a result for another conversation, or for a flight that has
+    // since fallen back or ended, is dropped.
+    let anchor = match &result {
+        Ok((session, _)) | Err((session, _)) => session.anchor().to_owned(),
+    };
+    let current = s.flight.as_ref().and_then(|f| match &f.follow {
+        Follow::Ledger(_) => f.conversation_id.clone(),
+        _ => None,
+    });
+    if current.as_deref() != Some(anchor.as_str()) {
+        return false;
+    }
+
+    match result {
+        Ok((_, snapshot)) if !snapshot.running => {
+            finish_stream(s, &snapshot, tx);
+            true
+        }
+        Ok((session, snapshot)) => {
+            let body = streamed_text(&snapshot.items);
+            if let Some(flight) = s.flight.as_mut() {
+                s.answer_name = flight.name.clone();
+                if let Follow::Ledger(f) = &mut flight.follow {
+                    f.session = Some(session);
+                    f.last = Some(now);
+                    f.healthy = now;
+                    f.erred = false;
+                }
+            }
+            s.activity = Activity::Working;
+            let answer = (!body.is_empty()).then_some(body);
+            // stick_bottom on quick-messages follows the growing text; no explicit scroll.
+            let changed = s.answer != answer;
+            s.answer = answer;
+            changed
+        }
+        Err((session, readable)) => {
+            let stale = s.flight.as_ref().is_some_and(|f| {
+                matches!(&f.follow, Follow::Ledger(l)
+                    if now.saturating_duration_since(l.healthy) >= LEDGER_GRACE)
+            });
+            if !readable || stale {
+                // The ledger cannot be read: this is the one case that uses Engine::reply.
+                fall_back_to_reply(s, now);
+            } else if let Some(Follow::Ledger(f)) =
+                s.flight.as_mut().map(|f| &mut f.follow)
+            {
+                // Keep the Session (as main.rs does) and retry soon; the file may
+                // simply not exist yet right after start.
+                f.session = Some(session);
+                f.last = Some(now);
+                f.erred = true;
+            }
+            false
+        }
+    }
 }
 
 fn land_reply(
@@ -405,8 +658,9 @@ fn land_reply(
 fn arm_deadline(s: &State, now: Instant, tx: &mut Tx) {
     if let Some(flight) = &s.flight {
         let expires = flight.started_at + MAX_FLIGHT_AGE;
-        let next = retry_due(s)
-            .map(|due| due.min(expires)).unwrap_or(expires);
+        // Whichever follow mode is active has at most one of these set.
+        let due = [retry_due(s), ledger_due(s)].into_iter().flatten().min();
+        let next = due.map(|due| due.min(expires)).unwrap_or(expires);
         // Rune runs due poll timers while hidden; no sleeping worker or periodic UI timer.
         tx.wake_after(next.saturating_duration_since(now));
     }
@@ -434,9 +688,16 @@ fn poll_at(s: &mut State, tx: &mut Tx, now: Instant) -> bool {
         changed = true;
         land_reply(s, result, tx, now);
     }
+    if let Some(result) = s.stream.take() {
+        changed |= land_stream(s, result, tx, now);
+    }
     if s.flight.is_some() && retry_due(s).is_some_and(|due| due <= now) {
         request_reply(s);
         changed = true;
+    }
+    // One ledger job at a time; landing hands the Session back before the next is due.
+    if !s.stream.is_pending() && ledger_due(s).is_some_and(|due| due <= now) {
+        request_stream(s);
     }
     arm_deadline(s, now, tx);
     changed
@@ -564,7 +825,10 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         output = output
             .child(text(s.answer_name.clone()).font(type_::LABEL).color(p.muted))
             .child(
-                Markdown::new(answer.clone()).selectable(true)
+                // An answer shown during a flight is still growing; main.rs passes
+                // !final the same way. After the flight ends it is complete.
+                Markdown::new(answer.clone()).streaming(s.flight.is_some())
+                    .selectable(true)
                     .render(&markdown_style(&p))
                     .key("quick-answer").w_full(),
             );
@@ -638,6 +902,8 @@ fn working_scene(s: &mut State) {
         conversation_id: Some("sample".into()),
         started_at: Instant::now(),
         unsent: None,
+        // Demo scenes never poll (poll_at returns early); Reply keeps the old test shape.
+        follow: Follow::Reply,
     });
 }
 
@@ -753,7 +1019,17 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    // Carried over from quick.r7.rs, none dropped. Only `escape_during_flight_...`
+    // changed (it also checks the new `stream` handle). The rest compile as before
+    // because working_scene() now sets Follow::Reply, which keeps the old retry timing.
+    // New: the three `streams_...`, `hiding_...` and `missing_...` tests at the end.
     use super::*;
+    use serde_json::{Value, json};
+    use std::fs::{self, OpenOptions};
+    use std::io::Write;
+    use std::path::Path;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn working(now: Instant) -> State {
         let mut s = State::default();
@@ -764,15 +1040,95 @@ mod tests {
         s
     }
 
+    // ---- synthetic ledger helpers: JSONL in a temp dir only ----
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new() -> Self {
+            let n = NEXT.fetch_add(1, Ordering::Relaxed);
+            let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+            let path = std::env::temp_dir()
+                .join(format!("locust-quick-test-{}-{nanos}-{n}", std::process::id()));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn created(id: &str) -> Value {
+        json!({"schemaVersion":27,"recordType":"mission.created","metadata":{
+            "missionId":id,"prompt":"Synthetic question","runtime":"codex",
+            "model":"sample","createdAt":"2026-01-01T00:00:00Z"}})
+    }
+    fn ev(seq: u64, kind: &str, payload: Value) -> Value {
+        json!({"schemaVersion":27,"recordType":"mission.event","event":{
+            "sequence":seq,"occurredAt":"2026-01-01T00:00:01Z",
+            "type":kind,"payload":payload}})
+    }
+    fn delta(seq: u64, piece: &str, last: bool) -> Value {
+        ev(seq, "message.delta", json!({
+            "itemId":"answer","operation":"append","text":piece,"final":last}))
+    }
+    fn append(dir: &Path, id: &str, records: &[Value]) {
+        let mut f = OpenOptions::new().create(true).append(true)
+            .open(dir.join(format!("{id}.jsonl"))).unwrap();
+        for r in records {
+            writeln!(f, "{r}").unwrap();
+        }
+    }
+
+    // A flight that has just returned its conversation_id "conv1", following `dir`.
+    // demo is turned off because poll_at returns early for demo scenes.
+    fn streaming(dir: &Path, now: Instant) -> State {
+        let mut s = State::default();
+        working_scene(&mut s);
+        s.demo = false;
+        if let Some(f) = s.flight.as_mut() {
+            f.started_at = now;
+            f.conversation_id = Some("conv1".into());
+            f.follow = Follow::Starting;
+        }
+        begin_follow(&mut s, Some(dir.to_path_buf()), now);
+        s
+    }
+
+    fn mode(s: &State) -> &'static str {
+        match s.flight.as_ref().map(|f| &f.follow) {
+            Some(Follow::Starting) => "starting",
+            Some(Follow::Ledger(_)) => "ledger",
+            Some(Follow::Reply) => "reply",
+            None => "none",
+        }
+    }
+
+    // Same wait-for-the-worker pattern as main.rs's tests.
+    fn wait(s: &State) {
+        let end = Instant::now() + Duration::from_secs(5);
+        while s.stream.is_pending() && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(!s.stream.is_pending(), "ledger job did not land");
+    }
+
+    // One full cycle at the synthetic time `now`: dispatch if due, wait, land.
+    // Only used while following the ledger, so it never reaches Engine::reply.
+    fn pump(s: &mut State, now: Instant) -> bool {
+        let mut tx = Tx::default();
+        let first = poll_at(s, &mut tx, now);
+        wait(s);
+        poll_at(s, &mut tx, now) | first
+    }
+
     #[test]
     fn tab_cycles_both_directions_and_wraps_when_idle() {
         let mut s = State::default();
         sample(&mut s);
         let mut tx = Tx::default();
-        let tab = KeyEvent {
-            key: Key::Tab,
-            mods: rune::Mods::default(),
-        };
+        let tab = KeyEvent { key: Key::Tab, mods: rune::Mods::default() };
         assert!(key(&mut s, &tab, &mut tx));
         assert_eq!(s.selected, 1);
         assert!(key(&mut s, &tab, &mut tx));
@@ -780,10 +1136,7 @@ mod tests {
 
         let back = KeyEvent {
             key: Key::Tab,
-            mods: rune::Mods {
-                shift: true,
-                ..Default::default()
-            },
+            mods: rune::Mods { shift: true, ..Default::default() },
         };
         assert!(key(&mut s, &back, &mut tx));
         assert_eq!(s.selected, 1);
@@ -795,14 +1148,13 @@ mod tests {
     #[test]
     fn escape_during_flight_stops_watching_and_hides() {
         let mut s = working(Instant::now());
-        let escape = KeyEvent {
-            key: Key::Escape,
-            mods: rune::Mods::default(),
-        };
+        let escape = KeyEvent { key: Key::Escape, mods: rune::Mods::default() };
         assert!(key(&mut s, &escape, &mut Tx::default()));
         assert!(s.flight.is_none() && s.retry.is_none());
         assert!(!s.visible);
-        assert!(!s.sending.is_pending() && !s.waiting.is_pending());
+        assert!(
+            !s.sending.is_pending() && !s.waiting.is_pending() && !s.stream.is_pending()
+        );
     }
 
     #[test]
@@ -827,12 +1179,7 @@ mod tests {
         let now = Instant::now();
         let mut s = working(now);
         let mut tx = Tx::default();
-        land_reply(
-            &mut s,
-            Ok(Reply::WaitingForYou("approve".into())),
-            &mut tx,
-            now,
-        );
+        land_reply(&mut s, Ok(Reply::WaitingForYou("approve".into())), &mut tx, now);
         assert_eq!(retry_due(&s), Some(now + Duration::from_secs(3)));
 
         toggle(&mut s, &mut tx);
@@ -864,10 +1211,7 @@ mod tests {
         let mut s = working(now);
         hide(&mut s);
 
-        assert!(!expire(
-            &mut s,
-            now + MAX_FLIGHT_AGE - Duration::from_secs(1),
-        ));
+        assert!(!expire(&mut s, now + MAX_FLIGHT_AGE - Duration::from_secs(1)));
         assert!(expire(&mut s, now + MAX_FLIGHT_AGE));
         assert!(s.flight.is_none() && s.retry.is_none());
         assert_eq!(s.notice.as_deref(), Some(STOPPED));
@@ -908,10 +1252,7 @@ mod tests {
     fn tab_is_locked_during_flight_and_answer_label_comes_from_flight() {
         let now = Instant::now();
         let mut s = working(now);
-        let tab = KeyEvent {
-            key: Key::Tab,
-            mods: rune::Mods::default(),
-        };
+        let tab = KeyEvent { key: Key::Tab, mods: rune::Mods::default() };
         assert!(key(&mut s, &tab, &mut Tx::default()));
         assert_eq!(s.selected, 0);
 
@@ -919,12 +1260,7 @@ mod tests {
             flight.name = "Codec renamed".into();
         }
         s.answer_name = "stale".into();
-        land_reply(
-            &mut s,
-            Ok(Reply::Answer("answer".into())),
-            &mut Tx::default(),
-            now,
-        );
+        land_reply(&mut s, Ok(Reply::Answer("answer".into())), &mut Tx::default(), now);
         assert_eq!(s.answer_name, "Codec renamed");
     }
 
@@ -948,9 +1284,7 @@ mod tests {
     fn only_local_connection_errors_become_unavailable() {
         assert_eq!(error_words(engine::NOT_ON.into()), UNAVAILABLE);
         assert_eq!(
-            error_words(
-                "Locust's data folder could not be found on this computer.".into(),
-            ),
+            error_words("Locust's data folder could not be found on this computer.".into()),
             UNAVAILABLE,
         );
         assert_eq!(
@@ -969,9 +1303,127 @@ mod tests {
         assert_eq!(s.error.as_deref(), Some(refusal));
 
         land_team(&mut s, Ok(Vec::new()));
-        assert_eq!(
-            s.error.as_deref(),
-            Some("No teammates are available in Locust."),
-        );
+        assert_eq!(s.error.as_deref(), Some("No teammates are available in Locust."));
+    }
+
+    // ---- new: live streaming from the ledger ----
+
+    #[test]
+    fn streams_growing_text_across_two_polls_then_finishes() {
+        let temp = TempDir::new();
+        let t0 = Instant::now();
+        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
+        let mut s = streaming(&temp.0, t0);
+        assert_eq!(mode(&s), "ledger");
+
+        // First poll: partial text shows while the flight is still running.
+        assert!(pump(&mut s, t0));
+        assert_eq!(s.answer.as_deref(), Some("Hello"));
+        assert_eq!(s.answer_name, "Codec");
+        assert!(s.flight.is_some() && s.error.is_none());
+        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_VISIBLE));
+
+        // Second poll: the same text grew; it is replaced, not duplicated.
+        append(&temp.0, "conv1", &[delta(2, " world", false)]);
+        assert!(pump(&mut s, t0 + Duration::from_millis(300)));
+        assert_eq!(s.answer.as_deref(), Some("Hello world"));
+
+        // A poll that finds nothing new reports no change (no pointless redraw).
+        assert!(!pump(&mut s, t0 + Duration::from_millis(600)));
+        assert_eq!(s.answer.as_deref(), Some("Hello world"));
+
+        // The run ends: final text stays, the flight is released, nothing used Engine::reply.
+        append(&temp.0, "conv1", &[delta(3, "!", true), ev(4, "run.completed", json!({}))]);
+        assert!(pump(&mut s, t0 + Duration::from_secs(1)));
+        assert_eq!(s.answer.as_deref(), Some("Hello world!"));
+        assert!(s.flight.is_none() && s.retry.is_none() && s.error.is_none());
+        assert!(!s.waiting.is_pending() && !s.stream.is_pending());
+    }
+
+    #[test]
+    fn hiding_mid_stream_keeps_the_turn_going_but_polls_slowly() {
+        let temp = TempDir::new();
+        let t0 = Instant::now();
+        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
+        let mut s = streaming(&temp.0, t0);
+        assert!(s.visible);
+        pump(&mut s, t0);
+        assert_eq!(s.answer.as_deref(), Some("Hello"));
+        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_VISIBLE));
+
+        // Hiding keeps the flight and moves the already scheduled poll out to 2 s.
+        hide(&mut s);
+        assert!(!s.visible && s.flight.is_some());
+        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_HIDDEN));
+
+        // New text on disk is NOT read at +300 ms while hidden...
+        append(&temp.0, "conv1", &[delta(2, " world", false)]);
+        pump(&mut s, t0 + Duration::from_millis(300));
+        assert_eq!(s.answer.as_deref(), Some("Hello"));
+        // ...but is read once the slow interval has passed.
+        pump(&mut s, t0 + LEDGER_HIDDEN);
+        assert_eq!(s.answer.as_deref(), Some("Hello world"));
+
+        // Showing again (flight active, so no team reload) brings the fast pace back.
+        begin_show_at(&mut s, t0 + Duration::from_millis(2100));
+        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_HIDDEN + LEDGER_VISIBLE));
+
+        // Finishing while hidden still lands the final answer; the panel stays hidden.
+        hide(&mut s);
+        append(&temp.0, "conv1", &[delta(3, "!", true), ev(4, "run.completed", json!({}))]);
+        pump(&mut s, t0 + Duration::from_secs(5));
+        assert!(!s.visible && s.flight.is_none());
+        assert_eq!(s.answer.as_deref(), Some("Hello world!"));
+    }
+
+    #[test]
+    fn missing_ledger_folder_falls_back_to_engine_reply() {
+        let t0 = Instant::now();
+
+        // No data folder at all: straight to the Engine::reply path.
+        let mut s = streaming(Path::new("unused"), t0);
+        if let Some(f) = s.flight.as_mut() {
+            f.follow = Follow::Starting;
+        }
+        begin_follow(&mut s, None, t0);
+        assert_eq!(mode(&s), "reply");
+        assert_eq!(retry_due(&s), Some(t0));
+        assert!(ledger_due(&s).is_none());
+
+        // A folder that does not exist: the first job reports it unreadable and we fall back.
+        // land_stream is called directly so the test never dispatches a real Engine::reply.
+        let temp = TempDir::new();
+        let mut s = streaming(&temp.0.join("nope"), t0);
+        request_stream(&mut s);
+        wait(&s);
+        let result = s.stream.take().expect("job result");
+        assert!(!land_stream(&mut s, result, &mut Tx::default(), t0));
+        assert_eq!(mode(&s), "reply");
+        assert_eq!(retry_due(&s), Some(t0));
+        assert!(ledger_due(&s).is_none());
+        assert!(s.flight.is_some() && s.error.is_none());
+        assert!(!s.waiting.is_pending());
+    }
+
+    #[test]
+    fn a_late_ledger_file_is_waited_for_before_falling_back() {
+        let temp = TempDir::new(); // readable folder, but conv1.jsonl is not there yet
+        let t0 = Instant::now();
+        let mut s = streaming(&temp.0, t0);
+        let mut tx = Tx::default();
+
+        request_stream(&mut s);
+        wait(&s);
+        let result = s.stream.take().expect("job result");
+        land_stream(&mut s, result, &mut tx, t0);
+        assert_eq!(mode(&s), "ledger");
+        assert_eq!(ledger_due(&s), Some(t0 + LEDGER_ERROR_RETRY));
+
+        // Still nothing once the grace period is over: now the fallback applies.
+        request_stream(&mut s);
+        wait(&s);
+        let result = s.stream.take().expect("job result");
+        land_stream(&mut s, result, &mut tx, t0 + LEDGER_GRACE);
+        assert_eq!(mode(&s), "reply");
     }
 }
