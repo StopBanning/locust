@@ -1,368 +1,402 @@
-# Locust Desktop → Native Rust (`locust-native`) 1-to-1 Parity Checklist
+# Locust Desktop → Native Rust Parity Checklist
 
 ## Overview & Baseline
 
-- **TypeScript Desktop App (`/Users/locust/work/locust`)**: Electron + React/TypeScript across `apps/desktop/src/{renderer,main,shared,preload}` and `packages/{runtime-adapters,mission-store,cli}`, through `CHANGELOG.md` release `0.871.0`.
-  - **Non-test TypeScript/TSX source**: **736 files, 205,713 lines** (`renderer`: 314 files / 85,401 lines; `shared`: 128 files / 24,998 lines; `preload`: 1 file / 38 lines; `main`: 253 files / 72,836 lines; `packages/runtime-adapters`: 32 files / 18,212 lines; `packages/mission-store`: 4 files / 3,735 lines; `packages/cli`: 4 files / 493 lines).
-- **Native Rust App (`/Users/locust/work/locust-wt/native/apps/native`)**: Built on `rune-app` / `rune-kit` / `rune-surface`.
-  - **Non-test Rust source**: **4 files, 4,329 lines** (6,471 total lines including `#[cfg(test)]` modules):
-    - `src/main.rs`: 2,143 non-test lines (2,706 total) — sidebar, thread view, composer, model picker, carry-on card, dark/light palette, CLI `--ask`, `--snap`, `--bench`.
-    - `src/quick.rs`: 1,150 non-test lines (1,806 total) — macOS floating Quick Ask panel (`Option+Space`), teammate cycling, multiline `Shift+Enter`, background ledger tailing.
-    - `src/ledger.rs`: 715 non-test lines (1,375 total) — read-only JSONL reader for `<userData>/mission-ledger/*.jsonl` (schema v1..=27, continuation chains, delta streaming, tool/step/plan/note/carry-on synthesis).
-    - `src/engine.rs`: 321 non-test lines (584 total) — HTTP bearer-token client for Electron's local MCP server (`locust-mcp-connection.json`, calling `list_teammates`, `list_conversations`, `start_conversation`, `send_message`, `list_models`, `stop_turn`, `carry_on`, `read_reply`).
-- **Today's Architecture**: `locust-native` reads mission ledger `.jsonl` files directly from disk for live transcript rendering and conversation listing, and delegates all mutations and queries (starting turns, sending messages, stopping turns, carry-on, listing teammates/models) to the running Electron app over its localhost MCP HTTP endpoint.
+Source audit: 2026-11-09; TypeScript CHANGELOG through 0.871.0. Every draft row was treated as unverified. Composite claims have been narrowed to supported behavior; unsupported portions are recorded under Removed (not in the app).
 
----
+Path convention: renderer/, main/ and shared/ resolve under `/Users/locust/work/locust/apps/desktop/src`; packages/ and `CHANGELOG.md` resolve under `/Users/locust/work/locust`; native/ resolves under `/Users/locust/work/locust-wt/native/apps/native`. Every cited source file exists; no globs or hypothetical filenames are used.
+
+Native reads local mission ledgers and delegates mutations/model queries to Electron's authenticated local MCP endpoint. It has no standalone agent runtime. Done below includes this deliberate dependency, and means source-implemented, not live-tested.
 
 ## 1. Feature Parity by Area (15 Areas)
 
-Status definitions:
-- **done**: Implemented end-to-end in `locust-native` (either standalone or via the MCP client/ledger reader with equivalent UX).
-- **partial**: Core path works in `locust-native`, but sub-features, controls, or standalone engine support are incomplete.
-- **missing**: Not yet implemented in `locust-native`.
-- **depends on engine**: `yes` if the feature requires main-process state, subprocesses, filesystem/git mutation, OS integration, or runtime execution; `no` if it is pure UI/rendering on top of already-loaded data.
+**done** = stated feature implemented; **partial** = subset implemented, with the gap in the cell; **missing** = no equivalent native surface or driver. Engine = requires runtime, persistence, filesystem mutation or OS integration; no = rendering/interaction over available data. Related release additions share a feature row.
+
+Native status evidence: `native/src/main.rs` (State, message_column, view, send/stop/carry and on_key), `native/src/ledger.rs` (Item, decode, transcript assembly and Session), `native/src/engine.rs` (Engine methods) and `native/src/quick.rs` (native-only Quick Ask). Missing UI surfaces have neither corresponding view/state nor API methods in these modules. Starting an Electron-backed agent does not implement its approval, settings or development-tool UI.
 
 ### Area 1: Conversations & Thread Rendering
-*Non-test TS lines: **60,163** (`renderer + shared`: 39,001 across 84 files; `main + packages`: 21,162 across 11 files) | Native Rust: ~1,550 lines across `src/main.rs` and `src/ledger.rs`*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Sidebar recent conversations list with status dots & relative age | `renderer/src/components/Sidebar.tsx`, `main/mission-history.ts` | **partial** | yes |
-| Direct local `.jsonl` mission ledger reader & live tailing (v1..=27) | `packages/mission-store/src/mission-ledger.ts`, `main/codex-mission.ts` | **done** | yes |
-| Continuation chain splicing (`continuesFrom.missionId`) | `packages/mission-store/src/mission-ledger.ts`, `renderer/src/components/Thread.tsx` | **done** | yes |
-| Streaming assistant Markdown rendering & user message bubbles | `renderer/src/components/Thread.tsx`, `renderer/src/components/RichBlock.tsx` | **partial** | no |
-| Live activity status bar (`Working…`, `WaitingForYou`, `Ready`, error) | `renderer/src/components/Thread.tsx`, `renderer/src/mission-activity.ts` | **done** | no |
-| Tool call rows (status icon, summary, expand/collapse output & args) | `renderer/src/components/Thread.tsx`, `renderer/src/tool-Summary.ts` | **partial** | no |
-| Step & plan checklist rendering (`step.*`, `plan.updated`) | `renderer/src/components/Thread.tsx` | **partial** | no |
-| Adapter diagnostic warning/error notes & rate-limit banners | `renderer/src/components/Thread.tsx`, `shared/error-Helpful.ts` | **partial** | no |
-| Multi-pane split threads (side-by-side conversations, pane focus) | `renderer/src/App.tsx`, `renderer/src/pane-layout.ts` | **missing** | no |
-| Conversation tabs, pinning, archiving, folders/projects, rename, delete | `renderer/src/components/Sidebar.tsx`, `main/mission-history.ts` | **missing** | yes |
-| In-thread search (`Cmd+F`) and cross-conversation full-text search | `renderer/src/components/ThreadSearchBar.tsx`, `renderer/src/conversationSearch.ts` | **missing** | yes |
-| Message actions (copy, edit & resend, fork/branch from turn, bookmark/pin) | `renderer/src/components/Thread.tsx`, `main/codex-mission.ts` | **missing** | yes |
-| Subagent / background agent nested cards (`parentItemId` tree & transcript) | `renderer/src/components/SubagentCard.tsx`, `renderer/src/subagent-tree.ts` | **missing** | yes |
-| Peer teammate share cards (`mission.peer` / `<locust-share>` handoffs) | `renderer/src/components/PeerShareCard.tsx`, `main/peer-share-relay.ts` | **missing** | yes |
-| Special reply blocks (`<locust-ask>` option buttons, `<locust-file>`, `<locust-next>`) | `renderer/src/locust-blocks.ts`, `renderer/src/components/Thread.tsx` | **missing** | yes |
-| Reasoning / thinking collapsible trace & live elapsed timer | `renderer/src/components/Thread.tsx` | **missing** | no |
-| Per-turn token usage, context window meter, cost badge & compaction notice | `renderer/src/components/ContextMeter.tsx`, `renderer/src/usage-cost.ts` | **missing** | yes |
-| Conversation export (Markdown, JSON, HTML, shareable link/bundle) | `main/mission-export.ts`, `renderer/src/components/Thread.tsx` | **missing** | yes |
-| Session import from external CLI histories (Claude Code, Codex, Cursor, etc.) | `main/cli-session-import.ts`, `renderer/src/components/ImportModal.tsx` | **missing** | yes |
-| Read-aloud / TTS playback on assistant messages | `renderer/src/speech-synthesis.ts`, `renderer/src/components/Thread.tsx` | **missing** | no |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Recent conversations with state dots and relative age | `renderer/src/components/Sidebar.tsx`, `main/mission-history.ts` | **done** | yes |
+| Local JSONL transcript reader and live tailing (schema 1–27) | `packages/mission-store/src/index.ts`, `main/mission-history.ts` | **done** | yes |
+| Continuation chain assembly | `main/conversation-chain.ts`, `renderer/src/components/Thread.tsx` | **done** | yes |
+| Streaming Markdown and user message bubbles | `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/Thread.tsx` | **done** | no |
+| Working, waiting, ready and failure status | `renderer/src/missionView.ts`, `renderer/src/components/Thread.tsx` | **done** | no |
+| Expandable tool arguments/output | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/ThreadItems.tsx` | **partial** — summary and status only | no |
+| Interactive step/plan progress | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/Thread.tsx` | **partial** — flattened step and plan text only | no |
+| Diagnostic/rate-limit notes and cancellation receipts | `renderer/src/components/CancellationCard.tsx`, `renderer/src/ledgerFailure.ts` | **partial** — plain notes only | no |
+| Watch two conversations beside one another | `renderer/src/App.tsx`, `renderer/src/components/BesideConversation.tsx` | **missing** | no |
+| Pin, rename, settle/snooze, delete and project grouping | `renderer/src/components/Sidebar.tsx`, `renderer/src/App.tsx`, `renderer/src/conversationList.ts`, `main/mission-history.ts` | **missing** | yes |
+| Find within conversation | `renderer/src/components/ThreadFind.tsx`, `renderer/src/threadFind.ts` | **missing** | no |
+| Sidebar search by title, ID, teammate and user messages across turns | `renderer/src/components/Sidebar.tsx`, `renderer/src/status.ts` | **missing** | no |
+| Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **missing** | yes |
+| Subagent/helper activity and transcript details | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **missing** | no |
+| Peer handoff cards and exchange budget/stop controls | `renderer/src/components/PeerThread.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `main/peer-exchange.ts` | **missing** | yes |
+| Decision options, handed-over files and suggested task cards | `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/Thread.tsx`, `shared/protocolTags.ts` | **missing** | yes |
+| Reasoning duration and folded traces | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **missing** | no |
+| Context breakdown/compact now and per-reply usage/cost | `renderer/src/components/ContextRing.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/compactNow.ts`, `renderer/src/cost.ts` | **missing** | yes |
+| Save Markdown record and raw JSON | `renderer/src/components/SaveRecordDialog.tsx`, `main/mission-export.ts` | **missing** | yes |
+| Import Claude Code, Codex, OpenCode and Cursor conversations | `renderer/src/components/ImportDialog.tsx`, `main/session-import.ts`, `main/agent-session-import.ts` | **missing** | yes |
+| Resume interrupted run from checkpoint | `renderer/src/components/ResumeCard.tsx`, `renderer/src/resume.ts` | **missing** | yes |
+| Prompt rail, jump to bottom and timeline markers | `renderer/src/components/PromptRail.tsx`, `renderer/src/components/JumpToBottom.tsx`, `renderer/src/components/TimeMarker.tsx` | **missing** | no |
+| Selection ask and copied read-only side chat | `renderer/src/components/SelectionAsk.tsx`, `renderer/src/components/SideChat.tsx` | **missing** | yes |
+| Published-link cards and pinned page/tracker status controls | `renderer/src/components/PublishedCards.tsx`, `renderer/src/components/StatusChip.tsx`, `renderer/src/pinnedPages.ts` | **missing** | yes |
+| Reply route/provenance and recovery inspector | `renderer/src/components/Inspector.tsx` | **missing** | no |
 
 ### Area 2: Composer & Input
-*Non-test TS lines: **5,683** (`renderer + shared`: 4,994 across 24 files; `main`: 689 across 1 file) | Native Rust: ~420 lines in `src/main.rs`*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Text input, `Send` button, `Stop` button (ownership-aware `stop_turn`) | `renderer/src/components/Composer.tsx`, `main/locust-mcp-tools.ts` | **done** | yes |
-| Unsent draft restoration on failed or cancelled send | `renderer/src/components/Composer.tsx`, `renderer/src/draft-store.ts` | **done** | no |
-| Per-turn model & effort chip selector in composer bar | `renderer/src/components/Composer.tsx`, `renderer/src/components/ModelPicker.tsx` | **done** | yes |
-| Multiline auto-expanding editor (`Shift+Enter` newline in main window) | `renderer/src/components/Composer.tsx` | **partial** | no |
-| Persistent per-conversation & per-teammate drafts across restarts | `renderer/src/draft-store.ts` | **missing** | no |
-| `@` file, folder, symbol, and `@teammate` autocomplete menu | `renderer/src/components/MentionMenu.tsx`, `main/workspace-files.ts` | **missing** | yes |
-| `/` slash command & skill picker menu in composer | `renderer/src/components/SlashCommandMenu.tsx`, `shared/slash-commands.ts` | **missing** | yes |
-| Image, screenshot, and file attachment drag-and-drop / paste | `renderer/src/components/Composer.tsx`, `renderer/src/attachment-utils.ts` | **missing** | yes |
-| Follow-up message queue while teammate is busy (queue, steer now, edit queued) | `renderer/src/components/QueuedMessagesBar.tsx`, `main/codex-mission.ts` | **missing** | yes |
-| Prompt templates, saved snippets, and Up-arrow input history | `renderer/src/components/Composer.tsx`, `renderer/src/prompt-history.ts` | **missing** | no |
-| Reference folders attachment bar (read-only context folders per turn/mission) | `renderer/src/components/ReferenceFoldersBar.tsx`, `main/codex-mission.ts` | **missing** | yes |
-| Mode toggles in composer (Plan mode / Ask / Auto-edit / Sandbox level) | `renderer/src/components/Composer.tsx`, `shared/mission-modes.ts` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Send text and stop an owned turn | `renderer/src/components/Composer.tsx`, `main/locust-mcp-tools.ts` | **done** | yes |
+| Restore failed-send text | `renderer/src/components/Composer.tsx` | **done** | no |
+| Per-turn model and effort selection | `renderer/src/components/RoutePicker.tsx`, `renderer/src/components/EffortSlider.tsx`, `main/model-catalog.ts` | **done** | yes |
+| Multiline auto-expanding editor, Shift+Enter | `renderer/src/components/Composer.tsx` | **missing** | no |
+| Separate conversation drafts while switching within window | `renderer/src/components/Composer.tsx` | **missing** | no |
+| @ file attachment and teammate tagging | `renderer/src/components/Composer.tsx`, `renderer/src/fileMentions.ts`, `main/workspace-files.ts` | **missing** | yes |
+| Runtime/custom slash commands and setup/usage commands | `renderer/src/components/ChatCommands.tsx`, `renderer/src/slashCommands.ts`, `main/runtime-commands.ts` | **missing** | yes |
+| Paste/drop files, images and PDF attachment previews | `renderer/src/components/Composer.tsx`, `renderer/src/components/AttachedImage.tsx`, `renderer/src/components/PdfTile.tsx`, `shared/attachments.ts` | **missing** | yes |
+| Durable busy-turn queue, edit/discard and stop/send now | `renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts` | **missing** | yes |
+| Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **missing** | no |
+| Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **missing** | yes |
+| Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **missing** | yes |
+| Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **missing** | yes |
+| Connector-off and unavailable-route pre-send warnings | `renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts` | **missing** | yes |
 
 ### Area 3: Teammates, Rooms, Memory & Skills
-*Non-test TS lines: **17,084** (`renderer + shared`: 8,288 across 33 files; `main + packages`: 8,796 across 20 files) | Native Rust: ~260 lines in `src/main.rs` & `src/engine.rs`*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Sidebar teammate list (avatar initial, name, busy dot, role, runtime · model) | `renderer/src/components/Sidebar.tsx`, `main/teammate-store.ts` | **done** | yes |
-| Select teammate (`Cmd+1..9` or click) & start fresh conversation (`Cmd+N`) | `renderer/src/App.tsx`, `renderer/src/components/Sidebar.tsx` | **done** | yes |
-| Teammate creation, editing, role/instructions, default runtime/model, deletion | `renderer/src/components/TeammateModal.tsx`, `main/teammate-store.ts` | **missing** | yes |
-| Built-in starter team presets (Argon, Codec, Scout, Sage, etc.) | `shared/teammate-presets.ts`, `main/teammate-store.ts` | **missing** | yes |
-| Multi-teammate Rooms & Group conversations (`@mention` routing, room turn loop) | `renderer/src/components/RoomView.tsx`, `main/room-store.ts`, `main/group-store.ts` | **missing** | yes |
-| Cross-teammate `<locust-share to="...">` automatic relay & handoff execution | `main/peer-share-relay.ts`, `main/codex-mission.ts` | **missing** | yes |
-| Shared team memory store (`<locust-memory>` parsing, `remember`, `forget`, UI) | `main/memory-store.ts`, `renderer/src/components/MemoryPanel.tsx` | **missing** | yes |
-| Skills & instructions manager (`SKILL.md`, `CLAUDE.md`, `AGENTS.md` discovery/UI) | `main/skill-store.ts`, `renderer/src/components/SkillsScreen.tsx` | **missing** | yes |
-| Teammate SSH / GPG signing keys & workspace isolation settings | `main/teammate-keys.ts`, `main/teammate-workspace.ts` | **missing** | yes |
-| Custom teammate avatars, badges, and status indicators | `renderer/src/components/TeammateAvatar.tsx`, `shared/teammate-types.ts` | **missing** | no |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Teammate list with initial, role, runtime/model and busy dot | `renderer/src/components/Sidebar.tsx`, `main/teammate-store.ts` | **done** | yes |
+| Select teammate and start fresh conversation by click/keyboard | `renderer/src/App.tsx`, `renderer/src/components/Sidebar.tsx` | **done** | yes |
+| Create/edit/delete teammate, instructions, runtime/model/effort and budget | `renderer/src/components/NewTeammateDialog.tsx`, `renderer/src/components/InstructionsCard.tsx`, `main/teammate-store.ts` | **missing** | yes |
+| Starter teams and reusable routine chains | `renderer/src/components/TeamTemplates.tsx`, `shared/team-templates.ts` | **missing** | yes |
+| Rooms, targeted mentions and project standing instructions | `renderer/src/components/RoomScreen.tsx`, `renderer/src/components/GroupSettingsDialog.tsx`, `main/room-store.ts`, `main/group-store.ts` | **missing** | yes |
+| Automatic peer exchanges and optional handoff omissions | `main/peer-exchange.ts`, `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **missing** | yes |
+| Memory store, named replacements, recently forgotten and tidy suggestions | `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/MemoryCard.tsx`, `main/memory-store.ts`, `shared/memory.ts` | **missing** | yes |
+| Workspace/runtime skills and GitHub popular/recent skill packs | `renderer/src/components/SkillsFromGitHub.tsx`, `renderer/src/components/CliArtifacts.tsx`, `main/skill-discovery.ts`, `main/skill-library.ts` | **missing** | yes |
+| Teammate secret environment keys and scoped run injection | `renderer/src/components/KeyCard.tsx`, `main/teammate-keys.ts` | **missing** | yes |
+| Custom faces, colours, bot/mascot and status legend | `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/FaceLegend.tsx`, `renderer/src/components/PixelFace.tsx`, `renderer/src/components/AgentMark.tsx` | **missing** | no |
+| About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **missing** | yes |
+| Team image import/export with routines | `renderer/src/components/TeamCard.tsx`, `main/team-card-routines.ts`, `shared/team-card.ts` | **missing** | yes |
+| New teammate interview and setup inspection | `renderer/src/components/TeammateSetup.tsx`, `main/teammate-setup.ts`, `shared/interview.ts` | **missing** | yes |
+| Tune teammate, combine alternatives and keep measured lessons/skills | `renderer/src/components/TuneTeammate.tsx`, `renderer/src/components/KeptInstructions.tsx`, `main/tune-lessons.ts`, `main/tune-combine.ts`, `main/tune-drafts.ts` | **missing** | yes |
 
 ### Area 4: Runtimes, Routing & Fallback
-*Non-test TS lines: **30,570** (`renderer + shared`: 4,696 across 33 files; `main + packages`: 25,874 across 67 files) | Native Rust: ~380 lines in `src/main.rs`, `src/engine.rs`, `src/ledger.rs`*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Carry-on banner on rate limit / failure with runtime & model picker (`carry_on`) | `renderer/src/components/CarryOnCard.tsx`, `main/carry-on.ts` | **done** | yes |
-| Query available models & reasoning effort levels across runtimes (`list_models`) | `main/model-catalog.ts`, `main/locust-mcp-tools.ts` | **done** | yes |
-| Codex CLI / app-server runtime adapter (`@teammate/runtime-adapters`) | `packages/runtime-adapters/src/codex-adapter.ts`, `main/codex-mission.ts` | **missing** | yes |
-| Claude Code runtime adapter | `packages/runtime-adapters/src/claude-code-adapter.ts` | **missing** | yes |
-| Gemini CLI & Antigravity runtime adapters | `packages/runtime-adapters/src/gemini-adapter.ts`, `main/antigravity-mission.ts` | **missing** | yes |
-| OpenCode, Cursor, Aider, Goose, Amp, Copilot, Kiro, Qwen, Droid, Windsurf adapters | `packages/runtime-adapters/src/*-adapter.ts` (20+ adapters) | **missing** | yes |
-| Direct API / Local LLM adapters (Ollama, LM Studio, OpenAI/Anthropic/OpenRouter) | `packages/runtime-adapters/src/local-llm-adapter.ts`, `main/local-models.ts` | **missing** | yes |
-| Automatic smart routing (task classification, model tiering, fallback chains) | `main/router-service.ts`, `shared/routing-policy.ts` | **missing** | yes |
-| Multi-account pool & automatic account rotation on quota/rate limit | `main/runtime-accounts.ts`, `renderer/src/components/AccountsModal.tsx` | **missing** | yes |
-| Runtime detection, health check, CLI install/login wizard & version probing | `main/runtime-doctor.ts`, `renderer/src/components/RuntimeSetup.tsx` | **missing** | yes |
-| Mid-conversation handoff / context compaction packet across different runtimes | `main/handoff-packet.ts`, `main/carry-on.ts` | **partial** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Manual carry-on after plan/provider failure with runtime/model picker | `renderer/src/components/Thread.tsx`, `main/carry-on.ts` | **done** | yes |
+| Query models and effort levels | `main/model-catalog.ts`, `main/locust-mcp-tools.ts` | **done** | yes |
+| Standalone Codex app-server execution | `packages/runtime-adapters/src/codex-app-server-run.ts`, `main/codex-mission.ts` | **missing** | yes |
+| Standalone Claude Code execution | `packages/runtime-adapters/src/process-runner.ts`, `packages/runtime-adapters/src/claude-events.ts` | **missing** | yes |
+| Standalone Antigravity/OpenCode/Cursor/Copilot/Muse/Kilo execution | `packages/runtime-adapters/src/index.ts`, `packages/runtime-adapters/src/opencode-serve-run.ts`, `packages/runtime-adapters/src/kilo-acp-run.ts`, `main/antigravity-mission.ts` | **missing** | yes |
+| Custom Agent Client Protocol agents by command | `renderer/src/components/AcpAgentsSettings.tsx`, `main/acp-agents.ts`, `packages/runtime-adapters/src/acp-run.ts` | **missing** | yes |
+| Own OpenAI-compatible API/local models, pricing and chat-only capability | `renderer/src/components/OwnModels.tsx`, `main/own-models.ts`, `main/listed-prices.ts` | **missing** | yes |
+| Automatic carry-on policy | `main/carry-on.ts`, `shared/carry-on.ts` | **missing** | yes |
+| Named Codex/Claude accounts and explicit account selection | `renderer/src/components/AgentAccountsSettings.tsx`, `main/agent-accounts.ts` | **missing** | yes |
+| Agent discovery (including Gemini), install, sign-in, updates and capability reporting | `renderer/src/components/SignInButton.tsx`, `main/runtime-discovery.ts`, `main/runtime-installer.ts`, `main/runtime-setup.ts`, `main/runtime-sign-in.ts`, `main/runtime-updates.ts`, `shared/runtimes.ts` | **missing** | yes |
+| Cross-runtime handoff briefing and omission choices | `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **partial** — delegates briefing to Electron; no omission UI | yes |
 
 ### Area 5: Approvals & Permissions
-*Non-test TS lines: **7,716** (`renderer + shared`: 4,610 across 20 files; `main`: 3,106 across 17 files) | Native Rust: 0 lines*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Inline approval request card in thread (Allow once, Allow for session, Deny) | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts` | **missing** | yes |
-| Shell command safety analysis & dangerous command guard | `main/command-guard.ts`, `shared/command-safety.ts` | **missing** | yes |
-| Path boundary & outside-workspace write/read permission checks | `main/permission-host.ts`, `shared/permission-rules.ts` | **missing** | yes |
-| Network / domain access approval prompts & allowlists | `main/permission-host.ts`, `renderer/src/components/ApprovalCard.tsx` | **missing** | yes |
-| Saved permission rules manager (per-workspace & global allow/deny rules) | `main/approval-rules-store.ts`, `renderer/src/components/PermissionsSettings.tsx` | **missing** | yes |
-| Autonomy / sandbox mode presets (Supervised, Auto-edit, Full auto, Read-only) | `shared/mission-modes.ts`, `main/codex-mission.ts` | **missing** | yes |
-| Secret & credential leak scanner on outbound prompts and tool outputs | `main/secret-guard.ts`, `shared/secret-patterns.ts` | **missing** | yes |
-| Pending approvals badge in sidebar, dock/tray alert, and Quick Ask forwarding | `renderer/src/components/Sidebar.tsx`, `main/approval-channel.ts` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Action approval/question cards, remembered answers and denial reasons | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts`, `main/approval-rule-store.ts` | **missing** | yes |
+| Command safety/reach guard and In short explanation | `main/command-guard.ts`, `shared/command-reach.ts`, `shared/command-plain.ts` | **missing** | yes |
+| Workspace boundary, outside attachments and agent-settings-folder confirmation | `main/permission-host.ts`, `main/attach-outside.ts`, `main/workspace-settings-change.ts` | **missing** | yes |
+| Connector/browser action permissions | `main/permission-host.ts`, `main/browser-host.ts` | **missing** | yes |
+| Saved approval rules list/remove/remove all | `renderer/src/components/SavedApprovalRules.tsx`, `main/approval-rule-store.ts` | **missing** | yes |
+| Ask/Plan/Auto/Approve each action and runtime-specific guarantees | `main/mission-mode.ts`, `main/permission-host.ts`, `renderer/src/components/WhatLocustCanStop.tsx` | **missing** | yes |
+| Scoped secret detection/redaction in memories, records and sharing | `shared/secrets.ts`, `main/mission-export.ts`, `main/memory-store.ts` | **missing** | yes |
+| Approval alerts on Board/sidebar/taskbar/phone/chat | `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/Sidebar.tsx`, `main/raised-approvals.ts`, `main/taskbar-attention.ts` | **missing** | yes |
+| Organization machine policy and spend limits | `main/organization-policy.ts`, `main/organization-spend.ts`, `shared/organization-policy.ts` | **missing** | yes |
 
-### Area 6: Changes Panel, Diffs, Git, Worktrees, PRs & Scout
-*Non-test TS lines: **12,431** (`renderer + shared`: 6,345 across 33 files; `main`: 6,086 across 29 files) | Native Rust: 0 lines*
+### Area 6: Changes, Git, Worktrees, Issues & Scout
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Right-hand Changes panel (modified/added/deleted files per turn & working tree) | `renderer/src/components/ChangesPanel.tsx`, `main/git-status-service.ts` | **missing** | yes |
-| Unified & split syntax-highlighted diff viewer with inline stage/revert hunks | `renderer/src/components/DiffViewer.tsx`, `renderer/src/diff-parser.ts` | **missing** | yes |
-| Turn checkpoints & one-click Undo / Restore workspace to before turn | `main/checkpoint-service.ts`, `renderer/src/components/Thread.tsx` | **missing** | yes |
-| Git branch switcher, commit composer, AI commit message generator, push/pull | `renderer/src/components/GitPanel.tsx`, `main/git-service.ts` | **missing** | yes |
-| Automatic Git worktree / isolated branch per mission (`worktree-manager.ts`) | `main/worktree-manager.ts`, `renderer/src/components/WorktreeBar.tsx` | **missing** | yes |
-| Worktree merge-back, conflict resolution helper, and cleanup | `main/worktree-manager.ts`, `renderer/src/components/MergeModal.tsx` | **missing** | yes |
-| GitHub / GitLab Pull Request creation, status checks, review comments & merge | `main/pr-service.ts`, `renderer/src/components/PullRequestPanel.tsx` | **missing** | yes |
-| Issue tracker integration (GitHub Issues / Linear browse & start mission from issue) | `main/issue-service.ts`, `renderer/src/components/IssuesModal.tsx` | **missing** | yes |
-| Post-turn Edit Check (`mission.edit_check`: auto-run lint/typecheck/tests on changed files) | `main/edit-check-service.ts`, `renderer/src/components/EditCheckCard.tsx` | **missing** | yes |
-| Scout automated code review on diffs/PRs with inline findings cards | `main/scout-review.ts`, `renderer/src/components/ScoutReviewPanel.tsx` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Folder-wide Changes panel, file kinds and line counts | `renderer/src/components/ChangesPanel.tsx`, `renderer/src/components/FileTypeIcon.tsx`, `renderer/src/components/LineCounts.tsx`, `main/recent-edits.ts` | **missing** | yes |
+| Coloured unified diffs, expandable hunks and copy change/file | `renderer/src/components/DiffView.tsx`, `renderer/src/diff.ts`, `renderer/src/diffColours.ts` | **missing** | no |
+| Undo turn, including non-Git folder changes | `renderer/src/components/TurnUndo.tsx`, `main/checkpoints.ts`, `main/checkpoints-plain.ts` | **missing** | yes |
+| Commit composer and generated commit message | `renderer/src/components/CommitChanges.tsx`, `main/folder-commit.ts` | **missing** | yes |
+| Own-branch turn commits and worktree lifecycle | `renderer/src/components/WorktreeRow.tsx`, `main/worktrees.ts`, `main/turn-checkpoint.ts` | **missing** | yes |
+| Review/land branch as one commit and return conflicts to teammate | `renderer/src/components/ReviewChanges.tsx`, `main/worktrees.ts` | **missing** | yes |
+| GitHub PR header/link state, checks and watched news | `renderer/src/components/PullRequestChip.tsx`, `renderer/src/components/PullRequestNewsBanner.tsx`, `main/pull-request-watch.ts`, `main/pull-link.ts` | **missing** | yes |
+| Browse GitHub issues and start conversation/branch | `renderer/src/components/IssueList.tsx`, `main/github-issues.ts` | **missing** | yes |
+| Post-edit check and fix-until-check-passes | `renderer/src/components/EditCheckCard.tsx`, `renderer/src/components/CheckFixLine.tsx`, `main/edit-check.ts`, `main/check-fix.ts` | **missing** | yes |
+| Scout watch/checks, findings, notes, morning brief and weekly tune-up | `renderer/src/components/ScoutCards.tsx`, `renderer/src/components/ScoutSetting.tsx`, `main/scout.ts`, `main/scout-folder.ts` | **missing** | yes |
+| Scout /locust comments, away GitHub workflow and phone cards | `main/scout-comments.ts`, `main/scout-away.ts`, `main/phone-scout-cards.ts` | **missing** | yes |
+| Scout prepares fixes in copies for review | `main/scout-fix.ts`, `renderer/src/components/ScoutCards.tsx` | **missing** | yes |
+| Diff annotations and walk me through changes | `renderer/src/components/DiffNotes.tsx`, `renderer/src/components/SentNotes.tsx`, `renderer/src/components/ChangesPanel.tsx`, `shared/walkthrough.ts` | **missing** | yes |
 
 ### Area 7: Terminal & Own Commands
-*Non-test TS lines: **2,498** (`renderer + shared`: 762 across 11 files; `main`: 1,736 across 9 files) | Native Rust: 0 lines*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Integrated interactive PTY terminal drawer (multi-tab, resize, ANSI/xterm) | `renderer/src/components/TerminalDrawer.tsx`, `main/terminal-host.ts` | **missing** | yes |
-| "Run your own command" inline in thread (`!` prefix or command bar) | `main/own-command-host.ts`, `renderer/src/components/Thread.tsx` | **missing** | yes |
-| Attach terminal selection / failed command output directly to composer | `renderer/src/components/TerminalDrawer.tsx`, `renderer/src/components/Composer.tsx` | **missing** | no |
-| Background dev-server / daemon process manager (ports, logs, stop/restart) | `main/process-manager.ts`, `renderer/src/components/ProcessesBar.tsx` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Interactive multi-tab resizable PTY panel beside conversation | `renderer/src/components/TerminalPanel.tsx`, `renderer/src/components/TerminalToggle.tsx`, `main/terminal-host.ts`, `main/pseudo-terminal.ts` | **missing** | yes |
+| Run own ! command and record output in thread | `renderer/src/components/OwnCommand.tsx`, `main/own-command-host.ts`, `main/own-command-ipc.ts` | **missing** | yes |
+| Open runtime terminal and catch up its conversation turns | `renderer/src/components/OpenInTerminal.tsx`, `renderer/src/components/TerminalDivider.tsx`, `main/open-in-terminal.ts`, `main/terminal-catch-up.ts` | **missing** | yes |
 
 ### Area 8: Built-in Browser & Page Previews
-*Non-test TS lines: **4,052** (`renderer + shared`: 1,552 across 8 files; `main`: 2,500 across 8 files) | Native Rust: 0 lines*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Built-in web preview pane with URL bar, navigation, reload, and responsive viewport | `renderer/src/components/BrowserPane.tsx`, `main/browser-host.ts` | **missing** | yes |
-| Localhost dev server auto-detection & live preview opening | `main/page-preview-server.ts`, `renderer/src/components/BrowserPane.tsx` | **missing** | yes |
-| Visual element picker ("Click to pick element" → DOM/CSS/React component to prompt) | `main/browser-pick-bridge.ts`, `renderer/src/components/BrowserPane.tsx` | **missing** | yes |
-| Browser console error & network failure capture forwarded to teammate | `main/browser-host.ts`, `renderer/src/components/BrowserPane.tsx` | **missing** | yes |
-| Headless browser automation tools exposed to teammates (screenshot, click, read) | `main/browser-mcp-tools.ts`, `main/browser-host.ts` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Browser tabs, URL/navigation, reload and viewport | `renderer/src/components/BrowserPanel.tsx`, `renderer/src/components/BrowserToggle.tsx`, `main/browser-host.ts` | **missing** | yes |
+| Local page preview and comparison page previews | `main/page-preview.ts`, `renderer/src/components/FileViewer.tsx`, `renderer/src/components/CompareView.tsx` | **missing** | yes |
+| Point at page/browser element and attach screenshot/context | `main/browser-point.ts`, `main/page-pick.ts`, `renderer/src/components/PagePointChips.tsx` | **missing** | yes |
+| Teammate browser tools with permission gates | `main/browser-host.ts`, `main/browser-ipc.ts` | **missing** | yes |
+| Browser console/network logs readable by teammate tools | `main/browser-host.ts` | **missing** | yes |
+| Separate teammate browser sign-in profiles | `main/browser-host.ts`, `renderer/src/components/BrowserPanel.tsx` | **missing** | yes |
 
 ### Area 9: Routines, Compare & Benchmarks
-*Non-test TS lines: **10,472** (`renderer + shared`: 5,862 across 27 files; `main`: 4,610 across 17 files) | Native Rust: ~160 lines (`--bench` in `src/main.rs`)*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Scheduled Routines (cron/interval jobs, wake behavior, run history & logs) | `main/routine-runner.ts`, `main/routine-store.ts`, `renderer/src/components/RoutinesScreen.tsx` | **missing** | yes |
-| Event-triggered Routines (git hooks, file watch triggers, PR/webhook triggers) | `main/routine-file-watch.ts`, `main/routine-hooks.ts` | **missing** | yes |
-| Side-by-side Compare mode (send same prompt to 2–4 teammates/models in isolated worktrees) | `main/compare-runner.ts`, `renderer/src/components/CompareScreen.tsx` | **missing** | yes |
-| AI Judge / rubric scoring & pick-winner merge in Compare mode | `main/compare-judge.ts`, `renderer/src/components/CompareScreen.tsx` | **missing** | yes |
-| Turn Reruns & Tune (re-run turn with tweaked instructions/temperature/model) | `main/rerun-service.ts`, `renderer/src/components/RerunModal.tsx` | **missing** | yes |
-| UI frame-time & memory benchmark harness (`--bench <out.json>`) | `apps/native/src/main.rs` (native); `main/perf-diagnostics.ts` (TS) | **done** | no |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Routine editor, schedules/days/one-off, pause and run history | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/RoutineDialog.tsx`, `main/routine-runner.ts`, `main/routine-store.ts` | **missing** | yes |
+| Arriving-file routine trigger | `main/routine-file-watch.ts` | **missing** | yes |
+| Private routine link hook | `main/routine-hooks.ts`, `shared/routine-hook.ts` | **missing** | yes |
+| Routine input forms, Markdown import/export and starter templates | `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineTemplates.tsx`, `main/routine-file.ts`, `main/routine-templates.ts` | **missing** | yes |
+| Routine copy-mode changes awaiting keep/discard | `renderer/src/components/RoutineChanges.tsx`, `main/routine-copy.ts` | **missing** | yes |
+| Routine retry-until-check, handoff steps and wait-for-OK gates | `renderer/src/components/RoutineRecovery.tsx`, `main/routine-recovery-ipc.ts`, `main/routine-runner.ts` | **missing** | yes |
+| Compare/Blind side-by-side answers and isolated changes | `renderer/src/components/CompareView.tsx`, `main/compare-store.ts`, `main/compare-copies.ts` | **missing** | yes |
+| Weighted/drafted rubric points and one/three blind judges | `renderer/src/components/CompareView.tsx`, `main/compare-judge.ts`, `shared/compare-score.ts` | **missing** | yes |
+| Per-column rerun, build/merge answers, keep copies and preview pages | `renderer/src/components/CompareView.tsx`, `main/compare-reruns.ts`, `main/compare-copies.ts` | **missing** | yes |
+| Reusable benchmarks, record tables and across-benchmark analysis | `renderer/src/components/CompareBenchmark.tsx`, `renderer/src/components/BenchmarksScreen.tsx`, `renderer/src/benchmark.ts`, `renderer/src/compareRecord.ts` | **missing** | yes |
 
-### Area 10: Calls, Voice Typing & Quick Ask
-*Non-test TS lines: **4,293** (`renderer + shared`: 2,919 across 23 files; `main`: 1,374 across 10 files) | Native Rust: 1,150 lines in `src/quick.rs`*
+### Area 10: Calls & Voice Typing
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Global Quick Ask floating panel (`Option+Space`, teammate Tab cycle, streaming reply) | `main/quick-ask-window.ts`, `renderer/src/components/QuickAsk.tsx` | **done** | yes |
-| Quick Ask background session tracking & `WaitingForYou` indicator while hidden | `apps/native/src/quick.rs`, `main/quick-ask-window.ts` | **done** | yes |
-| Quick Ask "Open in main window", screenshot/selection context capture | `main/quick-ask-window.ts`, `renderer/src/components/QuickAsk.tsx` | **missing** | yes |
-| Push-to-talk voice dictation in composer & global talk shortcut | `main/voice-transcription.ts`, `renderer/src/components/VoiceButton.tsx` | **missing** | yes |
-| Live bidirectional Voice Call with teammate (Codex/OpenAI Realtime & local TTS/STT) | `main/codex-voice-call.ts`, `renderer/src/components/CallOverlay.tsx` | **missing** | yes |
-| Call transcript logging into mission ledger & live screen/file sharing during call | `main/codex-voice-call.ts`, `renderer/src/components/CallOverlay.tsx` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Voice dictation in composer | `renderer/src/components/VoiceButton.tsx`, `main/voice-host.ts`, `renderer/src/voiceCapture.ts` | **missing** | yes |
+| Realtime ChatGPT voice through Codex and teammate calls | `renderer/src/components/VoiceCall.tsx`, `main/voice-call.ts`, `main/voice-openai.ts` | **missing** | yes |
+| Saved call transcript, teammate handoffs and summary | `renderer/src/components/CallWords.tsx`, `main/call-log.ts`, `renderer/src/callTodos.ts` | **missing** | yes |
+| Windows global Talk shortcut, voice settings and greeting preview | `renderer/src/components/TalkShortcutSetting.tsx`, `renderer/src/components/TalkVoice.tsx`, `renderer/src/components/VoicePlay.tsx`, `renderer/src/components/VoiceSettings.tsx`, `main/talk-shortcut.ts`, `main/voice-preview.ts` | **missing** | yes |
+| Call folder and connector context | `main/voice-call-folder.ts`, `main/voice-call.ts` | **missing** | yes |
 
 ### Area 11: Settings, Usage, Privacy & Backup
-*Non-test TS lines: **10,930** (`renderer + shared`: 7,337 across 33 files; `main`: 3,593 across 16 files) | Native Rust: 0 lines*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Settings modal/screen with categorized navigation (`settingsPages.ts`) | `renderer/src/components/SettingsModal.tsx`, `renderer/src/settingsPages.ts` | **missing** | yes |
-| General, Appearance, Notifications, Sound effects & Keyboard shortcuts customization | `renderer/src/components/SettingsModal.tsx`, `main/settings-store.ts` | **missing** | yes |
-| Usage & cost analytics dashboard (daily/weekly spend, tokens by model & teammate, budgets) | `renderer/src/components/UsageScreen.tsx`, `main/usage-ledger.ts` | **missing** | yes |
-| OS Keychain / `safeStorage` API key & secret vault management | `main/keychain-service.ts`, `renderer/src/components/SecretsSettings.tsx` | **missing** | yes |
-| Privacy controls, local data retention policy, and redaction settings | `main/privacy-service.ts`, `renderer/src/components/PrivacySettings.tsx` | **missing** | yes |
-| Workspace & app state backup, export, and restore archive | `main/backup-service.ts`, `renderer/src/components/BackupSettings.tsx` | **missing** | yes |
-| External MCP server client configuration (add/enable stdio & HTTP MCP servers) | `main/mcp-client-manager.ts`, `renderer/src/components/McpSettings.tsx` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Categorized Settings and project settings | `renderer/src/components/Screens.tsx`, `renderer/src/settingsPages.ts`, `main/workspace.ts` | **missing** | yes |
+| Usage/cost across agents/models/accounts, plan meters and budgets | `renderer/src/components/UsageDialog.tsx`, `renderer/src/components/UsageLine.tsx`, `renderer/src/components/UsageMeters.tsx`, `shared/usage.ts`, `shared/spend.ts` | **missing** | yes |
+| OS keychain/safeStorage and unlock note | `main/keychain.ts`, `renderer/src/components/KeychainNote.tsx` | **missing** | yes |
+| Retention and manifest-verified local profile backup/restore | `main/retention.ts`, `main/profile-backup.ts` | **missing** | yes |
+| Connector inventory, health and add to supported agents | `renderer/src/components/ConnectorHealth.tsx`, `renderer/src/components/AddConnector.tsx`, `main/connector-reader.ts`, `main/connector-add.ts` | **missing** | yes |
+| Feedback and private report export/send controls | `renderer/src/components/FeedbackDialog.tsx`, `main/report-problem.ts` | **missing** | yes |
+| Keyboard shortcut reference | `renderer/src/components/KeyboardSheet.tsx`, `renderer/src/keyboardShortcuts.ts` | **missing** | no |
+| GitHub account and CLI readiness | `renderer/src/components/GitHubAccount.tsx`, `main/github-account.ts` | **missing** | yes |
 
-### Area 12: Cloud, Remote, Phone, Chat Apps & Desk
-*Non-test TS lines: **15,577** (`renderer + shared`: 5,849 across 23 files; `main`: 9,728 across 35 files) | Native Rust: 0 lines*
+### Area 12: Cloud, Remote, Phone & Chat Apps
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Locust Anywhere / Phone companion web & mobile pairing (QR code, E2E relay/tunnel) | `main/anywhere-server.ts`, `renderer/src/components/AnywhereModal.tsx` | **missing** | yes |
-| Cloud computers & remote sandbox environments (provision, sync, run turns remotely) | `main/cloud-computers.ts`, `main/cloud-tasks.ts`, `renderer/src/components/CloudScreen.tsx` | **missing** | yes |
-| Claude Cloud / background remote runs & status syncing | `main/claude-cloud.ts`, `main/background-runs.ts` | **missing** | yes |
-| Chat bridges: Telegram, Discord, and Slack bots connected to teammates | `main/telegram-bridge.ts`, `main/discord-bridge.ts`, `main/slack-bridge.ts` | **missing** | yes |
-| Desk view (spatial status board of active teammates, tasks, and queues) | `renderer/src/components/DeskScreen.tsx`, `main/desk-service.ts` | **missing** | yes |
-| Remote SSH / remote workspace connection & file synchronization | `main/remote-workspace.ts`, `renderer/src/components/RemoteModal.tsx` | **missing** | yes |
-| Account sign-in, license/plan sync, and cloud settings sync | `main/account-sync.ts`, `renderer/src/components/AccountSettings.tsx` | **missing** | yes |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Phone Wi-Fi pairing and encrypted anywhere relay | `renderer/src/components/PhoneSettings.tsx`, `main/phone-host.ts`, `main/phone-anywhere.ts`, `main/relay-crypto.ts` | **missing** | yes |
+| Phone approvals, quiet hours/alerts and sealed offline message queue | `main/phone-alerts.ts`, `main/phone-page.ts`, `main/web-push.ts` | **missing** | yes |
+| Full window in browser with code/GitHub sign-in | `main/desk-host.ts`, `main/desk-page.ts`, `main/github-account.ts` | **missing** | yes |
+| Cloud computer, agent sign-in, hours and remote turns | `renderer/src/components/CloudComputers.tsx`, `renderer/src/components/CloudSetupDialog.tsx`, `renderer/src/components/CloudTurn.tsx`, `main/cloud-computer.ts`, `main/cloud-turns.ts` | **missing** | yes |
+| Cloud task changes/PRs, Claude cloud and background runs | `renderer/src/components/CloudTasks.tsx`, `renderer/src/components/BackgroundRuns.tsx`, `main/cloud-tasks.ts`, `main/claude-cloud.ts`, `main/claude-background-runs.ts` | **missing** | yes |
+| Telegram/Discord/Slack pairing and approval notifications | `renderer/src/components/ChatAppsSettings.tsx`, `renderer/src/components/TelegramSettings.tsx`, `main/telegram.ts`, `main/discord.ts`, `main/slack.ts` | **missing** | yes |
+| Remote MCP app pairing, in-window grants and revocation | `renderer/src/components/RemoteMcpSettings.tsx`, `renderer/src/components/RemoteConnectCard.tsx`, `main/remote-mcp.ts` | **missing** | yes |
+| GitHub account sealed profile sync, recovery and transfer | `renderer/src/components/YourAccountSettings.tsx`, `main/your-account.ts`, `main/profile-sync.ts`, `main/profile-sync-crypto.ts` | **missing** | yes |
+| Claude Code remote control and background access | `renderer/src/components/RemoteControlSetting.tsx`, `main/claude-remote-control.ts`, `main/claude-background.ts` | **missing** | yes |
 
 ### Area 13: Onboarding, Home, Updates & CLI
-*Non-test TS lines: **7,440** (`renderer + shared`: 3,876 across 27 files; `main + packages`: 3,564 across 21 files) | Native Rust: ~310 lines in `src/main.rs` & `src/engine.rs`*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| CLI headless ask mode (`--ask <teammate> <message>`) & `@teammate/cli` | `apps/native/src/main.rs`, `packages/cli/src/index.ts` | **done** | yes |
-| Automated visual snapshot testing (`--snap <path> --scene <name>`) | `apps/native/src/main.rs` (14 scenes across main & quick) | **done** | no |
-| Local MCP server door (`locust-mcp-connection.json`, HTTP `/tools/call`) | `main/locust-mcp-server.ts`, `main/locust-mcp-tools.ts`, `apps/native/src/engine.rs` | **partial** | yes |
-| First-run onboarding wizard (runtime detection, sign-in, starter team, first mission) | `renderer/src/components/OnboardingWizard.tsx`, `main/onboarding-service.ts` | **missing** | yes |
-| Workspace / project switcher (open folder, recent workspaces, multi-window) | `renderer/src/components/WorkspacePicker.tsx`, `main/workspace-store.ts` | **missing** | yes |
-| Home screen (daily briefing, suggested follow-ups, quick actions, active routines) | `renderer/src/components/HomeScreen.tsx`, `main/home-briefing.ts` | **missing** | yes |
-| Auto-updater (check, download, release notes banner, restart to update) | `main/updater-service.ts`, `renderer/src/components/UpdateBanner.tsx` | **missing** | yes |
-| Command palette (`Cmd+K`) for global navigation and actions | `renderer/src/components/CommandPalette.tsx`, `shared/commands.ts` | **missing** | no |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Local MCP teammates/conversations/models/stop/carry-on access | `renderer/src/components/LocustMcpSettings.tsx`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts` | **partial** — client only; no native server/settings/routine tools | yes |
+| First launch, discovery and starter team setup | `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/BootScreen.tsx`, `main/start-readiness.ts` | **missing** | yes |
+| Folder/project switcher and remembered conversation folders | `renderer/src/components/Sidebar.tsx`, `main/folders.ts`, `main/named-folder.ts` | **missing** | yes |
+| Home cover, team, starters and compare entry points | `renderer/src/components/HomeCover.tsx`, `renderer/src/components/HomeTeam.tsx`, `renderer/src/components/StarterList.tsx`, `renderer/src/components/IdleTeammate.tsx` | **missing** | yes |
+| Board of waiting/working/done with actionable approvals | `renderer/src/components/BoardScreen.tsx`, `renderer/src/conversationBoard.ts` | **missing** | yes |
+| Since-you-were-away recap | `renderer/src/components/AwayList.tsx`, `main/away.ts` | **missing** | yes |
+| Updates, release notes and big-update splash | `renderer/src/components/WhatsNew.tsx`, `renderer/src/components/Screens.tsx`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts` | **missing** | yes |
+| Global command palette | `renderer/src/components/CommandPalette.tsx` | **missing** | no |
+| External CLI client for local MCP tools | `packages/cli/src/index.ts` | **partial** — native --ask covers ask/reply only | yes |
+| Expose team as ACP agent to editors, with opt-in own-turn approval answers | `packages/cli/src/acp.ts`, `main/locust-cli-sessions.ts` | **missing** | yes |
+| One-click Claude desktop MCP connection and restart/remove | `main/claude-app-connection.ts`, `renderer/src/components/LocustMcpSettings.tsx` | **missing** | yes |
+| Deep links prefill message/project | `main/locust-links.ts`, `shared/locust-link.ts` | **missing** | yes |
+| Startup/login item, keep running/tray and keep awake | `main/login-item.ts`, `main/quit-guard.ts`, `main/keep-running.ts`, `main/keep-awake.ts`, `main/index.ts` | **missing** | yes |
 
 ### Area 14: Pets, Bots & Look / Window Chrome
-*Non-test TS lines: **12,857** (`renderer + shared`: 11,700 across 50 files; `main`: 1,157 across 4 files) | Native Rust: ~250 lines in `src/main.rs`*
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| System Dark & Light palette switching (`cx.system_dark()`) | `apps/native/src/main.rs`, `renderer/src/theme.ts` | **done** | no |
-| Custom themes, accent colors, font family/size, and macOS vibrancy/glass | `renderer/src/theme.ts`, `main/window-glass.ts` | **missing** | yes |
-| Animated desktop/sidebar Pets & Bots companions (idle, thinking, celebrating states) | `renderer/src/components/PetCanvas.tsx`, `renderer/src/pets/*`, `main/pet-library.ts` | **missing** | yes |
-| Menu bar tray icon with live teammate status, quick actions, and pending approvals | `main/tray-service.ts` | **missing** | yes |
-| Custom window titlebar chrome, traffic light alignment, and collapsible sidebars | `renderer/src/components/Titlebar.tsx`, `main/window-chrome.ts` | **partial** | no |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Dark/light palette following computer | `renderer/src/components/ThemeSetting.tsx`, `main/appearance.ts` | **done** | no |
+| Saved appearance choice and window look settings | `renderer/src/components/ThemeSetting.tsx`, `renderer/src/components/LookSetting.tsx`, `main/appearance.ts` | **missing** | yes |
+| macOS/Windows liquid glass and rainbow backdrop | `main/mac-glass.ts`, `main/windows-glass.ts`, `renderer/src/components/LookSetting.tsx` | **missing** | yes |
+| Pet gallery, kept pets, sprites/puppets and bulk removal | `renderer/src/components/PetPicks.tsx`, `renderer/src/components/PetSprite.tsx`, `renderer/src/components/PetPuppet.tsx`, `main/pet-library.ts` | **missing** | yes |
+| Animated bots, plush/terminal eyes and agent mascots | `renderer/src/components/Bot.tsx`, `renderer/src/components/TeammateBot.tsx`, `renderer/src/buddyRig.ts`, `renderer/src/botLook.ts` | **missing** | no |
+| Native titlebar/dragging and collapsible compact sidebar | `renderer/src/components/TitleBar.tsx`, `renderer/src/components/Sidebar.tsx`, `main/window-chrome.ts` | **partial** — drag regions present; fixed-width sidebar | no |
 
-### Area 15: PDFs, Diagrams, Office Docs & File Viewer
-*Non-test TS lines: **3,947** (`renderer + shared`: 2,646 across 34 files; `main`: 1,301 across 8 files) | Native Rust: 0 lines*
+### Area 15: Documents, Diagrams & File Viewer
 
-| Feature | Where in TS (main files) | Native Status | Depends on Engine |
-| :--- | :--- | :---: | :---: |
-| Syntax-highlighted code blocks with copy button, file path header & line numbers | `renderer/src/components/CodeBlock.tsx`, `apps/native/src/main.rs` | **partial** | no |
-| Clickable `file://` links & workspace file preview drawer (read file with line range) | `renderer/src/components/FilePreviewDrawer.tsx`, `main/file-viewer-service.ts` | **missing** | yes |
-| Inline Mermaid diagram & flowchart renderer with zoom/export | `renderer/src/components/MermaidBlock.tsx` | **missing** | no |
-| Built-in PDF viewer (page navigation, text extraction, cite page to prompt) | `renderer/src/components/PdfViewer.tsx`, `main/pdf-service.ts` | **missing** | yes |
-| DOCX, XLSX spreadsheet, CSV table, and image lightbox viewers | `renderer/src/components/SpreadsheetViewer.tsx`, `main/office-doc-service.ts` | **missing** | yes |
-| Interactive HTML / SVG artifact sandbox preview in thread | `renderer/src/components/ArtifactPreview.tsx` | **missing** | no |
+| Feature | Where in TS | Native status | Depends on engine |
+| :--- | :--- | :--- | :---: |
+| Coloured code blocks, copy and file path controls | `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/ColouredCode.tsx`, `renderer/src/components/CopyButton.tsx` | **partial** — Markdown code only; no app copy/path controls | no |
+| File viewer, line targeting and context menu/editor/reveal actions | `renderer/src/components/FileViewer.tsx`, `main/reveal-file.ts`, `shared/file-menu.ts` | **missing** | yes |
+| Mermaid diagram/source view | `renderer/src/components/ReplyDiagram.tsx`, `main/diagrams.ts`, `main/diagram-view.ts` | **missing** | yes |
+| PDF pages, attachment thumbnail and text reading | `renderer/src/components/PdfPages.tsx`, `renderer/src/components/PdfTile.tsx`, `main/pdf-pages.ts`, `main/pdf-reading.ts` | **missing** | yes |
+| Word/PowerPoint reading, document changes, XLSX/CSV sheets and image zoom | `renderer/src/components/DocPreview.tsx`, `renderer/src/components/DocumentView.tsx`, `renderer/src/components/DocumentChange.tsx`, `renderer/src/components/SheetView.tsx`, `renderer/src/components/ZoomableImage.tsx`, `main/office-words.ts`, `main/xlsx.ts` | **missing** | yes |
+| Runnable HTML reply pages and source/preview view | `renderer/src/components/ReplyPage.tsx`, `main/reply-page.ts`, `main/page-preview.ts` | **missing** | yes |
+| Rendered math in replies | `renderer/src/components/MathTex.tsx`, `renderer/src/components/ThreadItems.tsx` | **missing** | no |
 
----
+## 2. Engine Breakdown: Main-Process Services & Standalone Requirements
 
-## 2. Engine Breakdown: Main-Process Services & Standalone Rust Requirements
+Real service entry points below replace the draft's invented names. These remain Electron-side; an MCP client is not a native implementation. This inventory overlaps feature areas and is not a mutually exclusive line allocation.
 
-Today, `locust-native` depends on the Electron main process for every write path and runtime interaction via `http://127.0.0.1:<port>/tools/call` (`locust-mcp-connection.json`). To run **standalone without Electron**, `locust-native` must replace the following TypeScript engine services (`apps/desktop/src/main` + `packages/*`, totaling **95,276 non-test lines** across 293 files):
+| Subsystem | Existing TS entry points | Needed for standalone Rust |
+| :--- | :--- | :--- |
+| Runtime execution | `main/codex-mission.ts`, `main/antigravity-mission.ts`, `main/app-server-process.ts`, `packages/runtime-adapters/src/index.ts`, `packages/runtime-adapters/src/process-runner.ts`, `packages/runtime-adapters/src/acp-run.ts` | Subprocess/protocol drivers and normalized streaming. |
+| Ledger/history/export | `main/ledger-writes.ts`, `main/mission-history.ts`, `main/conversation-chain.ts`, `main/mission-export.ts`, `packages/mission-store/src/index.ts` | Ledger writer/recovery, indexes, continuations, import and saved records. |
+| Turn lifecycle/carry-on | `main/codex-mission.ts`, `main/run-end.ts`, `main/carry-on.ts`, `main/handoff.ts`, `main/queued-message-store.ts` | Briefing, queue persistence, failures and continuation dispatch. |
+| Models/accounts/setup | `main/model-catalog.ts`, `main/agent-accounts.ts`, `main/runtime-discovery.ts`, `main/runtime-setup.ts`, `main/runtime-sign-in.ts`, `main/own-models.ts` | Catalog, account isolation, install/auth and own endpoint client. |
+| Team/rooms/memory/skills/relay | `main/teammate-store.ts`, `main/room-store.ts`, `main/group-store.ts`, `main/memory-store.ts`, `main/skill-discovery.ts`, `main/skill-library.ts`, `main/peer-exchange.ts`, `main/teammate-keys.ts` | Persistent stores, instructions, scoped keys and bounded peer dispatch. |
+| Approvals/guard/policy | `main/approval-channel.ts`, `main/approval-rule-store.ts`, `main/permission-host.ts`, `main/command-guard.ts`, `main/organization-policy.ts`, `main/organization-spend.ts` | Pause/resume, saved rules, command checks and organization enforcement. |
+| Git/checkpoints/GitHub/Scout | `main/recent-edits.ts`, `main/worktrees.ts`, `main/turn-checkpoint.ts`, `main/checkpoints.ts`, `main/folder-commit.ts`, `main/pull-request-watch.ts`, `main/github-issues.ts`, `main/edit-check.ts`, `main/scout.ts` | Observation, undo, branch landing, GitHub metadata and Scout jobs. |
+| Routines/compare/tune | `main/routine-runner.ts`, `main/routine-store.ts`, `main/routine-file-watch.ts`, `main/routine-hooks.ts`, `main/compare-store.ts`, `main/compare-copies.ts`, `main/compare-judge.ts`, `main/compare-reruns.ts`, `main/tune-lessons.ts` | Scheduling, file/link triggers, reviewed steps/copies, scoring and tuning. |
+| Terminals/own commands | `main/terminal-host.ts`, `main/pseudo-terminal.ts`, `main/own-command-host.ts`, `main/terminal-catch-up.ts` | PTY lifecycle, command recording and terminal session catch-up. |
+| Browser/pages | `main/browser-host.ts`, `main/browser-ipc.ts`, `main/browser-point.ts`, `main/page-preview.ts`, `main/page-pick.ts`, `main/reply-page.ts` | Isolated tabs/profiles, permission bridge, capture and sandboxed previews. |
+| Voice/calls | `main/voice-host.ts`, `main/voice-call.ts`, `main/voice-openai.ts`, `main/voice-call-folder.ts`, `main/call-log.ts`, `main/talk-shortcut.ts` | Capture/transcription, realtime voice, transcripts/handoffs and OS shortcut. |
+| Settings/security/backup/connectors | `main/workspace.ts`, `main/keychain.ts`, `main/retention.ts`, `main/profile-backup.ts`, `main/connector-reader.ts`, `main/connector-add.ts` | Settings/key storage, manifest-verified backup and connector inspection/installation. |
+| Phone/desk/chat/cloud/sync | `main/phone-host.ts`, `main/phone-anywhere.ts`, `main/desk-host.ts`, `main/remote-mcp.ts`, `main/telegram.ts`, `main/discord.ts`, `main/slack.ts`, `main/cloud-computer.ts`, `main/cloud-turns.ts`, `main/cloud-tasks.ts`, `main/claude-cloud.ts`, `main/profile-sync.ts` | Encrypted pairing/relay, browser access, app grants, chat/cloud transports and sync. |
+| MCP/startup/update | `main/index.ts`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts`, `main/login-item.ts`, `main/quit-guard.ts`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts` | Authenticated server, lifecycle/tray/login and platform updater. |
+| Window/pets/documents | `main/window-chrome.ts`, `main/mac-glass.ts`, `main/windows-glass.ts`, `main/pet-library.ts`, `main/pdf-pages.ts`, `main/office-words.ts`, `main/xlsx.ts`, `main/diagrams.ts`, `main/reveal-file.ts` | Window materials, pet storage and safe document/file/diagram readers. |
 
-| Engine Service / Subsystem | Primary TS Files (`main/` & `packages/`) | TS Non-Test Lines | Used by UI Areas | What Native Rust Needs to Run Without Electron |
-| :--- | :--- | ---: | :--- | :--- |
-| **1. Runtime Adapters (`@teammate/runtime-adapters`)** | `packages/runtime-adapters/src/*.ts` (Codex, Claude Code, Gemini, OpenCode, Cursor, Aider, Goose, Amp, Local LLM, etc.) | 18,212 | Areas 1, 4, 9, 10 | Native async subprocess & stdio/JSON-RPC/HTTP drivers (`tokio::process`) spawning CLI runtimes (`codex`, `claude`, `gemini`, `opencode`, etc.) and direct HTTP streaming for local/API models, emitting normalized `MissionEvent` streams. |
-| **2. Mission Store & Ledger Writer (`@teammate/mission-store` + `mission-history`)** | `packages/mission-store/src/*.ts`, `main/mission-history.ts`, `main/mission-export.ts` | 6,418 | Areas 1, 2, 4, 9 | Extend `src/ledger.rs` from read-only to an atomic append-only JSONL writer (schema v27), index/cache manager, continuation linker, and conversation search/archive/export service. |
-| **3. Mission Orchestrator (`codex-mission`, `antigravity-mission`, `carry-on`)** | `main/codex-mission.ts`, `main/antigravity-mission.ts`, `main/carry-on.ts`, `main/handoff-packet.ts` | 19,845 | Areas 1, 2, 3, 4, 5 | Turn lifecycle state machine: prompt assembly (system prompt, skills, memories, reference folders, `<locust-*>` instructions), streaming delta aggregation, tool tracking, rate-limit detection, follow-up queue draining, and carry-on handoff packet generation. |
-| **4. Routing, Model Catalog & Multi-Account Pool** | `main/router-service.ts`, `main/model-catalog.ts`, `main/runtime-accounts.ts`, `main/runtime-doctor.ts`, `main/local-models.ts` | 5,230 | Areas 2, 4, 11, 13 | Native model registry, CLI availability/auth prober, prompt complexity router, fallback policy evaluator, and credential/profile switcher across multiple runtime accounts. |
-| **5. Teammate, Room, Memory & Skill Stores + Peer Relay** | `main/teammate-store.ts`, `main/room-store.ts`, `main/group-store.ts`, `main/memory-store.ts`, `main/skill-store.ts`, `main/peer-share-relay.ts`, `main/teammate-keys.ts` | 8,796 | Areas 1, 2, 3, 13 | JSON/SQLite persistence in `<userData>` for teammates, rooms, and memories; parser for `<locust-memory>`, `<locust-share>`, `<locust-ask>`, `<locust-file>`, `<locust-next>`; automatic peer-turn dispatcher; `SKILL.md` / `CLAUDE.md` / `AGENTS.md` loader. |
-| **6. Approvals, Permissions, Command Guard & Secret Scanner** | `main/approval-channel.ts`, `main/permission-host.ts`, `main/command-guard.ts`, `main/approval-rules-store.ts`, `main/secret-guard.ts` | 3,106 | Areas 1, 5, 7, 10 | Shell AST/regex safety analyzer, workspace path boundary validator, secret pattern detector, persistent allow/deny rule store, and oneshot async channel pausing adapter tool execution until the user clicks Allow/Deny in UI. |
-| **7. Git, Worktrees, Checkpoints, Diffs, PRs, Issues & Scout** | `main/git-service.ts`, `main/git-status-service.ts`, `main/worktree-manager.ts`, `main/checkpoint-service.ts`, `main/pr-service.ts`, `main/issue-service.ts`, `main/edit-check-service.ts`, `main/scout-review.ts` | 6,086 | Areas 1, 6, 9 | Git CLI / `git2` wrapper for status, unified diffs, hunk staging, pre-turn snapshot refs (checkpoints/undo), per-mission git worktree creation/merge, `gh`/`glab` or REST client for PRs/issues, post-turn lint/test runner (`mission.edit_check`), and Scout diff review runner. |
-| **8. Routines, File Watch, Compare & Reruns** | `main/routine-runner.ts`, `main/routine-store.ts`, `main/routine-file-watch.ts`, `main/routine-hooks.ts`, `main/compare-runner.ts`, `main/compare-judge.ts`, `main/rerun-service.ts` | 4,610 | Area 9 | Cron/interval scheduler (`tokio-cron-scheduler` / timer loop), `notify` filesystem watcher, parallel worktree mission fan-out for Compare mode, rubric judge prompt runner, and turn rerun cloner. |
-| **9. Terminal PTY Host, Own Commands & Process Manager** | `main/terminal-host.ts`, `main/own-command-host.ts`, `main/process-manager.ts` | 1,736 | Area 7 | Native PTY manager (`portable-pty` / `libc::forkpty`), ANSI terminal state machine (`vte` / `alacritty_terminal`), inline user shell command runner writing to ledger, and background dev-server tracker. |
-| **10. Built-in Browser Host, Preview Server & Element Picker** | `main/browser-host.ts`, `main/page-preview-server.ts`, `main/browser-pick-bridge.ts`, `main/browser-mcp-tools.ts` | 2,500 | Area 8 | Native `WKWebView` surface (via `rune-surface` / `objc2`), injected JS bridge for DOM element picking & console/network forwarding, and headless automation endpoints for teammates. |
-| **11. Voice Transcription, Realtime Voice Call & Quick Ask Host** | `main/voice-transcription.ts`, `main/codex-voice-call.ts`, `main/quick-ask-window.ts` | 1,374 | Area 10 | Native audio capture (`CoreAudio` / `cpal`), local Whisper or cloud STT client, WebRTC/WebSocket realtime audio session for voice calls (Quick Ask window host is already native in `src/quick.rs`). |
-| **12. Settings, Usage Ledger, Keychain, Privacy, Backup & MCP Client** | `main/settings-store.ts`, `main/usage-ledger.ts`, `main/keychain-service.ts`, `main/privacy-service.ts`, `main/backup-service.ts`, `main/mcp-client-manager.ts` | 3,593 | Areas 1, 11 | macOS Security framework Keychain wrapper (`security-framework`), settings JSON store with live file watch, token/cost rollup aggregator, zip backup/restore, and MCP client manager for external stdio/SSE tools. |
-| **13. Cloud, Anywhere/Phone, Chat Bridges & Desk** | `main/anywhere-server.ts`, `main/cloud-computers.ts`, `main/cloud-tasks.ts`, `main/claude-cloud.ts`, `main/telegram-bridge.ts`, `main/discord-bridge.ts`, `main/slack-bridge.ts`, `main/desk-service.ts`, `main/account-sync.ts` | 9,728 | Area 12 | Embedded HTTP/WebSocket server + relay client for Locust Anywhere mobile access, REST/WebSocket clients for Cloud Computers, Telegram/Discord/Slack bot adapters, and account sync client. |
-| **14. Local MCP Server Door, CLI, Onboarding & Updater** | `main/index.ts`, `main/locust-mcp-server.ts`, `main/locust-mcp-tools.ts`, `main/cli-session-import.ts`, `main/updater-service.ts`, `packages/cli/src/*.ts` | 2,845 | Area 13 | Native localhost HTTP server hosting `/tools/call` and writing `locust-mcp-connection.json` (so external MCP clients and `--ask` work against `locust-native` directly), external CLI transcript importers, and Sparkle/native auto-updater. |
-| **15. Window Chrome, Tray, Pets & Document Viewers (PDF/Office)** | `main/tray-service.ts`, `main/window-chrome.ts`, `main/window-glass.ts`, `main/pet-library.ts`, `main/pdf-service.ts`, `main/office-doc-service.ts`, `main/file-viewer-service.ts` | 2,458 | Areas 14, 15 | `NSStatusItem` menu bar tray, `NSVisualEffectView` vibrancy, workspace file reader, `PDFKit` / `calamine` / `zip`+XML readers for PDF, XLSX, and DOCX extraction. |
+## 3. Totals
 
-*Note: Counts in the table above include `codex-mission.ts` and `mission-store` lines that also power Area 1 thread state; every file in `main/` and `packages/` is accounted for exactly once in the Area totals in Section 3.*
+Computed from Section 1 only; removed claims, engine inventory and native-only utilities are excluded. Partial does not count as done.
 
----
+| # | Area | Done | Partial | Missing | Total |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+| 1 | Conversations & Thread Rendering | 5 | 3 | 17 | 25 |
+| 2 | Composer & Input | 3 | 0 | 11 | 14 |
+| 3 | Teammates, Rooms, Memory & Skills | 2 | 0 | 12 | 14 |
+| 4 | Runtimes, Routing & Fallback | 2 | 1 | 8 | 11 |
+| 5 | Approvals & Permissions | 0 | 0 | 9 | 9 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 0 | 13 | 13 |
+| 7 | Terminal & Own Commands | 0 | 0 | 3 | 3 |
+| 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
+| 9 | Routines, Compare & Benchmarks | 0 | 0 | 10 | 10 |
+| 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 |
+| 11 | Settings, Usage, Privacy & Backup | 0 | 0 | 8 | 8 |
+| 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 |
+| 13 | Onboarding, Home, Updates & CLI | 0 | 2 | 11 | 13 |
+| 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
+| 15 | Documents, Diagrams & File Viewer | 0 | 1 | 6 | 7 |
+| | **TOTAL** | **13** | **8** | **132** | **153** |
 
-## 3. Totals: Feature Counts & Non-Test Line Counts
+Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
-### 3.1 Feature Parity Summary by Area
+| Source group | Files | Production lines | Total lines |
+| :--- | ---: | ---: | ---: |
+| Desktop renderer | 314 | 85,401 | 85,401 |
+| Desktop shared | 128 | 24,998 | 24,998 |
+| Desktop main | 253 | 72,836 | 72,836 |
+| Desktop preload | 1 | 38 | 38 |
+| Runtime adapters | 32 | 18,212 | 18,212 |
+| Mission store | 4 | 3,735 | 3,735 |
+| CLI | 4 | 493 | 493 |
+| Native app | 4 | 4,330 | 6,471 |
 
-| # | Area | Done | Partial | Missing | Total Features | TS UI + Shared Lines (`renderer`+`shared`+`preload`) | TS Engine Lines (`main`+`packages`) | Total TS Non-Test Lines | Native Rust Non-Test Lines |
-| :- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 3 | 5 | 12 | **20** | 39,001 | 21,162 | **60,163** | ~1,550 |
-| 2 | Composer & Input | 3 | 1 | 8 | **12** | 4,994 | 689 | **5,683** | ~420 |
-| 3 | Teammates, Rooms, Memory & Skills | 2 | 0 | 8 | **10** | 8,288 | 8,796 | **17,084** | ~260 |
-| 4 | Runtimes, Routing & Fallback | 2 | 1 | 8 | **11** | 4,696 | 25,874 | **30,570** | ~380 |
-| 5 | Approvals & Permissions | 0 | 0 | 8 | **8** | 4,610 | 3,106 | **7,716** | 0 |
-| 6 | Changes Panel, Diffs, Git, Worktrees, PRs & Scout | 0 | 0 | 10 | **10** | 6,345 | 6,086 | **12,431** | 0 |
-| 7 | Terminal & Own Commands | 0 | 0 | 4 | **4** | 762 | 1,736 | **2,498** | 0 |
-| 8 | Built-in Browser & Page Previews | 0 | 0 | 5 | **5** | 1,552 | 2,500 | **4,052** | 0 |
-| 9 | Routines, Compare & Benchmarks | 1 | 0 | 5 | **6** | 5,862 | 4,610 | **10,472** | ~160 |
-| 10 | Calls, Voice Typing & Quick Ask | 2 | 0 | 4 | **6** | 2,919 | 1,374 | **4,293** | 1,150 |
-| 11 | Settings, Usage, Privacy & Backup | 0 | 0 | 7 | **7** | 7,337 | 3,593 | **10,930** | 0 |
-| 12 | Cloud, Remote, Phone, Chat Apps & Desk | 0 | 0 | 7 | **7** | 5,849 | 9,728 | **15,577** | 0 |
-| 13 | Onboarding, Home, Updates & CLI | 2 | 1 | 5 | **8** | 3,876 | 3,564 | **7,440** | ~310 |
-| 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 3 | **5** | 11,700 | 1,157 | **12,857** | ~250 |
-| 15 | PDFs, Diagrams, Office Docs & File Viewer | 0 | 1 | 5 | **6** | 2,646 | 1,301 | **3,947** | ~49 |
-| | **TOTAL** | **16 (12.8%)** | **10 (8.0%)** | **99 (79.2%)** | **125** | **110,437** | **95,276** | **205,713** | **4,329** |
+## 4. Suggested Rounds (Daily Path First)
 
----
+Estimates are **rough additional production Rust LOC**, not measured sizes or one-day guarantees. Split rounds when integration/testing requires it. Existing edit targets are `native/src/main.rs`, `native/src/ledger.rs`, `native/src/engine.rs` and `native/src/quick.rs`; future modules are deliberately unnamed. TS references are source guides, not files to modify.
 
-## 4. Suggested Order of Rounds (Daily-Path First, ≤ ~1,500 Lines of Rust / Day)
+| Round | Scope in order | Existing source guides | Rough Rust LOC |
+| :--- | :--- | :--- | ---: |
+| 1 | Rich tools/helpers, reasoning and interactive plans | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/ThreadItems.tsx` | ~1,200 |
+| 2 | Multiline, window drafts, attachments, mentions/commands and durable queue | `renderer/src/components/Composer.tsx`, `main/queued-message-store.ts` | ~1,300 |
+| 3 | Approval/question responses, saved rules and command explanations | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts`, `main/approval-rule-store.ts` | ~1,100 |
+| 4 | Conversation organization, find/palette, prompt rail and beside view | `renderer/src/components/Sidebar.tsx`, `renderer/src/components/ThreadFind.tsx`, `renderer/src/components/CommandPalette.tsx`, `renderer/src/components/BesideConversation.tsx` | ~1,300 |
+| 5 | Copy/code/file actions, context usage and interrupted-run recovery | `renderer/src/components/FileViewer.tsx`, `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/ContextRing.tsx`, `renderer/src/components/ResumeCard.tsx` | ~1,100 |
+| 6 | Native ledger writer/history and authenticated local MCP server | `main/ledger-writes.ts`, `main/locust-mcp-host.ts`, `packages/mission-store/src/index.ts` | ~1,400 |
+| 7 | Team/project/memory/skills stores and teammate editing | `main/teammate-store.ts`, `main/memory-store.ts`, `main/skill-discovery.ts`, `renderer/src/components/NewTeammateDialog.tsx` | ~1,200 |
+| 8 | Standalone Codex and Claude Code drivers | `packages/runtime-adapters/src/codex-app-server-run.ts`, `packages/runtime-adapters/src/process-runner.ts` | ~1,500 |
+| 9 | Supported Antigravity/OpenCode/Cursor/Copilot/Muse/Kilo/ACP and own-model paths | `packages/runtime-adapters/src/index.ts`, `main/own-models.ts`, `main/acp-agents.ts` | ~1,400 |
+| 10 | Catalog, account selection and manual/automatic carry-on briefing | `main/model-catalog.ts`, `main/agent-accounts.ts`, `main/carry-on.ts`, `main/handoff.ts` | ~1,300 |
+| 11 | Guard, permission enforcement, organization limits and key storage | `main/command-guard.ts`, `main/permission-host.ts`, `main/organization-policy.ts`, `main/keychain.ts` | ~1,200 |
+| 12 | Rooms, peer dispatch and share/decision/file/task actions | `main/peer-exchange.ts`, `main/room-store.ts`, `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx` | ~1,200 |
+| 13 | Changes, coloured diffs, notes and undo | `renderer/src/components/ChangesPanel.tsx`, `renderer/src/components/DiffView.tsx`, `renderer/src/components/DiffNotes.tsx`, `main/checkpoints.ts` | ~1,400 |
+| 14 | Commit/own branch, review/land and check/fix loops | `renderer/src/components/CommitChanges.tsx`, `renderer/src/components/ReviewChanges.tsx`, `main/worktrees.ts`, `main/check-fix.ts` | ~1,400 |
+| 15 | GitHub issues/PR watching and Scout watch/fix/away | `main/github-issues.ts`, `main/pull-request-watch.ts`, `main/scout.ts`, `main/scout-away.ts` | ~1,200 |
+| 16 | PTY, own commands and terminal catch-up | `renderer/src/components/TerminalPanel.tsx`, `main/own-command-host.ts`, `main/terminal-catch-up.ts` | ~1,300 |
+| 17 | Browser tabs/profiles, page previews and element capture | `renderer/src/components/BrowserPanel.tsx`, `main/browser-host.ts`, `main/page-pick.ts` | ~1,300 |
+| 18 | Routine schedules/file/link triggers, inputs/templates, gates and reviewed copies | `main/routine-runner.ts`, `main/routine-hooks.ts`, `renderer/src/components/RoutineChanges.tsx`, `renderer/src/components/RoutineRecovery.tsx` | ~1,300 |
+| 19 | Compare/blind, judges/reruns, benchmarks and measured tuning | `renderer/src/components/CompareView.tsx`, `renderer/src/components/BenchmarksScreen.tsx`, `renderer/src/components/TuneTeammate.tsx` | ~1,300 |
+| 20 | Settings, usage, connectors, backup and feedback | `renderer/src/components/Screens.tsx`, `renderer/src/components/UsageDialog.tsx`, `renderer/src/components/AddConnector.tsx`, `main/profile-backup.ts` | ~1,400 |
+| 21 | Dictation/realtime calls, transcripts and voice selection | `renderer/src/components/VoiceButton.tsx`, `renderer/src/components/VoiceCall.tsx`, `main/call-log.ts`, `renderer/src/components/TalkVoice.tsx` | ~1,400 |
+| 22 | Phone/browser/remote MCP and paired chat apps | `main/phone-anywhere.ts`, `main/desk-host.ts`, `main/remote-mcp.ts`, `renderer/src/components/ChatAppsSettings.tsx` | ~1,400 |
+| 23 | Cloud computer/tasks/background runs and sealed profile sync | `renderer/src/components/CloudComputers.tsx`, `renderer/src/components/CloudTasks.tsx`, `renderer/src/components/YourAccountSettings.tsx` | ~1,300 |
+| 24 | PDF, Word/PowerPoint, sheets/images, math/Mermaid and reply pages | `renderer/src/components/DocPreview.tsx`, `renderer/src/components/PdfPages.tsx`, `renderer/src/components/ReplyDiagram.tsx`, `renderer/src/components/ReplyPage.tsx` | ~1,200 |
+| 25 | First launch/Home/Board, updates, startup/tray, glass and pets | `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/HomeCover.tsx`, `renderer/src/components/BoardScreen.tsx`, `main/updates.ts`, `main/quit-guard.ts`, `renderer/src/components/PetPicks.tsx` | ~1,300 |
 
-Each round is scoped so a single engineer can build, test, and land it in one day (~800–1,500 non-test lines of Rust).
-- **Phase A (Rounds 1–5)** completes the daily-driver UI & ledger fidelity while still able to coexist with or transition off Electron.
-- **Phase B (Rounds 6–12)** builds the **standalone Rust engine** so Electron does not need to run at all.
-- **Phase C (Rounds 13–20)** ports the power-user developer tools (Git/Diffs, Terminal, Browser, Routines/Compare, Settings/Usage).
-- **Phase D (Rounds 21–25)** ports secondary surfaces (Voice/Calls, Cloud/Anywhere/Chat bridges, Docs/PDFs, Pets/Themes, Onboarding/Updater).
+## Removed (not in the app)
 
-### Phase A: Daily-Driver Thread, Composer & Ledger Fidelity
-1. **Round 1 — Rich Thread Blocks & Ledger Event Completion (~1,200 LOC)**
-   - **Scope**: Extend `src/ledger.rs` and `src/main.rs` to parse and render expandable tool input/output drawers, reasoning/thinking traces with elapsed timers, subagent nested trees (`parentItemId`), peer share cards (`mission.peer`), and `<locust-ask>` / `<locust-file>` / `<locust-next>` interactive blocks.
-2. **Round 2 — Full Multiline Composer, Attachments, Mentions & Queue (~1,300 LOC)**
-   - **Scope**: Upgrade main-window composer to multiline (`Shift+Enter`), persistent per-conversation disk drafts, `@file` / `@teammate` autocomplete popup, `/` skill & slash-command menu, image/file paste & drag-and-drop, and follow-up message queue while a turn is running.
-3. **Round 3 — Approvals & Permission Cards End-to-End (~1,100 LOC)**
-   - **Scope**: Parse `mission.approval` events in `ledger.rs`, render inline Approval cards in `main.rs` and `quick.rs` (`Allow once`, `Allow session`, `Deny`), add sidebar pending-approval badge, and wire approval responses back to the engine.
-4. **Round 4 — Sidebar Organization, Search & Multi-Pane Threads (~1,300 LOC)**
-   - **Scope**: Add conversation search (`Cmd+F` in thread + global sidebar search), pinning/archiving/renaming/deleting conversations, workspace/folder switcher, and 2-up split thread panes.
-5. **Round 5 — Code Blocks, File Preview Drawer & Command Palette (~1,100 LOC)**
-   - **Scope**: Add syntax-highlighted code blocks with copy/path headers, clickable `file://` links opening a right-hand file reader drawer (with line-range highlighting), and `Cmd+K` command palette.
+These are removed draft rows or unsupported clauses of composite rows. Verified subsets remain in Section 1. A missing filename alone was not treated as evidence that a feature is absent.
 
-### Phase B: Standalone Rust Engine (Zero-Electron Independence)
-6. **Round 6 — Native Ledger Writer, Mission Store & Local MCP Host (~1,400 LOC)**
-   - **Scope**: Add atomic JSONL ledger creation/append (`mission.created`, `mission.event`, continuation chains) and host the localhost HTTP MCP server (`locust-mcp-connection.json`) directly inside `locust-native` so it no longer requires Electron's server.
-7. **Round 7 — Native Teammate, Memory & Skill Stores (~1,200 LOC)**
-   - **Scope**: Read/write `<userData>/teammates.json` (plus starter presets Argon, Codec, Scout, Sage), shared team memory (`<locust-memory>` parser & store), and `SKILL.md` / `CLAUDE.md` / `AGENTS.md` workspace discovery.
-8. **Round 8 — Standalone Runtime Driver: Codex & Claude Code (~1,500 LOC)**
-   - **Scope**: Build the native async runtime adapter trait and implement subprocess/JSON-RPC streaming drivers for **Codex** (`codex app-server` / CLI) and **Claude Code**, piping events directly into the native ledger writer.
-9. **Round 9 — Standalone Runtime Driver: Gemini, OpenCode & Local/API Models (~1,400 LOC)**
-   - **Scope**: Add adapters for Gemini CLI, Antigravity, OpenCode, Cursor/Aider, and direct HTTP OpenAI/Anthropic/Ollama endpoints, plus runtime health/auth detection (`runtime-doctor`).
-10. **Round 10 — Native Routing, Model Catalog, Multi-Account & Carry-On (~1,300 LOC)**
-    - **Scope**: Port `model-catalog`, smart task routing, rate-limit detector, multi-account pool rotation, and cross-runtime handoff packet generation in pure Rust.
-11. **Round 11 — Native Command Guard, Permission Host & OS Keychain (~1,200 LOC)**
-    - **Scope**: Port shell command safety analysis, workspace path boundary checks, secret leak scanner, saved permission rules store, and macOS Keychain (`security-framework`) secret storage.
-12. **Round 12 — Multi-Teammate Rooms & Peer Share Relay (~1,200 LOC)**
-    - **Scope**: Port `peer-share-relay` (`<locust-share to="...">` auto-dispatch between teammates), multi-teammate Rooms/Groups turn orchestration, and Teammate create/edit UI modal.
+- Global Quick Ask, hidden-session tracking and screenshot/selection capture/open-main controls: native-only; no TS Quick Ask window. Global Talk is a distinct real feature.
+- UI frame-time/memory benchmark and --snap visual scene CLI: native engineering utilities, not TS user features. Quick Ask and native --bench/--snap do not earn TS parity credit.
+- Task-classification/model-tier smart router: no corresponding app service. Route selection and carry-on are real.
+- Automatic multi-account quota rotation: named account creation and explicit selection exist, not that policy.
+- Claimed built-in Gemini mission execution and Aider/Goose/Amp/Qwen/Droid/Windsurf adapter suite: Gemini is discovered and supports sign-in, but shared runtime capability code explicitly refuses missions because it lacks an event reader. Custom ACP support is real, not proof of separate built-in integrations for the other names.
+- Teammate SSH/GPG signing keys: real keys are secret environment values.
+- Search over all assistant transcript text: sidebar search covers titles, IDs, teammates and the person's messages across turns, and in-thread find is real; no global assistant-body search engine found.
+- Conversation tabs/archive suite and message bookmark/pin/fork suite as described: retain real pin/rename/settle/snooze/delete/project grouping, copy/edit and side-session features.
+- HTML/shareable-link conversation export: actual saved record is Markdown plus raw JSON.
+- Assistant-message read-aloud: voice greeting preview and realtime Talk exist, not that control.
+- Draft persistence across restarts: composer drafts live in a window-local Map; queued messages persist separately.
+- Saved prompt/snippet library and symbol-autocomplete suite: file mentions, custom slash commands and Up-arrow history exist.
+- Arbitrary domain allowlist settings and universal outbound-prompt/tool-output secret scanner: actual checks are scoped connector/browser permissions and secret detection/redaction.
+- Split diff with inline hunk stage/revert and generic branch switch/push/pull panel: actual workflows are unified diffs, commit/review/land and undo.
+- GitLab PR create/review/merge and Linear integration: actual app surfaces use GitHub issues/PR metadata/watching and cloud task PR actions.
+- Attach terminal selection and daemon/ports/restart manager: no matching app controls found.
+- Automatic browser error forwarding and localhost discovery: console/network capture is real and exposed through browser tools (Area 8); automatic unsolicited forwarding and server discovery were not found.
+- Generic Git-hook/PR-webhook routine triggers: real triggers are schedules, arriving files and private routine links.
+- Single-turn temperature Rerun/Tune modal: actual reruns belong to comparison columns; tuning measures teammate changes.
+- Live screen/file sharing and local TTS/STT call backend suite: actual voice calls use Codex/OpenAI realtime with folder/connector context and recorded words.
+- Remote SSH workspace/file-sync manager and license/plan account sync: cloud computers, Claude remote control and sealed profile sync are distinct features.
+- Spatial Desk board: Desk serves the full browser window; the real Board is a renderer component.
+- General font-family/size/accent theme editor: actual theme/look and teammate colour controls are listed.
+- General SVG artifact sandbox: real runnable HTML replies and file previews are listed.
 
-### Phase C: Developer Workflow Tools (Git, Terminal, Browser, Routines, Settings)
-13. **Round 13 — Changes Panel, Unified/Split Diff Viewer & Turn Checkpoints (~1,400 LOC)**
-    - **Scope**: Build right-hand Changes panel, git status watcher, syntax-highlighted unified/split diff viewer with hunk stage/revert, and pre-turn git checkpoints with one-click Undo.
-14. **Round 14 — Git Branch/Commit, Isolated Worktrees & Post-Turn Edit Check (~1,400 LOC)**
-    - **Scope**: Add branch switcher, commit/push UI, per-mission isolated git worktree lifecycle + merge-back, and post-turn `mission.edit_check` (auto lint/typecheck/test runner).
-15. **Round 15 — Pull Requests, Issues & Scout Diff Review (~1,200 LOC)**
-    - **Scope**: Port GitHub/GitLab PR status/create/merge panel, GitHub/Linear issue picker, and Scout automated diff review findings.
-16. **Round 16 — Integrated PTY Terminal Drawer & Own Commands (~1,300 LOC)**
-    - **Scope**: Embed native PTY (`portable-pty`) + ANSI terminal grid in a collapsible bottom drawer, `!` inline user commands in thread, and background dev-server process list.
-17. **Round 17 — Built-in Web Preview Pane & Visual Element Picker (~1,300 LOC)**
-    - **Scope**: Embed `WKWebView` preview pane via `rune-surface`, localhost port auto-detect, DOM element picker bridge to composer, and console/network error capture.
-18. **Round 18 — Scheduled Routines, File Watchers & Hooks (~1,300 LOC)**
-    - **Scope**: Port cron/interval routine scheduler, `notify` file-watcher triggers, git hook triggers, and the Routines management screen.
-19. **Round 19 — Side-by-Side Compare Mode, AI Judge & Turn Reruns (~1,300 LOC)**
-    - **Scope**: Port parallel worktree Compare execution (2–4 models/teammates), AI Judge rubric scoring card, pick-winner worktree apply, and single-turn Rerun/Tune modal.
-20. **Round 20 — Settings Screen, Usage/Cost Analytics & Backup (~1,400 LOC)**
-    - **Scope**: Build the categorized Settings screen, token/cost rollup dashboard (`usage-ledger`), external MCP client server config UI, and workspace backup/restore.
+## 5. Coverage Review
 
-### Phase D: Voice, Cloud/Remote, Documents & Polish
-21. **Round 21 — Push-to-Talk Voice Dictation & Realtime Voice Calls (~1,400 LOC)**
-    - **Scope**: Add `CoreAudio` mic capture, Whisper/STT dictation in composer and Quick Ask, and bidirectional Realtime Voice Call overlay with live transcript logging.
-22. **Round 22 — Locust Anywhere (Phone/Web Pairing) & Chat App Bridges (~1,400 LOC)**
-    - **Scope**: Port the Locust Anywhere QR pairing/relay server and Telegram, Discord, and Slack bot bridges.
-23. **Round 23 — Cloud Computers, Background Runs & Desk View (~1,300 LOC)**
-    - **Scope**: Port Cloud computer/task orchestration, Claude Cloud background run syncing, and the spatial Desk overview screen.
-24. **Round 24 — PDF, Spreadsheet, DOCX & Mermaid Diagram Viewers (~1,200 LOC)**
-    - **Scope**: Add native PDF viewer (`PDFKit`), XLSX/CSV table viewer, DOCX reader, and Mermaid diagram rendering inside threads and the file drawer.
-25. **Round 25 — First-Run Onboarding, Home Briefing, Tray, Pets & Auto-Updater (~1,300 LOC)**
-    - **Scope**: Build first-run setup wizard, Home screen briefing, macOS menu bar tray icon (`NSStatusItem`), animated sidebar Pets/Bots, custom themes/glass, and native auto-updater.
+Enumerated and read every renderer component. Feature-bearing screens, panels, cards and dialogs are represented in Section 1; supporting buttons/icons/animation primitives are grouped below instead of counted as extra features.
 
----
+| Coverage | Existing component files |
+| :--- | :--- |
+| Area 1 | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/BesideConversation.tsx`, `renderer/src/components/CancellationCard.tsx`, `renderer/src/components/ContextRing.tsx`, `renderer/src/components/CopyButton.tsx`, `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `renderer/src/components/ImportDialog.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/components/JumpToBottom.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/PeerThread.tsx`, `renderer/src/components/PromptRail.tsx`, `renderer/src/components/PublishedCards.tsx`, `renderer/src/components/ResumeCard.tsx`, `renderer/src/components/SaveRecordDialog.tsx`, `renderer/src/components/SelectionAsk.tsx`, `renderer/src/components/SideChat.tsx`, `renderer/src/components/Sidebar.tsx`, `renderer/src/components/StatusChip.tsx`, `renderer/src/components/Thread.tsx`, `renderer/src/components/ThreadFind.tsx`, `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/TimeMarker.tsx` |
+| Area 2 | `renderer/src/components/AttachedImage.tsx`, `renderer/src/components/ChatCommands.tsx`, `renderer/src/components/Composer.tsx`, `renderer/src/components/EffortSlider.tsx`, `renderer/src/components/PagePointChips.tsx`, `renderer/src/components/PdfTile.tsx`, `renderer/src/components/ReferenceChips.tsx`, `renderer/src/components/RoutePicker.tsx`, `renderer/src/components/SentNotes.tsx` |
+| Area 3 | `renderer/src/components/AgentMark.tsx`, `renderer/src/components/CliArtifacts.tsx`, `renderer/src/components/FaceLegend.tsx`, `renderer/src/components/GroupSettingsDialog.tsx`, `renderer/src/components/HandoffDivider.tsx`, `renderer/src/components/InstructionsCard.tsx`, `renderer/src/components/KeptInstructions.tsx`, `renderer/src/components/KeyCard.tsx`, `renderer/src/components/MemoryCard.tsx`, `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/NewTeammateDialog.tsx`, `renderer/src/components/PixelFace.tsx`, `renderer/src/components/RoomScreen.tsx`, `renderer/src/components/Sidebar.tsx`, `renderer/src/components/SkillsFromGitHub.tsx`, `renderer/src/components/TeamCard.tsx`, `renderer/src/components/TeamTemplates.tsx`, `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/TeammateSetup.tsx`, `renderer/src/components/TuneTeammate.tsx` |
+| Area 4 | `renderer/src/components/AcpAgentsSettings.tsx`, `renderer/src/components/AgentAccountsSettings.tsx`, `renderer/src/components/HandoffDivider.tsx`, `renderer/src/components/OwnModels.tsx`, `renderer/src/components/SignInButton.tsx`, `renderer/src/components/Thread.tsx` |
+| Area 5 | `renderer/src/components/ApprovalCard.tsx`, `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/SavedApprovalRules.tsx`, `renderer/src/components/Sidebar.tsx`, `renderer/src/components/WhatLocustCanStop.tsx` |
+| Area 6 | `renderer/src/components/ChangesPanel.tsx`, `renderer/src/components/CheckFixLine.tsx`, `renderer/src/components/CommitChanges.tsx`, `renderer/src/components/DiffNotes.tsx`, `renderer/src/components/DiffView.tsx`, `renderer/src/components/EditCheckCard.tsx`, `renderer/src/components/FileTypeIcon.tsx`, `renderer/src/components/IssueList.tsx`, `renderer/src/components/LineCounts.tsx`, `renderer/src/components/PullRequestChip.tsx`, `renderer/src/components/PullRequestNewsBanner.tsx`, `renderer/src/components/ReviewChanges.tsx`, `renderer/src/components/ScoutCards.tsx`, `renderer/src/components/ScoutSetting.tsx`, `renderer/src/components/SentNotes.tsx`, `renderer/src/components/TurnUndo.tsx`, `renderer/src/components/WorktreeRow.tsx` |
+| Area 7 | `renderer/src/components/OpenInTerminal.tsx`, `renderer/src/components/OwnCommand.tsx`, `renderer/src/components/TerminalDivider.tsx`, `renderer/src/components/TerminalPanel.tsx`, `renderer/src/components/TerminalToggle.tsx` |
+| Area 8 | `renderer/src/components/BrowserPanel.tsx`, `renderer/src/components/BrowserToggle.tsx`, `renderer/src/components/CompareView.tsx`, `renderer/src/components/FileViewer.tsx`, `renderer/src/components/PagePointChips.tsx` |
+| Area 9 | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/BenchmarksScreen.tsx`, `renderer/src/components/CompareBenchmark.tsx`, `renderer/src/components/CompareView.tsx`, `renderer/src/components/RoutineChanges.tsx`, `renderer/src/components/RoutineDialog.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineRecovery.tsx`, `renderer/src/components/RoutineTemplates.tsx` |
+| Area 10 | `renderer/src/components/CallWords.tsx`, `renderer/src/components/TalkShortcutSetting.tsx`, `renderer/src/components/TalkVoice.tsx`, `renderer/src/components/VoiceButton.tsx`, `renderer/src/components/VoiceCall.tsx`, `renderer/src/components/VoicePlay.tsx`, `renderer/src/components/VoiceSettings.tsx` |
+| Area 11 | `renderer/src/components/AddConnector.tsx`, `renderer/src/components/ConnectorHealth.tsx`, `renderer/src/components/FeedbackDialog.tsx`, `renderer/src/components/GitHubAccount.tsx`, `renderer/src/components/KeyboardSheet.tsx`, `renderer/src/components/KeychainNote.tsx`, `renderer/src/components/Screens.tsx`, `renderer/src/components/UsageDialog.tsx`, `renderer/src/components/UsageLine.tsx`, `renderer/src/components/UsageMeters.tsx` |
+| Area 12 | `renderer/src/components/BackgroundRuns.tsx`, `renderer/src/components/ChatAppsSettings.tsx`, `renderer/src/components/CloudComputers.tsx`, `renderer/src/components/CloudSetupDialog.tsx`, `renderer/src/components/CloudTasks.tsx`, `renderer/src/components/CloudTurn.tsx`, `renderer/src/components/PhoneSettings.tsx`, `renderer/src/components/RemoteConnectCard.tsx`, `renderer/src/components/RemoteControlSetting.tsx`, `renderer/src/components/RemoteMcpSettings.tsx`, `renderer/src/components/TelegramSettings.tsx`, `renderer/src/components/YourAccountSettings.tsx` |
+| Area 13 | `renderer/src/components/AwayList.tsx`, `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/BootScreen.tsx`, `renderer/src/components/CommandPalette.tsx`, `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/HomeCover.tsx`, `renderer/src/components/HomeTeam.tsx`, `renderer/src/components/IdleTeammate.tsx`, `renderer/src/components/LocustMcpSettings.tsx`, `renderer/src/components/Screens.tsx`, `renderer/src/components/Sidebar.tsx`, `renderer/src/components/StarterList.tsx`, `renderer/src/components/WhatsNew.tsx` |
+| Area 14 | `renderer/src/components/Bot.tsx`, `renderer/src/components/LookSetting.tsx`, `renderer/src/components/PetPicks.tsx`, `renderer/src/components/PetPuppet.tsx`, `renderer/src/components/PetSprite.tsx`, `renderer/src/components/Sidebar.tsx`, `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/ThemeSetting.tsx`, `renderer/src/components/TitleBar.tsx` |
+| Area 15 | `renderer/src/components/ColouredCode.tsx`, `renderer/src/components/CopyButton.tsx`, `renderer/src/components/DocPreview.tsx`, `renderer/src/components/DocumentChange.tsx`, `renderer/src/components/DocumentView.tsx`, `renderer/src/components/FileViewer.tsx`, `renderer/src/components/MathTex.tsx`, `renderer/src/components/PdfPages.tsx`, `renderer/src/components/PdfTile.tsx`, `renderer/src/components/ReplyDiagram.tsx`, `renderer/src/components/ReplyPage.tsx`, `renderer/src/components/SheetView.tsx`, `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/ZoomableImage.tsx` |
+| Composer/control primitives | `renderer/src/components/ArmedButton.tsx`, `renderer/src/components/ChatGlyphs.tsx`, `renderer/src/components/CommandText.tsx`, `renderer/src/components/ContextMenu.tsx`, `renderer/src/components/MetalSend.tsx`, `renderer/src/components/PlusMenu.tsx`, `renderer/src/components/Select.tsx` |
+| Thread/status/navigation support | `renderer/src/components/Beam.tsx`, `renderer/src/components/ListWindow.tsx`, `renderer/src/components/OnTheComputer.tsx`, `renderer/src/components/Orb.tsx`, `renderer/src/components/RailFlyout.tsx`, `renderer/src/components/RuntimeMark.tsx`, `renderer/src/components/ThreadImage.tsx`, `renderer/src/components/WindowFallback.tsx`, `renderer/src/components/WorkingSpark.tsx` |
+| Team/face/appearance support | `renderer/src/components/Icon.tsx`, `renderer/src/components/Keycaps.tsx`, `renderer/src/components/PoweredLockup.tsx` |
+| Cloud/settings/form support | `renderer/src/components/ChatAppRow.tsx`, `renderer/src/components/CloudEnvironmentField.tsx`, `renderer/src/components/VoiceOrb.tsx` |
 
-## 5. Verification & Unconfirmed Items
+CHANGELOG: read all **295 New bullets** through 0.871.0. Added omissions include Board/away recap, prompt rail/compact, selection/side asks, published/task cards, About you/team image/interview, ACP/own models, policy, Scout fixes/comments/away, routine input/file/template/gates, comparison rubric/benchmark/tuning, voice preview, connector/report controls, phone offline/alerts, remote MCP/browser access, profile sync/recovery, startup/keep-awake, glass/rainbow, math and PowerPoint. Incremental additions are grouped in the relevant row rather than counted again; current code limits historical release claims.
 
-- **Confirmed directly from source code**:
-  - All 4 Rust modules in `/Users/locust/work/locust-wt/native/apps/native/src` (`main.rs`, `quick.rs`, `ledger.rs`, `engine.rs`) and `README.md`.
-  - All 736 non-test TypeScript/TSX files across `/Users/locust/work/locust/apps/desktop/src/{renderer,main,shared,preload}` and `/Users/locust/work/locust/packages/{runtime-adapters,mission-store,cli}`, plus `/Users/locust/work/locust/CHANGELOG.md` (through `0.871.0`).
-- **Unconfirmed / Not Executed (Read-Only Constraints)**:
-  - Did not run `cargo test` or launch `locust-native` against a live Electron instance during this audit (read-only code inspection).
-  - Exact Rust line counts in Section 4 are engineering estimates based on the current compactness ratio in `locust-native` (~4,329 lines of Rust covering ~15–20% of the core thread/quick-ask/ledger/MCP client surface).
+## Verification
+
+This is source inspection, not runtime certification. Read all four Rust modules, cited TS implementations, every component and the complete New-bullet inventory. Native statuses are based on code, including relevant existing tests as evidence; no tests were executed.
+
+Path validation used Python to extract every backticked source path, resolve the documented roots, and call Path.is_file() (Path.exists() for root directories). Each evidence file was checked before writing and every final citation was checked afterward. No glob paths or proposed future filenames are cited. Protocol tags, runtime data filenames and key chords are not treated as source paths.
+
+Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1: **153 rows — 13 done, 8 partial, 132 missing**.
+
+An independent parser checks all Section 1 feature/status rows against Section 3 per-area and grand totals, requires a gap on every partial row, and checks every component is covered. Physical source-size counts are separate from feature counts.
+
+Not run: cargo test/build, TS tests, app launch, live Electron/MCP integration, or macOS/Windows/Linux behavior tests. Only PARITY.md was written.
