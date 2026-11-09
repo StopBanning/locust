@@ -1,6 +1,10 @@
 mod engine;
 mod ledger;
 mod quick;
+mod store;
+mod ledger_write;
+mod runtime;
+mod run_cli;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use rune::tok::type_;
@@ -2304,6 +2308,12 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
 }
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--run") {
+        let code = match run_cli::run(&std::env::args().skip(2).collect::<Vec<_>>()) {
+            Ok(code) => code, Err(error) => { eprintln!("{error}"); 1 }
+        };
+        std::process::exit(code);
+    }
     let process_start = std::time::Instant::now();
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--bench" || arg == "--bench-seconds") {

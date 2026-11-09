@@ -14,10 +14,16 @@ path = "src/main.rs"
 # Rune is pre-release: pin one commit of `dev` (never rewritten). Bump on purpose, never by accident.
 rune = { git = "https://github.com/anomalyco/rune", rev = "39301f6793266450a057f270da06b048a689be96" }
 rune-kit = { git = "https://github.com/anomalyco/rune", rev = "39301f6793266450a057f270da06b048a689be96", features = ["markdown"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+ctrlc = "3"
 # Match the runtime adapter’s secret redaction rules at the display boundary.
 regex = "1"
 ureq = { version = "2", default-features = false, features = ["json"] }
 
 [profile.release]
 codegen-units = 16
+
+[target.'cfg(unix)'.dependencies]
+# Terminate app-server's process group when the turn ends, including its child programs.
+libc = "0.2"

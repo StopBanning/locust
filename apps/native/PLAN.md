@@ -60,3 +60,12 @@ Each milestone has an exit test. A milestone is done when its test passes, not w
   each Rune API before using it, and list any gap in the round notes.
 - **Ledger compatibility.** Mitigation: rule 3 and a both-ways compatibility test in every engine round.
 - **Size.** About 205k lines of TypeScript. Mitigation: the checklist order, and cutting nothing silently.
+
+## Status
+
+- **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
+- **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.
+  - Two real Codex turns ran through the Rust engine into a scratch data folder, each streaming and exiting 0.
+  - Electron's TypeScript reader accepted both ledgers with no issues.
+  - Codec drafted it and Cursor reviewed it. The review found an `O_NOFOLLOW` race and a stream deadlock, and both
+    are fixed and tested.

@@ -1,0 +1,415 @@
+use super::{Event, Runtime, Turn, events::Normalizer};
+use serde_json::{Value, json};
+use std::{
+    collections::VecDeque,
+    io::{self, BufRead, BufReader, Write},
+    process::{Child, Command, Stdio},
+    sync::{
+        Arc, Condvar, Mutex,
+        mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
+    },
+    time::{Duration, Instant},
+};
+const MAX_LINE: u64 = 8 * 1024 * 1024;
+pub struct Codex {
+    child: Child,
+    input: SyncSender<Vec<u8>>,
+    control: Arc<Control>,
+    lines: Receiver<io::Result<Value>>,
+    normal: Normalizer,
+    queued: VecDeque<Event>,
+    request_id: u64,
+    stopping: Option<Instant>,
+}
+#[derive(Default)]
+struct ControlState {
+    failure: Option<String>,
+    deadline: Option<Instant>,
+    closed: bool,
+}
+#[derive(Default)]
+struct Control {
+    state: Mutex<ControlState>,
+    wake: Condvar,
+}
+impl Control {
+    fn fail(&self, message: impl ToString) {
+        let mut state = self.state.lock().unwrap();
+        if state.failure.is_none() {
+            state.failure = Some(message.to_string());
+        }
+        self.wake.notify_one();
+    }
+    fn failure(&self) -> Option<String> {
+        self.state.lock().unwrap().failure.clone()
+    }
+}
+fn kill_process(pid: u32) {
+    #[cfg(unix)]
+    unsafe {
+        // The child owns this process group and remains unreaped until Drop.
+        libc::kill(-(pid as i32), libc::SIGKILL);
+        libc::kill(pid as i32, libc::SIGKILL);
+    }
+}
+fn err(message: impl ToString) -> io::Error {
+    io::Error::other(message.to_string())
+}
+impl Codex {
+    pub fn spawn(command: &mut Command) -> io::Result<Self> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()?;
+        let mut stdin = child.stdin.take().unwrap();
+        let control = Arc::new(Control::default());
+        let pid = child.id();
+        let watchdog = control.clone();
+        std::thread::spawn(move || {
+            let mut state = watchdog.state.lock().unwrap();
+            loop {
+                if state.closed {
+                    break;
+                }
+                if state.failure.is_some() || state.deadline.is_some_and(|d| Instant::now() >= d) {
+                    kill_process(pid);
+                    break;
+                }
+                let wait = state
+                    .deadline
+                    .map(|d| d.saturating_duration_since(Instant::now()))
+                    .unwrap_or(Duration::from_secs(60));
+                state = watchdog.wake.wait_timeout(state, wait).unwrap().0;
+            }
+        });
+        let (input, writes) = mpsc::sync_channel::<Vec<u8>>(256);
+        let writer_control = control.clone();
+        std::thread::spawn(move || {
+            for bytes in writes {
+                if let Err(e) = stdin.write_all(&bytes).and_then(|_| stdin.flush()) {
+                    writer_control.fail(format!("Codex stdin write failed: {e}"));
+                    break;
+                }
+            }
+        });
+        let output = child.stdout.take().unwrap();
+        let (tx, lines) = mpsc::sync_channel(256);
+        let reader_control = control.clone();
+        std::thread::spawn(move || {
+            let mut reader = BufReader::new(output);
+            loop {
+                let mut line = Vec::new();
+                use std::io::Read;
+                let result = (&mut reader)
+                    .take(MAX_LINE + 1)
+                    .read_until(b'\n', &mut line);
+                let value = match result {
+                    Ok(0) => Err(err("Codex stdout closed before the turn completed")),
+                    Ok(_) if line.len() as u64 > MAX_LINE => {
+                        Err(err("Codex JSON-RPC line exceeds 8 MiB"))
+                    }
+                    Ok(_) => serde_json::from_slice(&line)
+                        .map_err(|_| err("Codex sent malformed JSON-RPC")),
+                    Err(e) => Err(e),
+                };
+                let terminal = value.is_err();
+                match tx.try_send(value) {
+                    Ok(()) => {}
+                    Err(mpsc::TrySendError::Full(_)) => {
+                        reader_control.fail(
+                            "Codex notification queue overflow (256 records); terminating run",
+                        );
+                        break;
+                    }
+                    Err(mpsc::TrySendError::Disconnected(_)) => break,
+                }
+                if terminal {
+                    break;
+                }
+            }
+        });
+        Ok(Self {
+            child,
+            input,
+            control,
+            lines,
+            normal: Normalizer::default(),
+            queued: VecDeque::new(),
+            request_id: 0,
+            stopping: None,
+        })
+    }
+    fn send(&mut self, v: Value) -> io::Result<()> {
+        let mut bytes = serde_json::to_vec(&v)?;
+        bytes.push(b'\n');
+        match self.input.try_send(bytes) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                let message = format!("Codex stdin queue unavailable; terminating run: {e}");
+                self.control.fail(&message);
+                Err(err(message))
+            }
+        }
+    }
+    fn receive(&self) -> io::Result<Option<Value>> {
+        if let Some(message) = self.control.failure() {
+            return Err(err(message));
+        }
+        match self.lines.recv_timeout(Duration::from_millis(50)) {
+            Ok(v) => v.map(Some),
+            Err(RecvTimeoutError::Timeout) => Ok(None),
+            Err(_) => Err(err("Codex transport disconnected")),
+        }
+    }
+    fn transport_failure(&mut self, message: &str) -> Event {
+        self.queued.clear();
+        let diagnostic = self.normal.diagnostic("native.transport", message);
+        let terminal = self.normal.finish(self.stopping.is_some(), message);
+        self.queued.push_back(terminal);
+        diagnostic
+    }
+    fn notification(&mut self, v: Value) -> io::Result<()> {
+        let Some(method) = v["method"].as_str() else {
+            return Ok(());
+        };
+        if !v["id"].is_null() {
+            let result = match method {
+                "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" => {
+                    json!({"decision":"decline"})
+                }
+                "execCommandApproval" | "applyPatchApproval" => json!({"decision":"denied"}),
+                _ => {
+                    self.send(json!({"jsonrpc":"2.0","id":v["id"],"error":{"code":-32601,"message":"Native M1 does not support interactive requests"}}))?;
+                    self.queued.push_back(self.normal.diagnostic(
+                        method,
+                        "Codex requested an unsupported interaction; native M1 declined it.",
+                    ));
+                    return Ok(());
+                }
+            };
+            self.send(json!({"jsonrpc":"2.0","id":v["id"],"result":result}))?;
+            self.queued.push_back(self.normal.diagnostic(
+                method,
+                "Codex requested approval; native M1 declines approvals in read-only Ask mode.",
+            ));
+        } else {
+            self.queued.extend(self.normal.accept(method, &v["params"]));
+        }
+        Ok(())
+    }
+    fn request(&mut self, method: &str, params: Value) -> io::Result<Value> {
+        self.request_id += 1;
+        let id = self.request_id;
+        self.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))?;
+        let deadline = Instant::now() + Duration::from_secs(60);
+        loop {
+            if Instant::now() >= deadline {
+                return Err(err(format!("Codex timed out answering {method}")));
+            }
+            if crate::run_cli::interrupted() {
+                return Err(err("Interrupted before the turn started"));
+            }
+            let Some(v) = self.receive()? else { continue };
+            if v["id"] == id && v["method"].is_null() {
+                if !v["error"].is_null() {
+                    return Err(err(v["error"]["message"]
+                        .as_str()
+                        .unwrap_or("Codex refused request")));
+                }
+                return Ok(v["result"].clone());
+            }
+            self.notification(v)?;
+        }
+    }
+}
+pub fn read_only_config(settings: &Value) -> io::Result<Value> {
+    if !settings.is_object() {
+        return Err(err(
+            "Could not read Codex settings; refusing to start Ask with unknown MCP programs",
+        ));
+    }
+    let mut config = json!({"features.plugins":false,"features.browser_use":false,"features.browser_use_external":false,"features.in_app_browser":false,"features.computer_use":false});
+    if !settings["mcp_servers"].is_null() {
+        let servers = settings["mcp_servers"]
+            .as_object()
+            .ok_or_else(|| err("Invalid Codex MCP settings"))?;
+        for (name, fields) in servers {
+            if fields["url"].is_string() && fields.get("command").is_none() {
+                continue;
+            }
+            if name.is_empty()
+                || name.len() > 128
+                || !name
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"@_-".contains(&b))
+            {
+                return Err(err(
+                    "Cannot safely disable a Codex MCP program with an invalid name",
+                ));
+            }
+            config[format!("mcp_servers.{name}.enabled")] = json!(false);
+        }
+    }
+    Ok(config)
+}
+impl Runtime for Codex {
+    fn start(&mut self, turn: &Turn) -> io::Result<()> {
+        self.request(
+            "initialize",
+            json!({"clientInfo":{"name":"locust","version":"0.1.0"}}),
+        )?;
+        self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
+        let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
+        let config = read_only_config(&settings["config"])?;
+        let result = self.request("thread/start",json!({"cwd":turn.folder,"sandbox":"read-only","approvalPolicy":"never","config":config}))?;
+        let thread = result["thread"]["id"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| err("Codex did not return a thread ID"))?
+            .to_owned();
+        self.normal.thread = Some(thread.clone());
+        let mut params = json!({"threadId":thread,"approvalPolicy":"never","input":[{"type":"text","text":turn.prompt}],"summary":"detailed"});
+        if let Some(model) = &turn.model {
+            params["model"] = json!(model);
+        }
+        let result = self.request("turn/start", params)?;
+        self.normal.turn = result["turn"]["id"]
+            .as_str()
+            .map(str::to_owned)
+            .or(self.normal.turn.clone());
+        Ok(())
+    }
+    fn next_event(&mut self) -> io::Result<Option<Event>> {
+        if self.normal.ended {
+            return Ok(self.queued.pop_front());
+        }
+        // Failure and cancellation preempt queued deltas, even during a flood.
+        if let Some(message) = self.control.failure() {
+            return Ok(Some(self.transport_failure(&message)));
+        }
+        if self
+            .stopping
+            .is_some_and(|t| t.elapsed() >= Duration::from_secs(5))
+        {
+            self.queued.clear();
+            return Ok(Some(
+                self.normal
+                    .finish(true, "Codex cancellation timed out; process killed"),
+            ));
+        }
+        if let Some(e) = self.queued.pop_front() {
+            return Ok(Some(e));
+        }
+        match self.receive() {
+            Ok(Some(v)) => {
+                if let Err(e) = self.notification(v) {
+                    return Ok(Some(self.transport_failure(&e.to_string())));
+                }
+                Ok(self.queued.pop_front())
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Ok(Some(self.transport_failure(&e.to_string()))),
+        }
+    }
+    fn stop(&mut self) -> io::Result<()> {
+        if self.stopping.is_some() {
+            return Ok(());
+        }
+        let now = Instant::now();
+        self.stopping = Some(now);
+        {
+            let mut state = self.control.state.lock().unwrap();
+            state.deadline = Some(now + Duration::from_secs(5));
+            self.control.wake.notify_one();
+        }
+        if let (Some(thread), Some(turn)) = (&self.normal.thread, &self.normal.turn) {
+            self.request_id += 1;
+            // A queue failure is recorded by next_event; it must not bypass the terminal ledger event.
+            let _ = self.send(json!({"jsonrpc":"2.0","id":self.request_id,"method":"turn/interrupt","params":{"threadId":thread,"turnId":turn}}));
+        }
+        Ok(())
+    }
+}
+impl Drop for Codex {
+    fn drop(&mut self) {
+        {
+            let mut state = self.control.state.lock().unwrap();
+            state.closed = true;
+            self.control.wake.notify_one();
+            kill_process(self.child.id());
+        }
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+pub fn command() -> io::Result<Command> {
+    let mut c = Command::new(super::discovery::find()?);
+    c.arg("app-server");
+    Ok(c)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    #[test]
+    fn stop_and_watchdog_survive_blocked_stdin_without_event_polling() {
+        let mut command = Command::new("python3");
+        command.args(["-c", "import time; time.sleep(60)"]);
+        let mut runtime = Codex::spawn(&mut command).unwrap();
+        runtime.normal.thread = Some("thread".into());
+        runtime.normal.turn = Some("turn".into());
+        // Much larger than the pipe; writer is stuck because the server never reads.
+        runtime
+            .send(json!({"payload":"x".repeat(1024 * 1024)}))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+        let start = Instant::now();
+        runtime.stop().unwrap();
+        assert!(start.elapsed() < Duration::from_millis(250));
+        // No next_event calls: cancellation must kill independently of both queues.
+        loop {
+            if runtime.child.try_wait().unwrap().is_some() {
+                break;
+            }
+            assert!(
+                start.elapsed() < Duration::from_secs(6),
+                "watchdog failed to kill child"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let mut event = runtime.next_event().unwrap().unwrap();
+        if event.kind == "adapter.diagnostic" {
+            event = runtime.next_event().unwrap().unwrap();
+        }
+        assert_eq!(event.kind, "run.cancelled");
+    }
+    #[test]
+    fn stdout_overflow_terminates_without_consumer_draining() {
+        let mut command = Command::new("python3");
+        command.args(["-c", "import json; exec(\"while True: print(json.dumps({'method':'delta','params':{}}), flush=True)\")"]);
+        let mut runtime = Codex::spawn(&mut command).unwrap();
+        let start = Instant::now();
+        while runtime.child.try_wait().unwrap().is_none() {
+            assert!(
+                start.elapsed() < Duration::from_secs(3),
+                "overflow did not kill producer"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let event = runtime.next_event().unwrap().unwrap();
+        assert_eq!(event.kind, "adapter.diagnostic");
+        assert!(
+            event
+                .payload
+                .to_string()
+                .contains("notification queue overflow")
+        );
+        assert_eq!(runtime.next_event().unwrap().unwrap().kind, "run.failed");
+    }
+}
