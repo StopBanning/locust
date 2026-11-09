@@ -708,6 +708,7 @@ fn take_turn_pick(s: &mut State, teammate: &str) -> Option<TurnPick> {
 }
 
 fn open_models(s: &mut State, id: String) {
+    if s.demo { return; }
     if s.model_menu.as_ref() == Some(&id) { s.model_menu = None; return; }
     if s.models.get(&id).is_some_and(Vec::is_empty) {
         s.models.remove(&id);
@@ -1684,10 +1685,10 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             .filter(|m| !m.is_empty())
             .unwrap_or("Choose model");
         let effort = picked.and_then(|p| p.effort.as_deref()).or_else(|| if picked.is_none() { current.and_then(|a| a.effort.as_deref()) } else { None });
-        let model_name = current.and_then(|a| a.models.iter().find(|m| m.id == model)).map(|m| m.name.as_str()).unwrap_or(model);
+        let model_name = model_chip_name(model, current);
         let label = format!("{}{}{}", model_name, effort.map(|e| format!(" · {e}")).unwrap_or_default(), if picked.is_some() { ", this turn" } else { "" });
         let chip_id = id.clone();
-        let chip = el().max_w(180.0).padding(6.0).radius(6.0).fill(p.raised)
+        let chip = el().max_w(180.0).h(48.0).padding(6.0).center().radius(6.0).fill(p.raised)
             .child(text(label).font(type_::LABEL).color(p.text).wrap_anywhere())
             .on_press(move |s: &mut State| open_models(s, chip_id.clone()));
         let mut picker = col().w_full().px(24.0);
@@ -2014,8 +2015,75 @@ fn ledger_live_light_scene(s: &mut State) {
     ledger_scene(s, true, true);
 }
 
+// Only the selected runtime may supply a display name: IDs can overlap across agents.
+fn model_chip_name<'a>(id: &'a str, current: Option<&'a engine::Models>) -> &'a str {
+    current.and_then(|a| a.models.iter().find(|m| m.id == id))
+        .map(|m| m.name.as_str()).filter(|name| !name.trim().is_empty()).unwrap_or(id)
+}
+
+fn bench_options(args: &[String]) -> Result<(std::path::PathBuf, Duration), String> {
+    let mut out = None;
+    let mut seconds = 30_u64;
+    let mut args = args.iter();
+    while let Some(flag) = args.next() {
+        match flag.as_str() {
+            "--bench" => out = Some(args.next().ok_or("--bench requires an output path")?.into()),
+            "--bench-seconds" => {
+                seconds = args.next().ok_or("--bench-seconds requires a positive integer")?
+                    .parse().map_err(|_| "--bench-seconds requires a positive integer")?;
+                if seconds == 0 { return Err("--bench-seconds must be positive".into()); }
+            }
+            _ => return Err(format!("unsupported benchmark argument: {flag}")),
+        }
+    }
+    Ok((out.ok_or("--bench <out.json> is required")?, Duration::from_secs(seconds)))
+}
+
+fn run_bench(args: &[String], process_start: std::time::Instant) {
+    let (out, duration) = bench_options(args).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
+    // No setup, poll, key handlers or live scenes: no engine or ledger access.
+    let app = App::new(AppSpec::new("Locust — benchmark", (1040.0, 720.0), || {
+        let mut state = State::default();
+        team_scene(&mut state);
+        state
+    }, view))
+        .args(Vec::<String>::new())
+        .accessory().open_inactive()
+        .macos_window(rune::MacWindowOptions::default().level(-1))
+        .window_options(rune::WindowOptions { click_through: true, ..Default::default() })
+        .chrome(Chrome { full_size_content: true, traffic_lights: Some((20.0, 18.0)), drag_regions: true });
+    let handle = app.handle();
+    let mut recorded = false;
+    app.on_frame_drawn(move |_| {
+        if recorded { return; }
+        recorded = true;
+        // Rune calls this after queue.present and first-frame GPU completion, never
+        // for skipped/occluded frames. This is a host observation, not scanout time.
+        let ms = process_start.elapsed().as_secs_f64() * 1000.0;
+        let result = serde_json::to_vec(&serde_json::json!({"first_frame_ms": ms}))
+            .map_err(std::io::Error::other).and_then(|bytes| std::fs::write(&out, bytes));
+        if let Err(error) = result {
+            eprintln!("cannot write {}: {error}", out.display());
+            std::process::exit(1);
+        }
+        let handle = handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(duration);
+            handle.quit();
+        });
+    }).run();
+}
+
 fn main() {
+    let process_start = std::time::Instant::now();
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--bench" || arg == "--bench-seconds") {
+        run_bench(&args[1..], process_start);
+        return;
+    }
     if args.get(1).map(String::as_str) == Some("--ask") {
         let (who, message) = (
             args.get(2).cloned().unwrap_or_default(),
@@ -2079,6 +2147,38 @@ mod tests {
     use serde_json::json;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn chip_name_uses_known_nonempty_name_and_falls_back_to_id() {
+        let mut agent = engine::Models { teammate: None, runtime: "sample".into(),
+            model: None, effort: None, models: vec![engine::Model {
+                id: "raw/id".into(), name: "Friendly name".into(), efforts: vec![],
+            }] };
+        assert_eq!(model_chip_name("raw/id", Some(&agent)), "Friendly name");
+        assert_eq!(model_chip_name("unknown", Some(&agent)), "unknown");
+        assert_eq!(model_chip_name("raw/id", None), "raw/id");
+        agent.models[0].name = " ".into();
+        assert_eq!(model_chip_name("raw/id", Some(&agent)), "raw/id");
+    }
+
+    #[test]
+    fn synthetic_home_never_requests_models() {
+        let mut state = State::default();
+        team_scene(&mut state);
+        open_models(&mut state, "codec".into());
+        assert!(!state.model_job.is_pending());
+        assert!(state.model_menu.is_none());
+    }
+
+    #[test]
+    fn bench_arguments_are_isolated_and_bounded() {
+        let parse = |args: &[&str]| bench_options(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(parse(&["--bench", "out.json"]).unwrap().1, Duration::from_secs(30));
+        assert_eq!(parse(&["--bench-seconds", "2", "--bench", "out.json"]).unwrap().1, Duration::from_secs(2));
+        for args in [vec!["--bench"], vec!["--bench-seconds", "2"], vec!["--bench", "x", "--bench-seconds", "0"], vec!["--bench", "x", "--scene", "replay"]] {
+            assert!(parse(&args).is_err());
+        }
+    }
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
 

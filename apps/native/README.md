@@ -57,3 +57,18 @@ cargo run --release -- --snap shot.png --scene replay
 Approvals, settings, routines, the built-in browser and terminal live in the Electron app; the native window says
 when a turn is waiting for you there. Rune is pre-release, so
 this pins one commit of it.
+
+## Benchmark
+
+`scripts/bench.sh [out-dir]` measures the native window against the Electron app that is already running. It never launches, quits or signals Electron. The native window runs with `--bench`, which opens it behind other windows without taking focus and uses synthetic data only.
+
+First run, 9 Nov 2026, Apple M6, macOS 27.2, Electron 0.870.0 (native figures are medians of three runs):
+
+| metric | native | Electron |
+| --- | ---: | ---: |
+| Idle memory (median RSS) | 80–84 MiB | 224–409 MiB across two runs |
+| Idle CPU (interval) | 0.00 % | 0.03 % |
+| First frame | 154–209 ms | not measured (never relaunched) |
+| Size | 27 MiB binary | 320 MiB app bundle |
+
+Electron was holding real conversations and the native window synthetic ones, which favors native somewhat on memory. Electron's memory moves with what it has open. The report written next to the samples spells out every method and limit.
