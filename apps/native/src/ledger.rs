@@ -8,6 +8,10 @@ use std::time::{Duration, Instant, SystemTime};
 
 pub const MAX_LINE: usize = 1024 * 1024;
 pub const MAX_ASSISTANT: usize = 131_072;
+pub const MAX_EVENTS: usize = 2000;
+const MAX_JSON_DEPTH: usize = 6;
+const MAX_JSON_ARRAY: usize = 32;
+const MAX_JSON_KEYS: usize = 48;
 // Fix 4: keep running conversations active until silent for 15 minutes instead of 120 seconds.
 pub const ACTIVE_WINDOW: Duration = Duration::from_secs(15 * 60);
 /// How often a Session re-lists the folder (for follow-up files) unless told otherwise.
@@ -58,12 +62,156 @@ pub enum Item {
         name: String,
         status: Status,
         summary: String,
+        detail: ToolDetail,
     },
-    Plan(String),
+    Plan { id: String, steps: Vec<PlanStep>, finished: bool },
+    Thought { id: String, text: String, duration_ms: Option<u64> },
     Note {
         level: String,
         text: String,
     },
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ToolDetail {
+    pub id: String,
+    pub parent: String,
+    pub arguments: String,
+    pub output: String,
+    pub output_reported: bool,
+    pub runtime_status: String,
+    pub duration_ms: Option<u64>,
+    pub exit_code: Option<i64>,
+    pub helper: bool,
+    pub helper_type: String,
+    pub background: bool,
+    pub finished: bool,
+    pub progress: String,
+    pub background_ended: String,
+    pub children: Vec<Item>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlanStep { pub text: String, pub state: String }
+
+// Same patterns as runtime-adapters/src/codex-events.ts:redactSecrets / SENSITIVE_KEY.
+fn sensitive_key(key: &str) -> bool {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| regex::Regex::new(
+        r"(?i)^(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth(?:orization)?|password|passwd|secret|cookie|set-cookie|credential|session[_-]?token)$"
+    ).expect("sensitive key")).is_match(key)
+}
+
+fn scrub_secrets(text: &str) -> String {
+    use std::sync::OnceLock;
+    static RULES: OnceLock<Vec<(regex::Regex, &'static str)>> = OnceLock::new();
+    let rules = RULES.get_or_init(|| vec![
+        (r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}", "Bearer [redacted]"),
+        (r"\b(?:sk|pk)-[A-Za-z0-9_-]{12,}\b", "[redacted]"),
+        (r"\b(?:gh[opusr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16})\b", "[redacted]"),
+        (r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?s:.*?)-----END [A-Z0-9 ]*PRIVATE KEY-----", "[redacted]"),
+        (r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}", "[redacted]"),
+        (r"\bAIza[0-9A-Za-z_-]{35}\b", "[redacted]"),
+        (r"\bhf_[A-Za-z0-9]{30,}\b", "[redacted]"),
+        (r#"(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|authorization|password|secret|cookie|credential)["']?\s*[=:]\s*["']?)([^\s,"';}]+)"#, "${1}[redacted]"),
+        (r"\bsk-ant-[A-Za-z0-9_-]{12,}", "[redacted]"),
+    ].into_iter().map(|(p,r)| (regex::Regex::new(p).expect("redaction pattern"),r)).collect());
+    let mut safe = text.replace('\0', "");
+    for (re, replacement) in rules { safe = re.replace_all(&safe, *replacement).into_owned(); }
+    safe
+}
+
+fn scrub(text: &str) -> String {
+    let safe = scrub_secrets(text);
+    let (bounded, _) = capped(&safe, MAX_ASSISTANT);
+    if bounded.len() < safe.len() { format!("{bounded}… [truncated]") } else { safe }
+}
+
+/// Cap and redact JSON before pretty-printing (codex-events.ts:sanitizeJson + SENSITIVE_KEY).
+fn scrub_json(value: &Value, depth: usize) -> Value {
+    if depth >= MAX_JSON_DEPTH {
+        return Value::String("[depth limit]".into());
+    }
+    match value {
+        Value::Null | Value::Bool(_) => value.clone(),
+        Value::Number(n) => if n.as_f64().is_some_and(|f| f.is_finite()) { value.clone() } else { Value::String(n.to_string()) },
+        Value::String(s) => Value::String(scrub_secrets(s)),
+        Value::Array(rows) => Value::Array(rows.iter().take(MAX_JSON_ARRAY).map(|row| scrub_json(row, depth + 1)).collect()),
+        Value::Object(map) => {
+            let mut out = serde_json::Map::new();
+            for (key, child) in map.iter().take(MAX_JSON_KEYS) {
+                let safe_key = if key.contains('\0') || key.len() > 512 {
+                    format!("{}[truncated]", key.replace('\0', "").chars().take(500).collect::<String>())
+                } else { key.clone() };
+                if sensitive_key(key) {
+                    out.insert(safe_key, Value::String("[redacted]".into()));
+                } else {
+                    out.insert(safe_key, scrub_json(child, depth + 1));
+                }
+            }
+            Value::Object(out)
+        }
+    }
+}
+
+fn display_value(value: &Value) -> String {
+    match value {
+        Value::String(s) => scrub(s),
+        other => scrub(&serde_json::to_string_pretty(&scrub_json(other, 0)).unwrap_or_default()),
+    }
+}
+
+pub fn read_plan(value: &Value) -> Vec<PlanStep> {
+    value.as_array().or_else(|| value.get("plan").and_then(Value::as_array))
+        .map(|rows| rows.iter().take(256).filter_map(|row| {
+            let text = row.as_str().or_else(|| ["step","text","title","name","content"].iter()
+                .find_map(|k| row.get(k).and_then(Value::as_str)))?;
+            if text.is_empty() { return None; }
+            let status = string(row, "status").to_lowercase();
+            let state = if status.contains("complete") || status == "done" { "done" }
+                else if status.contains("progress") || status == "running" || status == "active" { "running" } else { "pending" };
+            Some(PlanStep { text: scrub(text), state: state.into() })
+        }).collect()).unwrap_or_default()
+}
+
+pub fn duration_text(ms: u64) -> String {
+    let seconds = (ms + 500) / 1000;
+    if seconds < 60 { format!("{seconds}s") }
+    else if seconds < 3600 { format!("{}m {:02}s", seconds / 60, seconds % 60) }
+    else { format!("{}h {:02}m", seconds / 3600, seconds / 60 % 60) }
+}
+
+pub fn bounded_output(output: &str, all: bool) -> String {
+    let trimmed = output.trim_end();
+    let lines: Vec<_> = trimmed.split('\n').collect();
+    if all || lines.len() <= 16 { return trimmed.into(); }
+    format!("{}\n… {} more lines …\n{}", lines[..8].join("\n"), lines.len()-16, lines[lines.len()-8..].join("\n"))
+}
+
+// Ledger timestamps are RFC3339. Parse offsets and fractions without a date dependency.
+fn timestamp(value: &Value) -> Option<i64> {
+    let t = value.get("occurredAt")?.as_str()?;
+    let n = |a: usize,b: usize| t.get(a..b)?.parse::<i64>().ok();
+    let (mut y,m,d) = (n(0,4)?,n(5,7)?,n(8,10)?);
+    y -= i64::from(m <= 2);
+    let era = y.div_euclid(400); let yy = y-era*400;
+    let doy = (153*(m+if m>2 {-3} else {9})+2)/5+d-1;
+    let days = era*146097+yy*365+yy/4-yy/100+doy-719468;
+    let rest = t.get(19..)?;
+    let offset_at = rest.find(['Z','+','-'])?;
+    let fraction = &rest[..offset_at];
+    let millis = if fraction.is_empty() { 0 } else { format!("{:<03}", fraction.strip_prefix('.')?).replace(' ', "0").get(..3)?.parse::<i64>().ok()? };
+    let zone = &rest[offset_at..];
+    let offset = if zone == "Z" { 0 } else {
+        let h = zone.get(1..3)?.parse::<i64>().ok()?;
+        let m = zone.get(4..6)?.parse::<i64>().ok()?;
+        (h*60+m)*60*if zone.starts_with('-') {-1} else {1}
+    };
+    Some(((days*24+n(11,13)?)*3600+n(14,16)?*60+n(17,19)?-offset)*1000+millis)
+}
+fn took(event: &Value, p: &Value, start: Option<&i64>) -> Option<u64> {
+    p.get("durationMs").and_then(Value::as_f64).filter(|v| v.is_finite() && *v >= 0.0).map(|v| v as u64)
+        .or_else(|| Some((timestamp(event)?-*start?).max(0) as u64))
 }
 
 fn string(v: &Value, key: &str) -> String {
@@ -136,6 +284,11 @@ fn decode(line: &[u8]) -> Option<Record> {
                 .and_then(Value::as_object_mut)
             {
                 payload.remove("evidence");
+                // Never interpret raw Codex reasoning or legacy exec reasoning items.
+                payload.remove("content");
+                payload.remove("raw");
+                payload.remove("reasoning_content");
+                payload.remove("item");
             }
         }
         _ => return None,
@@ -308,18 +461,22 @@ impl Transcript {
             } else if let Some(event) = record.get("event") {
                 if let Some(sequence) = event.get("sequence").and_then(Value::as_u64) {
                     self.events.insert(sequence, event.clone());
+                    while self.events.len() > MAX_EVENTS {
+                        self.events.pop_first();
+                    }
                 }
             }
         }
 
         let mut items = Vec::new();
         if let Some(m) = &self.metadata {
-            items.push(Item::User(m.prompt.clone()));
+            items.push(Item::User(scrub(&m.prompt)));
         }
         // Fix 8: store (item_index, utf16_units) so streaming deltas count UTF-16 units incrementally.
         let mut messages = HashMap::<String, (usize, usize)>::new();
         let mut tools = HashMap::<String, usize>::new();
         let mut plans = HashMap::<String, usize>::new();
+        let mut starts = HashMap::<String, i64>::new();
         self.running = self.metadata.is_some();
         self.failed = false;
 
@@ -342,7 +499,7 @@ impl Transcript {
                     if let Some(Item::Assistant { text, r#final, .. }) =
                         items.get_mut(*at)
                     {
-                        let piece = string(p, "text");
+                        let piece = scrub_secrets(&string(p, "text"));
                         if string(p, "operation") == "replace" {
                             let (slice, count) = capped(&piece, MAX_ASSISTANT);
                             text.clear();
@@ -358,79 +515,89 @@ impl Transcript {
                             .and_then(Value::as_bool).unwrap_or(false);
                     }
                 }
-                "tool.started" | "tool.completed" | "tool.failed"
-                | "step.started" | "step.completed" | "step.failed" => {
-                    let step = kind.starts_with("step.");
-                    let key = format!(
-                        "{}:{}",
-                        if step { "step" } else { "tool" },
-                        if id.is_empty() { sequence.to_string() } else { id },
-                    );
-                    let at = *tools.entry(key).or_insert_with(|| {
-                        items.push(Item::Tool {
-                            name: String::new(),
-                            status: Status::Running,
-                            summary: String::new(),
-                        });
-                        items.len() - 1
-                    });
-                    if let Some(Item::Tool { name, status, summary }) =
-                        items.get_mut(at)
-                    {
-                        let candidate = if step {
-                            string(p, "stepKind")
-                        } else {
-                            string(p, "name")
-                        };
-                        if !candidate.is_empty() {
-                            *name = candidate;
+                "step.started" | "step.completed" | "step.failed" => {
+                    let reasoning = string(p, "stepKind") == "reasoning" || string(p, "itemType").to_lowercase().contains("reasoning");
+                    let step_key = format!("step:{id}");
+                    if string(p, "itemType") == "background" {
+                        if let Some(at) = tools.get(&id)
+                            && let Some(Item::Tool { detail, .. }) = items.get_mut(*at) {
+                            detail.background = true;
+                            if kind == "step.started" {
+                                detail.progress=scrub(&string(p,"message"));
+                                continue;
+                            }
+                            let state = string(p,"status");
+                            detail.background_ended = if kind == "step.failed" { "failed".into() }
+                                else if matches!(state.as_str(), "completed"|"failed"|"stopped"|"stopped-with-run"|"ended") { state } else { "ended".into() };
+                            if detail.helper && let Some(message) = p.get("message").and_then(Value::as_str) { detail.output=scrub(message); detail.output_reported=true; }
                         }
-                        *status = if kind.ends_with("failed") {
-                            Status::Failed
-                        } else if kind.ends_with("completed") {
-                            Status::Done
-                        } else {
-                            Status::Running
-                        };
-                        let detail = ["title", "command", "message", "output"]
-                            .iter().map(|key| string(p, key))
-                            .find(|v| !v.trim().is_empty());
-                        if let Some(detail) = detail {
-                            *summary = one_line(&detail);
+                    } else if kind == "step.started" {
+                        if let Some(t) = timestamp(event) { starts.entry(step_key).or_insert(t); }
+                    } else if reasoning {
+                        // missionView.ts consumes only normalized message, never evidence/content.
+                        let text = scrub(string(p, "message").trim());
+                        let duration_ms = took(event, p, starts.get(&step_key));
+                        starts.remove(&step_key);
+                        if !text.is_empty() || duration_ms.is_some_and(|ms| ms >= 1000) {
+                            items.push(Item::Thought { id: format!("{id}:{sequence}"), text, duration_ms });
+                        }
+                    } else {
+                        starts.remove(&step_key);
+                    }
+                }
+                "tool.started" | "tool.completed" | "tool.failed" => {
+                    let key = if id.is_empty() { sequence.to_string() } else { id };
+                    if kind == "tool.started" && let Some(t) = timestamp(event) { starts.entry(key.clone()).or_insert(t); }
+                    let at = *tools.entry(key.clone()).or_insert_with(|| {
+                        items.push(Item::Tool { name: String::new(), status: Status::Running, summary: String::new(),
+                            detail: ToolDetail { id: key.clone(), ..ToolDetail::default() } });
+                        items.len()-1
+                    });
+                    if let Some(Item::Tool { name, status, summary, detail }) = items.get_mut(at) {
+                        let candidate = string(p, "name");
+                        if !candidate.is_empty() { *name = scrub(&candidate); }
+                        detail.helper = matches!(name.to_lowercase().as_str(), "task"|"agent"|"subagent"|"spawn_agent") || name.to_lowercase().starts_with("subagent:");
+                        if let Some(parent) = p.get("parentItemId").and_then(Value::as_str) { detail.parent = parent.into(); }
+                        *status = if kind.ends_with("failed") { Status::Failed } else if kind.ends_with("completed") { Status::Done } else { Status::Running };
+                        for field in ["arguments", "input", "command"] {
+                            if let Some(value) = p.get(field) {
+                                detail.arguments = display_value(value);
+                            }
+                        }
+                        if let Some(output) = p.get("output").and_then(Value::as_str) { detail.output = scrub(output); detail.output_reported = true; }
+                        if let Some(state) = p.get("status").and_then(Value::as_str) { detail.runtime_status=state.into(); }
+                        if let Some(code) = p.get("exitCode").and_then(Value::as_i64) { detail.exit_code = Some(code); }
+                        if let Some(v) = p.get("background").and_then(Value::as_bool) { detail.background = v; }
+                        if let Some(v) = p.get("backgroundEnded").and_then(Value::as_str) { detail.background_ended = v.into(); }
+                        if detail.helper && let Some(v) = p.get("status").and_then(Value::as_str)
+                            && !matches!(v, "error"|"completed"|"failed"|"in_progress"|"started"|"cancelled") { detail.helper_type = scrub(v); }
+                        if kind != "tool.started" {
+                            detail.duration_ms = took(event, p, starts.get(&key));
+                            starts.remove(&key);
+                        }
+                        // Prefer title; never let a later command wipe an earlier title (missionView.ts:3557).
+                        let title = string(p, "title");
+                        if !title.is_empty() {
+                            *summary = one_line(&scrub(&title));
+                        } else if summary.is_empty() {
+                            let command = string(p, "command");
+                            if !command.is_empty() { *summary = one_line(&scrub(&command)); }
                         }
                     }
                 }
                 "plan.updated" => {
-                    let text = match p.get("plan") {
-                        Some(Value::String(text)) => text.clone(),
-                        Some(Value::Array(rows)) => rows.iter().map(|row| {
-                            let step = row.get("step")
-                                .or_else(|| row.get("content"))
-                                .and_then(Value::as_str).unwrap_or_default();
-                            let status = string(row, "status");
-                            if status.is_empty() {
-                                step.to_owned()
-                            } else {
-                                format!("{status}: {step}")
-                            }
-                        }).collect::<Vec<_>>().join("\n"),
-                        _ => String::new(),
-                    };
-                    let key = if id.is_empty() { "plan".into() } else { id };
-                    let at = *plans.entry(key).or_insert_with(|| {
-                        items.push(Item::Plan(String::new()));
-                        items.len() - 1
+                    let key = "plan".to_owned();
+                    let at = *plans.entry(key.clone()).or_insert_with(|| {
+                        items.push(Item::Plan { id: key.clone(), steps: Vec::new(), finished: false }); items.len()-1
                     });
-                    if let Some(item) = items.get_mut(at) {
-                        *item = Item::Plan(text);
-                    }
+                    items[at] = Item::Plan { id: key, steps: read_plan(&p["plan"]), finished: false };
                 }
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
                     if level == "warning" || level == "error" {
                         items.push(Item::Note {
                             level,
-                            text: string(p, "message"),
+                            text: scrub(&string(p, "message")),
                         });
                     }
                 }
@@ -439,7 +606,7 @@ impl Transcript {
                         carry = true;
                         self.running = false;
                     }
-                    let text = string(p, "message");
+                    let text = scrub(&string(p, "message"));
                     if !text.is_empty() {
                         items.push(Item::Note { level: "warning".into(), text });
                     }
@@ -449,7 +616,7 @@ impl Transcript {
                     self.failed = true;
                     finished = false;
                     carry |= carry_on_failure(p);
-                    let text = string(p, "message");
+                    let text = scrub(&string(p, "message"));
                     if !text.is_empty() {
                         items.push(Item::Note { level: "error".into(), text });
                     }
@@ -474,6 +641,28 @@ impl Transcript {
         if carry && !self.running && !finished && let Some(m) = &self.metadata {
             items.push(Item::CarryOn { conversation_id: m.mission_id.clone() });
         }
+        // Attach children in reverse order so nested helpers retain their own calls.
+        for at in (0..items.len()).rev() {
+            let parent = match &items[at] { Item::Tool { detail, .. } => detail.parent.clone(), _ => continue };
+            if parent.is_empty() { continue; }
+            if let Some(to) = items.iter().position(|i| matches!(i, Item::Tool { detail, .. } if detail.id == parent && detail.helper))
+                && to < at {
+                let child = items.remove(at);
+                if let Item::Tool { detail, .. } = &mut items[to] { detail.children.insert(0, child); }
+            }
+        }
+        // Orphaned parentItemId calls stay nowhere (missionView.ts:3281-3282).
+        items.retain(|item| !matches!(item, Item::Tool { detail, .. } if !detail.parent.is_empty()));
+        fn qualify(item: &mut Item, mission: &str, finished: bool) {
+            match item {
+                Item::Tool { detail, .. } => { detail.finished=finished; if !mission.is_empty() { detail.id=format!("{mission}:{}",detail.id); } for child in &mut detail.children { qualify(child,mission,finished); } }
+                Item::Plan { id, finished: ended, .. } => { *ended=finished; if !mission.is_empty() {*id=format!("{mission}:{id}");} },
+                Item::Thought { id, .. } => {if !mission.is_empty() {*id=format!("{mission}:{id}");}},
+                _=>{}
+            }
+        }
+        let mission=self.metadata.as_ref().map(|m|m.mission_id.as_str()).unwrap_or("");
+        for item in &mut items { qualify(item,mission,!self.running); }
         self.items = items;
     }
 }
@@ -909,6 +1098,175 @@ mod tests {
         })
     }
 
+    fn synthetic_transcript(rows: Vec<Value>) -> Transcript {
+        // Exercise the JSONL boundary, including raw-evidence removal.
+        let jsonl = rows.iter().map(|r| format!("{r}\n")).collect::<String>();
+        let mut records = Vec::new();
+        Lines::default().feed(jsonl.as_bytes(), &mut records);
+        let mut transcript = Transcript::default(); transcript.apply(records); transcript
+    }
+
+    #[test]
+    fn rich_tool_preserves_arguments_output_and_clock() {
+        let mut end = event(2,"tool.completed",json!({"itemId":"t","name":"Bash","output":"first\nlast","exitCode":0}));
+        end["event"]["occurredAt"] = json!("2026-01-02T00:00:03.250Z");
+        let mut start = event(1,"tool.started",json!({"itemId":"t","name":"Bash","command":"synthetic-command","arguments":{"path":"fixture.txt"}}));
+        start["event"]["occurredAt"] = json!("2026-01-01T23:59:59.750Z");
+        let t=synthetic_transcript(vec![start,end]);
+        let Item::Tool { status, detail, .. }=&t.items[0] else { panic!("tool"); };
+        assert_eq!(*status,Status::Done); assert_eq!(detail.arguments,"synthetic-command");
+        assert_eq!(detail.output,"first\nlast"); assert_eq!(detail.duration_ms,Some(3500)); assert_eq!(detail.exit_code,Some(0));
+        let output=(1..=40).map(|n|n.to_string()).collect::<Vec<_>>().join("\n");
+        assert_eq!(bounded_output(&output,false),format!("{}\n… 24 more lines …\n{}",(1..=8).map(|n|n.to_string()).collect::<Vec<_>>().join("\n"),(33..=40).map(|n|n.to_string()).collect::<Vec<_>>().join("\n")));
+        assert_eq!(bounded_output(&output,true),output);
+    }
+
+    #[test]
+    fn rich_plan_updates_states_and_spellings() {
+        let t=synthetic_transcript(vec![event(1,"plan.updated",json!({"itemId":"p","plan":["Old"]})),
+            event(2,"plan.updated",json!({"itemId":"p","plan":{"plan":[{"content":"Read","status":"completed"},{"step":"Check","status":"in_progress"},{"title":"Report","status":"pending"}]}}))]);
+        assert_eq!(t.items.len(),1);
+        let Item::Plan { steps, .. }=&t.items[0] else { panic!("plan"); };
+        assert_eq!(steps.iter().map(|s|s.state.as_str()).collect::<Vec<_>>(),["done","running","pending"]);
+        assert_eq!(steps[0].text,"Read");
+    }
+
+    #[test]
+    fn rich_helper_nests_calls_by_parent_not_adjacency() {
+        let t=synthetic_transcript(vec![
+            event(1,"tool.started",json!({"itemId":"h","name":"Agent","status":"Explore","command":"Inspect fixture"})),
+            event(2,"tool.started",json!({"itemId":"own","name":"Read","command":"own.txt"})),
+            event(3,"tool.started",json!({"itemId":"h2","parentItemId":"h","name":"Agent"})),
+            event(4,"tool.started",json!({"itemId":"c","parentItemId":"h2","name":"Read","command":"fixture.txt"})),
+            event(5,"tool.completed",json!({"itemId":"c","parentItemId":"h2","name":"Read","output":"Synthetic contents"})),
+            event(6,"tool.completed",json!({"itemId":"h","name":"Agent","output":"Synthetic report"})),
+        ]);
+        assert_eq!(t.items.len(),2);
+        let Item::Tool { detail:h, .. }=&t.items[0] else { panic!("helper"); };
+        assert!(h.helper); assert_eq!(h.helper_type,"Explore"); assert_eq!(h.output,"Synthetic report"); assert_eq!(h.children.len(),1);
+        let Item::Tool { detail:h2, .. }=&h.children[0] else { panic!("nested helper"); };
+        let Item::Tool { detail:c, status, .. }=&h2.children[0] else { panic!("child"); };
+        assert_eq!(c.output,"Synthetic contents"); assert_eq!(*status,Status::Done);
+    }
+
+    #[test]
+    fn rich_reasoning_uses_only_normalized_public_message_and_duration() {
+        let t=synthetic_transcript(vec![
+            event(1,"step.started",json!({"itemId":"r","stepKind":"item","itemType":"reasoning"})),
+            event(2,"step.completed",json!({"itemId":"r","stepKind":"item","itemType":"reasoning","message":"Synthetic public summary. password=synthetic-value", "durationMs":12500})),
+        ]);
+        let Item::Thought { text, duration_ms, .. }=&t.items[0] else { panic!("thought"); };
+        assert_eq!(text,"Synthetic public summary. password=[redacted]"); assert_eq!(*duration_ms,Some(12500));
+        assert_eq!(duration_text(12500),"13s"); assert_eq!(duration_text(61500),"1m 02s");
+        assert!(scrub(&"😀".repeat(MAX_ASSISTANT)).ends_with("[truncated]"));
+    }
+
+    #[test]
+    fn helper_background_end_updates_original_row() {
+        let t=synthetic_transcript(vec![
+            event(1,"tool.started",json!({"itemId":"h","name":"Agent","background":true})),
+            event(2,"tool.completed",json!({"itemId":"h","name":"Agent"})),
+            event(3,"step.completed",json!({"itemId":"h","stepKind":"item","itemType":"background","status":"completed","message":"Synthetic final report"})),
+        ]);
+        assert_eq!(t.items.len(),1);
+        let Item::Tool {detail,..}=&t.items[0] else {panic!("helper");};
+        assert_eq!(detail.background_ended,"completed"); assert_eq!(detail.output,"Synthetic final report");
+    }
+
+    #[test]
+    fn hidden_reasoning_never_becomes_display_text() {
+        let rows=vec![event(1,"step.completed",json!({"itemId":"hidden","stepKind":"reasoning",
+            "content":"SYNTHETIC_HIDDEN_CONTENT","raw":"SYNTHETIC_HIDDEN_RAW",
+            "item":{"type":"reasoning","text":"SYNTHETIC_LEGACY_TEXT","summary":["SYNTHETIC_LEGACY_SUMMARY"]},
+            "evidence":{"raw":{"item":{"type":"reasoning","content":"SYNTHETIC_EVIDENCE"}}}}))];
+        let t=synthetic_transcript(rows.clone()); assert!(t.items.is_empty());
+        let decoded=decode(rows[0].to_string().as_bytes()).unwrap().to_string();
+        assert!(!decoded.contains("SYNTHETIC_"));
+        // Legacy exec has no message: a duration-only row has no drawer text.
+        let t=synthetic_transcript(vec![event(2,"step.completed",json!({"stepKind":"reasoning","durationMs":2000,"content":"SYNTHETIC_HIDDEN"}))]);
+        assert!(matches!(&t.items[0],Item::Thought {text,duration_ms:Some(2000),..} if text.is_empty()));
+    }
+
+    #[test]
+    fn display_strings_and_json_arguments_follow_ts_secret_rules() {
+        let t = synthetic_transcript(vec![
+            json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"sec","prompt":"Bearer eyJabc.eyJdef.ghi_signature_here","createdAt":"2026-01-01T00:00:00Z"}}),
+            event(1,"adapter.diagnostic",json!({"level":"error","message":format!("token {}-{}", "sk", "abcdefghijklmnopqrstuvwxyz")})),
+            event(2,"tool.started",json!({"itemId":"t","name":"Bash","arguments":{"passwd":"hunter2","password":"my secret phrase","path":"ok.txt"}})),
+            event(3,"message.delta",json!({"itemId":"a","operation":"append","text":"AIzaSyAabcdefghijklmnopqrstuvwxyz012345","final":true})),
+            event(4,"run.failed",json!({"message":"refresh failed password=visible-secret"})),
+        ]);
+        assert!(matches!(&t.items[0], Item::User(text) if text.contains("Bearer [redacted]") && !text.contains("eyJabc")));
+        assert!(matches!(&t.items[1], Item::Note { text, .. } if text.contains("[redacted]") && !text.contains(&format!("{}-abcdefghijklmnop", "sk"))));
+        let Item::Tool { detail, .. } = &t.items[2] else { panic!("tool"); };
+        assert!(detail.arguments.contains("\"passwd\": \"[redacted]\""));
+        assert!(detail.arguments.contains("\"password\": \"[redacted]\""));
+        assert!(detail.arguments.contains("\"path\": \"ok.txt\""));
+        assert!(!detail.arguments.contains("hunter2"));
+        assert!(!detail.arguments.contains("my secret phrase"));
+        assert!(matches!(&t.items[3], Item::Assistant { text, .. } if text.contains("[redacted]") && !text.contains("AIzaSyAabcdefghijklmnopqrstuvwxyz012345")));
+        assert!(matches!(t.items.last(), Some(Item::Note { text, .. }) if text.contains("password=[redacted]")));
+    }
+
+    #[test]
+    fn tool_keeps_title_when_completion_only_has_command() {
+        let t = synthetic_transcript(vec![
+            event(1,"tool.started",json!({"itemId":"t","name":"Bash","title":"Check fixture","command":"printf one"})),
+            event(2,"tool.completed",json!({"itemId":"t","name":"Bash","command":"printf two","output":"two"})),
+        ]);
+        let Item::Tool { summary, detail, .. } = &t.items[0] else { panic!("tool"); };
+        assert_eq!(summary, "Check fixture");
+        assert_eq!(detail.arguments, "printf two");
+    }
+
+    #[test]
+    fn orphaned_parent_item_id_children_are_dropped() {
+        let t = synthetic_transcript(vec![
+            event(1,"tool.started",json!({"itemId":"own","name":"Read","command":"own.txt"})),
+            event(2,"tool.started",json!({"itemId":"orphan","parentItemId":"missing-helper","name":"Read","command":"secret.txt"})),
+            event(3,"tool.completed",json!({"itemId":"orphan","parentItemId":"missing-helper","name":"Read","output":"should not show"})),
+        ]);
+        assert_eq!(t.items.len(), 1);
+        assert!(matches!(&t.items[0], Item::Tool { detail, .. } if detail.id == "own" && detail.children.is_empty()));
+    }
+
+    #[test]
+    fn step_start_times_clear_so_reused_ids_do_not_inherit_duration() {
+        let mut first_start = event(1,"step.started",json!({"itemId":"r","stepKind":"reasoning"}));
+        first_start["event"]["occurredAt"] = json!("2026-01-01T00:00:00Z");
+        let mut first_end = event(2,"step.completed",json!({"itemId":"r","stepKind":"reasoning","message":"First"}));
+        first_end["event"]["occurredAt"] = json!("2026-01-01T00:00:05Z");
+        let mut second_start = event(3,"step.started",json!({"itemId":"r","stepKind":"reasoning"}));
+        second_start["event"]["occurredAt"] = json!("2026-01-01T00:00:10Z");
+        let mut second_end = event(4,"step.completed",json!({"itemId":"r","stepKind":"reasoning","message":"Second"}));
+        second_end["event"]["occurredAt"] = json!("2026-01-01T00:00:11Z");
+        let t = synthetic_transcript(vec![first_start, first_end, second_start, second_end]);
+        let thoughts: Vec<_> = t.items.iter().filter_map(|i| match i { Item::Thought { text, duration_ms, .. } => Some((text.as_str(), *duration_ms)), _ => None }).collect();
+        assert_eq!(thoughts, [("First", Some(5000)), ("Second", Some(1000))]);
+    }
+
+    #[test]
+    fn event_map_is_bounded_and_json_is_capped_before_pretty_print() {
+        let mut rows = vec![json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"bound","prompt":"Synthetic","createdAt":"2026-01-01T00:00:00Z"}})];
+        for n in 0..(MAX_EVENTS as u64 + 25) {
+            rows.push(event(n, "adapter.diagnostic", json!({"level":"warning","message":format!("n{n}")})));
+        }
+        let t = synthetic_transcript(rows);
+        assert!(t.events.len() <= MAX_EVENTS);
+        assert!(!t.items.iter().any(|i| matches!(i, Item::Note { text, .. } if text == "n0")));
+        let deep = {
+            let mut v = json!("leaf");
+            for _ in 0..12 { v = json!([v]); }
+            v
+        };
+        let wide: Value = (0..80).map(|n| (format!("k{n}"), json!(n))).collect::<serde_json::Map<_,_>>().into();
+        let rendered = display_value(&json!({"nest": deep, "wide": wide, "passwd": "hunter2"}));
+        assert!(rendered.contains("[depth limit]") || rendered.contains("[redacted]"));
+        assert!(rendered.contains("[redacted]"));
+        assert!(!rendered.contains("hunter2"));
+        assert!(rendered.len() < 50_000);
+    }
+
     fn event(seq: u64, kind: &str, payload: Value) -> Value {
         json!({
             "schemaVersion":27,
@@ -1297,7 +1655,8 @@ mod tests {
                     Item::User(_) => users += 1,
                     Item::Assistant { text, .. } => { assistants += 1; biggest = biggest.max(text.chars().count()); }
                     Item::Tool { .. } => tools += 1,
-                    Item::Plan(_) => plans += 1,
+                    Item::Plan { .. } => plans += 1,
+                    Item::Thought { .. } => notes += 1,
                     Item::Note { .. } => notes += 1,
                     Item::CarryOn { .. } => {},
                 }

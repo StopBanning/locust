@@ -133,6 +133,7 @@ struct State {
     demo: bool,
     // None follows the system; snapshot scenes explicitly choose an appearance.
     appearance: Option<bool>,
+    activity_open: HashMap<String, bool>,
     recent: Vec<ConversationRow>,
     recent_error: Option<String>,
     opening_teammate: Option<String>,
@@ -168,6 +169,7 @@ impl Default for State {
             flight: None,
             demo: false,
             appearance: None,
+            activity_open: HashMap::new(),
             recent: Vec::new(),
             recent_error: None,
             opening_teammate: None,
@@ -513,11 +515,219 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed
 }
 
+fn disclosure(key: String, label: String, open: bool, p: &Palette) -> El {
+    el().w_full().padding(8.0).radius(5.0)
+        .child(text(format!("{} {label}", if open { "▾" } else { "▸" })).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere())
+        .on_press(move |s: &mut State| { s.activity_open.insert(key.clone(), !open); })
+}
+
+fn tool_result(status: ledger::Status, d: &ledger::ToolDetail, finished: bool) -> String {
+    let finished=finished || d.finished;
+    if status == ledger::Status::Running { return (if finished { "did not report" } else if d.helper { "working on it" } else { "running" }).into(); }
+    if matches!(d.runtime_status.as_str(), "declined"|"refused") { return d.runtime_status.clone(); }
+    if status == ledger::Status::Failed { return if !d.helper && let Some(code)=d.exit_code { format!("failed · exit {code}") } else { "failed".into() }; }
+    if d.background { return match d.background_ended.as_str() {
+        "completed" => if d.helper { "reported back" } else { "done" }, "failed"=>"failed", "stopped"=>"stopped",
+        "stopped-with-run"=>if d.helper {"stopped when the run ended"} else {"stopped"}, "ended"=>"ended",
+        _=>if finished {"did not report"} else if d.helper {"working in the background"} else {"running"},
+    }.into(); }
+    if d.helper { "reported back".into() } else if let Some(code)=d.exit_code {format!("exit {code}")} else {"done".into()}
+}
+
+fn is_shell_tool(name: &str) -> bool {
+    matches!(name.to_lowercase().as_str(), "bash"|"shell"|"exec_command"|"commandexecution")
+}
+
+fn thought_headline(text: &str) -> Option<&str> {
+    text.trim_start().strip_prefix("**").and_then(|rest| rest.split_once("**"))
+        .and_then(|(headline, _)| ((2..=80).contains(&headline.len()) && !headline.contains('\n')).then_some(headline))
+}
+
+fn without_headline(text: &str) -> &str {
+    match thought_headline(text) {
+        Some(headline) => {
+            let marker = format!("**{headline}**");
+            text.find(&marker).map(|at| text[at + marker.len()..].trim_start()).unwrap_or(text)
+        }
+        None => text,
+    }
+}
+
+fn tool_row_label(name: &str, status: ledger::Status, summary: &str, d: &ledger::ToolDetail, finished: bool) -> String {
+    let result = tool_result(status, d, finished);
+    let title = if !summary.is_empty() { summary } else if !d.arguments.is_empty() { &d.arguments } else { name };
+    let mut label = if d.helper {
+        let mut row = format!("{title} · {}subagent", if d.helper_type.is_empty() { String::new() } else { format!("{} ", d.helper_type) });
+        if !d.children.is_empty() {
+            row.push_str(&format!(" · {} {}", d.children.len(), if d.children.len() == 1 { "call" } else { "calls" }));
+        }
+        row.push_str(&format!(" · {result}"));
+        row
+    } else {
+        let tool_word = match name.to_lowercase().as_str() {
+            "read"|"read_file"|"readfile"|"view_file"|"cat"=>"Read",
+            "write"|"write_file"|"writefile"=>"Write",
+            "edit"|"edit_file"|"editfile"|"apply_patch"=>"Edit",
+            "grep"|"grep_search"|"ripgrep"=>"Grep",
+            "glob"|"list_dir"|"list_directory"|"ls"=>"Glob",
+            "bash"|"shell"|"exec_command"|"commandexecution"=>"",
+            _=>name,
+        };
+        if tool_word.is_empty() { format!("{title} · {result}") } else { format!("{title} · {tool_word} · {result}") }
+    };
+    if d.helper && status == ledger::Status::Done && !d.output.trim().is_empty() && result == "reported back" {
+        label.push_str(&format!(" · {}", d.output.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(160).collect::<String>()));
+    }
+    if result == "working in the background" && !d.progress.is_empty() {
+        label.push_str(&format!(" · {}", d.progress));
+    }
+    // BackgroundBadge is shell-only (ActivityCard.tsx:1298); helpers already say it in tool_result.
+    if d.background && !d.helper {
+        label.push_str(if d.background_ended == "stopped-with-run" { " · when the run ended" } else { " · in the background" });
+    }
+    if is_shell_tool(name) && d.output_reported && d.output.trim().is_empty() && status != ledger::Status::Running {
+        label.push_str(" · no output");
+    }
+    let refused = matches!(d.runtime_status.as_str(), "declined"|"refused");
+    if is_shell_tool(name) && !d.background && !refused && status != ledger::Status::Running
+        && let Some(ms) = d.duration_ms.filter(|ms| *ms >= 1000)
+    {
+        label.push_str(&format!(" · {}", ledger::duration_text(ms)));
+    }
+    label
+}
+
+fn activity_drawer_key(scope: &str, item: &ledger::Item) -> String {
+    match item {
+        ledger::Item::Plan { id, .. } => format!("{scope}/plan/{id}"),
+        ledger::Item::Thought { id, .. } => format!("{scope}/{id}"),
+        ledger::Item::Tool { detail, .. } => format!("{scope}/{}", detail.id),
+        _ => format!("{scope}/item"),
+    }
+}
+
+fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: &str) -> El {
+    let finished = s.ledger.as_ref().is_some_and(|pane| !pane.snapshot.running);
+    let label = match item {
+        ledger::Item::Tool { name, status, summary, detail: d } => tool_row_label(name, *status, summary, d, finished),
+        ledger::Item::Plan { steps, finished: ended, .. } => {
+            let finished=finished || *ended;
+            let done=steps.iter().filter(|r| r.state=="done").count();
+            format!("PLAN · {done} of {} done{}", steps.len(), if finished && done<steps.len() { format!(" · {} not checked off",steps.len()-done) } else { String::new() })
+        },
+        ledger::Item::Thought { text, duration_ms, .. } => {
+            let mut label = duration_ms.filter(|ms| *ms >= 500).map(|ms| format!("Thought for {}",ledger::duration_text(ms))).unwrap_or_else(|| "Thought".into());
+            if let Some(headline) = thought_headline(text) { label.push_str(&format!(" · {headline}")); }
+            label
+        },
+        _ => return col(),
+    };
+    let key = activity_drawer_key(scope, item);
+    let open = s.activity_open.get(&key).copied().unwrap_or(matches!(item,ledger::Item::Plan { .. }));
+    let expandable = match item {
+        ledger::Item::Thought { text, .. } => !text.is_empty(),
+        ledger::Item::Tool { detail, .. } => !detail.arguments.is_empty() || !detail.output.is_empty() || !detail.children.is_empty(),
+        ledger::Item::Plan { steps, .. } => !steps.is_empty(), _=>false,
+    };
+    let heading = if expandable { disclosure(key.clone(),label,open,p) }
+        else { el().w_full().padding(8.0).child(text(label).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere()) };
+    let mut card = col().w_full().gap(4.0);
+    if matches!(item,ledger::Item::Plan { .. }) { card=card.radius(7.0).border(1.0,p.hairline); }
+    card=card.child(heading);
+    if open {
+        let mut body = col().w_full().padding(10.0).gap(8.0);
+        match item {
+            ledger::Item::Tool { detail: d, .. } => {
+                if !d.arguments.is_empty() { body = body.child(text(d.arguments.clone()).font(type_::LABEL).color(p.text).wrap_anywhere().selectable(true)); }
+                if !d.output.is_empty() {
+                    let all_key = format!("{key}/output");
+                    let all = s.activity_open.get(&all_key).copied().unwrap_or(false);
+                    let output=ledger::bounded_output(&d.output,all);
+                    let lines: Vec<_>=d.output.trim_end().split('\n').collect();
+                    if !all && lines.len()>16 {
+                        body=body.child(text(lines[..8].join("\n")).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere().selectable(true));
+                        body=body.child(disclosure(all_key,format!("{} more lines",lines.len()-16),false,p));
+                        body=body.child(text(lines[lines.len()-8..].join("\n")).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere().selectable(true));
+                    } else { body=body.child(text(output).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere().selectable(true)); }
+                }
+                for child in &d.children { body=body.child(activity_item(child,p,s,&key)); }
+            }
+            ledger::Item::Plan { steps, finished: ended, .. } => {
+                let finished=finished || *ended;
+                for (n, step) in steps.iter().enumerate() {
+                    let mark = if step.state=="done" {"✓"} else if step.state=="running" && !finished {"●"} else {"○"};
+                    body=body.child(text(format!("{mark} {}. {}", n+1, step.text)).font(type_::LABEL).color(if step.state=="running" && !finished {p.text} else {p.muted}).wrap_anywhere());
+                }
+            }
+            ledger::Item::Thought { text: words, .. } => {
+                // Multi-item thought rows keep the full text under the headline button (ActivityCard.tsx:866).
+                if !words.is_empty() {
+                    body=body.child(Markdown::new(words.clone()).selectable(true).render(&markdown_style(p)).w_full());
+                }
+            }
+            _=>{}
+        }
+        card=card.child(body);
+    }
+    card
+}
+
+fn is_activity(item: &ledger::Item) -> bool {
+    matches!(item, ledger::Item::Tool { .. } | ledger::Item::Thought { .. })
+}
+fn activity_id(item: &ledger::Item) -> &str {
+    match item { ledger::Item::Tool { detail, .. } => &detail.id, ledger::Item::Thought { id, .. } | ledger::Item::Plan { id, .. } => id, _ => "" }
+}
+fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
+    let key = format!("{scope}/group/{}",activity_id(&items[0]));
+    let open = s.activity_open.get(&key).copied().unwrap_or(false);
+    let mut commands=0; let mut helpers=0; let mut tools=0; let mut thought_ms=0; let mut headline=None;
+    for item in items {
+        match item {
+            ledger::Item::Tool { name, detail, .. } => {
+                if detail.helper { helpers+=1; }
+                else if matches!(name.to_lowercase().as_str(), "bash"|"shell"|"exec_command"|"commandexecution") { commands+=1; } else { tools+=1; }
+            }
+            ledger::Item::Thought {text,duration_ms,..} => {
+                thought_ms+=duration_ms.unwrap_or(0);
+                if let Some(h)=thought_headline(text) { headline=Some(h.to_owned()); }
+            }
+            _=>{}
+        }
+    }
+    let mut words=Vec::new();
+    if commands>0 { words.push(format!("ran {commands} {}",if commands==1 {"command"} else {"commands"})); }
+    if helpers>0 { words.push(format!("asked {helpers} {}",if helpers==1 {"subagent"} else {"subagents"})); }
+    if tools>0 { words.push(format!("{tools} other tool {}",if tools==1 {"call"} else {"calls"})); }
+    let mut label=headline.unwrap_or_else(|| if words.is_empty() { if thought_ms>=1000 {format!("Thought for {}",ledger::duration_text(thought_ms))} else {"Thought".into()} } else { words.join(", ") });
+    if let Some(first)=label.chars().next() { label=format!("{}{}",first.to_uppercase(),&label[first.len_utf8()..]); }
+    let heading = if matches!(items,[ledger::Item::Thought {text,..}] if text.is_empty()) {
+        el().w_full().padding(8.0).child(text(label).font(type_::LABEL).color(p.muted))
+    } else { disclosure(key,label,open,p) };
+    let mut group=col().w_full().gap(4.0).child(heading);
+    if open {
+        if let [ledger::Item::Thought {text: words,..}]=items {
+            // Single-thought groups already named the headline on the button (ActivityCard.tsx:535).
+            let body = without_headline(words);
+            if !body.is_empty() { group=group.child(Markdown::new(body.to_owned()).selectable(true).render(&markdown_style(p)).w_full()); }
+        } else { for item in items { group=group.child(activity_item(item,p,s,scope)); } }
+    }
+    group
+}
+
 fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().gap(24.0).padding(24.0);
     let style = markdown_style(p);
     for (index, item) in items.iter().enumerate() {
-        let key = format!("ledger-item-{index}");
+        let conversation = s.ledger.as_ref().and_then(|p|p.conversation.conversation_id.as_deref()).unwrap_or("preview");
+        let key = format!("{conversation}/ledger-item-{index}");
+        if matches!(item,ledger::Item::Plan {steps,..} if steps.is_empty()) {continue;}
+        if is_activity(item) {
+            if index>0 && is_activity(&items[index-1]) { continue; }
+            let end=items[index..].iter().position(|i| !is_activity(i)).map(|n|index+n).unwrap_or(items.len());
+            messages=messages.child(activity_group(&items[index..end],p,s,conversation));
+            continue;
+        }
         let content = match item {
             ledger::Item::CarryOn { conversation_id } => {
                 if s.flight.is_some()
@@ -566,26 +776,9 @@ fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) ->
                             .key(format!("{key}-markdown")).w_full(),
                     )
             }
-            ledger::Item::Tool { name, status, summary } => {
-                let verb = match status {
-                    ledger::Status::Running => "Running",
-                    ledger::Status::Done => "Ran",
-                    ledger::Status::Failed => "Failed",
-                };
-                text(format!(
-                    "{verb}: {name}{}",
-                    if summary.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" · {summary}")
-                    },
-                ))
-                .font(type_::LABEL).color(p.muted)
-                .w_full().wrap_anywhere().selectable(true)
+            ledger::Item::Tool { .. } | ledger::Item::Plan { .. } | ledger::Item::Thought { .. } => {
+                activity_item(item, p, s, conversation)
             }
-            ledger::Item::Plan(body) => text(format!("Plan\n{body}"))
-                .font(type_::LABEL).color(p.muted)
-                .w_full().wrap_anywhere().selectable(true),
             ledger::Item::Note { level, text: body } => {
                 text(if level.is_empty() { body.clone() } else { format!("{level}: {body}") })
                     .font(type_::LABEL).color(p.muted)
@@ -1943,13 +2136,14 @@ fn ledger_scene(s: &mut State, live: bool, light: bool) {
     };
     let items = vec![
         ledger::Item::User("Explain this synthetic preview.".into()),
-        ledger::Item::Plan(
-            "completed: Read the input\nin_progress: Summarize the result".into(),
-        ),
+        ledger::Item::Plan { id: "preview-plan".into(), steps: ledger::read_plan(&serde_json::json!([
+            {"step":"Read the input","status":"completed"}, {"step":"Summarize the result","status":"in_progress"}
+        ])), finished: !live },
         ledger::Item::Tool {
             name: "inspect".into(),
             status: ledger::Status::Done,
             summary: "Read a synthetic fixture".into(),
+            detail: ledger::ToolDetail { id: "preview-tool".into(), ..Default::default() },
         },
         ledger::Item::Assistant {
             item_id: "synthetic-answer".into(),
@@ -1998,6 +2192,38 @@ fn ledger_scene(s: &mut State, live: bool, light: bool) {
     s.status = if live { "Working…" } else { "Ready" }.into();
     s.status_tone = if live { StatusTone::Green } else { StatusTone::Muted };
 }
+
+fn thread_rich_scene(s: &mut State) {
+    ledger_scene(s,true,false);
+    let mut transcript = ledger::Transcript::default();
+    let rows = [
+        ("run.started", serde_json::json!({})),
+        ("plan.updated", serde_json::json!({"itemId":"plan","plan":[{"step":"Read the fixture","status":"completed"},{"step":"Check the result","status":"in_progress"},{"step":"Write the report","status":"pending"}]})),
+        ("step.started", serde_json::json!({"itemId":"thought","stepKind":"reasoning"})),
+        ("step.completed", serde_json::json!({"itemId":"thought","stepKind":"reasoning","message":"**Checking the fixture**\nCompare the synthetic input with the expected result.","durationMs":12000})),
+        ("tool.started", serde_json::json!({"itemId":"command","name":"Bash","title":"Check the fixture","command":"printf 'synthetic result\\n'"})),
+        ("tool.completed", serde_json::json!({"itemId":"command","name":"Bash","output":"synthetic result\n1 check passed","exitCode":0,"durationMs":1500})),
+        ("tool.started", serde_json::json!({"itemId":"helper","name":"Agent","title":"Review the fixture","status":"Explore","command":"Review the synthetic fixture and report what it contains."})),
+        ("tool.started", serde_json::json!({"itemId":"child","parentItemId":"helper","name":"Read","command":"fixture.txt"})),
+        ("tool.completed", serde_json::json!({"itemId":"child","parentItemId":"helper","name":"Read","output":"Synthetic fixture."})),
+        ("tool.completed", serde_json::json!({"itemId":"helper","name":"Agent","output":"The synthetic fixture contains one passing check."})),
+    ];
+    let records = rows.into_iter().enumerate().map(|(n,(kind,payload))| serde_json::json!({"event":{"sequence":n,"type":kind,"occurredAt":"2026-01-01T00:00:00Z","payload":payload}})).collect();
+    transcript.apply(records);
+    if let Some(pane)=s.ledger.as_mut() {
+        pane.items=vec![ledger::Item::User("Inspect this synthetic fixture.".into())];
+        pane.items.extend(transcript.items);
+        pane.snapshot.items=pane.items.clone();
+    }
+}
+fn thread_rich_open_scene(s: &mut State) {
+    thread_rich_scene(s);
+    for key in ["synthetic-ledger/group/thought:3", "synthetic-ledger/thought:3", "synthetic-ledger/command", "synthetic-ledger/helper"] {
+        s.activity_open.insert(key.into(),true);
+    }
+}
+fn thread_rich_open_light_scene(s: &mut State) { thread_rich_open_scene(s); s.appearance=Some(false); }
+fn thread_rich_light_scene(s: &mut State) { thread_rich_scene(s); s.appearance=Some(false); }
 
 fn ledger_transcript_scene(s: &mut State) {
     ledger_scene(s, false, false);
@@ -2119,6 +2345,10 @@ fn main() {
         poll: Some(poll),
         on_key: Some(on_key),
         scenes: &[
+            ("thread-rich", thread_rich_scene),
+            ("thread-rich-open", thread_rich_open_scene),
+            ("thread-rich-open-light", thread_rich_open_light_scene),
+            ("thread-rich-light", thread_rich_light_scene),
             ("team", team_scene),
             ("empty", empty_scene),
             ("replay", replay_scene),
@@ -2147,6 +2377,95 @@ mod tests {
     use serde_json::json;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn activity_status_words_follow_finished_refused_and_background_work() {
+        use ledger::{Status, ToolDetail};
+        let mut d=ToolDetail::default();
+        assert_eq!(tool_result(Status::Running,&d,false),"running");
+        assert_eq!(tool_result(Status::Running,&d,true),"did not report");
+        d.helper=true; assert_eq!(tool_result(Status::Running,&d,false),"working on it");
+        assert_eq!(tool_result(Status::Done,&d,true),"reported back");
+        d.background=true; assert_eq!(tool_result(Status::Done,&d,false),"working in the background");
+        assert_eq!(tool_result(Status::Done,&d,true),"did not report");
+        d.background_ended="stopped-with-run".into(); assert_eq!(tool_result(Status::Done,&d,true),"stopped when the run ended");
+        d.helper=false; assert_eq!(tool_result(Status::Done,&d,true),"stopped");
+        d.runtime_status="refused".into(); assert_eq!(tool_result(Status::Failed,&d,true),"refused");
+        d.runtime_status.clear(); d.exit_code=Some(2); assert_eq!(tool_result(Status::Failed,&d,true),"failed · exit 2");
+    }
+
+    #[test]
+    fn tool_row_label_omits_zero_calls_background_dupes_and_non_shell_no_output() {
+        use ledger::{Status, ToolDetail};
+        let mut helper = ToolDetail { helper: true, background: true, background_ended: "stopped-with-run".into(), ..ToolDetail::default() };
+        let label = tool_row_label("Agent", Status::Done, "Review", &helper, true);
+        assert!(label.contains("stopped when the run ended"));
+        assert!(!label.contains(" · when the run ended"));
+        assert!(!label.contains("0 calls"));
+        helper.children.push(ledger::Item::Note { level: String::new(), text: "x".into() });
+        assert!(tool_row_label("Agent", Status::Done, "Review", &helper, true).contains("1 call"));
+
+        let mut shell = ToolDetail { output_reported: true, output: "   ".into(), duration_ms: Some(3000), ..ToolDetail::default() };
+        let shell_label = tool_row_label("Bash", Status::Done, "Check", &shell, true);
+        assert!(shell_label.contains("no output"));
+        assert!(shell_label.contains("3s"));
+        let read_label = tool_row_label("Read", Status::Done, "file", &shell, true);
+        assert!(!read_label.contains("no output"));
+        assert!(!read_label.contains("3s"));
+        shell.runtime_status = "declined".into();
+        assert!(!tool_row_label("Bash", Status::Done, "Check", &shell, true).contains("3s"));
+    }
+
+    #[test]
+    fn thought_headline_helpers_match_activity_card() {
+        let text = "**Checking the fixture**\nCompare the synthetic input.";
+        assert_eq!(thought_headline(text), Some("Checking the fixture"));
+        assert_eq!(without_headline(text), "Compare the synthetic input.");
+        assert_eq!(thought_headline("no headline"), None);
+        assert_eq!(without_headline("no headline"), "no headline");
+        let thought = ledger::Item::Thought { id: "t".into(), text: text.into(), duration_ms: Some(3000) };
+        let label = match &thought {
+            ledger::Item::Thought { text, duration_ms, .. } => {
+                let mut label = format!("Thought for {}", ledger::duration_text(duration_ms.unwrap()));
+                if let Some(h) = thought_headline(text) { label.push_str(&format!(" · {h}")); }
+                label
+            }
+            _ => unreachable!(),
+        };
+        assert_eq!(label, "Thought for 3s · Checking the fixture");
+    }
+
+    #[test]
+    fn plan_drawer_keys_do_not_collide_with_tool_item_ids() {
+        let plan = ledger::Item::Plan { id: "plan".into(), steps: vec![], finished: false };
+        let tool = ledger::Item::Tool {
+            name: "Bash".into(), status: ledger::Status::Done, summary: "x".into(),
+            detail: ledger::ToolDetail { id: "plan".into(), ..Default::default() },
+        };
+        assert_eq!(activity_drawer_key("scope", &plan), "scope/plan/plan");
+        assert_eq!(activity_drawer_key("scope", &tool), "scope/plan");
+        assert_ne!(activity_drawer_key("scope", &plan), activity_drawer_key("scope", &tool));
+    }
+
+    #[test]
+    fn rich_scenes_start_folded_and_open_variant_has_independent_drawers() {
+        let mut s=State::default(); thread_rich_scene(&mut s);
+        assert!(s.activity_open.is_empty());
+        let pane=s.ledger.as_ref().unwrap();
+        assert!(matches!(pane.items[1],ledger::Item::Plan {..}));
+        assert_eq!(pane.items.iter().filter(|i|is_activity(i)).count(),3);
+        thread_rich_open_scene(&mut s);
+        assert_eq!(s.activity_open.get("synthetic-ledger/command"),Some(&true));
+        assert!(!s.activity_open.contains_key("synthetic-ledger/helper/child"));
+        s.activity_open.insert("synthetic-ledger/command".into(),false);
+        assert_eq!(s.activity_open.get("synthetic-ledger/helper"),Some(&true));
+        let plan_key = s.ledger.as_ref().unwrap().items.iter()
+            .find(|i| matches!(i, ledger::Item::Plan { .. }))
+            .map(|plan| activity_drawer_key("synthetic-ledger", plan))
+            .unwrap();
+        assert!(plan_key.starts_with("synthetic-ledger/plan/"));
+        thread_rich_light_scene(&mut s); assert_eq!(s.appearance,Some(false));
+    }
 
     #[test]
     fn chip_name_uses_known_nonempty_name_and_falls_back_to_id() {
