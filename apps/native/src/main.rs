@@ -99,9 +99,12 @@ struct Conversation {
     turns: Vec<(String, String)>,
 }
 
-// Fix: requests keep stable teammate IDs, never positions in a reloadable list.
+// Fix 2: tag each flight with its teammate ID, conversation ID, header, and tip so stale results are dropped.
 struct Flight {
     teammate_id: String,
+    conversation_id: Option<String>,
+    header: Option<Teammate>,
+    after_tip: Option<String>,
     // Some only until start/send lands; reply failures must not restore sent text.
     message: Option<String>,
 }
@@ -122,6 +125,8 @@ struct State {
     recent: Vec<ConversationRow>,
     recent_error: Option<String>,
     opening_teammate: Option<String>,
+    opening_conversation: Option<String>,
+    waiting_target: Option<(String, String)>,
     recents: Latest<Result<RecentBatch, String>>,
     ledger_summaries: HashMap<String, ledger::Summary>,
     ledger_available: bool,
@@ -149,6 +154,8 @@ impl Default for State {
             recent: Vec::new(),
             recent_error: None,
             opening_teammate: None,
+            opening_conversation: None,
+            waiting_target: None,
             recents: Latest::default(),
             ledger_summaries: HashMap::new(),
             ledger_available: false,
@@ -181,12 +188,37 @@ struct LedgerPane {
     loading: bool,
     // MCP returns the old root ID on follow-up; wait for its new child.
     after_tip: Option<String>,
+    after_tip_deadline: Option<f64>,
+    backoff: f64,
 }
 
-type LedgerAnswer = Result<(ledger::Session, ledger::Snapshot), String>;
+// Fix 3: return the Session on both Ok and Err so transient errors never rebuild the Session.
+type LedgerAnswer = Result<
+    (ledger::Session, ledger::Snapshot),
+    (ledger::Session, String),
+>;
 
 fn ledger_dir() -> Option<std::path::PathBuf> {
     engine::default_data_folder().map(|dir| dir.join("mission-ledger"))
+}
+
+// Fix 2: check whether a request's (teammate_id, conversation_id) tag still matches the open view.
+fn active_matches(
+    s: &State,
+    teammate_id: &str,
+    conversation_id: Option<&str>,
+) -> bool {
+    if let Some(pane) = &s.ledger {
+        pane.header.id == teammate_id
+            && (conversation_id.is_none()
+                || pane.conversation.conversation_id.as_deref() == conversation_id)
+    } else {
+        s.teammates.get(s.selected).is_some_and(|t| t.id == teammate_id)
+            && (conversation_id.is_none()
+                || s.conversations.get(teammate_id)
+                    .and_then(|c| c.conversation_id.as_deref())
+                    == conversation_id)
+    }
 }
 
 fn begin_ledger(
@@ -203,38 +235,73 @@ fn begin_ledger(
         return;
     };
     s.ledger_job.cancel();
+    // Fix 3: preserve existing Session and transcript items when continuing the same ledger conversation.
+    let (items, worker, snapshot) = match s.ledger.take() {
+        Some(mut prev)
+            if prev.conversation.conversation_id.as_deref() == Some(id.as_str()) =>
+        {
+            let worker = prev.worker.take().unwrap_or_else(|| {
+                ledger::Session::new(dir.clone(), id.clone())
+            });
+            (prev.items, worker, prev.snapshot)
+        }
+        _ => (
+            Vec::new(),
+            ledger::Session::new(dir.clone(), id.clone()),
+            ledger::Snapshot::default(),
+        ),
+    };
+    let loading = items.is_empty();
     s.ledger = Some(LedgerPane {
         header,
         conversation: Conversation {
-            conversation_id: Some(id.clone()),
+            conversation_id: Some(id),
             turns: vec![("You".into(), title)],
         },
-        items: Vec::new(),
-        worker: Some(ledger::Session::new(dir.clone(), id)),
+        items,
+        worker: Some(worker),
         dir,
-        snapshot: ledger::Snapshot::default(),
+        snapshot,
         due: 0.0,
-        loading: true,
+        loading,
         after_tip,
+        after_tip_deadline: None,
+        backoff: 0.0,
     });
-    s.status = "Loading conversation…".into();
-    s.status_tone = StatusTone::Muted;
+    s.status = if loading {
+        "Loading conversation…"
+    } else {
+        "Working…"
+    }.into();
+    s.status_tone = if loading {
+        StatusTone::Muted
+    } else {
+        StatusTone::Green
+    };
     tx.wake_after(Duration::ZERO);
 }
 
 fn leave_ledger(s: &mut State) {
     s.ledger_job.cancel();
-    if s.flight.as_ref().is_some_and(|f| f.teammate_id == LEDGER_TARGET) {
+    // Fix 2: detach whenever leaving an open ledger so in-flight requests are cancelled and unsent drafts restored.
+    if s.ledger.is_some()
+        || s.flight.as_ref().is_some_and(|f| f.teammate_id == LEDGER_TARGET)
+    {
         detach(s);
     }
     s.ledger = None;
 }
 
 fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
-    leave_ledger(s);
+    // Fix 5 (Finding 9): confirm the teammate exists before tearing down an open ledger or active flight.
     let Some(index) = s.teammates.iter().position(|t| t.id == id) else {
         return;
     };
+    leave_ledger(s);
+    // Fix 2: cancel any in-flight request from the previous conversation when switching teammates.
+    if s.selected != index || s.flight.is_some() || s.opening_teammate.is_some() {
+        detach(s);
+    }
     s.selected = index;
     if s.ledger_available {
         let header = s.teammates.get(index).cloned();
@@ -242,8 +309,12 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
             .and_then(|c| c.conversation_id.clone());
         if let (Some(header), Some(conversation)) = (header, conversation) {
             begin_ledger(s, conversation, String::new(), header, None, tx);
+            tx.scroll_to_bottom("messages");
+            return;
         }
     }
+    // Fix 5 (Finding 9): reset status when switching from a ledger to a teammate without a ledger.
+    set_status(s, id, "Ready", StatusTone::Muted);
     tx.scroll_to_bottom("messages");
 }
 
@@ -252,42 +323,68 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if let Some(result) = s.ledger_job.take() {
         match result {
             Ok((worker, snapshot)) => {
-                if let Some(pane) = s.ledger.as_mut() {
+                // Fix 2: ignore a worker result if the open ledger changed while the job was running.
+                if let Some(pane) = s.ledger.as_mut()
+                    && pane.conversation.conversation_id.as_deref()
+                        == Some(worker.anchor())
+                {
                     changed = pane.loading || pane.snapshot != snapshot;
                     let finished = pane.snapshot.running && !snapshot.running;
                     let new_tip = pane.snapshot.tip != snapshot.tip;
-                    if pane.after_tip.as_ref()
-                        .is_some_and(|tip| tip != &snapshot.tip)
+                    if pane.after_tip.is_some() && pane.after_tip_deadline.is_none() {
+                        pane.after_tip_deadline = Some(now + 30.0);
+                    }
+                    if pane.after_tip.as_ref().is_some_and(|tip| {
+                        tip != &snapshot.tip || snapshot.running
+                    }) {
+                        pane.after_tip = None;
+                        pane.after_tip_deadline = None;
+                    }
+                    // Fix 3: bound after_tip waiting to 30 s, then show "No new reply yet" and unlock Send.
+                    let mut timed_out = false;
+                    if pane.after_tip.is_some()
+                        && pane.after_tip_deadline.is_some_and(|d| now >= d)
                     {
                         pane.after_tip = None;
+                        pane.after_tip_deadline = None;
+                        timed_out = true;
+                        changed = true;
                     }
                     pane.items = snapshot.items.clone();
                     pane.loading = false;
-                    pane.due = now + if snapshot.running || pane.after_tip.is_some() {
-                        0.25
-                    } else {
-                        2.0
-                    };
+                    pane.backoff = 0.0;
+                    let active = snapshot.running || pane.after_tip.is_some();
+                    // Fix 3: stop scheduling wakeups once a conversation is finished and no longer waiting on after_tip.
+                    pane.due = if active { now + 0.25 } else { f64::INFINITY };
                     pane.worker = Some(worker);
                     pane.snapshot = snapshot;
-                    let active = pane.snapshot.running || pane.after_tip.is_some();
-                    s.status = if active { "Working…" } else { "Ready" }.into();
-                    s.status_tone = if pane.snapshot.failed {
-                        StatusTone::Red
-                    } else if active {
-                        StatusTone::Green
+
+                    if timed_out {
+                        s.status = "No new reply yet".into();
+                        s.status_tone = StatusTone::Muted;
                     } else {
-                        StatusTone::Muted
-                    };
+                        s.status = if active { "Working…" } else { "Ready" }.into();
+                        s.status_tone = if pane.snapshot.failed {
+                            StatusTone::Red
+                        } else if active {
+                            StatusTone::Green
+                        } else {
+                            StatusTone::Muted
+                        };
+                    }
 
                     if active {
                         s.flight = Some(Flight {
-                            teammate_id: LEDGER_TARGET.into(),
+                            teammate_id: pane.header.id.clone(),
+                            conversation_id: pane.conversation.conversation_id.clone(),
+                            header: Some(pane.header.clone()),
+                            after_tip: pane.after_tip.clone(),
                             message: None,
                         });
-                    } else if s.flight.as_ref()
-                        .is_some_and(|f| f.teammate_id == LEDGER_TARGET)
-                    {
+                    } else if s.flight.as_ref().is_some_and(|f| {
+                        f.teammate_id == pane.header.id
+                            || f.teammate_id == LEDGER_TARGET
+                    }) {
                         s.flight = None;
                     }
 
@@ -310,35 +407,56 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     // stick_bottom follows new text while the listener stays at the bottom.
                 }
             }
-            Err(words) => {
-                changed = true;
-                s.status = words;
-                s.status_tone = StatusTone::Red;
-                s.flight = None;
-                if let Some(pane) = s.ledger.as_mut() {
+            Err((worker, words)) => {
+                if let Some(pane) = s.ledger.as_mut()
+                    && pane.conversation.conversation_id.as_deref()
+                        == Some(worker.anchor())
+                {
+                    changed = true;
+                    s.status = words;
+                    s.status_tone = StatusTone::Red;
+                    s.flight = None;
                     pane.loading = false;
-                    pane.due = now + 2.0;
-                    if let Some(id) = &pane.conversation.conversation_id {
-                        pane.worker = Some(ledger::Session::new(
-                            pane.dir.clone(), id.clone(),
-                        ));
-                    }
+                    // Fix 3: keep the Session on transient errors and back off 2 s, 4 s, 8 s up to 30 s.
+                    let delay = if pane.backoff <= 0.0 {
+                        2.0
+                    } else {
+                        (pane.backoff * 2.0).min(30.0)
+                    };
+                    pane.backoff = delay;
+                    pane.due = now + delay;
+                    pane.worker = Some(worker);
                 }
             }
         }
     }
 
-    if let Some(pane) = s.ledger.as_mut() {
-        if now >= pane.due {
-            if let Some(mut worker) = pane.worker.take() {
-                s.ledger_job.request((), move |()| {
-                    let snapshot = worker.poll()
-                        .map_err(|_| "Local conversation could not be read.".to_owned())?;
-                    Ok((worker, snapshot))
-                });
+    if !s.sending.is_pending()
+        && let Some(pane) = s.ledger.as_mut()
+    {
+        if pane.after_tip.is_some() && pane.after_tip_deadline.is_none() {
+            pane.after_tip_deadline = Some(now + 30.0);
+        }
+        let pollable = pane.loading
+            || pane.snapshot.running
+            || pane.after_tip.is_some()
+            || pane.backoff > 0.0;
+        if pollable {
+            if now >= pane.due {
+                if let Some(mut worker) = pane.worker.take() {
+                    s.ledger_job.request((), move |()| {
+                        match worker.poll() {
+                            Ok(snapshot) => Ok((worker, snapshot)),
+                            Err(_) => Err((
+                                worker,
+                                "Local conversation could not be read.".to_owned(),
+                            )),
+                        }
+                    });
+                }
+            } else if pane.worker.is_some() {
+                tx.wake_after(Duration::from_secs_f64((pane.due - now).max(0.0)));
             }
-        } else if pane.worker.is_some() {
-            tx.wake_after(Duration::from_secs_f64((pane.due - now).max(0.0)));
         }
     }
     changed
@@ -444,7 +562,13 @@ fn set_status(s: &mut State, id: &str, message: &str, ink: StatusTone) {
         s.ledger.as_ref().map(|p| p.header.name.as_str()).unwrap_or("Locust")
     } else {
         s.teammates.iter().find(|t| t.id == id)
-            .map(|t| t.name.as_str()).unwrap_or("Locust")
+            .map(|t| t.name.as_str())
+            .or_else(|| {
+                s.ledger.as_ref()
+                    .filter(|p| p.header.id == id)
+                    .map(|p| p.header.name.as_str())
+            })
+            .unwrap_or("Locust")
     };
     s.status = format!("{name}: {message}");
     s.status_tone = ink;
@@ -459,26 +583,26 @@ fn send(s: &mut State, _: &mut Tx) {
     };
     let teammate_id = teammate.id.clone();
     let conversation_id = conversation.conversation_id.clone();
+    let header = teammate.clone();
+    let after_tip = s.ledger.as_ref()
+        .map(|p| p.snapshot.tip.clone())
+        .filter(|v| !v.is_empty());
     let message = s.draft.text.clone();
-    let target = if s.ledger.is_some() {
-        LEDGER_TARGET.into()
-    } else {
-        teammate_id.clone()
-    };
+    // Fix 2: keep the real teammate ID on ledger sends and capture this conversation's header and tip on the flight.
     s.flight = Some(Flight {
-        teammate_id: target.clone(),
+        teammate_id: teammate_id.clone(),
+        conversation_id: conversation_id.clone(),
+        header: Some(header),
+        after_tip,
         message: Some(message.clone()),
     });
 
     // An idle ledger result must not clear a new send. Reopen after acceptance.
     if s.ledger.is_some() {
         s.ledger_job.cancel();
-        if let Some(pane) = s.ledger.as_mut() {
-            pane.worker = None;
-        }
     }
     s.draft.clear();
-    set_status(s, &target, "Sending…", StatusTone::Muted);
+    set_status(s, &teammate_id, "Sending…", StatusTone::Muted);
 
     s.sending.request(
         (teammate_id, conversation_id, message),
@@ -536,11 +660,19 @@ fn detach(s: &mut State) {
     s.waiting.cancel();
     s.opening.cancel();
     s.ledger_job.cancel();
-    s.flight = None;
+    // Fix 2: restore unsent draft text if a send is cancelled before landing.
+    if let Some(message) = s.flight.take().and_then(|f| f.message) {
+        restore_failed_draft(s, message);
+    }
     s.opening_teammate = None;
+    s.opening_conversation = None;
+    s.waiting_target = None;
     if let Some(pane) = s.ledger.as_mut() {
         pane.worker = None;
         pane.loading = false;
+        pane.after_tip = None;
+        pane.after_tip_deadline = None;
+        pane.backoff = 0.0;
     }
 }
 
@@ -578,6 +710,8 @@ fn request_reply(s: &mut State, teammate_id: &str, delay: Duration) {
         return;
     };
 
+    // Fix 2: tag the waiting request with the conversation it belongs to.
+    s.waiting_target = Some((teammate_id.to_owned(), id.clone()));
     // Fix: retain this handle's waker while choosing each request's debounce.
     s.waiting = std::mem::take(&mut s.waiting).debounce(delay);
     s.waiting.request(id, |id| Engine::local()?.reply(&id, 20));
@@ -597,7 +731,7 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
     let active = s.flight.as_ref().map(|f| f.teammate_id.clone())
         .or_else(|| s.opening_teammate.clone());
     if let Some(id) = active {
-        if id != LEDGER_TARGET {
+        if id != LEDGER_TARGET && (s.ledger.is_none() || s.sending.is_pending()) {
             let _ = target_index(s, &id);
         }
     } else if s.ledger.is_none() {
@@ -652,19 +786,32 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
     tx.scroll_to_bottom("messages");
 
     if !s.demo {
+        // Fix 2: tag the opening request with both the teammate ID and conversation ID.
         s.opening_teammate = Some(id);
+        s.opening_conversation = Some(row.id.clone());
         s.opening.request(row.id, |id| Engine::local()?.reply(&id, 0));
     }
 }
 
 fn fresh_conversation(s: &mut State) {
-    let Some(id) = s.teammates.get(s.selected).map(|t| t.id.clone()) else {
-        return;
-    };
+    // Fix 5 (Finding 9): close any open ledger on Cmd+N, and do not wipe a teammate's conversation when closing a Recent ledger.
+    let ledger_owner = s.ledger.as_ref().map(|p| p.header.id.clone());
     detach(s);
     s.ledger = None;
-    s.conversations.insert(id.clone(), Conversation::default());
-    set_status(s, &id, "Ready", StatusTone::Muted);
+    let target_id = match ledger_owner.as_deref() {
+        Some(LEDGER_TARGET) => s.teammates.get(s.selected).map(|t| t.id.clone()),
+        Some(id) => Some(id.to_owned()),
+        None => s.teammates.get(s.selected).map(|t| t.id.clone()),
+    };
+    if let Some(id) = target_id {
+        if ledger_owner.as_deref() != Some(LEDGER_TARGET) {
+            s.conversations.insert(id.clone(), Conversation::default());
+        }
+        set_status(s, &id, "Ready", StatusTone::Muted);
+    } else {
+        s.status = "Ready".into();
+        s.status_tone = StatusTone::Muted;
+    }
 }
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
@@ -864,17 +1011,23 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 
     if let Some(result) = s.sending.take() {
         changed = true;
-        if let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone()) {
+        // Fix 2: drop a landed send result if its flight tag no longer matches the active conversation.
+        let matches_active = s.flight.as_ref().is_some_and(|f| {
+            active_matches(s, &f.teammate_id, f.conversation_id.as_deref())
+        });
+        if matches_active
+            && let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone())
+        {
             let message = s.flight.as_mut().and_then(|f| f.message.take());
+            let flight_header = s.flight.as_ref().and_then(|f| f.header.clone());
+            let after = s.flight.as_ref().and_then(|f| f.after_tip.clone());
             match result {
                 Ok(started) => {
                     if s.ledger_available || s.ledger.is_some() {
-                        let header = s.ledger.as_ref().map(|p| p.header.clone())
-                            .or_else(|| s.teammates.iter()
-                                .find(|t| t.id == id).cloned());
-                        let after = s.ledger.as_ref()
-                            .map(|p| p.snapshot.tip.clone())
-                            .filter(|v| !v.is_empty());
+                        // Fix 2: use the header and tip captured when the send was initiated, never another conversation's pane.
+                        let header = flight_header.or_else(|| {
+                            s.teammates.iter().find(|t| t.id == id).cloned()
+                        });
 
                         if let Some(header) = header {
                             if let Some(conversation) = s.conversations.get_mut(&id) {
@@ -886,14 +1039,17 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                             }
                             begin_ledger(
                                 s,
-                                started.conversation_id,
+                                started.conversation_id.clone(),
                                 message.unwrap_or_default(),
-                                header,
+                                header.clone(),
                                 after,
                                 tx,
                             );
                             s.flight = Some(Flight {
-                                teammate_id: LEDGER_TARGET.into(),
+                                teammate_id: id,
+                                conversation_id: Some(started.conversation_id),
+                                header: Some(header),
+                                after_tip: None,
                                 message: None,
                             });
                         } else {
@@ -901,9 +1057,12 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         }
                     } else if let Some(index) = target_index(s, &id) {
                         if let Some(conversation) = s.conversations.get_mut(&id) {
-                            conversation.conversation_id = Some(started.conversation_id);
+                            conversation.conversation_id = Some(started.conversation_id.clone());
                             if let Some(message) = message {
                                 conversation.turns.push(("You".into(), message));
+                            }
+                            if let Some(flight) = s.flight.as_mut() {
+                                flight.conversation_id = Some(started.conversation_id);
                             }
                             set_status(s, &id, "Working…", StatusTone::Green);
                             request_reply(s, &id, Duration::ZERO);
@@ -922,13 +1081,15 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     set_status(s, &id, &error, StatusTone::Red);
                     s.flight = None;
                     if let Some(pane) = s.ledger.as_mut() {
-                        if let Some(id) = &pane.conversation.conversation_id {
+                        if pane.worker.is_none()
+                            && let Some(id) = &pane.conversation.conversation_id
+                        {
                             pane.worker = Some(ledger::Session::new(
                                 pane.dir.clone(), id.clone(),
                             ));
-                            pane.due = 0.0;
-                            tx.wake_after(Duration::ZERO);
                         }
+                        pane.due = 0.0;
+                        tx.wake_after(Duration::ZERO);
                     }
                 }
             }
@@ -954,9 +1115,18 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 
     if let Some(result) = s.opening.take() {
         changed = true;
-        if let Some(id) = s.opening_teammate.take() {
+        let id = s.opening_teammate.take();
+        let conv = s.opening_conversation.take();
+        // Fix 2: drop an opening result if its conversation tag no longer matches the active view.
+        if let Some(id) = id
+            && s.ledger.is_none()
+            && active_matches(s, &id, conv.as_deref())
+        {
             s.flight = Some(Flight {
                 teammate_id: id.clone(),
+                conversation_id: conv,
+                header: None,
+                after_tip: None,
                 message: None,
             });
             land_reply(s, &id, result, tx);
@@ -964,7 +1134,18 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     }
     if let Some(result) = s.waiting.take() {
         changed = true;
-        if let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone()) {
+        let target = s.waiting_target.take();
+        // Fix 2: drop a waiting result if a ledger opened or its conversation tag no longer matches.
+        if s.ledger.is_none()
+            && let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone())
+            && let Some(flight_conv) = s.flight.as_ref().map(|f| f.conversation_id.clone())
+            && target.as_ref().is_none_or(|(t_id, t_conv)| {
+                t_id == &id
+                    && (flight_conv.is_none()
+                        || flight_conv.as_deref() == Some(t_conv.as_str()))
+            })
+            && active_matches(s, &id, flight_conv.as_deref())
+        {
             land_reply(s, &id, result, tx);
         }
     }
@@ -976,7 +1157,9 @@ fn on_close(s: &mut State, _: &mut Tx) {
     // Fix: cancelled handles never land; clear their flight and visible status too.
     s.team.cancel();
     s.recents.cancel();
+    s.flight = None;
     detach(s);
+    s.ledger = None;
     s.status.clear();
     s.status_tone = StatusTone::Muted;
 }
@@ -1090,9 +1273,13 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         );
     } else {
         for item in s.recent.iter().take(12) {
+            // Fix 5 (Finding 9): highlight Recent row when either the root conversation ID or active continuation tip matches.
             let picked = selected_conversation(s)
                 .and_then(|(_, c)| c.conversation_id.as_deref())
-                == Some(item.id.as_str());
+                == Some(item.id.as_str())
+                || s.ledger.as_ref().is_some_and(|p| {
+                    !p.snapshot.tip.is_empty() && p.snapshot.tip == item.id
+                });
             let mut title = row().w_full().center_y().gap(6.0)
                 .child(
                     text(item.title.clone()).font(type_::BODY)
@@ -1499,7 +1686,7 @@ fn ledger_scene(s: &mut State, live: bool, light: bool) {
         },
     ];
     s.ledger = Some(LedgerPane {
-        header,
+        header: header.clone(),
         conversation: Conversation {
             conversation_id: Some("synthetic-ledger".into()),
             turns: Vec::new(),
@@ -1513,13 +1700,18 @@ fn ledger_scene(s: &mut State, live: bool, light: bool) {
             running: live,
             failed: false,
         },
-        due: 0.0,
+        due: if live { 0.0 } else { f64::INFINITY },
         loading: false,
         after_tip: None,
+        after_tip_deadline: None,
+        backoff: 0.0,
     });
     if live {
         s.flight = Some(Flight {
-            teammate_id: LEDGER_TARGET.into(),
+            teammate_id: header.id.clone(),
+            conversation_id: Some("synthetic-ledger".into()),
+            header: Some(header),
+            after_tip: None,
             message: None,
         });
     }
@@ -1605,11 +1797,47 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "locust-main-test-{}-{}-{}",
+                std::process::id(),
+                SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+                NEXT.fetch_add(1, Ordering::Relaxed),
+            ));
+            std::fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+        fn write(&self, id: &str, records: &[serde_json::Value]) {
+            let text = records.iter().map(|r| format!("{r}\n")).collect::<String>();
+            std::fs::write(self.0.join(format!("{id}.jsonl")), text).unwrap();
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
 
     fn sample() -> State {
         let mut s = State::default();
         team_scene(&mut s);
         s
+    }
+
+    fn wait_job(s: &mut State) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while s.ledger_job.is_pending() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(!s.ledger_job.is_pending(), "ledger_job did not finish");
     }
 
     #[test]
@@ -1620,6 +1848,9 @@ mod tests {
         let turns = conversation.turns.clone();
         s.flight = Some(Flight {
             teammate_id: "codec".into(),
+            conversation_id: Some("sample-3".into()),
+            header: None,
+            after_tip: None,
             message: None,
         });
         let mut team = s.teammates.clone();
@@ -1648,6 +1879,9 @@ mod tests {
         let mut s = sample();
         s.flight = Some(Flight {
             teammate_id: "codec".into(),
+            conversation_id: None,
+            header: None,
+            after_tip: None,
             message: None,
         });
         s.opening_teammate = Some("codec".into());
@@ -1664,6 +1898,9 @@ mod tests {
         let mut s = sample();
         s.flight = Some(Flight {
             teammate_id: "codec".into(),
+            conversation_id: None,
+            header: None,
+            after_tip: None,
             message: None,
         });
         request_reply(&mut s, "codec", Duration::ZERO);
@@ -1679,6 +1916,9 @@ mod tests {
         s.draft.replace_text("new draft");
         s.flight = Some(Flight {
             teammate_id: "codec".into(),
+            conversation_id: None,
+            header: None,
+            after_tip: None,
             message: None,
         });
         let escape = KeyEvent {
@@ -1697,6 +1937,9 @@ mod tests {
 
         s.flight = Some(Flight {
             teammate_id: "codec".into(),
+            conversation_id: None,
+            header: None,
+            after_tip: None,
             message: None,
         });
         s.opening_teammate = Some("codec".into());
@@ -1713,6 +1956,9 @@ mod tests {
         s.draft.replace_text("new typing");
         s.flight = Some(Flight {
             teammate_id: "codec".into(),
+            conversation_id: None,
+            header: None,
+            after_tip: None,
             message: Some("unsent text".into()),
         });
         // A local result exercises poll without contacting the engine.
@@ -1725,5 +1971,155 @@ mod tests {
         assert!(poll(&mut s, 0.0, &mut Tx::default()));
         assert_eq!(s.draft.text, "unsent text\n\nnew typing");
         assert!(s.flight.is_none());
+    }
+
+    #[test]
+    fn switching_conversations_restores_cancelled_ledger_send_and_drops_stale_results() {
+        let mut s = sample();
+        s.demo = false;
+        ledger_transcript_scene(&mut s);
+        s.demo = false;
+        let codec_header = s.teammates[0].clone();
+        s.flight = Some(Flight {
+            teammate_id: codec_header.id.clone(),
+            conversation_id: Some("synthetic-ledger".into()),
+            header: Some(codec_header),
+            after_tip: Some("synthetic-ledger".into()),
+            message: Some("follow-up question".into()),
+        });
+
+        // Fix 2 & 9: switching teammates cancels the ledger send, restores the unsent draft, and resets status.
+        select_teammate(&mut s, "argon", &mut Tx::default());
+        assert!(s.ledger.is_none());
+        assert!(s.flight.is_none());
+        assert_eq!(s.draft.text, "follow-up question");
+        assert_eq!(s.status, "Argon: Ready");
+
+        // Fix 2: a stale send result tagged for Codec must not swap in Argon's state or hijack Argon's view.
+        s.flight = Some(Flight {
+            teammate_id: "codec".into(),
+            conversation_id: Some("old-conv".into()),
+            header: Some(s.teammates[0].clone()),
+            after_tip: Some("old-tip".into()),
+            message: None,
+        });
+        s.sending.request((), |()| Ok(Started {
+            conversation_id: "codec-new".into(),
+            mode: "ask".into(),
+        }));
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while s.sending.is_pending() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        poll(&mut s, 1.0, &mut Tx::default());
+        assert!(s.ledger.is_none());
+        assert_eq!(s.teammates[s.selected].id, "argon");
+    }
+
+    #[test]
+    fn idle_ledger_stops_polling_errors_back_off_without_rebuilding_and_after_tip_times_out() {
+        let temp = TempDir::new();
+        temp.write("done", &[
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.created",
+                "metadata":{
+                    "missionId":"done",
+                    "prompt":"Synthetic prompt",
+                    "runtime":"codex",
+                    "model":"sample",
+                    "createdAt":"2026-01-01T00:00:00Z"
+                }
+            }),
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.event",
+                "event":{
+                    "sequence":1,
+                    "occurredAt":"2026-01-01T00:00:01Z",
+                    "type":"run.completed",
+                    "payload":{}
+                }
+            }),
+        ]);
+        temp.write("other", &[
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.created",
+                "metadata":{
+                    "missionId":"other",
+                    "prompt":"Other prompt",
+                    "runtime":"codex",
+                    "model":"sample",
+                    "createdAt":"2026-01-01T00:00:00Z"
+                }
+            }),
+        ]);
+
+        let mut s = sample();
+        s.demo = false;
+        let header = s.teammates[0].clone();
+        s.ledger = Some(LedgerPane {
+            header,
+            conversation: Conversation {
+                conversation_id: Some("done".into()),
+                turns: Vec::new(),
+            },
+            items: Vec::new(),
+            dir: temp.0.clone(),
+            worker: Some(ledger::Session::new(temp.0.clone(), "done".into())),
+            snapshot: ledger::Snapshot::default(),
+            due: 0.0,
+            loading: true,
+            after_tip: None,
+            after_tip_deadline: None,
+            backoff: 0.0,
+        });
+
+        // Fix 3: finished conversation stops scheduling wakeups after its initial load.
+        let mut tx = Tx::default();
+        ledger_tick(&mut s, 0.0, &mut tx);
+        wait_job(&mut s);
+        ledger_tick(&mut s, 0.1, &mut tx);
+        let pane = s.ledger.as_ref().unwrap();
+        assert!(!pane.loading && !pane.snapshot.running);
+        assert!(pane.due.is_infinite());
+        assert!(!s.ledger_job.is_pending());
+        assert_eq!(pane.worker.as_ref().unwrap().cached_headers(), 2);
+
+        // Fix 3: bound after_tip waiting to 30 s, then show "No new reply yet" and unlock Send.
+        s.ledger.as_mut().unwrap().after_tip = Some("done".into());
+        s.ledger.as_mut().unwrap().due = 10.0;
+        ledger_tick(&mut s, 10.0, &mut tx);
+        wait_job(&mut s);
+        ledger_tick(&mut s, 10.1, &mut tx);
+        assert_eq!(s.status, "Working…");
+        assert!(s.flight.is_some());
+
+        s.ledger.as_mut().unwrap().due = 40.0;
+        ledger_tick(&mut s, 40.0, &mut tx);
+        wait_job(&mut s);
+        ledger_tick(&mut s, 40.0, &mut tx);
+        assert_eq!(s.status, "No new reply yet");
+        assert!(s.flight.is_none());
+        assert!(s.ledger.as_ref().unwrap().after_tip.is_none());
+
+        // Fix 3: transient errors back off 2 s, 4 s, 8 s, 16 s, 30 s without rebuilding the Session.
+        std::fs::remove_file(temp.0.join("done.jsonl")).unwrap();
+        std::fs::remove_file(temp.0.join("other.jsonl")).unwrap();
+        let mut now = 100.0;
+        s.ledger.as_mut().unwrap().loading = true;
+        s.ledger.as_mut().unwrap().due = now;
+        for expected in [2.0, 4.0, 8.0, 16.0, 30.0, 30.0] {
+            ledger_tick(&mut s, now, &mut tx);
+            wait_job(&mut s);
+            ledger_tick(&mut s, now, &mut tx);
+            let pane = s.ledger.as_ref().unwrap();
+            assert_eq!(pane.backoff, expected);
+            assert_eq!(pane.due, now + expected);
+            // If Session had been rebuilt after `other.jsonl` was removed, cached_headers() would be 0.
+            assert_eq!(pane.worker.as_ref().unwrap().cached_headers(), 2);
+            now += expected;
+        }
     }
 }

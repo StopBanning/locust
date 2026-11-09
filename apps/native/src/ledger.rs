@@ -8,6 +8,8 @@ use std::time::{Duration, Instant, SystemTime};
 
 pub const MAX_LINE: usize = 1024 * 1024;
 pub const MAX_ASSISTANT: usize = 131_072;
+// Fix 4: keep running conversations active until silent for 15 minutes instead of 120 seconds.
+pub const ACTIVE_WINDOW: Duration = Duration::from_secs(15 * 60);
 const HEAD: u64 = MAX_LINE as u64 + 1;
 const TAIL: u64 = 2 * MAX_LINE as u64;
 pub type Record = Value;
@@ -92,13 +94,19 @@ fn metadata(record: &Record) -> Option<Metadata> {
     })
 }
 
-// Match Locust's JavaScript text limit in UTF-16 units without splitting a scalar.
-fn capped(text: &str, limit: usize) -> String {
+// Fix 8: return both the UTF-16-bounded slice and its UTF-16 unit count for incremental tracking.
+fn capped(text: &str, limit: usize) -> (&str, usize) {
     let mut used = 0;
-    text.chars().take_while(|c| {
-        used += c.len_utf16();
-        used <= limit
-    }).collect()
+    let mut end = 0;
+    for c in text.chars() {
+        let len = c.len_utf16();
+        if used + len > limit {
+            break;
+        }
+        used += len;
+        end += c.len_utf8();
+    }
+    (&text[..end], used)
 }
 
 fn one_line(text: &str) -> String {
@@ -132,7 +140,7 @@ fn decode(line: &[u8]) -> Option<Record> {
     Some(value)
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Lines {
     pending: Vec<u8>,
     skipping: bool,
@@ -189,11 +197,11 @@ impl Tail {
     }
 
     pub fn poll(&mut self) -> Vec<Record> {
-        self.reset = false;
         self.error = None;
         match self.read_new() {
             Ok(records) => records,
             Err(error) => {
+                self.reset = false;
                 self.error = Some(error.kind());
                 Vec::new()
             }
@@ -204,51 +212,73 @@ impl Tail {
         // Production code never requests write, append, truncate, or create access.
         let mut file = OpenOptions::new().read(true).open(&self.path)?;
         let meta = file.metadata()?;
-        self.modified = meta.modified().ok();
+        let modified = meta.modified().ok();
 
-        let mut reset = meta.len() < self.offset;
-        if !reset && !self.marker.is_empty() {
-            file.seek(SeekFrom::Start(
-                self.offset - self.marker.len() as u64,
-            ))?;
-            let mut actual = vec![0; self.marker.len()];
-            reset = file.read_exact(&mut actual).is_err() || actual != self.marker;
+        // Fix 1: stage offset/lines/marker/reset locally and guard marker subtraction so polls commit atomically.
+        let mut offset = self.offset;
+        let mut lines = self.lines.clone();
+        let mut marker = self.marker.clone();
+        let mut reset = meta.len() < offset;
+        if !reset && !marker.is_empty() {
+            if offset < marker.len() as u64 {
+                reset = true;
+            } else {
+                file.seek(SeekFrom::Start(offset - marker.len() as u64))?;
+                let mut actual = vec![0; marker.len()];
+                reset = file.read_exact(&mut actual).is_err() || actual != marker;
+            }
         }
         if reset {
             // The marker helps detect truncation followed by regrowth between polls.
-            self.offset = 0;
-            self.lines = Lines::default();
-            self.reset = true;
+            offset = 0;
+            lines = Lines::default();
+            marker.clear();
         }
 
-        if self.first && self.offset > 0 && !reset {
-            file.seek(SeekFrom::Start(self.offset - 1))?;
-            let mut byte = [0];
-            file.read_exact(&mut byte)?;
-            self.lines.skipping = byte[0] != b'\n';
+        if self.first && offset > 0 && !reset {
+            // Fix 5 (Finding 7): recover an incomplete line preceding a non-zero initial offset instead of dropping its completion.
+            let back = offset.min(MAX_LINE as u64) as usize;
+            file.seek(SeekFrom::Start(offset - back as u64))?;
+            let mut prefix = vec![0; back];
+            file.read_exact(&mut prefix)?;
+            if let Some(pos) = prefix.iter().rposition(|&b| b == b'\n') {
+                lines.pending.extend_from_slice(&prefix[pos + 1..]);
+            } else if (back as u64) == offset && back < MAX_LINE {
+                lines.pending.extend_from_slice(&prefix);
+            } else {
+                lines.skipping = true;
+            }
         }
-        self.first = false;
-        file.seek(SeekFrom::Start(self.offset))?;
 
         // Snapshot EOF so an active writer cannot keep this worker reading forever.
-        let mut left = meta.len().saturating_sub(self.offset);
-        let mut buffer = [0; 8192];
+        let mut left = meta.len().saturating_sub(offset);
         let mut records = Vec::new();
-        while left > 0 {
-            let wanted = left.min(buffer.len() as u64) as usize;
-            let n = file.read(&mut buffer[..wanted])?;
-            if n == 0 {
-                break;
+        if left > 0 || reset || (self.first && offset > 0 && marker.is_empty()) {
+            file.seek(SeekFrom::Start(offset))?;
+            let mut buffer = [0; 8192];
+            while left > 0 {
+                let wanted = left.min(buffer.len() as u64) as usize;
+                let n = file.read(&mut buffer[..wanted])?;
+                if n == 0 {
+                    break;
+                }
+                lines.feed(&buffer[..n], &mut records);
+                offset += n as u64;
+                left -= n as u64;
             }
-            self.lines.feed(&buffer[..n], &mut records);
-            self.offset += n as u64;
-            left -= n as u64;
+
+            let count = offset.min(64) as usize;
+            file.seek(SeekFrom::Start(offset - count as u64))?;
+            marker = vec![0; count];
+            file.read_exact(&mut marker)?;
         }
 
-        let count = self.offset.min(64) as usize;
-        file.seek(SeekFrom::Start(self.offset - count as u64))?;
-        self.marker = vec![0; count];
-        file.read_exact(&mut self.marker)?;
+        self.modified = modified;
+        self.offset = offset;
+        self.lines = lines;
+        self.marker = marker;
+        self.reset = reset;
+        self.first = false;
         Ok(records)
     }
 }
@@ -283,7 +313,8 @@ impl Transcript {
         if let Some(m) = &self.metadata {
             items.push(Item::User(m.prompt.clone()));
         }
-        let mut messages = HashMap::<String, usize>::new();
+        // Fix 8: store (item_index, utf16_units) so streaming deltas count UTF-16 units incrementally.
+        let mut messages = HashMap::<String, (usize, usize)>::new();
         let mut tools = HashMap::<String, usize>::new();
         let mut plans = HashMap::<String, usize>::new();
         self.running = self.metadata.is_some();
@@ -295,24 +326,28 @@ impl Transcript {
             let id = string(p, "itemId");
             match kind.as_str() {
                 "message.delta" if !id.is_empty() => {
-                    let at = *messages.entry(id.clone()).or_insert_with(|| {
+                    let (at, used) = messages.entry(id.clone()).or_insert_with(|| {
                         items.push(Item::Assistant {
                             item_id: id,
                             text: String::new(),
                             r#final: false,
                         });
-                        items.len() - 1
+                        (items.len() - 1, 0)
                     });
                     if let Some(Item::Assistant { text, r#final, .. }) =
-                        items.get_mut(at)
+                        items.get_mut(*at)
                     {
                         let piece = string(p, "text");
                         if string(p, "operation") == "replace" {
-                            *text = capped(&piece, MAX_ASSISTANT);
+                            let (slice, count) = capped(&piece, MAX_ASSISTANT);
+                            text.clear();
+                            text.push_str(slice);
+                            *used = count;
                         } else {
-                            let left = MAX_ASSISTANT
-                                .saturating_sub(text.encode_utf16().count());
-                            text.push_str(&capped(&piece, left));
+                            let left = MAX_ASSISTANT.saturating_sub(*used);
+                            let (slice, count) = capped(&piece, left);
+                            text.push_str(slice);
+                            *used += count;
                         }
                         *r#final = p.get("final")
                             .and_then(Value::as_bool).unwrap_or(false);
@@ -406,7 +441,11 @@ impl Transcript {
                         items.push(Item::Note { level: "error".into(), text });
                     }
                 }
-                "run.completed" | "run.cancelled" => self.running = false,
+                // Fix 4: a later completion or restart clears an earlier completed/failed flag.
+                "run.completed" | "run.cancelled" => {
+                    self.running = false;
+                    self.failed = false;
+                }
                 "run.started" => {
                     self.running = true;
                     self.failed = false;
@@ -429,29 +468,40 @@ pub fn read_transcript(path: impl AsRef<Path>) -> Transcript {
     transcript
 }
 
-fn head(path: &Path) -> io::Result<Vec<Record>> {
+fn head_with_offset(path: &Path) -> io::Result<(Vec<Record>, u64, Lines)> {
     let mut file = OpenOptions::new().read(true).open(path)?.take(HEAD);
     let mut lines = Lines::default();
     let mut records = Vec::new();
+    let mut read_bytes = 0u64;
     let mut bytes = [0; 8192];
     loop {
         let n = file.read(&mut bytes)?;
         if n == 0 {
             break;
         }
+        read_bytes += n as u64;
         lines.feed(&bytes[..n], &mut records);
         if records.iter().any(|r| metadata(r).is_some()) {
             break;
         }
     }
-    Ok(records)
+    Ok((records, read_bytes, lines))
 }
 
-fn end(path: &Path) -> io::Result<Vec<Record>> {
+fn head(path: &Path) -> io::Result<Vec<Record>> {
+    head_with_offset(path).map(|(records, _, _)| records)
+}
+
+// Fix 4: start reading tail bytes after `after` so a file already read in full by head() is never re-read.
+fn end_after(path: &Path, after: u64, mut lines: Lines) -> io::Result<Vec<Record>> {
     let mut file = OpenOptions::new().read(true).open(path)?;
-    let start = file.metadata()?.len().saturating_sub(TAIL);
-    let mut lines = Lines::default();
-    if start > 0 {
+    let len = file.metadata()?.len();
+    if len <= after {
+        return Ok(Vec::new());
+    }
+    let start = len.saturating_sub(TAIL).max(after);
+    if start > after {
+        lines = Lines::default();
         file.seek(SeekFrom::Start(start - 1))?;
         let mut byte = [0];
         file.read_exact(&mut byte)?;
@@ -467,7 +517,7 @@ fn end(path: &Path) -> io::Result<Vec<Record>> {
 
 fn fresh(modified: Option<SystemTime>, now: SystemTime) -> bool {
     modified.is_some_and(|m| {
-        now.duration_since(m).unwrap_or_default() < Duration::from_secs(120)
+        now.duration_since(m).unwrap_or_default() < ACTIVE_WINDOW
     })
 }
 
@@ -503,23 +553,50 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
     paths.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
 
     let mut summaries = Vec::new();
-    for (modified, path, _) in paths {
+    for (modified, path, len) in paths {
         if summaries.len() == limit {
             break;
         }
-        let Ok(mut records) = head(&path) else { continue };
+        let Ok((mut records, read_bytes, lines)) = head_with_offset(&path) else {
+            continue;
+        };
         let Some(m) = records.iter().find_map(metadata) else { continue };
-        // At most HEAD + TAIL bytes; never scan the middle of a large ledger.
-        if let Ok(tail) = end(&path) {
-            records.extend(tail);
+        // Fix 4: at most HEAD + TAIL bytes; skip end_after entirely when head_with_offset already read the whole file.
+        if read_bytes < len {
+            if let Ok(tail) = end_after(&path, read_bytes, lines) {
+                records.extend(tail);
+            }
         }
-        let finished = records.iter().any(|r| matches!(
-            r["event"]["type"].as_str(),
-            Some("run.completed" | "run.failed" | "run.cancelled"),
-        ));
-        let failed = records.iter().any(|r| r["event"]["type"] == "run.failed");
-        let updated = records.iter().rev()
-            .find_map(|r| r["event"]["occurredAt"].as_str())
+        // Fix 4: replay run lifecycle events in sequence order so a later run.started clears earlier completed/failed state.
+        let mut events = BTreeMap::new();
+        for record in &records {
+            if let Some(event) = record.get("event") {
+                if let Some(seq) = event.get("sequence").and_then(Value::as_u64) {
+                    events.insert(seq, event);
+                }
+            }
+        }
+        let mut running = true;
+        let mut failed = false;
+        for event in events.values() {
+            match event.get("type").and_then(Value::as_str) {
+                Some("run.started") => {
+                    running = true;
+                    failed = false;
+                }
+                Some("run.failed") => {
+                    running = false;
+                    failed = true;
+                }
+                Some("run.completed" | "run.cancelled") => {
+                    running = false;
+                    failed = false;
+                }
+                _ => {}
+            }
+        }
+        let updated = events.values().rev()
+            .find_map(|e| e.get("occurredAt").and_then(Value::as_str))
             .unwrap_or(&m.created_at).to_owned();
         let title: String = m.prompt.lines().next().unwrap_or_default()
             .trim().chars().take(60).collect();
@@ -529,7 +606,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             runtime: m.runtime,
             model: m.model,
             created_at: m.created_at,
-            running: !finished && fresh(Some(modified), SystemTime::now()),
+            running: running && fresh(Some(modified), SystemTime::now()),
             failed,
             updated,
         });
@@ -541,6 +618,7 @@ struct Reader {
     id: String,
     tail: Tail,
     transcript: Transcript,
+    drained: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -557,7 +635,7 @@ pub struct Session {
     anchor: String,
     readers: Vec<Reader>,
     scanned: Option<Instant>,
-    headers: HashMap<PathBuf, Metadata>,
+    headers: HashMap<PathBuf, (u64, Metadata)>,
 }
 
 impl Session {
@@ -571,11 +649,24 @@ impl Session {
         }
     }
 
+    pub fn anchor(&self) -> &str {
+        &self.anchor
+    }
+
+    #[cfg(test)]
+    pub fn cached_headers(&self) -> usize {
+        self.headers.len()
+    }
+
     pub fn poll(&mut self) -> io::Result<Snapshot> {
         if !safe_id(&self.anchor) {
             return Err(io::ErrorKind::InvalidInput.into());
         }
-        if self.scanned.is_none_or(|at| at.elapsed() >= Duration::from_secs(2)) {
+        let tip_finished = self.readers.last()
+            .is_none_or(|r| !r.transcript.running && r.tail.offset > 0);
+        if self.scanned.is_none_or(|at| at.elapsed() >= Duration::from_secs(2))
+            || tip_finished
+        {
             let paths = self.chain()?;
             let mut old: HashMap<_, _> = self.readers.drain(..)
                 .map(|r| (r.id.clone(), r)).collect();
@@ -584,6 +675,7 @@ impl Session {
                     id,
                     tail: Tail::new(path, 0),
                     transcript: Transcript::default(),
+                    drained: false,
                 }));
             }
             self.scanned = Some(Instant::now());
@@ -592,8 +684,16 @@ impl Session {
         let mut snapshot = Snapshot::default();
         let count = self.readers.len();
         for (index, reader) in self.readers.iter_mut().enumerate() {
-            // Completed ancestors are immutable; poll only the tip and new files.
-            if index + 1 == count || reader.tail.offset == 0 {
+            let is_tip = index + 1 == count;
+            if is_tip {
+                reader.drained = false;
+            }
+            // Fix 5: drain an ancestor once more after a child file appears so final parent lines are not missed.
+            if is_tip
+                || !reader.drained
+                || reader.tail.offset == 0
+                || !reader.tail.lines.pending.is_empty()
+            {
                 let records = reader.tail.poll();
                 if reader.tail.reset {
                     reader.transcript = Transcript::default();
@@ -602,7 +702,15 @@ impl Session {
                 if let Some(kind) = reader.transcript.error {
                     return Err(kind.into());
                 }
+                let empty_poll = records.is_empty();
                 reader.transcript.apply(records);
+                if !is_tip
+                    && reader.tail.offset > 0
+                    && reader.tail.lines.pending.is_empty()
+                    && (!reader.transcript.running || empty_poll)
+                {
+                    reader.drained = true;
+                }
             }
             snapshot.items.extend(reader.transcript.items.iter().cloned());
             snapshot.tip = reader.id.clone();
@@ -615,27 +723,33 @@ impl Session {
 
     fn chain(&mut self) -> io::Result<Vec<(String, PathBuf)>> {
         let mut all = HashMap::new();
+        // Fix 3: skip unreadable directory entries instead of failing the whole session.
         for entry in fs::read_dir(&self.dir)? {
-            let entry = entry?;
-            if !entry.file_type()?.is_file()
+            let Ok(entry) = entry else { continue };
+            if !entry.file_type().is_ok_and(|t| t.is_file())
                 || entry.path().extension().is_none_or(|e| e != "jsonl")
             {
                 continue;
             }
+            let Ok(meta) = entry.metadata() else { continue };
             let path = entry.path();
-            // mission.created never changes in an append-only file.
-            if !self.headers.contains_key(&path) {
+            let len = meta.len();
+            let refresh = self.headers.get(&path)
+                .is_none_or(|(cached_len, _)| len < *cached_len);
+            if refresh {
                 if let Ok(records) = head(&path) {
                     if let Some(m) = records.iter().find_map(metadata) {
-                        self.headers.insert(path.clone(), m);
+                        self.headers.insert(path.clone(), (len, m));
+                    } else {
+                        self.headers.remove(&path);
                     }
                 }
             }
-            if let Some(m) = self.headers.get(&path).cloned() {
+            if let Some((_, m)) = self.headers.get(&path).cloned() {
                 all.insert(m.mission_id.clone(), (
                     m,
                     path,
-                    entry.metadata()?.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+                    meta.modified().unwrap_or(SystemTime::UNIX_EPOCH),
                 ));
             }
         }
@@ -643,31 +757,35 @@ impl Session {
             return Err(io::ErrorKind::NotFound.into());
         }
 
-        let mut root = self.anchor.clone();
+        // Fix 5: keep the exact ancestor path up to `self.anchor`, then walk only `self.anchor`'s own descendants.
+        let mut result = Vec::new();
+        let mut current = self.anchor.clone();
         let mut seen = HashSet::new();
-        while seen.insert(root.clone()) {
-            let Some(parent) = all.get(&root).and_then(|v| v.0.parent.as_ref()) else {
-                break;
-            };
+        while seen.insert(current.clone()) {
+            let Some((m, path, _)) = all.get(&current) else { break };
+            result.push((current.clone(), path.clone()));
+            let Some(parent) = m.parent.as_ref() else { break };
             if !all.contains_key(parent) || seen.contains(parent) {
                 break;
             }
-            root = parent.clone();
+            current = parent.clone();
         }
+        result.reverse();
 
-        let mut result = Vec::new();
-        seen.clear();
-        while seen.insert(root.clone()) {
-            let Some((_, path, _)) = all.get(&root) else { break };
-            result.push((root.clone(), path.clone()));
-            let next = all.values()
-                .filter(|v| v.0.parent.as_deref() == Some(root.as_str()))
-                .max_by(|a, b| {
-                    a.2.cmp(&b.2)
-                        .then_with(|| a.0.mission_id.cmp(&b.0.mission_id))
-                });
-            let Some(next) = next else { break };
-            root = next.0.mission_id.clone();
+        let mut tip = self.anchor.clone();
+        while let Some(next) = all.values()
+            .filter(|v| {
+                v.0.parent.as_deref() == Some(tip.as_str())
+                    && !seen.contains(&v.0.mission_id)
+            })
+            .max_by(|a, b| {
+                a.2.cmp(&b.2)
+                    .then_with(|| a.0.mission_id.cmp(&b.0.mission_id))
+            })
+        {
+            tip = next.0.mission_id.clone();
+            seen.insert(tip.clone());
+            result.push((tip.clone(), next.1.clone()));
         }
         Ok(result)
     }
@@ -806,7 +924,7 @@ mod tests {
     }
 
     #[test]
-    fn running_and_finished_summaries_use_recent_mtime() {
+    fn running_and_finished_summaries_use_fifteen_minute_window_and_restarts() {
         let temp = Temp::new();
         write(&temp.path("live"), &[created("live", "Live")]);
         write(&temp.path("done"), &[
@@ -817,12 +935,36 @@ mod tests {
             created("failed", "Failed"),
             event(1, "run.failed", json!({"message":"Synthetic failure"})),
         ]);
+        write(&temp.path("restarted"), &[
+            created("restarted", "Restarted"),
+            event(1, "run.failed", json!({"message":"First failed"})),
+            event(2, "run.started", json!({})),
+        ]);
+        write(&temp.path("recovered"), &[
+            created("recovered", "Recovered"),
+            event(1, "run.failed", json!({"message":"First failed"})),
+            event(2, "run.completed", json!({})),
+        ]);
         let list = list_recent(&temp.0, 10);
         assert!(list.iter().find(|r| r.mission_id == "live").unwrap().running);
         assert!(!list.iter().find(|r| r.mission_id == "done").unwrap().running);
         assert!(list.iter().find(|r| r.mission_id == "failed").unwrap().failed);
-        assert!(!fresh(
+        let restarted = list.iter().find(|r| r.mission_id == "restarted").unwrap();
+        assert!(restarted.running && !restarted.failed);
+        let recovered = list.iter().find(|r| r.mission_id == "recovered").unwrap();
+        assert!(!recovered.running && !recovered.failed);
+
+        let restarted_tx = read_transcript(temp.path("restarted"));
+        assert!(restarted_tx.running && !restarted_tx.failed);
+        let recovered_tx = read_transcript(temp.path("recovered"));
+        assert!(!recovered_tx.running && !recovered_tx.failed);
+
+        assert!(fresh(
             Some(SystemTime::now() - Duration::from_secs(121)),
+            SystemTime::now(),
+        ));
+        assert!(!fresh(
+            Some(SystemTime::now() - Duration::from_secs(15 * 60 + 1)),
             SystemTime::now(),
         ));
     }
@@ -859,6 +1001,21 @@ mod tests {
         assert_eq!(tail.poll().len(), 1);
         assert!(tail.reset);
 
+        // Fix 1: an offset smaller than the retained marker length must reset cleanly without underflow.
+        tail.offset = 1;
+        let records = tail.poll();
+        assert_eq!(records.len(), 1);
+        assert!(tail.reset);
+
+        // Fix 1: a transient open error after reset must not lose the ability to recover on the next poll.
+        let missing = temp.path("missing");
+        let mut err_tail = Tail::new(&missing, 500);
+        assert!(err_tail.poll().is_empty());
+        assert_eq!(err_tail.error, Some(io::ErrorKind::NotFound));
+        write(&missing, &[created("missing", "Recovered")]);
+        assert_eq!(err_tail.poll().len(), 1);
+        assert!(err_tail.reset);
+
         write(&path, &[
             created("reset", "New"),
             delta(1, &"x".repeat(MAX_ASSISTANT + 10), "replace", true),
@@ -894,5 +1051,84 @@ mod tests {
             2,
         );
         assert!(snapshot.running);
+    }
+
+    #[test]
+    fn nonzero_offset_recovers_partial_line_and_sessions_drain_parent_and_follow_anchor_branch() {
+        let temp = Temp::new();
+        let partial_path = temp.path("offset_partial");
+        write(&partial_path, &[created("offset_partial", "Prompt")]);
+        let line = format!("{}\n", delta(1, "Completed after offset", "replace", true));
+        let half = line.len() / 2;
+        let mut file = OpenOptions::new().append(true).open(&partial_path).unwrap();
+        file.write_all(&line.as_bytes()[..half]).unwrap();
+        let start_offset = file.metadata().unwrap().len();
+
+        // Fix 5 (Finding 7): starting a Tail at EOF of a half-written line completes that line on the next write.
+        let mut tail = Tail::new(&partial_path, start_offset);
+        assert!(tail.poll().is_empty());
+        file.write_all(&line.as_bytes()[half..]).unwrap();
+        let records = tail.poll();
+        assert_eq!(records.len(), 1);
+
+        // Fix 5: when a parent finishes in the same scan window a child appears, parent tail records are still drained.
+        let branch_dir = Temp::new();
+        write(&branch_dir.path("root"), &[created("root", "Root prompt")]);
+        let mut session = Session::new(branch_dir.0.clone(), "root".into());
+        assert_eq!(session.poll().unwrap().items.len(), 1);
+
+        write(&branch_dir.path("root"), &[
+            created("root", "Root prompt"),
+            delta(1, "Root final answer", "replace", true),
+            event(2, "run.completed", json!({})),
+        ]);
+        let mut branch_a = created("branch_a", "Branch A prompt");
+        branch_a["metadata"]["continuesFrom"] = json!({"missionId":"root"});
+        write(&branch_dir.path("branch_a"), &[
+            branch_a,
+            delta(1, "Branch A answer", "replace", true),
+            event(2, "run.completed", json!({})),
+        ]);
+        let mut branch_b = created("branch_b", "Branch B prompt");
+        branch_b["metadata"]["continuesFrom"] = json!({"missionId":"root"});
+        write(&branch_dir.path("branch_b"), &[
+            branch_b,
+            delta(1, "Branch B answer", "replace", true),
+        ]);
+        let file_a = OpenOptions::new().write(true).open(branch_dir.path("branch_a")).unwrap();
+        file_a.set_times(fs::FileTimes::new().set_modified(
+            SystemTime::now() - Duration::from_secs(30),
+        )).unwrap();
+        let mut leaf_a = created("leaf_a", "Leaf A prompt");
+        leaf_a["metadata"]["continuesFrom"] = json!({"missionId":"branch_a"});
+        write(&branch_dir.path("leaf_a"), &[
+            leaf_a,
+            delta(1, "Leaf A answer", "replace", true),
+        ]);
+
+        // Poll `session` (anchored at root, after advancing scan window) to verify root's final answer was drained.
+        session.scanned = None;
+        let root_snap = session.poll().unwrap();
+        assert!(root_snap.items.iter().any(|i| matches!(
+            i,
+            Item::Assistant { text, .. } if text == "Root final answer"
+        )));
+
+        // Fix 5: opening `branch_a` must follow `root -> branch_a -> leaf_a`, not sibling `branch_b`.
+        let mut anchored = Session::new(branch_dir.0.clone(), "branch_a".into());
+        let snap = anchored.poll().unwrap();
+        assert_eq!(snap.tip, "leaf_a");
+        assert!(snap.items.iter().any(|i| matches!(
+            i,
+            Item::Assistant { text, .. } if text == "Branch A answer"
+        )));
+        assert!(snap.items.iter().any(|i| matches!(
+            i,
+            Item::Assistant { text, .. } if text == "Leaf A answer"
+        )));
+        assert!(!snap.items.iter().any(|i| matches!(
+            i,
+            Item::Assistant { text, .. } if text == "Branch B answer"
+        )));
     }
 }
