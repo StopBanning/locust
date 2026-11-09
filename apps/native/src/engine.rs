@@ -36,6 +36,47 @@ pub struct Teammate {
     pub folder: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Model {
+    pub id: String,
+    pub name: String,
+    pub efforts: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Models {
+    pub teammate: Option<String>,
+    pub runtime: String,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    pub models: Vec<Model>,
+}
+
+/// Both teammate replies and the all-agent array use the same agent/model rows.
+pub fn parse_models(text: &str) -> Result<Vec<Models>, String> {
+    let value: Value = serde_json::from_str(text).map_err(|_| text.to_string())?;
+    let rows = value.as_array().cloned().or_else(|| value.get("agents").or_else(|| value.get("runtimes")).and_then(Value::as_array).cloned())
+        .unwrap_or_else(|| vec![value.clone()]);
+    rows.iter().map(|row| {
+        let runtime = optional(row, "runtime").ok_or_else(|| "Locust's models could not be read.".to_string())?;
+        let models = row.get("models").and_then(Value::as_array).ok_or_else(|| "Locust's models could not be read.".to_string())?;
+        Ok(Models {
+            teammate: optional(row, "teammate"),
+            runtime,
+            model: optional(row, "model").or_else(|| optional(row, "current_model")).or_else(|| row.get("current").and_then(|v| optional(v, "model"))),
+            effort: optional(row, "effort").or_else(|| optional(row, "current_effort")).or_else(|| row.get("current").and_then(|v| optional(v, "effort"))),
+            models: models.iter().filter_map(|m| {
+                let id = m.as_str().map(str::to_string).or_else(|| optional(m, "id")).or_else(|| optional(m, "model"))?;
+                Some(Model {
+                    name: optional(m, "name").or_else(|| optional(m, "label")).unwrap_or_else(|| id.clone()),
+                    id,
+                    efforts: m.get("efforts").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string).collect()).unwrap_or_default(),
+                })
+            }).collect(),
+        })
+    }).collect()
+}
+
 /// One recent conversation, as `list_conversations` gives it: its newest turn, newest first.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConversationRow {
@@ -144,14 +185,34 @@ impl Engine {
         parse_conversations(&said.text)
     }
 
-    pub fn start(&self, teammate_id: &str, message: &str) -> Result<Started, String> {
-        let said = self.call("start_conversation", json!({ "teammate": teammate_id, "message": message }))?;
+    pub fn start(&self, teammate_id: &str, message: &str, model: Option<&str>, effort: Option<&str>) -> Result<Started, String> {
+        let mut args = json!({ "teammate": teammate_id, "message": message });
+        turn_options(&mut args, model, effort);
+        let said = self.call("start_conversation", args)?;
         parse_started(&said)
     }
 
-    pub fn send(&self, conversation_id: &str, message: &str) -> Result<Started, String> {
-        let said = self.call("send_message", json!({ "conversation_id": conversation_id, "message": message }))?;
+    pub fn send(&self, conversation_id: &str, message: &str, model: Option<&str>, effort: Option<&str>) -> Result<Started, String> {
+        let mut args = json!({ "conversation_id": conversation_id, "message": message });
+        turn_options(&mut args, model, effort);
+        let said = self.call("send_message", args)?;
         parse_started(&said)
+    }
+
+    pub fn list_models(&self, teammate: Option<&str>) -> Result<Vec<Models>, String> {
+        let args = teammate.map(|id| json!({ "teammate": id })).unwrap_or_else(|| json!({}));
+        let said = self.call("list_models", args)?;
+        if said.is_error { return Err(said.text); }
+        parse_models(&said.text)
+    }
+
+    pub fn stop_turn(&self, id: &str) -> Result<String, String> {
+        let said = self.call("stop_turn", json!({ "conversation_id": id }))?;
+        if said.is_error { Err(said.text) } else { Ok(said.text) }
+    }
+
+    pub fn carry_on(&self, id: &str, runtime: &str, model: &str) -> Result<Started, String> {
+        parse_started(&self.call("carry_on", json!({ "conversation_id": id, "runtime": runtime, "model": model }))?)
     }
 
     /// The newest turn; waits up to `wait_seconds` (at most WAIT_LIMIT_S) inside Locust for it to end.
@@ -159,6 +220,11 @@ impl Engine {
         let said = self.call("read_reply", json!({ "conversation_id": conversation_id, "wait_seconds": wait_seconds.min(WAIT_LIMIT_S) }))?;
         Ok(classify_reply(said))
     }
+}
+
+fn turn_options(args: &mut Value, model: Option<&str>, effort: Option<&str>) {
+    if let Some(model) = model { args["model"] = json!(model); }
+    if let Some(effort) = effort { args["effort"] = json!(effort); }
 }
 
 /// The url and token from the connection file. The token is checked for its shape and goes nowhere but the header.
@@ -339,7 +405,7 @@ mod tests {
             said("## Done\nAll set."),
         ]);
         let engine = Engine::new(path);
-        let started = engine.start("tm_1", "Look at run.py").unwrap();
+        let started = engine.start("tm_1", "Look at run.py", None, None).unwrap();
         assert_eq!(started, Started { conversation_id: "mission_9".into(), mode: "ask".into() });
         assert_eq!(engine.reply("mission_9", 99).unwrap(), Reply::Working("Reading run.py".into()));
         assert!(matches!(engine.reply("mission_9", 5).unwrap(), Reply::WaitingForYou(_)));
@@ -354,7 +420,7 @@ mod tests {
         assert_eq!(missing.teammates().unwrap_err(), NOT_ON);
         let refusal = json!({ "content": [{ "type": "text", "text": "Choose a teammate and give it a message of up to 8,000 characters. Nothing was started." }], "isError": true });
         let (path, _seen, _dir) = fake(vec![refusal]);
-        let err = Engine::new(path).start("", "").unwrap_err();
+        let err = Engine::new(path).start("", "", None, None).unwrap_err();
         assert!(err.contains("Nothing was started"));
     }
 
@@ -383,6 +449,32 @@ mod tests {
         assert_eq!(parse_conversations(off).unwrap_err(), off);
     }
 
+    #[test]
+    fn daily_controls_use_the_mcp_door_and_optional_fields() {
+        let (path, seen, _dir) = fake(vec![
+            said(r#"{"runtime":"sample","model":"small","effort":"high","models":[{"id":"small","efforts":["high"]}]}"#),
+            said("[]"),
+            said(r#"{"conversation_id":"synthetic-one"}"#),
+            said(r#"{"conversation_id":"synthetic-one"}"#),
+            said("Stopped."),
+            said(r#"{"conversation_id":"synthetic-two"}"#),
+        ]);
+        let e = Engine::new(path);
+        assert_eq!(e.list_models(Some("synthetic-agent")).expect("models")[0].model.as_deref(), Some("small"));
+        assert!(e.list_models(None).expect("all agents").is_empty());
+        e.start("synthetic-agent", "Synthetic prompt", Some("small"), Some("high")).expect("start");
+        e.send("synthetic-one", "Synthetic follow-up", None, None).expect("send");
+        e.stop_turn("synthetic-one").expect("stop");
+        assert_eq!(e.carry_on("synthetic-one", "sample", "small").expect("carry").conversation_id, "synthetic-two");
+        let calls = seen.lock().expect("calls");
+        assert_eq!(calls[0].1["arguments"], json!({"teammate":"synthetic-agent"}));
+        assert_eq!(calls[1].1["arguments"], json!({}));
+        assert_eq!(calls[2].1["arguments"]["effort"], "high");
+        assert!(calls[3].1["arguments"].get("model").is_none());
+        assert_eq!(calls[4].1, json!({"name":"stop_turn","arguments":{"conversation_id":"synthetic-one"}}));
+        assert_eq!(calls[5].1, json!({"name":"carry_on","arguments":{"conversation_id":"synthetic-one","runtime":"sample","model":"small"}}));
+    }
+
     /// Against the Locust running on this computer: `cargo test -- --ignored real_locust`.
     #[test]
     #[ignore]
@@ -397,5 +489,96 @@ mod tests {
         assert_eq!(runtime_name("codex"), "Codex");
         assert_eq!(runtime_name("antigravity"), "Antigravity");
         assert_eq!(runtime_name("newthing"), "newthing");
+    }
+}
+
+#[cfg(test)]
+mod model_tests {
+    use super::*;
+    #[test]
+    fn parses_teammate_models_efforts_and_current_selection() {
+        let a = parse_models(r#"{"runtime":"sample","model":"small","effort":"high","models":[{"id":"small","name":"Small","efforts":["low","high"]}]}"#).expect("synthetic models");
+        assert_eq!(a[0].teammate, None);
+        assert_eq!(a[0].model.as_deref(), Some("small"));
+        assert_eq!(a[0].effort.as_deref(), Some("high"));
+        assert_eq!(a[0].models[0].efforts, ["low", "high"]);
+        assert_eq!(a[0].models[0].name, "Small");
+        assert!(parse_models("unavailable").is_err());
+        assert!(parse_models("{}").is_err());
+        assert!(parse_models(r#"{"models":[]}"#).is_err());
+    }
+    #[test]
+    fn parses_all_agents_and_skips_malformed_model_rows() {
+        let a = parse_models(r#"[{"runtime":"first","models":[null,{"id":"one"}]},{"runtime":"second","models":[{"id":"two","efforts":[]}]}]"#).expect("synthetic agents");
+        assert_eq!(a.len(), 2);
+        assert_eq!(a[0].models.len(), 1);
+        assert_eq!(a[1].runtime, "second");
+        assert!(a[1].models[0].efforts.is_empty());
+    }
+    #[test]
+    fn parses_live_teammate_and_all_runtime_list_models_shapes() {
+        let teammate_reply = r#"{"teammate":"Scout","runtime":"opencode","model":"opencode/deepseek-v4.1-flash-free","effort":null,"models":[{"id":"account-default","name":"Account default","efforts":[]},{"id":"opencode/beam-free","name":"beam-free","efforts":["low","medium","high","xhigh","max"]},{"id":"opencode/deepseek-v4.1-flash-free","name":"deepseek-v4.1-flash-free","efforts":["low","high","max"]}]}"#;
+        let parsed = parse_models(teammate_reply).expect("live teammate shape");
+        assert_eq!(parsed, vec![Models {
+            teammate: Some("Scout".into()),
+            runtime: "opencode".into(),
+            model: Some("opencode/deepseek-v4.1-flash-free".into()),
+            effort: None,
+            models: vec![
+                Model { id: "account-default".into(), name: "Account default".into(), efforts: vec![] },
+                Model {
+                    id: "opencode/beam-free".into(),
+                    name: "beam-free".into(),
+                    efforts: vec!["low".into(), "medium".into(), "high".into(), "xhigh".into(), "max".into()],
+                },
+                Model {
+                    id: "opencode/deepseek-v4.1-flash-free".into(),
+                    name: "deepseek-v4.1-flash-free".into(),
+                    efforts: vec!["low".into(), "high".into(), "max".into()],
+                },
+            ],
+        }]);
+
+        let all_reply = r#"[{"runtime":"codex","models":[{"id":"account-default","name":"Account default"},{"id":"gpt-6.1-sol","name":"GPT-6.1-Sol"}]},{"runtime":"claude","models":[{"id":"account-default","name":"Account default"},{"id":"sonnet","name":"Sonnet 5.5"}]},{"runtime":"kilo","models":[{"id":"kilo/kilo-auto/free","name":"Kilo Auto Free"}]}]"#;
+        let all = parse_models(all_reply).expect("live all-runtime shape");
+        assert_eq!(all, vec![
+            Models {
+                teammate: None,
+                runtime: "codex".into(),
+                model: None,
+                effort: None,
+                models: vec![
+                    Model { id: "account-default".into(), name: "Account default".into(), efforts: vec![] },
+                    Model { id: "gpt-6.1-sol".into(), name: "GPT-6.1-Sol".into(), efforts: vec![] },
+                ],
+            },
+            Models {
+                teammate: None,
+                runtime: "claude".into(),
+                model: None,
+                effort: None,
+                models: vec![
+                    Model { id: "account-default".into(), name: "Account default".into(), efforts: vec![] },
+                    Model { id: "sonnet".into(), name: "Sonnet 5.5".into(), efforts: vec![] },
+                ],
+            },
+            Models {
+                teammate: None,
+                runtime: "kilo".into(),
+                model: None,
+                effort: None,
+                models: vec![
+                    Model { id: "kilo/kilo-auto/free".into(), name: "Kilo Auto Free".into(), efforts: vec![] },
+                ],
+            },
+        ]);
+    }
+    #[test]
+    fn sends_only_explicit_turn_options_and_uses_existing_control_tools() {
+        let mut args = json!({});
+        turn_options(&mut args, None, None);
+        assert_eq!(args, json!({}));
+        turn_options(&mut args, Some("sample"), Some("high"));
+        assert_eq!(args, json!({"model":"sample","effort":"high"}));
     }
 }

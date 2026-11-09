@@ -109,12 +109,23 @@ struct Flight {
     message: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct TurnPick { model: String, effort: Option<String> }
+
+struct OwnTurn { conversation: String, tip: Option<String>, before: Option<String> }
+
 struct State {
     teammates: Vec<Teammate>,
     selected: usize,
     // Fix: histories and conversation IDs survive team reordering and reloads.
     conversations: HashMap<String, Conversation>,
     draft: TextEdit,
+    picks: HashMap<String, TurnPick>,
+    models: HashMap<String, Vec<engine::Models>>,
+    model_menu: Option<String>,
+    model_job: Latest<(String, Result<Vec<engine::Models>, String>)>,
+    own_turn: Option<OwnTurn>,
+    stopping: Latest<(String, Result<String, String>)>,
     status: String,
     status_tone: StatusTone,
     load_error: Option<String>,
@@ -145,6 +156,12 @@ impl Default for State {
             selected: 0,
             conversations: HashMap::new(),
             draft: TextEdit::new(""),
+            picks: HashMap::new(),
+            models: HashMap::new(),
+            model_menu: None,
+            model_job: Latest::default(),
+            own_turn: None,
+            stopping: Latest::default(),
             status: "Loading teammates…".into(),
             status_tone: StatusTone::Muted,
             load_error: None,
@@ -170,6 +187,7 @@ impl Default for State {
 }
 
 const LEDGER_TARGET: &str = "@ledger";
+const CARRY_TARGET: &str = "@carry-models";
 
 struct RecentBatch {
     rows: Vec<ConversationRow>,
@@ -236,7 +254,7 @@ fn begin_ledger(
     };
     s.ledger_job.cancel();
     // Fix 3: preserve existing Session and transcript items when continuing the same ledger conversation.
-    let (items, worker, snapshot) = match s.ledger.take() {
+    let (mut items, worker, snapshot) = match s.ledger.take() {
         Some(mut prev)
             if prev.conversation.conversation_id.as_deref() == Some(id.as_str()) =>
         {
@@ -251,6 +269,9 @@ fn begin_ledger(
             ledger::Snapshot::default(),
         ),
     };
+    if after_tip.is_some() {
+        items.retain(|item| !matches!(item, ledger::Item::CarryOn { .. }));
+    }
     let loading = items.is_empty();
     s.ledger = Some(LedgerPane {
         header,
@@ -283,6 +304,8 @@ fn begin_ledger(
 
 fn leave_ledger(s: &mut State) {
     s.ledger_job.cancel();
+    s.picks.remove(LEDGER_TARGET);
+    s.model_menu = None;
     // Fix 2: detach whenever leaving an open ledger so in-flight requests are cancelled and unsent drafts restored.
     if s.ledger.is_some()
         || s.flight.as_ref().is_some_and(|f| f.teammate_id == LEDGER_TARGET)
@@ -298,6 +321,7 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
         return;
     };
     leave_ledger(s);
+    s.model_menu = None;
     // Fix 2: cancel any in-flight request from the previous conversation when switching teammates.
     if s.selected != index || s.flight.is_some() || s.opening_teammate.is_some() {
         detach(s);
@@ -331,6 +355,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     changed = pane.loading || pane.snapshot != snapshot;
                     let finished = pane.snapshot.running && !snapshot.running;
                     let new_tip = pane.snapshot.tip != snapshot.tip;
+                    let waiting_for_child = pane.after_tip.is_some();
                     if pane.after_tip.is_some() && pane.after_tip_deadline.is_none() {
                         pane.after_tip_deadline = Some(now + 30.0);
                     }
@@ -350,10 +375,36 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         timed_out = true;
                         changed = true;
                     }
+                    let active = snapshot.running || pane.after_tip.is_some();
+                    if let Some(own) = s.own_turn.as_mut()
+                        && pane.conversation.conversation_id.as_deref() == Some(own.conversation.as_str())
+                    {
+                        if !active || timed_out {
+                            s.own_turn = None;
+                        } else if own.tip.is_none() {
+                            if waiting_for_child
+                                && own.before.is_some()
+                                && own.before.as_deref() != Some(snapshot.tip.as_str())
+                                && !snapshot.tip.is_empty()
+                            {
+                                if snapshot.running {
+                                    own.tip = Some(snapshot.tip.clone());
+                                } else {
+                                    s.own_turn = None;
+                                }
+                            } else if !waiting_for_child {
+                                s.own_turn = None;
+                            }
+                        } else if !snapshot.tip.is_empty()
+                            && own.tip.as_deref() != Some(snapshot.tip.as_str())
+                            && pane.after_tip.is_none()
+                        {
+                            s.own_turn = None;
+                        }
+                    }
                     pane.items = snapshot.items.clone();
                     pane.loading = false;
                     pane.backoff = 0.0;
-                    let active = snapshot.running || pane.after_tip.is_some();
                     // Fix 3: stop scheduling wakeups once a conversation is finished and no longer waiting on after_tip.
                     pane.due = if active { now + 0.25 } else { f64::INFINITY };
                     pane.worker = Some(worker);
@@ -462,12 +513,41 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed
 }
 
-fn message_column(items: &[ledger::Item], name: &str, p: &Palette) -> El {
+fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().gap(24.0).padding(24.0);
     let style = markdown_style(p);
     for (index, item) in items.iter().enumerate() {
         let key = format!("ledger-item-{index}");
         let content = match item {
+            ledger::Item::CarryOn { conversation_id } => {
+                if s.flight.is_some()
+                    || s.sending.is_pending()
+                    || s.ledger.as_ref().is_some_and(|pane| pane.snapshot.running || pane.after_tip.is_some())
+                {
+                    continue;
+                }
+                let id = conversation_id.clone();
+                let mut card = col().w_full().gap(8.0).padding(12.0).radius(9.0).fill(p.raised)
+                    .child(text("Carry on with").font(type_::LABEL).color(p.text))
+                    .child(el().padding(8.0).child(text("Choose AI agent and model").color(p.text))
+                        .on_press(|s: &mut State| open_models(s, CARRY_TARGET.into())));
+                if s.model_menu.as_deref() == Some(CARRY_TARGET) {
+                    if let Some(agents) = s.models.get(CARRY_TARGET).filter(|a| !a.is_empty()) {
+                        let mut list = col().key(format!("{key}-carry-menu"))
+                            .w_full().max_h(180.0)
+                            .scroll(ScrollSpec { stick_bottom: false })
+                            .gap(4.0);
+                        for agent in agents { for model in &agent.models {
+                            let (id, runtime, model_id) = (id.clone(), agent.runtime.clone(), model.id.clone());
+                            list = list.child(el().padding(8.0).disabled(s.flight.is_some())
+                                .child(text(format!("{} · {}", engine::runtime_name(&runtime), model.name)).color(p.text))
+                                .on_press(move |s: &mut State| carry(s, id.clone(), runtime.clone(), model_id.clone())));
+                        }}
+                        card = card.child(list);
+                    } else { card = card.child(text("Loading models…").color(p.muted)); }
+                }
+                card
+            }
             ledger::Item::User(body) => row().w_full().justify_end()
                 .child(
                     row().w_frac(0.7).justify_end().child(
@@ -507,7 +587,7 @@ fn message_column(items: &[ledger::Item], name: &str, p: &Palette) -> El {
                 .font(type_::LABEL).color(p.muted)
                 .w_full().wrap_anywhere().selectable(true),
             ledger::Item::Note { level, text: body } => {
-                text(format!("{level}: {body}"))
+                text(if level.is_empty() { body.clone() } else { format!("{level}: {body}") })
                     .font(type_::LABEL).color(p.muted)
                     .w_full().wrap_anywhere().selectable(true)
             }
@@ -534,6 +614,8 @@ fn setup(s: &mut State, waker: Waker) {
     s.waiting.set_waker(waker.clone());
     s.recents.set_waker(waker.clone());
     s.opening.set_waker(waker.clone());
+    s.model_job.set_waker(waker.clone());
+    s.stopping.set_waker(waker.clone());
     s.ledger_job.set_waker(waker);
     load_team(s);
 }
@@ -588,6 +670,7 @@ fn send(s: &mut State, _: &mut Tx) {
         .map(|p| p.snapshot.tip.clone())
         .filter(|v| !v.is_empty());
     let message = s.draft.text.clone();
+    s.own_turn = None;
     // Fix 2: keep the real teammate ID on ledger sends and capture this conversation's header and tip on the flight.
     s.flight = Some(Flight {
         teammate_id: teammate_id.clone(),
@@ -604,16 +687,81 @@ fn send(s: &mut State, _: &mut Tx) {
     s.draft.clear();
     set_status(s, &teammate_id, "Sending…", StatusTone::Muted);
 
+    let pick = take_turn_pick(s, &teammate_id);
+    s.model_menu = None;
     s.sending.request(
-        (teammate_id, conversation_id, message),
-        |(id, conversation, message)| {
+        (teammate_id, conversation_id, message, pick),
+        |(id, conversation, message, pick)| {
+            let model = pick.as_ref().map(|p| p.model.as_str());
+            let effort = pick.as_ref().and_then(|p| p.effort.as_deref());
             let engine = Engine::local()?;
             match conversation {
-                Some(id) => engine.send(&id, &message),
-                None => engine.start(&id, &message),
+                Some(id) => engine.send(&id, &message, model, effort),
+                None => engine.start(&id, &message, model, effort),
             }
         },
     );
+}
+
+fn take_turn_pick(s: &mut State, teammate: &str) -> Option<TurnPick> {
+    s.picks.remove(teammate)
+}
+
+fn open_models(s: &mut State, id: String) {
+    if s.model_menu.as_ref() == Some(&id) { s.model_menu = None; return; }
+    if s.models.get(&id).is_some_and(Vec::is_empty) {
+        s.models.remove(&id);
+    }
+    s.model_menu = Some(id.clone());
+    s.model_job.request(id, |id| {
+        let result = Engine::local().and_then(|e| e.list_models(if id == LEDGER_TARGET || id == CARRY_TARGET { None } else { Some(&id) }));
+        (id, result)
+    });
+}
+
+fn can_stop(s: &State) -> bool {
+    if s.demo || s.sending.is_pending() || s.flight.is_none() { return false; }
+    let Some(own) = &s.own_turn else { return false; };
+    let Some((_, c)) = selected_conversation(s) else { return false; };
+    c.conversation_id.as_deref() == Some(own.conversation.as_str())
+        && s.ledger.as_ref().is_none_or(|p| p.snapshot.running && own.tip.as_deref() == Some(p.snapshot.tip.as_str()))
+}
+
+fn stop(s: &mut State) {
+    if !can_stop(s) || s.stopping.is_pending() { return; }
+    if let Some(own) = &s.own_turn {
+        s.stopping.request(own.conversation.clone(), |id| {
+            let result = Engine::local().and_then(|e| e.stop_turn(&id));
+            (id, result)
+        });
+    }
+}
+
+fn carry(s: &mut State, id: String, runtime: String, model: String) {
+    if s.flight.is_some() || s.sending.is_pending() { return; }
+    let Some((header, c)) = selected_conversation(s) else { return; };
+    let header_id = header.id.clone();
+    let conversation_id = c.conversation_id.clone();
+    let header = header.clone();
+    let after_tip = s.ledger.as_ref()
+        .map(|p| p.snapshot.tip.clone())
+        .filter(|v| !v.is_empty());
+    s.own_turn = None;
+    s.picks.remove(&header_id);
+    s.picks.remove(LEDGER_TARGET);
+    if s.ledger.is_some() {
+        s.ledger_job.cancel();
+    }
+    s.flight = Some(Flight {
+        teammate_id: header_id.clone(),
+        conversation_id,
+        header: Some(header),
+        after_tip,
+        message: None,
+    });
+    s.model_menu = None;
+    set_status(s, &header_id, "Sending…", StatusTone::Muted);
+    s.sending.request((id, runtime, model), |(id, runtime, model)| Engine::local()?.carry_on(&id, &runtime, &model));
 }
 
 fn refresh_recent(s: &mut State) {
@@ -663,6 +811,9 @@ fn detach(s: &mut State) {
     // Fix 2: restore unsent draft text if a send is cancelled before landing.
     if let Some(message) = s.flight.take().and_then(|f| f.message) {
         restore_failed_draft(s, message);
+    }
+    if s.own_turn.as_ref().is_some_and(|o| o.tip.is_none()) || s.ledger.is_none() {
+        s.own_turn = None;
     }
     s.opening_teammate = None;
     s.opening_conversation = None;
@@ -719,6 +870,15 @@ fn request_reply(s: &mut State, teammate_id: &str, delay: Duration) {
 
 fn apply_team(s: &mut State, team: Vec<Teammate>) {
     let selected = s.teammates.get(s.selected).map(|t| t.id.clone());
+    for old in &s.teammates {
+        let same_runtime = team.iter()
+            .find(|t| t.id == old.id)
+            .is_some_and(|t| t.runtime == old.runtime);
+        if !same_runtime {
+            s.picks.remove(&old.id);
+            s.models.remove(&old.id);
+        }
+    }
     for t in &team {
         s.conversations.entry(t.id.clone()).or_default();
     }
@@ -747,13 +907,16 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
 fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
     if let Some(summary) = s.ledger_summaries.get(&row.id).cloned() {
         detach(s);
+        s.own_turn = None;
+        s.picks.remove(LEDGER_TARGET);
+        s.model_menu = None;
         // Ledger metadata has no reliable teammate identity; do not guess from a model.
         let header = Teammate {
             id: LEDGER_TARGET.into(),
             name: engine::runtime_name(&summary.runtime).into(),
             role: "Conversation".into(),
-            runtime: Some(summary.runtime),
-            model: Some(summary.model),
+            runtime: (!summary.runtime.is_empty()).then_some(summary.runtime),
+            model: (!summary.model.is_empty()).then_some(summary.model),
             busy: summary.running,
             runs_in: String::new(),
             folder: None,
@@ -776,6 +939,10 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
         return;
     };
     detach(s);
+    s.own_turn = None;
+    s.picks.remove(LEDGER_TARGET);
+    s.picks.remove(&id);
+    s.model_menu = None;
     s.ledger = None;
     s.selected = index;
     s.conversations.insert(id.clone(), Conversation {
@@ -797,6 +964,9 @@ fn fresh_conversation(s: &mut State) {
     // Fix 5 (Finding 9): close any open ledger on Cmd+N, and do not wipe a teammate's conversation when closing a Recent ledger.
     let ledger_owner = s.ledger.as_ref().map(|p| p.header.id.clone());
     detach(s);
+    s.own_turn = None;
+    s.picks.remove(LEDGER_TARGET);
+    s.model_menu = None;
     s.ledger = None;
     let target_id = match ledger_owner.as_deref() {
         Some(LEDGER_TARGET) => s.teammates.get(s.selected).map(|t| t.id.clone()),
@@ -805,6 +975,7 @@ fn fresh_conversation(s: &mut State) {
     };
     if let Some(id) = target_id {
         if ledger_owner.as_deref() != Some(LEDGER_TARGET) {
+            s.picks.remove(&id);
             s.conversations.insert(id.clone(), Conversation::default());
         }
         set_status(s, &id, "Ready", StatusTone::Muted);
@@ -967,6 +1138,7 @@ fn land_reply(
             };
             conversation.turns.push((who, message));
             set_status(s, teammate_id, "Ready", StatusTone::Muted);
+            s.own_turn = None;
             s.flight = None;
             refresh_recent(s);
             if s.selected == index {
@@ -975,6 +1147,7 @@ fn land_reply(
         }
         Ok(Reply::Failed(error)) | Err(error) => {
             set_status(s, teammate_id, &error, StatusTone::Red);
+            s.own_turn = None;
             s.flight = None;
             refresh_recent(s);
         }
@@ -996,6 +1169,51 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         return false;
     }
     let mut changed = false;
+    if let Some((id, result)) = s.model_job.take() {
+        changed = true;
+        match result {
+            Ok(models) => { s.models.insert(id, models); }
+            Err(error) => {
+                s.models.insert(id.clone(), Vec::new());
+                if s.model_menu.as_ref() == Some(&id) {
+                    s.status = error;
+                    s.status_tone = StatusTone::Red;
+                    s.model_menu = None;
+                }
+            }
+        }
+    }
+    if let Some((id, result)) = s.stopping.take() {
+        changed = true;
+        match result {
+            Ok(_) => {
+                if s.own_turn.as_ref().is_some_and(|o| o.conversation == id) {
+                    if s.ledger.is_none() {
+                        s.waiting.cancel();
+                        if let Some(f) = &s.flight && let Some(c) = s.conversations.get_mut(&f.teammate_id) {
+                            c.turns.push(("Locust".into(), "Stopped".into()));
+                        }
+                        s.flight = None;
+                    }
+                    s.own_turn = None;
+                    s.status = "Stop requested".into();
+                    s.status_tone = StatusTone::Muted;
+                }
+            }
+            Err(error) => { s.status = error; s.status_tone = StatusTone::Red; }
+        }
+    }
+
+    if !s.model_job.is_pending() && s.load_error.is_none() {
+        let id = selected_conversation(s)
+            .and_then(|(t, _)| t.runtime.as_ref().map(|_| t.id.clone()));
+        if let Some(id) = id && id != LEDGER_TARGET && !s.models.contains_key(&id) {
+            s.model_job.request(id, |id| {
+                let result = Engine::local().and_then(|e| e.list_models(Some(&id)));
+                (id, result)
+            });
+        }
+    }
 
     if let Some(result) = s.team.take() {
         changed = true;
@@ -1019,11 +1237,29 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             && let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone())
         {
             let message = s.flight.as_mut().and_then(|f| f.message.take());
+            let flight_conv = s.flight.as_ref().and_then(|f| f.conversation_id.clone());
             let flight_header = s.flight.as_ref().and_then(|f| f.header.clone());
             let after = s.flight.as_ref().and_then(|f| f.after_tip.clone());
             match result {
                 Ok(started) => {
-                    if s.ledger_available || s.ledger.is_some() {
+                    let same_conv = flight_conv.as_deref() == Some(started.conversation_id.as_str());
+                    let use_ledger = s.ledger_available || s.ledger.is_some();
+                    s.own_turn = if !same_conv {
+                        Some(OwnTurn {
+                            conversation: started.conversation_id.clone(),
+                            tip: Some(started.conversation_id.clone()),
+                            before: None,
+                        })
+                    } else if !use_ledger || after.is_some() {
+                        Some(OwnTurn {
+                            conversation: started.conversation_id.clone(),
+                            tip: None,
+                            before: after.clone(),
+                        })
+                    } else {
+                        None
+                    };
+                    if use_ledger {
                         // Fix 2: use the header and tip captured when the send was initiated, never another conversation's pane.
                         let header = flight_header.or_else(|| {
                             s.teammates.iter().find(|t| t.id == id).cloned()
@@ -1393,7 +1629,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         } else {
             col().key("messages").w_full().grow(1.0).min_h(0.0)
                 .scroll(ScrollSpec { stick_bottom: true })
-                .child(message_column(items, &teammate.name, &p))
+                .child(message_column(items, &teammate.name, &p, s))
         };
 
         let mut status = row().w_full().center_y().gap(8.0).px(24.0).py(10.0);
@@ -1423,15 +1659,55 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             .radius(9.0).fill(p.field).border(1.0, p.hairline)
             .on_edit(|s: &mut State| &mut s.draft)
             .on_submit(send).on_input_key(on_key);
-        let enabled = can_send(s);
+        let stopping = can_stop(s);
+        let enabled = (can_send(s) || stopping) && !s.stopping.is_pending();
         let mut button = el().key("send").h(48.0).px(18.0).center().radius(9.0)
             .fill(p.raised).border(1.0, p.hairline).disabled(!enabled)
             .child(
-                text("Send").font(type_::LABEL)
+                text(if stopping { "Stop" } else { "Send" }).font(type_::LABEL)
                     .color(if enabled { p.text } else { p.muted }),
             );
         if enabled {
-            button = button.on_press_tx(send);
+            button = if stopping { button.on_press(stop) } else { button.on_press_tx(send) };
+        }
+
+        let id = teammate.id.clone();
+        let current = s.models.get(&id).and_then(|agents| {
+            agents.iter()
+                .find(|a| teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+                .or_else(|| (id != LEDGER_TARGET && teammate.runtime.is_none() && agents.len() == 1).then(|| &agents[0]))
+        });
+        let picked = s.picks.get(&id);
+        let model = picked.map(|p| p.model.as_str())
+            .or_else(|| if id == LEDGER_TARGET { teammate.model.as_deref() } else { current.and_then(|a| a.model.as_deref()) })
+            .or(teammate.model.as_deref())
+            .filter(|m| !m.is_empty())
+            .unwrap_or("Choose model");
+        let effort = picked.and_then(|p| p.effort.as_deref()).or_else(|| if picked.is_none() { current.and_then(|a| a.effort.as_deref()) } else { None });
+        let model_name = current.and_then(|a| a.models.iter().find(|m| m.id == model)).map(|m| m.name.as_str()).unwrap_or(model);
+        let label = format!("{}{}{}", model_name, effort.map(|e| format!(" · {e}")).unwrap_or_default(), if picked.is_some() { ", this turn" } else { "" });
+        let chip_id = id.clone();
+        let chip = el().max_w(180.0).padding(6.0).radius(6.0).fill(p.raised)
+            .child(text(label).font(type_::LABEL).color(p.text).wrap_anywhere())
+            .on_press(move |s: &mut State| open_models(s, chip_id.clone()));
+        let mut picker = col().w_full().px(24.0);
+        if s.model_menu.as_ref() == Some(&id) {
+            let mut menu = col().key("model-menu").w_full().max_h(180.0).scroll(ScrollSpec { stick_bottom: false }).gap(4.0);
+            if let Some(agents) = s.models.get(&id).filter(|a| !a.is_empty()) {
+                let reset_id = id.clone();
+                menu = menu.child(el().padding(6.0).child(text("Teammate’s own").color(p.text))
+                    .on_press(move |s: &mut State| { s.picks.remove(&reset_id); s.model_menu = None; }));
+                for agent in agents.iter().filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str())) { for model in &agent.models {
+                    let efforts = if model.efforts.is_empty() { vec![None] } else { model.efforts.iter().cloned().map(Some).collect() };
+                    for effort in efforts {
+                        let (id, pick) = (id.clone(), TurnPick { model: model.id.clone(), effort });
+                        let label = format!("{}{}", model.name, pick.effort.as_ref().map(|e| format!(" · {e}")).unwrap_or_default());
+                        menu = menu.child(el().padding(6.0).child(text(label).color(p.text))
+                            .on_press(move |s: &mut State| { s.picks.insert(id.clone(), pick.clone()); s.model_menu = None; }));
+                    }
+                }}
+            } else { menu = menu.child(text("Loading models…").color(p.muted)); }
+            picker = picker.child(menu);
         }
 
         col().grow(1.0).shrink().h_full()
@@ -1445,9 +1721,10 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             )
             .child(transcript)
             .child(status)
+            .child(picker)
             .child(
                 row().w_full().gap(10.0).px(24.0).pb(24.0)
-                    .child(composer).child(button),
+                    .child(chip).child(composer).child(button),
             )
     } else {
         col().grow(1.0).shrink().h_full().center().padding(32.0)
@@ -1572,7 +1849,7 @@ fn ask_cli(who: &str, message: &str) -> Result<(), String> {
     let teammate = team.iter()
         .find(|t| t.name.eq_ignore_ascii_case(who) || t.id == who)
         .ok_or_else(|| format!("No teammate called {who}."))?;
-    let started = engine.start(&teammate.id, message)?;
+    let started = engine.start(&teammate.id, message, None, None)?;
     eprintln!("started {} in {}", started.conversation_id, started.mode);
 
     let answer = loop {
@@ -1614,12 +1891,14 @@ fn replay_scene(s: &mut State) {
         return;
     };
 
-    s.teammates = engine::parse_teammates(&saved["team"].to_string())
+    s.teammates = saved.get("team")
+        .and_then(|v| engine::parse_teammates(&v.to_string()).ok())
         .unwrap_or_default();
     s.conversations = s.teammates.iter()
         .map(|t| (t.id.clone(), Conversation::default())).collect();
-    let picked = s.teammates.iter()
-        .position(|t| saved["teammate"] == t.id.as_str()).unwrap_or(0);
+    let picked = saved.get("teammate").and_then(serde_json::Value::as_str)
+        .and_then(|id| s.teammates.iter().position(|t| t.id == id))
+        .unwrap_or(0);
 
     if let Some(teammate) = s.teammates.get(picked)
         && let Some(conversation) = s.conversations.get_mut(&teammate.id)
@@ -1627,11 +1906,11 @@ fn replay_scene(s: &mut State) {
         conversation.turns = vec![
             (
                 "You".into(),
-                saved["message"].as_str().unwrap_or_default().into(),
+                saved.get("message").and_then(serde_json::Value::as_str).unwrap_or_default().into(),
             ),
             (
                 teammate.name.clone(),
-                saved["answer"].as_str().unwrap_or_default().into(),
+                saved.get("answer").and_then(serde_json::Value::as_str).unwrap_or_default().into(),
             ),
         ];
     }
@@ -1803,9 +2082,9 @@ mod tests {
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
 
-    struct TempDir(PathBuf);
+    pub(super) struct TempDir(pub(super) PathBuf);
     impl TempDir {
-        fn new() -> Self {
+        pub(super) fn new() -> Self {
             let path = std::env::temp_dir().join(format!(
                 "locust-main-test-{}-{}-{}",
                 std::process::id(),
@@ -1815,7 +2094,7 @@ mod tests {
             std::fs::create_dir(&path).unwrap();
             Self(path)
         }
-        fn write(&self, id: &str, records: &[serde_json::Value]) {
+        pub(super) fn write(&self, id: &str, records: &[serde_json::Value]) {
             let text = records.iter().map(|r| format!("{r}\n")).collect::<String>();
             std::fs::write(self.0.join(format!("{id}.jsonl")), text).unwrap();
         }
@@ -2121,5 +2400,207 @@ mod tests {
             assert_eq!(pane.worker.as_ref().unwrap().cached_headers(), 2);
             now += expected;
         }
+    }
+}
+
+#[cfg(test)]
+mod daily_controls_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn model_pick_is_consumed_for_one_send_only_and_does_not_leak() {
+        let mut s = State::default();
+        team_scene(&mut s);
+        s.demo = false;
+
+        let pick = TurnPick { model: "sample-model".into(), effort: Some("high".into()) };
+        s.picks.insert("codec".into(), pick.clone());
+        assert_eq!(s.picks.get("argon"), None, "pick on one teammate never leaks to another");
+        assert_eq!(take_turn_pick(&mut s, "codec"), Some(pick.clone()));
+        assert_eq!(take_turn_pick(&mut s, "codec"), None);
+
+        // A pick made on a Recent ledger (@ledger) is cleared when leaving or switching Recent ledgers.
+        s.ledger_summaries.insert("recent-1".into(), ledger::Summary {
+            mission_id: "recent-1".into(),
+            title: "First".into(),
+            runtime: "codex".into(),
+            model: "gpt-6.1-sol".into(),
+            created_at: "2026-11-08T00:00:00Z".into(),
+            running: false,
+            failed: false,
+            updated: "2026-11-08T00:00:00Z".into(),
+        });
+        s.ledger_summaries.insert("recent-2".into(), ledger::Summary {
+            mission_id: "recent-2".into(),
+            title: "Second".into(),
+            runtime: "claude".into(),
+            model: "sonnet".into(),
+            created_at: "2026-11-08T00:00:00Z".into(),
+            running: false,
+            failed: false,
+            updated: "2026-11-08T00:00:00Z".into(),
+        });
+        let mut tx = Tx::default();
+        open_recent(&mut s, ConversationRow {
+            id: "recent-1".into(),
+            teammate: "Codex".into(),
+            title: "First".into(),
+            started_by: "ledger".into(),
+            state: "completed".into(),
+            updated: "2026-11-08T00:00:00Z".into(),
+        }, &mut tx);
+        s.picks.insert(LEDGER_TARGET.into(), pick.clone());
+        open_recent(&mut s, ConversationRow {
+            id: "recent-2".into(),
+            teammate: "Claude Code".into(),
+            title: "Second".into(),
+            started_by: "ledger".into(),
+            state: "completed".into(),
+            updated: "2026-11-08T00:00:00Z".into(),
+        }, &mut tx);
+        assert!(s.picks.get(LEDGER_TARGET).is_none(), "Recent ledger pick must not leak to another Recent conversation");
+
+        // Starting a fresh conversation (Cmd+N) or changing a teammate's runtime clears its unconsumed pick.
+        select_teammate(&mut s, "codec", &mut tx);
+        s.picks.insert("codec".into(), pick.clone());
+        fresh_conversation(&mut s);
+        assert!(s.picks.get("codec").is_none());
+
+        s.picks.insert("codec".into(), pick);
+        let mut updated_team = s.teammates.clone();
+        updated_team[0].runtime = Some("claude".into());
+        apply_team(&mut s, updated_team);
+        assert!(s.picks.get("codec").is_none(), "runtime change clears stale model pick");
+    }
+
+    #[test]
+    fn stop_requires_our_accepted_turn_and_exact_ledger_tip() {
+        let mut s = State::default();
+        ledger_live_scene(&mut s);
+        s.demo = false;
+        assert!(!can_stop(&s), "watching someone else's working turn is never ownership");
+        s.own_turn = Some(OwnTurn { conversation: "synthetic-ledger".into(), tip: Some("synthetic-ledger".into()), before: None });
+        assert!(can_stop(&s));
+        s.ledger.as_mut().expect("scene").snapshot.tip = "another-turn".into();
+        assert!(!can_stop(&s));
+        s.ledger.as_mut().expect("scene").snapshot.tip = "synthetic-ledger".into();
+        s.ledger.as_mut().expect("scene").snapshot.running = false;
+        assert!(!can_stop(&s));
+    }
+
+    #[test]
+    fn stop_never_latches_onto_external_turn_after_fast_completion_or_detach() {
+        let temp = tests::TempDir::new();
+        temp.write("root", &[
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.created",
+                "metadata":{
+                    "missionId":"root",
+                    "prompt":"Initial",
+                    "runtime":"codex",
+                    "model":"sample",
+                    "createdAt":"2026-01-01T00:00:00Z"
+                }
+            }),
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.event",
+                "event":{
+                    "sequence":1,
+                    "occurredAt":"2026-01-01T00:00:01Z",
+                    "type":"run.completed",
+                    "payload":{}
+                }
+            }),
+        ]);
+        // Our follow-up child_1 already finished before the first ledger poll saw it running.
+        temp.write("child_1", &[
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.created",
+                "metadata":{
+                    "missionId":"child_1",
+                    "prompt":"Our follow-up",
+                    "runtime":"codex",
+                    "model":"sample",
+                    "createdAt":"2026-01-01T00:00:02Z",
+                    "continuesFrom":{"missionId":"root"}
+                }
+            }),
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.event",
+                "event":{
+                    "sequence":1,
+                    "occurredAt":"2026-01-01T00:00:03Z",
+                    "type":"run.completed",
+                    "payload":{}
+                }
+            }),
+        ]);
+
+        let mut s = State::default();
+        team_scene(&mut s);
+        s.demo = false;
+        let header = s.teammates[0].clone();
+        s.own_turn = Some(OwnTurn {
+            conversation: "root".into(),
+            tip: None,
+            before: Some("root".into()),
+        });
+        s.ledger = Some(LedgerPane {
+            header,
+            conversation: Conversation {
+                conversation_id: Some("root".into()),
+                turns: Vec::new(),
+            },
+            items: Vec::new(),
+            dir: temp.0.clone(),
+            worker: Some(ledger::Session::new(temp.0.clone(), "root".into())),
+            snapshot: ledger::Snapshot::default(),
+            due: 0.0,
+            loading: true,
+            after_tip: Some("root".into()),
+            after_tip_deadline: None,
+            backoff: 0.0,
+        });
+
+        let mut tx = Tx::default();
+        ledger_tick(&mut s, 0.0, &mut tx);
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while s.ledger_job.is_pending() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        ledger_tick(&mut s, 0.1, &mut tx);
+        assert!(s.own_turn.is_none(), "completed turn must clear ownership");
+        assert!(!can_stop(&s));
+
+        // Now an external turn child_2 starts in Locust; polling it must never grant Stop.
+        temp.write("child_2", &[
+            json!({
+                "schemaVersion":27,
+                "recordType":"mission.created",
+                "metadata":{
+                    "missionId":"child_2",
+                    "prompt":"External turn",
+                    "runtime":"codex",
+                    "model":"sample",
+                    "createdAt":"2026-01-01T00:00:04Z",
+                    "continuesFrom":{"missionId":"child_1"}
+                }
+            }),
+        ]);
+        s.ledger.as_mut().unwrap().loading = true;
+        s.ledger.as_mut().unwrap().due = 1.0;
+        ledger_tick(&mut s, 1.0, &mut tx);
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while s.ledger_job.is_pending() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        ledger_tick(&mut s, 1.1, &mut tx);
+        assert!(s.flight.is_some(), "window follows the external turn");
+        assert!(!can_stop(&s), "external turn must not expose Stop");
     }
 }

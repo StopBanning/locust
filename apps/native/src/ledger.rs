@@ -48,6 +48,7 @@ pub enum Status {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Item {
     User(String),
+    CarryOn { conversation_id: String },
     Assistant {
         item_id: String,
         text: String,
@@ -322,9 +323,11 @@ impl Transcript {
         self.running = self.metadata.is_some();
         self.failed = false;
 
+        let mut carry = false;
+        let mut finished = false;
         for (sequence, event) in &self.events {
             let kind = string(event, "type");
-            let p = &event["payload"];
+            let p = event.get("payload").unwrap_or(&Value::Null);
             let id = string(p, "itemId");
             match kind.as_str() {
                 "message.delta" if !id.is_empty() => {
@@ -431,13 +434,21 @@ impl Transcript {
                         });
                     }
                 }
-                "route.limit_detected" => items.push(Item::Note {
-                    level: "warning".into(),
-                    text: string(p, "message"),
-                }),
+                "route.limit_detected" => {
+                    if !finished {
+                        carry = true;
+                        self.running = false;
+                    }
+                    let text = string(p, "message");
+                    if !text.is_empty() {
+                        items.push(Item::Note { level: "warning".into(), text });
+                    }
+                },
                 "run.failed" => {
                     self.running = false;
                     self.failed = true;
+                    finished = false;
+                    carry |= carry_on_failure(p);
                     let text = string(p, "message");
                     if !text.is_empty() {
                         items.push(Item::Note { level: "error".into(), text });
@@ -445,18 +456,32 @@ impl Transcript {
                 }
                 // Fix 4: a later completion or restart clears an earlier completed/failed flag.
                 "run.completed" | "run.cancelled" => {
+                    carry = false;
+                    finished = true;
+                    if kind == "run.cancelled" { items.push(Item::Note { level: String::new(), text: "Stopped".into() }); }
                     self.running = false;
                     self.failed = false;
                 }
                 "run.started" => {
+                    carry = false;
+                    finished = false;
                     self.running = true;
                     self.failed = false;
                 }
                 _ => {}
             }
         }
+        if carry && !self.running && !finished && let Some(m) = &self.metadata {
+            items.push(Item::CarryOn { conversation_id: m.mission_id.clone() });
+        }
         self.items = items;
     }
+}
+
+fn carry_on_failure(payload: &Value) -> bool {
+    let detail = ["detail", "message", "reason", "error"].iter()
+        .filter_map(|key| payload.get(key)).map(Value::to_string).collect::<Vec<_>>().join(" ").to_ascii_lowercase();
+    detail.contains("limit") || detail.contains("provider")
 }
 
 // Standalone snapshot API; the window uses Session to keep its byte offsets.
@@ -585,6 +610,9 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
                 Some("run.started") => {
                     running = true;
                     failed = false;
+                }
+                Some("route.limit_detected") => {
+                    running = false;
                 }
                 Some("run.failed") => {
                     running = false;
@@ -749,7 +777,11 @@ impl Session {
                     reader.drained = true;
                 }
             }
-            snapshot.items.extend(reader.transcript.items.iter().cloned());
+            snapshot.items.extend(
+                reader.transcript.items.iter()
+                    .filter(|item| is_tip || !matches!(item, Item::CarryOn { .. }))
+                    .cloned(),
+            );
             snapshot.tip = reader.id.clone();
             snapshot.running = reader.transcript.running
                 && fresh(reader.tail.modified, SystemTime::now());
@@ -840,9 +872,9 @@ mod tests {
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
 
-    struct Temp(PathBuf);
+    pub(super) struct Temp(pub(super) PathBuf);
     impl Temp {
-        fn new() -> Self {
+        pub(super) fn new() -> Self {
             let path = std::env::temp_dir().join(format!(
                 "locust-ledger-test-{}-{}-{}",
                 std::process::id(),
@@ -1267,6 +1299,7 @@ mod tests {
                     Item::Tool { .. } => tools += 1,
                     Item::Plan(_) => plans += 1,
                     Item::Note { .. } => notes += 1,
+                    Item::CarryOn { .. } => {},
                 }
             }
         }
@@ -1275,5 +1308,68 @@ mod tests {
         eprintln!("items: user {users}, assistant {assistants}, tool {tools}, plan {plans}, note {notes}; longest answer {biggest} chars");
         eprintln!("recent list: {} rows, {} with a title, took {:?}", recent.len(), recent.iter().filter(|r| r.title != "Untitled").count(), started.elapsed());
         assert!(biggest <= MAX_ASSISTANT);
+    }
+}
+
+#[cfg(test)]
+mod carry_tests {
+    use super::*;
+    use serde_json::json;
+    fn transcript(events: Vec<(&str, Value)>) -> Transcript {
+        let mut t = Transcript::default();
+        let mut records = vec![json!({"recordType":"mission.created","metadata":{"missionId":"synthetic-turn","prompt":"Synthetic prompt"}})];
+        records.extend(events.into_iter().enumerate().map(|(i, (kind, payload))| json!({"recordType":"mission.event","event":{"sequence": i, "type":kind,"payload":payload}})));
+        t.apply(records);
+        t
+    }
+    fn has_card(t: &Transcript) -> bool { t.items.iter().any(|i| matches!(i, Item::CarryOn { .. })) }
+    #[test]
+    fn carry_card_requires_limit_or_provider_failure_and_clears_when_finished_or_carried_on() {
+        assert!(has_card(&transcript(vec![("route.limit_detected", json!({}))])));
+        assert!(has_card(&transcript(vec![("run.failed", json!({"detail":"Plan limit reached"}))])));
+        assert!(has_card(&transcript(vec![("run.failed", json!({"detail":"Provider unavailable"}))])));
+        assert!(!has_card(&transcript(vec![("run.failed", json!({"detail":"Invalid folder"}))])));
+        assert!(!has_card(&transcript(vec![("run.cancelled", json!({}))])));
+        assert!(!has_card(&transcript(vec![("route.limit_detected", json!({})), ("run.completed", json!({}))])));
+        assert!(!has_card(&transcript(vec![("run.completed", json!({})), ("route.limit_detected", json!({}))])));
+        assert!(!has_card(&transcript(vec![("run.cancelled", json!({})), ("route.limit_detected", json!({}))])));
+        assert!(!has_card(&transcript(vec![("route.limit_detected", json!({})), ("run.started", json!({}))])));
+
+        // Non-object event or payload in direct Transcript::apply never panics.
+        let mut malformed = Transcript::default();
+        malformed.apply(vec![
+            json!({"recordType":"mission.created","metadata":{"missionId":"safe","prompt":"Prompt"}}),
+            json!({"recordType":"mission.event","event":["not-an-object"]}),
+            json!({"recordType":"mission.event","event":{"sequence":1,"type":"message.delta","payload":"not-an-object"}}),
+        ]);
+        assert_eq!(malformed.items, vec![Item::User("Prompt".into())]);
+
+        // Once a stopped turn is carried on into a child mission file, the parent's CarryOn card is hidden.
+        let temp = tests::Temp::new();
+        let parent_path = temp.0.join("turn_1.jsonl");
+        let child_path = temp.0.join("turn_2.jsonl");
+        std::fs::write(&parent_path, format!(
+            "{}\n{}\n",
+            json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"turn_1","prompt":"First","runtime":"claude","model":"opus","createdAt":"2026-01-01T00:00:00Z"}}),
+            json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-01-01T00:00:01Z","type":"route.limit_detected","payload":{"message":"Plan limit reached"}}}),
+        )).unwrap();
+        let mut session = Session::new(temp.0.clone(), "turn_1".into());
+        let first = session.poll().unwrap();
+        assert!(first.items.iter().any(|i| matches!(i, Item::CarryOn { conversation_id } if conversation_id == "turn_1")));
+        assert!(!list_recent(&temp.0, 5)[0].running);
+
+        std::fs::write(&child_path, format!(
+            "{}\n{}\n",
+            json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"turn_2","prompt":"Carry on","runtime":"codex","model":"gpt-6.1-sol","createdAt":"2026-01-01T00:00:02Z","continuesFrom":{"missionId":"turn_1","reason":"carry-on"}}}),
+            json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-01-01T00:00:03Z","type":"message.delta","payload":{"itemId":"m2","operation":"replace","text":"Continued answer","final":true}}}),
+        )).unwrap();
+        let second = session.poll().unwrap();
+        assert_eq!(second.tip, "turn_2");
+        assert!(!second.items.iter().any(|i| matches!(i, Item::CarryOn { .. })), "carried-on turn must not keep its CarryOn card");
+    }
+    #[test]
+    fn cancelled_turn_says_stopped() {
+        let t = transcript(vec![("run.cancelled", json!({}))]);
+        assert!(t.items.iter().any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped")));
     }
 }
