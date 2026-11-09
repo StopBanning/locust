@@ -1,4 +1,5 @@
 mod engine;
+mod quick;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use rune::tok::type_;
@@ -1146,6 +1147,23 @@ fn main() {
             std::process::exit(1);
         }
         return;
+    }
+
+    // Quick Ask: the floating panel behind a global chord (round 6).
+    if args.get(1).map(String::as_str) == Some("--quick") {
+        quick::run();
+        return;
+    }
+    if args.windows(2).any(|pair| {
+        matches!(pair, [flag, scene] if flag == "--scene" && scene.starts_with("quick-"))
+    }) {
+        rune::run(quick::scenes());
+        return;
+    }
+    if args.iter().any(|arg| arg == "--list-scenes") {
+        for (name, _) in quick::scenes().scenes {
+            println!("{name}");
+        }
     }
 
     App::new(AppSpec {
