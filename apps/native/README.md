@@ -10,9 +10,12 @@ teammates, on the agents and models you picked, and every approval card still ap
 ## What works today
 
 - Your team, with each teammate's agent and model, and who is busy.
-- Ask a teammate, see what it is doing while it works, and read the answer.
+- Ask a teammate and watch the answer arrive word by word. The window follows the conversation file Locust writes
+  first (read-only), so it shows what Locust recorded, as Locust records it.
+- Open any recent conversation in full: your messages, the answers as Markdown, a line per tool step, plans and notes.
 - **Quick Ask**: `locust-native --quick` waits in the background; Option+Space (or `LOCUST_QUICK_CHORD`) opens a small
-  panel over any app. Ask, Tab to switch teammate, Escape or click away to hide; the answer is still there next time.
+  panel over any app. Ask, Tab to switch teammate, and the answer streams in; Escape or click away to hide, and the
+  turn keeps going, so the answer is there next time.
 
 ## Why native
 
@@ -51,5 +54,6 @@ cargo run --release -- --snap shot.png --scene replay
 
 ## Not yet
 
-Settings, approvals, routines, the built-in browser and terminal live in the Electron app. Rune is pre-release, so
+Approvals, settings, routines, the built-in browser and terminal live in the Electron app; the native window says
+when a turn is waiting for you there. Rune is pre-release, so
 this pins one commit of it.
