@@ -11,7 +11,7 @@ use crate::{
     engine::{self, Started, Teammate},
     ledger::{self, Tail},
     ledger_write::{Continuation, LedgerWriter},
-    runtime::{Runtime, Turn, claude::Claude, codex::Codex, events::Normalizer},
+    runtime::{Runtime, Turn, claude::Claude, codex::Codex, events::Normalizer, kilo::Kilo, opencode::OpenCode},
     store::Store,
 };
 use serde_json::{Value, json};
@@ -75,7 +75,7 @@ pub fn door_unreachable(words: &str) -> bool {
 /// Can native run this teammate this milestone? Codex or Claude, and never an account of its own (that needs its own
 /// login home, which native does not touch).
 pub fn supported(t: &Teammate) -> bool {
-    matches!(t.runtime.as_deref(), Some("codex") | Some("claude")) && t.runs_in != IN_LOCUST
+    matches!(t.runtime.as_deref(), Some("codex") | Some("claude") | Some("acp") | Some("opencode") | Some("kilo")) && t.runs_in != IN_LOCUST
 }
 
 // ---- test hooks: one place, compiled only into tests -------------------------------------------------------------
@@ -116,7 +116,7 @@ pub fn electron_ledger_dir() -> Option<PathBuf> {
     electron_dir().map(|d| d.join("mission-ledger"))
 }
 
-fn command_for_turn(runtime: &str, folder: &Path, model: Option<&str>) -> io::Result<Command> {
+fn command_for_turn(runtime: &str, folder: &Path, model: Option<&str>, mode: Mode) -> io::Result<Command> {
     #[cfg(test)]
     if let Some((program, args)) = hooks::STATE.lock().unwrap().1.clone() {
         let mut c = Command::new(program);
@@ -125,6 +125,15 @@ fn command_for_turn(runtime: &str, folder: &Path, model: Option<&str>) -> io::Re
     }
     match runtime {
         "claude" => crate::runtime::claude::command(folder, model),
+        "acp" => crate::runtime::acp::command(&electron_dir().ok_or_else(|| io::Error::other("Locust profile not found"))?, folder, model),
+        "opencode" => {
+            let store = store().ok_or_else(|| io::Error::other("Native data folder could not be determined"))?;
+            crate::runtime::opencode::command(folder, mode, &store)
+        }
+        "kilo" => {
+            let store = store().ok_or_else(|| io::Error::other("Native data folder could not be determined"))?;
+            crate::runtime::kilo::command(folder, &store)
+        }
         _ => crate::runtime::codex::command(),
     }
 }
@@ -229,7 +238,7 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
         let title = if role == "Custom" { valid_role_title(&entry["roleTitle"]) } else { None };
         let route = route_of(&entry["route"]);
         let (runtime, model, runs_in) = match &route {
-            Some(r) if matches!(r.runtime.as_str(), "codex" | "claude") && !r.account => {
+            Some(r) if matches!(r.runtime.as_str(), "codex" | "claude" | "acp" | "opencode" | "kilo") && !r.account => {
                 (Some(r.runtime.clone()), Some(r.model.clone()), r.mode.clone())
             }
             Some(r) => (Some(r.runtime.clone()), Some(r.model.clone()), IN_LOCUST.to_string()),
@@ -545,8 +554,13 @@ pub fn send(job: Send) -> Result<Started, String> {
                     "This conversation ran on another agent. Native continues {runtime_name} conversations only for now."
                 ));
             }
-            if runtime_name == "codex" {
-                let thread = prior.thread.ok_or("This conversation has no Codex session to continue.")?;
+            if matches!(runtime_name, "codex" | "acp" | "opencode" | "kilo") {
+                let thread = prior.thread.ok_or(match runtime_name {
+                    "codex" => "This conversation has no Codex session to continue.",
+                    "opencode" => "This conversation has no OpenCode session to continue.",
+                    "kilo" => "This conversation has no Kilo session to continue.",
+                    _ => "This conversation has no ACP session to continue.",
+                })?;
                 (Some(Continuation { mission_id: tip.to_owned(), thread: Some(thread.clone()) }), Some(thread))
             } else {
                 // Claude print path has no thread resume in M3b.
@@ -556,7 +570,12 @@ pub fn send(job: Send) -> Result<Started, String> {
     };
     let folder = folder_for(&job.teammate, &electron)?;
     let model = job.model.clone().or_else(|| job.teammate.model.clone()).filter(|m| !m.is_empty() && m != "account-default");
-    let mut command = command_for_turn(runtime_name, &folder, model.as_deref()).map_err(|e| e.to_string())?;
+    let model = if runtime_name == "kilo" {
+        Some(crate::runtime::kilo::model_for_run(model.as_deref()))
+    } else {
+        model
+    };
+    let mut command = command_for_turn(runtime_name, &folder, model.as_deref(), mode).map_err(|e| e.to_string())?;
     // Test hooks supply their own wire fixtures; real Approve-each exposes the editing tools.
     if runtime_name == "claude" && mode == Mode::ApproveEach && command.get_program().to_string_lossy().ends_with("claude") {
         command = crate::runtime::claude::approve_each_command(&folder, model.as_deref()).map_err(|e| e.to_string())?;
@@ -644,6 +663,42 @@ fn run_turn(
         channel.release(mission_id);
         drop(registered.take());
     };
+    if runtime_name == "acp" {
+        let mut runtime = match crate::runtime::acp::Acp::spawn(&mut command) {
+            Ok(r) => r.with_cancel(flag.clone()),
+            Err(e) => {record_failure(&mut writer, false, &e);return finish(&mut writer, &mut registered, &channel, &mission_id);}
+        };
+        if let Err(e) = runtime.start(&turn) {
+            record_failure(&mut writer, flag.load(Ordering::Relaxed), &e);
+            return finish(&mut writer, &mut registered, &channel, &mission_id);
+        }
+        drive_runtime(&mut runtime, &mut writer, &flag, &mut registered, &channel, &mission_id);
+        return;
+    }
+    if runtime_name == "opencode" {
+        let mut runtime = match OpenCode::spawn(&mut command) {
+            Ok(r) => r.with_cancel(flag.clone()),
+            Err(e) => {record_failure(&mut writer, false, &e);return finish(&mut writer, &mut registered, &channel, &mission_id);}
+        };
+        if let Err(e) = runtime.start(&turn) {
+            record_failure(&mut writer, flag.load(Ordering::Relaxed), &e);
+            return finish(&mut writer, &mut registered, &channel, &mission_id);
+        }
+        drive_runtime(&mut runtime, &mut writer, &flag, &mut registered, &channel, &mission_id);
+        return;
+    }
+    if runtime_name == "kilo" {
+        let mut runtime = match Kilo::spawn(&mut command) {
+            Ok(r) => r.with_cancel(flag.clone()),
+            Err(e) => {record_failure(&mut writer, false, &e);return finish(&mut writer, &mut registered, &channel, &mission_id);}
+        };
+        if let Err(e) = runtime.start(&turn) {
+            record_failure(&mut writer, flag.load(Ordering::Relaxed), &e);
+            return finish(&mut writer, &mut registered, &channel, &mission_id);
+        }
+        drive_runtime(&mut runtime, &mut writer, &flag, &mut registered, &channel, &mission_id);
+        return;
+    }
     if runtime_name == "claude" {
         let mut runtime = match Claude::spawn(&mut command) {
             Ok(r) => r.with_cancel(flag.clone()),

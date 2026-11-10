@@ -16,9 +16,9 @@ pub fn interrupted() -> bool {
 }
 pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
     let runtime_name = args.first().map(String::as_str).unwrap_or("");
-    if args.len() < 2 || (runtime_name != "codex" && runtime_name != "claude") {
+    if args.len() < 2 || !matches!(runtime_name, "codex" | "claude" | "acp" | "opencode" | "kilo") {
         return Err(
-            "Usage: locust-native --run <codex|claude> <prompt> [--folder <dir>] [--model <id>]"
+            "Usage: locust-native --run <codex|claude|acp|opencode|kilo> <prompt> [--folder <dir>] [--model <id>]"
                 .into(),
         );
     }
@@ -100,6 +100,40 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
                     record_start_failure(&mut writer, &e)?;
                     return Err(e.into());
                 }
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        "acp" => {
+            let mut command = crate::runtime::acp::command(store.electron(), &turn.folder, turn.model.as_deref())?;
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, turn.model.as_deref().unwrap_or("account-default"), &command.get_program().to_string_lossy(), "acp", &args, None)?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match crate::runtime::acp::Acp::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        "opencode" => {
+            let mut command = crate::runtime::opencode::command(&turn.folder, turn.mode, &store)?;
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, turn.model.as_deref().unwrap_or("account-default"), &command.get_program().to_string_lossy(), "opencode", &args, None)?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match crate::runtime::opencode::OpenCode::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        "kilo" => {
+            let mut command = crate::runtime::kilo::command(&turn.folder, &store)?;
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let model = crate::runtime::kilo::model_for_run(turn.model.as_deref());
+            let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, &model, &command.get_program().to_string_lossy(), "kilo", &args, None)?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match crate::runtime::kilo::Kilo::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
             };
             drive(&mut runtime, &mut writer, &turn)
         }

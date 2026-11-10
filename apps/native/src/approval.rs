@@ -545,6 +545,34 @@ impl Channel {
             .map(|answer| claude_behavior_for(&answer, input_kept.as_ref()))
     }
 
+    /// ACP options are selected by kind; Always stays in this run, never in the agent.
+    pub fn ask_acp_runtime(&self, runtime: &str, run_id: &str, mission_id: &str, params: &Value, cwd: &str, cancel: &dyn Fn() -> bool) -> Result<bool, String> {
+        let call = &params["toolCall"];
+        let call_kind=call["kind"].as_str().unwrap_or("");
+        let title=call["title"].as_str().unwrap_or("Use a tool");
+        let shell=call_kind=="execute" || ((call_kind.is_empty() || call_kind=="other") && matches!(title.trim().to_lowercase().as_str(),"bash"|"shell"|"powershell"|"pwsh"|"cmd"|"execute"));
+        let command=call["rawInput"]["command"].as_str();
+        let mut paths:Vec<&str>=call["locations"].as_array().into_iter().flatten().filter_map(|l|l["path"].as_str()).collect();
+        paths.extend(call["content"].as_array().into_iter().flatten().filter(|d|d["type"]=="diff").filter_map(|d|d["path"].as_str()));
+        for field in ["path","file_path","filePath"] {if let Some(path)=call["rawInput"][field].as_str() {paths.push(path);}}
+        let mut seen=std::collections::HashSet::new();paths.retain(|p|seen.insert(*p));
+        let target=command.map(str::to_owned).or_else(||(!shell && !paths.is_empty()).then(||paths.join("\n")));
+        let file=matches!(call_kind,"edit"|"delete"|"move");
+        let kind=if file {Kind::FileChange} else {Kind::Command};
+        let summary=if file {"Change files"} else {"Run a command"};
+        let patch=crate::runtime::acp_events::patch_of(&call["content"]);
+        let fallback=if shell {command.unwrap_or("").to_owned()} else if let Some(target)=&target {format!("{title}: {target}")} else {title.to_owned()};
+        let detail=patch.as_ref().and_then(|p|p["text"].as_str()).unwrap_or(&fallback);
+        let request = Request {
+            approval_id: new_id(), run_id: run_id.into(), mission_id: mission_id.into(), runtime: runtime.into(),
+            kind, summary: bounded(summary), detail: bounded(detail), cwd: Some(cwd.into()), requested_at: now_iso(),
+            always_covers: target.as_ref().map(|_|if command.is_some() {"this same command again".into()} else {"the same change to these files again".into()}), always_key: target.map(|target|format!("acp:{call_kind}:{target}")),
+            data_sent_says: None, reversible_says: None, tool_use_id: call["toolCallId"].as_str().map(str::to_owned),
+            wire_id: Value::Null, claude_input: None,
+        };
+        self.ask(request, cancel).map(|a| matches!(a, Answer::Decision {decision: Decision::ApproveOnce | Decision::ApproveAlways, ..}))
+    }
+
     fn ask(&self, request: Request, cancel: &dyn Fn() -> bool) -> Result<Answer, String> {
         let (tx, rx) = mpsc::sync_channel(1);
         let id = request.approval_id.clone();
