@@ -1,9 +1,12 @@
 //! Runtime orchestration has no window or Electron dependency.
+pub mod claude;
+pub(crate) mod claude_events;
 pub mod codex;
 mod discovery;
 pub(crate) mod events;
+use crate::approval::{Channel, Mode};
 use serde_json::Value;
-use std::{io, path::PathBuf};
+use std::{io, path::PathBuf, sync::Arc};
 pub struct Turn {
     pub prompt: String,
     pub folder: PathBuf,
@@ -12,6 +15,12 @@ pub struct Turn {
     pub effort: Option<String>,
     /// A prior Codex thread to reopen with `thread/resume` instead of `thread/start` (the follow-up path).
     pub resume: Option<String>,
+    /// Teammate mode; drives Codex sandbox / approvalPolicy (`codexAppServerPolicy`).
+    pub mode: Mode,
+    /// When set, approval requests raise a card instead of being auto-declined.
+    pub approvals: Option<Arc<Channel>>,
+    pub mission_id: String,
+    pub run_id: String,
 }
 pub struct Event {
     pub kind: String,
@@ -27,3 +36,5 @@ pub trait Runtime {
 
 #[cfg(test)]
 mod tests;
+
+pub mod permission_bridge;

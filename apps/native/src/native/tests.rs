@@ -128,7 +128,7 @@ fn roster_reads_electrons_shape_and_marks_what_native_cannot_run() {
     ]);
     let team = parse_roster(&text).unwrap();
     assert_eq!(team.len(), 4);
-    assert_eq!((team[0].runtime.as_deref(), team[0].model.as_deref(), team[0].runs_in.as_str()), (Some("codex"), Some("gpt-6.1-sol"), "ask"));
+    assert_eq!((team[0].runtime.as_deref(), team[0].model.as_deref(), team[0].runs_in.as_str()), (Some("codex"), Some("gpt-6.1-sol"), "accept-edits"));
     assert!(supported(&team[0]));
     assert_eq!(team[1].runs_in, IN_LOCUST);
     assert!(!supported(&team[1]), "another agent runs in Locust for now");
@@ -630,3 +630,78 @@ fn real_codex_continue() {
     assert!(text_b.contains("continuesFrom"), "second turn is not chained");
     assert!(text_b.to_uppercase().contains("PELICAN"), "the resumed thread lost its context");
 }
+
+/// Both live tests deliberately use the public window API and isolated stores.
+/// No retry after denial: another pending request in that turn fails the test.
+fn approval_deny_then_allow(runtime: &str, synthetic: bool) {
+    let t = Temp::new();
+    let command = synthetic.then(|| (PathBuf::from("python3"), vec![concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixtures/native-approvals.py").into(), runtime.into()]));
+    let _g = hooks::install(t.store(), command);
+    let electron_before = fingerprint(&t.electron());
+    let mut mate = codex(&t);
+    mate.runtime = Some(runtime.into());
+    mate.model = None;
+    mate.runs_in = "approve-each".into();
+    struct StopOnDrop(String);
+    impl Drop for StopOnDrop {
+        fn drop(&mut self) {
+            let _ = stop(&self.0);
+            let end = Instant::now() + Duration::from_secs(8);
+            while owns(&self.0) && Instant::now() < end { std::thread::sleep(Duration::from_millis(20)); }
+        }
+    }
+    for (decision, expected) in [(Decision::Deny, "denied"), (Decision::ApproveOnce, "allowed")] {
+        let started = send(Send {
+            teammate: mate.clone(), conversation: None,
+            prompt: "Use a tool to create hello.txt in the current folder containing exactly hello\n. Ask for permission for the write. If denied, stop immediately and report the denial; do not try another tool or retry. After an allowed write, reply DONE.".into(),
+            model: None, effort: None,
+        }).unwrap();
+        let _cleanup = StopOnDrop(started.conversation_id.clone());
+        let path = path_of(&t, &started.conversation_id);
+        let deadline = Instant::now() + Duration::from_secs(240);
+        let request = loop {
+            if let Some(request) = waiting_approvals().into_iter().find(|r| r.mission_id == started.conversation_id) { break request; }
+            assert!(owns(&started.conversation_id), "{runtime} ended without asking: {}", fs::read_to_string(&path).unwrap());
+            assert!(Instant::now() < deadline, "{runtime} did not ask for permission");
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        assert!(!t.0.join("work/hello.txt").exists(), "write happened before approval");
+        assert!(request.detail.contains("hello.txt"), "unrelated approval: {}", request.detail);
+        decide_approval(&request.approval_id, decision.clone(), Some("Live approval test".into())).unwrap();
+        while owns(&started.conversation_id) {
+            assert!(waiting_approvals().iter().all(|r| r.mission_id != started.conversation_id), "{runtime} retried after its one decision");
+            assert!(Instant::now() < deadline, "{runtime} did not finish");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let rows = records(&path);
+        let approvals: Vec<_> = rows.iter().filter(|r| r["recordType"] == "mission.approval").collect();
+        assert_eq!(approvals.len(), 1, "{rows:?}");
+        assert_eq!(approvals[0]["approval"]["answer"], expected);
+        assert_eq!(approvals[0]["approval"]["approvalId"], request.approval_id);
+        assert_eq!(kinds(&path).last().map(String::as_str), Some("run.completed"), "{}", fs::read_to_string(&path).unwrap());
+        assert!(decide_approval(&request.approval_id, Decision::ApproveOnce, None).is_err());
+        if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
+            assert!(Command::new("node").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/check-m1-ledger.mjs"))
+                .arg(reader).arg(t.store().ledger_dir().unwrap()).arg(&started.conversation_id).status().unwrap().success());
+        }
+        if decision == Decision::Deny {
+            assert!(!t.0.join("work/hello.txt").exists());
+        } else {
+            assert_eq!(fs::read_to_string(t.0.join("work/hello.txt")).unwrap(), "hello\n");
+        }
+    }
+    assert_eq!(fingerprint(&t.electron()), electron_before);
+}
+
+#[test]
+#[ignore = "real Claude Code; signed-in CLI, no Electron, isolated temp project"]
+fn real_claude_approval_deny_then_allow() { approval_deny_then_allow("claude", false); }
+
+#[test]
+#[ignore = "real Codex; signed-in CLI, no Electron, isolated temp project"]
+fn real_codex_approval_deny_then_allow() { approval_deny_then_allow("codex", false); }
+
+#[test]
+fn native_claude_denies_then_allows_one_file_write() { approval_deny_then_allow("claude", true); }
+#[test]
+fn native_codex_denies_then_allows_one_file_write() { approval_deny_then_allow("codex", true); }

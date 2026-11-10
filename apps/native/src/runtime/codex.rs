@@ -1,4 +1,5 @@
 use super::{Event, Runtime, Turn, events::Normalizer};
+use crate::approval::{Channel, Mode};
 use serde_json::{Value, json};
 use std::{
     collections::VecDeque,
@@ -25,6 +26,11 @@ pub struct Codex {
     cancel: Option<Arc<AtomicBool>>,
     /// A stop was asked before the turn id was known; the interrupt goes out as soon as it is.
     interrupt_owed: bool,
+    approvals: Option<Arc<Channel>>,
+    mission_id: String,
+    run_id: String,
+    mode: Mode,
+    approval_lifecycle: Arc<Mutex<Option<(Arc<Channel>, String, Option<String>)>>>,
 }
 #[derive(Default)]
 struct ControlState {
@@ -103,6 +109,8 @@ impl Codex {
                 }
             }
         });
+        let approval_lifecycle: Arc<Mutex<Option<(Arc<Channel>, String, Option<String>)>>> = Arc::new(Mutex::new(None));
+        let lifecycle = approval_lifecycle.clone();
         let output = child.stdout.take().unwrap();
         let (tx, lines) = mpsc::sync_channel(256);
         let reader_control = control.clone();
@@ -124,6 +132,10 @@ impl Codex {
                     Err(e) => Err(e),
                 };
                 let terminal = value.is_err();
+                if let Some((channel, mission, thread)) = lifecycle.lock().unwrap().as_ref() {
+                    let own_end = value.as_ref().is_ok_and(|v: &Value| v["method"] == "turn/completed" && thread.as_ref().is_some_and(|id| super::events::thread_id(&v["params"]).as_ref() == Some(id)));
+                    if terminal || own_end { channel.release(mission); }
+                }
                 match tx.try_send(value) {
                     Ok(()) => {}
                     Err(mpsc::TrySendError::Full(_)) => {
@@ -150,6 +162,11 @@ impl Codex {
             stopping: None,
             cancel: None,
             interrupt_owed: false,
+            approvals: None,
+            mission_id: String::new(),
+            run_id: String::new(),
+            mode: Mode::Ask,
+            approval_lifecycle,
         })
     }
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
@@ -193,29 +210,60 @@ impl Codex {
             return Ok(());
         };
         if !v["id"].is_null() {
-            let result = match method {
+            let method_owned = method.to_owned();
+            let wire_id = v["id"].clone();
+            let params = v["params"].clone();
+            let result = match method_owned.as_str() {
                 "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" => {
-                    json!({"decision":"decline"})
+                    self.answer_approval(&method_owned, &params, wire_id.clone())?
                 }
                 "execCommandApproval" | "applyPatchApproval" => json!({"decision":"denied"}),
                 _ => {
-                    self.send(json!({"jsonrpc":"2.0","id":v["id"],"error":{"code":-32601,"message":"Native M1 does not support interactive requests"}}))?;
+                    self.send(json!({"jsonrpc":"2.0","id":wire_id,"error":{"code":-32601,"message":"Native does not support this interactive request"}}))?;
                     self.queued.push_back(self.normal.diagnostic(
-                        method,
-                        "Codex requested an unsupported interaction; native M1 declined it.",
+                        &method_owned,
+                        "Codex requested an unsupported interaction; native declined it.",
                     ));
                     return Ok(());
                 }
             };
-            self.send(json!({"jsonrpc":"2.0","id":v["id"],"result":result}))?;
-            self.queued.push_back(self.normal.diagnostic(
-                method,
-                "Codex requested approval; native M1 declines approvals in read-only Ask mode.",
-            ));
+            self.send(json!({"jsonrpc":"2.0","id":wire_id,"result":result}))?;
         } else {
             self.queued.extend(self.normal.accept(method, &v["params"]));
         }
         Ok(())
+    }
+    fn answer_approval(&mut self, method: &str, params: &Value, wire_id: Value) -> io::Result<Value> {
+        if super::events::thread_id(params).is_some_and(|id| self.normal.thread.as_ref() != Some(&id)) {
+            return Ok(json!({"decision":"reject"}));
+        }
+        // Only Approve-each stops for a card (`codexAppServerPolicy` → untrusted).
+        // Ask / other modes auto-decline the way M1 did, even when a channel exists.
+        if self.mode != Mode::ApproveEach || self.approvals.is_none() {
+            self.queued.push_back(self.normal.diagnostic(
+                method,
+                "Codex requested approval; native declines approvals outside Approve each.",
+            ));
+            return Ok(json!({"decision":"decline"}));
+        }
+        let channel = self.approvals.clone().unwrap();
+        let mission = self.mission_id.clone();
+        let run = self.run_id.clone();
+        let cancel = self.cancel.clone();
+        let is_cancelled = move || {
+            crate::run_cli::interrupted()
+                || cancel
+                    .as_ref()
+                    .is_some_and(|f| f.load(Ordering::Relaxed))
+        };
+        match channel.ask_codex(&run, &mission, method, params, wire_id, &is_cancelled) {
+            Ok(result) => Ok(result),
+            Err(message) => {
+                self.queued
+                    .push_back(self.normal.diagnostic(method, &message));
+                Ok(json!({"decision":"reject"}))
+            }
+        }
     }
     fn request(&mut self, method: &str, params: Value) -> io::Result<Value> {
         self.request_id += 1;
@@ -274,6 +322,11 @@ pub fn read_only_config(settings: &Value) -> io::Result<Value> {
 }
 impl Runtime for Codex {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
+        *self.approval_lifecycle.lock().unwrap() = turn.approvals.as_ref().map(|ch| (ch.clone(), turn.mission_id.clone(), None));
+        self.approvals = turn.approvals.clone();
+        self.mission_id = turn.mission_id.clone();
+        self.run_id = turn.run_id.clone();
+        self.mode = turn.mode;
         self.request(
             "initialize",
             json!({"clientInfo":{"name":"locust","version":"0.1.0"}}),
@@ -281,12 +334,13 @@ impl Runtime for Codex {
         self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
         let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
         let config = read_only_config(&settings["config"])?;
+        let policy = crate::approval::codex_app_server_policy(turn.mode, None);
         // Ports codex-app-server-run.ts handshake: `thread/start`, or `thread/resume` with the prior thread id and
         // `excludeTurns` (without it the answer carries the whole history as one line, past the 8 MiB limit).
         let result = match &turn.resume {
-            None => self.request("thread/start",json!({"cwd":turn.folder,"sandbox":"read-only","approvalPolicy":"never","config":config}))?,
+            None => self.request("thread/start",json!({"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy,"config":config}))?,
             Some(prior) => {
-                let mut params = json!({"threadId":prior,"excludeTurns":true,"cwd":turn.folder,"sandbox":"read-only","approvalPolicy":"never","config":config});
+                let mut params = json!({"threadId":prior,"excludeTurns":true,"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy,"config":config});
                 // The model on the THREAD too (0.864): reopening on the turn's own model leaves nothing to warn about.
                 if let Some(model) = turn.model.as_deref().filter(|m| !m.trim().is_empty()) {
                     params["model"] = json!(model);
@@ -300,7 +354,8 @@ impl Runtime for Codex {
             .ok_or_else(|| err("Codex did not return a thread ID"))?
             .to_owned();
         self.normal.thread = Some(thread.clone());
-        let mut params = json!({"threadId":thread,"approvalPolicy":"never","input":[{"type":"text","text":turn.prompt}],"summary":"detailed"});
+        if let Some((_, _, id)) = self.approval_lifecycle.lock().unwrap().as_mut() { *id = Some(thread.clone()); }
+        let mut params = json!({"threadId":thread,"approvalPolicy":policy.approval_policy,"input":[{"type":"text","text":turn.prompt}],"summary":"detailed"});
         if let Some(model) = &turn.model {
             params["model"] = json!(model);
         }

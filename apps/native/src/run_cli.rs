@@ -1,7 +1,7 @@
 //! Headless --run entry point; no window is constructed.
 use crate::{
     ledger_write::LedgerWriter,
-    runtime::{Runtime, Turn, codex::Codex},
+    runtime::{Runtime, Turn, claude::Claude, codex::Codex},
     store::Store,
 };
 use serde_json::json;
@@ -15,9 +15,11 @@ pub fn interrupted() -> bool {
     INTERRUPTED.load(Ordering::Relaxed)
 }
 pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
-    if args.len() < 2 || args[0] != "codex" {
+    let runtime_name = args.first().map(String::as_str).unwrap_or("");
+    if args.len() < 2 || (runtime_name != "codex" && runtime_name != "claude") {
         return Err(
-            "Usage: locust-native --run codex <prompt> [--folder <dir>] [--model <id>]".into(),
+            "Usage: locust-native --run <codex|claude> <prompt> [--folder <dir>] [--model <id>]"
+                .into(),
         );
     }
     let mut turn = Turn {
@@ -26,6 +28,10 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
         model: None,
         effort: None,
         resume: None,
+        mode: crate::approval::Mode::Ask,
+        approvals: None,
+        mission_id: "synthetic".into(),
+        run_id: "run_synthetic".into(),
     };
     let mut i = 2;
     while i < args.len() {
@@ -42,8 +48,6 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
         return Err("--folder must name a directory".into());
     }
     let store = Store::local()?;
-    let mut command = crate::runtime::codex::command()?;
-    command.current_dir(&turn.folder);
     let id = format!(
         "mission_native_{}_{}",
         std::process::id(),
@@ -51,27 +55,68 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
             .duration_since(std::time::UNIX_EPOCH)?
             .as_nanos()
     );
-    let mut writer = LedgerWriter::create(
-        &store,
-        &id,
-        &turn.prompt,
-        turn.model.as_deref().unwrap_or("account-default"),
-        &command.get_program().to_string_lossy(),
-    )?;
-    eprintln!("Ledger: {}", writer.path.display());
     ctrlc::set_handler(|| INTERRUPTED.store(true, Ordering::Relaxed))?;
-    let mut runtime = match Codex::spawn(&mut command) {
-        Ok(r) => r,
-        Err(e) => {
-            record_start_failure(&mut writer, &e)?;
-            return Err(e.into());
+    match runtime_name {
+        "codex" => {
+            let mut command = crate::runtime::codex::command()?;
+            command.current_dir(&turn.folder);
+            let mut writer = LedgerWriter::create(
+                &store,
+                &id,
+                &turn.prompt,
+                turn.model.as_deref().unwrap_or("account-default"),
+                &command.get_program().to_string_lossy(),
+            )?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match Codex::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {
+                    record_start_failure(&mut writer, &e)?;
+                    return Err(e.into());
+                }
+            };
+            drive(&mut runtime, &mut writer, &turn)
         }
-    };
-    if let Err(e) = runtime.start(&turn) {
+        "claude" => {
+            let mut command = crate::runtime::claude::command(&turn.folder, turn.model.as_deref())?;
+            let args: Vec<String> = command
+                .get_args()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect();
+            let mut writer = LedgerWriter::create_runtime(
+                &store,
+                &id,
+                &turn.prompt,
+                turn.model.as_deref().unwrap_or("account-default"),
+                &command.get_program().to_string_lossy(),
+                "claude",
+                &args,
+                None,
+            )?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match Claude::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {
+                    record_start_failure(&mut writer, &e)?;
+                    return Err(e.into());
+                }
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn drive<R: Runtime>(
+    runtime: &mut R,
+    writer: &mut LedgerWriter,
+    turn: &Turn,
+) -> Result<i32, Box<dyn std::error::Error>> {
+    if let Err(e) = runtime.start(turn) {
         if interrupted() {
             let _ = runtime.stop();
         }
-        record_start_failure(&mut writer, &e)?;
+        record_start_failure(writer, &e)?;
         return Err(e.into());
     }
     let mut printed = std::collections::HashMap::<String, String>::new();
@@ -117,6 +162,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
         }
     }
 }
+
 fn record_start_failure(writer: &mut LedgerWriter, error: &io::Error) -> io::Result<()> {
     let mut normal = crate::runtime::events::Normalizer::default();
     let event = normal.finish(interrupted(), &error.to_string());

@@ -9,8 +9,15 @@ if os.environ.get("M1_PID_FILE"):
 scenario = sys.argv[1] if len(sys.argv) > 1 else 'success'
 # M2: `resume` / `resume-interrupt` / `resume-failure` / `resume-refused` run the follow-up path (thread/resume, never
 # thread/start) with the follow-up prompt; the rest are the M1 scenarios.
+# M3b: `approve-allow` / `approve-deny` use Approve-each policy (untrusted + workspace-write).
 resuming = scenario.startswith('resume')
+approving = scenario.startswith('approve-')
 base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
+if approving:
+    base = 'success'
+SANDBOX = 'workspace-write' if approving else 'read-only'
+POLICY = 'untrusted' if approving else 'never'
+APPROVE_DECISION = 'accept' if scenario == 'approve-allow' else ('reject' if scenario == 'approve-deny' else 'decline')
 PROMPT = 'Synthetic follow-up' if resuming else 'Synthetic prompt'
 def send(v):
     print(json.dumps(dict(jsonrpc='2.0', **v)), flush=True)
@@ -32,7 +39,7 @@ for line in sys.stdin:
         assert resuming, 'thread/resume outside a resume scenario'
         # codex-app-server-run.ts: reopen by the stored id, without the whole history, under the same policy.
         assert p['threadId'] == 'thread_fake' and p['excludeTurns'] is True, p
-        assert p['sandbox'] == 'read-only' and p['approvalPolicy'] == 'never'
+        assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY
         assert p['config']['mcp_servers.local.enabled'] is False and p['config']['features.plugins'] is False
         assert p['model'] == 'synthetic-model'
         if base == 'refused':
@@ -41,13 +48,13 @@ for line in sys.stdin:
             send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'thread/start':
         assert not resuming, 'a follow-up must resume, not start a new thread'
-        assert p['sandbox'] == 'read-only' and p['approvalPolicy'] == 'never'
+        assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY, p
         assert p['config']['mcp_servers.local.enabled'] is False
         assert p['config']['features.plugins'] is False
         assert 'mcp_servers.remote.enabled' not in p['config']
         send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'turn/start':
-        assert p['summary'] == 'detailed' and p['approvalPolicy'] == 'never'
+        assert p['summary'] == 'detailed' and p['approvalPolicy'] == POLICY, p
         assert p['input'] == [{'type':'text','text':PROMPT}]
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
@@ -74,9 +81,9 @@ for line in sys.stdin:
             item(False, id=kind, type=kind, **fields)
             item(True, id=kind, type=kind, status='completed', **fields)
         item(True, id='answer', type='agentMessage', text='Hello world')
-        send(dict(id='approval', method='item/commandExecution/requestApproval',params={'command':'touch forbidden'}))
+        send(dict(id='approval', method='item/commandExecution/requestApproval',params={'command':'touch forbidden','cwd':'/tmp'}))
     elif msg.get('id') == 'approval':
-        assert msg['result']['decision'] == 'decline'
+        assert msg['result']['decision'] == APPROVE_DECISION, msg
         notify('warning', message='Synthetic warning')
         notify('thread/tokenUsage/updated', tokenUsage={'total':{'inputTokens':12,'outputTokens':4},'last':{'inputTokens':12,'outputTokens':4}})
         notify('turn/completed', turn={'id':'turn_fake','status':'completed'})

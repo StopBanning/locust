@@ -83,3 +83,12 @@ Each milestone has an exit test. A milestone is done when its test passes, not w
   - Real check, 9 Nov evening: `real_codex_continue` passed. The continuation resumed the same Codex thread and
     remembered a word from turn 1, chained by `continuesFrom`, in 9 s.
   - Still to do: use the window with Electron quit.
+- **M3:** reached on 9 Nov 2026, except the window check with Electron quit.
+  - Claude Code runs through the Rust engine (`runtime/claude.rs`), ported from `claude-commands.ts` and
+    `claude-events.ts`. A real turn ran and Electron's reader accepted its 38 events.
+  - Approvals for Claude Code and Codex: a card in the window in Electron's words, with keys 1/2/3 and "Needs you" in
+    the status line. Claude asks through the same permission-tool bridge Electron uses.
+  - Real checks `real_claude_approval_deny_then_allow` and `real_codex_approval_deny_then_allow` both passed. Each
+    runtime asked to create a file, a denial left no file, an approval made it, each answer was recorded once with no
+    retry, a late second answer was refused, and Electron's folder was unchanged byte for byte.
+  - Cursor built it, and Codec reviewed and fixed it. 144 tests pass.

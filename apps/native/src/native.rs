@@ -1,16 +1,17 @@
 //! M2: the native engine behind the window. No Electron, no MCP door, no Node.
 //!
 //! * `roster` reads Electron's `teammates.json` READ-ONLY (shape from `apps/desktop/src/main/teammate-store.ts`).
-//! * `send` starts or continues a Codex turn: a new native ledger (`ledger_write`), the runtime (`runtime::codex`),
-//!   all on a thread of its own. The window never waits for it; it tails the ledger file, as it does for Electron's.
+//! * `send` starts or continues a Codex/Claude turn: a new native ledger (`ledger_write`), the runtime,
+//!   all on a thread of its own. Approvals raise a card the window answers. The window tails the ledger file.
 //! * `stop` asks the turn this process started to interrupt; the runtime records it as cancelled.
 //!
 //! Every write goes through `store::Store`, which refuses Electron's data folder. Nothing here opens a credential.
 use crate::{
+    approval::{Answer, Channel, Decision, Mode, Request as ApprovalRequest},
     engine::{self, Started, Teammate},
     ledger::{self, Tail},
     ledger_write::{Continuation, LedgerWriter},
-    runtime::{Runtime, Turn, codex::Codex, events::Normalizer},
+    runtime::{Runtime, Turn, claude::Claude, codex::Codex, events::Normalizer},
     store::Store,
 };
 use serde_json::{Value, json};
@@ -71,10 +72,10 @@ pub fn door_unreachable(words: &str) -> bool {
     words == engine::NOT_ON || words == engine::DOWN || words.starts_with("Locust's data folder could not be found")
 }
 
-/// Can native run this teammate this milestone? Codex only, and never a Codex account of its own (that needs its own
+/// Can native run this teammate this milestone? Codex or Claude, and never an account of its own (that needs its own
 /// login home, which native does not touch).
 pub fn supported(t: &Teammate) -> bool {
-    t.runtime.as_deref() == Some("codex") && t.runs_in != IN_LOCUST
+    matches!(t.runtime.as_deref(), Some("codex") | Some("claude")) && t.runs_in != IN_LOCUST
 }
 
 // ---- test hooks: one place, compiled only into tests -------------------------------------------------------------
@@ -115,14 +116,17 @@ pub fn electron_ledger_dir() -> Option<PathBuf> {
     electron_dir().map(|d| d.join("mission-ledger"))
 }
 
-fn command_for_turn() -> io::Result<Command> {
+fn command_for_turn(runtime: &str, folder: &Path, model: Option<&str>) -> io::Result<Command> {
     #[cfg(test)]
     if let Some((program, args)) = hooks::STATE.lock().unwrap().1.clone() {
         let mut c = Command::new(program);
         c.args(args);
         return Ok(c);
     }
-    crate::runtime::codex::command()
+    match runtime {
+        "claude" => crate::runtime::claude::command(folder, model),
+        _ => crate::runtime::codex::command(),
+    }
 }
 
 // ---- the roster: teammates.json, read-only -----------------------------------------------------------------------
@@ -179,13 +183,14 @@ fn teammate_folder(v: &Value) -> Option<String> {
 struct Route {
     runtime: String,
     model: String,
+    mode: String,
     account: bool,
 }
 /// teammate-store.ts: isTeammateRoute. A malformed route reads as no route.
 fn route_of(v: &Value) -> Option<Route> {
     let runtime = v["runtime"].as_str().filter(|r| RUNTIMES.contains(r))?;
     let model = v["model"].as_str().filter(|m| !m.is_empty() && m.encode_utf16().count() <= 200)?;
-    v["mode"].as_str().filter(|m| MODES.contains(m))?;
+    let mode = v["mode"].as_str().filter(|m| MODES.contains(m))?;
     let account = match &v["account"] {
         Value::Null => false,
         Value::String(a) => {
@@ -200,7 +205,7 @@ fn route_of(v: &Value) -> Option<Route> {
     if !v["effort"].is_null() && !v["effort"].as_str().is_some_and(|e| !e.is_empty() && e.len() <= 40) {
         return None;
     }
-    Some(Route { runtime: runtime.into(), model: model.into(), account })
+    Some(Route { runtime: runtime.into(), model: model.into(), mode: mode.into(), account })
 }
 
 /// teammate-store.ts: parsedFile / parsedTeammate, for the fields the window shows. The file is untrusted: a bad record
@@ -224,7 +229,9 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
         let title = if role == "Custom" { valid_role_title(&entry["roleTitle"]) } else { None };
         let route = route_of(&entry["route"]);
         let (runtime, model, runs_in) = match &route {
-            Some(r) if r.runtime == "codex" && !r.account => (Some(r.runtime.clone()), Some(r.model.clone()), "ask".to_string()),
+            Some(r) if matches!(r.runtime.as_str(), "codex" | "claude") && !r.account => {
+                (Some(r.runtime.clone()), Some(r.model.clone()), r.mode.clone())
+            }
             Some(r) => (Some(r.runtime.clone()), Some(r.model.clone()), IN_LOCUST.to_string()),
             None => (None, None, IN_LOCUST.to_string()),
         };
@@ -456,6 +463,37 @@ pub fn owned_key(tip: Option<&str>, conversation: Option<&str>) -> Option<String
     [tip, conversation].into_iter().flatten().find(|k| !k.is_empty() && owns(k)).map(str::to_owned)
 }
 
+
+// ---- approvals: one channel for the process; the window decides, the turn loop appends --------
+static APPROVALS: Mutex<Option<std::sync::Arc<Channel>>> = Mutex::new(None);
+
+fn approvals_channel() -> std::sync::Arc<Channel> {
+    let mut guard = APPROVALS.lock().unwrap();
+    if guard.is_none() {
+        *guard = Some(Channel::new());
+    }
+    guard.as_ref().unwrap().clone()
+}
+
+/// Cards waiting on the person right now.
+pub fn waiting_approvals() -> Vec<ApprovalRequest> {
+    approvals_channel().waiting()
+}
+
+/// Cards waiting for one mission (or conversation tip).
+pub fn waiting_approvals_for(mission_id: &str) -> Vec<ApprovalRequest> {
+    approvals_channel().waiting_for_mission(mission_id)
+}
+
+/// Answer a card from the window. Refused after the turn ended.
+pub fn decide_approval(approval_id: &str, decision: Decision, reason: Option<String>) -> Result<(), String> {
+    approvals_channel().decide(Answer::Decision {
+        approval_id: approval_id.into(),
+        decision,
+        reason,
+    }).map(|_| ())
+}
+
 // ---- send --------------------------------------------------------------------------------------------------------
 pub struct Send {
     pub teammate: Teammate,
@@ -475,8 +513,8 @@ fn new_id() -> String {
     )
 }
 
-/// Start (or continue) a Codex turn natively. Returns once the ledger exists and the turn is running on its own thread;
-/// the window follows the ledger file. `conversation_id` is the conversation's anchor, as Locust's door returns it.
+/// Start (or continue) a Codex/Claude turn natively. Returns once the ledger exists and the turn is running on its own thread;
+/// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
 pub fn send(job: Send) -> Result<Started, String> {
     if !supported(&job.teammate) {
@@ -486,14 +524,13 @@ pub fn send(job: Send) -> Result<Started, String> {
     if job.conversation.as_deref().is_some_and(owns) {
         return Err("A turn is already running in this conversation.".into());
     }
+    let runtime_name = job.teammate.runtime.as_deref().unwrap_or("codex");
+    let mode = Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask);
     let store = store().ok_or("Native data folder could not be determined.")?;
     let electron = store.electron().to_path_buf();
     let (continues, resume) = match job.conversation.as_deref() {
         None => (None, None),
         Some(conversation) => {
-            // The newest turn is read from disk, in BOTH folders, at the moment of sending. What the window shows may
-            // be stale: Electron can have written a newer turn since the pane stopped polling. Electron does the same catch-up before it resumes (codex-mission.ts: `followUpOf =
-            // (await catchUpTerminal(named))?.latestMissionId ?? named`), then checks the turn it will continue.
             let tip = real_tip(conversation)?;
             let tip = tip.as_str();
             if owns(tip) {
@@ -503,21 +540,31 @@ pub fn send(job: Send) -> Result<Started, String> {
             if prior.running {
                 return Err("A turn is still running in that conversation. Wait for it or stop it first.".into());
             }
-            if prior.runtime != "codex" {
-                return Err("This conversation ran on another agent. Native continues Codex conversations only for now.".into());
+            if prior.runtime != runtime_name {
+                return Err(format!(
+                    "This conversation ran on another agent. Native continues {runtime_name} conversations only for now."
+                ));
             }
-            let thread = prior.thread.ok_or("This conversation has no Codex session to continue.")?;
-            (Some(Continuation { mission_id: tip.to_owned(), thread: Some(thread.clone()) }), Some(thread))
+            if runtime_name == "codex" {
+                let thread = prior.thread.ok_or("This conversation has no Codex session to continue.")?;
+                (Some(Continuation { mission_id: tip.to_owned(), thread: Some(thread.clone()) }), Some(thread))
+            } else {
+                // Claude print path has no thread resume in M3b.
+                (Some(Continuation { mission_id: tip.to_owned(), thread: None }), None)
+            }
         }
     };
     let folder = folder_for(&job.teammate, &electron)?;
-    let mut command = command_for_turn().map_err(|e| e.to_string())?;
-    command.current_dir(&folder);
     let model = job.model.clone().or_else(|| job.teammate.model.clone()).filter(|m| !m.is_empty() && m != "account-default");
+    let mut command = command_for_turn(runtime_name, &folder, model.as_deref()).map_err(|e| e.to_string())?;
+    // Test hooks supply their own wire fixtures; real Approve-each exposes the editing tools.
+    if runtime_name == "claude" && mode == Mode::ApproveEach && command.get_program().to_string_lossy().ends_with("claude") {
+        command = crate::runtime::claude::approve_each_command(&folder, model.as_deref()).map_err(|e| e.to_string())?;
+    }
+    command.current_dir(&folder);
     let id = new_id();
     let anchor = job.conversation.clone().unwrap_or_else(|| id.clone());
     let flag = Arc::new(AtomicBool::new(false));
-    // Under the conversation's anchor and under this turn's own id: either opens the same turn.
     let registered = with_running(|m| {
         if m.contains_key(&anchor) {
             return None;
@@ -527,21 +574,42 @@ pub fn send(job: Send) -> Result<Started, String> {
         Some(Registered(vec![anchor.clone(), id.clone()]))
     })
     .ok_or("A turn is already running in this conversation.")?;
-    let writer = LedgerWriter::create_continuing(
+    let channel = approvals_channel();
+    let bridge = if runtime_name == "claude" && mode == Mode::ApproveEach {
+        Some(crate::runtime::permission_bridge::Bridge::prepare(&mut command, channel.clone(), &id, &format!("run_{id}"), &folder.to_string_lossy(), flag.clone()).map_err(|e| e.to_string())?)
+    } else { None };
+    let args: Vec<String> = command
+        .get_args()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    let writer = LedgerWriter::create_runtime(
         &store,
         &id,
         &job.prompt,
         model.as_deref().unwrap_or("account-default"),
         &command.get_program().to_string_lossy(),
+        runtime_name,
+        &args,
         continues.as_ref(),
     )
     .map_err(|e| e.to_string())?;
-    let turn = Turn { prompt: job.prompt, folder, model, effort: job.effort, resume };
+    let turn = Turn {
+        prompt: job.prompt,
+        folder,
+        model,
+        effort: job.effort,
+        resume,
+        mode,
+        approvals: Some(channel.clone()),
+        mission_id: id.clone(),
+        run_id: format!("run_{id}"),
+    };
+    let runtime_owned = runtime_name.to_owned();
     std::thread::Builder::new()
         .name("native-turn".into())
-        .spawn(move || run_turn(writer, command, turn, flag, registered))
+        .spawn(move || run_turn(writer, command, turn, flag, registered, runtime_owned, channel, bridge))
         .map_err(|e| format!("Could not start the turn: {e}"))?;
-    Ok(Started { conversation_id: anchor, mode: "ask".into() })
+    Ok(Started { conversation_id: anchor, mode: mode.as_str().into() })
 }
 
 fn terminal(kind: &str) -> bool {
@@ -553,14 +621,53 @@ fn record_failure(writer: &mut LedgerWriter, cancelled: bool, error: &io::Error)
     let _ = writer.append(&event.kind, json!(event.payload), event.thread.as_deref());
 }
 
-fn run_turn(mut writer: LedgerWriter, mut command: Command, turn: Turn, flag: Arc<AtomicBool>, registered: Registered) {
-    // Released the moment the ledger's last record is written, so the next send is not told this turn still runs.
+fn flush_approvals(writer: &mut LedgerWriter, channel: &Channel, mission_id: &str) {
+    for recorded in channel.take_recorded_for(mission_id) {
+        let _ = writer.append_approval(&recorded.to_json());
+    }
+}
+
+fn run_turn(
+    mut writer: LedgerWriter,
+    mut command: Command,
+    turn: Turn,
+    flag: Arc<AtomicBool>,
+    registered: Registered,
+    runtime_name: String,
+    channel: std::sync::Arc<Channel>,
+    _bridge: Option<crate::runtime::permission_bridge::Bridge>,
+) {
     let mut registered = Some(registered);
+    let mission_id = turn.mission_id.clone();
+    let finish = |writer: &mut LedgerWriter, registered: &mut Option<Registered>, channel: &Channel, mission_id: &str| {
+        flush_approvals(writer, channel, mission_id);
+        channel.release(mission_id);
+        drop(registered.take());
+    };
+    if runtime_name == "claude" {
+        let mut runtime = match Claude::spawn(&mut command) {
+            Ok(r) => r.with_cancel(flag.clone()),
+            Err(e) => {
+                record_failure(&mut writer, false, &e);
+                return finish(&mut writer, &mut registered, &channel, &mission_id);
+            }
+        };
+        if let Err(e) = runtime.start(&turn) {
+            let cancelled = flag.load(Ordering::Relaxed);
+            if cancelled {
+                let _ = runtime.stop();
+            }
+            record_failure(&mut writer, cancelled, &e);
+            return finish(&mut writer, &mut registered, &channel, &mission_id);
+        }
+        drive_runtime(&mut runtime, &mut writer, &flag, &mut registered, &channel, &mission_id);
+        return;
+    }
     let mut runtime = match Codex::spawn(&mut command) {
         Ok(r) => r.with_cancel(flag.clone()),
         Err(e) => {
             record_failure(&mut writer, false, &e);
-            return drop(registered.take());
+            return finish(&mut writer, &mut registered, &channel, &mission_id);
         }
     };
     if let Err(e) = runtime.start(&turn) {
@@ -569,25 +676,43 @@ fn run_turn(mut writer: LedgerWriter, mut command: Command, turn: Turn, flag: Ar
             let _ = runtime.stop();
         }
         record_failure(&mut writer, cancelled, &e);
-        return drop(registered.take());
+        return finish(&mut writer, &mut registered, &channel, &mission_id);
     }
+    drive_runtime(&mut runtime, &mut writer, &flag, &mut registered, &channel, &mission_id);
+}
+
+fn drive_runtime(
+    runtime: &mut dyn Runtime,
+    writer: &mut LedgerWriter,
+    flag: &Arc<AtomicBool>,
+    registered: &mut Option<Registered>,
+    channel: &Channel,
+    mission_id: &str,
+) {
     let mut stopped = false;
     loop {
+        flush_approvals(writer, channel, mission_id);
         if !stopped && flag.load(Ordering::Relaxed) {
             stopped = true;
             let _ = runtime.stop();
         }
         match runtime.next_event() {
             Ok(Some(event)) => {
-                // An append that fails leaves the ledger as it is: nothing is retried, and the runtime is dropped.
-                if writer.append(&event.kind, event.payload, event.thread.as_deref()).is_err() || terminal(&event.kind) {
-                    return drop(registered.take());
+                let done = terminal(&event.kind);
+                if writer.append(&event.kind, event.payload, event.thread.as_deref()).is_err() || done {
+                    flush_approvals(writer, channel, mission_id);
+                    channel.release(mission_id);
+                    drop(registered.take());
+                    return;
                 }
             }
             Ok(None) => {}
             Err(e) => {
-                record_failure(&mut writer, stopped, &e);
-                return drop(registered.take());
+                record_failure(writer, stopped, &e);
+                flush_approvals(writer, channel, mission_id);
+                channel.release(mission_id);
+                drop(registered.take());
+                return;
             }
         }
     }

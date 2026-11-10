@@ -21,7 +21,11 @@ pub struct LedgerWriter {
     pub mission: String,
     pub run: String,
     pub route: String,
+    runtime: String,
+    /// Next `event.sequence` (1-based). Approvals do not consume this.
     sequence: u64,
+    /// Next `ledgerSequence` (created is 1; next record is 2).
+    ledger_seq: u64,
     poisoned: bool,
     bytes: u64,
 }
@@ -43,12 +47,37 @@ impl LedgerWriter {
         executable: &str,
         continues: Option<&Continuation>,
     ) -> io::Result<Self> {
+        Self::create_runtime(
+            store,
+            id,
+            prompt,
+            model,
+            executable,
+            "codex",
+            &["app-server".into()],
+            continues,
+        )
+    }
+    /// New mission for any runtime (`codex`, `claude`, …). Args are the CLI argv after the executable.
+    pub fn create_runtime(
+        store: &Store,
+        id: &str,
+        prompt: &str,
+        model: &str,
+        executable: &str,
+        runtime: &str,
+        args: &[String],
+        continues: Option<&Continuation>,
+    ) -> io::Result<Self> {
         if prompt.trim().is_empty() || prompt.contains('\0') || prompt.encode_utf16().count() > 8000
         {
             return Err(io::Error::other("Prompt must be nonempty text without NUL"));
         }
         if model.is_empty() || model.len() > 250 || model.contains('\0') {
             return Err(io::Error::other("Invalid model ID"));
+        }
+        if runtime != "codex" && runtime != "claude" {
+            return Err(io::Error::other("Unsupported runtime"));
         }
         // Validated before anything is created: a bad link leaves no empty ledger.
         if let Some(c) = continues {
@@ -63,14 +92,16 @@ impl LedgerWriter {
         // The directory is created and walked without following any symlink (`Store::create_new_file_in`), so the
         // ancestor race closes: no file is ever created through a swapped component.
         let file = open_checked(store, &path)?;
-        let route = format!("codex:{model}");
+        let route = format!("{runtime}:{model}");
         let mut writer = Self {
             file,
             path,
             mission: id.into(),
             run: format!("run_{id}"),
             route,
+            runtime: runtime.into(),
             sequence: 0,
+            ledger_seq: 2,
             poisoned: false,
             bytes: 0,
         };
@@ -83,10 +114,10 @@ impl LedgerWriter {
             link
         });
         let mut record = json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
-            "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":"codex","model":model,
+            "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":runtime,"model":model,
             "requestedRouteId":writer.route,"resolvedRouteId":writer.route,"cliVersion":null,"workspaceId":"native",
             "sandbox":"read-only","mode":"ask","executionPolicyVersion":1,"createdAt":at,
-            "command":{"executablePath":executable,"args":["app-server"]}
+            "command":{"executablePath":executable,"args":args}
         }});
         if let Some(link) = continuation {
             record["metadata"]["continuesFrom"] = link;
@@ -133,17 +164,36 @@ impl LedgerWriter {
         thread: Option<&str>,
     ) -> io::Result<Value> {
         let seq = self.sequence + 1;
+        let ledger = self.ledger_seq;
         let at = now();
         let mut event = json!({"id":format!("{}:app:{seq}",self.run),"runId":self.run,"missionId":self.mission,
-            "sequence":seq,"occurredAt":at,"sourceAdapter":"codex","requestedRouteId":self.route,"resolvedRouteId":self.route});
+            "sequence":seq,"occurredAt":at,"sourceAdapter":self.runtime,"requestedRouteId":self.route,"resolvedRouteId":self.route});
         if let Some(thread) = thread {
             event["runtimeThreadId"] = json!(thread);
         }
         event["type"] = json!(kind);
         event["payload"] = payload;
-        self.line(json!({"schemaVersion":27,"recordType":"mission.event","ledgerSequence":seq+1,"occurredAt":at,"event":event}))?;
+        self.line(json!({"schemaVersion":27,"recordType":"mission.event","ledgerSequence":ledger,"occurredAt":at,"event":event}))?;
         self.sequence = seq;
+        self.ledger_seq = ledger + 1;
         Ok(event)
+    }
+    /// `mission-store` appendApproval: a card the person answered (schema ≥ 20).
+    pub fn append_approval(&mut self, approval: &Value) -> io::Result<()> {
+        let ledger = self.ledger_seq;
+        let at = approval["occurredAt"]
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(now);
+        self.line(json!({
+            "schemaVersion": 27,
+            "recordType": "mission.approval",
+            "ledgerSequence": ledger,
+            "occurredAt": at,
+            "approval": approval,
+        }))?;
+        self.ledger_seq = ledger + 1;
+        Ok(())
     }
 }
 

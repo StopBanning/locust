@@ -21,17 +21,30 @@ fn executable(path: &Path) -> bool {
     }
 }
 pub fn find() -> io::Result<PathBuf> {
+    find_named("codex")
+}
+pub fn find_named(name: &str) -> io::Result<PathBuf> {
+    let file = if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_owned()
+    };
     let paths = std::env::var_os("PATH").unwrap_or_default();
     for dir in std::env::split_paths(&paths) {
         if !dir.is_absolute() {
             continue;
         }
-        let path = dir.join(if cfg!(windows) { "codex.exe" } else { "codex" });
+        let path = dir.join(&file);
         if executable(&path) {
             return Ok(path);
         }
     }
-    Err(io::Error::other(
-        "Codex was not found on PATH. Install the official Codex CLI and log in using Codex itself.",
-    ))
+    let label = match name {
+        "claude" => "Claude Code",
+        "codex" => "Codex",
+        other => other,
+    };
+    Err(io::Error::other(format!(
+        "{label} was not found on PATH. Install the official CLI and log in using the CLI itself."
+    )))
 }

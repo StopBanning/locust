@@ -102,12 +102,12 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Action approval/question cards, remembered answers and denial reasons | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts`, `main/approval-rule-store.ts` | **missing** | yes |
+| Action approval/question cards, remembered answers and denial reasons | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts`, `main/approval-rule-store.ts` | **partial** (M3b: Approve/Deny/Always card under the turn, ledger `mission.approval`, answer-after-end refused; no saved rules, no question form yet) | yes |
 | Command safety/reach guard and In short explanation | `main/command-guard.ts`, `shared/command-reach.ts`, `shared/command-plain.ts` | **missing** | yes |
 | Workspace boundary, outside attachments and agent-settings-folder confirmation | `main/permission-host.ts`, `main/attach-outside.ts`, `main/workspace-settings-change.ts` | **missing** | yes |
 | Connector/browser action permissions | `main/permission-host.ts`, `main/browser-host.ts` | **missing** | yes |
 | Saved approval rules list/remove/remove all | `renderer/src/components/SavedApprovalRules.tsx`, `main/approval-rule-store.ts` | **missing** | yes |
-| Ask/Plan/Auto/Approve each action and runtime-specific guarantees | `main/mission-mode.ts`, `main/permission-host.ts`, `renderer/src/components/WhatLocustCanStop.tsx` | **missing** | yes |
+| Ask/Plan/Auto/Approve each action and runtime-specific guarantees | `main/mission-mode.ts`, `main/permission-host.ts`, `renderer/src/components/WhatLocustCanStop.tsx` | **partial** (M3b: `codexAppServerPolicy` + Approve-each interactive for Codex/Claude control_request; Ask auto-declines; Claude permission bridge / full mode matrix later) | yes |
 | Scoped secret detection/redaction in memories, records and sharing | `shared/secrets.ts`, `main/mission-export.ts`, `main/memory-store.ts` | **missing** | yes |
 | Approval alerts on Board/sidebar/taskbar/phone/chat | `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/Sidebar.tsx`, `main/raised-approvals.ts`, `main/taskbar-attention.ts` | **missing** | yes |
 | Organization machine policy and spend limits | `main/organization-policy.ts`, `main/organization-spend.ts`, `shared/organization-policy.ts` | **missing** | yes |
