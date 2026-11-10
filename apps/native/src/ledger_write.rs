@@ -76,7 +76,7 @@ impl LedgerWriter {
         if model.is_empty() || model.len() > 250 || model.contains('\0') {
             return Err(io::Error::other("Invalid model ID"));
         }
-        if runtime != "codex" && runtime != "claude" {
+        if !matches!(runtime, "codex" | "claude" | "acp" | "opencode" | "kilo") {
             return Err(io::Error::other("Unsupported runtime"));
         }
         // Validated before anything is created: a bad link leaves no empty ledger.

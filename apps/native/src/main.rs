@@ -1345,7 +1345,7 @@ fn approval_card(s: &State, p: &Palette) -> El {
             text("Approval required — exact action").font(type_::TITLE).color(p.text).w_full().wrap(),
         )
         .child(
-            text(format!("{}{}", if card.runtime == "claude" { "Claude Code" } else { "Codex CLI" }, if card.cwd.is_none() { " · this workspace" } else { "" }))
+            text(format!("{}{}", match card.runtime.as_str() { "claude" => "Claude Code", "acp" => "ACP agent", "opencode" => "OpenCode", "kilo" => "Kilo", _ => "Codex CLI" }, if card.cwd.is_none() { " · this workspace" } else { "" }))
                 .font(type_::LABEL).color(p.muted).w_full().wrap_anywhere(),
         )
         .child(text(format!("Action: {}", card.summary)).font(type_::BODY).color(p.text).w_full().wrap())

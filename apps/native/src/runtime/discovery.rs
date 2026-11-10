@@ -24,6 +24,9 @@ pub fn find() -> io::Result<PathBuf> {
     find_named("codex")
 }
 pub fn find_named(name: &str) -> io::Result<PathBuf> {
+    if !name.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric()) || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b)) {
+        return Err(io::Error::other("Invalid executable command name"));
+    }
     let file = if cfg!(windows) {
         format!("{name}.exe")
     } else {

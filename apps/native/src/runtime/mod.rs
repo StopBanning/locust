@@ -1,9 +1,17 @@
 //! Runtime orchestration has no window or Electron dependency.
+pub mod acp;
+pub(crate) mod acp_events;
 pub mod claude;
 pub(crate) mod claude_events;
 pub mod codex;
 mod discovery;
 pub(crate) mod events;
+pub mod kilo;
+pub mod opencode;
+pub(crate) mod opencode_config;
+pub(crate) mod opencode_events;
+pub(crate) mod opencode_process;
+pub(crate) mod opencode_serve;
 use crate::approval::{Channel, Mode};
 use serde_json::Value;
 use std::{io, path::PathBuf, sync::Arc};
