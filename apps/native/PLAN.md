@@ -78,6 +78,8 @@ Each milestone has an exit test. A milestone is done when its test passes, not w
   - Ledger files are created by walking the path one directory at a time with `O_NOFOLLOW`, and `~/.codex` is
     refused.
   - Sage built it, Codec reviewed it, and all five review findings are fixed. 112 tests pass.
-  - Real check: turn 1 ran and its continuation's resume was accepted. Then Codex's usage limit ended the turn, and
-    the limit was recorded the way Electron records it. To finish: `cargo test --release real_codex_continue --
-    --ignored` once the limit resets, then use the window with Electron quit.
+  - Real check, first try: turn 1 ran and its continuation's resume was accepted. Then Codex's usage limit ended the
+    turn, and the limit was recorded the way Electron records it.
+  - Real check, 9 Nov evening: `real_codex_continue` passed. The continuation resumed the same Codex thread and
+    remembered a word from turn 1, chained by `continuesFrom`, in 9 s.
+  - Still to do: use the window with Electron quit.
