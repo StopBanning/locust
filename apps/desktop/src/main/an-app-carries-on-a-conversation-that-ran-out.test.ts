@@ -18,12 +18,12 @@ const ranOut = [{ type: 'route.limit_detected', payload: { kind: 'quota-exhauste
 const turn = (missionId: string, kind: string, over: Record<string, unknown> = {}) => ({ missionId, runId: `run_${missionId}`, startedBy: { kind }, prompt: 'Fix the drums in the mix', runtime: 'claude', model: 'claude-opus-5-5', phase: 'failed', events: ranOut, mode: 'ask', lastUpdatedAt: '2026-10-29T15:00:00.000Z', ...over }) as unknown as PublicRecoveredMission
 const model = (id: string, runtime: string, own = false) => ({ id, runtime, displayName: id.toUpperCase(), description: '', supportedEfforts: [], ...(own ? { own } : {}) }) as unknown as PublicModel
 const MODELS = [model('claude-opus-5-5', 'claude'), model('gpt-6.1-sol', 'codex'), model('my-local', 'codex', true)]
-function fixture(o: { seeAll?: boolean, ownMode?: boolean, turns?: Record<string, PublicRecoveredMission> } = {}) {
+function fixture(o: { seeAll?: boolean, ownMode?: boolean, turns?: Record<string, PublicRecoveredMission>, turnFolder?: (id: string) => Promise<string | undefined> } = {}) {
   const turns = o.turns ?? { mission_person: turn('mission_person', 'window'), mission_app: turn('mission_app', 'mcp') }
   const carryOn = vi.fn(async () => ({ ok: true as const, missionId: 'mission_next' }))
   const read = vi.fn(async (id: string): Promise<MissionReadResponse> => turns[id] === undefined ? { ok: false, error: { code: 'MISSION_UNAVAILABLE', message: 'no' } } as MissionReadResponse : { ok: true, data: { mission: turns[id]! } })
   const call = createLocustMcpTools({ teammates: async () => teammates, busy: () => false, start: vi.fn(), read, newest: async (id) => id, owner: async () => 'tm_wren', live: () => false, background: async () => [],
-    models: async () => MODELS, seeAll: () => o.seeAll ?? false, ownMode: () => o.ownMode ?? false, conversations: async () => Object.values(turns), carryOn })
+    models: async () => MODELS, seeAll: () => o.seeAll ?? false, ownMode: () => o.ownMode ?? false, conversations: async () => Object.values(turns), carryOn, turnFolder: o.turnFolder })
   return { call, carryOn }
 }
 const said = (result: { content: readonly { text: string }[] }): string => result.content[0]!.text
@@ -32,7 +32,7 @@ describe('an app carries on a conversation that ran out', () => {
   it('lists the person’s conversations only while they let it, saying which ran out', async () => {
     expect(said(await fixture().call('list_conversations', {}))).toMatch(/^Off: .*Let apps see your conversations/)
     const rows = JSON.parse(said(await fixture({ seeAll: true }).call('list_conversations', {})))
-    expect(rows[0]).toEqual({ conversation_id: 'mission_person', teammate: 'Wren', title: 'Fix the drums', started_by: 'the person', runtime: 'claude', model: 'claude-opus-5-5',
+    expect(rows[0]).toEqual({ conversation_id: 'mission_person', folder: null, teammate: 'Wren', title: 'Fix the drums', started_by: 'the person', runtime: 'claude', model: 'claude-opus-5-5',
       state: 'stopped: its plan ran out', can_carry_on: true, updated: '2026-10-29T15:00:00.000Z' })
   })
 
@@ -41,6 +41,13 @@ describe('an app carries on a conversation that ran out', () => {
     const result = await f.call('carry_on', { conversation_id: 'mission_person', runtime: 'codex', model: 'GPT-6.1-SOL' })
     expect(f.carryOn).toHaveBeenCalledWith('mission_person', { runtime: 'codex', model: 'gpt-6.1-sol' })
     expect(JSON.parse(said(result))).toEqual({ conversation_id: 'mission_next', runtime: 'codex', model: 'gpt-6.1-sol', mode: 'ask' })
+  })
+
+  it('reports the carried turn’s full working path even when no folder was named by the app', async () => {
+    const f = fixture({ seeAll: true, turnFolder: async id => id === 'mission_next' ? '/work/conversation' : '/work/old' })
+    const result = await f.call('carry_on', { conversation_id: 'mission_person', runtime: 'codex' })
+    expect(JSON.parse(said(result))).toMatchObject({ folder: '/work/conversation' })
+    expect(JSON.parse(said(await f.call('list_conversations', {})))[0].folder).toBe('/work/old')
   })
 
   it('carries on its own conversations with the switch off, and never the person’s', async () => {

@@ -102,12 +102,12 @@ describe('an app picks a model for one turn', () => {
     expect(f.start).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'ask' }), { kind: 'mcp' })
   })
 
-  it('says which folder its turns work in, by name only', async () => {
+  it('says which folder its turns work in, as a full path', async () => {
     const f = fixture()
     const named = createLocustMcpTools({ teammates: async () => teammates, busy: () => false, start: f.start, read: async () => ({ ok: true, data: { mission } }), newest: async (id) => id, owner: async () => 'tm_wren', live: () => false, background: async () => [], folder: () => 'now-coding' })
     expect(JSON.parse(said(await named('list_teammates', {})))[0]).toMatchObject({ name: 'Wren', folder: 'now-coding' })
     expect(JSON.parse(said(await named('start_conversation', { teammate: 'Wren', message: 'Go.' })))).toMatchObject({ folder: 'now-coding' })
-    expect(read('./index.ts')).toContain('folder: () => (workspaceChosen ? basename(workspacePath) : undefined)')
+    expect(read('./index.ts')).toContain('folder: () => (workspaceChosen ? workspacePath : undefined)')
   })
 
   it('takes the same choice when a conversation goes on', async () => {

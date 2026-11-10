@@ -5,6 +5,7 @@ import { carryOnPrompt, carryOnReason, carryOnRefusal } from '../shared/carry-on
 import type { MissionMode } from '../shared/ipc.js'
 import type { CarryOnReason, CarryOnResponse, CarryOnRoute, PlanRunsOut } from '../shared/carry-on.js'
 import { runtimeDisplayName } from '../shared/runtimes.js'
+import { conversationFolder } from './conversation-folder.js'
 
 /**
  * CARRYING THE WORK ON WHEN A PLAN RUNS OUT (0.774, shared/carry-on.ts).
@@ -32,6 +33,8 @@ export interface CarryOnStart {
   readonly followUpOf: string
   /** The agent whose plan ran out. */
   readonly from: MissionRuntimeId
+  /** The folder an app named for this conversation (0.872, conversation-folder.ts): the carried turn stands there. */
+  readonly folder?: string
 }
 
 export interface CarryOnOptions {
@@ -55,7 +58,7 @@ export interface CarryOn {
 
 /**
  * Why a run that stopped can be carried on, if it can: its plan ran out, or its provider failed before it did
- * anything. A run that finished or was stopped by the person is never carried on.
+ * anything, or its process/protocol failed. A run that finished or was stopped by the person is never carried on.
  */
 export function stoppedFor(mission: Pick<RecoveredMission, 'phase' | 'events'>): CarryOnReason | undefined {
   if (mission.phase === 'completed' || mission.phase === 'cancelled') return undefined
@@ -96,7 +99,7 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     }
     if (recovered === undefined) return { ok: false, message: 'This conversation is not in the record any more, so it cannot be carried on.' }
     const reason = stoppedFor(recovered)
-    if (reason === undefined) return { ok: false, message: 'This turn did not stop on its plan running out or its provider failing, so there is nothing to carry on.' }
+    if (reason === undefined) return { ok: false, message: 'This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.' }
     const from = recovered.metadata.runtime
     if (route.runtime === from) return { ok: false, message: reason === 'plan' ? `${runtimeDisplayName(from)} is the agent whose plan ran out.` : `${runtimeDisplayName(from)} is the agent that just failed.` }
     const mode = modeOf(recovered)
@@ -106,7 +109,8 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     remember(missionId)
     let response: CarryOnResponse
     try {
-      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from })
+      const folder = conversationFolder(recovered.metadata.startedBy)
+      response = await options.start({ prompt: carryOnPrompt(from, reason), runtime: route.runtime, model: route.model, mode, followUpOf: missionId, from, ...(folder === undefined ? {} : { folder }) })
     } catch {
       response = { ok: false, message: 'The turn could not be started. The work stays where it stopped.' }
     }
@@ -140,7 +144,9 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
           mission.missionId,
           reason === 'plan'
             ? `${name} is the agent picked to carry on when a plan runs out, and its own plan ran out, so nothing was carried on.`
-            : `${name} is the agent picked to carry on, and it is the one whose provider failed, so nothing was carried on.`
+            : reason === 'process'
+              ? `${name} is the agent picked to carry on, and its own process failed, so nothing was carried on.`
+              : `${name} is the agent picked to carry on, and it is the one whose provider failed, so nothing was carried on.`
         )
         return
       }

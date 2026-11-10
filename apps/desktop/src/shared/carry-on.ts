@@ -34,7 +34,7 @@ export interface CarryOnRoute {
 }
 
 export type CarryOnResponse =
-  | { readonly ok: true; readonly missionId: string }
+  | { readonly ok: true; readonly missionId: string; /** The folder an app named for the conversation, worked in again (0.872). */ readonly folder?: string }
   | { readonly ok: false; readonly message: string }
 
 /**
@@ -77,7 +77,7 @@ const PROVIDER_TROUBLE_PATTERNS = [
   /\bconnection (?:refused|reset|error|timed out)\b/i
 ] as const
 
-export type CarryOnReason = 'plan' | 'provider'
+export type CarryOnReason = 'plan' | 'provider' | 'process'
 
 /** The last line the runtime wrote to stderr, which is where a CLI that died on the network says so. */
 function lastLine(text: unknown): string {
@@ -104,10 +104,16 @@ export function providerFailedFirst(events: readonly { readonly type: string; re
   return said.some((text) => PROVIDER_TROUBLE_PATTERNS.some((pattern) => pattern.test(text)))
 }
 
-/** Why a stopped turn can be carried on to another agent, if it can: its plan ran out, or its provider failed first. */
+/** One carry-on decision for the window and door: plan, provider before tools, or a crashed process/protocol. */
 export function carryOnReason(events: readonly { readonly type: string; readonly payload?: unknown }[]): CarryOnReason | undefined {
+  const terminal = events.findLast(event => event.type === 'run.failed' || event.type === 'run.completed' || event.type === 'run.cancelled')
+  const payload = terminal?.payload as { kind?: string; message?: string } | undefined
+  // Some adapters describe a host permission refusal as process-failed. That is not a crashed process.
+  const refused = payload?.kind === 'safety-blocked' || /(?:refusal|refused to|request (?:was )?refused|safety|not allow|does not allow|denied|outside the folder)/i.test(payload?.message ?? '')
+  if (terminal?.type === 'run.completed' || terminal?.type === 'run.cancelled' || refused) return undefined
   if (planRanOut(events)) return 'plan'
-  return providerFailedFirst(events) ? 'provider' : undefined
+  if (providerFailedFirst(events)) return 'provider'
+  return terminal?.type === 'run.failed' && (payload?.kind === 'process-failed' || payload?.kind === 'protocol-mismatch') ? 'process' : undefined
 }
 
 /** Only a known agent that can run a turn; anything else is no choice at all. */
@@ -159,6 +165,7 @@ export function carryOnRefusal(mode: MissionMode, to: MissionRuntimeId): string 
 
 /** The carried-on turn's instruction, under the summary of what was done. Locust's words, never shown as the person's. */
 export function carryOnPrompt(from: MissionRuntimeId, reason: CarryOnReason = 'plan'): string {
+  if (reason === 'process') return `${runtimeDisplayName(from)} stopped because its process failed. Carry on from the recorded work. Reconcile any action without a confirmed result using receipts and idempotency keys before proceeding; never retry an irreversible action with an uncertain result.`
   if (reason === 'provider') {
     return `${runtimeDisplayName(from)} stopped on an error from its provider before it did anything. Do the task from the start, the way the task asks.`
   }

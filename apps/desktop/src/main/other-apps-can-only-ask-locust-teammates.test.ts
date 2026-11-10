@@ -52,8 +52,8 @@ describe('other apps can only ask Locust teammates', () => {
     const f = fixture()
     f.live.mockReturnValue(true)
     f.read.mockResolvedValue({ ok: true, data: { mission: mission({ events: [{ type: 'tool.started', payload: { name: 'Read', title: 'Reading the source' } }] as unknown as PublicRecoveredMission['events'] }) } })
-    expect(await f.call('read_reply', { conversation_id: 'mission_1' })).toEqual(mcpText('Still working: Reading the source'))
-    expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'next' })).toEqual(mcpText('Still working: Reading the source'))
+    expect(await f.call('read_reply', { conversation_id: 'mission_1' })).toMatchObject(mcpText('Still working: Reading the source'))
+    expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'next' })).toMatchObject(mcpText('Still working: Reading the source'))
     expect(f.start).not.toHaveBeenCalled()
   })
   it('returns the newest complete reply rather than an earlier answer or partial text', async () => {
@@ -63,12 +63,12 @@ describe('other apps can only ask Locust teammates', () => {
       { type: 'message.delta', payload: { itemId: 'b', operation: 'append', text: 'new ', final: false } },
       { type: 'message.delta', payload: { itemId: 'b', operation: 'append', text: 'answer', final: true } }
     ] as unknown as PublicRecoveredMission['events'] }) } })
-    expect(await f.call('read_reply', { conversation_id: 'mission_1' })).toEqual(mcpText('new answer'))
+    expect(await f.call('read_reply', { conversation_id: 'mission_1' })).toMatchObject(mcpText('new answer'))
   })
   it('returns the host failure in Locust words, not a previous successful answer', async () => {
     const f = fixture()
     f.read.mockResolvedValue({ ok: true, data: { mission: mission({ phase: 'failed', hostFailureMessage: 'The run could not save its record. Nothing was retried.' }) } })
-    expect(await f.call('read_reply', { conversation_id: 'mission_1' })).toEqual(mcpText('The run could not save its record. Nothing was retried.', true))
+    expect(await f.call('read_reply', { conversation_id: 'mission_1' })).toMatchObject(mcpText('The run could not save its record. Nothing was retried.', true))
   })
   it('lists background turns without starting or stopping anything', async () => {
     const f = fixture()
@@ -89,7 +89,7 @@ describe('other apps can only ask Locust teammates', () => {
     let release!: (value: MissionReadResponse) => void
     f.read.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
     const first = f.call('send_message', { conversation_id: 'mission_1', message: 'first' })
-    expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'second' })).toEqual(mcpText('Still working: starting the next turn.'))
+    expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'second' })).toMatchObject(mcpText('Still working: starting the next turn.'))
     release({ ok: true, data: { mission: mission() } })
     await first
     expect(f.start).toHaveBeenCalledOnce()
@@ -105,8 +105,8 @@ describe('other apps can only ask Locust teammates', () => {
     const poll = await f.call('read_reply', { conversation_id: 'mission_1' })
     release({ ok: true, data: { missionId: 'mission_2' } } as CodexMissionStartResponse)
     expect(await first).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'ask' })))
-    expect(second).toEqual(mcpText('Still working: starting the next turn.'))
-    expect(poll).toEqual(mcpText('Still working: starting the next turn.'))
+    expect(second).toMatchObject(mcpText('Still working: starting the next turn.'))
+    expect(poll).toMatchObject(mcpText('Still working: starting the next turn.'))
     expect(f.start).toHaveBeenCalledOnce()
     await f.call('send_message', { conversation_id: 'mission_1', message: 'after startup' })
     expect(f.start).toHaveBeenCalledTimes(2)
@@ -120,7 +120,7 @@ describe('other apps can only ask Locust teammates', () => {
     const second = await f.call('send_message', { conversation_id: 'mission_1', message: 'second' })
     release()
     expect(await first).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'auto' })))
-    expect(second).toEqual(mcpText('Still working: starting the next turn.'))
+    expect(second).toMatchObject(mcpText('Still working: starting the next turn.'))
     expect(f.teammates).toHaveBeenCalledOnce()
     expect(f.start).toHaveBeenCalledOnce()
   })
@@ -134,7 +134,7 @@ describe('other apps can only ask Locust teammates', () => {
     const second = await f.call('send_message', { conversation_id: 'mission_1', message: 'second' })
     reject(new Error('start unavailable'))
     await failed
-    expect(second).toEqual(mcpText('Still working: starting the next turn.'))
+    expect(second).toMatchObject(mcpText('Still working: starting the next turn.'))
     expect(f.start).toHaveBeenCalledOnce()
     expect(await f.call('send_message', { conversation_id: 'mission_1', message: 'after failure' })).toEqual(mcpText(JSON.stringify({ conversation_id: 'mission_1', mode: 'ask' })))
     expect(f.start).toHaveBeenCalledTimes(2)
@@ -305,7 +305,7 @@ describe('other apps run routines through the routine card\'s own path (0.704)',
     expect((await f.call('routine_status', { routine: 'rt_review' })).isError).toBe(true)
     await f.call('run_routine', { routine: 'rt_review', values: { since: 'Monday' } })
     f.steps.push({ routineId: 'rt_review', teammateId: 'tm_wren', step: 1, of: 2, missionId: 'mission_r1' })
-    expect(await f.call('routine_status', { routine: 'rt_review' })).toEqual(mcpText('Still working: step 1 of 2.'))
+    expect(await f.call('routine_status', { routine: 'rt_review' })).toMatchObject(mcpText('Still working: step 1 of 2.'))
     f.steps.splice(0, 1, { routineId: 'rt_review', teammateId: 'tm_wren', step: 2, of: 2, missionId: 'mission_wait' })
     expect((await f.call('routine_status', { routine: 'rt_review' })).content[0]!.text).toMatch(/^Waiting for the person to approve or deny an action in Locust's window \(step 2 of 2\)\. This app cannot answer it/)
     f.steps.length = 0

@@ -782,3 +782,48 @@ Entries since 2026-10-03, newest first. Earlier entries (2026-08-30 to
   one's git common dir. It is recorded as `startedBy.folder` on the mcp starter (older readers ignore it). The turn
   stands there in place of the teammate's folder or worktree, and follow-ups reuse it after checking it again.
 - With no mode named, a follow-up keeps the conversation's own last mode, not the teammate's saved one.
+
+## Door follow-ups and crashed turns (2026-11-10)
+
+- MCP follow-ups use the newest turn's resolved runtime, model, account and available effort through
+  `routeOfTurnOrRecord`, with `routeOverrideFor` and `keepSavedRoute`; a carry-on never changes the teammate's default.
+  Explicit model choices are checked against the conversation's runtime. Start replies name the resolved runtime/model.
+- The window and MCP share `carryOnReason`: a process failure or protocol mismatch offers `process`, even after tools
+  ran. Completed, person-cancelled, safety-blocked and host permission-refused turns are excluded. The carry-on brief
+  requires reconciliation from receipts and idempotency keys and forbids retrying an irreversible action with an
+  uncertain result. This adds no automatic retry path; the existing chosen-agent/Without asking policy still applies.
+- `read_reply` retains its text and adds MCP `structuredContent`: status (`working`, `waiting_for_person`, `done`,
+  `failed`, `stopped`), runtime, model, folder and can_carry_on. Unknown values during startup are null. Remote MCP,
+  the desk and relay forward the result body intact; the remote/relay integration test covers the structured fields.
+- Command metadata optionally records `cwd`, the actual launch directory, without changing older records. The door
+  uses it for full-path folder receipts, then a recorded conversation folder, then the known project path for older
+  turns. Old records without an actual cwd cannot reconstruct a former teammate worktree with certainty.
+- Cursor's terminal `result` repeats its streamed answer. Before the runner's existing caps, a Cursor-only streaming
+  projection bounds JSON strings to 64 Ki characters while retaining terminal fields after them. Ordinary tool records
+  keep their 256 KiB cap and stand-ins; the result's 8 MiB cap and queue overflow checks remain. Recorded Cursor fixtures
+  establish the type-first result shape. A controlled 9 MiB result proves success/failure survive in chunks without a
+  trailing newline; this does not establish the cause of the two reported live Cursor incidents.
+- Branch: `exec/door-carry-on-follow-ups`, base `f2a07ef5`. Regression controls: `_tools/control-door-follow-ups.mjs`.
+- Validation: full gate exit 0 (1,087 adapter, 171 mission-store, 32 CLI and 13,224 desktop tests passed;
+  9 adapter and 18 desktop tests skipped), both desktop TypeScript configs and app bundle passed. All five negative
+  controls caught their named assertions; restored focused suites passed 16 desktop tests and the Cursor regression.
+  `git diff --check` passed. No live agent turn, desktop drive, packaging, push or release was run. The pre-existing
+  executable-bit change to `packages/cli/bin/locust.mjs` was left alone.
+
+## Claude Code's shown thinking (2026-11-10)
+
+- Corrected the adapter's 0.489 "timed and not kept" interpretation to follow AGENTS.md's existing 2026-09-16
+  decision: nonempty shown `thinking_delta.thinking` and whole assistant `thinking` text becomes the reasoning step's
+  `message`, with Cursor's secret scrubber and 16,384-character message bound. The existing thinking row renders it.
+- Captured Claude fixtures send whole thinking before `content_block_stop`; it refines the open step rather than
+  adding a duplicate. Whole-only shown blocks also produce a thinking step. The captures currently contain empty
+  thinking text (`thinking_display: updates`); nonempty text is covered by controlled records, not a new live run.
+- `redacted_thinking` stays timed only. Opaque data/signatures and raw thinking copies are excluded from evidence;
+  subagent thinking still stays out of the teammate's row. Other runtimes' reasoning policies were not changed.
+- Tests: `claude-thinking-is-kept-for-its-thinking-row.test.ts`, `claude-thinking-appears-in-the-thinking-row.test.tsx`;
+  five adapter mutation controls under the filter `Claude shown thinking`. Branch `exec/door-carry-on-follow-ups`,
+  based on `b4d04b4b`; no changelog, version or release changes.
+- Validation: full gate exit 0, including package and both desktop TypeScript checks and the app bundle; 1,095 adapter,
+  171 mission-store, 32 CLI and 13,227 desktop tests passed (9 adapter and 18 desktop tests skipped). The five named
+  mutation controls were caught. Focused adapter suites passed 78 tests; renderer suites passed 7. No live Claude
+  turn, desktop drive, packaging, push or release was run. The pre-existing CLI executable-bit change was preserved.

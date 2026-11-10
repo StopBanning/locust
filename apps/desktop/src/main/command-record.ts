@@ -30,6 +30,7 @@ const MAX_ARGUMENT_LENGTH = 512
 const MAX_ARGUMENTS = 64
 
 export interface RecordedCommand {
+  readonly cwd: string
   readonly executablePath: string
   /** The arguments as run, with the prompt replaced by `<prompt>`. */
   readonly args: readonly string[]
@@ -60,5 +61,5 @@ export function recordableCommand(spec: RuntimeCommandSpec, prompt: string): Rec
   if (spec.args.length > MAX_ARGUMENTS) {
     args.push(`… ${String(spec.args.length - MAX_ARGUMENTS)} more`)
   }
-  return { executablePath: spec.executablePath, args }
+  return { executablePath: spec.executablePath, args, cwd: spec.cwd }
 }

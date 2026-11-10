@@ -38,6 +38,7 @@ import { createTalkShortcut, type TalkShortcut } from './talk-shortcut.js'
 import { createScout, type Scout } from './scout.js'
 import { createScoutFixes, type ScoutFixes } from './scout-fix.js'
 import { folderMarkOf } from './scout-folder.js'
+import { asksScout } from './asking-scout.js'
 import { readScoutGithub, type ScoutGithubUnread } from './scout-github.js'
 import { createScoutAway, SCOUT_AWAY_FILE, type ScoutAwayRelay } from './scout-away.js'
 import { phoneScoutCards } from './phone-scout-cards.js'
@@ -188,6 +189,7 @@ import { QUEUED_MESSAGES_READ_CHANNEL, QUEUED_MESSAGES_WRITE_CHANNEL } from '../
 import { createBriefSessions } from './brief-sessions.js'
 import { createRunEnd } from './run-end.js'
 import { createCarryOn, type CarryOn } from './carry-on.js'
+import { conversationFolder } from './conversation-folder.js'
 import { createCheckFix, type CheckFix } from './check-fix.js'
 import { parsedCheckFixTries } from '../shared/check-fix.js'
 import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
@@ -4294,7 +4296,25 @@ if (!ownsSingleInstanceLock) {
           return { ok: false, message: 'Antigravity carries work on only through its command line, and it is not installed.' }
         }
         const owner = (await teammates.missionOwners().catch(() => ({} as Readonly<Record<string, string>>)))[input.followUpOf]
-        const peer = owner === undefined ? undefined : await peerContextFor(owner)
+        const standing = owner === undefined ? undefined : await peerContextFor(owner)
+        /*
+         * A CONVERSATION AN APP SENT TO A FOLDER (0.872, conversation-folder.ts) is carried on in that folder, checked
+         * again as an app's follow-up is (it may be gone), and the carried turn records it for the turns after it.
+         */
+        let folder: string | undefined
+        if (input.folder !== undefined) {
+          const checked = await checkAppFolder(input.folder, {
+            known: async () => [...(await workedInFolders()), ...(await teammateFolders())],
+            commonDir: async at => { const dir = (await gitText(ownGitArgs(['rev-parse', '--path-format=absolute', '--git-common-dir']), at)).trim(); return dir.length > 0 ? dir : undefined }
+          })
+          if ('refused' in checked) return { ok: false, message: `This conversation worked in ${input.folder}: ${checked.refused}` }
+          if (standing === undefined) return { ok: false, message: `Locust could not set this teammate up in ${input.folder}.` }
+          folder = checked.path
+        }
+        const peer = folder === undefined || standing === undefined
+          ? standing
+          : { ...standing, cwd: folder, repositoryRoot: undefined, worktreeRefused: undefined } as MissionPeerContext
+        const starter = { kind: 'carry-on' as const, from: input.from, ...(folder === undefined ? {} : { folder }) }
         const wasHub = owner !== undefined && (await teammates.list().catch(() => [])).find((entry) => entry.teammateId === owner)?.hubMissionId === input.followUpOf
         const response = await codexMissions.start(
           input.prompt,
@@ -4306,7 +4326,7 @@ if (!ownsSingleInstanceLock) {
           peer,
           input.followUpOf,
           undefined,
-          { kind: 'carry-on', from: input.from }
+          starter
         )
         if (!response.ok) return { ok: false, message: response.error.message }
         await assignOwner(owner, response.data.missionId)
@@ -4318,10 +4338,11 @@ if (!ownsSingleInstanceLock) {
           ...(owner === undefined ? {} : { teammateId: owner }),
           prompt: input.prompt,
           data: response.data,
-          startedBy: { kind: 'carry-on', from: input.from },
+          startedBy: starter,
           ...(wasHub ? { hubMissionId: response.data.missionId } : {})
         })
-        return { ok: true, missionId: response.data.missionId }
+        const recorded = await missionLedger.getMission(response.data.missionId).catch(() => undefined)
+        return { ok: true, missionId: response.data.missionId, folder: recorded?.metadata.command?.cwd ?? folder ?? peer?.cwd ?? workspacePath }
       }
     })
     ipcMain.handle(CARRY_ON_CHANNEL, async (event, missionId: unknown, route: unknown) => {
@@ -10024,7 +10045,8 @@ if (!ownsSingleInstanceLock) {
       // wrote it down, which is what a live drive found and the unit tests
       // could not.
       // A question to Scout (0.828): always in Ask, which is what holds a sealed turn on every runtime but OpenCode.
-      const askingScout = typeof payload.teammateId === 'string' && payload.teammateId === await scout?.teammateId().catch(() => undefined)
+      // Not an app's own work sent through the MCP door (0.872, asking-scout.ts): that runs as any teammate's turn.
+      const askingScout = asksScout(payload.teammateId, await scout?.teammateId().catch(() => undefined), startedBy)
       const mode = askingScout ? 'ask' : parsedMissionMode(payload.mode)
       /*
        * Validated BEFORE the peer context is built, because building it has
@@ -10048,6 +10070,10 @@ if (!ownsSingleInstanceLock) {
        * the turn as `startedBy.folder`. The turn stands there in place of the teammate's own folder or worktree.
        */
       const appFolder = startedBy?.kind === 'mcp' ? startedBy.folder : undefined
+      // Never run somewhere else while the door says the turn ran in the folder it named (0.872).
+      if (appFolder !== undefined && standing === undefined) {
+        return { ok: false, error: { code: 'RUNTIME_START_FAILED', message: `Locust could not set this teammate up in ${appFolder}.` } } as const
+      }
       const peer = appFolder === undefined || standing === undefined
         ? standing
         : { ...standing, cwd: appFolder, repositoryRoot: undefined, worktreeRefused: undefined } as MissionPeerContext
@@ -10373,8 +10399,13 @@ if (!ownsSingleInstanceLock) {
       routineLastStep: id => routineLastStep.get(id),
       // A model and effort another app asks for, checked against the window's own list (0.842).
       models: async () => { const read = await readModelCatalog(); return read.ok ? read.data.models : [] },
-      // Where every turn works, by the folder's name alone: never the path above it (0.842).
-      folder: () => (workspaceChosen ? basename(workspacePath) : undefined),
+      // Full paths are part of the MCP receipt; a turn's command records where it actually stood.
+      folder: () => (workspaceChosen ? workspacePath : undefined),
+      turnFolder: async id => {
+        const turn = await missionLedger.getMission(id).catch(() => undefined)
+        return turn === undefined ? undefined : turn.metadata.command?.cwd ?? conversationFolder(turn.metadata.startedBy) ?? workableFolderOf(turn.metadata.workspaceId)
+      },
+      followUpRoute: id => routeOfTurnOrRecord(id, 'ask'),
       // The window's own Stop, for a turn an app started (0.842).
       cancel: runId => codexMissions.cancel(runId).ok || antigravityMissions.cancel(runId),
       // The person's own conversations too, only while their switch is on (0.842).

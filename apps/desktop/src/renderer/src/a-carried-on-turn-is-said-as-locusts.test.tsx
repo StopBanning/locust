@@ -22,7 +22,7 @@ const ranOut: NormalizedRuntimeEvent[] = [
     } } } as unknown as NormalizedRuntimeEvent
 ]
 
-const render = (carryOn: { readonly label: string; readonly busy: boolean; readonly refused?: string; readonly why?: 'plan' | 'provider' }): string => renderToStaticMarkup(
+const render = (carryOn: { readonly label: string; readonly busy: boolean; readonly refused?: string; readonly why?: 'plan' | 'provider' | 'process' }): string => renderToStaticMarkup(
   <Thread prompt="Write the release notes" onOpenPeerRun={() => undefined} earlierTurns={[]} events={ranOut}
     running={false} restoredMission={undefined} error="You've hit your usage limit." errorIsPersistence={false} startedAt={undefined}
     approvals={[]} onDecide={() => undefined} onAnswerQuestion={() => undefined} decidingIds={[]} cancelled={false}
@@ -50,6 +50,15 @@ describe('a carried-on turn is said as Locust\'s', () => {
     const html = render({ label: 'Carry on with Claude Code', busy: false, why: 'provider' })
     expect(html).toContain('stopped on an error before it did anything, so another agent can do the task from the start.')
     expect(html).not.toContain('ran out of its plan')
+  })
+
+  it('names a process crash on the card and seam, and asks the next agent to reconcile unfinished actions', () => {
+    const html = render({ label: 'Carry on with Claude Code', busy: false, why: 'process' })
+    expect(html).toContain('stopped because its process failed.')
+    expect(html).toContain('reconcile unfinished actions')
+    const seam = renderToStaticMarkup(<HandoffDivider from="codex" to="claude" at="14:05" unsettledCount={1} omittedBriefing={[]} carriedOn carriedFor="process" />)
+    expect(seam).toContain('process failed, so Locust carried the work on')
+    expect(seam).toContain('was told to check it')
   })
 
   it('the stopped run offers one press that names the agent, and says why a press was refused', () => {

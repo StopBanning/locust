@@ -51,13 +51,13 @@ describe("Claude: what a step printed", () => {
   });
 });
 
-describe("Claude: thinking, timed and not kept", () => {
-  it("opens and closes a reasoning step around a thinking block, with no text", () => {
+describe("Claude: thinking, timed and kept", () => {
+  it("opens and closes a reasoning step around a thinking block, with its shown text", () => {
     const claude = createClaudeEventNormalizer({ runId: "run_1", now: () => new Date(NOW) });
     const events = [
       ...claude.accept(record({ type: "stream_event", event: { type: "message_start", message: { id: "msg_1", usage: {} } } })),
       ...claude.accept(record({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "thinking", thinking: "" } } })),
-      ...claude.accept(record({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "private words" } } })),
+      ...claude.accept(record({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "shown words" } } })),
       ...claude.accept(record({ type: "stream_event", event: { type: "content_block_stop", index: 0 } })),
     ];
     const steps = events.filter((event) => (event.type === "step.started" || event.type === "step.completed") && payload<{ stepKind: string }>(event).stepKind === "reasoning");
@@ -65,7 +65,7 @@ describe("Claude: thinking, timed and not kept", () => {
       ["step.started", "reasoning"],
       ["step.completed", "reasoning"],
     ]);
-    expect(JSON.stringify(events)).not.toContain("private words");
+    expect(steps.at(-1)?.payload).toMatchObject({ message: "shown words" });
   });
 });
 

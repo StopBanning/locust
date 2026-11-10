@@ -19,6 +19,7 @@ describe('the command the host records', () => {
       spec(['/d', '/s', '/c', 'copilot.cmd', '--output-format', 'json', '--deny-tool=write,shell']),
       'Edit the file'
     )
+    expect(recorded.cwd).toBe('C:\\work')
     expect(recorded.args).toContain('--deny-tool=write,shell')
     expect(recorded.args).toContain('--output-format')
     expect(recorded.executablePath).toBe('C:\\Windows\\System32\\cmd.exe')
