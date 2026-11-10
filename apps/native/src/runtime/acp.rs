@@ -1,9 +1,10 @@
 //! Agent Client Protocol over stdio: acp-run.ts, with no filesystem or terminal offer.
+use super::process::kill;
 use super::{Event, Runtime, Turn, acp_events::AcpNormalizer};
 use serde_json::{Value, json};
 use std::{
     collections::VecDeque,
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, BufReader, Read, Write},
     path::Path,
     process::{Child, Command, Stdio},
     sync::{
@@ -16,12 +17,7 @@ use std::{
 fn err(s: impl ToString) -> io::Error {
     io::Error::other(s.to_string())
 }
-fn kill(pid: u32) {
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(-(pid as i32), libc::SIGKILL);
-    }
-}
+
 /// commandWords: double quotes group arguments; no shell is ever invoked.
 pub fn command_words(line: &str) -> io::Result<Vec<String>> {
     let mut words = vec![];
@@ -129,15 +125,14 @@ pub fn command(profile: &Path, folder: &Path, route: Option<&str>) -> io::Result
         };
         let mut c = Command::new(path);
         c.args(&words[1..]).current_dir(folder);
-        if let Some((_, model)) = route.split_once("::").filter(|(_, m)| !m.is_empty()) {
-            if let Some(option) = a["answer"]["modelOption"]["id"]
+        if let Some((_, model)) = route.split_once("::").filter(|(_, m)| !m.is_empty())
+            && let Some(option) = a["answer"]["modelOption"]["id"]
                 .as_str()
                 .filter(|s| !s.trim().is_empty() && s.len() <= 2048)
-            {
-                // Host-only metadata removed before spawning; not a flag or an agent environment key.
-                c.env("LOCUST_NATIVE_ACP_MODEL_OPTION", option)
-                    .env("LOCUST_NATIVE_ACP_MODEL_VALUE", model);
-            }
+        {
+            // Host-only metadata removed before spawning; not a flag or an agent environment key.
+            c.env("LOCUST_NATIVE_ACP_MODEL_OPTION", option)
+                .env("LOCUST_NATIVE_ACP_MODEL_VALUE", model);
         }
         return Ok(c);
     }
@@ -147,7 +142,7 @@ pub fn command(profile: &Path, folder: &Path, route: Option<&str>) -> io::Result
 #[derive(Clone)]
 pub(crate) struct Profile {
     pub runtime: String,
-    pub required: Vec<(String,String)>,
+    pub required: Vec<(String, String)>,
     pub strict: bool,
     pub deadline: Option<Instant>,
     pub named: bool,
@@ -156,7 +151,14 @@ pub(crate) struct Profile {
 }
 impl Default for Profile {
     fn default() -> Self {
-        Self { runtime: String::new(), required: vec![], strict: false, deadline: None, named: false, host_permissions: true }
+        Self {
+            runtime: String::new(),
+            required: vec![],
+            strict: false,
+            deadline: None,
+            named: false,
+            host_permissions: true,
+        }
     }
 }
 pub struct Acp {
@@ -200,41 +202,30 @@ impl Acp {
         command
             .env_remove("LOCUST_NATIVE_ACP_MODEL_OPTION")
             .env_remove("LOCUST_NATIVE_ACP_MODEL_VALUE");
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.process_group(0);
-        }
-        let mut child = command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut child = super::process::spawn(command, Stdio::piped(), Stdio::piped())?;
         let failure = Arc::new(Mutex::new(None));
         let gone = Arc::new(AtomicBool::new(false));
         let closed = Arc::new(AtomicBool::new(false));
-        let stderr = Arc::new(Mutex::new(String::new()));
-        let tail = stderr.clone();
-        let mut error_pipe = child.stderr.take().unwrap();
-        std::thread::spawn(move || {
-            let mut bytes = [0u8; 8192];
-            while let Ok(n) = error_pipe.read(&mut bytes) {
-                if n == 0 {
-                    break;
-                }
-                let mut held = tail.lock().unwrap();
-                held.push_str(&String::from_utf8_lossy(&bytes[..n]));
-                *held = super::events::text(&held, 16384);
-            }
-        });
-        let mut stdin = child.stdin.take().unwrap();
+        let stderr = super::process::stderr_tail(
+            child
+                .stderr
+                .take()
+                // Invariant: spawn configured this pipe and it has not been taken.
+                .expect("spawn configured this pipe and it has not been taken"),
+        );
+        // spawn configured a piped stdin; no prior take occurs.
+        let mut stdin = child
+            .stdin
+            .take()
+            // Invariant: spawn configured this pipe and it has not been taken.
+            .expect("spawn configured this pipe and it has not been taken");
         let (input, writes) = mpsc::sync_channel::<Vec<u8>>(256);
         let fail = failure.clone();
         let pid = child.id();
         std::thread::spawn(move || {
             for bytes in writes {
                 if let Err(e) = stdin.write_all(&bytes).and_then(|_| stdin.flush()) {
-                    *fail.lock().unwrap() = Some(format!("ACP stdin failed: {e}"));
+                    *crate::invariants::lock(&fail) = Some(format!("ACP stdin failed: {e}"));
                     kill(pid);
                     break;
                 }
@@ -244,7 +235,11 @@ impl Acp {
         let answered = Arc::new(AtomicBool::new(false));
         let observed_prompt = prompt_id.clone();
         let observed_answer = answered.clone();
-        let stdout = child.stdout.take().unwrap();
+        let stdout = child
+            .stdout
+            .take()
+            // Invariant: spawn configured this pipe and it has not been taken.
+            .expect("spawn configured this pipe and it has not been taken");
         let (tx, lines) = mpsc::sync_channel(256);
         let fail = failure.clone();
         let dead = gone.clone();
@@ -252,10 +247,7 @@ impl Acp {
             let mut reader = BufReader::new(stdout);
             loop {
                 let mut line = vec![];
-                let record = match (&mut reader)
-                    .take(8 * 1024 * 1024 + 1)
-                    .read_until(b'\n', &mut line)
-                {
+                let record = match super::process::read_line(&mut reader, &mut line) {
                     Ok(0) => Err(err(
                         "The agent's output stream closed before its turn finished.",
                     )),
@@ -282,7 +274,7 @@ impl Acp {
                 match tx.try_send(record) {
                     Ok(()) => {}
                     Err(mpsc::TrySendError::Full(_)) => {
-                        *fail.lock().unwrap() =
+                        *crate::invariants::lock(&fail) =
                             Some("ACP notification queue overflow; run stopped".into());
                         dead.store(true, Ordering::Relaxed);
                         kill(pid);
@@ -324,17 +316,24 @@ impl Acp {
             prompt_started: None,
         })
     }
-    pub(crate) fn set_profile(&mut self, profile: Profile) {self.profile=profile;}
-    pub(crate) fn admitted(&self) -> bool {self.admitted}
-    pub(crate) fn confirm_exit(&mut self, timeout: Duration) -> bool {
-        let _guard=self.reap_lock.lock().unwrap();
-        self.closed.store(true,Ordering::Relaxed);kill(self.child.id());let _=self.child.kill();
-        let until=Instant::now()+timeout;
-        loop {match self.child.try_wait() {Ok(Some(_))=>{self.reaped=true;return true},Err(_)=>return false,_=>{}}
-            if Instant::now()>=until {return false;}std::thread::sleep(Duration::from_millis(10));}
+    pub(crate) fn set_profile(&mut self, profile: Profile) {
+        self.profile = profile;
     }
-    pub(crate) fn startup(&mut self, t: &Turn) -> io::Result<()> {self.begin(t)}
-    pub(crate) fn startup_failure(&mut self, message: &str) {self.finish("",Value::Null,Some(message));}
+    pub(crate) fn admitted(&self) -> bool {
+        self.admitted
+    }
+    pub(crate) fn confirm_exit(&mut self, timeout: Duration) -> bool {
+        let _guard = crate::invariants::lock(&self.reap_lock);
+        self.closed.store(true, Ordering::Relaxed);
+        kill(self.child.id());
+        let _ = self.child.kill();
+        self.reaped = super::process::confirm_exit(&mut self.child, timeout);
+        self.reaped
+    }
+    pub(crate) fn startup(&mut self, t: &Turn) -> io::Result<()> {
+        self.begin(t)
+    }
+
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
         self.cancel = Some(flag);
         self
@@ -354,20 +353,26 @@ impl Acp {
             .map_err(|_| err("ACP stdin queue unavailable"))
     }
     fn receive(&self) -> io::Result<Option<Value>> {
-        if let Some(e) = self.failure.lock().unwrap().clone() {
+        if let Some(e) = crate::invariants::lock(&self.failure).clone() {
             return Err(err(e));
         }
         match self.lines.recv_timeout(Duration::from_millis(50)) {
             Ok(v) => v.map(Some).map_err(|e| {
-                let tail = self.stderr.lock().unwrap();
+                let tail = crate::invariants::lock(&self.stderr);
                 if tail.trim().is_empty() {
-                    io::Error::new(io::ErrorKind::ConnectionAborted,e)
+                    io::Error::new(io::ErrorKind::ConnectionAborted, e)
                 } else {
-                    io::Error::new(io::ErrorKind::ConnectionAborted,format!("{e} {}", tail.trim()))
+                    io::Error::new(
+                        io::ErrorKind::ConnectionAborted,
+                        format!("{e} {}", tail.trim()),
+                    )
                 }
             }),
             Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
-            Err(_) => Err(io::Error::new(io::ErrorKind::ConnectionAborted,"ACP transport disconnected")),
+            Err(_) => Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                "ACP transport disconnected",
+            )),
         }
     }
     fn request(&mut self, method: &str, params: Value, deadline: Instant) -> io::Result<Value> {
@@ -416,27 +421,42 @@ impl Acp {
         if v["method"] != "session/request_permission" {
             return self.send(json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":"Locust offers this agent no files and no terminal."}}));
         }
-        let t = self.turn.as_ref().unwrap();
+        let t = self
+            .turn
+            .as_ref()
+            .ok_or_else(|| err("Turn has not started"))?;
         let params = &v["params"];
-        let allow = if self.profile.host_permissions && (!self.profile.named || t.mode==crate::approval::Mode::ApproveEach) { if let Some(ch) = &t.approvals {
-            let cancel = self.cancel.clone();
-            let gone = self.gone.clone();
-            let answered = self.answered.clone();
-            ch.ask_acp_runtime(
-                if self.profile.runtime.is_empty() {"acp"} else {&self.profile.runtime},
-                &t.run_id,
-                &t.mission_id,
-                params,
-                &t.folder.to_string_lossy(),
-                &|| {
-                    crate::run_cli::interrupted()
-                        || gone.load(Ordering::Relaxed)
-                        || answered.load(Ordering::Relaxed)
-                        || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
-                },
-            )
-            .unwrap_or(false)
-        } else {false} } else {t.mode==crate::approval::Mode::Auto};
+        let allow = if self.profile.host_permissions
+            && (!self.profile.named || t.mode == crate::approval::Mode::ApproveEach)
+        {
+            if let Some(ch) = &t.approvals {
+                let cancel = self.cancel.clone();
+                let gone = self.gone.clone();
+                let answered = self.answered.clone();
+                ch.ask_acp_runtime(
+                    if self.profile.runtime.is_empty() {
+                        "acp"
+                    } else {
+                        &self.profile.runtime
+                    },
+                    &t.run_id,
+                    &t.mission_id,
+                    params,
+                    &t.folder.to_string_lossy(),
+                    &|| {
+                        crate::run_cli::interrupted()
+                            || gone.load(Ordering::Relaxed)
+                            || answered.load(Ordering::Relaxed)
+                            || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
+                    },
+                )
+                .unwrap_or(false)
+            } else {
+                false
+            }
+        } else {
+            t.mode == crate::approval::Mode::Auto
+        };
         let chosen = params["options"]
             .as_array()
             .into_iter()
@@ -480,7 +500,7 @@ impl Acp {
         self.prompt_id.store(self.id, Ordering::Relaxed);
         self.answered.store(false, Ordering::Relaxed);
         self.declined = false;
-        self.admitted=true;
+        self.admitted = true;
         self.send(json!({"jsonrpc":"2.0","id":self.id,"method":"session/prompt","params":{"sessionId":self.normal.thread,"prompt":[{"type":"text","text":prompt}]}}))
     }
     fn prompt_result(&mut self, result: &Value) {
@@ -523,10 +543,10 @@ impl Acp {
         kill(self.child.id());
         let _ = self.child.kill();
         // Keep the child unreaped until Drop: its PID cannot be reused by the stop watchdog.
-        if let Some(t) = &self.turn {
-            if let Some(ch) = &t.approvals {
-                ch.release(&t.mission_id);
-            }
+        if let Some(t) = &self.turn
+            && let Some(ch) = &t.approvals
+        {
+            ch.release(&t.mission_id);
         }
     }
     fn begin(&mut self, t: &Turn) -> io::Result<()> {
@@ -547,7 +567,10 @@ impl Acp {
             mission_id: t.mission_id.clone(),
             run_id: t.run_id.clone(),
         });
-        let deadline = self.profile.deadline.unwrap_or_else(||Instant::now()+Duration::from_secs(60));
+        let deadline = self
+            .profile
+            .deadline
+            .unwrap_or_else(|| Instant::now() + Duration::from_secs(60));
         let init=self.request("initialize",json!({"protocolVersion":1,"clientCapabilities":{"fs":{"readTextFile":false,"writeTextFile":false},"terminal":false}}),deadline)?;
         if init["protocolVersion"] != 1 {
             return Err(err("The agent does not speak ACP version 1"));
@@ -575,22 +598,59 @@ impl Acp {
         // Persist identity even if startup fails after this point, without replaying the session's text.
         self.queued.push_back(self.normal.event("adapter.diagnostic",json!({"level":"info","code":"acp.session","message":"ACP session opened.","terminal":false,"runtimeThreadId":self.normal.thread,"evidence":{"runtimeEventType":"locust/session","redacted":true}})));
         if self.profile.runtime == "copilot" {
-            let agent="https://agentclientprotocol.com/protocol/session-modes#agent";
-            if !session["modes"]["availableModes"].as_array().into_iter().flatten().any(|m|m["id"]==agent) {return Err(err("Copilot did not offer Agent mode; no prompt was sent."));}
+            let agent = "https://agentclientprotocol.com/protocol/session-modes#agent";
+            if !session["modes"]["availableModes"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|m| m["id"] == agent)
+            {
+                return Err(err("Copilot did not offer Agent mode; no prompt was sent."));
+            }
             if session["modes"]["currentModeId"] != agent {
-                self.request("session/set_mode",json!({"sessionId":self.normal.thread,"modeId":agent}),deadline)?;
+                self.request(
+                    "session/set_mode",
+                    json!({"sessionId":self.normal.thread,"modeId":agent}),
+                    deadline,
+                )?;
             }
         }
-        let mut required=self.profile.required.clone();
-        if let Some(model)=self.model_config.clone() {required.push(model);}
-        let mut session=session;
-        for (config,value) in required {
-            let current=session["configOptions"].as_array().into_iter().flatten().find(|c|c["id"]==config).and_then(|c|c["currentValue"].as_str());
-            if current.is_none() && self.profile.strict {return Err(err(format!("The agent did not offer the required {config} setting, so it was not started.")));}
-            if current.is_some_and(|c|c!=value) {
-                let set=self.request("session/set_config_option",json!({"sessionId":self.normal.thread,"configId":config,"value":value}),deadline)?;
-                if !set["configOptions"].as_array().into_iter().flatten().any(|c|c["id"]==config && c["currentValue"]==value) {return Err(err(format!("The agent would not set {config} to {value}, so it was not started.")));}
-                if let (Some(held),Some(update))=(session.as_object_mut(),set.as_object()) {held.extend(update.clone());}
+        let mut required = self.profile.required.clone();
+        if let Some(model) = self.model_config.clone() {
+            required.push(model);
+        }
+        let mut session = session;
+        for (config, value) in required {
+            let current = session["configOptions"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|c| c["id"] == config)
+                .and_then(|c| c["currentValue"].as_str());
+            if current.is_none() && self.profile.strict {
+                return Err(err(format!(
+                    "The agent did not offer the required {config} setting, so it was not started."
+                )));
+            }
+            if current.is_some_and(|c| c != value) {
+                let set = self.request(
+                    "session/set_config_option",
+                    json!({"sessionId":self.normal.thread,"configId":config,"value":value}),
+                    deadline,
+                )?;
+                if !set["configOptions"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|c| c["id"] == config && c["currentValue"] == value)
+                {
+                    return Err(err(format!(
+                        "The agent would not set {config} to {value}, so it was not started."
+                    )));
+                }
+                if let (Some(held), Some(update)) = (session.as_object_mut(), set.as_object()) {
+                    held.extend(update.clone());
+                }
             }
         }
         self.send_prompt(&t.prompt)
@@ -673,28 +733,27 @@ impl Runtime for Acp {
             let _=self.send(json!({"jsonrpc":"2.0","method":"session/cancel","params":{"sessionId":self.normal.thread}}));
         }
         // Bound termination independently of the stdout/stdin reader threads.
-        let pid = self.child.id();
-        let closed = self.closed.clone();
-        let reap_lock = self.reap_lock.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(3));
-            let _guard = reap_lock.lock().unwrap();
-            if !closed.load(Ordering::Relaxed) {
-                kill(pid);
-            }
-        });
+        super::process::watch_group(
+            self.child.id(),
+            self.closed.clone(),
+            self.reap_lock.clone(),
+            Duration::from_secs(3),
+        );
         Ok(())
     }
 }
 impl Drop for Acp {
     fn drop(&mut self) {
-        let _guard = self.reap_lock.lock().unwrap();
+        let _guard = crate::invariants::lock(&self.reap_lock);
         self.closed.store(true, Ordering::Relaxed);
-        if !self.reaped {kill(self.child.id());let _ = self.child.kill();let _ = self.child.wait();}
-        if let Some(t) = &self.turn {
-            if let Some(ch) = &t.approvals {
-                ch.release(&t.mission_id);
-            }
+        if !self.reaped {
+            kill(self.child.id());
+            super::process::kill_reap(&mut self.child);
+        }
+        if let Some(t) = &self.turn
+            && let Some(ch) = &t.approvals
+        {
+            ch.release(&t.mission_id);
         }
     }
 }

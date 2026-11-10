@@ -30,12 +30,23 @@ fn resolved(path: &Path) -> io::Result<PathBuf> {
 
 /// Codex's own folders: `~/.codex` and `CODEX_HOME`. Native never writes there (Codex keeps its login and sessions in
 /// them). Taken from the two variables, so a test can pass them in without touching the environment.
-pub fn codex_homes(home: Option<std::ffi::OsString>, codex_home: Option<std::ffi::OsString>) -> Vec<PathBuf> {
+pub fn codex_homes(
+    home: Option<std::ffi::OsString>,
+    codex_home: Option<std::ffi::OsString>,
+) -> Vec<PathBuf> {
     let mut out = Vec::new();
-    if let Some(home) = home.filter(|h| !h.is_empty()).map(PathBuf::from).filter(|h| h.is_absolute()) {
+    if let Some(home) = home
+        .filter(|h| !h.is_empty())
+        .map(PathBuf::from)
+        .filter(|h| h.is_absolute())
+    {
         out.push(home.join(".codex"));
     }
-    if let Some(codex) = codex_home.filter(|h| !h.is_empty()).map(PathBuf::from).filter(|h| h.is_absolute()) {
+    if let Some(codex) = codex_home
+        .filter(|h| !h.is_empty())
+        .map(PathBuf::from)
+        .filter(|h| h.is_absolute())
+    {
         out.push(codex);
     }
     out
@@ -67,7 +78,11 @@ impl Store {
         Self::with_codex(root, electron, codex)
     }
     pub fn with_codex(root: PathBuf, electron: PathBuf, codex: Vec<PathBuf>) -> io::Result<Self> {
-        let mut store = Self { root: PathBuf::new(), electron, codex };
+        let mut store = Self {
+            root: PathBuf::new(),
+            electron,
+            codex,
+        };
         store.root = store.check(&root)?;
         Ok(store)
     }
@@ -143,6 +158,8 @@ impl Store {
     pub fn electron(&self) -> &Path {
         &self.electron
     }
+    #[cfg(test)]
+    #[cfg(test)]
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -183,11 +200,18 @@ impl Store {
         use std::ffi::CString;
         use std::os::fd::{FromRawFd, OwnedFd};
         use std::os::unix::{ffi::OsStrExt, fs::MetadataExt};
-        if name.is_empty() || name.contains('/') || name == "." || name == ".." || name.contains('\0') {
+        if name.is_empty()
+            || name.contains('/')
+            || name == "."
+            || name == ".."
+            || name.contains('\0')
+        {
             return Err(io::Error::other("Invalid ledger file name"));
         }
         if !dir.is_absolute() {
-            return Err(io::Error::other("Ledger directory must be an absolute path"));
+            return Err(io::Error::other(
+                "Ledger directory must be an absolute path",
+            ));
         }
         // Identities native must never create inside: Electron's folder and Codex's, where they exist.
         let mut forbidden: Vec<(u64, u64)> = Vec::new();
@@ -197,7 +221,9 @@ impl Store {
             }
         }
         let fail = || io::Error::last_os_error();
-        let cstr = |bytes: &[u8]| CString::new(bytes).map_err(|_| io::Error::other("Invalid path component"));
+        let cstr = |bytes: &[u8]| {
+            CString::new(bytes).map_err(|_| io::Error::other("Invalid path component"))
+        };
         let identity = |fd: &OwnedFd| -> io::Result<()> {
             use std::os::fd::AsRawFd;
             let mut st: libc::stat = unsafe { std::mem::zeroed() };
@@ -216,7 +242,12 @@ impl Store {
         };
         use std::os::fd::AsRawFd;
         let root = cstr(b"/")?;
-        let first = unsafe { libc::open(root.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC) };
+        let first = unsafe {
+            libc::open(
+                root.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
+            )
+        };
         if first < 0 {
             return Err(fail());
         }
@@ -256,7 +287,12 @@ impl Store {
             libc::openat(
                 current.as_raw_fd(),
                 file.as_ptr(),
-                libc::O_WRONLY | libc::O_APPEND | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+                libc::O_WRONLY
+                    | libc::O_APPEND
+                    | libc::O_CREAT
+                    | libc::O_EXCL
+                    | libc::O_NOFOLLOW
+                    | libc::O_CLOEXEC,
                 0o600 as libc::c_uint,
             )
         };
@@ -267,7 +303,9 @@ impl Store {
     }
     #[cfg(not(unix))]
     pub fn create_new_file_in(&self, _dir: &Path, _name: &str) -> io::Result<std::fs::File> {
-        Err(io::Error::other("Ledger creation is unsupported on this platform"))
+        Err(io::Error::other(
+            "Ledger creation is unsupported on this platform",
+        ))
     }
 }
 
@@ -308,14 +346,32 @@ mod tests {
             std::fs::create_dir_all(d).unwrap();
         }
         // `~/.codex` comes from HOME, and CODEX_HOME when set (both; empty or relative values are ignored).
-        assert_eq!(codex_homes(Some(home.clone().into()), Some(custom.clone().into())), vec![codex.clone(), custom.clone()]);
-        assert_eq!(codex_homes(Some(home.clone().into()), None), vec![codex.clone()]);
+        assert_eq!(
+            codex_homes(Some(home.clone().into()), Some(custom.clone().into())),
+            vec![codex.clone(), custom.clone()]
+        );
+        assert_eq!(
+            codex_homes(Some(home.clone().into()), None),
+            vec![codex.clone()]
+        );
         assert!(codex_homes(Some("".into()), Some("relative".into())).is_empty());
         let homes = codex_homes(Some(home.clone().into()), Some(custom.clone().into()));
         // LOCUST_NATIVE_DATA pointing at either folder, or anywhere inside, cannot become a native root.
-        for bad in [codex.clone(), codex.join("mission-ledger"), codex.join("a/b/../c"), custom.clone(), custom.join("sessions")] {
-            let error = Store::with_codex(bad.clone(), electron.clone(), homes.clone()).err().map(|e| e.to_string());
-            assert!(error.as_deref().is_some_and(|e| e.contains("Codex")), "{}: {error:?}", bad.display());
+        for bad in [
+            codex.clone(),
+            codex.join("mission-ledger"),
+            codex.join("a/b/../c"),
+            custom.clone(),
+            custom.join("sessions"),
+        ] {
+            let error = Store::with_codex(bad.clone(), electron.clone(), homes.clone())
+                .err()
+                .map(|e| e.to_string());
+            assert!(
+                error.as_deref().is_some_and(|e| e.contains("Codex")),
+                "{}: {error:?}",
+                bad.display()
+            );
         }
         #[cfg(unix)]
         {
@@ -324,13 +380,31 @@ mod tests {
             std::os::unix::fs::symlink(&codex, temp.join("alias-codex")).unwrap();
             std::os::unix::fs::symlink(codex.join("inner"), temp.join("alias-inner")).unwrap();
             std::os::unix::fs::symlink(&custom, temp.join("alias-custom")).unwrap();
-            for bad in [temp.join("alias-codex"), temp.join("alias-codex/x"), temp.join("alias-inner"), temp.join("alias-custom/y")] {
-                assert!(Store::with_codex(bad.clone(), electron.clone(), homes.clone()).is_err(), "{}", bad.display());
+            for bad in [
+                temp.join("alias-codex"),
+                temp.join("alias-codex/x"),
+                temp.join("alias-inner"),
+                temp.join("alias-custom/y"),
+            ] {
+                assert!(
+                    Store::with_codex(bad.clone(), electron.clone(), homes.clone()).is_err(),
+                    "{}",
+                    bad.display()
+                );
             }
         }
         // A sibling that merely shares a prefix is fine, and so is the default `<electron>-native`.
-        assert!(Store::with_codex(home.join(".codex-native"), electron.clone(), homes.clone()).is_ok());
-        assert!(Store::with_codex(temp.join("electron-native"), electron.clone(), homes.clone()).is_ok());
+        assert!(
+            Store::with_codex(home.join(".codex-native"), electron.clone(), homes.clone()).is_ok()
+        );
+        assert!(
+            Store::with_codex(
+                temp.join("electron-native"),
+                electron.clone(),
+                homes.clone()
+            )
+            .is_ok()
+        );
         // The ledger directory and every write path inherit the refusal.
         let store = Store::with_codex(temp.join("native"), electron, homes).unwrap();
         assert!(store.write_path("ok").is_ok());
@@ -341,10 +415,16 @@ mod tests {
     fn local_store_refuses_the_real_codex_home_from_the_environment() {
         // The default build of the store reads HOME and CODEX_HOME itself: `Store::new` refuses what they name.
         let home = std::env::var_os("HOME").map(PathBuf::from).unwrap();
-        let electron = std::env::temp_dir().join(format!("locust-env-electron-{}", std::process::id()));
+        let electron =
+            std::env::temp_dir().join(format!("locust-env-electron-{}", std::process::id()));
         std::fs::create_dir_all(&electron).unwrap();
-        let error = Store::new(home.join(".codex").join("mission-ledger"), electron.clone()).err().map(|e| e.to_string());
-        assert!(error.as_deref().is_some_and(|e| e.contains("Codex")), "{error:?}");
+        let error = Store::new(home.join(".codex").join("mission-ledger"), electron.clone())
+            .err()
+            .map(|e| e.to_string());
+        assert!(
+            error.as_deref().is_some_and(|e| e.contains("Codex")),
+            "{error:?}"
+        );
         std::fs::remove_dir_all(electron).unwrap();
     }
 }

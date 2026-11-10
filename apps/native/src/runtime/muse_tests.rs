@@ -1,4 +1,5 @@
-//! Ports packages/runtime-adapters/test/muse-events.test.ts + the-prompt-muse-cannot-be-told.
+use super::test_support::reader_check;
+// Ports packages/runtime-adapters/test/muse-events.test.ts + the-prompt-muse-cannot-be-told.
 use super::{
     Event, Runtime, Turn,
     muse::Muse,
@@ -92,21 +93,6 @@ fn lifecycle(kind: &str, extra: Value, sequence: u64) -> String {
         sequence,
     )
 }
-fn reader_check(store: &Store, id: &str, phase: &str) {
-    if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
-        assert!(
-            Command::new("node")
-                .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/check-m1-ledger.mjs"))
-                .arg(reader)
-                .arg(store.ledger_dir().unwrap())
-                .arg(id)
-                .arg(phase)
-                .status()
-                .unwrap()
-                .success()
-        );
-    }
-}
 fn fake_script() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/fixtures/m4-muse.py")
 }
@@ -137,7 +123,11 @@ fn muse_echo_capture_fixture() {
         normal.thread.as_deref(),
         Some("01a0c5fe-68c8-7903-b6db-0d3c9021bfa6")
     );
-    assert!(!events.iter().any(|e| e.payload["code"] == "muse.malformed_record"));
+    assert!(
+        !events
+            .iter()
+            .any(|e| e.payload["code"] == "muse.malformed_record")
+    );
     assert_eq!(
         messages(&events).get("msg_0").map(String::as_str),
         Some("echo: Reply with exactly PING")
@@ -149,7 +139,11 @@ fn muse_echo_capture_fixture() {
     assert_eq!(finals.len(), 1);
     assert_eq!(finals[0].payload["operation"], "replace");
     assert!(!events.iter().any(|e| e.kind.starts_with("tool.")));
-    assert!(!events.iter().any(|e| e.payload["code"] == "muse.unknown_event"));
+    assert!(
+        !events
+            .iter()
+            .any(|e| e.payload["code"] == "muse.unknown_event")
+    );
     assert!(events.iter().any(|e| {
         e.kind == "adapter.diagnostic" && e.payload["code"] == "muse.internal_task_failed"
     }));
@@ -160,7 +154,11 @@ fn muse_echo_capture_fixture() {
 fn muse_person_tool_row() {
     let mut normal = MuseNormalizer::default();
     let mut events = Vec::new();
-    events.extend(normal.accept_line(&lifecycle("proposed", json!({"task_kind":"tool.shell.command"}), 1)));
+    events.extend(normal.accept_line(&lifecycle(
+        "proposed",
+        json!({"task_kind":"tool.shell.command"}),
+        1,
+    )));
     events.extend(normal.accept_line(&lifecycle("accepted", json!({}), 2)));
     events.extend(normal.accept_line(&lifecycle("scheduled", json!({}), 3)));
     events.extend(normal.accept_line(&lifecycle(
@@ -182,9 +180,17 @@ fn muse_person_tool_row() {
 fn muse_tool_failed_leaves_run() {
     let mut normal = MuseNormalizer::default();
     let mut events = Vec::new();
-    events.extend(normal.accept_line(&lifecycle("proposed", json!({"task_kind":"tool.file.write"}), 1)));
+    events.extend(normal.accept_line(&lifecycle(
+        "proposed",
+        json!({"task_kind":"tool.file.write"}),
+        1,
+    )));
     events.extend(normal.accept_line(&lifecycle("started", json!({}), 2)));
-    events.extend(normal.accept_line(&lifecycle("failed", json!({"reason":"permission denied"}), 3)));
+    events.extend(normal.accept_line(&lifecycle(
+        "failed",
+        json!({"reason":"permission denied"}),
+        3,
+    )));
     events.extend(normal.accept_line(&record(
         "run.terminal.completed",
         json!({"terminal":"completed","text":"done","reason":null}),
@@ -200,7 +206,11 @@ fn muse_sandbox_said_once() {
     let reason = "environment failure: sandbox enforcement unavailable: windows_elevated setup_required: sandbox users are not ready";
     let mut normal = MuseNormalizer::default();
     let mut events = Vec::new();
-    events.extend(normal.accept_line(&lifecycle("proposed", json!({"task_kind":"tool.powershell"}), 1)));
+    events.extend(normal.accept_line(&lifecycle(
+        "proposed",
+        json!({"task_kind":"tool.powershell"}),
+        1,
+    )));
     events.extend(normal.accept_line(&lifecycle("started", json!({}), 2)));
     events.extend(normal.accept_line(&lifecycle("failed", json!({"reason":reason}), 3)));
     events.extend(normal.accept_line(&lifecycle("started", json!({}), 4)));
@@ -211,10 +221,7 @@ fn muse_sandbox_said_once() {
         6,
     )));
     events.extend(normal.finish(false, Some(0)));
-    assert_eq!(
-        events.iter().filter(|e| e.kind == "tool.failed").count(),
-        2
-    );
+    assert_eq!(events.iter().filter(|e| e.kind == "tool.failed").count(), 2);
     let said: Vec<_> = events
         .iter()
         .filter(|e| e.payload["code"] == "muse.sandbox_not_set_up")
@@ -248,21 +255,31 @@ fn muse_run_failures() {
         ],
         Some(1),
     );
-    assert_eq!(events.last().unwrap().payload["message"], MUSE_BILLING_SENTENCE);
+    assert_eq!(
+        events.last().unwrap().payload["message"],
+        MUSE_BILLING_SENTENCE
+    );
 
     let mut normal = MuseNormalizer::default().with_output_limit_exceeded(true);
-    let mut events = normal.accept_line(&record("run.lifecycle.started", json!({"prompt":"hello"}), 1));
+    let mut events = normal.accept_line(&record(
+        "run.lifecycle.started",
+        json!({"prompt":"hello"}),
+        1,
+    ));
     events.extend(normal.finish(false, Some(1)));
-    assert!(events
-        .last()
-        .unwrap()
-        .payload["message"]
-        .as_str()
-        .unwrap()
-        .contains("faster than Locust could record it"));
+    assert!(
+        events.last().unwrap().payload["message"]
+            .as_str()
+            .unwrap()
+            .contains("faster than Locust could record it")
+    );
 
     let mut normal = MuseNormalizer::default();
-    let mut events = normal.accept_line(&record("run.lifecycle.started", json!({"prompt":"hello"}), 1));
+    let mut events = normal.accept_line(&record(
+        "run.lifecycle.started",
+        json!({"prompt":"hello"}),
+        1,
+    ));
     events.extend(normal.finish(true, None));
     assert_eq!(events.last().unwrap().kind, "run.cancelled");
 }
@@ -319,7 +336,10 @@ fn muse_fake_process_writes_ledger() {
     loop {
         assert!(Instant::now() < deadline, "muse fake timed out");
         if let Some(e) = rt.next_event().unwrap() {
-            let terminal = matches!(e.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled");
+            let terminal = matches!(
+                e.kind.as_str(),
+                "run.completed" | "run.failed" | "run.cancelled"
+            );
             writer
                 .append(&e.kind, e.payload.clone(), e.thread.as_deref())
                 .unwrap();
@@ -379,9 +399,11 @@ fn muse_teammate_uses_native_driver() {
 #[test]
 #[ignore]
 fn real_muse_one_line() {
-    if std::env::var("LOCUST_REAL_MUSE").ok().as_deref() != Some("1") {
-        return;
-    }
+    assert_eq!(
+        std::env::var("LOCUST_REAL_MUSE").ok().as_deref(),
+        Some("1"),
+        "set LOCUST_REAL_MUSE=1 to run this real test"
+    );
     let temp = Temp::new();
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
@@ -419,7 +441,10 @@ fn real_muse_one_line() {
     loop {
         assert!(Instant::now() < deadline);
         if let Some(e) = rt.next_event().unwrap() {
-            let terminal = matches!(e.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled");
+            let terminal = matches!(
+                e.kind.as_str(),
+                "run.completed" | "run.failed" | "run.cancelled"
+            );
             writer
                 .append(&e.kind, e.payload.clone(), e.thread.as_deref())
                 .unwrap();
@@ -433,16 +458,29 @@ fn real_muse_one_line() {
 
 #[test]
 fn muse_prompt_is_unique_native_owned_and_preserves_launch_environment() {
-    let temp=Temp::new();
-    let store=Store::new(temp.0.join("native"),temp.0.join("electron")).unwrap();
-    let mut c=Command::new("muse");
-    c.args(["exec","--prompt-file",crate::runtime::muse::PROMPT_FILE_PLACEHOLDER]).env("MUSE_TEST","kept").env_remove("REMOVED").current_dir(&temp.0);
-    let first=crate::runtime::muse::prepare_prompt_file(&mut c,"private prompt",&store).unwrap();
-    let second=crate::runtime::muse::prepare_prompt_file(&mut Command::new("muse"),"second",&store).unwrap();
-    assert_ne!(first,second);
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    let mut c = Command::new("muse");
+    c.args([
+        "exec",
+        "--prompt-file",
+        crate::runtime::muse::PROMPT_FILE_PLACEHOLDER,
+    ])
+    .env("MUSE_TEST", "kept")
+    .env_remove("REMOVED")
+    .current_dir(&temp.0);
+    let first =
+        crate::runtime::muse::prepare_prompt_file(&mut c, "private prompt", &store).unwrap();
+    let second =
+        crate::runtime::muse::prepare_prompt_file(&mut Command::new("muse"), "second", &store)
+            .unwrap();
+    assert_ne!(first, second);
     assert!(first.starts_with(temp.0.join("native")));
-    assert_eq!(std::fs::read_to_string(&first).unwrap(),"private prompt");
-    assert!(c.get_args().any(|a|a==first.as_os_str()));
-    assert!(c.get_envs().any(|(k,v)|k=="MUSE_TEST"&&v==Some(std::ffi::OsStr::new("kept"))));
-    assert!(c.get_envs().any(|(k,v)|k=="REMOVED"&&v.is_none()));
+    assert_eq!(std::fs::read_to_string(&first).unwrap(), "private prompt");
+    assert!(c.get_args().any(|a| a == first.as_os_str()));
+    assert!(
+        c.get_envs()
+            .any(|(k, v)| k == "MUSE_TEST" && v == Some(std::ffi::OsStr::new("kept")))
+    );
+    assert!(c.get_envs().any(|(k, v)| k == "REMOVED" && v.is_none()));
 }

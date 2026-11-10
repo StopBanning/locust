@@ -1,16 +1,11 @@
-//! Ports packages/runtime-adapters/test/cursor-events.test.ts (fixture-driven) plus launch/dispatch.
+use super::test_support::reader_check;
+// Ports packages/runtime-adapters/test/cursor-events.test.ts (fixture-driven) plus launch/dispatch.
 use super::{
     Event, Runtime, Turn,
     cursor::Cursor,
-    cursor_events::{
-        CursorNormalizer, is_message_fragment, tool_kind, tool_outcome,
-    },
+    cursor_events::{CursorNormalizer, is_message_fragment, tool_kind, tool_outcome},
 };
-use crate::{
-    approval::Mode,
-    ledger_write::LedgerWriter,
-    store::Store,
-};
+use crate::{approval::Mode, ledger_write::LedgerWriter, store::Store};
 use serde_json::json;
 use std::{
     path::PathBuf,
@@ -77,25 +72,16 @@ fn messages(events: &[Event]) -> Vec<String> {
         if e.payload["operation"] == "replace" {
             buffers.insert(id, text.to_owned());
         } else {
-            buffers.entry(id).and_modify(|t| t.push_str(text)).or_insert(text.to_owned());
+            buffers
+                .entry(id)
+                .and_modify(|t| t.push_str(text))
+                .or_insert(text.to_owned());
         }
     }
-    order.into_iter().map(|id| buffers.remove(&id).unwrap_or_default()).collect()
-}
-fn reader_check(store: &Store, id: &str, phase: &str) {
-    if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
-        assert!(
-            Command::new("node")
-                .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/check-m1-ledger.mjs"))
-                .arg(reader)
-                .arg(store.ledger_dir().unwrap())
-                .arg(id)
-                .arg(phase)
-                .status()
-                .unwrap()
-                .success()
-        );
-    }
+    order
+        .into_iter()
+        .map(|id| buffers.remove(&id).unwrap_or_default())
+        .collect()
 }
 fn fake_script() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/fixtures/m4-cursor.py")
@@ -108,8 +94,14 @@ fn cursor_usage_from_result() {
     ];
     let (_, events) = run_lines(&lines, Some(0));
     assert_eq!(events.last().unwrap().kind, "run.completed");
-    assert_eq!(events.last().unwrap().payload["usage"]["inputTokens"], 120.0);
-    assert_eq!(events.last().unwrap().payload["usage"]["cacheWriteTokens"], 240.0);
+    assert_eq!(
+        events.last().unwrap().payload["usage"]["inputTokens"],
+        120.0
+    );
+    assert_eq!(
+        events.last().unwrap().payload["usage"]["cacheWriteTokens"],
+        240.0
+    );
 }
 
 #[test]
@@ -141,7 +133,13 @@ fn cursor_read_only_partial_fixture() {
     keys.sort();
     assert_eq!(
         keys,
-        ["apiKeySource", "cwd", "model", "permissionMode", "session_id"]
+        [
+            "apiKeySource",
+            "cwd",
+            "model",
+            "permissionMode",
+            "session_id"
+        ]
     );
     assert_eq!(
         messages(&events),
@@ -156,37 +154,74 @@ fn cursor_read_only_partial_fixture() {
         .map(|e| e.payload["itemId"].as_str().unwrap().to_owned())
         .collect();
     assert_eq!(finals, ["msg_0", "msg_1"]);
-    let tools: Vec<_> = events.iter().filter(|e| e.kind.starts_with("tool.")).collect();
+    let tools: Vec<_> = events
+        .iter()
+        .filter(|e| e.kind.starts_with("tool."))
+        .collect();
     assert_eq!(
         tools.iter().map(|e| e.kind.as_str()).collect::<Vec<_>>(),
         ["tool.started", "tool.completed"]
     );
     assert!(!tools[0].payload["itemId"].as_str().unwrap().contains('\n'));
     assert_eq!(tools[0].payload["toolKind"], "read");
-    assert!(tools[0].payload["command"].as_str().unwrap().contains("README.md"));
+    assert!(
+        tools[0].payload["command"]
+            .as_str()
+            .unwrap()
+            .contains("README.md")
+    );
     let steps: Vec<_> = events
         .iter()
         .filter(|e| e.kind == "step.started" || e.kind == "step.completed")
         .collect();
     assert!(steps.iter().all(|e| e.payload["stepKind"] == "reasoning"));
     assert_eq!(steps.len(), 4);
-    let serialized = serde_json::to_string(&events.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap();
+    let serialized =
+        serde_json::to_string(&events.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap();
     assert!(serialized.contains("Reading README.md to"));
-    let completed: Vec<_> = steps.iter().filter(|e| e.kind == "step.completed").collect();
-    assert_eq!(completed[0].payload["message"], "Reading README.md to summarize the project in one sentence.");
-    assert_eq!(completed[1].payload["message"], "I'll read the README and provide a one-sentence summary of the project.");
-    assert!(steps.iter().filter(|e| e.kind == "step.started").all(|e| e.payload.get("message").is_none()));
+    let completed: Vec<_> = steps
+        .iter()
+        .filter(|e| e.kind == "step.completed")
+        .collect();
+    assert_eq!(
+        completed[0].payload["message"],
+        "Reading README.md to summarize the project in one sentence."
+    );
+    assert_eq!(
+        completed[1].payload["message"],
+        "I'll read the README and provide a one-sentence summary of the project."
+    );
+    assert!(
+        steps
+            .iter()
+            .filter(|e| e.kind == "step.started")
+            .all(|e| e.payload.get("message").is_none())
+    );
     // The captured stream with a fake secret repeated in a thinking fragment.
     let token = format!("{}-test-FAKESECRET-LOCUST-7731-abcdefghijklmnop", "sk");
     let mut lines = fixture_lines("read-only-partial.jsonl");
-    let index = lines.iter().position(|line| line.contains("Reading README.md to")).unwrap();
+    let index = lines
+        .iter()
+        .position(|line| line.contains("Reading README.md to"))
+        .unwrap();
     let mut record: serde_json::Value = serde_json::from_str(&lines[index]).unwrap();
     record["text"] = json!(format!("Reading README.md to {token}"));
     lines[index] = record.to_string();
     let (_, scrubbed) = run_lines(&lines, Some(0));
-    let message = &scrubbed.iter().find(|e| e.kind == "step.completed").unwrap().payload["message"];
-    assert_eq!(message, "Reading README.md to [redacted] summarize the project in one sentence.");
-    assert!(!serde_json::to_string(&scrubbed.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap().contains(token.as_str()));
+    let message = &scrubbed
+        .iter()
+        .find(|e| e.kind == "step.completed")
+        .unwrap()
+        .payload["message"];
+    assert_eq!(
+        message,
+        "Reading README.md to [redacted] summarize the project in one sentence."
+    );
+    assert!(
+        !serde_json::to_string(&scrubbed.iter().map(|e| &e.payload).collect::<Vec<_>>())
+            .unwrap()
+            .contains(token.as_str())
+    );
     assert_eq!(events.last().unwrap().kind, "run.completed");
 }
 
@@ -198,7 +233,10 @@ fn cursor_write_mode_shell_rejected_fixture() {
         .filter(|e| e.kind.starts_with("tool.") && e.payload["toolKind"] == "shell")
         .collect();
     let failed: Vec<_> = shells.iter().filter(|e| e.kind == "tool.failed").collect();
-    let completed: Vec<_> = shells.iter().filter(|e| e.kind == "tool.completed").collect();
+    let completed: Vec<_> = shells
+        .iter()
+        .filter(|e| e.kind == "tool.completed")
+        .collect();
     assert_eq!(failed.len(), 4);
     assert!(failed.iter().all(|e| e.payload["status"] == "rejected"));
     assert_eq!(completed.len(), 1);
@@ -210,7 +248,10 @@ fn cursor_write_mode_shell_rejected_fixture() {
         .collect();
     assert_eq!(refused, ["dir", "dir", "cmd.exe /c dir", "dir"]);
     assert_eq!(events.last().unwrap().kind, "run.completed");
-    assert_eq!(events.last().unwrap().payload["usage"]["inputTokens"], 15012.0);
+    assert_eq!(
+        events.last().unwrap().payload["usage"]["inputTokens"],
+        15012.0
+    );
     let kinds: Vec<_> = events
         .iter()
         .filter(|e| e.kind == "tool.completed")
@@ -223,12 +264,16 @@ fn cursor_write_mode_shell_rejected_fixture() {
         .find(|e| e.kind == "tool.completed" && e.payload["toolKind"] == "glob")
         .unwrap();
     assert_eq!(glob.payload["command"], "* in C:\\work\\scratch");
-    assert_eq!(events[0].payload["evidence"]["raw"]["model"], "Composer 2.5");
+    assert_eq!(
+        events[0].payload["evidence"]["raw"]["model"],
+        "Composer 2.5"
+    );
 }
 
 #[test]
 fn cursor_tool_outcome_helpers() {
-    let (failed, status, code) = tool_outcome(&json!({"success":{"command":"npm test","exitCode":1}}));
+    let (failed, status, code) =
+        tool_outcome(&json!({"success":{"command":"npm test","exitCode":1}}));
     assert!(failed);
     assert_eq!(status.as_deref(), Some("exit"));
     assert_eq!(code, Some(1));
@@ -246,7 +291,9 @@ fn cursor_tool_outcome_helpers() {
     assert_eq!(tool_kind("readToolCall"), "read");
     assert_eq!(tool_kind("shellToolCall"), "shell");
     assert!(is_message_fragment(&json!({"timestamp_ms":1})));
-    assert!(!is_message_fragment(&json!({"timestamp_ms":1,"model_call_id":"x"})));
+    assert!(!is_message_fragment(
+        &json!({"timestamp_ms":1,"model_call_id":"x"})
+    ));
     assert!(!is_message_fragment(&json!({"model_call_id":"x"})));
 }
 
@@ -258,7 +305,10 @@ fn cursor_resumed_turn_fixture() {
         Some("5ea83b16-7669-44d8-aaf3-97a1b41d581b")
     );
     assert_eq!(messages(&events), ["Pebble"]);
-    let deltas: Vec<_> = events.iter().filter(|e| e.kind == "message.delta").collect();
+    let deltas: Vec<_> = events
+        .iter()
+        .filter(|e| e.kind == "message.delta")
+        .collect();
     assert_eq!(deltas.len(), 1);
     assert_eq!(deltas[0].payload["final"], true);
 }
@@ -297,10 +347,18 @@ fn cursor_unknown_and_connection_once() {
     ];
     let (_, events) = run_lines(&lines, Some(0));
     assert!(events.iter().any(|e| {
-        e.kind == "adapter.diagnostic" && e.payload["message"].as_str().unwrap().contains("reconnecting")
+        e.kind == "adapter.diagnostic"
+            && e.payload["message"]
+                .as_str()
+                .unwrap()
+                .contains("reconnecting")
     }));
     assert!(events.iter().any(|e| {
-        e.kind == "adapter.diagnostic" && e.payload["message"].as_str().unwrap().contains("picking the turn back up")
+        e.kind == "adapter.diagnostic"
+            && e.payload["message"]
+                .as_str()
+                .unwrap()
+                .contains("picking the turn back up")
     }));
     assert!(!events.iter().any(|e| {
         e.payload["message"]
@@ -323,7 +381,13 @@ fn cursor_plan_fixture_does_not_shrink() {
     let last = plans.last().unwrap();
     let len = last.payload["plan"].as_array().unwrap().len();
     assert!(len >= 3, "plan must not shrink to a partial merge: {len}");
-    assert!(events.iter().filter(|e| e.kind.starts_with("tool.") && e.payload["toolKind"] == "updateTodos").count() == 0);
+    assert!(
+        events
+            .iter()
+            .filter(|e| e.kind.starts_with("tool.") && e.payload["toolKind"] == "updateTodos")
+            .count()
+            == 0
+    );
 }
 
 #[test]
@@ -344,7 +408,11 @@ fn cursor_replace_never_takes_text_back() {
         .filter(|e| e.kind == "message.delta" && e.payload["final"] == true)
         .collect();
     assert!(!finals.is_empty());
-    assert!(finals.iter().any(|e| e.payload["operation"] == "append" && e.payload["text"] == ""));
+    assert!(
+        finals
+            .iter()
+            .any(|e| e.payload["operation"] == "append" && e.payload["text"] == "")
+    );
 }
 
 #[test]
@@ -387,7 +455,10 @@ fn cursor_fake_process_writes_ledger_accepted_by_ts_reader() {
     loop {
         assert!(Instant::now() < deadline, "cursor fake timed out");
         if let Some(e) = rt.next_event().unwrap() {
-            let terminal = matches!(e.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled");
+            let terminal = matches!(
+                e.kind.as_str(),
+                "run.completed" | "run.failed" | "run.cancelled"
+            );
             writer
                 .append(&e.kind, e.payload.clone(), e.thread.as_deref())
                 .unwrap();
@@ -399,7 +470,8 @@ fn cursor_fake_process_writes_ledger_accepted_by_ts_reader() {
     }
     let last = events.last().unwrap();
     assert_eq!(
-        last.kind, "run.completed",
+        last.kind,
+        "run.completed",
         "kinds={:?} last={}",
         events.iter().map(|e| e.kind.as_str()).collect::<Vec<_>>(),
         last.payload
@@ -466,9 +538,11 @@ fn cursor_teammate_uses_native_driver() {
 #[test]
 #[ignore]
 fn real_cursor_one_line() {
-    if std::env::var("LOCUST_REAL_CURSOR").ok().as_deref() != Some("1") {
-        return;
-    }
+    assert_eq!(
+        std::env::var("LOCUST_REAL_CURSOR").ok().as_deref(),
+        Some("1"),
+        "set LOCUST_REAL_CURSOR=1 to run this real test"
+    );
     let temp = Temp::new();
     let electron = temp.0.join("electron");
     let native = temp.0.join("native");
@@ -505,7 +579,10 @@ fn real_cursor_one_line() {
     loop {
         assert!(Instant::now() < deadline, "real cursor timed out");
         if let Some(e) = rt.next_event().unwrap() {
-            let terminal = matches!(e.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled");
+            let terminal = matches!(
+                e.kind.as_str(),
+                "run.completed" | "run.failed" | "run.cancelled"
+            );
             writer
                 .append(&e.kind, e.payload.clone(), e.thread.as_deref())
                 .unwrap();
@@ -519,29 +596,48 @@ fn real_cursor_one_line() {
 
 #[test]
 fn print_only_runtimes_refuse_unsupported_approve_each_before_launch() {
-    let folder=std::path::Path::new("/unused");
+    let folder = std::path::Path::new("/unused");
     for result in [
-        crate::runtime::cursor::command(folder,Mode::ApproveEach,None,None),
-        crate::runtime::antigravity::command(folder,Mode::ApproveEach,None,None,None),
-        crate::runtime::muse::command(folder,Mode::ApproveEach,None,None,None),
-    ] { assert!(result.unwrap_err().to_string().contains("does not support Approve-each")); }
+        crate::runtime::cursor::command(folder, Mode::ApproveEach, None, None),
+        crate::runtime::antigravity::command(folder, Mode::ApproveEach, None, None, None),
+        crate::runtime::muse::command(folder, Mode::ApproveEach, None, None, None),
+    ] {
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("does not support Approve-each")
+        );
+    }
 }
-
 
 #[test]
 fn cursor_thinking_matches_ts_fragment_scrubbing_and_completed_message() {
     let mut n = CursorNormalizer::default();
-    assert!(n.accept(&json!({"type":"thinking","subtype":"completed","text":"ignored"})).is_empty());
+    assert!(
+        n.accept(&json!({"type":"thinking","subtype":"completed","text":"ignored"}))
+            .is_empty()
+    );
     let start = n.accept(&json!({"type":"thinking","subtype":"delta","text":format!("  The key {}-test-FAKESECRET-LOCUST-7731-abcdefghijklmnop looks like ", "sk")}));
     assert_eq!(start.len(), 1);
     assert_eq!(start[0].kind, "step.started");
     assert!(start[0].payload.get("message").is_none());
     assert!(n.accept(&json!({"type":"thinking","subtype":"delta","text":"a Stripe test secret. Bearer abcdefghijklmnop"})).is_empty());
-    let done = n.accept(&json!({"type":"thinking","subtype":"completed","text":"completion text is not a delta"}));
+    let done = n.accept(
+        &json!({"type":"thinking","subtype":"completed","text":"completion text is not a delta"}),
+    );
     assert_eq!(done.len(), 1);
     assert_eq!(done[0].kind, "step.completed");
-    assert_eq!(done[0].payload["message"], "The key [redacted] looks like a Stripe test secret. Bearer [redacted]");
-    assert!(n.accept(&json!({"type":"thinking","subtype":"delta","text":"  "}))[0].payload.get("message").is_none());
+    assert_eq!(
+        done[0].payload["message"],
+        "The key [redacted] looks like a Stripe test secret. Bearer [redacted]"
+    );
+    assert!(
+        n.accept(&json!({"type":"thinking","subtype":"delta","text":"  "}))[0]
+            .payload
+            .get("message")
+            .is_none()
+    );
     let empty = n.accept(&json!({"type":"thinking","subtype":"completed"}));
     assert!(empty[0].payload.get("message").is_none());
 }
@@ -555,6 +651,13 @@ fn cursor_thinking_bounds_only_on_close_and_keeps_both_ends() {
     n.accept(&json!({"type":"thinking","subtype":"delta","text":"TAIL"}));
     let done = n.accept(&json!({"type":"thinking","subtype":"completed"}));
     let message = done[0].payload["message"].as_str().unwrap();
-    assert_eq!(message, format!("HEAD{}\n…[truncated]…\n{}TAIL", "x".repeat(12269), "y".repeat(4092)));
+    assert_eq!(
+        message,
+        format!(
+            "HEAD{}\n…[truncated]…\n{}TAIL",
+            "x".repeat(12269),
+            "y".repeat(4092)
+        )
+    );
     assert_eq!(message.encode_utf16().count(), 16384);
 }

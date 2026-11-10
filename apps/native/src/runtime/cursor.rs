@@ -1,17 +1,15 @@
 //! Cursor Agent print/stream-json driver. Ports createCursorPrintCommand + process-runner prompt-on-stdin path.
-use super::{
-    Event, Runtime, Turn,
-    cursor_events::CursorNormalizer,
-};
+use super::process::{Control, interrupt_process, kill_process};
+use super::{Event, Runtime, Turn, cursor_events::CursorNormalizer};
 use crate::approval::Mode;
 use serde_json::Value;
 use std::{
     collections::VecDeque,
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufReader, Write},
     path::Path,
     process::{Child, Command, Stdio},
     sync::{
-        Arc, Condvar, Mutex,
+        Arc,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
     },
@@ -45,44 +43,6 @@ enum Line {
     Raw(String),
 }
 
-#[derive(Default)]
-struct ControlState {
-    failure: Option<String>,
-    deadline: Option<Instant>,
-    closed: bool,
-}
-#[derive(Default)]
-struct Control {
-    state: Mutex<ControlState>,
-    wake: Condvar,
-}
-impl Control {
-    fn fail(&self, message: impl ToString) {
-        let mut state = self.state.lock().unwrap();
-        if state.failure.is_none() {
-            state.failure = Some(message.to_string());
-        }
-        self.wake.notify_one();
-    }
-    fn failure(&self) -> Option<String> {
-        self.state.lock().unwrap().failure.clone()
-    }
-}
-
-fn kill_process(pid: u32) {
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(-(pid as i32), libc::SIGKILL);
-        libc::kill(pid as i32, libc::SIGKILL);
-    }
-}
-fn interrupt_process(pid: u32) {
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(-(pid as i32), libc::SIGINT);
-        libc::kill(pid as i32, libc::SIGINT);
-    }
-}
 fn err(message: impl ToString) -> io::Error {
     io::Error::other(message.to_string())
 }
@@ -149,7 +109,11 @@ pub fn command(
     model: Option<&str>,
     resume: Option<&str>,
 ) -> io::Result<Command> {
-    if mode == Mode::ApproveEach { return Err(err("Cursor does not support Approve-each in the native driver.")); }
+    if mode == Mode::ApproveEach {
+        return Err(err(
+            "Cursor does not support Approve-each in the native driver.",
+        ));
+    }
     let mut c = Command::new(super::discovery::find_named("cursor-agent")?);
     c.args(print_args(folder, mode, model, resume)?);
     c.current_dir(folder);
@@ -159,26 +123,37 @@ pub fn command(
 /// Stand-in for an oversized tool_call line (process-runner.ts standInFor).
 fn oversized_stand_in(head: &str, bytes: usize) -> Option<Value> {
     let start = &head[..head.len().min(4096)];
-    let record_type = regex::Regex::new(r#"^\s*\{\s*"type"\s*:\s*"([a-z_]{1,40})""#)
-        .ok()
-        .and_then(|re| re.captures(start))
+    let record_re = crate::invariants::regex(r#"^\s*\{\s*"type"\s*:\s*"([a-z_]{1,40})""#);
+    let record_type = record_re
+        .captures(start)
         .and_then(|c| c.get(1).map(|m| m.as_str().to_owned()));
     let call_ids: Vec<String> = {
-        let re = regex::Regex::new(r#""(?:call_id|toolCallId)"\s*:\s*"([^"\\]{1,512})""#).unwrap();
+        let re = crate::invariants::regex(r#""(?:call_id|toolCallId)"\s*:\s*"([^"\\]{1,512})""#);
         re.captures_iter(start)
-            .filter_map(|c| c.get(1).map(|m| m.as_str().replace(['\n', '\r', '\t'], "|")))
+            .filter_map(|c| {
+                c.get(1)
+                    .map(|m| m.as_str().replace(['\n', '\r', '\t'], "|"))
+            })
             .collect()
     };
     let edit = edit_report_in(&head[..head.len().min(65_536)]);
     let mut v = json_map();
-    v.insert("type".into(), serde_json::Value::String("locust.oversized".into()));
+    v.insert(
+        "type".into(),
+        serde_json::Value::String("locust.oversized".into()),
+    );
     v.insert("bytes".into(), serde_json::json!(bytes));
     if let Some(t) = record_type {
         v.insert("recordType".into(), serde_json::Value::String(t));
     }
     v.insert(
         "callIds".into(),
-        serde_json::Value::Array(call_ids.into_iter().map(serde_json::Value::String).collect()),
+        serde_json::Value::Array(
+            call_ids
+                .into_iter()
+                .map(serde_json::Value::String)
+                .collect(),
+        ),
     );
     if let Some(edit) = edit {
         v.insert("edit".into(), edit);
@@ -203,7 +178,14 @@ fn edit_report_in(head: &str) -> Option<serde_json::Value> {
     let diff = regex::Regex::new(r#""diffString"\s*:\s*"((?:\\.|[^"\\])*)""#)
         .ok()
         .and_then(|re| re.captures(head))
-        .and_then(|c| c.get(1).map(|m| m.as_str().replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\")));
+        .and_then(|c| {
+            c.get(1).map(|m| {
+                m.as_str()
+                    .replace("\\n", "\n")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+            })
+        });
     if added.is_none() && removed.is_none() && diff.is_none() {
         return None;
     }
@@ -222,37 +204,16 @@ fn edit_report_in(head: &str) -> Option<serde_json::Value> {
 
 impl Cursor {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.process_group(0);
-        }
-        let mut child = command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()?;
-        let mut stdin = child.stdin.take().unwrap();
+        let mut child = super::process::spawn(command, Stdio::piped(), Stdio::null())?;
+        // spawn configured a piped stdin; no prior take occurs.
+        let mut stdin = child
+            .stdin
+            .take()
+            // Invariant: spawn configured this pipe and it has not been taken.
+            .expect("spawn configured this pipe and it has not been taken");
         let control = Arc::new(Control::default());
         let pid = child.id();
-        let watchdog = control.clone();
-        std::thread::spawn(move || {
-            let mut state = watchdog.state.lock().unwrap();
-            loop {
-                if state.closed {
-                    break;
-                }
-                if state.failure.is_some() || state.deadline.is_some_and(|d| Instant::now() >= d) {
-                    kill_process(pid);
-                    break;
-                }
-                let wait = state
-                    .deadline
-                    .map(|d| d.saturating_duration_since(Instant::now()))
-                    .unwrap_or(Duration::from_secs(60));
-                state = watchdog.wake.wait_timeout(state, wait).unwrap().0;
-            }
-        });
+        control.watch(pid);
         let (input, writes) = mpsc::sync_channel::<StdinMsg>(256);
         let writer_control = control.clone();
         std::thread::spawn(move || {
@@ -268,15 +229,19 @@ impl Cursor {
                 }
             }
         });
-        let output = child.stdout.take().unwrap();
+        // spawn configured a piped stdout; no prior take occurs.
+        let output = child
+            .stdout
+            .take()
+            // Invariant: spawn configured this pipe and it has not been taken.
+            .expect("spawn configured this pipe and it has not been taken");
         let (tx, lines) = mpsc::sync_channel(256);
         let reader_control = control.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(output);
             loop {
                 let mut line = Vec::new();
-                use std::io::Read;
-                let result = (&mut reader).take(MAX_LINE + 1).read_until(b'\n', &mut line);
+                let result = super::process::read_line(&mut reader, &mut line);
                 match result {
                     Ok(0) => break, // clean EOF — do not spam the channel
                     Ok(_) if line.len() as u64 > MAX_LINE => {
@@ -302,9 +267,9 @@ impl Cursor {
                         } else {
                             match serde_json::from_slice::<Value>(trimmed) {
                                 Ok(v) => Ok(Line::Json(v)),
-                                Err(_) => Ok(Line::Raw(
-                                    String::from_utf8_lossy(trimmed).into_owned(),
-                                )),
+                                Err(_) => {
+                                    Ok(Line::Raw(String::from_utf8_lossy(trimmed).into_owned()))
+                                }
                             }
                         };
                         match tx.try_send(value) {
@@ -388,9 +353,7 @@ impl Cursor {
 
     fn transport_failure(&mut self, message: &str) -> Event {
         self.queued.clear();
-        let diagnostic = self
-            .normal
-            .diagnostic("error", "native.transport", message);
+        let diagnostic = self.normal.diagnostic("error", "native.transport", message);
         let terminal = self
             .normal
             .finish(self.stopping.is_some() || self.cancelled(), self.exit_code);
@@ -451,7 +414,11 @@ impl Cursor {
 
 impl Runtime for Cursor {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
-        if turn.mode == Mode::ApproveEach { return Err(err("Cursor does not support Approve-each in the native driver.")); }
+        if turn.mode == Mode::ApproveEach {
+            return Err(err(
+                "Cursor does not support Approve-each in the native driver.",
+            ));
+        }
         if turn.prompt.trim().is_empty() {
             return Err(err("Prompt must be nonempty"));
         }
@@ -518,11 +485,7 @@ impl Runtime for Cursor {
         }
         let now = Instant::now();
         self.stopping = Some(now);
-        {
-            let mut state = self.control.state.lock().unwrap();
-            state.deadline = Some(now + Duration::from_secs(5));
-            self.control.wake.notify_one();
-        }
+        self.control.cancel_at(now + Duration::from_secs(5));
         interrupt_process(self.child.id());
         self.close_stdin();
         Ok(())
@@ -531,14 +494,8 @@ impl Runtime for Cursor {
 
 impl Drop for Cursor {
     fn drop(&mut self) {
-        {
-            let mut state = self.control.state.lock().unwrap();
-            state.closed = true;
-            self.control.wake.notify_one();
-            kill_process(self.child.id());
-        }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        self.control.close_and_kill(self.child.id());
+        super::process::kill_reap(&mut self.child);
     }
 }
 
@@ -552,14 +509,23 @@ mod unit_tests {
         assert!(args.windows(2).any(|w| w == ["--mode", "ask"]));
         assert!(!args.iter().any(|a| a == "--force"));
         assert!(!args.iter().any(|a| a == "--approve-mcps"));
-        assert!(args.windows(2).any(|w| w == ["--output-format", "stream-json"]));
+        assert!(
+            args.windows(2)
+                .any(|w| w == ["--output-format", "stream-json"])
+        );
         assert!(args.contains(&"--stream-partial-output".into()));
         assert!(args.contains(&"--trust".into()));
     }
 
     #[test]
     fn auto_mode_forces_and_approves_mcps() {
-        let args = print_args(Path::new("/tmp/ws"), Mode::Auto, Some("composer-1"), Some("sess")).unwrap();
+        let args = print_args(
+            Path::new("/tmp/ws"),
+            Mode::Auto,
+            Some("composer-1"),
+            Some("sess"),
+        )
+        .unwrap();
         assert!(args.contains(&"--force".into()));
         assert!(args.contains(&"--approve-mcps".into()));
         assert!(args.windows(2).any(|w| w == ["--model", "composer-1"]));

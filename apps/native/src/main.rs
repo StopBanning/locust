@@ -1,279 +1,50 @@
+mod invariants;
+#[path = "ui/scenes.rs"]
+mod scenes;
+use scenes::*;
+#[path = "ui/composer_wiring.rs"]
+mod composer_wiring;
+use composer_wiring::*;
+#[path = "ui/approval_card.rs"]
+mod approval_card;
+use approval_card::*;
+#[path = "ui/activity_drawers.rs"]
+mod activity_drawers;
+use activity_drawers::*;
+#[path = "ui/messages.rs"]
+mod messages;
+use messages::*;
+#[path = "ui/sidebar.rs"]
+mod sidebar;
+use sidebar::*;
+#[path = "ui/thread_view.rs"]
+mod thread_view;
+use thread_view::*;
+#[path = "ui/app_state.rs"]
+mod app_state;
+use app_state::*;
+
 mod approval;
 mod composer;
 mod engine;
 mod ledger;
-mod quick;
-mod store;
-mod native;
 mod ledger_write;
-mod runtime;
+mod native;
+mod quick;
 mod run_cli;
+mod runtime;
+mod store;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use native::Kind;
 use rune::tok::type_;
 use rune::{
-    Align, App, AppSpec, Chrome, Color, Cycle, Cx, El, Key, KeyEvent, Latest,
-    ScrollSpec, TextEdit, Tx, Waker, col, el, row, text, text_input,
+    Align, App, AppSpec, Chrome, Color, Cx, Cycle, El, Key, KeyEvent, Latest, ScrollSpec, TextEdit,
+    Tx, Waker, col, el, row, text, text_input,
 };
 use rune_kit::{Markdown, MarkdownStyle};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-fn color(value: &str) -> Color {
-    rune::color::hex(value).expect("valid Locust colour")
-}
-
-#[derive(Clone, Copy)]
-enum StatusTone {
-    Muted,
-    Green,
-    Amber,
-    Red,
-}
-
-struct Palette {
-    dark: bool,
-    bg: Color,
-    sidebar: Color,
-    raised: Color,
-    selected: Color,
-    your_bubble: Color,
-    field: Color,
-    hairline: Color,
-    text: Color,
-    secondary: Color,
-    muted: Color,
-    green: Color,
-    amber: Color,
-    red: Color,
-}
-
-impl Palette {
-    fn new(dark: bool) -> Self {
-        let tokens = if dark {
-            [
-                "#121415", "#17191a", "#191c1d", "#1e2223", "#23282a",
-                "#1a1d1e", "#f2efe9", "#c7c3bc", "#8b9190",
-                "#7fc97f", "#e9b949", "#e4685d",
-            ]
-        } else {
-            [
-                "#faf9f6", "#f1f0ec", "#ffffff", "#e7e6e1", "#ebeae5",
-                "#ffffff", "#1c1e1d", "#3a3e3d", "#5f6563",
-                "#2e8540", "#b8790a", "#c9443a",
-            ]
-        };
-        let [
-            bg, sidebar, raised, selected, your_bubble, field,
-            text, secondary, muted, green, amber, red,
-        ] = tokens.map(color);
-
-        Self {
-            dark,
-            bg,
-            sidebar,
-            raised,
-            selected,
-            your_bubble,
-            field,
-            hairline: if dark {
-                Color::WHITE.alpha(0.06)
-            } else {
-                text.alpha(0.08)
-            },
-            text,
-            secondary,
-            muted,
-            green,
-            amber,
-            red,
-        }
-    }
-
-    fn status(&self, tone: StatusTone) -> Color {
-        match tone {
-            StatusTone::Muted => self.muted,
-            StatusTone::Green => self.green,
-            StatusTone::Amber => self.amber,
-            StatusTone::Red => self.red,
-        }
-    }
-}
-
-#[derive(Default)]
-struct Conversation {
-    conversation_id: Option<String>,
-    turns: Vec<(String, String)>,
-}
-
-// Fix 2: tag each flight with its teammate ID, conversation ID, header, and tip so stale results are dropped.
-struct Flight {
-    teammate_id: String,
-    conversation_id: Option<String>,
-    header: Option<Teammate>,
-    after_tip: Option<String>,
-    // Some only until start/send lands; reply failures must not restore sent text.
-    message: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct TurnPick { model: String, effort: Option<String> }
-
-struct OwnTurn { conversation: String, tip: Option<String>, before: Option<String> }
-
-struct State {
-    // Which engine this window runs on, shown in the status line. None until the team has loaded.
-    engine: Option<Kind>,
-    teammates: Vec<Teammate>,
-    selected: usize,
-    // Fix: histories and conversation IDs survive team reordering and reloads.
-    conversations: HashMap<String, Conversation>,
-    draft: TextEdit,
-    picks: HashMap<String, TurnPick>,
-    models: HashMap<String, Vec<engine::Models>>,
-    model_menu: Option<String>,
-    model_job: Latest<(String, Result<Vec<engine::Models>, String>)>,
-    own_turn: Option<OwnTurn>,
-    stopping: Latest<(String, Result<String, String>)>,
-    status: String,
-    status_tone: StatusTone,
-    load_error: Option<String>,
-    flight: Option<Flight>,
-    demo: bool,
-    // None follows the system; snapshot scenes explicitly choose an appearance.
-    appearance: Option<bool>,
-    activity_open: HashMap<String, bool>,
-    recent: Vec<ConversationRow>,
-    recent_error: Option<String>,
-    opening_teammate: Option<String>,
-    opening_conversation: Option<String>,
-    waiting_target: Option<(String, String)>,
-    recents: Latest<Result<RecentBatch, String>>,
-    ledger_summaries: HashMap<String, ledger::Summary>,
-    ledger_available: bool,
-    ledger: Option<LedgerPane>,
-    ledger_job: Latest<LedgerAnswer>,
-    opening: Latest<Result<Reply, String>>,
-    team: Latest<Result<(Kind, Vec<Teammate>), String>>,
-    sending: Latest<Result<Started, String>>,
-    waiting: Latest<Result<Reply, String>>,
-    /// First card waiting on the person in this window (Approve each).
-    pending_approval: Option<approval::Request>,
-    /// Visible refusal when answering after the turn ended.
-    approval_notice: Option<String>,
-    approval_shown: std::time::Instant,
-    approval_denying: bool,
-    approval_reason: TextEdit,
-    // --- M4b composer (Electron Composer.tsx) ---
-    drafts: composer::Drafts,
-    attached: Vec<String>,
-    tagged: Vec<String>,
-    queue_rows: Vec<composer::QueuedRow>,
-    queue_error: Option<String>,
-    queue_send_now: Option<String>,
-    composer_note: Option<String>,
-    slash_at: usize,
-    at_at: usize,
-    at_dismissed: Option<String>,
-    project_files: Vec<String>,
-    files_partial: bool,
-    files_job: Latest<(Vec<String>, bool)>,
-    files_root: Option<std::path::PathBuf>,
-    files_asked: Option<std::time::Instant>,
-    sent_history: Vec<String>,
-    recall_at: isize,
-    /// Permission mode for Shift+Tab / slash (Electron mode chip).
-    mode: String,
-    /// Scene / discovery flags for placeholders and disabled-send.
-    nothing_installed: bool,
-    selected_ready: bool,
-    route_can_run: bool,
-    /// Native data folder for queue + pasted attachments (never Electron's).
-    data: Option<store::Store>,
-    /// Off-queue edit strip (Composer: Edit took words back into the box).
-    off_the_queue: bool,
-    /// Popup forced open for snap scenes.
-    scene_popup: ComposerScenePopup,
-}
-
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-enum ComposerScenePopup {
-    #[default]
-    None,
-    Slash,
-    Mention,
-    Queue,
-    Blocked,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            engine: None,
-            teammates: Vec::new(),
-            selected: 0,
-            conversations: HashMap::new(),
-            draft: TextEdit::new(""),
-            picks: HashMap::new(),
-            models: HashMap::new(),
-            model_menu: None,
-            model_job: Latest::default(),
-            own_turn: None,
-            stopping: Latest::default(),
-            status: "Loading teammates…".into(),
-            status_tone: StatusTone::Muted,
-            load_error: None,
-            flight: None,
-            demo: false,
-            appearance: None,
-            activity_open: HashMap::new(),
-            recent: Vec::new(),
-            recent_error: None,
-            opening_teammate: None,
-            opening_conversation: None,
-            waiting_target: None,
-            recents: Latest::default(),
-            ledger_summaries: HashMap::new(),
-            ledger_available: false,
-            ledger: None,
-            ledger_job: Latest::default(),
-            opening: Latest::default(),
-            team: Latest::default(),
-            sending: Latest::default(),
-            waiting: Latest::default(),
-            pending_approval: None,
-            approval_notice: None,
-            approval_shown: std::time::Instant::now(),
-            approval_denying: false,
-            approval_reason: TextEdit::new(""),
-            drafts: composer::Drafts::default(),
-            attached: Vec::new(),
-            tagged: Vec::new(),
-            queue_rows: Vec::new(),
-            queue_error: None,
-            queue_send_now: None,
-            composer_note: None,
-            slash_at: 0,
-            at_at: 0,
-            at_dismissed: None,
-            project_files: Vec::new(),
-            files_partial: false,
-            files_job: Latest::default(),
-            files_root: None,
-            files_asked: None,
-            sent_history: Vec::new(),
-            recall_at: -1,
-            mode: "ask".into(),
-            nothing_installed: false,
-            selected_ready: true,
-            route_can_run: true,
-            data: None,
-            off_the_queue: false,
-            scene_popup: ComposerScenePopup::None,
-        }
-    }
-}
 
 const LEDGER_TARGET: &str = "@ledger";
 const CARRY_TARGET: &str = "@carry-models";
@@ -300,10 +71,7 @@ struct LedgerPane {
 }
 
 // Fix 3: return the Session on both Ok and Err so transient errors never rebuild the Session.
-type LedgerAnswer = Result<
-    (ledger::Session, ledger::Snapshot),
-    (ledger::Session, String),
->;
+type LedgerAnswer = Result<(ledger::Session, ledger::Snapshot), Box<(ledger::Session, String)>>;
 
 // Electron's ledger folder (read-only); native's own folder when there is no Electron one. A Session also reads
 // native's folder (`native::session`), so a conversation continues across both.
@@ -313,19 +81,18 @@ fn ledger_dir() -> Option<std::path::PathBuf> {
 }
 
 // Fix 2: check whether a request's (teammate_id, conversation_id) tag still matches the open view.
-fn active_matches(
-    s: &State,
-    teammate_id: &str,
-    conversation_id: Option<&str>,
-) -> bool {
+fn active_matches(s: &State, teammate_id: &str, conversation_id: Option<&str>) -> bool {
     if let Some(pane) = &s.ledger {
         pane.header.id == teammate_id
             && (conversation_id.is_none()
                 || pane.conversation.conversation_id.as_deref() == conversation_id)
     } else {
-        s.teammates.get(s.selected).is_some_and(|t| t.id == teammate_id)
+        s.teammates
+            .get(s.selected)
+            .is_some_and(|t| t.id == teammate_id)
             && (conversation_id.is_none()
-                || s.conversations.get(teammate_id)
+                || s.conversations
+                    .get(teammate_id)
                     .and_then(|c| c.conversation_id.as_deref())
                     == conversation_id)
     }
@@ -347,12 +114,11 @@ fn begin_ledger(
     s.ledger_job.cancel();
     // Fix 3: preserve existing Session and transcript items when continuing the same ledger conversation.
     let (mut items, worker, snapshot) = match s.ledger.take() {
-        Some(mut prev)
-            if prev.conversation.conversation_id.as_deref() == Some(id.as_str()) =>
-        {
-            let worker = prev.worker.take().unwrap_or_else(|| {
-                native::session(dir.clone(), id.clone())
-            });
+        Some(mut prev) if prev.conversation.conversation_id.as_deref() == Some(id.as_str()) => {
+            let worker = prev
+                .worker
+                .take()
+                .unwrap_or_else(|| native::session(dir.clone(), id.clone()));
             (prev.items, worker, prev.snapshot)
         }
         _ => (
@@ -385,7 +151,8 @@ fn begin_ledger(
         "Loading conversation…"
     } else {
         "Working…"
-    }.into();
+    }
+    .into();
     s.status_tone = if loading {
         StatusTone::Muted
     } else {
@@ -400,7 +167,9 @@ fn leave_ledger(s: &mut State) {
     s.model_menu = None;
     // Fix 2: detach whenever leaving an open ledger so in-flight requests are cancelled and unsent drafts restored.
     if s.ledger.is_some()
-        || s.flight.as_ref().is_some_and(|f| f.teammate_id == LEDGER_TARGET)
+        || s.flight
+            .as_ref()
+            .is_some_and(|f| f.teammate_id == LEDGER_TARGET)
     {
         detach(s);
     }
@@ -430,7 +199,9 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     s.at_dismissed = None;
     if s.ledger_available {
         let header = s.teammates.get(index).cloned();
-        let conversation = s.conversations.get(id)
+        let conversation = s
+            .conversations
+            .get(id)
             .and_then(|c| c.conversation_id.clone());
         if let (Some(header), Some(conversation)) = (header, conversation) {
             begin_ledger(s, conversation, String::new(), header, None, tx);
@@ -452,8 +223,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             Ok((worker, snapshot)) => {
                 // Fix 2: ignore a worker result if the open ledger changed while the job was running.
                 if let Some(pane) = s.ledger.as_mut()
-                    && pane.conversation.conversation_id.as_deref()
-                        == Some(worker.anchor())
+                    && pane.conversation.conversation_id.as_deref() == Some(worker.anchor())
                 {
                     changed = pane.loading || pane.snapshot != snapshot;
                     let finished = pane.snapshot.running && !snapshot.running;
@@ -462,16 +232,17 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     if pane.after_tip.is_some() && pane.after_tip_deadline.is_none() {
                         pane.after_tip_deadline = Some(now + 30.0);
                     }
-                    if pane.after_tip.as_ref().is_some_and(|tip| {
-                        tip != &snapshot.tip || snapshot.running
-                    }) {
+                    if pane
+                        .after_tip
+                        .as_ref()
+                        .is_some_and(|tip| tip != &snapshot.tip || snapshot.running)
+                    {
                         pane.after_tip = None;
                         pane.after_tip_deadline = None;
                     }
                     // Fix 3: bound after_tip waiting to 30 s, then show "No new reply yet" and unlock Send.
                     let mut timed_out = false;
-                    if pane.after_tip.is_some()
-                        && pane.after_tip_deadline.is_some_and(|d| now >= d)
+                    if pane.after_tip.is_some() && pane.after_tip_deadline.is_some_and(|d| now >= d)
                     {
                         pane.after_tip = None;
                         pane.after_tip_deadline = None;
@@ -480,7 +251,8 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     }
                     let active = snapshot.running || pane.after_tip.is_some();
                     if let Some(own) = s.own_turn.as_mut()
-                        && pane.conversation.conversation_id.as_deref() == Some(own.conversation.as_str())
+                        && pane.conversation.conversation_id.as_deref()
+                            == Some(own.conversation.as_str())
                     {
                         if !active || timed_out {
                             s.own_turn = None;
@@ -536,8 +308,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                             message: None,
                         });
                     } else if s.flight.as_ref().is_some_and(|f| {
-                        f.teammate_id == pane.header.id
-                            || f.teammate_id == LEDGER_TARGET
+                        f.teammate_id == pane.header.id || f.teammate_id == LEDGER_TARGET
                     }) {
                         s.flight = None;
                     }
@@ -551,7 +322,8 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                                     "failed"
                                 } else {
                                     "completed"
-                                }.into();
+                                }
+                                .into();
                             }
                         }
                     }
@@ -561,10 +333,10 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     // stick_bottom follows new text while the listener stays at the bottom.
                 }
             }
-            Err((worker, words)) => {
+            Err(error) => {
+                let (worker, words) = *error;
                 if let Some(pane) = s.ledger.as_mut()
-                    && pane.conversation.conversation_id.as_deref()
-                        == Some(worker.anchor())
+                    && pane.conversation.conversation_id.as_deref() == Some(worker.anchor())
                 {
                     changed = true;
                     s.status = words;
@@ -591,21 +363,17 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         if pane.after_tip.is_some() && pane.after_tip_deadline.is_none() {
             pane.after_tip_deadline = Some(now + 30.0);
         }
-        let pollable = pane.loading
-            || pane.snapshot.running
-            || pane.after_tip.is_some()
-            || pane.backoff > 0.0;
+        let pollable =
+            pane.loading || pane.snapshot.running || pane.after_tip.is_some() || pane.backoff > 0.0;
         if pollable {
             if now >= pane.due {
                 if let Some(mut worker) = pane.worker.take() {
-                    s.ledger_job.request((), move |()| {
-                        match worker.poll() {
-                            Ok(snapshot) => Ok((worker, snapshot)),
-                            Err(_) => Err((
-                                worker,
-                                "Local conversation could not be read.".to_owned(),
-                            )),
-                        }
+                    s.ledger_job.request((), move |()| match worker.poll() {
+                        Ok(snapshot) => Ok((worker, snapshot)),
+                        Err(_) => Err(Box::new((
+                            worker,
+                            "Local conversation could not be read.".to_owned(),
+                        ))),
                     });
                 }
             } else if pane.worker.is_some() {
@@ -616,283 +384,8 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed
 }
 
-fn disclosure(key: String, label: String, open: bool, p: &Palette) -> El {
-    el().w_full().padding(8.0).radius(5.0)
-        .child(text(format!("{} {label}", if open { "▾" } else { "▸" })).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere())
-        .on_press(move |s: &mut State| { s.activity_open.insert(key.clone(), !open); })
-}
-
-fn tool_result(status: ledger::Status, d: &ledger::ToolDetail, finished: bool) -> String {
-    let finished=finished || d.finished;
-    if status == ledger::Status::Running { return (if finished { "did not report" } else if d.helper { "working on it" } else { "running" }).into(); }
-    if matches!(d.runtime_status.as_str(), "declined"|"refused") { return d.runtime_status.clone(); }
-    if status == ledger::Status::Failed { return if !d.helper && let Some(code)=d.exit_code { format!("failed · exit {code}") } else { "failed".into() }; }
-    if d.background { return match d.background_ended.as_str() {
-        "completed" => if d.helper { "reported back" } else { "done" }, "failed"=>"failed", "stopped"=>"stopped",
-        "stopped-with-run"=>if d.helper {"stopped when the run ended"} else {"stopped"}, "ended"=>"ended",
-        _=>if finished {"did not report"} else if d.helper {"working in the background"} else {"running"},
-    }.into(); }
-    if d.helper { "reported back".into() } else if let Some(code)=d.exit_code {format!("exit {code}")} else {"done".into()}
-}
-
-fn is_shell_tool(name: &str) -> bool {
-    matches!(name.to_lowercase().as_str(), "bash"|"shell"|"exec_command"|"commandexecution")
-}
-
-fn thought_headline(text: &str) -> Option<&str> {
-    text.trim_start().strip_prefix("**").and_then(|rest| rest.split_once("**"))
-        .and_then(|(headline, _)| ((2..=80).contains(&headline.len()) && !headline.contains('\n')).then_some(headline))
-}
-
-fn without_headline(text: &str) -> &str {
-    match thought_headline(text) {
-        Some(headline) => {
-            let marker = format!("**{headline}**");
-            text.find(&marker).map(|at| text[at + marker.len()..].trim_start()).unwrap_or(text)
-        }
-        None => text,
-    }
-}
-
-fn tool_row_label(name: &str, status: ledger::Status, summary: &str, d: &ledger::ToolDetail, finished: bool) -> String {
-    let result = tool_result(status, d, finished);
-    let title = if !summary.is_empty() { summary } else if !d.arguments.is_empty() { &d.arguments } else { name };
-    let mut label = if d.helper {
-        let mut row = format!("{title} · {}subagent", if d.helper_type.is_empty() { String::new() } else { format!("{} ", d.helper_type) });
-        if !d.children.is_empty() {
-            row.push_str(&format!(" · {} {}", d.children.len(), if d.children.len() == 1 { "call" } else { "calls" }));
-        }
-        row.push_str(&format!(" · {result}"));
-        row
-    } else {
-        let tool_word = match name.to_lowercase().as_str() {
-            "read"|"read_file"|"readfile"|"view_file"|"cat"=>"Read",
-            "write"|"write_file"|"writefile"=>"Write",
-            "edit"|"edit_file"|"editfile"|"apply_patch"=>"Edit",
-            "grep"|"grep_search"|"ripgrep"=>"Grep",
-            "glob"|"list_dir"|"list_directory"|"ls"=>"Glob",
-            "bash"|"shell"|"exec_command"|"commandexecution"=>"",
-            _=>name,
-        };
-        if tool_word.is_empty() { format!("{title} · {result}") } else { format!("{title} · {tool_word} · {result}") }
-    };
-    if d.helper && status == ledger::Status::Done && !d.output.trim().is_empty() && result == "reported back" {
-        label.push_str(&format!(" · {}", d.output.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(160).collect::<String>()));
-    }
-    if result == "working in the background" && !d.progress.is_empty() {
-        label.push_str(&format!(" · {}", d.progress));
-    }
-    // BackgroundBadge is shell-only (ActivityCard.tsx:1298); helpers already say it in tool_result.
-    if d.background && !d.helper {
-        label.push_str(if d.background_ended == "stopped-with-run" { " · when the run ended" } else { " · in the background" });
-    }
-    if is_shell_tool(name) && d.output_reported && d.output.trim().is_empty() && status != ledger::Status::Running {
-        label.push_str(" · no output");
-    }
-    let refused = matches!(d.runtime_status.as_str(), "declined"|"refused");
-    if is_shell_tool(name) && !d.background && !refused && status != ledger::Status::Running
-        && let Some(ms) = d.duration_ms.filter(|ms| *ms >= 1000)
-    {
-        label.push_str(&format!(" · {}", ledger::duration_text(ms)));
-    }
-    label
-}
-
-fn activity_drawer_key(scope: &str, item: &ledger::Item) -> String {
-    match item {
-        ledger::Item::Plan { id, .. } => format!("{scope}/plan/{id}"),
-        ledger::Item::Thought { id, .. } => format!("{scope}/{id}"),
-        ledger::Item::Tool { detail, .. } => format!("{scope}/{}", detail.id),
-        _ => format!("{scope}/item"),
-    }
-}
-
-fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: &str) -> El {
-    let finished = s.ledger.as_ref().is_some_and(|pane| !pane.snapshot.running);
-    let label = match item {
-        ledger::Item::Tool { name, status, summary, detail: d } => tool_row_label(name, *status, summary, d, finished),
-        ledger::Item::Plan { steps, finished: ended, .. } => {
-            let finished=finished || *ended;
-            let done=steps.iter().filter(|r| r.state=="done").count();
-            format!("PLAN · {done} of {} done{}", steps.len(), if finished && done<steps.len() { format!(" · {} not checked off",steps.len()-done) } else { String::new() })
-        },
-        ledger::Item::Thought { text, duration_ms, .. } => {
-            let mut label = duration_ms.filter(|ms| *ms >= 500).map(|ms| format!("Thought for {}",ledger::duration_text(ms))).unwrap_or_else(|| "Thought".into());
-            if let Some(headline) = thought_headline(text) { label.push_str(&format!(" · {headline}")); }
-            label
-        },
-        _ => return col(),
-    };
-    let key = activity_drawer_key(scope, item);
-    let open = s.activity_open.get(&key).copied().unwrap_or(matches!(item,ledger::Item::Plan { .. }));
-    let expandable = match item {
-        ledger::Item::Thought { text, .. } => !text.is_empty(),
-        ledger::Item::Tool { detail, .. } => !detail.arguments.is_empty() || !detail.output.is_empty() || !detail.children.is_empty(),
-        ledger::Item::Plan { steps, .. } => !steps.is_empty(), _=>false,
-    };
-    let heading = if expandable { disclosure(key.clone(),label,open,p) }
-        else { el().w_full().padding(8.0).child(text(label).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere()) };
-    let mut card = col().w_full().gap(4.0);
-    if matches!(item,ledger::Item::Plan { .. }) { card=card.radius(7.0).border(1.0,p.hairline); }
-    card=card.child(heading);
-    if open {
-        let mut body = col().w_full().padding(10.0).gap(8.0);
-        match item {
-            ledger::Item::Tool { detail: d, .. } => {
-                if !d.arguments.is_empty() { body = body.child(text(d.arguments.clone()).font(type_::LABEL).color(p.text).wrap_anywhere().selectable(true)); }
-                if !d.output.is_empty() {
-                    let all_key = format!("{key}/output");
-                    let all = s.activity_open.get(&all_key).copied().unwrap_or(false);
-                    let output=ledger::bounded_output(&d.output,all);
-                    let lines: Vec<_>=d.output.trim_end().split('\n').collect();
-                    if !all && lines.len()>16 {
-                        body=body.child(text(lines[..8].join("\n")).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere().selectable(true));
-                        body=body.child(disclosure(all_key,format!("{} more lines",lines.len()-16),false,p));
-                        body=body.child(text(lines[lines.len()-8..].join("\n")).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere().selectable(true));
-                    } else { body=body.child(text(output).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere().selectable(true)); }
-                }
-                for child in &d.children { body=body.child(activity_item(child,p,s,&key)); }
-            }
-            ledger::Item::Plan { steps, finished: ended, .. } => {
-                let finished=finished || *ended;
-                for (n, step) in steps.iter().enumerate() {
-                    let mark = if step.state=="done" {"✓"} else if step.state=="running" && !finished {"●"} else {"○"};
-                    body=body.child(text(format!("{mark} {}. {}", n+1, step.text)).font(type_::LABEL).color(if step.state=="running" && !finished {p.text} else {p.muted}).wrap_anywhere());
-                }
-            }
-            ledger::Item::Thought { text: words, .. } => {
-                // Multi-item thought rows keep the full text under the headline button (ActivityCard.tsx:866).
-                if !words.is_empty() {
-                    body=body.child(Markdown::new(words.clone()).selectable(true).render(&markdown_style(p)).w_full());
-                }
-            }
-            _=>{}
-        }
-        card=card.child(body);
-    }
-    card
-}
-
-fn is_activity(item: &ledger::Item) -> bool {
-    matches!(item, ledger::Item::Tool { .. } | ledger::Item::Thought { .. })
-}
-fn activity_id(item: &ledger::Item) -> &str {
-    match item { ledger::Item::Tool { detail, .. } => &detail.id, ledger::Item::Thought { id, .. } | ledger::Item::Plan { id, .. } => id, _ => "" }
-}
-fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
-    let key = format!("{scope}/group/{}",activity_id(&items[0]));
-    let open = s.activity_open.get(&key).copied().unwrap_or(false);
-    let mut commands=0; let mut helpers=0; let mut tools=0; let mut thought_ms=0; let mut headline=None;
-    for item in items {
-        match item {
-            ledger::Item::Tool { name, detail, .. } => {
-                if detail.helper { helpers+=1; }
-                else if matches!(name.to_lowercase().as_str(), "bash"|"shell"|"exec_command"|"commandexecution") { commands+=1; } else { tools+=1; }
-            }
-            ledger::Item::Thought {text,duration_ms,..} => {
-                thought_ms+=duration_ms.unwrap_or(0);
-                if let Some(h)=thought_headline(text) { headline=Some(h.to_owned()); }
-            }
-            _=>{}
-        }
-    }
-    let mut words=Vec::new();
-    if commands>0 { words.push(format!("ran {commands} {}",if commands==1 {"command"} else {"commands"})); }
-    if helpers>0 { words.push(format!("asked {helpers} {}",if helpers==1 {"subagent"} else {"subagents"})); }
-    if tools>0 { words.push(format!("{tools} other tool {}",if tools==1 {"call"} else {"calls"})); }
-    let mut label=headline.unwrap_or_else(|| if words.is_empty() { if thought_ms>=1000 {format!("Thought for {}",ledger::duration_text(thought_ms))} else {"Thought".into()} } else { words.join(", ") });
-    if let Some(first)=label.chars().next() { label=format!("{}{}",first.to_uppercase(),&label[first.len_utf8()..]); }
-    let heading = if matches!(items,[ledger::Item::Thought {text,..}] if text.is_empty()) {
-        el().w_full().padding(8.0).child(text(label).font(type_::LABEL).color(p.muted))
-    } else { disclosure(key,label,open,p) };
-    let mut group=col().w_full().gap(4.0).child(heading);
-    if open {
-        if let [ledger::Item::Thought {text: words,..}]=items {
-            // Single-thought groups already named the headline on the button (ActivityCard.tsx:535).
-            let body = without_headline(words);
-            if !body.is_empty() { group=group.child(Markdown::new(body.to_owned()).selectable(true).render(&markdown_style(p)).w_full()); }
-        } else { for item in items { group=group.child(activity_item(item,p,s,scope)); } }
-    }
-    group
-}
-
-fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
-    let mut messages = col().w_full().gap(24.0).padding(24.0);
-    let style = markdown_style(p);
-    for (index, item) in items.iter().enumerate() {
-        let conversation = s.ledger.as_ref().and_then(|p|p.conversation.conversation_id.as_deref()).unwrap_or("preview");
-        let key = format!("{conversation}/ledger-item-{index}");
-        if matches!(item,ledger::Item::Plan {steps,..} if steps.is_empty()) {continue;}
-        if is_activity(item) {
-            if index>0 && is_activity(&items[index-1]) { continue; }
-            let end=items[index..].iter().position(|i| !is_activity(i)).map(|n|index+n).unwrap_or(items.len());
-            messages=messages.child(activity_group(&items[index..end],p,s,conversation));
-            continue;
-        }
-        let content = match item {
-            ledger::Item::CarryOn { conversation_id } => {
-                if s.flight.is_some()
-                    || s.sending.is_pending()
-                    || s.ledger.as_ref().is_some_and(|pane| pane.snapshot.running || pane.after_tip.is_some())
-                {
-                    continue;
-                }
-                let id = conversation_id.clone();
-                let mut card = col().w_full().gap(8.0).padding(12.0).radius(9.0).fill(p.raised)
-                    .child(text("Carry on with").font(type_::LABEL).color(p.text))
-                    .child(el().padding(8.0).child(text("Choose AI agent and model").color(p.text))
-                        .on_press(|s: &mut State| open_models(s, CARRY_TARGET.into())));
-                if s.model_menu.as_deref() == Some(CARRY_TARGET) {
-                    if let Some(agents) = s.models.get(CARRY_TARGET).filter(|a| !a.is_empty()) {
-                        let mut list = col().key(format!("{key}-carry-menu"))
-                            .w_full().max_h(180.0)
-                            .scroll(ScrollSpec { stick_bottom: false })
-                            .gap(4.0);
-                        for agent in agents { for model in &agent.models {
-                            let (id, runtime, model_id) = (id.clone(), agent.runtime.clone(), model.id.clone());
-                            list = list.child(el().padding(8.0).disabled(s.flight.is_some())
-                                .child(text(format!("{} · {}", engine::runtime_name(&runtime), model.name)).color(p.text))
-                                .on_press(move |s: &mut State| carry(s, id.clone(), runtime.clone(), model_id.clone())));
-                        }}
-                        card = card.child(list);
-                    } else { card = card.child(text("Loading models…").color(p.muted)); }
-                }
-                card
-            }
-            ledger::Item::User(body) => row().w_full().justify_end()
-                .child(
-                    row().w_frac(0.7).justify_end().child(
-                        text(body.clone()).font(type_::BODY).color(p.text)
-                            .shrink().wrap_anywhere().selectable(true)
-                            .padding(12.0).radius(10.0).fill(p.your_bubble)
-                            .border(1.0, p.hairline),
-                    ),
-                ),
-            ledger::Item::Assistant { text: body, r#final, .. } => {
-                col().w_full().gap(8.0)
-                    .child(text(name).font(type_::LABEL).color(p.muted))
-                    .child(
-                        Markdown::new(body.clone()).streaming(!*r#final)
-                            .selectable(true).render(&style)
-                            .key(format!("{key}-markdown")).w_full(),
-                    )
-            }
-            ledger::Item::Tool { .. } | ledger::Item::Plan { .. } | ledger::Item::Thought { .. } => {
-                activity_item(item, p, s, conversation)
-            }
-            ledger::Item::Note { level, text: body } => {
-                text(if level.is_empty() { body.clone() } else { format!("{level}: {body}") })
-                    .font(type_::LABEL).color(p.muted)
-                    .w_full().wrap_anywhere().selectable(true)
-            }
-        };
-        messages = messages.child(content.key(key));
-    }
-    messages.child(approval_card(s, p))
-}
-
-/// Item 1: pick the engine. `LOCUST_NATIVE_ENGINE=1` forces native; otherwise the Electron door is used while it
-/// answers, and native takes over only when the door is unreachable (a door that answered and refused is not down).
+// Item 1: pick the engine. `LOCUST_NATIVE_ENGINE=1` forces native; otherwise the Electron door is used while it
+// answers, and native takes over only when the door is unreachable (a door that answered and refused is not down).
 fn choose_engine() -> Result<(Kind, Vec<Teammate>), String> {
     native::choose(
         native::forced(),
@@ -965,12 +458,18 @@ fn native_blocked(s: &State) -> bool {
 
 fn set_status(s: &mut State, id: &str, message: &str, ink: StatusTone) {
     let name = if id == LEDGER_TARGET {
-        s.ledger.as_ref().map(|p| p.header.name.as_str()).unwrap_or("Locust")
+        s.ledger
+            .as_ref()
+            .map(|p| p.header.name.as_str())
+            .unwrap_or("Locust")
     } else {
-        s.teammates.iter().find(|t| t.id == id)
+        s.teammates
+            .iter()
+            .find(|t| t.id == id)
             .map(|t| t.name.as_str())
             .or_else(|| {
-                s.ledger.as_ref()
+                s.ledger
+                    .as_ref()
                     .filter(|p| p.header.id == id)
                     .map(|p| p.header.name.as_str())
             })
@@ -990,7 +489,9 @@ fn send(s: &mut State, _: &mut Tx) {
     let teammate_id = teammate.id.clone();
     let conversation_id = conversation.conversation_id.clone();
     let header = teammate.clone();
-    let after_tip = s.ledger.as_ref()
+    let after_tip = s
+        .ledger
+        .as_ref()
         .map(|p| p.snapshot.tip.clone())
         .filter(|v| !v.is_empty());
     let message = s.draft.text.clone();
@@ -1021,7 +522,8 @@ fn send(s: &mut State, _: &mut Tx) {
             let model = pick.as_ref().map(|p| p.model.as_str());
             let effort = pick.as_ref().and_then(|p| p.effort.as_deref());
             if let Some(teammate) = native_job {
-                let teammate = teammate.ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
+                let teammate = teammate
+                    .ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
                 return native::send(native::Send {
                     teammate,
                     conversation,
@@ -1040,7 +542,10 @@ fn send(s: &mut State, _: &mut Tx) {
 }
 
 fn flight_teammate(s: &State, id: &str) -> Option<Teammate> {
-    s.flight.as_ref().and_then(|f| f.header.clone()).filter(|h| h.id == id)
+    s.flight
+        .as_ref()
+        .and_then(|f| f.header.clone())
+        .filter(|h| h.id == id)
         .or_else(|| s.teammates.iter().find(|t| t.id == id).cloned())
 }
 
@@ -1049,20 +554,31 @@ fn take_turn_pick(s: &mut State, teammate: &str) -> Option<TurnPick> {
 }
 
 fn open_models(s: &mut State, id: String) {
-    if s.demo { return; }
+    if s.demo {
+        return;
+    }
     if s.engine == Some(Kind::Native) {
         // The model list comes from Locust's door; native runs the teammate's own model for now.
         s.status = "Choosing a model for a turn runs in Locust for now; native uses the teammate's own model.".into();
         s.status_tone = StatusTone::Muted;
         return;
     }
-    if s.model_menu.as_ref() == Some(&id) { s.model_menu = None; return; }
+    if s.model_menu.as_ref() == Some(&id) {
+        s.model_menu = None;
+        return;
+    }
     if s.models.get(&id).is_some_and(Vec::is_empty) {
         s.models.remove(&id);
     }
     s.model_menu = Some(id.clone());
     s.model_job.request(id, |id| {
-        let result = Engine::local().and_then(|e| e.list_models(if id == LEDGER_TARGET || id == CARRY_TARGET { None } else { Some(&id) }));
+        let result = Engine::local().and_then(|e| {
+            e.list_models(if id == LEDGER_TARGET || id == CARRY_TARGET {
+                None
+            } else {
+                Some(&id)
+            })
+        });
         (id, result)
     });
 }
@@ -1070,25 +586,43 @@ fn open_models(s: &mut State, id: String) {
 /// Native: the turn this window may stop, from the process's own registry. It survives leaving the view and
 /// reopening the turn from Recent, because ownership is the registry and not `own_turn` (cleared on every view change).
 fn native_stop_key(s: &State) -> Option<String> {
-    if s.engine != Some(Kind::Native) { return None; }
+    if s.engine != Some(Kind::Native) {
+        return None;
+    }
     match &s.ledger {
-        Some(p) if p.snapshot.running => native::owned_key(Some(&p.snapshot.tip), p.conversation.conversation_id.as_deref()),
+        Some(p) if p.snapshot.running => native::owned_key(
+            Some(&p.snapshot.tip),
+            p.conversation.conversation_id.as_deref(),
+        ),
         Some(_) => None,
-        None => selected_conversation(s).and_then(|(_, c)| native::owned_key(None, c.conversation_id.as_deref())),
+        None => selected_conversation(s)
+            .and_then(|(_, c)| native::owned_key(None, c.conversation_id.as_deref())),
     }
 }
 
 fn can_stop(s: &State) -> bool {
-    if s.demo || s.sending.is_pending() || s.flight.is_none() { return false; }
-    if s.engine == Some(Kind::Native) { return native_stop_key(s).is_some(); }
-    let Some(own) = &s.own_turn else { return false; };
-    let Some((_, c)) = selected_conversation(s) else { return false; };
+    if s.demo || s.sending.is_pending() || s.flight.is_none() {
+        return false;
+    }
+    if s.engine == Some(Kind::Native) {
+        return native_stop_key(s).is_some();
+    }
+    let Some(own) = &s.own_turn else {
+        return false;
+    };
+    let Some((_, c)) = selected_conversation(s) else {
+        return false;
+    };
     c.conversation_id.as_deref() == Some(own.conversation.as_str())
-        && s.ledger.as_ref().is_none_or(|p| p.snapshot.running && own.tip.as_deref() == Some(p.snapshot.tip.as_str()))
+        && s.ledger.as_ref().is_none_or(|p| {
+            p.snapshot.running && own.tip.as_deref() == Some(p.snapshot.tip.as_str())
+        })
 }
 
 fn stop(s: &mut State) {
-    if !can_stop(s) || s.stopping.is_pending() { return; }
+    if !can_stop(s) || s.stopping.is_pending() {
+        return;
+    }
     if let Some(key) = native_stop_key(s) {
         s.stopping.request(key, |id| {
             let result = native::stop(&id);
@@ -1100,25 +634,35 @@ fn stop(s: &mut State) {
         s.stopping.request(own.conversation.clone(), |id| {
             // A turn this process runs stops through the runtime (turn/interrupt, recorded as cancelled); any other
             // goes through Locust's door.
-            let result = if native::owns(&id) { native::stop(&id) } else { Engine::local().and_then(|e| e.stop_turn(&id)) };
+            let result = if native::owns(&id) {
+                native::stop(&id)
+            } else {
+                Engine::local().and_then(|e| e.stop_turn(&id))
+            };
             (id, result)
         });
     }
 }
 
 fn carry(s: &mut State, id: String, runtime: String, model: String) {
-    if s.flight.is_some() || s.sending.is_pending() { return; }
+    if s.flight.is_some() || s.sending.is_pending() {
+        return;
+    }
     if s.engine == Some(Kind::Native) {
         s.status = "Carrying on with another agent runs in Locust for now.".into();
         s.status_tone = StatusTone::Muted;
         s.model_menu = None;
         return;
     }
-    let Some((header, c)) = selected_conversation(s) else { return; };
+    let Some((header, c)) = selected_conversation(s) else {
+        return;
+    };
     let header_id = header.id.clone();
     let conversation_id = c.conversation_id.clone();
     let header = header.clone();
-    let after_tip = s.ledger.as_ref()
+    let after_tip = s
+        .ledger
+        .as_ref()
         .map(|p| p.snapshot.tip.clone())
         .filter(|v| !v.is_empty());
     s.own_turn = None;
@@ -1136,7 +680,10 @@ fn carry(s: &mut State, id: String, runtime: String, model: String) {
     });
     s.model_menu = None;
     set_status(s, &header_id, "Sending…", StatusTone::Muted);
-    s.sending.request((id, runtime, model), |(id, runtime, model)| Engine::local()?.carry_on(&id, &runtime, &model));
+    s.sending
+        .request((id, runtime, model), |(id, runtime, model)| {
+            Engine::local()?.carry_on(&id, &runtime, &model)
+        });
 }
 
 fn refresh_recent(s: &mut State) {
@@ -1147,24 +694,37 @@ fn refresh_recent(s: &mut State) {
     s.recents.request((), move |()| {
         // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
         if let Some(listed) = native::list_recent(12, on_native) {
-            let rows = listed.summaries.iter().map(|m| ConversationRow {
-                id: m.mission_id.clone(),
-                teammate: engine::runtime_name(&m.runtime).into(),
-                title: m.title.clone(),
-                started_by: if listed.native.contains(&m.mission_id) { "native" } else { "ledger" }.into(),
-                state: if m.running {
-                    "running"
-                } else if m.failed {
-                    "failed"
-                } else {
-                    "completed"
-                }.into(),
-                updated: m.updated.clone(),
-            }).collect();
+            let rows = listed
+                .summaries
+                .iter()
+                .map(|m| ConversationRow {
+                    id: m.mission_id.clone(),
+                    teammate: engine::runtime_name(&m.runtime).into(),
+                    title: m.title.clone(),
+                    started_by: if listed.native.contains(&m.mission_id) {
+                        "native"
+                    } else {
+                        "ledger"
+                    }
+                    .into(),
+                    state: if m.running {
+                        "running"
+                    } else if m.failed {
+                        "failed"
+                    } else {
+                        "completed"
+                    }
+                    .into(),
+                    updated: m.updated.clone(),
+                })
+                .collect();
             return Ok(RecentBatch {
                 rows,
-                summaries: listed.summaries.into_iter()
-                    .map(|m| (m.mission_id.clone(), m)).collect(),
+                summaries: listed
+                    .summaries
+                    .into_iter()
+                    .map(|m| (m.mission_id.clone(), m))
+                    .collect(),
                 local: true,
             });
         }
@@ -1229,13 +789,19 @@ fn request_reply(s: &mut State, teammate_id: &str, delay: Duration) {
     if target_index(s, teammate_id).is_none() {
         return;
     }
-    let conversation_id = s.conversations.get(teammate_id)
+    let conversation_id = s
+        .conversations
+        .get(teammate_id)
         .and_then(|c| c.conversation_id.clone())
         .filter(|id| !id.is_empty());
 
     let Some(id) = conversation_id else {
         // Fix: missing IDs end the flight instead of leaving Send locked forever.
-        tracking_error(s, teammate_id, "No active conversation ID; stopped watching");
+        tracking_error(
+            s,
+            teammate_id,
+            "No active conversation ID; stopped watching",
+        );
         return;
     };
 
@@ -1249,7 +815,8 @@ fn request_reply(s: &mut State, teammate_id: &str, delay: Duration) {
 fn apply_team(s: &mut State, team: Vec<Teammate>) {
     let selected = s.teammates.get(s.selected).map(|t| t.id.clone());
     for old in &s.teammates {
-        let same_runtime = team.iter()
+        let same_runtime = team
+            .iter()
             .find(|t| t.id == old.id)
             .is_some_and(|t| t.runtime == old.runtime);
         if !same_runtime {
@@ -1261,12 +828,16 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
         s.conversations.entry(t.id.clone()).or_default();
     }
     s.teammates = team;
-    s.selected = selected.as_deref()
+    s.selected = selected
+        .as_deref()
         .and_then(|id| s.teammates.iter().position(|t| t.id == id))
         .unwrap_or(0);
     s.load_error = None;
 
-    let active = s.flight.as_ref().map(|f| f.teammate_id.clone())
+    let active = s
+        .flight
+        .as_ref()
+        .map(|f| f.teammate_id.clone())
         .or_else(|| s.opening_teammate.clone());
     if let Some(id) = active {
         if id != LEDGER_TARGET && (s.ledger.is_none() || s.sending.is_pending()) {
@@ -1277,7 +848,8 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
             "No teammates yet. Add a teammate in Locust."
         } else {
             "Ready"
-        }.into();
+        }
+        .into();
         s.status_tone = StatusTone::Muted;
     }
 }
@@ -1306,7 +878,9 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
     if s.team.is_pending() {
         return;
     }
-    let Some(index) = s.teammates.iter()
+    let Some(index) = s
+        .teammates
+        .iter()
         .position(|t| t.name.eq_ignore_ascii_case(&row.teammate))
     else {
         s.status = format!("{} is not in the current team.", row.teammate);
@@ -1323,10 +897,13 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
     s.model_menu = None;
     s.ledger = None;
     s.selected = index;
-    s.conversations.insert(id.clone(), Conversation {
-        conversation_id: Some(row.id.clone()),
-        turns: vec![("You".into(), row.title)],
-    });
+    s.conversations.insert(
+        id.clone(),
+        Conversation {
+            conversation_id: Some(row.id.clone()),
+            turns: vec![("You".into(), row.title)],
+        },
+    );
     set_status(s, &id, "Loading…", StatusTone::Muted);
     tx.scroll_to_bottom("messages");
 
@@ -1334,7 +911,8 @@ fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
         // Fix 2: tag the opening request with both the teammate ID and conversation ID.
         s.opening_teammate = Some(id);
         s.opening_conversation = Some(row.id.clone());
-        s.opening.request(row.id, |id| Engine::local()?.reply(&id, 0));
+        s.opening
+            .request(row.id, |id| Engine::local()?.reply(&id, 0));
     }
 }
 
@@ -1366,130 +944,6 @@ fn fresh_conversation(s: &mut State) {
     s.tagged.clear();
 }
 
-
-fn sync_approvals(s: &mut State) -> bool {
-    if s.engine != Some(Kind::Native) {
-        if s.pending_approval.is_some() {
-            s.pending_approval = None;
-            return true;
-        }
-        return false;
-    }
-    let waiting = native::waiting_approvals();
-    let mission = s.ledger.as_ref().map(|pane| pane.snapshot.tip.as_str());
-    let next = waiting.into_iter().find(|request| Some(request.mission_id.as_str()) == mission);
-    let changed = match (&s.pending_approval, &next) {
-        (Some(a), Some(b)) => a.approval_id != b.approval_id,
-        (None, None) => false,
-        _ => true,
-    };
-    if changed {
-        s.pending_approval = next;
-        s.approval_shown = std::time::Instant::now();
-        s.approval_denying = false;
-        s.approval_reason.clear();
-        if s.pending_approval.is_some() {
-            let id = selected_conversation(s)
-                .map(|(t, _)| t.id.clone())
-                .unwrap_or_default();
-            set_status(s, &id, "Needs you", StatusTone::Amber);
-        }
-    } else if s.pending_approval.is_some() {
-        // Keep the amber "Needs you" while a card waits, even if Working… would overwrite it.
-        if !s.status.starts_with("Needs you") && !s.status.contains("need you") {
-            s.status = approval::needs_you_status(1);
-            s.status_tone = StatusTone::Amber;
-        }
-    }
-    changed
-}
-
-fn decide_pending(s: &mut State, decision: approval::Decision) {
-    let Some(card) = s.pending_approval.clone() else { return };
-    if decision != approval::Decision::Deny && s.approval_shown.elapsed().as_millis() < 500 { return; }
-    let reason = s.approval_reason.text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let reason = if reason.is_empty() { None } else { Some(reason.chars().take(500).collect()) };
-    match native::decide_approval(&card.approval_id, decision, reason) {
-        Ok(()) => {
-            s.pending_approval = None;
-            s.approval_notice = None;
-            s.status = "Working…".into();
-            s.status_tone = StatusTone::Green;
-        }
-        Err(words) => {
-            s.pending_approval = None;
-            s.approval_notice = Some(words.clone());
-            s.status = words;
-            s.status_tone = StatusTone::Amber;
-        }
-    }
-}
-
-fn approval_card(s: &State, p: &Palette) -> El {
-    let Some(card) = &s.pending_approval else {
-        return col().w_full();
-    };
-    let detail = if card.detail.is_empty() { "—".into() } else { card.detail.clone() };
-    let mut body = col().key(format!("approval-{}", card.approval_id)).w_full()
-        .padding(14.0).gap(8.0).radius(8.0)
-        .fill(p.raised).border(1.0, p.amber)
-        .child(
-            text("Approval required — exact action").font(type_::TITLE).color(p.text).w_full().wrap(),
-        )
-        .child(
-            text(format!("{}{}", match card.runtime.as_str() { "claude" => "Claude Code", "acp" => "ACP agent", "opencode" => "OpenCode", "kilo" => "Kilo", "cursor" => "Cursor", "copilot" => "GitHub Copilot", "antigravity" => "Antigravity", "muse" => "Muse Code", _ => "Codex CLI" }, if card.cwd.is_none() { " · this workspace" } else { "" }))
-                .font(type_::LABEL).color(p.muted).w_full().wrap_anywhere(),
-        )
-        .child(text(format!("Action: {}", card.summary)).font(type_::BODY).color(p.text).w_full().wrap())
-        .child(text(format!("Exact: {detail}")).font(type_::LABEL).color(p.secondary).w_full().wrap_anywhere())
-        ;
-    if let Some(plain) = approval::plain_action(card) {
-        body = body.child(text(format!("In short: {plain}")).font(type_::LABEL).color(p.text).w_full().wrap());
-    }
-    body = body.child(text("Where: ".to_string() + card.cwd.as_deref().unwrap_or("the project folder")).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere());
-    for (label, words) in approval::effect_lines(card) {
-        body = body.child(text(format!("{label}: {words}")).font(type_::LABEL).color(p.secondary).w_full().wrap());
-    }
-    if !s.approval_denying {
-    body = body        .child(
-            row().w_full().gap(8.0)
-                .child(
-                    el().key("approve-once").h(36.0).px(14.0).center().radius(8.0).fill(p.selected).border(1.0, p.hairline)
-                        .child(text("Approve once").font(type_::LABEL).color(p.text))
-                        .on_press(|s: &mut State| decide_pending(s, approval::Decision::ApproveOnce)),
-                )
-                .child(
-                    if approval::asks_every_time(card) { col() } else { el().key("approve-always").h(36.0).px(14.0).center().radius(8.0).fill(p.raised).border(1.0, p.hairline)
-                        .child(text("Always allow this session").font(type_::LABEL).color(p.text))
-                        .on_press(|s: &mut State| decide_pending(s, approval::Decision::ApproveAlways)) },
-                )
-                .child(
-                    el().key("deny").h(36.0).px(14.0).center().radius(8.0).fill(p.raised).border(1.0, p.red)
-                        .child(text("Deny…").font(type_::LABEL).color(p.red))
-                        .on_press(|s: &mut State| { s.approval_denying = true; }),
-                ),
-        );
-    }
-    if s.approval_denying {
-        body = body.child(text_input(&s.approval_reason, type_::BODY).key("approval-reason").single_line()
-            .placeholder("Why? Optional. The teammate reads it and can change course.", p.muted)
-            .w_full().h(36.0).on_edit(|s: &mut State| &mut s.approval_reason)
-            .on_submit(|s: &mut State, _: &mut Tx| decide_pending(s, approval::Decision::Deny))
-            .on_input_key(|s: &mut State, event: &KeyEvent, _: &mut Tx| {
-                if event.key == Key::Escape { s.approval_denying = false; s.approval_reason.clear(); true } else { false }
-            }))
-            .child(row().gap(8.0)
-                .child(el().h(36.0).px(12.0).child(text(if s.approval_reason.text.trim().is_empty() { "Deny" } else { "Deny and say why" }).color(p.red))
-                    .on_press(|s: &mut State| decide_pending(s, approval::Decision::Deny)))
-                .child(el().h(36.0).px(12.0).child(text("Back").color(p.text)).on_press(|s: &mut State| {s.approval_denying = false; s.approval_reason.clear();})));
-    }
-    body = body.child(text(approval::card_note(card)).font(type_::LABEL).color(p.muted).w_full().wrap());
-    if let Some(notice) = &s.approval_notice {
-        body = body.child(text(notice.clone()).font(type_::LABEL).color(p.amber).w_full().wrap());
-    }
-    body
-}
-
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if event.key == Key::Escape {
         if s.flight.is_some() || s.opening_teammate.is_some() {
@@ -1498,7 +952,8 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
                 "Stopped watching; the turn goes on in this window"
             } else {
                 "Stopped watching; the turn goes on in Locust"
-            }.into();
+            }
+            .into();
             s.status_tone = StatusTone::Muted;
         } else {
             s.draft.clear();
@@ -1515,7 +970,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     }
     for digit in '1'..='9' {
         if event.is_command(digit) {
-            if let Some(id) = s.teammates.get((digit as u8 - b'1') as usize)
+            if let Some(id) = s
+                .teammates
+                .get((digit as u8 - b'1') as usize)
                 .map(|t| t.id.clone())
             {
                 select_teammate(s, &id, tx);
@@ -1528,7 +985,8 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
 
 // Locust supplies UTC ISO timestamps. Fractional seconds are irrelevant here.
 fn parse_updated(value: &str) -> Option<(i64, usize, u32)> {
-    let utc = value.strip_suffix('Z')
+    let utc = value
+        .strip_suffix('Z')
         .or_else(|| value.strip_suffix("+00:00"))?;
     let (base, fraction) = utc.split_once('.').unwrap_or((utc, ""));
     if !fraction.bytes().all(|b| b.is_ascii_digit()) {
@@ -1552,8 +1010,7 @@ fn parse_updated(value: &str) -> Option<(i64, usize, u32)> {
         std::str::from_utf8(bytes).ok()?.parse().ok()
     };
     let (year, month, day) = (number(0, 4)?, number(5, 7)?, number(8, 10)?);
-    let (hour, minute, second) =
-        (number(11, 13)?, number(14, 16)?, number(17, 19)?);
+    let (hour, minute, second) = (number(11, 13)?, number(14, 16)?, number(17, 19)?);
 
     if year < 1
         || !(1..=12).contains(&month)
@@ -1565,17 +1022,27 @@ fn parse_updated(value: &str) -> Option<(i64, usize, u32)> {
     }
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     let lengths = [
-        31i64, if leap { 29 } else { 28 }, 31, 30, 31, 30,
-        31, 31, 30, 31, 30, 31,
+        31i64,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let month = month as usize;
     if !(1..=lengths[month - 1]).contains(&day) {
         return None;
     }
     let y = year - 1;
-    let days = 365 * y + y / 4 - y / 100 + y / 400
-        + lengths[..month - 1].iter().sum::<i64>()
-        + day - 1 - 719_162;
+    let days = 365 * y + y / 4 - y / 100 + y / 400 + lengths[..month - 1].iter().sum::<i64>() + day
+        - 1
+        - 719_162;
     Some((
         days * 86_400 + hour * 3_600 + minute * 60 + second,
         month,
@@ -1596,26 +1063,21 @@ fn when(updated: &str, now: i64) -> String {
         format!("{} h ago", age / 3_600)
     } else {
         let months = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ];
         format!("{} {day}", months[month - 1])
     }
 }
 
 fn clock_seconds() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs().min(i64::MAX as u64) as i64)
         .unwrap_or(0)
 }
 
 // Both opened recent threads and sent messages resolve their target when results land.
-fn land_reply(
-    s: &mut State,
-    teammate_id: &str,
-    result: Result<Reply, String>,
-    tx: &mut Tx,
-) {
+fn land_reply(s: &mut State, teammate_id: &str, result: Result<Reply, String>, tx: &mut Tx) {
     let Some(index) = target_index(s, teammate_id) else {
         return;
     };
@@ -1640,7 +1102,8 @@ fn land_reply(
             };
             let Some(conversation) = s.conversations.get_mut(teammate_id) else {
                 tracking_error(
-                    s, teammate_id,
+                    s,
+                    teammate_id,
                     "Conversation is no longer available; stopped watching",
                 );
                 return;
@@ -1664,533 +1127,42 @@ fn land_reply(
     }
 }
 
-fn restore_failed_draft(s: &mut State, message: String) {
-    // Fix: restore only failed sends; never overwrite text typed after dispatch.
-    let text = if s.draft.text.is_empty() {
-        message
-    } else {
-        format!("{message}\n\n{}", s.draft.text)
-    };
-    s.draft.replace_text(text);
-}
-
-fn conversation_draft_key(s: &State) -> Option<String> {
-    let (teammate, conversation) = selected_conversation(s)?;
-    Some(composer::draft_key(
-        conversation.conversation_id.as_deref(),
-        &teammate.id,
-    ))
-}
-
-fn sync_draft_key(s: &mut State) {
-    let next = conversation_draft_key(s);
-    let fill = s.drafts.switch(next, &s.draft.text);
-    if fill != s.draft.text {
-        s.draft.replace_text(fill);
-    }
-}
-
-fn queue_key_now(s: &State) -> Option<String> {
-    let (_, conversation) = selected_conversation(s)?;
-    conversation
-        .conversation_id
-        .clone()
-        .or_else(|| conversation_draft_key(s))
-}
-
-fn turn_running(s: &State) -> bool {
-    s.flight.is_some()
-        || s.opening_teammate.is_some()
-        || s.ledger
-            .as_ref()
-            .is_some_and(|p| p.snapshot.running || p.after_tip.is_some())
-}
-
-fn working_name(s: &State) -> String {
-    selected_conversation(s)
-        .map(|(t, _)| t.name.clone())
-        .unwrap_or_else(|| "this mission".into())
-}
-
-fn load_composer_store(s: &mut State) {
-    if s.data.is_some() || s.demo {
-        return;
-    }
-    match store::Store::local() {
-        Ok(store) => {
-            match composer::read_queue(&store) {
-                Ok(rows) => s.queue_rows = rows,
-                Err(message) => {
-                    s.queue_error = Some(format!(
-                        "Saved messages could not be read. Reopen Locust to try again; the saved file has been kept. ({message})"
-                    ));
-                }
-            }
-            s.data = Some(store);
-        }
-        Err(_) => {}
-    }
-}
-
-fn persist_queue(s: &mut State) -> bool {
-    let Some(store) = s.data.as_ref() else {
-        return s.demo;
-    };
-    match composer::write_queue(store, &s.queue_rows) {
-        Ok(_) => { s.queue_error = None; return true; },
-        Err(message) => {
-            s.queue_error = Some(format!(
-                "This queue change was not saved. Your queued messages are still here; try again. ({message})"
-            ));
-        }
-    }
-    false
-}
-
-fn enqueue_follow_up(s: &mut State, text: String, attachments: Vec<String>) -> bool {
-    let Some(key) = queue_key_now(s) else {
-        return false;
-    };
-    s.queue_rows.push(composer::QueuedRow {
-        id: composer::new_queue_id(),
-        key,
-        text,
-        origin: composer::Origin::Person,
-        attachments,
-        issue: None,
-        restored: false,
-        held: None,
-    });
-    if !persist_queue(s) { s.queue_rows.pop(); return false; }
-    s.off_the_queue = false;
-    true
-}
-
-fn composer_placeholder(s: &State) -> String {
-    if native_blocked(s) {
-        if let Some((teammate, _)) = selected_conversation(s) {
-            return format!("{} runs in Locust for now", teammate.name);
-        }
-    }
-    let teammate_name = selected_conversation(s).map(|(t, _)| t.name.as_str());
-    composer::placeholder(composer::PlaceholderInput {
-        working_now: turn_running(s),
-        working_name: &working_name(s),
-        queued: queue_front(s).is_some(),
-        route_can_run: s.route_can_run && !native_blocked(s),
-        selected_ready: s.selected_ready && !s.nothing_installed,
-        selected_display: None,
-        teammate_name,
-        discovery_loading: false,
-        discovery_error: false,
-        ready_elsewhere: None,
-        auth_required: false,
-        installed_silent: 0,
-        checking: false,
-        nothing_installed: s.nothing_installed,
-    })
-}
-
-fn queue_front(s: &State) -> Option<composer::QueuedRow> {
-    let key = queue_key_now(s);
-    let own: Vec<_> = composer::queued_in(&s.queue_rows, key.as_deref()).into_iter().cloned().collect();
-    let mut front = own.first()?.clone();
-    front.text = own.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("\n\n");
-    front.attachments = own.iter().flat_map(|r| r.attachments.clone()).collect();
-    Some(front)
-}
-
-fn unqueue(s: &mut State, edit: bool) -> bool {
-    let Some(front) = queue_front(s) else { return false; };
-    let before = s.queue_rows.clone();
-    s.queue_rows = composer::without_queue_of(&s.queue_rows, Some(&front.key));
-    if !persist_queue(s) { s.queue_rows = before; return false; }
-    if edit { s.draft.replace_text(front.text); s.attached = front.attachments; }
-    s.off_the_queue = edit;
-    true
-}
-
-fn send_blocked_now(s: &State) -> Option<&'static str> {
-    composer::send_blocked_reason(composer::SendBlocked {
-        nothing_installed: s.nothing_installed,
-        runtime_ready: s.selected_ready && !native_blocked(s),
-        route_can_run: s.route_can_run,
-        busy: s.team.is_pending() || s.opening_teammate.is_some(),
-        empty: s.draft.text.trim().is_empty() && s.attached.is_empty(),
-    })
-}
-
-fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
-    if s.scene_popup == ComposerScenePopup::Slash {
-        return composer::matching_commands("", &composer::available_commands(composer::AvailableInput {
-            modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
-            running: turn_running(s),
-            can_swarm: false,
-            issues: false,
-            tune: false,
-            setup: true,
-            runtime_commands: &[],
-        }));
-    }
-    let Some(query) = composer::slash_query(&s.draft.text) else {
-        return Vec::new();
-    };
-    let available = composer::available_commands(composer::AvailableInput {
-        modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
-        running: turn_running(s),
-        can_swarm: false,
-        issues: false,
-        tune: false,
-        setup: true,
-        runtime_commands: &[],
-    });
-    composer::matching_commands(&query, &available)
-}
-
-#[derive(Clone)]
-enum AtChoice {
-    Teammate { id: String, name: String, role: String },
-    File { path: String },
-}
-
-fn at_choices_now(s: &State) -> Vec<AtChoice> {
-    let Some(typed) = composer::at_query(&s.draft.text) else {
-        return Vec::new();
-    };
-    if composer::slash_query(&s.draft.text).is_some() {
-        return Vec::new();
-    }
-    if s.at_dismissed.as_deref() == Some(s.draft.text.as_str()) {
-        return Vec::new();
-    }
-    let current_id = selected_conversation(s).map(|(t, _)| t.id.clone());
-    let mut out = Vec::new();
-    for mate in s.teammates.iter().filter(|m| {
-        Some(m.id.as_str()) != current_id.as_deref()
-            && !s.tagged.contains(&m.id)
-            && m.name.to_lowercase().starts_with(&typed.to_lowercase())
-    }) {
-        if out.len() >= 6 {
-            break;
-        }
-        out.push(AtChoice::Teammate {
-            id: mate.id.clone(),
-            name: mate.name.clone(),
-            role: mate.role.clone(),
-        });
-    }
-    let files = composer::file_matches(
-        &s.project_files
-            .iter()
-            .filter(|p| !s.attached.contains(p))
-            .cloned()
-            .collect::<Vec<_>>(),
-        &typed,
-        8,
-    );
-    for path in files {
-        out.push(AtChoice::File { path });
-    }
-    out
-}
-
-fn pick_at_choice(s: &mut State, choice: AtChoice) {
-    s.at_at = 0;
-    s.draft.replace_text(composer::without_at_query(&s.draft.text));
-    match choice {
-        AtChoice::Teammate { id, .. } => {
-            if !s.tagged.contains(&id) && s.tagged.len() < 5 {
-                s.tagged.push(id);
-            }
-        }
-        AtChoice::File { path } => {
-            let (next, note) = composer::attach_paths(&s.attached, &[path]);
-            s.attached = next;
-            if let Some(note) = note {
-                s.composer_note = Some(note);
-            }
-        }
-    }
-}
-
-fn run_slash_command(s: &mut State, command: &composer::SlashCommand) {
-    s.slash_at = 0;
-    match &command.action {
-        composer::SlashAction::Mode(mode) => {
-            s.mode = (*mode).to_owned();
-            s.draft.clear();
-        }
-        composer::SlashAction::Stop => {
-            s.draft.clear();
-            // stop() needs Tx; callers that can stop invoke it separately.
-        }
-        composer::SlashAction::Setup | composer::SlashAction::Route | composer::SlashAction::Swarm
-        | composer::SlashAction::Issues | composer::SlashAction::Tune | composer::SlashAction::Own { .. }
-        | composer::SlashAction::Runtime => {
-            s.draft.clear();
-            s.composer_note = Some(format!("/{name} — {detail}", name = command.name, detail = command.detail));
-        }
-    }
-}
-
-fn attach_dropped_paths(s: &mut State, paths: &[std::path::PathBuf]) {
-    let as_str: Vec<String> = paths
-        .iter()
-        .map(|p| p.to_string_lossy().replace('\\', "/"))
-        .collect();
-    let (next, note) = composer::attach_paths(&s.attached, &as_str);
-    s.attached = next;
-    if let Some(note) = note {
-        s.composer_note = Some(note);
-    }
-}
-
-fn save_pasted_image(s: &mut State, png: &[u8]) -> Option<String> {
-    if png.len() > composer::MAX_PASTED_BYTES {
-        s.composer_note = Some("That image is too large to attach.".into());
-        return None;
-    }
-    let store = s.data.as_ref()?;
-    let dir = store.attachments_dir().ok()?;
-    std::fs::create_dir_all(&dir).ok()?;
-    let name = format!("paste-{}.png", composer::new_queue_id());
-    let path = dir.join(&name);
-    std::fs::write(&path, png).ok()?;
-    Some(path.to_string_lossy().replace('\\', "/"))
-}
-
-fn composer_input_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
-    let slash = slash_choices_now(s);
-    let at = at_choices_now(s);
-    let key = match event.key {
-        Key::Up => composer::ComposerKey::ArrowUp,
-        Key::Down => composer::ComposerKey::ArrowDown,
-        Key::Enter => composer::ComposerKey::Enter,
-        Key::Escape => composer::ComposerKey::Escape,
-        Key::Tab => composer::ComposerKey::Tab,
-        _ => composer::ComposerKey::Other,
-    };
-    let mods = composer::KeyMods {
-        shift: event.mods.shift,
-        ctrl: event.mods.ctrl,
-        meta: event.mods.cmd,
-        alt: event.mods.alt,
-    };
-    let action = composer::handle_key(
-        key,
-        mods,
-        &composer::keys::KeyContext {
-            composing: false,
-            slash_open: !slash.is_empty(),
-            slash_len: slash.len(),
-            at_open: !at.is_empty(),
-            at_len: at.len(),
-            running: turn_running(s),
-            menu_open: s.model_menu.is_some(),
-            value_empty: s.draft.text.is_empty(),
-            recalling: s.recall_at >= 0,
-            history_len: s.sent_history.len(),
-            can_queue: turn_running(s),
-            modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
-        },
-    );
-    match action {
-        composer::KeyAction::Pass => false,
-        composer::KeyAction::SlashMove { delta } => {
-            let len = slash.len().max(1);
-            if delta > 0 {
-                s.slash_at = (s.slash_at + 1) % len;
-            } else {
-                s.slash_at = (s.slash_at + len - 1) % len;
-            }
-            true
-        }
-        composer::KeyAction::SlashChoose => {
-            if let Some(cmd) = slash.get(s.slash_at.min(slash.len().saturating_sub(1))) {
-                let should_stop = matches!(cmd.action, composer::SlashAction::Stop);
-                run_slash_command(s, cmd);
-                if should_stop {
-                    stop(s);
-                }
-            }
-            true
-        }
-        composer::KeyAction::SlashDismiss => {
-            s.draft.clear();
-            true
-        }
-        composer::KeyAction::AtMove { delta } => {
-            let len = at.len().max(1);
-            if delta > 0 {
-                s.at_at = (s.at_at + 1) % len;
-            } else {
-                s.at_at = (s.at_at + len - 1) % len;
-            }
-            true
-        }
-        composer::KeyAction::AtChoose => {
-            if let Some(choice) = at.get(s.at_at.min(at.len().saturating_sub(1))) {
-                pick_at_choice(s, choice.clone());
-            }
-            true
-        }
-        composer::KeyAction::AtDismiss => {
-            s.at_dismissed = Some(s.draft.text.clone());
-            true
-        }
-        composer::KeyAction::HistoryUp => {
-            let next = if s.recall_at < 0 {
-                s.sent_history.len() as isize - 1
-            } else {
-                (s.recall_at - 1).max(0)
-            };
-            s.recall_at = next;
-            if let Some(text) = s.sent_history.get(next as usize) {
-                s.draft.replace_text(text.clone());
-            }
-            true
-        }
-        composer::KeyAction::HistoryDown => {
-            let next = s.recall_at + 1;
-            if next >= s.sent_history.len() as isize {
-                s.recall_at = -1;
-                s.draft.clear();
-            } else {
-                s.recall_at = next;
-                if let Some(text) = s.sent_history.get(next as usize) {
-                    s.draft.replace_text(text.clone());
-                }
-            }
-            true
-        }
-        composer::KeyAction::Submit { send_now } => {
-            submit_composer(s, tx, send_now);
-            true
-        }
-        composer::KeyAction::StopRun => {
-            stop(s);
-            true
-        }
-        composer::KeyAction::CycleMode => {
-            let usable = ["ask", "plan", "accept-edits", "approve-each", "auto"];
-            if let Some(next) = composer::shift_tab_mode(&s.mode, &usable) {
-                s.mode = next;
-            }
-            true
-        }
-    }
-}
-
-fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
-    if s.demo {
-        return;
-    }
-    let typed = s.draft.text.trim().to_owned();
-    if typed.is_empty() && s.attached.is_empty() {
-        if let Some(why) = send_blocked_now(s) {
-            s.composer_note = Some(why.to_owned());
-        }
-        return;
-    }
-    if turn_running(s) {
-        if queue_front(s).is_some() || !enqueue_follow_up(s, typed.clone(), s.attached.clone()) { return; }
-        s.draft.clear();
-        s.attached.clear();
-        s.tagged.clear();
-        if send_now {
-            s.queue_send_now = queue_key_now(s);
-            stop(s);
-            // Queued send after stop is drained in poll when the turn ends.
-        }
-        return;
-    }
-    if send_blocked_now(s).is_some() || !can_send(s) {
-        if let Some(why) = send_blocked_now(s) {
-            s.composer_note = Some(why.to_owned());
-        } else if !s.route_can_run {
-            s.composer_note = Some(
-                "Locust cannot run that AI agent fully yet, so it cannot start here. Pick another model."
-                    .into(),
-            );
-        } else if s.nothing_installed || !s.selected_ready {
-            s.composer_note =
-                Some("No AI agent on this machine can start yet. Settings lists what to install.".into());
-        }
-        return;
-    }
-    if s.sent_history.last().map(String::as_str) != Some(typed.as_str()) && !typed.is_empty() {
-        s.sent_history.push(typed.clone());
-        if s.sent_history.len() > 50 {
-            s.sent_history.remove(0);
-        }
-    }
-    s.recall_at = -1;
-    s.draft.replace_text(composer::with_attachments(&typed, &s.attached));
-    s.attached.clear();
-    s.tagged.clear();
-    s.off_the_queue = false;
-    send(s, tx);
-}
-
-fn queue_phase(s: &State) -> &'static str {
-    if let Some(pane) = &s.ledger {
-        return pane.worker.as_ref().map_or("running", |w| w.tip_phase());
-    }
-    if matches!(s.status_tone, StatusTone::Red) { "failed" } else { "completed" }
-}
-
-fn drain_queue_after_turn(s: &mut State, tx: &mut Tx) {
-    let Some(key) = queue_key_now(s) else {
-        return;
-    };
-    let front = composer::queued_in(&s.queue_rows, Some(&key))
-        .first()
-        .map(|r| (*r).clone());
-    let Some(front) = front else {
-        return;
-    };
-    let forced = s.queue_send_now.as_deref() == Some(key.as_str());
-    let verdict = composer::queued_verdict(composer::VerdictInput {
-        running: turn_running(s),
-        phase: Some(queue_phase(s)),
-        on_screen: true,
-        restored: front.restored,
-        held: front.held.as_deref(),
-    });
-    if turn_running(s) || (!forced && !matches!(verdict, composer::QueuedVerdict::Send)) {
-        return;
-    }
-    let (going, rest) = composer::take_next(&s.queue_rows, &key);
-    let Some(going) = going else {
-        return;
-    };
-    let draft = s.draft.text.clone();
-    s.draft.replace_text(composer::with_attachments(&going.text, &going.attachments));
-    if !can_send(s) { s.draft.replace_text(draft); return; }
-    let before = std::mem::replace(&mut s.queue_rows, rest);
-    if !persist_queue(s) { s.queue_rows = before; s.draft.replace_text(draft); return; }
-    // Remove durably BEFORE dispatch. An uncertain transport result must never retry itself.
-    s.queue_send_now = None;
-    send(s, tx);
-    s.draft.replace_text(draft);
-}
-
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if s.demo {
         return false;
     }
     let mut changed = false;
     changed |= sync_approvals(s);
-    let root = selected_conversation(s).and_then(|(t, _)| t.folder.as_ref()).map(std::path::PathBuf::from);
-    if root != s.files_root { s.files_job.cancel(); s.project_files.clear(); s.files_partial = false; s.files_asked = None; s.files_root = root.clone(); }
-    if composer::at_query(&s.draft.text).is_some() && s.files_asked.is_none_or(|at| at.elapsed() >= Duration::from_secs(30)) {
-        if let Some(root) = root { s.files_asked = Some(std::time::Instant::now()); s.files_job.request(root, |root| composer::workspace_files::list(&root)); }
+    let root = selected_conversation(s)
+        .and_then(|(t, _)| t.folder.as_ref())
+        .map(std::path::PathBuf::from);
+    if root != s.files_root {
+        s.files_job.cancel();
+        s.project_files.clear();
+        s.files_partial = false;
+        s.files_asked = None;
+        s.files_root = root.clone();
     }
-    if let Some((paths, partial)) = s.files_job.take() { s.project_files = paths; s.files_partial = partial; changed = true; }
+    if composer::at_query(&s.draft.text).is_some()
+        && s.files_asked
+            .is_none_or(|at| at.elapsed() >= Duration::from_secs(30))
+        && let Some(root) = root
+    {
+        s.files_asked = Some(std::time::Instant::now());
+        s.files_job
+            .request(root, |root| composer::workspace_files::list(&root));
+    }
+    if let Some((paths, partial)) = s.files_job.take() {
+        s.project_files = paths;
+        s.files_partial = partial;
+        changed = true;
+    }
     if let Some((id, result)) = s.model_job.take() {
         changed = true;
         match result {
-            Ok(models) => { s.models.insert(id, models); }
+            Ok(models) => {
+                s.models.insert(id, models);
+            }
             Err(error) => {
                 s.models.insert(id.clone(), Vec::new());
                 if s.model_menu.as_ref() == Some(&id) {
@@ -2208,7 +1180,9 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 if s.own_turn.as_ref().is_some_and(|o| o.conversation == id) {
                     if s.ledger.is_none() {
                         s.waiting.cancel();
-                        if let Some(f) = &s.flight && let Some(c) = s.conversations.get_mut(&f.teammate_id) {
+                        if let Some(f) = &s.flight
+                            && let Some(c) = s.conversations.get_mut(&f.teammate_id)
+                        {
                             c.turns.push(("Locust".into(), "Stopped".into()));
                         }
                         s.flight = None;
@@ -2221,14 +1195,19 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     s.status_tone = StatusTone::Muted;
                 }
             }
-            Err(error) => { s.status = error; s.status_tone = StatusTone::Red; }
+            Err(error) => {
+                s.status = error;
+                s.status_tone = StatusTone::Red;
+            }
         }
     }
 
     if !s.model_job.is_pending() && s.load_error.is_none() {
-        let id = selected_conversation(s)
-            .and_then(|(t, _)| t.runtime.as_ref().map(|_| t.id.clone()));
-        if let Some(id) = id && id != LEDGER_TARGET && !s.models.contains_key(&id)
+        let id =
+            selected_conversation(s).and_then(|(t, _)| t.runtime.as_ref().map(|_| t.id.clone()));
+        if let Some(id) = id
+            && id != LEDGER_TARGET
+            && !s.models.contains_key(&id)
             && s.engine != Some(Kind::Native)
         {
             s.model_job.request(id, |id| {
@@ -2261,12 +1240,11 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if let Some(result) = s.sending.take() {
         changed = true;
         // Fix 2: drop a landed send result if its flight tag no longer matches the active conversation.
-        let matches_active = s.flight.as_ref().is_some_and(|f| {
-            active_matches(s, &f.teammate_id, f.conversation_id.as_deref())
-        });
-        if matches_active
-            && let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone())
-        {
+        let matches_active = s
+            .flight
+            .as_ref()
+            .is_some_and(|f| active_matches(s, &f.teammate_id, f.conversation_id.as_deref()));
+        if matches_active && let Some(id) = s.flight.as_ref().map(|f| f.teammate_id.clone()) {
             let message = s.flight.as_mut().and_then(|f| f.message.take());
             let flight_conv = s.flight.as_ref().and_then(|f| f.conversation_id.clone());
             let flight_header = s.flight.as_ref().and_then(|f| f.header.clone());
@@ -2274,12 +1252,20 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             match result {
                 Ok(started) => {
                     if let Some(from) = queue_key_now(s) {
-                        s.queue_rows = composer::queue::requeued_rows(&s.queue_rows, &from, &started.conversation_id);
-                        if s.queue_send_now.as_deref() == Some(from.as_str()) { s.queue_send_now = Some(started.conversation_id.clone()); }
+                        s.queue_rows = composer::queue::requeued_rows(
+                            &s.queue_rows,
+                            &from,
+                            &started.conversation_id,
+                        );
+                        if s.queue_send_now.as_deref() == Some(from.as_str()) {
+                            s.queue_send_now = Some(started.conversation_id.clone());
+                        }
                         persist_queue(s);
                     }
-                    let same_conv = flight_conv.as_deref() == Some(started.conversation_id.as_str());
-                    let use_ledger = s.ledger_available || s.ledger.is_some() || s.engine == Some(Kind::Native);
+                    let same_conv =
+                        flight_conv.as_deref() == Some(started.conversation_id.as_str());
+                    let use_ledger =
+                        s.ledger_available || s.ledger.is_some() || s.engine == Some(Kind::Native);
                     s.own_turn = if !same_conv {
                         Some(OwnTurn {
                             conversation: started.conversation_id.clone(),
@@ -2297,9 +1283,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     };
                     if use_ledger {
                         // Fix 2: use the header and tip captured when the send was initiated, never another conversation's pane.
-                        let header = flight_header.or_else(|| {
-                            s.teammates.iter().find(|t| t.id == id).cloned()
-                        });
+                        let header = flight_header
+                            .or_else(|| s.teammates.iter().find(|t| t.id == id).cloned());
 
                         if let Some(header) = header {
                             if let Some(conversation) = s.conversations.get_mut(&id) {
@@ -2356,9 +1341,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         if pane.worker.is_none()
                             && let Some(id) = &pane.conversation.conversation_id
                         {
-                            pane.worker = Some(native::session(
-                                pane.dir.clone(), id.clone(),
-                            ));
+                            pane.worker = Some(native::session(pane.dir.clone(), id.clone()));
                         }
                         pane.due = 0.0;
                         tx.wake_after(Duration::ZERO);
@@ -2413,8 +1396,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             && let Some(flight_conv) = s.flight.as_ref().map(|f| f.conversation_id.clone())
             && target.as_ref().is_none_or(|(t_id, t_conv)| {
                 t_id == &id
-                    && (flight_conv.is_none()
-                        || flight_conv.as_deref() == Some(t_conv.as_str()))
+                    && (flight_conv.is_none() || flight_conv.as_deref() == Some(t_conv.as_str()))
             })
             && active_matches(s, &id, flight_conv.as_deref())
         {
@@ -2451,13 +1433,13 @@ fn agent_line(s: &State, teammate: &Teammate) -> String {
 }
 
 fn agent(teammate: &Teammate) -> String {
-    let runtime = teammate.runtime.as_deref()
-        .map(engine::runtime_name).unwrap_or("Agent");
+    let runtime = teammate
+        .runtime
+        .as_deref()
+        .map(engine::runtime_name)
+        .unwrap_or("Agent");
     match teammate.model.as_deref() {
-        Some(model) => format!(
-            "{runtime} · {}",
-            model.rsplit('/').next().unwrap_or(model)
-        ),
+        Some(model) => format!("{runtime} · {}", model.rsplit('/').next().unwrap_or(model)),
         None => runtime.into(),
     }
 }
@@ -2487,1181 +1469,23 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
 
 fn view(s: &State, cx: &mut Cx<State>) -> El {
     let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
-    let mut rows = col().w_full().gap(6.0).padding(10.0);
-
-    for (index, teammate) in s.teammates.iter().enumerate() {
-        let initial = teammate.name.trim_start().chars().next()
-            .map(|c| c.to_uppercase().collect::<String>())
-            .unwrap_or_else(|| "?".into());
-        let selected = s.ledger.as_ref()
-            .map(|pane| pane.header.id == teammate.id)
-            .unwrap_or(s.selected == index);
-        let busy = teammate.busy
-            || s.flight.as_ref().is_some_and(|f| f.teammate_id == teammate.id)
-            || s.ledger.as_ref().is_some_and(|pane| {
-                pane.header.id == teammate.id && pane.snapshot.running
-            });
-
-        let mut title = row().w_full().center_y().gap(8.0)
-            .child(
-                el().size(22.0, 22.0).radius(11.0).center().fill(p.raised)
-                    .child(text(initial).font(type_::LABEL).color(p.secondary)),
-            )
-            .child(
-                text(teammate.name.clone()).font(type_::TITLE)
-                    .color(p.text).grow(1.0).shrink(),
-            );
-        if busy {
-            title = title.child(
-                el().size(6.0, 6.0).radius(3.0).fill(p.green),
-            );
-        }
-        let id = teammate.id.clone();
-        rows = rows.child(
-            col().key(format!("teammate-{id}")).w_full()
-                .padding(12.0).gap(5.0).radius(8.0)
-                .fill(if selected { p.selected } else { p.sidebar })
-                .child(title)
-                .child(
-                    text(teammate.role.clone()).font(type_::BODY)
-                        .color(p.secondary).w_full().pl(30.0).wrap_anywhere(),
-                )
-                .child(
-                    text(agent_line(s, teammate)).font(type_::LABEL)
-                        .color(p.muted).w_full().pl(30.0).wrap_anywhere(),
-                )
-                .on_press_tx(move |s: &mut State, tx| {
-                    select_teammate(s, &id, tx);
-                }),
-        );
-    }
-
-    let mut recent = col().w_full().px(10.0).pb(16.0).gap(4.0)
-        .child(
-            row().w_full().center_y().px(12.0).py(10.0)
-                .child(text("Recent").font(type_::LABEL)
-                    .color(p.secondary).grow(1.0))
-                .child(text("Refresh").key("refresh-recent").font(type_::LABEL)
-                    .color(p.muted).on_press(refresh_recent)),
-        );
-    if let Some(words) = &s.recent_error {
-        recent = recent.child(
-            text(words.clone()).font(type_::LABEL).color(p.muted)
-                .w_full().px(12.0).wrap_anywhere(),
-        );
-    } else if s.recent.is_empty() {
-        recent = recent.child(
-            text(if s.recents.is_pending() {
-                "Loading…"
-            } else {
-                "No recent conversations."
-            })
-            .font(type_::LABEL).color(p.muted).w_full().px(12.0).wrap(),
-        );
-    } else {
-        for item in s.recent.iter().take(12) {
-            // Fix 5 (Finding 9): highlight Recent row when either the root conversation ID or active continuation tip matches.
-            let picked = selected_conversation(s)
-                .and_then(|(_, c)| c.conversation_id.as_deref())
-                == Some(item.id.as_str())
-                || s.ledger.as_ref().is_some_and(|p| {
-                    !p.snapshot.tip.is_empty() && p.snapshot.tip == item.id
-                });
-            let mut title = row().w_full().center_y().gap(6.0)
-                .child(
-                    text(item.title.clone()).font(type_::BODY)
-                        .color(p.text).grow(1.0).shrink().truncate(),
-                );
-            let dot = match item.state.as_str() {
-                "running" => Some(p.green),
-                "failed" => Some(p.red),
-                _ => None,
-            };
-            if let Some(ink) = dot {
-                title = title.child(
-                    el().size(5.0, 5.0).radius(2.5).fill(ink),
-                );
-            }
-            let item = item.clone();
-            recent = recent.child(
-                col().key(format!("recent-{}", item.id)).w_full()
-                    .padding(12.0).gap(5.0).radius(8.0)
-                    .fill(if picked { p.selected } else { p.sidebar })
-                    .child(title)
-                    .child(
-                        text(format!(
-                            "{}{} · {}",
-                            item.teammate,
-                            if item.started_by == "native" { " · native" } else { "" },
-                            when(&item.updated, clock_seconds()),
-                        ))
-                        .font(type_::LABEL).color(p.muted).w_full().truncate(),
-                    )
-                    .on_press_tx(move |s: &mut State, tx| {
-                        open_recent(s, item.clone(), tx);
-                    }),
-            );
-        }
-    }
-
-    let sidebar = col().w(248.0).h_full().fill(p.sidebar)
-        .border_sides([0.0, 1.0, 0.0, 0.0], p.hairline)
-        .child(
-            col().w_full().h(88.0).pt(48.0).pl(52.0).pr(20.0).window_drag()
-                .child(text("LOCUST").font(type_::LABEL).color(p.secondary)),
-        )
-        .child(
-            col().key("team-list").w_full().grow(1.0).min_h(0.0)
-                .scroll(ScrollSpec { stick_bottom: false })
-                .child(col().w_full().child(rows).child(recent)),
-        );
-
-    // Local history remains readable even when the MCP engine is unavailable.
-    let error = s.load_error.as_ref().filter(|_| s.ledger.is_none());
-    let right = if let Some(error) = error {
-        col().grow(1.0).shrink().h_full().center().padding(32.0).gap(18.0)
-            .child(
-                text(error.clone()).font(type_::BODY).color(p.red)
-                    .align(Align::Center).w_full().wrap_anywhere().selectable(true),
-            )
-            .child(
-                el().key("retry").h(40.0).px(18.0).center().radius(8.0)
-                    .fill(p.raised).border(1.0, p.hairline)
-                    .child(text("Try again").font(type_::LABEL).color(p.text))
-                    .on_press(load_team),
-            )
-    } else if let Some((teammate, conversation)) = selected_conversation(s) {
-        let fallback;
-        let items = if let Some(pane) = &s.ledger {
-            &pane.items
-        } else {
-            fallback = conversation.turns.iter().enumerate()
-                .map(|(i, (who, body))| {
-                    if who == "You" {
-                        ledger::Item::User(body.clone())
-                    } else {
-                        ledger::Item::Assistant {
-                            item_id: format!("legacy-{i}"),
-                            text: body.clone(),
-                            r#final: true,
-                        }
-                    }
-                }).collect::<Vec<_>>();
-            &fallback
-        };
-
-        let transcript = if items.is_empty() {
-            let title = if let Some(pane) = &s.ledger {
-                if pane.loading {
-                    "Loading conversation…".into()
-                } else {
-                    "No transcript items.".into()
-                }
-            } else {
-                format!("Ask {} anything", teammate.name)
-            };
-            let mut empty = col().key("messages").w_full().grow(1.0).min_h(0.0)
-                .center().padding(24.0).gap(10.0)
-                .child(
-                    text(title).font(type_::TITLE).color(p.text)
-                        .w_full().align(Align::Center).wrap(),
-                );
-            if s.ledger.is_none() {
-                empty = empty.child(
-                    text(format!(
-                        "{} · runs in {}",
-                        agent(teammate),
-                        mode_word(&teammate.runs_in),
-                    ))
-                    .font(type_::LABEL).color(p.muted)
-                    .w_full().align(Align::Center).wrap_anywhere(),
-                );
-            }
-            empty.child(approval_card(s, &p))
-        } else {
-            col().key("messages").w_full().grow(1.0).min_h(0.0)
-                .scroll(ScrollSpec { stick_bottom: true })
-                .child(message_column(items, &teammate.name, &p, s))
-        };
-
-        let mut status = row().w_full().center_y().gap(8.0).px(24.0).py(10.0);
-        if s.flight.is_some() || s.opening_teammate.is_some() {
-            status = status.child(
-                el().key("activity-dot").size(6.0, 6.0).radius(3.0)
-                    .fill(p.status(s.status_tone))
-                    .cycle(Cycle {
-                        period: 1.6,
-                        phase: 0.0,
-                        stops: &[(0.0, 0.35), (0.5, 1.0), (1.0, 0.35)],
-                        still: 1.0,
-                        fps: 30.0,
-                    }),
-            );
-        }
-        status = status.child(
-            text(s.status.clone()).font(type_::LABEL)
-                .color(p.status(s.status_tone))
-                .grow(1.0).shrink().wrap_anywhere().selectable(true),
-        );
-        // Which engine this window is on, always visible (AGENTS.md: a switch is never silent).
-        if let Some(kind) = s.engine {
-            status = status.child(
-                text(kind.label()).key("engine-label").font(type_::LABEL).color(p.muted),
-            );
-        }
-
-        let placeholder = composer_placeholder(s);
-        let field = text_input(&s.draft, type_::BODY)
-            .key("composer")
-            .disabled(turn_running(s) && queue_front(s).is_some())
-            .placeholder(placeholder, p.muted)
-            .color(p.text)
-            .w_full()
-            .padding(12.0)
-            .on_edit(|s: &mut State| &mut s.draft)
-            .on_submit(|s: &mut State, tx: &mut Tx| submit_composer(s, tx, false))
-            .on_input_key(composer_input_key)
-            .on_input_paste(|s: &mut State, content, _| {
-                let mut added = Vec::new();
-                for path in content.files() {
-                    added.push(path.to_string_lossy().replace('\\', "/"));
-                }
-                if let Some(image) = content.image() {
-                    if let Some(path) = save_pasted_image(s, image.png()) {
-                        added.push(path);
-                    }
-                }
-                if added.is_empty() {
-                    return false;
-                }
-                let (next, note) = composer::attach_paths(&s.attached, &added);
-                s.attached = next;
-                if let Some(note) = note {
-                    s.composer_note = Some(note);
-                }
-                true
-            });
-        let composer = rune::auto_grow(field, composer::COMPOSER_MIN_LINES, composer::COMPOSER_MAX_LINES)
-            .max_h(composer::COMPOSER_MAX_HEIGHT_PX)
-            .radius(9.0)
-            .fill(p.field)
-            .border(1.0, p.hairline)
-            .grow(1.0)
-            .shrink()
-            .on_drop_files(|s: &mut State, files, _| attach_dropped_paths(s, files));
-
-        let queueing = can_queue(s);
-        let stopping = can_stop(s) && !queueing;
-        let blocked = send_blocked_now(s);
-        let send_enabled = (can_send(s) || queueing || stopping) && !s.stopping.is_pending();
-        let send_title = if stopping {
-            "Stop the running reply".to_owned()
-        } else if queueing {
-            composer::QUEUE_SEND_TITLE.to_owned()
-        } else {
-            blocked
-                .unwrap_or(composer::SEND_LIVE_TITLE)
-                .to_owned()
-        };
-        let button_label = if stopping {
-            "Stop"
-        } else if queueing {
-            "Queue"
-        } else {
-            "Send"
-        };
-        let mut button = el()
-            .key("send")
-            .h(48.0)
-            .px(18.0)
-            .center()
-            .radius(9.0)
-            .fill(p.raised)
-            .border(1.0, p.hairline)
-            .disabled(!send_enabled)
-            .child(
-                text(button_label)
-                    .font(type_::LABEL)
-                    .color(if send_enabled { p.text } else { p.muted }),
-            );
-        // Rune has no title tooltip API on El in this pin; the label/status carry the why.
-        let _ = send_title;
-        if send_enabled {
-            button = if stopping {
-                button.on_press(stop)
-            } else {
-                button.on_press_tx(|s: &mut State, tx: &mut Tx| submit_composer(s, tx, false))
-            };
-        }
-
-        let id = teammate.id.clone();
-        let current = s.models.get(&id).and_then(|agents| {
-            agents.iter()
-                .find(|a| teammate.runtime.as_deref() == Some(a.runtime.as_str()))
-                .or_else(|| (id != LEDGER_TARGET && teammate.runtime.is_none() && agents.len() == 1).then(|| &agents[0]))
-        });
-        let picked = s.picks.get(&id);
-        let model = picked.map(|p| p.model.as_str())
-            .or_else(|| if id == LEDGER_TARGET { teammate.model.as_deref() } else { current.and_then(|a| a.model.as_deref()) })
-            .or(teammate.model.as_deref())
-            .filter(|m| !m.is_empty())
-            .unwrap_or("Choose model");
-        let effort = picked.and_then(|p| p.effort.as_deref()).or_else(|| if picked.is_none() { current.and_then(|a| a.effort.as_deref()) } else { None });
-        let model_name = model_chip_name(model, current);
-        let label = format!("{}{}{}", model_name, effort.map(|e| format!(" · {e}")).unwrap_or_default(), if picked.is_some() { ", this turn" } else { "" });
-        let chip_id = id.clone();
-        let chip = el().max_w(180.0).h(48.0).padding(6.0).center().radius(6.0).fill(p.raised)
-            .child(text(label).font(type_::LABEL).color(p.text).wrap_anywhere())
-            .on_press(move |s: &mut State| open_models(s, chip_id.clone()));
-        let mut picker = col().w_full().px(24.0);
-        if s.model_menu.as_ref() == Some(&id) {
-            let mut menu = col().key("model-menu").w_full().max_h(180.0).scroll(ScrollSpec { stick_bottom: false }).gap(4.0);
-            if let Some(agents) = s.models.get(&id).filter(|a| !a.is_empty()) {
-                let reset_id = id.clone();
-                menu = menu.child(el().padding(6.0).child(text("Teammate’s own").color(p.text))
-                    .on_press(move |s: &mut State| { s.picks.remove(&reset_id); s.model_menu = None; }));
-                for agent in agents.iter().filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str())) { for model in &agent.models {
-                    let efforts = if model.efforts.is_empty() { vec![None] } else { model.efforts.iter().cloned().map(Some).collect() };
-                    for effort in efforts {
-                        let (id, pick) = (id.clone(), TurnPick { model: model.id.clone(), effort });
-                        let label = format!("{}{}", model.name, pick.effort.as_ref().map(|e| format!(" · {e}")).unwrap_or_default());
-                        menu = menu.child(el().padding(6.0).child(text(label).color(p.text))
-                            .on_press(move |s: &mut State| { s.picks.insert(id.clone(), pick.clone()); s.model_menu = None; }));
-                    }
-                }}
-            } else { menu = menu.child(text("Loading models…").color(p.muted)); }
-            picker = picker.child(menu);
-        }
-
-        let mut composer_stack = col().w_full().gap(8.0).px(24.0).pb(24.0);
-
-        // Slash / @ popups
-        let slash = slash_choices_now(s);
-        let at = at_choices_now(s);
-        if !slash.is_empty() {
-            let mut menu = col()
-                .key("slash-menu")
-                .w_full()
-                .max_h(220.0)
-                .scroll(ScrollSpec { stick_bottom: false })
-                .gap(2.0)
-                .padding(8.0)
-                .radius(9.0)
-                .fill(p.raised)
-                .border(1.0, p.hairline);
-            for (index, command) in slash.iter().enumerate() {
-                if command.group.as_ref().is_some_and(|g| slash.get(index.wrapping_sub(1)).and_then(|c| c.group.as_ref()) != Some(g)) {
-                    if let Some(group) = &command.group {
-                        menu = menu.child(text(group.clone()).font(type_::LABEL).color(p.muted));
-                    }
-                }
-                let active = index == s.slash_at.min(slash.len().saturating_sub(1));
-                let name = if let Some(hint) = &command.hint {
-                    format!("/{} {hint}", command.name)
-                } else {
-                    format!("/{}", command.name)
-                };
-                let detail = command.detail.clone();
-                let cmd = command.clone();
-                menu = menu.child(
-                    el()
-                        .w_full()
-                        .padding(6.0)
-                        .radius(6.0)
-                        .fill(if active { p.selected } else { p.raised })
-                        .child(
-                            col()
-                                .w_full()
-                                .gap(2.0)
-                                .child(text(name).font(type_::LABEL).color(if command.weighted { p.amber } else { p.text }))
-                                .child(text(detail).font(type_::LABEL).color(if command.weighted { p.amber } else { p.muted })),
-                        )
-                        .on_press(move |s: &mut State| run_slash_command(s, &cmd)),
-                );
-            }
-            composer_stack = composer_stack.child(menu);
-        } else if !at.is_empty() || (composer::at_query(&s.draft.text).is_some_and(|q| !q.is_empty()) && s.files_partial && s.at_dismissed.as_deref() != Some(s.draft.text.as_str())) {
-            let mut menu = col()
-                .key("at-menu")
-                .w_full()
-                .max_h(220.0)
-                .scroll(ScrollSpec { stick_bottom: false })
-                .gap(2.0)
-                .padding(8.0)
-                .radius(9.0)
-                .fill(p.raised)
-                .border(1.0, p.hairline);
-            let mut saw_file = false;
-            let mut saw_mate = false;
-            if at.is_empty() && s.files_partial {
-                let heading = if s.files_partial {
-                    format!(
-                        "Files in this folder, the first {} found",
-                        s.project_files.len()
-                    )
-                } else {
-                    composer::FILES_HEADING.into()
-                };
-                menu = menu
-                    .child(text(heading).font(type_::LABEL).color(p.muted))
-                    .child(text(composer::NO_MATCH_PARTIAL).font(type_::LABEL).color(p.muted));
-            }
-            for (index, choice) in at.iter().enumerate() {
-                let active = index == s.at_at.min(at.len().saturating_sub(1));
-                match choice {
-                    AtChoice::Teammate { name, role, .. } => {
-                        if !saw_mate {
-                            saw_mate = true;
-                            menu = menu.child(
-                                text(composer::TEAMMATES_HEADING)
-                                    .font(type_::LABEL)
-                                    .color(p.muted),
-                            );
-                        }
-                        let title = format!("@{name}");
-                        let detail = composer::teammate_detail(role);
-                        let picked = choice.clone();
-                        menu = menu.child(
-                            el()
-                                .w_full()
-                                .padding(6.0)
-                                .radius(6.0)
-                                .fill(if active { p.selected } else { p.raised })
-                                .child(
-                                    col()
-                                        .gap(2.0)
-                                        .child(text(title).font(type_::LABEL).color(p.text))
-                                        .child(text(detail).font(type_::LABEL).color(p.muted)),
-                                )
-                                .on_press(move |s: &mut State| pick_at_choice(s, picked.clone())),
-                        );
-                    }
-                    AtChoice::File { path } => {
-                        if !saw_file {
-                            saw_file = true;
-                            menu = menu.child(
-                                text(if s.files_partial { format!("Files in this folder, the first {} found", s.project_files.len()) } else { composer::FILES_HEADING.into() })
-                                    .font(type_::LABEL)
-                                    .color(p.muted),
-                            );
-                        }
-                        let cut = path.rfind('/').map(|i| i as isize).unwrap_or(-1);
-                        let base = if cut < 0 {
-                            path.clone()
-                        } else {
-                            path[cut as usize + 1..].to_owned()
-                        };
-                        let detail = if cut < 0 {
-                            "the folder itself".into()
-                        } else {
-                            path[..cut as usize].to_owned()
-                        };
-                        let picked = choice.clone();
-                        menu = menu.child(
-                            el()
-                                .w_full()
-                                .padding(6.0)
-                                .radius(6.0)
-                                .fill(if active { p.selected } else { p.raised })
-                                .child(
-                                    col()
-                                        .gap(2.0)
-                                        .child(text(base).font(type_::LABEL).color(p.text))
-                                        .child(text(detail).font(type_::LABEL).color(p.muted)),
-                                )
-                                .on_press(move |s: &mut State| pick_at_choice(s, picked.clone())),
-                        );
-                    }
-                }
-            }
-            composer_stack = composer_stack.child(menu);
-        }
-
-        // Queued follow-up strip
-        if let Some(front) = queue_front(s) {
-            let key = front.key.clone();
-            let count = composer::queued_in(&s.queue_rows, Some(&key)).len();
-            let verdict = composer::queued_verdict(composer::VerdictInput {
-                running: turn_running(s),
-                phase: Some(queue_phase(s)),
-                on_screen: true,
-                restored: front.restored,
-                held: front.held.as_deref(),
-            });
-            let note = composer::queue_note(&verdict, &working_name(s), count);
-            let mut strip = col()
-                .key("queued")
-                .w_full()
-                .gap(6.0)
-                .padding(10.0)
-                .radius(9.0)
-                .fill(p.raised)
-                .border(1.0, p.hairline)
-                .child(text(front.text.clone()).font(type_::BODY).color(p.text).w_full().wrap())
-                .child(text(note).font(type_::LABEL).color(p.muted));
-            let mut actions = row().gap(8.0);
-            if turn_running(s) {
-                actions = actions.child(
-                    el()
-                        .padding(6.0)
-                        .child(text(composer::STOP_AND_SEND_NOW_LABEL).font(type_::LABEL).color(p.text))
-                        .on_press_tx(|s: &mut State, tx: &mut Tx| {
-                            s.queue_send_now = queue_key_now(s);
-                            stop(s);
-                            // Drain once the stop lands.
-                            let _ = tx;
-                        }),
-                );
-            } else {
-                let label = composer::SEND_NOW_LABEL;
-                actions = actions.child(
-                    el()
-                        .padding(6.0)
-                        .child(text(label).font(type_::LABEL).color(p.text))
-                        .on_press_tx(|s: &mut State, tx: &mut Tx| { s.queue_send_now = queue_key_now(s); drain_queue_after_turn(s, tx); }),
-                );
-            }
-            actions = actions
-                .child(el().padding(6.0).child(text(composer::EDIT_LABEL).font(type_::LABEL).color(p.text))
-                    .on_press(|s: &mut State| { unqueue(s, true); }))
-                .child(el().padding(6.0).child(text(composer::DISCARD_LABEL).font(type_::LABEL).color(p.text))
-                    .on_press(|s: &mut State| { unqueue(s, false); }));
-            strip = strip.child(actions);
-            composer_stack = composer_stack.child(strip);
-        } else if s.off_the_queue {
-            let note = if turn_running(s) {
-                format!(
-                    "Off the queue while you edit — Enter queues it again for when {} finishes",
-                    working_name(s)
-                )
-            } else {
-                "Off the queue — Enter sends it".into()
-            };
-            composer_stack = composer_stack.child(
-                el()
-                    .w_full()
-                    .padding(8.0)
-                    .radius(9.0)
-                    .fill(p.raised)
-                    .child(text(note).font(type_::LABEL).color(p.muted)),
-            );
-        }
-        if let Some(error) = &s.queue_error {
-            composer_stack = composer_stack.child(
-                text(error.clone()).font(type_::LABEL).color(p.amber).w_full().wrap(),
-            );
-        }
-        if let Some(note) = &s.composer_note {
-            composer_stack = composer_stack.child(
-                text(note.clone()).font(type_::LABEL).color(p.amber).w_full().wrap(),
-            );
-        }
-        if blocked.is_some() && s.scene_popup == ComposerScenePopup::Blocked {
-            composer_stack = composer_stack.child(
-                text(blocked.unwrap_or("").to_owned())
-                    .font(type_::LABEL)
-                    .color(p.amber)
-                    .w_full()
-                    .wrap(),
-            );
-        }
-
-        // Attachment chips (path labels; PDF page tiles are not drawn — see M4B-NOTES).
-        if !s.attached.is_empty() {
-            let mut chips = row().gap(6.0).w_full();
-            chips = chips.child(
-                text(composer::attachment_label(s.attached.len()))
-                    .font(type_::LABEL)
-                    .color(p.muted),
-            );
-            for (i, path) in s.attached.iter().enumerate() {
-                let name = path.rsplit('/').next().unwrap_or(path).to_owned();
-                chips = chips.child(
-                    el()
-                        .padding(4.0)
-                        .radius(4.0)
-                        .fill(p.raised)
-                        .border(1.0, p.hairline)
-                        .child(text(name).font(type_::LABEL).color(p.text))
-                        .on_press(move |s: &mut State| {
-                            if i < s.attached.len() {
-                                s.attached.remove(i);
-                            }
-                        }),
-                );
-            }
-            composer_stack = composer_stack.child(chips);
-        }
-        if !s.tagged.is_empty() {
-            let mut tags = row().gap(6.0);
-            for id in &s.tagged {
-                let name = s
-                    .teammates
-                    .iter()
-                    .find(|t| t.id == *id)
-                    .map(|t| t.name.clone())
-                    .unwrap_or_else(|| id.clone());
-                let tid = id.clone();
-                tags = tags.child(
-                    el()
-                        .padding(4.0)
-                        .radius(4.0)
-                        .fill(p.raised)
-                        .child(text(format!("@{name}")).font(type_::LABEL).color(p.text))
-                        .on_press(move |s: &mut State| {
-                            s.tagged.retain(|t| t != &tid);
-                        }),
-                );
-            }
-            composer_stack = composer_stack.child(tags);
-        }
-
-        composer_stack = composer_stack.child(
-            row()
-                .w_full()
-                .gap(10.0)
-                .child(chip)
-                .child(composer)
-                .child(button),
-        );
-
-        col().grow(1.0).shrink().h_full()
-            .child(
-                col().w_full().h(88.0).px(24.0).pt(30.0).gap(5.0).window_drag()
-                    .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-                    .child(
-                        text(teammate.name.clone()).font(type_::TITLE).color(p.text),
-                    )
-                    .child(text(agent_line(s, teammate)).font(type_::LABEL).color(p.muted)),
-            )
-            .child(transcript)
-            .child(status)
-            .child(picker)
-            .child(composer_stack)
-    } else {
-        col().grow(1.0).shrink().h_full().center().padding(32.0)
-            .child(
-                text(s.status.clone()).font(type_::BODY)
-                    .color(p.status(s.status_tone)).w_full().wrap(),
-            )
-    };
-
-    row().w_full().h_full().fill(p.bg).child(sidebar).child(right)
-}
-
-fn team_scene(s: &mut State) {
-    s.demo = true;
-    s.appearance = Some(true);
-    s.teammates = [
-        (
-            "codec", "Codec", "Code & Migrations",
-            "codex", "gpt-6.1-sol", false,
-        ),
-        (
-            "argon", "Argon", "Code & Migrations",
-            "antigravity", "Gemini 3.8 Flash", true,
-        ),
-        (
-            "scout", "Scout", "Custom",
-            "opencode", "deepseek-v4.1-flash-free", false,
-        ),
-    ]
-    .into_iter()
-    .map(|(id, name, role, runtime, model, busy)| Teammate {
-        id: id.into(),
-        name: name.into(),
-        role: role.into(),
-        runtime: Some(runtime.into()),
-        model: Some(model.into()),
-        busy,
-        runs_in: "ask".into(),
-        folder: None,
-    })
-    .collect();
-
-    s.conversations = s.teammates.iter()
-        .map(|t| (t.id.clone(), Conversation::default())).collect();
-    if let Some(conversation) = s.conversations.get_mut("codec") {
-        conversation.turns = vec![
-            (
-                "You".into(),
-                "How is the native preview coming along?".into(),
-            ),
-            (
-                "Codec".into(),
-                "The window is taking shape. Teammates live on the left, and your conversation stays here.".into(),
-            ),
-            (
-                "You".into(),
-                "Let's keep it simple and make it feel like Locust.".into(),
-            ),
-            (
-                "Codec".into(),
-                "Agreed. A clear conversation, a quiet status line, and room to write.".into(),
-            ),
-        ];
-    }
-    s.recent = [
-        (
-            "sample-1", "Scout", "A real Markdown answer",
-            "completed", "2026-11-08T21:23:37.380Z",
-        ),
-        (
-            "sample-2", "Argon", "Review the native preview",
-            "running", "2026-11-08T21:18:00Z",
-        ),
-        (
-            "sample-3", "Codec", "Check the conversation sidebar",
-            "failed", "2026-11-08T19:00:00Z",
-        ),
-        (
-            "sample-4", "Scout",
-            "A longer conversation title that should end in an ellipsis",
-            "completed", "2026-11-07T12:00:00Z",
-        ),
-    ]
-    .into_iter()
-    .map(|(id, teammate, title, state, updated)| ConversationRow {
-        id: id.into(),
-        teammate: teammate.into(),
-        title: title.into(),
-        started_by: "the person".into(),
-        state: state.into(),
-        updated: updated.into(),
-    })
-    .collect();
-    s.selected = 0;
-    s.status = "Ready".into();
-    s.status_tone = StatusTone::Muted;
-}
-
-fn empty_scene(s: &mut State) {
-    team_scene(s);
-    for conversation in s.conversations.values_mut() {
-        *conversation = Conversation::default();
-    }
-}
-
-/*
- * A REAL EXCHANGE, CHECKED WITHOUT A WINDOW. `--ask <teammate> <message>` runs the window's own engine calls (start,
- * then read_reply until the turn ends) against the running Locust and saves what came back; the "replay" scene draws
- * that file headless (`--snap shot.png --scene replay`), so a real answer is seen without opening a window that would
- * take the screen from whoever is working.
- */
-const REPLAY_FILE: &str = "locust-native-replay.json";
-
-fn replay_path() -> std::path::PathBuf {
-    std::env::var_os("LOCUST_NATIVE_REPLAY").map(Into::into)
-        .unwrap_or_else(|| std::env::temp_dir().join(REPLAY_FILE))
-}
-
-fn ask_cli(who: &str, message: &str) -> Result<(), String> {
-    let engine = Engine::local()?;
-    let team = engine.teammates()?;
-    let teammate = team.iter()
-        .find(|t| t.name.eq_ignore_ascii_case(who) || t.id == who)
-        .ok_or_else(|| format!("No teammate called {who}."))?;
-    let started = engine.start(&teammate.id, message, None, None)?;
-    eprintln!("started {} in {}", started.conversation_id, started.mode);
-
-    let answer = loop {
-        match engine.reply(&started.conversation_id, engine::WAIT_LIMIT_S)? {
-            Reply::Working(doing) => eprintln!("working: {doing}"),
-            Reply::WaitingForYou(words) => {
-                eprintln!("waiting for you in Locust: {words}");
-                std::thread::sleep(Duration::from_secs(3));
-            }
-            Reply::Answer(text) => break text,
-            Reply::Failed(words) => return Err(words),
-        }
-    };
-    println!("{answer}");
-    let saved = serde_json::json!({
-        "team": team.iter().map(|t| serde_json::json!({
-            "id": t.id,
-            "name": t.name,
-            "role": t.role,
-            "runtime": t.runtime,
-            "model": t.model,
-            "busy": t.busy,
-            "runs_in": t.runs_in,
-        })).collect::<Vec<_>>(),
-        "teammate": teammate.id,
-        "message": message,
-        "answer": answer,
-    });
-    std::fs::write(replay_path(), saved.to_string()).map_err(|e| e.to_string())
-}
-
-fn replay_scene(s: &mut State) {
-    s.demo = true;
-    s.appearance = Some(true);
-    let Some(saved) = std::fs::read_to_string(replay_path()).ok()
-        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
-    else {
-        s.status = "No saved exchange: run --ask first.".into();
-        return;
-    };
-
-    s.teammates = saved.get("team")
-        .and_then(|v| engine::parse_teammates(&v.to_string()).ok())
-        .unwrap_or_default();
-    s.conversations = s.teammates.iter()
-        .map(|t| (t.id.clone(), Conversation::default())).collect();
-    let picked = saved.get("teammate").and_then(serde_json::Value::as_str)
-        .and_then(|id| s.teammates.iter().position(|t| t.id == id))
-        .unwrap_or(0);
-
-    if let Some(teammate) = s.teammates.get(picked)
-        && let Some(conversation) = s.conversations.get_mut(&teammate.id)
-    {
-        conversation.turns = vec![
-            (
-                "You".into(),
-                saved.get("message").and_then(serde_json::Value::as_str).unwrap_or_default().into(),
-            ),
-            (
-                teammate.name.clone(),
-                saved.get("answer").and_then(serde_json::Value::as_str).unwrap_or_default().into(),
-            ),
-        ];
-    }
-    s.selected = picked;
-    s.status = "Ready".into();
-    s.status_tone = StatusTone::Muted;
-}
-
-fn team_light_scene(s: &mut State) {
-    team_scene(s);
-    s.appearance = Some(false);
-}
-
-fn empty_light_scene(s: &mut State) {
-    empty_scene(s);
-    s.appearance = Some(false);
-}
-
-fn replay_light_scene(s: &mut State) {
-    replay_scene(s);
-    s.appearance = Some(false);
-}
-
-fn composer_base_scene(s: &mut State, light: bool) {
-    team_scene(s);
-    s.appearance = Some(!light);
-    s.engine = Some(Kind::Native);
-    s.selected_ready = true;
-    s.route_can_run = true;
-    s.nothing_installed = false;
-    s.project_files = vec![
-        "README.md".into(),
-        "src/main.rs".into(),
-        "docs/resume.md".into(),
-        "résumé.md".into(),
-        "PLAN.md".into(),
-    ];
-    s.draft.replace_text("");
-    sync_draft_key(s);
-    s.status = "Ready".into();
-    s.status_tone = StatusTone::Muted;
-}
-
-fn composer_scene(s: &mut State) {
-    composer_base_scene(s, false);
-    s.draft.replace_text("Shift+Enter makes a new line.\nEnter sends.");
-    s.scene_popup = ComposerScenePopup::None;
-}
-
-fn composer_light_scene(s: &mut State) {
-    composer_base_scene(s, true);
-    s.draft.replace_text("Shift+Enter makes a new line.\nEnter sends.");
-    s.scene_popup = ComposerScenePopup::None;
-}
-
-fn composer_slash_scene(s: &mut State) {
-    composer_base_scene(s, false);
-    s.draft.replace_text("/");
-    s.slash_at = 0;
-    s.scene_popup = ComposerScenePopup::Slash;
-}
-
-fn composer_slash_light_scene(s: &mut State) {
-    composer_base_scene(s, true);
-    s.draft.replace_text("/");
-    s.slash_at = 0;
-    s.scene_popup = ComposerScenePopup::Slash;
-}
-
-fn composer_mention_scene(s: &mut State) {
-    composer_base_scene(s, false);
-    s.draft.replace_text("Please read @re");
-    s.at_at = 0;
-    s.scene_popup = ComposerScenePopup::Mention;
-}
-
-fn composer_mention_light_scene(s: &mut State) {
-    composer_base_scene(s, true);
-    s.draft.replace_text("Please read @re");
-    s.at_at = 0;
-    s.scene_popup = ComposerScenePopup::Mention;
-}
-
-fn composer_queue_scene(s: &mut State) {
-    composer_base_scene(s, false);
-    s.scene_popup = ComposerScenePopup::Queue;
-    if let Some(conversation) = s.conversations.get_mut("codec") {
-        conversation.conversation_id = Some("composer-queue".into());
-    }
-    s.flight = Some(Flight {
-        teammate_id: "codec".into(),
-        conversation_id: Some("composer-queue".into()),
-        header: s.teammates.first().cloned(),
-        after_tip: None,
-        message: None,
-    });
-    s.own_turn = Some(OwnTurn {
-        conversation: "composer-queue".into(),
-        tip: Some("composer-queue".into()),
-        before: None,
-    });
-    s.queue_rows = vec![composer::QueuedRow {
-        id: "q1".into(),
-        key: "composer-queue".into(),
-        text: "Also check the queue strip while this turn runs.".into(),
-        origin: composer::Origin::Person,
-        attachments: Vec::new(),
-        issue: None,
-        restored: false,
-        held: None,
-    }];
-    s.draft.replace_text("");
-    s.status = "Codec: Working…".into();
-}
-
-fn composer_queue_light_scene(s: &mut State) {
-    composer_queue_scene(s);
-    s.appearance = Some(false);
-}
-
-fn composer_blocked_scene(s: &mut State) {
-    composer_base_scene(s, false);
-    s.nothing_installed = true;
-    s.selected_ready = false;
-    s.draft.replace_text("hello");
-    s.scene_popup = ComposerScenePopup::Blocked;
-}
-
-fn composer_blocked_light_scene(s: &mut State) {
-    composer_blocked_scene(s);
-    s.appearance = Some(false);
-}
-
-
-fn approval_scene(s: &mut State, light: bool) {
-    team_scene(s);
-    s.appearance = Some(!light);
-    s.engine = Some(Kind::Native);
-    let Some(header) = s.teammates.first().cloned() else { return };
-    s.ledger = Some(LedgerPane {
-        header: header.clone(),
-        conversation: Conversation {
-            conversation_id: Some("synthetic-approval".into()),
-            turns: Vec::new(),
-        },
-        items: vec![
-            ledger::Item::User("Create a file named hello.txt".into()),
-            ledger::Item::Assistant {
-                item_id: "ask".into(),
-                text: "I need approval to write the file.".into(),
-                r#final: true,
-            },
-        ],
-        dir: std::path::PathBuf::new(),
-        worker: None,
-        snapshot: ledger::Snapshot {
-            items: vec![],
-            tip: "synthetic-approval".into(),
-            running: true,
-            failed: false,
-        },
-        due: f64::INFINITY,
-        loading: false,
-        after_tip: None,
-        after_tip_deadline: None,
-        backoff: 0.0,
-    });
-    // Rebuild items into snapshot for the pane.
-    if let Some(pane) = &mut s.ledger {
-        pane.snapshot.items = pane.items.clone();
-    }
-    s.pending_approval = Some(approval::Request {
-        approval_id: "ap_snap".into(),
-        run_id: "run_snap".into(),
-        mission_id: "synthetic-approval".into(),
-        runtime: "codex".into(),
-        kind: approval::Kind::Command,
-        summary: "Run a command".into(),
-        detail: "touch hello.txt".into(),
-        cwd: Some("/tmp/project".into()),
-        requested_at: "2026-11-09T00:00:00.000Z".into(),
-        always_covers: None,
-        always_key: None,
-        data_sent_says: None,
-        reversible_says: None,
-        tool_use_id: None,
-        wire_id: serde_json::json!("req_snap"),
-        claude_input: None,
-    });
-    s.status = "Needs you".into();
-    s.status_tone = StatusTone::Amber;
-}
-
-fn approval_scene_dark(s: &mut State) { approval_scene(s, false); }
-fn approval_scene_light(s: &mut State) { approval_scene(s, true); }
-
-fn ledger_scene(s: &mut State, live: bool, light: bool) {
-    team_scene(s);
-    s.appearance = Some(!light);
-    let Some(header) = s.teammates.first().cloned() else {
-        return;
-    };
-    let items = vec![
-        ledger::Item::User("Explain this synthetic preview.".into()),
-        ledger::Item::Plan { id: "preview-plan".into(), steps: ledger::read_plan(&serde_json::json!([
-            {"step":"Read the input","status":"completed"}, {"step":"Summarize the result","status":"in_progress"}
-        ])), finished: !live },
-        ledger::Item::Tool {
-            name: "inspect".into(),
-            status: ledger::Status::Done,
-            summary: "Read a synthetic fixture".into(),
-            detail: ledger::ToolDetail { id: "preview-tool".into(), ..Default::default() },
-        },
-        ledger::Item::Assistant {
-            item_id: "synthetic-answer".into(),
-            text: if live {
-                "### Live answer\n\nThis text is still arriving".into()
-            } else {
-                "### Complete transcript\n\nThe preview shows **messages**, tool steps, plans, and notes.".into()
-            },
-            r#final: !live,
-        },
-        ledger::Item::Note {
-            level: "warning".into(),
-            text: "Synthetic demonstration note.".into(),
-        },
-    ];
-    s.ledger = Some(LedgerPane {
-        header: header.clone(),
-        conversation: Conversation {
-            conversation_id: Some("synthetic-ledger".into()),
-            turns: Vec::new(),
-        },
-        items: items.clone(),
-        dir: std::path::PathBuf::new(),
-        worker: None,
-        snapshot: ledger::Snapshot {
-            items,
-            tip: "synthetic-ledger".into(),
-            running: live,
-            failed: false,
-        },
-        due: if live { 0.0 } else { f64::INFINITY },
-        loading: false,
-        after_tip: None,
-        after_tip_deadline: None,
-        backoff: 0.0,
-    });
-    if live {
-        s.flight = Some(Flight {
-            teammate_id: header.id.clone(),
-            conversation_id: Some("synthetic-ledger".into()),
-            header: Some(header),
-            after_tip: None,
-            message: None,
-        });
-    }
-    s.status = if live { "Working…" } else { "Ready" }.into();
-    s.status_tone = if live { StatusTone::Green } else { StatusTone::Muted };
-}
-
-fn thread_rich_scene(s: &mut State) {
-    ledger_scene(s,true,false);
-    let mut transcript = ledger::Transcript::default();
-    let rows = [
-        ("run.started", serde_json::json!({})),
-        ("plan.updated", serde_json::json!({"itemId":"plan","plan":[{"step":"Read the fixture","status":"completed"},{"step":"Check the result","status":"in_progress"},{"step":"Write the report","status":"pending"}]})),
-        ("step.started", serde_json::json!({"itemId":"thought","stepKind":"reasoning"})),
-        ("step.completed", serde_json::json!({"itemId":"thought","stepKind":"reasoning","message":"**Checking the fixture**\nCompare the synthetic input with the expected result.","durationMs":12000})),
-        ("tool.started", serde_json::json!({"itemId":"command","name":"Bash","title":"Check the fixture","command":"printf 'synthetic result\\n'"})),
-        ("tool.completed", serde_json::json!({"itemId":"command","name":"Bash","output":"synthetic result\n1 check passed","exitCode":0,"durationMs":1500})),
-        ("tool.started", serde_json::json!({"itemId":"helper","name":"Agent","title":"Review the fixture","status":"Explore","command":"Review the synthetic fixture and report what it contains."})),
-        ("tool.started", serde_json::json!({"itemId":"child","parentItemId":"helper","name":"Read","command":"fixture.txt"})),
-        ("tool.completed", serde_json::json!({"itemId":"child","parentItemId":"helper","name":"Read","output":"Synthetic fixture."})),
-        ("tool.completed", serde_json::json!({"itemId":"helper","name":"Agent","output":"The synthetic fixture contains one passing check."})),
-    ];
-    let records = rows.into_iter().enumerate().map(|(n,(kind,payload))| serde_json::json!({"event":{"sequence":n,"type":kind,"occurredAt":"2026-01-01T00:00:00Z","payload":payload}})).collect();
-    transcript.apply(records);
-    if let Some(pane)=s.ledger.as_mut() {
-        pane.items=vec![ledger::Item::User("Inspect this synthetic fixture.".into())];
-        pane.items.extend(transcript.items);
-        pane.snapshot.items=pane.items.clone();
-    }
-}
-fn thread_rich_open_scene(s: &mut State) {
-    thread_rich_scene(s);
-    for key in ["synthetic-ledger/group/thought:3", "synthetic-ledger/thought:3", "synthetic-ledger/command", "synthetic-ledger/helper"] {
-        s.activity_open.insert(key.into(),true);
-    }
-}
-fn thread_rich_open_light_scene(s: &mut State) { thread_rich_open_scene(s); s.appearance=Some(false); }
-fn thread_rich_light_scene(s: &mut State) { thread_rich_scene(s); s.appearance=Some(false); }
-
-/// The native engine, synthetic: a native-run Codex conversation streaming, a teammate that runs in Locust for now, and
-/// a native-marked row in Recent. No data folder is read.
-fn native_scene(s: &mut State, live: bool) {
-    ledger_scene(s, live, false);
-    s.engine = Some(Kind::Native);
-    if let Some(t) = s.teammates.get_mut(1) {
-        t.runs_in = native::IN_LOCUST.into();
-    }
-    if let Some(row) = s.recent.get_mut(0) {
-        row.started_by = "native".into();
-        row.teammate = "Codex".into();
-        row.title = "Continue the native preview".into();
-    }
-    if live {
-        // This window started the turn, so Stop shows.
-        s.own_turn = Some(OwnTurn {
-            conversation: "synthetic-ledger".into(),
-            tip: Some("synthetic-ledger".into()),
-            before: None,
-        });
-    }
-}
-
-fn native_scene_idle(s: &mut State) { native_scene(s, false); }
-fn native_scene_live(s: &mut State) { native_scene(s, true); }
-
-fn ledger_transcript_scene(s: &mut State) {
-    ledger_scene(s, false, false);
-}
-
-fn ledger_live_scene(s: &mut State) {
-    ledger_scene(s, true, false);
-}
-
-fn ledger_transcript_light_scene(s: &mut State) {
-    ledger_scene(s, false, true);
-}
-
-fn ledger_live_light_scene(s: &mut State) {
-    ledger_scene(s, true, true);
+    let sidebar = sidebar(s, &p);
+    let right = thread_view(s, &p);
+    row()
+        .w_full()
+        .h_full()
+        .fill(p.bg)
+        .child(sidebar)
+        .child(right)
 }
 
 // Only the selected runtime may supply a display name: IDs can overlap across agents.
 fn model_chip_name<'a>(id: &'a str, current: Option<&'a engine::Models>) -> &'a str {
-    current.and_then(|a| a.models.iter().find(|m| m.id == id))
-        .map(|m| m.name.as_str()).filter(|name| !name.trim().is_empty()).unwrap_or(id)
+    current
+        .and_then(|a| a.models.iter().find(|m| m.id == id))
+        .map(|m| m.name.as_str())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or(id)
 }
 
 fn bench_options(args: &[String]) -> Result<(std::path::PathBuf, Duration), String> {
@@ -3672,14 +1496,22 @@ fn bench_options(args: &[String]) -> Result<(std::path::PathBuf, Duration), Stri
         match flag.as_str() {
             "--bench" => out = Some(args.next().ok_or("--bench requires an output path")?.into()),
             "--bench-seconds" => {
-                seconds = args.next().ok_or("--bench-seconds requires a positive integer")?
-                    .parse().map_err(|_| "--bench-seconds requires a positive integer")?;
-                if seconds == 0 { return Err("--bench-seconds must be positive".into()); }
+                seconds = args
+                    .next()
+                    .ok_or("--bench-seconds requires a positive integer")?
+                    .parse()
+                    .map_err(|_| "--bench-seconds requires a positive integer")?;
+                if seconds == 0 {
+                    return Err("--bench-seconds must be positive".into());
+                }
             }
             _ => return Err(format!("unsupported benchmark argument: {flag}")),
         }
     }
-    Ok((out.ok_or("--bench <out.json> is required")?, Duration::from_secs(seconds)))
+    Ok((
+        out.ok_or("--bench <out.json> is required")?,
+        Duration::from_secs(seconds),
+    ))
 }
 
 fn run_bench(args: &[String], process_start: std::time::Instant) {
@@ -3688,26 +1520,42 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
         std::process::exit(2);
     });
     // No setup, poll, key handlers or live scenes: no engine or ledger access.
-    let app = App::new(AppSpec::new("Locust — benchmark", (1040.0, 720.0), || {
-        let mut state = State::default();
-        team_scene(&mut state);
-        state
-    }, view))
-        .args(Vec::<String>::new())
-        .accessory().open_inactive()
-        .macos_window(rune::MacWindowOptions::default().level(-1))
-        .window_options(rune::WindowOptions { click_through: true, ..Default::default() })
-        .chrome(Chrome { full_size_content: true, traffic_lights: Some((20.0, 18.0)), drag_regions: true });
+    let app = App::new(AppSpec::new(
+        "Locust — benchmark",
+        (1040.0, 720.0),
+        || {
+            let mut state = State::default();
+            team_scene(&mut state);
+            state
+        },
+        view,
+    ))
+    .args(Vec::<String>::new())
+    .accessory()
+    .open_inactive()
+    .macos_window(rune::MacWindowOptions::default().level(-1))
+    .window_options(rune::WindowOptions {
+        click_through: true,
+        ..Default::default()
+    })
+    .chrome(Chrome {
+        full_size_content: true,
+        traffic_lights: Some((20.0, 18.0)),
+        drag_regions: true,
+    });
     let handle = app.handle();
     let mut recorded = false;
     app.on_frame_drawn(move |_| {
-        if recorded { return; }
+        if recorded {
+            return;
+        }
         recorded = true;
         // Rune calls this after queue.present and first-frame GPU completion, never
         // for skipped/occluded frames. This is a host observation, not scanout time.
         let ms = process_start.elapsed().as_secs_f64() * 1000.0;
         let result = serde_json::to_vec(&serde_json::json!({"first_frame_ms": ms}))
-            .map_err(std::io::Error::other).and_then(|bytes| std::fs::write(&out, bytes));
+            .map_err(std::io::Error::other)
+            .and_then(|bytes| std::fs::write(&out, bytes));
         if let Err(error) = result {
             eprintln!("cannot write {}: {error}", out.display());
             std::process::exit(1);
@@ -3717,23 +1565,32 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
             std::thread::sleep(duration);
             handle.quit();
         });
-    }).run();
+    })
+    .run();
 }
 
 fn main() {
     if std::env::args().nth(1).as_deref() == Some("--permission-bridge") {
-        let result = runtime::permission_bridge::serve(&std::env::args().nth(2).unwrap_or_default());
+        let result =
+            runtime::permission_bridge::serve(&std::env::args().nth(2).unwrap_or_default());
         std::process::exit(if result.is_ok() { 0 } else { 1 });
     }
     if std::env::args().nth(1).as_deref() == Some("--run") {
         let code = match run_cli::run(&std::env::args().skip(2).collect::<Vec<_>>()) {
-            Ok(code) => code, Err(error) => { eprintln!("{error}"); 1 }
+            Ok(code) => code,
+            Err(error) => {
+                eprintln!("{error}");
+                1
+            }
         };
         std::process::exit(code);
     }
     let process_start = std::time::Instant::now();
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|arg| arg == "--bench" || arg == "--bench-seconds") {
+    if args
+        .iter()
+        .any(|arg| arg == "--bench" || arg == "--bench-seconds")
+    {
         run_bench(&args[1..], process_start);
         return;
     }
@@ -3754,9 +1611,9 @@ fn main() {
         quick::run();
         return;
     }
-    if args.windows(2).any(|pair| {
-        matches!(pair, [flag, scene] if flag == "--scene" && scene.starts_with("quick-"))
-    }) {
+    if args.windows(2).any(
+        |pair| matches!(pair, [flag, scene] if flag == "--scene" && scene.starts_with("quick-")),
+    ) {
         rune::run(quick::scenes());
         return;
     }
@@ -3815,992 +1672,17 @@ fn main() {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    use std::path::PathBuf;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    #[test]
-    fn queue_edit_and_discard_are_conversation_scoped_and_transactional() {
-        let mut s = sample(); composer_queue_scene(&mut s);
-        let mut second = s.queue_rows[0].clone(); second.id = "two".into(); second.text = "Second".into(); second.attachments = vec!["two.md".into()];
-        s.queue_rows.push(second);
-        let expected = queue_front(&s).unwrap();
-        let mut other = s.queue_rows[0].clone(); other.key = "other".into();
-        s.queue_rows.insert(1, other.clone());
-        assert!(unqueue(&mut s, true));
-        assert_eq!(s.draft.text, expected.text); assert_eq!(s.attached, expected.attachments);
-        assert_eq!(s.queue_rows, vec![other]); assert!(s.off_the_queue);
-        composer_queue_scene(&mut s); s.draft.replace_text("Keep draft");
-        s.demo = false; // no writable store: removal must roll back.
-        let before = s.queue_rows.clone(); assert!(!unqueue(&mut s, false)); assert_eq!(s.queue_rows, before);
-        s.demo = true; assert!(unqueue(&mut s, false)); assert_eq!(s.draft.text, "Keep draft");
-    }
-
-    #[test]
-    fn mention_scene_uses_real_matching_and_excludes_attached_and_tagged() {
-        let mut s = sample();
-        composer_mention_scene(&mut s);
-        let choices = at_choices_now(&s);
-        assert!(!choices.is_empty());
-        assert!(choices.iter().all(|c| matches!(c, AtChoice::File { .. })));
-        let expected = composer::file_matches(&s.project_files, "re", 8);
-        assert_eq!(choices.iter().map(|c| match c { AtChoice::File { path } => path.clone(), _ => panic!() }).collect::<Vec<_>>(), expected);
-        s.draft.replace_text("@");
-        let all = at_choices_now(&s);
-        assert!(matches!(all.first(), Some(AtChoice::Teammate { .. })));
-        let file_at = all.iter().position(|c| matches!(c, AtChoice::File { .. })).unwrap();
-        assert!(all[file_at..].iter().all(|c| matches!(c, AtChoice::File { .. })));
-        s.attached = s.project_files.clone();
-        s.tagged = s.teammates.iter().map(|m| m.id.clone()).collect();
-        assert!(at_choices_now(&s).is_empty());
-        s.tagged.clear(); s.draft.replace_text("@aR");
-        assert!(at_choices_now(&s).iter().all(|c| matches!(c, AtChoice::Teammate { name, .. } if name == "Argon")));
-    }
-
-    #[test]
-    fn queue_strip_keeps_every_word_and_save_failure_keeps_draft() {
-        let mut s = sample();
-        composer_queue_scene(&mut s);
-        let mut second = s.queue_rows[0].clone(); second.id = "second".into(); second.text = "Second thought".into();
-        s.queue_rows.push(second);
-        assert!(queue_front(&s).unwrap().text.ends_with("\n\nSecond thought"));
-        s.demo = false;
-        s.draft.replace_text("Keep me");
-        let before = s.queue_rows.clone();
-        assert!(!enqueue_follow_up(&mut s, "unsaved".into(), vec![]));
-        assert_eq!(s.queue_rows, before);
-        assert_eq!(s.draft.text, "Keep me");
-    }
-
-    #[test]
-    fn slash_escape_clears_the_command_like_electron() {
-        let mut s = sample(); s.draft.replace_text("/plan");
-        let event = KeyEvent { key: Key::Escape, mods: rune::Mods::default() };
-        assert!(composer_input_key(&mut s, &event, &mut Tx::default()));
-        assert_eq!(s.draft.text, "");
-        assert!(slash_choices_now(&s).is_empty());
-    }
-
-    #[test]
-    fn activity_status_words_follow_finished_refused_and_background_work() {
-        use ledger::{Status, ToolDetail};
-        let mut d=ToolDetail::default();
-        assert_eq!(tool_result(Status::Running,&d,false),"running");
-        assert_eq!(tool_result(Status::Running,&d,true),"did not report");
-        d.helper=true; assert_eq!(tool_result(Status::Running,&d,false),"working on it");
-        assert_eq!(tool_result(Status::Done,&d,true),"reported back");
-        d.background=true; assert_eq!(tool_result(Status::Done,&d,false),"working in the background");
-        assert_eq!(tool_result(Status::Done,&d,true),"did not report");
-        d.background_ended="stopped-with-run".into(); assert_eq!(tool_result(Status::Done,&d,true),"stopped when the run ended");
-        d.helper=false; assert_eq!(tool_result(Status::Done,&d,true),"stopped");
-        d.runtime_status="refused".into(); assert_eq!(tool_result(Status::Failed,&d,true),"refused");
-        d.runtime_status.clear(); d.exit_code=Some(2); assert_eq!(tool_result(Status::Failed,&d,true),"failed · exit 2");
-    }
-
-    #[test]
-    fn tool_row_label_omits_zero_calls_background_dupes_and_non_shell_no_output() {
-        use ledger::{Status, ToolDetail};
-        let mut helper = ToolDetail { helper: true, background: true, background_ended: "stopped-with-run".into(), ..ToolDetail::default() };
-        let label = tool_row_label("Agent", Status::Done, "Review", &helper, true);
-        assert!(label.contains("stopped when the run ended"));
-        assert!(!label.contains(" · when the run ended"));
-        assert!(!label.contains("0 calls"));
-        helper.children.push(ledger::Item::Note { level: String::new(), text: "x".into() });
-        assert!(tool_row_label("Agent", Status::Done, "Review", &helper, true).contains("1 call"));
-
-        let mut shell = ToolDetail { output_reported: true, output: "   ".into(), duration_ms: Some(3000), ..ToolDetail::default() };
-        let shell_label = tool_row_label("Bash", Status::Done, "Check", &shell, true);
-        assert!(shell_label.contains("no output"));
-        assert!(shell_label.contains("3s"));
-        let read_label = tool_row_label("Read", Status::Done, "file", &shell, true);
-        assert!(!read_label.contains("no output"));
-        assert!(!read_label.contains("3s"));
-        shell.runtime_status = "declined".into();
-        assert!(!tool_row_label("Bash", Status::Done, "Check", &shell, true).contains("3s"));
-    }
-
-    #[test]
-    fn thought_headline_helpers_match_activity_card() {
-        let text = "**Checking the fixture**\nCompare the synthetic input.";
-        assert_eq!(thought_headline(text), Some("Checking the fixture"));
-        assert_eq!(without_headline(text), "Compare the synthetic input.");
-        assert_eq!(thought_headline("no headline"), None);
-        assert_eq!(without_headline("no headline"), "no headline");
-        let thought = ledger::Item::Thought { id: "t".into(), text: text.into(), duration_ms: Some(3000) };
-        let label = match &thought {
-            ledger::Item::Thought { text, duration_ms, .. } => {
-                let mut label = format!("Thought for {}", ledger::duration_text(duration_ms.unwrap()));
-                if let Some(h) = thought_headline(text) { label.push_str(&format!(" · {h}")); }
-                label
-            }
-            _ => unreachable!(),
-        };
-        assert_eq!(label, "Thought for 3s · Checking the fixture");
-    }
-
-    #[test]
-    fn plan_drawer_keys_do_not_collide_with_tool_item_ids() {
-        let plan = ledger::Item::Plan { id: "plan".into(), steps: vec![], finished: false };
-        let tool = ledger::Item::Tool {
-            name: "Bash".into(), status: ledger::Status::Done, summary: "x".into(),
-            detail: ledger::ToolDetail { id: "plan".into(), ..Default::default() },
-        };
-        assert_eq!(activity_drawer_key("scope", &plan), "scope/plan/plan");
-        assert_eq!(activity_drawer_key("scope", &tool), "scope/plan");
-        assert_ne!(activity_drawer_key("scope", &plan), activity_drawer_key("scope", &tool));
-    }
-
-    #[test]
-    fn rich_scenes_start_folded_and_open_variant_has_independent_drawers() {
-        let mut s=State::default(); thread_rich_scene(&mut s);
-        assert!(s.activity_open.is_empty());
-        let pane=s.ledger.as_ref().unwrap();
-        assert!(matches!(pane.items[1],ledger::Item::Plan {..}));
-        assert_eq!(pane.items.iter().filter(|i|is_activity(i)).count(),3);
-        thread_rich_open_scene(&mut s);
-        assert_eq!(s.activity_open.get("synthetic-ledger/command"),Some(&true));
-        assert!(!s.activity_open.contains_key("synthetic-ledger/helper/child"));
-        s.activity_open.insert("synthetic-ledger/command".into(),false);
-        assert_eq!(s.activity_open.get("synthetic-ledger/helper"),Some(&true));
-        let plan_key = s.ledger.as_ref().unwrap().items.iter()
-            .find(|i| matches!(i, ledger::Item::Plan { .. }))
-            .map(|plan| activity_drawer_key("synthetic-ledger", plan))
-            .unwrap();
-        assert!(plan_key.starts_with("synthetic-ledger/plan/"));
-        thread_rich_light_scene(&mut s); assert_eq!(s.appearance,Some(false));
-    }
-
-    #[test]
-    fn chip_name_uses_known_nonempty_name_and_falls_back_to_id() {
-        let mut agent = engine::Models { teammate: None, runtime: "sample".into(),
-            model: None, effort: None, models: vec![engine::Model {
-                id: "raw/id".into(), name: "Friendly name".into(), efforts: vec![],
-            }] };
-        assert_eq!(model_chip_name("raw/id", Some(&agent)), "Friendly name");
-        assert_eq!(model_chip_name("unknown", Some(&agent)), "unknown");
-        assert_eq!(model_chip_name("raw/id", None), "raw/id");
-        agent.models[0].name = " ".into();
-        assert_eq!(model_chip_name("raw/id", Some(&agent)), "raw/id");
-    }
-
-    #[test]
-    fn synthetic_home_never_requests_models() {
-        let mut state = State::default();
-        team_scene(&mut state);
-        open_models(&mut state, "codec".into());
-        assert!(!state.model_job.is_pending());
-        assert!(state.model_menu.is_none());
-    }
-
-    #[test]
-    fn bench_arguments_are_isolated_and_bounded() {
-        let parse = |args: &[&str]| bench_options(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>());
-        assert_eq!(parse(&["--bench", "out.json"]).unwrap().1, Duration::from_secs(30));
-        assert_eq!(parse(&["--bench-seconds", "2", "--bench", "out.json"]).unwrap().1, Duration::from_secs(2));
-        for args in [vec!["--bench"], vec!["--bench-seconds", "2"], vec!["--bench", "x", "--bench-seconds", "0"], vec!["--bench", "x", "--scene", "replay"]] {
-            assert!(parse(&args).is_err());
-        }
-    }
-
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-
-    pub(super) struct TempDir(pub(super) PathBuf);
-    impl TempDir {
-        pub(super) fn new() -> Self {
-            let path = std::env::temp_dir().join(format!(
-                "locust-main-test-{}-{}-{}",
-                std::process::id(),
-                SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
-                NEXT.fetch_add(1, Ordering::Relaxed),
-            ));
-            std::fs::create_dir(&path).unwrap();
-            Self(path)
-        }
-        pub(super) fn write(&self, id: &str, records: &[serde_json::Value]) {
-            let text = records.iter().map(|r| format!("{r}\n")).collect::<String>();
-            std::fs::write(self.0.join(format!("{id}.jsonl")), text).unwrap();
-        }
-    }
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-
-    fn sample() -> State {
-        let mut s = State::default();
-        team_scene(&mut s);
-        s
-    }
-
-    fn wait_job(s: &mut State) {
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while s.ledger_job.is_pending() && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        assert!(!s.ledger_job.is_pending(), "ledger_job did not finish");
-    }
-
-    #[test]
-    fn reload_preserves_history_recent_selection_and_reply_target() {
-        let mut s = sample();
-        let conversation = s.conversations.get_mut("codec").unwrap();
-        conversation.conversation_id = Some("sample-3".into());
-        let turns = conversation.turns.clone();
-        s.flight = Some(Flight {
-            teammate_id: "codec".into(),
-            conversation_id: Some("sample-3".into()),
-            header: None,
-            after_tip: None,
-            message: None,
-        });
-        let mut team = s.teammates.clone();
-        team.reverse();
-        apply_team(&mut s, team);
-
-        assert_eq!(s.teammates.get(s.selected).unwrap().id, "codec");
-        let conversation = s.conversations.get("codec").unwrap();
-        assert_eq!(conversation.conversation_id.as_deref(), Some("sample-3"));
-        assert_eq!(conversation.turns, turns);
-        assert!(s.recent.iter().any(|r| r.id == "sample-3"));
-
-        land_reply(
-            &mut s, "codec", Ok(Reply::Answer("landed".into())),
-            &mut Tx::default(),
-        );
-        assert_eq!(
-            s.conversations.get("codec").unwrap().turns.last().unwrap(),
-            &("Codec".into(), "landed".into()),
-        );
-        assert!(s.flight.is_none());
-    }
-
-    #[test]
-    fn removed_teammate_clears_active_and_opening_requests() {
-        let mut s = sample();
-        s.flight = Some(Flight {
-            teammate_id: "codec".into(),
-            conversation_id: None,
-            header: None,
-            after_tip: None,
-            message: None,
-        });
-        s.opening_teammate = Some("codec".into());
-        let team = s.teammates.iter()
-            .filter(|t| t.id != "codec").cloned().collect();
-        apply_team(&mut s, team);
-
-        assert!(s.flight.is_none() && s.opening_teammate.is_none());
-        assert!(s.status.contains("no longer in the team"));
-    }
-
-    #[test]
-    fn missing_conversation_id_ends_the_flight() {
-        let mut s = sample();
-        s.flight = Some(Flight {
-            teammate_id: "codec".into(),
-            conversation_id: None,
-            header: None,
-            after_tip: None,
-            message: None,
-        });
-        request_reply(&mut s, "codec", Duration::ZERO);
-
-        assert!(s.flight.is_none());
-        assert!(!s.waiting.is_pending());
-        assert!(s.status.contains("No active conversation ID"));
-    }
-
-    #[test]
-    fn escape_stops_watching_then_clears_draft_and_close_clears_state() {
-        // on_close asks every native turn in this process to stop; hold the lock the native tests run under.
-        let _serial = native::hooks::LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let mut s = sample();
-        s.draft.replace_text("new draft");
-        s.flight = Some(Flight {
-            teammate_id: "codec".into(),
-            conversation_id: None,
-            header: None,
-            after_tip: None,
-            message: None,
-        });
-        let escape = KeyEvent {
-            key: Key::Escape,
-            mods: rune::Mods::default(),
-        };
-        let mut tx = Tx::default();
-
-        assert!(on_key(&mut s, &escape, &mut tx));
-        assert!(s.flight.is_none());
-        assert_eq!(s.status, "Stopped watching; the turn goes on in Locust");
-        assert_eq!(s.draft.text, "new draft");
-
-        assert!(on_key(&mut s, &escape, &mut tx));
-        assert!(s.draft.text.is_empty());
-
-        s.flight = Some(Flight {
-            teammate_id: "codec".into(),
-            conversation_id: None,
-            header: None,
-            after_tip: None,
-            message: None,
-        });
-        s.opening_teammate = Some("codec".into());
-        on_close(&mut s, &mut tx);
-
-        assert!(s.flight.is_none() && s.opening_teammate.is_none());
-        assert!(s.status.is_empty());
-    }
-
-    #[test]
-    fn failed_send_restores_unsent_text_without_losing_new_typing() {
-        let mut s = sample();
-        s.demo = false;
-        s.draft.replace_text("new typing");
-        s.flight = Some(Flight {
-            teammate_id: "codec".into(),
-            conversation_id: None,
-            header: None,
-            after_tip: None,
-            message: Some("unsent text".into()),
-        });
-        // A local result exercises poll without contacting the engine.
-        s.sending.request((), |()| Err("send failed".into()));
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while s.sending.is_pending() && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        assert!(!s.sending.is_pending(), "fake result did not land");
-        assert!(poll(&mut s, 0.0, &mut Tx::default()));
-        assert_eq!(s.draft.text, "unsent text\n\nnew typing");
-        assert!(s.flight.is_none());
-    }
-
-    #[test]
-    fn switching_conversations_restores_cancelled_ledger_send_and_drops_stale_results() {
-        let mut s = sample();
-        s.demo = false;
-        ledger_transcript_scene(&mut s);
-        s.demo = false;
-        let codec_header = s.teammates[0].clone();
-        s.flight = Some(Flight {
-            teammate_id: codec_header.id.clone(),
-            conversation_id: Some("synthetic-ledger".into()),
-            header: Some(codec_header),
-            after_tip: Some("synthetic-ledger".into()),
-            message: Some("follow-up question".into()),
-        });
-
-        // Fix 2 & 9: switching teammates cancels the ledger send, keeps the unsent words under that
-        // conversation's draft key (Electron Map), and shows Argon's own draft in the box.
-        let left_key = conversation_draft_key(&s);
-        select_teammate(&mut s, "argon", &mut Tx::default());
-        assert!(s.ledger.is_none());
-        assert!(s.flight.is_none());
-        assert!(s.draft.text.is_empty(), "Argon's box starts empty");
-        assert_eq!(
-            left_key
-                .as_deref()
-                .and_then(|k| s.drafts.get(k)),
-            Some("follow-up question")
-        );
-        assert_eq!(s.status, "Argon: Ready");
-
-        // Fix 2: a stale send result tagged for Codec must not swap in Argon's state or hijack Argon's view.
-        s.flight = Some(Flight {
-            teammate_id: "codec".into(),
-            conversation_id: Some("old-conv".into()),
-            header: Some(s.teammates[0].clone()),
-            after_tip: Some("old-tip".into()),
-            message: None,
-        });
-        s.sending.request((), |()| Ok(Started {
-            conversation_id: "codec-new".into(),
-            mode: "ask".into(),
-        }));
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while s.sending.is_pending() && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        poll(&mut s, 1.0, &mut Tx::default());
-        assert!(s.ledger.is_none());
-        assert_eq!(s.teammates[s.selected].id, "argon");
-    }
-
-    #[test]
-    fn idle_ledger_stops_polling_errors_back_off_without_rebuilding_and_after_tip_times_out() {
-        let temp = TempDir::new();
-        temp.write("done", &[
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.created",
-                "metadata":{
-                    "missionId":"done",
-                    "prompt":"Synthetic prompt",
-                    "runtime":"codex",
-                    "model":"sample",
-                    "createdAt":"2026-01-01T00:00:00Z"
-                }
-            }),
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.event",
-                "event":{
-                    "sequence":1,
-                    "occurredAt":"2026-01-01T00:00:01Z",
-                    "type":"run.completed",
-                    "payload":{}
-                }
-            }),
-        ]);
-        temp.write("other", &[
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.created",
-                "metadata":{
-                    "missionId":"other",
-                    "prompt":"Other prompt",
-                    "runtime":"codex",
-                    "model":"sample",
-                    "createdAt":"2026-01-01T00:00:00Z"
-                }
-            }),
-        ]);
-
-        let mut s = sample();
-        s.demo = false;
-        let header = s.teammates[0].clone();
-        s.ledger = Some(LedgerPane {
-            header,
-            conversation: Conversation {
-                conversation_id: Some("done".into()),
-                turns: Vec::new(),
-            },
-            items: Vec::new(),
-            dir: temp.0.clone(),
-            worker: Some(ledger::Session::new(temp.0.clone(), "done".into())),
-            snapshot: ledger::Snapshot::default(),
-            due: 0.0,
-            loading: true,
-            after_tip: None,
-            after_tip_deadline: None,
-            backoff: 0.0,
-        });
-
-        // Fix 3: finished conversation stops scheduling wakeups after its initial load.
-        let mut tx = Tx::default();
-        ledger_tick(&mut s, 0.0, &mut tx);
-        wait_job(&mut s);
-        ledger_tick(&mut s, 0.1, &mut tx);
-        let pane = s.ledger.as_ref().unwrap();
-        assert!(!pane.loading && !pane.snapshot.running);
-        assert!(pane.due.is_infinite());
-        assert!(!s.ledger_job.is_pending());
-        assert_eq!(pane.worker.as_ref().unwrap().cached_headers(), 2);
-
-        // Fix 3: bound after_tip waiting to 30 s, then show "No new reply yet" and unlock Send.
-        s.ledger.as_mut().unwrap().after_tip = Some("done".into());
-        s.ledger.as_mut().unwrap().due = 10.0;
-        ledger_tick(&mut s, 10.0, &mut tx);
-        wait_job(&mut s);
-        ledger_tick(&mut s, 10.1, &mut tx);
-        assert_eq!(s.status, "Working…");
-        assert!(s.flight.is_some());
-
-        s.ledger.as_mut().unwrap().due = 40.0;
-        ledger_tick(&mut s, 40.0, &mut tx);
-        wait_job(&mut s);
-        ledger_tick(&mut s, 40.0, &mut tx);
-        assert_eq!(s.status, "No new reply yet");
-        assert!(s.flight.is_none());
-        assert!(s.ledger.as_ref().unwrap().after_tip.is_none());
-
-        // Fix 3: transient errors back off 2 s, 4 s, 8 s, 16 s, 30 s without rebuilding the Session.
-        std::fs::remove_file(temp.0.join("done.jsonl")).unwrap();
-        std::fs::remove_file(temp.0.join("other.jsonl")).unwrap();
-        let mut now = 100.0;
-        s.ledger.as_mut().unwrap().loading = true;
-        s.ledger.as_mut().unwrap().due = now;
-        for expected in [2.0, 4.0, 8.0, 16.0, 30.0, 30.0] {
-            ledger_tick(&mut s, now, &mut tx);
-            wait_job(&mut s);
-            ledger_tick(&mut s, now, &mut tx);
-            let pane = s.ledger.as_ref().unwrap();
-            assert_eq!(pane.backoff, expected);
-            assert_eq!(pane.due, now + expected);
-            // If Session had been rebuilt after `other.jsonl` was removed, cached_headers() would be 0.
-            assert_eq!(pane.worker.as_ref().unwrap().cached_headers(), 2);
-            now += expected;
-        }
-    }
-}
+#[path = "ui/tests.rs"]
+mod tests;
 
 #[cfg(test)]
-mod daily_controls_tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn model_pick_is_consumed_for_one_send_only_and_does_not_leak() {
-        let mut s = State::default();
-        team_scene(&mut s);
-        s.demo = false;
-
-        let pick = TurnPick { model: "sample-model".into(), effort: Some("high".into()) };
-        s.picks.insert("codec".into(), pick.clone());
-        assert_eq!(s.picks.get("argon"), None, "pick on one teammate never leaks to another");
-        assert_eq!(take_turn_pick(&mut s, "codec"), Some(pick.clone()));
-        assert_eq!(take_turn_pick(&mut s, "codec"), None);
-
-        // A pick made on a Recent ledger (@ledger) is cleared when leaving or switching Recent ledgers.
-        s.ledger_summaries.insert("recent-1".into(), ledger::Summary {
-            mission_id: "recent-1".into(),
-            title: "First".into(),
-            runtime: "codex".into(),
-            model: "gpt-6.1-sol".into(),
-            created_at: "2026-11-08T00:00:00Z".into(),
-            running: false,
-            failed: false,
-            updated: "2026-11-08T00:00:00Z".into(),
-        });
-        s.ledger_summaries.insert("recent-2".into(), ledger::Summary {
-            mission_id: "recent-2".into(),
-            title: "Second".into(),
-            runtime: "claude".into(),
-            model: "sonnet".into(),
-            created_at: "2026-11-08T00:00:00Z".into(),
-            running: false,
-            failed: false,
-            updated: "2026-11-08T00:00:00Z".into(),
-        });
-        let mut tx = Tx::default();
-        open_recent(&mut s, ConversationRow {
-            id: "recent-1".into(),
-            teammate: "Codex".into(),
-            title: "First".into(),
-            started_by: "ledger".into(),
-            state: "completed".into(),
-            updated: "2026-11-08T00:00:00Z".into(),
-        }, &mut tx);
-        s.picks.insert(LEDGER_TARGET.into(), pick.clone());
-        open_recent(&mut s, ConversationRow {
-            id: "recent-2".into(),
-            teammate: "Claude Code".into(),
-            title: "Second".into(),
-            started_by: "ledger".into(),
-            state: "completed".into(),
-            updated: "2026-11-08T00:00:00Z".into(),
-        }, &mut tx);
-        assert!(s.picks.get(LEDGER_TARGET).is_none(), "Recent ledger pick must not leak to another Recent conversation");
-
-        // Starting a fresh conversation (Cmd+N) or changing a teammate's runtime clears its unconsumed pick.
-        select_teammate(&mut s, "codec", &mut tx);
-        s.picks.insert("codec".into(), pick.clone());
-        fresh_conversation(&mut s);
-        assert!(s.picks.get("codec").is_none());
-
-        s.picks.insert("codec".into(), pick);
-        let mut updated_team = s.teammates.clone();
-        updated_team[0].runtime = Some("claude".into());
-        apply_team(&mut s, updated_team);
-        assert!(s.picks.get("codec").is_none(), "runtime change clears stale model pick");
-    }
-
-    #[test]
-    fn stop_requires_our_accepted_turn_and_exact_ledger_tip() {
-        let mut s = State::default();
-        ledger_live_scene(&mut s);
-        s.demo = false;
-        assert!(!can_stop(&s), "watching someone else's working turn is never ownership");
-        s.own_turn = Some(OwnTurn { conversation: "synthetic-ledger".into(), tip: Some("synthetic-ledger".into()), before: None });
-        assert!(can_stop(&s));
-        s.ledger.as_mut().expect("scene").snapshot.tip = "another-turn".into();
-        assert!(!can_stop(&s));
-        s.ledger.as_mut().expect("scene").snapshot.tip = "synthetic-ledger".into();
-        s.ledger.as_mut().expect("scene").snapshot.running = false;
-        assert!(!can_stop(&s));
-    }
-
-    #[test]
-    fn stop_never_latches_onto_external_turn_after_fast_completion_or_detach() {
-        let temp = tests::TempDir::new();
-        temp.write("root", &[
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.created",
-                "metadata":{
-                    "missionId":"root",
-                    "prompt":"Initial",
-                    "runtime":"codex",
-                    "model":"sample",
-                    "createdAt":"2026-01-01T00:00:00Z"
-                }
-            }),
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.event",
-                "event":{
-                    "sequence":1,
-                    "occurredAt":"2026-01-01T00:00:01Z",
-                    "type":"run.completed",
-                    "payload":{}
-                }
-            }),
-        ]);
-        // Our follow-up child_1 already finished before the first ledger poll saw it running.
-        temp.write("child_1", &[
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.created",
-                "metadata":{
-                    "missionId":"child_1",
-                    "prompt":"Our follow-up",
-                    "runtime":"codex",
-                    "model":"sample",
-                    "createdAt":"2026-01-01T00:00:02Z",
-                    "continuesFrom":{"missionId":"root"}
-                }
-            }),
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.event",
-                "event":{
-                    "sequence":1,
-                    "occurredAt":"2026-01-01T00:00:03Z",
-                    "type":"run.completed",
-                    "payload":{}
-                }
-            }),
-        ]);
-
-        let mut s = State::default();
-        team_scene(&mut s);
-        s.demo = false;
-        let header = s.teammates[0].clone();
-        s.own_turn = Some(OwnTurn {
-            conversation: "root".into(),
-            tip: None,
-            before: Some("root".into()),
-        });
-        s.ledger = Some(LedgerPane {
-            header,
-            conversation: Conversation {
-                conversation_id: Some("root".into()),
-                turns: Vec::new(),
-            },
-            items: Vec::new(),
-            dir: temp.0.clone(),
-            worker: Some(ledger::Session::new(temp.0.clone(), "root".into())),
-            snapshot: ledger::Snapshot::default(),
-            due: 0.0,
-            loading: true,
-            after_tip: Some("root".into()),
-            after_tip_deadline: None,
-            backoff: 0.0,
-        });
-
-        let mut tx = Tx::default();
-        ledger_tick(&mut s, 0.0, &mut tx);
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while s.ledger_job.is_pending() && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        ledger_tick(&mut s, 0.1, &mut tx);
-        assert!(s.own_turn.is_none(), "completed turn must clear ownership");
-        assert!(!can_stop(&s));
-
-        // Now an external turn child_2 starts in Locust; polling it must never grant Stop.
-        temp.write("child_2", &[
-            json!({
-                "schemaVersion":27,
-                "recordType":"mission.created",
-                "metadata":{
-                    "missionId":"child_2",
-                    "prompt":"External turn",
-                    "runtime":"codex",
-                    "model":"sample",
-                    "createdAt":"2026-01-01T00:00:04Z",
-                    "continuesFrom":{"missionId":"child_1"}
-                }
-            }),
-        ]);
-        s.ledger.as_mut().unwrap().loading = true;
-        s.ledger.as_mut().unwrap().due = 1.0;
-        ledger_tick(&mut s, 1.0, &mut tx);
-        let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while s.ledger_job.is_pending() && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        ledger_tick(&mut s, 1.1, &mut tx);
-        assert!(s.flight.is_some(), "window follows the external turn");
-        assert!(!can_stop(&s), "external turn must not expose Stop");
-    }
-}
+#[path = "ui/daily_controls_tests.rs"]
+mod daily_controls_tests;
 
 #[cfg(test)]
-mod native_window_tests {
-    //! The window's own functions (`send`, `poll`, `can_stop`, `stop`) on the native engine, against the fake
-    //! app-server and a temporary data folder. No window, no Codex, no Electron.
-    use super::*;
-    use crate::{ledger::Item, ledger_write::LedgerWriter, store::Store};
-    use serde_json::json;
-    use std::path::PathBuf;
-
-    static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    struct Dirs(PathBuf);
-    impl Drop for Dirs {
-        fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
-    }
-
-    fn setup() -> (Dirs, Store, State) {
-        let root = std::env::temp_dir().join(format!("locust-m2-window-{}-{}-{}", std::process::id(),
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
-            TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
-        std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
-        std::fs::create_dir_all(root.join("work")).unwrap();
-        let store = Store::new(root.join("native"), root.join("electron")).unwrap();
-        let mut s = State::default();
-        s.engine = Some(Kind::Native);
-        apply_team(&mut s, vec![
-            Teammate { id: "tm_codec".into(), name: "Codec".into(), role: "Code & Migrations".into(), runtime: Some("codex".into()),
-                model: Some("synthetic-model".into()), busy: false, runs_in: "ask".into(), folder: Some(root.join("work").to_string_lossy().into()) },
-            Teammate { id: "tm_argon".into(), name: "Argon".into(), role: "Code & Migrations".into(), runtime: Some("antigravity".into()),
-                model: Some("m".into()), busy: false, runs_in: native::IN_LOCUST.into(), folder: None },
-        ]);
-        (Dirs(root), store, s)
-    }
-
-    fn fake(scenario: &str) -> Option<(PathBuf, Vec<String>)> {
-        Some((PathBuf::from("python3"), vec![
-            concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixtures/m1-app-server.py").into(), scenario.into()]))
-    }
-
-    /// Pump `poll` the way the window does until `done`, or fail.
-    fn pump(s: &mut State, what: &str, mut done: impl FnMut(&State) -> bool) {
-        let deadline = std::time::Instant::now() + Duration::from_secs(20);
-        let mut now = 0.0;
-        let mut tx = Tx::default();
-        while !done(s) {
-            assert!(std::time::Instant::now() < deadline, "timed out waiting for {what}: status {:?}", s.status);
-            poll(s, now, &mut tx);
-            now += 0.3;
-            std::thread::sleep(Duration::from_millis(15));
-        }
-    }
-
-    fn answers(s: &State) -> usize {
-        s.ledger.as_ref().map_or(0, |p| p.items.iter().filter(|i| matches!(i, Item::Assistant { text, .. } if text == "Hello world")).count())
-    }
-    fn idle(s: &State) -> bool {
-        s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running && p.after_tip.is_none())
-    }
-
-    #[test]
-    fn stopped_queue_waits_for_explicit_send_and_is_removed_before_dispatch() {
-        let (_dirs, store, mut s) = setup();
-        s.data = Some(store.clone());
-        let _g = native::hooks::install(store.clone(), fake("success"));
-        s.draft.replace_text("Synthetic prompt");
-        send(&mut s, &mut Tx::default());
-        pump(&mut s, "first answer", idle);
-        *native::hooks::STATE.lock().unwrap() = (Some(store.clone()), fake("resume"));
-        assert!(enqueue_follow_up(&mut s, "Synthetic follow-up".into(), vec![]));
-        s.queue_rows[0].restored = true;
-        drain_queue_after_turn(&mut s, &mut Tx::default());
-        assert!(s.sending.is_pending() == false);
-        assert_eq!(s.queue_rows.len(), 1);
-        s.draft.replace_text("Unrelated draft");
-        s.queue_send_now = queue_key_now(&s);
-        drain_queue_after_turn(&mut s, &mut Tx::default());
-        assert_eq!(s.draft.text, "Unrelated draft");
-        assert!(s.queue_rows.is_empty());
-        assert!(composer::read_queue(&store).unwrap().is_empty());
-        assert!(s.sending.is_pending());
-        // Polling again while acceptance is unknown cannot submit this row a second time.
-        drain_queue_after_turn(&mut s, &mut Tx::default());
-        pump(&mut s, "queued answer", |s| idle(s) && answers(s) >= 2);
-        assert!(s.queue_rows.is_empty());
-    }
-
-    #[test]
-    fn a_native_window_starts_continues_and_stops_a_codex_conversation_without_electron() {
-        let (_dirs, store, mut s) = setup();
-        let _g = native::hooks::install(store, fake("success"));
-        let mut tx = Tx::default();
-
-        // Start. The status line names the engine; Argon (not Codex) is marked as running in Locust for now.
-        assert_eq!(s.engine.unwrap().label(), "Engine: native");
-        assert_eq!(agent_line(&s, &s.teammates[1]), "Antigravity · m · runs in Locust for now");
-        assert_eq!(agent_line(&s, &s.teammates[0]), "Codex · synthetic-model");
-        s.draft.replace_text("Synthetic prompt");
-        assert!(can_send(&s));
-        send(&mut s, &mut tx);
-        pump(&mut s, "the first answer", |s| answers(s) == 1 && idle(s));
-        let first = s.ledger.as_ref().unwrap().conversation.conversation_id.clone().unwrap();
-        assert!(first.starts_with("mission_native_"));
-        assert!(!can_stop(&s), "a finished turn has no Stop");
-
-        // Continue: the same conversation, a second prompt, thread/resume under the fake's checks.
-        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("resume"));
-        s.draft.replace_text("Synthetic follow-up");
-        send(&mut s, &mut tx);
-        pump(&mut s, "the continued answer", |s| answers(s) == 2 && idle(s));
-        let pane = s.ledger.as_ref().unwrap();
-        assert_eq!(pane.conversation.conversation_id.as_deref(), Some(first.as_str()));
-        assert_ne!(pane.snapshot.tip, first, "a continuation is a new ledger file chained to the first");
-        let users: Vec<_> = pane.items.iter().filter_map(|i| if let Item::User(u) = i { Some(u.clone()) } else { None }).collect();
-        assert_eq!(users, ["Synthetic prompt", "Synthetic follow-up"]);
-
-        // Stop: only for the turn this window started.
-        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("resume-interrupt"));
-        s.draft.replace_text("Synthetic follow-up");
-        send(&mut s, &mut tx);
-        pump(&mut s, "Stop to appear", can_stop);
-        assert!(s.own_turn.is_some());
-        stop(&mut s);
-        pump(&mut s, "the stopped turn", |s| s.stopping.is_pending() == false && s.ledger.as_ref().is_some_and(|p| !p.snapshot.running)
-            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"))));
-        assert!(s.own_turn.is_none() && !can_stop(&s));
-        assert!(!s.ledger.as_ref().unwrap().snapshot.failed, "stopped is cancelled, not failed");
-
-        // Recent shows the native conversation, marked.
-        s.recents.request((), move |()| {
-            let listed = native::list_recent(12, true).ok_or_else(|| "none".to_string())?;
-            Ok(RecentBatch { rows: listed.summaries.iter().map(|m| ConversationRow { id: m.mission_id.clone(), teammate: "Codex".into(),
-                title: m.title.clone(), started_by: if listed.native.contains(&m.mission_id) { "native" } else { "ledger" }.into(),
-                state: "completed".into(), updated: m.updated.clone() }).collect(), summaries: HashMap::new(), local: true })
-        });
-        pump(&mut s, "recents", |s| !s.recent.is_empty());
-        assert!(s.recent.iter().all(|r| r.started_by == "native"));
-        assert!(s.recent.len() >= 3, "every native turn is a row: {}", s.recent.len());
-    }
-
-    #[test]
-    fn stop_is_never_offered_for_a_turn_another_process_started() {
-        let (_dirs, store, mut s) = setup();
-        let _g = native::hooks::install(store.clone(), None);
-        // A running ledger this process did not start (no registry entry).
-        let mut w = LedgerWriter::create(&store, "someone_elses", "Prompt", "m", "x").unwrap();
-        w.append("run.started", json!({"runtimeThreadId":"t"}), Some("t")).unwrap();
-        let header = s.teammates[0].clone();
-        begin_ledger(&mut s, "someone_elses".into(), String::new(), header, None, &mut Tx::default());
-        pump(&mut s, "the live view", |s| s.ledger.as_ref().is_some_and(|p| p.snapshot.running));
-        assert!(!can_stop(&s));
-        // Even a forged ownership record is not enough on the native engine: the process must hold the turn.
-        s.own_turn = Some(OwnTurn { conversation: "someone_elses".into(), tip: Some("someone_elses".into()), before: None });
-        assert!(!can_stop(&s), "native ownership is the registry, not a flag in the window");
-        assert!(native::stop("someone_elses").is_err());
-    }
-
-    #[test]
-    fn stop_survives_reopening_an_owned_native_turn_from_recent() {
-        let (_dirs, store, mut s) = setup();
-        let _g = native::hooks::install(store, fake("resume-interrupt"));
-        // An earlier native conversation to continue.
-        let mut tx = Tx::default();
-        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("success"));
-        s.draft.replace_text("Synthetic prompt");
-        send(&mut s, &mut tx);
-        pump(&mut s, "the first answer", |s| answers(s) == 1 && idle(s));
-        let anchor = s.ledger.as_ref().unwrap().conversation.conversation_id.clone().unwrap();
-        // Start a long turn and wait for Stop.
-        *native::hooks::STATE.lock().unwrap() = (native::store(), fake("resume-interrupt"));
-        s.draft.replace_text("Synthetic follow-up");
-        send(&mut s, &mut tx);
-        pump(&mut s, "Stop to appear", can_stop);
-        // Leave the view (another teammate), then reopen the running turn from Recent.
-        select_teammate(&mut s, "tm_argon", &mut tx);
-        assert!(s.ledger.is_none() && !can_stop(&s));
-        let listed = native::list_recent(12, true).unwrap();
-        let running = listed.summaries.iter().find(|m| m.running).expect("a running native turn").clone();
-        s.ledger_summaries.insert(running.mission_id.clone(), running.clone());
-        open_recent(&mut s, ConversationRow { id: running.mission_id.clone(), teammate: "Codex".into(), title: running.title.clone(),
-            started_by: "native".into(), state: "running".into(), updated: running.updated.clone() }, &mut tx);
-        assert!(s.own_turn.is_none(), "the window's own flag was cleared by leaving the view");
-        pump(&mut s, "the reopened turn to stream", |s| s.ledger.as_ref().is_some_and(|p| p.snapshot.running) && s.flight.is_some());
-        assert!(can_stop(&s), "ownership is the process registry: Stop stays for an owned turn after reopening");
-        stop(&mut s);
-        pump(&mut s, "the stopped turn", |s| s.ledger.as_ref().is_some_and(|p| !p.snapshot.running)
-            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"))));
-        assert!(!can_stop(&s));
-        let _ = anchor;
-    }
-
-    #[test]
-    fn a_stale_completed_pane_cannot_send_beside_a_turn_started_elsewhere() {
-        let (dirs, store, mut s) = setup();
-        let _g = native::hooks::install(store.clone(), fake("resume"));
-        // Electron's completed conversation, shown in the pane.
-        let ledger = dirs.0.join("electron/mission-ledger");
-        let mk = |id: &str, parent: Option<&str>, thread: &str, done: bool| {
-            let mut meta = json!({"missionId":id,"prompt":format!("prompt {id}"),"runtime":"codex","model":"synthetic-model","createdAt":"2026-11-01T00:00:00.000Z"});
-            if let Some(p) = parent { meta["continuesFrom"] = json!({"missionId":p,"checkpointEpoch":1,"reason":"follow-up"}); }
-            let mut lines = vec![json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"metadata":meta}),
-                json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-11-01T00:00:01.000Z","type":"run.started","payload":{"runtimeThreadId":thread}}})];
-            if done { lines.push(json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"occurredAt":"2026-11-01T00:00:02.000Z","type":"run.completed","payload":{"runtimeThreadId":thread}}})); }
-            std::fs::write(ledger.join(format!("{id}.jsonl")), lines.iter().map(|l| format!("{l}\n")).collect::<String>()).unwrap();
-        };
-        mk("win_a", None, "thread_old", true);
-        let old = std::time::SystemTime::now() - Duration::from_secs(3600);
-        std::fs::File::options().write(true).open(ledger.join("win_a.jsonl")).unwrap().set_modified(old).unwrap();
-        let header = s.teammates[0].clone();
-        let mut tx = Tx::default();
-        begin_ledger(&mut s, "win_a".into(), String::new(), header, None, &mut tx);
-        pump(&mut s, "the completed view", |s| s.ledger.as_ref().is_some_and(|p| !p.loading));
-        assert_eq!(s.ledger.as_ref().unwrap().snapshot.tip, "win_a");
-        // Electron starts child B while the idle pane has stopped polling.
-        mk("win_b", Some("win_a"), "thread_fake", false);
-        s.draft.replace_text("Synthetic follow-up");
-        assert!(can_send(&s), "the pane still looks idle: the window cannot know");
-        send(&mut s, &mut tx);
-        pump(&mut s, "the refusal", |s| s.sending.is_pending() == false && s.flight.is_none() && s.status.contains("still running"));
-        assert!(s.status.contains("still running"), "{}", s.status);
-        assert_eq!(s.status_tone as u8, StatusTone::Red as u8, "a refusal is shown, not swallowed");
-        assert_eq!(s.draft.text, "Synthetic follow-up", "the unsent message is put back");
-        assert!(!dirs.0.join("native/mission-ledger").exists() || std::fs::read_dir(dirs.0.join("native/mission-ledger")).unwrap().count() == 0);
-    }
-
-    #[test]
-    fn a_teammate_native_cannot_run_sends_nothing() {
-        let (dirs, store, mut s) = setup();
-        let _g = native::hooks::install(store, fake("success"));
-        select_teammate(&mut s, "tm_argon", &mut Tx::default());
-        s.draft.replace_text("Synthetic prompt");
-        assert!(native_blocked(&s));
-        assert!(!can_send(&s), "Send is off for a teammate that runs in Locust for now");
-        // Even if a send were forced, the engine refuses and creates no ledger.
-        let refused = native::send(native::Send { teammate: s.teammates[1].clone(), conversation: None,
-            prompt: "x".into(), model: None, effort: None });
-        assert!(refused.unwrap_err().contains("runs in Locust for now"));
-        assert!(!dirs.0.join("native/mission-ledger").exists());
-    }
-
-    #[test]
-    fn door_engine_still_goes_through_the_door_path() {
-        let (_dirs, _store, mut s) = setup();
-        s.engine = Some(Kind::Door);
-        select_teammate(&mut s, "tm_argon", &mut Tx::default());
-        s.draft.replace_text("hello");
-        assert!(!native_blocked(&s), "on the door every teammate sends as before");
-        assert!(can_send(&s));
-        assert_eq!(agent_line(&s, &s.teammates[1]), "Antigravity · m");
-        assert!(!can_stop(&s));
-    }
-}
+#[path = "ui/native_window_tests.rs"]
+mod native_window_tests;
 
 #[cfg(test)]
-mod approval_review_tests {
-    use super::*;
-    #[test]
-    fn approval_preview_matches_its_teammate_and_fresh_cards_ignore_approval() {
-        let mut s = State::default(); approval_scene_dark(&mut s);
-        assert_eq!(s.pending_approval.as_ref().unwrap().runtime, s.ledger.as_ref().unwrap().header.runtime.as_deref().unwrap());
-        s.approval_shown = std::time::Instant::now();
-        decide_pending(&mut s, approval::Decision::ApproveOnce);
-        assert!(s.pending_approval.is_some());
-        assert!(s.approval_notice.is_none());
-        assert!(!approval::card_note(s.pending_approval.as_ref().unwrap()).contains("Keys"));
-    }
-}
+#[path = "ui/approval_review_tests.rs"]
+mod approval_review_tests;

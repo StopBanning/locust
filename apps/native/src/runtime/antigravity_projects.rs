@@ -27,7 +27,11 @@ pub fn normalize_workspace(value: &str) -> String {
     if let Ok(decoded) = urlencoding_decode(&path) {
         path = decoded;
     }
-    if path.len() >= 3 && path.as_bytes()[0] == b'/' && path.as_bytes()[1].is_ascii_alphabetic() && path.as_bytes()[2] == b':' {
+    if path.len() >= 3
+        && path.as_bytes()[0] == b'/'
+        && path.as_bytes()[1].is_ascii_alphabetic()
+        && path.as_bytes()[2] == b':'
+    {
         path = path[1..].to_owned();
     }
     path = path.replace('\\', "/");
@@ -71,17 +75,25 @@ fn urlencoding_decode(s: &str) -> Result<String, ()> {
 
 fn read_workspace_uri(bytes: &[u8], offset: usize) -> Option<String> {
     let (len, n) = read_varint(bytes, offset + 1)?;
-    if len == 0 { return None; }
+    if len == 0 {
+        return None;
+    }
     let start = offset + 1 + n;
     let end = start + len as usize;
-    if end > bytes.len() { return None; }
+    if end > bytes.len() {
+        return None;
+    }
     let text = String::from_utf8_lossy(&bytes[start..end]).into_owned();
     text.starts_with("file:").then_some(text)
 }
 
 fn read_project_id(bytes: &[u8], offset: usize) -> Option<String> {
-    if bytes.len() < offset + PROJECT_ID_TAG.len() + PROJECT_ID_LENGTH { return None; }
-    if bytes[offset..offset + PROJECT_ID_TAG.len()] != PROJECT_ID_TAG { return None; }
+    if bytes.len() < offset + PROJECT_ID_TAG.len() + PROJECT_ID_LENGTH {
+        return None;
+    }
+    if bytes[offset..offset + PROJECT_ID_TAG.len()] != PROJECT_ID_TAG {
+        return None;
+    }
     let start = offset + PROJECT_ID_TAG.len();
     let end = start + PROJECT_ID_LENGTH;
     let text = String::from_utf8_lossy(&bytes[start..end]).into_owned();
@@ -98,17 +110,15 @@ pub fn parse_projects(bytes: &[u8]) -> HashMap<String, String> {
             }
             continue;
         }
-        let Some(workspace) = pending.as_ref() else { continue };
+        let Some(workspace) = pending.as_ref() else {
+            continue;
+        };
         if let Some(id) = read_project_id(bytes, offset) {
             projects.insert(workspace.clone(), id);
             pending = None;
         }
     }
     projects
-}
-
-pub fn project_id_for(projects: &HashMap<String, String>, absolute_path: &str) -> Option<String> {
-    projects.get(&normalize_workspace(absolute_path)).cloned()
 }
 
 #[cfg(test)]
@@ -131,6 +141,9 @@ mod tests {
         bytes.extend_from_slice(&[0x92, 0x01, 0x24]);
         bytes.extend_from_slice(b"01234567-89ab-cdef-0123-456789abcdef");
         let projects = parse_projects(&bytes);
-        assert_eq!(projects.get("c:/Users/x/proj").map(String::as_str), Some("01234567-89ab-cdef-0123-456789abcdef"));
+        assert_eq!(
+            projects.get("c:/Users/x/proj").map(String::as_str),
+            Some("01234567-89ab-cdef-0123-456789abcdef")
+        );
     }
 }

@@ -2,14 +2,14 @@
 
 /// The file being asked for, if the message ends in `@something` (or a bare `@`).
 pub fn at_query(text: &str) -> Option<String> {
-    let re = regex::Regex::new(r"(?:^|\s)@([^\s@]*)$").expect("at_query");
+    let re = crate::invariants::regex(r"(?:^|\s)@([^\s@]*)$");
     re.captures(text)
         .map(|c| c.get(1).map(|m| m.as_str().to_owned()).unwrap_or_default())
 }
 
 /// The message with the trailing `@something` taken out, once its file is picked.
 pub fn without_at_query(text: &str) -> String {
-    let re = regex::Regex::new(r"(^|\s)@[^\s@]*$").expect("without_at");
+    let re = crate::invariants::regex(r"(^|\s)@[^\s@]*$");
     re.replace(text, "$1").into_owned()
 }
 
@@ -19,11 +19,13 @@ fn base_of(path: &str) -> &str {
 
 /// Accents aside, as case is (Electron): only strings that hold a non-ASCII character are touched.
 fn folded(text: &str) -> String {
-    if !text.chars().any(|c| !c.is_ascii()) {
+    if !!text.is_ascii() {
         return text.to_owned();
     }
     use unicode_normalization::UnicodeNormalization;
-    text.nfd().filter(|c| !('\u{0300}'..='\u{036f}').contains(c)).collect()
+    text.nfd()
+        .filter(|c| !('\u{0300}'..='\u{036f}').contains(c))
+        .collect()
 }
 
 /// Whether every character of `query` appears in `text`, in order.
@@ -51,9 +53,7 @@ pub fn file_matches(paths: &[String], query: &str, max: usize) -> Vec<String> {
     for path in paths {
         let lower = folded(&path.to_lowercase());
         let base = base_of(&lower);
-        let rank = if q.is_empty() {
-            0
-        } else if base == q {
+        let rank = if q.is_empty() || base == q {
             0
         } else if base.starts_with(&q) {
             1
@@ -67,7 +67,12 @@ pub fn file_matches(paths: &[String], query: &str, max: usize) -> Vec<String> {
             -1
         };
         if rank >= 0 {
-            ranked.push((path.clone(), rank, path.split('/').count(), path.encode_utf16().count()));
+            ranked.push((
+                path.clone(),
+                rank,
+                path.split('/').count(),
+                path.encode_utf16().count(),
+            ));
         }
     }
     ranked.sort_by(|a, b| {

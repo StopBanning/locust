@@ -22,16 +22,22 @@ pub struct KeyMods {
 pub enum KeyAction {
     /// Leave the key to the editor (e.g. Shift+Enter newline).
     Pass,
-    SlashMove { delta: i32 },
+    SlashMove {
+        delta: i32,
+    },
     SlashChoose,
     SlashDismiss,
-    AtMove { delta: i32 },
+    AtMove {
+        delta: i32,
+    },
     AtChoose,
     AtDismiss,
     HistoryUp,
     HistoryDown,
     /// Enter (or Ctrl/Cmd+Enter): submit / queue; `send_now` when modifier while busy.
-    Submit { send_now: bool },
+    Submit {
+        send_now: bool,
+    },
     StopRun,
     CycleMode,
 }
@@ -81,10 +87,7 @@ pub fn handle_key(key: ComposerKey, mods: KeyMods, ctx: &KeyContext<'_>) -> KeyA
     if key == ComposerKey::Escape && ctx.running && !ctx.menu_open {
         return KeyAction::StopRun;
     }
-    if key == ComposerKey::ArrowUp
-        && ctx.history_len > 0
-        && (ctx.value_empty || ctx.recalling)
-    {
+    if key == ComposerKey::ArrowUp && ctx.history_len > 0 && (ctx.value_empty || ctx.recalling) {
         return KeyAction::HistoryUp;
     }
     if key == ComposerKey::ArrowDown && ctx.recalling {
@@ -136,11 +139,29 @@ mod tests {
     fn enter_submits_shift_enter_passes() {
         let c = ctx();
         assert_eq!(
-            handle_key(ComposerKey::Enter, KeyMods { shift: false, ctrl: false, meta: false, alt: false }, &c),
+            handle_key(
+                ComposerKey::Enter,
+                KeyMods {
+                    shift: false,
+                    ctrl: false,
+                    meta: false,
+                    alt: false
+                },
+                &c
+            ),
             KeyAction::Submit { send_now: false }
         );
         assert_eq!(
-            handle_key(ComposerKey::Enter, KeyMods { shift: true, ctrl: false, meta: false, alt: false }, &c),
+            handle_key(
+                ComposerKey::Enter,
+                KeyMods {
+                    shift: true,
+                    ctrl: false,
+                    meta: false,
+                    alt: false
+                },
+                &c
+            ),
             KeyAction::Pass
         );
     }
@@ -151,11 +172,29 @@ mod tests {
         c.slash_open = true;
         c.slash_len = 3;
         assert_eq!(
-            handle_key(ComposerKey::ArrowDown, KeyMods { shift: false, ctrl: false, meta: false, alt: false }, &c),
+            handle_key(
+                ComposerKey::ArrowDown,
+                KeyMods {
+                    shift: false,
+                    ctrl: false,
+                    meta: false,
+                    alt: false
+                },
+                &c
+            ),
             KeyAction::SlashMove { delta: 1 }
         );
         assert_eq!(
-            handle_key(ComposerKey::Enter, KeyMods { shift: false, ctrl: false, meta: false, alt: false }, &c),
+            handle_key(
+                ComposerKey::Enter,
+                KeyMods {
+                    shift: false,
+                    ctrl: false,
+                    meta: false,
+                    alt: false
+                },
+                &c
+            ),
             KeyAction::SlashChoose
         );
     }
@@ -166,7 +205,16 @@ mod tests {
         c.at_open = true;
         c.at_len = 2;
         assert_eq!(
-            handle_key(ComposerKey::Tab, KeyMods { shift: false, ctrl: false, meta: false, alt: false }, &c),
+            handle_key(
+                ComposerKey::Tab,
+                KeyMods {
+                    shift: false,
+                    ctrl: false,
+                    meta: false,
+                    alt: false
+                },
+                &c
+            ),
             KeyAction::AtChoose
         );
     }
@@ -177,7 +225,16 @@ mod tests {
         c.history_len = 2;
         c.value_empty = true;
         assert_eq!(
-            handle_key(ComposerKey::ArrowUp, KeyMods { shift: false, ctrl: false, meta: false, alt: false }, &c),
+            handle_key(
+                ComposerKey::ArrowUp,
+                KeyMods {
+                    shift: false,
+                    ctrl: false,
+                    meta: false,
+                    alt: false
+                },
+                &c
+            ),
             KeyAction::HistoryUp
         );
     }
@@ -187,7 +244,16 @@ mod tests {
         let mut c = ctx();
         c.can_queue = true;
         assert_eq!(
-            handle_key(ComposerKey::Enter, KeyMods { shift: false, ctrl: true, meta: false, alt: false }, &c),
+            handle_key(
+                ComposerKey::Enter,
+                KeyMods {
+                    shift: false,
+                    ctrl: true,
+                    meta: false,
+                    alt: false
+                },
+                &c
+            ),
             KeyAction::Submit { send_now: true }
         );
     }

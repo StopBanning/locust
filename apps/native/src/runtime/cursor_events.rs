@@ -4,7 +4,13 @@ use crate::runtime::events::text;
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
-const INIT_KEYS: &[&str] = &["session_id", "model", "permissionMode", "cwd", "apiKeySource"];
+const INIT_KEYS: &[&str] = &[
+    "session_id",
+    "model",
+    "permissionMode",
+    "cwd",
+    "apiKeySource",
+];
 
 fn s<'a>(v: &'a Value, key: &str) -> &'a str {
     v[key].as_str().unwrap_or("")
@@ -39,13 +45,12 @@ pub fn is_message_fragment(record: &Value) -> bool {
 /// `readToolCall` -> `read`; anything that does not follow the pattern is kept whole.
 pub fn tool_kind(key: &str) -> String {
     let bytes = key.as_bytes();
-    if let Some(rest) = key.strip_suffix("ToolCall") {
-        if rest.starts_with(|c: char| c.is_ascii_lowercase())
-            && rest.bytes().all(|b| b.is_ascii_alphanumeric())
-        {
-            let _ = bytes;
-            return rest.to_owned();
-        }
+    if let Some(rest) = key.strip_suffix("ToolCall")
+        && rest.starts_with(|c: char| c.is_ascii_lowercase())
+        && rest.bytes().all(|b| b.is_ascii_alphanumeric())
+    {
+        let _ = bytes;
+        return rest.to_owned();
     }
     key.to_owned()
 }
@@ -105,7 +110,10 @@ pub fn tool_outcome(result: &Value) -> (bool, Option<String>, Option<i64>) {
         Some(v) if v.is_object() => &result["success"],
         _ => &Value::Null,
     };
-    let exit = body["exitCode"].as_f64().filter(|n| n.is_finite()).map(|n| n as i64);
+    let exit = body["exitCode"]
+        .as_f64()
+        .filter(|n| n.is_finite())
+        .map(|n| n as i64);
     match exit {
         Some(code) if code != 0 => (true, Some("exit".into()), Some(code)),
         Some(code) => (false, None, Some(code)),
@@ -149,7 +157,9 @@ pub fn provider_error_sentence(message: &str) -> String {
         } else {
             "it could not be found or is not available here"
         };
-        return format!("{provider} refused the model: {reason}. Pick another model and send again.");
+        return format!(
+            "{provider} refused the model: {reason}. Pick another model and send again."
+        );
     }
     if lower.contains("insufficient_quota")
         || lower.contains("usage limit")
@@ -172,7 +182,9 @@ pub fn provider_error_sentence(message: &str) -> String {
             "{provider} is overloaded or unavailable right now. Try again later, or pick another model."
         );
     }
-    if lower.contains("authentication") || lower.contains("unauthorized") || lower.contains("invalid api key")
+    if lower.contains("authentication")
+        || lower.contains("unauthorized")
+        || lower.contains("invalid api key")
     {
         return format!(
             "{provider} refused this request because of sign-in or access permissions. Check the agent's sign-in and model access, then send again."
@@ -209,7 +221,7 @@ pub fn tool_patch_from(unified: &str) -> Option<Value> {
             }
         }
     }
-    let hunk_re = regex::Regex::new(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@").unwrap();
+    let hunk_re = crate::invariants::regex(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@");
     let mut old_left = 0usize;
     let mut new_left = 0usize;
     let mut open = false;
@@ -285,6 +297,7 @@ struct OpenTool {
     target: Option<String>,
 }
 
+#[derive(Default)]
 pub struct CursorNormalizer {
     pub thread: Option<String>,
     pub ended: bool,
@@ -303,30 +316,6 @@ pub struct CursorNormalizer {
     unknown_types: HashSet<String>,
     oversized_dropped: usize,
     output_limit_exceeded: bool,
-}
-
-impl Default for CursorNormalizer {
-    fn default() -> Self {
-        Self {
-            thread: None,
-            ended: false,
-            count: 0,
-            open_tools: HashMap::new(),
-            todos: HashMap::new(),
-            saw_result: false,
-            terminal_failure: None,
-            usage: None,
-            message_index: 0,
-            thinking: false,
-            reasoning: String::new(),
-            delivered_length: HashMap::new(),
-            delivered_text: HashMap::new(),
-            delivered_pieces: HashMap::new(),
-            unknown_types: HashSet::new(),
-            oversized_dropped: 0,
-            output_limit_exceeded: false,
-        }
-    }
 }
 
 impl CursorNormalizer {
@@ -377,10 +366,6 @@ impl CursorNormalizer {
         self.oversized_dropped = self.oversized_dropped.saturating_add(1);
     }
 
-    pub fn note_output_limit(&mut self) {
-        self.output_limit_exceeded = true;
-    }
-
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Event {
         self.ended = true;
         let thread = self.thread.clone();
@@ -405,11 +390,14 @@ impl CursorNormalizer {
         }
         if !self.saw_result || exit_code != Some(0) {
             let message = if self.output_limit_exceeded {
-                "Cursor Agent sent more output than Locust could take in, so the run was stopped.".into()
+                "Cursor Agent sent more output than Locust could take in, so the run was stopped."
+                    .into()
             } else if self.saw_result {
                 format!(
                     "Cursor Agent exited with code {}.",
-                    exit_code.map(|c| c.to_string()).unwrap_or_else(|| "null".into())
+                    exit_code
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| "null".into())
                 )
             } else if self.oversized_dropped > 0 {
                 let n = self.oversized_dropped;
@@ -487,7 +475,9 @@ impl CursorNormalizer {
                 let said = text(self.reasoning.trim(), 16384);
                 self.reasoning.clear();
                 let mut p = json!({"stepKind":"reasoning","evidence":evidence});
-                if !said.is_empty() { p["message"] = json!(said); }
+                if !said.is_empty() {
+                    p["message"] = json!(said);
+                }
                 return vec![self.event("step.completed", p)];
             }
             self.reasoning.push_str(&fragment);
@@ -506,8 +496,14 @@ impl CursorNormalizer {
         if type_name == "system" {
             if s(parsed, "subtype") != "init" {
                 return vec![
-                    self.event("step.started", json!({"stepKind":"turn","evidence":evidence})),
-                    self.event("step.completed", json!({"stepKind":"turn","evidence":evidence})),
+                    self.event(
+                        "step.started",
+                        json!({"stepKind":"turn","evidence":evidence}),
+                    ),
+                    self.event(
+                        "step.completed",
+                        json!({"stepKind":"turn","evidence":evidence}),
+                    ),
                 ];
             }
             let sid = identity(parsed, "session_id");
@@ -532,12 +528,17 @@ impl CursorNormalizer {
             }
             let item_id = format!("msg_{}", self.message_index);
             let pieces = *self.delivered_pieces.get(&item_id).unwrap_or(&0);
-            let prior = self.delivered_text.get(&item_id).cloned().unwrap_or_default();
+            let prior = self
+                .delivered_text
+                .get(&item_id)
+                .cloned()
+                .unwrap_or_default();
             let restates = text_body.len() > 1 && pieces > 1 && text_body == prior;
             if is_message_fragment(parsed) && !restates {
                 let utf16 = text_body.encode_utf16().count();
                 let prior_len = self.delivered_length.get(&item_id).copied().unwrap_or(0);
-                self.delivered_length.insert(item_id.clone(), prior_len + utf16);
+                self.delivered_length
+                    .insert(item_id.clone(), prior_len + utf16);
                 self.delivered_text
                     .entry(item_id.clone())
                     .and_modify(|t| t.push_str(&text_body))
@@ -595,7 +596,14 @@ impl CursorNormalizer {
             if is_error || (!subtype.is_empty() && subtype != "success") {
                 let raw = s(parsed, "result");
                 let message = if raw.is_empty() {
-                    format!("Cursor Agent ended with {}.", if subtype.is_empty() { "an error" } else { subtype })
+                    format!(
+                        "Cursor Agent ended with {}.",
+                        if subtype.is_empty() {
+                            "an error"
+                        } else {
+                            subtype
+                        }
+                    )
                 } else {
                     raw.to_owned()
                 };
@@ -621,7 +629,11 @@ impl CursorNormalizer {
                 } else {
                     format!(
                         "Cursor's connection: {}{attempt}.",
-                        if subtype.is_empty() { "changed" } else { subtype }
+                        if subtype.is_empty() {
+                            "changed"
+                        } else {
+                            subtype
+                        }
                     )
                 }
             } else if subtype == "starting" {
@@ -633,7 +645,11 @@ impl CursorNormalizer {
             } else {
                 format!(
                     "Cursor's retry: {}{attempt}.",
-                    if subtype.is_empty() { "changed" } else { subtype }
+                    if subtype.is_empty() {
+                        "changed"
+                    } else {
+                        subtype
+                    }
                 )
             };
             return vec![self.diagnostic("info", &format!("cursor.{type_name}"), &said)];
@@ -792,13 +808,8 @@ impl CursorNormalizer {
             } else {
                 &Value::Null
             };
-            let patch = success["diffString"]
-                .as_str()
-                .and_then(tool_patch_from);
-            let tool_kind = open
-                .as_ref()
-                .map(|o| o.kind.clone())
-                .unwrap_or(kind);
+            let patch = success["diffString"].as_str().and_then(tool_patch_from);
+            let tool_kind = open.as_ref().map(|o| o.kind.clone()).unwrap_or(kind);
             let mut p = json!({
                 "itemId": item_id,
                 "toolKind": tool_kind,
@@ -818,7 +829,11 @@ impl CursorNormalizer {
             if let Some(patch) = patch {
                 p["patch"] = patch;
             }
-            let kind_name = if failed { "tool.failed" } else { "tool.completed" };
+            let kind_name = if failed {
+                "tool.failed"
+            } else {
+                "tool.completed"
+            };
             return vec![self.event(kind_name, p)];
         }
         vec![]
@@ -837,12 +852,8 @@ impl CursorNormalizer {
         } else {
             None
         };
-        let added = edit
-            .and_then(|e| e["added"].as_i64())
-            .filter(|&n| n >= 0);
-        let removed = edit
-            .and_then(|e| e["removed"].as_i64())
-            .filter(|&n| n >= 0);
+        let added = edit.and_then(|e| e["added"].as_i64()).filter(|&n| n >= 0);
+        let removed = edit.and_then(|e| e["removed"].as_i64()).filter(|&n| n >= 0);
         let diff = edit.and_then(|e| e["diff"].as_str());
         let mut events = Vec::new();
         let call_ids = parsed["callIds"].as_array().cloned().unwrap_or_default();
@@ -854,16 +865,16 @@ impl CursorNormalizer {
                 continue;
             };
             if open.kind == "edit" && added.is_some() && removed.is_some() {
-                let patch = diff
-                    .and_then(tool_patch_from)
-                    .unwrap_or_else(|| {
-                        json!({
-                            "text": "",
-                            "added": added.unwrap(),
-                            "removed": removed.unwrap(),
-                            "truncated": true
-                        })
-                    });
+                let patch = diff.and_then(tool_patch_from).unwrap_or_else(|| {
+                    json!({
+                        "text": "",
+                        // Invariant: branch requires added.is_some().
+                        "added": added.expect("branch requires added.is_some()"),
+                        // Invariant: branch requires removed.is_some().
+                        "removed": removed.expect("branch requires removed.is_some()"),
+                        "truncated": true
+                    })
+                });
                 let mut p = json!({
                     "itemId": item_id,
                     "toolKind": open.kind,

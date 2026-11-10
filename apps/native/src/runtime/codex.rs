@@ -1,12 +1,14 @@
+type ApprovalLifecycle = Arc<Mutex<Option<(Arc<Channel>, String, Option<String>)>>>;
+use super::process::Control;
 use super::{Event, Runtime, Turn, events::Normalizer};
 use crate::approval::{Channel, Mode};
 use serde_json::{Value, json};
 use std::{
     collections::VecDeque,
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufReader, Write},
     process::{Child, Command, Stdio},
     sync::{
-        Arc, Condvar, Mutex,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
     },
@@ -30,75 +32,24 @@ pub struct Codex {
     mission_id: String,
     run_id: String,
     mode: Mode,
-    approval_lifecycle: Arc<Mutex<Option<(Arc<Channel>, String, Option<String>)>>>,
+    approval_lifecycle: ApprovalLifecycle,
 }
-#[derive(Default)]
-struct ControlState {
-    failure: Option<String>,
-    deadline: Option<Instant>,
-    closed: bool,
-}
-#[derive(Default)]
-struct Control {
-    state: Mutex<ControlState>,
-    wake: Condvar,
-}
-impl Control {
-    fn fail(&self, message: impl ToString) {
-        let mut state = self.state.lock().unwrap();
-        if state.failure.is_none() {
-            state.failure = Some(message.to_string());
-        }
-        self.wake.notify_one();
-    }
-    fn failure(&self) -> Option<String> {
-        self.state.lock().unwrap().failure.clone()
-    }
-}
-fn kill_process(pid: u32) {
-    #[cfg(unix)]
-    unsafe {
-        // The child owns this process group and remains unreaped until Drop.
-        libc::kill(-(pid as i32), libc::SIGKILL);
-        libc::kill(pid as i32, libc::SIGKILL);
-    }
-}
+
 fn err(message: impl ToString) -> io::Error {
     io::Error::other(message.to_string())
 }
 impl Codex {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.process_group(0);
-        }
-        let mut child = command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()?;
-        let mut stdin = child.stdin.take().unwrap();
+        let mut child = super::process::spawn(command, Stdio::piped(), Stdio::null())?;
+        // spawn configured a piped stdin; no prior take occurs.
+        let mut stdin = child
+            .stdin
+            .take()
+            // Invariant: spawn configured this pipe and it has not been taken.
+            .expect("spawn configured this pipe and it has not been taken");
         let control = Arc::new(Control::default());
         let pid = child.id();
-        let watchdog = control.clone();
-        std::thread::spawn(move || {
-            let mut state = watchdog.state.lock().unwrap();
-            loop {
-                if state.closed {
-                    break;
-                }
-                if state.failure.is_some() || state.deadline.is_some_and(|d| Instant::now() >= d) {
-                    kill_process(pid);
-                    break;
-                }
-                let wait = state
-                    .deadline
-                    .map(|d| d.saturating_duration_since(Instant::now()))
-                    .unwrap_or(Duration::from_secs(60));
-                state = watchdog.wake.wait_timeout(state, wait).unwrap().0;
-            }
-        });
+        control.watch(pid);
         let (input, writes) = mpsc::sync_channel::<Vec<u8>>(256);
         let writer_control = control.clone();
         std::thread::spawn(move || {
@@ -109,19 +60,21 @@ impl Codex {
                 }
             }
         });
-        let approval_lifecycle: Arc<Mutex<Option<(Arc<Channel>, String, Option<String>)>>> = Arc::new(Mutex::new(None));
+        let approval_lifecycle: ApprovalLifecycle = Arc::new(Mutex::new(None));
         let lifecycle = approval_lifecycle.clone();
-        let output = child.stdout.take().unwrap();
+        // spawn configured a piped stdout; no prior take occurs.
+        let output = child
+            .stdout
+            .take()
+            // Invariant: spawn configured this pipe and it has not been taken.
+            .expect("spawn configured this pipe and it has not been taken");
         let (tx, lines) = mpsc::sync_channel(256);
         let reader_control = control.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(output);
             loop {
                 let mut line = Vec::new();
-                use std::io::Read;
-                let result = (&mut reader)
-                    .take(MAX_LINE + 1)
-                    .read_until(b'\n', &mut line);
+                let result = super::process::read_line(&mut reader, &mut line);
                 let value = match result {
                     Ok(0) => Err(err("Codex stdout closed before the turn completed")),
                     Ok(_) if line.len() as u64 > MAX_LINE => {
@@ -132,9 +85,18 @@ impl Codex {
                     Err(e) => Err(e),
                 };
                 let terminal = value.is_err();
-                if let Some((channel, mission, thread)) = lifecycle.lock().unwrap().as_ref() {
-                    let own_end = value.as_ref().is_ok_and(|v: &Value| v["method"] == "turn/completed" && thread.as_ref().is_some_and(|id| super::events::thread_id(&v["params"]).as_ref() == Some(id)));
-                    if terminal || own_end { channel.release(mission); }
+                if let Some((channel, mission, thread)) =
+                    crate::invariants::lock(&lifecycle).as_ref()
+                {
+                    let own_end = value.as_ref().is_ok_and(|v: &Value| {
+                        v["method"] == "turn/completed"
+                            && thread.as_ref().is_some_and(|id| {
+                                super::events::thread_id(&v["params"]).as_ref() == Some(id)
+                            })
+                    });
+                    if terminal || own_end {
+                        channel.release(mission);
+                    }
                 }
                 match tx.try_send(value) {
                     Ok(()) => {}
@@ -174,7 +136,11 @@ impl Codex {
         self
     }
     fn cancelled(&self) -> bool {
-        crate::run_cli::interrupted() || self.cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
+        crate::run_cli::interrupted()
+            || self
+                .cancel
+                .as_ref()
+                .is_some_and(|f| f.load(Ordering::Relaxed))
     }
     fn send(&mut self, v: Value) -> io::Result<()> {
         let mut bytes = serde_json::to_vec(&v)?;
@@ -233,8 +199,15 @@ impl Codex {
         }
         Ok(())
     }
-    fn answer_approval(&mut self, method: &str, params: &Value, wire_id: Value) -> io::Result<Value> {
-        if super::events::thread_id(params).is_some_and(|id| self.normal.thread.as_ref() != Some(&id)) {
+    fn answer_approval(
+        &mut self,
+        method: &str,
+        params: &Value,
+        wire_id: Value,
+    ) -> io::Result<Value> {
+        if super::events::thread_id(params)
+            .is_some_and(|id| self.normal.thread.as_ref() != Some(&id))
+        {
             return Ok(json!({"decision":"reject"}));
         }
         // Only Approve-each stops for a card (`codexAppServerPolicy` → untrusted).
@@ -246,15 +219,16 @@ impl Codex {
             ));
             return Ok(json!({"decision":"decline"}));
         }
-        let channel = self.approvals.clone().unwrap();
+        let channel = self
+            .approvals
+            .clone()
+            .ok_or_else(|| err("Approval host is unavailable"))?;
         let mission = self.mission_id.clone();
         let run = self.run_id.clone();
         let cancel = self.cancel.clone();
         let is_cancelled = move || {
             crate::run_cli::interrupted()
-                || cancel
-                    .as_ref()
-                    .is_some_and(|f| f.load(Ordering::Relaxed))
+                || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
         };
         match channel.ask_codex(&run, &mission, method, params, wire_id, &is_cancelled) {
             Ok(result) => Ok(result),
@@ -322,7 +296,10 @@ pub fn read_only_config(settings: &Value) -> io::Result<Value> {
 }
 impl Runtime for Codex {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
-        *self.approval_lifecycle.lock().unwrap() = turn.approvals.as_ref().map(|ch| (ch.clone(), turn.mission_id.clone(), None));
+        *crate::invariants::lock(&self.approval_lifecycle) = turn
+            .approvals
+            .as_ref()
+            .map(|ch| (ch.clone(), turn.mission_id.clone(), None));
         self.approvals = turn.approvals.clone();
         self.mission_id = turn.mission_id.clone();
         self.run_id = turn.run_id.clone();
@@ -354,13 +331,19 @@ impl Runtime for Codex {
             .ok_or_else(|| err("Codex did not return a thread ID"))?
             .to_owned();
         self.normal.thread = Some(thread.clone());
-        if let Some((_, _, id)) = self.approval_lifecycle.lock().unwrap().as_mut() { *id = Some(thread.clone()); }
+        if let Some((_, _, id)) = crate::invariants::lock(&self.approval_lifecycle).as_mut() {
+            *id = Some(thread.clone());
+        }
         let mut params = json!({"threadId":thread,"approvalPolicy":policy.approval_policy,"input":[{"type":"text","text":turn.prompt}],"summary":"detailed"});
         if let Some(model) = &turn.model {
             params["model"] = json!(model);
         }
         // Only a plain word is passed as effort: a malformed one is refused by the server and takes the turn with it.
-        if let Some(effort) = turn.effort.as_deref().filter(|e| (1..=16).contains(&e.len()) && e.bytes().all(|b| b.is_ascii_lowercase())) {
+        if let Some(effort) = turn
+            .effort
+            .as_deref()
+            .filter(|e| (1..=16).contains(&e.len()) && e.bytes().all(|b| b.is_ascii_lowercase()))
+        {
             params["effort"] = json!(effort);
         }
         let result = self.request("turn/start", params)?;
@@ -411,11 +394,7 @@ impl Runtime for Codex {
         }
         let now = Instant::now();
         self.stopping = Some(now);
-        {
-            let mut state = self.control.state.lock().unwrap();
-            state.deadline = Some(now + Duration::from_secs(5));
-            self.control.wake.notify_one();
-        }
+        self.control.cancel_at(now + Duration::from_secs(5));
         self.interrupt_owed = true;
         self.send_interrupt();
         Ok(())
@@ -436,14 +415,8 @@ impl Codex {
 }
 impl Drop for Codex {
     fn drop(&mut self) {
-        {
-            let mut state = self.control.state.lock().unwrap();
-            state.closed = true;
-            self.control.wake.notify_one();
-            kill_process(self.child.id());
-        }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        self.control.close_and_kill(self.child.id());
+        super::process::kill_reap(&mut self.child);
     }
 }
 pub fn command() -> io::Result<Command> {

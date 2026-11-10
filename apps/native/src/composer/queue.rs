@@ -2,7 +2,6 @@
 
 pub const QUEUE_RESTORED_NOTE: &str = "saved before Locust closed — press Send to continue";
 pub const QUEUE_SEPARATOR: &str = "\n\n";
-pub const NOT_SENT_HELD: &str = "not sent — press Send to try again";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QueuedVerdict {
@@ -26,7 +25,6 @@ pub struct QueuedRow {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Origin {
     Person,
-    Host,
 }
 
 pub fn queued_verdict(input: VerdictInput<'_>) -> QueuedVerdict {
@@ -219,7 +217,11 @@ mod tests {
 
     #[test]
     fn take_next_order_preserves_other_conversations() {
-        let rows = vec![person("1", "a", "a1"), person("2", "b", "b1"), person("3", "a", "a2")];
+        let rows = vec![
+            person("1", "a", "a1"),
+            person("2", "b", "b1"),
+            person("3", "a", "a2"),
+        ];
         let (going, rest) = take_next(&rows, "a");
         assert_eq!(going.unwrap().text, "a1\n\na2");
         assert_eq!(rest, vec![person("2", "b", "b1")]);

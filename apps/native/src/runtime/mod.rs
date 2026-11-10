@@ -1,27 +1,31 @@
 //! Runtime orchestration has no window or Electron dependency.
 pub mod acp;
 pub(crate) mod acp_events;
+pub(crate) mod agy_events;
+pub mod antigravity;
+#[cfg(test)]
+#[cfg(test)]
+pub(crate) mod antigravity_events;
+#[cfg(test)]
+#[cfg(test)]
+pub(crate) mod antigravity_projects;
 pub mod claude;
 pub(crate) mod claude_events;
 pub mod codex;
-pub mod cursor;
-pub(crate) mod cursor_events;
 pub mod copilot;
 pub(crate) mod copilot_events;
-pub mod antigravity;
-pub(crate) mod antigravity_events;
-pub(crate) mod antigravity_projects;
-pub(crate) mod agy_events;
-pub mod muse;
-pub(crate) mod muse_events;
+pub mod cursor;
+pub(crate) mod cursor_events;
 mod discovery;
 pub(crate) mod events;
 pub mod kilo;
+pub mod muse;
+pub(crate) mod muse_events;
 pub mod opencode;
 pub(crate) mod opencode_config;
 pub(crate) mod opencode_events;
-pub(crate) mod opencode_process;
 pub(crate) mod opencode_serve;
+pub(crate) mod process;
 use crate::approval::{Channel, Mode};
 use serde_json::Value;
 use std::{io, path::PathBuf, sync::Arc};
@@ -53,14 +57,17 @@ pub trait Runtime {
 }
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
-mod cursor_tests;
+mod antigravity_tests;
 #[cfg(test)]
 mod copilot_tests;
 #[cfg(test)]
-mod antigravity_tests;
+mod cursor_tests;
 #[cfg(test)]
 mod muse_tests;
+#[cfg(test)]
+mod tests;
 
 pub mod permission_bridge;
+
+#[cfg(test)]
+mod test_support;

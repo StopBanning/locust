@@ -13,7 +13,7 @@ static SECRETS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
     r"\bAIza[0-9A-Za-z_-]{35}\b", r"\bhf_[A-Za-z0-9]{30,}\b",
     r#"(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|authorization|password|secret|cookie|credential)["']?\s*[=:]\s*["']?)([^\s,"';}]+)"#,
-].iter().map(|r| Regex::new(r).unwrap()).collect()
+].iter().map(|r| crate::invariants::regex(r)).collect()
 });
 /// codex-events.ts:redactSecrets, without a size bound. Cursor's displayed
 /// thinking is scrubbed per fragment before accumulation, then bounded on close.
@@ -21,11 +21,16 @@ static SECRETS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
 pub fn redact_secrets(value: &str) -> String {
     let mut clean = value.replace('\0', "");
     for (i, regex) in SECRETS.iter().enumerate() {
-        clean = regex.replace_all(&clean, match i {
-            0 => "Bearer [redacted]",
-            7 => "${1}[redacted]",
-            _ => "[redacted]",
-        }).into_owned();
+        clean = regex
+            .replace_all(
+                &clean,
+                match i {
+                    0 => "Bearer [redacted]",
+                    7 => "${1}[redacted]",
+                    _ => "[redacted]",
+                },
+            )
+            .into_owned();
     }
     clean
 }
@@ -255,22 +260,22 @@ impl Normalizer {
                     if let Some(command) = i["command"].as_str().or(i["query"].as_str()) {
                         payload["command"] = json!(text(command, 16384));
                     }
-                    if payload.get("command").is_none() {
-                        if let Some(changes) = i["changes"].as_array() {
-                            let paths: Vec<_> = changes
-                                .iter()
-                                .filter_map(|v| v["path"].as_str())
-                                .filter(|s| !s.is_empty())
-                                .collect();
-                            let command = if !paths.is_empty() && paths.len() == changes.len() {
-                                paths.join("\n")
-                            } else if changes.len() == 1 {
-                                "1 file".into()
-                            } else {
-                                format!("{} files", changes.len())
-                            };
-                            payload["command"] = json!(text(&command, 16384));
-                        }
+                    if payload.get("command").is_none()
+                        && let Some(changes) = i["changes"].as_array()
+                    {
+                        let paths: Vec<_> = changes
+                            .iter()
+                            .filter_map(|v| v["path"].as_str())
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                        let command = if !paths.is_empty() && paths.len() == changes.len() {
+                            paths.join("\n")
+                        } else if changes.len() == 1 {
+                            "1 file".into()
+                        } else {
+                            format!("{} files", changes.len())
+                        };
+                        payload["command"] = json!(text(&command, 16384));
                     }
                     if done {
                         for field in ["status", "exitCode"] {
@@ -298,17 +303,18 @@ impl Normalizer {
                 } else {
                     let mut payload =
                         json!({"stepKind":"item","itemId":id,"itemType":kind,"evidence":evidence});
-                    if done && kind == "reasoning" {
-                        if let Some(parts) = i["summary"].as_array() {
-                            let summary = parts
-                                .iter()
-                                .filter_map(Value::as_str)
-                                .filter(|s| !s.trim().is_empty())
-                                .collect::<Vec<_>>()
-                                .join("\n\n");
-                            if !summary.is_empty() {
-                                payload["message"] = json!(text(&summary, 16384));
-                            }
+                    if done
+                        && kind == "reasoning"
+                        && let Some(parts) = i["summary"].as_array()
+                    {
+                        let summary = parts
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .filter(|s| !s.trim().is_empty())
+                            .collect::<Vec<_>>()
+                            .join("\n\n");
+                        if !summary.is_empty() {
+                            payload["message"] = json!(text(&summary, 16384));
                         }
                     } // Deliberately never reads reasoning content.
                     self.event(

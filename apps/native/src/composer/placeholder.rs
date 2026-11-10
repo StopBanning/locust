@@ -101,23 +101,25 @@ mod tests {
 
     #[test]
     fn busy_and_install() {
-        assert!(placeholder(PlaceholderInput {
-            working_now: true,
-            working_name: "Codec",
-            queued: false,
-            route_can_run: true,
-            selected_ready: true,
-            selected_display: None,
-            teammate_name: Some("Codec"),
-            discovery_loading: false,
-            discovery_error: false,
-            ready_elsewhere: None,
-            auth_required: false,
-            installed_silent: 0,
-            checking: false,
-            nothing_installed: false,
-        })
-        .contains("goes to Codec"));
+        assert!(
+            placeholder(PlaceholderInput {
+                working_now: true,
+                working_name: "Codec",
+                queued: false,
+                route_can_run: true,
+                selected_ready: true,
+                selected_display: None,
+                teammate_name: Some("Codec"),
+                discovery_loading: false,
+                discovery_error: false,
+                ready_elsewhere: None,
+                auth_required: false,
+                installed_silent: 0,
+                checking: false,
+                nothing_installed: false,
+            })
+            .contains("goes to Codec")
+        );
         assert_eq!(
             placeholder(PlaceholderInput {
                 working_now: false,

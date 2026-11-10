@@ -1,17 +1,15 @@
 //! GitHub Copilot CLI json driver. Ports createCopilotPromptCommand + process-runner stdin:none.
-use super::{
-    Event, Runtime, Turn,
-    copilot_events::CopilotNormalizer,
-};
+use super::process::{Control, interrupt_process, kill_process};
+use super::{Event, Runtime, Turn, copilot_events::CopilotNormalizer};
 use crate::approval::Mode;
 use serde_json::Value;
 use std::{
     collections::VecDeque,
-    io::{self, BufRead, BufReader},
+    io::{self, BufReader},
     path::Path,
     process::{Child, Command, Stdio},
     sync::{
-        Arc, Condvar, Mutex,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError},
     },
@@ -34,28 +32,9 @@ pub struct PrintCopilot {
     exit_code: Option<i32>,
 }
 
-#[derive(Default)]
-struct ControlState { failure: Option<String>, deadline: Option<Instant>, closed: bool }
-#[derive(Default)]
-struct Control { state: Mutex<ControlState>, wake: Condvar }
-impl Control {
-    fn fail(&self, message: impl ToString) {
-        let mut state = self.state.lock().unwrap();
-        if state.failure.is_none() { state.failure = Some(message.to_string()); }
-        self.wake.notify_one();
-    }
-    fn failure(&self) -> Option<String> { self.state.lock().unwrap().failure.clone() }
+fn err(message: impl ToString) -> io::Error {
+    io::Error::other(message.to_string())
 }
-
-fn kill_process(pid: u32) {
-    #[cfg(unix)]
-    unsafe { libc::kill(-(pid as i32), libc::SIGKILL); libc::kill(pid as i32, libc::SIGKILL); }
-}
-fn interrupt_process(pid: u32) {
-    #[cfg(unix)]
-    unsafe { libc::kill(-(pid as i32), libc::SIGINT); libc::kill(pid as i32, libc::SIGINT); }
-}
-fn err(message: impl ToString) -> io::Error { io::Error::other(message.to_string()) }
 
 pub fn sandbox_for(mode: Mode) -> &'static str {
     match mode {
@@ -76,8 +55,10 @@ pub fn prompt_args(
 ) -> Vec<String> {
     let sandbox = sandbox_for(mode);
     let mut args = vec![
-        "-p".into(), prompt.into(),
-        "--output-format".into(), "json".into(),
+        "-p".into(),
+        prompt.into(),
+        "--output-format".into(),
+        "json".into(),
         "--allow-all-tools".into(),
         "--no-color".into(),
         EXCLUDED_TOOLS.into(),
@@ -117,57 +98,41 @@ pub fn command(
     let mut c = Command::new(super::discovery::find_named("copilot")?);
     if mode == Mode::ApproveEach {
         c.args(["--acp", EXCLUDED_TOOLS]);
-        if let Some(m)=model { c.args(["--model",m]); }
-        if let Some(e)=effort { c.args(["--effort",e]); }
-    } else { c.args(prompt_args(prompt, mode, model, effort, resume, session_id)); }
+        if let Some(m) = model {
+            c.args(["--model", m]);
+        }
+        if let Some(e) = effort {
+            c.args(["--effort", e]);
+        }
+    } else {
+        c.args(prompt_args(prompt, mode, model, effort, resume, session_id));
+    }
     c.current_dir(folder);
     Ok(c)
 }
 
 impl PrintCopilot {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
-        #[cfg(unix)]
-        { use std::os::unix::process::CommandExt; command.process_group(0); }
-        let mut child = command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        let mut child = super::process::spawn(command, Stdio::null(), Stdio::piped())?;
         let control = Arc::new(Control::default());
         let pid = child.id();
-        let watchdog = control.clone();
-        std::thread::spawn(move || {
-            let mut state = watchdog.state.lock().unwrap();
-            loop {
-                if state.closed { break; }
-                if state.failure.is_some() || state.deadline.is_some_and(|d| Instant::now() >= d) {
-                    kill_process(pid); break;
-                }
-                let wait = state.deadline.map(|d| d.saturating_duration_since(Instant::now())).unwrap_or(Duration::from_secs(60));
-                state = watchdog.wake.wait_timeout(state, wait).unwrap().0;
-            }
-        });
+        control.watch(pid);
         // Capture stderr for policy/model refusals.
-        let stderr = child.stderr.take();
-        let stderr_buf = Arc::new(Mutex::new(String::new()));
-        if let Some(stderr) = stderr {
-            let buf = stderr_buf.clone();
-            std::thread::spawn(move || {
-                let mut r = BufReader::new(stderr);
-                let mut line = String::new();
-                while r.read_line(&mut line).unwrap_or(0) > 0 {
-                    if let Ok(mut g) = buf.lock() {
-                        if g.len() < 64 * 1024 { g.push_str(&line); }
-                    }
-                    line.clear();
-                }
-            });
-        }
-        let output = child.stdout.take().unwrap();
+        // Successful spawn configured stderr and no previous take occurs.
+        let stderr_buf =
+            super::process::stderr_prefix(child.stderr.take().expect("configured stderr pipe"));
+        let output = child
+            .stdout
+            .take()
+            // Invariant: spawn configured this pipe and it has not been taken.
+            .expect("spawn configured this pipe and it has not been taken");
         let (tx, lines) = mpsc::sync_channel(256);
         let reader_control = control.clone();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(output);
             loop {
                 let mut line = Vec::new();
-                use std::io::Read;
-                let result = (&mut reader).take(MAX_LINE + 1).read_until(b'\n', &mut line);
+                let result = super::process::read_line(&mut reader, &mut line);
                 match result {
                     Ok(0) => break,
                     Ok(_) if line.len() as u64 > MAX_LINE => {
@@ -175,9 +140,19 @@ impl PrintCopilot {
                         break;
                     }
                     Ok(_) => {
-                        let trimmed = if line.last()==Some(&b'\n'){&line[..line.len()-1]}else{&line[..]};
-                        let trimmed = if trimmed.last()==Some(&b'\r'){&trimmed[..trimmed.len()-1]}else{trimmed};
-                        if trimmed.is_empty() { continue; }
+                        let trimmed = if line.last() == Some(&b'\n') {
+                            &line[..line.len() - 1]
+                        } else {
+                            &line[..]
+                        };
+                        let trimmed = if trimmed.last() == Some(&b'\r') {
+                            &trimmed[..trimmed.len() - 1]
+                        } else {
+                            trimmed
+                        };
+                        if trimmed.is_empty() {
+                            continue;
+                        }
                         let value = serde_json::from_slice::<Value>(trimmed)
                             .map_err(|_| err("Copilot sent malformed json"));
                         match tx.try_send(value) {
@@ -189,7 +164,10 @@ impl PrintCopilot {
                             Err(mpsc::TrySendError::Disconnected(_)) => break,
                         }
                     }
-                    Err(e) => { let _ = tx.try_send(Err(e)); break; }
+                    Err(e) => {
+                        let _ = tx.try_send(Err(e));
+                        break;
+                    }
                 }
             }
         });
@@ -207,12 +185,21 @@ impl PrintCopilot {
         })
     }
 
-    pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self { self.cancel = Some(flag); self }
+    pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
+        self.cancel = Some(flag);
+        self
+    }
     fn cancelled(&self) -> bool {
-        crate::run_cli::interrupted() || self.cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
+        crate::run_cli::interrupted()
+            || self
+                .cancel
+                .as_ref()
+                .is_some_and(|f| f.load(Ordering::Relaxed))
     }
     fn receive(&self) -> io::Result<Option<Value>> {
-        if let Some(message) = self.control.failure() { return Err(err(message)); }
+        if let Some(message) = self.control.failure() {
+            return Err(err(message));
+        }
         match self.lines.recv_timeout(Duration::from_millis(50)) {
             Ok(v) => v.map(Some),
             Err(RecvTimeoutError::Timeout) => Ok(None),
@@ -221,13 +208,17 @@ impl PrintCopilot {
     }
     fn transport_failure(&mut self, message: &str) -> Event {
         self.queued.clear();
-        let diagnostic = self.normal.diagnostic("error","native.transport", message);
-        let terminal = self.normal.finish(self.stopping.is_some() || self.cancelled(), self.exit_code);
+        let diagnostic = self.normal.diagnostic("error", "native.transport", message);
+        let terminal = self
+            .normal
+            .finish(self.stopping.is_some() || self.cancelled(), self.exit_code);
         self.queued.push_back(terminal);
         diagnostic
     }
     fn poll_exit(&mut self) {
-        if self.exited { return; }
+        if self.exited {
+            return;
+        }
         if let Ok(Some(status)) = self.child.try_wait() {
             self.exited = true;
             self.exit_code = status.code();
@@ -237,7 +228,9 @@ impl PrintCopilot {
         let deadline = Instant::now() + budget;
         while !self.exited && Instant::now() < deadline {
             self.poll_exit();
-            if self.exited { break; }
+            if self.exited {
+                break;
+            }
             std::thread::sleep(Duration::from_millis(5));
         }
         self.poll_exit();
@@ -246,7 +239,9 @@ impl PrintCopilot {
 
 impl Runtime for PrintCopilot {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
-        if turn.prompt.trim().is_empty() { return Err(err("Prompt must be nonempty")); }
+        if turn.prompt.trim().is_empty() {
+            return Err(err("Prompt must be nonempty"));
+        }
         // Prompt already in argv; stdin is null. Seed host session so run.started
         // never carries an empty runtimeThreadId (ledger rejects nonempty-required).
         let host = turn
@@ -259,14 +254,23 @@ impl Runtime for PrintCopilot {
         Ok(())
     }
     fn next_event(&mut self) -> io::Result<Option<Event>> {
-        if self.normal.ended { return Ok(self.queued.pop_front()); }
-        if let Some(message) = self.control.failure() { return Ok(Some(self.transport_failure(&message))); }
-        if self.stopping.is_some_and(|t| t.elapsed() >= Duration::from_secs(5)) {
+        if self.normal.ended {
+            return Ok(self.queued.pop_front());
+        }
+        if let Some(message) = self.control.failure() {
+            return Ok(Some(self.transport_failure(&message)));
+        }
+        if self
+            .stopping
+            .is_some_and(|t| t.elapsed() >= Duration::from_secs(5))
+        {
             self.queued.clear();
             kill_process(self.child.id());
             return Ok(Some(self.normal.finish(true, self.exit_code)));
         }
-        if let Some(e) = self.queued.pop_front() { return Ok(Some(e)); }
+        if let Some(e) = self.queued.pop_front() {
+            return Ok(Some(e));
+        }
         self.poll_exit();
         match self.receive() {
             Ok(Some(v)) => {
@@ -275,15 +279,14 @@ impl Runtime for PrintCopilot {
             }
             Ok(None) => Ok(None),
             Err(_) => {
-                loop {
-                    match self.lines.try_recv() {
-                        Ok(Ok(v)) => self.queued.extend(self.normal.accept(&v)),
-                        Ok(Err(_)) | Err(mpsc::TryRecvError::Disconnected) | Err(mpsc::TryRecvError::Empty) => break,
-                    }
+                while let Ok(Ok(v)) = self.lines.try_recv() {
+                    self.queued.extend(self.normal.accept(&v));
                 }
-                if let Some(e) = self.queued.pop_front() { return Ok(Some(e)); }
+                if let Some(e) = self.queued.pop_front() {
+                    return Ok(Some(e));
+                }
                 self.await_exit(Duration::from_millis(500));
-                let stderr = self.stderr_buf.lock().unwrap().clone();
+                let stderr = crate::invariants::lock(&self.stderr_buf).clone();
                 self.normal.set_stderr(&stderr);
                 let cancelled = self.stopping.is_some() || self.cancelled();
                 Ok(Some(self.normal.finish(cancelled, self.exit_code)))
@@ -291,14 +294,12 @@ impl Runtime for PrintCopilot {
         }
     }
     fn stop(&mut self) -> io::Result<()> {
-        if self.stopping.is_some() { return Ok(()); }
+        if self.stopping.is_some() {
+            return Ok(());
+        }
         let now = Instant::now();
         self.stopping = Some(now);
-        {
-            let mut state = self.control.state.lock().unwrap();
-            state.deadline = Some(now + Duration::from_secs(5));
-            self.control.wake.notify_one();
-        }
+        self.control.cancel_at(now + Duration::from_secs(5));
         interrupt_process(self.child.id());
         Ok(())
     }
@@ -306,8 +307,8 @@ impl Runtime for PrintCopilot {
 
 impl Drop for PrintCopilot {
     fn drop(&mut self) {
-        { let mut state = self.control.state.lock().unwrap(); state.closed = true; self.control.wake.notify_one(); kill_process(self.child.id()); }
-        let _ = self.child.kill(); let _ = self.child.wait();
+        self.control.close_and_kill(self.child.id());
+        super::process::kill_reap(&mut self.child);
     }
 }
 
@@ -324,7 +325,14 @@ mod unit_tests {
     }
     #[test]
     fn auto_allows_all_paths_and_model_effort() {
-        let args = prompt_args("hi", Mode::Auto, Some("gpt"), Some("high"), Some("old"), None);
+        let args = prompt_args(
+            "hi",
+            Mode::Auto,
+            Some("gpt"),
+            Some("high"),
+            Some("old"),
+            None,
+        );
         assert!(args.contains(&"--allow-all-paths".into()));
         assert!(args.windows(2).any(|w| w == ["--model", "gpt"]));
         assert!(args.windows(2).any(|w| w == ["--effort", "high"]));
@@ -333,19 +341,50 @@ mod unit_tests {
 }
 
 /// Approve-each uses ACP; print's allow-all-tools can never implement a card.
-pub enum Copilot { Print(PrintCopilot), Acp(super::acp::Acp) }
+pub enum Copilot {
+    Print(Box<PrintCopilot>),
+    Acp(Box<super::acp::Acp>),
+}
 impl Copilot {
     pub fn spawn(c: &mut Command) -> io::Result<Self> {
         if c.get_args().any(|a| a == "--acp") {
-            let mut a=super::acp::Acp::spawn(c)?;
-            a.set_profile(super::acp::Profile {runtime:"copilot".into(), required:vec![("allow_all".into(),"off".into())], strict:false, named:true, ..Default::default()});
-            Ok(Self::Acp(a))
-        } else { Ok(Self::Print(PrintCopilot::spawn(c)?)) }
+            let mut a = super::acp::Acp::spawn(c)?;
+            a.set_profile(super::acp::Profile {
+                runtime: "copilot".into(),
+                required: vec![("allow_all".into(), "off".into())],
+                strict: false,
+                named: true,
+                ..Default::default()
+            });
+            Ok(Self::Acp(Box::new(a)))
+        } else {
+            Ok(Self::Print(Box::new(PrintCopilot::spawn(c)?)))
+        }
     }
-    pub fn with_cancel(self, c: Arc<AtomicBool>) -> Self { match self { Self::Print(p)=>Self::Print(p.with_cancel(c)), Self::Acp(a)=>Self::Acp(a.with_cancel(c)) } }
+    pub fn with_cancel(self, c: Arc<AtomicBool>) -> Self {
+        match self {
+            Self::Print(p) => Self::Print(Box::new(p.with_cancel(c))),
+            Self::Acp(a) => Self::Acp(Box::new(a.with_cancel(c))),
+        }
+    }
 }
 impl Runtime for Copilot {
-    fn start(&mut self,t:&Turn)->io::Result<()> {match self {Self::Print(p)=>p.start(t),Self::Acp(a)=>a.start(t)}}
-    fn next_event(&mut self)->io::Result<Option<Event>> {match self {Self::Print(p)=>p.next_event(),Self::Acp(a)=>a.next_event()}}
-    fn stop(&mut self)->io::Result<()> {match self {Self::Print(p)=>p.stop(),Self::Acp(a)=>a.stop()}}
+    fn start(&mut self, t: &Turn) -> io::Result<()> {
+        match self {
+            Self::Print(p) => p.start(t),
+            Self::Acp(a) => a.start(t),
+        }
+    }
+    fn next_event(&mut self) -> io::Result<Option<Event>> {
+        match self {
+            Self::Print(p) => p.next_event(),
+            Self::Acp(a) => a.next_event(),
+        }
+    }
+    fn stop(&mut self) -> io::Result<()> {
+        match self {
+            Self::Print(p) => p.stop(),
+            Self::Acp(a) => a.stop(),
+        }
+    }
 }

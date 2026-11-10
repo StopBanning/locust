@@ -6,17 +6,9 @@ pub enum SlashAction {
     Route,
     Stop,
     Swarm,
-    Runtime,
-    Own { source: OwnSource },
     Issues,
     Tune,
     Setup,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OwnSource {
-    Global,
-    Project,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -32,7 +24,12 @@ pub struct SlashCommand {
 /// Every built-in command. Order matches Electron; `/auto` is last.
 pub fn slash_commands() -> Vec<SlashCommand> {
     vec![
-        cmd("ask", "Reads and explains. Every write is refused.", SlashAction::Mode("ask"), false),
+        cmd(
+            "ask",
+            "Reads and explains. Every write is refused.",
+            SlashAction::Mode("ask"),
+            false,
+        ),
         cmd(
             "plan",
             "Answers with the steps it would take, and changes nothing.",
@@ -51,9 +48,24 @@ pub fn slash_commands() -> Vec<SlashCommand> {
             SlashAction::Mode("approve-each"),
             false,
         ),
-        cmd("model", "Choose the runtime and model.", SlashAction::Route, false),
-        cmd("swarm", "Every run at its model maximum.", SlashAction::Swarm, false),
-        cmd("stop", "Stop the running mission.", SlashAction::Stop, false),
+        cmd(
+            "model",
+            "Choose the runtime and model.",
+            SlashAction::Route,
+            false,
+        ),
+        cmd(
+            "swarm",
+            "Every run at its model maximum.",
+            SlashAction::Swarm,
+            false,
+        ),
+        cmd(
+            "stop",
+            "Stop the running mission.",
+            SlashAction::Stop,
+            false,
+        ),
         cmd(
             "issue",
             "Start from an open GitHub issue in this folder.",
@@ -94,9 +106,12 @@ fn cmd(name: &str, detail: &str, action: SlashAction, weighted: bool) -> SlashCo
 
 /// What the person has typed, if it is a command being typed.
 pub fn slash_query(text: &str) -> Option<String> {
-    let re = regex::Regex::new(r"^/([A-Za-z0-9:._/-]*)$").expect("slash_query");
-    re.captures(text.trim())
-        .map(|c| c.get(1).map(|m| m.as_str().to_ascii_lowercase()).unwrap_or_default())
+    let re = crate::invariants::regex(r"^/([A-Za-z0-9:._/-]*)$");
+    re.captures(text.trim()).map(|c| {
+        c.get(1)
+            .map(|m| m.as_str().to_ascii_lowercase())
+            .unwrap_or_default()
+    })
 }
 
 pub struct AvailableInput<'a> {
@@ -111,7 +126,8 @@ pub struct AvailableInput<'a> {
 
 /// The commands to offer, given what is actually possible right now.
 pub fn available_commands(input: AvailableInput<'_>) -> Vec<SlashCommand> {
-    let own: std::collections::HashSet<String> = slash_commands().into_iter().map(|c| c.name).collect();
+    let own: std::collections::HashSet<String> =
+        slash_commands().into_iter().map(|c| c.name).collect();
     let theirs: Vec<SlashCommand> = input
         .runtime_commands
         .iter()
@@ -184,7 +200,10 @@ mod tests {
     fn matching_prefix() {
         let all = slash_commands();
         let matched = matching_commands("ap", &all);
-        assert_eq!(matched.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), vec!["approve"]);
+        assert_eq!(
+            matched.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(),
+            vec!["approve"]
+        );
     }
 
     #[test]

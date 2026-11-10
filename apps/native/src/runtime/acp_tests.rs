@@ -304,6 +304,11 @@ fn acp_reads_saved_command_and_model() {
 #[test]
 #[ignore = "Runs a real configured ACP CLI; requires LOCUST_REAL_ACP_COMMAND. No window."]
 fn real_acp_one_line() {
+    assert_eq!(
+        std::env::var("LOCUST_REAL_ACP").ok().as_deref(),
+        Some("1"),
+        "set LOCUST_REAL_ACP=1 to run this real test"
+    );
     let t = Temp::new();
     let electron = t.0.join("electron");
     std::fs::create_dir_all(&electron).unwrap();

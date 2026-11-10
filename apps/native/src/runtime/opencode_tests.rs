@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::test_support::reader_check;
 use crate::{
     approval::{Answer, Channel, Decision, Mode},
     ledger_write::LedgerWriter,
@@ -36,20 +37,32 @@ impl Drop for Temp {
 }
 
 fn fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/fixtures").join(name)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("scripts/fixtures")
+        .join(name)
 }
 
-fn drive(rt: &mut OpenCode, writer: &mut LedgerWriter, channel: &Channel, mission: &str) -> Vec<Event> {
+fn drive(
+    rt: &mut OpenCode,
+    writer: &mut LedgerWriter,
+    channel: &Channel,
+    mission: &str,
+) -> Vec<Event> {
     let deadline = Instant::now() + Duration::from_secs(15);
     let mut events = vec![];
     loop {
         assert!(Instant::now() < deadline, "OpenCode fake timed out");
         if let Some(e) = rt.next_event().unwrap() {
-            let terminal = matches!(e.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled");
+            let terminal = matches!(
+                e.kind.as_str(),
+                "run.completed" | "run.failed" | "run.cancelled"
+            );
             for a in channel.take_recorded_for(mission) {
                 writer.append_approval(&a.to_json()).unwrap();
             }
-            writer.append(&e.kind, e.payload.clone(), e.thread.as_deref()).unwrap();
+            writer
+                .append(&e.kind, e.payload.clone(), e.thread.as_deref())
+                .unwrap();
             events.push(e);
             if terminal {
                 break;
@@ -57,22 +70,6 @@ fn drive(rt: &mut OpenCode, writer: &mut LedgerWriter, channel: &Channel, missio
         }
     }
     events
-}
-
-fn reader_check(store: &Store, id: &str, phase: &str) {
-    if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
-        assert!(
-            Command::new("node")
-                .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/check-m1-ledger.mjs"))
-                .arg(reader)
-                .arg(store.ledger_dir().unwrap())
-                .arg(id)
-                .arg(phase)
-                .status()
-                .unwrap()
-                .success()
-        );
-    }
 }
 
 #[test]
@@ -104,7 +101,13 @@ fn opencode_mode_config_keeps_question_off_and_mode_rules() {
     let plugin = crate::runtime::opencode_config::write_guard(&store, true).unwrap();
     let acp = crate::runtime::opencode_config::acp_config(Mode::Ask, &plugin);
     assert_eq!(acp["default_agent"], "locust");
-    assert!(acp["agents"]["locust"]["permissions"].as_array().unwrap().iter().any(|p| p["action"] == "question" && p["effect"] == "deny"));
+    assert!(
+        acp["agents"]["locust"]["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["action"] == "question" && p["effect"] == "deny")
+    );
 }
 
 #[test]
@@ -115,7 +118,10 @@ fn opencode_error_sentences_match_ts() {
     assert!(free.sentence(true).contains("free model has no usage left"));
     let rate = ErrorFacts::of(&json!({"error":{"name":"AI_APICallError","data":{"statusCode":429,"message":"slow down"}}})).unwrap();
     assert!(rate.sentence(false).contains("rate limited"));
-    let auth = ErrorFacts::of(&json!({"error":{"name":"Auth","data":{"statusCode":401,"message":"nope"}}})).unwrap();
+    let auth = ErrorFacts::of(
+        &json!({"error":{"name":"Auth","data":{"statusCode":401,"message":"nope"}}}),
+    )
+    .unwrap();
     assert!(auth.sentence(false).contains("opencode auth login"));
     assert!(auth.sentence(true).contains("Free models need no sign-in"));
 }
@@ -125,18 +131,26 @@ fn opencode_events_stream_and_finish() {
     let mut n = crate::runtime::opencode_events::Normalizer::new(Some("opencode/beam-free"));
     n.base.started_at = crate::ledger_write::now();
     let mut events = n.accept(&json!({"type":"step_start","sessionID":"s1","part":{}}));
-    events.extend(n.accept(&json!({"type":"text_partial","sessionID":"s1","part":{"id":"p1","text":"Hel"}})));
-    events.extend(n.accept(&json!({"type":"text","sessionID":"s1","part":{"id":"p1","text":"Hello"}})));
+    events.extend(
+        n.accept(&json!({"type":"text_partial","sessionID":"s1","part":{"id":"p1","text":"Hel"}})),
+    );
+    events.extend(
+        n.accept(&json!({"type":"text","sessionID":"s1","part":{"id":"p1","text":"Hello"}})),
+    );
     events.extend(n.accept(&json!({"type":"step_finish","sessionID":"s1","part":{"reason":"stop","tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0}})));
     let done = n.finish(false, Some(0), "", false);
-    assert!(events.iter().any(|e| e.kind == "message.delta" && e.payload["text"] == "Hello" && e.payload["final"] == true));
+    assert!(events.iter().any(|e| e.kind == "message.delta"
+        && e.payload["text"] == "Hello"
+        && e.payload["final"] == true));
     assert_eq!(done.last().unwrap().kind, "run.completed");
     assert_eq!(done.last().unwrap().payload["runtimeThreadId"], "s1");
 }
 
 fn acp_command(scenario: &str, env: &[(&str, String)]) -> Command {
     let mut c = Command::new("python3");
-    c.arg(fixture("m4-opencode-acp.py")).arg("acp").arg(scenario);
+    c.arg(fixture("m4-opencode-acp.py"))
+        .arg("acp")
+        .arg(scenario);
     for (k, v) in env {
         c.env(k, v);
     }
@@ -196,11 +210,26 @@ fn opencode_acp_success_sets_locust_mode_and_records() {
     let events = drive(&mut rt, &mut writer, &channel, "opencode_acp");
     answer.join().unwrap();
     assert_eq!(events.last().unwrap().kind, "run.completed");
-    assert!(events.iter().any(|e| e.kind == "message.delta" && e.payload["text"] == "OpenCode says hi."));
-    assert!(events.iter().any(|e| e.kind == "tool.completed" && e.payload["command"] == "echo hi"));
-    assert_eq!(std::fs::read_to_string(store.electron().join("sentinel")).unwrap(), "untouched");
+    assert!(
+        events
+            .iter()
+            .any(|e| e.kind == "message.delta" && e.payload["text"] == "OpenCode says hi.")
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| e.kind == "tool.completed" && e.payload["command"] == "echo hi")
+    );
+    assert_eq!(
+        std::fs::read_to_string(store.electron().join("sentinel")).unwrap(),
+        "untouched"
+    );
     let ledger = std::fs::read_to_string(&writer.path).unwrap();
-    for secret in ["REPLAY_MUST_NOT_SURVIVE", "FOREIGN_MUST_NOT_SURVIVE", "RAW_REASONING_MUST_NOT_SURVIVE"] {
+    for secret in [
+        "REPLAY_MUST_NOT_SURVIVE",
+        "FOREIGN_MUST_NOT_SURVIVE",
+        "RAW_REASONING_MUST_NOT_SURVIVE",
+    ] {
         assert!(!ledger.contains(secret));
     }
     reader_check(&store, "opencode_acp", "completed");
@@ -212,7 +241,13 @@ fn opencode_acp_retries_transport_before_prompt() {
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
     let flag = temp.0.join("crashed-once");
-    let mut command = acp_command("crash-once", &[("LOCUST_OPENCODE_CRASH_FLAG", flag.to_string_lossy().into_owned())]);
+    let mut command = acp_command(
+        "crash-once",
+        &[(
+            "LOCUST_OPENCODE_CRASH_FLAG",
+            flag.to_string_lossy().into_owned(),
+        )],
+    );
     command.current_dir(&temp.0);
     let mut rt = OpenCode::spawn(&mut command).unwrap();
     let turn = Turn {
@@ -226,7 +261,17 @@ fn opencode_acp_retries_transport_before_prompt() {
         mission_id: "opencode_retry".into(),
         run_id: "run_opencode_retry".into(),
     };
-    let mut writer = LedgerWriter::create_runtime(&store, "opencode_retry", &turn.prompt, "account-default", "fake-opencode", "opencode", &[], None).unwrap();
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_retry",
+        &turn.prompt,
+        "account-default",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
     rt.start(&turn).unwrap();
     // Ask auto-rejects the permission card; the turn still completes.
     let events = drive(&mut rt, &mut writer, &Channel::new(), "opencode_retry");
@@ -241,7 +286,11 @@ fn opencode_serve_streams_authenticated_sse() {
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
     let mut command = Command::new("python3");
-    command.arg(fixture("m4-opencode-serve.py")).arg("serve").arg("success").current_dir(&temp.0);
+    command
+        .arg(fixture("m4-opencode-serve.py"))
+        .arg("serve")
+        .arg("success")
+        .current_dir(&temp.0);
     command.env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
     let mut rt = OpenCode::spawn(&mut command).unwrap();
     let turn = Turn {
@@ -255,11 +304,27 @@ fn opencode_serve_streams_authenticated_sse() {
         mission_id: "opencode_serve".into(),
         run_id: "run_opencode_serve".into(),
     };
-    let mut writer = LedgerWriter::create_runtime(&store, "opencode_serve", &turn.prompt, "opencode/beam-free", "fake-opencode", "opencode", &[], None).unwrap();
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_serve",
+        &turn.prompt,
+        "opencode/beam-free",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
     rt.start(&turn).unwrap();
     let events = drive(&mut rt, &mut writer, &Channel::new(), "opencode_serve");
     assert_eq!(events.last().unwrap().kind, "run.completed");
-    assert!(events.iter().any(|e| e.kind == "message.delta" && e.payload["text"].as_str().unwrap_or("").contains("Served hello")));
+    assert!(events.iter().any(|e| {
+        e.kind == "message.delta"
+            && e.payload["text"]
+                .as_str()
+                .unwrap_or("")
+                .contains("Served hello")
+    }));
     assert_eq!(events.last().unwrap().payload["runtimeThreadId"], "sess1");
     reader_check(&store, "opencode_serve", "completed");
 }
@@ -290,7 +355,17 @@ fn opencode_serve_busy_restarts_then_runs() {
         mission_id: "opencode_busy".into(),
         run_id: "run_opencode_busy".into(),
     };
-    let mut writer = LedgerWriter::create_runtime(&store, "opencode_busy", &turn.prompt, "account-default", "fake-opencode", "opencode", &[], None).unwrap();
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_busy",
+        &turn.prompt,
+        "account-default",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
     rt.start(&turn).unwrap();
     let events = drive(&mut rt, &mut writer, &Channel::new(), "opencode_busy");
     assert!(flag.exists());
@@ -340,18 +415,32 @@ fn opencode_teammate_uses_native_driver() {
         assert!(Instant::now() < deadline);
         std::thread::sleep(Duration::from_millis(10));
     }
-    let ledger = std::fs::read_to_string(store.ledger_dir().unwrap().join(format!("{}.jsonl", started.conversation_id))).unwrap();
+    let ledger = std::fs::read_to_string(
+        store
+            .ledger_dir()
+            .unwrap()
+            .join(format!("{}.jsonl", started.conversation_id)),
+    )
+    .unwrap();
     assert!(ledger.contains("run.completed"));
     assert!(ledger.contains("mission.approval"));
-    assert_eq!(crate::native::prior_of(&started.conversation_id).unwrap().thread.as_deref(), Some("s1"));
+    assert_eq!(
+        crate::native::prior_of(&started.conversation_id)
+            .unwrap()
+            .thread
+            .as_deref(),
+        Some("s1")
+    );
 }
 
 #[test]
 #[ignore = "real OpenCode one-line turn; requires LOCUST_REAL_OPENCODE=1 and opencode on PATH"]
 fn real_opencode_one_line() {
-    if std::env::var_os("LOCUST_REAL_OPENCODE").is_none() {
-        return;
-    }
+    assert_eq!(
+        std::env::var("LOCUST_REAL_OPENCODE").ok().as_deref(),
+        Some("1"),
+        "set LOCUST_REAL_OPENCODE=1 to run this real test"
+    );
     let t = Temp::new();
     let store = Store::new(t.0.join("native"), t.0.join("electron")).unwrap();
     std::fs::create_dir_all(store.electron()).unwrap();
@@ -364,7 +453,10 @@ fn real_opencode_one_line() {
         "account-default",
         &command.get_program().to_string_lossy(),
         "opencode",
-        &command.get_args().map(|a| a.to_string_lossy().into_owned()).collect::<Vec<_>>(),
+        &command
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect::<Vec<_>>(),
         None,
     )
     .unwrap();
@@ -385,7 +477,9 @@ fn real_opencode_one_line() {
     loop {
         assert!(Instant::now() < deadline);
         if let Some(e) = rt.next_event().unwrap() {
-            writer.append(&e.kind, e.payload, e.thread.as_deref()).unwrap();
+            writer
+                .append(&e.kind, e.payload, e.thread.as_deref())
+                .unwrap();
             if e.kind.starts_with("run.") && e.kind != "run.started" {
                 assert_eq!(e.kind, "run.completed");
                 break;
@@ -396,14 +490,20 @@ fn real_opencode_one_line() {
 
 #[test]
 fn opencode_config_and_writable_homes_stay_native_for_both_versions() {
-    for v2 in [false,true] {
-        let temp=Temp::new();
-        let store=Store::new(temp.0.join("native"),temp.0.join("electron")).unwrap();
-        let mut c=Command::new("opencode");
-        let plugin=super::super::opencode_config::configure(&mut c,Mode::Auto,&store,v2).unwrap();
+    for v2 in [false, true] {
+        let temp = Temp::new();
+        let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+        let mut c = Command::new("opencode");
+        let plugin =
+            super::super::opencode_config::configure(&mut c, Mode::Auto, &store, v2).unwrap();
         assert!(plugin.starts_with(store.root()));
-        for key in ["XDG_CONFIG_HOME","XDG_DATA_HOME","XDG_CACHE_HOME","XDG_STATE_HOME"] {
-            let (_,value)=c.get_envs().find(|(k,_)|*k==key).unwrap();
+        for key in [
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_CACHE_HOME",
+            "XDG_STATE_HOME",
+        ] {
+            let (_, value) = c.get_envs().find(|(k, _)| *k == key).unwrap();
             assert!(PathBuf::from(value.unwrap()).starts_with(store.root()));
         }
     }

@@ -76,15 +76,33 @@ impl LedgerWriter {
         if model.is_empty() || model.len() > 250 || model.contains('\0') {
             return Err(io::Error::other("Invalid model ID"));
         }
-        if !matches!(runtime, "codex" | "claude" | "acp" | "opencode" | "kilo" | "cursor" | "copilot" | "antigravity" | "muse") {
+        if !matches!(
+            runtime,
+            "codex"
+                | "claude"
+                | "acp"
+                | "opencode"
+                | "kilo"
+                | "cursor"
+                | "copilot"
+                | "antigravity"
+                | "muse"
+        ) {
             return Err(io::Error::other("Unsupported runtime"));
         }
         // Validated before anything is created: a bad link leaves no empty ledger.
         if let Some(c) = continues {
             let safe = |v: &str| {
-                !v.is_empty() && v.len() <= 128 && v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+                !v.is_empty()
+                    && v.len() <= 128
+                    && v.bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
             };
-            if !safe(&c.mission_id) || c.thread.as_deref().is_some_and(|t| t.is_empty() || t.len() > 2048) {
+            if !safe(&c.mission_id)
+                || c.thread
+                    .as_deref()
+                    .is_some_and(|t| t.is_empty() || t.len() > 2048)
+            {
                 return Err(io::Error::other("Invalid continuation"));
             }
         }
@@ -107,7 +125,8 @@ impl LedgerWriter {
         };
         let at = now();
         let continuation = continues.map(|c| {
-            let mut link = json!({"missionId":c.mission_id,"checkpointEpoch":1,"reason":"follow-up"});
+            let mut link =
+                json!({"missionId":c.mission_id,"checkpointEpoch":1,"reason":"follow-up"});
             if let Some(thread) = &c.thread {
                 link["runtimeThreadId"] = json!(thread);
             }
@@ -123,7 +142,12 @@ impl LedgerWriter {
             record["metadata"]["continuesFrom"] = link;
         }
         writer.line(record)?;
-        if let Ok(dir) = File::open(writer.path.parent().unwrap()) {
+        if let Ok(dir) = File::open(
+            writer
+                .path
+                .parent()
+                .ok_or_else(|| io::Error::other("Ledger path has no parent directory"))?,
+        ) {
             let _ = dir.sync_all();
         }
         Ok(writer)
@@ -230,10 +254,21 @@ mod tests {
         std::fs::rename(&native, temp.join("old-native")).unwrap();
         std::os::unix::fs::symlink(&electron, &native).unwrap();
         let error = open_checked(&store, &checked).unwrap_err().to_string();
-        assert!(error.contains("nothing was created") || error.contains("Refusing"), "{error}");
+        assert!(
+            error.contains("nothing was created") || error.contains("Refusing"),
+            "{error}"
+        );
         let leaked = electron.join("mission-ledger/race.jsonl");
-        assert!(!leaked.exists(), "nothing may be created inside Electron's folder");
-        assert_eq!(std::fs::read_dir(electron.join("mission-ledger")).unwrap().count(), 0);
+        assert!(
+            !leaked.exists(),
+            "nothing may be created inside Electron's folder"
+        );
+        assert_eq!(
+            std::fs::read_dir(electron.join("mission-ledger"))
+                .unwrap()
+                .count(),
+            0
+        );
         std::fs::remove_dir_all(temp).unwrap();
     }
     #[test]
@@ -247,9 +282,18 @@ mod tests {
         let store = Store::new(native.clone(), electron.clone()).unwrap();
         // mission-ledger itself is a symlink into Electron's folder.
         let checked = store.write_path("x").unwrap();
-        std::os::unix::fs::symlink(electron.join("mission-ledger"), native.join("mission-ledger")).unwrap();
+        std::os::unix::fs::symlink(
+            electron.join("mission-ledger"),
+            native.join("mission-ledger"),
+        )
+        .unwrap();
         assert!(open_checked(&store, &checked).is_err());
-        assert_eq!(std::fs::read_dir(electron.join("mission-ledger")).unwrap().count(), 0);
+        assert_eq!(
+            std::fs::read_dir(electron.join("mission-ledger"))
+                .unwrap()
+                .count(),
+            0
+        );
         // A final-component symlink (even a dangling one) is never followed or created through.
         std::fs::remove_file(native.join("mission-ledger")).unwrap();
         std::fs::create_dir_all(native.join("mission-ledger")).unwrap();
@@ -264,8 +308,18 @@ mod tests {
         drop(file);
         assert!(open_checked(&store, &good).is_err(), "exclusive");
         use std::os::unix::fs::PermissionsExt;
-        assert_eq!(std::fs::metadata(native.join("mission-ledger")).unwrap().permissions().mode() & 0o777, 0o700);
-        assert_eq!(std::fs::metadata(&good).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(native.join("mission-ledger"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(&good).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
         std::fs::remove_dir_all(temp).unwrap();
     }
 }

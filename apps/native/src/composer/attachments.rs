@@ -2,7 +2,6 @@
 
 pub const MAX_ATTACHMENTS: usize = 8;
 pub const MAX_PASTED_BYTES: usize = 24 * 1024 * 1024;
-pub const ATTACHMENT_DIR: &str = ".locust/attachments";
 
 pub fn attachment_preamble(paths: &[String]) -> Option<String> {
     if paths.is_empty() {
@@ -12,7 +11,10 @@ pub fn attachment_preamble(paths: &[String]) -> Option<String> {
         .iter()
         .map(|path| {
             if path.chars().any(|c| c <= '\u{001f}' || c == '\u{007f}') {
-                format!("- {}", serde_json::to_string(path).unwrap_or_else(|_| path.clone()))
+                format!(
+                    "- {}",
+                    serde_json::to_string(path).unwrap_or_else(|_| path.clone())
+                )
             } else {
                 format!("- {path}")
             }

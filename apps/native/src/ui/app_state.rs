@@ -1,0 +1,272 @@
+use super::*;
+
+pub(super) fn color(value: &str) -> Color {
+    // Palette::new supplies only valid hex source literals.
+    rune::color::hex(value).expect("valid Locust colour")
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum StatusTone {
+    Muted,
+    Green,
+    Amber,
+    Red,
+}
+
+pub(super) struct Palette {
+    pub(super) dark: bool,
+    pub(super) bg: Color,
+    pub(super) sidebar: Color,
+    pub(super) raised: Color,
+    pub(super) selected: Color,
+    pub(super) your_bubble: Color,
+    pub(super) field: Color,
+    pub(super) hairline: Color,
+    pub(super) text: Color,
+    pub(super) secondary: Color,
+    pub(super) muted: Color,
+    pub(super) green: Color,
+    pub(super) amber: Color,
+    pub(super) red: Color,
+}
+
+impl Palette {
+    pub(super) fn new(dark: bool) -> Self {
+        let tokens = if dark {
+            [
+                "#121415", "#17191a", "#191c1d", "#1e2223", "#23282a", "#1a1d1e", "#f2efe9",
+                "#c7c3bc", "#8b9190", "#7fc97f", "#e9b949", "#e4685d",
+            ]
+        } else {
+            [
+                "#faf9f6", "#f1f0ec", "#ffffff", "#e7e6e1", "#ebeae5", "#ffffff", "#1c1e1d",
+                "#3a3e3d", "#5f6563", "#2e8540", "#b8790a", "#c9443a",
+            ]
+        };
+        let [
+            bg,
+            sidebar,
+            raised,
+            selected,
+            your_bubble,
+            field,
+            text,
+            secondary,
+            muted,
+            green,
+            amber,
+            red,
+        ] = tokens.map(color);
+
+        Self {
+            dark,
+            bg,
+            sidebar,
+            raised,
+            selected,
+            your_bubble,
+            field,
+            hairline: if dark {
+                Color::WHITE.alpha(0.06)
+            } else {
+                text.alpha(0.08)
+            },
+            text,
+            secondary,
+            muted,
+            green,
+            amber,
+            red,
+        }
+    }
+
+    pub(super) fn status(&self, tone: StatusTone) -> Color {
+        match tone {
+            StatusTone::Muted => self.muted,
+            StatusTone::Green => self.green,
+            StatusTone::Amber => self.amber,
+            StatusTone::Red => self.red,
+        }
+    }
+}
+
+#[derive(Default)]
+pub(super) struct Conversation {
+    pub(super) conversation_id: Option<String>,
+    pub(super) turns: Vec<(String, String)>,
+}
+
+// Fix 2: tag each flight with its teammate ID, conversation ID, header, and tip so stale results are dropped.
+pub(super) struct Flight {
+    pub(super) teammate_id: String,
+    pub(super) conversation_id: Option<String>,
+    pub(super) header: Option<Teammate>,
+    pub(super) after_tip: Option<String>,
+    // Some only until start/send lands; reply failures must not restore sent text.
+    pub(super) message: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct TurnPick {
+    pub(super) model: String,
+    pub(super) effort: Option<String>,
+}
+
+pub(super) struct OwnTurn {
+    pub(super) conversation: String,
+    pub(super) tip: Option<String>,
+    pub(super) before: Option<String>,
+}
+
+pub(super) struct State {
+    // Which engine this window runs on, shown in the status line. None until the team has loaded.
+    pub(super) engine: Option<Kind>,
+    pub(super) teammates: Vec<Teammate>,
+    pub(super) selected: usize,
+    // Fix: histories and conversation IDs survive team reordering and reloads.
+    pub(super) conversations: HashMap<String, Conversation>,
+    pub(super) draft: TextEdit,
+    pub(super) picks: HashMap<String, TurnPick>,
+    pub(super) models: HashMap<String, Vec<engine::Models>>,
+    pub(super) model_menu: Option<String>,
+    pub(super) model_job: Latest<(String, Result<Vec<engine::Models>, String>)>,
+    pub(super) own_turn: Option<OwnTurn>,
+    pub(super) stopping: Latest<(String, Result<String, String>)>,
+    pub(super) status: String,
+    pub(super) status_tone: StatusTone,
+    pub(super) load_error: Option<String>,
+    pub(super) flight: Option<Flight>,
+    pub(super) demo: bool,
+    // None follows the system; snapshot scenes explicitly choose an appearance.
+    pub(super) appearance: Option<bool>,
+    pub(super) activity_open: HashMap<String, bool>,
+    pub(super) recent: Vec<ConversationRow>,
+    pub(super) recent_error: Option<String>,
+    pub(super) opening_teammate: Option<String>,
+    pub(super) opening_conversation: Option<String>,
+    pub(super) waiting_target: Option<(String, String)>,
+    pub(super) recents: Latest<Result<RecentBatch, String>>,
+    pub(super) ledger_summaries: HashMap<String, ledger::Summary>,
+    pub(super) ledger_available: bool,
+    pub(super) ledger: Option<LedgerPane>,
+    pub(super) ledger_job: Latest<LedgerAnswer>,
+    pub(super) opening: Latest<Result<Reply, String>>,
+    pub(super) team: Latest<Result<(Kind, Vec<Teammate>), String>>,
+    pub(super) sending: Latest<Result<Started, String>>,
+    pub(super) waiting: Latest<Result<Reply, String>>,
+    /// First card waiting on the person in this window (Approve each).
+    pub(super) pending_approval: Option<approval::Request>,
+    /// Visible refusal when answering after the turn ended.
+    pub(super) approval_notice: Option<String>,
+    pub(super) approval_shown: std::time::Instant,
+    pub(super) approval_denying: bool,
+    pub(super) approval_reason: TextEdit,
+    // --- M4b composer (Electron Composer.tsx) ---
+    pub(super) drafts: composer::Drafts,
+    pub(super) attached: Vec<String>,
+    pub(super) tagged: Vec<String>,
+    pub(super) queue_rows: Vec<composer::QueuedRow>,
+    pub(super) queue_error: Option<String>,
+    pub(super) queue_send_now: Option<String>,
+    pub(super) composer_note: Option<String>,
+    pub(super) slash_at: usize,
+    pub(super) at_at: usize,
+    pub(super) at_dismissed: Option<String>,
+    pub(super) project_files: Vec<String>,
+    pub(super) files_partial: bool,
+    pub(super) files_job: Latest<(Vec<String>, bool)>,
+    pub(super) files_root: Option<std::path::PathBuf>,
+    pub(super) files_asked: Option<std::time::Instant>,
+    pub(super) sent_history: Vec<String>,
+    pub(super) recall_at: isize,
+    /// Permission mode for Shift+Tab / slash (Electron mode chip).
+    pub(super) mode: String,
+    /// Scene / discovery flags for placeholders and disabled-send.
+    pub(super) nothing_installed: bool,
+    pub(super) selected_ready: bool,
+    pub(super) route_can_run: bool,
+    /// Native data folder for queue + pasted attachments (never Electron's).
+    pub(super) data: Option<store::Store>,
+    /// Off-queue edit strip (Composer: Edit took words back into the box).
+    pub(super) off_the_queue: bool,
+    /// Popup forced open for snap scenes.
+    pub(super) scene_popup: ComposerScenePopup,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(super) enum ComposerScenePopup {
+    #[default]
+    None,
+    Slash,
+    Mention,
+    Queue,
+    Blocked,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            engine: None,
+            teammates: Vec::new(),
+            selected: 0,
+            conversations: HashMap::new(),
+            draft: TextEdit::new(""),
+            picks: HashMap::new(),
+            models: HashMap::new(),
+            model_menu: None,
+            model_job: Latest::default(),
+            own_turn: None,
+            stopping: Latest::default(),
+            status: "Loading teammates…".into(),
+            status_tone: StatusTone::Muted,
+            load_error: None,
+            flight: None,
+            demo: false,
+            appearance: None,
+            activity_open: HashMap::new(),
+            recent: Vec::new(),
+            recent_error: None,
+            opening_teammate: None,
+            opening_conversation: None,
+            waiting_target: None,
+            recents: Latest::default(),
+            ledger_summaries: HashMap::new(),
+            ledger_available: false,
+            ledger: None,
+            ledger_job: Latest::default(),
+            opening: Latest::default(),
+            team: Latest::default(),
+            sending: Latest::default(),
+            waiting: Latest::default(),
+            pending_approval: None,
+            approval_notice: None,
+            approval_shown: std::time::Instant::now(),
+            approval_denying: false,
+            approval_reason: TextEdit::new(""),
+            drafts: composer::Drafts::default(),
+            attached: Vec::new(),
+            tagged: Vec::new(),
+            queue_rows: Vec::new(),
+            queue_error: None,
+            queue_send_now: None,
+            composer_note: None,
+            slash_at: 0,
+            at_at: 0,
+            at_dismissed: None,
+            project_files: Vec::new(),
+            files_partial: false,
+            files_job: Latest::default(),
+            files_root: None,
+            files_asked: None,
+            sent_history: Vec::new(),
+            recall_at: -1,
+            mode: "ask".into(),
+            nothing_installed: false,
+            selected_ready: true,
+            route_can_run: true,
+            data: None,
+            off_the_queue: false,
+            scene_popup: ComposerScenePopup::None,
+        }
+    }
+}

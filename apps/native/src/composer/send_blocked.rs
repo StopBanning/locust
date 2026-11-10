@@ -21,7 +21,9 @@ pub fn send_blocked_reason(blocked: SendBlocked) -> Option<&'static str> {
         );
     }
     if !blocked.route_can_run {
-        return Some("This mode cannot run on the model this is set to. Pick another mode or model above.");
+        return Some(
+            "This mode cannot run on the model this is set to. Pick another mode or model above.",
+        );
     }
     if blocked.busy {
         return Some("Something else is starting. This goes as soon as it settles.");
@@ -56,12 +58,14 @@ mod tests {
 
     #[test]
     fn install_first() {
-        assert!(send_blocked_reason(SendBlocked {
-            nothing_installed: true,
-            ..clear()
-        })
-        .unwrap()
-        .contains("install an AI agent"));
+        assert!(
+            send_blocked_reason(SendBlocked {
+                nothing_installed: true,
+                ..clear()
+            })
+            .unwrap()
+            .contains("install an AI agent")
+        );
     }
 
     #[test]
@@ -84,28 +88,35 @@ mod tests {
             busy: true,
             empty: false,
         };
-        assert!(send_blocked_reason(all).unwrap().contains("install an AI agent"));
-        assert!(send_blocked_reason(SendBlocked {
-            empty: true,
-            ..all
-        })
-        .unwrap()
-        .contains("install an AI agent"));
+        assert!(
+            send_blocked_reason(all)
+                .unwrap()
+                .contains("install an AI agent")
+        );
+        assert!(
+            send_blocked_reason(SendBlocked { empty: true, ..all })
+                .unwrap()
+                .contains("install an AI agent")
+        );
     }
 
     #[test]
     fn separates_ready_from_mode() {
-        assert!(send_blocked_reason(SendBlocked {
-            runtime_ready: false,
-            ..clear()
-        })
-        .unwrap()
-        .contains("not ready on this machine"));
-        assert!(send_blocked_reason(SendBlocked {
-            route_can_run: false,
-            ..clear()
-        })
-        .unwrap()
-        .contains("This mode cannot run"));
+        assert!(
+            send_blocked_reason(SendBlocked {
+                runtime_ready: false,
+                ..clear()
+            })
+            .unwrap()
+            .contains("not ready on this machine")
+        );
+        assert!(
+            send_blocked_reason(SendBlocked {
+                route_can_run: false,
+                ..clear()
+            })
+            .unwrap()
+            .contains("This mode cannot run")
+        );
     }
 }

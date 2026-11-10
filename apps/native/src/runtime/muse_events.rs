@@ -33,17 +33,19 @@ pub fn muse_session_id_of(parsed: &Value) -> Option<String> {
 }
 
 pub fn muse_task_is_internal(task_kind: Option<&str>) -> bool {
-    task_kind.is_some_and(|k| regex::Regex::new(r"^(?:model|reminder)\.").unwrap().is_match(k))
+    task_kind.is_some_and(|k| crate::invariants::regex(r"^(?:model|reminder)\.").is_match(k))
 }
 
 pub fn muse_quota_limit(reason: &str) -> String {
-    let re = regex::Regex::new(r"resets at (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)").unwrap();
+    let re =
+        crate::invariants::regex(r"resets at (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)");
     match re.captures(reason) {
         Some(c) => format!("Muse Code's plan is used up · resets {}", &c[1]),
         None => "Muse Code's plan is used up".into(),
     }
 }
 
+#[derive(Default)]
 pub struct MuseNormalizer {
     pub thread: Option<String>,
     pub ended: bool,
@@ -63,30 +65,9 @@ pub struct MuseNormalizer {
     output_limit_exceeded: bool,
 }
 
-impl Default for MuseNormalizer {
-    fn default() -> Self {
-        Self {
-            thread: None,
-            ended: false,
-            saw_result: false,
-            count: 0,
-            run_open: false,
-            terminal: None,
-            terminal_reason: None,
-            streamed_text: String::new(),
-            message_closed: false,
-            task_kinds: HashMap::new(),
-            task_operations: HashMap::new(),
-            started_tasks: HashSet::new(),
-            retries_said: HashSet::new(),
-            sandbox_said: false,
-            quota_said: false,
-            output_limit_exceeded: false,
-        }
-    }
-}
-
 impl MuseNormalizer {
+    #[cfg(test)]
+    #[cfg(test)]
     pub fn with_output_limit_exceeded(mut self, v: bool) -> Self {
         self.output_limit_exceeded = v;
         self
@@ -120,7 +101,11 @@ impl MuseNormalizer {
         )
     }
     fn tool_row(&self, task_id: &str) -> Value {
-        let kind = self.task_kinds.get(task_id).map(String::as_str).unwrap_or("task");
+        let kind = self
+            .task_kinds
+            .get(task_id)
+            .map(String::as_str)
+            .unwrap_or("task");
         let name = kind.strip_prefix("tool.").unwrap_or(kind);
         let mut p = json!({"itemId": task_id, "toolKind": kind, "name": name});
         if let Some(op) = self.task_operations.get(task_id) {
@@ -152,8 +137,7 @@ impl MuseNormalizer {
         let reason = self.terminal_reason.clone().unwrap_or_default();
         let quota = !finished
             && !reason.is_empty()
-            && regex::Regex::new(r"(?i)subscription quota exhausted|usage window resets")
-                .unwrap()
+            && crate::invariants::regex(r"(?i)subscription quota exhausted|usage window resets")
                 .is_match(&reason);
         let mut out = Vec::new();
         if quota && !self.quota_said {
@@ -169,10 +153,14 @@ impl MuseNormalizer {
             "Muse Code ended without a record saying the run had finished.".into()
         } else if !finished {
             if reason.is_empty() {
-                format!("Muse Code ended {}.", self.terminal.as_deref().unwrap_or("unknown"))
-            } else if regex::Regex::new(r"(?i)\bbilling_error\b|\bAPI error 402\b|billing verification failed")
-                .unwrap()
-                .is_match(&reason)
+                format!(
+                    "Muse Code ended {}.",
+                    self.terminal.as_deref().unwrap_or("unknown")
+                )
+            } else if crate::invariants::regex(
+                r"(?i)\bbilling_error\b|\bAPI error 402\b|billing verification failed",
+            )
+            .is_match(&reason)
             {
                 MUSE_BILLING_SENTENCE.into()
             } else if quota {
@@ -186,7 +174,9 @@ impl MuseNormalizer {
         } else {
             format!(
                 "Muse Code exited with code {}.",
-                exit_code.map(|c| c.to_string()).unwrap_or_else(|| "null".into())
+                exit_code
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "null".into())
             )
         };
         let mut p = json!({
@@ -200,6 +190,8 @@ impl MuseNormalizer {
         out.push(self.event("run.failed", p));
         out
     }
+    #[cfg(test)]
+    #[cfg(test)]
     pub fn accept_line(&mut self, raw: &str) -> Vec<Event> {
         if self.ended {
             return vec![];
@@ -257,7 +249,10 @@ impl MuseNormalizer {
                 return vec![];
             }
             self.run_open = true;
-            return vec![self.event("step.started", json!({"stepKind":"turn","evidence":evidence}))];
+            return vec![self.event(
+                "step.started",
+                json!({"stepKind":"turn","evidence":evidence}),
+            )];
         }
         if payload_type == "run.output.delta" {
             let t = s(payload, "text");
@@ -273,11 +268,11 @@ impl MuseNormalizer {
         if payload_type.starts_with("task.lifecycle.") {
             return self.accept_task(payload, evidence);
         }
-        if payload_type.starts_with("run.terminal.") {
+        if let Some(terminal) = payload_type.strip_prefix("run.terminal.") {
             self.saw_result = true;
             let term = s(payload, "terminal");
             self.terminal = Some(if term.is_empty() {
-                payload_type["run.terminal.".len()..].to_owned()
+                terminal.to_owned()
             } else {
                 term.to_owned()
             });
@@ -293,18 +288,21 @@ impl MuseNormalizer {
                     None
                 }
             };
-            if let Some(final_text) = final_text {
-                if !self.message_closed {
-                    self.message_closed = true;
-                    events.push(self.event(
+            if let Some(final_text) = final_text
+                && !self.message_closed
+            {
+                self.message_closed = true;
+                events.push(self.event(
                         "message.delta",
                         json!({"itemId":"msg_0","operation":"replace","text":text(&final_text,131072),"final":true,"evidence":evidence}),
                     ));
-                }
             }
             if self.run_open {
                 self.run_open = false;
-                events.push(self.event("step.completed", json!({"stepKind":"turn","evidence":evidence})));
+                events.push(self.event(
+                    "step.completed",
+                    json!({"stepKind":"turn","evidence":evidence}),
+                ));
             }
             return events;
         }
@@ -368,9 +366,10 @@ impl MuseNormalizer {
             let reason = event["reason"].as_str();
             if internal {
                 if reason.is_some_and(|r| {
-                    regex::Regex::new(r"(?i)subscription quota exhausted|usage window resets")
-                        .unwrap()
-                        .is_match(r)
+                    crate::invariants::regex(
+                        r"(?i)subscription quota exhausted|usage window resets",
+                    )
+                    .is_match(r)
                 }) {
                     if self.quota_said {
                         return vec![];
@@ -378,7 +377,8 @@ impl MuseNormalizer {
                     self.quota_said = true;
                     return vec![self.event(
                         "route.limit_detected",
-                        json!({"kind":"quota-exhausted","message":muse_quota_limit(reason.unwrap()),"evidence":evidence}),
+                        // Invariant: reason.is_some_and guards this branch.
+                        json!({"kind":"quota-exhausted","message":muse_quota_limit(reason.expect("reason.is_some_and guards this branch")),"evidence":evidence}),
                     )];
                 }
                 let named = self
@@ -401,9 +401,10 @@ impl MuseNormalizer {
             let failed = self.event("tool.failed", p);
             if self.sandbox_said
                 || reason.is_none_or(|r| {
-                    !regex::Regex::new(r"(?i)sandbox enforcement unavailable|sandbox users are not ready")
-                        .unwrap()
-                        .is_match(r)
+                    !crate::invariants::regex(
+                        r"(?i)sandbox enforcement unavailable|sandbox users are not ready",
+                    )
+                    .is_match(r)
                 })
             {
                 return vec![failed];
@@ -425,7 +426,10 @@ impl MuseNormalizer {
             p["phase"] = json!("completed");
             p["evidence"] = evidence;
             let status = match event["reason"].as_str() {
-                Some(r) => format!("Muse Code stopped it ({})", r.chars().take(400).collect::<String>()),
+                Some(r) => format!(
+                    "Muse Code stopped it ({})",
+                    r.chars().take(400).collect::<String>()
+                ),
                 None => "Muse Code stopped it".into(),
             };
             p["status"] = json!(status);
@@ -477,7 +481,10 @@ impl MuseNormalizer {
         vec![self.diagnostic(
             "info",
             "muse.unknown_task_state",
-            &format!("Unhandled Muse task state: {}", if kind.is_empty() { "none" } else { kind }),
+            &format!(
+                "Unhandled Muse task state: {}",
+                if kind.is_empty() { "none" } else { kind }
+            ),
         )]
     }
 }

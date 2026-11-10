@@ -282,7 +282,10 @@ fn run_claude(scenario: &str) {
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut kinds = vec![];
     loop {
-        assert!(Instant::now() < deadline, "fake claude timed out: {kinds:?}");
+        assert!(
+            Instant::now() < deadline,
+            "fake claude timed out: {kinds:?}"
+        );
         if let Some(e) = runtime.next_event().unwrap() {
             writer
                 .append(&e.kind, e.payload.clone(), e.thread.as_deref())
@@ -398,6 +401,11 @@ fn claude_fake_approval_declined() {
 #[test]
 #[ignore = "real Claude Code turn; needs an installed, signed-in claude on PATH"]
 fn real_claude_one_line_prompt() {
+    assert_eq!(
+        std::env::var("LOCUST_REAL_CLAUDE").ok().as_deref(),
+        Some("1"),
+        "set LOCUST_REAL_CLAUDE=1 to run this real test"
+    );
     let temp = Temp::new();
     let folder = temp.0.join("workspace");
     std::fs::create_dir_all(&folder).unwrap();
@@ -435,7 +443,10 @@ fn real_claude_one_line_prompt() {
     let deadline = Instant::now() + Duration::from_secs(120);
     let mut kinds = vec![];
     loop {
-        assert!(Instant::now() < deadline, "real claude timed out: {kinds:?}");
+        assert!(
+            Instant::now() < deadline,
+            "real claude timed out: {kinds:?}"
+        );
         if let Some(e) = runtime.next_event().unwrap() {
             writer
                 .append(&e.kind, e.payload.clone(), e.thread.as_deref())
@@ -509,7 +520,10 @@ fn claude_interactive_allow_and_deny_and_after_end() {
         .unwrap();
         let mut command = Command::new("python3");
         command
-            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixtures/m3-claude.py"))
+            .arg(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/scripts/fixtures/m3-claude.py"
+            ))
             .env("CLAUDE_SCENARIO", "approval-allow");
         let mut runtime = Claude::spawn(&mut command).unwrap();
         let ch = channel.clone();
@@ -529,8 +543,11 @@ fn claude_interactive_allow_and_deny_and_after_end() {
                 writer.append_approval(&recorded.to_json()).unwrap();
             }
             if let Some(e) = runtime.next_event().unwrap() {
-                let done = ["run.completed", "run.failed", "run.cancelled"].contains(&e.kind.as_str());
-                writer.append(&e.kind, e.payload, e.thread.as_deref()).unwrap();
+                let done =
+                    ["run.completed", "run.failed", "run.cancelled"].contains(&e.kind.as_str());
+                writer
+                    .append(&e.kind, e.payload, e.thread.as_deref())
+                    .unwrap();
                 if done {
                     break;
                 }
@@ -542,7 +559,10 @@ fn claude_interactive_allow_and_deny_and_after_end() {
         assert!(contents.contains("\"answer\":\"allowed\""), "{contents}");
         if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
             let status = Command::new("node")
-                .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/check-m1-ledger.mjs"))
+                .arg(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/scripts/check-m1-ledger.mjs"
+                ))
                 .arg(reader)
                 .arg(store.ledger_dir().unwrap())
                 .arg("claude_allow")
@@ -570,7 +590,10 @@ fn claude_interactive_allow_and_deny_and_after_end() {
         .unwrap();
         let mut command = Command::new("python3");
         command
-            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixtures/m3-claude.py"))
+            .arg(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/scripts/fixtures/m3-claude.py"
+            ))
             .env("CLAUDE_SCENARIO", "approval-deny");
         let mut runtime = Claude::spawn(&mut command).unwrap();
         let ch = channel.clone();
@@ -590,8 +613,11 @@ fn claude_interactive_allow_and_deny_and_after_end() {
                 writer.append_approval(&recorded.to_json()).unwrap();
             }
             if let Some(e) = runtime.next_event().unwrap() {
-                let done = ["run.completed", "run.failed", "run.cancelled"].contains(&e.kind.as_str());
-                writer.append(&e.kind, e.payload, e.thread.as_deref()).unwrap();
+                let done =
+                    ["run.completed", "run.failed", "run.cancelled"].contains(&e.kind.as_str());
+                writer
+                    .append(&e.kind, e.payload, e.thread.as_deref())
+                    .unwrap();
                 if done {
                     break;
                 }
@@ -630,7 +656,10 @@ fn claude_interactive_allow_and_deny_and_after_end() {
                 reason: None,
             })
             .unwrap_err();
-        assert!(err.contains("no longer waiting") || err.contains("turn ended"), "{err}");
+        assert!(
+            err.contains("no longer waiting") || err.contains("turn ended"),
+            "{err}"
+        );
         let _ = handle.join().unwrap();
     }
 }
@@ -650,7 +679,10 @@ fn codex_interactive_allow_writes_approval() {
     .unwrap();
     let mut command = Command::new("python3");
     command
-        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/fixtures/m1-app-server.py"))
+        .arg(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/scripts/fixtures/m1-app-server.py"
+        ))
         .arg("approve-allow");
     let mut runtime = Codex::spawn(&mut command).unwrap();
     let ch = channel.clone();
@@ -671,7 +703,9 @@ fn codex_interactive_allow_writes_approval() {
         }
         if let Some(e) = runtime.next_event().unwrap() {
             let done = ["run.completed", "run.failed", "run.cancelled"].contains(&e.kind.as_str());
-            writer.append(&e.kind, e.payload, e.thread.as_deref()).unwrap();
+            writer
+                .append(&e.kind, e.payload, e.thread.as_deref())
+                .unwrap();
             if done {
                 break;
             }
@@ -682,7 +716,10 @@ fn codex_interactive_allow_writes_approval() {
     assert!(contents.contains("\"answer\":\"allowed\""), "{contents}");
     if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
         let status = Command::new("node")
-            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/check-m1-ledger.mjs"))
+            .arg(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/scripts/check-m1-ledger.mjs"
+            ))
             .arg(reader)
             .arg(store.ledger_dir().unwrap())
             .arg("codex_allow")
@@ -692,4 +729,3 @@ fn codex_interactive_allow_writes_approval() {
         assert!(status.success());
     }
 }
-

@@ -10,10 +10,6 @@ pub struct Drafts {
 }
 
 impl Drafts {
-    pub fn current_key(&self) -> Option<&str> {
-        self.current.as_deref()
-    }
-
     /// Switch draft key. Returns the text that should fill the box.
     /// A `pending…` key that gains a real id keeps the in-box text (Electron).
     pub fn switch(&mut self, next: Option<String>, value_now: &str) -> String {
@@ -40,14 +36,6 @@ impl Drafts {
         }
     }
 
-    /// Remember the current box without switching (e.g. before a send clears it).
-    pub fn stash_current(&mut self, value_now: &str) {
-        let Some(key) = self.current.clone() else {
-            return;
-        };
-        self.put(&key, value_now);
-    }
-
     /// Store `value` under `key` (empty clears). Does not change the current key.
     pub fn put(&mut self, key: &str, value: &str) {
         if value.trim().is_empty() {
@@ -57,6 +45,8 @@ impl Drafts {
         }
     }
 
+    #[cfg(test)]
+    #[cfg(test)]
     pub fn get(&self, key: &str) -> Option<&str> {
         self.map.get(key).map(String::as_str)
     }

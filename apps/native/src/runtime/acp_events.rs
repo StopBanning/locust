@@ -85,10 +85,13 @@ impl AcpNormalizer {
         }
     }
     fn close_message(&mut self, out: &mut Vec<Event>) {
-        if let Some((id, _, said)) = self.message.take() {
-            if !said.is_empty() {
-                out.push(self.event("message.delta",json!({"itemId":id,"operation":"replace","text":text(&said,131072),"final":true})));
-            }
+        if let Some((id, _, said)) = self.message.take()
+            && !said.is_empty()
+        {
+            out.push(self.event(
+                "message.delta",
+                json!({"itemId":id,"operation":"replace","text":text(&said,131072),"final":true}),
+            ));
         }
     }
     fn close_thought(&mut self, out: &mut Vec<Event>) {
@@ -165,7 +168,11 @@ impl AcpNormalizer {
                 };
                 self.message = Some((id, agent, String::new()));
             }
-            let (id, _, held) = self.message.as_mut().unwrap();
+            let (id, _, held) = self
+                .message
+                .as_mut()
+                // Invariant: message inserted immediately above.
+                .expect("message inserted immediately above");
             held.push_str(&said);
             *held = text(held, 131072);
             let id = id.clone();
@@ -200,7 +207,11 @@ impl AcpNormalizer {
                 self.tools
                     .insert(id.into(), json!({"itemId":id,"toolKind":tk,"name":name}));
             }
-            let open = self.tools.get_mut(id).unwrap();
+            let open = self
+                .tools
+                .get_mut(id)
+                // Invariant: tool inserted immediately above when absent.
+                .expect("tool inserted immediately above when absent");
             if matches!(open["name"].as_str(), Some("other" | "tool")) {
                 open["toolKind"] = json!(tk);
                 open["name"] = json!(name);
@@ -240,7 +251,11 @@ impl AcpNormalizer {
                 out.push(self.event("tool.started", p));
             }
             if matches!(v["status"].as_str(), Some("completed" | "failed")) {
-                let mut p = self.tools.remove(id).unwrap();
+                let mut p = self
+                    .tools
+                    .remove(id)
+                    // Invariant: tool was retrieved above and no intervening removal occurs.
+                    .expect("tool was retrieved above and no intervening removal occurs");
                 let failed = v["status"] == "failed";
                 p["phase"] = json!("completed");
                 p["status"] = json!(if failed {
@@ -255,10 +270,8 @@ impl AcpNormalizer {
                 if let Some(output) = content_text(&v["content"]) {
                     p["output"] = json!(text(&output, 16384));
                 }
-                if !failed {
-                    if let Some(patch) = patch_of(&v["content"]) {
-                        p["patch"] = patch;
-                    }
+                if !failed && let Some(patch) = patch_of(&v["content"]) {
+                    p["patch"] = patch;
                 }
                 out.push(self.event(
                     if failed {
@@ -341,7 +354,8 @@ impl AcpNormalizer {
             if usage.is_object() {
                 let amounts: serde_json::Map<_, _> = usage
                     .as_object()
-                    .unwrap()
+                    // Invariant: usage.is_object() guards this branch.
+                    .expect("usage.is_object() guards this branch")
                     .iter()
                     .filter(|(_, v)| v.is_number())
                     .take(32)

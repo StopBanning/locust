@@ -1,10 +1,10 @@
 //! kilo-acp-run.ts: Kilo ACP on the shared OpenCode ACP restart wrapper, with Kilo's own command/config.
 use super::{
-    Runtime, Turn, Event,
+    Event, Runtime, Turn,
     acp::{Acp, Profile},
     acp_events::AcpNormalizer,
     opencode::OpenCode,
-    opencode_process::copy_command,
+    process::copy_command,
 };
 use crate::{approval::Mode, store::Store};
 use serde_json::{Value, json};
@@ -28,7 +28,10 @@ pub const AUTO_FREE_MODEL: &str = "kilo/kilo-auto/free";
 
 /// kiloModelForRun: never leave a fresh session on Kilo's paid image default.
 pub fn model_for_run(model: Option<&str>) -> String {
-    match model.map(str::trim).filter(|s| !s.is_empty() && *s != "account-default") {
+    match model
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && *s != "account-default")
+    {
         Some(s) => s.to_owned(),
         None => AUTO_FREE_MODEL.into(),
     }
@@ -69,7 +72,11 @@ fn git_on_path() -> Option<PathBuf> {
         let candidate = dir.join("git");
         if candidate.is_file() {
             let path = candidate.to_string_lossy();
-            if path.starts_with('/') && !path.chars().any(|c| matches!(c, '\0' | '\r' | '\n' | '"' | '\'' | '`' | '$' | '\\')) {
+            if path.starts_with('/')
+                && !path
+                    .chars()
+                    .any(|c| matches!(c, '\0' | '\r' | '\n' | '"' | '\'' | '`' | '$' | '\\'))
+            {
                 return Some(candidate);
             }
         }
@@ -82,13 +89,17 @@ pub(crate) fn write_git_shim(store: &Store) -> io::Result<Option<PathBuf>> {
     let Some(git) = git_on_path() else {
         return Ok(None);
     };
-    let root = store.ledger_dir()?.parent().unwrap().to_path_buf();
+    let root = store
+        .ledger_dir()?
+        .parent()
+        .ok_or_else(|| io::Error::other("Native ledger has no parent directory"))?
+        .to_path_buf();
     let id = format!(
         "kilo-git-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .map_err(io::Error::other)?
             .as_nanos()
     );
     let dir = store.check(&root.join(id))?;
@@ -107,10 +118,20 @@ pub(crate) fn write_git_shim(store: &Store) -> io::Result<Option<PathBuf>> {
 }
 
 pub(crate) fn write_home(store: &Store) -> io::Result<PathBuf> {
-    let root = store.ledger_dir()?.parent().unwrap().to_path_buf();
+    let root = store
+        .ledger_dir()?
+        .parent()
+        .ok_or_else(|| io::Error::other("Native ledger has no parent directory"))?
+        .to_path_buf();
     // Stable data home: session/load must see the preceding process's sessions.
     let dir = store.check(&root.join("kilo-home"))?;
-    let marker=format!(".run-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    let marker = format!(
+        ".run-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(io::Error::other)?
+            .as_nanos()
+    );
     store.create_new_file_in(&dir, &marker)?.write_all(b"")?;
     Ok(dir)
 }
@@ -173,7 +194,8 @@ impl Kilo {
                 "attempts":attempts
             }),
         ));
-        self.queued.extend(normal.finish("", Value::Null, self.cancelled(), Some(message), false));
+        self.queued
+            .extend(normal.finish("", Value::Null, self.cancelled(), Some(message), false));
     }
 }
 
@@ -184,14 +206,24 @@ impl Runtime for Kilo {
         }
         self.started = true;
         if self.cancelled() {
-            self.failure("Kilo was stopped before startup.", "cancelled", 0, "startup");
+            self.failure(
+                "Kilo was stopped before startup.",
+                "cancelled",
+                0,
+                "startup",
+            );
             return Ok(());
         }
         let deadline = Instant::now() + Duration::from_secs(60);
         let mut attempts = 0;
         loop {
             if self.cancelled() {
-                self.failure("Kilo was stopped during startup.", "cancelled", attempts, "startup");
+                self.failure(
+                    "Kilo was stopped during startup.",
+                    "cancelled",
+                    attempts,
+                    "startup",
+                );
                 break;
             }
             attempts += 1;
@@ -241,8 +273,15 @@ impl Runtime for Kilo {
                         );
                         break;
                     }
-                    if !admitted && transport && attempts <= 2 && !self.cancelled() && Instant::now() < deadline {
-                        let until = (Instant::now() + Duration::from_millis(250 * 2u64.pow(attempts as u32 - 1))).min(deadline);
+                    if !admitted
+                        && transport
+                        && attempts <= 2
+                        && !self.cancelled()
+                        && Instant::now() < deadline
+                    {
+                        let until = (Instant::now()
+                            + Duration::from_millis(250 * 2u64.pow(attempts as u32 - 1)))
+                        .min(deadline);
                         while Instant::now() < until && !self.cancelled() {
                             std::thread::sleep(Duration::from_millis(10));
                         }
@@ -252,7 +291,9 @@ impl Runtime for Kilo {
                     }
                     let code = if Instant::now() >= deadline {
                         "startup-timeout"
-                    } else if e.to_string().contains("overflow") || e.to_string().contains("exceeds 8 MiB") {
+                    } else if e.to_string().contains("overflow")
+                        || e.to_string().contains("exceeds 8 MiB")
+                    {
                         "output-limit"
                     } else if transport {
                         "transport-closed"
@@ -279,19 +320,20 @@ impl Runtime for Kilo {
             return Ok(None);
         };
         let mut e = rt.next_event()?;
-        if e.as_ref()
-            .is_some_and(|e| matches!(e.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled"))
+        if e.as_ref().is_some_and(|e| {
+            matches!(
+                e.kind.as_str(),
+                "run.completed" | "run.failed" | "run.cancelled"
+            )
+        }) && !rt.confirm_exit(Duration::from_secs(1))
+            && let Some(e) = &mut e
         {
-            if !rt.confirm_exit(Duration::from_secs(1)) {
-                if let Some(e) = &mut e {
-                    e.kind = "run.failed".into();
-                    e.payload["kind"] = json!("process-failed");
-                    e.payload["message"] =
-                        json!("Kilo's ACP process did not confirm its exit. No prompt was resent.");
-                    e.payload["runtimeTerminal"] = json!("missing");
-                    e.payload["process"]["terminationUnconfirmed"] = json!(true);
-                }
-            }
+            e.kind = "run.failed".into();
+            e.payload["kind"] = json!("process-failed");
+            e.payload["message"] =
+                json!("Kilo's ACP process did not confirm its exit. No prompt was resent.");
+            e.payload["runtimeTerminal"] = json!("missing");
+            e.payload["process"]["terminationUnconfirmed"] = json!(true);
         }
         Ok(e)
     }

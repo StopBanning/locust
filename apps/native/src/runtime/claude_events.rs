@@ -32,7 +32,9 @@ pub fn summarize_init(value: &Value) -> Value {
     let mut summary = json!({});
     for key in INIT_KEYS {
         match &value[*key] {
-            Value::String(s) => summary[*key] = json!(s.replace('\0', "").chars().take(512).collect::<String>()),
+            Value::String(s) => {
+                summary[*key] = json!(s.replace('\0', "").chars().take(512).collect::<String>())
+            }
             Value::Number(n) => summary[*key] = json!(n),
             Value::Bool(b) => summary[*key] = json!(b),
             _ => {}
@@ -96,7 +98,10 @@ pub fn limit_sentence(info: &Value) -> String {
     let when = resets_at_iso(&info["resetsAt"])
         .map(|r| format!(" · resets {r}"))
         .unwrap_or_default();
-    let window = format!("{} window", window_name(if key.is_empty() { "usage" } else { key }));
+    let window = format!(
+        "{} window",
+        window_name(if key.is_empty() { "usage" } else { key })
+    );
     if limit_kind_for(s(info, "status")) == Some("temporary-rate-limit") {
         match percent {
             None => format!("Your {window} is running low{when}"),
@@ -129,7 +134,7 @@ pub fn usage_window_text(windows: &Value) -> Option<String> {
     if parts.is_empty() {
         return None;
     }
-    parts.sort_by(|a, b| b.0.cmp(&a.0));
+    parts.sort_by_key(|a| std::cmp::Reverse(a.0));
     Some(
         parts
             .into_iter()
@@ -160,8 +165,12 @@ pub fn claude_tool_target(name: &str, input: &Value) -> Option<String> {
         return None;
     }
     let first = |keys: &[&str]| {
-        keys.iter()
-            .find_map(|k| input[*k].as_str().filter(|s| !s.is_empty()).map(str::to_owned))
+        keys.iter().find_map(|k| {
+            input[*k]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned)
+        })
     };
     match name {
         "Bash" => first(&["command"]),
@@ -462,11 +471,7 @@ impl ClaudeNormalizer {
                     };
                     let name = {
                         let n = identity(block, "name");
-                        if n.is_empty() {
-                            "tool".into()
-                        } else {
-                            n
-                        }
+                        if n.is_empty() { "tool".into() } else { n }
                     };
                     let parent = if from_subagent(parsed) {
                         Some(identity(parsed, "parent_tool_use_id"))
@@ -580,7 +585,11 @@ impl ClaudeNormalizer {
                     entry.target = target.clone();
                     entry.title = title.clone();
                 }
-                let open = self.open_tools.get(&item_id).unwrap();
+                let open = self
+                    .open_tools
+                    .get(&item_id)
+                    // Invariant: tool existence checked before restating its input.
+                    .expect("tool existence checked before restating its input");
                 let mut payload = json!({
                     "itemId": item_id,
                     "toolKind": "tool_use",
@@ -615,7 +624,10 @@ impl ClaudeNormalizer {
                         .as_ref()
                         .is_none_or(|sid| sid == &message_id));
             let item_id = if streamed_here {
-                self.text_block_id.clone().unwrap()
+                self.text_block_id
+                    .clone()
+                    // Invariant: streamed_here requires text_block_id.is_some().
+                    .expect("streamed_here requires text_block_id.is_some()")
             } else if !message_id.is_empty() {
                 format!("{message_id}:text")
             } else {
@@ -710,7 +722,11 @@ impl ClaudeNormalizer {
             }
             if let Some(model_usage) = parsed["modelUsage"].as_object() {
                 if model_usage.len() == 1 {
-                    let (key, only) = model_usage.iter().next().unwrap();
+                    let (key, only) = model_usage
+                        .iter()
+                        .next()
+                        // Invariant: model_usage length is exactly one in this branch.
+                        .expect("model_usage length is exactly one in this branch");
                     let named = only["canonicalModel"]
                         .as_str()
                         .filter(|s| !s.is_empty())
@@ -721,7 +737,9 @@ impl ClaudeNormalizer {
                 }
                 let mut widest: Option<f64> = None;
                 for entry in model_usage.values() {
-                    if let Some(w) = entry["contextWindow"].as_f64().filter(|n| n.is_finite() && *n > 0.0)
+                    if let Some(w) = entry["contextWindow"]
+                        .as_f64()
+                        .filter(|n| n.is_finite() && *n > 0.0)
                     {
                         widest = Some(widest.map_or(w, |c| c.max(w)));
                     }
@@ -752,7 +770,11 @@ impl ClaudeNormalizer {
                     let msg = if said.is_empty() {
                         format!(
                             "Claude Code ended with {}.",
-                            if reason.is_empty() { "an error" } else { reason }
+                            if reason.is_empty() {
+                                "an error"
+                            } else {
+                                reason
+                            }
                         )
                     } else {
                         said.into()
@@ -810,7 +832,7 @@ impl ClaudeNormalizer {
 }
 
 fn regex_replace_ctrl(text_v: &str) -> String {
-    let re = regex::Regex::new(r"(?i)\s*·\s*ctrl\+o to see\s*$").unwrap();
+    let re = crate::invariants::regex(r"(?i)\s*·\s*ctrl\+o to see\s*$");
     re.replace(text_v, "").into_owned()
 }
 
@@ -853,7 +875,9 @@ mod tests {
     #[test]
     fn thinking_is_a_step_without_text() {
         let mut n = ClaudeNormalizer::default();
-        n.accept(&json!({"type":"stream_event","event":{"type":"message_start","message":{"id":"m1"}}}));
+        n.accept(
+            &json!({"type":"stream_event","event":{"type":"message_start","message":{"id":"m1"}}}),
+        );
         let start = n.accept(&json!({
             "type":"stream_event",
             "event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking"}}
@@ -891,7 +915,10 @@ mod tests {
         }));
         assert_eq!(done[0].kind, "tool.completed");
         assert_eq!(done[0].payload["command"], "a.txt");
-        assert_eq!(limit_kind_for("allowed_warning"), Some("temporary-rate-limit"));
+        assert_eq!(
+            limit_kind_for("allowed_warning"),
+            Some("temporary-rate-limit")
+        );
         assert_eq!(limit_kind_for("allowed"), None);
         assert_eq!(limit_kind_for("rejected"), Some("quota-exhausted"));
     }
@@ -907,6 +934,11 @@ mod tests {
         n.accept(&json!({"type":"result","subtype":"error_max_turns","is_error":true,"result":"too many"}));
         let failed = n.finish(false, "");
         assert_eq!(failed.kind, "run.failed");
-        assert!(failed.payload["message"].as_str().unwrap().contains("too many"));
+        assert!(
+            failed.payload["message"]
+                .as_str()
+                .unwrap()
+                .contains("too many")
+        );
     }
 }

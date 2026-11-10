@@ -9,9 +9,9 @@ use crate::ledger::{self, Item};
 use crate::{Palette, markdown_style};
 use rune::tok::type_;
 use rune::{
-    Align, App, AppHandle, AppSpec, Chrome, Cx, DisplayTarget, El, Key, KeyEvent,
-    Latest, OverlayPlacement, RunOptions, ScreenEdge, ScrollSpec, Shortcut,
-    TextEdit, Tx, Waker, WindowOptions, WindowSpec, col, el, row, text, text_input,
+    Align, App, AppHandle, AppSpec, Chrome, Cx, DisplayTarget, El, Key, KeyEvent, Latest,
+    OverlayPlacement, RunOptions, ScreenEdge, ScrollSpec, Shortcut, TextEdit, Tx, Waker,
+    WindowOptions, WindowSpec, col, el, row, text, text_input,
 };
 use rune_kit::Markdown;
 use std::path::PathBuf;
@@ -19,11 +19,9 @@ use std::time::{Duration, Instant, SystemTime};
 
 const WIDTH: f32 = 680.0;
 const MAX_HEIGHT: f32 = 520.0;
-const UNAVAILABLE: &str =
-    "Locust isn't running, or 'Let your other AI apps use Locust' is off.";
+const UNAVAILABLE: &str = "Locust isn't running, or 'Let your other AI apps use Locust' is off.";
 const MAX_FLIGHT_AGE: Duration = Duration::from_secs(30 * 60);
-const STOPPED: &str =
-    "Stopped watching after 30 minutes; the turn goes on in Locust";
+const STOPPED: &str = "Stopped watching after 30 minutes; the turn goes on in Locust";
 
 // Same cadence as main.rs's ledger_tick (now + 0.25) while the panel is drawn.
 const LEDGER_VISIBLE: Duration = Duration::from_millis(250);
@@ -60,7 +58,7 @@ enum Follow {
     // The send has not returned a conversation_id yet.
     Starting,
     // Streaming from the ledger (the normal path).
-    Ledger(LedgerFollow),
+    Ledger(Box<LedgerFollow>),
     // Fallback: Engine::reply polling, with the Retry machinery below.
     Reply,
 }
@@ -117,10 +115,7 @@ enum ReadFail {
 
 // Both outcomes return the Session so a transient error never rebuilds it
 // (as main.rs's LedgerAnswer).
-type StreamAnswer = Result<
-    (ledger::Session, ledger::Snapshot),
-    (ledger::Session, ReadFail),
->;
+type StreamAnswer = Result<(ledger::Session, ledger::Snapshot), Box<(ledger::Session, ReadFail)>>;
 // Tagged with the flight serial (send) or the conversation id (reply) they were asked for.
 type StartAnswer = (u64, Result<Started, String>);
 type ReplyAnswer = (String, Result<Reply, String>);
@@ -222,9 +217,10 @@ fn stop_watching(s: &mut State) {
 }
 
 fn expire(s: &mut State, now: Instant) -> bool {
-    if s.flight.as_ref().is_some_and(|f| {
-        now.saturating_duration_since(f.started_at) >= MAX_FLIGHT_AGE
-    }) {
+    if s.flight
+        .as_ref()
+        .is_some_and(|f| now.saturating_duration_since(f.started_at) >= MAX_FLIGHT_AGE)
+    {
         // Fix: a watchdog also ends requests that never return, without stopping Locust.
         stop_watching(s);
         s.notice = Some(STOPPED.into());
@@ -244,8 +240,11 @@ fn hide(s: &mut State) {
 
 fn toggle(s: &mut State, tx: &mut Tx) {
     // Fix: query Rune's published native visibility instead of trusting the requested flag.
-    let shown = s.app.as_ref()
-        .map(|app| app.is_visible()).unwrap_or(s.visible);
+    let shown = s
+        .app
+        .as_ref()
+        .map(|app| app.is_visible())
+        .unwrap_or(s.visible);
     if shown {
         hide(s);
         return;
@@ -301,7 +300,8 @@ fn error_words(words: String) -> String {
     // HTTP refusals, malformed responses, and tool refusals retain Locust's own words.
     if words == engine::NOT_ON
         || words == "Locust's data folder could not be found on this computer."
-        || words == "Locust isn't running, or isn't taking requests from other apps right now. Open Locust and try again."
+        || words
+            == "Locust isn't running, or isn't taking requests from other apps right now. Open Locust and try again."
     {
         UNAVAILABLE.into()
     } else {
@@ -330,7 +330,8 @@ fn land_team(s: &mut State, result: Result<Vec<Teammate>, String>) {
     match result {
         Ok(team) if !team.is_empty() => {
             let selected_id = s.teammates.get(s.selected).map(|t| t.id.clone());
-            s.selected = selected_id.as_deref()
+            s.selected = selected_id
+                .as_deref()
                 .and_then(|id| team.iter().position(|t| t.id == id))
                 .or_else(|| team.iter().position(|t| t.name == "Codec"))
                 .unwrap_or(0);
@@ -380,9 +381,13 @@ fn send_at(s: &mut State, tx: &mut Tx, now: Instant) {
     let message = s.draft.text.clone();
 
     let serial = start_flight(s, id.clone(), name, message.clone(), now);
-    s.sending.request((id, message, serial), |(id, message, serial)| {
-        (serial, Engine::local().and_then(|engine| engine.start(&id, &message, None, None)))
-    });
+    s.sending
+        .request((id, message, serial), |(id, message, serial)| {
+            (
+                serial,
+                Engine::local().and_then(|engine| engine.start(&id, &message, None, None)),
+            )
+        });
     arm_deadline(s, now, tx);
 }
 
@@ -428,17 +433,14 @@ fn restore_failed_draft(s: &mut State, message: String) {
     s.draft.replace_text(draft);
 }
 
-fn land_started(
-    s: &mut State,
-    tag: u64,
-    result: Result<Started, String>,
-    now: Instant,
-) {
+fn land_started(s: &mut State, tag: u64, result: Result<Started, String>, now: Instant) {
     if expire(s, now) {
         return;
     }
     // Only the flight this send belongs to, and only while it is still waiting for its id.
-    let current = s.flight.as_ref()
+    let current = s
+        .flight
+        .as_ref()
         .is_some_and(|f| f.serial == tag && matches!(f.follow, Follow::Starting));
     if !current {
         return;
@@ -466,19 +468,21 @@ fn land_started(
 // folder; production passes crate::ledger_dir(). Readability is NOT probed here: that
 // would touch the disk on the UI thread. The first job reports it instead.
 fn begin_follow(s: &mut State, dir: Option<PathBuf>, now: Instant) {
-    let Some(flight) = s.flight.as_mut() else { return };
+    let Some(flight) = s.flight.as_mut() else {
+        return;
+    };
     let id = flight.conversation_id.clone().unwrap_or_default();
     match dir {
         // Session::poll would refuse an unsafe id with InvalidInput; skip the pointless poll.
         Some(dir) if ledger::safe_id(&id) => {
             let session = ledger::Session::new(dir, id);
-            flight.follow = Follow::Ledger(LedgerFollow {
+            flight.follow = Follow::Ledger(Box::new(LedgerFollow {
                 session: Some(session),
                 healthy: now,
                 begun: now,
                 last: None,
                 erred: false,
-            });
+            }));
             s.retry = None;
         }
         _ => fall_back_to_reply(s, now),
@@ -504,7 +508,13 @@ fn retry_due(s: &State) -> Option<Instant> {
         RetryKind::Immediate => Duration::ZERO,
         RetryKind::Working => Duration::from_millis(500),
         // Fix: visibility changes adjust an already scheduled approval retry too.
-        RetryKind::Approval => if s.visible { WAITING_VISIBLE } else { WAITING_HIDDEN },
+        RetryKind::Approval => {
+            if s.visible {
+                WAITING_VISIBLE
+            } else {
+                WAITING_HIDDEN
+            }
+        }
     };
     Some(retry.since + delay)
 }
@@ -529,21 +539,29 @@ fn ledger_due(s: &State) -> Option<Instant> {
     Some(match f.last {
         // The file may not be flushed the instant start_conversation returns.
         None => f.healthy + LEDGER_FIRST,
-        Some(last) => last + if f.erred {
-            LEDGER_ERROR_RETRY
-        } else {
-            ledger_interval(s.visible, s.activity == Activity::WaitingForYou)
-        },
+        Some(last) => {
+            last + if f.erred {
+                LEDGER_ERROR_RETRY
+            } else {
+                ledger_interval(s.visible, s.activity == Activity::WaitingForYou)
+            }
+        }
     })
 }
 
 fn request_reply(s: &mut State) {
     // Engine::reply belongs to the fallback only; any other mode has nothing to re-ask.
-    if !s.flight.as_ref().is_some_and(|f| matches!(f.follow, Follow::Reply)) {
+    if !s
+        .flight
+        .as_ref()
+        .is_some_and(|f| matches!(f.follow, Follow::Reply))
+    {
         s.retry = None;
         return;
     }
-    let Some(id) = s.flight.as_ref()
+    let Some(id) = s
+        .flight
+        .as_ref()
         .and_then(|f| f.conversation_id.clone())
         .filter(|id| !id.is_empty())
     else {
@@ -560,7 +578,11 @@ fn request_reply(s: &mut State) {
 // Move the Session onto a worker for one poll (as main.rs does with ledger_job).
 fn request_stream(s: &mut State) {
     // Hidden, a running tip is not re-listed more than every HIDDEN_RESCAN.
-    let rescan = if s.visible { ledger::RESCAN } else { HIDDEN_RESCAN };
+    let rescan = if s.visible {
+        ledger::RESCAN
+    } else {
+        HIDDEN_RESCAN
+    };
     let taken = match s.flight.as_mut().map(|f| &mut f.follow) {
         Some(Follow::Ledger(f)) => f.session.take(),
         _ => None,
@@ -578,7 +600,7 @@ fn request_stream(s: &mut State) {
             } else {
                 ReadFail::Other
             };
-            Err((session, fail))
+            Err(Box::new((session, fail)))
         }
     });
 }
@@ -587,14 +609,15 @@ fn request_stream(s: &mut State) {
 // Session also yields earlier turns of a continued chain; Quick Ask never continues one,
 // but the cut keeps that safe. Tool, plan and note items are left out of the answer.
 fn streamed_text(items: &[Item]) -> String {
-    let from = items.iter()
+    let from = items
+        .iter()
         .rposition(|i| matches!(i, Item::User(_)))
         .map_or(0, |i| i + 1);
-    items.iter().skip(from)
+    items
+        .iter()
+        .skip(from)
         .filter_map(|i| match i {
-            Item::Assistant { text, .. } if !text.trim().is_empty() => {
-                Some(text.as_str())
-            }
+            Item::Assistant { text, .. } if !text.trim().is_empty() => Some(text.as_str()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -603,11 +626,11 @@ fn streamed_text(items: &[Item]) -> String {
 
 // Locust's own words for a failed run: the ledger's last error note.
 fn failure_words(items: &[Item], name: &str) -> String {
-    items.iter().rev()
+    items
+        .iter()
+        .rev()
         .find_map(|i| match i {
-            Item::Note { level, text }
-                if level == "error" && !text.trim().is_empty() =>
-            {
+            Item::Note { level, text } if level == "error" && !text.trim().is_empty() => {
                 Some(text.clone())
             }
             _ => None,
@@ -617,7 +640,11 @@ fn failure_words(items: &[Item], name: &str) -> String {
 
 // The conversation ended in the ledger: show the final text (or the failure) and stop.
 fn finish_stream(s: &mut State, snapshot: &ledger::Snapshot, tx: &mut Tx) {
-    let name = s.flight.as_ref().map(|f| f.name.clone()).unwrap_or_default();
+    let name = s
+        .flight
+        .as_ref()
+        .map(|f| f.name.clone())
+        .unwrap_or_default();
     let body = streamed_text(&snapshot.items);
     stop_watching(s);
     s.answer_name = name.clone();
@@ -645,19 +672,15 @@ fn waiting_after(quiet: Option<Duration>) -> bool {
 }
 
 // Returns whether anything drawn changed, so an unchanged poll does not redraw.
-fn land_stream(
-    s: &mut State,
-    result: StreamAnswer,
-    tx: &mut Tx,
-    now: Instant,
-) -> bool {
+fn land_stream(s: &mut State, result: StreamAnswer, tx: &mut Tx, now: Instant) -> bool {
     if expire(s, now) {
         return true;
     }
     // Same guard as main.rs: a result for another conversation, or for a flight that has
     // since fallen back or ended, is dropped.
     let anchor = match &result {
-        Ok((session, _)) | Err((session, _)) => session.anchor().to_owned(),
+        Ok((session, _)) => session.anchor().to_owned(),
+        Err(error) => error.0.anchor().to_owned(),
     };
     let current = s.flight.as_ref().and_then(|f| match &f.follow {
         Follow::Ledger(_) => f.conversation_id.clone(),
@@ -669,7 +692,10 @@ fn land_stream(
 
     let (session, snapshot) = match result {
         Ok(read) => read,
-        Err((session, fail)) => return land_read_failure(s, session, fail, now),
+        Err(error) => {
+            let (session, fail) = *error;
+            return land_read_failure(s, session, fail, now);
+        }
     };
     // Snapshot::running also turns false when the file merely goes quiet for 15 minutes.
     // Only the ledger's own run.completed / run.failed / run.cancelled ends the flight
@@ -709,15 +735,16 @@ fn land_read_failure(
     fail: ReadFail,
     now: Instant,
 ) -> bool {
-    let (stale, starting) = s.flight.as_ref().map_or((false, false), |f| {
-        match &f.follow {
+    let (stale, starting) = s
+        .flight
+        .as_ref()
+        .map_or((false, false), |f| match &f.follow {
             Follow::Ledger(l) => (
                 now.saturating_duration_since(l.healthy) >= LEDGER_GRACE,
                 now.saturating_duration_since(l.begun) < LEDGER_STARTING,
             ),
             _ => (false, false),
-        }
-    });
+        });
     if fail == ReadFail::Unreadable || stale {
         // The ledger cannot be read: this is the one case that uses Engine::reply.
         fall_back_to_reply(s, now);
@@ -732,13 +759,7 @@ fn land_read_failure(
     false
 }
 
-fn land_reply(
-    s: &mut State,
-    tag: &str,
-    result: Result<Reply, String>,
-    tx: &mut Tx,
-    now: Instant,
-) {
+fn land_reply(s: &mut State, tag: &str, result: Result<Reply, String>, tx: &mut Tx, now: Instant) {
     if expire(s, now) {
         return;
     }
@@ -767,7 +788,11 @@ fn land_reply(
         }
         Ok(Reply::Answer(answer)) => {
             // Fix: use the answering flight's identity at landing, not a dispatch-time label.
-            let name = s.flight.as_ref().map(|f| f.name.clone()).unwrap_or_default();
+            let name = s
+                .flight
+                .as_ref()
+                .map(|f| f.name.clone())
+                .unwrap_or_default();
             stop_watching(s);
             s.answer_name = name;
             s.answer = Some(answer);
@@ -841,9 +866,7 @@ fn key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         hide(s);
         return true;
     }
-    if event.key == Key::Tab
-        && !event.mods.cmd && !event.mods.ctrl && !event.mods.alt
-    {
+    if event.key == Key::Tab && !event.mods.cmd && !event.mods.ctrl && !event.mods.alt {
         cycle(s, event.mods.shift);
         return true;
     }
@@ -852,8 +875,10 @@ fn key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if event.key == Key::Enter
-        && !event.mods.shift && !event.mods.alt
-        && !event.mods.ctrl && !event.mods.cmd
+        && !event.mods.shift
+        && !event.mods.alt
+        && !event.mods.ctrl
+        && !event.mods.cmd
     {
         send(s, tx);
         return true;
@@ -882,50 +907,85 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     } else {
         s.teammates.get(s.selected)
     };
-    let name = s.flight.as_ref().map(|f| f.name.as_str())
+    let name = s
+        .flight
+        .as_ref()
+        .map(|f| f.name.as_str())
         .or_else(|| teammate.map(|t| t.name.as_str()))
         .unwrap_or("Locust");
-    let initial = name.chars().next()
+    let initial = name
+        .chars()
+        .next()
         .map(|c| c.to_uppercase().collect::<String>())
         .unwrap_or_else(|| "?".into());
 
-    let header = row().key("quick-header").w_full().center_y().gap(10.0)
+    let header = row()
+        .key("quick-header")
+        .w_full()
+        .center_y()
+        .gap(10.0)
         .child(
-            el().size(22.0, 22.0).radius(11.0).center().fill(p.raised)
+            el().size(22.0, 22.0)
+                .radius(11.0)
+                .center()
+                .fill(p.raised)
                 .child(text(initial).font(type_::LABEL).color(p.secondary)),
         )
         .child(
-            text(name).font(type_::TITLE).color(p.text)
-                .max_w(100.0).truncate(),
+            text(name)
+                .font(type_::TITLE)
+                .color(p.text)
+                .max_w(100.0)
+                .truncate(),
         )
         .child(
-            text_input(&s.draft, type_::BODY).key("quick-composer")
+            text_input(&s.draft, type_::BODY)
+                .key("quick-composer")
                 .placeholder(format!("Ask {name}…"), p.muted)
-                .color(p.text).grow(1.0).shrink()
-                .min_h(48.0).max_h(112.0)
-                .padding(12.0).radius(10.0).fill(p.field)
+                .color(p.text)
+                .grow(1.0)
+                .shrink()
+                .min_h(48.0)
+                .max_h(112.0)
+                .padding(12.0)
+                .radius(10.0)
+                .fill(p.field)
                 .border(1.0, p.hairline)
                 .on_edit(|s: &mut State| &mut s.draft)
-                .on_input_key(key).on_submit(send),
+                .on_input_key(key)
+                .on_submit(send),
         );
 
-    let mut panel = col().key("quick-panel").w_full().max_h(MAX_HEIGHT)
-        .padding(16.0).gap(12.0).radius(16.0)
-        .fill(p.bg).border(1.0, p.hairline)
+    let mut panel = col()
+        .key("quick-panel")
+        .w_full()
+        .max_h(MAX_HEIGHT)
+        .padding(16.0)
+        .gap(12.0)
+        .radius(16.0)
+        .fill(p.bg)
+        .border(1.0, p.hairline)
         .child(header);
     let mut output = col().key("quick-output").w_full().gap(12.0);
 
     if !s.question.is_empty() {
         output = output.child(
-            text(s.question.clone()).font(type_::BODY)
-                .color(p.secondary).w_full()
-                .wrap_anywhere().selectable(true),
+            text(s.question.clone())
+                .font(type_::BODY)
+                .color(p.secondary)
+                .w_full()
+                .wrap_anywhere()
+                .selectable(true),
         );
     }
     if let Some(error) = s.error.as_ref().or(s.team_error.as_ref()) {
         output = output.child(
-            text(error.clone()).font(type_::BODY)
-                .color(p.red).w_full().wrap_anywhere().selectable(true),
+            text(error.clone())
+                .font(type_::BODY)
+                .color(p.red)
+                .w_full()
+                .wrap_anywhere()
+                .selectable(true),
         );
     } else if let Some(flight) = &s.flight {
         let status = match s.activity {
@@ -935,31 +995,43 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             }
         };
         output = output.child(
-            text(status).font(type_::LABEL).color(p.muted).w_full().wrap(),
+            text(status)
+                .font(type_::LABEL)
+                .color(p.muted)
+                .w_full()
+                .wrap(),
         );
     } else if s.team.is_pending() {
-        output = output.child(
-            text("Loading teammates…").font(type_::LABEL).color(p.muted),
-        );
+        output = output.child(text("Loading teammates…").font(type_::LABEL).color(p.muted));
     }
 
     if let Some(notice) = &s.notice {
         output = output.child(
-            text(notice.clone()).font(type_::LABEL)
-                .color(p.muted).w_full().wrap_anywhere().selectable(true),
+            text(notice.clone())
+                .font(type_::LABEL)
+                .color(p.muted)
+                .w_full()
+                .wrap_anywhere()
+                .selectable(true),
         );
     }
 
     if let Some(answer) = &s.answer {
         output = output
-            .child(text(s.answer_name.clone()).font(type_::LABEL).color(p.muted))
+            .child(
+                text(s.answer_name.clone())
+                    .font(type_::LABEL)
+                    .color(p.muted),
+            )
             .child(
                 // An answer shown during a flight is still growing; main.rs passes
                 // !final the same way. After the flight ends it is complete.
-                Markdown::new(answer.clone()).streaming(s.flight.is_some())
+                Markdown::new(answer.clone())
+                    .streaming(s.flight.is_some())
                     .selectable(true)
                     .render(&markdown_style(&p))
-                    .key("quick-answer").w_full(),
+                    .key("quick-answer")
+                    .w_full(),
             );
     }
 
@@ -972,15 +1044,16 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         || s.team.is_pending()
     {
         // Measure natural output, then cap only its viewport; the editor remains visible.
-        let header_h = cx.layout_size("quick-header")
-            .map(|r| r[1]).unwrap_or(48.0);
-        let output_h = cx.layout_size("quick-output")
-            .map(|r| r[1]).unwrap_or(80.0);
+        let header_h = cx.layout_size("quick-header").map(|r| r[1]).unwrap_or(48.0);
+        let output_h = cx.layout_size("quick-output").map(|r| r[1]).unwrap_or(80.0);
         let available = (MAX_HEIGHT - 32.0 - 12.0 - header_h).max(1.0);
 
         panel = panel.child(
-            col().key("quick-messages").w_full()
-                .h(output_h.min(available)).min_h(0.0)
+            col()
+                .key("quick-messages")
+                .w_full()
+                .h(output_h.min(available))
+                .min_h(0.0)
                 .scroll(ScrollSpec { stick_bottom: true })
                 .child(output),
         );
@@ -1079,8 +1152,7 @@ pub fn run() {
         std::process::exit(1);
     }
 
-    let chord = std::env::var("LOCUST_QUICK_CHORD")
-        .unwrap_or_else(|_| "alt+space".into());
+    let chord = std::env::var("LOCUST_QUICK_CHORD").unwrap_or_else(|_| "alt+space".into());
     let shortcut: Shortcut = match chord.parse() {
         Ok(shortcut) => shortcut,
         Err(error) => {
@@ -1090,13 +1162,17 @@ pub fn run() {
     };
 
     rune::run_windows_with(RunOptions { accessory: true }, move |displays| {
-        let top = displays.iter().find(|d| d.primary)
+        let top = displays
+            .iter()
+            .find(|d| d.primary)
             .or_else(|| displays.first())
             .map(|d| (d.size.1 as f64 / d.scale / 6.0) as f32)
             .unwrap_or(160.0);
 
         let app = App::new(scenes())
-            .windowless().keep_running().fit_content_height()
+            .windowless()
+            .keep_running()
+            .fit_content_height()
             .configured_options(
                 WindowOptions::launcher_panel()
                     .macos(|native| native.corner_radius(16.0).shadow(true)),
@@ -1124,25 +1200,27 @@ pub fn run() {
         let state_handle = handle.clone();
         let mut registered = false;
 
-        let app = app.init(move || State {
-            app: Some(state_handle),
-            top,
-            ..State::default()
-        })
-        .on_ready(move |_| {
-            // A launcher prepares a hidden native frame before this callback.
-            // Runtime registration avoids the builder's additional error logging.
-            if registered {
-                return;
-            }
-            registered = true;
-            if let Err(error) = handle.register_shortcut(shortcut.clone(), toggle) {
-                let holder = handle.shortcut_owner(&shortcut)
-                    .unwrap_or_else(|| "unknown".into());
-                eprintln!("Quick Ask shortcut {chord}: {error}; holder: {holder}");
-                std::process::exit(1);
-            }
-        });
+        let app = app
+            .init(move || State {
+                app: Some(state_handle),
+                top,
+                ..State::default()
+            })
+            .on_ready(move |_| {
+                // A launcher prepares a hidden native frame before this callback.
+                // Runtime registration avoids the builder's additional error logging.
+                if registered {
+                    return;
+                }
+                registered = true;
+                if let Err(error) = handle.register_shortcut(shortcut.clone(), toggle) {
+                    let holder = handle
+                        .shortcut_owner(&shortcut)
+                        .unwrap_or_else(|| "unknown".into());
+                    eprintln!("Quick Ask shortcut {chord}: {error}; holder: {holder}");
+                    std::process::exit(1);
+                }
+            });
 
         vec![WindowSpec::from_app("quick", app)]
     });
@@ -1177,9 +1255,14 @@ mod tests {
     impl TempDir {
         fn new() -> Self {
             let n = NEXT.fetch_add(1, Ordering::Relaxed);
-            let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-            let path = std::env::temp_dir()
-                .join(format!("locust-quick-test-{}-{nanos}-{n}", std::process::id()));
+            let nanos = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "locust-quick-test-{}-{nanos}-{n}",
+                std::process::id()
+            ));
             fs::create_dir_all(&path).unwrap();
             Self(path)
         }
@@ -1201,12 +1284,19 @@ mod tests {
             "type":kind,"payload":payload}})
     }
     fn delta(seq: u64, piece: &str, last: bool) -> Value {
-        ev(seq, "message.delta", json!({
-            "itemId":"answer","operation":"append","text":piece,"final":last}))
+        ev(
+            seq,
+            "message.delta",
+            json!({
+            "itemId":"answer","operation":"append","text":piece,"final":last}),
+        )
     }
     fn append(dir: &Path, id: &str, records: &[Value]) {
-        let mut f = OpenOptions::new().create(true).append(true)
-            .open(dir.join(format!("{id}.jsonl"))).unwrap();
+        let mut f = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(dir.join(format!("{id}.jsonl")))
+            .unwrap();
         for r in records {
             writeln!(f, "{r}").unwrap();
         }
@@ -1259,7 +1349,10 @@ mod tests {
         let mut s = State::default();
         sample(&mut s);
         let mut tx = Tx::default();
-        let tab = KeyEvent { key: Key::Tab, mods: rune::Mods::default() };
+        let tab = KeyEvent {
+            key: Key::Tab,
+            mods: rune::Mods::default(),
+        };
         assert!(key(&mut s, &tab, &mut tx));
         assert_eq!(s.selected, 1);
         assert!(key(&mut s, &tab, &mut tx));
@@ -1267,7 +1360,10 @@ mod tests {
 
         let back = KeyEvent {
             key: Key::Tab,
-            mods: rune::Mods { shift: true, ..Default::default() },
+            mods: rune::Mods {
+                shift: true,
+                ..Default::default()
+            },
         };
         assert!(key(&mut s, &back, &mut tx));
         assert_eq!(s.selected, 1);
@@ -1279,13 +1375,14 @@ mod tests {
     #[test]
     fn escape_during_flight_stops_watching_and_hides() {
         let mut s = working(Instant::now());
-        let escape = KeyEvent { key: Key::Escape, mods: rune::Mods::default() };
+        let escape = KeyEvent {
+            key: Key::Escape,
+            mods: rune::Mods::default(),
+        };
         assert!(key(&mut s, &escape, &mut Tx::default()));
         assert!(s.flight.is_none() && s.retry.is_none());
         assert!(!s.visible);
-        assert!(
-            !s.sending.is_pending() && !s.waiting.is_pending() && !s.stream.is_pending()
-        );
+        assert!(!s.sending.is_pending() && !s.waiting.is_pending() && !s.stream.is_pending());
     }
 
     #[test]
@@ -1310,7 +1407,13 @@ mod tests {
         let now = Instant::now();
         let mut s = working(now);
         let mut tx = Tx::default();
-        land_reply(&mut s, "sample", Ok(Reply::WaitingForYou("approve".into())), &mut tx, now);
+        land_reply(
+            &mut s,
+            "sample",
+            Ok(Reply::WaitingForYou("approve".into())),
+            &mut tx,
+            now,
+        );
         assert_eq!(retry_due(&s), Some(now + Duration::from_secs(3)));
 
         toggle(&mut s, &mut tx);
@@ -1343,7 +1446,10 @@ mod tests {
         let mut s = working(now);
         hide(&mut s);
 
-        assert!(!expire(&mut s, now + MAX_FLIGHT_AGE - Duration::from_secs(1)));
+        assert!(!expire(
+            &mut s,
+            now + MAX_FLIGHT_AGE - Duration::from_secs(1)
+        ));
         assert!(expire(&mut s, now + MAX_FLIGHT_AGE));
         assert!(s.flight.is_none() && s.retry.is_none());
         assert_eq!(s.notice.as_deref(), Some(STOPPED));
@@ -1385,7 +1491,10 @@ mod tests {
     fn tab_is_locked_during_flight_and_answer_label_comes_from_flight() {
         let now = Instant::now();
         let mut s = working(now);
-        let tab = KeyEvent { key: Key::Tab, mods: rune::Mods::default() };
+        let tab = KeyEvent {
+            key: Key::Tab,
+            mods: rune::Mods::default(),
+        };
         assert!(key(&mut s, &tab, &mut Tx::default()));
         assert_eq!(s.selected, 0);
 
@@ -1393,7 +1502,13 @@ mod tests {
             flight.name = "Codec renamed".into();
         }
         s.answer_name = "stale".into();
-        land_reply(&mut s, "sample", Ok(Reply::Answer("answer".into())), &mut Tx::default(), now);
+        land_reply(
+            &mut s,
+            "sample",
+            Ok(Reply::Answer("answer".into())),
+            &mut Tx::default(),
+            now,
+        );
         assert_eq!(s.answer_name, "Codec renamed");
     }
 
@@ -1434,7 +1549,13 @@ mod tests {
 
         let now = Instant::now();
         let mut s = working(now);
-        land_reply(&mut s, "sample", Err(refusal.into()), &mut Tx::default(), now);
+        land_reply(
+            &mut s,
+            "sample",
+            Err(refusal.into()),
+            &mut Tx::default(),
+            now,
+        );
         assert_eq!(s.error.as_deref(), Some(refusal));
 
         // A team-load failure has its own slot (decision 2): the turn error stays.
@@ -1452,7 +1573,11 @@ mod tests {
     fn streams_growing_text_across_two_polls_then_finishes() {
         let temp = TempDir::new();
         let t0 = Instant::now();
-        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
+        append(
+            &temp.0,
+            "conv1",
+            &[created("conv1"), delta(1, "Hello", false)],
+        );
         let mut s = streaming(&temp.0, t0);
         assert_eq!(mode(&s), "ledger");
         // The first poll waits LEDGER_FIRST after the follow began.
@@ -1475,7 +1600,11 @@ mod tests {
         assert_eq!(s.answer.as_deref(), Some("Hello world"));
 
         // The run ends: final text stays, the flight is released, nothing used Engine::reply.
-        append(&temp.0, "conv1", &[delta(3, "!", true), ev(4, "run.completed", json!({}))]);
+        append(
+            &temp.0,
+            "conv1",
+            &[delta(3, "!", true), ev(4, "run.completed", json!({}))],
+        );
         assert!(pump(&mut s, t1 + Duration::from_secs(1)));
         assert_eq!(s.answer.as_deref(), Some("Hello world!"));
         assert!(s.flight.is_none() && s.retry.is_none() && s.error.is_none());
@@ -1486,7 +1615,11 @@ mod tests {
     fn hiding_mid_stream_keeps_the_turn_going_but_polls_slowly() {
         let temp = TempDir::new();
         let t0 = Instant::now();
-        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
+        append(
+            &temp.0,
+            "conv1",
+            &[created("conv1"), delta(1, "Hello", false)],
+        );
         let mut s = streaming(&temp.0, t0);
         assert!(s.visible);
         let t1 = t0 + LEDGER_FIRST;
@@ -1513,7 +1646,11 @@ mod tests {
 
         // Finishing while hidden still lands the final answer; the panel stays hidden.
         hide(&mut s);
-        append(&temp.0, "conv1", &[delta(3, "!", true), ev(4, "run.completed", json!({}))]);
+        append(
+            &temp.0,
+            "conv1",
+            &[delta(3, "!", true), ev(4, "run.completed", json!({}))],
+        );
         pump(&mut s, t0 + Duration::from_secs(5));
         assert!(!s.visible && s.flight.is_none());
         assert_eq!(s.answer.as_deref(), Some("Hello world!"));
@@ -1582,8 +1719,10 @@ mod tests {
 
     // Make the ledger file look as if it was last written `ago` ago.
     fn age(dir: &Path, id: &str, ago: Duration) {
-        let file = OpenOptions::new().write(true)
-            .open(dir.join(format!("{id}.jsonl"))).unwrap();
+        let file = OpenOptions::new()
+            .write(true)
+            .open(dir.join(format!("{id}.jsonl")))
+            .unwrap();
         file.set_times(fs::FileTimes::new().set_modified(SystemTime::now() - ago))
             .unwrap();
     }
@@ -1621,7 +1760,11 @@ mod tests {
     fn a_quiet_unfinished_turn_waits_until_the_watchdog_and_shows_waiting() {
         let temp = TempDir::new();
         let t0 = Instant::now();
-        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Partial", false)]);
+        append(
+            &temp.0,
+            "conv1",
+            &[created("conv1"), delta(1, "Partial", false)],
+        );
         age(&temp.0, "conv1", Duration::from_secs(20 * 60));
         let mut s = streaming(&temp.0, t0);
         let t1 = t0 + LEDGER_FIRST;
@@ -1647,7 +1790,11 @@ mod tests {
     fn hidden_polling_asks_for_a_slow_folder_rescan() {
         let temp = TempDir::new();
         let t0 = Instant::now();
-        append(&temp.0, "conv1", &[created("conv1"), delta(1, "Hello", false)]);
+        append(
+            &temp.0,
+            "conv1",
+            &[created("conv1"), delta(1, "Hello", false)],
+        );
         let mut s = streaming(&temp.0, t0);
         let t1 = t0 + LEDGER_FIRST;
         pump(&mut s, t1);
@@ -1668,7 +1815,13 @@ mod tests {
         let now = Instant::now();
         let mut s = working(now);
         let mut tx = Tx::default();
-        land_reply(&mut s, "sample", Ok(Reply::Failed("Codec crashed".into())), &mut tx, now);
+        land_reply(
+            &mut s,
+            "sample",
+            Ok(Reply::Failed("Codec crashed".into())),
+            &mut tx,
+            now,
+        );
         hide(&mut s);
         begin_show_at(&mut s, now + Duration::from_secs(1));
         assert_eq!(s.error.as_deref(), Some("Codec crashed"));
@@ -1687,7 +1840,10 @@ mod tests {
         begin_show_at(&mut s, now + MAX_FLIGHT_AGE);
         land_team(&mut s, Err("Locust refused the request (403).".into()));
         assert_eq!(s.notice.as_deref(), Some(STOPPED));
-        assert_eq!(s.team_error.as_deref(), Some("Locust refused the request (403)."));
+        assert_eq!(
+            s.team_error.as_deref(),
+            Some("Locust refused the request (403).")
+        );
     }
 
     // Finding 3: replies carry their conversation id and follow mode.
@@ -1698,22 +1854,37 @@ mod tests {
 
         // Wrong conversation id.
         let mut s = working(now);
-        land_reply(&mut s, "other", Ok(Reply::Answer("not mine".into())), &mut tx, now);
+        land_reply(
+            &mut s,
+            "other",
+            Ok(Reply::Answer("not mine".into())),
+            &mut tx,
+            now,
+        );
         assert!(s.flight.is_some() && s.answer.is_none());
 
         // Right id, but the flight is following the ledger (or still starting).
-        for other in [Follow::Starting, Follow::Ledger(LedgerFollow {
-            session: None,
-            healthy: now,
-            begun: now,
-            last: None,
-            erred: false,
-        })] {
+        for other in [
+            Follow::Starting,
+            Follow::Ledger(Box::new(LedgerFollow {
+                session: None,
+                healthy: now,
+                begun: now,
+                last: None,
+                erred: false,
+            })),
+        ] {
             let mut s = working(now);
             if let Some(f) = s.flight.as_mut() {
                 f.follow = other;
             }
-            land_reply(&mut s, "sample", Ok(Reply::WaitingForYou("card".into())), &mut tx, now);
+            land_reply(
+                &mut s,
+                "sample",
+                Ok(Reply::WaitingForYou("card".into())),
+                &mut tx,
+                now,
+            );
             assert!(s.retry.is_none() && s.flight.is_some());
             assert!(s.activity == Activity::Working);
             land_reply(&mut s, "sample", Err("boom".into()), &mut tx, now);
@@ -1726,10 +1897,16 @@ mod tests {
             f.follow = Follow::Starting;
             f.serial = 7;
         }
-        let started = Started { conversation_id: "conv9".into(), mode: "ask".into() };
+        let started = Started {
+            conversation_id: "conv9".into(),
+            mode: "ask".into(),
+        };
         land_started(&mut s, 6, Ok(started), now);
         assert_eq!(mode(&s), "starting");
-        assert_eq!(s.flight.as_ref().unwrap().conversation_id.as_deref(), Some("sample"));
+        assert_eq!(
+            s.flight.as_ref().unwrap().conversation_id.as_deref(),
+            Some("sample")
+        );
         // Nor does one that lands after the flight fell back to Engine::reply.
         let mut s = working(now);
         land_started(&mut s, 0, Err("late".into()), now);
@@ -1744,13 +1921,22 @@ mod tests {
 
         let mut s = working(now);
         slow_start(&mut s);
-        land_reply(&mut s, "sample", Ok(Reply::Answer("done".into())), &mut tx, now);
+        land_reply(
+            &mut s,
+            "sample",
+            Ok(Reply::Answer("done".into())),
+            &mut tx,
+            now,
+        );
         assert!(s.flight.is_none() && s.retry.is_none());
         assert_eq!(s.answer.as_deref(), Some("done"));
         nothing_lands(&mut s);
 
         let mut s = working(now);
-        s.retry = Some(Retry { since: now, kind: RetryKind::Working });
+        s.retry = Some(Retry {
+            since: now,
+            kind: RetryKind::Working,
+        });
         slow_reply(&mut s);
         let serial = start_flight(&mut s, "scout".into(), "Scout".into(), "next".into(), now);
         assert!(s.retry.is_none());
@@ -1774,7 +1960,11 @@ mod tests {
         // Nothing is dispatched at t = 0, nor just before LEDGER_FIRST.
         assert_eq!(ledger_due(&s), Some(t0 + LEDGER_FIRST));
         poll_at(&mut s, &mut tx, t0);
-        poll_at(&mut s, &mut tx, t0 + LEDGER_FIRST - Duration::from_millis(1));
+        poll_at(
+            &mut s,
+            &mut tx,
+            t0 + LEDGER_FIRST - Duration::from_millis(1),
+        );
         assert!(!s.stream.is_pending() && follow(&s).session.is_some());
 
         // Missing file inside the first 3 s: not an error, normal pace.
@@ -1782,7 +1972,7 @@ mod tests {
         wait(&s);
         let result = s.stream.take().expect("job result");
         // One listing by Session::poll answers it: folder readable, file missing.
-        assert!(matches!(&result, Err((_, ReadFail::Missing))));
+        assert!(matches!(&result, Err(error) if matches!(error.1, ReadFail::Missing)));
         let t1 = t0 + LEDGER_FIRST;
         land_stream(&mut s, result, &mut tx, t1);
         assert!(!follow(&s).erred);
@@ -1801,6 +1991,6 @@ mod tests {
         request_stream(&mut gone);
         wait(&gone);
         let result = gone.stream.take().expect("job result");
-        assert!(matches!(&result, Err((_, ReadFail::Unreadable))));
+        assert!(matches!(&result, Err(error) if matches!(error.1, ReadFail::Unreadable)));
     }
 }

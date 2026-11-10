@@ -43,13 +43,25 @@ pub fn parse_queued_file(text: &str) -> Result<Vec<QueuedRow>, String> {
 
 fn saved_issue(value: Option<&serde_json::Value>) -> Option<serde_json::Value> {
     let row = value?.as_object()?;
-    let number = row.get("number")?.as_u64().filter(|n| (1..=1_000_000_000).contains(n))?;
+    let number = row
+        .get("number")?
+        .as_u64()
+        .filter(|n| (1..=1_000_000_000).contains(n))?;
     let title = row.get("title")?.as_str()?.trim();
     let url = row.get("url")?.as_str()?;
-    if title.is_empty() || title.encode_utf16().count() > 300 { return None; }
+    if title.is_empty() || title.encode_utf16().count() > 300 {
+        return None;
+    }
     // URL authority must be github.com; accept query/fragment as Electron's URL parser does.
     let path = url.strip_prefix("https://github.com")?;
-    if !path.starts_with('/') || !path.split(['?', '#']).next()?.ends_with(&format!("/issues/{number}")) { return None; }
+    if !path.starts_with('/')
+        || !path
+            .split(['?', '#'])
+            .next()?
+            .ends_with(&format!("/issues/{number}"))
+    {
+        return None;
+    }
     Some(serde_json::json!({"number":number,"title":title,"url":url}))
 }
 
@@ -131,7 +143,9 @@ pub fn serialize_queued(rows: &[QueuedRow]) -> Result<String, String> {
                 "key": r.key,
                 "text": r.text,
             });
-            if let Some(issue) = &r.issue { obj["issue"] = issue.clone(); }
+            if let Some(issue) = &r.issue {
+                obj["issue"] = issue.clone();
+            }
             if !r.attachments.is_empty() {
                 obj["attachments"] = serde_json::json!(r.attachments);
             }
@@ -179,14 +193,21 @@ pub fn write_queue(store: &Store, rows: &[QueuedRow]) -> Result<Vec<QueuedRow>, 
     use std::io::Write;
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create_new(true);
-    #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
     let result = (|| -> io::Result<()> {
         let mut file = options.open(&temporary)?;
         file.write_all(text.as_bytes())?;
         file.sync_all()?;
         Ok(())
     })();
-    if let Err(error) = result { let _ = std::fs::remove_file(&temporary); return Err(error.to_string()); }
+    if let Err(error) = result {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(error.to_string());
+    }
     std::fs::rename(&temporary, &path).map_err(|e| {
         let _ = std::fs::remove_file(&temporary);
         e.to_string()
@@ -210,7 +231,8 @@ mod tests {
         let rows = saved_queued_messages(&value).unwrap();
         let again = parse_queued_file(&serialize_queued(&rows).unwrap()).unwrap();
         assert_eq!(again[0].issue.as_ref().unwrap()["title"], "Issue title");
-        let mut bad = rows; bad[0].text.push('a');
+        let mut bad = rows;
+        bad[0].text.push('a');
         assert!(serialize_queued(&bad).is_err());
     }
 
