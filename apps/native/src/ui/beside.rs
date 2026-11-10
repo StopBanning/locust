@@ -5,7 +5,7 @@ use super::*;
 /// Words copied from Electron `BesideConversation.tsx`.
 pub const BESIDE_OPEN_HERE: &str = "Open it here";
 /// Electron `title` on the open-here control (tooltip); kept for exact-word tests.
-#[allow(dead_code)]
+#[cfg(test)]
 pub const BESIDE_OPEN_HERE_TITLE: &str = "Open it here, to answer it";
 pub const BESIDE_CLOSE: &str = "Close";
 pub const BESIDE_FALLBACK_NAME: &str = "Conversation";
@@ -134,8 +134,6 @@ pub struct BesideState {
     pub owner_name: Option<String>,
     pub prompt: String,
     pub reply_lines: Vec<String>,
-    #[allow(dead_code)] // Electron run.phase; streams when live beside is wired
-    pub phase: String,
 }
 
 /// Never draw the conversation already in the middle a second time (Electron App.tsx).

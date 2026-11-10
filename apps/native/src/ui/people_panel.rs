@@ -4,6 +4,8 @@ use serde_json::{Value, json};
 pub(super) struct Panel {
     pub open: bool,
     pub memory_tab: bool,
+    /// 0 teammates, 1 memory, 2 saved approvals
+    pub tab: u8,
     pub entry: Value,
     pub fields: Vec<TextEdit>,
     pub note: TextEdit,
@@ -11,6 +13,8 @@ pub(super) struct Panel {
     pub editing: Option<String>,
     pub team: Value,
     pub memories: Value,
+    pub rules: Vec<crate::approval_rules::ApprovalRule>,
+    pub confirming_remove_all: bool,
     pub error: String,
 }
 fn field(value: &str) -> TextEdit {
@@ -28,12 +32,19 @@ fn reload(s: &mut State) {
         .data
         .as_ref()
         .ok_or("Native data folder could not be determined.".into())
-        .and_then(|store| Ok((people::team(store)?, people::memories(store)?)));
+        .and_then(|store| {
+            Ok((
+                people::team(store)?,
+                people::memories(store)?,
+                crate::approval_rule_store::list(store).unwrap_or_default(),
+            ))
+        });
     match result {
-        Ok((team, memories)) => {
+        Ok((team, memories, rules)) => {
             s.people_panel.note = field(team["settings"]["aboutYou"].as_str().unwrap_or(""));
             s.people_panel.team = team;
             s.people_panel.memories = memories;
+            s.people_panel.rules = rules;
         }
         Err(e) => s.people_panel.error = e,
     }
@@ -149,12 +160,160 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     }
     body = body.child(
         row()
-            .child(
-                button("Teammates", p).on_press(|s: &mut State| s.people_panel.memory_tab = false),
-            )
-            .child(button("Memory", p).on_press(|s: &mut State| s.people_panel.memory_tab = true)),
+            .child(button("Teammates", p).on_press(|s: &mut State| {
+                s.people_panel.tab = 0;
+                s.people_panel.memory_tab = false;
+            }))
+            .child(button("Memory", p).on_press(|s: &mut State| {
+                s.people_panel.tab = 1;
+                s.people_panel.memory_tab = true;
+            }))
+            .child(button("Saved approvals", p).on_press(|s: &mut State| {
+                s.people_panel.tab = 2;
+                s.people_panel.memory_tab = false;
+            })),
     );
-    if !panel.memory_tab {
+    if panel.tab == 2 {
+        body = body
+            .child(
+                text(crate::approval_rule_store::SAVED_APPROVALS_HEADING)
+                    .font(type_::TITLE)
+                    .color(p.text),
+            )
+            .child(
+                text(crate::approval_rule_store::SAVED_APPROVALS_LEDE)
+                    .font(type_::LABEL)
+                    .color(p.muted)
+                    .wrap(),
+            )
+            .child(
+                text(crate::approval_rule_store::SAVED_APPROVALS_NOTE)
+                    .font(type_::LABEL)
+                    .color(p.muted)
+                    .wrap(),
+            );
+        if panel.rules.is_empty() {
+            body = body.child(
+                text(crate::approval_rule_store::SAVED_APPROVALS_EMPTY)
+                    .font(type_::LABEL)
+                    .color(p.secondary)
+                    .wrap(),
+            );
+        } else {
+            for rule in &panel.rules {
+                let id = rule.rule_id.clone();
+                let tag = if rule.effect == crate::approval_rules::RuleEffect::Allow {
+                    "ALLOW"
+                } else {
+                    "NEVER"
+                };
+                let sentence = crate::approval_rules::rule_sentence(rule, None);
+                let uses = rule
+                    .uses
+                    .filter(|&n| n > 0)
+                    .map(|n| {
+                        format!(
+                            " Answered {n} {}.",
+                            if n == 1 { "card" } else { "cards" }
+                        )
+                    })
+                    .unwrap_or_default();
+                body = body.child(
+                    row()
+                        .w_full()
+                        .gap(8.0)
+                        .child(text(tag.to_owned()).font(type_::LABEL).color(if tag == "ALLOW" {
+                            p.green
+                        } else {
+                            p.red
+                        }))
+                        .child(
+                            text(format!("{sentence}{uses}"))
+                                .font(type_::LABEL)
+                                .color(p.text)
+                                .grow(1.0)
+                                .wrap(),
+                        )
+                        .child(button(crate::approval_rule_store::SAVED_APPROVALS_REMOVE, p).on_press(
+                            move |s: &mut State| {
+                                let result = s
+                                    .data
+                                    .as_ref()
+                                    .ok_or("No native data folder".into())
+                                    .and_then(|store| {
+                                        crate::approval_rule_store::remove(store, &id)?;
+                                        Ok(())
+                                    });
+                                done(s, result);
+                            },
+                        )),
+                );
+            }
+            if panel.confirming_remove_all {
+                let count = panel.rules.len();
+                let confirm = if count == 1 {
+                    "Remove the 1 saved rule? Every card asks again afterwards.".to_owned()
+                } else {
+                    format!("Remove all {count} saved rules? Every card asks again afterwards.")
+                };
+                body = body.child(
+                    row()
+                        .w_full()
+                        .gap(8.0)
+                        .child(
+                            text(confirm)
+                                .font(type_::LABEL)
+                                .color(p.text)
+                                .grow(1.0)
+                                .wrap(),
+                        )
+                        .child(
+                            button(crate::approval_rule_store::SAVED_APPROVALS_REMOVE_ALL, p)
+                                .on_press(|s: &mut State| {
+                                    let result = s
+                                        .data
+                                        .as_ref()
+                                        .ok_or("No native data folder".into())
+                                        .and_then(|store| {
+                                            crate::approval_rule_store::remove_all(store)?;
+                                            Ok(())
+                                        });
+                                    s.people_panel.confirming_remove_all = false;
+                                    done(s, result);
+                                }),
+                        )
+                        .child(
+                            button(crate::approval_rule_store::SAVED_APPROVALS_KEEP_THEM, p)
+                                .on_press(|s: &mut State| {
+                                    s.people_panel.confirming_remove_all = false;
+                                }),
+                        ),
+                );
+            } else {
+                body = body.child(
+                    row()
+                        .w_full()
+                        .gap(8.0)
+                        .child(
+                            text(crate::approval_rule_store::SAVED_APPROVALS_START_OVER)
+                                .font(type_::LABEL)
+                                .color(p.muted)
+                                .grow(1.0)
+                                .wrap(),
+                        )
+                        .child(
+                            button(
+                                crate::approval_rule_store::SAVED_APPROVALS_REMOVE_ALL_RULES,
+                                p,
+                            )
+                            .on_press(|s: &mut State| {
+                                s.people_panel.confirming_remove_all = true;
+                            }),
+                        ),
+                );
+            }
+        }
+    } else if !panel.memory_tab {
         body = body.child(text("Teammates").font(type_::TITLE).color(p.text));
         for t in panel.team["teammates"].as_array().into_iter().flatten() {
             let id = t["teammateId"].as_str().unwrap_or("").to_owned();

@@ -6,14 +6,6 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
-#[allow(dead_code)]
-pub(crate) fn sandbox(mode: Mode) -> &'static str {
-    match mode {
-        Mode::Ask | Mode::Plan => "read-only",
-        Mode::Auto => "full-access",
-        _ => "workspace-write",
-    }
-}
 pub(crate) fn legacy_config(mode: Mode, plugin: Option<&str>) -> Value {
     let readonly = matches!(mode, Mode::Ask | Mode::Plan);
     let each = mode == Mode::ApproveEach;

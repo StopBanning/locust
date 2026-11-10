@@ -102,13 +102,13 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Action approval/question cards, remembered answers and denial reasons | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts`, `main/approval-rule-store.ts` | **partial** (M3b: Approve/Deny/Always card under the turn, ledger `mission.approval`, answer-after-end refused; no saved rules, no question form yet) | yes |
-| Command safety/reach guard and In short explanation | `main/command-guard.ts`, `shared/command-reach.ts`, `shared/command-plain.ts` | **missing** | yes |
-| Workspace boundary, outside attachments and agent-settings-folder confirmation | `main/permission-host.ts`, `main/attach-outside.ts`, `main/workspace-settings-change.ts` | **missing** | yes |
+| Action approval/question cards, remembered answers and denial reasons | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts`, `main/approval-rule-store.ts` | **partial** (P8: Approve/Deny/Always/Don't-ask-again/Never-allow card, reach/In short rows, saved-rule auto-answer, command-guard hard deny; no question form yet) | yes |
+| Command safety/reach guard and In short explanation | `main/command-guard.ts`, `shared/command-reach.ts`, `shared/command-plain.ts` | **partial** — Rust `command_reach`/`command_plain`/`command_guard` with Electron words; OpenCode still ships the JS guard asset; full PreToolUse writers for every runtime remain (P8-NOTES.md) | yes |
+| Workspace boundary, outside attachments and agent-settings-folder confirmation | `main/permission-host.ts`, `main/attach-outside.ts`, `main/workspace-settings-change.ts` | **partial** — outside-folder card words, `attach_outside` destination/exclude, `settings_change_kept`; full permission-host connector/browser cards remain (P8-NOTES.md) | yes |
 | Connector/browser action permissions | `main/permission-host.ts`, `main/browser-host.ts` | **missing** | yes |
-| Saved approval rules list/remove/remove all | `renderer/src/components/SavedApprovalRules.tsx`, `main/approval-rule-store.ts` | **missing** | yes |
+| Saved approval rules list/remove/remove all | `renderer/src/components/SavedApprovalRules.tsx`, `main/approval-rule-store.ts` | **done** — native `approval-rules.json` seed-once, list/remove/remove all, secret/compound/reach refusals; Settings panel words exact | yes |
 | Ask/Plan/Auto/Approve each action and runtime-specific guarantees | `main/mission-mode.ts`, `main/permission-host.ts`, `renderer/src/components/WhatLocustCanStop.tsx` | **partial** (M3b: `codexAppServerPolicy` + Approve-each interactive for Codex/Claude control_request; Ask auto-declines; Claude permission bridge / full mode matrix later) | yes |
-| Scoped secret detection/redaction in memories, records and sharing | `shared/secrets.ts`, `main/mission-export.ts`, `main/memory-store.ts` | **missing** | yes |
+| Scoped secret detection/redaction in memories, records and sharing | `shared/secrets.ts`, `main/mission-export.ts`, `main/memory-store.ts` | **partial** — one `secrets` module (`secret_in`/`scrub_secrets`/`redact_secrets`); people/ledger/events call it; Save-record export UI remains (P8-NOTES.md) | yes |
 | Approval alerts on Board/sidebar/taskbar/phone/chat | `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/Sidebar.tsx`, `main/raised-approvals.ts`, `main/taskbar-attention.ts` | **missing** | yes |
 | Organization machine policy and spend limits | `main/organization-policy.ts`, `main/organization-spend.ts`, `shared/organization-policy.ts` | **missing** | yes |
 
@@ -274,7 +274,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 2 | Composer & Input | 10 | 0 | 4 | 14 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 3 | 9 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
-| 5 | Approvals & Permissions | 0 | 2 | 7 | 9 |
+| 5 | Approvals & Permissions | 1 | 5 | 3 | 9 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 3 | 10 | 13 |
 | 7 | Terminal & Own Commands | 0 | 0 | 3 | 3 |
 | 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
@@ -285,7 +285,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **25** | **24** | **104** | **153** |
+| | **TOTAL** | **26** | **27** | **100** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
@@ -396,6 +396,7 @@ This is source inspection, not runtime certification. Read all four Rust modules
 Path validation used Python to extract every backticked source path, resolve the documented roots, and call Path.is_file() (Path.exists() for root directories). Each evidence file was checked before writing and every final citation was checked afterward. No glob paths or proposed future filenames are cited. Protocol tags, runtime data filenames and key chords are not treated as source paths.
 
 Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 25 done, 24 partial, 104 missing**.
+Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 26 done, 24 partial, 103 missing**.
 
 An independent parser checks all Section 1 feature/status rows against Section 3 per-area and grand totals, requires a gap on every partial row, and checks every component is covered. Physical source-size counts are separate from feature counts.
 
@@ -412,3 +413,4 @@ P6 evidence: `P6-NOTES.md`. Area 3 gains three partial rows; no composite row is
 P7 verification (2026-11-10): partial Changes/diff/Undo implementation, with unported TS assertions and storage/UI gaps recorded in `P7-NOTES.md`. Three final release runs each passed 360 tests (13 existing live tests ignored); release build zero warnings; clippy no new-module findings; both synthetic CLI scripts pass. Dark/light Changes and Undo scenes rendered and inspected at 900×900, scale 1. No live window or real turn launched. Area 6 is 0 done / 3 partial / 10 missing; M5 remains unreached.
 
 P7 review (2026-11-10): Undo atomic save + mode-preserving restore + skip-unreadable snapshot; empty-diff words; panel closes off non-repo; git stdout on non-zero; untracked symlink listing; completeness hunk/line words; green/red count marks; gutter/sign colours; per-fold context expand. Review section in `P7-NOTES.md`. Three release runs each 366 passed (13 ignored); release build zero warnings; clippy existing findings only; both CLI scripts pass; snaps re-inspected under `/Users/locust/work/scratch/p7-snaps/`. Live window/exit and real Undo still unrun. Area 6 remains 0 done / 3 partial / 10 missing; M5 unreached.
+P8 evidence: `P8-NOTES.md`. Area 5: saved approval rules **done**; command reach/plain/guard, workspace attach/settings, and shared secrets **partial**. No window or live turn was launched for P8.

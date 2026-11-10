@@ -103,10 +103,10 @@ pub(crate) mod hooks {
     pub static LOCK: Mutex<()> = Mutex::new(());
     pub static STATE: Mutex<(Option<Store>, Option<(PathBuf, Vec<String>)>)> =
         Mutex::new((None, None));
-    pub struct Guard(#[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
     /// Serialises tests that point the engine at a temporary store and a fake `codex`.
+    pub struct Guard { _lock: std::sync::MutexGuard<'static, ()> }
     pub fn install(store: Store, command: Option<(PathBuf, Vec<String>)>) -> Guard {
-        let guard = Guard(LOCK.lock().unwrap_or_else(|e| e.into_inner()));
+        let guard = Guard { _lock: LOCK.lock().unwrap_or_else(|e| e.into_inner()) };
         *crate::invariants::lock(&STATE) = (Some(store), command);
         guard
     }
@@ -634,7 +634,7 @@ pub fn owned_key(tip: Option<&str>, conversation: Option<&str>) -> Option<String
 // ---- approvals: one channel for the process; the window decides, the turn loop appends --------
 static APPROVALS: Mutex<Option<std::sync::Arc<Channel>>> = Mutex::new(None);
 
-fn approvals_channel() -> std::sync::Arc<Channel> {
+pub(crate) fn approvals_channel() -> std::sync::Arc<Channel> {
     let mut guard = crate::invariants::lock(&APPROVALS);
     guard.get_or_insert_with(Channel::new).clone()
 }
@@ -875,6 +875,7 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         continues.as_ref(),
     )
     .map_err(|e| e.to_string())?;
+    channel.register_teammate(&id, &job.teammate.id);
     let turn = Turn {
         prompt: runtime_prompt,
         folder,

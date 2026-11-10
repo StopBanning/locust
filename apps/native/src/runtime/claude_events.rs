@@ -305,29 +305,6 @@ impl ClaudeNormalizer {
         self.event("run.completed", p)
     }
 
-    #[allow(dead_code)]
-    pub fn accept_line(&mut self, raw: &str) -> Vec<Event> {
-        if self.ended {
-            return vec![];
-        }
-        let parsed: Value = match serde_json::from_str(raw) {
-            Ok(v) => v,
-            Err(_) => {
-                return vec![self.diagnostic(
-                    "claude.malformed_record",
-                    "A Claude record could not be parsed.",
-                )];
-            }
-        };
-        if !obj(&parsed) {
-            return vec![self.diagnostic(
-                "claude.malformed_record",
-                "A Claude record was not an object.",
-            )];
-        }
-        self.accept(&parsed)
-    }
-
     pub fn accept(&mut self, parsed: &Value) -> Vec<Event> {
         if self.ended {
             return vec![];

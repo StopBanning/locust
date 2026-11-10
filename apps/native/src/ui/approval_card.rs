@@ -145,6 +145,15 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .wrap(),
         );
     }
+    if let Some(reach) = approval::command_reach_of(card) {
+        body = body.child(
+            text(format!("Reaches: {}", reach.said))
+                .font(type_::LABEL)
+                .color(p.amber)
+                .w_full()
+                .wrap(),
+        );
+    }
     body = body.child(
         text("Where: ".to_string() + card.cwd.as_deref().unwrap_or("the project folder"))
             .font(type_::LABEL)
@@ -197,6 +206,35 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                         .on_press(|s: &mut State| {
                             decide_pending(s, approval::Decision::ApproveAlways)
                         })
+                })
+                .child(if approval::can_save_allow_rule(card) {
+                    el().key("dont-ask-again")
+                        .h(36.0)
+                        .px(14.0)
+                        .center()
+                        .radius(8.0)
+                        .fill(p.raised)
+                        .border(1.0, p.hairline)
+                        .child(
+                            text("Yes, and don't ask again")
+                                .font(type_::LABEL)
+                                .color(p.text),
+                        )
+                        .on_press(|s: &mut State| {
+                            if let Some(card) = s.pending_approval.clone() {
+                                match approval::save_rule_and_decide(
+                                    &card,
+                                    crate::approval_rules::RuleEffect::Allow,
+                                ) {
+                                    Ok(()) => decide_pending(s, approval::Decision::ApproveOnce),
+                                    Err(words) => {
+                                        s.approval_notice = Some(words);
+                                    }
+                                }
+                            }
+                        })
+                } else {
+                    col()
                 })
                 .child(
                     el().key("deny")
@@ -263,7 +301,31 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                                 s.approval_denying = false;
                                 s.approval_reason.clear();
                             }),
-                    ),
+                    )
+                    .child(if s.pending_approval.as_ref().is_some_and(approval::can_save_allow_rule) {
+                        el().h(36.0)
+                            .px(12.0)
+                            .child(
+                                text("Never allow this (saves a rule)")
+                                    .font(type_::LABEL)
+                                    .color(p.red),
+                            )
+                            .on_press(|s: &mut State| {
+                                if let Some(card) = s.pending_approval.clone() {
+                                    match approval::save_rule_and_decide(
+                                        &card,
+                                        crate::approval_rules::RuleEffect::Deny,
+                                    ) {
+                                        Ok(()) => decide_pending(s, approval::Decision::Deny),
+                                        Err(words) => {
+                                            s.approval_notice = Some(words);
+                                        }
+                                    }
+                                }
+                            })
+                    } else {
+                        col()
+                    }),
             );
     }
     body = body.child(

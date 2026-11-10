@@ -63,17 +63,6 @@ pub fn conversation_rows(missions: &[SidebarMission]) -> Vec<SidebarMission> {
     rows
 }
 
-#[allow(dead_code)] // port of conversationList.ts ownerOf; used when ownership UI lands
-pub fn owner_of<'a>(
-    mission: &'a SidebarMission,
-    mission_owners: &'a HashMap<String, String>,
-) -> Option<&'a str> {
-    mission
-        .owner_id
-        .as_deref()
-        .or_else(|| mission_owners.get(&mission.mission_id).map(String::as_str))
-}
-
 /// `Atlas · "invoice" — 1 of 5`
 pub fn narrowing_line(
     face_name: Option<&str>,
@@ -97,7 +86,6 @@ pub fn narrowing_line(
     Some(format!("{} — {shown} of {of}", narrowed_by.join(" · ")))
 }
 
-#[allow(dead_code)] // port of conversationTitleFor; header wiring uses held titles today
 pub fn conversation_title_for<'a>(
     rows: &'a [SidebarMission],
     mission_id: Option<&str>,
@@ -109,7 +97,6 @@ pub fn conversation_title_for<'a>(
 }
 
 /// One sentence for every local file that exists and would not read.
-#[allow(dead_code)] // port of unreadableSentence; groups banner uses the words inline
 pub fn unreadable_sentence(stores: &[&str]) -> Option<(String, String)> {
     const STORE_ORDER: [&str; 4] = ["teammates", "groups", "rooms", "routines"];
     let named: Vec<&str> = STORE_ORDER

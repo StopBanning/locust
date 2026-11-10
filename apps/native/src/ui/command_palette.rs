@@ -8,8 +8,6 @@ pub struct PaletteAction {
     pub id: String,
     pub group: String,
     pub label: String,
-    #[allow(dead_code)] // Electron PaletteAction.hint; reserved for shortcut chips
-    pub hint: Option<String>,
     pub keywords: Option<String>,
     /// Listed only once something is typed.
     pub when_typed: bool,
@@ -62,7 +60,6 @@ pub fn default_palette_actions(
         id: "back".into(),
         group: "This conversation".into(),
         label: "Back to the conversation".into(),
-        hint: None,
         keywords: None,
         when_typed: false,
     }];
@@ -71,7 +68,6 @@ pub fn default_palette_actions(
             id: "stop".into(),
             group: "This conversation".into(),
             label: "Stop the running reply".into(),
-            hint: None,
             keywords: None,
             when_typed: false,
         });
@@ -81,7 +77,6 @@ pub fn default_palette_actions(
             id: format!("conv:{}", row.mission_id),
             group: "Conversations".into(),
             label: row.title.clone(),
-            hint: None,
             keywords: Some(format!("{} {}", row.mission_id, row.said)),
             when_typed: i >= 5,
         });
@@ -212,7 +207,6 @@ mod tests {
                 id: "a".into(),
                 group: "Go to".into(),
                 label: "Team".into(),
-                hint: None,
                 keywords: None,
                 when_typed: false,
             },
@@ -220,7 +214,6 @@ mod tests {
                 id: "b".into(),
                 group: "Conversations".into(),
                 label: "Hidden until typed".into(),
-                hint: None,
                 keywords: Some("invoice".into()),
                 when_typed: true,
             },
@@ -228,7 +221,6 @@ mod tests {
                 id: "c".into(),
                 group: "Go to".into(),
                 label: "Settings".into(),
-                hint: None,
                 keywords: None,
                 when_typed: false,
             },

@@ -347,7 +347,6 @@ impl Runtime for Kilo {
 }
 
 // Keep the OpenCode type referenced so the shared ACP restart semantics stay linked for reviewers.
-#[allow(dead_code)]
 fn _shares_opencode_restart_shape() -> Option<OpenCode> {
     None
 }

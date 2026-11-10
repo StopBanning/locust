@@ -291,12 +291,6 @@ impl Runtime for OpenCode {
         }
     }
 }
-/// opencode-commands.ts: V2 advertises commands over ACP, never starts a server to list them.
-#[allow(dead_code)]
-pub(crate) fn commands_v2() -> Vec<Value> {
-    vec![]
-}
-
 #[cfg(test)]
 #[path = "opencode_tests.rs"]
 mod tests;

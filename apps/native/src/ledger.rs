@@ -108,35 +108,12 @@ pub struct PlanStep {
     pub state: String,
 }
 
-// Same patterns as runtime-adapters/src/codex-events.ts:redactSecrets / SENSITIVE_KEY.
 fn sensitive_key(key: &str) -> bool {
-    use std::sync::OnceLock;
-    static RE: OnceLock<regex::Regex> = OnceLock::new();
-    // This regex is a source literal; no ledger key changes its syntax.
-    RE.get_or_init(|| regex::Regex::new(
-        r"(?i)^(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth(?:orization)?|password|passwd|secret|cookie|set-cookie|credential|session[_-]?token)$"
-    ).expect("sensitive key")).is_match(key)
+    crate::secrets::sensitive_key(key)
 }
 
 fn scrub_secrets(text: &str) -> String {
-    use std::sync::OnceLock;
-    static RULES: OnceLock<Vec<(regex::Regex, &'static str)>> = OnceLock::new();
-    let rules = RULES.get_or_init(|| vec![
-        (r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}", "Bearer [redacted]"),
-        (r"\b(?:sk|pk)-[A-Za-z0-9_-]{12,}\b", "[redacted]"),
-        (r"\b(?:gh[opusr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16})\b", "[redacted]"),
-        (r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?s:.*?)-----END [A-Z0-9 ]*PRIVATE KEY-----", "[redacted]"),
-        (r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}", "[redacted]"),
-        (r"\bAIza[0-9A-Za-z_-]{35}\b", "[redacted]"),
-        (r"\bhf_[A-Za-z0-9]{30,}\b", "[redacted]"),
-        (r#"(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|authorization|password|secret|cookie|credential)["']?\s*[=:]\s*["']?)([^\s,"';}]+)"#, "${1}[redacted]"),
-        (r"\bsk-ant-[A-Za-z0-9_-]{12,}", "[redacted]"),
-    ].into_iter().map(|(p,r)| (crate::invariants::regex(p),r)).collect());
-    let mut safe = text.replace('\0', "");
-    for (re, replacement) in rules {
-        safe = re.replace_all(&safe, *replacement).into_owned();
-    }
-    safe
+    crate::secrets::redact_secrets(text)
 }
 
 fn scrub(text: &str) -> String {
@@ -956,7 +933,6 @@ fn carry_on_failure(payload: &Value) -> bool {
 }
 
 // Standalone snapshot API; the window uses Session to keep its byte offsets.
-#[allow(dead_code)]
 pub fn read_transcript(path: impl AsRef<Path>) -> Transcript {
     let mut tail = Tail::new(path.as_ref(), 0);
     let records = tail.poll();
@@ -1018,7 +994,7 @@ fn fresh(modified: Option<SystemTime>, now: SystemTime) -> bool {
 }
 
 // Convenience API when an unreadable directory need not be distinguished from an empty one.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn list_recent(dir: impl AsRef<Path>, limit: usize) -> Vec<Summary> {
     try_list_recent(dir.as_ref(), limit).unwrap_or_default()
 }

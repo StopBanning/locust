@@ -3,7 +3,7 @@
 //! Ports `apps/desktop/src/main/approval-channel.ts` (describe / decide / protocol
 //! answers), `permission-host.ts:builtInOrConnector` for Claude `can_use_tool`, and
 //! `commands.ts:codexAppServerPolicy` for mode → sandbox / approvalPolicy.
-//! Saved approval rules are out of scope (later round).
+//! Saved approval rules are consulted before session Always and before a card is raised.
 
 use serde_json::{Value, json};
 use std::{
@@ -16,7 +16,7 @@ use std::{
 };
 
 const MAX_PENDING: usize = 16;
-const MAX_DETAIL: usize = 8_000;
+const MAX_DETAIL: usize = 20_000;
 
 /// Product modes Locust names on a teammate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -169,24 +169,17 @@ pub struct Recorded {
     pub occurred_at: String,
 }
 
-fn bounded(value: &str) -> String {
-    let mut out = String::new();
-    for ch in value.chars() {
-        if out.len() >= MAX_DETAIL {
-            break;
-        }
-        out.push(ch);
-    }
-    out
-}
-
 fn whole_detail(value: &str) -> String {
-    // approval-detail.ts:wholeDetail — keep newlines; cap length.
-    if value.len() <= MAX_DETAIL {
-        value.to_string()
-    } else {
-        bounded(value)
-    }
+    let normalized = value.replace("\r\n", "\n").replace('\r', "\n");
+    let text = normalized.trim();
+    let length = text.encode_utf16().count();
+    if length <= MAX_DETAIL { return text.to_owned(); }
+    let rest = length - MAX_DETAIL;
+    let count = rest.to_string().chars().rev().enumerate().fold(String::new(), |mut out, (i, ch)| {
+        if i > 0 && i % 3 == 0 { out.push(','); }
+        out.push(ch); out
+    }).chars().rev().collect::<String>();
+    format!("{}\n\n[{count} more character{} not shown here. Deny if you cannot see enough to decide.]", utf16_bounded(text, MAX_DETAIL), if rest == 1 { "" } else { "s" })
 }
 
 /// `approval-channel.ts:approvalKindFor`
@@ -299,9 +292,9 @@ pub fn describe_claude_tool(
     }
     if matches!(tool_name, "Edit" | "Write" | "MultiEdit" | "NotebookEdit") {
         let file = {
-            let a = text(&input["file_path"]);
+            let a = input["file_path"].as_str().unwrap_or("").to_owned();
             if a.is_empty() {
-                text(&input["notebook_path"])
+                input["notebook_path"].as_str().unwrap_or("").to_owned()
             } else {
                 a
             }
@@ -388,10 +381,15 @@ pub fn plain_action(card: &Request) -> Option<String> {
     if card.kind != Kind::Command {
         return None;
     }
-    let pattern = crate::invariants::regex(r"^touch ([A-Za-z0-9_./-]+)$");
-    pattern
-        .captures(&card.detail)
-        .map(|caps| format!("Makes {} if it is not there yet.", &caps[1]))
+    crate::command_plain::plain_command(&card.detail).map(|plain| plain.said)
+}
+
+/// Reach classifier for the card (Electron commandReach on the command detail).
+pub fn command_reach_of(card: &Request) -> Option<crate::command_reach::CommandReach> {
+    if card.kind != Kind::Command {
+        return None;
+    }
+    crate::command_reach::command_reach(Some(&card.detail))
 }
 
 /// `approval-channel.ts:protocolDecisionFor`
@@ -472,6 +470,7 @@ struct Inner {
     /// Answers the turn loop still owes a `mission.approval` record for.
     recorded: Vec<Recorded>,
     always: HashMap<(String, String), ()>,
+    teammates: HashMap<String, String>,
 }
 
 impl Channel {
@@ -482,8 +481,17 @@ impl Channel {
                 ended: HashMap::new(),
                 recorded: Vec::new(),
                 always: HashMap::new(),
+                teammates: HashMap::new(),
             }),
         })
+    }
+
+    pub fn register_teammate(&self, mission_id: &str, teammate_id: &str) {
+        crate::invariants::lock(&self.inner).teammates.insert(mission_id.into(), teammate_id.into());
+    }
+
+    pub fn teammate_for(&self, mission_id: &str) -> Option<String> {
+        crate::invariants::lock(&self.inner).teammates.get(mission_id).cloned()
     }
 
     /// Drain answered cards so the turn's ledger writer can append them.
@@ -671,8 +679,8 @@ impl Channel {
             mission_id: mission_id.into(),
             runtime: runtime.into(),
             kind,
-            summary: bounded(summary),
-            detail: bounded(detail),
+            summary: whole_detail(summary),
+            detail: whole_detail(detail),
             cwd: Some(cwd.into()),
             requested_at: now_iso(),
             always_covers: target.as_ref().map(|_| {
@@ -707,7 +715,36 @@ impl Channel {
             if cancel() || guard.ended.contains_key(&request.mission_id) {
                 return Err("This turn already ended; the card is no longer waiting.".into());
             }
-            if !asks_every_time(&request)
+            // Hard command guard (Electron locust-command-guard): refuse before a card.
+            if request.kind == Kind::Command
+                && let Some(reason) = crate::command_guard::stopped_because(
+                    &request.detail,
+                    &crate::command_guard::GuardContext {
+                        fix_copy: crate::command_guard::in_fix_copy(&[request.cwd.as_deref().unwrap_or("")]),
+                        started_pids: Vec::new(),
+                    },
+                )
+            {
+                let answer = Answer::Decision {
+                    approval_id: id.clone(),
+                    decision: Decision::Deny,
+                    reason: Some(reason),
+                };
+                let mut record = record_of(&request, &answer);
+                record.by = "command-guard".into();
+                guard.recorded.push(record);
+                return Ok(answer);
+            }
+            // Saved rules answer before a card (Electron decideByRules). Unreadable → every card asks.
+            let saved = decide_by_saved_rules(&request, guard.teammates.get(&request.mission_id).cloned());
+            let readable = saved.is_ok();
+            if let Ok(Some(auto)) = saved {
+                let mut record = record_of(&request, &auto);
+                record.by = "saved-rule".into();
+                guard.recorded.push(record);
+                return Ok(auto);
+            }
+            if readable && request.kind != Kind::Question && !asks_every_time(&request)
                 && request.always_key.as_ref().is_some_and(|key| {
                     guard
                         .always
@@ -759,6 +796,32 @@ impl Channel {
                     .into(),
             );
         }
+        let answer = match &answer {
+            Answer::Decision {
+                approval_id,
+                decision: Decision::ApproveAlways,
+                reason,
+            } => {
+                let (decision, note) = crate::approval_rules::enforced_answer_decision(
+                    request_view(&pending.request),
+                    "approve-always",
+                );
+                if decision == "approve-once" {
+                    if let Some(note) = note {
+                        // Host forces once for reaching commands (Electron enforcedAnswer).
+                        let _ = note;
+                    }
+                    Answer::Decision {
+                        approval_id: approval_id.clone(),
+                        decision: Decision::ApproveOnce,
+                        reason: reason.clone(),
+                    }
+                } else {
+                    answer.clone()
+                }
+            }
+            _ => answer,
+        };
         if matches!(
             &answer,
             Answer::Decision {
@@ -805,6 +868,7 @@ impl Channel {
         let mut guard = crate::invariants::lock(&self.inner);
         guard.ended.insert(mission_id.to_owned(), Instant::now());
         guard.always.retain(|(mission, _), _| mission != mission_id);
+        guard.teammates.remove(mission_id);
         let ids: Vec<_> = guard
             .pending
             .iter()
@@ -910,10 +974,102 @@ impl Recorded {
 }
 
 /// Words shared with Electron's ApprovalCard.tsx / approval-data.ts.
-// Conservative until the complete shell parser is ported: even quoted process
-// control names cannot acquire or use a broad session grant.
+/// A reaching command never gets Always / saved rules (Electron commandReach).
 pub fn asks_every_time(card: &Request) -> bool {
-    card.kind == Kind::Command && crate::invariants::regex(r"(?i)\b(taskkill|tskill|stop-process|spps|kill|pkill|killall|wmic|invoke-cimmethod|fuser|kill-port|shutdown|restart-computer|reboot|stop-computer|poweroff|halt|systemctl)\b").is_match(&card.detail)
+    command_reach_of(card).is_some()
+}
+
+fn request_view(card: &Request) -> crate::approval_rules::RequestView<'_> {
+    crate::approval_rules::RequestView {
+        kind: card.kind.as_str(),
+        summary: &card.summary,
+        detail: &card.detail,
+        runtime: Some(card.runtime.as_str()),
+        patch_text: None,
+    }
+}
+
+/// Unreadable rules also block session Always; they are never treated as an empty store.
+fn decide_by_saved_rules(request: &Request, teammate_id: Option<String>) -> Result<Option<Answer>, String> {
+    let store = crate::native::store().ok_or(crate::approval_rule_store::UNREADABLE)?;
+    let rules = crate::approval_rule_store::list(&store)?;
+    let action = crate::approval_rules::ruled_action_of(request_view(request));
+    let context = crate::approval_rules::RuleContext {
+        teammate_id,
+        folder: request.cwd.clone(),
+    };
+    Ok(match crate::approval_rules::decide_by_rules(&action, &rules, &context) {
+        crate::approval_rules::RuleVerdict::Allow { rule } => {
+            let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
+            Some(Answer::Decision {
+                approval_id: request.approval_id.clone(),
+                decision: Decision::ApproveOnce,
+                reason: None,
+            })
+        }
+        crate::approval_rules::RuleVerdict::Deny { rule } => {
+            let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
+            Some(Answer::Decision {
+                approval_id: request.approval_id.clone(),
+                decision: Decision::Deny,
+                reason: Some(crate::approval_rules::rule_sentence(&rule, None)),
+            })
+        }
+        crate::approval_rules::RuleVerdict::Ask { .. } => None,
+    })
+}
+
+/// Whether “Yes, and don't ask again” may save a rule for this card.
+pub fn can_save_allow_rule(card: &Request) -> bool {
+    if asks_every_time(card) {
+        return false;
+    }
+    let action = crate::approval_rules::ruled_action_of(request_view(card));
+    let context = crate::approval_rules::RuleContext {
+        teammate_id: crate::native::approvals_channel().teammate_for(&card.mission_id),
+        folder: card.cwd.clone(),
+    };
+    crate::approval_rules::rule_candidate_of(&action, &context).is_some()
+}
+
+/// Save an allow or deny rule from the card, then answer once.
+pub fn save_rule_and_decide(
+    card: &Request,
+    effect: crate::approval_rules::RuleEffect,
+) -> Result<(), String> {
+    let channel = crate::native::approvals_channel();
+    save_pending_rule(&channel, card, effect)
+}
+
+fn save_pending_rule(channel: &Channel, card: &Request, effect: crate::approval_rules::RuleEffect) -> Result<(), String> {
+    let guard = crate::invariants::lock(&channel.inner);
+    let card = &guard.pending.get(&card.approval_id).ok_or("That approval is no longer waiting.")?.request;
+    let teammate_id = guard.teammates.get(&card.mission_id).cloned().ok_or("This approval has no teammate, so no rule was saved.")?;
+    let store = crate::native::store().ok_or("Native data folder could not be determined.")?;
+    let action = crate::approval_rules::ruled_action_of(request_view(card));
+    let context = crate::approval_rules::RuleContext {
+        teammate_id: Some(teammate_id),
+        folder: card.cwd.clone(),
+    };
+    if let Some(reach_note) = crate::approval_rules::rule_refusal_for(request_view(card)) {
+        return Err(reach_note);
+    }
+    let draft = match effect {
+        crate::approval_rules::RuleEffect::Allow => {
+            crate::approval_rules::rule_candidate_of(&action, &context).ok_or_else(|| {
+                "This one cannot be saved as a rule exactly, so it was not saved. Answer the card as usual.".to_owned()
+            })?
+        }
+        crate::approval_rules::RuleEffect::Deny => {
+            let mut draft = crate::approval_rules::rule_candidate_of(&action, &context).ok_or_else(|| {
+                "This one cannot be saved as a rule exactly, so it was not saved. Answer the card as usual.".to_owned()
+            })?;
+            draft.effect = crate::approval_rules::RuleEffect::Deny;
+            draft
+        }
+    };
+    crate::approval_rule_store::add(&store, draft)?;
+    Ok(())
 }
 
 pub fn card_note(card: &Request) -> String {
@@ -958,6 +1114,68 @@ pub fn needs_you_status(count: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saved_deny_and_guard_precede_session_always() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("work/review/channel-test");
+        let _ = std::fs::remove_dir_all(&root);
+        let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+        let _hook = crate::native::hooks::install(store.clone(), None);
+        let ch = Channel::new();
+        ch.register_teammate("m", "tm_one");
+        crate::invariants::lock(&ch.inner).always.insert(("m".into(), "claude:Bash".into()), ());
+        crate::approval_rule_store::add(&store, crate::approval_rules::ApprovalRuleDraft {
+            effect: crate::approval_rules::RuleEffect::Deny,
+            kind: crate::approval_rules::RuleKind::Command,
+            pattern: "npm test".into(), teammate_id: Some("tm_one".into()), folder: None,
+        }).unwrap();
+        let result = ch.ask_claude("r", "m", "a", "Bash", &json!({"command":"npm test"}), "/project", &|| false).unwrap();
+        assert_eq!(result["behavior"], "deny");
+        assert_eq!(ch.take_recorded()[0].by, "saved-rule");
+        let result = ch.ask_claude("r", "m", "b", "Bash", &json!({"command":"taskkill /IM chrome.exe"}), "/project", &|| false).unwrap();
+        assert_eq!(result["behavior"], "deny");
+        assert_eq!(ch.take_recorded()[0].by, "command-guard");
+        crate::invariants::lock(&ch.inner).always.clear();
+        let worker = ch.clone();
+        let handle = std::thread::spawn(move || worker.ask_claude("r", "m", "c", "Bash", &json!({"command":"printf hi"}), "/project", &|| false));
+        let end = Instant::now() + Duration::from_secs(5);
+        while ch.waiting().is_empty() {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let mut card = ch.waiting()[0].clone();
+        card.detail = "a stale window's different command".into();
+        save_pending_rule(&ch, &card, crate::approval_rules::RuleEffect::Allow).unwrap();
+        let rules = crate::approval_rule_store::list(&store).unwrap();
+        let saved = rules.iter().find(|r| r.pattern == "printf hi").unwrap();
+        assert_eq!(saved.teammate_id.as_deref(), Some("tm_one"));
+        assert_eq!(saved.folder.as_deref(), Some("/project"));
+        ch.release("m");
+        assert_eq!(handle.join().unwrap().unwrap()["behavior"], "deny");
+        assert!(save_pending_rule(&ch, &card, crate::approval_rules::RuleEffect::Allow).is_err());
+        assert_eq!(ch.teammate_for("m"), None);
+        store.save_json("approval-rules.json", &json!({"schemaVersion":99,"rules":[]})).unwrap();
+        crate::invariants::lock(&ch.inner).always.insert(("n".into(), "claude:Bash".into()), ());
+        let worker = ch.clone();
+        let handle = std::thread::spawn(move || worker.ask_claude("r", "n", "d", "Bash", &json!({"command":"printf hi"}), "/project", &|| false));
+        let end = Instant::now() + Duration::from_secs(5);
+        while ch.waiting().is_empty() {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        ch.release("n");
+        assert_eq!(handle.join().unwrap().unwrap()["behavior"], "deny");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn exact_detail_counts_omitted_text_and_keeps_long_paths() {
+        assert_eq!(whole_detail("  a\r\nb\rc  "), "a\nb\nc");
+        let text = format!("{}x", "a".repeat(20_000));
+        assert!(whole_detail(&text).ends_with("[1 more character not shown here. Deny if you cannot see enough to decide.]"));
+        let path = format!("/project/{}outside.txt", "x".repeat(650));
+        assert_eq!(describe_claude_tool("Write", &json!({"file_path":path}), "/project").2, path.strip_prefix("/project/").unwrap());
+    }
 
     #[test]
     fn records_are_scoped_and_card_words_match_electron() {

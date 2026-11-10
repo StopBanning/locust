@@ -328,7 +328,6 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
                     owner_name,
                     prompt: String::new(),
                     reply_lines: lines,
-                    phase: "completed".into(),
                 });
             }
             Ok(())
