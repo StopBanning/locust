@@ -37,6 +37,41 @@ const ANTIGRAVITY_EVENTS = join(ROOT, 'src', 'antigravity-events.ts')
 
 const MUTATIONS = [
   {
+    file: CLAUDE_EVENTS,
+    name: 'Claude shown thinking: streamed words are discarded at the closing step',
+    from: '...(said.length === 0 || thinking.redacted ? {} : { message: said })',
+    to: '...{}',
+    expect: 'keeps shown streamed thinking on the closing step, including an initial fragment'
+  },
+  {
+    file: CLAUDE_EVENTS,
+    name: 'Claude shown thinking: whole blocks lose their text',
+    from: 'const said = block.type === "thinking" ? boundedMessageText',
+    to: 'const said = false ? boundedMessageText',
+    expect: 'keeps a whole shown thinking block when partial output was not sent'
+  },
+  {
+    file: CODEX_EVENTS,
+    name: 'Claude shown thinking: whole block messages bypass secret scrubbing',
+    from: '  const clean = redactSecrets(value);',
+    to: '  const clean = value;',
+    expect: 'scrubs secrets from streamed and whole thinking, including a key split between deltas'
+  },
+  {
+    file: CLAUDE_EVENTS,
+    name: 'Claude shown thinking: opaque blocks ride along in evidence',
+    from: 'const safe = withoutThinkingEvidence(parsed);',
+    to: 'const safe = parsed;',
+    expect: 'times redacted thinking without retaining its text, opaque data or signature'
+  },
+  {
+    file: CODEX_EVENTS,
+    name: 'Claude shown thinking: messages bypass their size bound',
+    from: '  if (clean.length <= limit) return clean;',
+    to: '  return clean;',
+    expect: 'bounds the thinking message exactly as Cursor does while keeping both ends'
+  },
+  {
     file: COMMANDS, name: 'references: Claude cannot read the selected reference',
     from: 'if (!auto) {\n    for (const folder of options.referenceFolders ?? [])',
     to: 'if (false) {\n    for (const folder of options.referenceFolders ?? [])',

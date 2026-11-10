@@ -809,3 +809,21 @@ Entries since 2026-10-03, newest first. Earlier entries (2026-08-30 to
   controls caught their named assertions; restored focused suites passed 16 desktop tests and the Cursor regression.
   `git diff --check` passed. No live agent turn, desktop drive, packaging, push or release was run. The pre-existing
   executable-bit change to `packages/cli/bin/locust.mjs` was left alone.
+
+## Claude Code's shown thinking (2026-11-10)
+
+- Corrected the adapter's 0.489 "timed and not kept" interpretation to follow AGENTS.md's existing 2026-09-16
+  decision: nonempty shown `thinking_delta.thinking` and whole assistant `thinking` text becomes the reasoning step's
+  `message`, with Cursor's secret scrubber and 16,384-character message bound. The existing thinking row renders it.
+- Captured Claude fixtures send whole thinking before `content_block_stop`; it refines the open step rather than
+  adding a duplicate. Whole-only shown blocks also produce a thinking step. The captures currently contain empty
+  thinking text (`thinking_display: updates`); nonempty text is covered by controlled records, not a new live run.
+- `redacted_thinking` stays timed only. Opaque data/signatures and raw thinking copies are excluded from evidence;
+  subagent thinking still stays out of the teammate's row. Other runtimes' reasoning policies were not changed.
+- Tests: `claude-thinking-is-kept-for-its-thinking-row.test.ts`, `claude-thinking-appears-in-the-thinking-row.test.tsx`;
+  five adapter mutation controls under the filter `Claude shown thinking`. Branch `exec/door-carry-on-follow-ups`,
+  based on `b4d04b4b`; no changelog, version or release changes.
+- Validation: full gate exit 0, including package and both desktop TypeScript checks and the app bundle; 1,095 adapter,
+  171 mission-store, 32 CLI and 13,227 desktop tests passed (9 adapter and 18 desktop tests skipped). The five named
+  mutation controls were caught. Focused adapter suites passed 78 tests; renderer suites passed 7. No live Claude
+  turn, desktop drive, packaging, push or release was run. The pre-existing CLI executable-bit change was preserved.

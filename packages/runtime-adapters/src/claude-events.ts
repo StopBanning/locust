@@ -6,6 +6,7 @@ import {
   isObject,
   malformedEvidence,
   processEvidence,
+  redactSecrets,
   requireContextText,
   stringValue,
   toolPatchFrom,
@@ -76,6 +77,30 @@ export interface ClaudeEventNormalizer {
 }
 
 type JsonObject = Record<string, unknown>;
+
+/** Thinking text belongs on its bounded step, not copied into every raw record.
+ * Opaque/redacted blocks and signatures have no displayed words to retain.
+ */
+function withoutThinkingEvidence(parsed: JsonObject): JsonObject {
+  const block = (value: unknown): unknown => {
+    if (!isObject(value)) return value;
+    return ["thinking", "thinking_delta", "redacted_thinking", "signature_delta"].includes(String(value.type))
+      ? { type: value.type } : value;
+  };
+  if (parsed.type === "stream_event" && isObject(parsed.event)) {
+    const event = parsed.event;
+    if (event.content_block !== undefined || event.delta !== undefined) {
+      return { ...parsed, event: { ...event,
+        ...(event.content_block === undefined ? {} : { content_block: block(event.content_block) }),
+        ...(event.delta === undefined ? {} : { delta: block(event.delta) })
+      } };
+    }
+  }
+  if (parsed.type === "assistant" && isObject(parsed.message) && Array.isArray(parsed.message.content)) {
+    return { ...parsed, message: { ...parsed.message, content: parsed.message.content.map(block) } };
+  }
+  return parsed;
+}
 
 /**
  * `system`/`init` is an environment dump: on the machine this was measured on
@@ -659,13 +684,19 @@ export function createClaudeEventNormalizer(
    */
   let messageOrdinal = 0;
   /**
-   * THINKING, TIMED AND NOT KEPT (0.489). Claude Code shows "Thought for Ns"
-   * over every thinking block; Locust showed nothing. The block's start and
-   * stop are a step of their own, with no text: AGENTS.md forbids keeping
-   * hidden chain-of-thought, and the length of it is not the thought.
-   * Keyed by the block's index within its message.
+   * THINKING, TIMED AND KEPT (correcting 0.489). Claude Code's shown thinking
+   * is not hidden reasoning: Colin's 2026-09-16 decision in AGENTS.md keeps
+   * it on the thinking row, scrubbed and bounded as Cursor's is. Opaque
+   * redacted_thinking and signatures are never kept, and helpers still report
+   * through their Agent call rather than the teammate's thinking row.
    */
-  const openThinking = new Map<number, string>();
+  type ThinkingBlock = { itemId: string; text: string; redacted: boolean; completed: boolean };
+  const openThinking = new Map<number, ThinkingBlock>();
+  const thinkingByMessage = new Map<string, ThinkingBlock>();
+  const rememberThinking = (key: string, block: ThinkingBlock): void => {
+    thinkingByMessage.set(key, block);
+    if (thinkingByMessage.size > 500) thinkingByMessage.delete(thinkingByMessage.keys().next().value!);
+  };
   let streamingMessageId: string | undefined;
 
   const emit = <TType extends NormalizedRuntimeEventType>(
@@ -703,7 +734,8 @@ export function createClaudeEventNormalizer(
   ): readonly NormalizedRuntimeEvent[] {
     const type = stringValue(parsed.type);
     if (type === undefined) return [];
-    const evidence = evidenceFor(record, parsed, type);
+    const safe = withoutThinkingEvidence(parsed);
+    const evidence = { ...evidenceFor(record, safe, type), ...(safe === parsed ? {} : { redacted: true }) };
 
     // A running tool's heartbeat: which tool, and how long it has been going
     // (Claude Code 2.1.280 sends one while a long tool runs, and for a
@@ -945,6 +977,7 @@ export function createClaudeEventNormalizer(
           lastCall = { id: identityValue(message.id), prompt, output: outputTokensOf(message.usage) ?? 0 };
         }
         if (!fromSubagent(parsed)) {
+          openThinking.clear();
           messageOrdinal += 1;
           textBlockId = undefined;
           streamingMessageId = identityValue(message.id);
@@ -965,7 +998,9 @@ export function createClaudeEventNormalizer(
         if ((blockType === "thinking" || blockType === "redacted_thinking") && !fromSubagent(parsed)) {
           const index = typeof inner.index === "number" ? inner.index : 0;
           const itemId = `m${String(messageOrdinal)}_thinking_${String(index)}`;
-          openThinking.set(index, itemId);
+          const thinking: ThinkingBlock = { itemId, text: blockType === "thinking" ? boundedMessageText(stringValue(block.thinking) ?? "") : "", redacted: blockType === "redacted_thinking", completed: false };
+          openThinking.set(index, thinking);
+          if (streamingMessageId !== undefined) rememberThinking(`${streamingMessageId}:thinking_${String(index)}`, thinking);
           return [emit("step.started", { stepKind: "reasoning", itemId, evidence })];
         }
         if (blockType === "tool_use") {
@@ -990,6 +1025,14 @@ export function createClaudeEventNormalizer(
       }
       if (innerType === "content_block_delta") {
         const delta = isObject(inner.delta) ? inner.delta : {};
+        if (stringValue(delta.type) === "thinking_delta") {
+          if (fromSubagent(parsed)) return [];
+          const thinking = openThinking.get(typeof inner.index === "number" ? inner.index : 0);
+          if (thinking !== undefined && !thinking.redacted) {
+            thinking.text = boundedMessageText(thinking.text + redactSecrets(stringValue(delta.thinking) ?? ""));
+          }
+          return [];
+        }
         const text = stringValue(delta.text);
         // A subagent's words are its report to the teammate, not the
         // teammate's to the person; they arrive through the Agent call.
@@ -1007,13 +1050,16 @@ export function createClaudeEventNormalizer(
       }
       if (innerType === "content_block_stop") {
         const index = typeof inner.index === "number" ? inner.index : 0;
-        const itemId = openThinking.get(index);
-        if (itemId === undefined) return [];
+        if (fromSubagent(parsed)) return [];
+        const thinking = openThinking.get(index);
+        if (thinking === undefined) return [];
         openThinking.delete(index);
-        return [emit("step.completed", { stepKind: "reasoning", itemId, evidence })];
+        thinking.completed = true;
+        const said = boundedMessageText(thinking.text.trim());
+        return [emit("step.completed", { stepKind: "reasoning", itemId: thinking.itemId, ...(said.length === 0 || thinking.redacted ? {} : { message: said }), evidence })];
       }
       if (innerType === "message_stop") {
-        openThinking.clear();
+        if (!fromSubagent(parsed)) openThinking.clear();
         return [emit("step.completed", { stepKind: "turn", evidence })];
       }
       return [];
@@ -1097,6 +1143,29 @@ export function createClaudeEventNormalizer(
       // The same record carries every tool_use block with its input filled
       // in, which is the first point the target is knowable.
       const restated: NormalizedRuntimeEvent[] = [];
+      for (const [index, block] of content.entries()) {
+        if (!isObject(block) || (block.type !== "thinking" && block.type !== "redacted_thinking")) continue;
+        const messageId = identityValue(message.id);
+        const key = `${messageId ?? `m${String(messageOrdinal)}`}:thinking_${String(index)}`;
+        // Captures send the whole thinking block BEFORE content_block_stop.
+        // Prefer that open block even when this assistant record holds only
+        // one block and its array index differs from the stream's index.
+        const thinking = (messageId === streamingMessageId ? [...openThinking.values()].find(one => !one.completed) : undefined)
+          ?? thinkingByMessage.get(key);
+        const said = block.type === "thinking" ? boundedMessageText((stringValue(block.thinking) ?? "").trim()) : "";
+        if (thinking !== undefined) {
+          rememberThinking(key, thinking);
+          if (thinking.completed) continue; // A whole echo after the stop must not add another row.
+          if (block.type === "redacted_thinking") { thinking.redacted = true; thinking.text = ""; continue; }
+          if (thinking.redacted || said.length === 0) continue;
+          thinking.text = said;
+          continue;
+        }
+        const whole: ThinkingBlock = { itemId: key, text: said, redacted: block.type === "redacted_thinking", completed: true };
+        rememberThinking(key, whole);
+        restated.push(emit("step.started", { stepKind: "reasoning", itemId: key, evidence }));
+        restated.push(emit("step.completed", { stepKind: "reasoning", itemId: key, ...(said.length === 0 ? {} : { message: said }), evidence }));
+      }
       for (const block of content) {
         if (!isObject(block) || stringValue(block.type) !== "tool_use") continue;
         const itemId = identityValue(block.id);
