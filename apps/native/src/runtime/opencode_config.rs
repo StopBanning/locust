@@ -46,6 +46,9 @@ const check = (command,cwd,workdir) => {
  Ok(if v2{dir}else{dir.join("index.js")})
 }
 pub(crate) fn configure(c:&mut Command,mode:Mode,store:&Store,v2:bool)->io::Result<PathBuf>{
+ let home=store.ledger_dir()?.parent().unwrap().join("opencode-home");
+ store.create_new_file_in(&home, &format!(".run-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()))?;
+ for key in ["XDG_CONFIG_HOME","XDG_DATA_HOME","XDG_CACHE_HOME","XDG_STATE_HOME"] { c.env(key,&home); }
  let plugin=write_guard(store,v2)?;c.env("LOCUST_GUARD_PARENT",std::process::id().to_string());
  if v2{c.env("OPENCODE_CONFIG_CONTENT",acp_config(mode,&plugin).to_string());if matches!(mode,Mode::Ask|Mode::Plan){c.env("OPENCODE_CONFIG_PROJECT_DISABLE","1").env("OPENCODE_DISABLE_CLAUDE_CODE","1").env("OPENCODE_CONFIG","").env("OPENCODE_CONFIG_DIR",plugin.join("config"));}}
  else{c.env("OPENCODE_CONFIG_CONTENT",legacy_config(mode,Some(&file_url(&plugin))).to_string());if matches!(mode,Mode::Ask|Mode::Plan){c.env("OPENCODE_PURE","1");}}

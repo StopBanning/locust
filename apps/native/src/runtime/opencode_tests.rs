@@ -393,3 +393,18 @@ fn real_opencode_one_line() {
         }
     }
 }
+
+#[test]
+fn opencode_config_and_writable_homes_stay_native_for_both_versions() {
+    for v2 in [false,true] {
+        let temp=Temp::new();
+        let store=Store::new(temp.0.join("native"),temp.0.join("electron")).unwrap();
+        let mut c=Command::new("opencode");
+        let plugin=super::super::opencode_config::configure(&mut c,Mode::Auto,&store,v2).unwrap();
+        assert!(plugin.starts_with(store.root()));
+        for key in ["XDG_CONFIG_HOME","XDG_DATA_HOME","XDG_CACHE_HOME","XDG_STATE_HOME"] {
+            let (_,value)=c.get_envs().find(|(k,_)|*k==key).unwrap();
+            assert!(PathBuf::from(value.unwrap()).starts_with(store.root()));
+        }
+    }
+}

@@ -172,6 +172,21 @@ fn cursor_read_only_partial_fixture() {
     assert_eq!(steps.len(), 4);
     let serialized = serde_json::to_string(&events.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap();
     assert!(serialized.contains("Reading README.md to"));
+    let completed: Vec<_> = steps.iter().filter(|e| e.kind == "step.completed").collect();
+    assert_eq!(completed[0].payload["message"], "Reading README.md to summarize the project in one sentence.");
+    assert_eq!(completed[1].payload["message"], "I'll read the README and provide a one-sentence summary of the project.");
+    assert!(steps.iter().filter(|e| e.kind == "step.started").all(|e| e.payload.get("message").is_none()));
+    // The captured stream with a fake secret repeated in a thinking fragment.
+    let token = format!("{}-test-FAKESECRET-LOCUST-7731-abcdefghijklmnop", "sk");
+    let mut lines = fixture_lines("read-only-partial.jsonl");
+    let index = lines.iter().position(|line| line.contains("Reading README.md to")).unwrap();
+    let mut record: serde_json::Value = serde_json::from_str(&lines[index]).unwrap();
+    record["text"] = json!(format!("Reading README.md to {token}"));
+    lines[index] = record.to_string();
+    let (_, scrubbed) = run_lines(&lines, Some(0));
+    let message = &scrubbed.iter().find(|e| e.kind == "step.completed").unwrap().payload["message"];
+    assert_eq!(message, "Reading README.md to [redacted] summarize the project in one sentence.");
+    assert!(!serde_json::to_string(&scrubbed.iter().map(|e| &e.payload).collect::<Vec<_>>()).unwrap().contains(token.as_str()));
     assert_eq!(events.last().unwrap().kind, "run.completed");
 }
 
@@ -500,4 +515,46 @@ fn real_cursor_one_line() {
             }
         }
     }
+}
+
+#[test]
+fn print_only_runtimes_refuse_unsupported_approve_each_before_launch() {
+    let folder=std::path::Path::new("/unused");
+    for result in [
+        crate::runtime::cursor::command(folder,Mode::ApproveEach,None,None),
+        crate::runtime::antigravity::command(folder,Mode::ApproveEach,None,None,None),
+        crate::runtime::muse::command(folder,Mode::ApproveEach,None,None,None),
+    ] { assert!(result.unwrap_err().to_string().contains("does not support Approve-each")); }
+}
+
+
+#[test]
+fn cursor_thinking_matches_ts_fragment_scrubbing_and_completed_message() {
+    let mut n = CursorNormalizer::default();
+    assert!(n.accept(&json!({"type":"thinking","subtype":"completed","text":"ignored"})).is_empty());
+    let start = n.accept(&json!({"type":"thinking","subtype":"delta","text":format!("  The key {}-test-FAKESECRET-LOCUST-7731-abcdefghijklmnop looks like ", "sk")}));
+    assert_eq!(start.len(), 1);
+    assert_eq!(start[0].kind, "step.started");
+    assert!(start[0].payload.get("message").is_none());
+    assert!(n.accept(&json!({"type":"thinking","subtype":"delta","text":"a Stripe test secret. Bearer abcdefghijklmnop"})).is_empty());
+    let done = n.accept(&json!({"type":"thinking","subtype":"completed","text":"completion text is not a delta"}));
+    assert_eq!(done.len(), 1);
+    assert_eq!(done[0].kind, "step.completed");
+    assert_eq!(done[0].payload["message"], "The key [redacted] looks like a Stripe test secret. Bearer [redacted]");
+    assert!(n.accept(&json!({"type":"thinking","subtype":"delta","text":"  "}))[0].payload.get("message").is_none());
+    let empty = n.accept(&json!({"type":"thinking","subtype":"completed"}));
+    assert!(empty[0].payload.get("message").is_none());
+}
+
+#[test]
+fn cursor_thinking_bounds_only_on_close_and_keeps_both_ends() {
+    let mut n = CursorNormalizer::default();
+    // A fragment over the former 1M cap must not be truncated before joining.
+    n.accept(&json!({"type":"thinking","subtype":"delta","text":format!("HEAD{}", "x".repeat(1_000_100))}));
+    n.accept(&json!({"type":"thinking","subtype":"delta","text":"y".repeat(4092)}));
+    n.accept(&json!({"type":"thinking","subtype":"delta","text":"TAIL"}));
+    let done = n.accept(&json!({"type":"thinking","subtype":"completed"}));
+    let message = done[0].payload["message"].as_str().unwrap();
+    assert_eq!(message, format!("HEAD{}\n…[truncated]…\n{}TAIL", "x".repeat(12269), "y".repeat(4092)));
+    assert_eq!(message.encode_utf16().count(), 16384);
 }

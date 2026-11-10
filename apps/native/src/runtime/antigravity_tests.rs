@@ -169,7 +169,7 @@ fn agy_quota_used_up() {
     );
     assert_eq!(
         limit.as_deref(),
-        Some("Antigravity's quota is used up · resets 2026-10-24T02:58:08Z")
+        Some("Antigravity's quota is used up · resets 2026-10-24T02:58:08.000Z")
     );
     events.extend(normal.finish(false, Some(1)));
     assert!(events.iter().any(|e| e.kind == "route.limit_detected"));
@@ -362,4 +362,65 @@ fn real_antigravity_one_line() {
             }
         }
     }
+}
+
+#[test]
+fn agy_quota_precedes_failure_and_finish_is_once() {
+    for error in ["Individual quota reached. Resets in 33h54m24s.", "RESOURCE_EXHAUSTED"] {
+        let mut n=AgyNormalizer::default();
+        n.accept(&json!({"event":"result","result":{"conversation_id":"c1","status":"ERROR","response":"","error":error}}));
+        let events=n.finish(false,Some(1));
+        assert_eq!(events.iter().map(|e|e.kind.as_str()).collect::<Vec<_>>(),["route.limit_detected","run.failed"]);
+        assert_eq!(events[0].payload["kind"],"quota-exhausted");
+        assert_eq!(events[0].payload["evidence"]["runtimeEventType"],"result");
+        assert!(n.finish(false,Some(1)).is_empty());
+    }
+}
+
+#[test]
+fn agy_final_strips_earlier_messages_in_arrival_order() {
+    for _ in 0..25 {
+        let mut n=AgyNormalizer::default();
+        for (i,words) in [(1,"First."),(2,"Second."),(3,"Answer.")] {
+            n.accept(&json!({"event":"step_update","step_update":{"step_index":i,"step_type":"agent_response","state":"DONE","text_delta":words}}));
+        }
+        let e=n.accept(&json!({"event":"result","result":{"status":"SUCCESS","response":"First. Second. Answer."}}));
+        assert_eq!(e.iter().find(|e|e.kind=="message.delta").unwrap().payload["text"],"Answer.");
+    }
+}
+
+#[test]
+fn agy_waiting_helper_and_third_uncached_reread() {
+    let mut n=AgyNormalizer::default();
+    let list="You have 1 active subagent(s):\n[{\"role\":\"Soak & Sweep Runner\",\"state\":\"waiting_for_dependents\",\"lastStepTime\":\"2026-10-24T07:18:51Z\"}]";
+    n.accept(&json!({"event":"step_update","step_update":{"step_index":1,"step_type":"tool","state":"DONE","tool_name":"manage_subagents","tool_info":{"output":list}}}));
+    let mut warnings=0;
+    for i in 2..8 {
+        let e=n.accept(&json!({"event":"step_update","step_update":{"step_index":i,"step_type":"agent_response","state":"DONE","duration_seconds":309.3,"usage":{"thinking_tokens":98,"input_tokens":229594,"cache_read_tokens":0}}}));
+        let thought=e.iter().find(|e|e.kind=="step.completed").unwrap();
+        assert_eq!(thought.payload["durationMs"],309300);
+        assert!(thought.payload["message"].as_str().unwrap().contains("Waiting on its helper Soak & Sweep Runner"));
+        for event in &e {if event.payload["code"]=="antigravity.rereading" {warnings+=1; assert_eq!(i,4); assert!(event.payload["message"].as_str().unwrap().contains("689,000 tokens"));}}
+    }
+    assert_eq!(warnings,1);
+    n.accept(&json!({"event":"step_update","step_update":{"step_index":8,"step_type":"tool","state":"DONE","tool_name":"manage_subagents","tool_info":{"output":"You have no active subagents."}}}));
+    let e=n.accept(&json!({"event":"step_update","step_update":{"step_index":9,"step_type":"agent_response","state":"DONE","duration_seconds":5,"usage":{"thinking_tokens":10,"input_tokens":229594,"cache_read_tokens":228000}}}));
+    assert!(e.iter().all(|e|e.payload.get("message").is_none()));
+}
+
+#[test]
+fn agy_real_quota_shape_reaches_the_ledger_before_failure() {
+    let temp=Temp::new();
+    let store=Store::new(temp.0.join("native"),temp.0.join("electron")).unwrap();
+    let mut c=Command::new("python3"); c.arg(fake_script()).arg("quota-exhausted");
+    let mut rt=Antigravity::spawn(&mut c).unwrap();
+    let mut w=LedgerWriter::create_runtime(&store,"agy_quota_review","Synthetic quota stop","account-default","agy","antigravity",&[],None).unwrap();
+    rt.start(&Turn{prompt:"Synthetic quota stop".into(),folder:temp.0.clone(),model:None,effort:None,resume:None,mode:Mode::Ask,approvals:None,mission_id:"agy_quota_review".into(),run_id:"run_agy_quota_review".into()}).unwrap();
+    let deadline=Instant::now()+Duration::from_secs(5);let mut kinds=vec![];
+    loop { assert!(Instant::now()<deadline); if let Some(e)=rt.next_event().unwrap(){
+        w.append(&e.kind,e.payload,e.thread.as_deref()).unwrap();kinds.push(e.kind.clone());
+        if e.kind=="run.failed"{break;}
+    }}
+    assert_eq!(&kinds[kinds.len()-2..],["route.limit_detected","run.failed"]);
+    reader_check(&store,"agy_quota_review","failed");
 }

@@ -671,7 +671,7 @@ pub fn send(job: Send) -> Result<Started, String> {
     let runtime_owned = runtime_name.to_owned();
     std::thread::Builder::new()
         .name("native-turn".into())
-        .spawn(move || run_turn(writer, command, turn, flag, registered, runtime_owned, channel, bridge))
+        .spawn(move || run_turn(writer, command, turn, flag, registered, runtime_owned, channel, bridge, store))
         .map_err(|e| format!("Could not start the turn: {e}"))?;
     Ok(Started { conversation_id: anchor, mode: mode.as_str().into() })
 }
@@ -700,6 +700,7 @@ fn run_turn(
     runtime_name: String,
     channel: std::sync::Arc<Channel>,
     _bridge: Option<crate::runtime::permission_bridge::Bridge>,
+    store: Store,
 ) {
     let mut registered = Some(registered);
     let mission_id = turn.mission_id.clone();
@@ -828,7 +829,7 @@ fn run_turn(
         let prompt_file = if using_hook {
             None
         } else {
-            match crate::runtime::muse::prepare_prompt_file(&mut command, &turn.prompt, &turn.folder) {
+            match crate::runtime::muse::prepare_prompt_file(&mut command, &turn.prompt, &store) {
                 Ok(p) => Some(p),
                 Err(e) => {
                     record_failure(&mut writer, false, &e);

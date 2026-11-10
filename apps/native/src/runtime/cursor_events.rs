@@ -476,8 +476,9 @@ impl CursorNormalizer {
 
         if type_name == "thinking" {
             let evidence = self.evidence(type_name);
-            // Secret-scrubbed at the door (cursor-events.ts); accumulate then bound on close.
-            let fragment = text(s(parsed, "text"), 1_000_000);
+            // Cursor exposes this thinking to its user. Match TS: scrub each
+            // fragment, accumulate one step, and bound its message only on close.
+            let fragment = super::events::redact_secrets(s(parsed, "text"));
             if s(parsed, "subtype") == "completed" {
                 if !self.thinking {
                     return vec![];
@@ -486,9 +487,7 @@ impl CursorNormalizer {
                 let said = text(self.reasoning.trim(), 16384);
                 self.reasoning.clear();
                 let mut p = json!({"stepKind":"reasoning","evidence":evidence});
-                if !said.is_empty() {
-                    p["message"] = json!(said);
-                }
+                if !said.is_empty() { p["message"] = json!(said); }
                 return vec![self.event("step.completed", p)];
             }
             self.reasoning.push_str(&fragment);

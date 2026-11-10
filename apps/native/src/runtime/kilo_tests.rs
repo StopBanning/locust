@@ -268,3 +268,18 @@ fn real_kilo_one_line() {
         }
     }
 }
+
+#[test]
+fn kilo_follow_up_uses_the_same_native_session_home() {
+    let temp=Temp::new();
+    let store=Store::new(temp.0.join("native"),temp.0.join("electron")).unwrap();
+    let first=write_home(&store).unwrap();
+    std::fs::write(first.join("saved-session"),"s1").unwrap();
+    let next=write_home(&store).unwrap();
+    assert_eq!(first,next);
+    assert!(first.starts_with(store.root()));
+    assert_eq!(std::fs::read_to_string(next.join("saved-session")).unwrap(),"s1");
+    for (_,v) in isolation_env(&first).iter().filter(|(k,_)|k.starts_with("XDG_")||k=="KILO_CONFIG_DIR") {
+        assert!(std::path::Path::new(v).starts_with(store.root()));
+    }
+}

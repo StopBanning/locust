@@ -172,7 +172,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
         }
         "muse" => {
             let mut command = crate::runtime::muse::command(&turn.folder, turn.mode, turn.model.as_deref(), turn.effort.as_deref(), turn.resume.as_deref())?;
-            let prompt_file = crate::runtime::muse::prepare_prompt_file(&mut command, &turn.prompt, &turn.folder)?;
+            let prompt_file = crate::runtime::muse::prepare_prompt_file(&mut command, &turn.prompt, &store)?;
             let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
             let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, turn.model.as_deref().unwrap_or("account-default"), &command.get_program().to_string_lossy(), "muse", &args, None)?;
             eprintln!("Ledger: {}", writer.path.display());

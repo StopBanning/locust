@@ -2,7 +2,7 @@
 use super::Event;
 use crate::runtime::events::text;
 use serde_json::{Value, json};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 pub const QUOTA_SENTENCE: &str = "Antigravity's quota is used up for now, so it stopped before finishing. Pick another model to carry on, or send again once it resets.";
 pub const STALLED_SENTENCE: &str = "Antigravity's model stopped answering for five minutes, so Antigravity ended the turn. What it did so far is kept. Antigravity says this can be tried again: send \"continue\".";
@@ -48,7 +48,7 @@ pub fn quota_limit(error: &str, now_ms: i64) -> Option<String> {
         + c.get(3).and_then(|m| m.as_str().parse::<i64>().ok()).unwrap_or(0);
     if seconds <= 0 { return Some("Antigravity's quota is used up".into()); }
     let when = chrono::DateTime::from_timestamp_millis(now_ms + seconds * 1000)
-        .map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+        .map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
         .unwrap_or_default();
     Some(format!("Antigravity's quota is used up · resets {when}"))
 }
@@ -75,11 +75,14 @@ pub struct AgyNormalizer {
     answer_closed: bool,
     usage: Option<Value>,
     last_message_item: Option<String>,
-    spoken_text: HashMap<String, String>,
+    spoken_text: Vec<(String, String)>,
     open_tools: HashSet<i64>,
     spoken: HashSet<i64>,
     held: Vec<Held>,
     sandbox: String,
+    helpers: Vec<Value>,
+    rereads: u64,
+    reread_tokens: f64,
 }
 
 impl Default for AgyNormalizer {
@@ -87,9 +90,9 @@ impl Default for AgyNormalizer {
         Self {
             thread: None, ended: false, saw_result: false, count: 0, turn_open: false,
             status: None, result_error: None, answered_then_unavailable: false, answer_closed: false,
-            usage: None, last_message_item: None, spoken_text: HashMap::new(),
+            usage: None, last_message_item: None, spoken_text: Vec::new(),
             open_tools: HashSet::new(), spoken: HashSet::new(), held: Vec::new(),
-            sandbox: "read-only".into(),
+            sandbox: "read-only".into(), helpers: vec![], rereads: 0, reread_tokens: 0.0,
         }
     }
 }
@@ -155,6 +158,7 @@ impl AgyNormalizer {
         out
     }
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Vec<Event> {
+        if self.ended { return vec![]; }
         let mut ending = self.release_held(&[]);
         self.ended = true;
         let thread = self.thread.clone();
@@ -200,6 +204,7 @@ impl AgyNormalizer {
             "runtimeTerminal": if self.status.is_none() {"missing"} else if self.status.as_deref()==Some("SUCCESS") {"completed"} else {"failed"},
             "process": self.process(false,false,exit_code)
         });
+        if self.saw_result { p["evidence"] = self.evidence("result"); }
         if lost { p["sessionEnded"]=json!(true); }
         if let Some(t)=&thread { p["runtimeThreadId"]=json!(t); }
         ending.push(self.event("run.failed", p));
@@ -311,6 +316,14 @@ impl AgyNormalizer {
         }
         events
     }
+    fn reread(&mut self, step: &Value) -> Vec<Event> {
+        let input=step["usage"]["input_tokens"].as_f64().unwrap_or(0.0);
+        if input < 100_000.0 || step["usage"]["cache_read_tokens"].as_f64().unwrap_or(0.0)>0.0 {return vec![];}
+        self.rereads+=1; self.reread_tokens+=input;
+        if self.rereads!=3 {return vec![];}
+        let total=if self.reread_tokens>=1_000_000.0 {format!("{:.1} million",self.reread_tokens/1_000_000.0)}else{format!("{},000",(self.reread_tokens/1000.0).round())};
+        vec![self.diagnostic("warning","antigravity.rereading",&format!("Antigravity has read this whole conversation again 3 times this turn, about {},000 tokens each, with none of it reused: {total} tokens of your quota so far. If it is only waiting, press Stop and send \"continue\" later.",(input/1000.0).round()))]
+    }
     fn accept_step(&mut self, step: &Value, evidence: Value) -> Vec<Event> {
         let index = step["step_index"].as_i64();
         let type_name = s(step, "step_type");
@@ -324,19 +337,26 @@ impl AgyNormalizer {
             if text_delta.is_empty() && state == "DONE" && !self.spoken.contains(&index) {
                 let used = step["usage"]["thinking_tokens"].as_f64().unwrap_or(0.0);
                 let seconds = step["duration_seconds"].as_f64();
-                if used <= 0.0 || seconds.is_none() { return vec![]; }
+                let reread=self.reread(step);
+                if used <= 0.0 || seconds.is_none() { return reread; }
                 let item_id = format!("thought_{index}");
                 let ms = (seconds.unwrap() * 1000.0).round() as i64;
-                return vec![
+                let mut completed=json!({"stepKind":"reasoning","itemId":item_id,"durationMs":ms,"evidence":evidence});
+                if let Some(h)=self.helpers.iter().find(|h|!matches!(s(h,"state").to_ascii_lowercase().as_str(),"done"|"completed"|"complete"|"succeeded"|"success"|"finished"|"failed"|"cancelled"|"canceled"|"stopped")) {
+                    let at=h["lastStepTime"].as_str().and_then(|t|chrono::DateTime::parse_from_rfc3339(t).ok()).map(|t|format!(", with no step since {}",t.with_timezone(&chrono::Local).format("%-I:%M %p"))).unwrap_or_default();
+                    completed["message"]=json!(text(&format!("**Waiting on its helper {}**\nIts list says the helper is {}{at}.",h["role"].as_str().unwrap_or("helper"),h["state"].as_str().unwrap_or("unknown").replace('_'," ")),16384));
+                }
+                let mut out=vec![
                     self.event("step.started", json!({"stepKind":"reasoning","itemId":item_id,"evidence":evidence})),
-                    self.event("step.completed", json!({"stepKind":"reasoning","itemId":item_id,"durationMs":ms,"evidence":evidence})),
+                    self.event("step.completed", completed),
                 ];
+                out.extend(reread); return out;
             }
-            if text_delta.is_empty() { return vec![]; }
+            if text_delta.is_empty() { return if state=="DONE" { self.reread(step) } else {vec![]}; }
             self.spoken.insert(index);
             let item_id = format!("msg_{index}");
             self.last_message_item = Some(item_id.clone());
-            self.spoken_text.entry(item_id.clone()).and_modify(|t| t.push_str(text_delta)).or_insert(text_delta.to_owned());
+            if let Some((_, words)) = self.spoken_text.iter_mut().find(|(id,_)| id == &item_id) { words.push_str(text_delta); } else { self.spoken_text.push((item_id.clone(),text_delta.to_owned())); }
             return vec![self.event("message.delta", json!({"itemId":item_id,"operation":"append","text":text(text_delta,131072),"final":false,"evidence":evidence}))];
         }
         if type_name == "tool" {
@@ -360,6 +380,14 @@ impl AgyNormalizer {
             }
             self.open_tools.remove(&index);
             let output = info["output"].as_str().map(str::to_owned);
+            if state=="DONE" && name=="manage_subagents" {
+                if let Some(output)=&output {
+                    if let Some(start)=output.find('[') {
+                        if let Ok(Value::Array(list))=serde_json::from_str::<Value>(&output[start..]) { if !list.is_empty() { self.helpers=list.into_iter().filter(Value::is_object).collect(); } }
+                    }
+                    if output.to_ascii_lowercase().contains("no active subagent") { self.helpers.clear(); }
+                }
+            }
             let seconds = step["duration_seconds"].as_f64();
             let duration_ms = seconds.map(|s| (s * 1000.0).round() as i64);
             let error_text = info["error"]["message"].as_str().map(str::to_owned);

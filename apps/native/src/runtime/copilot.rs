@@ -21,7 +21,7 @@ use std::{
 const MAX_LINE: u64 = 8 * 1024 * 1024;
 pub const EXCLUDED_TOOLS: &str = "--excluded-tools=session_store_sql";
 
-pub struct Copilot {
+pub struct PrintCopilot {
     child: Child,
     control: Arc<Control>,
     lines: Receiver<io::Result<Value>>,
@@ -115,12 +115,16 @@ pub fn command(
     session_id: Option<&str>,
 ) -> io::Result<Command> {
     let mut c = Command::new(super::discovery::find_named("copilot")?);
-    c.args(prompt_args(prompt, mode, model, effort, resume, session_id));
+    if mode == Mode::ApproveEach {
+        c.args(["--acp", EXCLUDED_TOOLS]);
+        if let Some(m)=model { c.args(["--model",m]); }
+        if let Some(e)=effort { c.args(["--effort",e]); }
+    } else { c.args(prompt_args(prompt, mode, model, effort, resume, session_id)); }
     c.current_dir(folder);
     Ok(c)
 }
 
-impl Copilot {
+impl PrintCopilot {
     pub fn spawn(command: &mut Command) -> io::Result<Self> {
         #[cfg(unix)]
         { use std::os::unix::process::CommandExt; command.process_group(0); }
@@ -240,7 +244,7 @@ impl Copilot {
     }
 }
 
-impl Runtime for Copilot {
+impl Runtime for PrintCopilot {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
         if turn.prompt.trim().is_empty() { return Err(err("Prompt must be nonempty")); }
         // Prompt already in argv; stdin is null. Seed host session so run.started
@@ -300,7 +304,7 @@ impl Runtime for Copilot {
     }
 }
 
-impl Drop for Copilot {
+impl Drop for PrintCopilot {
     fn drop(&mut self) {
         { let mut state = self.control.state.lock().unwrap(); state.closed = true; self.control.wake.notify_one(); kill_process(self.child.id()); }
         let _ = self.child.kill(); let _ = self.child.wait();
@@ -326,4 +330,22 @@ mod unit_tests {
         assert!(args.windows(2).any(|w| w == ["--effort", "high"]));
         assert!(args.iter().any(|a| a == "--resume=old"));
     }
+}
+
+/// Approve-each uses ACP; print's allow-all-tools can never implement a card.
+pub enum Copilot { Print(PrintCopilot), Acp(super::acp::Acp) }
+impl Copilot {
+    pub fn spawn(c: &mut Command) -> io::Result<Self> {
+        if c.get_args().any(|a| a == "--acp") {
+            let mut a=super::acp::Acp::spawn(c)?;
+            a.set_profile(super::acp::Profile {runtime:"copilot".into(), required:vec![("allow_all".into(),"off".into())], strict:false, named:true, ..Default::default()});
+            Ok(Self::Acp(a))
+        } else { Ok(Self::Print(PrintCopilot::spawn(c)?)) }
+    }
+    pub fn with_cancel(self, c: Arc<AtomicBool>) -> Self { match self { Self::Print(p)=>Self::Print(p.with_cancel(c)), Self::Acp(a)=>Self::Acp(a.with_cancel(c)) } }
+}
+impl Runtime for Copilot {
+    fn start(&mut self,t:&Turn)->io::Result<()> {match self {Self::Print(p)=>p.start(t),Self::Acp(a)=>a.start(t)}}
+    fn next_event(&mut self)->io::Result<Option<Event>> {match self {Self::Print(p)=>p.next_event(),Self::Acp(a)=>a.next_event()}}
+    fn stop(&mut self)->io::Result<()> {match self {Self::Print(p)=>p.stop(),Self::Acp(a)=>a.stop()}}
 }

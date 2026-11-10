@@ -83,6 +83,7 @@ pub fn exec_args(workspace: &Path, mode: Mode, model: Option<&str>, effort: Opti
 }
 
 pub fn command(folder: &Path, mode: Mode, model: Option<&str>, effort: Option<&str>, resume: Option<&str>) -> io::Result<Command> {
+    if mode == Mode::ApproveEach { return Err(err("Muse does not support Approve-each in the native driver.")); }
     let mut c = Command::new(super::discovery::find_named("muse")?);
     c.args(exec_args(folder, mode, model, effort, resume)?).current_dir(folder);
     Ok(c)
@@ -160,6 +161,7 @@ impl Muse {
 
 impl Runtime for Muse {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
+        if turn.mode == Mode::ApproveEach { return Err(err("Muse does not support Approve-each in the native driver.")); }
         if turn.prompt.trim().is_empty() { return Err(err("Prompt must be nonempty")); }
         // Prompt already substituted by the host when using hooks; for real launches the
         // command was built with a placeholder the host must rewrite before spawn.
@@ -217,21 +219,18 @@ impl Drop for Muse {
 }
 
 /// Substitute the prompt-file placeholder and write the prompt (the-prompt-muse-cannot-be-told).
-pub fn prepare_prompt_file(command: &mut Command, prompt: &str, dir: &Path) -> io::Result<PathBuf> {
-    let path = dir.join(format!("muse-prompt-{}.txt", std::process::id()));
-    {
-        let mut f = std::fs::File::create(&path)?;
-        f.write_all(prompt.as_bytes())?;
-    }
-    let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
-    let program = command.get_program().to_os_string();
-    let cwd = command.get_current_dir().map(|p| p.to_path_buf());
-    let mut rebuilt = Command::new(program);
-    for a in args {
-        if a == PROMPT_FILE_PLACEHOLDER { rebuilt.arg(&path); } else { rebuilt.arg(a); }
-    }
-    if let Some(cwd) = cwd { rebuilt.current_dir(cwd); }
-    *command = rebuilt;
+pub fn prepare_prompt_file(command: &mut Command, prompt: &str, store: &crate::store::Store) -> io::Result<PathBuf> {
+    let dir = store.ledger_dir()?.parent().unwrap().join(format!("muse-prompt-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+    let path = dir.join("prompt.txt");
+    store.create_new_file_in(&dir, "prompt.txt")?.write_all(prompt.as_bytes())?;
+    let args: Vec<_> = command.get_args().map(|a| if a == PROMPT_FILE_PLACEHOLDER {path.as_os_str().to_owned()} else {a.to_owned()}).collect();
+    let rebuilt = super::opencode_process::copy_command(command);
+    // copy_command includes argv; rebuild only after capturing all launch settings.
+    let mut replacement = Command::new(rebuilt.get_program());
+    replacement.args(args);
+    if let Some(cwd) = rebuilt.get_current_dir() { replacement.current_dir(cwd); }
+    for (k,v) in rebuilt.get_envs() { if let Some(v)=v { replacement.env(k,v); } else { replacement.env_remove(k); } }
+    *command = replacement;
     Ok(path)
 }
 

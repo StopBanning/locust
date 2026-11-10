@@ -281,3 +281,33 @@ fn real_copilot_one_line() {
         }
     }
 }
+
+#[test]
+fn copilot_approve_each_enforces_agent_and_allow_all_off_before_prompt() {
+    use crate::approval::{Channel,Decision,Answer};
+    for scenario in ["allow","deny","missing","refuses"] {
+        let temp=Temp::new();
+        let channel=Channel::new();
+        let mut c=Command::new("python3");
+        c.arg(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/fixtures/m4-copilot-approval.py")).arg(scenario).arg("--acp");
+        let mut rt=Copilot::spawn(&mut c).unwrap();
+        rt.start(&Turn{prompt:"echo hi".into(),folder:temp.0.clone(),model:None,effort:None,resume:Some("s1".into()),mode:Mode::ApproveEach,approvals:Some(channel.clone()),mission_id:"copilot_review".into(),run_id:"run_review".into()}).unwrap();
+        let answer_channel=channel.clone();
+        let expected=scenario.to_string();
+        let worker=std::thread::spawn(move || {
+            let deadline=Instant::now()+Duration::from_secs(5);
+            loop {
+                if let Some(card)=answer_channel.waiting().first() {
+                    answer_channel.decide(Answer::Decision{approval_id:card.approval_id.clone(),decision:if expected=="allow"{Decision::ApproveOnce}else{Decision::Deny},reason:None}).unwrap();
+                    return true;
+                }
+                if expected=="refuses" || Instant::now()>deadline {return false;}
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
+        let deadline=Instant::now()+Duration::from_secs(8);
+        let terminal=loop {assert!(Instant::now()<deadline);if let Some(e)=rt.next_event().unwrap(){if matches!(e.kind.as_str(),"run.completed"|"run.failed"){break e;}}};
+        assert_eq!(terminal.kind,if scenario=="refuses"{"run.failed"}else{"run.completed"});
+        assert_eq!(worker.join().unwrap(),scenario!="refuses");
+    }
+}

@@ -574,6 +574,13 @@ impl Acp {
         self.normal.records += 1;
         // Persist identity even if startup fails after this point, without replaying the session's text.
         self.queued.push_back(self.normal.event("adapter.diagnostic",json!({"level":"info","code":"acp.session","message":"ACP session opened.","terminal":false,"runtimeThreadId":self.normal.thread,"evidence":{"runtimeEventType":"locust/session","redacted":true}})));
+        if self.profile.runtime == "copilot" {
+            let agent="https://agentclientprotocol.com/protocol/session-modes#agent";
+            if !session["modes"]["availableModes"].as_array().into_iter().flatten().any(|m|m["id"]==agent) {return Err(err("Copilot did not offer Agent mode; no prompt was sent."));}
+            if session["modes"]["currentModeId"] != agent {
+                self.request("session/set_mode",json!({"sessionId":self.normal.thread,"modeId":agent}),deadline)?;
+            }
+        }
         let mut required=self.profile.required.clone();
         if let Some(model)=self.model_config.clone() {required.push(model);}
         let mut session=session;

@@ -48,7 +48,9 @@ pub fn isolation_env(directory: &Path) -> Vec<(String, String)> {
     vec![
         ("KILO_CONFIG_DIR".into(), dir.clone()),
         ("XDG_CONFIG_HOME".into(), dir.clone()),
-        ("XDG_DATA_HOME".into(), dir),
+        ("XDG_DATA_HOME".into(), dir.clone()),
+        ("XDG_CACHE_HOME".into(), dir.clone()),
+        ("XDG_STATE_HOME".into(), dir),
         ("KILO_DISABLE_PROJECT_CONFIG".into(), "1".into()),
         ("KILO_DISABLE_CLAUDE_CODE".into(), "1".into()),
         ("KILO_DISABLE_EXTERNAL_SKILLS".into(), "1".into()),
@@ -106,17 +108,10 @@ pub(crate) fn write_git_shim(store: &Store) -> io::Result<Option<PathBuf>> {
 
 pub(crate) fn write_home(store: &Store) -> io::Result<PathBuf> {
     let root = store.ledger_dir()?.parent().unwrap().to_path_buf();
-    let id = format!(
-        "kilo-home-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    );
-    let dir = store.check(&root.join(id))?;
-    // Ensure the isolation directory exists without following symlinks.
-    store.create_new_file_in(&dir, ".keep")?.write_all(b"")?;
+    // Stable data home: session/load must see the preceding process's sessions.
+    let dir = store.check(&root.join("kilo-home"))?;
+    let marker=format!(".run-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    store.create_new_file_in(&dir, &marker)?.write_all(b"")?;
     Ok(dir)
 }
 

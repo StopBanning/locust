@@ -88,6 +88,7 @@ pub fn print_args(mode: Mode, model: Option<&str>, effort: Option<&str>, resume:
 }
 
 pub fn command(folder: &Path, mode: Mode, model: Option<&str>, effort: Option<&str>, resume: Option<&str>) -> io::Result<Command> {
+    if mode == Mode::ApproveEach { return Err(err("Antigravity does not support Approve-each in the native driver.")); }
     let mut c = Command::new(super::discovery::find_named("agy")?);
     c.args(print_args(mode, model, effort, resume)).current_dir(folder);
     Ok(c)
@@ -181,6 +182,7 @@ impl Antigravity {
 
 impl Runtime for Antigravity {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
+        if turn.mode == Mode::ApproveEach { return Err(err("Antigravity does not support Approve-each in the native driver.")); }
         if turn.prompt.trim().is_empty() { return Err(err("Prompt must be nonempty")); }
         self.normal = AgyNormalizer::default().with_sandbox(sandbox_for(turn.mode));
         self.send(user_line(&turn.prompt))?;

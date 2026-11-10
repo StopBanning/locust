@@ -389,7 +389,7 @@ fn real_muse_one_line() {
     std::fs::create_dir_all(&folder).unwrap();
     let mut command = crate::runtime::muse::command(&folder, Mode::Ask, None, None, None).unwrap();
     let prompt_file =
-        crate::runtime::muse::prepare_prompt_file(&mut command, "Reply with exactly: ok", &folder)
+        crate::runtime::muse::prepare_prompt_file(&mut command, "Reply with exactly: ok", &store)
             .unwrap();
     let mut rt = Muse::spawn_with_prompt_file(&mut command, Some(prompt_file)).unwrap();
     let turn = Turn {
@@ -429,4 +429,20 @@ fn real_muse_one_line() {
             }
         }
     }
+}
+
+#[test]
+fn muse_prompt_is_unique_native_owned_and_preserves_launch_environment() {
+    let temp=Temp::new();
+    let store=Store::new(temp.0.join("native"),temp.0.join("electron")).unwrap();
+    let mut c=Command::new("muse");
+    c.args(["exec","--prompt-file",crate::runtime::muse::PROMPT_FILE_PLACEHOLDER]).env("MUSE_TEST","kept").env_remove("REMOVED").current_dir(&temp.0);
+    let first=crate::runtime::muse::prepare_prompt_file(&mut c,"private prompt",&store).unwrap();
+    let second=crate::runtime::muse::prepare_prompt_file(&mut Command::new("muse"),"second",&store).unwrap();
+    assert_ne!(first,second);
+    assert!(first.starts_with(temp.0.join("native")));
+    assert_eq!(std::fs::read_to_string(&first).unwrap(),"private prompt");
+    assert!(c.get_args().any(|a|a==first.as_os_str()));
+    assert!(c.get_envs().any(|(k,v)|k=="MUSE_TEST"&&v==Some(std::ffi::OsStr::new("kept"))));
+    assert!(c.get_envs().any(|(k,v)|k=="REMOVED"&&v.is_none()));
 }

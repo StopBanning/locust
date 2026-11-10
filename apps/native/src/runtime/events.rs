@@ -15,6 +15,21 @@ static SECRETS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     r#"(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|authorization|password|secret|cookie|credential)["']?\s*[=:]\s*["']?)([^\s,"';}]+)"#,
 ].iter().map(|r| Regex::new(r).unwrap()).collect()
 });
+/// codex-events.ts:redactSecrets, without a size bound. Cursor's displayed
+/// thinking is scrubbed per fragment before accumulation, then bounded on close.
+/// Keep the Bearer label as TypeScript does, without changing other text paths.
+pub fn redact_secrets(value: &str) -> String {
+    let mut clean = value.replace('\0', "");
+    for (i, regex) in SECRETS.iter().enumerate() {
+        clean = regex.replace_all(&clean, match i {
+            0 => "Bearer [redacted]",
+            7 => "${1}[redacted]",
+            _ => "[redacted]",
+        }).into_owned();
+    }
+    clean
+}
+
 pub fn text(value: &str, limit: usize) -> String {
     let mut clean = value.replace('\0', "");
     for (i, regex) in SECRETS.iter().enumerate() {

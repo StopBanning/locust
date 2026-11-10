@@ -149,6 +149,7 @@ pub fn command(
     model: Option<&str>,
     resume: Option<&str>,
 ) -> io::Result<Command> {
+    if mode == Mode::ApproveEach { return Err(err("Cursor does not support Approve-each in the native driver.")); }
     let mut c = Command::new(super::discovery::find_named("cursor-agent")?);
     c.args(print_args(folder, mode, model, resume)?);
     c.current_dir(folder);
@@ -450,6 +451,7 @@ impl Cursor {
 
 impl Runtime for Cursor {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
+        if turn.mode == Mode::ApproveEach { return Err(err("Cursor does not support Approve-each in the native driver.")); }
         if turn.prompt.trim().is_empty() {
             return Err(err("Prompt must be nonempty"));
         }
