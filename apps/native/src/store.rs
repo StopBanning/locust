@@ -174,6 +174,14 @@ impl Store {
     pub fn attachments_dir(&self) -> io::Result<PathBuf> {
         self.check(&self.root.join(".locust").join("attachments"))
     }
+    /// Conversation titles/pins/settled — Electron shape (`teammates.json`), native folder only.
+    pub fn teammates_json_path(&self) -> io::Result<PathBuf> {
+        self.check(&self.root.join("teammates.json"))
+    }
+    /// Projects / groups — Electron shape (`groups.json`), native folder only.
+    pub fn groups_json_path(&self) -> io::Result<PathBuf> {
+        self.check(&self.root.join("groups.json"))
+    }
     pub fn write_path(&self, id: &str) -> io::Result<PathBuf> {
         if id.is_empty()
             || id.len() > 128

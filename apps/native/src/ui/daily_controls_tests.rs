@@ -24,6 +24,8 @@ fn model_pick_is_consumed_for_one_send_only_and_does_not_leak() {
     s.ledger_summaries.insert(
         "recent-1".into(),
         ledger::Summary {
+            parent: None,
+            words: String::new(),
             mission_id: "recent-1".into(),
             title: "First".into(),
             runtime: "codex".into(),
@@ -37,6 +39,8 @@ fn model_pick_is_consumed_for_one_send_only_and_does_not_leak() {
     s.ledger_summaries.insert(
         "recent-2".into(),
         ledger::Summary {
+            parent: None,
+            words: String::new(),
             mission_id: "recent-2".into(),
             title: "Second".into(),
             runtime: "claude".into(),

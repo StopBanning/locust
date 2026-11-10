@@ -191,6 +191,24 @@ pub(super) struct State {
     pub(super) off_the_queue: bool,
     /// Popup forced open for snap scenes.
     pub(super) scene_popup: ComposerScenePopup,
+    // --- P4 conversation organization ---
+    pub(super) org: org::OrgState,
+    pub(super) sidebar_query: TextEdit,
+    pub(super) find_open: bool,
+    pub(super) find_query: TextEdit,
+    pub(super) find_hits: Vec<thread_find::FindHit>,
+    pub(super) find_index: usize,
+    pub(super) find_pieces: Vec<String>,
+    pub(super) find_earlier_turns: usize,
+    pub(super) find_show_earlier: bool,
+    pub(super) palette_open: bool,
+    pub(super) palette_query: TextEdit,
+    pub(super) palette_index: usize,
+    pub(super) palette_actions: Vec<command_palette::PaletteAction>,
+    pub(super) beside: Option<beside::BesideState>,
+    pub(super) rename_id: Option<String>,
+    pub(super) rename_draft: TextEdit,
+    pub(super) org_menu_id: Option<String>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -267,6 +285,23 @@ impl Default for State {
             data: None,
             off_the_queue: false,
             scene_popup: ComposerScenePopup::None,
+            org: org::OrgState::default(),
+            sidebar_query: TextEdit::new(""),
+            find_open: false,
+            find_query: TextEdit::new(""),
+            find_hits: Vec::new(),
+            find_index: 0,
+            find_pieces: Vec::new(),
+            find_earlier_turns: 0,
+            find_show_earlier: false,
+            palette_open: false,
+            palette_query: TextEdit::new(""),
+            palette_index: 0,
+            palette_actions: Vec::new(),
+            beside: None,
+            rename_id: None,
+            rename_draft: TextEdit::new(""),
+            org_menu_id: None,
         }
     }
 }

@@ -32,6 +32,8 @@ pub struct Metadata {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Summary {
+    pub parent: Option<String>,
+    pub words: String,
     pub mission_id: String,
     pub title: String,
     pub runtime: String,
@@ -1066,6 +1068,8 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             .take(60)
             .collect();
         summaries.push(Summary {
+            parent: m.parent,
+            words: m.prompt,
             mission_id: m.mission_id,
             title: if title.is_empty() {
                 "Untitled".into()

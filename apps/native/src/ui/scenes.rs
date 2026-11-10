@@ -610,3 +610,93 @@ pub(super) fn ledger_transcript_light_scene(s: &mut State) {
 pub(super) fn ledger_live_light_scene(s: &mut State) {
     ledger_scene(s, true, true);
 }
+
+// --- P4 conversation organization scenes ---
+
+fn org_base(s: &mut State, light: bool) {
+    team_scene(s);
+    s.appearance = Some(!light);
+    s.org.pins = vec!["sample-2".into(), "sample-1".into()];
+    s.org.titles.insert("sample-1".into(), "Pinned deploy notes".into());
+    s.org.settled.insert(
+        "sample-4".into(),
+        settled::SettledEntry {
+            at: "2026-11-09T12:00:00.000Z".into(),
+            until: None,
+        },
+    );
+    s.org.groups = vec![org::Group {
+        group_id: "grp_locust".into(),
+        name: "Locust".into(),
+        created_at: "2026-11-01T00:00:00.000Z".into(),
+        instructions: String::new(),
+    }];
+    s.org.members.insert("sample-3".into(), "grp_locust".into());
+}
+
+pub(super) fn org_sidebar_scene(s: &mut State) {
+    org_base(s, false);
+}
+
+pub(super) fn org_sidebar_light_scene(s: &mut State) {
+    org_base(s, true);
+}
+
+pub(super) fn org_search_scene(s: &mut State) {
+    org_base(s, false);
+    s.sidebar_query.replace_text("deploy");
+}
+
+pub(super) fn org_search_light_scene(s: &mut State) {
+    org_search_scene(s);
+    s.appearance = Some(false);
+}
+
+pub(super) fn org_find_scene(s: &mut State) {
+    team_scene(s);
+    s.appearance = Some(true);
+    s.find_open = true;
+    s.find_pieces = vec![
+        "The deploy failed. ".into(),
+        "Deploy again?".into(),
+    ];
+    s.find_query.replace_text("deploy");
+    refresh_find_hits(s);
+}
+
+pub(super) fn org_find_light_scene(s: &mut State) {
+    org_find_scene(s);
+    s.appearance = Some(false);
+}
+
+pub(super) fn org_palette_scene(s: &mut State) {
+    team_scene(s);
+    s.appearance = Some(true);
+    s.palette_open = true;
+    let missions = sidebar_missions_now(s);
+    s.palette_actions = default_palette_actions(&missions, false);
+    s.palette_query.replace_text("");
+}
+
+pub(super) fn org_palette_light_scene(s: &mut State) {
+    org_palette_scene(s);
+    s.appearance = Some(false);
+}
+
+pub(super) fn org_beside_scene(s: &mut State) {
+    team_scene(s);
+    s.appearance = Some(true);
+    s.beside = Some(beside::BesideState {
+        mission_id: "sample-2".into(),
+        title: "Count from 1 to 150.".into(),
+        owner_name: Some("Sable".into()),
+        prompt: "Count from 1 to 150.".into(),
+        reply_lines: vec!["1".into(), "2".into(), "3".into()],
+        phase: "running".into(),
+    });
+}
+
+pub(super) fn org_beside_light_scene(s: &mut State) {
+    org_beside_scene(s);
+    s.appearance = Some(false);
+}

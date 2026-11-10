@@ -14,6 +14,25 @@ use activity_drawers::*;
 #[path = "ui/messages.rs"]
 mod messages;
 use messages::*;
+#[path = "ui/conversation_list.rs"]
+mod conversation_list;
+#[path = "ui/conversation_search.rs"]
+mod conversation_search;
+#[path = "ui/settled.rs"]
+mod settled;
+#[path = "ui/thread_find.rs"]
+mod thread_find;
+#[path = "ui/thread_find_bar.rs"]
+mod thread_find_bar;
+use thread_find_bar::*;
+#[path = "ui/command_palette.rs"]
+mod command_palette;
+#[path = "ui/org.rs"]
+mod org;
+use command_palette::*;
+#[path = "ui/beside.rs"]
+mod beside;
+use beside::*;
 #[path = "ui/sidebar.rs"]
 mod sidebar;
 use sidebar::*;
@@ -693,7 +712,7 @@ fn refresh_recent(s: &mut State) {
     let on_native = s.engine == Some(Kind::Native);
     s.recents.request((), move |()| {
         // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
-        if let Some(listed) = native::list_recent(12, on_native) {
+        if let Some(listed) = native::list_recent(usize::MAX, on_native) {
             let rows = listed
                 .summaries
                 .iter()
@@ -742,6 +761,9 @@ fn refresh_recent(s: &mut State) {
 
 // Detaching stops local observation, not a turn already running in Locust.
 fn detach(s: &mut State) {
+    close_find(s);
+    s.find_show_earlier = false;
+    s.find_pieces.clear();
     s.sending.cancel();
     s.waiting.cancel();
     s.opening.cancel();
@@ -854,7 +876,12 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
     }
 }
 
-fn open_recent(s: &mut State, row: ConversationRow, tx: &mut Tx) {
+fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
+    if let Some(title) =
+        crate::conversation_list::conversation_title_for(&recent_as_missions(s), Some(&row.id))
+    {
+        row.title = title.to_owned();
+    }
     if let Some(summary) = s.ledger_summaries.get(&row.id).cloned() {
         detach(s);
         s.own_turn = None;
@@ -946,6 +973,31 @@ fn fresh_conversation(s: &mut State) {
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if event.key == Key::Escape {
+        if s.palette_open {
+            s.palette_open = false;
+            return true;
+        }
+        if s.find_open {
+            close_find(s);
+            return true;
+        }
+        if s.org_menu_id.is_some() {
+            s.org_menu_id = None;
+            return true;
+        }
+        if s.rename_id.is_some() {
+            s.rename_id = None;
+            s.rename_draft.clear();
+            return true;
+        }
+        if !s.sidebar_query.text.is_empty() {
+            s.sidebar_query.clear();
+            return true;
+        }
+        if s.beside.is_some() {
+            s.beside = None;
+            return true;
+        }
         if s.flight.is_some() || s.opening_teammate.is_some() {
             detach(s);
             s.status = if s.engine == Some(Kind::Native) {
@@ -960,8 +1012,48 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         }
         return true;
     }
+    if s.palette_open {
+        let actions = palette_matches(&s.palette_actions, &s.palette_query.text);
+        match event.key {
+            Key::Down | Key::Up => {
+                s.palette_index =
+                    thread_find::step_hit(s.palette_index, actions.len(), event.key == Key::Up);
+                return true;
+            }
+            Key::Enter => {
+                if let Some(action) = actions.get(s.palette_index) {
+                    run_palette_action(s, &action.id, tx);
+                }
+                return true;
+            }
+            _ => {}
+        }
+    }
+    if s.find_open && event.key == Key::Enter {
+        s.find_pieces = find_pieces_now(s);
+        refresh_find_hits(s);
+        s.find_index = thread_find::step_hit(s.find_index, s.find_hits.len(), event.mods.shift);
+        return true;
+    }
     if event.mods.shift || event.mods.alt {
         return false;
+    }
+    if event.is_command('f') {
+        // Seed find pieces from the open conversation's visible text.
+        s.find_pieces = find_pieces_now(s);
+        open_find(s);
+        return true;
+    }
+    if event.is_command('k') {
+        let missions = sidebar_missions_now(s);
+        s.palette_actions = default_palette_actions(&missions, can_stop(s));
+        s.palette_query.clear();
+        s.draft.focused = false;
+        s.find_query.focused = false;
+        s.palette_query.focused = true;
+        s.palette_index = 0;
+        s.palette_open = true;
+        return true;
     }
     if event.is_command('n') {
         fresh_conversation(s);
@@ -981,6 +1073,28 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         }
     }
     false
+}
+
+fn find_pieces_now(s: &State) -> Vec<String> {
+    if !s.find_pieces.is_empty() && (s.find_show_earlier || s.demo) {
+        return s.find_pieces.clone();
+    }
+    let mut pieces = Vec::new();
+    if let Some((_, conversation)) = selected_conversation(s) {
+        for (who, body) in &conversation.turns {
+            pieces.push(format!("{who}: {body}"));
+        }
+    }
+    if let Some(pane) = &s.ledger {
+        for item in &pane.items {
+            match item {
+                ledger::Item::User(text) => pieces.push(text.clone()),
+                ledger::Item::Assistant { text, .. } => pieces.push(text.clone()),
+                _ => {}
+            }
+        }
+    }
+    pieces
 }
 
 // Locust supplies UTC ISO timestamps. Fractional seconds are irrelevant here.
@@ -1470,7 +1584,27 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
 fn view(s: &State, cx: &mut Cx<State>) -> El {
     let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
     let sidebar = sidebar(s, &p);
-    let right = thread_view(s, &p);
+    let mut thread = thread_view(s, &p);
+    if let Some(find) = thread_find_bar(s, &p) {
+        thread = col()
+            .grow(1.0)
+            .h_full()
+            .min_w(0.0)
+            .child(find)
+            .child(thread);
+    }
+    let mut right = row().grow(1.0).h_full().min_w(0.0).child(thread);
+    if let Some(beside) = beside_panel(s, &p) {
+        right = right.child(beside);
+    }
+    if s.palette_open {
+        return col()
+            .w_full()
+            .h_full()
+            .fill(p.bg)
+            .center()
+            .child(command_palette(s, &p));
+    }
     row()
         .w_full()
         .h_full()
@@ -1657,6 +1791,16 @@ fn main() {
             ("composer-queue-light", composer_queue_light_scene),
             ("composer-blocked", composer_blocked_scene),
             ("composer-blocked-light", composer_blocked_light_scene),
+            ("org-sidebar", org_sidebar_scene),
+            ("org-sidebar-light", org_sidebar_light_scene),
+            ("org-search", org_search_scene),
+            ("org-search-light", org_search_light_scene),
+            ("org-find", org_find_scene),
+            ("org-find-light", org_find_light_scene),
+            ("org-palette", org_palette_scene),
+            ("org-palette-light", org_palette_light_scene),
+            ("org-beside", org_beside_scene),
+            ("org-beside-light", org_beside_light_scene),
         ],
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })

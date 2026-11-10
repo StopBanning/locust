@@ -61,6 +61,7 @@ pub(super) fn load_composer_store(s: &mut State) {
                 ));
             }
         }
+        s.org = org::load_org(&store);
         s.data = Some(store);
     }
 }

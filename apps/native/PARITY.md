@@ -26,10 +26,10 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Expandable tool arguments/output | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/ThreadItems.tsx` | **partial** — per-item argument/output drawers, elapsed times and bounded output expansion implemented; full Electron tool classification/group-label grammar remains | no |
 | Interactive step/plan progress | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/Thread.tsx` | **partial** — expandable structured plan with live step states/counts implemented; Electron animated plan header and live-line plan peek remain | no |
 | Diagnostic/rate-limit notes and cancellation receipts | `renderer/src/components/CancellationCard.tsx`, `renderer/src/ledgerFailure.ts` | **partial** — plain notes only | no |
-| Watch two conversations beside one another | `renderer/src/App.tsx`, `renderer/src/components/BesideConversation.tsx` | **missing** | no |
-| Pin, rename, settle/snooze, delete and project grouping | `renderer/src/components/Sidebar.tsx`, `renderer/src/App.tsx`, `renderer/src/conversationList.ts`, `main/mission-history.ts` | **missing** | yes |
-| Find within conversation | `renderer/src/components/ThreadFind.tsx`, `renderer/src/threadFind.ts` | **missing** | no |
-| Sidebar search by title, ID, teammate and user messages across turns | `renderer/src/components/Sidebar.tsx`, `renderer/src/status.ts` | **missing** | no |
+| Watch two conversations beside one another | `renderer/src/App.tsx`, `renderer/src/components/BesideConversation.tsx` | **done** — read-only beside panel with Electron chrome words; Open it here / Close; synthetic tests and scenes | no |
+| Pin, rename, settle/snooze, delete and project grouping | `renderer/src/components/Sidebar.tsx`, `renderer/src/App.tsx`, `renderer/src/conversationList.ts`, `main/mission-history.ts` | **partial** — pin/rename/settle/snooze/project membership persist via native `teammates.json`/`groups.json` (Electron read-only merge); Delete-for-good and Project settings dialog remain | yes |
+| Find within conversation | `renderer/src/components/ThreadFind.tsx`, `renderer/src/threadFind.ts` | **done** — find bar with Electron words; hit count/step; no CSS Highlight glyph paint | no |
+| Sidebar search by title, ID, teammate and user messages across turns | `renderer/src/components/Sidebar.tsx`, `renderer/src/status.ts` | **done** — `missionsMatching` port; Search conversations field and narrowing line | no |
 | Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **missing** | yes |
 | Subagent/helper activity and transcript details | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **partial** — nested parent-ID calls, reports, type/counts and background/end states implemented; Electron helper row formatting and full group summaries remain | no |
 | Peer handoff cards and exchange budget/stop controls | `renderer/src/components/PeerThread.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `main/peer-exchange.ts` | **missing** | yes |
@@ -212,7 +212,7 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Board of waiting/working/done with actionable approvals | `renderer/src/components/BoardScreen.tsx`, `renderer/src/conversationBoard.ts` | **missing** | yes |
 | Since-you-were-away recap | `renderer/src/components/AwayList.tsx`, `main/away.ts` | **missing** | yes |
 | Updates, release notes and big-update splash | `renderer/src/components/WhatsNew.tsx`, `renderer/src/components/Screens.tsx`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts` | **missing** | yes |
-| Global command palette | `renderer/src/components/CommandPalette.tsx` | **missing** | no |
+| Global command palette | `renderer/src/components/CommandPalette.tsx` | **done** — Cmd/Ctrl+K; Electron placeholder/groups/labels; filter + group order | no |
 | External CLI client for local MCP tools | `packages/cli/src/index.ts` | **partial** — native --ask covers ask/reply only | yes |
 | Expose team as ACP agent to editors, with opt-in own-turn approval answers | `packages/cli/src/acp.ts`, `main/locust-cli-sessions.ts` | **missing** | yes |
 | One-click Claude desktop MCP connection and restart/remove | `main/claude-app-connection.ts`, `renderer/src/components/LocustMcpSettings.tsx` | **missing** | yes |
@@ -270,7 +270,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total |
 | :--- | :--- | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 6 | 4 | 15 | 25 |
+| 1 | Conversations & Thread Rendering | 9 | 5 | 11 | 25 |
 | 2 | Composer & Input | 10 | 0 | 4 | 14 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 0 | 12 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
@@ -282,10 +282,10 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 |
 | 11 | Settings, Usage, Privacy & Backup | 0 | 0 | 8 | 8 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 |
-| 13 | Onboarding, Home, Updates & CLI | 0 | 2 | 11 | 13 |
+| 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 1 | 6 | 7 |
-| | **TOTAL** | **21** | **13** | **119** | **153** |
+| | **TOTAL** | **25** | **14** | **114** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
