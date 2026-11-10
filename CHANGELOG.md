@@ -11,7 +11,16 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
-## 0.871.0 - 2026-11-08
+## 0.871.0 - 2026-11-10
+
+### Improved
+
+- **Claude Code's thinking shows in its thinking row,** as Cursor's already did. When Claude Code shows you its
+  thinking, Locust keeps the words under "Thought for Ns", with any key in them hidden; thinking Claude keeps private
+  stays a timed line with no words.
+- **A turn that crashed can be carried on.** When an AI agent's program dies or stops making sense partway through,
+  the turn now offers to carry on with another AI agent, as a turn that ran out of plan does, so the work so far isn't
+  lost. A turn you stopped, a refusal and a finished turn still don't.
 
 ### Fixed
 
@@ -20,6 +29,16 @@ heading: the home screen then shows it once, as a splash.
   after the teammate's last words, instead of a half sentence alone.
 - **The MCP setup lines work in a Mac or Linux terminal.** Settings said "run this in PowerShell" everywhere; on a Mac
   it now says Terminal (a terminal on Linux) and quotes the command for that shell, so it pastes and runs as shown.
+- **An app's follow-up stays with the AI agent its conversation was carried to.** After a conversation was carried
+  on, say from Antigravity to Cursor, the next message an app sent went back to Antigravity. It now continues on
+  Cursor, and the reply names the agent that ran.
+- **An app-started turn works where it was sent.** A turn an app started for an OpenCode teammate ran in the
+  teammate's own folder and mode instead of the ones asked for, while the reply said otherwise. It now runs where it
+  was sent, and a carried-on turn stays in its conversation's folder. Replies give the full path of the folder the
+  turn actually ran in, and say whether it is working, waiting for you, done, failed or stopped in a form an app can
+  read without parsing sentences.
+- **A long Cursor turn keeps its answer.** Cursor repeats its whole answer at the end; when that was too large to take
+  in, the turn ended with no result. The final status now comes through, with the repeated answer cut to size.
 
 ## 0.870.0 - 2026-11-08
 
