@@ -51,6 +51,12 @@ Each milestone has an exit test. A milestone is done when its test passes, not w
 - Riskiest first: the engine (M1 to M3) comes before more screens.
 - Progress is reported as "rows done of 153" and "milestone reached", not as "round N shipped".
 - Every change gets synthetic-data tests. Live checks run headless, or behind other windows without focus.
+- **The behavior is ported along with the features** (Colin, 9 Nov). Each round lists the TypeScript test files for its
+  area (the `*.test.ts(x)` beside the code it ports, about 1,280 in all). Each of those tests either gets a matching
+  Rust test or a line in the round's notes saying why it doesn't apply. A checklist row is only done when its tests
+  are carried over.
+- Colin switches only when Rust has earned it: Rust passes the same checks on the daily path, then he uses it for a
+  day with Electron kept as a fallback.
 
 ## Risks
 
