@@ -1,4 +1,10 @@
+#[path = "ui/context_usage.rs"]
+mod context_usage;
 mod invariants;
+#[path = "ui/recovery.rs"]
+mod recovery;
+#[path = "ui/reply_actions.rs"]
+mod reply_actions;
 #[path = "ui/scenes.rs"]
 mod scenes;
 use scenes::*;
@@ -1246,6 +1252,17 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         return false;
     }
     let mut changed = false;
+    if let Some(feedback) = &s.copy_feedback {
+        let remain = feedback
+            .until
+            .saturating_duration_since(std::time::Instant::now());
+        if remain.is_zero() {
+            s.copy_feedback = None;
+            changed = true;
+        } else {
+            tx.wake_after(remain);
+        }
+    }
     changed |= sync_approvals(s);
     let root = selected_conversation(s)
         .and_then(|(t, _)| t.folder.as_ref())
@@ -1597,20 +1614,27 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     if let Some(beside) = beside_panel(s, &p) {
         right = right.child(beside);
     }
-    if s.palette_open {
-        return col()
-            .w_full()
-            .h_full()
-            .fill(p.bg)
-            .center()
-            .child(command_palette(s, &p));
+    if let Some(viewer) = reply_actions::viewer(s, &p) {
+        right = right.child(viewer);
     }
-    row()
+    let app = row()
         .w_full()
         .h_full()
         .fill(p.bg)
         .child(sidebar)
-        .child(right)
+        .child(right);
+    if s.palette_open {
+        app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(command_palette(s, &p).modal(true, |s: &mut State| s.palette_open = false)),
+        )
+    } else {
+        app
+    }
 }
 
 // Only the selected runtime may supply a display name: IDs can overlap across agents.
@@ -1791,6 +1815,12 @@ fn main() {
             ("composer-queue-light", composer_queue_light_scene),
             ("composer-blocked", composer_blocked_scene),
             ("composer-blocked-light", composer_blocked_light_scene),
+            ("p5-code", p5_code_scene),
+            ("p5-code-light", p5_code_light_scene),
+            ("p5-file", p5_file_scene),
+            ("p5-file-light", p5_file_light_scene),
+            ("p5-recovery", p5_recovery_scene),
+            ("p5-recovery-light", p5_recovery_light_scene),
             ("org-sidebar", org_sidebar_scene),
             ("org-sidebar-light", org_sidebar_light_scene),
             ("org-search", org_search_scene),

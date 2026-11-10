@@ -376,6 +376,8 @@ pub(super) fn approval_scene(s: &mut State, light: bool) {
         dir: std::path::PathBuf::new(),
         worker: None,
         snapshot: ledger::Snapshot {
+            recovery: None,
+            context: None,
             items: vec![],
             tip: "synthetic-approval".into(),
             running: true,
@@ -467,6 +469,8 @@ pub(super) fn ledger_scene(s: &mut State, live: bool, light: bool) {
         dir: std::path::PathBuf::new(),
         worker: None,
         snapshot: ledger::Snapshot {
+            recovery: None,
+            context: None,
             items,
             tip: "synthetic-ledger".into(),
             running: live,
@@ -617,7 +621,9 @@ fn org_base(s: &mut State, light: bool) {
     team_scene(s);
     s.appearance = Some(!light);
     s.org.pins = vec!["sample-2".into(), "sample-1".into()];
-    s.org.titles.insert("sample-1".into(), "Pinned deploy notes".into());
+    s.org
+        .titles
+        .insert("sample-1".into(), "Pinned deploy notes".into());
     s.org.settled.insert(
         "sample-4".into(),
         settled::SettledEntry {
@@ -656,10 +662,7 @@ pub(super) fn org_find_scene(s: &mut State) {
     team_scene(s);
     s.appearance = Some(true);
     s.find_open = true;
-    s.find_pieces = vec![
-        "The deploy failed. ".into(),
-        "Deploy again?".into(),
-    ];
+    s.find_pieces = vec!["The deploy failed. ".into(), "Deploy again?".into()];
     s.find_query.replace_text("deploy");
     refresh_find_hits(s);
 }
@@ -698,5 +701,52 @@ pub(super) fn org_beside_scene(s: &mut State) {
 
 pub(super) fn org_beside_light_scene(s: &mut State) {
     org_beside_scene(s);
+    s.appearance = Some(false);
+}
+
+pub(super) fn p5_code_scene(s: &mut State) {
+    ledger_scene(s, false, false);
+    if let Some(pane) = &mut s.ledger {
+        pane.items = vec![ledger::Item::User("Show the code and the file reference.".into()), ledger::Item::Assistant {
+            item_id: "p5-code".into(), r#final: true,
+            text: "The total now keeps the original price.\n\n```ts\nconst total = items.reduce((sum, item) => sum + item.price, 0);\nexport default \"done\"; // keep every character\n```\n\nRead [src/cart.ts:12-18](src/cart.ts:12-18) for the calculation.".into() }];
+        pane.snapshot.context = Some(context_usage::Reading {
+            used: 164000,
+            window: 200000,
+            percent: 82,
+        });
+    }
+}
+pub(super) fn p5_code_light_scene(s: &mut State) {
+    p5_code_scene(s);
+    s.appearance = Some(false);
+}
+pub(super) fn p5_file_scene(s: &mut State) {
+    p5_code_scene(s);
+    s.file_view = Some((
+        reply_actions::FileTarget {
+            path: "src/cart.ts".into(),
+            start: 12,
+            end: 18,
+        },
+        Ok((1..=22)
+            .map(|n| format!("// line {n}: synthetic file reader fixture"))
+            .collect::<Vec<_>>()
+            .join("\n")),
+    ));
+}
+pub(super) fn p5_file_light_scene(s: &mut State) {
+    p5_file_scene(s);
+    s.appearance = Some(false);
+}
+pub(super) fn p5_recovery_scene(s: &mut State) {
+    p5_code_scene(s);
+    if let Some(pane) = &mut s.ledger {
+        pane.items.truncate(1);
+        pane.snapshot.recovery = Some(recovery::Offer::Resume {epoch:3,note:"One action started and never reported an outcome, so whether it took effect is unknown.".into(),unverified:vec!["command: npm publish".into()]});
+    }
+}
+pub(super) fn p5_recovery_light_scene(s: &mut State) {
+    p5_recovery_scene(s);
     s.appearance = Some(false);
 }

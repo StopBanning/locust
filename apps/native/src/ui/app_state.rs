@@ -209,6 +209,9 @@ pub(super) struct State {
     pub(super) rename_id: Option<String>,
     pub(super) rename_draft: TextEdit,
     pub(super) org_menu_id: Option<String>,
+    pub(super) file_view: Option<(reply_actions::FileTarget, Result<String, String>)>,
+    /// Last Copy press feedback (`Copied` / `Not copied`), keyed by body.
+    pub(super) copy_feedback: Option<reply_actions::CopyFeedback>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -302,6 +305,8 @@ impl Default for State {
             rename_id: None,
             rename_draft: TextEdit::new(""),
             org_menu_id: None,
+            file_view: None,
+            copy_feedback: None,
         }
     }
 }

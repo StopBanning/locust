@@ -2,7 +2,6 @@ use super::*;
 
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().gap(24.0).padding(24.0);
-    let style = markdown_style(p);
     for (index, item) in items.iter().enumerate() {
         let conversation = s
             .ledger
@@ -108,14 +107,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 .w_full()
                 .gap(8.0)
                 .child(text(name).font(type_::LABEL).color(p.muted))
-                .child(
-                    Markdown::new(body.clone())
-                        .streaming(!*r#final)
-                        .selectable(true)
-                        .render(&style)
-                        .key(format!("{key}-markdown"))
-                        .w_full(),
-                ),
+                .child(reply_actions::reply(s, body, !*r#final, p)),
             ledger::Item::Tool { .. }
             | ledger::Item::Plan { .. }
             | ledger::Item::Thought { .. } => activity_item(item, p, s, conversation),
@@ -131,6 +123,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             .selectable(true),
         };
         messages = messages.child(content.key(key));
+    }
+    if let Some(card) = recovery::card(s, p) {
+        messages = messages.child(card);
     }
     messages.child(approval_card(s, p))
 }

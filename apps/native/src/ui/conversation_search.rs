@@ -52,20 +52,32 @@ mod tests {
             row("m_1", "Deploy plan", "also check the signup form"),
             row("m_2", "Other", "nothing here"),
         ];
-        let by_said = missions_matching(&rows, "signup", None::<fn(&SidebarMission) -> Option<String>>);
+        let by_said = missions_matching(
+            &rows,
+            "signup",
+            None::<fn(&SidebarMission) -> Option<String>>,
+        );
         assert_eq!(by_said.len(), 1);
         assert_eq!(by_said[0].mission_id, "m_1");
-        let by_title = missions_matching(&rows, "deploy", None::<fn(&SidebarMission) -> Option<String>>);
+        let by_title = missions_matching(
+            &rows,
+            "deploy",
+            None::<fn(&SidebarMission) -> Option<String>>,
+        );
         assert_eq!(by_title.len(), 1);
         let by_id = missions_matching(&rows, "m_2", None::<fn(&SidebarMission) -> Option<String>>);
         assert_eq!(by_id.len(), 1);
-        let by_mate = missions_matching(&rows, "atlas", Some(|r: &SidebarMission| {
-            if r.mission_id == "m_1" {
-                Some("Atlas".into())
-            } else {
-                None
-            }
-        }));
+        let by_mate = missions_matching(
+            &rows,
+            "atlas",
+            Some(|r: &SidebarMission| {
+                if r.mission_id == "m_1" {
+                    Some("Atlas".into())
+                } else {
+                    None
+                }
+            }),
+        );
         assert_eq!(by_mate.len(), 1);
         assert_eq!(
             missions_matching(&rows, "   ", None::<fn(&SidebarMission) -> Option<String>>).len(),

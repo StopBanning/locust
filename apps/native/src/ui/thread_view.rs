@@ -142,6 +142,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             );
         }
 
+        if let Some(context) = context_usage::control(s, p) {
+            status = status.child(context);
+        }
         let placeholder = composer_placeholder(s);
         let field = text_input(&s.draft, type_::BODY)
             .key("composer")

@@ -30,15 +30,15 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Pin, rename, settle/snooze, delete and project grouping | `renderer/src/components/Sidebar.tsx`, `renderer/src/App.tsx`, `renderer/src/conversationList.ts`, `main/mission-history.ts` | **partial** — pin/rename/settle/snooze/project membership persist via native `teammates.json`/`groups.json` (Electron read-only merge); Delete-for-good and Project settings dialog remain | yes |
 | Find within conversation | `renderer/src/components/ThreadFind.tsx`, `renderer/src/threadFind.ts` | **done** — find bar with Electron words; hit count/step; no CSS Highlight glyph paint | no |
 | Sidebar search by title, ID, teammate and user messages across turns | `renderer/src/components/Sidebar.tsx`, `renderer/src/status.ts` | **done** — `missionsMatching` port; Search conversations field and narrowing line | no |
-| Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **missing** | yes |
+| Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **partial** — reply Copy submits Markdown to the native clipboard; edit/restore and confirmed copy feedback remain | yes |
 | Subagent/helper activity and transcript details | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **partial** — nested parent-ID calls, reports, type/counts and background/end states implemented; Electron helper row formatting and full group summaries remain | no |
 | Peer handoff cards and exchange budget/stop controls | `renderer/src/components/PeerThread.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `main/peer-exchange.ts` | **missing** | yes |
 | Decision options, handed-over files and suggested task cards | `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/Thread.tsx`, `shared/protocolTags.ts` | **missing** | yes |
 | Reasoning duration and folded traces | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **done** — normalized public messages only, scrubbed/bounded, timed and folded; raw/legacy reasoning excluded; synthetic tests and headless scenes | no |
-| Context breakdown/compact now and per-reply usage/cost | `renderer/src/components/ContextRing.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/compactNow.ts`, `renderer/src/cost.ts` | **missing** | yes |
+| Context breakdown/compact now and per-reply usage/cost | `renderer/src/components/ContextRing.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/compactNow.ts`, `renderer/src/cost.ts` | **partial** — runtime-measured context pie and exact reading; compaction diagnostic line and invalidation; category menu, Compact now execution and cost remain | yes |
 | Save Markdown record and raw JSON | `renderer/src/components/SaveRecordDialog.tsx`, `main/mission-export.ts` | **missing** | yes |
 | Import Claude Code, Codex, OpenCode and Cursor conversations | `renderer/src/components/ImportDialog.tsx`, `main/session-import.ts`, `main/agent-session-import.ts` | **missing** | yes |
-| Resume interrupted run from checkpoint | `renderer/src/components/ResumeCard.tsx`, `renderer/src/resume.ts` | **missing** | yes |
+| Resume interrupted run from checkpoint | `renderer/src/components/ResumeCard.tsx`, `renderer/src/resume.ts` | **partial** — newest-checkpoint recovery decision and card, including named uncertain actions and refusal; reconciled resume execution remains unavailable | yes |
 | Prompt rail, jump to bottom and timeline markers | `renderer/src/components/PromptRail.tsx`, `renderer/src/components/JumpToBottom.tsx`, `renderer/src/components/TimeMarker.tsx` | **missing** | no |
 | Selection ask and copied read-only side chat | `renderer/src/components/SelectionAsk.tsx`, `renderer/src/components/SideChat.tsx` | **missing** | yes |
 | Published-link cards and pinned page/tracker status controls | `renderer/src/components/PublishedCards.tsx`, `renderer/src/components/StatusChip.tsx`, `renderer/src/pinnedPages.ts` | **missing** | yes |
@@ -234,8 +234,8 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Coloured code blocks, copy and file path controls | `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/ColouredCode.tsx`, `renderer/src/components/CopyButton.tsx` | **partial** — Markdown code only; no app copy/path controls | no |
-| File viewer, line targeting and context menu/editor/reveal actions | `renderer/src/components/FileViewer.tsx`, `main/reveal-file.ts`, `shared/file-menu.ts` | **missing** | yes |
+| Coloured code blocks, copy and file path controls | `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/ColouredCode.tsx`, `renderer/src/components/CopyButton.tsx` | **partial** — Rune syntax colours, code/reply Copy and file-path controls; full Electron grammars, confirmed clipboard feedback and change-copy semantics remain | no |
+| File viewer, line targeting and context menu/editor/reveal actions | `renderer/src/components/FileViewer.tsx`, `main/reveal-file.ts`, `shared/file-menu.ts` | **partial** — bounded read-only UTF-8 reader with targeted lines, close and whole-file Copy; Markdown mode, version history, context menu/editor/reveal/save remain | yes |
 | Mermaid diagram/source view | `renderer/src/components/ReplyDiagram.tsx`, `main/diagrams.ts`, `main/diagram-view.ts` | **missing** | yes |
 | PDF pages, attachment thumbnail and text reading | `renderer/src/components/PdfPages.tsx`, `renderer/src/components/PdfTile.tsx`, `main/pdf-pages.ts`, `main/pdf-reading.ts` | **missing** | yes |
 | Word/PowerPoint reading, document changes, XLSX/CSV sheets and image zoom | `renderer/src/components/DocPreview.tsx`, `renderer/src/components/DocumentView.tsx`, `renderer/src/components/DocumentChange.tsx`, `renderer/src/components/SheetView.tsx`, `renderer/src/components/ZoomableImage.tsx`, `main/office-words.ts`, `main/xlsx.ts` | **missing** | yes |
@@ -270,7 +270,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total |
 | :--- | :--- | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 9 | 5 | 11 | 25 |
+| 1 | Conversations & Thread Rendering | 9 | 8 | 8 | 25 |
 | 2 | Composer & Input | 10 | 0 | 4 | 14 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 0 | 12 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
@@ -284,8 +284,8 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 |
 | 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
-| 15 | Documents, Diagrams & File Viewer | 0 | 1 | 6 | 7 |
-| | **TOTAL** | **25** | **14** | **114** | **153** |
+| 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
+| | **TOTAL** | **25** | **18** | **110** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
@@ -395,7 +395,7 @@ This is source inspection, not runtime certification. Read all four Rust modules
 
 Path validation used Python to extract every backticked source path, resolve the documented roots, and call Path.is_file() (Path.exists() for root directories). Each evidence file was checked before writing and every final citation was checked afterward. No glob paths or proposed future filenames are cited. Protocol tags, runtime data filenames and key chords are not treated as source paths.
 
-Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 21 done, 13 partial, 119 missing**.
+Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 25 done, 18 partial, 110 missing**.
 
 An independent parser checks all Section 1 feature/status rows against Section 3 per-area and grand totals, requires a gap on every partial row, and checks every component is covered. Physical source-size counts are separate from feature counts.
 
@@ -404,3 +404,5 @@ Not run: cargo test/build, TS tests, app launch, live Electron/MCP integration, 
 M4A execution verification (2026-11-09): generic ACP synthetic runs and TypeScript ledger-reader checks are recorded in M4A-NOTES.md. The audit-only verification above is historical; no real turn or window was launched for M4A.
 
 M4C execution verification (2026-11-09): Cursor, Copilot, Antigravity and Muse native drivers and synthetic ledgers are recorded in M4C-NOTES.md. No window or live one-line CLI turn was launched for M4C. The composite named-runtime row stays **partial** (no discovery/sign-in UI; live CLI turns unrun).
+
+P5 verification (2026-11-10): partial implementation, not a closed parity round. See P5-NOTES.md for tests, screenshots and remaining behavior. No row was promoted to done by P5.

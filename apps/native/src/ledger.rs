@@ -543,6 +543,9 @@ pub struct Transcript {
     pub error: Option<io::ErrorKind>,
     // Sequence keys make out-of-order batches and duplicate records replay correctly.
     events: BTreeMap<u64, Value>,
+    checkpoints: Vec<Value>,
+    pub recovery: Option<crate::recovery::Offer>,
+    pub context: Option<crate::context_usage::Reading>,
 }
 
 impl Transcript {
@@ -551,7 +554,15 @@ impl Transcript {
             return;
         }
         for record in records {
-            if let Some(m) = metadata(&record) {
+            if record["recordType"] == "mission.checkpoint" {
+                self.checkpoints.push(record["checkpoint"].clone());
+                self.checkpoints
+                    .sort_by_key(|p| p["epoch"].as_u64().unwrap_or(0));
+                self.checkpoints.dedup_by_key(|p| p["epoch"].as_u64());
+                if self.checkpoints.len() > MAX_EVENTS {
+                    self.checkpoints.remove(0);
+                }
+            } else if let Some(m) = metadata(&record) {
                 self.metadata = Some(m);
             } else if let Some(event) = record.get("event")
                 && let Some(sequence) = event.get("sequence").and_then(Value::as_u64)
@@ -575,6 +586,7 @@ impl Transcript {
         self.running = self.metadata.is_some();
         self.failed = false;
 
+        self.context = None;
         let mut carry = false;
         let mut finished = false;
         for (sequence, event) in &self.events {
@@ -775,7 +787,13 @@ impl Transcript {
                 }
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
-                    if level == "warning" || level == "error" {
+                    if string(p, "code").ends_with(".context_compacted") {
+                        self.context = None;
+                        items.push(Item::Note {
+                            level: String::new(),
+                            text: scrub(&string(p, "message")),
+                        });
+                    } else if level == "warning" || level == "error" {
                         items.push(Item::Note {
                             level,
                             text: scrub(&string(p, "message")),
@@ -812,6 +830,10 @@ impl Transcript {
                 "run.completed" | "run.cancelled" => {
                     carry = false;
                     finished = true;
+                    if kind == "run.completed" {
+                        self.context = crate::context_usage::Reading::from_usage(&p["usage"])
+                            .or(self.context.take());
+                    }
                     if kind == "run.cancelled" {
                         items.push(Item::Note {
                             level: String::new(),
@@ -896,6 +918,28 @@ impl Transcript {
         for item in &mut items {
             qualify(item, mission, !self.running);
         }
+        let phase = if self.running {
+            "interrupted"
+        } else if self.failed {
+            "failed"
+        } else if self
+            .events
+            .values()
+            .rev()
+            .find(|e| {
+                matches!(
+                    e["type"].as_str(),
+                    Some("run.completed" | "run.failed" | "run.cancelled")
+                )
+            })
+            .is_some_and(|e| e["type"] == "run.cancelled")
+        {
+            "cancelled"
+        } else {
+            "completed"
+        };
+        self.recovery =
+            crate::recovery::offer(phase, &self.checkpoints, usize::from(self.error.is_some()));
         self.items = items;
     }
 }
@@ -1096,6 +1140,8 @@ struct Reader {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Snapshot {
+    pub recovery: Option<crate::recovery::Offer>,
+    pub context: Option<crate::context_usage::Reading>,
     pub items: Vec<Item>,
     pub tip: String,
     pub running: bool,
@@ -1261,10 +1307,24 @@ impl Session {
                     .filter(|item| is_tip || !matches!(item, Item::CarryOn { .. }))
                     .cloned(),
             );
+            if reader
+                .transcript
+                .events
+                .values()
+                .any(|e| string(&e["payload"], "code").ends_with(".context_compacted"))
+            {
+                snapshot.context = None;
+            }
+            snapshot.context = reader.transcript.context.clone().or(snapshot.context);
             snapshot.tip = reader.id.clone();
             snapshot.running =
                 reader.transcript.running && fresh(reader.tail.modified, SystemTime::now());
             snapshot.failed = reader.transcript.failed;
+            snapshot.recovery = if snapshot.running {
+                None
+            } else {
+                reader.transcript.recovery.clone()
+            };
         }
         Ok(snapshot)
     }
