@@ -896,6 +896,7 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         .spawn(move || {
             // Keep ownership through the final memory write so shutdown/continuation cannot race it.
             let _memory_completion = registered;
+            let checkpoint = crate::checkpoints::Turn::begin(&memory_store, &memory_folder);
             run_turn(
                 writer,
                 command,
@@ -907,6 +908,9 @@ pub fn send(mut job: Send) -> Result<Started, String> {
                 bridge,
                 store,
             );
+            if let Err(error) = checkpoint.finish(&memory_store, &memory_id) {
+                eprintln!("Undo checkpoint was not kept: {error}");
+            }
             if let Ok(path) = memory_store.write_path(&memory_id) {
                 let transcript = ledger::read_transcript(path);
                 if !transcript.failed

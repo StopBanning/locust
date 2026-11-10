@@ -342,6 +342,20 @@ fn drive<R: Runtime>(
     writer: &mut LedgerWriter,
     turn: &Turn,
 ) -> Result<i32, Box<dyn std::error::Error>> {
+    let store = Store::local()?;
+    let checkpoint = crate::checkpoints::Turn::begin(&store, &turn.folder);
+    let result = drive_checkpointed(runtime, writer, turn);
+    if let Err(error) = checkpoint.finish(&store, &turn.mission_id) {
+        eprintln!("Undo checkpoint was not kept: {error}");
+    }
+    result
+}
+
+fn drive_checkpointed<R: Runtime>(
+    runtime: &mut R,
+    writer: &mut LedgerWriter,
+    turn: &Turn,
+) -> Result<i32, Box<dyn std::error::Error>> {
     if let Err(e) = runtime.start(turn) {
         if interrupted() {
             let _ = runtime.stop();

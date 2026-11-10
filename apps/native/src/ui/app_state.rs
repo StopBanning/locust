@@ -119,6 +119,11 @@ pub(super) struct OwnTurn {
 }
 
 pub(super) struct State {
+    pub(super) changes: crate::changes_panel::Panel,
+    pub(super) changes_job: Latest<crate::changes_panel::ReadResult>,
+    pub(super) changes_repo_job: Latest<(std::path::PathBuf, bool)>,
+    pub(super) changes_repo_root: Option<std::path::PathBuf>,
+    pub(super) changes_repo: Option<(std::path::PathBuf, bool)>,
     pub(super) recent_hover: Option<String>,
     pub(super) people_panel: crate::people_panel::Panel,
     // Which engine this window runs on, shown in the status line. None until the team has loaded.
@@ -232,6 +237,11 @@ impl Default for State {
             engine: None,
             recent_hover: None,
             people_panel: crate::people_panel::Panel::default(),
+            changes: crate::changes_panel::Panel::default(),
+            changes_job: Latest::default(),
+            changes_repo_job: Latest::default(),
+            changes_repo_root: None,
+            changes_repo: None,
             teammates: Vec::new(),
             selected: 0,
             conversations: HashMap::new(),

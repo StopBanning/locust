@@ -107,7 +107,13 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 .child(message_column(items, &teammate.name, p, s))
         };
 
-        let mut status = row().w_full().center_y().gap(8.0).px(24.0).py(10.0);
+        let mut status = row()
+            .w_full()
+            .center_y()
+            .gap(8.0)
+            .px(24.0)
+            .py(10.0)
+            .child(changes_panel::controls(s, p));
         if s.flight.is_some() || s.opening_teammate.is_some() {
             status = status.child(
                 el().key("activity-dot")
