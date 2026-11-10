@@ -53,6 +53,10 @@ mod app_state;
 use app_state::*;
 
 mod approval;
+mod changes;
+#[path = "ui/changes_panel.rs"]
+mod changes_panel;
+mod checkpoints;
 mod composer;
 mod engine;
 mod ledger;
@@ -248,7 +252,11 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     let mut changed = false;
     if let Some(result) = s.ledger_job.take() {
         match result {
-            Ok((worker, snapshot)) => {
+            Ok((worker, mut snapshot)) => {
+                // The ledger terminal event precedes native checkpoint/memory persistence.
+                if s.engine == Some(Kind::Native) && native::owns(worker.anchor()) {
+                    snapshot.running = true;
+                }
                 // Fix 2: ignore a worker result if the open ledger changed while the job was running.
                 if let Some(pane) = s.ledger.as_mut()
                     && pane.conversation.conversation_id.as_deref() == Some(worker.anchor())
@@ -434,6 +442,8 @@ fn load_team(s: &mut State) {
 }
 
 fn setup(s: &mut State, waker: Waker) {
+    s.changes_job.set_waker(waker.clone());
+    s.changes_repo_job.set_waker(waker.clone());
     s.team.set_waker(waker.clone());
     s.sending.set_waker(waker.clone());
     s.waiting.set_waker(waker.clone());
@@ -981,7 +991,15 @@ fn fresh_conversation(s: &mut State) {
 }
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    if s.changes.open && event.mods.shift && !event.mods.alt && event.is_command('y') {
+        s.changes.files = !s.changes.files;
+        return true;
+    }
     if event.key == Key::Escape {
+        if s.changes.open {
+            s.changes.open = false;
+            return true;
+        }
         if s.people_panel.open {
             s.people_panel.open = false;
             return true;
@@ -1258,7 +1276,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if s.demo {
         return false;
     }
-    let mut changed = false;
+    let mut changed = changes_panel::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -1608,7 +1626,13 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
 fn view(s: &State, cx: &mut Cx<State>) -> El {
     let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
     let sidebar = sidebar(s, &p);
-    let mut thread = if s.people_panel.open {
+    let changes_open = s.changes.open
+        && s.changes_repo
+            .as_ref()
+            .is_none_or(|(path, yes)| path == &s.changes.folder && *yes);
+    let mut thread = if changes_open {
+        changes_panel::view(s, &p)
+    } else if s.people_panel.open {
         people_panel::view(s, &p)
     } else {
         thread_view(s, &p)
@@ -1798,6 +1822,10 @@ fn main() {
         poll: Some(poll),
         on_key: Some(on_key),
         scenes: &[
+            ("p7-undo", changes_panel::undo_scene),
+            ("p7-undo-light", changes_panel::undo_light_scene),
+            ("p7-changes", changes_panel::scene),
+            ("p7-changes-light", changes_panel::light_scene),
             ("thread-rich", thread_rich_scene),
             ("thread-rich-open", thread_rich_open_scene),
             ("thread-rich-open-light", thread_rich_open_light_scene),

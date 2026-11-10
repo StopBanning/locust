@@ -66,8 +66,10 @@ fn secret_kind(text: &str) -> Option<&'static str> {
     } else if crate::invariants::regex(r"\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}").is_match(text)
     {
         Some("an OpenAI API key")
-    } else if crate::invariants::regex(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,})")
-        .is_match(text)
+    } else if crate::invariants::regex(
+        r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,})",
+    )
+    .is_match(text)
     {
         Some("a GitHub token")
     } else if crate::invariants::regex(r"-----BEGIN [A-Z ]*PRIVATE KEY-----").is_match(text) {
@@ -463,8 +465,7 @@ fn memory_age_owned(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option<Stri
         Some("over a year ago".into())
     }
 }
-const BLOCK_PLACEMENT: &str =
-    "put it at the end of your reply; if more than one of these blocks applies, put them one after another, in any order";
+const BLOCK_PLACEMENT: &str = "put it at the end of your reply; if more than one of these blocks applies, put them one after another, in any order";
 const ABOUT_YOU_OP: &str = "about you :: one sentence for the person's own About-you note (how they like to work), which they decide whether to add";
 const MEMORY_BRIEF_LINES: usize = 24;
 const MEMORY_BRIEF_BUDGET: usize = 4000;
@@ -478,12 +479,19 @@ fn memory_section(
     now: chrono::DateTime<chrono::Utc>,
 ) -> String {
     let heading = match workspace_name {
-        None => "Your team keeps a shared memory. What is remembered for this project and everywhere:".to_owned(),
+        None => {
+            "Your team keeps a shared memory. What is remembered for this project and everywhere:"
+                .to_owned()
+        }
         Some(name) => format!(
             "Your team keeps a shared memory. What is remembered for the folder \"{name}\" and everywhere:"
         ),
     };
-    let candidates: Vec<&Value> = rows.iter().rev().take(MEMORY_BRIEF_LINES).collect::<Vec<_>>()
+    let candidates: Vec<&Value> = rows
+        .iter()
+        .rev()
+        .take(MEMORY_BRIEF_LINES)
+        .collect::<Vec<_>>()
         .into_iter()
         .rev()
         .collect();
@@ -538,7 +546,10 @@ fn memory_section(
                     Some(age) => format!("{place}, {age}"),
                     None => place,
                 };
-                format!("- {} ({dated})", defang_protocol(memory["text"].as_str().unwrap_or("")))
+                format!(
+                    "- {} ({dated})",
+                    defang_protocol(memory["text"].as_str().unwrap_or(""))
+                )
             })
             .collect();
         if dropped > 0 {
@@ -1211,12 +1222,7 @@ mod tests {
         edited["instructions"] = json!("Stand firm.");
         save_teammate(&store, edited).unwrap();
         settings(&store, "Short answers.", Some(vec![])).unwrap();
-        add(
-            &store,
-            "applies",
-            Some("suite"),
-            "kept",
-        );
+        add(&store, "applies", Some("suite"), "kept");
         let mem_id = memories(&store).unwrap()["memories"][0]["memoryId"]
             .as_str()
             .unwrap()
@@ -1340,10 +1346,7 @@ mod tests {
         let (_dir, store) = fixture();
         let key = format!("{}-ant-abcdefghijklmnopqrstuvwxyz0123", "sk");
         let err = settings(&store, &format!("Prefer {key}"), None).unwrap_err();
-        assert_eq!(
-            err,
-            about_you_secret_refusal("an Anthropic API key")
-        );
+        assert_eq!(err, about_you_secret_refusal("an Anthropic API key"));
         let mem = add_memory(
             &store,
             &format!("deploy uses {key}"),

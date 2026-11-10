@@ -116,9 +116,9 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Folder-wide Changes panel, file kinds and line counts | `renderer/src/components/ChangesPanel.tsx`, `renderer/src/components/FileTypeIcon.tsx`, `renderer/src/components/LineCounts.tsx`, `main/recent-edits.ts` | **missing** | yes |
-| Coloured unified diffs, expandable hunks and copy change/file | `renderer/src/components/DiffView.tsx`, `renderer/src/diff.ts`, `renderer/src/diffColours.ts` | **missing** | no |
-| Undo turn, including non-Git folder changes | `renderer/src/components/TurnUndo.tsx`, `main/checkpoints.ts`, `main/checkpoints-plain.ts` | **missing** | yes |
+| Folder-wide Changes panel, file kinds and line counts | `renderer/src/components/ChangesPanel.tsx`, `renderer/src/components/FileTypeIcon.tsx`, `renderer/src/components/LineCounts.tsx`, `main/recent-edits.ts` | **partial** — native branch/base read-only panel, file list/kinds/counts, commit selection; folder tree, full icon/menu/probe parity remain (P7-NOTES.md) | yes |
+| Coloured unified diffs, expandable hunks and copy change/file | `renderer/src/components/DiffView.tsx`, `renderer/src/diff.ts`, `renderer/src/diffColours.ts` | **partial** — native syntax-coloured unified rows, hunk/context expansion and both copy controls; word marks, document passages and complete TS coverage remain (P7-NOTES.md) | no |
+| Undo turn, including non-Git folder changes | `renderer/src/components/TurnUndo.tsx`, `main/checkpoints.ts`, `main/checkpoints-plain.ts` | **partial** — native before/after byte checkpoints, confirmed guarded restore and receipts; Electron storage/retention, turn-foot/card integration and runtime notice remain (P7-NOTES.md) | yes |
 | Commit composer and generated commit message | `renderer/src/components/CommitChanges.tsx`, `main/folder-commit.ts` | **missing** | yes |
 | Own-branch turn commits and worktree lifecycle | `renderer/src/components/WorktreeRow.tsx`, `main/worktrees.ts`, `main/turn-checkpoint.ts` | **missing** | yes |
 | Review/land branch as one commit and return conflicts to teammate | `renderer/src/components/ReviewChanges.tsx`, `main/worktrees.ts` | **missing** | yes |
@@ -275,7 +275,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 3 | 9 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
 | 5 | Approvals & Permissions | 0 | 2 | 7 | 9 |
-| 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 0 | 13 | 13 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 3 | 10 | 13 |
 | 7 | Terminal & Own Commands | 0 | 0 | 3 | 3 |
 | 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
 | 9 | Routines, Compare & Benchmarks | 0 | 0 | 10 | 10 |
@@ -285,7 +285,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **25** | **21** | **107** | **153** |
+| | **TOTAL** | **25** | **24** | **104** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
@@ -395,7 +395,7 @@ This is source inspection, not runtime certification. Read all four Rust modules
 
 Path validation used Python to extract every backticked source path, resolve the documented roots, and call Path.is_file() (Path.exists() for root directories). Each evidence file was checked before writing and every final citation was checked afterward. No glob paths or proposed future filenames are cited. Protocol tags, runtime data filenames and key chords are not treated as source paths.
 
-Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 25 done, 21 partial, 107 missing**.
+Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 25 done, 24 partial, 104 missing**.
 
 An independent parser checks all Section 1 feature/status rows against Section 3 per-area and grand totals, requires a gap on every partial row, and checks every component is covered. Physical source-size counts are separate from feature counts.
 
@@ -408,3 +408,7 @@ M4C execution verification (2026-11-09): Cursor, Copilot, Antigravity and Muse n
 P5 verification (2026-11-10): partial implementation, not a closed parity round. See P5-NOTES.md for tests, screenshots and remaining behavior. No row was promoted to done by P5.
 
 P6 evidence: `P6-NOTES.md`. Area 3 gains three partial rows; no composite row is promoted to done without the remaining Electron behavior/tests. Native turns now receive the native copy of standing instructions, About you, and applicable kept memory. Recent menus use an inline hover/selected ⋯ button with Electron’s accessible name.
+
+P7 verification (2026-11-10): partial Changes/diff/Undo implementation, with unported TS assertions and storage/UI gaps recorded in `P7-NOTES.md`. Three final release runs each passed 360 tests (13 existing live tests ignored); release build zero warnings; clippy no new-module findings; both synthetic CLI scripts pass. Dark/light Changes and Undo scenes rendered and inspected at 900×900, scale 1. No live window or real turn launched. Area 6 is 0 done / 3 partial / 10 missing; M5 remains unreached.
+
+P7 review (2026-11-10): Undo atomic save + mode-preserving restore + skip-unreadable snapshot; empty-diff words; panel closes off non-repo; git stdout on non-zero; untracked symlink listing; completeness hunk/line words; green/red count marks; gutter/sign colours; per-fold context expand. Review section in `P7-NOTES.md`. Three release runs each 366 passed (13 ignored); release build zero warnings; clippy existing findings only; both CLI scripts pass; snaps re-inspected under `/Users/locust/work/scratch/p7-snaps/`. Live window/exit and real Undo still unrun. Area 6 remains 0 done / 3 partial / 10 missing; M5 unreached.
