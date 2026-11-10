@@ -618,7 +618,7 @@ fn settle_mission_inner(
     }
 }
 
-#[allow(dead_code)] // delete-for-good clears pin/settled/title; menu Delete not in this piece
+#[cfg(test)]
 fn clear_org_for_deleted_inner(
     store: &Store,
     state: &mut OrgState,
@@ -691,7 +691,7 @@ fn create_group_inner(store: &Store, state: &mut OrgState, name: &str) -> Result
     Ok(group_id)
 }
 
-#[allow(dead_code)] // project menu Rename — wired when group chrome lands
+#[cfg(test)]
 fn rename_group_inner(
     store: &Store,
     state: &mut OrgState,
@@ -710,19 +710,6 @@ fn rename_group_inner(
         return Err("That group does not exist".into());
     };
     group.name = name;
-    persist_groups(store, state)
-}
-
-#[allow(dead_code)] // project menu Remove — wired when group chrome lands
-fn remove_group_inner(store: &Store, state: &mut OrgState, group_id: &str) -> Result<(), String> {
-    if !safe_id(group_id) {
-        return Err("Project id is invalid".into());
-    }
-    if !state.groups.iter().any(|g| g.group_id == group_id) {
-        return Ok(());
-    }
-    state.groups.retain(|g| g.group_id != group_id);
-    state.members.retain(|_, gid| gid != group_id);
     persist_groups(store, state)
 }
 
@@ -931,7 +918,7 @@ pub fn create_group(store: &Store, state: &mut OrgState, name: &str) -> Result<S
     Ok(result)
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn rename_group(
     store: &Store,
     state: &mut OrgState,
@@ -944,15 +931,7 @@ pub fn rename_group(
     Ok(())
 }
 
-#[allow(dead_code)]
-pub fn remove_group(store: &Store, state: &mut OrgState, group_id: &str) -> Result<(), String> {
-    let mut next = state.clone();
-    remove_group_inner(store, &mut next, group_id)?;
-    *state = next;
-    Ok(())
-}
-
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn clear_org_for_deleted(
     store: &Store,
     state: &mut OrgState,

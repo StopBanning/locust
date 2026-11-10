@@ -53,6 +53,11 @@ mod app_state;
 use app_state::*;
 
 mod approval;
+mod approval_rules;
+mod approval_rule_store;
+mod command_guard;
+mod command_plain;
+mod command_reach;
 mod composer;
 mod engine;
 mod ledger;
@@ -61,6 +66,7 @@ mod native;
 mod quick;
 mod run_cli;
 mod runtime;
+mod secrets;
 mod store;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
@@ -1820,6 +1826,10 @@ fn main() {
             ("native-live", native_scene_live),
             ("approval", approval_scene_dark),
             ("approval-light", approval_scene_light),
+            ("approval-reach", approval_reach_scene_dark),
+            ("approval-reach-light", approval_reach_scene_light),
+            ("p8-rules", p8_rules_scene_dark),
+            ("p8-rules-light", p8_rules_scene_light),
             ("composer", composer_scene),
             ("composer-light", composer_light_scene),
             ("composer-slash", composer_slash_scene),

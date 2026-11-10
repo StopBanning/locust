@@ -221,7 +221,6 @@ impl Claude {
         })
     }
 
-    #[allow(dead_code)] // Window host will use this the same way Codex does.
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
         self.cancel = Some(flag);
         self

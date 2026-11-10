@@ -482,7 +482,7 @@ impl Acp {
         self.send(json!({"jsonrpc":"2.0","id":id,"result":{"outcome":outcome}}))
     }
     /// ACP cannot add to an active prompt; steering waits for the next prompt boundary.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn steer(&mut self, text: &str) -> bool {
         if self.normal.ended
             || self.stopping.is_some()

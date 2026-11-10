@@ -421,6 +421,60 @@ pub(super) fn approval_scene_light(s: &mut State) {
     approval_scene(s, true);
 }
 
+pub(super) fn approval_reach_scene(s: &mut State, light: bool) {
+    approval_scene(s, light);
+    if let Some(card) = &mut s.pending_approval {
+        card.detail = "taskkill //F //IM python.exe".into();
+        card.summary = "Run a command".into();
+        card.always_covers = None;
+        card.always_key = None;
+    }
+}
+pub(super) fn approval_reach_scene_dark(s: &mut State) {
+    approval_reach_scene(s, false);
+}
+pub(super) fn approval_reach_scene_light(s: &mut State) {
+    approval_reach_scene(s, true);
+}
+
+pub(super) fn p8_rules_scene(s: &mut State, light: bool) {
+    team_scene(s);
+    s.appearance = Some(!light);
+    s.people_panel.open = true;
+    s.people_panel.tab = 2;
+    s.people_panel.memory_tab = false;
+    s.people_panel.rules = vec![
+        crate::approval_rules::ApprovalRule {
+            rule_id: "rule_demo_allow".into(),
+            effect: crate::approval_rules::RuleEffect::Allow,
+            kind: crate::approval_rules::RuleKind::Command,
+            pattern: "npm test".into(),
+            teammate_id: Some("codec".into()),
+            folder: Some("/Users/locust/Documents/Locust".into()),
+            created_at: "2026-11-10T00:00:00.000Z".into(),
+            uses: Some(3),
+            last_used_at: Some("2026-11-10T12:00:00.000Z".into()),
+        },
+        crate::approval_rules::ApprovalRule {
+            rule_id: "rule_demo_deny".into(),
+            effect: crate::approval_rules::RuleEffect::Deny,
+            kind: crate::approval_rules::RuleKind::Command,
+            pattern: "git push".into(),
+            teammate_id: None,
+            folder: None,
+            created_at: "2026-11-10T00:00:00.000Z".into(),
+            uses: Some(1),
+            last_used_at: None,
+        },
+    ];
+}
+pub(super) fn p8_rules_scene_dark(s: &mut State) {
+    p8_rules_scene(s, false);
+}
+pub(super) fn p8_rules_scene_light(s: &mut State) {
+    p8_rules_scene(s, true);
+}
+
 pub(super) fn ledger_scene(s: &mut State, live: bool, light: bool) {
     team_scene(s);
     s.appearance = Some(!light);
@@ -695,7 +749,6 @@ pub(super) fn org_beside_scene(s: &mut State) {
         owner_name: Some("Sable".into()),
         prompt: "Count from 1 to 150.".into(),
         reply_lines: vec!["1".into(), "2".into(), "3".into()],
-        phase: "running".into(),
     });
 }
 

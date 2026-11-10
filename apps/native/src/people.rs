@@ -59,42 +59,20 @@ pub fn memories(store: &Store) -> Result<Value, String> {
     }
     Ok(file)
 }
-/// Common secret shapes native already refuses. Returns Electron's kind words when known.
 fn secret_kind(text: &str) -> Option<&'static str> {
-    if crate::invariants::regex(r"\bsk-ant-[A-Za-z0-9_-]{20,}").is_match(text) {
-        Some("an Anthropic API key")
-    } else if crate::invariants::regex(r"\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}").is_match(text)
-    {
-        Some("an OpenAI API key")
-    } else if crate::invariants::regex(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,})")
-        .is_match(text)
-    {
-        Some("a GitHub token")
-    } else if crate::invariants::regex(r"-----BEGIN [A-Z ]*PRIVATE KEY-----").is_match(text) {
-        Some("a private key")
-    } else if crate::invariants::regex(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b").is_match(text) {
-        Some("an AWS access key")
-    } else {
-        None
-    }
+    crate::secrets::secret_in(text)
 }
 fn secret(text: &str) -> bool {
     secret_kind(text).is_some()
 }
 fn about_you_secret_refusal(kind: &str) -> String {
-    format!(
-        "That holds {kind}, and About you is read by every teammate on every provider, so it was not saved. Keep keys in the runtime's own sign-in or an environment variable."
-    )
+    crate::secrets::about_you_secret_refusal(kind, None)
 }
 fn memory_secret_refusal(kind: &str) -> String {
-    format!(
-        "It held {kind}, and a memory is given to every teammate on every provider, so it was not kept. Keep keys in the runtime's own sign-in or an environment variable."
-    )
+    crate::secrets::secret_refusal(kind)
 }
 fn instructions_secret_refusal(name: &str, kind: &str) -> String {
-    format!(
-        "They hold {kind}, and {name}\u{2019}s model is given them on every turn, so they were not saved. Take it out first."
-    )
+    crate::secrets::instructions_secret_refusal(name, kind)
 }
 pub fn save_teammate(store: &Store, mut entry: Value) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;

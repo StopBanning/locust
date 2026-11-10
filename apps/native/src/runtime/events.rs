@@ -1,54 +1,16 @@
 //! Whitelist normalization, ported from app-server-events.ts. Raw params never enter evidence.
 use super::Event;
 use crate::ledger_write::now;
-use regex::Regex;
+use crate::secrets;
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
-use std::sync::LazyLock;
-static SECRETS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    [
-    r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}", r"\b(?:sk|pk)-[A-Za-z0-9_-]{12,}\b",
-    r"\b(?:gh[opusr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16})\b",
-    r"(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
-    r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
-    r"\bAIza[0-9A-Za-z_-]{35}\b", r"\bhf_[A-Za-z0-9]{30,}\b",
-    r#"(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|authorization|password|secret|cookie|credential)["']?\s*[=:]\s*["']?)([^\s,"';}]+)"#,
-].iter().map(|r| crate::invariants::regex(r)).collect()
-});
-/// codex-events.ts:redactSecrets, without a size bound. Cursor's displayed
-/// thinking is scrubbed per fragment before accumulation, then bounded on close.
-/// Keep the Bearer label as TypeScript does, without changing other text paths.
+/// codex-events.ts:redactSecrets via shared `secrets` module.
 pub fn redact_secrets(value: &str) -> String {
-    let mut clean = value.replace('\0', "");
-    for (i, regex) in SECRETS.iter().enumerate() {
-        clean = regex
-            .replace_all(
-                &clean,
-                match i {
-                    0 => "Bearer [redacted]",
-                    7 => "${1}[redacted]",
-                    _ => "[redacted]",
-                },
-            )
-            .into_owned();
-    }
-    clean
+    secrets::redact_secrets(value)
 }
 
 pub fn text(value: &str, limit: usize) -> String {
-    let mut clean = value.replace('\0', "");
-    for (i, regex) in SECRETS.iter().enumerate() {
-        clean = regex
-            .replace_all(
-                &clean,
-                if i == 7 {
-                    "${1}[redacted]"
-                } else {
-                    "[redacted]"
-                },
-            )
-            .into_owned();
-    }
+    let clean = secrets::redact_secrets(value);
     let chars: Vec<char> = clean.chars().collect();
     if clean.encode_utf16().count() <= limit {
         clean
