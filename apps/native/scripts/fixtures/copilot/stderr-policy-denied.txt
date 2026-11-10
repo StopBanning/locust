@@ -1,0 +1,8 @@
+Error: Access denied by policy settings (Request ID: FC80:E0E83:40F429:47FBFB:6A991B15)
+
+Your Copilot CLI policy setting may be preventing access. This can happen when:
+  • Your organization has restricted Copilot access
+  • Your Copilot subscription does not include this feature
+  • Required policies have not been enabled by your administrator
+
+To resolve this, visit your Copilot settings: https://github.com/settings/copilot

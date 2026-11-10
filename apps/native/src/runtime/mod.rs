@@ -4,6 +4,16 @@ pub(crate) mod acp_events;
 pub mod claude;
 pub(crate) mod claude_events;
 pub mod codex;
+pub mod cursor;
+pub(crate) mod cursor_events;
+pub mod copilot;
+pub(crate) mod copilot_events;
+pub mod antigravity;
+pub(crate) mod antigravity_events;
+pub(crate) mod antigravity_projects;
+pub(crate) mod agy_events;
+pub mod muse;
+pub(crate) mod muse_events;
 mod discovery;
 pub(crate) mod events;
 pub mod kilo;
@@ -44,5 +54,13 @@ pub trait Runtime {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod cursor_tests;
+#[cfg(test)]
+mod copilot_tests;
+#[cfg(test)]
+mod antigravity_tests;
+#[cfg(test)]
+mod muse_tests;
 
 pub mod permission_bridge;

@@ -1,0 +1,9 @@
+{"type": "tool_call", "subtype": "started", "call_id": "call-scrub-a0-0\nfc_scrub_a0_0", "tool_call": {"editToolCall": {"args": {"path": "src/app.ts", "streamContent": "export {}\n"}}, "toolCallId": "call-scrub-a0-0\nfc_scrub_a0_0"}}
+{"type": "locust.oversized", "bytes": 820000, "recordType": "tool_call", "callIds": ["call-scrub-a0-0|fc_scrub_a0_0"]}
+{"type": "tool_call", "subtype": "started", "call_id": "call-scrub-b0-0\nfc_scrub_b0_0", "tool_call": {"editToolCall": {"args": {"path": "src/view.ts", "streamContent": "export {}\n"}}, "toolCallId": "call-scrub-b0-0\nfc_scrub_b0_0"}}
+{"type": "locust.oversized", "bytes": 820000, "recordType": "tool_call", "callIds": ["call-scrub-b0-0|fc_scrub_b0_0"]}
+{"type": "tool_call", "subtype": "started", "call_id": "call-scrub-c0-0\nfc_scrub_c0_0", "tool_call": {"editToolCall": {"args": {"path": "src/main.ts", "streamContent": "export {}\n"}}, "toolCallId": "call-scrub-c0-0\nfc_scrub_c0_0"}}
+{"type": "locust.oversized", "bytes": 820000, "recordType": "tool_call", "callIds": ["call-scrub-c0-0|fc_scrub_c0_0"]}
+{"type": "tool_call", "subtype": "started", "call_id": "call-scrub-d0-0\nfc_scrub_d0_0", "tool_call": {"editToolCall": {"args": {"path": "src/notes.ts", "streamContent": "export {}\n"}}, "toolCallId": "call-scrub-d0-0\nfc_scrub_d0_0"}}
+{"type": "locust.oversized", "bytes": 820000, "recordType": "tool_call", "callIds": ["call-scrub-d0-0|fc_scrub_d0_0"]}
+{"type": "result", "subtype": "success", "result": "done"}

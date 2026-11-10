@@ -128,16 +128,19 @@ fn roster_reads_electrons_shape_and_marks_what_native_cannot_run() {
         teammate_json("tm_2", "Argon", "Code & Migrations", json!({"runtime":"antigravity","model":"Gemini 3.8 Flash","mode":"auto"})),
         teammate_json("tm_3", "Wren", "Custom", json!({"runtime":"codex","model":"account-default","mode":"ask","account":"account_0123456789abcdef0123456789abcdef"})),
         teammate_json("tm_4", "Nova", "Custom", Value::Null),
+        teammate_json("tm_5", "Gemini", "Custom", json!({"runtime":"gemini","model":"account-default","mode":"ask"})),
     ]);
     let team = parse_roster(&text).unwrap();
-    assert_eq!(team.len(), 4);
+    assert_eq!(team.len(), 5);
     assert_eq!((team[0].runtime.as_deref(), team[0].model.as_deref(), team[0].runs_in.as_str()), (Some("codex"), Some("gpt-6.1-sol"), "accept-edits"));
     assert!(supported(&team[0]));
-    assert_eq!(team[1].runs_in, IN_LOCUST);
-    assert!(!supported(&team[1]), "another agent runs in Locust for now");
+    assert_eq!((team[1].runtime.as_deref(), team[1].runs_in.as_str()), (Some("antigravity"), "auto"));
+    assert!(supported(&team[1]), "Antigravity is native in M4C");
     assert!(!supported(&team[2]), "a Codex account of its own needs its own login home: not touched");
     assert!(!supported(&team[3]), "no route yet: nothing to run natively");
     assert_eq!(team[3].role, "Custom");
+    assert_eq!(team[4].runs_in, IN_LOCUST);
+    assert!(!supported(&team[4]), "Gemini still runs in Locust for now");
 }
 
 #[test]
@@ -715,3 +718,15 @@ fn real_codex_approval_deny_then_allow() { approval_deny_then_allow("codex", fal
 fn native_claude_denies_then_allows_one_file_write() { approval_deny_then_allow("claude", true); }
 #[test]
 fn native_codex_denies_then_allows_one_file_write() { approval_deny_then_allow("codex", true); }
+
+#[test]
+fn a_copilot_session_id_is_a_version_4_uuid() {
+    let a = uuid_v4().unwrap();
+    let b = uuid_v4().unwrap();
+    assert_ne!(a, b);
+    let parts: Vec<&str> = a.split('-').collect();
+    assert_eq!(parts.iter().map(|p| p.len()).collect::<Vec<_>>(), [8, 4, 4, 4, 12]);
+    assert!(a.chars().all(|c| c == '-' || c.is_ascii_hexdigit()));
+    assert_eq!(&parts[2][..1], "4");
+    assert!(matches!(&parts[3][..1], "8" | "9" | "a" | "b"));
+}

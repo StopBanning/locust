@@ -90,7 +90,7 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Query models and effort levels | `main/model-catalog.ts`, `main/locust-mcp-tools.ts` | **done** | yes |
 | Standalone Codex app-server execution | `packages/runtime-adapters/src/codex-app-server-run.ts`, `main/codex-mission.ts` | **missing** | yes |
 | Standalone Claude Code execution | `packages/runtime-adapters/src/process-runner.ts`, `packages/runtime-adapters/src/claude-events.ts` | **missing** | yes |
-| Standalone Antigravity/OpenCode/Cursor/Copilot/Muse/Kilo execution | `packages/runtime-adapters/src/index.ts`, `packages/runtime-adapters/src/opencode-serve-run.ts`, `packages/runtime-adapters/src/kilo-acp-run.ts`, `main/antigravity-mission.ts` | **partial** — M4A: OpenCode 1/2 and Kilo ACP run natively with continuation and Stop (OpenCode Approve-each cards; Kilo Auto-only permissions); Cursor/Copilot/Antigravity/Muse still run in Locust for now | yes |
+| Standalone Antigravity/OpenCode/Cursor/Copilot/Muse/Kilo execution | `packages/runtime-adapters/src/index.ts`, `packages/runtime-adapters/src/opencode-serve-run.ts`, `packages/runtime-adapters/src/kilo-acp-run.ts`, `main/antigravity-mission.ts` | **partial** — M4A/M4C: OpenCode 1/2, Kilo ACP, Cursor, Copilot, Antigravity (`agy`) and Muse Code run natively with continuation and Stop; no native discovery/sign-in/install UI, and live one-line CLI turns remain unrun | yes |
 | Custom Agent Client Protocol agents by command | `renderer/src/components/AcpAgentsSettings.tsx`, `main/acp-agents.ts`, `packages/runtime-adapters/src/acp-run.ts` | **partial** — M4A: saved agents run over native stdio ACP, with continuation, model config, approvals and Stop; no native agent settings/Test/save/remove or capability display | yes |
 | Own OpenAI-compatible API/local models, pricing and chat-only capability | `renderer/src/components/OwnModels.tsx`, `main/own-models.ts`, `main/listed-prices.ts` | **missing** | yes |
 | Automatic carry-on policy | `main/carry-on.ts`, `shared/carry-on.ts` | **missing** | yes |
@@ -395,10 +395,12 @@ This is source inspection, not runtime certification. Read all four Rust modules
 
 Path validation used Python to extract every backticked source path, resolve the documented roots, and call Path.is_file() (Path.exists() for root directories). Each evidence file was checked before writing and every final citation was checked afterward. No glob paths or proposed future filenames are cited. Protocol tags, runtime data filenames and key chords are not treated as source paths.
 
-Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1: **153 rows — 14 done, 13 partial, 126 missing**.
+Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 21 done, 13 partial, 119 missing**.
 
 An independent parser checks all Section 1 feature/status rows against Section 3 per-area and grand totals, requires a gap on every partial row, and checks every component is covered. Physical source-size counts are separate from feature counts.
 
 Not run: cargo test/build, TS tests, app launch, live Electron/MCP integration, or macOS/Windows/Linux behavior tests. Only PARITY.md was written.
 
-M4A execution verification (2026-11-09): generic ACP synthetic runs and TypeScript ledger-reader checks are recorded in M4A-NOTES.md. The audit-only verification above is historical; no real turn or window was launched for M4A. Named runtimes in the composite execution row remain deferred.
+M4A execution verification (2026-11-09): generic ACP synthetic runs and TypeScript ledger-reader checks are recorded in M4A-NOTES.md. The audit-only verification above is historical; no real turn or window was launched for M4A.
+
+M4C execution verification (2026-11-09): Cursor, Copilot, Antigravity and Muse native drivers and synthetic ledgers are recorded in M4C-NOTES.md. No window or live one-line CLI turn was launched for M4C. The composite named-runtime row stays **partial** (no discovery/sign-in UI; live CLI turns unrun).

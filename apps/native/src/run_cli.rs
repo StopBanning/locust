@@ -1,7 +1,7 @@
 //! Headless --run entry point; no window is constructed.
 use crate::{
     ledger_write::LedgerWriter,
-    runtime::{Runtime, Turn, claude::Claude, codex::Codex},
+    runtime::{Runtime, Turn, antigravity::Antigravity, claude::Claude, codex::Codex, copilot::Copilot, cursor::Cursor, muse::Muse},
     store::Store,
 };
 use serde_json::json;
@@ -16,9 +16,9 @@ pub fn interrupted() -> bool {
 }
 pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
     let runtime_name = args.first().map(String::as_str).unwrap_or("");
-    if args.len() < 2 || !matches!(runtime_name, "codex" | "claude" | "acp" | "opencode" | "kilo") {
+    if args.len() < 2 || !matches!(runtime_name, "codex" | "claude" | "acp" | "opencode" | "kilo" | "cursor" | "copilot" | "antigravity" | "muse") {
         return Err(
-            "Usage: locust-native --run <codex|claude|acp|opencode|kilo> <prompt> [--folder <dir>] [--model <id>]"
+            "Usage: locust-native --run <codex|claude|acp|opencode|kilo|cursor|copilot|antigravity|muse> <prompt> [--folder <dir>] [--model <id>]"
                 .into(),
         );
     }
@@ -132,6 +132,51 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
             let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, &model, &command.get_program().to_string_lossy(), "kilo", &args, None)?;
             eprintln!("Ledger: {}", writer.path.display());
             let mut runtime = match crate::runtime::kilo::Kilo::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        "cursor" => {
+            let mut command = crate::runtime::cursor::command(&turn.folder, turn.mode, turn.model.as_deref(), turn.resume.as_deref())?;
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, turn.model.as_deref().unwrap_or("account-default"), &command.get_program().to_string_lossy(), "cursor", &args, None)?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match Cursor::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        "copilot" => {
+            let mut command = crate::runtime::copilot::command(&turn.folder, &turn.prompt, turn.mode, turn.model.as_deref(), turn.effort.as_deref(), turn.resume.as_deref(), Some(&id))?;
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, turn.model.as_deref().unwrap_or("account-default"), &command.get_program().to_string_lossy(), "copilot", &args, None)?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match Copilot::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        "antigravity" => {
+            let mut command = crate::runtime::antigravity::command(&turn.folder, turn.mode, turn.model.as_deref(), turn.effort.as_deref(), turn.resume.as_deref())?;
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, turn.model.as_deref().unwrap_or("account-default"), &command.get_program().to_string_lossy(), "antigravity", &args, None)?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match Antigravity::spawn(&mut command) {
+                Ok(r) => r,
+                Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
+            };
+            drive(&mut runtime, &mut writer, &turn)
+        }
+        "muse" => {
+            let mut command = crate::runtime::muse::command(&turn.folder, turn.mode, turn.model.as_deref(), turn.effort.as_deref(), turn.resume.as_deref())?;
+            let prompt_file = crate::runtime::muse::prepare_prompt_file(&mut command, &turn.prompt, &turn.folder)?;
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let mut writer = LedgerWriter::create_runtime(&store, &id, &turn.prompt, turn.model.as_deref().unwrap_or("account-default"), &command.get_program().to_string_lossy(), "muse", &args, None)?;
+            eprintln!("Ledger: {}", writer.path.display());
+            let mut runtime = match Muse::spawn_with_prompt_file(&mut command, Some(prompt_file)) {
                 Ok(r) => r,
                 Err(e) => {record_start_failure(&mut writer, &e)?;return Err(e.into());}
             };

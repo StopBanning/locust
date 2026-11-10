@@ -1,0 +1,10 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"C:\\work\\pebble","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","model":"Auto","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"What was the name of the project you just summarized? Answer with one word."}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b"}
+{"type":"thinking","subtype":"delta","text":"The user wants the name","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377433800}
+{"type":"thinking","subtype":"delta","text":" of the project I just","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377433802}
+{"type":"thinking","subtype":"delta","text":" summarized.","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377433803}
+{"type":"thinking","subtype":"delta","text":"\n\nThe project is named","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377433803}
+{"type":"thinking","subtype":"delta","text":" \"Pebble\".","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377433803}
+{"type":"thinking","subtype":"completed","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377433803}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Pebble"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b"}
+{"type":"result","subtype":"success","duration_ms":6100,"duration_api_ms":6100,"is_error":false,"result":"Pebble","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","request_id":"d810373b-35b5-45e6-9f62-89eb702e956c","usage":{"inputTokens":726,"outputTokens":32,"cacheReadTokens":17920,"cacheWriteTokens":0}}

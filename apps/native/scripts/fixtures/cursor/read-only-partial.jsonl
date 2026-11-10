@@ -1,0 +1,53 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"C:\\work\\pebble","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","model":"Auto","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Read README.md and tell me in one sentence what this project does."}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b"}
+{"type":"thinking","subtype":"delta","text":"Reading README.md to","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363150}
+{"type":"thinking","subtype":"delta","text":" summarize the project","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363151}
+{"type":"thinking","subtype":"delta","text":" in one sentence.","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363152}
+{"type":"thinking","subtype":"completed","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363152}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363152}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" read"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363152}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" the"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363152}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" README"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363152}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" and"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363152}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" summarize"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363153}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" the"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363153}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" project"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363153}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" in"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363153}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" one"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363153}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" sentence"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363153}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"."}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363153}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll read the README and summarize the project in one sentence."}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","model_call_id":"865ee488-261f-48f1-9180-ee635405534e-0-dl0p","timestamp_ms":1788377363512}
+{"type":"tool_call","subtype":"started","call_id":"call-7c7622b7-6c75-444c-9521-c45fe58dd33c-0\nfc_db2068f8-93ec-91b3-8293-fea9b7b1e452_0","tool_call":{"readToolCall":{"args":{"path":"C:\\work\\pebble\\README.md"}},"hookAdditionalContexts":[],"toolCallId":"call-7c7622b7-6c75-444c-9521-c45fe58dd33c-0\nfc_db2068f8-93ec-91b3-8293-fea9b7b1e452_0","startedAtMs":"1788377363600"},"model_call_id":"865ee488-261f-48f1-9180-ee635405534e-0-dl0p","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363512}
+{"type":"tool_call","subtype":"completed","call_id":"call-7c7622b7-6c75-444c-9521-c45fe58dd33c-0\nfc_db2068f8-93ec-91b3-8293-fea9b7b1e452_0","tool_call":{"readToolCall":{"args":{"path":"C:\\work\\pebble\\README.md"},"result":{"success":{"content":"# Pebble\n\nPebble is a tiny command-line timer. It has one command, `pebble start`, which counts down from 25 minutes and rings a bell.\n","isEmpty":false,"exceededLimit":false,"totalLines":4,"fileSize":135,"path":"C:\\work\\pebble\\README.md","readRange":{"startLine":1,"endLine":4},"relatedCursorRulePaths":[],"relatedCursorRules":[]}}},"hookAdditionalContexts":[],"toolCallId":"call-7c7622b7-6c75-444c-9521-c45fe58dd33c-0\nfc_db2068f8-93ec-91b3-8293-fea9b7b1e452_0","startedAtMs":"1788377363600","completedAtMs":"1788377363803"},"model_call_id":"865ee488-261f-48f1-9180-ee635405534e-0-dl0p","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377363717}
+{"type":"thinking","subtype":"delta","text":"I'll read the README","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365374}
+{"type":"thinking","subtype":"delta","text":" and provide a one-sentence","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365374}
+{"type":"thinking","subtype":"delta","text":" summary of the project.","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365374}
+{"type":"thinking","subtype":"completed","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365374}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"P"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365374}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"eb"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365374}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ble"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365374}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" is"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" a"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" tiny"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" CLI"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" timer"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" whose"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" single"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" command"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":","}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" `"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"pebble"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365375}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" start"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365376}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"`,"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365376}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" counts"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365376}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" down"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365376}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" "}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365376}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"25"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365376}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" minutes"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365376}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" and"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365377}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" rings"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365377}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" a"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365377}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" bell"}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365377}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"."}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","timestamp_ms":1788377365377}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Pebble is a tiny CLI timer whose single command, `pebble start`, counts down 25 minutes and rings a bell."}]},"session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b"}
+{"type":"result","subtype":"success","duration_ms":8230,"duration_api_ms":8230,"is_error":false,"result":"I'll read the README and summarize the project in one sentence.Pebble is a tiny CLI timer whose single command, `pebble start`, counts down 25 minutes and rings a bell.","session_id":"5ea83b16-7669-44d8-aaf3-97a1b41d581b","request_id":"865ee488-261f-48f1-9180-ee635405534e","usage":{"inputTokens":19428,"outputTokens":161,"cacheReadTokens":16256,"cacheWriteTokens":0}}
