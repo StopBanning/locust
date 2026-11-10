@@ -6,13 +6,16 @@ use std::{
     time::{Duration, Instant},
 };
 
+static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
         let p = std::env::temp_dir().join(format!(
-            "locust-m2-{}-{}",
+            "locust-m2-{}-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+            TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         fs::create_dir_all(p.join("electron/mission-ledger")).unwrap();
         fs::create_dir_all(p.join("work")).unwrap();
@@ -316,6 +319,13 @@ fn a_continuation_follows_the_newest_turn_not_the_anchor() {
     let mut w = LedgerWriter::create_continuing(&t.store(), "child_m", "Third", "synthetic-model", "x", Some(&Continuation { mission_id: "child_n".into(), thread: Some("thread_fake".into()) })).unwrap();
     w.append("run.started", json!({"runtimeThreadId":"thread_fake"}), Some("thread_fake")).unwrap();
     w.append("run.completed", json!({"runtimeThreadId":"thread_fake"}), Some("thread_fake")).unwrap();
+    drop(w);
+    // Deliberately tie mtimes and reverse lexical chronology: graph links, not file order, choose the tip.
+    let tied = std::time::SystemTime::now();
+    for id in ["child_n", "child_m"] {
+        fs::File::options().write(true).open(path_of(&t, id)).unwrap().set_modified(tied).unwrap();
+    }
+    assert_eq!(real_tip("root_newest").unwrap(), "child_m");
     let prior = prior_of("child_m").unwrap();
     assert_eq!(prior.thread.as_deref(), Some("thread_fake"));
     assert!(!prior.running);

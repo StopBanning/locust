@@ -143,8 +143,19 @@ impl Store {
     pub fn electron(&self) -> &Path {
         &self.electron
     }
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
     pub fn ledger_dir(&self) -> io::Result<PathBuf> {
         self.check(&self.root.join("mission-ledger"))
+    }
+    /// Durable busy-turn queue (Electron `queued-messages.json`), native folder only.
+    pub fn queued_messages_path(&self) -> io::Result<PathBuf> {
+        self.check(&self.root.join("queued-messages.json"))
+    }
+    /// Pasted / copied-in attachments (Electron `.locust/attachments`), native folder only.
+    pub fn attachments_dir(&self) -> io::Result<PathBuf> {
+        self.check(&self.root.join(".locust").join("attachments"))
     }
     pub fn write_path(&self, id: &str) -> io::Result<PathBuf> {
         if id.is_empty()

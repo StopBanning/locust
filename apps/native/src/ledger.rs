@@ -904,6 +904,15 @@ impl Session {
         })
     }
 
+    /// Terminal state of the newest turn only; ancestor stops must not hold a later follow-up.
+    pub fn tip_phase(&self) -> &'static str {
+        let Some(reader) = self.readers.last() else { return "running"; };
+        let t = &reader.transcript;
+        if t.running { "running" } else if t.failed { "failed" }
+        else if t.items.iter().any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped")) { "cancelled" }
+        else { "completed" }
+    }
+
     /// How long the newest file has gone without being written, as of `now`.
     pub fn tip_quiet(&self, now: SystemTime) -> Option<Duration> {
         let modified = self.readers.last()?.tail.modified?;
