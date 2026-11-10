@@ -8,7 +8,7 @@ import { replaceFile } from './replace-file.js'
 
 export const MCP_CONNECTION_FILE = 'locust-mcp-connection.json'
 export const MCP_SETTINGS_FILE = 'locust-mcp.json'
-export type McpToolResult = { readonly content: readonly { readonly type: 'text'; readonly text: string }[]; readonly isError?: boolean }
+export type McpToolResult = { readonly content: readonly { readonly type: 'text'; readonly text: string }[]; readonly isError?: boolean; readonly structuredContent?: Readonly<Record<string, unknown>> }
 export const mcpText = (text: string, isError = false): McpToolResult => ({ content: [{ type: 'text', text }], ...(isError ? { isError: true } : {}) })
 
 /** The setup carries a file path, never the bearer token or a changing port. */

@@ -1,7 +1,7 @@
 import type { NormalizedRuntimeEvent, ToolPatch } from '@teammate/runtime-adapters'
 import { providerErrorSentence } from '@teammate/runtime-adapters/provider-error'
 
-import { providerFailedFirst } from '../../shared/carry-on.js'
+import { carryOnReason } from '../../shared/carry-on.js'
 import { cloudRelative } from '../../shared/cloud-computer.js'
 import { SUBAGENT_TOOL } from './faceState.js'
 import { EVENT_WINDOW, TRIMMED_TURN_LINE, windowEvents } from '../../shared/event-window.js'
@@ -5170,7 +5170,7 @@ export interface TurnSwitch {
   /** Locust made this switch because `from`'s plan ran out (0.774), not the person. */
   readonly carriedOn?: true
   /** And it was `from`'s provider failing before it did anything, not its plan (0.839). */
-  readonly carriedFor?: 'provider'
+  readonly carriedFor?: 'plan' | 'provider' | 'process'
 }
 
 export interface ConversationTurn {
@@ -5290,7 +5290,7 @@ export function switchOf(
     omittedBriefing: link.leftOut ?? [],
     ...(link.leftOutByYou === undefined ? {} : { leftOutByYou: link.leftOutByYou }),
     ...(mission.startedBy?.kind === 'carry-on' ? { carriedOn: true as const } : {}),
-    ...(mission.startedBy?.kind === 'carry-on' && providerFailedFirst(prior.events) ? { carriedFor: 'provider' as const } : {})
+    ...(mission.startedBy?.kind === 'carry-on' ? { carriedFor: carryOnReason(prior.events) ?? 'plan' } : {})
   }
 }
 

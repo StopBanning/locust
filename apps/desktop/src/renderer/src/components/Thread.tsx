@@ -944,7 +944,7 @@ export interface ThreadProps {
   /** The provider's servers were busy (0.511): carry the same conversation on. */
   readonly onContinueAfterBusy?: () => void
   /** The agent's plan ran out (0.774): carry the work on with another agent, briefed with what was done. */
-  readonly carryOn?: { readonly label: string; readonly from: MissionRuntimeId; readonly why: 'plan' | 'provider'; readonly busy: boolean; readonly refused?: string; readonly onPress: () => void }
+  readonly carryOn?: { readonly label: string; readonly from: MissionRuntimeId; readonly why: 'plan' | 'provider' | 'process'; readonly busy: boolean; readonly refused?: string; readonly onPress: () => void }
   /** A run that failed because its runtime is signed out: that runtime's sign-in. */
   readonly signInRuntime?: MissionRuntimeId
   /** Open the conversation a received message was written in. */
@@ -2124,6 +2124,7 @@ onResume,
             <span>
               {carryOn.why === 'provider'
                 ? `${runtimeDisplayName(carryOn.from)} stopped on an error before it did anything, so another agent can do the task from the start.`
+                : carryOn.why === 'process' ? `${runtimeDisplayName(carryOn.from)} stopped because its process failed. The next agent is told to reconcile unfinished actions before carrying on.`
                 : `${runtimeDisplayName(carryOn.from)} ran out of its plan. What it did is kept, and the next agent is told what was done and what is left.`}
             </span>
             <button type="button" className="lc-button" onClick={carryOn.onPress} disabled={carryOn.busy}>

@@ -1,3 +1,4 @@
+import { cursorResultStream } from "./cursor-result-stream.js";
 import { spawnShape } from "./cmd-line.js";
 import { execFile, execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -839,7 +840,9 @@ export function createNodeRuntimeProcessRunner(
         if (inputOpen && isTurnResult(raw)) closeInputAfterResult();
       };
 
+      const projectCursorResult = cursorResultStream();
       const acceptStdout = (text: string): void => {
+        if (spec.runtime === "cursor") text = projectCursorResult(text);
         if (outputLimitExceeded) return;
         stdoutRemainder += text;
         let lineEnd = stdoutRemainder.indexOf("\n");
@@ -896,7 +899,7 @@ export function createNodeRuntimeProcessRunner(
         if (settled) return;
         settled = true;
         cleanup();
-        acceptStdout(stdoutDecoder.end());
+        acceptStdout(stdoutDecoder.end() + (spec.runtime === "cursor" ? "\n" : ""));
         if (stdoutRemainder.endsWith("\r")) {
           stdoutRemainder = stdoutRemainder.slice(0, -1);
         }

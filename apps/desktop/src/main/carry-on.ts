@@ -58,7 +58,7 @@ export interface CarryOn {
 
 /**
  * Why a run that stopped can be carried on, if it can: its plan ran out, or its provider failed before it did
- * anything. A run that finished or was stopped by the person is never carried on.
+ * anything, or its process/protocol failed. A run that finished or was stopped by the person is never carried on.
  */
 export function stoppedFor(mission: Pick<RecoveredMission, 'phase' | 'events'>): CarryOnReason | undefined {
   if (mission.phase === 'completed' || mission.phase === 'cancelled') return undefined
@@ -99,7 +99,7 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
     }
     if (recovered === undefined) return { ok: false, message: 'This conversation is not in the record any more, so it cannot be carried on.' }
     const reason = stoppedFor(recovered)
-    if (reason === undefined) return { ok: false, message: 'This turn did not stop on its plan running out or its provider failing, so there is nothing to carry on.' }
+    if (reason === undefined) return { ok: false, message: 'This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.' }
     const from = recovered.metadata.runtime
     if (route.runtime === from) return { ok: false, message: reason === 'plan' ? `${runtimeDisplayName(from)} is the agent whose plan ran out.` : `${runtimeDisplayName(from)} is the agent that just failed.` }
     const mode = modeOf(recovered)
@@ -144,7 +144,9 @@ export function createCarryOn(options: CarryOnOptions): CarryOn {
           mission.missionId,
           reason === 'plan'
             ? `${name} is the agent picked to carry on when a plan runs out, and its own plan ran out, so nothing was carried on.`
-            : `${name} is the agent picked to carry on, and it is the one whose provider failed, so nothing was carried on.`
+            : reason === 'process'
+              ? `${name} is the agent picked to carry on, and its own process failed, so nothing was carried on.`
+              : `${name} is the agent picked to carry on, and it is the one whose provider failed, so nothing was carried on.`
         )
         return
       }

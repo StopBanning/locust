@@ -81,6 +81,8 @@ export function createLocustMcpTools(options: {
    * app could not see. Colin's Duet asked for a change to Locust's code, and the turn ran in another project.
    */
   readonly folder?: () => string | undefined
+  readonly turnFolder?: (missionId: string) => Promise<string | undefined>
+  readonly followUpRoute?: (missionId: string) => Promise<Partial<CodexMissionStartRequest> | undefined>
   /**
    * STOPPING A TURN IT STARTED (0.842), by the turn's run id: the window's own Stop. Colin's Duet started a turn in
    * Auto that went the wrong way, and only he could stop it. Undefined for a server that does not offer it.
@@ -143,11 +145,11 @@ export function createLocustMcpTools(options: {
    * Only on the teammate's own AI agent and account, only a model and effort that agent offers here, and never the
    * mode: that stays Ask, or the teammate's own when the person said so. The saved route is not changed.
    */
-  const choiceOf = async (teammateId: string, args: Record<string, unknown>): Promise<Partial<CodexMissionStartRequest> | string | undefined> => {
+  const choiceOf = async (teammateId: string, args: Record<string, unknown>, previous?: PublicRecoveredMission): Promise<Partial<CodexMissionStartRequest> | string | undefined> => {
     if (args.model === undefined && args.effort === undefined) return undefined
     if (options.models === undefined) return 'This server does not take a model or effort. Leave them out to use the teammate’s own.'
     if ((args.model !== undefined && !text(args.model)) || (args.effort !== undefined && !text(args.effort, 40))) return 'model and effort are short text: use the ids list_models gives.'
-    const route = await routeOf(teammateId)
+    const route: TeammateRoute | undefined = previous?.runtime === undefined ? await routeOf(teammateId) : { runtime: previous.runtime, model: previous.model, mode: previous.mode ?? 'ask' }
     if (route === undefined) return 'That teammate has no AI agent set up yet. Choose one for it in Locust first.'
     const offered = await modelsFor(route)
     const asked = typeof args.model === 'string' ? args.model.trim().toLowerCase() : route.model.toLowerCase()
@@ -166,7 +168,7 @@ export function createLocustMcpTools(options: {
   }
   const started = async (request: Pick<CodexMissionStartRequest, 'prompt' | 'teammateId' | 'followUpOf'>, conversation?: string, args: Record<string, unknown> = {}, previous?: PublicRecoveredMission): Promise<McpToolResult> => {
     // This is the only request shape that can reach the start path. A saved route is never changed from here.
-    const choice = await choiceOf(request.teammateId!, args)
+    const choice = await choiceOf(request.teammateId!, args, previous)
     if (typeof choice === 'string') return mcpText(`${choice} Nothing was started.`, true)
     /*
      * THE APP CHOOSES, HONESTLY (0.869; Colin: "mcp should allow main agent to choose perms honestly"). With the
@@ -202,8 +204,9 @@ export function createLocustMcpTools(options: {
     // READ ONLY, ASKED FOR (0.842): an app may always step a turn DOWN to Ask.
     const mode: MissionMode = args.read_only === true ? 'ask' : typeof args.mode === 'string' ? args.mode as MissionMode : await modeOf(request.teammateId!, previous)
     const origin: MissionStarter = { ...(options.origin ?? { kind: 'mcp' }), ...(folder === undefined ? {} : { folder }) } as MissionStarter
-    const result = await options.start({ ...request, ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, origin)
-    const shown = folder ?? options.folder?.()
+    const kept = previous?.runtime === undefined ? undefined : (await options.followUpRoute?.(previous.missionId)) ?? { runtime: previous.runtime, model: previous.model }
+    const result = await options.start({ ...request, ...kept, ...(kept === undefined ? {} : { routeOverrideFor: request.teammateId }), ...choice, mode, keepSavedRoute: true } as CodexMissionStartRequest, origin)
+    const shown = result.ok ? await options.turnFolder?.(result.data.missionId) ?? folder ?? options.folder?.() : undefined
     if (!result.ok) return mcpText(result.error.message, true)
     /*
      * WHAT RAN, NOT WHAT WAS ASKED (0.872). The host decides the mode a turn really runs in -- a question to Scout is
@@ -211,8 +214,18 @@ export function createLocustMcpTools(options: {
      * was reported as Auto (found 9 Nov handing Scout a review). When the two differ, the reply names both.
      */
     const ran: MissionMode = result.data.mode ?? mode
-    return mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, mode: ran, ...(ran === mode ? {} : { mode_asked: mode }), ...(choice?.model === undefined ? {} : { model: choice.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(shown === undefined ? {} : { folder: shown }) }))
+    return mcpText(JSON.stringify({ conversation_id: conversation ?? result.data.missionId, ...(result.data.runtime === undefined ? {} : { runtime: result.data.runtime }), mode: ran, ...(ran === mode ? {} : { mode_asked: mode }), ...((result.data.model ?? choice?.model) === undefined ? {} : { model: result.data.model ?? choice?.model }), ...(choice?.effort === undefined ? {} : { effort: choice.effort }), ...(shown === undefined ? {} : { folder: shown }) }))
   }
+  const withStatus = async (result: McpToolResult, mission: PublicRecoveredMission): Promise<McpToolResult> => ({
+    ...result,
+    structuredContent: {
+      status: options.live(mission.missionId) ? (options.waiting?.(mission.missionId) === true ? 'waiting_for_person' : 'working')
+        : mission.phase === 'completed' ? 'done' : mission.phase === 'failed' ? 'failed' : 'stopped',
+      runtime: mission.runtime ?? null, model: mission.model ?? null,
+      folder: await options.turnFolder?.(mission.missionId) ?? conversationFolder(mission.startedBy) ?? null,
+      can_carry_on: !options.live(mission.missionId) && stoppedReason(mission) !== undefined
+    }
+  })
   /** A finished turn's answer, or Locust's own words for why there is none. */
   const answerOf = (mission: PublicRecoveredMission): McpToolResult => {
     const failed = mission.events.findLast(e => e.type === 'run.failed')
@@ -260,7 +273,7 @@ export function createLocustMcpTools(options: {
       if (!list.ok) return mcpText(list.error.message, true)
       const own = options.ownMode?.() === true
       const folder = options.folder?.()
-      return mcpText(JSON.stringify(list.data.teammates.map(t => ({ id: t.teammateId, name: t.name, role: t.roleTitle ?? t.role, ...(folder === undefined ? {} : { folder }),
+      return mcpText(JSON.stringify(list.data.teammates.map(t => ({ id: t.teammateId, name: t.name, role: t.roleTitle ?? t.role, ...((t.folder ?? folder) === undefined ? {} : { folder: t.folder ?? folder }),
         runtime: t.route?.runtime ?? null, model: t.route?.model ?? null, effort: t.route?.effort ?? null, busy: options.busy(t.teammateId),
         // What a turn started from here would use, so the other app is never surprised by an edit.
         runs_in: own ? t.route?.mode ?? 'ask' : 'ask' }))))
@@ -379,7 +392,8 @@ export function createLocustMcpTools(options: {
           title: (list.ok ? list.data.missionTitles[turn.missionId] : undefined) ?? turn.prompt.slice(0, 80),
           started_by: turn.startedBy?.kind === 'mcp' ? 'an app' : 'the person', runtime: turn.runtime, model: turn.model,
           state: options.live(turn.missionId) ? (options.waiting?.(turn.missionId) === true ? 'waiting for the person in Locust' : 'working')
-            : stopped === 'plan' ? 'stopped: its plan ran out' : stopped === 'provider' ? 'stopped: its provider failed' : turn.phase,
+            : stopped === 'plan' ? 'stopped: its plan ran out' : stopped === 'provider' ? 'stopped: its provider failed' : stopped === 'process' ? 'stopped: its process failed' : turn.phase,
+          folder: await options.turnFolder?.(turn.missionId) ?? conversationFolder(turn.startedBy) ?? null,
           ...(stopped === undefined ? {} : { can_carry_on: true }), updated: turn.lastUpdatedAt })
       }
       return mcpText(JSON.stringify(rows))
@@ -398,9 +412,9 @@ export function createLocustMcpTools(options: {
       const asked = text(args.model) ? offered.find(one => one.id === args.model || one.displayName.toLowerCase() === (args.model as string).toLowerCase()) : undefined
       if (text(args.model) && asked === undefined) return mcpText(`${args.runtime} does not offer that model here. Use one from list_models. Nothing was started.`, true)
       const carried = await options.carryOn(mission.missionId, { runtime: args.runtime as MissionRuntimeId, ...(asked === undefined ? {} : { model: asked.id }) })
-      return carried.ok
-        ? mcpText(JSON.stringify({ conversation_id: carried.missionId, runtime: args.runtime, ...(asked === undefined ? {} : { model: asked.id }), mode, ...(carried.folder === undefined ? {} : { folder: carried.folder }) }))
-        : mcpText(`${carried.message} Nothing was started.`, true)
+      if (!carried.ok) return mcpText(`${carried.message} Nothing was started.`, true)
+      const folder = await options.turnFolder?.(carried.missionId) ?? carried.folder
+      return mcpText(JSON.stringify({ conversation_id: carried.missionId, runtime: args.runtime, ...(asked === undefined ? {} : { model: asked.id }), mode, ...(folder === undefined ? {} : { folder }) }))
     }
     if (name === 'stop_turn' && options.cancel !== undefined) {
       if (!text(args.conversation_id)) return mcpText('Give a conversation id returned by start_conversation.', true)
@@ -416,7 +430,7 @@ export function createLocustMcpTools(options: {
     if (name === 'send_message' || name === 'read_reply') {
       if (!text(args.conversation_id)) return mcpText('Give a conversation id returned by start_conversation.', true)
       const id = args.conversation_id
-      if (starting.has(id)) return mcpText('Still working: starting the next turn.')
+      if (starting.has(id)) return { ...mcpText('Still working: starting the next turn.'), structuredContent: { status: 'working', runtime: null, model: null, folder: null, can_carry_on: false } }
       // Claim before the first read: concurrent sends must not both resume
       // the same old tip, even if the first finishes while the second reads.
       if (name === 'send_message') starting.add(id)
@@ -434,10 +448,10 @@ export function createLocustMcpTools(options: {
         }
         if (options.live(mission.missionId)) {
           // This app cannot answer a card: there is no tool for it, by design.
-          if (options.waiting?.(mission.missionId) === true) return mcpText("Waiting for the person to approve or deny an action in Locust's window. This app cannot answer it; read_reply again later.")
+          if (options.waiting?.(mission.missionId) === true) return withStatus(mcpText("Waiting for the person to approve or deny an action in Locust's window. This app cannot answer it; read_reply again later."), mission)
           const last = mission.events.findLast(e => e.type === 'tool.started' || e.type === 'step.started')
           const doing = last?.type === 'tool.started' ? last.payload.title ?? `Using ${last.payload.name}` : last?.type === 'step.started' ? last.payload.message : undefined
-          return mcpText(`Still working${doing ? `: ${doing}` : ': waiting for the AI agent to answer.'}`)
+          return withStatus(mcpText(`Still working${doing ? `: ${doing}` : ': waiting for the AI agent to answer.'}`), mission)
         }
         if (name === 'send_message') {
           if (!text(args.message, 8_000)) return mcpText('Give a message of up to 8,000 characters. Nothing was sent.', true)
@@ -446,7 +460,7 @@ export function createLocustMcpTools(options: {
           // Keep the claim until startup settles, including the saved-mode lookup.
           return await started({ prompt: args.message, teammateId: owner, followUpOf: mission.missionId }, id, args, mission)
         }
-        return answerOf(mission)
+        return withStatus(answerOf(mission), mission)
       } finally { if (name === 'send_message') starting.delete(id) }
     }
     return mcpText('That tool is not offered by Locust.', true)

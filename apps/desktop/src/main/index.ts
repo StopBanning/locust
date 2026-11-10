@@ -189,6 +189,7 @@ import { QUEUED_MESSAGES_READ_CHANNEL, QUEUED_MESSAGES_WRITE_CHANNEL } from '../
 import { createBriefSessions } from './brief-sessions.js'
 import { createRunEnd } from './run-end.js'
 import { createCarryOn, type CarryOn } from './carry-on.js'
+import { conversationFolder } from './conversation-folder.js'
 import { createCheckFix, type CheckFix } from './check-fix.js'
 import { parsedCheckFixTries } from '../shared/check-fix.js'
 import { CARRY_ON_CHANNEL, parsedCarryOnRoute } from '../shared/carry-on.js'
@@ -4340,7 +4341,8 @@ if (!ownsSingleInstanceLock) {
           startedBy: starter,
           ...(wasHub ? { hubMissionId: response.data.missionId } : {})
         })
-        return { ok: true, missionId: response.data.missionId, ...(folder === undefined ? {} : { folder }) }
+        const recorded = await missionLedger.getMission(response.data.missionId).catch(() => undefined)
+        return { ok: true, missionId: response.data.missionId, folder: recorded?.metadata.command?.cwd ?? folder ?? peer?.cwd ?? workspacePath }
       }
     })
     ipcMain.handle(CARRY_ON_CHANNEL, async (event, missionId: unknown, route: unknown) => {
@@ -10397,8 +10399,13 @@ if (!ownsSingleInstanceLock) {
       routineLastStep: id => routineLastStep.get(id),
       // A model and effort another app asks for, checked against the window's own list (0.842).
       models: async () => { const read = await readModelCatalog(); return read.ok ? read.data.models : [] },
-      // Where every turn works, by the folder's name alone: never the path above it (0.842).
-      folder: () => (workspaceChosen ? basename(workspacePath) : undefined),
+      // Full paths are part of the MCP receipt; a turn's command records where it actually stood.
+      folder: () => (workspaceChosen ? workspacePath : undefined),
+      turnFolder: async id => {
+        const turn = await missionLedger.getMission(id).catch(() => undefined)
+        return turn === undefined ? undefined : turn.metadata.command?.cwd ?? conversationFolder(turn.metadata.startedBy) ?? workableFolderOf(turn.metadata.workspaceId)
+      },
+      followUpRoute: id => routeOfTurnOrRecord(id, 'ask'),
       // The window's own Stop, for a turn an app started (0.842).
       cancel: runId => codexMissions.cancel(runId).ok || antigravityMissions.cancel(runId),
       // The person's own conversations too, only while their switch is on (0.842).

@@ -50,7 +50,7 @@ async function world() {
   const calls: [string, unknown][] = []
   const remote = createRemoteMcp({
     file: join(folder, 'remote-mcp.json'),
-    call: async (name, args) => { calls.push([name, args]); return mcpText(JSON.stringify([{ id: 'tm_wren', name: 'Wren' }])) },
+    call: async (name, args) => { calls.push([name, args]); return { ...mcpText(JSON.stringify([{ id: 'tm_wren', name: 'Wren' }])), structuredContent: { status: 'working', runtime: 'cursor', model: 'grok', folder: '/work/conversation', can_carry_on: false } } },
     address: () => 'https://app.locust.lol/v1/room/r/mcp',
     open: async (on) => { await core.message(pc, JSON.stringify({ t: on ? 'mcp-open' : 'mcp-close', id: 'o' })); return true },
     now: () => now
@@ -170,6 +170,7 @@ describe('an app from anywhere', () => {
     expect(listed.json?.result.tools.map((tool: { name: string }) => tool.name)).toEqual(['list_teammates', 'start_conversation', 'send_message', 'read_reply', 'stop_turn', 'list_conversations', 'carry_on', 'list_models', 'list_background_runs', 'list_routines', 'run_routine', 'routine_status'])
     const called = await room.rpc(keys.access_token!, 'tools/call', { name: 'list_teammates', arguments: {} })
     expect(called.json?.result.content[0].text).toContain('Wren')
+    expect(called.json?.result.structuredContent).toEqual({ status: 'working', runtime: 'cursor', model: 'grok', folder: '/work/conversation', can_carry_on: false })
     expect(room.calls).toEqual([['list_teammates', {}]])
     // Only the listed tools: never Locust's own command-line ones.
     expect((await room.rpc(keys.access_token!, 'tools/call', { name: 'cli/start', arguments: {} })).json?.error.code).toBe(-32602)

@@ -62,7 +62,7 @@ export function HandoffDivider({
   /** Locust made the switch because `from`'s plan ran out (0.774): said first, since nobody typed the turn below. */
   readonly carriedOn?: true
   /** And it was `from`'s provider failing before it did anything, not its plan (0.839). */
-  readonly carriedFor?: 'provider'
+  readonly carriedFor?: 'plan' | 'provider' | 'process'
 }): ReactElement {
   // Every runtime by its name. Only three were listed, so a switch to
   // OpenCode read "Codex -> opencode" (drive-runtime-switch, packaged 0.309).
@@ -96,6 +96,7 @@ export function HandoffDivider({
           <span className="lc-handoff__note">
             {carriedFor === 'provider'
               ? `${fromLabel}’s provider failed before it did anything, so Locust carried the work on with ${toLabel}.`
+              : carriedFor === 'process' ? `${fromLabel}’s process failed, so Locust carried the work on with ${toLabel}.`
               : `${fromLabel} ran out of its plan, so Locust carried the work on with ${toLabel}.`}
           </span>
         )}

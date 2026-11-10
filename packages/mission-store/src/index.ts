@@ -274,6 +274,8 @@ export interface MissionLedgerMetadata {
 }
 
 export interface MissionCommand {
+  /** Actual working directory; absent on older records. */
+  readonly cwd?: string
   readonly executablePath: string
   readonly args: readonly string[]
 }
@@ -905,6 +907,7 @@ function validateMetadata(metadata: MissionLedgerMetadata): MissionLedgerMetadat
   }
   if (metadata.command !== undefined) {
     requireText(metadata.command.executablePath, 'command.executablePath', 1_024)
+    if (metadata.command.cwd !== undefined) requireText(metadata.command.cwd, 'command.cwd', 4_096)
     if (!Array.isArray(metadata.command.args) || metadata.command.args.length > 128) {
       throw new Error('Mission command is invalid')
     }

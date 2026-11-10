@@ -819,7 +819,7 @@ describe('ledger schema versions', () => {
     const root = await temporaryRoot()
     await createFileMissionLedger({ rootDirectory: root }).createMission(
       v1Metadata({
-        command: { executablePath: 'C:\cmd.exe', args: ['-p', '<prompt>', '--no-color'] }
+        command: { cwd: '/work/conversation', executablePath: 'C:\cmd.exe', args: ['-p', '<prompt>', '--no-color'] }
       }) as unknown as MissionLedgerMetadata
     )
 
@@ -827,6 +827,7 @@ describe('ledger schema versions', () => {
 
     expect(recovered?.issues).toEqual([])
     expect(recovered?.metadata.command?.args).toEqual(['-p', '<prompt>', '--no-color'])
+    expect(recovered?.metadata.command?.cwd).toBe('/work/conversation')
   })
 
   it('refuses a command in a file written before version 12', async () => {
