@@ -55,7 +55,11 @@ for line in sys.stdin:
         send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'turn/start':
         assert p['summary'] == 'detailed' and p['approvalPolicy'] == POLICY, p
-        assert p['input'] == [{'type':'text','text':PROMPT}]
+        # Native briefs folder / instructions / About you / memory before the person's words
+        # (Electron workspace-brief + about-you + memory); the ledger still keeps the bare prompt.
+        assert len(p.get('input') or []) == 1 and p['input'][0].get('type') == 'text', p
+        text = p['input'][0].get('text') or ''
+        assert text == PROMPT or text.endswith('\n\n' + PROMPT), text
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})

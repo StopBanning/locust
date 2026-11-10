@@ -144,7 +144,29 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
             )
         })
         .unwrap_or_default();
+    if picked || s.recent_hover.as_deref() == Some(&item.mission_id) {
+        let menu_id = item.mission_id.clone();
+        title = title.child(
+            text("⋯")
+                .label(format!("Actions for {}", item.title))
+                .key(format!("org-menu-open-{menu_id}"))
+                .font(type_::BODY)
+                .color(p.secondary)
+                .padding(4.0)
+                .on_press(move |s: &mut State| s.org_menu_id = Some(menu_id.clone())),
+        );
+    } else {
+        title = title.child(el().size(22.0, 22.0));
+    }
+    let hover_id = id.clone();
     let mut row_el = col()
+        .on_hover_change(move |s: &mut State, over, _| {
+            if over {
+                s.recent_hover = Some(hover_id.clone());
+            } else if s.recent_hover.as_deref() == Some(&hover_id) {
+                s.recent_hover = None;
+            }
+        })
         .key(format!("recent-{id}"))
         .w_full()
         .padding(12.0)
@@ -166,17 +188,6 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         });
     if s.org_menu_id.as_deref() == Some(item.mission_id.as_str()) {
         row_el = row_el.child(org_menu(s, p, &item.mission_id));
-    } else {
-        let menu_id = item.mission_id.clone();
-        row_el = row_el.child(
-            text("Actions")
-                .key(format!("org-menu-open-{menu_id}"))
-                .font(type_::LABEL)
-                .color(p.muted)
-                .on_press(move |s: &mut State| {
-                    s.org_menu_id = Some(menu_id.clone());
-                }),
-        );
     }
     row_el
 }
@@ -462,6 +473,13 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         );
     }
 
+    rows = rows.child(
+        text("Teammates & Memory")
+            .font(type_::BODY)
+            .color(p.secondary)
+            .padding(12.0)
+            .on_press(crate::people_panel::open),
+    );
     let missions = sidebar_missions_now(s);
     let all_count = recent_as_missions(s).len();
     let (pinned, recent_rows) = pinned_and_recent(&missions, &s.org.pins);
@@ -721,7 +739,16 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .pl(52.0)
                 .pr(20.0)
                 .window_drag()
-                .child(text("LOCUST").font(type_::LABEL).color(p.secondary)),
+                .child(text("LOCUST").font(type_::LABEL).color(p.secondary))
+                .child(
+                    text(if s.engine == Some(Kind::Native) {
+                        "Native team copy"
+                    } else {
+                        ""
+                    })
+                    .font(type_::LABEL)
+                    .color(p.muted),
+                ),
         )
         .child(
             col()

@@ -119,6 +119,8 @@ pub(super) struct OwnTurn {
 }
 
 pub(super) struct State {
+    pub(super) recent_hover: Option<String>,
+    pub(super) people_panel: crate::people_panel::Panel,
     // Which engine this window runs on, shown in the status line. None until the team has loaded.
     pub(super) engine: Option<Kind>,
     pub(super) teammates: Vec<Teammate>,
@@ -228,6 +230,8 @@ impl Default for State {
     fn default() -> Self {
         Self {
             engine: None,
+            recent_hover: None,
+            people_panel: crate::people_panel::Panel::default(),
             teammates: Vec::new(),
             selected: 0,
             conversations: HashMap::new(),

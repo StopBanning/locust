@@ -47,7 +47,10 @@ if flags:
 line = sys.stdin.readline()
 assert line, "expected user turn"
 msg = json.loads(line)
-assert msg["type"] == "user" and msg["message"]["content"] == PROMPT, msg
+content = msg.get("message", {}).get("content")
+assert msg["type"] == "user" and (
+    content == PROMPT or (isinstance(content, str) and content.endswith("\n\n" + PROMPT))
+), msg
 
 SESSION = "33b21513-a4fb-478d-ad84-21cb7ef30571"
 send({

@@ -43,10 +43,8 @@ pub fn compact_count(value: u64) -> String {
             format!("{scaled:.1}")
         };
         if text == "1000"
-            && let Some((larger_size, larger_unit)) = index
-                .checked_sub(1)
-                .and_then(|i| UNITS.get(i))
-                .copied()
+            && let Some((larger_size, larger_unit)) =
+                index.checked_sub(1).and_then(|i| UNITS.get(i)).copied()
         {
             let _ = larger_size;
             return format!("1.0{larger_unit}");

@@ -181,6 +181,7 @@ fn command_for_turn(
 }
 
 // ---- the roster: teammates.json, read-only -----------------------------------------------------------------------
+#[cfg(test)]
 const MAX_FILE_BYTES: u64 = 1_000_000;
 const MAX_TEAMMATES: usize = 64;
 const HUES: [&str; 11] = [
@@ -369,6 +370,7 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
 }
 
 /// Electron's roster. The file is opened for reading only; a missing file is an empty roster, as in Electron.
+#[cfg(test)]
 pub fn roster(electron: &Path) -> Result<Vec<Teammate>, String> {
     let path = electron.join("teammates.json");
     let file = match std::fs::File::open(&path) {
@@ -387,7 +389,9 @@ pub fn roster(electron: &Path) -> Result<Vec<Teammate>, String> {
 }
 
 pub fn load_roster() -> Result<Vec<Teammate>, String> {
-    roster(&electron_dir().ok_or("Locust's data folder could not be found on this computer.")?)
+    let store = Store::local().map_err(|e| e.to_string())?;
+    let file = crate::people::team(&store)?;
+    parse_roster(&file.to_string())
 }
 
 /// The folder Locust last had open (`workspace.json`, read-only), else Locust's default `~/Documents/Locust` if it exists.
@@ -705,7 +709,17 @@ fn new_id() -> String {
 /// Start (or continue) a Codex/Claude turn natively. Returns once the ledger exists and the turn is running on its own thread;
 /// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
-pub fn send(job: Send) -> Result<Started, String> {
+pub fn send(mut job: Send) -> Result<Started, String> {
+    let store = store().ok_or("Native data folder could not be determined.")?;
+    let saved = crate::people::team(&store)?;
+    if let Some(entry) = saved["teammates"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|r| r["teammateId"] == job.teammate.id))
+        && job.effort.is_none()
+    {
+        job.effort = entry["route"]["effort"].as_str().map(str::to_owned);
+    }
+
     if !supported(&job.teammate) {
         return Err(format!("{} runs in Locust for now.", job.teammate.name));
     }
@@ -715,7 +729,6 @@ pub fn send(job: Send) -> Result<Started, String> {
     }
     let runtime_name = job.teammate.runtime.as_deref().unwrap_or("codex");
     let mode = Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask);
-    let store = store().ok_or("Native data folder could not be determined.")?;
     let electron = store.electron().to_path_buf();
     let (continues, resume) = match job.conversation.as_deref() {
         None => (None, None),
@@ -791,6 +804,7 @@ pub fn send(job: Send) -> Result<Started, String> {
     } else {
         model
     };
+    let runtime_prompt = crate::people::brief(&store, &job.teammate.id, &folder, &job.prompt)?;
     let id = new_id();
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
     let session_id = if runtime_name == "copilot" && resume.is_none() {
@@ -805,7 +819,7 @@ pub fn send(job: Send) -> Result<Started, String> {
         model.as_deref(),
         mode,
         resume.as_deref(),
-        &job.prompt,
+        &runtime_prompt,
         job.effort.as_deref(),
         session_id.as_deref(),
     )
@@ -862,7 +876,7 @@ pub fn send(job: Send) -> Result<Started, String> {
     )
     .map_err(|e| e.to_string())?;
     let turn = Turn {
-        prompt: job.prompt,
+        prompt: runtime_prompt,
         folder,
         model,
         effort: job.effort,
@@ -873,20 +887,54 @@ pub fn send(job: Send) -> Result<Started, String> {
         run_id: format!("run_{id}"),
     };
     let runtime_owned = runtime_name.to_owned();
+    let memory_store = store.clone();
+    let memory_who = job.teammate.id.clone();
+    let memory_folder = turn.folder.clone();
+    let memory_id = id.clone();
     std::thread::Builder::new()
         .name("native-turn".into())
         .spawn(move || {
+            // Keep ownership through the final memory write so shutdown/continuation cannot race it.
+            let _memory_completion = registered;
             run_turn(
                 writer,
                 command,
                 turn,
                 flag,
-                registered,
+                Registered(Vec::new()),
                 runtime_owned,
                 channel,
                 bridge,
                 store,
-            )
+            );
+            if let Ok(path) = memory_store.write_path(&memory_id) {
+                let transcript = ledger::read_transcript(path);
+                if !transcript.failed
+                    && !transcript.running
+                    && !transcript.items.iter().any(
+                        |item| matches!(item, ledger::Item::Note { text, .. } if text == "Stopped"),
+                    )
+                {
+                    let reply = transcript
+                        .items
+                        .iter()
+                        .filter_map(|item| match item {
+                            ledger::Item::Assistant { text, .. } => Some(text.as_str()),
+                            _ => None,
+                        })
+                        .next_back()
+                        .unwrap_or("")
+                        .to_owned();
+                    if let Err(error) = crate::people::record_reply(
+                        &memory_store,
+                        &memory_who,
+                        &memory_folder,
+                        &reply,
+                    ) {
+                        eprintln!("Memory was not recorded: {error}");
+                    }
+                }
+            }
         })
         .map_err(|e| format!("Could not start the turn: {e}"))?;
     Ok(Started {

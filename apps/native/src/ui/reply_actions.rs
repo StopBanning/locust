@@ -200,7 +200,11 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
             );
         }
     }
-    out.child(row().justify_end().child(copy_button(s.copy_feedback.as_ref(), body.into(), p)))
+    out.child(
+        row()
+            .justify_end()
+            .child(copy_button(s.copy_feedback.as_ref(), body.into(), p)),
+    )
 }
 
 pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
@@ -244,15 +248,15 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
             pane = pane
                 .child(copy_button(s.copy_feedback.as_ref(), body.clone(), p))
                 .child(
-                col()
-                    .grow(1.0)
-                    .min_h(0.0)
-                    .w_full()
-                    .scroll(ScrollSpec {
-                        stick_bottom: false,
-                    })
-                    .child(lines),
-            );
+                    col()
+                        .grow(1.0)
+                        .min_h(0.0)
+                        .w_full()
+                        .scroll(ScrollSpec {
+                            stick_bottom: false,
+                        })
+                        .child(lines),
+                );
         }
         Err(error) => pane = pane.child(text(error.clone()).color(p.red).wrap_anywhere()),
     }

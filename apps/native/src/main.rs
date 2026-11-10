@@ -1,6 +1,9 @@
 #[path = "ui/context_usage.rs"]
 mod context_usage;
 mod invariants;
+mod people;
+#[path = "ui/people_panel.rs"]
+mod people_panel;
 #[path = "ui/recovery.rs"]
 mod recovery;
 #[path = "ui/reply_actions.rs"]
@@ -979,6 +982,10 @@ fn fresh_conversation(s: &mut State) {
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if event.key == Key::Escape {
+        if s.people_panel.open {
+            s.people_panel.open = false;
+            return true;
+        }
         if s.palette_open {
             s.palette_open = false;
             return true;
@@ -1601,7 +1608,11 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
 fn view(s: &State, cx: &mut Cx<State>) -> El {
     let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
     let sidebar = sidebar(s, &p);
-    let mut thread = thread_view(s, &p);
+    let mut thread = if s.people_panel.open {
+        people_panel::view(s, &p)
+    } else {
+        thread_view(s, &p)
+    };
     if let Some(find) = thread_find_bar(s, &p) {
         thread = col()
             .grow(1.0)
@@ -1791,6 +1802,10 @@ fn main() {
             ("thread-rich-open", thread_rich_open_scene),
             ("thread-rich-open-light", thread_rich_open_light_scene),
             ("thread-rich-light", thread_rich_light_scene),
+            ("p6-people", p6_people_scene),
+            ("p6-people-light", p6_people_light_scene),
+            ("p6-memory", p6_memory_scene),
+            ("p6-memory-light", p6_memory_light_scene),
             ("team", team_scene),
             ("empty", empty_scene),
             ("replay", replay_scene),

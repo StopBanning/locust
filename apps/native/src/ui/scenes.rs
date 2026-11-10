@@ -750,3 +750,45 @@ pub(super) fn p5_recovery_light_scene(s: &mut State) {
     p5_recovery_scene(s);
     s.appearance = Some(false);
 }
+
+pub(super) fn p6_people_scene(s: &mut State) {
+    team_scene(s);
+    s.people_panel.open = true;
+    s.people_panel.entry = serde_json::json!({"teammateId":"codec"});
+    s.people_panel.team = serde_json::json!({"schemaVersion":1,"teammates":[{"teammateId":"codec","name":"Codec"}],"settings":{}});
+    s.people_panel.fields = [
+        "Codec",
+        "Code & Migrations",
+        "Read before you change. Run what proves it.",
+        "codex",
+        "gpt-6.1-sol",
+        "high",
+        "ask",
+        "/Users/locust/Documents/Locust",
+    ]
+    .iter()
+    .map(|t| {
+        let mut e = TextEdit::default();
+        e.replace_text(*t);
+        e
+    })
+    .collect();
+}
+pub(super) fn p6_people_light_scene(s: &mut State) {
+    p6_people_scene(s);
+    s.appearance = Some(false);
+}
+pub(super) fn p6_memory_scene(s: &mut State) {
+    team_scene(s);
+    s.people_panel.open = true;
+    s.people_panel.memory_tab = true;
+    s.people_panel
+        .note
+        .replace_text("Lead with the result. Read before changing code.");
+    s.people_panel.team = serde_json::json!({"settings":{"aboutYouSuggestions":[{"id":"ays_demo","text":"Keep verification explicit.","by":"Codec","at":"2026-11-10T12:00:00Z"}]}});
+    s.people_panel.memories = serde_json::json!({"schemaVersion":1,"memories":[{"memoryId":"mem_example","text":"The native suite passes 338 tests.","name":"native-suite","previousText":"The native suite passes 324 tests.","by":{"name":"Codec"},"scope":"workspace","status":"kept","enabled":true}],"forgotten":[{"memory":{"memoryId":"mem_old","text":"Use the previous build folder."}}]});
+}
+pub(super) fn p6_memory_light_scene(s: &mut State) {
+    p6_memory_scene(s);
+    s.appearance = Some(false);
+}

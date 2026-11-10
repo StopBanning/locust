@@ -178,6 +178,70 @@ impl Store {
     pub fn teammates_json_path(&self) -> io::Result<PathBuf> {
         self.check(&self.root.join("teammates.json"))
     }
+    /// Seed an independent native file once. An unreadable source is never treated as empty.
+    pub fn seeded_json(
+        &self,
+        name: &str,
+        empty: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        use std::io::{Read, Write};
+        let path = self
+            .check(&self.root.join(name))
+            .map_err(|e| e.to_string())?;
+        if !path.exists() {
+            let source = self.electron.join(name);
+            let body = match std::fs::read(&source) {
+                Ok(bytes) => bytes,
+                Err(e) if e.kind() == io::ErrorKind::NotFound => empty.to_string().into_bytes(),
+                Err(e) => return Err(e.to_string()),
+            };
+            if body.len() > 2 * 1024 * 1024 {
+                return Err("Data file is too large".into());
+            }
+            let _: serde_json::Value = serde_json::from_slice(&body).map_err(|e| e.to_string())?;
+            match self.create_new_file_in(&self.root, name) {
+                Ok(mut file) => {
+                    file.write_all(&body).map_err(|e| e.to_string())?;
+                    file.sync_all().map_err(|e| e.to_string())?;
+                }
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+        let mut text = String::new();
+        std::fs::File::open(path)
+            .map_err(|e| e.to_string())?
+            .take(2 * 1024 * 1024 + 1)
+            .read_to_string(&mut text)
+            .map_err(|e| e.to_string())?;
+        if text.len() > 2 * 1024 * 1024 {
+            return Err("Data file is too large".into());
+        }
+        serde_json::from_str(&text).map_err(|e| e.to_string())
+    }
+    pub fn save_json(&self, name: &str, value: &serde_json::Value) -> Result<(), String> {
+        use std::io::Write;
+        let path = self
+            .check(&self.root.join(name))
+            .map_err(|e| e.to_string())?;
+        let tmp = format!(
+            "{name}.{}.tmp",
+            crate::native::uuid_v4().map_err(|e| e.to_string())?
+        );
+        let mut file = self
+            .create_new_file_in(&self.root, &tmp)
+            .map_err(|e| e.to_string())?;
+        let result = (|| {
+            file.write_all(value.to_string().as_bytes())?;
+            file.sync_all()?;
+            self.check(&path)?;
+            std::fs::rename(self.root.join(&tmp), path)
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_file(self.root.join(tmp));
+        }
+        result.map_err(|e: io::Error| e.to_string())
+    }
     /// Projects / groups — Electron shape (`groups.json`), native folder only.
     pub fn groups_json_path(&self) -> io::Result<PathBuf> {
         self.check(&self.root.join("groups.json"))

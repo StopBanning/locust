@@ -69,15 +69,15 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | :--- | :--- | :--- | :---: |
 | Teammate list with initial, role, runtime/model and busy dot | `renderer/src/components/Sidebar.tsx`, `main/teammate-store.ts` | **done** | yes |
 | Select teammate and start fresh conversation by click/keyboard | `renderer/src/App.tsx`, `renderer/src/components/Sidebar.tsx` | **done** | yes |
-| Create/edit/delete teammate, instructions, runtime/model/effort and budget | `renderer/src/components/NewTeammateDialog.tsx`, `renderer/src/components/InstructionsCard.tsx`, `main/teammate-store.ts` | **missing** | yes |
+| Create/edit/delete teammate, instructions, runtime/model/effort and budget | `renderer/src/components/NewTeammateDialog.tsx`, `renderer/src/components/InstructionsCard.tsx`, `main/teammate-store.ts` | **partial** — native-owned roster seeds once; create/edit/remove, instructions, route/mode/folder editor; Electron pickers, full validation/test coverage and budget controls remain (P6-NOTES.md) | yes |
 | Starter teams and reusable routine chains | `renderer/src/components/TeamTemplates.tsx`, `shared/team-templates.ts` | **missing** | yes |
 | Rooms, targeted mentions and project standing instructions | `renderer/src/components/RoomScreen.tsx`, `renderer/src/components/GroupSettingsDialog.tsx`, `main/room-store.ts`, `main/group-store.ts` | **missing** | yes |
 | Automatic peer exchanges and optional handoff omissions | `main/peer-exchange.ts`, `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **missing** | yes |
-| Memory store, named replacements, recently forgotten and tidy suggestions | `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/MemoryCard.tsx`, `main/memory-store.ts`, `shared/memory.ts` | **missing** | yes |
+| Memory store, named replacements, recently forgotten and tidy suggestions | `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/MemoryCard.tsx`, `main/memory-store.ts`, `shared/memory.ts` | **partial** — native-owned Electron-shaped memory, named rewrites/proposals, edit/toggle/remove/restore and gated tidy application; full validation, recall, tidy UI and turn-card receipts remain (P6-NOTES.md) | yes |
 | Workspace/runtime skills and GitHub popular/recent skill packs | `renderer/src/components/SkillsFromGitHub.tsx`, `renderer/src/components/CliArtifacts.tsx`, `main/skill-discovery.ts`, `main/skill-library.ts` | **missing** | yes |
 | Teammate secret environment keys and scoped run injection | `renderer/src/components/KeyCard.tsx`, `main/teammate-keys.ts` | **missing** | yes |
 | Custom faces, colours, bot/mascot and status legend | `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/FaceLegend.tsx`, `renderer/src/components/PixelFace.tsx`, `renderer/src/components/AgentMark.tsx` | **missing** | no |
-| About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **missing** | yes |
+| About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **partial** — native About-you editor and suggestion approval/dismissal, included in native runtime prompts; full secret refusal vocabulary, change notices and TS test coverage remain (P6-NOTES.md) | yes |
 | Team image import/export with routines | `renderer/src/components/TeamCard.tsx`, `main/team-card-routines.ts`, `shared/team-card.ts` | **missing** | yes |
 | New teammate interview and setup inspection | `renderer/src/components/TeammateSetup.tsx`, `main/teammate-setup.ts`, `shared/interview.ts` | **missing** | yes |
 | Tune teammate, combine alternatives and keep measured lessons/skills | `renderer/src/components/TuneTeammate.tsx`, `renderer/src/components/KeptInstructions.tsx`, `main/tune-lessons.ts`, `main/tune-combine.ts`, `main/tune-drafts.ts` | **missing** | yes |
@@ -272,7 +272,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | :--- | :--- | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 9 | 8 | 8 | 25 |
 | 2 | Composer & Input | 10 | 0 | 4 | 14 |
-| 3 | Teammates, Rooms, Memory & Skills | 2 | 0 | 12 | 14 |
+| 3 | Teammates, Rooms, Memory & Skills | 2 | 3 | 9 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
 | 5 | Approvals & Permissions | 0 | 2 | 7 | 9 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 0 | 13 | 13 |
@@ -285,7 +285,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **25** | **18** | **110** | **153** |
+| | **TOTAL** | **25** | **21** | **107** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
@@ -395,7 +395,7 @@ This is source inspection, not runtime certification. Read all four Rust modules
 
 Path validation used Python to extract every backticked source path, resolve the documented roots, and call Path.is_file() (Path.exists() for root directories). Each evidence file was checked before writing and every final citation was checked afterward. No glob paths or proposed future filenames are cited. Protocol tags, runtime data filenames and key chords are not treated as source paths.
 
-Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 25 done, 18 partial, 110 missing**.
+Checked **833 path references (393 unique), 0 missing**; all **172 component files covered**. Section 1 (recounted from feature status cells): **153 rows — 25 done, 21 partial, 107 missing**.
 
 An independent parser checks all Section 1 feature/status rows against Section 3 per-area and grand totals, requires a gap on every partial row, and checks every component is covered. Physical source-size counts are separate from feature counts.
 
@@ -406,3 +406,5 @@ M4A execution verification (2026-11-09): generic ACP synthetic runs and TypeScri
 M4C execution verification (2026-11-09): Cursor, Copilot, Antigravity and Muse native drivers and synthetic ledgers are recorded in M4C-NOTES.md. No window or live one-line CLI turn was launched for M4C. The composite named-runtime row stays **partial** (no discovery/sign-in UI; live CLI turns unrun).
 
 P5 verification (2026-11-10): partial implementation, not a closed parity round. See P5-NOTES.md for tests, screenshots and remaining behavior. No row was promoted to done by P5.
+
+P6 evidence: `P6-NOTES.md`. Area 3 gains three partial rows; no composite row is promoted to done without the remaining Electron behavior/tests. Native turns now receive the native copy of standing instructions, About you, and applicable kept memory. Recent menus use an inline hover/selected ⋯ button with Electron’s accessible name.
