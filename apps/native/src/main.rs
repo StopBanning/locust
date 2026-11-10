@@ -1,4 +1,5 @@
 mod approval;
+mod composer;
 mod engine;
 mod ledger;
 mod quick;
@@ -164,6 +165,46 @@ struct State {
     approval_shown: std::time::Instant,
     approval_denying: bool,
     approval_reason: TextEdit,
+    // --- M4b composer (Electron Composer.tsx) ---
+    drafts: composer::Drafts,
+    attached: Vec<String>,
+    tagged: Vec<String>,
+    queue_rows: Vec<composer::QueuedRow>,
+    queue_error: Option<String>,
+    queue_send_now: Option<String>,
+    composer_note: Option<String>,
+    slash_at: usize,
+    at_at: usize,
+    at_dismissed: Option<String>,
+    project_files: Vec<String>,
+    files_partial: bool,
+    files_job: Latest<(Vec<String>, bool)>,
+    files_root: Option<std::path::PathBuf>,
+    files_asked: Option<std::time::Instant>,
+    sent_history: Vec<String>,
+    recall_at: isize,
+    /// Permission mode for Shift+Tab / slash (Electron mode chip).
+    mode: String,
+    /// Scene / discovery flags for placeholders and disabled-send.
+    nothing_installed: bool,
+    selected_ready: bool,
+    route_can_run: bool,
+    /// Native data folder for queue + pasted attachments (never Electron's).
+    data: Option<store::Store>,
+    /// Off-queue edit strip (Composer: Edit took words back into the box).
+    off_the_queue: bool,
+    /// Popup forced open for snap scenes.
+    scene_popup: ComposerScenePopup,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum ComposerScenePopup {
+    #[default]
+    None,
+    Slash,
+    Mention,
+    Queue,
+    Blocked,
 }
 
 impl Default for State {
@@ -206,6 +247,30 @@ impl Default for State {
             approval_shown: std::time::Instant::now(),
             approval_denying: false,
             approval_reason: TextEdit::new(""),
+            drafts: composer::Drafts::default(),
+            attached: Vec::new(),
+            tagged: Vec::new(),
+            queue_rows: Vec::new(),
+            queue_error: None,
+            queue_send_now: None,
+            composer_note: None,
+            slash_at: 0,
+            at_at: 0,
+            at_dismissed: None,
+            project_files: Vec::new(),
+            files_partial: false,
+            files_job: Latest::default(),
+            files_root: None,
+            files_asked: None,
+            sent_history: Vec::new(),
+            recall_at: -1,
+            mode: "ask".into(),
+            nothing_installed: false,
+            selected_ready: true,
+            route_can_run: true,
+            data: None,
+            off_the_queue: false,
+            scene_popup: ComposerScenePopup::None,
         }
     }
 }
@@ -347,19 +412,30 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     let Some(index) = s.teammates.iter().position(|t| t.id == id) else {
         return;
     };
+    let previous_key = conversation_draft_key(s);
     leave_ledger(s);
     s.model_menu = None;
     // Fix 2: cancel any in-flight request from the previous conversation when switching teammates.
     if s.selected != index || s.flight.is_some() || s.opening_teammate.is_some() {
         detach(s);
     }
+    // Restored unsent text belongs to the conversation we left (Electron drafts Map).
+    if let Some(key) = &previous_key {
+        s.drafts.put(key, &s.draft.text);
+    }
     s.selected = index;
+    let fill = s.drafts.switch(conversation_draft_key(s), "");
+    s.draft.replace_text(fill);
+    s.tagged.clear();
+    s.at_dismissed = None;
     if s.ledger_available {
         let header = s.teammates.get(index).cloned();
         let conversation = s.conversations.get(id)
             .and_then(|c| c.conversation_id.clone());
         if let (Some(header), Some(conversation)) = (header, conversation) {
             begin_ledger(s, conversation, String::new(), header, None, tx);
+            let fill = s.drafts.switch(conversation_draft_key(s), &s.draft.text);
+            s.draft.replace_text(fill);
             tx.scroll_to_bottom("messages");
             return;
         }
@@ -843,9 +919,12 @@ fn setup(s: &mut State, waker: Waker) {
     s.recents.set_waker(waker.clone());
     s.opening.set_waker(waker.clone());
     s.model_job.set_waker(waker.clone());
+    s.files_job.set_waker(waker.clone());
     s.stopping.set_waker(waker.clone());
     s.ledger_job.set_waker(waker);
+    load_composer_store(s);
     load_team(s);
+    sync_draft_key(s);
 }
 
 fn selected_conversation(s: &State) -> Option<(&Teammate, &Conversation)> {
@@ -865,6 +944,16 @@ fn can_send(s: &State) -> bool {
         && !s.ledger.as_ref().is_some_and(|p| p.loading)
         && selected_conversation(s).is_some()
         && !native_blocked(s)
+        && s.selected_ready
+        && s.route_can_run
+        && !s.nothing_installed
+        && (!s.draft.text.trim().is_empty() || !s.attached.is_empty())
+}
+
+fn can_queue(s: &State) -> bool {
+    turn_running(s)
+        && selected_conversation(s).is_some()
+        && queue_front(s).is_none()
         && !s.draft.text.trim().is_empty()
 }
 
@@ -1272,6 +1361,9 @@ fn fresh_conversation(s: &mut State) {
         s.status = "Ready".into();
         s.status_tone = StatusTone::Muted;
     }
+    sync_draft_key(s);
+    s.attached.clear();
+    s.tagged.clear();
 }
 
 
@@ -1558,6 +1650,7 @@ fn land_reply(
             s.own_turn = None;
             s.flight = None;
             refresh_recent(s);
+            drain_queue_after_turn(s, tx);
             if s.selected == index {
                 tx.scroll_to_bottom("messages");
             }
@@ -1581,12 +1674,519 @@ fn restore_failed_draft(s: &mut State, message: String) {
     s.draft.replace_text(text);
 }
 
+fn conversation_draft_key(s: &State) -> Option<String> {
+    let (teammate, conversation) = selected_conversation(s)?;
+    Some(composer::draft_key(
+        conversation.conversation_id.as_deref(),
+        &teammate.id,
+    ))
+}
+
+fn sync_draft_key(s: &mut State) {
+    let next = conversation_draft_key(s);
+    let fill = s.drafts.switch(next, &s.draft.text);
+    if fill != s.draft.text {
+        s.draft.replace_text(fill);
+    }
+}
+
+fn queue_key_now(s: &State) -> Option<String> {
+    let (_, conversation) = selected_conversation(s)?;
+    conversation
+        .conversation_id
+        .clone()
+        .or_else(|| conversation_draft_key(s))
+}
+
+fn turn_running(s: &State) -> bool {
+    s.flight.is_some()
+        || s.opening_teammate.is_some()
+        || s.ledger
+            .as_ref()
+            .is_some_and(|p| p.snapshot.running || p.after_tip.is_some())
+}
+
+fn working_name(s: &State) -> String {
+    selected_conversation(s)
+        .map(|(t, _)| t.name.clone())
+        .unwrap_or_else(|| "this mission".into())
+}
+
+fn load_composer_store(s: &mut State) {
+    if s.data.is_some() || s.demo {
+        return;
+    }
+    match store::Store::local() {
+        Ok(store) => {
+            match composer::read_queue(&store) {
+                Ok(rows) => s.queue_rows = rows,
+                Err(message) => {
+                    s.queue_error = Some(format!(
+                        "Saved messages could not be read. Reopen Locust to try again; the saved file has been kept. ({message})"
+                    ));
+                }
+            }
+            s.data = Some(store);
+        }
+        Err(_) => {}
+    }
+}
+
+fn persist_queue(s: &mut State) -> bool {
+    let Some(store) = s.data.as_ref() else {
+        return s.demo;
+    };
+    match composer::write_queue(store, &s.queue_rows) {
+        Ok(_) => { s.queue_error = None; return true; },
+        Err(message) => {
+            s.queue_error = Some(format!(
+                "This queue change was not saved. Your queued messages are still here; try again. ({message})"
+            ));
+        }
+    }
+    false
+}
+
+fn enqueue_follow_up(s: &mut State, text: String, attachments: Vec<String>) -> bool {
+    let Some(key) = queue_key_now(s) else {
+        return false;
+    };
+    s.queue_rows.push(composer::QueuedRow {
+        id: composer::new_queue_id(),
+        key,
+        text,
+        origin: composer::Origin::Person,
+        attachments,
+        issue: None,
+        restored: false,
+        held: None,
+    });
+    if !persist_queue(s) { s.queue_rows.pop(); return false; }
+    s.off_the_queue = false;
+    true
+}
+
+fn composer_placeholder(s: &State) -> String {
+    if native_blocked(s) {
+        if let Some((teammate, _)) = selected_conversation(s) {
+            return format!("{} runs in Locust for now", teammate.name);
+        }
+    }
+    let teammate_name = selected_conversation(s).map(|(t, _)| t.name.as_str());
+    composer::placeholder(composer::PlaceholderInput {
+        working_now: turn_running(s),
+        working_name: &working_name(s),
+        queued: queue_front(s).is_some(),
+        route_can_run: s.route_can_run && !native_blocked(s),
+        selected_ready: s.selected_ready && !s.nothing_installed,
+        selected_display: None,
+        teammate_name,
+        discovery_loading: false,
+        discovery_error: false,
+        ready_elsewhere: None,
+        auth_required: false,
+        installed_silent: 0,
+        checking: false,
+        nothing_installed: s.nothing_installed,
+    })
+}
+
+fn queue_front(s: &State) -> Option<composer::QueuedRow> {
+    let key = queue_key_now(s);
+    let own: Vec<_> = composer::queued_in(&s.queue_rows, key.as_deref()).into_iter().cloned().collect();
+    let mut front = own.first()?.clone();
+    front.text = own.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("\n\n");
+    front.attachments = own.iter().flat_map(|r| r.attachments.clone()).collect();
+    Some(front)
+}
+
+fn unqueue(s: &mut State, edit: bool) -> bool {
+    let Some(front) = queue_front(s) else { return false; };
+    let before = s.queue_rows.clone();
+    s.queue_rows = composer::without_queue_of(&s.queue_rows, Some(&front.key));
+    if !persist_queue(s) { s.queue_rows = before; return false; }
+    if edit { s.draft.replace_text(front.text); s.attached = front.attachments; }
+    s.off_the_queue = edit;
+    true
+}
+
+fn send_blocked_now(s: &State) -> Option<&'static str> {
+    composer::send_blocked_reason(composer::SendBlocked {
+        nothing_installed: s.nothing_installed,
+        runtime_ready: s.selected_ready && !native_blocked(s),
+        route_can_run: s.route_can_run,
+        busy: s.team.is_pending() || s.opening_teammate.is_some(),
+        empty: s.draft.text.trim().is_empty() && s.attached.is_empty(),
+    })
+}
+
+fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
+    if s.scene_popup == ComposerScenePopup::Slash {
+        return composer::matching_commands("", &composer::available_commands(composer::AvailableInput {
+            modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
+            running: turn_running(s),
+            can_swarm: false,
+            issues: false,
+            tune: false,
+            setup: true,
+            runtime_commands: &[],
+        }));
+    }
+    let Some(query) = composer::slash_query(&s.draft.text) else {
+        return Vec::new();
+    };
+    let available = composer::available_commands(composer::AvailableInput {
+        modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
+        running: turn_running(s),
+        can_swarm: false,
+        issues: false,
+        tune: false,
+        setup: true,
+        runtime_commands: &[],
+    });
+    composer::matching_commands(&query, &available)
+}
+
+#[derive(Clone)]
+enum AtChoice {
+    Teammate { id: String, name: String, role: String },
+    File { path: String },
+}
+
+fn at_choices_now(s: &State) -> Vec<AtChoice> {
+    let Some(typed) = composer::at_query(&s.draft.text) else {
+        return Vec::new();
+    };
+    if composer::slash_query(&s.draft.text).is_some() {
+        return Vec::new();
+    }
+    if s.at_dismissed.as_deref() == Some(s.draft.text.as_str()) {
+        return Vec::new();
+    }
+    let current_id = selected_conversation(s).map(|(t, _)| t.id.clone());
+    let mut out = Vec::new();
+    for mate in s.teammates.iter().filter(|m| {
+        Some(m.id.as_str()) != current_id.as_deref()
+            && !s.tagged.contains(&m.id)
+            && m.name.to_lowercase().starts_with(&typed.to_lowercase())
+    }) {
+        if out.len() >= 6 {
+            break;
+        }
+        out.push(AtChoice::Teammate {
+            id: mate.id.clone(),
+            name: mate.name.clone(),
+            role: mate.role.clone(),
+        });
+    }
+    let files = composer::file_matches(
+        &s.project_files
+            .iter()
+            .filter(|p| !s.attached.contains(p))
+            .cloned()
+            .collect::<Vec<_>>(),
+        &typed,
+        8,
+    );
+    for path in files {
+        out.push(AtChoice::File { path });
+    }
+    out
+}
+
+fn pick_at_choice(s: &mut State, choice: AtChoice) {
+    s.at_at = 0;
+    s.draft.replace_text(composer::without_at_query(&s.draft.text));
+    match choice {
+        AtChoice::Teammate { id, .. } => {
+            if !s.tagged.contains(&id) && s.tagged.len() < 5 {
+                s.tagged.push(id);
+            }
+        }
+        AtChoice::File { path } => {
+            let (next, note) = composer::attach_paths(&s.attached, &[path]);
+            s.attached = next;
+            if let Some(note) = note {
+                s.composer_note = Some(note);
+            }
+        }
+    }
+}
+
+fn run_slash_command(s: &mut State, command: &composer::SlashCommand) {
+    s.slash_at = 0;
+    match &command.action {
+        composer::SlashAction::Mode(mode) => {
+            s.mode = (*mode).to_owned();
+            s.draft.clear();
+        }
+        composer::SlashAction::Stop => {
+            s.draft.clear();
+            // stop() needs Tx; callers that can stop invoke it separately.
+        }
+        composer::SlashAction::Setup | composer::SlashAction::Route | composer::SlashAction::Swarm
+        | composer::SlashAction::Issues | composer::SlashAction::Tune | composer::SlashAction::Own { .. }
+        | composer::SlashAction::Runtime => {
+            s.draft.clear();
+            s.composer_note = Some(format!("/{name} — {detail}", name = command.name, detail = command.detail));
+        }
+    }
+}
+
+fn attach_dropped_paths(s: &mut State, paths: &[std::path::PathBuf]) {
+    let as_str: Vec<String> = paths
+        .iter()
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .collect();
+    let (next, note) = composer::attach_paths(&s.attached, &as_str);
+    s.attached = next;
+    if let Some(note) = note {
+        s.composer_note = Some(note);
+    }
+}
+
+fn save_pasted_image(s: &mut State, png: &[u8]) -> Option<String> {
+    if png.len() > composer::MAX_PASTED_BYTES {
+        s.composer_note = Some("That image is too large to attach.".into());
+        return None;
+    }
+    let store = s.data.as_ref()?;
+    let dir = store.attachments_dir().ok()?;
+    std::fs::create_dir_all(&dir).ok()?;
+    let name = format!("paste-{}.png", composer::new_queue_id());
+    let path = dir.join(&name);
+    std::fs::write(&path, png).ok()?;
+    Some(path.to_string_lossy().replace('\\', "/"))
+}
+
+fn composer_input_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    let slash = slash_choices_now(s);
+    let at = at_choices_now(s);
+    let key = match event.key {
+        Key::Up => composer::ComposerKey::ArrowUp,
+        Key::Down => composer::ComposerKey::ArrowDown,
+        Key::Enter => composer::ComposerKey::Enter,
+        Key::Escape => composer::ComposerKey::Escape,
+        Key::Tab => composer::ComposerKey::Tab,
+        _ => composer::ComposerKey::Other,
+    };
+    let mods = composer::KeyMods {
+        shift: event.mods.shift,
+        ctrl: event.mods.ctrl,
+        meta: event.mods.cmd,
+        alt: event.mods.alt,
+    };
+    let action = composer::handle_key(
+        key,
+        mods,
+        &composer::keys::KeyContext {
+            composing: false,
+            slash_open: !slash.is_empty(),
+            slash_len: slash.len(),
+            at_open: !at.is_empty(),
+            at_len: at.len(),
+            running: turn_running(s),
+            menu_open: s.model_menu.is_some(),
+            value_empty: s.draft.text.is_empty(),
+            recalling: s.recall_at >= 0,
+            history_len: s.sent_history.len(),
+            can_queue: turn_running(s),
+            modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
+        },
+    );
+    match action {
+        composer::KeyAction::Pass => false,
+        composer::KeyAction::SlashMove { delta } => {
+            let len = slash.len().max(1);
+            if delta > 0 {
+                s.slash_at = (s.slash_at + 1) % len;
+            } else {
+                s.slash_at = (s.slash_at + len - 1) % len;
+            }
+            true
+        }
+        composer::KeyAction::SlashChoose => {
+            if let Some(cmd) = slash.get(s.slash_at.min(slash.len().saturating_sub(1))) {
+                let should_stop = matches!(cmd.action, composer::SlashAction::Stop);
+                run_slash_command(s, cmd);
+                if should_stop {
+                    stop(s);
+                }
+            }
+            true
+        }
+        composer::KeyAction::SlashDismiss => {
+            s.draft.clear();
+            true
+        }
+        composer::KeyAction::AtMove { delta } => {
+            let len = at.len().max(1);
+            if delta > 0 {
+                s.at_at = (s.at_at + 1) % len;
+            } else {
+                s.at_at = (s.at_at + len - 1) % len;
+            }
+            true
+        }
+        composer::KeyAction::AtChoose => {
+            if let Some(choice) = at.get(s.at_at.min(at.len().saturating_sub(1))) {
+                pick_at_choice(s, choice.clone());
+            }
+            true
+        }
+        composer::KeyAction::AtDismiss => {
+            s.at_dismissed = Some(s.draft.text.clone());
+            true
+        }
+        composer::KeyAction::HistoryUp => {
+            let next = if s.recall_at < 0 {
+                s.sent_history.len() as isize - 1
+            } else {
+                (s.recall_at - 1).max(0)
+            };
+            s.recall_at = next;
+            if let Some(text) = s.sent_history.get(next as usize) {
+                s.draft.replace_text(text.clone());
+            }
+            true
+        }
+        composer::KeyAction::HistoryDown => {
+            let next = s.recall_at + 1;
+            if next >= s.sent_history.len() as isize {
+                s.recall_at = -1;
+                s.draft.clear();
+            } else {
+                s.recall_at = next;
+                if let Some(text) = s.sent_history.get(next as usize) {
+                    s.draft.replace_text(text.clone());
+                }
+            }
+            true
+        }
+        composer::KeyAction::Submit { send_now } => {
+            submit_composer(s, tx, send_now);
+            true
+        }
+        composer::KeyAction::StopRun => {
+            stop(s);
+            true
+        }
+        composer::KeyAction::CycleMode => {
+            let usable = ["ask", "plan", "accept-edits", "approve-each", "auto"];
+            if let Some(next) = composer::shift_tab_mode(&s.mode, &usable) {
+                s.mode = next;
+            }
+            true
+        }
+    }
+}
+
+fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
+    if s.demo {
+        return;
+    }
+    let typed = s.draft.text.trim().to_owned();
+    if typed.is_empty() && s.attached.is_empty() {
+        if let Some(why) = send_blocked_now(s) {
+            s.composer_note = Some(why.to_owned());
+        }
+        return;
+    }
+    if turn_running(s) {
+        if queue_front(s).is_some() || !enqueue_follow_up(s, typed.clone(), s.attached.clone()) { return; }
+        s.draft.clear();
+        s.attached.clear();
+        s.tagged.clear();
+        if send_now {
+            s.queue_send_now = queue_key_now(s);
+            stop(s);
+            // Queued send after stop is drained in poll when the turn ends.
+        }
+        return;
+    }
+    if send_blocked_now(s).is_some() || !can_send(s) {
+        if let Some(why) = send_blocked_now(s) {
+            s.composer_note = Some(why.to_owned());
+        } else if !s.route_can_run {
+            s.composer_note = Some(
+                "Locust cannot run that AI agent fully yet, so it cannot start here. Pick another model."
+                    .into(),
+            );
+        } else if s.nothing_installed || !s.selected_ready {
+            s.composer_note =
+                Some("No AI agent on this machine can start yet. Settings lists what to install.".into());
+        }
+        return;
+    }
+    if s.sent_history.last().map(String::as_str) != Some(typed.as_str()) && !typed.is_empty() {
+        s.sent_history.push(typed.clone());
+        if s.sent_history.len() > 50 {
+            s.sent_history.remove(0);
+        }
+    }
+    s.recall_at = -1;
+    s.draft.replace_text(composer::with_attachments(&typed, &s.attached));
+    s.attached.clear();
+    s.tagged.clear();
+    s.off_the_queue = false;
+    send(s, tx);
+}
+
+fn queue_phase(s: &State) -> &'static str {
+    if let Some(pane) = &s.ledger {
+        return pane.worker.as_ref().map_or("running", |w| w.tip_phase());
+    }
+    if matches!(s.status_tone, StatusTone::Red) { "failed" } else { "completed" }
+}
+
+fn drain_queue_after_turn(s: &mut State, tx: &mut Tx) {
+    let Some(key) = queue_key_now(s) else {
+        return;
+    };
+    let front = composer::queued_in(&s.queue_rows, Some(&key))
+        .first()
+        .map(|r| (*r).clone());
+    let Some(front) = front else {
+        return;
+    };
+    let forced = s.queue_send_now.as_deref() == Some(key.as_str());
+    let verdict = composer::queued_verdict(composer::VerdictInput {
+        running: turn_running(s),
+        phase: Some(queue_phase(s)),
+        on_screen: true,
+        restored: front.restored,
+        held: front.held.as_deref(),
+    });
+    if turn_running(s) || (!forced && !matches!(verdict, composer::QueuedVerdict::Send)) {
+        return;
+    }
+    let (going, rest) = composer::take_next(&s.queue_rows, &key);
+    let Some(going) = going else {
+        return;
+    };
+    let draft = s.draft.text.clone();
+    s.draft.replace_text(composer::with_attachments(&going.text, &going.attachments));
+    if !can_send(s) { s.draft.replace_text(draft); return; }
+    let before = std::mem::replace(&mut s.queue_rows, rest);
+    if !persist_queue(s) { s.queue_rows = before; s.draft.replace_text(draft); return; }
+    // Remove durably BEFORE dispatch. An uncertain transport result must never retry itself.
+    s.queue_send_now = None;
+    send(s, tx);
+    s.draft.replace_text(draft);
+}
+
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if s.demo {
         return false;
     }
     let mut changed = false;
     changed |= sync_approvals(s);
+    let root = selected_conversation(s).and_then(|(t, _)| t.folder.as_ref()).map(std::path::PathBuf::from);
+    if root != s.files_root { s.files_job.cancel(); s.project_files.clear(); s.files_partial = false; s.files_asked = None; s.files_root = root.clone(); }
+    if composer::at_query(&s.draft.text).is_some() && s.files_asked.is_none_or(|at| at.elapsed() >= Duration::from_secs(30)) {
+        if let Some(root) = root { s.files_asked = Some(std::time::Instant::now()); s.files_job.request(root, |root| composer::workspace_files::list(&root)); }
+    }
+    if let Some((paths, partial)) = s.files_job.take() { s.project_files = paths; s.files_partial = partial; changed = true; }
     if let Some((id, result)) = s.model_job.take() {
         changed = true;
         match result {
@@ -1673,6 +2273,11 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             let after = s.flight.as_ref().and_then(|f| f.after_tip.clone());
             match result {
                 Ok(started) => {
+                    if let Some(from) = queue_key_now(s) {
+                        s.queue_rows = composer::queue::requeued_rows(&s.queue_rows, &from, &started.conversation_id);
+                        if s.queue_send_now.as_deref() == Some(from.as_str()) { s.queue_send_now = Some(started.conversation_id.clone()); }
+                        persist_queue(s);
+                    }
                     let same_conv = flight_conv.as_deref() == Some(started.conversation_id.as_str());
                     let use_ledger = s.ledger_available || s.ledger.is_some() || s.engine == Some(Kind::Native);
                     s.own_turn = if !same_conv {
@@ -1817,7 +2422,9 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         }
     }
 
-    changed | ledger_tick(s, now, tx)
+    changed |= ledger_tick(s, now, tx);
+    drain_queue_after_turn(s, tx);
+    changed
 }
 
 fn on_close(s: &mut State, _: &mut Tx) {
@@ -2103,30 +2710,88 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             );
         }
 
-        let composer = text_input(&s.draft, type_::BODY)
-            .key("composer").single_line()
-            .placeholder(
-                if native_blocked(s) {
-                    format!("{} runs in Locust for now", teammate.name)
-                } else {
-                    format!("Message {}", teammate.name)
-                },
-                p.muted,
-            )
-            .color(p.text).grow(1.0).shrink().h(48.0).padding(12.0)
-            .radius(9.0).fill(p.field).border(1.0, p.hairline)
+        let placeholder = composer_placeholder(s);
+        let field = text_input(&s.draft, type_::BODY)
+            .key("composer")
+            .disabled(turn_running(s) && queue_front(s).is_some())
+            .placeholder(placeholder, p.muted)
+            .color(p.text)
+            .w_full()
+            .padding(12.0)
             .on_edit(|s: &mut State| &mut s.draft)
-            .on_submit(send).on_input_key(on_key);
-        let stopping = can_stop(s);
-        let enabled = (can_send(s) || stopping) && !s.stopping.is_pending();
-        let mut button = el().key("send").h(48.0).px(18.0).center().radius(9.0)
-            .fill(p.raised).border(1.0, p.hairline).disabled(!enabled)
+            .on_submit(|s: &mut State, tx: &mut Tx| submit_composer(s, tx, false))
+            .on_input_key(composer_input_key)
+            .on_input_paste(|s: &mut State, content, _| {
+                let mut added = Vec::new();
+                for path in content.files() {
+                    added.push(path.to_string_lossy().replace('\\', "/"));
+                }
+                if let Some(image) = content.image() {
+                    if let Some(path) = save_pasted_image(s, image.png()) {
+                        added.push(path);
+                    }
+                }
+                if added.is_empty() {
+                    return false;
+                }
+                let (next, note) = composer::attach_paths(&s.attached, &added);
+                s.attached = next;
+                if let Some(note) = note {
+                    s.composer_note = Some(note);
+                }
+                true
+            });
+        let composer = rune::auto_grow(field, composer::COMPOSER_MIN_LINES, composer::COMPOSER_MAX_LINES)
+            .max_h(composer::COMPOSER_MAX_HEIGHT_PX)
+            .radius(9.0)
+            .fill(p.field)
+            .border(1.0, p.hairline)
+            .grow(1.0)
+            .shrink()
+            .on_drop_files(|s: &mut State, files, _| attach_dropped_paths(s, files));
+
+        let queueing = can_queue(s);
+        let stopping = can_stop(s) && !queueing;
+        let blocked = send_blocked_now(s);
+        let send_enabled = (can_send(s) || queueing || stopping) && !s.stopping.is_pending();
+        let send_title = if stopping {
+            "Stop the running reply".to_owned()
+        } else if queueing {
+            composer::QUEUE_SEND_TITLE.to_owned()
+        } else {
+            blocked
+                .unwrap_or(composer::SEND_LIVE_TITLE)
+                .to_owned()
+        };
+        let button_label = if stopping {
+            "Stop"
+        } else if queueing {
+            "Queue"
+        } else {
+            "Send"
+        };
+        let mut button = el()
+            .key("send")
+            .h(48.0)
+            .px(18.0)
+            .center()
+            .radius(9.0)
+            .fill(p.raised)
+            .border(1.0, p.hairline)
+            .disabled(!send_enabled)
             .child(
-                text(if stopping { "Stop" } else { "Send" }).font(type_::LABEL)
-                    .color(if enabled { p.text } else { p.muted }),
+                text(button_label)
+                    .font(type_::LABEL)
+                    .color(if send_enabled { p.text } else { p.muted }),
             );
-        if enabled {
-            button = if stopping { button.on_press(stop) } else { button.on_press_tx(send) };
+        // Rune has no title tooltip API on El in this pin; the label/status carry the why.
+        let _ = send_title;
+        if send_enabled {
+            button = if stopping {
+                button.on_press(stop)
+            } else {
+                button.on_press_tx(|s: &mut State, tx: &mut Tx| submit_composer(s, tx, false))
+            };
         }
 
         let id = teammate.id.clone();
@@ -2168,6 +2833,298 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             picker = picker.child(menu);
         }
 
+        let mut composer_stack = col().w_full().gap(8.0).px(24.0).pb(24.0);
+
+        // Slash / @ popups
+        let slash = slash_choices_now(s);
+        let at = at_choices_now(s);
+        if !slash.is_empty() {
+            let mut menu = col()
+                .key("slash-menu")
+                .w_full()
+                .max_h(220.0)
+                .scroll(ScrollSpec { stick_bottom: false })
+                .gap(2.0)
+                .padding(8.0)
+                .radius(9.0)
+                .fill(p.raised)
+                .border(1.0, p.hairline);
+            for (index, command) in slash.iter().enumerate() {
+                if command.group.as_ref().is_some_and(|g| slash.get(index.wrapping_sub(1)).and_then(|c| c.group.as_ref()) != Some(g)) {
+                    if let Some(group) = &command.group {
+                        menu = menu.child(text(group.clone()).font(type_::LABEL).color(p.muted));
+                    }
+                }
+                let active = index == s.slash_at.min(slash.len().saturating_sub(1));
+                let name = if let Some(hint) = &command.hint {
+                    format!("/{} {hint}", command.name)
+                } else {
+                    format!("/{}", command.name)
+                };
+                let detail = command.detail.clone();
+                let cmd = command.clone();
+                menu = menu.child(
+                    el()
+                        .w_full()
+                        .padding(6.0)
+                        .radius(6.0)
+                        .fill(if active { p.selected } else { p.raised })
+                        .child(
+                            col()
+                                .w_full()
+                                .gap(2.0)
+                                .child(text(name).font(type_::LABEL).color(if command.weighted { p.amber } else { p.text }))
+                                .child(text(detail).font(type_::LABEL).color(if command.weighted { p.amber } else { p.muted })),
+                        )
+                        .on_press(move |s: &mut State| run_slash_command(s, &cmd)),
+                );
+            }
+            composer_stack = composer_stack.child(menu);
+        } else if !at.is_empty() || (composer::at_query(&s.draft.text).is_some_and(|q| !q.is_empty()) && s.files_partial && s.at_dismissed.as_deref() != Some(s.draft.text.as_str())) {
+            let mut menu = col()
+                .key("at-menu")
+                .w_full()
+                .max_h(220.0)
+                .scroll(ScrollSpec { stick_bottom: false })
+                .gap(2.0)
+                .padding(8.0)
+                .radius(9.0)
+                .fill(p.raised)
+                .border(1.0, p.hairline);
+            let mut saw_file = false;
+            let mut saw_mate = false;
+            if at.is_empty() && s.files_partial {
+                let heading = if s.files_partial {
+                    format!(
+                        "Files in this folder, the first {} found",
+                        s.project_files.len()
+                    )
+                } else {
+                    composer::FILES_HEADING.into()
+                };
+                menu = menu
+                    .child(text(heading).font(type_::LABEL).color(p.muted))
+                    .child(text(composer::NO_MATCH_PARTIAL).font(type_::LABEL).color(p.muted));
+            }
+            for (index, choice) in at.iter().enumerate() {
+                let active = index == s.at_at.min(at.len().saturating_sub(1));
+                match choice {
+                    AtChoice::Teammate { name, role, .. } => {
+                        if !saw_mate {
+                            saw_mate = true;
+                            menu = menu.child(
+                                text(composer::TEAMMATES_HEADING)
+                                    .font(type_::LABEL)
+                                    .color(p.muted),
+                            );
+                        }
+                        let title = format!("@{name}");
+                        let detail = composer::teammate_detail(role);
+                        let picked = choice.clone();
+                        menu = menu.child(
+                            el()
+                                .w_full()
+                                .padding(6.0)
+                                .radius(6.0)
+                                .fill(if active { p.selected } else { p.raised })
+                                .child(
+                                    col()
+                                        .gap(2.0)
+                                        .child(text(title).font(type_::LABEL).color(p.text))
+                                        .child(text(detail).font(type_::LABEL).color(p.muted)),
+                                )
+                                .on_press(move |s: &mut State| pick_at_choice(s, picked.clone())),
+                        );
+                    }
+                    AtChoice::File { path } => {
+                        if !saw_file {
+                            saw_file = true;
+                            menu = menu.child(
+                                text(if s.files_partial { format!("Files in this folder, the first {} found", s.project_files.len()) } else { composer::FILES_HEADING.into() })
+                                    .font(type_::LABEL)
+                                    .color(p.muted),
+                            );
+                        }
+                        let cut = path.rfind('/').map(|i| i as isize).unwrap_or(-1);
+                        let base = if cut < 0 {
+                            path.clone()
+                        } else {
+                            path[cut as usize + 1..].to_owned()
+                        };
+                        let detail = if cut < 0 {
+                            "the folder itself".into()
+                        } else {
+                            path[..cut as usize].to_owned()
+                        };
+                        let picked = choice.clone();
+                        menu = menu.child(
+                            el()
+                                .w_full()
+                                .padding(6.0)
+                                .radius(6.0)
+                                .fill(if active { p.selected } else { p.raised })
+                                .child(
+                                    col()
+                                        .gap(2.0)
+                                        .child(text(base).font(type_::LABEL).color(p.text))
+                                        .child(text(detail).font(type_::LABEL).color(p.muted)),
+                                )
+                                .on_press(move |s: &mut State| pick_at_choice(s, picked.clone())),
+                        );
+                    }
+                }
+            }
+            composer_stack = composer_stack.child(menu);
+        }
+
+        // Queued follow-up strip
+        if let Some(front) = queue_front(s) {
+            let key = front.key.clone();
+            let count = composer::queued_in(&s.queue_rows, Some(&key)).len();
+            let verdict = composer::queued_verdict(composer::VerdictInput {
+                running: turn_running(s),
+                phase: Some(queue_phase(s)),
+                on_screen: true,
+                restored: front.restored,
+                held: front.held.as_deref(),
+            });
+            let note = composer::queue_note(&verdict, &working_name(s), count);
+            let mut strip = col()
+                .key("queued")
+                .w_full()
+                .gap(6.0)
+                .padding(10.0)
+                .radius(9.0)
+                .fill(p.raised)
+                .border(1.0, p.hairline)
+                .child(text(front.text.clone()).font(type_::BODY).color(p.text).w_full().wrap())
+                .child(text(note).font(type_::LABEL).color(p.muted));
+            let mut actions = row().gap(8.0);
+            if turn_running(s) {
+                actions = actions.child(
+                    el()
+                        .padding(6.0)
+                        .child(text(composer::STOP_AND_SEND_NOW_LABEL).font(type_::LABEL).color(p.text))
+                        .on_press_tx(|s: &mut State, tx: &mut Tx| {
+                            s.queue_send_now = queue_key_now(s);
+                            stop(s);
+                            // Drain once the stop lands.
+                            let _ = tx;
+                        }),
+                );
+            } else {
+                let label = composer::SEND_NOW_LABEL;
+                actions = actions.child(
+                    el()
+                        .padding(6.0)
+                        .child(text(label).font(type_::LABEL).color(p.text))
+                        .on_press_tx(|s: &mut State, tx: &mut Tx| { s.queue_send_now = queue_key_now(s); drain_queue_after_turn(s, tx); }),
+                );
+            }
+            actions = actions
+                .child(el().padding(6.0).child(text(composer::EDIT_LABEL).font(type_::LABEL).color(p.text))
+                    .on_press(|s: &mut State| { unqueue(s, true); }))
+                .child(el().padding(6.0).child(text(composer::DISCARD_LABEL).font(type_::LABEL).color(p.text))
+                    .on_press(|s: &mut State| { unqueue(s, false); }));
+            strip = strip.child(actions);
+            composer_stack = composer_stack.child(strip);
+        } else if s.off_the_queue {
+            let note = if turn_running(s) {
+                format!(
+                    "Off the queue while you edit — Enter queues it again for when {} finishes",
+                    working_name(s)
+                )
+            } else {
+                "Off the queue — Enter sends it".into()
+            };
+            composer_stack = composer_stack.child(
+                el()
+                    .w_full()
+                    .padding(8.0)
+                    .radius(9.0)
+                    .fill(p.raised)
+                    .child(text(note).font(type_::LABEL).color(p.muted)),
+            );
+        }
+        if let Some(error) = &s.queue_error {
+            composer_stack = composer_stack.child(
+                text(error.clone()).font(type_::LABEL).color(p.amber).w_full().wrap(),
+            );
+        }
+        if let Some(note) = &s.composer_note {
+            composer_stack = composer_stack.child(
+                text(note.clone()).font(type_::LABEL).color(p.amber).w_full().wrap(),
+            );
+        }
+        if blocked.is_some() && s.scene_popup == ComposerScenePopup::Blocked {
+            composer_stack = composer_stack.child(
+                text(blocked.unwrap_or("").to_owned())
+                    .font(type_::LABEL)
+                    .color(p.amber)
+                    .w_full()
+                    .wrap(),
+            );
+        }
+
+        // Attachment chips (path labels; PDF page tiles are not drawn — see M4B-NOTES).
+        if !s.attached.is_empty() {
+            let mut chips = row().gap(6.0).w_full();
+            chips = chips.child(
+                text(composer::attachment_label(s.attached.len()))
+                    .font(type_::LABEL)
+                    .color(p.muted),
+            );
+            for (i, path) in s.attached.iter().enumerate() {
+                let name = path.rsplit('/').next().unwrap_or(path).to_owned();
+                chips = chips.child(
+                    el()
+                        .padding(4.0)
+                        .radius(4.0)
+                        .fill(p.raised)
+                        .border(1.0, p.hairline)
+                        .child(text(name).font(type_::LABEL).color(p.text))
+                        .on_press(move |s: &mut State| {
+                            if i < s.attached.len() {
+                                s.attached.remove(i);
+                            }
+                        }),
+                );
+            }
+            composer_stack = composer_stack.child(chips);
+        }
+        if !s.tagged.is_empty() {
+            let mut tags = row().gap(6.0);
+            for id in &s.tagged {
+                let name = s
+                    .teammates
+                    .iter()
+                    .find(|t| t.id == *id)
+                    .map(|t| t.name.clone())
+                    .unwrap_or_else(|| id.clone());
+                let tid = id.clone();
+                tags = tags.child(
+                    el()
+                        .padding(4.0)
+                        .radius(4.0)
+                        .fill(p.raised)
+                        .child(text(format!("@{name}")).font(type_::LABEL).color(p.text))
+                        .on_press(move |s: &mut State| {
+                            s.tagged.retain(|t| t != &tid);
+                        }),
+                );
+            }
+            composer_stack = composer_stack.child(tags);
+        }
+
+        composer_stack = composer_stack.child(
+            row()
+                .w_full()
+                .gap(10.0)
+                .child(chip)
+                .child(composer)
+                .child(button),
+        );
+
         col().grow(1.0).shrink().h_full()
             .child(
                 col().w_full().h(88.0).px(24.0).pt(30.0).gap(5.0).window_drag()
@@ -2180,10 +3137,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             .child(transcript)
             .child(status)
             .child(picker)
-            .child(
-                row().w_full().gap(10.0).px(24.0).pb(24.0)
-                    .child(chip).child(composer).child(button),
-            )
+            .child(composer_stack)
     } else {
         col().grow(1.0).shrink().h_full().center().padding(32.0)
             .child(
@@ -2389,6 +3343,116 @@ fn empty_light_scene(s: &mut State) {
 
 fn replay_light_scene(s: &mut State) {
     replay_scene(s);
+    s.appearance = Some(false);
+}
+
+fn composer_base_scene(s: &mut State, light: bool) {
+    team_scene(s);
+    s.appearance = Some(!light);
+    s.engine = Some(Kind::Native);
+    s.selected_ready = true;
+    s.route_can_run = true;
+    s.nothing_installed = false;
+    s.project_files = vec![
+        "README.md".into(),
+        "src/main.rs".into(),
+        "docs/resume.md".into(),
+        "résumé.md".into(),
+        "PLAN.md".into(),
+    ];
+    s.draft.replace_text("");
+    sync_draft_key(s);
+    s.status = "Ready".into();
+    s.status_tone = StatusTone::Muted;
+}
+
+fn composer_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.draft.replace_text("Shift+Enter makes a new line.\nEnter sends.");
+    s.scene_popup = ComposerScenePopup::None;
+}
+
+fn composer_light_scene(s: &mut State) {
+    composer_base_scene(s, true);
+    s.draft.replace_text("Shift+Enter makes a new line.\nEnter sends.");
+    s.scene_popup = ComposerScenePopup::None;
+}
+
+fn composer_slash_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.draft.replace_text("/");
+    s.slash_at = 0;
+    s.scene_popup = ComposerScenePopup::Slash;
+}
+
+fn composer_slash_light_scene(s: &mut State) {
+    composer_base_scene(s, true);
+    s.draft.replace_text("/");
+    s.slash_at = 0;
+    s.scene_popup = ComposerScenePopup::Slash;
+}
+
+fn composer_mention_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.draft.replace_text("Please read @re");
+    s.at_at = 0;
+    s.scene_popup = ComposerScenePopup::Mention;
+}
+
+fn composer_mention_light_scene(s: &mut State) {
+    composer_base_scene(s, true);
+    s.draft.replace_text("Please read @re");
+    s.at_at = 0;
+    s.scene_popup = ComposerScenePopup::Mention;
+}
+
+fn composer_queue_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.scene_popup = ComposerScenePopup::Queue;
+    if let Some(conversation) = s.conversations.get_mut("codec") {
+        conversation.conversation_id = Some("composer-queue".into());
+    }
+    s.flight = Some(Flight {
+        teammate_id: "codec".into(),
+        conversation_id: Some("composer-queue".into()),
+        header: s.teammates.first().cloned(),
+        after_tip: None,
+        message: None,
+    });
+    s.own_turn = Some(OwnTurn {
+        conversation: "composer-queue".into(),
+        tip: Some("composer-queue".into()),
+        before: None,
+    });
+    s.queue_rows = vec![composer::QueuedRow {
+        id: "q1".into(),
+        key: "composer-queue".into(),
+        text: "Also check the queue strip while this turn runs.".into(),
+        origin: composer::Origin::Person,
+        attachments: Vec::new(),
+        issue: None,
+        restored: false,
+        held: None,
+    }];
+    s.draft.replace_text("");
+    s.status = "Codec: Working…".into();
+}
+
+fn composer_queue_light_scene(s: &mut State) {
+    composer_queue_scene(s);
+    s.appearance = Some(false);
+}
+
+fn composer_blocked_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.nothing_installed = true;
+    s.selected_ready = false;
+    s.draft.replace_text("hello");
+    s.scene_popup = ComposerScenePopup::Blocked;
+}
+
+fn composer_blocked_light_scene(s: &mut State) {
+    composer_blocked_scene(s);
     s.appearance = Some(false);
 }
 
@@ -2726,6 +3790,16 @@ fn main() {
             ("native-live", native_scene_live),
             ("approval", approval_scene_dark),
             ("approval-light", approval_scene_light),
+            ("composer", composer_scene),
+            ("composer-light", composer_light_scene),
+            ("composer-slash", composer_slash_scene),
+            ("composer-slash-light", composer_slash_light_scene),
+            ("composer-mention", composer_mention_scene),
+            ("composer-mention-light", composer_mention_light_scene),
+            ("composer-queue", composer_queue_scene),
+            ("composer-queue-light", composer_queue_light_scene),
+            ("composer-blocked", composer_blocked_scene),
+            ("composer-blocked-light", composer_blocked_light_scene),
         ],
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })
@@ -2746,6 +3820,68 @@ mod tests {
     use serde_json::json;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn queue_edit_and_discard_are_conversation_scoped_and_transactional() {
+        let mut s = sample(); composer_queue_scene(&mut s);
+        let mut second = s.queue_rows[0].clone(); second.id = "two".into(); second.text = "Second".into(); second.attachments = vec!["two.md".into()];
+        s.queue_rows.push(second);
+        let expected = queue_front(&s).unwrap();
+        let mut other = s.queue_rows[0].clone(); other.key = "other".into();
+        s.queue_rows.insert(1, other.clone());
+        assert!(unqueue(&mut s, true));
+        assert_eq!(s.draft.text, expected.text); assert_eq!(s.attached, expected.attachments);
+        assert_eq!(s.queue_rows, vec![other]); assert!(s.off_the_queue);
+        composer_queue_scene(&mut s); s.draft.replace_text("Keep draft");
+        s.demo = false; // no writable store: removal must roll back.
+        let before = s.queue_rows.clone(); assert!(!unqueue(&mut s, false)); assert_eq!(s.queue_rows, before);
+        s.demo = true; assert!(unqueue(&mut s, false)); assert_eq!(s.draft.text, "Keep draft");
+    }
+
+    #[test]
+    fn mention_scene_uses_real_matching_and_excludes_attached_and_tagged() {
+        let mut s = sample();
+        composer_mention_scene(&mut s);
+        let choices = at_choices_now(&s);
+        assert!(!choices.is_empty());
+        assert!(choices.iter().all(|c| matches!(c, AtChoice::File { .. })));
+        let expected = composer::file_matches(&s.project_files, "re", 8);
+        assert_eq!(choices.iter().map(|c| match c { AtChoice::File { path } => path.clone(), _ => panic!() }).collect::<Vec<_>>(), expected);
+        s.draft.replace_text("@");
+        let all = at_choices_now(&s);
+        assert!(matches!(all.first(), Some(AtChoice::Teammate { .. })));
+        let file_at = all.iter().position(|c| matches!(c, AtChoice::File { .. })).unwrap();
+        assert!(all[file_at..].iter().all(|c| matches!(c, AtChoice::File { .. })));
+        s.attached = s.project_files.clone();
+        s.tagged = s.teammates.iter().map(|m| m.id.clone()).collect();
+        assert!(at_choices_now(&s).is_empty());
+        s.tagged.clear(); s.draft.replace_text("@aR");
+        assert!(at_choices_now(&s).iter().all(|c| matches!(c, AtChoice::Teammate { name, .. } if name == "Argon")));
+    }
+
+    #[test]
+    fn queue_strip_keeps_every_word_and_save_failure_keeps_draft() {
+        let mut s = sample();
+        composer_queue_scene(&mut s);
+        let mut second = s.queue_rows[0].clone(); second.id = "second".into(); second.text = "Second thought".into();
+        s.queue_rows.push(second);
+        assert!(queue_front(&s).unwrap().text.ends_with("\n\nSecond thought"));
+        s.demo = false;
+        s.draft.replace_text("Keep me");
+        let before = s.queue_rows.clone();
+        assert!(!enqueue_follow_up(&mut s, "unsaved".into(), vec![]));
+        assert_eq!(s.queue_rows, before);
+        assert_eq!(s.draft.text, "Keep me");
+    }
+
+    #[test]
+    fn slash_escape_clears_the_command_like_electron() {
+        let mut s = sample(); s.draft.replace_text("/plan");
+        let event = KeyEvent { key: Key::Escape, mods: rune::Mods::default() };
+        assert!(composer_input_key(&mut s, &event, &mut Tx::default()));
+        assert_eq!(s.draft.text, "");
+        assert!(slash_choices_now(&s).is_empty());
+    }
 
     #[test]
     fn activity_status_words_follow_finished_refused_and_background_work() {
@@ -3057,11 +4193,19 @@ mod tests {
             message: Some("follow-up question".into()),
         });
 
-        // Fix 2 & 9: switching teammates cancels the ledger send, restores the unsent draft, and resets status.
+        // Fix 2 & 9: switching teammates cancels the ledger send, keeps the unsent words under that
+        // conversation's draft key (Electron Map), and shows Argon's own draft in the box.
+        let left_key = conversation_draft_key(&s);
         select_teammate(&mut s, "argon", &mut Tx::default());
         assert!(s.ledger.is_none());
         assert!(s.flight.is_none());
-        assert_eq!(s.draft.text, "follow-up question");
+        assert!(s.draft.text.is_empty(), "Argon's box starts empty");
+        assert_eq!(
+            left_key
+                .as_deref()
+                .and_then(|k| s.drafts.get(k)),
+            Some("follow-up question")
+        );
         assert_eq!(s.status, "Argon: Ready");
 
         // Fix 2: a stale send result tagged for Codec must not swap in Argon's state or hijack Argon's view.
@@ -3404,14 +4548,16 @@ mod native_window_tests {
     use serde_json::json;
     use std::path::PathBuf;
 
+    static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     struct Dirs(PathBuf);
     impl Drop for Dirs {
         fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
     }
 
     fn setup() -> (Dirs, Store, State) {
-        let root = std::env::temp_dir().join(format!("locust-m2-window-{}-{}", std::process::id(),
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        let root = std::env::temp_dir().join(format!("locust-m2-window-{}-{}-{}", std::process::id(),
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+            TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
         std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
         std::fs::create_dir_all(root.join("work")).unwrap();
         let store = Store::new(root.join("native"), root.join("electron")).unwrap();
@@ -3452,6 +4598,33 @@ mod native_window_tests {
     }
 
     #[test]
+    fn stopped_queue_waits_for_explicit_send_and_is_removed_before_dispatch() {
+        let (_dirs, store, mut s) = setup();
+        s.data = Some(store.clone());
+        let _g = native::hooks::install(store.clone(), fake("success"));
+        s.draft.replace_text("Synthetic prompt");
+        send(&mut s, &mut Tx::default());
+        pump(&mut s, "first answer", idle);
+        *native::hooks::STATE.lock().unwrap() = (Some(store.clone()), fake("resume"));
+        assert!(enqueue_follow_up(&mut s, "Synthetic follow-up".into(), vec![]));
+        s.queue_rows[0].restored = true;
+        drain_queue_after_turn(&mut s, &mut Tx::default());
+        assert!(s.sending.is_pending() == false);
+        assert_eq!(s.queue_rows.len(), 1);
+        s.draft.replace_text("Unrelated draft");
+        s.queue_send_now = queue_key_now(&s);
+        drain_queue_after_turn(&mut s, &mut Tx::default());
+        assert_eq!(s.draft.text, "Unrelated draft");
+        assert!(s.queue_rows.is_empty());
+        assert!(composer::read_queue(&store).unwrap().is_empty());
+        assert!(s.sending.is_pending());
+        // Polling again while acceptance is unknown cannot submit this row a second time.
+        drain_queue_after_turn(&mut s, &mut Tx::default());
+        pump(&mut s, "queued answer", |s| idle(s) && answers(s) >= 2);
+        assert!(s.queue_rows.is_empty());
+    }
+
+    #[test]
     fn a_native_window_starts_continues_and_stops_a_codex_conversation_without_electron() {
         let (_dirs, store, mut s) = setup();
         let _g = native::hooks::install(store, fake("success"));
@@ -3488,7 +4661,7 @@ mod native_window_tests {
         assert!(s.own_turn.is_some());
         stop(&mut s);
         pump(&mut s, "the stopped turn", |s| s.stopping.is_pending() == false && s.ledger.as_ref().is_some_and(|p| !p.snapshot.running)
-            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped"))));
+            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"))));
         assert!(s.own_turn.is_none() && !can_stop(&s));
         assert!(!s.ledger.as_ref().unwrap().snapshot.failed, "stopped is cancelled, not failed");
 
@@ -3550,7 +4723,7 @@ mod native_window_tests {
         assert!(can_stop(&s), "ownership is the process registry: Stop stays for an owned turn after reopening");
         stop(&mut s);
         pump(&mut s, "the stopped turn", |s| s.ledger.as_ref().is_some_and(|p| !p.snapshot.running)
-            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped"))));
+            && s.ledger.as_ref().is_some_and(|p| p.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"))));
         assert!(!can_stop(&s));
         let _ = anchor;
     }

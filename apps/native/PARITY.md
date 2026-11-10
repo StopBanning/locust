@@ -51,13 +51,13 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Send text and stop an owned turn | `renderer/src/components/Composer.tsx`, `main/locust-mcp-tools.ts` | **done** | yes |
 | Restore failed-send text | `renderer/src/components/Composer.tsx` | **done** | no |
 | Per-turn model and effort selection | `renderer/src/components/RoutePicker.tsx`, `renderer/src/components/EffortSlider.tsx`, `main/model-catalog.ts` | **done** | yes |
-| Multiline auto-expanding editor, Shift+Enter | `renderer/src/components/Composer.tsx` | **missing** | no |
-| Separate conversation drafts while switching within window | `renderer/src/components/Composer.tsx` | **missing** | no |
-| @ file attachment and teammate tagging | `renderer/src/components/Composer.tsx`, `renderer/src/fileMentions.ts`, `main/workspace-files.ts` | **missing** | yes |
-| Runtime/custom slash commands and setup/usage commands | `renderer/src/components/ChatCommands.tsx`, `renderer/src/slashCommands.ts`, `main/runtime-commands.ts` | **missing** | yes |
-| Paste/drop files, images and PDF attachment previews | `renderer/src/components/Composer.tsx`, `renderer/src/components/AttachedImage.tsx`, `renderer/src/components/PdfTile.tsx`, `shared/attachments.ts` | **missing** | yes |
-| Durable busy-turn queue, edit/discard and stop/send now | `renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts` | **missing** | yes |
-| Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **missing** | no |
+| Multiline auto-expanding editor, Shift+Enter | `renderer/src/components/Composer.tsx` | **done** | no |
+| Separate conversation drafts while switching within window | `renderer/src/components/Composer.tsx` | **done** | no |
+| @ file attachment and teammate tagging | `renderer/src/components/Composer.tsx`, `renderer/src/fileMentions.ts`, `main/workspace-files.ts` | **done** | yes |
+| Runtime/custom slash commands and setup/usage commands | `renderer/src/components/ChatCommands.tsx`, `renderer/src/slashCommands.ts`, `main/runtime-commands.ts` | **done** | yes |
+| Paste/drop files, images and PDF attachment previews | `renderer/src/components/Composer.tsx`, `renderer/src/components/AttachedImage.tsx`, `renderer/src/components/PdfTile.tsx`, `shared/attachments.ts` | **done** | yes |
+| Durable busy-turn queue, edit/discard and stop/send now | `renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts` | **done** | yes |
+| Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **done** | no |
 | Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **missing** | yes |
 | Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **missing** | yes |
 | Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **missing** | yes |
@@ -271,7 +271,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | # | Area | Done | Partial | Missing | Total |
 | :--- | :--- | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 5 | 3 | 17 | 25 |
-| 2 | Composer & Input | 3 | 0 | 11 | 14 |
+| 2 | Composer & Input | 10 | 0 | 4 | 14 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 0 | 12 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 1 | 8 | 11 |
 | 5 | Approvals & Permissions | 0 | 0 | 9 | 9 |
