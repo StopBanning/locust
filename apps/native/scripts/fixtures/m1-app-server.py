@@ -25,6 +25,14 @@ def notify(method, **params):
     send(dict(method=method, params=dict(threadId='thread_fake', **params)))
 def item(done, **fields):
     notify('item/completed' if done else 'item/started', item=fields)
+def check_config(config):
+    # codex-read-only.ts: only a read-only thread switches off the person's MCP programs (and Codex's plugins); a
+    # server reached at an address stays. Any other sandbox keeps their Codex as it is.
+    if SANDBOX == 'read-only':
+        assert config['mcp_servers.local.enabled'] is False and config['features.plugins'] is False, config
+        assert 'mcp_servers.remote.enabled' not in config, config
+    else:
+        assert not any(k.startswith('mcp_servers.') or k.startswith('features.') for k in config), config
 for line in sys.stdin:
     msg = json.loads(line)
     method, p = msg.get('method'), msg.get('params', {})
@@ -40,7 +48,7 @@ for line in sys.stdin:
         # codex-app-server-run.ts: reopen by the stored id, without the whole history, under the same policy.
         assert p['threadId'] == 'thread_fake' and p['excludeTurns'] is True, p
         assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY
-        assert p['config']['mcp_servers.local.enabled'] is False and p['config']['features.plugins'] is False
+        check_config(p['config'])
         assert p['model'] == 'synthetic-model'
         if base == 'refused':
             send(dict(id=msg['id'], error={'code': -32600, 'message': 'no rollout found for thread id thread_fake'}))
@@ -49,9 +57,7 @@ for line in sys.stdin:
     elif method == 'thread/start':
         assert not resuming, 'a follow-up must resume, not start a new thread'
         assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY, p
-        assert p['config']['mcp_servers.local.enabled'] is False
-        assert p['config']['features.plugins'] is False
-        assert 'mcp_servers.remote.enabled' not in p['config']
+        check_config(p['config'])
         send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'turn/start':
         assert p['summary'] == 'detailed' and p['approvalPolicy'] == POLICY, p

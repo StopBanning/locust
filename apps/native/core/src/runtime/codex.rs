@@ -317,8 +317,15 @@ impl Runtime for Codex {
             json!({"clientInfo":{"name":"locust","version":"0.1.0"}}),
         )?;
         self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
-        let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
-        let mut config = read_only_config(&settings["config"])?;
+        let policy = crate::approval::codex_app_server_policy(turn.mode, None);
+        // Ask and Plan start none of the MCP servers the person's Codex runs as programs (codex-read-only.ts, 0.824):
+        // read-only is Codex's sandbox, and a program outside it may write. The other modes keep their Codex as it is.
+        let mut config = if policy.sandbox == "read-only" {
+            let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
+            read_only_config(&settings["config"])?
+        } else {
+            json!({})
+        };
         if let Some(Value::Object(extra)) = &self.thread_config {
             for (key, value) in extra {
                 config[key] = value.clone();
@@ -328,7 +335,6 @@ impl Runtime for Codex {
             config["mcp_servers.locust_browser"] = browser;
             config["mcp_servers.locust_browser.enabled"] = json!(true);
         }
-        let policy = crate::approval::codex_app_server_policy(turn.mode, None);
         // Ports codex-app-server-run.ts handshake: `thread/start`, or `thread/resume` with the prior thread id and
         // `excludeTurns` (without it the answer carries the whole history as one line, past the 8 MiB limit).
         let result = match &turn.resume {

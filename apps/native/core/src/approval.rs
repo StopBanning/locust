@@ -41,6 +41,16 @@ impl Mode {
         }
     }
 
+    /// The sandbox Electron's host gives each mode: Ask and Plan read only, Accept edits and Approve each write in the
+    /// folder, Auto runs as the person.
+    pub fn sandbox(self) -> &'static str {
+        match self {
+            Self::Ask | Self::Plan => "read-only",
+            Self::AcceptEdits | Self::ApproveEach => "workspace-write",
+            Self::Auto => "full-access",
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Ask => "ask",
@@ -60,31 +70,28 @@ pub struct CodexPolicy {
 }
 
 pub fn codex_app_server_policy(mode: Mode, sandbox_hint: Option<&str>) -> CodexPolicy {
+    // The sandbox the mode earns, as Electron's host gives it, unless the caller names one.
+    let chosen = match sandbox_hint {
+        Some("full-access") | Some("danger-full-access") => "full-access",
+        Some("workspace-write") => "workspace-write",
+        Some("read-only") => "read-only",
+        _ => mode.sandbox(),
+    };
     // Approve-each stops (`untrusted`); never paired with full access.
     if mode == Mode::ApproveEach {
-        let sandbox = match sandbox_hint {
-            Some("full-access") | Some("danger-full-access") => "workspace-write",
-            Some("workspace-write") => "workspace-write",
-            _ => "workspace-write",
-        };
         return CodexPolicy {
-            sandbox,
+            sandbox: if chosen == "full-access" { "workspace-write" } else { chosen },
             approval_policy: "untrusted",
         };
     }
-    if matches!(
-        sandbox_hint,
-        Some("full-access") | Some("danger-full-access")
-    ) || mode == Mode::Auto
-    {
+    if chosen == "full-access" {
         return CodexPolicy {
             sandbox: "danger-full-access",
             approval_policy: "never",
         };
     }
-    // Ask / Plan / Accept-edits (non-full): read-only + never, as M1.
     CodexPolicy {
-        sandbox: "read-only",
+        sandbox: chosen,
         approval_policy: "never",
     }
 }
@@ -1432,9 +1439,26 @@ mod tests {
 
     #[test]
     fn codex_policy_approve_each_asks() {
-        let p = codex_app_server_policy(Mode::ApproveEach, Some("read-only"));
+        let p = codex_app_server_policy(Mode::ApproveEach, None);
         assert_eq!(p.approval_policy, "untrusted");
         assert_eq!(p.sandbox, "workspace-write");
+        // As commands.ts: a named sandbox is kept, except that full access is never paired with asking.
+        assert_eq!(codex_app_server_policy(Mode::ApproveEach, Some("read-only")).sandbox, "read-only");
+        assert_eq!(codex_app_server_policy(Mode::ApproveEach, Some("full-access")).sandbox, "workspace-write");
+    }
+
+    // codexAppServerPolicy over the sandbox each mode earns (codex-mission.ts).
+    #[test]
+    fn codex_policy_follows_each_modes_sandbox() {
+        for (mode, sandbox) in [
+            (Mode::Ask, "read-only"),
+            (Mode::Plan, "read-only"),
+            (Mode::AcceptEdits, "workspace-write"),
+            (Mode::Auto, "danger-full-access"),
+        ] {
+            let p = codex_app_server_policy(mode, None);
+            assert_eq!((p.sandbox, p.approval_policy), (sandbox, "never"), "{mode:?}");
+        }
     }
 
     #[test]

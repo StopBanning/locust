@@ -1206,6 +1206,46 @@ fn guard_refuses_a_push_from_a_fix_copy(runtime: &str) {
     assert!(text.contains("Scout made to prepare a fix"), "the guard's refusal is not in the ledger");
 }
 
+/// Real Codex in Accept edits writes in its folder without asking (workspace-write, approval never), as Electron runs it.
+#[test]
+#[ignore = "real Codex; signed-in CLI, no Electron, isolated temp project"]
+fn real_codex_accept_edits_writes_in_its_folder() {
+    assert_eq!(std::env::var("LOCUST_REAL_CODEX").ok().as_deref(), Some("1"), "set LOCUST_REAL_CODEX=1 to run this real test");
+    let t = Temp::new();
+    let folder = t.0.join("work");
+    let _g = hooks::install(t.store(), None);
+    let mate = Teammate {
+        id: "tm_edits".into(),
+        name: "Edits".into(),
+        role: String::new(),
+        runtime: Some("codex".into()),
+        model: None,
+        busy: false,
+        runs_in: "accept-edits".into(),
+        folder: Some(folder.to_string_lossy().into()),
+    };
+    let started = send(Send {
+        teammate: mate,
+        conversation: None,
+        prompt: "Create a file named hello.txt in the current folder containing exactly the word hello and a newline. Then reply DONE.".into(),
+        model: None,
+        effort: None,
+    })
+    .unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    let end = Instant::now() + Duration::from_secs(240);
+    let text = loop {
+        let text = fs::read_to_string(&path).unwrap_or_default();
+        if ["run.completed", "run.failed", "run.cancelled"].iter().any(|k| text.contains(&format!("\"type\":\"{k}\""))) {
+            break text;
+        }
+        assert!(Instant::now() < end, "turn did not finish");
+        std::thread::sleep(Duration::from_millis(300));
+    };
+    assert!(text.contains("\"type\":\"run.completed\""), "the turn did not complete: {text}");
+    assert_eq!(fs::read_to_string(folder.join("hello.txt")).unwrap_or_default().trim(), "hello", "Codex did not write the file");
+}
+
 /// Both live tests deliberately use the public window API and isolated stores.
 /// No retry after denial: another pending request in that turn fails the test.
 fn approval_deny_then_allow(runtime: &str, synthetic: bool) {

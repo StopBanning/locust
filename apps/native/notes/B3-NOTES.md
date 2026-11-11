@@ -71,6 +71,17 @@ differences that come from the engine itself, and leaves listed the ones that ne
   holds the guard's refusal and a completed turn.
 - Tests: 421 in the engine (18 ignored live tests), 180 in the window, all passing.
 
+## Third part: Codex's modes
+
+- `approval::codex_app_server_policy` now starts from the sandbox each mode earns (`Mode::sandbox`), as
+  `codexAppServerPolicy` does over the host's mapping. Accept edits had been read-only on the native engine, so a Codex
+  teammate in Accept edits could not edit; it is `workspace-write` now.
+- The person's MCP programs are switched off in Ask and Plan only (`codex-read-only.ts`), and `config/read` is asked
+  only then. Before, Rust switched them off in every mode, so in Auto their Codex lost its own servers.
+- The fake app-server (`scripts/fixtures/m1-app-server.py`) had asserted the old rule; it now checks both sides.
+- Live: `real_codex_accept_edits_writes_in_its_folder` (new) wrote hello.txt; `real_codex_continue` still passes in Ask.
+- Tests: 422 in the engine, 180 in the window.
+
 ## Not checked, not done
 
 - No turn ran in the window itself; the live tests drive the same `send` the window calls.
@@ -80,6 +91,6 @@ differences that come from the engine itself, and leaves listed the ones that ne
 - The hook does not read the process table, so by-id kills of processes the run did not start are let through.
 - Skills, reference folders, forks and connectors for Claude Code.
 - OpenCode still loads the JavaScript guard plugin, which needs Node.
-- Rust gives Codex `read_only_config` (the person's MCP programs off) in every mode; Electron does it in Ask and Plan
-  only. Not changed here; it needs its own grid row, since it travels over the protocol, not the command line.
+- The Codex sandbox and thread config travel over the protocol, so the command grid does not see them; only the
+  unit tests and the fake app-server hold them to Electron.
 - Windows: the bridge and browser still use Unix sockets.
