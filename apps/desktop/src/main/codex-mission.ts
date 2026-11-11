@@ -91,7 +91,7 @@ import type { StartTiming } from './start-timing.js'
 import type { RecentEdits } from './recent-edits.js'
 import { cursorCannotSee, cursorIgnoreNotice } from './cursor-visibility.js'
 import type { WorkspaceSnapshot } from './disk-observation.js'
-import type { ToolPatch } from '@teammate/runtime-adapters'
+import type { OpenCodePermission, ToolPatch } from '@teammate/runtime-adapters'
 import { createPeerExchange, createTranscriptTracker, publicPeerMessage } from './peer-exchange.js'
 import type { MemoryBriefing } from './peer-exchange.js'
 import type { PeerExchange, TranscriptTracker } from './peer-exchange.js'
@@ -921,9 +921,45 @@ export function resumableThreadOf(prior: RecoveredMission, runtime: string): str
  * person sees, so the model's reply says why. The refusal used to read "The person declined this in Locust", and on
  * the 0.821 drive the model told a person who had seen no card "you declined the permission request".
  */
-export function openCodeReadOnlyRefusal(mode: MissionMode): string {
+export function openCodeReadOnlyRefusal(
+  mode: MissionMode,
+  asked?: { readonly permission: string; readonly patterns: readonly string[] },
+  folder?: string
+): string {
+  const outside = asked === undefined || folder === undefined ? undefined : readOutsideFolder(asked, folder)
+  if (outside !== undefined) {
+    /*
+     * A READ OUTSIDE THE FOLDER IS NOT "READING IS DISABLED" (2026-11-11). Ask and Plan read freely inside the
+     * conversation's folder; OpenCode asks only for a path outside it (`external_directory`), and the refusal said
+     * "Ask mode, which reads and changes nothing". On 9 Nov a Scout review asked for three files in another folder,
+     * was refused three times in those words, and told Colin "Reading is disabled in this Ask-mode session, so I
+     * cannot inspect any file", offering to switch modes. So say which folder it reads and what to do instead.
+     */
+    const named = mode === 'plan' ? 'Plan mode' : 'Ask mode'
+    const what = outside.length > 0 ? `, and ${outside} is outside it` : ''
+    return `Locust refused this without asking anyone: in ${named} this teammate reads only inside its folder, ${folder}${what}, so nothing was read. Read files inside that folder, or ask the person to move or attach the ones you need there.`
+  }
   const named = mode === 'plan' ? 'Plan mode, which reads and plans' : 'Ask mode, which reads'
   return `Locust refused this without asking anyone: this teammate is in ${named} and changes nothing, so nothing was run.`
+}
+
+/** OpenCode's reading permissions, which Ask and Plan allow inside the folder (commands.ts, OPENCODE_READ_ONLY_PERMISSIONS). */
+const OPENCODE_READ_PERMISSIONS = new Set(['external_directory', 'read', 'glob', 'grep', 'list', 'lsp', 'codesearch'])
+
+/**
+ * The path a read-only request reached for outside `folder`, without its trailing glob ('' when OpenCode named none),
+ * or undefined when it is not a read outside the folder. `external_directory` is outside by definition; another read
+ * is outside when a pattern it names is.
+ */
+function readOutsideFolder(asked: { readonly permission: string; readonly patterns: readonly string[] }, folder: string): string | undefined {
+  if (!OPENCODE_READ_PERMISSIONS.has(asked.permission)) return undefined
+  const plain = (pattern: string): string => pattern.trim().replace(/[\\/]+\*+$/, '').replace(/\*+$/, '').replace(/[\\/]+$/, '')
+  const root = plain(folder)
+  const within = (path: string): boolean => path === root || path.startsWith(`${root}/`) || path.startsWith(`${root}\\`)
+  const named = asked.patterns.map(plain).filter((p) => p.length > 0)
+  const away = named.find((p) => !within(p))
+  if (asked.permission === 'external_directory') return away ?? named[0] ?? ''
+  return away
 }
 
 /** Whether a run loads the person's connectors: only for a teammate that has one ticked (0.798). */
@@ -3187,7 +3223,7 @@ ${sentPrompt.trim()}`
                   return openCodeReplyFor(await handler(openCodePermissionRequest(asked, runCwd)))
                 } }),
               // A refusal in Ask or Plan names the mode, so the reply says why and not "you declined" (0.822).
-              ...(handler === undefined && effectiveSandbox === 'read-only' ? { refusal: openCodeReadOnlyRefusal(mode) } : {}),
+              ...(handler === undefined && effectiveSandbox === 'read-only' ? { refusal: (asked: OpenCodePermission) => openCodeReadOnlyRefusal(mode, asked, runCwd) } : {}),
               signal: controller.signal,
               now
             })

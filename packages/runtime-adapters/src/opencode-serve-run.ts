@@ -82,9 +82,10 @@ export interface OpenCodeServeRunOptions {
   /**
    * What a request refused with nobody asked is told (0.822): the mode's own words, such as Ask's. Absent, the
    * refusal still says that no one was asked -- never the person's "declined", which the model repeated as "you
-   * declined the permission request" to a person who had seen no card (the 0.821 drive's Ask frame).
+   * declined the permission request" to a person who had seen no card (the 0.821 drive's Ask frame). A function is
+   * given the request, so the words can say what was refused: a read outside the folder is not a write.
    */
-  readonly refusal?: string;
+  readonly refusal?: string | ((permission: OpenCodePermission) => string);
   readonly signal?: AbortSignal;
   readonly now?: () => Date;
   /** Test seam. */
@@ -324,7 +325,8 @@ export function startOpenCodeServeRun(options: OpenCodeServeRunOptions): Runtime
     };
     let reply: OpenCodePermissionReply = "reject";
     // Said only when a person answered; a refusal nobody was asked about says so (opencode-events reads it as refused).
-    let message = options.onPermission !== undefined ? "The person declined this in Locust." : options.refusal ?? OPENCODE_REFUSED_UNASKED;
+    const refused = typeof options.refusal === "function" ? options.refusal(permission) : options.refusal;
+    let message = options.onPermission !== undefined ? "The person declined this in Locust." : refused ?? OPENCODE_REFUSED_UNASKED;
     try {
       const answered = options.onPermission !== undefined ? await options.onPermission(permission) : options.approveAll === true ? "once" : "reject";
       if (typeof answered === "string") {

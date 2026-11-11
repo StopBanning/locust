@@ -189,6 +189,26 @@ describe("OpenCode through its own server (A6.7)", () => {
     expect(server.calls.find((call) => call.url.includes("/permission/"))?.body).toEqual({ reply: "reject", message: refusal });
   });
 
+  it("words the refusal from the request when given a function, so a read outside the folder can say so (2026-11-11)", async () => {
+    const server = fakeServer();
+    const seen: string[] = [];
+    const run = startOpenCodeServeRun({
+      spawn: server.spawn,
+      command: createOpenCodeServeCommand(EXECUTABLE, { workspacePath: "C:/work/pebble", sandbox: "read-only" }),
+      prompt: "go",
+      fetch: server.fetcher,
+      refusal: (asked) => {
+        seen.push(`${asked.permission} ${asked.patterns.join(" ")}`);
+        return `refused: ${asked.permission}`;
+      },
+    });
+    for await (const _record of run.records) { /* drain */ }
+    await run.completion;
+    const reply = server.calls.find((call) => call.url.includes("/permission/"))?.body as { reply: string; message: string } | undefined;
+    expect(seen.length).toBeGreaterThan(0);
+    expect(reply).toEqual({ reply: "reject", message: `refused: ${seen[0]!.split(" ")[0]}` });
+  });
+
   it("still says the person declined when a person answered with no reason", async () => {
     const server = fakeServer();
     const run = startOpenCodeServeRun({
