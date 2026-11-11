@@ -91,6 +91,7 @@ mod away;
 mod boot_view;
 mod changelog;
 mod changes;
+mod commit_draft;
 mod folder_commit;
 mod shell_path;
 #[path = "ui/changes_panel.rs"]
@@ -500,6 +501,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.changes_job.set_waker(waker.clone());
     s.commit_read_job.set_waker(waker.clone());
     s.commit_job.set_waker(waker.clone());
+    s.commit_draft_job.set_waker(waker.clone());
     s.changes_repo_job.set_waker(waker.clone());
     s.team.set_waker(waker.clone());
     s.sending.set_waker(waker.clone());

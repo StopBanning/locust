@@ -953,6 +953,78 @@ pub fn send(mut job: Send) -> Result<Started, String> {
     })
 }
 
+/// One short read-only run for a panel ("Write it from the changes"), as Electron's panel runs are: the teammate's own
+/// agent and model, always Ask, kept in `panel-runs` beside the native ledgers so it is never listed as a
+/// conversation, stopped after three minutes. Answers with the run's final reply. Blocks: call it off the UI thread.
+pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<String, String> {
+    if !supported(teammate) {
+        return Err(format!("{} runs in Locust for now.", teammate.name));
+    }
+    let store = store().ok_or("Native data folder could not be determined.")?;
+    let panel = Store::new(store.root().join("panel-runs"), store.electron().to_path_buf()).map_err(|e| e.to_string())?;
+    let runtime_name = teammate.runtime.as_deref().unwrap_or("codex");
+    let model = teammate.model.clone().filter(|m| !m.is_empty() && m != "account-default");
+    let session = if runtime_name == "copilot" { Some(uuid_v4().map_err(|e| e.to_string())?) } else { None };
+    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref())
+        .map_err(|e| e.to_string())?;
+    command.current_dir(folder);
+    let id = new_id();
+    let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+    let writer = LedgerWriter::create_runtime(
+        &panel,
+        &id,
+        prompt,
+        model.as_deref().unwrap_or("account-default"),
+        &command.get_program().to_string_lossy(),
+        runtime_name,
+        &args,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+    let turn = Turn {
+        prompt: prompt.to_owned(),
+        folder: folder.to_owned(),
+        model,
+        effort: None,
+        resume: None,
+        mode: Mode::Ask,
+        approvals: None,
+        mission_id: id.clone(),
+        run_id: format!("run_{id}"),
+    };
+    let flag = Arc::new(AtomicBool::new(false));
+    let done = Arc::new(AtomicBool::new(false));
+    {
+        // Three minutes, as Electron waits, then the run is stopped (never retried).
+        let (flag, done) = (flag.clone(), done.clone());
+        std::thread::spawn(move || {
+            let start = std::time::Instant::now();
+            while !done.load(Ordering::Relaxed) && start.elapsed() < Duration::from_secs(180) {
+                std::thread::sleep(Duration::from_millis(200));
+            }
+            if !done.load(Ordering::Relaxed) {
+                flag.store(true, Ordering::Relaxed);
+            }
+        });
+    }
+    run_turn(writer, command, turn, flag.clone(), Registered(Vec::new()), runtime_name.to_owned(), approvals_channel(), None, panel.clone());
+    done.store(true, Ordering::Relaxed);
+    if flag.load(Ordering::Relaxed) {
+        return Err("It took too long to write.".into());
+    }
+    let transcript = ledger::read_transcript(panel.write_path(&id).map_err(|e| e.to_string())?);
+    transcript
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            ledger::Item::Assistant { text, .. } => Some(text.clone()),
+            _ => None,
+        })
+        .next_back()
+        .filter(|t| !t.trim().is_empty())
+        .ok_or_else(|| "It did not answer.".to_owned())
+}
+
 fn terminal(kind: &str) -> bool {
     matches!(kind, "run.completed" | "run.failed" | "run.cancelled")
 }

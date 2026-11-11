@@ -21,10 +21,15 @@ pub(super) struct Panel {
     pub working: Option<Then>,
     pub result: Option<CommitResult>,
     pub was_running: bool,
+    /// The teammate is writing the message from the changes.
+    pub drafting: bool,
+    /// Why the teammate's message is not in the box, when it is not.
+    pub draft_said: Option<String>,
 }
 
 pub(super) type ReadAnswer = (PathBuf, FolderChanges);
 pub(super) type CommitAnswer = (PathBuf, CommitResult);
+pub(super) type DraftAnswer = (PathBuf, Result<String, String>);
 
 /// One for the app: it keeps `gh auth status` for five minutes, as Electron's does.
 fn commits() -> &'static FolderCommits {
@@ -95,6 +100,16 @@ pub(super) fn poll(s: &mut State) -> bool {
         s.commit.changes = Some((read_from, changes));
         changed = true;
     }
+    if let Some((drafted_in, answer)) = s.commit_draft_job.take() {
+        s.commit.drafting = false;
+        if drafted_in == s.commit.folder {
+            match answer {
+                Ok(message) => s.commit.message = TextEdit::new(&message),
+                Err(why) => s.commit.draft_said = Some(why),
+            }
+        }
+        changed = true;
+    }
     if let Some((done_in, result)) = s.commit_job.take() {
         s.commit.working = None;
         if done_in == s.commit.folder {
@@ -149,9 +164,24 @@ pub(super) fn control(s: &State, p: &Palette) -> El {
             s.commit.folder = folder.clone();
             s.commit.result = None;
             s.commit.all_shown = false;
+            s.commit.draft_said = None;
             s.commit.message = TextEdit::new(&draft);
             read(s, folder);
         })
+}
+
+/// "Write it from the changes": the conversation's teammate writes the message from the diff, read-only.
+fn draft(s: &mut State) {
+    let Some((teammate, _)) = selected_conversation(s) else { return };
+    let teammate = teammate.clone();
+    let asks = asks(s);
+    let folder = s.commit.folder.clone();
+    s.commit.drafting = true;
+    s.commit.draft_said = None;
+    s.commit_draft_job.request((folder, asks, teammate), |(folder, asks, teammate)| {
+        let answer = crate::commit_draft::write(&folder, &asks, &teammate);
+        (folder, answer)
+    });
 }
 
 fn go(s: &mut State, then: Then) {
@@ -220,10 +250,25 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
                     label(p, format!("and {} more", files.len() - SHOWN_FILES)).on_press(|s: &mut State| s.commit.all_shown = true),
                 );
             }
-            let busy = s.commit.working.is_some();
-            card = card.child(text("Message").font(type_::LABEL).color(p.secondary)).child(
+            let busy = s.commit.working.is_some() || s.commit.drafting;
+            let mut label_row = row().gap(8.0).child(text("Message").font(type_::LABEL).color(p.secondary));
+            if let Some((teammate, _)) = selected_conversation(s) {
+                let word = if s.commit.drafting {
+                    format!("{} is writing it…", teammate.name)
+                } else {
+                    "Write it from the changes".to_owned()
+                };
+                let link = label(p, word);
+                label_row = label_row.child(if busy { link } else { link.on_press(draft) });
+            }
+            card = card.child(label_row);
+            if let Some(why) = &s.commit.draft_said {
+                card = card.child(said(why, p.red));
+            }
+            card = card.child(
                 text_input(&s.commit.message, type_::BODY)
                     .key("commit-message")
+                    .disabled(busy)
                     .label("Message")
                     .w_full()
                     .min_h(72.0)
