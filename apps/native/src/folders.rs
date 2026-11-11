@@ -311,7 +311,6 @@ pub fn made_folder_note(path: &str) -> String {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_pair() -> (PathBuf, Store) {
         let root = std::env::temp_dir().join(format!(

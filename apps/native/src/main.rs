@@ -92,6 +92,7 @@ mod boot_view;
 mod changelog;
 mod changes;
 mod folder_commit;
+mod shell_path;
 #[path = "ui/changes_panel.rs"]
 mod changes_panel;
 #[path = "ui/commit_panel.rs"]
@@ -1943,6 +1944,8 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
 }
 
 fn main() {
+    // First, before any thread: the PATH a terminal has, or an app opened from Finder finds no agent (shell_path.rs).
+    shell_path::adopt_terminal_path();
     let browser_args: Vec<String> = std::env::args().collect();
     if browser_args.get(1).map(String::as_str) == Some("--browser-bridge") {
         if let Some(socket) = browser_args.get(2) && let Err(e) = browser_tools::serve(socket) { eprintln!("Browser tools: {e}"); std::process::exit(1); }

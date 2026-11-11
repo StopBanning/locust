@@ -4,10 +4,7 @@ use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     io::{self, BufRead, BufReader, Read, Write},
-    os::unix::{
-        fs::DirBuilderExt,
-        net::{UnixListener, UnixStream},
-    },
+    os::unix::net::{UnixListener, UnixStream},
     path::PathBuf,
     sync::{
         Arc, Mutex, OnceLock,
@@ -54,14 +51,8 @@ impl Registration {
         if !matches!(runtime, "claude" | "codex" | "copilot" | "opencode" | "acp") {
             return Ok(None);
         }
-        let dir = std::env::temp_dir().join(format!(
-            "locust-browser-{}",
-            crate::native::uuid_v4().map_err(|e| e.to_string())?
-        ));
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&dir)
-            .map_err(|e| e.to_string())?;
+        // Short enough for the socket path limit even under an app's long TMPDIR (invariants::socket_dir).
+        let dir = crate::invariants::socket_dir("lcb").map_err(|e| e.to_string())?;
         let stop = Arc::new(AtomicBool::new(false));
         let registration = Self {
             dir: dir.clone(),

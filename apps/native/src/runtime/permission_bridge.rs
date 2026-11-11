@@ -6,10 +6,7 @@ use std::{
     fs,
     io::{self, BufRead, BufReader, Read, Write},
     os::fd::AsRawFd,
-    os::unix::{
-        fs::{DirBuilderExt, PermissionsExt},
-        net::{UnixListener, UnixStream},
-    },
+    os::unix::net::{UnixListener, UnixStream},
     path::PathBuf,
     process::Command,
     sync::{
@@ -34,17 +31,8 @@ impl Bridge {
         cwd: &str,
         cancel: Arc<AtomicBool>,
     ) -> io::Result<Self> {
-        let dir = std::env::temp_dir().join(format!(
-            "lc-perm-{}-{}",
-            std::process::id(),
-            chrono::Utc::now()
-                .timestamp_nanos_opt()
-                .ok_or_else(|| io::Error::other(
-                    "System clock is outside the supported timestamp range"
-                ))?
-        ));
-        fs::DirBuilder::new().mode(0o700).create(&dir)?;
-        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700))?;
+        // Short enough for the socket path limit even under an app's long TMPDIR (invariants::socket_dir).
+        let dir = crate::invariants::socket_dir("lcp")?;
         let socket = dir.join("host");
         let listener = UnixListener::bind(&socket)?;
         listener.set_nonblocking(true)?;
@@ -192,7 +180,7 @@ mod tests {
         .unwrap();
         assert!(cmd.get_args().any(|a| a == "mcp__locust__approve"));
         assert_eq!(
-            fs::metadata(&bridge.dir).unwrap().permissions().mode() & 0o777,
+            std::os::unix::fs::PermissionsExt::mode(&fs::metadata(&bridge.dir).unwrap().permissions()) & 0o777,
             0o700
         );
         for decision in [Decision::Deny, Decision::ApproveOnce] {

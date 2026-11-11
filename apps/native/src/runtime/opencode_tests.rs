@@ -326,6 +326,14 @@ fn opencode_serve_streams_authenticated_sse() {
                 .contains("Served hello")
     }));
     assert_eq!(events.last().unwrap().payload["runtimeThreadId"], "sess1");
+    // One reply is one message: a paced partial flushed after the final text must not open a second one with the
+    // same words (every live native OpenCode reply showed twice before, 11/11).
+    let items: std::collections::HashSet<&str> = events
+        .iter()
+        .filter(|e| e.kind == "message.delta")
+        .filter_map(|e| e.payload["itemId"].as_str())
+        .collect();
+    assert_eq!(items.len(), 1, "the reply was split into {items:?}");
     reader_check(&store, "opencode_serve", "completed");
 }
 

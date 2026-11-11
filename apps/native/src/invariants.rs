@@ -41,3 +41,41 @@ mod unique_tests {
         assert_eq!(all.len(), n, "a value repeated");
     }
 }
+
+/// The longest path a Unix socket may have on macOS is 104 bytes (SUN_LEN), counting the terminator; Linux allows 108.
+const SOCKET_PATH_MAX: usize = 103;
+
+/// A private (0700) folder for a local socket, with a path short enough to bind `<folder>/host`. An app opened from
+/// Finder has a long TMPDIR (/var/folders/xx/…/T/), and a folder named with a whole UUID inside it made the socket
+/// path 105 bytes: "path must be shorter than SUN_LEN", found live on 11/11 when a native OpenCode turn started. The
+/// name is short and unique, and when TMPDIR is still too long the folder goes under /tmp instead.
+#[cfg(unix)]
+pub(crate) fn socket_dir(prefix: &str) -> std::io::Result<std::path::PathBuf> {
+    use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+    let name = format!("{prefix}-{}-{:x}", std::process::id(), unique_nanos() % 0xffff_ffff_ffff);
+    let fits = |base: &std::path::Path| base.join(&name).join("host").as_os_str().len() <= SOCKET_PATH_MAX;
+    let temp = std::env::temp_dir();
+    let base = if fits(&temp) { temp } else { std::path::PathBuf::from("/tmp") };
+    if !fits(&base) {
+        return Err(std::io::Error::other("No folder is short enough for a local socket."));
+    }
+    let dir = base.join(name);
+    std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
+    Ok(dir)
+}
+
+#[cfg(all(test, unix))]
+mod socket_tests {
+    #[test]
+    fn a_socket_folder_is_short_enough_even_under_a_long_tmpdir() {
+        let dir = super::socket_dir("lcb").expect("folder");
+        assert!(dir.join("host").as_os_str().len() <= super::SOCKET_PATH_MAX);
+        let listener = std::os::unix::net::UnixListener::bind(dir.join("host")).expect("binds");
+        drop(listener);
+        let _ = std::fs::remove_dir_all(&dir);
+        // The macOS TMPDIR shape an app opened from Finder gets, padded: too long, so /tmp is used.
+        let long = std::path::Path::new("/var/folders/fs/3vxqwxln38s78yklvph78d_40000gn/T/a-much-longer-tmp-folder-name");
+        assert!(long.join("lcb-99999-ffffffffffff").join("host").as_os_str().len() > super::SOCKET_PATH_MAX);
+    }
+}

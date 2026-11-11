@@ -440,11 +440,15 @@ impl Serve {
         let Some(p) = self.parts.get_mut(id) else {
             return;
         };
+        // Never a partial for a part whose finished text already went out (Electron's sendPartial checks
+        // emitted `text:<id>`): a paced partial flushed at the step's end after the final text opened a second
+        // message with the same words, so every native OpenCode reply showed twice (found live on 11/11).
         if p.kind != "text"
             || p.synthetic
             || self.roles.get(&p.message).is_none_or(|r| r != "assistant")
             || p.text.is_empty()
             || p.sent == p.text
+            || self.emitted.contains(&format!("text:{id}"))
         {
             return;
         }
