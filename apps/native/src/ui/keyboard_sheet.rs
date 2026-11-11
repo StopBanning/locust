@@ -1,4 +1,4 @@
-//! Keyboard shortcut sheet — Area 11 / P10.
+//! Keyboard shortcut sheet (Area 11).
 
 use super::*;
 use crate::keyboard_shortcuts::{SHEET_TITLE, keys_on, lacking_note, shortcut_groups};

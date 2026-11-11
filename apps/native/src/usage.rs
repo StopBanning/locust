@@ -706,7 +706,7 @@ mod tests {
                 .arg("--disable-warning=ExperimentalWarning")
                 .arg(concat!(
                     env!("CARGO_MANIFEST_DIR"),
-                    "/scripts/p10-usage-oracle.mjs"
+                    "/scripts/usage-oracle.mjs"
                 ))
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())

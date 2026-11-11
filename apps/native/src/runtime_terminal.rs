@@ -537,7 +537,7 @@ mod import_tests {
     #[test]
     fn imported_turn_is_atomic_native_only_and_reader_understands_it() {
         let root =
-            std::env::temp_dir().join(format!("p9-import-{}", crate::native::uuid_v4().unwrap()));
+            std::env::temp_dir().join(format!("runtime-import-{}", crate::native::uuid_v4().unwrap()));
         let electron = root.join("electron");
         std::fs::create_dir_all(&electron).unwrap();
         std::fs::write(electron.join("sentinel"), "unchanged").unwrap();

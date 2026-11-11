@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn drop_kills_and_reaps_pty_shell() {
         let dir = std::env::temp_dir();
-        let marker = dir.join(format!("p9-pty-drop-{}", std::process::id()));
+        let marker = dir.join(format!("pty-drop-{}", std::process::id()));
         let _ = std::fs::remove_file(&marker);
         let script = format!("echo $$ > {}; exec sleep 120", marker.display());
         let terminal = Terminal::open(&dir, Path::new("/bin/sh"), &["-c", &script]).unwrap();

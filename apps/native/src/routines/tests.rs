@@ -222,7 +222,7 @@ fn slot_passed_during_a_long_run_is_missed() {
 }
 fn fixture() -> (std::path::PathBuf, Store) {
     let root = std::env::temp_dir().join(format!(
-        "p11-{}",
+        "routines-{}",
         crate::native::uuid_v4().unwrap()
     ));
     let electron = root.join("electron");

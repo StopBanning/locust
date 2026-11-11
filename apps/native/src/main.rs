@@ -6,8 +6,8 @@ mod keyboard_sheet;
 mod keyboard_shortcuts;
 mod keychain_note;
 mod own_command;
-#[path = "ui/p12_panel.rs"]
-mod p12_panel;
+#[path = "ui/home_panel.rs"]
+mod home_panel;
 mod people;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
@@ -940,7 +940,7 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
 }
 
 fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
-    p12_panel::opened(s, &row.id);
+    home_panel::opened(s, &row.id);
     if let Some(title) =
         crate::conversation_list::conversation_title_for(&recent_as_missions(s), Some(&row.id))
     {
@@ -1045,21 +1045,21 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
             s.changes.open = false;
             return true;
         }
-        if s.p12.splash_open {
-            s.p12.splash_open = false;
-            s.p12.seen_version = Some(s.p12.current_version.clone());
+        if s.home.splash_open {
+            s.home.splash_open = false;
+            s.home.seen_version = Some(s.home.current_version.clone());
             return true;
         }
-        if s.p12.boot_open {
-            s.p12.boot_open = false;
+        if s.home.boot_open {
+            s.home.boot_open = false;
             return true;
         }
-        if s.p12.board_open {
-            s.p12.board_open = false;
+        if s.home.board_open {
+            s.home.board_open = false;
             return true;
         }
-        if s.p12.home_open {
-            s.p12.home_open = false;
+        if s.home.home_open {
+            s.home.home_open = false;
             return true;
         }
         if s.settings_panel.open {
@@ -1365,7 +1365,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         }
     }
     changed |= sync_approvals(s);
-    changed |= p12_panel::sync_board_asks(s);
+    changed |= home_panel::sync_board_asks(s);
     let root = selected_conversation(s)
         .and_then(|(t, _)| t.folder.as_ref())
         .map(std::path::PathBuf::from);
@@ -1588,7 +1588,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         changed = true;
         match result {
             Ok(batch) => {
-                p12_panel::record_finishes(s, &batch.rows);
+                home_panel::record_finishes(s, &batch.rows);
                 s.recent = batch.rows;
                 s.ledger_summaries = batch.summaries;
                 s.ledger_available = batch.local;
@@ -1655,7 +1655,7 @@ fn on_close(s: &mut State, _: &mut Tx) {
     // Electron terminal-host dispose: end every tab and bang command before the window is gone.
     // Drop ends the PTY/own-command trees; do not wait on the UI thread.
     terminal_panel::dispose(s);
-    p12_panel::save_attention(s);
+    home_panel::save_attention(s);
     // Native turns live in this process: ask each to stop now and let a background thread watch them write their
     // cancelled records. The UI thread does not wait; `main` waits after the window is gone.
     native::shutdown_in_background();
@@ -1716,12 +1716,12 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         changes_panel::view(s, &p)
     } else if s.routines.open {
         routines_panel::view(s, &p)
-    } else if s.p12.boot_open {
-        p12_panel::boot_view_ui(s, &p)
-    } else if s.p12.board_open {
-        p12_panel::board_view(s, &p)
-    } else if s.p12.home_open {
-        p12_panel::home_view(s, &p)
+    } else if s.home.boot_open {
+        home_panel::boot_view_ui(s, &p)
+    } else if s.home.board_open {
+        home_panel::board_view(s, &p)
+    } else if s.home.home_open {
+        home_panel::home_view(s, &p)
     } else if s.settings_panel.open {
         settings_panel::view(s, &p)
     } else if s.people_panel.open {
@@ -1775,16 +1775,16 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             )
             .child(app);
     }
-    if s.p12.splash_open {
+    if s.home.splash_open {
         app = app.child(
             el().absolute(0.0, 0.0)
                 .w_full()
                 .h_full()
                 .fill(Color::BLACK.alpha(0.55))
                 .center()
-                .child(p12_panel::splash_view(s, &p).modal(true, |s: &mut State| {
-                    s.p12.splash_open = false;
-                    s.p12.seen_version = Some(s.p12.current_version.clone());
+                .child(home_panel::splash_view(s, &p).modal(true, |s: &mut State| {
+                    s.home.splash_open = false;
+                    s.home.seen_version = Some(s.home.current_version.clone());
                 })),
         );
     }
@@ -1978,20 +1978,20 @@ fn main() {
         poll: Some(poll),
         on_key: Some(on_key),
         scenes: &[
-            ("p9-terminal", terminal_panel::scene),
-            ("p9-terminal-light", terminal_panel::light_scene),
-            ("p7-undo", changes_panel::undo_scene),
-            ("p7-undo-light", changes_panel::undo_light_scene),
-            ("p7-changes", changes_panel::scene),
-            ("p7-changes-light", changes_panel::light_scene),
+            ("terminal", terminal_panel::scene),
+            ("terminal-light", terminal_panel::light_scene),
+            ("undo", changes_panel::undo_scene),
+            ("undo-light", changes_panel::undo_light_scene),
+            ("changes", changes_panel::scene),
+            ("changes-light", changes_panel::light_scene),
             ("thread-rich", thread_rich_scene),
             ("thread-rich-open", thread_rich_open_scene),
             ("thread-rich-open-light", thread_rich_open_light_scene),
             ("thread-rich-light", thread_rich_light_scene),
-            ("p6-people", p6_people_scene),
-            ("p6-people-light", p6_people_light_scene),
-            ("p6-memory", p6_memory_scene),
-            ("p6-memory-light", p6_memory_light_scene),
+            ("people", p6_people_scene),
+            ("people-light", p6_people_light_scene),
+            ("memory", p6_memory_scene),
+            ("memory-light", p6_memory_light_scene),
             ("team", team_scene),
             ("empty", empty_scene),
             ("replay", replay_scene),
@@ -2008,8 +2008,8 @@ fn main() {
             ("approval-light", approval_scene_light),
             ("approval-reach", approval_reach_scene_dark),
             ("approval-reach-light", approval_reach_scene_light),
-            ("p8-rules", p8_rules_scene_dark),
-            ("p8-rules-light", p8_rules_scene_light),
+            ("approval-rules", p8_rules_scene_dark),
+            ("approval-rules-light", p8_rules_scene_light),
             ("routines", routines_panel::scene),
             ("routines-light", routines_panel::light_scene),
             ("settings", settings_panel::scene),
@@ -2030,12 +2030,12 @@ fn main() {
             ("composer-queue-light", composer_queue_light_scene),
             ("composer-blocked", composer_blocked_scene),
             ("composer-blocked-light", composer_blocked_light_scene),
-            ("p5-code", p5_code_scene),
-            ("p5-code-light", p5_code_light_scene),
-            ("p5-file", p5_file_scene),
-            ("p5-file-light", p5_file_light_scene),
-            ("p5-recovery", p5_recovery_scene),
-            ("p5-recovery-light", p5_recovery_light_scene),
+            ("reply-code", p5_code_scene),
+            ("reply-code-light", p5_code_light_scene),
+            ("file-viewer", p5_file_scene),
+            ("file-viewer-light", p5_file_light_scene),
+            ("recovery", p5_recovery_scene),
+            ("recovery-light", p5_recovery_light_scene),
             ("org-sidebar", org_sidebar_scene),
             ("org-sidebar-light", org_sidebar_light_scene),
             ("org-search", org_search_scene),
@@ -2046,16 +2046,16 @@ fn main() {
             ("org-palette-light", org_palette_light_scene),
             ("org-beside", org_beside_scene),
             ("org-beside-light", org_beside_light_scene),
-            ("home", p12_panel::home_scene),
-            ("home-light", p12_panel::home_light_scene),
-            ("board", p12_panel::board_scene),
-            ("board-light", p12_panel::board_light_scene),
-            ("boot", p12_panel::boot_scene),
-            ("boot-light", p12_panel::boot_light_scene),
-            ("away", p12_panel::away_scene),
-            ("away-light", p12_panel::away_light_scene),
-            ("whatsnew", p12_panel::whatsnew_scene),
-            ("whatsnew-light", p12_panel::whatsnew_light_scene),
+            ("home", home_panel::home_scene),
+            ("home-light", home_panel::home_light_scene),
+            ("board", home_panel::board_scene),
+            ("board-light", home_panel::board_light_scene),
+            ("boot", home_panel::boot_scene),
+            ("boot-light", home_panel::boot_light_scene),
+            ("away", home_panel::away_scene),
+            ("away-light", home_panel::away_light_scene),
+            ("whatsnew", home_panel::whatsnew_scene),
+            ("whatsnew-light", home_panel::whatsnew_light_scene),
         ],
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })

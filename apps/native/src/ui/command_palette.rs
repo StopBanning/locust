@@ -220,8 +220,8 @@ pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
     match id {
         "back" => {}
         "stop" => stop(s),
-        "home" => crate::p12_panel::open_home(s),
-        "board" => crate::p12_panel::open_board(s),
+        "home" => crate::home_panel::open_home(s),
+        "board" => crate::home_panel::open_board(s),
         "settings" => crate::settings_panel::open(s),
         "usage" => crate::usage_panel::open(s),
         "keyboard" => crate::keyboard_sheet::open(s),

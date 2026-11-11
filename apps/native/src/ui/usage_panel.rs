@@ -1,4 +1,4 @@
-//! Usage dialog — Area 11 / P10.
+//! Usage dialog (Area 11).
 
 use super::*;
 use crate::context_usage::compact_count;

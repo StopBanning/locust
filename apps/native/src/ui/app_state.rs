@@ -131,7 +131,7 @@ pub(super) struct State {
     pub(super) settings_panel: crate::settings_panel::Panel,
     pub(super) usage_panel: crate::usage_panel::Panel,
     pub(super) keyboard_sheet: crate::keyboard_sheet::Panel,
-    pub(super) p12: crate::p12_panel::Panel,
+    pub(super) home: crate::home_panel::Panel,
     /// Amber macOS keychain note — never reads the keychain itself.
     pub(super) keychain_asking: bool,
     // Which engine this window runs on, shown in the status line. None until the team has loaded.
@@ -250,7 +250,7 @@ impl Default for State {
             settings_panel: crate::settings_panel::Panel::default(),
             usage_panel: crate::usage_panel::Panel::default(),
             keyboard_sheet: crate::keyboard_sheet::Panel::default(),
-            p12: crate::p12_panel::Panel::default(),
+            home: crate::home_panel::Panel::default(),
             keychain_asking: false,
             changes: crate::changes_panel::Panel::default(),
             changes_job: Latest::default(),

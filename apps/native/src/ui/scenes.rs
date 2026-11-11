@@ -761,7 +761,7 @@ pub(super) fn p5_code_scene(s: &mut State) {
     ledger_scene(s, false, false);
     if let Some(pane) = &mut s.ledger {
         pane.items = vec![ledger::Item::User("Show the code and the file reference.".into()), ledger::Item::Assistant {
-            item_id: "p5-code".into(), r#final: true,
+            item_id: "reply-code".into(), r#final: true,
             text: "The total now keeps the original price.\n\n```ts\nconst total = items.reduce((sum, item) => sum + item.price, 0);\nexport default \"done\"; // keep every character\n```\n\nRead [src/cart.ts:12-18](src/cart.ts:12-18) for the calculation.".into() }];
         pane.snapshot.context = Some(context_usage::Reading {
             used: 164000,

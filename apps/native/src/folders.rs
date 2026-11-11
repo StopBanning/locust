@@ -395,7 +395,7 @@ mod review_tests {
 
     #[test]
     fn registry_operations_leave_electron_bytes_unchanged_and_keep_link_spelling() {
-        let root = std::env::temp_dir().join("p12-registry-review");
+        let root = std::env::temp_dir().join("home-registry-review");
         let electron = root.join("electron");
         std::fs::create_dir_all(&electron).unwrap();
         let seed = br#"{"schemaVersion":1,"folders":[]}"#;

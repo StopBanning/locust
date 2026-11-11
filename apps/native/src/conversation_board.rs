@@ -579,7 +579,7 @@ mod review_parity_tests {
         let mut child = Command::new("node")
             .arg(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/scripts/p12-home-oracle.mjs"
+                "/scripts/home-oracle.mjs"
             ))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

@@ -1,4 +1,4 @@
-//! Categorized Settings screen — Area 11 / P10.
+//! Categorized Settings screen (Area 11).
 
 use super::*;
 use crate::settings_pages::{
@@ -41,10 +41,10 @@ pub(super) fn open(s: &mut State) {
     s.settings_panel.open = true;
     s.settings_panel.page = SettingsPageId::from_str("appearance");
     reload(s);
-    if s.p12.changelog.is_empty() {
+    if s.home.changelog.is_empty() {
         let text = crate::changelog::native_notes(None);
-        s.p12.changelog = crate::changelog::entries(&text);
-        s.p12.changelog_shown = crate::changelog::WHATS_NEW_PAGE;
+        s.home.changelog = crate::changelog::entries(&text);
+        s.home.changelog_shown = crate::changelog::WHATS_NEW_PAGE;
     }
 }
 
@@ -308,7 +308,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             }
         }
         SettingsPageId::WhatsNew => {
-            if s.p12.changelog.is_empty() {
+            if s.home.changelog.is_empty() {
                 body = body.child(
                     text(crate::changelog::READING.to_owned())
                         .font(type_::LABEL)
@@ -317,7 +317,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                         .padding(10.0),
                 );
             } else {
-                body = body.child(crate::p12_panel::whats_new_settings(s, p));
+                body = body.child(crate::home_panel::whats_new_settings(s, p));
             }
         }
 

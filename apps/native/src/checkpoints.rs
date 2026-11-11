@@ -440,7 +440,7 @@ mod tests {
         fn new() -> Self {
             static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
             let p = std::env::temp_dir().join(format!(
-                "p7-undo-{}-{}",
+                "undo-{}-{}",
                 std::process::id(),
                 N.fetch_add(1, Ordering::Relaxed)
             ));

@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn stop_kills_and_records_stopped_without_exit() {
         let dir = std::env::temp_dir();
-        let marker = dir.join(format!("p9-own-stop-{}", std::process::id()));
+        let marker = dir.join(format!("own-stop-{}", std::process::id()));
         let _ = std::fs::remove_file(&marker);
         let mut r = Running::start(
             &format!("trap 'touch {}' TERM; sleep 60", marker.display()),

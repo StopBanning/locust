@@ -65,37 +65,37 @@ fn primary(label: impl Into<String>, p: &Palette) -> El {
 }
 
 pub(super) fn open_home(s: &mut State) {
-    s.p12.home_open = true;
-    s.p12.board_open = false;
-    s.p12.boot_open = false;
+    s.home.home_open = true;
+    s.home.board_open = false;
+    s.home.boot_open = false;
     sync_board_asks(s);
     refresh_away(s);
     refresh_changelog(s);
 }
 
 pub(super) fn open_board(s: &mut State) {
-    s.p12.board_open = true;
-    s.p12.home_open = false;
-    s.p12.boot_open = false;
+    s.home.board_open = true;
+    s.home.home_open = false;
+    s.home.boot_open = false;
     sync_board_asks(s);
 }
 
 pub(super) fn open_boot(s: &mut State) {
-    s.p12.boot_open = true;
-    s.p12.home_open = false;
-    s.p12.board_open = false;
+    s.home.boot_open = true;
+    s.home.home_open = false;
+    s.home.board_open = false;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    s.p12.boot = boot_view::path_discovery_sweep(now);
-    s.p12.boot_view = Some(boot_view::boot_view(
-        &s.p12.boot,
+    s.home.boot = boot_view::path_discovery_sweep(now);
+    s.home.boot_view = Some(boot_view::boot_view(
+        &s.home.boot,
         boot_view::BootPhase::Probing,
         now,
     ));
     s.nothing_installed = s
-        .p12
+        .home
         .boot
         .finished
         .map(|(_, ready, _)| ready == 0)
@@ -109,40 +109,40 @@ fn refresh_changelog(s: &mut State) {
         .unwrap_or_else(|| std::path::PathBuf::from("."));
     let paths = changelog::changelog_paths(&resources, &resources);
     let text = changelog::read_changelog(&paths).unwrap_or_else(|| changelog::native_notes(None));
-    s.p12.changelog = changelog::entries(&text);
-    if s.p12.changelog_shown == 0 {
-        s.p12.changelog_shown = changelog::WHATS_NEW_PAGE;
+    s.home.changelog = changelog::entries(&text);
+    if s.home.changelog_shown == 0 {
+        s.home.changelog_shown = changelog::WHATS_NEW_PAGE;
     }
-    if s.p12.current_version.is_empty() {
-        s.p12.current_version = s
-            .p12
+    if s.home.current_version.is_empty() {
+        s.home.current_version = s
+            .home
             .changelog
             .first()
             .map(|e| e.version.clone())
             .unwrap_or_else(|| "0.1.0".into());
     }
-    let _ = changelog::entry_for(&text, &s.p12.current_version);
+    let _ = changelog::entry_for(&text, &s.home.current_version);
     let splash = changelog::splash_entries(
-        &s.p12.changelog,
-        s.p12.seen_version.as_deref(),
-        &s.p12.current_version,
+        &s.home.changelog,
+        s.home.seen_version.as_deref(),
+        &s.home.current_version,
     );
-    s.p12.splash_entries = splash.into_iter().cloned().collect();
-    s.p12.splash_open = !s.p12.splash_entries.is_empty();
+    s.home.splash_entries = splash.into_iter().cloned().collect();
+    s.home.splash_open = !s.home.splash_entries.is_empty();
 }
 
 fn refresh_away(s: &mut State) {
     let Some(store) = s.data.clone() else {
-        s.p12.away = None;
+        s.home.away = None;
         return;
     };
     let Some(mark) = away::read_attention_mark(&store) else {
-        s.p12.away = None;
+        s.home.away = None;
         return;
     };
     let now_ms = chrono::Utc::now().timestamp_millis();
     if away::was_away(Some(&mark), now_ms, AWAY_MINIMUM_MS).is_none() {
-        s.p12.away = None;
+        s.home.away = None;
         return;
     }
     let rows = recent_as_missions(s)
@@ -158,8 +158,8 @@ fn refresh_away(s: &mut State) {
             root_id: r.root_id,
         })
         .collect::<Vec<_>>();
-    let needs = s.p12.asks.keys().cloned().collect();
-    s.p12.away = away::since_you_were_away(&mark, &rows, &[], &needs);
+    let needs = s.home.asks.keys().cloned().collect();
+    s.home.away = away::since_you_were_away(&mark, &rows, &[], &needs);
 }
 
 pub(super) fn sync_board_asks(s: &mut State) -> bool {
@@ -168,10 +168,10 @@ pub(super) fn sync_board_asks(s: &mut State) -> bool {
 }
 
 fn update_board_asks(s: &mut State, waiting: &[approval::Request]) -> bool {
-    let old = std::mem::take(&mut s.p12.asks);
-    s.p12.waiting_for.clear();
+    let old = std::mem::take(&mut s.home.asks);
+    s.home.waiting_for.clear();
     for req in waiting {
-        s.p12.waiting_for.insert(
+        s.home.waiting_for.insert(
             req.mission_id.clone(),
             if req.summary.is_empty() {
                 WAITING_ON_YOU.into()
@@ -180,7 +180,7 @@ fn update_board_asks(s: &mut State, waiting: &[approval::Request]) -> bool {
             },
         );
         // The oldest card for each conversation is answered first, as in Electron.
-        s.p12
+        s.home
             .asks
             .entry(req.mission_id.clone())
             .or_insert_with(|| BoardAsk {
@@ -201,12 +201,12 @@ fn update_board_asks(s: &mut State, waiting: &[approval::Request]) -> bool {
                     .unwrap_or_else(std::time::Instant::now),
             });
     }
-    old != s.p12.asks
+    old != s.home.asks
 }
 
 fn answer_board(s: &mut State, approval_id: &str, approve: bool) {
     let Some(ask) = s
-        .p12
+        .home
         .asks
         .values()
         .find(|ask| ask.approval_id == approval_id)
@@ -240,7 +240,7 @@ fn answer_board(s: &mut State, approval_id: &str, approve: bool) {
 }
 
 pub(super) fn record_finishes(s: &mut State, next: &[ConversationRow]) {
-    let looking = if s.p12.home_open || s.p12.board_open || s.p12.boot_open {
+    let looking = if s.home.home_open || s.home.board_open || s.home.boot_open {
         None
     } else {
         selected_conversation(s).and_then(|(_, c)| c.conversation_id.clone())
@@ -252,7 +252,7 @@ pub(super) fn record_finishes(s: &mut State, next: &[ConversationRow]) {
                 .any(|old| old.id == row.id && old.state == "running")
             && looking.as_deref() != Some(row.id.as_str())
         {
-            s.p12.to_look_at.insert(row.id.clone());
+            s.home.to_look_at.insert(row.id.clone());
         }
     }
 }
@@ -268,11 +268,11 @@ pub(super) fn opened(s: &mut State, id: &str) {
         .map(conversation_list::conversation_keys)
         .unwrap_or_else(|| vec![id.to_owned()]);
     for key in keys {
-        s.p12.to_look_at.remove(&key);
+        s.home.to_look_at.remove(&key);
     }
-    s.p12.home_open = false;
-    s.p12.board_open = false;
-    s.p12.boot_open = false;
+    s.home.home_open = false;
+    s.home.board_open = false;
+    s.home.boot_open = false;
 }
 
 pub(super) fn save_attention(s: &mut State) {
@@ -302,7 +302,7 @@ fn mark_away_seen(s: &mut State) {
         return;
     }
     let _ = away::away_counts_from(&serde_json::json!({"ran":0,"failed":0,"missed":0,"waiting":0}));
-    s.p12.away = None;
+    s.home.away = None;
 }
 
 fn apply_starter(s: &mut State, starter_id: &str, prompt: &str, mode: Option<&str>) {
@@ -319,7 +319,7 @@ fn apply_starter(s: &mut State, starter_id: &str, prompt: &str, mode: Option<&st
     {
         s.selected = idx;
     }
-    let prompt = if s.p12.folder_invented {
+    let prompt = if s.home.folder_invented {
         let held: Vec<&str> = s
             .teammates
             .get(s.selected)
@@ -335,7 +335,7 @@ fn apply_starter(s: &mut State, starter_id: &str, prompt: &str, mode: Option<&st
     };
     maybe_switch_named_folder(s, prompt);
     s.draft = TextEdit::new(prompt);
-    s.p12.home_open = false;
+    s.home.home_open = false;
 }
 
 /// When the composer sends from Home, switch to a project the message names.
@@ -344,7 +344,7 @@ pub(super) fn maybe_switch_named_folder(s: &mut State, text: &str) {
         return;
     };
     let current = s
-        .p12
+        .home
         .folder_path
         .clone()
         .unwrap_or_else(|| store.root().display().to_string());
@@ -368,8 +368,8 @@ pub(super) fn maybe_switch_named_folder(s: &mut State, text: &str) {
     if let Some(project) = named_folder::project_named_in(text, &ctx) {
         let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
         if let Ok(entry) = folders::use_folder(&store, &project, &now) {
-            s.p12.folder_path = Some(entry.path);
-            s.p12.folder_invented = false;
+            s.home.folder_path = Some(entry.path);
+            s.home.folder_invented = false;
         }
     }
     let _ = folders::list(&store);
@@ -412,7 +412,7 @@ fn apply_template(s: &mut State, template_id: &str) {
             return;
         }
     }
-    s.p12.first_launch_done = true;
+    s.home.first_launch_done = true;
     s.status = format!("Added the {} team.", template.title);
     s.status_tone = StatusTone::Green;
     s.team = Latest::default();
@@ -431,7 +431,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         .color(p.text)
                         .grow(1.0),
                 )
-                .child(button("Close", p).on_press(|s: &mut State| s.p12.home_open = false)),
+                .child(button("Close", p).on_press(|s: &mut State| s.home.home_open = false)),
         )
         .child(
             text(COVER_CLAIM.to_owned())
@@ -442,7 +442,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
 
     // Folder strip
     let folder_line = s
-        .p12
+        .home
         .folder_path
         .clone()
         .unwrap_or_else(|| NO_FOLDER_CHOSEN.into());
@@ -469,8 +469,8 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
                     match folders::use_folder(&store, &path, &now) {
                         Ok(entry) => {
-                            s.p12.folder_path = Some(entry.path);
-                            s.p12.folder_invented = true;
+                            s.home.folder_path = Some(entry.path);
+                            s.home.folder_invented = true;
                         }
                         Err(e) => {
                             s.status = e;
@@ -480,13 +480,13 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                 }
             })),
     );
-    if s.p12.folder_invented {
+    if s.home.folder_invented {
         body = body.child(
             text(MADE_FOLDER.to_owned())
                 .font(type_::LABEL)
                 .color(p.amber),
         );
-        if let Some(path) = &s.p12.folder_path {
+        if let Some(path) = &s.home.folder_path {
             body = body.child(
                 text(folders::made_folder_note(path))
                     .font(type_::LABEL)
@@ -497,7 +497,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
     }
 
     // Away
-    if let Some(summary) = &s.p12.away {
+    if let Some(summary) = &s.home.away {
         let counts = away::away_counts(summary);
         let line = away::away_line(Some(counts)).unwrap_or_default().replacen(
             "Since you were away: ",
@@ -555,7 +555,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                                 .wrap()
                                 .on_press(move |s: &mut State| {
                                     s.opening_conversation = Some(mission_id.clone());
-                                    s.p12.home_open = false;
+                                    s.home.home_open = false;
                                 }),
                         );
                     }
@@ -581,7 +581,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     }))
                     .child(button(NEW_TEAMMATE, p).on_press(|s: &mut State| {
                         crate::people_panel::open(s);
-                        s.p12.home_open = false;
+                        s.home.home_open = false;
                     })),
             );
         for template in &TEAM_TEMPLATES {
@@ -619,7 +619,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         }
         body = body.child(button(NEW_TEAMMATE, p).on_press(|s: &mut State| {
             crate::people_panel::open(s);
-            s.p12.home_open = false;
+            s.home.home_open = false;
         }));
     }
 
@@ -695,8 +695,8 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
 pub(super) fn board_view(s: &State, p: &Palette) -> El {
     let missions = recent_as_missions(s);
     let facts = ConversationBoardFacts {
-        needs_you: s.p12.asks.keys().cloned().collect(),
-        to_look_at: s.p12.to_look_at.clone(),
+        needs_you: s.home.asks.keys().cloned().collect(),
+        to_look_at: s.home.to_look_at.clone(),
     };
     let board = conversation_board::conversation_board(&missions, &[], &HashSet::new(), &facts);
     let meta = conversation_board::board_meta(board.as_deref());
@@ -712,7 +712,7 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                     .grow(1.0),
             )
             .child(text(meta).font(type_::LABEL).color(p.muted).grow(1.0))
-            .child(button("Close", p).on_press(|s: &mut State| s.p12.board_open = false)),
+            .child(button("Close", p).on_press(|s: &mut State| s.home.board_open = false)),
     );
 
     match board {
@@ -748,15 +748,15 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                             .map(|m| conversation_board::under_title(&m.title))
                     });
                     let column_key = section.key.as_str();
-                    let ask = s.p12.asks.get(&mission_id).cloned().or_else(|| {
+                    let ask = s.home.asks.get(&mission_id).cloned().or_else(|| {
                         card.row
                             .member_ids
                             .iter()
-                            .find_map(|id| s.p12.asks.get(id).cloned())
+                            .find_map(|id| s.home.asks.get(id).cloned())
                     });
                     let state_line = match section.key {
                         ConversationBoardKey::NeedsYou => s
-                            .p12
+                            .home
                             .waiting_for
                             .get(&mission_id)
                             .cloned()
@@ -832,7 +832,7 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                             card_el =
                                 card_el.child(button(label, p).on_press(move |s: &mut State| {
                                     s.opening_conversation = Some(open_id.clone());
-                                    s.p12.board_open = false;
+                                    s.home.board_open = false;
                                 }));
                         }
                     } else {
@@ -841,8 +841,8 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                     let open_id = mission_id.clone();
                     body = body.child(card_el.on_press(move |s: &mut State| {
                         s.opening_conversation = Some(open_id.clone());
-                        s.p12.to_look_at.remove(&open_id);
-                        s.p12.board_open = false;
+                        s.home.to_look_at.remove(&open_id);
+                        s.home.board_open = false;
                     }));
                 }
             }
@@ -854,9 +854,9 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
 }
 
 pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
-    let now = s.p12.boot.finished.map(|(at, _, _)| at + 800).unwrap_or(0);
+    let now = s.home.boot.finished.map(|(at, _, _)| at + 800).unwrap_or(0);
     let phase = s
-        .p12
+        .home
         .boot
         .finished
         .map(|(at, _, _)| boot_view::phase_at(at, now))
@@ -871,10 +871,10 @@ pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
             | boot_view::BootPhase::Idle
     );
     let view = s
-        .p12
+        .home
         .boot_view
         .clone()
-        .unwrap_or_else(|| boot_view::boot_view(&s.p12.boot, phase, now));
+        .unwrap_or_else(|| boot_view::boot_view(&s.home.boot, phase, now));
     let mut body = col().w_full().gap(8.0).padding(16.0);
     body = body
         .child(
@@ -966,12 +966,12 @@ pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
         row()
             .gap(8.0)
             .child(primary("Continue", p).on_press(|s: &mut State| {
-                s.p12.boot_open = false;
-                s.p12.first_launch_done = true;
+                s.home.boot_open = false;
+                s.home.first_launch_done = true;
                 open_home(s);
             }))
             .child(button("Skip", p).on_press(|s: &mut State| {
-                s.p12.boot_open = false;
+                s.home.boot_open = false;
                 open_home(s);
             })),
     );
@@ -980,7 +980,7 @@ pub(super) fn boot_view_ui(s: &State, p: &Palette) -> El {
 
 pub(super) fn whats_new_settings(s: &State, p: &Palette) -> El {
     let mut body = col().w_full().gap(8.0).padding(12.0);
-    if s.p12.changelog.is_empty() {
+    if s.home.changelog.is_empty() {
         return body.child(
             text(changelog::EMPTY.to_owned())
                 .font(type_::LABEL)
@@ -988,7 +988,7 @@ pub(super) fn whats_new_settings(s: &State, p: &Palette) -> El {
                 .wrap(),
         );
     }
-    for entry in s.p12.changelog.iter().take(s.p12.changelog_shown) {
+    for entry in s.home.changelog.iter().take(s.home.changelog_shown) {
         body = body.child(
             text(changelog::version_heading(entry))
                 .font(type_::TITLE)
@@ -1013,10 +1013,10 @@ pub(super) fn whats_new_settings(s: &State, p: &Palette) -> El {
             );
         }
     }
-    if s.p12.changelog_shown < s.p12.changelog.len() {
+    if s.home.changelog_shown < s.home.changelog.len() {
         body = body.child(button(changelog::SHOW_OLDER, p).on_press(|s: &mut State| {
-            s.p12.changelog_shown =
-                (s.p12.changelog_shown + changelog::WHATS_NEW_MORE).min(s.p12.changelog.len());
+            s.home.changelog_shown =
+                (s.home.changelog_shown + changelog::WHATS_NEW_MORE).min(s.home.changelog.len());
         }));
     }
     body
@@ -1039,11 +1039,11 @@ pub(super) fn splash_view(s: &State, p: &Palette) -> El {
                         .grow(1.0),
                 )
                 .child(button("Close", p).on_press(|s: &mut State| {
-                    s.p12.splash_open = false;
-                    s.p12.seen_version = Some(s.p12.current_version.clone());
+                    s.home.splash_open = false;
+                    s.home.seen_version = Some(s.home.current_version.clone());
                 })),
         );
-    for entry in &s.p12.splash_entries {
+    for entry in &s.home.splash_entries {
         body = body.child(
             text(changelog::version_heading(entry))
                 .font(type_::BODY)
@@ -1062,15 +1062,15 @@ pub(super) fn splash_view(s: &State, p: &Palette) -> El {
         row()
             .gap(8.0)
             .child(button(changelog::SEE_EVERY, p).on_press(|s: &mut State| {
-                s.p12.splash_open = false;
-                s.p12.seen_version = Some(s.p12.current_version.clone());
+                s.home.splash_open = false;
+                s.home.seen_version = Some(s.home.current_version.clone());
                 crate::settings_panel::open(s);
                 s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::WhatsNew);
                 refresh_changelog(s);
             }))
             .child(primary(changelog::GOT_IT, p).on_press(|s: &mut State| {
-                s.p12.splash_open = false;
-                s.p12.seen_version = Some(s.p12.current_version.clone());
+                s.home.splash_open = false;
+                s.home.seen_version = Some(s.home.current_version.clone());
             })),
     )
 }
@@ -1078,7 +1078,7 @@ pub(super) fn splash_view(s: &State, p: &Palette) -> El {
 pub(super) fn home_scene(s: &mut State) {
     team_scene(s);
     s.appearance = Some(true);
-    s.p12 = Panel {
+    s.home = Panel {
         home_open: true,
         current_version: "0.1.0".into(),
         seen_version: Some("0.0.1".into()),
@@ -1088,15 +1088,15 @@ pub(super) fn home_scene(s: &mut State) {
         ..Panel::default()
     };
     // Force splash for the scene from the embedded big mark.
-    s.p12.splash_entries = changelog::splash_entries(
-        &s.p12.changelog,
-        s.p12.seen_version.as_deref(),
-        &s.p12.current_version,
+    s.home.splash_entries = changelog::splash_entries(
+        &s.home.changelog,
+        s.home.seen_version.as_deref(),
+        &s.home.current_version,
     )
     .into_iter()
     .cloned()
     .collect();
-    s.p12.splash_open = !s.p12.splash_entries.is_empty();
+    s.home.splash_open = !s.home.splash_entries.is_empty();
 }
 
 pub(super) fn home_light_scene(s: &mut State) {
@@ -1107,8 +1107,8 @@ pub(super) fn home_light_scene(s: &mut State) {
 pub(super) fn board_scene(s: &mut State) {
     team_scene(s);
     s.appearance = Some(true);
-    s.p12.board_open = true;
-    s.p12.home_open = false;
+    s.home.board_open = true;
+    s.home.home_open = false;
     // Demo board rows.
     s.recent = vec![
         ConversationRow {
@@ -1151,7 +1151,7 @@ pub(super) fn board_scene(s: &mut State) {
         reversible_says: None,
         claude_input: None,
     });
-    s.p12.to_look_at.insert("m_done".into());
+    s.home.to_look_at.insert("m_done".into());
     update_board_asks(
         s,
         &s.pending_approval.clone().into_iter().collect::<Vec<_>>(),
@@ -1168,7 +1168,7 @@ pub(super) fn boot_scene(s: &mut State) {
     s.appearance = Some(true);
     open_boot(s);
     // Deterministic demo rows for snaps (no live PATH dependence in the picture).
-    s.p12.boot = BootState {
+    s.home.boot = BootState {
         phase: boot_view::BootPhase::Probing,
         started_at: Some(0),
         context: Some(boot_view::BootContext {
@@ -1209,8 +1209,8 @@ pub(super) fn boot_scene(s: &mut State) {
         ],
         finished: Some((100, 2, 1)),
     };
-    s.p12.boot_view = Some(boot_view::boot_view(
-        &s.p12.boot,
+    s.home.boot_view = Some(boot_view::boot_view(
+        &s.home.boot,
         boot_view::BootPhase::Settled,
         800,
     ));
@@ -1223,8 +1223,8 @@ pub(super) fn boot_light_scene(s: &mut State) {
 
 pub(super) fn away_scene(s: &mut State) {
     home_scene(s);
-    s.p12.splash_open = false;
-    s.p12.away = Some(AwaySummary {
+    s.home.splash_open = false;
+    s.home.away = Some(AwaySummary {
         since: "2026-11-10T01:00:00.000Z".into(),
         ran: vec![away::AwayItem {
             mission_id: "m1".into(),
@@ -1258,22 +1258,22 @@ pub(super) fn whatsnew_scene(s: &mut State) {
         "{}\n## 0.0.1 - 2026-11-09\n\nEarlier preview.\n",
         changelog::NATIVE_CHANGELOG
     );
-    s.p12.changelog = changelog::entries(&notes);
-    s.p12.changelog_shown = changelog::WHATS_NEW_PAGE;
+    s.home.changelog = changelog::entries(&notes);
+    s.home.changelog_shown = changelog::WHATS_NEW_PAGE;
     // Settings shell only: the scene is a synthetic value and needs no data reads.
     s.settings_panel.open = true;
     s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::WhatsNew);
-    s.p12.seen_version = Some("0.0.1".into());
-    s.p12.current_version = "0.1.0".into();
-    s.p12.splash_entries = changelog::splash_entries(
-        &s.p12.changelog,
-        s.p12.seen_version.as_deref(),
-        &s.p12.current_version,
+    s.home.seen_version = Some("0.0.1".into());
+    s.home.current_version = "0.1.0".into();
+    s.home.splash_entries = changelog::splash_entries(
+        &s.home.changelog,
+        s.home.seen_version.as_deref(),
+        &s.home.current_version,
     )
     .into_iter()
     .cloned()
     .collect();
-    s.p12.splash_open = !s.p12.splash_entries.is_empty();
+    s.home.splash_open = !s.home.splash_entries.is_empty();
 }
 
 pub(super) fn whatsnew_light_scene(s: &mut State) {
@@ -1289,16 +1289,16 @@ mod tests {
     fn scenes_open_expected_surfaces() {
         let mut s = State::default();
         home_scene(&mut s);
-        assert!(s.p12.home_open);
+        assert!(s.home.home_open);
         board_scene(&mut s);
-        assert!(s.p12.board_open);
-        assert!(s.p12.asks.contains_key("m_ask"));
+        assert!(s.home.board_open);
+        assert!(s.home.asks.contains_key("m_ask"));
         boot_scene(&mut s);
-        assert!(s.p12.boot_open);
-        assert!(s.p12.boot_view.is_some());
+        assert!(s.home.boot_open);
+        assert!(s.home.boot_view.is_some());
         whatsnew_scene(&mut s);
-        assert!(s.p12.splash_open);
-        assert_eq!(s.p12.splash_entries.len(), 1);
+        assert!(s.home.splash_open);
+        assert_eq!(s.home.splash_entries.len(), 1);
         assert!(s.settings_panel.error.is_empty());
     }
 
@@ -1315,11 +1315,11 @@ mod review_tests {
 
     #[test]
     fn board_answers_all_conversations_through_channel_once_and_never_automatically() {
-        let root = std::env::temp_dir().join("p12-board-channel");
+        let root = std::env::temp_dir().join("home-board-channel");
         let store = store::Store::new(root.join("native"), root.join("electron")).unwrap();
         let _hook = native::hooks::install(store, None);
         let channel = native::approvals_channel();
-        let handles: Vec<_> = ["p12_board_one", "p12_board_two"]
+        let handles: Vec<_> = ["board_one", "board_two"]
             .into_iter()
             .map(|mission| {
                 let channel = channel.clone();
@@ -1340,7 +1340,7 @@ mod review_tests {
             let waiting: Vec<_> = channel
                 .waiting()
                 .into_iter()
-                .filter(|r| r.mission_id.starts_with("p12_board_"))
+                .filter(|r| r.mission_id.starts_with("board_"))
                 .collect();
             if waiting.len() == 2 {
                 break waiting;
@@ -1361,11 +1361,11 @@ mod review_tests {
             channel
                 .waiting()
                 .iter()
-                .filter(|r| r.mission_id.starts_with("p12_board_"))
+                .filter(|r| r.mission_id.starts_with("board_"))
                 .count(),
             2
         );
-        s.p12.asks.get_mut(&waiting[0].mission_id).unwrap().shown -=
+        s.home.asks.get_mut(&waiting[0].mission_id).unwrap().shown -=
             std::time::Duration::from_secs(1);
         answer_board(&mut s, &id, true);
         answer_board(&mut s, &id, false);
@@ -1376,7 +1376,7 @@ mod review_tests {
             .collect();
         assert!(decisions.iter().any(|v| v["decision"] == "accept"));
         assert!(decisions.iter().any(|v| v["decision"] == "reject"));
-        for mission in ["p12_board_one", "p12_board_two"] {
+        for mission in ["board_one", "board_two"] {
             assert_eq!(channel.take_recorded_for(mission).len(), 1);
         }
         std::fs::remove_dir_all(root).unwrap();
@@ -1384,7 +1384,7 @@ mod review_tests {
 
     #[test]
     fn away_counts_conversations_once_across_continued_turns() {
-        let root = std::env::temp_dir().join("p12-away-grouping");
+        let root = std::env::temp_dir().join("home-away-grouping");
         let store = store::Store::new(root.join("native"), root.join("electron")).unwrap();
         away::write_attention_mark(&store, "2026-01-01T00:00:00Z").unwrap();
         let mut s = State::default();
@@ -1408,7 +1408,7 @@ mod review_tests {
             },
         );
         refresh_away(&mut s);
-        let summary = s.p12.away.as_ref().unwrap();
+        let summary = s.home.away.as_ref().unwrap();
         assert_eq!(summary.ran.len(), 2);
         assert_eq!(summary.waiting, 1);
         s.sidebar_query.text = "no matches".into();
@@ -1424,15 +1424,15 @@ mod finish_review_tests {
     fn finishes_while_elsewhere_wait_and_opening_clears_the_mark() {
         let mut s = State::default();
         board_scene(&mut s);
-        s.p12.to_look_at.clear();
+        s.home.to_look_at.clear();
         let mut next = s.recent.clone();
         next[0].state = "completed".into();
         next[1].state = "cancelled".into();
         record_finishes(&mut s, &next);
-        assert_eq!(s.p12.to_look_at, HashSet::from(["m_live".into()]));
+        assert_eq!(s.home.to_look_at, HashSet::from(["m_live".into()]));
         s.recent = next;
         opened(&mut s, "m_live");
-        assert!(s.p12.to_look_at.is_empty());
-        assert!(!s.p12.board_open);
+        assert!(s.home.to_look_at.is_empty());
+        assert!(!s.home.board_open);
     }
 }
