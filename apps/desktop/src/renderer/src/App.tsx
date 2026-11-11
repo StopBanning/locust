@@ -260,7 +260,7 @@ import { installCommand } from '../../shared/runtime-install.js'
 import { splitAttachments, withAttachments } from '../../shared/attachments.js'
 // Only `heldFor`: this file has its own `ownerOf` for live runs, which is a
 // different question from who owns a recorded mission.
-import { conversationKeys, conversationTitleFor, heldFor, liveRunLastAt, routineOf } from './conversationList.js'
+import { appStartedConversation, conversationKeys, conversationTitleFor, heldFor, liveRunLastAt, routineOf } from './conversationList.js'
 import { stepConversation } from './conversationSteps.js'
 import { snoozeChoices } from './settled.js'
 import { PullRequestNewsBanner } from './components/PullRequestNewsBanner.js'
@@ -8216,6 +8216,7 @@ export default function App(): ReactElement {
       rows.push({
         missionId: mission.missionId,
         folderId: mission.workspaceId,
+        appStarted: root.startedBy?.kind === 'mcp',
         // A continuation's own prompt is the briefing; name it by the words
         // the person typed at the start of the chain.
         title: missionTitle(relayedTitle(root) ?? shownPrompt(root)),
@@ -8224,6 +8225,7 @@ export default function App(): ReactElement {
         words: splitAttachments(typedPrompt(mission, historyById)).text,
         ...(mission.continuesFrom === undefined ? {} : { parentId: mission.continuesFrom.missionId }),
         ...(routineId === undefined ? {} : { routineId }),
+        ...(mission.waitingQuestion === undefined ? {} : { waitingQuestion: mission.waitingQuestion }),
         phase: mission.phase,
         runtime: mission.runtime,
         model: mission.model,
@@ -8299,6 +8301,7 @@ export default function App(): ReactElement {
       if (folderId !== undefined && !runFolders.current.has(missionId)) runFolders.current.set(missionId, folderId)
       rows.push({
         missionId,
+        appStarted: appStartedConversation(run, rootId === undefined ? undefined : historyById.get(rootId)),
         ...(folderId === undefined ? {} : { folderId }),
         ...(rootId === undefined ? {} : { rootId }),
         ...(parentId === undefined ? {} : { parentId }),
@@ -8591,8 +8594,8 @@ export default function App(): ReactElement {
   }
   const needsYouCount = needsYouItems.length
   useEffect(() => {
-    window.desktop?.setNeedsYouCount?.(needsYouCount)
-  }, [needsYouCount])
+    window.desktop?.setNeedsYouCount?.(needsYouCount, needsYouItems.find(isConversationWait)?.missionId)
+  }, [needsYouCount, needsYouItems])
   // What is on screen, for the update handler to read (0.380): a finish the
   // person is looking at is not an unseen one. And looking clears it.
   lookingAtRef.current = { screen, teammateId: selectedTeammateId }
@@ -9374,7 +9377,7 @@ export default function App(): ReactElement {
           {...(backgroundRuns.length > 0
             ? { background: { count: backgroundRuns.filter((run) => run.state === 'working' || run.state === 'blocked' || run.state === 'unknown').length, onOpen: () => { setScreen('workroom'); setCloudPanel(false); setBackgroundPanel(true) } } }
             : {})}
-          missions={sidebarMissions}
+          missions={sidebarMissions.map((row) => ({ ...row, needsYou: needsYouMissionIds.has(row.missionId) }))}
           folders={folders}
           {...(workspaceId === undefined ? {} : { currentFolderId: workspaceId })}
           compact={layoutMode === 'compact'}

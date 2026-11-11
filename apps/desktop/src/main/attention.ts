@@ -131,7 +131,7 @@ export function createAttention(
   surface: AttentionSurface,
   timers: AttentionTimers = { schedule: (task, ms) => setTimeout(task, ms), clear: (handle) => clearTimeout(handle as NodeJS.Timeout) }
 ): {
-  approvalArrived(request: Pick<MissionApprovalRequest, 'kind' | 'summary'>, teammateName: string | undefined): boolean
+  approvalArrived(request: Pick<MissionApprovalRequest, 'kind' | 'summary'> & { readonly missionId?: string }, teammateName: string | undefined, conversationTitle?: string): boolean
   /**
    * A room's board or thread moved. Gathered per room and said once per
    * window; nothing while the window has the person's attention, because
@@ -139,7 +139,7 @@ export function createAttention(
    */
   roomChanged(input: { readonly roomId: string; readonly roomName: string; readonly message: string }): void
   /** A teammate ended a run with a question card. Said at once, like an approval. */
-  decisionAsked(teammateName: string | undefined, question: string): boolean
+  decisionAsked(teammateName: string | undefined, question: string, missionId?: string, conversationTitle?: string): boolean
   /** An app asks to use the team from anywhere (0.841, remote-mcp.ts): its card waits in the window. Said at once. */
   connectAsked(appName: string): boolean
   /** A run stopped at its account limit and waits for a person to pick where it continues. */
@@ -178,15 +178,16 @@ export function createAttention(
     surface.notify({ ...roomNotificationText(entry.roomName, entry.messages), onClick: () => surface.focusWindow() })
   }
   return {
-    approvalArrived(request, teammateName) {
+    approvalArrived(request, teammateName, conversationTitle) {
       if (!shouldNotify({ focused: surface.focused(), supported: surface.supported() })) return false
       const text = approvalNotificationText(request, teammateName)
-      surface.notify({ ...text, onClick: () => surface.focusWindow() })
+      surface.notify({ ...text, title: conversationTitle === undefined ? text.title : `${text.title} · ${conversationTitle.slice(0, 100)}`, onClick: () => { surface.focusWindow(); if (request.missionId !== undefined) surface.openMission?.(request.missionId) } })
       return true
     },
-    decisionAsked(teammateName, question) {
+    decisionAsked(teammateName, question, missionId, conversationTitle) {
       if (!shouldNotify({ focused: surface.focused(), supported: surface.supported() })) return false
-      surface.notify({ ...decisionNotificationText(teammateName, question), onClick: () => surface.focusWindow() })
+      const text = decisionNotificationText(teammateName, question)
+      surface.notify({ ...text, title: conversationTitle === undefined ? text.title : `${text.title} · ${conversationTitle.slice(0, 100)}`, onClick: () => { surface.focusWindow(); if (missionId !== undefined) surface.openMission?.(missionId) } })
       return true
     },
     connectAsked(appName) {

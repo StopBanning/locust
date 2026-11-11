@@ -1,3 +1,4 @@
+import { openQuestion } from './needsYou.js'
 import type { NormalizedRuntimeEvent } from '@teammate/runtime-adapters'
 
 /**
@@ -55,6 +56,7 @@ function tookText(ms: number): string {
 
 /** The toast for a run that just ended, or nothing when it is not worth one. */
 export function finishedToast(run: EndedRun): { readonly title: string; readonly body: string } | undefined {
+  if (openQuestion(run.events) !== undefined) return undefined
   if (run.restored || run.startedBy !== undefined) return undefined
   if (run.phase !== 'completed' && run.phase !== 'failed') return undefined
   if (run.startedAtIso === undefined) return undefined

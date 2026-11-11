@@ -30,9 +30,10 @@ import { LIST_PAGE, ListMore, WhenNear } from './ListWindow.js'
 import { RuntimeMark } from './RuntimeMark.js'
 import type { TeammateStatusView } from '../status.js'
 import { Icon } from './Icon.js'
+import { Select } from './Select.js'
 import { teammateTooltip } from '../teammateTooltip.js'
 import { railCountBadge } from '../railFlyout.js'
-import { conversationRows, heldFor, narrowingLine, ownerOf, unreadableSentence, withRoomsFolded } from '../conversationList.js'
+import { conversationSourceMatches, type ConversationSource, conversationRows, heldFor, narrowingLine, ownerOf, unreadableSentence, withRoomsFolded } from '../conversationList.js'
 import { RailFlyout } from './RailFlyout.js'
 import { useLiveCallPlace } from '../liveCall.js'
 import { routineStepLabel } from '../routines.js'
@@ -59,6 +60,10 @@ export interface SidebarMission {
    * recorded it -- a run that is still starting has no missionId to look up.
    */
   readonly ownerId?: string
+  /** The conversation was started through the MCP door, even if the person later replied. */
+  readonly appStarted?: boolean
+  readonly needsYou?: boolean
+  readonly waitingQuestion?: string
   readonly missionId: string
   readonly title: string
   readonly phase: PublicRecoveredMission['phase'] | 'running'
@@ -482,10 +487,11 @@ export function Sidebar({
    */
 
   const [faceFilter, setFaceFilter] = useState<string>()
+  const [sourceFilter, setSourceFilter] = useState<ConversationSource>('all')
   /** How many of the long list's rows are drawn (ListWindow.tsx): a page, and more as it is scrolled. */
   const [listBudget, setListBudget] = useState(LIST_PAGE)
   // A new search or filter is a new list: it starts at one page again.
-  useEffect(() => setListBudget(LIST_PAGE), [query, faceFilter])
+  useEffect(() => setListBudget(LIST_PAGE), [query, faceFilter, sourceFilter])
   const railOpenFor = railPinned ?? railHovered
   /*
    * M35 (the code review): in the rail, Rename and New group did nothing --
@@ -547,8 +553,9 @@ export function Sidebar({
   const searching = query.trim().length > 0
   const shownConversations = conversationRows(missionsMatching(missions, query, ownerName)).filter(
     (mission) =>
-      (faceFilter === undefined || ownerOf(mission, missionOwners) === faceFilter)
-      && (searching || isShown(mission, selectedMissionId) || !isPutAway(mission.lastAt, settled[mission.rootId ?? mission.missionId], now))
+      conversationSourceMatches(mission, sourceFilter)
+      && (faceFilter === undefined || ownerOf(mission, missionOwners) === faceFilter)
+      && (mission.needsYou || searching || isShown(mission, selectedMissionId) || !isPutAway(mission.lastAt, settled[mission.rootId ?? mission.missionId], now))
   )
   /*
    * Everything not in a group, keyed by the CONVERSATION rather than the
@@ -594,13 +601,14 @@ export function Sidebar({
    * "everything".
    */
   const filteredTo = teammates.find((entry) => entry.teammateId === faceFilter)
-  const narrowing = narrowingLine({
+  const sourceNarrowing = narrowingLine({
     faceName: filteredTo?.name,
     query,
     shown: shownConversations.length,
     inFace: missions.filter((mission) => ownerOf(mission, missionOwners) === faceFilter).length,
     all: missions.length
   })
+  const narrowing = sourceFilter === 'all' ? sourceNarrowing : [sourceFilter === 'app' ? 'Via apps' : 'Started here', sourceNarrowing ?? `${String(shownConversations.length)} of ${String(missions.length)} conversations`].join(' · ')
 
   const shownFaces = facesByRecency.slice(
     0,
@@ -627,10 +635,10 @@ export function Sidebar({
   const shownIds = new Set(shownConversations.map((mission) => mission.missionId))
   const childrenOf = new Map<string, SidebarMission[]>()
   for (const mission of shownConversations) {
-    if (mission.nestedUnder === undefined || !shownIds.has(mission.nestedUnder)) continue
+    if (mission.needsYou || mission.nestedUnder === undefined || !shownIds.has(mission.nestedUnder)) continue
     childrenOf.set(mission.nestedUnder, [...(childrenOf.get(mission.nestedUnder) ?? []), mission])
   }
-  const isNestedChild = (mission: SidebarMission): boolean => mission.nestedUnder !== undefined && shownIds.has(mission.nestedUnder)
+  const isNestedChild = (mission: SidebarMission): boolean => !mission.needsYou && mission.nestedUnder !== undefined && shownIds.has(mission.nestedUnder)
   const rowAndChildren = (mission: SidebarMission): ReactElement => (
     <Fragment key={mission.missionId}>
       {conversationRow(mission)}
@@ -647,8 +655,9 @@ export function Sidebar({
      * Claude's own list keeps its starred conversations -- and not listed again below.
      */
     const pinRank = (mission: SidebarMission): number => pinnedKeys.indexOf(mission.rootId ?? mission.missionId)
-    const pinned = allInFolder.filter((mission) => !isNestedChild(mission) && pinRank(mission) >= 0).sort((left, right) => pinRank(left) - pinRank(right))
-    const inFolder = allInFolder.filter((mission) => !isNestedChild(mission) && pinRank(mission) < 0)
+    const waiting = allInFolder.filter((mission) => mission.needsYou)
+    const pinned = allInFolder.filter((mission) => !mission.needsYou && !isNestedChild(mission) && pinRank(mission) >= 0).sort((left, right) => pinRank(left) - pinRank(right))
+    const inFolder = allInFolder.filter((mission) => !mission.needsYou && !isNestedChild(mission) && pinRank(mission) < 0)
     /*
      * PROJECTS, AS CLAUDE HAS THEM (Colin, 2026-09-29: "claude has
      * projects/and workspace folders, like they arent the same thing so
@@ -673,6 +682,7 @@ export function Sidebar({
     const groupsShown = drawnGroups.some((group) => showsGroup(group.groupId, inFolder, keepsEmpty))
     return (
           <>
+            {waiting.length > 0 && <div className="lc-convgroup"><div className="lc-project__head is-plain"><span className="lc-project__name lc-tone-amber">Needs you</span></div>{waiting.map(rowAndChildren)}</div>}
             {pinned.length > 0 && (
               <div className="lc-convgroup">
                 <div className="lc-project__head is-plain">
@@ -963,7 +973,7 @@ export function Sidebar({
                       * pulled the eye down the list; now a running row keeps the dot's footprint, empty, and a light
                       * band passes slowly through its title, as Claude Code's does.
                       */}
-                    {mission.phase === 'running' ? (
+                    {mission.needsYou ? <span className="lc-dot lc-tone-amber" /> : mission.phase === 'running' ? (
                       <span className="lc-conv__working" aria-hidden="true" data-orb="shimmer" />
                     ) : (
                       <span
@@ -1010,7 +1020,8 @@ export function Sidebar({
                       * while one runs, where its age would be -- the clock
                       * before the title already says it is a routine.
                       */}
-                    {(mission.memberIds ?? [mission.missionId]).some((id) => onCall.has(id)) ? (
+                    {mission.appStarted && <span className="lc-conv__age" role="img" aria-label="Started by another app through Locust">via app</span>}
+                    {mission.needsYou ? <span className="lc-conv__age lc-tone-amber">needs you</span> : (mission.memberIds ?? [mission.missionId]).some((id) => onCall.has(id)) ? (
                       <span className="lc-conv__age lc-mono lc-conv__oncall"><Icon name="waveform" size={11} />on a call</span>
                     ) : delegating ? (
                       <span className="lc-conv__age lc-mono">subagent working</span>
@@ -1108,6 +1119,16 @@ export function Sidebar({
           autoComplete="off"
         />
       </div>
+
+      {!compact && (sourceFilter !== 'all' || missions.some((mission) => mission.appStarted)) && (
+        <div className="lc-faces__clear">
+          <Select className="lc-control" aria-label="Conversation source" value={sourceFilter} onChange={(value) => setSourceFilter(value as ConversationSource)} options={[
+            { value: 'all', label: 'All conversations' },
+            { value: 'person', label: 'Started here' },
+            { value: 'app', label: 'Via apps' }
+          ]} />
+        </div>
+      )}
 
       {/*
         * THE PLACES, AT THE TOP, one to a line -- Claude's sidebar, from
@@ -1306,6 +1327,7 @@ export function Sidebar({
             onClick={() => {
               setFaceFilter(undefined)
               setQuery('')
+              setSourceFilter('all')
             }}
           >
             Clear

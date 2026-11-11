@@ -25,8 +25,8 @@ describe('the app says when a teammate is done', () => {
   })
 
   it('puts the needs-you count on the taskbar: the dot, and a flash when it rises', () => {
-    expect(app).toContain('window.desktop?.setNeedsYouCount?.(needsYouCount)')
-    expect(preload).toContain('setNeedsYouCount: (count) => ipcRenderer.send(NEEDS_YOU_COUNT_CHANNEL, count)')
+    expect(app).toContain('window.desktop?.setNeedsYouCount?.(needsYouCount, needsYouItems.find(isConversationWait)?.missionId)')
+    expect(preload).toContain('setNeedsYouCount: (count, missionId) => ipcRenderer.send(NEEDS_YOU_COUNT_CHANNEL, count, missionId)')
     expect(main).toContain('const count = needsYouCountFrom(raw)')
     expect(main).toContain("window.setOverlayIcon(said.overlay === 'dot' ? attentionDotImage : null")
     expect(main).toContain('if (said.flash) {')

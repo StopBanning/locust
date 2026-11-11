@@ -3614,6 +3614,7 @@ export interface PublicRecoveredMission {
   readonly phase: 'completed' | 'failed' | 'cancelled' | 'interrupted'
   readonly events: readonly NormalizedRuntimeEvent[]
   readonly eventCount: number
+  readonly waitingQuestion?: string | undefined
   readonly eventsTruncated: boolean
   /**
    * What the run cost in MONEY -- dollars a runtime priced, or Copilot's
@@ -3838,7 +3839,7 @@ export interface DesktopApi {
   deskTakeBack?(): Promise<void>
   readonly platform: string
   /** How many things need the person now: the taskbar shows it (0.379). */
-  setNeedsYouCount(count: number): void
+  setNeedsYouCount(count: number, missionId?: string): void
   /** Since you were away (0.590): the last attention mark, if long enough ago to count. */
   getAwaySince(): Promise<{ readonly since?: string }>
   /** A new absence ended: the window came back after at least AWAY_MINIMUM_MS. */
