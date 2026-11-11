@@ -7,11 +7,11 @@ underneath, and it does better wherever it can. When it's done, it replaces the 
 
 ## Why
 
-Measured on 9 Nov 2026 (README, Benchmark):
+Measured on 9 Nov 2026 (README, Benchmark; to be measured again with the same conversations in both):
 
 - Idle memory: about 80 MiB, against 224 to 409 MiB for Electron.
 - Idle CPU: about 0 %.
-- Size: a 27 MiB binary, against a 320 MiB app bundle.
+- Size: a 27 MiB binary then, 41 MiB on 11 Nov, against a 320 MiB app bundle.
 - First frame: about 0.2 s.
 
 ## Rules while both apps exist
@@ -49,7 +49,8 @@ Each milestone has an exit test. A milestone is done when its test passes, not w
 - Codec (Codex) drafts each round in a copy folder. Argon (Antigravity/Gemini) reviews it. Claude tests, fixes and
   pushes. Each round closes named PARITY.md rows and ticks them off.
 - Riskiest first: the engine (M1 to M3) comes before more screens.
-- Progress is reported as "rows done of 153" and "milestone reached", not as "round N shipped".
+- Progress is reported in three marks per row (built, alone, live) from `scripts/recount.py`, and as "milestone
+  reached", not as "round N shipped".
 - Every change gets synthetic-data tests. Live checks run headless, or behind other windows without focus.
 - **The behavior is ported along with the features** (Colin, 9 Nov). Each round lists the TypeScript test files for its
   area (the `*.test.ts(x)` beside the code it ports, about 1,280 in all). Each of those tests either gets a matching
@@ -67,7 +68,28 @@ Each milestone has an exit test. A milestone is done when its test passes, not w
 - **Ledger compatibility.** Mitigation: rule 3 and a both-ways compatibility test in every engine round.
 - **Size.** About 205k lines of TypeScript. Mitigation: the checklist order, and cutting nothing silently.
 
+## Order of work from 11 Nov 2026
+
+A review of the whole app and the port on 11 Nov found the engine broad but shallow, and the scoreboard counting rows
+rather than behaviour. The milestones above stay; the work towards them now runs in this order:
+
+| Phase | What | Done when |
+| --- | --- | --- |
+| A. A true scoreboard | Documents that match the code; three marks per row; a ledger of every TypeScript test file; CI for the port; a kept copy of Rune; the engine split from the window | `scripts/recount.py --check` and `scripts/test-ledger.py --check` pass in CI |
+| B. Carry a day | Checks generated from the TypeScript (every agent's command, every event stream, ledger views); the door served by Rust; hand-over and carry-on; every agent in every mode with the command guard as a hook; models and limits; notifications and the folder picker; then the native engine by default | Colin works a day in it with Electron quit |
+| C. Look like Locust | rune-kit's components, Locust's colours, type, icons, logo, agent marks and faces; picture pairs against Electron | Each main screen matches its Electron picture |
+| D. The rest of the map | The remaining rows, with overlapping features simplified in Electron first | No row missing |
+| E. Ship | Windows and Linux, the updater, moving the data folder, the switch | M7 |
+
+Known gaps the review found, now in the rows: Claude Code runs only Ask and Approve each (Edit and Auto get read-only
+tools, follow-ups start new sessions); Codex starts without its plan tool; the command guard runs only at approval
+time, not as a hook inside the agents; there is no door server, hand-over, carry-on or notification on the native
+engine.
+
 ## Status
+
+- **11 Nov 2026:** the scoreboard is generated from `parity/rows.tsv`. Every call into Electron's door is pinned by a
+  test (`src/door_calls.rs`). The round notes are in `notes/`.
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

@@ -1,0 +1,1310 @@
+file	round	status	rust	note
+apps/desktop/src/main/a-background-turn-comes-back.test.ts		waiting		
+apps/desktop/src/main/a-bang-refuses-a-folder-from-the-window.test.ts	P9	does-not-apply		main/a-bang-refuses-a-folder-from-the-window.test.ts | Electron IPC/window ownership checks do not apply: native has no IPC endpoint accepting folders/shells; only State-selected context reaches entry points. Markdown folder-opening tests o
+apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	P9	partial		main/a-bang-runs-in-the-conversations-folder.test.ts | Partial: real synthetic command/default shell path and result; process-tree stop/policy implementation lacks matching full fake-host tests. Global/project template cases outside typed-c
+apps/desktop/src/main/a-bare-machine-drive-sees-a-bare-machine.test.ts		waiting		
+apps/desktop/src/main/a-beta-can-report-itself.test.ts		waiting		
+apps/desktop/src/main/a-big-folder-compares-in-place.test.ts		waiting		
+apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts		waiting		
+apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts		waiting		
+apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts		waiting		
+apps/desktop/src/main/a-browser-changes-only-what-grants-nothing.test.ts	P8	does-not-apply		`main/a-browser-changes-only-what-grants-nothing.test.ts` (subset) | `settings_change_kept` strips Auto/reach/swarm
+apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts		waiting		
+apps/desktop/src/main/a-browser-signs-in-with-github-and-opens-locust.test.ts		waiting		
+apps/desktop/src/main/a-built-in-tool-is-not-a-connector.test.ts		waiting		
+apps/desktop/src/main/a-call-is-kept-with-its-conversation.test.ts		waiting		
+apps/desktop/src/main/a-called-link-is-closed-when-its-record-cannot-be-used.test.ts		waiting		
+apps/desktop/src/main/a-called-link-review.test.ts		waiting		
+apps/desktop/src/main/a-called-link-starts-its-routine.test.ts	p11	does-not-apply		`main/a-called-link-starts-its-routine.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-card-answer-is-recorded-past-64-open-cards.test.ts		waiting		
+apps/desktop/src/main/a-carried-conversation-keeps-its-route-and-reports-its-status.test.ts		waiting		
+apps/desktop/src/main/a-change-is-walked-through.test.ts		waiting		
+apps/desktop/src/main/a-changed-memory-list-replaces-the-old-one.test.ts		waiting		
+apps/desktop/src/main/a-check-command-is-one-line.test.ts		waiting		
+apps/desktop/src/main/a-chosen-agent-settings-folder-is-asked-about.test.ts		waiting		
+apps/desktop/src/main/a-claim-arrives-beside-what-the-host-saw.test.ts		waiting		
+apps/desktop/src/main/a-claude-teammate-gets-its-skills.test.ts		waiting		
+apps/desktop/src/main/a-cli-session-controls-only-its-own-turn.test.ts		waiting		
+apps/desktop/src/main/a-cli-under-the-apps-own-node-runs-as-the-cli.test.ts		waiting		
+apps/desktop/src/main/a-cloud-agent-signs-in-with-one-click.test.ts		waiting		
+apps/desktop/src/main/a-cloud-computer-keeps-github-from-the-agent.test.ts		waiting		
+apps/desktop/src/main/a-cloud-send-is-confirmed-by-json.test.ts		waiting		
+apps/desktop/src/main/a-cloud-session-continues-in-its-own-terminal.test.ts	P9	does-not-apply		main/a-cloud-session-continues-in-its-own-terminal.test.ts, renderer/src/a-cloud-terminal-says-what-locust-can-see.test.tsx | Cloud worktree/teleport workflow outside requested local terminal scope.
+apps/desktop/src/main/a-cloud-session-is-known-by-its-id.test.ts		waiting		
+apps/desktop/src/main/a-cloud-session-is-read-in-its-own-worktree.test.ts		waiting		
+apps/desktop/src/main/a-cloud-session-is-read-only-once-at-a-time.test.ts		waiting		
+apps/desktop/src/main/a-cloud-task-uses-the-organizations-environment.test.ts		waiting		
+apps/desktop/src/main/a-cloud-turn-keeps-its-change-there-until-applied.test.ts		waiting		
+apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts		waiting		
+apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts		waiting		
+apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts		waiting		
+apps/desktop/src/main/a-column-answers-in-a-copy.test.ts		waiting		
+apps/desktop/src/main/a-column-can-be-tried-again.test.ts		waiting		
+apps/desktop/src/main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts	P8	does-not-apply		`main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts` | No candidate; store refusal words; disk holds only ordinary rules
+apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts		waiting		
+apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts		waiting		
+apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts		waiting		
+apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts		waiting		
+apps/desktop/src/main/a-comparison-is-remembered.test.ts		waiting		
+apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts		waiting		
+apps/desktop/src/main/a-comparison-runs-again.test.ts		waiting		
+apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts		waiting		
+apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts		waiting		
+apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts		waiting		
+apps/desktop/src/main/a-connector-listing-takes-its-tree-with-it.test.ts		waiting		
+apps/desktop/src/main/a-control-icon-and-the-rail-footer-keep-their-size.test.ts		waiting		
+apps/desktop/src/main/a-conversation-can-be-imported.test.ts	P9	does-not-apply		main/past-opencode-and-cursor-chats-can-be-imported.test.ts, main/a-conversation-can-be-imported.test.ts | Standalone import workflows outside Area 7 catch-up.
+apps/desktop/src/main/a-conversation-can-be-named.test.ts	P4	does-not-apply		`main/a-conversation-can-be-named.test.ts` | exercised via `org::rename_mission` in store path | Titles only in native `teammates.json` overlay.
+apps/desktop/src/main/a-conversation-can-be-pinned.test.ts	P4	does-not-apply	a_conversation_can_be_pinned_persists,deleted_conversation_clears_pin_and_settled,pin_rejects_bad_id_and_caps_at_fifty	`main/a-conversation-can-be-pinned.test.ts` | `org::a_conversation_can_be_pinned_persists`, `pin_rejects_bad_id_and_caps_at_fifty`, `deleted_conversation_clears_pin_and_settled` | Cap 50, Electron words on refuse.
+apps/desktop/src/main/a-conversation-can-be-put-away.test.ts	P4	does-not-apply	a_conversation_can_be_put_away_persists	`main/a-conversation-can-be-put-away.test.ts` | `org::a_conversation_can_be_put_away_persists` | Persist settle/snooze/`until`; clear; bad id/time.
+apps/desktop/src/main/a-conversation-does-not-fall-off-the-list.test.ts		waiting		
+apps/desktop/src/main/a-conversation-in-a-settings-folder-is-asked-about-once.test.ts		waiting		
+apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	P9	partial		main/a-conversation-opens-in-its-own-terminal.test.ts | Partial: resume token rules and flags; newest-session lookup and busy/own-model refusals implemented. Windows Terminal/cmd cases not applicable on macOS. Remaining host facts/launch ma
+apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts		waiting		
+apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts		waiting		
+apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts		waiting		
+apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts		waiting		
+apps/desktop/src/main/a-credential-file-is-never-shown.test.ts		waiting		
+apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts		waiting		
+apps/desktop/src/main/a-cursor-mission-gives-its-connector-rules-back-when-it-ends.test.ts		waiting		
+apps/desktop/src/main/a-cursor-run-leaves-cursor-as-it-was.test.ts		waiting		
+apps/desktop/src/main/a-cursor-run-takes-back-the-rules-it-added.test.ts		waiting		
+apps/desktop/src/main/a-cursor-teammate-gets-its-skills.test.ts		waiting		
+apps/desktop/src/main/a-cursor-turn-does-not-wait-for-its-connector-list.test.ts		waiting		
+apps/desktop/src/main/a-daily-routine-keeps-its-time.test.ts	p11	does-not-apply		`main/a-daily-routine-keeps-its-time.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-declined-call-is-not-a-failure.test.ts		waiting		
+apps/desktop/src/main/a-denial-can-say-why.test.ts		waiting		
+apps/desktop/src/main/a-diagram-in-a-reply-is-drawn.test.ts	p14	partial		`shared/diagram.ts` behavior (via `main/a-diagram-in-a-reply-is-drawn.test.ts`, `renderer/.../a-diagram-in-a-reply-shows-as-one.test.tsx`) | Partial: `is_diagram`, kind words, undrawn reason/caption, mmd→mermaid, flowchart `can_draw`, kanba
+apps/desktop/src/main/a-dialog-fits-the-window.test.ts		waiting		
+apps/desktop/src/main/a-drive-claims-no-shortcut.test.ts		waiting		
+apps/desktop/src/main/a-drive-may-spend-only-when-it-says-so.test.ts		waiting		
+apps/desktop/src/main/a-drive-probe-and-copy-check-need-no-model.test.ts		waiting		
+apps/desktop/src/main/a-driven-copy-never-updates-the-installed-app.test.ts		waiting		
+apps/desktop/src/main/a-dying-server-says-why.test.ts		waiting		
+apps/desktop/src/main/a-failed-connector-reading-is-not-kept.test.ts		waiting		
+apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts		waiting		
+apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	p11	does-not-apply		`main/a-file-arriving-starts-its-routine.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts		waiting		
+apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts		waiting		
+apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts		waiting		
+apps/desktop/src/main/a-folder-given-by-its-short-name-is-still-the-root.test.ts		waiting		
+apps/desktop/src/main/a-folder-is-one-folder-however-spelled.test.ts	p12	partial		`main/every-folder-is-kept-by-its-path.test.ts`, `a-folder-is-one-folder-however-spelled.test.ts` (subset) | recover, use/list, same_as / same_folder_at_start
+apps/desktop/src/main/a-folder-too-big-to-keep-is-not-relisted-every-turn.test.ts		waiting		
+apps/desktop/src/main/a-folder-with-only-dot-files-holds-nothing-yet.test.ts		waiting		
+apps/desktop/src/main/a-folder-without-git-offers-no-changes-panel.test.ts	P7	does-not-apply	a_folder_without_git_offers_no_changes	`main/a-folder-without-git-offers-no-changes-panel.test.ts` | `a_folder_without_git_offers_no_changes` covers plain folder/repository/non-top subfolder. Explicit absent-git and indeterminate-error test seams remain unported.
+apps/desktop/src/main/a-forget-with-nothing-remembered-says-nothing.test.ts		waiting		
+apps/desktop/src/main/a-forgotten-memory-can-come-back.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
+apps/desktop/src/main/a-full-rule-store-keeps-every-rule.test.ts	P8	does-not-apply		`main/every-saved-rule-can-go-at-once.test.ts`, `main/a-full-rule-store-keeps-every-rule.test.ts` | remove all; 201st refused; duplicate OK when full
+apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts		waiting		
+apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts		waiting		
+apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts		waiting		
+apps/desktop/src/main/a-held-back-copy-says-why.test.ts		waiting		
+apps/desktop/src/main/a-held-reply-that-cannot-start-tells-every-thread.test.ts		waiting		
+apps/desktop/src/main/a-history-read-names-the-processes-still-owned.test.ts		waiting		
+apps/desktop/src/main/a-judge-reads-each-columns-work.test.ts		waiting		
+apps/desktop/src/main/a-judge-reads-the-answers-blind.test.ts		waiting		
+apps/desktop/src/main/a-kept-column-brings-its-changes-in.test.ts		waiting		
+apps/desktop/src/main/a-kept-comparison-leaves-no-branches.test.ts		waiting		
+apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts		waiting		
+apps/desktop/src/main/a-kept-record-is-not-sent-twice.test.ts		waiting		
+apps/desktop/src/main/a-kept-setup-is-not-proof-its-edit-helped.test.ts		waiting		
+apps/desktop/src/main/a-key-is-never-about-you.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
+apps/desktop/src/main/a-keyboard-user-can-see-where-they-are.test.ts		waiting		
+apps/desktop/src/main/a-kilo-follow-up-finds-its-session.test.ts		waiting		
+apps/desktop/src/main/a-language-server-that-did-not-change-is-not-asked-again.test.ts		waiting		
+apps/desktop/src/main/a-large-file-in-a-plain-folder-shows-its-change.test.ts		waiting		
+apps/desktop/src/main/a-launch-from-an-agents-settings-folder-is-not-a-workspace.test.ts		waiting		
+apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts		waiting		
+apps/desktop/src/main/a-linux-app-sees-the-terminals-path.test.ts	P9	does-not-apply		main/a-linux-terminal-is-the-one-the-desktop-has.test.ts, main/a-linux-app-sees-the-terminals-path.test.ts | Linux launcher/environment not applicable to macOS pass.
+apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts		waiting		
+apps/desktop/src/main/a-linux-terminal-is-the-one-the-desktop-has.test.ts	P9	does-not-apply		main/a-linux-terminal-is-the-one-the-desktop-has.test.ts, main/a-linux-app-sees-the-terminals-path.test.ts | Linux launcher/environment not applicable to macOS pass.
+apps/desktop/src/main/a-live-step-stays-in-its-column.test.ts		waiting		
+apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts		waiting		
+apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts		waiting		
+apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts		waiting		
+apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts		waiting		
+apps/desktop/src/main/a-long-antigravity-answer-comes-back-whole.test.ts		waiting		
+apps/desktop/src/main/a-long-command-does-not-stop-the-run.test.ts		waiting		
+apps/desktop/src/main/a-long-command-hint-keeps-its-row.test.ts		waiting		
+apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts		waiting		
+apps/desktop/src/main/a-long-diff-line-wraps.test.ts		waiting		
+apps/desktop/src/main/a-long-history-says-what-it-lists.test.ts		waiting		
+apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts		waiting		
+apps/desktop/src/main/a-long-judge-reads-files.test.ts		waiting		
+apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	P9	does-not-apply		main/a-mac-app-sees-the-terminals-path.test.ts | Broader app environment acquisition not changed here; unported.
+apps/desktop/src/main/a-mac-asks-only-for-what-locust-uses.test.ts		waiting		
+apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts		waiting		
+apps/desktop/src/main/a-mac-menu-says-locust.test.ts		waiting		
+apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	P9	does-not-apply	resume_tokens_and_mac_shell_quoting	main/a-mac-opens-its-own-terminal.test.ts | resume_tokens_and_mac_shell_quoting covers script folder, self-removal, quoting, exec; environment/account variants unported.
+apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts		waiting		
+apps/desktop/src/main/a-mac-updates-itself.test.ts		waiting		
+apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts		waiting		
+apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts		waiting		
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts		waiting		
+apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
+apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts		waiting		
+apps/desktop/src/main/a-message-is-delivered-once.test.ts		waiting		
+apps/desktop/src/main/a-message-stopped-while-starting-is-not-queued.test.ts		waiting		
+apps/desktop/src/main/a-message-that-names-its-project-starts-there.test.ts	p12	does-not-apply		`main/a-message-that-names-its-project-starts-there.test.ts` (logic) | pathsNamedIn, checkoutOf, repositoryOf, projectNamedIn
+apps/desktop/src/main/a-message-waits-until-its-runtime-starts.test.ts		waiting		
+apps/desktop/src/main/a-model-list-missing-one-is-asked-again.test.ts		waiting		
+apps/desktop/src/main/a-model-of-your-own-is-priced-as-listed.test.ts		waiting		
+apps/desktop/src/main/a-model-of-your-own-is-unpriced-not-free.test.ts		waiting		
+apps/desktop/src/main/a-named-memory-replaces-the-one-before-it.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
+apps/desktop/src/main/a-narrow-home-keeps-its-pieces-whole.test.ts		waiting		
+apps/desktop/src/main/a-new-project-is-told-how-to-write-its-first-memory.test.ts		waiting		
+apps/desktop/src/main/a-page-boundary-never-renames-a-conversation.test.ts		waiting		
+apps/desktop/src/main/a-page-runs-in-its-own-frame.test.ts	p13	does-not-apply		`main/a-page-runs-in-its-own-frame.test.ts` / `main/page-preview.ts` (confinement) | `page_preview` roots, never_served, size/mime/index
+apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	p13	does-not-apply		`main/a-part-of-the-browser-can-be-pointed-at.test.ts`, `main/a-part-of-a-page-can-be-pointed-at.test.ts` | **not ported** — point-at left missing this round
+apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	p13	does-not-apply		`main/a-part-of-the-browser-can-be-pointed-at.test.ts`, `main/a-part-of-a-page-can-be-pointed-at.test.ts` | **not ported** — point-at left missing this round
+apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	p11	partial		`main/a-paused-routine-waits-to-be-resumed.test.ts` | Partially ported: pause/resume persistence, clock base and no missed slot while paused; scheduled dispatch/tray behavior remains.
+apps/desktop/src/main/a-pdf-arrives-readable.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
+apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
+apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts		waiting		
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts		waiting		
+apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts		waiting		
+apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts		waiting		
+apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts		waiting		
+apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts		waiting		
+apps/desktop/src/main/a-plain-folder-is-watched-too.test.ts		waiting		
+apps/desktop/src/main/a-plan-that-runs-out-is-carried-on.test.ts		waiting		
+apps/desktop/src/main/a-planted-git-is-never-run.test.ts		waiting		
+apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts		waiting		
+apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts		waiting		
+apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts		waiting		
+apps/desktop/src/main/a-project-is-never-half-put-back.test.ts		waiting		
+apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts		waiting		
+apps/desktop/src/main/a-pull-request-can-be-watched.test.ts		waiting		
+apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts		waiting		
+apps/desktop/src/main/a-pull-request-shows-in-the-header.test.ts		waiting		
+apps/desktop/src/main/a-question-antigravity-asks.test.ts		waiting		
+apps/desktop/src/main/a-question-card-grows-with-the-reply.test.ts		waiting		
+apps/desktop/src/main/a-queued-message-survives-closing-locust.test.ts		waiting		
+apps/desktop/src/main/a-quiet-runtime-is-asked-to-say-what-it-does.test.ts		waiting		
+apps/desktop/src/main/a-red-gate-says-why-and-retries-only-a-timeout.test.ts		waiting		
+apps/desktop/src/main/a-reference-is-briefed-on-every-turn.test.ts		waiting		
+apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts		waiting		
+apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts		waiting		
+apps/desktop/src/main/a-refusal-keeps-the-reason-it-was-refused-for.test.ts		waiting		
+apps/desktop/src/main/a-refused-link-says-so.test.ts		waiting		
+apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts		waiting		
+apps/desktop/src/main/a-remote-control-server-lives-only-while-enabled.test.ts		waiting		
+apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts		waiting		
+apps/desktop/src/main/a-remote-control-switch-accepts-only-its-own-window.test.ts		waiting		
+apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts		waiting		
+apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts		waiting		
+apps/desktop/src/main/a-reply-lines-up-with-the-box.test.ts		waiting		
+apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts		waiting		
+apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts		waiting		
+apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts		waiting		
+apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts		waiting		
+apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts		waiting		
+apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts		waiting		
+apps/desktop/src/main/a-room-post-asks-who-was-named.test.ts		waiting		
+apps/desktop/src/main/a-room-task-is-never-bounced-back.test.ts		waiting		
+apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	p11	does-not-apply		`main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/a-routine-at-the-monthly-limit-says-so.test.ts	p11	does-not-apply		`main/a-routine-at-the-monthly-limit-says-so.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	p11	partial		`main/a-routine-awaiting-review-is-not-removed.test.ts` | Partially ported: unsafe removal refused and abandonment permits removal; exhaustive imported execution-state cases remain.
+apps/desktop/src/main/a-routine-due-while-closed-is-missed.test.ts	p11	does-not-apply		`main/a-routine-due-while-closed-is-missed.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-routine-hands-off-to-the-next-teammate.test.ts	p11	does-not-apply		`main/a-routine-hands-off-to-the-next-teammate.test.ts` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/main/a-routine-is-a-markdown-file.test.ts	p11	does-not-apply		`main/a-routine-is-a-markdown-file.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	p11	does-not-apply		`main/a-routine-keeps-going-until-its-check-passes.test.ts` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/main/a-routine-runs-on-the-route-its-teammate-runs-on.test.ts	p11	does-not-apply		`main/a-routine-runs-on-the-route-its-teammate-runs-on.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	p11	partial		`main/a-routine-step-too-long-is-refused-before-it-starts.test.ts` | Partially ported: UTF-16 save budget and refusal; full stored legacy-step/continuation cases remain.
+apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	p11	does-not-apply		`main/a-routine-step-waits-for-your-ok.test.ts` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/main/a-routine-time-passed-while-it-ran-is-missed.test.ts	p11	does-not-apply		`main/a-routine-time-passed-while-it-ran-is-missed.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	p11	does-not-apply		`main/a-routine-works-in-a-copy.test.ts` | Unported and applicable: routine copy creation/review/keep/discard remains unavailable.
+apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts		waiting		
+apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts		waiting		
+apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts		waiting		
+apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts		waiting		
+apps/desktop/src/main/a-runtime-mark-wears-its-colour-as-a-token.test.ts		waiting		
+apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts		waiting		
+apps/desktop/src/main/a-save-windows-holds-is-tried-again.test.ts		waiting		
+apps/desktop/src/main/a-saved-record-keeps-keys-out.test.ts		waiting		
+apps/desktop/src/main/a-saved-record-keeps-output-as-recorded.test.ts		waiting		
+apps/desktop/src/main/a-saved-record-says-only-what-the-ledger-holds.test.ts	P4	does-not-apply		`main/a-saved-record-says-only-what-the-ledger-holds.test.ts` | Export/save-record behavior is not part of this port. The inert Save the record… palette entry was removed.
+apps/desktop/src/main/a-scout-file-it-cannot-read-is-never-overwritten.test.ts		waiting		
+apps/desktop/src/main/a-scrolled-home-fades-its-top.test.ts		waiting		
+apps/desktop/src/main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
+apps/desktop/src/main/a-second-edit-to-a-changed-file-is-seen.test.ts		waiting		
+apps/desktop/src/main/a-secret-is-never-remembered.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
+apps/desktop/src/main/a-session-that-ended-is-not-resumed.test.ts		waiting		
+apps/desktop/src/main/a-set-aside-turn-sends-nothing.test.ts		waiting		
+apps/desktop/src/main/a-setting-line-keeps-its-control-whole.test.ts		waiting		
+apps/desktop/src/main/a-shell-gets-one-line.test.ts		waiting		
+apps/desktop/src/main/a-side-question-forks-its-conversation.test.ts		waiting		
+apps/desktop/src/main/a-slow-agent-holds-nothing-up.test.ts		waiting		
+apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts		waiting		
+apps/desktop/src/main/a-staged-update-left-behind-is-replaced.test.ts		waiting		
+apps/desktop/src/main/a-start-asks-only-its-runtime.test.ts		waiting		
+apps/desktop/src/main/a-streamed-batch-is-written-before-it-is-shown.test.ts		waiting		
+apps/desktop/src/main/a-sweep-that-cannot-learn-is-not-run.test.ts		waiting		
+apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts		waiting		
+apps/desktop/src/main/a-switch-knob-stays-in-its-track.test.ts		waiting		
+apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts		waiting		
+apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	p11	does-not-apply		`main/a-team-card-carries-its-routines.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	p12	does-not-apply		`main/a-team-template-makes-ordinary-teammates.test.ts` (titles) | TEAM_TEMPLATES + freshStartersFor
+apps/desktop/src/main/a-team-travels-as-a-picture.test.ts		waiting		
+apps/desktop/src/main/a-teammate-browses-and-asks-before-it-acts.test.ts	p13	does-not-apply		`main/a-teammate-browses-and-asks-before-it-acts.test.ts` (gates/ask) | `browser_actions` + `ask_browser` + tool recheck after deny/close
+apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts		waiting		
+apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts		waiting		
+apps/desktop/src/main/a-teammate-has-its-own-instructions.test.ts	P6	does-not-apply		`main/a-teammate-has-its-own-instructions.test.ts`, `main/about-you-is-read-by-every-teammate.test.ts` | Saved instructions and About you reach the native brief; About you survives memory off; protocol tags in the note are disarmed.
+apps/desktop/src/main/a-teammate-hears-its-turn-was-undone.test.ts	P7	does-not-apply		`main/a-teammate-hears-its-turn-was-undone.test.ts` | Runtime notice/prompt reconciliation remains unported. No claim of coverage.
+apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts		waiting		
+apps/desktop/src/main/a-teammate-signs-in-apart-in-the-browser.test.ts	p13	does-not-apply		`main/a-teammate-signs-in-apart-in-the-browser.test.ts` (profile isolation) | profile-scoped tabs; forget closes only that profile’s tabs
+apps/desktop/src/main/a-teammate-suggests-a-line-for-about-you.test.ts	P6	does-not-apply		`main/a-teammate-suggests-a-line-for-about-you.test.ts` | Suggestions do not change the person's existing note.
+apps/desktop/src/main/a-teammates-key-reaches-only-its-runs.test.ts		waiting		
+apps/desktop/src/main/a-teammates-keys-are-kept-for-it-alone.test.ts		waiting		
+apps/desktop/src/main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts	P6	does-not-apply		`main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts` | Only the **scope/enabled/kept filtering subset** is covered, not relevance scoring.
+apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts		waiting		
+apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	P9	partial		main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts | Partial: PTY printf output/ANSI/resize/exit; process-tree disposal implemented but fake lifecycle, policy, backpressure, unknown-worktree and late-spawn assertions remain
+apps/desktop/src/main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts	P9	does-not-apply		main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts | Electron IPC ownership/payload shape does not apply to in-process native handlers. Native path/refusal tests remain incomplete.
+apps/desktop/src/main/a-text-box-shows-the-lines-it-asks-for.test.ts		waiting		
+apps/desktop/src/main/a-text-box-takes-the-soft-focus.test.ts		waiting		
+apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts		waiting		
+apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts		waiting		
+apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts		waiting		
+apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts		waiting		
+apps/desktop/src/main/a-turn-can-be-undone-without-git.test.ts	P7	does-not-apply	without_git_walk_skips_dot_folders_and_dependencies	`main/a-turn-can-be-undone-without-git.test.ts` | `without_git_walk_skips_dot_folders_and_dependencies` forces the no-git path; other byte/later-edit/oversize/record tests share its restore path. `fileAt`, stable plain state IDs, hold and g
+apps/desktop/src/main/a-turn-can-be-undone.test.ts	P7	does-not-apply	git_ignore_and_raw_bytes_never_run_filters_or_fsmonitor,later_edits_and_removals_are_left_alone,overlapping_turns_are_never_offered_or_undone,restores_bytes_edits_additions_and_deletions_once,too_large_files_named_never_deleted_by_undo	`main/a-turn-can-be-undone.test.ts` | `checkpoints::tests::{restores_bytes_edits_additions_and_deletions_once, later_edits_and_removals_are_left_alone, overlapping_turns_are_never_offered_or_undone, git_ignore_and_raw_bytes_never_run_filter
+apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts		waiting		
+apps/desktop/src/main/a-turn-on-its-own-branch-leaves-a-receipt.test.ts		waiting		
+apps/desktop/src/main/a-usage-reading-outlives-the-newest-twenty.test.ts		waiting		
+apps/desktop/src/main/a-voice-call-is-placed-by-codex.test.ts		waiting		
+apps/desktop/src/main/a-voice-call-reads-the-folder-itself.test.ts		waiting		
+apps/desktop/src/main/a-voice-call-talks-as-the-teammate.test.ts		waiting		
+apps/desktop/src/main/a-voice-is-heard-before-it-is-chosen.test.ts		waiting		
+apps/desktop/src/main/a-waiting-notification-opens-its-conversation.test.ts		waiting		
+apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts		waiting		
+apps/desktop/src/main/a-windows-11-window-can-be-liquid-glass.test.ts		waiting		
+apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	p14	partial		`main/an-office-file-is-read-for-its-words.test.ts`, `an-office-file-reads-in-any-mode.test.ts`, `a-workbook-is-read-for-its-cells.test.ts`, `renderer/.../a-spreadsheet-opens-as-a-grid.test.tsx` | Partial: `document_words`, docx zip+XML, xl
+apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts		waiting		
+apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts		waiting		
+apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts		waiting		
+apps/desktop/src/main/about-you-is-read-by-every-teammate.test.ts	P6	does-not-apply		`main/a-teammate-has-its-own-instructions.test.ts`, `main/about-you-is-read-by-every-teammate.test.ts` | Saved instructions and About you reach the native brief; About you survives memory off; protocol tags in the note are disarmed.
+apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts		waiting		
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	P9	does-not-apply		main/an-added-account-has-only-its-own-home.test.ts | Account management outside scope; recorded-account terminal launch assertion remains a gap here.
+apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts		waiting		
+apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts		waiting		
+apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts		waiting		
+apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts		waiting		
+apps/desktop/src/main/an-antigravity-relay-reply-says-who-started-it.test.ts		waiting		
+apps/desktop/src/main/an-api-benchmark-prices-and-checks-each-run.test.mjs		waiting		
+apps/desktop/src/main/an-app-carries-on-a-conversation-that-ran-out.test.ts		waiting		
+apps/desktop/src/main/an-app-hears-why-a-turn-stopped-short.test.ts		waiting		
+apps/desktop/src/main/an-app-names-a-folder-locust-knows.test.ts		waiting		
+apps/desktop/src/main/an-app-picks-a-model-for-one-turn.test.ts		waiting		
+apps/desktop/src/main/an-app-reads-a-long-answer-whole.test.ts		waiting		
+apps/desktop/src/main/an-app-server-output-close-is-reported-once.test.ts		waiting		
+apps/desktop/src/main/an-app-server-that-cannot-start-says-so.test.ts		waiting		
+apps/desktop/src/main/an-app-started-opencode-turn-works-where-it-was-sent.test.ts		waiting		
+apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts		waiting		
+apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts		waiting		
+apps/desktop/src/main/an-app-waits-for-the-answer.test.ts		waiting		
+apps/desktop/src/main/an-approval-says-what-it-allows.test.ts		waiting		
+apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	P8	partial		`main/an-approval-shows-the-whole-action.test.ts` | New detail normalization/counting and long Claude path regression; full tool-input/question matrix still partial.
+apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts		waiting		
+apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts		waiting		
+apps/desktop/src/main/an-fyi-need-not-page-a-model.test.ts		waiting		
+apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts		waiting		
+apps/desktop/src/main/an-input-method-keeps-its-keys.test.ts		waiting		
+apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts		waiting		
+apps/desktop/src/main/an-issue-link-wears-its-state.test.ts		waiting		
+apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts		waiting		
+apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	p14	partial		`main/an-office-file-is-read-for-its-words.test.ts`, `an-office-file-reads-in-any-mode.test.ts`, `a-workbook-is-read-for-its-cells.test.ts`, `renderer/.../a-spreadsheet-opens-as-a-grid.test.tsx` | Partial: `document_words`, docx zip+XML, xl
+apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	p14	partial		`main/an-office-file-is-read-for-its-words.test.ts`, `an-office-file-reads-in-any-mode.test.ts`, `a-workbook-is-read-for-its-cells.test.ts`, `renderer/.../a-spreadsheet-opens-as-a-grid.test.tsx` | Partial: `document_words`, docx zip+XML, xl
+apps/desktop/src/main/an-offline-update-check-is-not-an-error.test.ts		waiting		
+apps/desktop/src/main/an-old-message-says-it-is-old.test.ts		waiting		
+apps/desktop/src/main/an-older-conversation-opens-whole.test.ts		waiting		
+apps/desktop/src/main/an-open-locust-keeps-looking-for-updates.test.ts		waiting		
+apps/desktop/src/main/an-opencode-2-mode-has-native-permission-rules.test.ts		waiting		
+apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts		waiting		
+apps/desktop/src/main/an-opencode-permission-is-a-card.test.ts		waiting		
+apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts		waiting		
+apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts		waiting		
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts		waiting		
+apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts		waiting		
+apps/desktop/src/main/an-unsupported-opencode-version-reaches-the-window.test.ts		waiting		
+apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts		waiting		
+apps/desktop/src/main/antigravity-is-found-on-a-mac.test.ts		waiting		
+apps/desktop/src/main/antigravity-mission.test.ts		waiting		
+apps/desktop/src/main/antigravity-ports-from-netstat.test.ts		waiting		
+apps/desktop/src/main/antigravity-runs-through-its-cli.test.ts		waiting		
+apps/desktop/src/main/antigravity-tiers-are-named-once.test.ts		waiting		
+apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts		waiting		
+apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts		waiting		
+apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts		waiting		
+apps/desktop/src/main/approval-channel.test.ts		waiting		
+apps/desktop/src/main/approval-patch.test.ts		waiting		
+apps/desktop/src/main/approvals-come-only-from-the-window.test.ts		waiting		
+apps/desktop/src/main/approve-each-reaches-every-start.test.ts		waiting		
+apps/desktop/src/main/ask-asks-before-a-connector.test.ts		waiting		
+apps/desktop/src/main/ask-me-first-covers-changes.test.ts		waiting		
+apps/desktop/src/main/ask-starts-none-of-your-codex-programs.test.ts		waiting		
+apps/desktop/src/main/attach-outside.test.ts	P8	partial		`main/attach-outside.test.ts` | Destination collision, traversal refuse, exclude line
+apps/desktop/src/main/attachments-for-run.test.ts		waiting		
+apps/desktop/src/main/attention-reader.test.ts		waiting		
+apps/desktop/src/main/attention.test.ts		waiting		
+apps/desktop/src/main/behind-other-windows-nothing-moves.test.ts		waiting		
+apps/desktop/src/main/block-placement.test.ts		waiting		
+apps/desktop/src/main/bounded-shutdown.test.ts		waiting		
+apps/desktop/src/main/bundled-npm.test.ts		waiting		
+apps/desktop/src/main/changelog.test.ts	p12	partial		`main/changelog.test.ts`, `main/whats-new-is-the-whole-changelog.test.ts` (parse/splash) | groups, big mark stripped, splash window, en-dash headings
+apps/desktop/src/main/classes-are-styled.test.ts		waiting		
+apps/desktop/src/main/claude-background-is-watched-not-run.test.ts		waiting		
+apps/desktop/src/main/cloud-task-service.test.ts		waiting		
+apps/desktop/src/main/cloud-tasks.test.ts		waiting		
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts		waiting		
+apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts		waiting		
+apps/desktop/src/main/codex-mission.test.ts		waiting		
+apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts		waiting		
+apps/desktop/src/main/cold-start-is-not-an-alert.test.ts		waiting		
+apps/desktop/src/main/combining-a-tunes-two-edits.test.ts		waiting		
+apps/desktop/src/main/command-length.test.ts		waiting		
+apps/desktop/src/main/command-record.test.ts		waiting		
+apps/desktop/src/main/composer-chords.test.ts		waiting		
+apps/desktop/src/main/composer-keys.test.ts		waiting		
+apps/desktop/src/main/connector-reader.test.ts		waiting		
+apps/desktop/src/main/conversation-chain.test.ts		waiting		
+apps/desktop/src/main/css-tokens-exist.test.ts		waiting		
+apps/desktop/src/main/cursor-connector-allow.test.ts		waiting		
+apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts		waiting		
+apps/desktop/src/main/cursor-visibility.test.ts		waiting		
+apps/desktop/src/main/disk-observation.test.ts		waiting		
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts		waiting		
+apps/desktop/src/main/edit-check.test.ts		waiting		
+apps/desktop/src/main/embedded-scripts-parse.test.ts		waiting		
+apps/desktop/src/main/escapes-survived-the-shell.test.ts		waiting		
+apps/desktop/src/main/every-folder-is-kept-by-its-path.test.ts	p12	partial		`main/every-folder-is-kept-by-its-path.test.ts`, `a-folder-is-one-folder-however-spelled.test.ts` (subset) | recover, use/list, same_as / same_folder_at_start
+apps/desktop/src/main/every-saved-rule-can-go-at-once.test.ts	P8	does-not-apply		`main/every-saved-rule-can-go-at-once.test.ts`, `main/a-full-rule-store-keeps-every-rule.test.ts` | remove all; 201st refused; duplicate OK when full
+apps/desktop/src/main/every-settings-switch-says-what-it-is.test.ts	P10	partial		`renderer/src/every-settings-switch-says-what-it-is.test.ts` (subset) | Swarm / Auto mode on/off Electron ledes
+apps/desktop/src/main/every-small-capital-label-is-the-machine-label.test.ts		waiting		
+apps/desktop/src/main/every-style-token-is-defined.test.ts		waiting		
+apps/desktop/src/main/every-turn-start-crosses-the-organization-policy.test.ts		waiting		
+apps/desktop/src/main/forget-hits-one-memory.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
+apps/desktop/src/main/free-routes.test.ts		waiting		
+apps/desktop/src/main/git-reaches-a-run-with-no-shell.test.ts		waiting		
+apps/desktop/src/main/grid-columns-match-children.test.ts		waiting		
+apps/desktop/src/main/groups-hold-conversations.test.ts	P4	partial		`main/groups-hold-conversations.test.ts` | partial via `create_group` / `assign_to_group` | Full instructions/route/left[] history and Project settings dialog not ported.
+apps/desktop/src/main/groups-remember-leaving.test.ts	P4	waiting		`main/groups-remember-leaving.test.ts` | **skipped** | `left[]` leave-briefing lines need thread join/leave UI (not this piece).
+apps/desktop/src/main/handoff.test.ts		waiting		
+apps/desktop/src/main/harness-backticks.test.ts		waiting		
+apps/desktop/src/main/harness-selectors.test.ts		waiting		
+apps/desktop/src/main/harness-syntax.test.ts		waiting		
+apps/desktop/src/main/home-spacing-matches-its-measure.test.ts		waiting		
+apps/desktop/src/main/install-node-is-not-said-to-a-person-with-npm.test.ts		waiting		
+apps/desktop/src/main/installed-editors.test.ts		waiting		
+apps/desktop/src/main/judges-see-the-check.test.ts		waiting		
+apps/desktop/src/main/keep-awake.test.ts		waiting		
+apps/desktop/src/main/leads-settled-2026-09-24.test.ts		waiting		
+apps/desktop/src/main/locust-counts-its-cloud-hours.test.ts		waiting		
+apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts		waiting		
+apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts		waiting		
+apps/desktop/src/main/memory-file.test.ts	P6	partial		`main/memory-file.test.ts`, `main/memory-store.test.ts` | Torn native memory refuses mutation; native seeding occurs once; Electron bytes remain unchanged.
+apps/desktop/src/main/memory-reader.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
+apps/desktop/src/main/memory-recall.test.ts		waiting		
+apps/desktop/src/main/memory-says-how-old.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
+apps/desktop/src/main/memory-store.test.ts	P6	partial		`main/memory-file.test.ts`, `main/memory-store.test.ts` | Torn native memory refuses mutation; native seeding occurs once; Electron bytes remain unchanged.
+apps/desktop/src/main/menus-dismiss.test.ts		waiting		
+apps/desktop/src/main/mission-history.test.ts		waiting		
+apps/desktop/src/main/missions-can-be-deleted-together.test.ts		waiting		
+apps/desktop/src/main/model-catalog.test.ts		waiting		
+apps/desktop/src/main/muse-wonder-is-offered.test.ts		waiting		
+apps/desktop/src/main/new-teammate-is-the-chat-bars-chip.test.ts		waiting		
+apps/desktop/src/main/no-dead-links.test.ts		waiting		
+apps/desktop/src/main/no-stray-control-characters.test.ts		waiting		
+apps/desktop/src/main/no-teammate-ends-your-browser.test.ts	P8	partial		`main/no-teammate-ends-your-browser.test.ts` (subset) | Chrome-by-name and fix-copy publish refusals
+apps/desktop/src/main/npm-precondition.test.ts		waiting		
+apps/desktop/src/main/npm-prefix.test.ts		waiting		
+apps/desktop/src/main/one-at-a-time.test.ts		waiting		
+apps/desktop/src/main/one-path-decides-every-request.test.ts		waiting		
+apps/desktop/src/main/one-table-of-modes.test.ts		waiting		
+apps/desktop/src/main/only-the-face-you-talk-to-hops.test.ts		waiting		
+apps/desktop/src/main/opencode-2-models-come-from-its-acp-session.test.ts		waiting		
+apps/desktop/src/main/opencode-2-runs-over-acp-with-its-permissions.test.ts		waiting		
+apps/desktop/src/main/opencode-sets-itself-up-before-the-first-message.test.ts		waiting		
+apps/desktop/src/main/other-apps-can-only-ask-locust-teammates.test.ts		waiting		
+apps/desktop/src/main/other-apps-need-a-current-local-token.test.ts		waiting		
+apps/desktop/src/main/other-apps-reach-locust-through-stdio.test.ts		waiting		
+apps/desktop/src/main/palette-has-no-inner-ring.test.ts	P4	partial		`main/palette-has-no-inner-ring.test.ts` | Electron CSS-only assertions; native palette was visually inspected instead.
+apps/desktop/src/main/past-opencode-and-cursor-chats-can-be-imported.test.ts	P9	does-not-apply		main/past-opencode-and-cursor-chats-can-be-imported.test.ts, main/a-conversation-can-be-imported.test.ts | Standalone import workflows outside Area 7 catch-up.
+apps/desktop/src/main/pasted-attachment.test.ts		waiting		
+apps/desktop/src/main/peer-exchange-conversation.test.ts		waiting		
+apps/desktop/src/main/permission-host.test.ts		waiting		
+apps/desktop/src/main/picker-rows-stay-one-line.test.ts		waiting		
+apps/desktop/src/main/plan-is-not-a-card.test.ts		waiting		
+apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.ts		waiting		
+apps/desktop/src/main/prose-face-is-bundled.test.ts		waiting		
+apps/desktop/src/main/qa-0365-concurrency.test.ts		waiting		
+apps/desktop/src/main/qa-0365-fresh.test.ts		waiting		
+apps/desktop/src/main/qa-0365-rooms.test.ts		waiting		
+apps/desktop/src/main/question-answers.test.ts		waiting		
+apps/desktop/src/main/quit-guard.test.ts		waiting		
+apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts		waiting		
+apps/desktop/src/main/relay-note-is-writable.test.ts		waiting		
+apps/desktop/src/main/relay.test.ts		waiting		
+apps/desktop/src/main/report-problem.test.ts		waiting		
+apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts		waiting		
+apps/desktop/src/main/retention.test.ts		waiting		
+apps/desktop/src/main/reveal-file.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
+apps/desktop/src/main/role-brief.test.ts		waiting		
+apps/desktop/src/main/room-and-mission-caps-agree.test.ts		waiting		
+apps/desktop/src/main/room-answer-is-whole.test.ts		waiting		
+apps/desktop/src/main/room-answers-side-by-side.test.ts		waiting		
+apps/desktop/src/main/room-queue-drains.test.ts		waiting		
+apps/desktop/src/main/room-store.test.ts		waiting		
+apps/desktop/src/main/room-tasks.test.ts		waiting		
+apps/desktop/src/main/rooms-are-reachable.test.ts		waiting		
+apps/desktop/src/main/route-at-start.test.ts		waiting		
+apps/desktop/src/main/route-remembers-effort.test.ts		waiting		
+apps/desktop/src/main/routine-recovery.test.ts	p11	partial		`main/routine-recovery.test.ts` | Partially ported: pre-dispatch intent, stale acknowledgement and no replay; terminal reconciliation, completion accounting and continuation/recovery IPC remain.
+apps/desktop/src/main/routine-runner.test.ts	p11	partial		`main/routine-runner.test.ts` | Partially ported: one synthetic step uses native runtime; automatic advancement, scheduler, dynamic routes and question receipt matrix remain.
+apps/desktop/src/main/routine-store.test.ts	p11	partial		`main/routine-store.test.ts` | Partially ported: basic validation/create/edit/remove/read-back; run completion, full schema filtering, route/provenance validation and advanced definitions remain.
+apps/desktop/src/main/runtime-artifacts.test.ts		waiting		
+apps/desktop/src/main/runtime-commands.test.ts		waiting		
+apps/desktop/src/main/runtime-discovery.test.ts		waiting		
+apps/desktop/src/main/runtime-installer.test.ts		waiting		
+apps/desktop/src/main/runtime-setup.test.ts		waiting		
+apps/desktop/src/main/runtime-updates.test.ts		waiting		
+apps/desktop/src/main/says-what-is-still-true.test.ts		waiting		
+apps/desktop/src/main/scout-away-comes-in-by-a-pull-request.test.ts		waiting		
+apps/desktop/src/main/scout-brings-a-morning-brief.test.ts		waiting		
+apps/desktop/src/main/scout-brings-a-weekly-tune-up.test.ts		waiting		
+apps/desktop/src/main/scout-keeps-its-goal-hours-and-word.test.ts		waiting		
+apps/desktop/src/main/scout-keeps-notes-you-can-read.test.ts		waiting		
+apps/desktop/src/main/scout-keeps-watch.test.ts		waiting		
+apps/desktop/src/main/scout-prepares-the-fix.test.ts		waiting		
+apps/desktop/src/main/scout-reads-what-github-has.test.ts		waiting		
+apps/desktop/src/main/scout-runs-the-check-only-when-the-folder-moved.test.ts		waiting		
+apps/desktop/src/main/scout-says-what-it-saw.test.ts		waiting		
+apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts		waiting		
+apps/desktop/src/main/scouts-away-look-tells-only-what-is-new.test.ts		waiting		
+apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts		waiting		
+apps/desktop/src/main/scouts-look-is-sealed.test.ts		waiting		
+apps/desktop/src/main/settings-controls-keep-off-the-scrollbar.test.ts		waiting		
+apps/desktop/src/main/settings-pages-are-real.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
+apps/desktop/src/main/settings-read-like-claudes.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
+apps/desktop/src/main/settings-rows-live-in-a-card.test.ts		waiting		
+apps/desktop/src/main/share-addressed-home.test.ts		waiting		
+apps/desktop/src/main/signing-in-is-a-button.test.ts		waiting		
+apps/desktop/src/main/skills-kept-from-github.test.ts		waiting		
+apps/desktop/src/main/slash-is-composer-only.test.ts		waiting		
+apps/desktop/src/main/sols-review-is-answered.test.ts		waiting		
+apps/desktop/src/main/sources-are-lf.test.ts		waiting		
+apps/desktop/src/main/stale-shortcut.test.ts		waiting		
+apps/desktop/src/main/start-timing.test.ts		waiting		
+apps/desktop/src/main/starting-one-mission-probes-one-runtime.test.ts		waiting		
+apps/desktop/src/main/stopping-app-server-holds-nothing.test.ts		waiting		
+apps/desktop/src/main/stores-fail-closed.test.ts		waiting		
+apps/desktop/src/main/talk-runs-on-a-mac.test.ts		waiting		
+apps/desktop/src/main/talk-starts-from-any-app.test.ts		waiting		
+apps/desktop/src/main/taskbar-attention.test.ts		waiting		
+apps/desktop/src/main/teammate-knows-its-connectors.test.ts		waiting		
+apps/desktop/src/main/teammate-store.test.ts	P6	partial		`main/teammate-store.test.ts`, `main/two-teammates-may-not-share-a-name.test.ts` | Trimmed, UTF-16-bounded names; duplicate refusal; persisted creation/edit; identity/route/folder preservation; removed ownership.
+apps/desktop/src/main/teammates-answer-their-person-in-discord.test.ts		waiting		
+apps/desktop/src/main/teammates-answer-their-person-in-slack.test.ts		waiting		
+apps/desktop/src/main/teammates-answer-their-person-in-telegram.test.ts		waiting		
+apps/desktop/src/main/testers-get-one-build-a-day.test.ts		waiting		
+apps/desktop/src/main/tests-assert-something.test.ts		waiting		
+apps/desktop/src/main/text-may-not-bleed.test.ts		waiting		
+apps/desktop/src/main/the-app-says-when-a-teammate-is-done.test.ts		waiting		
+apps/desktop/src/main/the-boot-screen-css.test.ts		waiting		
+apps/desktop/src/main/the-box-shows-only-its-own-queue.test.ts		waiting		
+apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts		waiting		
+apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	P7	waiting	large_new_files_listed_and_new_file_limit_disclosed,reads_master_merge_base_commits_untracked_unicode_and_excludes_locust	`main/the-changes-panel-reads-every-change.test.ts` | `reads_master_merge_base_commits_untracked_unicode_and_excludes_locust` and `large_new_files_listed_and_new_file_limit_disclosed` cover accented paths, local master base, committed/untra
+apps/desktop/src/main/the-chat-box-row-stays-one-line.test.ts		waiting		
+apps/desktop/src/main/the-compare-view-keeps-its-text-whole.test.ts		waiting		
+apps/desktop/src/main/the-context-menu-reads-claudes-own-estimate.test.ts		waiting		
+apps/desktop/src/main/the-cover-glass-reads-in-both-themes.test.ts		waiting		
+apps/desktop/src/main/the-current-turn-is-keyed-by-its-mission.test.ts		waiting		
+apps/desktop/src/main/the-effort-thumb-is-claude-codes-shape.test.ts		waiting		
+apps/desktop/src/main/the-effort-track-takes-the-pointer.test.ts		waiting		
+apps/desktop/src/main/the-first-screen-line-is-centred.test.ts		waiting		
+apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts		waiting		
+apps/desktop/src/main/the-folder-commits-as-you.test.ts		waiting		
+apps/desktop/src/main/the-folders-changes-are-read.test.ts		waiting		
+apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts		waiting		
+apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts		waiting		
+apps/desktop/src/main/the-history-reads-only-what-changed.test.ts		waiting		
+apps/desktop/src/main/the-home-keyframes-only-transform-and-fade.test.ts		waiting		
+apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	P8	partial		`main/the-host-refuses-always-for-a-reaching-command.test.ts` | Existing host downgrade/refusal tests retained; card saving uses the host's pending request.
+apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts		waiting		
+apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	P10	partial		`main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts` (quiet paths) | no note without key; note words exact; no keychain IO
+apps/desktop/src/main/the-live-word-is-visibly-live.test.ts		waiting		
+apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts		waiting		
+apps/desktop/src/main/the-lockup-lighting-is-drawn.test.ts		waiting		
+apps/desktop/src/main/the-menu-bar-uses-a-template.test.ts		waiting		
+apps/desktop/src/main/the-message-box-focus-meets-3-to-1.test.ts		waiting		
+apps/desktop/src/main/the-message-box-is-one-row.test.ts		waiting		
+apps/desktop/src/main/the-network-is-written-down.test.ts		waiting		
+apps/desktop/src/main/the-next-turn-is-not-refused-while-the-last-winds-down.test.ts		waiting		
+apps/desktop/src/main/the-orb-uses-the-asset-that-reads.test.ts		waiting		
+apps/desktop/src/main/the-pages-a-browser-runs-are-whole.test.ts		waiting		
+apps/desktop/src/main/the-permission-bridge-keeps-its-characters.test.ts		waiting		
+apps/desktop/src/main/the-phone-reads-history-once-per-change.test.ts		waiting		
+apps/desktop/src/main/the-plan-is-drawn-as-what-it-is.test.ts		waiting		
+apps/desktop/src/main/the-rail-can-be-used.test.ts		waiting		
+apps/desktop/src/main/the-readme-names-this-weeks-packs.test.ts		waiting		
+apps/desktop/src/main/the-renderer-draws-its-own-selects.test.ts		waiting		
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts		waiting		
+apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts		waiting		
+apps/desktop/src/main/the-starter-routines-are-routines.test.ts	p11	waiting		`main/the-starter-routines-are-routines.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts		waiting		
+apps/desktop/src/main/the-team-is-a-board.test.ts		waiting		
+apps/desktop/src/main/the-terminal-lists-wsl-by-distribution.test.ts	P9	does-not-apply		main/the-terminal-lists-wsl-by-distribution.test.ts | Windows registry/WSL not applicable to macOS pass.
+apps/desktop/src/main/the-thread-beside-the-browser-keeps-its-parts-whole.test.ts		waiting		
+apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts		waiting		
+apps/desktop/src/main/the-window-frame-never-scrolls.test.ts		waiting		
+apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts		waiting		
+apps/desktop/src/main/thread-registers.test.ts		waiting		
+apps/desktop/src/main/three-judges-are-kept.test.ts		waiting		
+apps/desktop/src/main/three-placements.test.ts		waiting		
+apps/desktop/src/main/todo-list-is-opt-in.test.ts		waiting		
+apps/desktop/src/main/tone-classes-win.test.ts		waiting		
+apps/desktop/src/main/tool-rows-say-what-they-did.test.ts		waiting		
+apps/desktop/src/main/torn-ledger.test.ts		waiting		
+apps/desktop/src/main/two-teammates-hear-about-each-others-edits.test.ts		waiting		
+apps/desktop/src/main/two-teammates-may-not-share-a-name.test.ts	P6	partial		`main/teammate-store.test.ts`, `main/two-teammates-may-not-share-a-name.test.ts` | Trimmed, UTF-16-bounded names; duplicate refusal; persisted creation/edit; identity/route/folder preservation; removed ownership.
+apps/desktop/src/main/ui-face-is-bundled.test.ts		waiting		
+apps/desktop/src/main/unreadable-is-not-empty.test.ts		waiting		
+apps/desktop/src/main/updates.test.ts		waiting		
+apps/desktop/src/main/usage-carried-from-another-computer.test.ts		waiting		
+apps/desktop/src/main/usage-is-counted.test.ts	P10	partial		`main/usage-is-counted.test.ts`, `renderer/src/usage-is-drawn.test.ts` (subset) | prompt tokens, summary ranges, paidBy/spentSentence, heat levels, compactCount reuse
+apps/desktop/src/main/voice-model-choices-stay-private.test.ts		waiting		
+apps/desktop/src/main/voice-typing-on-a-mac-goes-through-openai.test.ts		waiting		
+apps/desktop/src/main/voice-typing-refuses-unchecked-files.test.ts		waiting		
+apps/desktop/src/main/what-a-teammate-spent-this-month.test.ts		waiting		
+apps/desktop/src/main/what-a-teammate-wrote-is-quoted-dead.test.ts		waiting		
+apps/desktop/src/main/what-an-acp-agent-can-do-is-kept.test.ts		waiting		
+apps/desktop/src/main/what-happens-in-the-terminal-comes-back.test.ts	P9	partial		main/what-happens-in-the-terminal-comes-back.test.ts | Partial: Claude cli-only/completion and Codex injection/completion/after cutoff; native import readability/atomicity. Dedup, deleted imports, all branch/running/owner/cache/long-prompt/
+apps/desktop/src/main/what-it-may-do-is-what-it-was-given.test.ts		waiting		
+apps/desktop/src/main/what-locust-can-stop-is-what-it-asks.test.ts		waiting		
+apps/desktop/src/main/what-running-it-again-does.test.ts		waiting		
+apps/desktop/src/main/what-the-clis-said-survives-a-relaunch.test.ts		waiting		
+apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	p12	partial		`main/changelog.test.ts`, `main/whats-new-is-the-whole-changelog.test.ts` (parse/splash) | groups, big mark stripped, splash window, en-dash headings
+apps/desktop/src/main/window-bounds.test.ts		waiting		
+apps/desktop/src/main/window-size.test.ts		waiting		
+apps/desktop/src/main/windows-can-start-it.test.ts		waiting		
+apps/desktop/src/main/workroom-briefing.test.ts		waiting		
+apps/desktop/src/main/workspace-brief.test.ts		waiting		
+apps/desktop/src/main/workspace-files.test.ts		waiting		
+apps/desktop/src/main/workspace.test.ts		waiting		
+apps/desktop/src/main/worktrees.test.ts		waiting		
+apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts		waiting		
+apps/desktop/src/main/your-github-is-connected-through-gh.test.ts		waiting		
+apps/desktop/src/main/your-line-breaks-are-kept.test.ts	P7	does-not-apply		`main/your-line-breaks-are-kept.test.ts` | This is conversation/room bubble CSS, not checkpoint byte preservation. Its CSS assertions do not apply to this change. CRLF and binary restoration are instead tested directly.
+apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts		waiting		
+apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts		waiting		
+apps/desktop/src/main/your-own-model.test.ts		waiting		
+apps/desktop/src/main/your-phone-buzzes-only-when-it-must.test.ts		waiting		
+apps/desktop/src/preload/routine-inputs.test.ts	p11	waiting		`preload/routine-inputs.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/preload/routine-recovery.test.ts	p11	waiting		`preload/routine-recovery.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/preload/the-record-is-saved-through-one-channel.test.ts		waiting		
+apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts		waiting		
+apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	P9	partial	helper_background_end_updates_original_row	renderer/src/a-background-command-says-what-became-of-it.test.tsx | Agent activity, not own commands; existing helper_background_end_updates_original_row and activity tests retained. Full static-render parity remains.
+apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts		waiting		
+apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	P9	partial		renderer/src/a-bang-in-the-box-is-command-mode.test.tsx | Partial: Escape strips mark; mode note, result/Stop draw; accessibility/static markup assertions remain. Project template prompt outside typed scope.
+apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	p12	partial	board_and_away_match_electron_on_the_same_synthetic_rows	`renderer/src/conversations-as-a-board.test.ts`, `renderer/src/a-board-of-conversations.test.tsx`, `shared/since-you-were-away.test.ts`: existing pure reducer tests plus `board_and_away_match_electron_on_the_same_synthetic_rows`. `scripts/p
+apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts		waiting		
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts		waiting		
+apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
+apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-busy-provider-offers-continue.test.ts		waiting		
+apps/desktop/src/renderer/src/a-button-turn-says-what-was-asked.test.ts		waiting		
+apps/desktop/src/renderer/src/a-call-asks-on-a-card-in-the-thread.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-is-said-in-the-thread.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-joined-later-is-not-where-it-began.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-shows-on-its-conversation-row.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-call-with-chatgpt-wears-an-orb.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	P7	partial	copies_after_code_with_parts_apart_and_no_deleted_code	`renderer/src/a-change-can-be-copied.test.tsx` | `copies_after_code_with_parts_apart_and_no_deleted_code` covers separated hunks, new/deleted code behavior. Scene inspection covers visible copy controls. React static-markup assertions are i
+apps/desktop/src/renderer/src/a-change-is-coloured.test.tsx	P7	does-not-apply	a_change_is_coloured_as_two_whole_sides	`renderer/src/a-change-is-coloured.test.tsx` | `a_change_is_coloured_as_two_whole_sides` covers before/after construction and valid syntax ranges; dark/light scenes show colours. Pair overlays, character-conservation/mismatch fallback and a
+apps/desktop/src/renderer/src/a-change-is-performed-in-order.test.ts		waiting		
+apps/desktop/src/renderer/src/a-checklist-left-unticked-is-not-a-fault.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-claude-route-names-its-version.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-cloud-agent-is-signed-in-with-one-click.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-cloud-environment-is-optional-and-validated.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-cloud-terminal-says-what-locust-can-see.test.tsx	P9	does-not-apply		main/a-cloud-session-continues-in-its-own-terminal.test.ts, renderer/src/a-cloud-terminal-says-what-locust-can-see.test.tsx | Cloud worktree/teleport workflow outside requested local terminal scope.
+apps/desktop/src/renderer/src/a-cloud-turn-says-where-it-ran.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-cloud-watch-stops-when-it-should.test.ts		waiting		
+apps/desktop/src/renderer/src/a-codex-sandbox-that-did-not-start-says-why.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-colour-code-shows-its-colour.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-command-reads-as-a-command.test.ts		waiting		
+apps/desktop/src/renderer/src/a-command-says-how-long-it-took.test.ts	P9	partial		renderer/src/a-command-says-how-long-it-took.test.ts | Agent activity duration tests, not OwnCommand; existing ledger/UI duration tests retained. Complete assertion-by-assertion comparison remains.
+apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	P9	partial		renderer/src/a-command-wraps-at-its-spaces.test.tsx | Applicable approval/Board command typography not newly ported; own text uses Rune wrapping; no claim that every flag wrap assertion is met.
+apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	P5	partial	compaction_is_a_line_and_invalidates_context	`a-compaction-is-a-line-not-a-reply.test.ts` | `context_usage::ledger_tests::compaction_is_a_line_and_invalidates_context` proves an info-level compaction is a Note, not an Assistant message. The existing OpenCode normalizer suppresses synt
+apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts		waiting		
+apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts		waiting		
+apps/desktop/src/renderer/src/a-comparison-is-one-row.test.ts		waiting		
+apps/desktop/src/renderer/src/a-comparison-shows-its-models-on-hover.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts		waiting		
+apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts		waiting		
+apps/desktop/src/renderer/src/a-connector-can-be-added-to-every-agent.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts		waiting		
+apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-control-says-it-works-on-the-computer.test.tsx	P9	does-not-apply		renderer/src/the-window-in-a-browser-says-what-stays.test.tsx, renderer/src/a-control-says-it-works-on-the-computer.test.tsx | Browser-host refusal/remote controls not applicable to native in-process window. Native policy presentation remai
+apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	P4	partial	a_conversation_can_be_pinned_order	`a-conversation-can-be-pinned.test.tsx` | `conversation_list::a_conversation_can_be_pinned_order` | Pinned newest-first, Recents rest, no sections when empty.
+apps/desktop/src/renderer/src/a-conversation-can-be-put-away.test.tsx	P4	partial	a_conversation_can_be_put_away,snooze_times_offered	`a-conversation-can-be-put-away.test.tsx` | `settled::a_conversation_can_be_put_away`, `snooze_times_offered` + sidebar hide via `sidebar_missions_now` | Settle/snooze/expiry/activity; snooze labels.
+apps/desktop/src/renderer/src/a-conversation-can-be-searched.test.ts	P4	partial	a_conversation_can_be_searched	`a-conversation-can-be-searched.test.ts` | `thread_find::a_conversation_can_be_searched` | findIn / count words / stepHit.
+apps/desktop/src/renderer/src/a-conversation-keeps-its-name-and-group.test.ts	P4	partial		`a-conversation-keeps-its-name-and-group.test.ts` | Chain lookup is now tested through real native rows. Raw `App.tsx` wiring assertions have no native TS counterpart.
+apps/desktop/src/renderer/src/a-conversation-offers-its-terminal.test.tsx	P9	partial		renderer/src/a-conversation-offers-its-terminal.test.tsx | Offer/menu/accessibility/per-runtime words not fully ported; partial row retained.
+apps/desktop/src/renderer/src/a-conversation-opens-beside-another.test.tsx	P4	partial		`a-conversation-opens-beside-another.test.tsx` | Chrome words and middle-ID guard are ported; live stream adoption, rich ledger rendering, and priority against review/file/inspector panels remain absent. Static scenes do not prove live besi
+apps/desktop/src/renderer/src/a-conversation-with-nobody-wears-its-model.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-copy-says-the-installed-locust-updates.test.ts		waiting		
+apps/desktop/src/renderer/src/a-count-says-only-what-changed.test.tsx	P7	does-not-apply	counts_only_say_what_changed	`renderer/src/a-count-says-only-what-changed.test.tsx` | `counts_only_say_what_changed` ports all four outputs: addition, deletion, mixed edit, neither; CSS class assertions do not apply.
+apps/desktop/src/renderer/src/a-damaged-record-says-so-in-the-thread.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-decision-is-answered-by-number.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-decision-without-a-teammate-names-nobody.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	p14	partial		`shared/diagram.ts` behavior (via `main/a-diagram-in-a-reply-is-drawn.test.ts`, `renderer/.../a-diagram-in-a-reply-shows-as-one.test.tsx`) | Partial: `is_diagram`, kind words, undrawn reason/caption, mmd→mermaid, flowchart `can_draw`, kanba
+apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	P7	partial	a_diff_is_not_read_out_of_a_files_content,header_like_rows_and_next_file	`renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts` | `a_diff_is_not_read_out_of_a_files_content` and `header_like_rows_and_next_file` cover new-file diff-looking content, removed SQL comments, added ++ rows and two files. Appr
+apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-disabled-create-says-why.test.ts		waiting		
+apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts		waiting		
+apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	P7	waiting		`renderer/src/a-document-change-reads-as-words.test.ts` | All three tests remain unported: passages, whole-word cuts, Markdown-as-read handling. Document passage mode is not claimed.
+apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts		waiting		
+apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-face-at-rest-answers-you.test.ts		waiting		
+apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts		waiting		
+apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	P7	partial	binary_empty_rename_mode_and_unicode_paths_stay_listed	`renderer/src/a-file-git-shows-without-lines-is-listed.test.ts` | `binary_empty_rename_mode_and_unicode_paths_stay_listed` covers binary/empty/rename/mode-only header records; mixed text files exercised by folder tests. Exact original fixtu
+apps/desktop/src/renderer/src/a-file-opens-on-itself.test.ts	P5	does-not-apply		`a-file-opens-on-itself.test.ts` | The native reader replaces its entire target/result when opening a file and has no selected historical version. Version/diff fold reset assertions do not apply until history is implemented; no equivalent s
+apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts		waiting		
+apps/desktop/src/renderer/src/a-finished-message-stops-typing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-finished-run-has-nothing-still-running.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-first-hour-starts-plainly.test.ts		waiting		
+apps/desktop/src/renderer/src/a-folded-row-says-it-in-words.test.ts		waiting		
+apps/desktop/src/renderer/src/a-forgotten-memory-shows-with-restore.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts		waiting		
+apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts		waiting		
+apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts		waiting		
+apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	P5	partial		`a-full-context-is-compacted-from-the-ring.test.tsx` | Compaction invalidation and restored later usage are covered by the ledger test. All offer/menu/queue/route/startup-button assertions remain unported. Native command discovery currently
+apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts		waiting		
+apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts		waiting		
+apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts		waiting		
+apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
+apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-hung-cli-gets-a-way-past.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts		waiting		
+apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts		waiting		
+apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-late-check-is-never-lost.test.ts		waiting		
+apps/desktop/src/renderer/src/a-lead-shows-what-it-handed-out.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-limit-note-leaves-when-it-stops-being-true.test.ts		waiting		
+apps/desktop/src/renderer/src/a-locust-bot-draws-before-its-first-frame.test.ts		waiting		
+apps/desktop/src/renderer/src/a-long-call-is-named-while-it-runs.test.ts		waiting		
+apps/desktop/src/renderer/src/a-long-conversation-has-a-rail-of-your-messages.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-long-conversation-is-still-one-conversation.test.ts		waiting		
+apps/desktop/src/renderer/src/a-long-conversation-opens-on-its-newest-turns.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-long-fold-keeps-the-answer-near.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-long-list-is-drawn-as-far-as-it-is-read.test.tsx	P4	waiting		`a-long-list-is-drawn-as-far-as-it-is-read.test.tsx` | The twelve-turn request cap was removed, but TS incremental list-window drawing is not implemented. Large histories have not been performance-tested.
+apps/desktop/src/renderer/src/a-long-silent-stretch-reads-as-its-moves.test.ts		waiting		
+apps/desktop/src/renderer/src/a-long-turn-keeps-what-it-said.test.ts		waiting		
+apps/desktop/src/renderer/src/a-mac-says-cmd.test.tsx	P10	partial		`renderer/src/keyboardShortcuts.test.ts`, `a-mac-says-cmd.test.tsx` | groups; keysOn Cmd/Option; controlOnMac keeps Ctrl
+apps/desktop/src/renderer/src/a-mac-says-menu-bar-and-log-in.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-memory-nobody-is-given-says-so-on-screen.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-memory-says-when-it-may-be-out-of-date.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-memory-shows-what-it-said-before.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx	p11	waiting		`renderer/src/a-missed-routine-says-missed-and-run-now.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/a-model-has-one-name.test.ts		waiting		
+apps/desktop/src/renderer/src/a-model-is-one-line.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-model-opencode-cannot-find-is-retired.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	P7	waiting		`renderer/src/a-new-document-reads-as-one.test.tsx` | Document prose presentation is outside this unified-diff implementation and remains missing.
+apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts		waiting		
+apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	p11	waiting		`renderer/src/a-new-shelf-offers-starter-routines.test.tsx` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/renderer/src/a-new-teammate-interviews-you.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-new-teammate-suggests-a-free-name.test.ts		waiting		
+apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-newer-away-look-is-offered-in-settings.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-note-between-steps-renders-its-code.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts		waiting		
+apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts		waiting		
+apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-page-opens-running.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts		waiting		
+apps/desktop/src/renderer/src/a-paused-routine-says-so.test.ts	p11	waiting		`renderer/src/a-paused-routine-says-so.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
+apps/desktop/src/renderer/src/a-pdf-page-reads-in-order.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
+apps/desktop/src/renderer/src/a-pet-canvas-drawn-shrunk-is-in-software.test.ts		waiting		
+apps/desktop/src/renderer/src/a-pet-plays-what-its-teammate-is-doing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-phone-lists-conversations.test.ts		waiting		
+apps/desktop/src/renderer/src/a-picker-row-is-named-not-an-id.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-plain-conversation-wears-the-ghost.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-plan-card-is-its-own-turns.test.ts		waiting		
+apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts		waiting		
+apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts		waiting		
+apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts		waiting		
+apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-question-is-answered-by-number.test.ts		waiting		
+apps/desktop/src/renderer/src/a-question-makes-the-face-wait-on-you.test.ts		waiting		
+apps/desktop/src/renderer/src/a-queued-message-refused-as-busy-waits.test.ts		waiting		
+apps/desktop/src/renderer/src/a-queued-message-stays-in-its-conversation.test.ts		waiting		
+apps/desktop/src/renderer/src/a-quoted-equation-is-drawn.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts		waiting		
+apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts		waiting		
+apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts		waiting		
+apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	P5	waiting		`a-reload-keeps-every-comparison-column-live.test.ts` | All six tests deferred. Native does not have Electron's renderer reload, host-owned comparison columns, or pending React IPC update map. Native retains process handles and tails ledger
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts		waiting		
+apps/desktop/src/renderer/src/a-replaced-select-still-shows-its-value.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-request-is-answered-on-the-board.test.tsx	p12	partial		`renderer/src/a-request-is-answered-on-the-board.test.tsx`: native channel integration test above; real DOM bubbling, file-change/question navigation and live presses are not exercised.
+apps/desktop/src/renderer/src/a-restored-queue-offers-its-actions.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-restored-queue-waits-for-send.test.ts		waiting		
+apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts		waiting		
+apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts		waiting		
+apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts		waiting		
+apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	P4	waiting		`a-room-stays-in-the-sidebar.test.ts` | `withRoomsFolded` / `roomLastAt` and empty-room placement are not implemented.
+apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	p11	waiting		`renderer/src/a-routine-keeps-what-you-keep.test.tsx` | Unported and applicable: routine copy creation/review/keep/discard remains unavailable.
+apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	p11	waiting		`renderer/src/a-routine-names-its-folder.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/a-routine-previews-its-inputs-and-file.test.tsx	p11	waiting		`renderer/src/a-routine-previews-its-inputs-and-file.test.tsx` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/renderer/src/a-routine-run-is-marked.test.tsx	P4	partial		`a-routine-run-is-marked.test.tsx` | Routine attribution/badges are not wired in this round.
+apps/desktop/src/renderer/src/a-routine-says-what-it-may-do.test.tsx	p11	waiting		`renderer/src/a-routine-says-what-it-may-do.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/a-routine-says-what-it-runs-on.test.tsx	p11	waiting		`renderer/src/a-routine-says-what-it-runs-on.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx	p11	waiting		`renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
+apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	p11	waiting		`renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts		waiting		
+apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts		waiting		
+apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
+apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-screen-holds-its-eyes.test.ts		waiting		
+apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts		waiting		
+apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts		waiting		
+apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		waiting		
+apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts		waiting		
+apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		waiting		
+apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts		waiting		
+apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts		waiting		
+apps/desktop/src/renderer/src/a-small-bot-is-drawn-at-twice-its-size.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-spreadsheet-opens-as-a-grid.test.tsx	p14	partial		`main/an-office-file-is-read-for-its-words.test.ts`, `an-office-file-reads-in-any-mode.test.ts`, `a-workbook-is-read-for-its-cells.test.ts`, `renderer/.../a-spreadsheet-opens-as-a-grid.test.tsx` | Partial: `document_words`, docx zip+XML, xl
+apps/desktop/src/renderer/src/a-start-time-is-kept-not-shown.test.ts		waiting		
+apps/desktop/src/renderer/src/a-step-change-stands-in-for-an-unread-file.test.ts		waiting		
+apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts		waiting		
+apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts		waiting		
+apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-streamed-batch-keeps-the-whole-answer.test.ts		waiting		
+apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts		waiting		
+apps/desktop/src/renderer/src/a-team-card-says-what-it-waits-on.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-team-without-a-coder-gets-its-own-starters.test.tsx	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
+apps/desktop/src/renderer/src/a-teammate-at-work-goes-round-its-faces.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-can-be-a-pet.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-chooses-its-screen.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-teammate-has-a-model-of-its-own.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-teammate-is-not-stuck-while-agents-are-still-being-found.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-wears-how-it-feels.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.test.ts	P4	partial		`a-teammate-who-just-finished-last-worked-just-now.test.ts` | `liveRunLastAt` is not separately ported; native local summaries use ledger event times. Live teammate-card age presentation is outside this implementation.
+apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammates-eyes-say-what-it-is-doing.test.ts		waiting		
+apps/desktop/src/renderer/src/a-teammates-month-and-limit.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-teammates-setup-is-one-command-away.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts		waiting		
+apps/desktop/src/renderer/src/a-thought-line-opens-onto-its-words.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tidy-answered-leaves-no-banner.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tool-call-written-as-text.test.ts		waiting		
+apps/desktop/src/renderer/src/a-trimmed-live-turn-says-so-on-screen.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tune-can-give-a-claude-teammate-a-skill.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tune-is-measured-on-screen.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tune-names-its-setups.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-turn-that-answered-in-a-block-is-not-silent.test.ts		waiting		
+apps/desktop/src/renderer/src/a-turn-that-goes-quiet-says-so.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-turns-steps-read-like-claude-code.test.ts		waiting		
+apps/desktop/src/renderer/src/a-verbose-transcript-opens-every-step.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-voice-call-closes-what-it-opened.test.ts		waiting		
+apps/desktop/src/renderer/src/a-voice-is-heard-before-it-is-chosen.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-waiting-conversation-is-first-in-the-sidebar.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-window-that-cannot-draw-says-so.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts		waiting		
+apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts		waiting		
+apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx		waiting		
+apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts		waiting		
+apps/desktop/src/renderer/src/agentText.test.ts		waiting		
+apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		waiting		
+apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts		waiting		
+apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts		waiting		
+apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-app-started-conversation-says-so-in-the-sidebar.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts		waiting		
+apps/desktop/src/renderer/src/an-approval-names-whose-change-it-is.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts		waiting		
+apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	p12	partial		Existing starter tests map to the Rust tests listed earlier. `renderer/src/an-empty-home-offers-a-team.test.tsx`, `home-leads-with-the-team.test.tsx`, `home-names-the-model-it-runs.test.tsx` and `home-free-model-keeps-its-tag.test.tsx` are 
+apps/desktop/src/renderer/src/an-ended-run-offers-the-way-on.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-idle-teammate-offers-its-own-world.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-image-can-be-zoomed-and-panned.test.ts		waiting		
+apps/desktop/src/renderer/src/an-image-request-lives-only-with-its-row.test.ts		waiting		
+apps/desktop/src/renderer/src/an-issue-link-wears-its-state.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-older-conversation-stays-read.test.ts		waiting		
+apps/desktop/src/renderer/src/an-opencode-run-that-edited-is-not-run-again.test.ts		waiting		
+apps/desktop/src/renderer/src/an-orb-is-shrunk-in-software.test.ts		waiting		
+apps/desktop/src/renderer/src/an-orb-needs-a-runtime-that-streams.test.ts		waiting		
+apps/desktop/src/renderer/src/an-unchanged-history-is-not-sent-again.test.ts		waiting		
+apps/desktop/src/renderer/src/an-undone-turn-says-so-on-its-card.test.tsx	P7	waiting		`renderer/src/an-undone-turn-says-so-on-its-card.test.tsx` | Both assertions remain unported: activity-card heading and callback integration. Panel receipts alone do not satisfy them.
+apps/desktop/src/renderer/src/an-unknown-record-stays-out-of-the-thread.test.ts		waiting		
+apps/desktop/src/renderer/src/an-unsupported-opencode-version-is-not-offered.test.ts		waiting		
+apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx		waiting		
+apps/desktop/src/renderer/src/answer-state.test.ts		waiting		
+apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts		waiting		
+apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx		waiting		
+apps/desktop/src/renderer/src/approval-patch.test.ts		waiting		
+apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts		waiting		
+apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		waiting		
+apps/desktop/src/renderer/src/backupWords.test.ts		waiting		
+apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx		waiting		
+apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx		waiting		
+apps/desktop/src/renderer/src/claude-thinking-appears-in-the-thinking-row.test.tsx		waiting		
+apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx		waiting		
+apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	P5	waiting	code_preserves_unicode_and_has_bounded_colouring	`code-in-a-reply-is-coloured.test.tsx` | `reply_actions::tests::code_preserves_unicode_and_has_bounded_colouring` checks real Rune highlighting, valid UTF-8 boundaries and unknown-language fallback. The streaming/60k guards are implemented.
+apps/desktop/src/renderer/src/codex-buddy-lifts-in-sets.test.ts		waiting		
+apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts		waiting		
+apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx		waiting		
+apps/desktop/src/renderer/src/codex-buddys-face-changes-as-a-screen-does.test.ts		waiting		
+apps/desktop/src/renderer/src/combine-queued.test.ts		waiting		
+apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx		waiting		
+apps/desktop/src/renderer/src/command-output.test.tsx		waiting		
+apps/desktop/src/renderer/src/command-rows.test.ts		waiting		
+apps/desktop/src/renderer/src/commands-and-paths-share-one-left-edge.test.tsx		waiting		
+apps/desktop/src/renderer/src/connectors-are-not-the-mode.test.tsx		waiting		
+apps/desktop/src/renderer/src/conversations-as-a-board.test.ts	p12	partial		`renderer/src/conversations-as-a-board.test.ts` | columns, order, rooms/trash out, needs-you / to-look-at
+apps/desktop/src/renderer/src/cost.test.ts		waiting		
+apps/desktop/src/renderer/src/diff.test.ts	P7	waiting	added_cursor_file_counts_numbers_ranges_and_copy,context_folds_exactly_and_never_hides_changes,header_like_rows_and_next_file,ranges_derive_from_rows_and_completeness_never_silent	`renderer/src/diff.test.ts` | `changes::tests::{added_cursor_file_counts_numbers_ranges_and_copy, header_like_rows_and_next_file, ranges_derive_from_rows_and_completeness_never_silent, context_folds_exactly_and_never_hides_changes}` cover a
+apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx		waiting		
+apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts		waiting		
+apps/desktop/src/renderer/src/effortLevels.test.ts		waiting		
+apps/desktop/src/renderer/src/effortScale.test.ts		waiting		
+apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts		waiting		
+apps/desktop/src/renderer/src/every-call-a-browser-is-refused-is-decided.test.ts		waiting		
+apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts		waiting		
+apps/desktop/src/renderer/src/every-face-draws-on-one-beat.test.ts		waiting		
+apps/desktop/src/renderer/src/every-face-measures-before-any-face-writes.test.ts		waiting		
+apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	P10	partial		`renderer/src/every-limit-says-what-is-left.test.tsx` | plan windows say `% left`
+apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-runtime-keeps-its-output.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
+apps/desktop/src/renderer/src/exchange.test.ts		waiting		
+apps/desktop/src/renderer/src/faceState.test.ts		waiting		
+apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx		waiting		
+apps/desktop/src/renderer/src/finishedToast.test.ts		waiting		
+apps/desktop/src/renderer/src/fold-tool-runs.test.ts		waiting		
+apps/desktop/src/renderer/src/follow-bottom.test.ts		waiting		
+apps/desktop/src/renderer/src/group-boundary.test.ts	P4	partial		`group-settings-dialog.test.tsx`, `group-boundary.test.ts`, `group-leaving-line.test.ts`, `group-join-line-survives-leaving.test.ts` | Project settings and thread briefing boundary rendering remain absent. Preserving the records does not im
+apps/desktop/src/renderer/src/group-join-line-survives-leaving.test.ts	P4	partial		`group-settings-dialog.test.tsx`, `group-boundary.test.ts`, `group-leaving-line.test.ts`, `group-join-line-survives-leaving.test.ts` | Project settings and thread briefing boundary rendering remain absent. Preserving the records does not im
+apps/desktop/src/renderer/src/group-leaving-line.test.ts	P4	partial		`group-settings-dialog.test.tsx`, `group-boundary.test.ts`, `group-leaving-line.test.ts`, `group-join-line-survives-leaving.test.ts` | Project settings and thread briefing boundary rendering remain absent. Preserving the records does not im
+apps/desktop/src/renderer/src/group-settings-dialog.test.tsx	P4	partial		`group-settings-dialog.test.tsx`, `group-boundary.test.ts`, `group-leaving-line.test.ts`, `group-join-line-survives-leaving.test.ts` | Project settings and thread briefing boundary rendering remain absent. Preserving the records does not im
+apps/desktop/src/renderer/src/groups-unreadable-is-a-line.test.tsx	P4	partial		`groups-unreadable-is-a-line.test.tsx` | words in sidebar when `groups_unreadable` | Same Electron sentences.
+apps/desktop/src/renderer/src/home-fits-one-screen.test.tsx	p12	waiting		`the-home-screen-is-the-cover.test.tsx`, `home-fits-one-screen.test.tsx`, `home-fits-two-rows-of-teammates.test.ts`, `home-holds-still-when-tight-spacing-shrinks-it.test.ts`, `the-home-cover-rests-after-inactivity.test.ts`, and main's boot/
+apps/desktop/src/renderer/src/home-fits-two-rows-of-teammates.test.ts	p12	waiting		`the-home-screen-is-the-cover.test.tsx`, `home-fits-one-screen.test.tsx`, `home-fits-two-rows-of-teammates.test.ts`, `home-holds-still-when-tight-spacing-shrinks-it.test.ts`, `the-home-cover-rests-after-inactivity.test.ts`, and main's boot/
+apps/desktop/src/renderer/src/home-free-model-keeps-its-tag.test.tsx	p12	partial		Existing starter tests map to the Rust tests listed earlier. `renderer/src/an-empty-home-offers-a-team.test.tsx`, `home-leads-with-the-team.test.tsx`, `home-names-the-model-it-runs.test.tsx` and `home-free-model-keeps-its-tag.test.tsx` are 
+apps/desktop/src/renderer/src/home-holds-still-when-tight-spacing-shrinks-it.test.ts	p12	waiting		`the-home-screen-is-the-cover.test.tsx`, `home-fits-one-screen.test.tsx`, `home-fits-two-rows-of-teammates.test.ts`, `home-holds-still-when-tight-spacing-shrinks-it.test.ts`, `the-home-cover-rests-after-inactivity.test.ts`, and main's boot/
+apps/desktop/src/renderer/src/home-leads-with-the-team.test.tsx	p12	partial		Existing starter tests map to the Rust tests listed earlier. `renderer/src/an-empty-home-offers-a-team.test.tsx`, `home-leads-with-the-team.test.tsx`, `home-names-the-model-it-runs.test.tsx` and `home-free-model-keeps-its-tag.test.tsx` are 
+apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	p12	partial		Existing starter tests map to the Rust tests listed earlier. `renderer/src/an-empty-home-offers-a-team.test.tsx`, `home-leads-with-the-team.test.tsx`, `home-names-the-model-it-runs.test.tsx` and `home-free-model-keeps-its-tag.test.tsx` are 
+apps/desktop/src/renderer/src/homeCoverStatus.test.ts		waiting		
+apps/desktop/src/renderer/src/homeTeamState.test.ts		waiting		
+apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx		waiting		
+apps/desktop/src/renderer/src/its-own-settings-file.test.ts		waiting		
+apps/desktop/src/renderer/src/judges-see-the-check.test.tsx		waiting		
+apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx		waiting		
+apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	P10	partial		`renderer/src/keyboardShortcuts.test.ts`, `a-mac-says-cmd.test.tsx` | groups; keysOn Cmd/Option; controlOnMac keeps Ctrl
+apps/desktop/src/renderer/src/last-activity.test.ts		waiting		
+apps/desktop/src/renderer/src/layout.test.ts		waiting		
+apps/desktop/src/renderer/src/ledgerFailure.test.ts		waiting		
+apps/desktop/src/renderer/src/links-go-somewhere.test.ts		waiting		
+apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts		waiting		
+apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx		waiting		
+apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	p14	partial		`renderer/src/math-in-a-reply-is-drawn.test.tsx` (+ agentText dollar rules) | Covered for delimiters, fence skip, money-as-prose, display/inline PNG path; KaTeX DOM/CSS and every agentText edge not claimed
+apps/desktop/src/renderer/src/mcp-tool-rows.test.ts		waiting		
+apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts		waiting		
+apps/desktop/src/renderer/src/menuDigit.test.ts		waiting		
+apps/desktop/src/renderer/src/missionView.test.ts		waiting		
+apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	P4	partial		`missions-lists-conversations.test.tsx` | Chain grouping/root/leaf behavior is covered through native sidebar rows. A Missions screen, its count/age/turn metadata, and whole-chain deletion are not implemented in this round.
+apps/desktop/src/renderer/src/mode-says-one-thing.test.ts		waiting		
+apps/desktop/src/renderer/src/nested-lists.test.ts		waiting		
+apps/desktop/src/renderer/src/nobodys-conversation-can-be-a-routine.test.tsx	p11	waiting		`renderer/src/nobodys-conversation-can-be-a-routine.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/notes-on-a-diff-go-as-one-message.test.tsx		waiting		
+apps/desktop/src/renderer/src/noting-what-a-tune-showed-is-explicit.test.tsx		waiting		
+apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx		waiting		
+apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts		waiting		
+apps/desktop/src/renderer/src/one-fact-one-surface.test.ts		waiting		
+apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx		waiting		
+apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx		waiting		
+apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx		waiting		
+apps/desktop/src/renderer/src/picker-empty-states.test.tsx		waiting		
+apps/desktop/src/renderer/src/plan-answer.test.tsx		waiting		
+apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx		waiting		
+apps/desktop/src/renderer/src/post-headline.test.ts		waiting		
+apps/desktop/src/renderer/src/prompt-is-the-codex-mascot.test.ts		waiting		
+apps/desktop/src/renderer/src/pull-request-news-is-said.test.tsx		waiting		
+apps/desktop/src/renderer/src/putting-a-file-back.test.ts		waiting		
+apps/desktop/src/renderer/src/qa-0365-composer.test.tsx		waiting		
+apps/desktop/src/renderer/src/quiet.test.ts		waiting		
+apps/desktop/src/renderer/src/railFlyout.test.ts		waiting		
+apps/desktop/src/renderer/src/ran-on.test.ts		waiting		
+apps/desktop/src/renderer/src/reasoning-is-kept.test.ts		waiting		
+apps/desktop/src/renderer/src/resume.test.ts	P5	waiting		`resume.test.ts` | Seven `recovery::tests` cover all decision cases: newest/absent checkpoint, safe record, named doubt, unsafe/integrity refusal, completed/failed/manual/no-checkpoint cancellation suppression, and shutdown cancellation. Se
+apps/desktop/src/renderer/src/review-brief.test.ts		waiting		
+apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx		waiting		
+apps/desktop/src/renderer/src/review-pair.test.ts		waiting		
+apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts		waiting		
+apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx		waiting		
+apps/desktop/src/renderer/src/room-card-names-who.test.tsx		waiting		
+apps/desktop/src/renderer/src/room-exchange.test.ts		waiting		
+apps/desktop/src/renderer/src/room-round-two.test.tsx		waiting		
+apps/desktop/src/renderer/src/room-too-big-to-make.test.tsx		waiting		
+apps/desktop/src/renderer/src/routeChipReading.test.ts		waiting		
+apps/desktop/src/renderer/src/routeName.test.ts		waiting		
+apps/desktop/src/renderer/src/routine-dialog-names-the-model.test.tsx	p11	waiting		`renderer/src/routine-dialog-names-the-model.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/routine-recovery.test.tsx	p11	waiting		`renderer/src/routine-recovery.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/routines-shelf.test.tsx	p11	waiting		`renderer/src/routines-shelf.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/routines.test.ts	p11	waiting		`renderer/src/routines.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts		waiting		
+apps/desktop/src/renderer/src/savable-conversations.test.ts		waiting		
+apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx		waiting		
+apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx		waiting		
+apps/desktop/src/renderer/src/scout-settings-show-what-it-saw.test.tsx		waiting		
+apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	P4	partial	a_sidebar_search_finds_title_id_said_and_teammate	`search-finds-every-turn.test.tsx` (missionsMatching) | `conversation_search::a_sidebar_search_finds_title_id_said_and_teammate` | Title/id/said/teammate. Skipped: Escape/Ctrl-K DOM wiring (covered by native `on_key`).
+apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx		waiting		
+apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx		waiting		
+apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx		waiting		
+apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
+apps/desktop/src/renderer/src/settled-text.test.ts		waiting		
+apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts		waiting		
+apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
+apps/desktop/src/renderer/src/slashCommands.test.ts		waiting		
+apps/desktop/src/renderer/src/spawning-is-not-working.test.ts		waiting		
+apps/desktop/src/renderer/src/startPhase.test.ts		waiting		
+apps/desktop/src/renderer/src/status.test.ts		waiting		
+apps/desktop/src/renderer/src/steering.test.ts		waiting		
+apps/desktop/src/renderer/src/stickToBottom.test.ts		waiting		
+apps/desktop/src/renderer/src/stop-card-says-tools-not-work.test.tsx		waiting		
+apps/desktop/src/renderer/src/stop-press.test.ts		waiting		
+apps/desktop/src/renderer/src/stream-frames.test.ts		waiting		
+apps/desktop/src/renderer/src/swarm.test.ts		waiting		
+apps/desktop/src/renderer/src/talk-is-pressed-by-its-keys.test.tsx		waiting		
+apps/desktop/src/renderer/src/teamBoard.test.ts		waiting		
+apps/desktop/src/renderer/src/teammate-folder-row.test.tsx		waiting		
+apps/desktop/src/renderer/src/teammateTooltip.test.ts		waiting		
+apps/desktop/src/renderer/src/teammateWork.test.ts		waiting		
+apps/desktop/src/renderer/src/the-bare-machine.test.ts		waiting		
+apps/desktop/src/renderer/src/the-beams-are-mono-and-quiet.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-boot-screen.test.ts	p12	partial		`the-boot-screen.test.ts` (progress/summary/words) | boot_view progress/summary/result/phase_at/homeRelative
+apps/desktop/src/renderer/src/the-changes-panel-lists-every-file.test.tsx	P7	partial		`renderer/src/the-changes-panel-lists-every-file.test.tsx` | Row-derived counts covered by parser tests. `treeOf` grouping assertion remains unported because the UI list is flat.
+apps/desktop/src/renderer/src/the-changes-panel-shows-its-files-with-cmd-on-a-mac.test.ts	P7	does-not-apply		`renderer/src/the-changes-panel-shows-its-files-with-cmd-on-a-mac.test.ts` | Native shortcut wired; source-string/React tooltip assertions do not apply. Behavioral modifier/platform matrix remains unported.
+apps/desktop/src/renderer/src/the-chip-keeps-free.test.ts		waiting		
+apps/desktop/src/renderer/src/the-cloud-hours-are-shown.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-composer-counts-what-it-is-about.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-context-menu-shows-what-fills-it.test.tsx	P5	waiting		`the-context-menu-shows-what-fills-it.test.tsx` | Both category-menu assertions deferred: context breakdown/menu is not implemented.
+apps/desktop/src/renderer/src/the-cover-counts-only-work.test.ts		waiting		
+apps/desktop/src/renderer/src/the-cover-grows-into-spare-height.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-cover-notices-you.test.ts		waiting		
+apps/desktop/src/renderer/src/the-effort-control-is-claude-codes.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts		waiting		
+apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
+apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts		waiting		
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	P4	waiting		`the-flat-sidebar.test.ts` | Native ordering helpers and chain rows cover part of the list contract. Face filter, nested relayed conversations, compact flyout and all TS presentation assertions remain unported.
+apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-frame-pass.test.ts		waiting		
+apps/desktop/src/renderer/src/the-free-promise-checks-itself.test.ts		waiting		
+apps/desktop/src/renderer/src/the-header-is-a-row-of-icons.test.tsx	P9	waiting		renderer/src/the-header-is-a-row-of-icons.test.tsx | Applicable terminal icon/hover policy assertions unported; current control is text in status row. Browser portions outside Area 7.
+apps/desktop/src/renderer/src/the-header-says-money-or-nothing.test.ts		waiting		
+apps/desktop/src/renderer/src/the-home-cover-rests-after-inactivity.test.ts	p12	waiting		`the-home-screen-is-the-cover.test.tsx`, `home-fits-one-screen.test.tsx`, `home-fits-two-rows-of-teammates.test.ts`, `home-holds-still-when-tight-spacing-shrinks-it.test.ts`, `the-home-cover-rests-after-inactivity.test.ts`, and main's boot/
+apps/desktop/src/renderer/src/the-home-screen-is-the-cover.test.tsx	p12	waiting		`the-home-screen-is-the-cover.test.tsx`, `home-fits-one-screen.test.tsx`, `home-fits-two-rows-of-teammates.test.ts`, `home-holds-still-when-tight-spacing-shrinks-it.test.ts`, `the-home-cover-rests-after-inactivity.test.ts`, and main's boot/
+apps/desktop/src/renderer/src/the-kept-pets-are-puppets.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-live-line-opens-the-plan.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts		waiting		
+apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts		waiting		
+apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts		waiting		
+apps/desktop/src/renderer/src/the-orb-reaches-the-running-step.test.ts		waiting		
+apps/desktop/src/renderer/src/the-others-line-describes-the-others.test.ts		waiting		
+apps/desktop/src/renderer/src/the-picker-opens-on-what-is-chosen.test.ts		waiting		
+apps/desktop/src/renderer/src/the-picker-opens-on-what-works.test.ts		waiting		
+apps/desktop/src/renderer/src/the-picker-reads-as-names.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-plan-marks-the-step-underway.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-plus-menu-says-what-each-droplet-does.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-rail-clock-is-made-once.test.ts		waiting		
+apps/desktop/src/renderer/src/the-ring-reads-what-the-conversation-holds.test.ts	P5	waiting	only_runtime_measured_context_is_shown	`the-ring-reads-what-the-conversation-holds.test.ts` | `only_runtime_measured_context_is_shown` checks the runtime denominator, absent/zero usage, percentage cap and exact 164k/200k sentence. Cost/subscription totals and exact SVG path asse
+apps/desktop/src/renderer/src/the-runtimes-wear-their-marks.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-screens-say-less.test.ts		waiting		
+apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	P9	partial		renderer/src/the-terminal-opens-before-the-first-message.test.tsx | Partial: toggle before ledger exists; shortcut, accessibility and IPC chunk-boundary tests remain (native bytes stream directly to parser).
+apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	P9	waiting		renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx | TerminalDivider/ownership rendering unported.
+apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts		waiting		
+apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-way-down-says-a-run-is-still-working.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-way-in-stays-on-the-shelf.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-window-in-a-browser-and-its-cover.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-window-in-a-browser-says-what-stays.test.tsx	P9	does-not-apply		renderer/src/the-window-in-a-browser-says-what-stays.test.tsx, renderer/src/a-control-says-it-works-on-the-computer.test.tsx | Browser-host refusal/remote controls not applicable to native in-process window. Native policy presentation remai
+apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx		waiting		
+apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts		waiting		
+apps/desktop/src/renderer/src/thought-folds-to-one-line.test.ts		waiting		
+apps/desktop/src/renderer/src/three-judges-vote.test.tsx		waiting		
+apps/desktop/src/renderer/src/tool-vocabulary.test.ts		waiting		
+apps/desktop/src/renderer/src/transcriptView.test.ts		waiting		
+apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx		waiting		
+apps/desktop/src/renderer/src/two-files-with-one-name-stay-two.test.ts		waiting		
+apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts		waiting		
+apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx		waiting		
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	P10	does-not-apply		TypeScript test accounting: `main/usage-is-counted.test.ts`, `shared/spend.test.ts`, `renderer/src/usage-is-drawn.test.tsx`, `settings-search-knows-the-words.test.ts`, `every-limit-says-what-is-left.test.tsx`, `keyboardShortcuts.test.ts`, `
+apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts		waiting		
+apps/desktop/src/renderer/src/voice-typing-in-a-browser-says-where-its-setup-is.test.tsx		waiting		
+apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx		waiting		
+apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx		waiting		
+apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts		waiting		
+apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts		waiting		
+apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx		waiting		
+apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx		waiting		
+apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx		waiting		
+apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx		waiting		
+apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx		waiting		
+apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts		waiting		
+apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx		waiting		
+apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts		waiting		
+apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	P9	does-not-apply		shared/a-command-file-becomes-a-prompt.test.ts | Leading bang/escape covered; Markdown templates/frontmatter/positional arguments and slash choice are outside typed-command scope; one-shot Windows/WSL variants do not apply to this macOS pas
+apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	P9	partial	output_tail_and_unicode	shared/a-command-output-keeps-its-tail.test.ts | Partial: Rust output_tail_and_unicode covers last lines/bytes/Unicode; exact omitted-byte matrix remains.
+apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	P9	partial	own_command_carries_once_and_stays_in_its_conversation	shared/a-command-reaches-the-next-message-once.test.ts | Partial: own_command_carries_once_and_stays_in_its_conversation covers carry once, no pending carry, wrong conversation; stopped/running formatting matrix remains.
+apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	P8	partial		`shared/a-command-says-what-it-does-in-plain-words.test.ts` | Push/force/delete/download/looking/silence cases
+apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	P8	partial		`shared/a-command-that-reaches-other-programs-is-named.test.ts` | REACHES / DOES_NOT tables + said sentences
+apps/desktop/src/shared/a-fenced-tidy-block-still-counts.test.ts		waiting		
+apps/desktop/src/shared/a-first-run-names-no-terminal.test.ts		waiting		
+apps/desktop/src/shared/a-half-written-tag-is-never-shown-to-a-person.test.ts		waiting		
+apps/desktop/src/shared/a-judge-scores-each-answer.test.ts		waiting		
+apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts		waiting		
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts		waiting		
+apps/desktop/src/shared/a-point-can-count-twice.test.ts		waiting		
+apps/desktop/src/shared/a-question-that-is-not-a-card-stays-in-the-reply.test.ts		waiting		
+apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts		waiting		
+apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts		waiting		
+apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts		waiting		
+apps/desktop/src/shared/a-tag-quoted-in-code-swallows-nothing.test.ts		waiting		
+apps/desktop/src/shared/a-teammate-is-named-the-way-a-person-writes.test.ts		waiting		
+apps/desktop/src/shared/a-tidy-block-is-read-exactly.test.ts		waiting		
+apps/desktop/src/shared/a-torn-tag-keeps-the-letters-before-it.test.ts		waiting		
+apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts		waiting		
+apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts		waiting		
+apps/desktop/src/shared/an-answer-reads-right-in-slack.test.ts		waiting		
+apps/desktop/src/shared/an-answer-reads-right-in-telegram.test.ts		waiting		
+apps/desktop/src/shared/an-issue-becomes-a-brief.test.ts		waiting		
+apps/desktop/src/shared/approval-data.test.ts		waiting		
+apps/desktop/src/shared/approval-rules.test.ts	P8	partial		`shared/approval-rules.test.ts` | Exact/prefix allow; compound never allowed; deny wins; outside paths ask; secret candidate refused
+apps/desktop/src/shared/attachments.test.ts		waiting		
+apps/desktop/src/shared/board-is-not-behind.test.ts		waiting		
+apps/desktop/src/shared/claim-what-you-start.test.ts		waiting		
+apps/desktop/src/shared/commit-and-land-from-a-browser.test.ts		waiting		
+apps/desktop/src/shared/cursorIgnore.test.ts		waiting		
+apps/desktop/src/shared/decision.test.ts		waiting		
+apps/desktop/src/shared/file-menu.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
+apps/desktop/src/shared/handover.test.ts		waiting		
+apps/desktop/src/shared/image-files.test.ts		waiting		
+apps/desktop/src/shared/kilo-installs-in-one-click.test.ts		waiting		
+apps/desktop/src/shared/kilo-models.test.ts		waiting		
+apps/desktop/src/shared/memory.test.ts	P6	partial		`shared/memory.test.ts` | Fenced examples ignored; four-operation cap; named parser form.
+apps/desktop/src/shared/messageFragments.test.ts		waiting		
+apps/desktop/src/shared/peer-share.test.ts		waiting		
+apps/desktop/src/shared/points-are-drafted.test.ts		waiting		
+apps/desktop/src/shared/protocol-tags.test.ts		waiting		
+apps/desktop/src/shared/room-task.test.ts		waiting		
+apps/desktop/src/shared/routine-schedule.test.ts	p11	partial		`shared/routine-schedule.test.ts` | Partially ported: validation, next-run and label cases match; full schedule helper inventory and DST oracle cases remain.
+apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	p11	waiting		`shared/routines-and-rooms-from-a-browser.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
+apps/desktop/src/shared/runtime-install.test.ts		waiting		
+apps/desktop/src/shared/scout-notices-what-is-new.test.ts		waiting		
+apps/desktop/src/shared/settings-from-a-browser.test.ts		waiting		
+apps/desktop/src/shared/since-you-were-away.test.ts	p12	partial		`shared/since-you-were-away.test.ts` | ran/failed/missed/waiting; awayLine; wasAway 20m; attention mark
+apps/desktop/src/shared/spend.test.ts	P10	partial		`shared/spend.test.ts` (subset) | moneyOfUsage, dollars, month/limit refusal
+apps/desktop/src/shared/step-budget.test.ts		waiting		
+apps/desktop/src/shared/text-files.test.ts		waiting		
+apps/desktop/src/shared/the-about-you-line-is-taught-once.test.ts		waiting		
+apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts		waiting		
+apps/desktop/src/shared/the-example-file-is-never-a-file.test.ts		waiting		
+apps/desktop/src/shared/the-judges-pick-is-marked.test.ts		waiting		
+apps/desktop/src/shared/the-memories-that-bear-on-the-ask-come-first.test.ts		waiting		
+apps/desktop/src/shared/the-named-teammate-claims.test.ts		waiting		
+apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts		waiting		
+apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts		waiting		
+apps/desktop/test/avatar.test.ts		waiting		
+apps/desktop/test/decision.test.ts		waiting		
+apps/desktop/test/handoff.test.ts		waiting		
+apps/desktop/test/peer-share.test.ts		waiting		
+apps/desktop/test/workroom-briefing.test.ts		waiting		
+apps/relay/test/a-called-link-leaves-a-letter.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/a-computer-keeps-a-sealed-copy-under-its-account.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/a-phone-leaves-a-note-for-its-pc.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/a-push-goes-only-to-a-push-service.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/a-release-window-comes-from-its-own-zip.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/a-room-lets-in-only-its-pc-and-paired-devices.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/a-room-tied-to-github-gives-tickets-once.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/a-wrong-password-does-not-cost-the-room.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/an-app-signs-in-on-the-computer.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/github-sign-in-checks-its-state.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+apps/relay/test/scouts-away-look-leaves-letters.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
+packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts		waiting		
+packages/cli/test/the-command-talks-only-to-locust.test.ts		waiting		
+packages/mission-store/src/a-busy-file-does-not-end-a-run.test.ts		waiting		
+packages/mission-store/src/deleting-is-reversible.test.ts		waiting		
+packages/mission-store/src/unreadable-count.test.ts		waiting		
+packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts		waiting		
+packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts		waiting		
+packages/mission-store/test/a-helpers-calls-are-kept-as-its-own.test.ts		waiting		
+packages/mission-store/test/a-long-field-is-kept-shortened.test.ts		waiting		
+packages/mission-store/test/checkpoint.test.ts		waiting		
+packages/mission-store/test/every-runtime-can-be-written-down.test.ts		waiting		
+packages/mission-store/test/mission-store.test.ts		waiting		
+packages/mission-store/test/retention.test.ts		waiting		
+packages/mission-store/test/schema-compat.test.ts		waiting		
+packages/mission-store/test/the-home-list-bounds-its-reads.test.ts		waiting		
+packages/mission-store/test/the-storage-report-reads-only-what-changed.test.ts		waiting		
+packages/mission-store/test/workroom.test.ts		waiting		
+packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	M4-REVIEW	waiting		`src/a-binary-that-did-not-change-is-not-asked-twice.test.ts` — Deferred: Electron binary consent/cache lifecycle is not implemented by these drivers.
+packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	M4-REVIEW	waiting		`src/a-refusal-is-not-a-crash.test.ts` — Deferred: Electron probe consent refusal lifecycle is not implemented by these drivers.
+packages/runtime-adapters/src/one-runtimes-probes-run-at-once.test.ts	M4-REVIEW	waiting		`src/one-runtimes-probes-run-at-once.test.ts` — Deferred: Electron asynchronous runtime probe scheduler is not implemented by these drivers.
+packages/runtime-adapters/src/probes-report-as-they-run.test.ts	M4-REVIEW	waiting		`src/probes-report-as-they-run.test.ts` — Deferred: Electron probe progress scheduler is not implemented by these drivers.
+packages/runtime-adapters/src/the-node-we-already-ship.test.ts	M4-REVIEW	does-not-apply		`src/the-node-we-already-ship.test.ts` — Not applicable: native ships a Rust binary, not Electron’s bundled Node runtime.
+packages/runtime-adapters/src/the-prompt-muse-cannot-be-told.test.ts	M4-REVIEW	partial		`src/the-prompt-muse-cannot-be-told.test.ts` — Partial → muse prompt-file argument and new native-owned file test; Node stdin/timer implementation is replaced, not ported literally.
+packages/runtime-adapters/test/a-backgrounded-call-says-so.test.ts	M4-REVIEW	waiting		`test/a-backgrounded-call-says-so.test.ts` — Deferred: no complete Rust background tool display fixture port.
+packages/runtime-adapters/test/a-busy-model-served-says-so.test.ts	M4-REVIEW	waiting		`test/a-busy-model-served-says-so.test.ts` — Deferred: retry notices exist; complete served-busy fixture/timing regression not ported.
+packages/runtime-adapters/test/a-claude-edit-says-what-it-changed.test.ts	M4-REVIEW	partial		`test/a-claude-edit-says-what-it-changed.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/a-claude-run-that-lingers-after-its-result-completed.test.ts	M4-REVIEW	partial		`test/a-claude-run-that-lingers-after-its-result-completed.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/a-cmd-shim-in-a-folder-with-a-space-runs.test.ts	M4-REVIEW	waiting		`test/a-cmd-shim-in-a-folder-with-a-space-runs.test.ts` — Deferred: Windows cmd shim launch semantics cannot be validated on this macOS native run.
+packages/runtime-adapters/test/a-codex-schema-change-cannot-silently-drop-a-read-field.test.ts	M4-REVIEW	partial		`test/a-codex-schema-change-cannot-silently-drop-a-read-field.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/a-config-warning-says-its-summary.test.ts	M4-REVIEW	waiting		`test/a-config-warning-says-its-summary.test.ts` — Deferred: Codex config-warning behavior is outside the changed M4 adapters.
+packages/runtime-adapters/test/a-context-inspection-keeps-the-turns-tools.test.ts	M4-REVIEW	waiting		`test/a-context-inspection-keeps-the-turns-tools.test.ts` — Deferred: context-inspection feature is outside these native runtime drivers.
+packages/runtime-adapters/test/a-denied-read-and-a-file-row-are-said-as-they-are.test.ts	M4-REVIEW	waiting		`test/a-denied-read-and-a-file-row-are-said-as-they-are.test.ts` — Deferred: no direct equivalent for every TS denied-read/file tool-row fixture.
+packages/runtime-adapters/test/a-free-model-refused-is-never-a-sign-in.test.ts	M4-REVIEW	partial	opencode_error_sentences_match_ts	`test/a-free-model-refused-is-never-a-sign-in.test.ts` — Partial → opencode_error_sentences_match_ts; every captured free-provider refusal shape is not ported.
+packages/runtime-adapters/test/a-helpers-calls-are-its-rows-children.test.ts	M4-REVIEW	waiting		`test/a-helpers-calls-are-its-rows-children.test.ts` — Deferred: native helper-child tool projection lacks the full TS fixture regression.
+packages/runtime-adapters/test/a-large-cursor-result-keeps-its-terminal-status.test.ts		waiting		
+packages/runtime-adapters/test/a-message-taken-and-never-begun-ends-the-run.test.ts	M4-REVIEW	waiting		`test/a-message-taken-and-never-begun-ends-the-run.test.ts` — Deferred: recovery code exists in opencode_serve.rs, but the TS silent prompt-accept/never-start timing matrix has no direct Rust regression.
+packages/runtime-adapters/test/a-model-of-your-own-is-priced-step-by-step.test.ts	M4-REVIEW	waiting		`test/a-model-of-your-own-is-priced-step-by-step.test.ts` — Deferred: user-provider pricing integration is not implemented in native.
+packages/runtime-adapters/test/a-muse-plan-used-up-is-said-once.test.ts	M4C	partial		`a-muse-plan-used-up-is-said-once.test.ts` — quota sentence helpers exist; dedicated plan-exhaust fixture not re-run as a separate file.
+packages/runtime-adapters/test/a-rate-limited-opencode-run-says-it-is-retrying.test.ts	M4-REVIEW	waiting		`test/a-rate-limited-opencode-run-says-it-is-retrying.test.ts` — Deferred: locust.retry normalization exists; exact stderr/retry deduplication fixture tests are not ported.
+packages/runtime-adapters/test/a-real-codex-session-replays-through-the-adapter.test.ts	M4-REVIEW	partial		`test/a-real-codex-session-replays-through-the-adapter.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/a-real-muse-wonder-run-reads-whole.test.ts	M4-REVIEW	partial	muse_echo_capture_fixture	`test/a-real-muse-wonder-run-reads-whole.test.ts` — Partial → muse_echo_capture_fixture exercises the captured stream; complete whole-answer/Wonder-specific fixture matrix remains unported; live Muse remains ignored.
+packages/runtime-adapters/test/a-result-too-large-to-keep-still-answered.test.ts	M4-REVIEW	waiting		`test/a-result-too-large-to-keep-still-answered.test.ts` — Deferred: no matching Rust behavior regression identified in this review; complete port remains owed.
+packages/runtime-adapters/test/a-run-is-handed-its-own-skills.test.ts	M4-REVIEW	waiting		`test/a-run-is-handed-its-own-skills.test.ts` — Deferred: per-runtime native skill plugin/workspace construction is not implemented.
+packages/runtime-adapters/test/a-run-without-connectors-leaves-them-out.test.ts	M4-REVIEW	waiting		`test/a-run-without-connectors-leaves-them-out.test.ts` — Deferred: per-runtime native connector exclusion/config assembly is not implemented.
+packages/runtime-adapters/test/a-running-codex-turn-can-be-steered.test.ts	M4-REVIEW	partial		`test/a-running-codex-turn-can-be-steered.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/a-sealed-run-uses-no-tool.test.ts	M4-REVIEW	waiting		`test/a-sealed-run-uses-no-tool.test.ts` — Deferred: sealed-run option is not exposed by native Turn.
+packages/runtime-adapters/test/a-self-updated-cli-is-asked-again.test.ts	M4-REVIEW	waiting		`test/a-self-updated-cli-is-asked-again.test.ts` — Deferred: Electron probe consent/cache lifecycle is outside native driver execution.
+packages/runtime-adapters/test/a-server-whose-storage-is-busy-starts-again.test.ts	M4-REVIEW	partial	opencode_serve_busy_restarts_then_runs	`test/a-server-whose-storage-is-busy-starts-again.test.ts` — Partial → opencode_serve_busy_restarts_then_runs; exhaustive backoff/deadline/cancel matrix not ported.
+packages/runtime-adapters/test/a-session-openCode-cannot-continue-is-not-resumed.test.ts	M4-REVIEW	partial		`test/a-session-openCode-cannot-continue-is-not-resumed.test.ts` — Partial → OpenCode error tests exercise session-ended facts; a full native cold-follow-up after that exact encrypted-content error is unported.
+packages/runtime-adapters/test/a-side-question-forks-the-session.test.ts	M4-REVIEW	waiting		`test/a-side-question-forks-the-session.test.ts` — Deferred: fork-session option is not exposed by native Turn.
+packages/runtime-adapters/test/a-slow-runtime-is-shown-as-checking.test.ts	M4-REVIEW	waiting		`test/a-slow-runtime-is-shown-as-checking.test.ts` — Deferred: Electron discovery progress UI lifecycle is outside these drivers.
+packages/runtime-adapters/test/acp-events.test.ts	M4-REVIEW	partial		`test/acp-events.test.ts` — Partial → runtime/acp_tests.rs: messages, hidden thoughts, tools, diffs, plans, limits; exhaustive TS update-shape assertions remain unported.
+packages/runtime-adapters/test/acp-run.test.ts	M4-REVIEW	partial		`test/acp-run.test.ts` — Partial → runtime/acp_tests.rs: initialize/load/config, approvals, cancellation, steering, EOF and overflow; TS fake EventEmitter transport assertions are not all reproduced.
+packages/runtime-adapters/test/agy-events.test.ts	M4-REVIEW	partial		`test/agy-events.test.ts` — Partial → runtime/antigravity_tests.rs: captured tools/refusals, quota, unavailable/lost sessions, arguments and ordered answer prefixes; remaining TS assertion combinations are not exhaustively ported.
+packages/runtime-adapters/test/an-acp-output-stream-closing-ends-the-turn.test.ts	M4-REVIEW	partial	acp_exit_with_pending_card,acp_transport_loss	`test/an-acp-output-stream-closing-ends-the-turn.test.ts` — Partial → acp_transport_loss, acp_exit_with_pending_card; exact Node stream interleavings are not reproduced.
+packages/runtime-adapters/test/an-expired-sign-in-is-said.test.ts	M4-REVIEW	partial		`test/an-expired-sign-in-is-said.test.ts` — Partial → OpenCode/Cursor error helpers; complete multi-runtime provider-error corpus not ported.
+packages/runtime-adapters/test/an-opencode-2-step-says-what-it-did.test.ts	M4-REVIEW	waiting		`test/an-opencode-2-step-says-what-it-did.test.ts` — Deferred: shared ACP normalization exists, but no complete matching V2 step-kind fixture matrix.
+packages/runtime-adapters/test/an-opencode-reply-streams.test.ts	M4-REVIEW	partial	opencode_serve_streams_authenticated_sse	`test/an-opencode-reply-streams.test.ts` — Partial → opencode_serve_streams_authenticated_sse; all partial-record ordering permutations remain unported.
+packages/runtime-adapters/test/an-oversized-cursor-edit-keeps-its-counts.test.ts	M4-REVIEW	waiting		`test/an-oversized-cursor-edit-keeps-its-counts.test.ts` — Deferred: no direct Rust regression for the TS oversized-edit fixture/count preservation.
+packages/runtime-adapters/test/antigravity-background.test.ts	M4C	partial		`antigravity-waiting-is-said-as-waiting.test.ts`, `antigravity-question.test.ts`, `antigravity-gaps.test.ts`, `antigravity-background.test.ts` — host/UI waiting and question cards, not the CLI stream normalizer.
+packages/runtime-adapters/test/antigravity-events.test.ts	M4-REVIEW	partial		`test/antigravity-events.test.ts` — Partial → antigravity_events.rs plain transcript fixture; complete app transcript response/tool matrix not ported, since live runs use agy.
+packages/runtime-adapters/test/antigravity-gaps.test.ts	M4C	partial		`antigravity-waiting-is-said-as-waiting.test.ts`, `antigravity-question.test.ts`, `antigravity-gaps.test.ts`, `antigravity-background.test.ts` — host/UI waiting and question cards, not the CLI stream normalizer.
+packages/runtime-adapters/test/antigravity-question.test.ts	M4C	partial		`antigravity-waiting-is-said-as-waiting.test.ts`, `antigravity-question.test.ts`, `antigravity-gaps.test.ts`, `antigravity-background.test.ts` — host/UI waiting and question cards, not the CLI stream normalizer.
+packages/runtime-adapters/test/antigravity-waiting-is-said-as-waiting.test.ts	M4-REVIEW	partial	agy_waiting_helper_and_third_uncached_reread	`test/antigravity-waiting-is-said-as-waiting.test.ts` — Partial → agy_waiting_helper_and_third_uncached_reread; wait, reset, cached wakeups and warning timing covered; malformed-list/default-field combinations and every captured duration no
+packages/runtime-adapters/test/app-server-events.test.ts	M1	partial		`scripts/fixtures/m1-app-server.py` | Tiny synthetic server based on `packages/runtime-adapters/test/codex-app-server-run.test.ts:fakeServer` and `app-server-events.test.ts` notification shapes. Checks handshake and policy fields, sends for
+packages/runtime-adapters/test/app-server.test.ts	M4-REVIEW	partial		`test/app-server.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/background-work-ends-with-the-run.test.ts	M4-REVIEW	waiting		`test/background-work-ends-with-the-run.test.ts` — Deferred: no complete Rust background-call lifecycle regression matrix.
+packages/runtime-adapters/test/claude-commands.test.ts	M4-REVIEW	partial		`test/claude-commands.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/claude-events.test.ts	M3A	partial		`scripts/fixtures/m3-claude.py` | Fake Claude stream-json from `claude-events.test.ts` shapes; asserts Ask argv when launched as `claude`.
+packages/runtime-adapters/test/claude-thinking-is-kept-for-its-thinking-row.test.ts		waiting		
+packages/runtime-adapters/test/codex-app-server-run.test.ts	M1	partial		`scripts/fixtures/m1-app-server.py` | Tiny synthetic server based on `packages/runtime-adapters/test/codex-app-server-run.test.ts:fakeServer` and `app-server-events.test.ts` notification shapes. Checks handshake and policy fields, sends for
+packages/runtime-adapters/test/codex-events.test.ts	M4-REVIEW	partial		`test/codex-events.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	M4-REVIEW	partial		`test/codex-long-answer-keeps-its-length.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
+packages/runtime-adapters/test/connector-allow-rules.test.ts	M4-REVIEW	waiting		`test/connector-allow-rules.test.ts` — Deferred: connector allow-rule assembly is not implemented in native.
+packages/runtime-adapters/test/connectors.test.ts	M4-REVIEW	waiting		`test/connectors.test.ts` — Deferred: runtime connector discovery is not ported in this runtime round.
+packages/runtime-adapters/test/copilot-effort-levels.test.ts	M4-REVIEW	waiting		`test/copilot-effort-levels.test.ts` — Deferred: native passes explicit effort; TS dynamic help-choice parser tests belong to discovery, not reproduced by these driver tests.
+packages/runtime-adapters/test/copilot-events.test.ts	M4-REVIEW	partial		`test/copilot-events.test.ts` — Partial → runtime/copilot_tests.rs: captured answers, edits, refusal, policy stderr and argument/dispatch tests; not every TS record-shape assertion has a matching Rust case.
+packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	M4-REVIEW	waiting		`test/copilots-new-records-are-not-news.test.ts` — Deferred: ignored-record code exists, but a direct assertion for each added record type is not ported.
+packages/runtime-adapters/test/copilots-search-index-record-is-not-news.test.ts	M4-REVIEW	waiting		`test/copilots-search-index-record-is-not-news.test.ts` — Deferred: no direct Rust regression for this noise-record fixture.
+packages/runtime-adapters/test/cursor-connectors.test.ts	M4-REVIEW	waiting		`test/cursor-connectors.test.ts` — Deferred: native Cursor connector discovery/allow-rule integration is not implemented.
+packages/runtime-adapters/test/cursor-events.test.ts	M4-REVIEW	partial		`test/cursor-events.test.ts` — Partial → runtime/cursor_tests.rs: real captured output, tools, usage, final replacement, resume, failures, plans; displayed thinking retention and closing-step placement restored to match TS, including a secr
+packages/runtime-adapters/test/cursor-secrets-in-text.test.ts	M4-REVIEW	partial		`test/cursor-secrets-in-text.test.ts` — Partial → shared text scrubber and captured Cursor stream checks; thinking-secret regression now ported directly, including the fake sk- token from TS; full answer/tool secret corpus remains unported.
+packages/runtime-adapters/test/effort-choices.test.ts	M4-REVIEW	waiting		`test/effort-choices.test.ts` — Deferred: dynamic CLI help parsing is not ported for every runtime.
+packages/runtime-adapters/test/kilo-is-discovered-and-starts-on-auto-free.test.ts	M4-REVIEW	partial		`test/kilo-is-discovered-and-starts-on-auto-free.test.ts` — Partial → runtime/kilo_tests.rs: model/mode order, isolation, permissions, dispatch, stable resume home; discovery and Windows git-process fixtures not ported.
+packages/runtime-adapters/test/line-diff.test.ts	M4-REVIEW	partial		`test/line-diff.test.ts` — Partial → ACP patch regressions exercise real unified diff paths; exhaustive TS LCS/large-input/context matrix not ported.
+packages/runtime-adapters/test/message-tail.test.ts	M4-REVIEW	waiting		`test/message-tail.test.ts` — Deferred: shared TS message-tail truncation corpus has not been ported exhaustively.
+packages/runtime-adapters/test/more-secrets-are-scrubbed.test.ts	M4-REVIEW	partial	text_is_bounded_and_scrubbed	`test/more-secrets-are-scrubbed.test.ts` — Partial → runtime/tests.rs text_is_bounded_and_scrubbed; complete TS secret-pattern corpus not ported.
+packages/runtime-adapters/test/muse-events.test.ts	M4-REVIEW	partial		`test/muse-events.test.ts` — Partial → runtime/muse_tests.rs: captured envelope/lifecycle, tools, failures, sandbox, sessions and internal tasks; not every TS combination has a separate Rust case.
+packages/runtime-adapters/test/opencode-2-discovery-uses-its-acp-command.test.ts	M4-REVIEW	partial	opencode_version_split_matches_discovery	`test/opencode-2-discovery-uses-its-acp-command.test.ts` — Partial → opencode_version_split_matches_discovery; complete catalog/probe caching behavior is outside these drivers.
+packages/runtime-adapters/test/opencode-acp-profile.test.ts	M4-REVIEW	partial	opencode_acp_success_sets_locust_mode_and_records	`test/opencode-acp-profile.test.ts` — Partial → opencode_acp_success_sets_locust_mode_and_records; no exhaustive advertised-configuration matrix.
+packages/runtime-adapters/test/opencode-asks-with-the-question-card.test.ts	M4-REVIEW	waiting		`test/opencode-asks-with-the-question-card.test.ts` — Deferred: no matching Rust behavior regression identified in this review; complete port remains owed.
+packages/runtime-adapters/test/opencode-commands.test.ts	M4-REVIEW	partial	opencode_mode_config_keeps_question_off_and_mode_rules	`test/opencode-commands.test.ts` — Partial → opencode_mode_config_keeps_question_off_and_mode_rules; no complete command-list transport fixture port.
+packages/runtime-adapters/test/opencode-error.test.ts	M4-REVIEW	partial	opencode_error_sentences_match_ts	`test/opencode-error.test.ts` — Partial → opencode_error_sentences_match_ts; exhaustive nested provider-error/HTTP-status cases remain unported.
+packages/runtime-adapters/test/opencode-events.test.ts	M4-REVIEW	partial		`test/opencode-events.test.ts` — Partial → runtime/opencode_tests.rs: steps, usage, errors and streamed completion; compaction/child-tool/pricing/partial-message fixture combinations are not exhaustively ported.
+packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	M4-REVIEW	partial		`test/opencode-every-mode-through-its-server.test.ts` — Partial → native permission configuration tests plus serve streaming; each mode’s complete server-side permission exchange still lacks a direct matching test.
+packages/runtime-adapters/test/opencode-serve-run.test.ts	M4-REVIEW	partial	opencode_serve_busy_restarts_then_runs,opencode_serve_streams_authenticated_sse	`test/opencode-serve-run.test.ts` — Partial → opencode_serve_streams_authenticated_sse and opencode_serve_busy_restarts_then_runs; Node HTTP/event timing matrix not exhaustively ported.
+packages/runtime-adapters/test/permission-bridge-argv.test.ts	M4-REVIEW	partial		`test/permission-bridge-argv.test.ts` — Partial → permission_bridge tests and Claude approval tests; exhaustive JS bridge argv cases are outside M4 transport changes.
+packages/runtime-adapters/test/process-runner.test.ts	M4-REVIEW	waiting		`test/process-runner.test.ts` — Deferred: Rust has per-runtime drivers, not the shared Node runner; exhaustive equivalent transport timing/stand-in/termination tests are still owed.
+packages/runtime-adapters/test/provider-error.test.ts	M4-REVIEW	partial		`test/provider-error.test.ts` — Partial → OpenCode error and Cursor provider sentences are exercised; complete provider-error corpus remains unported.
+packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	M4-REVIEW	waiting		`test/qa-0365-opencode-worktree.test.ts` — Deferred: repository-root/.git reference allowances are not exposed in native command construction.
+packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	M4-REVIEW	waiting		`test/references-never-widen-a-mode.test.ts` — Deferred: reference-folder command options are not exposed by native Turn.
+packages/runtime-adapters/test/refusal-is-readable.test.ts	M4-REVIEW	partial		`test/refusal-is-readable.test.ts` — Partial → native tool-refusal fixtures; full cross-runtime TS corpus not ported.
+packages/runtime-adapters/test/runtime-adapters.test.ts	M4-REVIEW	partial		`test/runtime-adapters.test.ts` — Partial → launch argument tests for each native adapter; optional integration/slash/fork/reference/provider options are absent and not certified.
+packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	M4-REVIEW	partial		`test/stop-reaches-the-tree.test.ts` — Partial → existing ACP/Codex blocked-pipe Stop tests; Windows process-tree behavior cannot be proved by this macOS run.
+packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	M4-REVIEW	waiting		`test/the-browser-shares-one-flag-with-the-bridge.test.ts` — Deferred: native browser MCP launch integration is not implemented.
+packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	M4-REVIEW	waiting		`test/the-parent-git-is-reachable-on-every-platform.test.ts` — Deferred: repository-root git allowances and cross-platform git fixture matrix are not fully ported.
+packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	M4-REVIEW	partial		`test/the-steps-show-what-the-runtimes-show.test.ts` — Partial → per-adapter captured-stream tests; cross-runtime presentation matrix not exhaustively ported.
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	M4-REVIEW	waiting		`test/your-own-model-is-a-provider.test.ts` — Deferred: user-provider declaration integration is not implemented in native.

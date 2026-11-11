@@ -36,6 +36,8 @@ mod terminal;
 #[path = "ui/terminal_panel.rs"]
 mod terminal_panel;
 #[cfg(test)]
+mod door_calls;
+#[cfg(test)]
 mod test_isolation;
 mod usage;
 mod usage_ledger;

@@ -1,0 +1,99 @@
+# The Rust port (apps/native) on exec/native: its tests on macOS, the scoreboard checks, and a compile check on Linux
+# and Windows that is allowed to fail while the port is Mac-only, so each push shows what stops it building there.
+# Runs only on pushes to exec/native that touch the port, never on pull requests, one run at a time. GitHub-hosted
+# runners only; no secrets.
+
+name: native
+
+on:
+  push:
+    branches: [exec/native]
+    paths:
+      - apps/native/**
+      - .github/workflows/native.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/native
+
+jobs:
+  scoreboard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checklist tables match parity/rows.tsv
+        run: python3 scripts/recount.py --check
+      - name: Every TypeScript test file has a line in parity/tests.tsv
+        run: python3 scripts/test-ledger.py --check
+
+  mac:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Build Electron's ledger reader, which checks every ledger Rust writes
+        working-directory: .
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @teammate/mission-store build
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/native/target
+          key: native-mac-${{ hashFiles('apps/native/Cargo.lock') }}
+      - name: Tests
+        env:
+          LOCUST_TEST_TS_READER: ${{ github.workspace }}/packages/mission-store/dist/index.js
+        run: cargo test --release
+      - name: Binary size
+        run: |
+          size=$(stat -f %z target/release/locust-native)
+          echo "Release binary: $((size / 1048576)) MiB" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  elsewhere:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust
+        shell: bash
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Compile check
+        shell: bash
+        run: |
+          set +e
+          cargo check --all-targets --message-format short 2> check.log
+          status=$?
+          {
+            echo "### ${{ matrix.os }}: cargo check exit $status"
+            echo
+            echo '```'
+            grep -E '^(error|warning: unused)' check.log | sort | uniq -c | sort -rn | head -40
+            grep -E '^[^ ]+\.rs:[0-9]+:[0-9]+: error' check.log | cut -d: -f1 | sort | uniq -c | sort -rn | head -40
+            tail -5 check.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
