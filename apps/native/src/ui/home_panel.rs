@@ -1315,7 +1315,7 @@ mod review_tests {
 
     #[test]
     fn board_answers_all_conversations_through_channel_once_and_never_automatically() {
-        let root = std::env::temp_dir().join("home-board-channel");
+        let root = { static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0); let root = std::env::temp_dir().join(format!("home-board-channel-{}-{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed))); let _ = std::fs::remove_dir_all(&root); root };
         let store = store::Store::new(root.join("native"), root.join("electron")).unwrap();
         let _hook = native::hooks::install(store, None);
         let channel = native::approvals_channel();
@@ -1345,10 +1345,11 @@ mod review_tests {
             if waiting.len() == 2 {
                 break waiting;
             }
-            assert!(
-                std::time::Instant::now() < deadline,
-                "two cards were not raised"
-            );
+            if std::time::Instant::now() >= deadline {
+                let all: Vec<_> = channel.waiting().into_iter().map(|r| r.mission_id).collect();
+                let got: Vec<String> = handles.into_iter().filter(|h| h.is_finished()).map(|h| format!("{:?}", h.join())).collect();
+                panic!("two cards were not raised; waiting={all:?} finished={got:?}");
+            }
             std::thread::yield_now();
         };
         let mut s = State::default();
@@ -1384,7 +1385,7 @@ mod review_tests {
 
     #[test]
     fn away_counts_conversations_once_across_continued_turns() {
-        let root = std::env::temp_dir().join("home-away-grouping");
+        let root = { static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0); let root = std::env::temp_dir().join(format!("home-away-grouping-{}-{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed))); let _ = std::fs::remove_dir_all(&root); root };
         let store = store::Store::new(root.join("native"), root.join("electron")).unwrap();
         away::write_attention_mark(&store, "2026-01-01T00:00:00Z").unwrap();
         let mut s = State::default();

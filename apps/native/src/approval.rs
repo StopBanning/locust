@@ -459,10 +459,7 @@ fn new_id() -> String {
     format!(
         "ap_{}_{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
+        crate::invariants::unique_nanos()
     )
 }
 

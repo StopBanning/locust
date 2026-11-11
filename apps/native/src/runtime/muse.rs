@@ -337,10 +337,7 @@ pub fn prepare_prompt_file(
         .join(format!(
             "muse-prompt-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_err(io::Error::other)?
-                .as_nanos()
+            crate::invariants::unique_nanos()
         ));
     let path = dir.join("prompt.txt");
     store

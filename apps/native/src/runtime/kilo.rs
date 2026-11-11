@@ -97,10 +97,7 @@ pub(crate) fn write_git_shim(store: &Store) -> io::Result<Option<PathBuf>> {
     let id = format!(
         "kilo-git-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(io::Error::other)?
-            .as_nanos()
+        crate::invariants::unique_nanos()
     );
     let dir = store.check(&root.join(id))?;
     let script = format!("#!/bin/sh\nexec \"{}\" \"$@\" </dev/null\n", git.display());
@@ -127,10 +124,7 @@ pub(crate) fn write_home(store: &Store) -> io::Result<PathBuf> {
     let dir = store.check(&root.join("kilo-home"))?;
     let marker = format!(
         ".run-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(io::Error::other)?
-            .as_nanos()
+        crate::invariants::unique_nanos()
     );
     store.create_new_file_in(&dir, &marker)?.write_all(b"")?;
     Ok(dir)

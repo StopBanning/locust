@@ -103,10 +103,7 @@ pub(crate) fn write_guard(store: &Store, v2: bool) -> io::Result<PathBuf> {
     let id = format!(
         "opencode-guard-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(io::Error::other)?
-            .as_nanos()
+        crate::invariants::unique_nanos()
     );
     let dir = store.check(&root.join(id))?;
     store
@@ -151,10 +148,7 @@ pub(crate) fn configure(
         &home,
         &format!(
             ".run-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_err(io::Error::other)?
-                .as_nanos()
+            crate::invariants::unique_nanos()
         ),
     )?;
     for key in [

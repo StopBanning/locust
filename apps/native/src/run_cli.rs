@@ -67,9 +67,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
     let id = format!(
         "mission_native_{}_{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos()
+        crate::invariants::unique_nanos()
     );
     ctrlc::set_handler(|| INTERRUPTED.store(true, Ordering::Relaxed))?;
     match runtime_name {

@@ -337,10 +337,7 @@ fn write_atomic(store: &Store, path: &Path, body: &str) -> io::Result<()> {
     let _ = store.check(parent)?;
     let temporary = path.with_extension(format!(
         "{}.tmp",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
+        crate::invariants::unique_nanos()
     ));
     use std::io::Write;
     let mut options = std::fs::OpenOptions::new();
@@ -676,10 +673,7 @@ fn create_group_inner(store: &Store, state: &mut OrgState, name: &str) -> Result
     }
     let group_id = format!(
         "grp_{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
+        crate::invariants::unique_nanos()
     );
     state.groups.push(Group {
         group_id: group_id.clone(),
@@ -729,10 +723,7 @@ mod tests {
                 "locust-org-{}-{}-{}",
                 std::process::id(),
                 n,
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map(|d| d.as_nanos())
-                    .unwrap_or(0)
+                crate::invariants::unique_nanos()
             ));
             let _ = std::fs::remove_dir_all(&path);
             std::fs::create_dir_all(&path).unwrap();

@@ -316,10 +316,7 @@ mod tests {
     fn temp_pair() -> (PathBuf, Store) {
         let root = std::env::temp_dir().join(format!(
             "locust-folders-{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos()
+            crate::invariants::unique_nanos()
         ));
         let electron = root.join("electron");
         let native = root.join("native");
@@ -395,7 +392,7 @@ mod review_tests {
 
     #[test]
     fn registry_operations_leave_electron_bytes_unchanged_and_keep_link_spelling() {
-        let root = std::env::temp_dir().join("home-registry-review");
+        let root = { static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0); let root = std::env::temp_dir().join(format!("home-registry-review-{}-{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed))); let _ = std::fs::remove_dir_all(&root); root };
         let electron = root.join("electron");
         std::fs::create_dir_all(&electron).unwrap();
         let seed = br#"{"schemaVersion":1,"folders":[]}"#;

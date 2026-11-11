@@ -543,10 +543,7 @@ mod tests {
     fn attention_mark_round_trip_on_native_store() {
         let root = std::env::temp_dir().join(format!(
             "locust-away-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos()
+            crate::invariants::unique_nanos()
         ));
         let electron = root.join("electron");
         let native = root.join("native");
