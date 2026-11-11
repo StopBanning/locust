@@ -1,0 +1,41 @@
+# C3, first part: the shell on the kit (11 Nov 2026)
+
+Electron's frames were captured with `_tools/polish-frames.mjs` (Home in both themes at 1100 x 780; its thread frame
+did not open the conversation, so a screenshot Colin sent of Electron's thread stood in for it). Each Rust screen was
+then redone on the kit and snapped at the same size.
+
+## What changed
+
+- **The message box** (`.lc-composer__box`): one rounded box on the chat fill with the text and a round send button
+  (ivory with an arrow when there is something to send or queue, a square while a reply runs), and under it the chips:
+  the mode (Electron's words: Ask, Edit, Plan, Approve, Auto), the folder, and the model with its agent's mark.
+  Electron's +, microphone and voice buttons are not drawn: the port has no attach picker or voice yet, and a dead
+  control costs more than a missing one (Electron's own rule).
+- **The thread's head**: the teammate's square (an initial until C4's faces), name and role, the agent's mark and model,
+  and the conversation's actions at the right, as Electron's header has them: Commit (an outlined button with its
+  icon), Changes, Undo, Open in terminal, Catch up, Terminal and Browser as icons. The status line keeps only the live
+  dot, the status, the engine and the context ring.
+- **Your words** take `.lc-bubble` (the said size, 12 by 16, no border); **a reply's Copy** is CopyButton's icon, a
+  check with "Copied" once it lands.
+- **The approval card** uses the kit: Approve once is the primary button, the Always choices are ghost buttons, Deny and
+  Never allow are deny buttons, as ApprovalCard.tsx draws them.
+- **The sidebar**: `.lc-row` rows (9 by 10, radius 9, the row type), each teammate with its agent's mark; the places with
+  their icons; "Recent" as a tracked mono label with a refresh icon; the search field as `.lc-search` with its
+  magnifier; a conversation's actions behind a dots icon.
+- **Home**: a centred column; the banner (the lockup and line on the boot screen's dark glass, dark in both themes as in
+  Electron); the folder and away cards on the kit; Your team as a grid of cards (square, name, role, agent and model);
+  the starters as StarterList's two columns, each with its icon.
+
+## Checks
+
+- Snapshots of Home, the thread, the approval card and the message box in both themes, compared by eye with Electron's
+  frames and Colin's screenshot.
+- Tests: 422 in the engine, 187 in the window, all passing.
+
+## Not done
+
+- The narrow-window rail (Electron folds the sidebar to 64 points of icons and faces under about 1200 points wide).
+- The title bar with the folder's name, and its glass.
+- Faces and bots (C4); Home's connected-accounts and usage lines (no data for them in the port yet).
+- Plan card, activity rows and live line still use the older palette; Settings, Board and the other screens are C5.
+- No pixel score: the pairs are judged by eye, as the plan asks.

@@ -115,10 +115,11 @@ pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
 
 fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> El {
     let recent = s.recent.iter().find(|r| r.id == item.mission_id);
+    let l = crate::look::controls::Look::new(p.dark);
     let mut title = row().w_full().center_y().gap(6.0).child(
         text(item.title.clone())
-            .font(type_::BODY)
-            .color(p.text)
+            .font(rune::TextStyle::new(13.5, 500.0))
+            .color(l.c("text-name"))
             .grow(1.0)
             .shrink()
             .truncate(),
@@ -148,14 +149,13 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         .unwrap_or_default();
     if picked || s.recent_hover.as_deref() == Some(&item.mission_id) {
         let menu_id = item.mission_id.clone();
+        let menu_key = format!("org-menu-open-{menu_id}");
         title = title.child(
-            text("⋯")
-                .label(format!("Actions for {}", item.title))
-                .key(format!("org-menu-open-{menu_id}"))
-                .font(type_::BODY)
-                .color(p.secondary)
-                .padding(4.0)
-                .on_press(move |s: &mut State| s.org_menu_id = Some(menu_id.clone())),
+            crate::look::controls::head_icon(&crate::look::icons::DOTS, &format!("Actions for {}", item.title), "Actions")
+                .control_size(rune_kit::ControlSize::Small)
+                .on_press(move |s: &mut State| s.org_menu_id = Some(menu_id.clone()))
+                .build(l.k)
+                .key(menu_key),
         );
     } else {
         title = title.child(el().size(22.0, 22.0));
@@ -171,15 +171,17 @@ fn mission_row(s: &State, p: &Palette, item: &SidebarMission, picked: bool) -> E
         })
         .key(format!("recent-{id}"))
         .w_full()
-        .padding(12.0)
-        .gap(5.0)
-        .radius(8.0)
-        .fill(if picked { p.selected } else { p.sidebar })
+        .py(9.0)
+        .px(10.0)
+        .gap(3.0)
+        .radius(9.0)
+        .fill(if picked { l.c("bg-selected") } else { p.sidebar })
+        .hover(l.c("hover-surface"))
         .child(title)
         .child(
             text(subtitle)
-                .font(type_::LABEL)
-                .color(p.muted)
+                .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
+                .color(l.c("text-muted"))
                 .w_full()
                 .truncate(),
         )
@@ -388,17 +390,16 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
     s.org_menu_id = None;
 }
 
+/// `.lc-sectionlabel`: mono capitals, tracked wide, muted.
 fn section_label(p: &Palette, words: &str) -> El {
-    text(words.to_owned())
-        .font(type_::LABEL)
-        .color(p.secondary)
-        .w_full()
-        .px(12.0)
-        .py(8.0)
+    let l = crate::look::controls::Look::new(p.dark);
+    crate::look::controls::label(&l, words).w_full().px(10.0).pt(16.0).pb(6.0)
 }
 
 pub(super) fn sidebar(s: &State, p: &Palette) -> El {
-    let mut rows = col().w_full().gap(6.0).padding(10.0);
+    let l = crate::look::controls::Look::new(p.dark);
+    let meta = rune::TextStyle::new(11.5, 400.0).lh(15.0);
+    let mut rows = col().w_full().gap(2.0).padding(10.0);
 
     for (index, teammate) in s.teammates.iter().enumerate() {
         let initial = teammate
@@ -434,97 +435,110 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             )
             .child(
                 text(teammate.name.clone())
-                    .font(type_::TITLE)
-                    .color(p.text)
+                    .font(rune::TextStyle::new(13.5, 500.0))
+                    .color(l.c("text-name"))
                     .grow(1.0)
-                    .shrink(),
+                    .shrink()
+                    .truncate(),
             );
         if busy {
             title = title.child(el().size(6.0, 6.0).radius(3.0).fill(p.green));
         }
         let id = teammate.id.clone();
+        let runtime = teammate.runtime.as_deref().unwrap_or("codex");
+        let mut agent = row().w_full().pl(30.0).gap(5.0).center_y();
+        if let Some(mark) = crate::look::controls::agent_mark(&l, runtime, 11.0, l.c("text-muted")) {
+            agent = agent.child(mark);
+        }
+        agent = agent.child(text(agent_line(s, teammate)).font(meta).color(l.c("text-muted")).shrink().truncate());
+        // `.lc-row`: 9 by 10, radius 9, the selected fill when chosen.
         rows = rows.child(
             col()
                 .key(format!("teammate-{id}"))
                 .w_full()
-                .padding(12.0)
-                .gap(5.0)
-                .radius(8.0)
-                .fill(if selected { p.selected } else { p.sidebar })
+                .py(9.0)
+                .px(10.0)
+                .gap(3.0)
+                .radius(9.0)
+                .fill(if selected { l.c("bg-selected") } else { p.sidebar })
+                .hover(l.c("hover-surface"))
                 .child(title)
                 .child(
                     text(teammate.role.clone())
-                        .font(type_::BODY)
-                        .color(p.secondary)
+                        .font(meta)
+                        .color(l.c("text-secondary"))
                         .w_full()
                         .pl(30.0)
-                        .wrap_anywhere(),
+                        .truncate(),
                 )
-                .child(
-                    text(agent_line(s, teammate))
-                        .font(type_::LABEL)
-                        .color(p.muted)
-                        .w_full()
-                        .pl(30.0)
-                        .wrap_anywhere(),
-                )
+                .child(agent)
                 .on_press_tx(move |s: &mut State, tx| {
                     select_teammate(s, &id, tx);
                 }),
         );
     }
 
-    rows = rows.child(
-        text("Teammates & Memory")
-            .font(type_::BODY)
-            .color(p.secondary)
-            .padding(12.0)
-            .on_press(crate::people_panel::open),
-    );
-    rows = rows.child(
-        text("Automations")
-            .font(type_::BODY)
-            .color(p.secondary)
-            .padding(12.0)
-            .on_press(crate::routines_panel::open),
-    );
+    // The sidebar's places, each with its glyph (`.lc-sidebar__nav`: users and clock, as the rail draws them).
+    let nav = |icon: &'static rune::Icon, words: &str| {
+        row()
+            .w_full()
+            .gap(10.0)
+            .py(8.0)
+            .px(10.0)
+            .center_y()
+            .radius(9.0)
+            .hover(l.c("hover-surface"))
+            .child(crate::look::controls::glyph(&l, icon, 15.0, Some(l.c("text-muted"))))
+            .child(text(words.to_owned()).font(rune::TextStyle::new(13.5, 400.0)).color(l.c("text-secondary")))
+            .role("button")
+            .label(words.to_owned())
+    };
+    rows = rows.child(nav(&crate::look::icons::USERS, "Teammates & Memory").pt(14.0).on_press(crate::people_panel::open));
+    rows = rows.child(nav(&crate::look::icons::CLOCK, "Automations").on_press(crate::routines_panel::open));
     let missions = sidebar_missions_now(s);
     let all_count = recent_as_missions(s).len();
     let (pinned, recent_rows) = pinned_and_recent(&missions, &s.org.pins);
     let show_sections = !s.org.pins.is_empty();
     let groups_shown = !s.org.groups.is_empty() && !s.org.groups_unreadable;
 
-    let mut recent = col().w_full().px(10.0).pb(16.0).gap(4.0).child(
+    let mut recent = col().w_full().px(10.0).pb(16.0).gap(2.0).child(
         row()
             .w_full()
             .center_y()
-            .px(12.0)
-            .py(10.0)
+            .pl(10.0)
+            .pt(14.0)
+            .pb(4.0)
+            .child(crate::look::controls::label(&l, "Recent").grow(1.0))
             .child(
-                text("Recent")
-                    .font(type_::LABEL)
-                    .color(p.secondary)
-                    .grow(1.0),
-            )
-            .child(
-                text("Refresh")
-                    .key("refresh-recent")
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .on_press(refresh_recent),
+                crate::look::controls::head_icon(&crate::look::icons::REFRESH, "Refresh", "Refresh the list")
+                    .control_size(rune_kit::ControlSize::Small)
+                    .on_press(refresh_recent)
+                    .build(l.k)
+                    .key("refresh-recent"),
             ),
     );
 
+    // `.lc-search`: 32 high, radius 8, the raised fill and a hairline, the magnifier before the words.
     recent = recent.child(
-        text_input(&s.sidebar_query, type_::BODY)
-            .key("sidebar-search")
+        row()
             .w_full()
-            .color(p.text)
-            .placeholder("Search conversations", p.muted)
-            .padding(10.0)
-            .radius(6.0)
-            .fill(p.field)
-            .on_edit(|s: &mut State| &mut s.sidebar_query),
+            .h(32.0)
+            .gap(9.0)
+            .px(10.0)
+            .center_y()
+            .radius(8.0)
+            .fill(l.c("bg-raised-2"))
+            .border(1.0, l.c("border-hairline"))
+            .child(crate::look::controls::glyph(&l, &crate::look::icons::SEARCH, 14.0, Some(l.c("text-muted"))))
+            .child(
+                text_input(&s.sidebar_query, rune::TextStyle::new(13.0, 400.0))
+                    .key("sidebar-search")
+                    .single_line()
+                    .grow(1.0)
+                    .color(l.c("text-primary"))
+                    .placeholder("Search conversations", l.c("text-muted"))
+                    .on_edit(|s: &mut State| &mut s.sidebar_query),
+            ),
     );
 
     if let Some(line) = narrowing_line(

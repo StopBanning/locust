@@ -87,16 +87,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             }
             ledger::Item::User(body) => row().w_full().justify_end().child(
                 row().w_frac(0.7).justify_end().child(
+                    // `.lc-bubble`: your words at the said size, 12 by 16, radius 10, no border.
                     text(body.clone())
-                        .font(type_::BODY)
+                        .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
                         .color(p.text)
                         .shrink()
                         .wrap_anywhere()
                         .selectable(true)
-                        .padding(12.0)
+                        .py(12.0)
+                        .px(16.0)
                         .radius(10.0)
-                        .fill(p.your_bubble)
-                        .border(1.0, p.hairline),
+                        .fill(p.your_bubble),
                 ),
             ),
             ledger::Item::Assistant {

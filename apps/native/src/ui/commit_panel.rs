@@ -148,8 +148,8 @@ pub(super) fn control(s: &State, p: &Palette) -> El {
     } else {
         "Commit this folder's changes".to_owned()
     };
-    label(p, "Commit")
-        .label(&title)
+    crate::look::controls::header_button(&crate::look::controls::Look::new(p.dark), &crate::look::icons::COMMIT, "Commit")
+        .label(title.clone())
         .on_press(|s: &mut State| {
             if s.commit.open {
                 if s.commit.working.is_none() {

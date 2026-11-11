@@ -107,17 +107,16 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 .child(message_column(items, &teammate.name, p, s))
         };
 
-        let mut status = row()
-            .w_full()
+        // The conversation's actions sit in its header, on the right, as Electron's thread header draws them.
+        let actions = row()
+            .gap(4.0)
             .center_y()
-            .gap(8.0)
-            .px(24.0)
-            .py(10.0)
-            .child(changes_panel::controls(s, p))
             .child(commit_panel::control(s, p))
-            .child(browser_panel::toggle(p))
+            .child(changes_panel::controls(s, p))
+            .child(terminal_panel::runtime_controls(s, p))
             .child(terminal_panel::toggle(p))
-            .child(terminal_panel::runtime_controls(s, p));
+            .child(browser_panel::toggle(p));
+        let mut status = row().w_full().center_y().gap(8.0).px(28.0).py(8.0);
         if s.flight.is_some() || s.opening_teammate.is_some() {
             status = status.child(
                 el().key("activity-dot")
@@ -166,7 +165,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .placeholder(placeholder, p.muted)
             .color(p.text)
             .w_full()
-            .padding(12.0)
+            .py(7.0)
             .on_edit(|s: &mut State| &mut s.draft)
             .on_submit(|s: &mut State, tx: &mut Tx| submit_composer(s, tx, false))
             .on_input_key(composer_input_key)
@@ -190,15 +189,13 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 }
                 true
             });
+        let l = crate::look::controls::Look::new(p.dark);
         let composer = rune::auto_grow(
             field,
             composer::COMPOSER_MIN_LINES,
             composer::COMPOSER_MAX_LINES,
         )
         .max_h(composer::COMPOSER_MAX_HEIGHT_PX)
-        .radius(9.0)
-        .fill(p.field)
-        .border(1.0, p.hairline)
         .grow(1.0)
         .shrink()
         .on_drop_files(|s: &mut State, files, _| attach_dropped_paths(s, files));
@@ -223,20 +220,16 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         } else {
             "Send"
         };
-        let mut button = el()
-            .key("send")
-            .h(48.0)
-            .px(18.0)
-            .center()
-            .radius(9.0)
-            .fill(p.raised)
-            .border(1.0, p.hairline)
-            .disabled(!send_enabled)
-            .child(
-                text(button_label)
-                    .font(type_::LABEL)
-                    .color(if send_enabled { p.text } else { p.muted }),
-            );
+        // The round send button (Electron's metal composer): ivory with an arrow when there is something to send or
+        // queue, a square while a reply runs and nothing waits.
+        let send_state = if stopping {
+            crate::look::controls::SendState::Stop
+        } else if send_enabled {
+            crate::look::controls::SendState::Ready
+        } else {
+            crate::look::controls::SendState::Idle
+        };
+        let mut button = crate::look::controls::send_circle(&l, send_state, button_label).key("send").disabled(!send_enabled);
         // Rune has no title tooltip API on El in this pin; the label/status carry the why.
         let _ = send_title;
         if send_enabled {
@@ -285,14 +278,10 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             if picked.is_some() { ", this turn" } else { "" }
         );
         let chip_id = id.clone();
-        let chip = el()
-            .max_w(180.0)
-            .h(48.0)
-            .padding(6.0)
-            .center()
-            .radius(6.0)
-            .fill(p.raised)
-            .child(text(label).font(type_::LABEL).color(p.text).wrap_anywhere())
+        let runtime = teammate.runtime.as_deref().or(current.map(|a| a.runtime.as_str())).unwrap_or("codex");
+        let mark = crate::look::controls::agent_mark(&l, runtime, 13.0, l.c("text-secondary"));
+        let chip = crate::look::controls::composer_chip(&l, mark, &label, true)
+            .key("model-chip")
             .on_press(move |s: &mut State| open_models(s, chip_id.clone()));
         let mut picker = col().w_full().px(24.0);
         if s.model_menu.as_ref() == Some(&id) {
@@ -699,34 +688,93 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             composer_stack = composer_stack.child(tags);
         }
 
-        composer_stack = composer_stack.child(
-            row()
-                .w_full()
-                .gap(10.0)
-                .child(chip)
-                .child(composer)
-                .child(button),
-        );
+        // The box, then the chips under it: the mode and the folder on the left, the model on the right (Electron's
+        // `.lc-composer__box` and its footer row).
+        let mode_word = match teammate.runs_in.as_str() {
+            "accept-edits" => "Edit",
+            "plan" => "Plan",
+            "approve-each" => "Approve",
+            "auto" => "Auto",
+            _ => "Ask",
+        };
+        let folder_word = teammate
+            .folder
+            .as_deref()
+            .and_then(|f| f.trim_end_matches('/').rsplit('/').next())
+            .filter(|f| !f.is_empty())
+            .unwrap_or("No folder");
+        let footer = row()
+            .w_full()
+            .center_y()
+            .gap(10.0)
+            .px(6.0)
+            .child(crate::look::controls::composer_chip(&l, None, mode_word, false).key("mode-chip"))
+            .child(
+                crate::look::controls::composer_chip(
+                    &l,
+                    Some(crate::look::controls::glyph(&l, &crate::look::icons::FOLDER, 13.0, Some(l.c("text-muted")))),
+                    folder_word,
+                    false,
+                )
+                .key("folder-chip")
+                .max_w(260.0),
+            )
+            .child(rune::spacer())
+            .child(chip);
+        composer_stack = composer_stack
+            .child(crate::look::controls::composer_box(&l).child(composer).child(button))
+            .child(footer);
 
         col()
             .grow(1.0)
             .shrink()
             .h_full()
             .child(
-                col()
+                // The thread's head: the teammate's initial (faces come in C4), name and role, the agent's mark and
+                // model under them, and the conversation's actions at the right.
+                row()
                     .w_full()
                     .h(88.0)
                     .px(24.0)
-                    .pt(30.0)
-                    .gap(5.0)
+                    .pt(28.0)
+                    .gap(12.0)
+                    .center_y()
                     .window_drag()
                     .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-                    .child(text(teammate.name.clone()).font(type_::TITLE).color(p.text))
                     .child(
-                        text(agent_line(s, teammate))
-                            .font(type_::LABEL)
-                            .color(p.muted),
-                    ),
+                        row()
+                            .w(36.0)
+                            .h(36.0)
+                            .center()
+                            .radius(10.0)
+                            .fill(l.c("bg-control"))
+                            .child(
+                                text(teammate.name.trim_start().chars().next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default())
+                                    .font(rune::TextStyle::new(15.0, 600.0))
+                                    .color(l.c("text-secondary")),
+                            ),
+                    )
+                    .child(
+                        col()
+                            .gap(3.0)
+                            .grow(1.0)
+                            .shrink()
+                            .child(
+                                row()
+                                    .gap(8.0)
+                                    .center_y()
+                                    .child(text(teammate.name.clone()).font(rune::TextStyle::new(15.0, 600.0)).color(l.c("text-name")))
+                                    .child(text(teammate.role.clone()).font(rune::TextStyle::new(12.5, 400.0)).color(l.c("text-muted")).truncate().shrink()),
+                            )
+                            .child({
+                                let mut line = row().gap(5.0).center_y();
+                                if let Some(mark) = crate::look::controls::agent_mark(&l, teammate.runtime.as_deref().unwrap_or("codex"), 11.0, l.c("text-muted")) {
+                                    line = line.child(mark);
+                                }
+                                line.child(text(agent_line(s, teammate)).font(rune::TextStyle::new(12.0, 400.0)).color(l.c("text-muted")).truncate().shrink())
+                            }),
+                    )
+                    .child(actions),
             )
             .child(transcript)
             .child(terminal_panel::commands(s, p))

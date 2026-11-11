@@ -170,20 +170,15 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .wrap(),
         );
     }
+    let l = crate::look::controls::Look::new(p.dark);
     if !s.approval_denying {
         body = body.child(
             row()
                 .w_full()
                 .gap(8.0)
                 .child(
-                    el().key("approve-once")
-                        .h(36.0)
-                        .px(14.0)
-                        .center()
-                        .radius(8.0)
-                        .fill(p.selected)
-                        .border(1.0, p.hairline)
-                        .child(text("Approve once").font(type_::LABEL).color(p.text))
+                    crate::look::controls::primary_button(&l, "Approve once", false)
+                        .key("approve-once")
                         .on_press(|s: &mut State| {
                             decide_pending(s, approval::Decision::ApproveOnce)
                         }),
@@ -191,35 +186,15 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .child(if approval::asks_every_time(card) {
                     col()
                 } else {
-                    el().key("approve-always")
-                        .h(36.0)
-                        .px(14.0)
-                        .center()
-                        .radius(8.0)
-                        .fill(p.raised)
-                        .border(1.0, p.hairline)
-                        .child(
-                            text("Always allow this session")
-                                .font(type_::LABEL)
-                                .color(p.text),
-                        )
+                    crate::look::controls::ghost_button(&l, "Always allow this session")
+                        .key("approve-always")
                         .on_press(|s: &mut State| {
                             decide_pending(s, approval::Decision::ApproveAlways)
                         })
                 })
                 .child(if approval::can_save_allow_rule(card) {
-                    el().key("dont-ask-again")
-                        .h(36.0)
-                        .px(14.0)
-                        .center()
-                        .radius(8.0)
-                        .fill(p.raised)
-                        .border(1.0, p.hairline)
-                        .child(
-                            text("Yes, and don't ask again")
-                                .font(type_::LABEL)
-                                .color(p.text),
-                        )
+                    crate::look::controls::ghost_button(&l, "Yes, and don't ask again")
+                        .key("dont-ask-again")
                         .on_press(|s: &mut State| {
                             if let Some(card) = s.pending_approval.clone() {
                                 match approval::save_rule_and_decide(
@@ -237,14 +212,8 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                     col()
                 })
                 .child(
-                    el().key("deny")
-                        .h(36.0)
-                        .px(14.0)
-                        .center()
-                        .radius(8.0)
-                        .fill(p.raised)
-                        .border(1.0, p.red)
-                        .child(text("Deny…").font(type_::LABEL).color(p.red))
+                    crate::look::controls::deny_button(&l, "Deny…")
+                        .key("deny")
                         .on_press(|s: &mut State| {
                             s.approval_denying = true;
                         }),
@@ -281,22 +250,14 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 row()
                     .gap(8.0)
                     .child(
-                        el().h(36.0)
-                            .px(12.0)
-                            .child(
-                                text(if s.approval_reason.text.trim().is_empty() {
-                                    "Deny"
-                                } else {
-                                    "Deny and say why"
-                                })
-                                .color(p.red),
-                            )
-                            .on_press(|s: &mut State| decide_pending(s, approval::Decision::Deny)),
+                        crate::look::controls::deny_button(
+                            &l,
+                            if s.approval_reason.text.trim().is_empty() { "Deny" } else { "Deny and say why" },
+                        )
+                        .on_press(|s: &mut State| decide_pending(s, approval::Decision::Deny)),
                     )
                     .child(
-                        el().h(36.0)
-                            .px(12.0)
-                            .child(text("Back").color(p.text))
+                        crate::look::controls::ghost_button(&l, "Back")
                             .on_press(|s: &mut State| {
                                 s.approval_denying = false;
                                 s.approval_reason.clear();
@@ -307,13 +268,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                             .as_ref()
                             .is_some_and(approval::can_save_allow_rule)
                         {
-                            el().h(36.0)
-                                .px(12.0)
-                                .child(
-                                    text("Never allow this (saves a rule)")
-                                        .font(type_::LABEL)
-                                        .color(p.red),
-                                )
+                            crate::look::controls::deny_button(&l, "Never allow this (saves a rule)")
                                 .on_press(|s: &mut State| {
                                     if let Some(card) = s.pending_approval.clone() {
                                         match approval::save_rule_and_decide(

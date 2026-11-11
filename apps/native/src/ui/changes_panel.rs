@@ -27,15 +27,24 @@ fn root(s: &State) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 pub(super) fn controls(s: &State, p: &Palette) -> El {
-    let mut out = row().gap(6.0);
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut out = row().gap(2.0);
     if let Some(folder) = root(s) {
         if s.changes_repo
             .as_ref()
             .is_some_and(|(p, yes)| p == &folder && *yes)
         {
-            out = out.child(button("Changes", p).on_press(|s: &mut State| open(s)))
+            out = out.child(
+                crate::look::controls::head_icon(&crate::look::icons::DIFF, "Changes", "Changes in this folder")
+                    .on_press(|s: &mut State| open(s))
+                    .build(l.k),
+            )
         }
-        out = out.child(button("Undo", p).on_press(|s: &mut State| open(s)));
+        out = out.child(
+            crate::look::controls::head_icon(&crate::look::icons::ARROW_LEFT, "Undo", "Undo a turn's changes")
+                .on_press(|s: &mut State| open(s))
+                .build(l.k),
+        );
     }
     out
 }

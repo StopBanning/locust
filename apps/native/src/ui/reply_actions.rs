@@ -123,17 +123,28 @@ pub fn read_file(root: &Path, target: &FileTarget) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|_| "This file is not UTF-8 text.".into())
 }
 
+/// CopyButton.tsx: the copy glyph, a check with "Copied" once it lands, "Not copied" in amber if the clipboard refused.
 pub(super) fn copy_button(feedback: Option<&CopyFeedback>, body: String, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
     let label = copy_label(feedback, &body, Instant::now());
-    let tone = if label == "Not copied" {
-        p.amber
-    } else {
-        p.secondary
+    let (glyph, said, tone) = match label {
+        "Copied" => (&crate::look::icons::CHECK, Some(label), l.c("text-secondary")),
+        "Not copied" => (&crate::look::icons::COPY, Some(label), l.c("amber-text")),
+        _ => (&crate::look::icons::COPY, None, l.c("text-muted")),
     };
-    el().padding(5.0)
-        .radius(4.0)
-        .fill(p.raised)
-        .child(text(label).font(type_::LABEL).color(tone))
+    let mut e = row()
+        .gap(5.0)
+        .py(4.0)
+        .px(6.0)
+        .center_y()
+        .radius(l.t.px("radius-control"))
+        .hover(l.c("hover-surface"))
+        .child(crate::look::controls::glyph(&l, glyph, 12.0, Some(tone)));
+    if let Some(said) = said {
+        e = e.child(text(said).font(l.ty.mono).color(tone));
+    }
+    e.role("button")
+        .label(if said == Some("Copied") { "Copied reply" } else { "Copy reply" })
         .on_press_tx(move |_s: &mut State, tx| request_copy(tx, body.clone()))
 }
 

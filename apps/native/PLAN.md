@@ -117,6 +117,8 @@ on 11 Nov, and the guard became a hook inside Claude Code, Codex and Copilot (`n
   - **Icons and marks (C2).** `scripts/marks.py` writes Electron's 55 icons, 10 agent marks and the Locust mark and
     wordmark into `src/look/icons.rs` (CI checks they match). The thread's toolbar is icon buttons with tooltips, and
     the sidebar's head draws the mark and wordmark (`notes/C2-NOTES.md`).
+  - **The shell, first part (C3).** The message box, the thread's head, your bubble, the approval card, the sidebar's
+    rows and Home are on the kit, compared with Electron's frames in both themes (`notes/C3-NOTES.md`).
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

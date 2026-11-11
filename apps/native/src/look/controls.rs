@@ -253,3 +253,96 @@ pub fn brand_row(l: &Look) -> El {
         .role("img")
         .label("Locust")
 }
+
+/// `.lc-control`: a chip under the message box (the mode, the folder, the model): no box, secondary words at the
+/// control size, an optional lead (an icon or an agent's mark) and a chevron when it opens a menu.
+pub fn composer_chip(l: &Look, lead: Option<El>, words: &str, chevron: bool) -> El {
+    let mut e = row().py(4.0).px(6.0).gap(6.0).center_y().radius(l.t.px("radius-control")).hover(l.c("hover-surface"));
+    if let Some(lead) = lead {
+        e = e.child(lead);
+    }
+    e = e.child(text(words.to_owned()).font(TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")).truncate().shrink());
+    if chevron {
+        e = e.child(glyph(l, &super::icons::CHEVRON_DOWN, 13.0, Some(l.c("text-muted"))));
+    }
+    e.role("button").label(words.to_owned())
+}
+
+/// What the round send button says and does.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SendState {
+    /// Nothing to send: the dim circle.
+    Idle,
+    /// Something to send (or to queue): ivory, an arrow.
+    Ready,
+    /// A reply is running and nothing waits: a square stops it.
+    Stop,
+}
+
+/// The composer's round send button: 36 across, the circle's fill and border; ivory with an arrow once there is
+/// something to send, as Electron's metal composer draws it.
+pub fn send_circle(l: &Look, state: SendState, label: &str) -> El {
+    let (fill, ink) = match state {
+        SendState::Ready => (l.c("primary-bg"), l.c("primary-fg")),
+        SendState::Stop => (l.c("circle-bg"), l.c("circle-fg")),
+        SendState::Idle => (l.c("circle-bg"), l.c("circle-fg").alpha(0.35)),
+    };
+    let inner = match state {
+        SendState::Stop => row().w(11.0).h(11.0).radius(2.5).fill(ink),
+        _ => glyph(l, &super::icons::ARROW_UP, 17.0, Some(ink)),
+    };
+    let mut e = row().w(36.0).h(36.0).center().radius(18.0).fill(fill).border(1.0, l.c("circle-border")).child(inner);
+    if state != SendState::Idle {
+        e = e.hover(l.c("hover-surface")).press_scale(0.96);
+    }
+    focusable(l, e, label, state == SendState::Idle)
+}
+
+/// `.lc-composer__box`: the rounded box a message is written in, radius 20 on the chat fill.
+pub fn composer_box(l: &Look) -> El {
+    row().w_full().center_y().gap(10.0).pl(16.0).pr(10.0).py(10.0).radius(20.0).fill(l.c("chat-bg"))
+}
+
+/// `.lc-ghostbutton`: an outlined choice beside the primary one, 32 high, the strong border, secondary words at 14.
+pub fn ghost_button(l: &Look, label: &str) -> El {
+    let e = row()
+        .h(32.0)
+        .px(15.0)
+        .center()
+        .radius(l.t.px("radius-control"))
+        .border(1.0, l.c("border-strong"))
+        .hover(l.c("hover-surface"))
+        .press_scale(0.98)
+        .child(text(label.to_owned()).font(l.ty.control).color(l.c("text-secondary")));
+    focusable(l, e, label, false)
+}
+
+/// `.lc-denybutton`: the same, outlined and worded in red.
+pub fn deny_button(l: &Look, label: &str) -> El {
+    let e = row()
+        .h(32.0)
+        .px(15.0)
+        .center()
+        .radius(l.t.px("radius-control"))
+        .border(1.0, l.c("red-border"))
+        .hover(l.c("red-tint"))
+        .press_scale(0.98)
+        .child(text(label.to_owned()).font(l.ty.control).color(l.c("red-text")));
+    focusable(l, e, label, false)
+}
+
+/// The thread header's one worded action (Commit): an icon and a word in an outlined box, 28 high, as Electron's.
+pub fn header_button(l: &Look, i: &'static Icon, words: &str) -> El {
+    let e = row()
+        .h(28.0)
+        .px(10.0)
+        .gap(6.0)
+        .center_y()
+        .radius(l.t.px("radius-control"))
+        .fill(l.c("bg-control"))
+        .border(1.0, l.c("border-control"))
+        .hover(l.c("hover-surface"))
+        .child(glyph(l, i, 13.0, Some(l.c("text-secondary"))))
+        .child(text(words.to_owned()).font(TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")));
+    focusable(l, e, words, false)
+}

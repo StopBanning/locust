@@ -418,27 +418,75 @@ fn apply_template(s: &mut State, template_id: &str) {
     s.team = Latest::default();
 }
 
-pub(super) fn home_view(s: &State, p: &Palette) -> El {
-    let mut body = col().w_full().gap(12.0).padding(16.0);
-    body = body
+/// The icon StarterList.tsx gives each starter.
+fn starter_icon(label: &str) -> &'static rune::Icon {
+    use crate::look::icons;
+    match label {
+        "Plan before building" => &icons::ROUTE,
+        "Debug an issue" => &icons::TARGET,
+        "Review my changes" | "Check a document" => &icons::EYE,
+        "Build a landing page" => &icons::FILE,
+        "Research a question" => &icons::SEARCH,
+        "Work out the numbers" => &icons::GRID,
+        "Ask the whole team" => &icons::USERS,
+        "Put it on a schedule" => &icons::CLOCK,
+        _ => &icons::SPARK,
+    }
+}
+
+/// Home's banner: the Locust lockup and its line on the boot screen's dark glass, dark in both themes as Electron's.
+fn banner(l: &crate::look::controls::Look) -> El {
+    let ink = l.c("boot-ink");
+    let (mark_h, word_h) = (30.0_f32, 21.0_f32);
+    let mark_w = mark_h * 306.89 / 176.39;
+    let word_w = word_h * 283.65 / 39.36;
+    col()
+        .gap(12.0)
+        .center()
+        .py(20.0)
+        .px(26.0)
+        .radius(12.0)
+        .fill(l.c("boot-screen-mid"))
+        .border(1.0, l.c("boot-bezel-hi"))
         .child(
             row()
-                .w_full()
+                .gap(10.0)
                 .center_y()
-                .child(
-                    text("Home".to_owned())
-                        .font(type_::TITLE)
-                        .color(p.text)
-                        .grow(1.0),
-                )
-                .child(button("Close", p).on_press(|s: &mut State| s.home.home_open = false)),
+                .child(rune::icon(&crate::look::icons::LOCUST_MARK, mark_w).color(ink).my(-(mark_w - mark_h) / 2.0).a11y_hidden())
+                .child(rune::icon(&crate::look::icons::LOCUST_WORDMARK, word_w).color(ink).my(-(word_w - word_h) / 2.0)),
         )
-        .child(
-            text(COVER_CLAIM.to_owned())
-                .font(type_::BODY)
-                .color(p.secondary)
-                .wrap(),
-        );
+        .child(text(COVER_CLAIM.to_uppercase()).font(rune::TextStyle::new(9.5, 400.0).mono().tracking(1.9)).color(l.c("boot-ink-muted")))
+        .role("img")
+        .label(format!("Locust. {COVER_CLAIM}"))
+}
+
+/// A Home section's head: its title, a count when it has one, and what sits at its right.
+fn section_head(l: &crate::look::controls::Look, title: &str, count: Option<usize>, right: Option<El>) -> El {
+    let mut head = row().w_full().center_y().gap(8.0).pt(10.0).child(text(title.to_owned()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-primary")));
+    if let Some(n) = count {
+        head = head.child(text(n.to_string()).font(l.ty.mono).color(l.c("text-muted")));
+    }
+    head = head.child(rune::spacer());
+    if let Some(right) = right {
+        head = head.child(right);
+    }
+    head
+}
+
+pub(super) fn home_view(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let mut body = col().w_full().max_w(760.0).gap(12.0).pt(18.0).pb(28.0);
+    body = body.child(
+        row()
+            .w_full()
+            .child(rune::spacer())
+            .child(
+                crate::look::controls::head_icon(&crate::look::icons::CLOSE, "Close Home", "Close")
+                    .on_press(|s: &mut State| s.home.home_open = false)
+                    .build(l.k),
+            ),
+    );
+    body = body.child(row().w_full().justify_center().pb(10.0).child(banner(&l)));
 
     // Folder strip
     let folder_line = s
@@ -450,17 +498,19 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         col()
             .w_full()
             .gap(6.0)
-            .padding(10.0)
-            .fill(p.raised)
-            .radius(8.0)
-            .child(text(folder_line).font(type_::LABEL).color(p.text).wrap())
+            .padding(12.0)
+            .fill(l.c("bg-raised"))
+            .border(1.0, l.c("border-card"))
+            .radius(10.0)
             .child(
-                text(FOLDER_LEDE.to_owned())
-                    .font(type_::LABEL)
-                    .color(p.muted)
-                    .wrap(),
+                row()
+                    .gap(8.0)
+                    .center_y()
+                    .child(crate::look::controls::glyph(&l, &crate::look::icons::FOLDER, 14.0, Some(l.c("text-muted"))))
+                    .child(text(folder_line).font(l.ty.control).color(l.c("text-primary")).wrap()),
             )
-            .child(button(CHOOSE_FOLDER, p).on_press(|s: &mut State| {
+            .child(text(FOLDER_LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
+            .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press(|s: &mut State| {
                 // Native has no OS folder picker in this round; invent a working folder once.
                 if let Some(store) = s.data.clone() {
                     let path = store.root().join("Projects").join("Locust");
@@ -478,7 +528,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                         }
                     }
                 }
-            })),
+            }))),
     );
     if s.home.folder_invented {
         body = body.child(
@@ -609,87 +659,124 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             );
         }
     } else {
-        body = body.child(text(YOUR_TEAM.to_owned()).font(type_::TITLE).color(p.text));
-        for mate in &s.teammates {
-            body = body.child(
-                text(format!("{} · {}", mate.name, mate.role))
-                    .font(type_::LABEL)
-                    .color(p.secondary),
-            );
-        }
-        body = body.child(button(NEW_TEAMMATE, p).on_press(|s: &mut State| {
+        let add = crate::look::controls::ghost_button(&l, &format!("+  {NEW_TEAMMATE}")).on_press(|s: &mut State| {
             crate::people_panel::open(s);
             s.home.home_open = false;
-        }));
+        });
+        body = body.child(section_head(&l, YOUR_TEAM, Some(s.teammates.len()), Some(add)));
+        // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
+        let mut grid = row().w_full().gap(10.0).flex_wrap();
+        for mate in &s.teammates {
+            let initial = mate.name.trim_start().chars().next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default();
+            let runtime = mate.runtime.as_deref().unwrap_or("codex");
+            let mut agent = row().gap(5.0).center_y();
+            if let Some(mark) = crate::look::controls::agent_mark(&l, runtime, 11.0, l.c("text-muted")) {
+                agent = agent.child(mark);
+            }
+            agent = agent.child(
+                text(mate.model.clone().filter(|m| !m.is_empty()).unwrap_or_else(|| "account default".into()))
+                    .font(rune::TextStyle::new(11.5, 400.0))
+                    .color(l.c("text-muted"))
+                    .truncate()
+                    .shrink(),
+            );
+            grid = grid.child(
+                row()
+                    .w(246.0)
+                    .gap(12.0)
+                    .padding(12.0)
+                    .center_y()
+                    .radius(10.0)
+                    .fill(l.c("bg-raised"))
+                    .border(1.0, l.c("border-card"))
+                    .child(
+                        row()
+                            .w(44.0)
+                            .h(44.0)
+                            .center()
+                            .radius(10.0)
+                            .fill(l.c("bg-control"))
+                            .child(text(initial).font(rune::TextStyle::new(16.0, 600.0)).color(l.c("text-secondary"))),
+                    )
+                    .child(
+                        col()
+                            .gap(2.0)
+                            .grow(1.0)
+                            .shrink()
+                            .child(text(mate.name.clone()).font(rune::TextStyle::new(14.0, 500.0)).color(l.c("text-name")).truncate())
+                            .child(text(mate.role.clone()).font(rune::TextStyle::new(12.5, 400.0)).color(l.c("text-secondary")).truncate())
+                            .child(agent),
+                    ),
+            );
+        }
+        body = body.child(grid);
     }
 
     // Starters
     let roles: Vec<&str> = s.teammates.iter().map(|t| t.role.as_str()).collect();
     let starters = starters::starters_for_roles(&roles);
-    body = body
+    let links = row()
+        .gap(4.0)
+        .child(crate::look::controls::composer_chip(&l, None, START_FROM_ISSUE, false).on_press(|s: &mut State| {
+            s.status = format!("{START_FROM_ISSUE} — runs in Locust for now");
+            s.status_tone = StatusTone::Muted;
+        }))
         .child(
-            row()
-                .w_full()
-                .center_y()
-                .child(
-                    text(START_A_CONVERSATION.to_owned())
-                        .font(type_::TITLE)
-                        .color(p.text)
-                        .grow(1.0),
-                )
-                .child(button(COMPARE_MODELS, p).on_press(|s: &mut State| {
-                    s.status = format!("{COMPARE_MODELS} — runs in Locust for now");
-                    s.status_tone = StatusTone::Muted;
-                }))
-                .child(button(START_FROM_ISSUE, p).on_press(|s: &mut State| {
-                    s.status = format!("{START_FROM_ISSUE} — runs in Locust for now");
-                    s.status_tone = StatusTone::Muted;
-                })),
-        )
-        .child(text(PICK_ONE.to_owned()).font(type_::LABEL).color(p.muted))
-        .child(
-            text(CONNECT_RUNTIME.to_owned())
-                .font(type_::LABEL)
-                .color(p.muted)
-                .wrap(),
+            crate::look::controls::composer_chip(
+                &l,
+                None,
+                COMPARE_MODELS,
+                false,
+            )
+            .child(crate::look::controls::glyph(&l, &crate::look::icons::CHEVRON_RIGHT, 12.0, Some(l.c("text-muted"))))
+            .on_press(|s: &mut State| {
+                s.status = format!("{COMPARE_MODELS} — runs in Locust for now");
+                s.status_tone = StatusTone::Muted;
+            }),
         );
+    body = body
+        .child(section_head(&l, START_A_CONVERSATION, None, Some(links)))
+        .child(text(format!("{PICK_ONE} {CONNECT_RUNTIME}")).font(l.ty.body).color(l.c("text-muted")).wrap());
+    // StarterList.tsx: two columns of rows, each its glyph and its words over a hairline.
+    let mut list = row().w_full().gap(0.0).flex_wrap();
     for starter in starters {
         let starter_id = starter.id.clone();
         let prompt = starter.prompt.to_owned();
         let mode = starter.mode.map(str::to_owned);
         let compare_label = if starter.compare_changes { COMPARE } else { "" };
-        body = body.child(
-            col()
-                .w_full()
-                .gap(2.0)
-                .padding(8.0)
-                .fill(p.raised)
-                .radius(6.0)
-                .child(
-                    text(starter.label.to_owned())
-                        .font(type_::BODY)
-                        .color(p.text),
-                )
-                .child(
-                    text(starter.line.to_owned())
-                        .font(type_::LABEL)
-                        .color(p.muted)
-                        .wrap(),
-                )
-                .child(
-                    text(compare_label.to_owned())
-                        .font(type_::LABEL)
-                        .color(p.secondary),
-                )
-                .on_press(move |s: &mut State| {
-                    apply_starter(s, &starter_id, &prompt, mode.as_deref());
-                }),
-        );
+        let mut item = row()
+            .w_frac(0.5)
+            .pr(24.0)
+            .child(
+                row()
+                    .w_full()
+                    .gap(12.0)
+                    .py(9.0)
+                    .px(4.0)
+                    .center_y()
+                    .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
+                    .hover(l.c("hover-surface"))
+                    .child(crate::look::controls::glyph(&l, starter_icon(starter.label), 15.0, Some(l.c("text-muted"))))
+                    .child(text(starter.label.to_owned()).font(rune::TextStyle::new(13.5, 400.0)).color(l.c("text-primary")).grow(1.0))
+                    .child(text(compare_label.to_owned()).font(l.ty.mono).color(l.c("text-muted")))
+                    .role("button")
+                    .label(starter.label.to_owned()),
+            )
+            .on_press(move |s: &mut State| {
+                apply_starter(s, &starter_id, &prompt, mode.as_deref());
+            });
+        item = item.key(format!("starter-{}", starter.id));
+        list = list.child(item);
     }
+    body = body.child(list);
 
-    body.scroll(ScrollSpec {
-        stick_bottom: false,
-    })
+    // A centred column, as Home's `max-width` holds it in Electron.
+    col()
+        .w_full()
+        .px(28.0)
+        .items_center()
+        .child(body)
+        .scroll(ScrollSpec { stick_bottom: false })
 }
 
 pub(super) fn board_view(s: &State, p: &Palette) -> El {
