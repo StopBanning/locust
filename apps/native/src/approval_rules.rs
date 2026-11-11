@@ -1,6 +1,6 @@
 //! Saved approval rule evaluator — Electron `shared/approval-rules.ts`.
 
-use crate::command_reach::{command_reach, CommandReach};
+use crate::command_reach::{CommandReach, command_reach};
 use crate::invariants;
 use crate::secrets::secret_in;
 
@@ -172,7 +172,10 @@ pub fn inside_folder(path: &str, folder: &str) -> Option<String> {
             left == right
         }
     };
-    if !resolved.get(..base.len()).is_some_and(|prefix| same(prefix, &base)) {
+    if !resolved
+        .get(..base.len())
+        .is_some_and(|prefix| same(prefix, &base))
+    {
         return None;
     }
     let rest = &resolved[base.len()..];
@@ -186,7 +189,10 @@ pub fn inside_folder(path: &str, folder: &str) -> Option<String> {
 }
 
 fn glob_to_regex(pattern: &str, case_blind: bool) -> Result<regex::Regex, regex::Error> {
-    let text = slashes(pattern).strip_prefix("./").unwrap_or(&slashes(pattern)).to_owned();
+    let text = slashes(pattern)
+        .strip_prefix("./")
+        .unwrap_or(&slashes(pattern))
+        .to_owned();
     let mut out = String::from("^");
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
@@ -217,7 +223,9 @@ fn glob_to_regex(pattern: &str, case_blind: bool) -> Result<regex::Regex, regex:
     }
     out.push('$');
     if case_blind {
-        regex::RegexBuilder::new(&out).case_insensitive(true).build()
+        regex::RegexBuilder::new(&out)
+            .case_insensitive(true)
+            .build()
     } else {
         regex::Regex::new(&out)
     }
@@ -231,9 +239,10 @@ fn path_matches(pattern: &str, relative: &str, case_blind: bool) -> bool {
 
 fn scoped(rule: &ApprovalRule, context: &RuleContext) -> bool {
     if let Some(id) = &rule.teammate_id
-        && context.teammate_id.as_deref() != Some(id.as_str()) {
-            return false;
-        }
+        && context.teammate_id.as_deref() != Some(id.as_str())
+    {
+        return false;
+    }
     if let Some(folder) = &rule.folder {
         let Some(ctx) = &context.folder else {
             return false;
@@ -251,7 +260,9 @@ fn matches(rule: &ApprovalRule, action: &RuledAction, context: &RuleContext) -> 
             if rule.effect == RuleEffect::Deny {
                 let mut parts = vec![flat(command)];
                 parts.extend(simple_parts(command));
-                parts.iter().any(|part| command_matches(&rule.pattern, part))
+                parts
+                    .iter()
+                    .any(|part| command_matches(&rule.pattern, part))
             } else {
                 !compound().is_match(command) && command_matches(&rule.pattern, command)
             }
@@ -303,7 +314,11 @@ pub fn decide_by_rules(
     if matches!(action, RuledAction::Other) {
         return RuleVerdict::Ask { why: None };
     }
-    let applicable: Vec<_> = rules.iter().filter(|r| scoped(r, context)).cloned().collect();
+    let applicable: Vec<_> = rules
+        .iter()
+        .filter(|r| scoped(r, context))
+        .cloned()
+        .collect();
     if let Some(denied) = applicable
         .iter()
         .find(|r| r.effect == RuleEffect::Deny && matches(r, action, context))
@@ -322,19 +337,22 @@ pub fn decide_by_rules(
     }
     if let RuledAction::Command { command } = action
         && compound().is_match(command)
-            && applicable.iter().any(|r| {
-                r.effect == RuleEffect::Allow
-                    && r.kind == RuleKind::Command
-                    && command_matches(
-                        &r.pattern,
-                        simple_parts(command).first().map(String::as_str).unwrap_or(""),
-                    )
-            })
-        {
-            return RuleVerdict::Ask {
-                why: Some(COMPOUND_REFUSAL.into()),
-            };
-        }
+        && applicable.iter().any(|r| {
+            r.effect == RuleEffect::Allow
+                && r.kind == RuleKind::Command
+                && command_matches(
+                    &r.pattern,
+                    simple_parts(command)
+                        .first()
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                )
+        })
+    {
+        return RuleVerdict::Ask {
+            why: Some(COMPOUND_REFUSAL.into()),
+        };
+    }
     RuleVerdict::Ask { why: None }
 }
 
@@ -435,10 +453,7 @@ pub fn ruled_action_of(request: RequestView<'_>) -> RuledAction {
             }
         }
         "file-change" => {
-            let from_diff = request
-                .patch_text
-                .map(diff_paths)
-                .unwrap_or_default();
+            let from_diff = request.patch_text.map(diff_paths).unwrap_or_default();
             if !from_diff.is_empty() {
                 return RuledAction::Edit { paths: from_diff };
             }
@@ -463,7 +478,8 @@ pub fn ruled_action_of(request: RequestView<'_>) -> RuledAction {
             RuledAction::Other
         }
         "connector" => {
-            if let Some(caps) = invariants::regex(r"^Use (\S+) on (.+)$").captures(request.summary) {
+            if let Some(caps) = invariants::regex(r"^Use (\S+) on (.+)$").captures(request.summary)
+            {
                 RuledAction::Connector {
                     tool: caps[1].to_owned(),
                     server: caps[2].to_owned(),
@@ -476,10 +492,7 @@ pub fn ruled_action_of(request: RequestView<'_>) -> RuledAction {
     }
 }
 
-pub fn rule_candidate_of(
-    action: &RuledAction,
-    context: &RuleContext,
-) -> Option<ApprovalRuleDraft> {
+pub fn rule_candidate_of(action: &RuledAction, context: &RuleContext) -> Option<ApprovalRuleDraft> {
     let teammate_id = context.teammate_id.clone();
     let folder = context.folder.clone();
     match action {
@@ -546,7 +559,10 @@ pub fn reach_of_request(request: RequestView<'_>) -> Option<CommandReach> {
     }
 }
 
-pub fn enforced_answer_decision(request: RequestView<'_>, decision: &str) -> (String, Option<String>) {
+pub fn enforced_answer_decision(
+    request: RequestView<'_>,
+    decision: &str,
+) -> (String, Option<String>) {
     if decision != "approve-always" {
         return (decision.to_owned(), None);
     }
@@ -574,18 +590,50 @@ mod tests {
     #[test]
     fn javascript_whitespace_and_secret_boundaries_do_not_broaden_rules() {
         let rules = [rule(RuleEffect::Allow, RuleKind::Command, "echo hi")];
-        let action = RuledAction::Command { command: "echo\u{0085}hi".into() };
-        assert_eq!(decide_by_rules(&action, &rules, &RuleContext::default()).decision(), "ask");
+        let action = RuledAction::Command {
+            command: "echo\u{0085}hi".into(),
+        };
+        assert_eq!(
+            decide_by_rules(&action, &rules, &RuleContext::default()).decision(),
+            "ask"
+        );
         let secret = format!("echo és{}", "k-proj-abcdefghijklmnopqrstuvwx");
-        assert!(rule_candidate_of(&RuledAction::Command { command: secret }, &RuleContext::default()).is_none());
+        assert!(
+            rule_candidate_of(
+                &RuledAction::Command { command: secret },
+                &RuleContext::default()
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn file_globs_strip_only_one_dot_slash_and_unicode_paths_do_not_panic() {
-        let context = RuleContext { teammate_id: None, folder: Some("/project".into()) };
-        let action = RuledAction::Edit { paths: vec!["src/main.rs".into()] };
-        assert_eq!(decide_by_rules(&action, &[rule(RuleEffect::Allow, RuleKind::Edit, "././src/**")], &context).decision(), "ask");
-        assert_eq!(decide_by_rules(&action, &[rule(RuleEffect::Allow, RuleKind::Edit, "./src/**")], &context).decision(), "allow");
+        let context = RuleContext {
+            teammate_id: None,
+            folder: Some("/project".into()),
+        };
+        let action = RuledAction::Edit {
+            paths: vec!["src/main.rs".into()],
+        };
+        assert_eq!(
+            decide_by_rules(
+                &action,
+                &[rule(RuleEffect::Allow, RuleKind::Edit, "././src/**")],
+                &context
+            )
+            .decision(),
+            "ask"
+        );
+        assert_eq!(
+            decide_by_rules(
+                &action,
+                &[rule(RuleEffect::Allow, RuleKind::Edit, "./src/**")],
+                &context
+            )
+            .decision(),
+            "allow"
+        );
         assert_eq!(inside_folder("/é/x", "/a"), None);
     }
 
@@ -711,11 +759,7 @@ mod tests {
             .decision(),
             "allow"
         );
-        for path in [
-            "../other/src/x.ts",
-            r"C:\Windows\src\x.ts",
-            "/etc/src/x",
-        ] {
+        for path in ["../other/src/x.ts", r"C:\Windows\src\x.ts", "/etc/src/x"] {
             assert_eq!(
                 decide_by_rules(
                     &RuledAction::Edit {
@@ -772,14 +816,16 @@ mod tests {
         );
         assert_eq!(note.0, "approve-once");
         assert!(note.1.unwrap().contains("asked each time"));
-        assert!(rule_refusal_for(RequestView {
-            kind: "command",
-            summary: "Run a command",
-            detail: "taskkill /IM python.exe",
-            runtime: None,
-            patch_text: None,
-        })
-        .unwrap()
-        .starts_with("Not saved as a rule:"));
+        assert!(
+            rule_refusal_for(RequestView {
+                kind: "command",
+                summary: "Run a command",
+                detail: "taskkill /IM python.exe",
+                runtime: None,
+                patch_text: None,
+            })
+            .unwrap()
+            .starts_with("Not saved as a rule:")
+        );
     }
 }

@@ -83,7 +83,12 @@ const SHAPES: &[Shape] = &[
 
 fn shape_res() -> &'static [Regex] {
     static RES: OnceLock<Vec<Regex>> = OnceLock::new();
-    RES.get_or_init(|| SHAPES.iter().map(|s| invariants::regex(s.pattern)).collect())
+    RES.get_or_init(|| {
+        SHAPES
+            .iter()
+            .map(|s| invariants::regex(s.pattern))
+            .collect()
+    })
 }
 
 /// AWS secret access key: 40 base64 chars near the word that names it (no lookaround).
@@ -95,7 +100,9 @@ fn aws_secret_key_in(text: &str) -> bool {
     for caps in near.captures_iter(text) {
         let Some(m) = caps.get(1) else { continue };
         let s = m.as_str();
-        let has_digit = s.chars().any(|c| c.is_ascii_digit() || c == '/' || c == '+');
+        let has_digit = s
+            .chars()
+            .any(|c| c.is_ascii_digit() || c == '/' || c == '+');
         let has_lower = s.chars().any(|c| c.is_ascii_lowercase());
         let has_upper = s.chars().any(|c| c.is_ascii_uppercase());
         if has_digit && has_lower && has_upper {
@@ -107,8 +114,12 @@ fn aws_secret_key_in(text: &str) -> bool {
 
 fn looks_like_a_password(value: &str) -> bool {
     value.len() >= 6
-        && value.chars().any(|c| "0123456789!@#$%^&*_+=?~-".contains(c))
-        && !Regex::new(r"^\.[A-Za-z]+$").expect("literal").is_match(value)
+        && value
+            .chars()
+            .any(|c| "0123456789!@#$%^&*_+=?~-".contains(c))
+        && !Regex::new(r"^\.[A-Za-z]+$")
+            .expect("literal")
+            .is_match(value)
 }
 
 fn password_said(text: &str) -> bool {
@@ -144,20 +155,27 @@ fn looks_like_a_card(digits: &str) -> bool {
             return false;
         };
         if at % 2 == 1 {
-            digit = if digit * 2 > 9 { digit * 2 - 9 } else { digit * 2 };
+            digit = if digit * 2 > 9 {
+                digit * 2 - 9
+            } else {
+                digit * 2
+            };
         }
         sum += digit;
     }
     let network = Regex::new(r"^(?:4|5[1-5]|2[2-7]|3[47]|6(?:011|5))")
         .expect("literal")
         .is_match(digits);
-    let all_same = digits.chars().all(|c| c == digits.chars().next().unwrap_or('\0'));
+    let all_same = digits
+        .chars()
+        .all(|c| c == digits.chars().next().unwrap_or('\0'));
     sum % 10 == 0 && network && !all_same
 }
 
 fn card_number_in(text: &str) -> bool {
     static CARD_RUN: OnceLock<Regex> = OnceLock::new();
-    let re = CARD_RUN.get_or_init(|| invariants::regex(r"(?:^|[^0-9])([0-9](?:[ -]?[0-9]){12,18})(?:[^0-9]|$)"));
+    let re = CARD_RUN
+        .get_or_init(|| invariants::regex(r"(?:^|[^0-9])([0-9](?:[ -]?[0-9]){12,18})(?:[^0-9]|$)"));
     for caps in re.captures_iter(text) {
         let Some(m) = caps.get(1) else { continue };
         let digits: String = m.as_str().chars().filter(|c| c.is_ascii_digit()).collect();
@@ -301,7 +319,10 @@ mod tests {
         let bare_prefix = format!("Use {}-ant keys only through the Claude sign-in.", "sk");
         assert_eq!(secret_in(&bare_prefix), None, "{bare_prefix}");
         assert_eq!(
-            secret_in(&format!("postgres://admin:hunter2{}db.internal:5432/app is the dev database", "@")),
+            secret_in(&format!(
+                "postgres://admin:hunter2{}db.internal:5432/app is the dev database",
+                "@"
+            )),
             Some("a login inside an address")
         );
         assert_eq!(
@@ -313,7 +334,10 @@ mod tests {
             Some("a card number")
         );
         assert_eq!(secret_in("The password is stored in the vault."), None);
-        assert_eq!(secret_in("Order 1234 5678 9012 3456 shipped on Tuesday."), None);
+        assert_eq!(
+            secret_in("Order 1234 5678 9012 3456 shipped on Tuesday."),
+            None
+        );
     }
 
     #[test]

@@ -303,9 +303,10 @@ fn commands(texts: &[&str], words: &[Vec<String>], depth: u32) -> Option<Vec<Ste
             None
         };
         if let Some(ref file) = file
-            && !file.starts_with('-') {
-                return Some(vec![Step::new(format!("Runs the script {file}."))]);
-            }
+            && !file.starts_with('-')
+        {
+            return Some(vec![Step::new(format!("Runs the script {file}."))]);
+        }
         if matches!(
             verb.as_str(),
             "powershell" | "pwsh" | "cmd" | "bash" | "sh" | "zsh"
@@ -405,11 +406,13 @@ fn saved_in(saved: Saved) -> Step {
 fn writes_from_a_filter(words: &[String]) -> bool {
     let name = program_name(&words[0]);
     match name.as_str() {
-        "sed" => words
-            .iter()
-            .any(|w| crate::invariants::regex(r"^-[a-z]*i").is_match(w) || w.starts_with("--in-place")),
+        "sed" => words.iter().any(|w| {
+            crate::invariants::regex(r"^-[a-z]*i").is_match(w) || w.starts_with("--in-place")
+        }),
         "sort" => words.iter().any(|w| {
-            w == "-o" || w.starts_with("--output") || crate::invariants::regex(r"^-[a-z]*o").is_match(w)
+            w == "-o"
+                || w.starts_with("--output")
+                || crate::invariants::regex(r"^-[a-z]*o").is_match(w)
         }),
         _ => false,
     }
@@ -576,23 +579,26 @@ fn step_of(words: &[String]) -> Option<Step> {
         "cp" | "copy" | "cpi" | "copy-item" | "xcopy" => copy(&verb, args),
         "robocopy" => robocopy(args),
         "mkdir" | "md" => named(&plain_of(args, &verb, &[]), |folders| {
-            format!(
-                "Makes the folder{} {}.",
-                plural(folders),
-                join(folders)
-            )
+            format!("Makes the folder{} {}.", plural(folders), join(folders))
         }),
         "new-item" | "ni" => new_item(args),
         "touch" => named(&plain_of(args, &verb, &[]), |files| {
             format!(
                 "Makes {} if {} not there yet.",
                 join(files),
-                if files.len() == 1 { "it is" } else { "they are" }
+                if files.len() == 1 {
+                    "it is"
+                } else {
+                    "they are"
+                }
             )
         }),
         "type" => {
             let plain = plain_of(args, &verb, &[]);
-            if plain.iter().all(|word| crate::invariants::regex(r"[./\\]").is_match(word)) {
+            if plain
+                .iter()
+                .all(|word| crate::invariants::regex(r"[./\\]").is_match(word))
+            {
                 looks(named(&plain, |files| {
                     format!("Shows what is in {}.", join(files))
                 }))
@@ -666,16 +672,14 @@ fn step_of(words: &[String]) -> Option<Step> {
                     "Lists the programs running on this computer.",
                 ))
             } else if kind == "win32_logicaldisk" {
-                Some(Step::looking(
-                    "Shows how much room is left on each drive.",
-                ))
+                Some(Step::looking("Shows how much room is left on each drive."))
             } else {
                 None
             }
         }
-        "get-psdrive" | "gdr" | "df" => Some(Step::looking(
-            "Shows how much room is left on each drive.",
-        )),
+        "get-psdrive" | "gdr" | "df" => {
+            Some(Step::looking("Shows how much room is left on each drive."))
+        }
         "head" | "tail" => looks(named(&plain_of(args, &verb, &["-n", "-c"]), |files| {
             format!(
                 "Shows the {} of {}.",
@@ -691,18 +695,14 @@ fn step_of(words: &[String]) -> Option<Step> {
             }) {
                 None
             } else {
-                let where_ = plain_of(args, &verb, &[])
-                    .into_iter()
-                    .next();
+                let where_ = plain_of(args, &verb, &[]).into_iter().next();
                 Some(Step::looking(format!(
                     "Looks for files in {}.",
                     place(where_.as_deref())
                 )))
             }
         }
-        "grep" | "egrep" | "rg" | "ag" | "findstr" | "sls" | "select-string" => {
-            search(&verb, args)
-        }
+        "grep" | "egrep" | "rg" | "ag" | "findstr" | "sls" | "select-string" => search(&verb, args),
         "pwd" | "gl" | "get-location" => Some(Step::looking("Shows which folder this is.")),
         "echo" | "printf" | "write-output" | "write-host" => {
             Some(Step::looking("Prints a line of text."))
@@ -872,9 +872,9 @@ fn git(all: &[String]) -> Option<Step> {
             "Shows who last changed each line of {}.",
             plain.first().map(|s| s.as_str()).unwrap_or("a file")
         ))),
-        "ls-files" | "rev-parse" | "describe" => Some(Step::looking(
-            "Reads what Git knows about this folder.",
-        )),
+        "ls-files" | "rev-parse" | "describe" => {
+            Some(Step::looking("Reads what Git knows about this folder."))
+        }
         "remote" => {
             if args.is_empty() || (has(&["-v", "--verbose"]) && args.len() == 1) {
                 Some(Step::looking(
@@ -922,9 +922,9 @@ fn git(all: &[String]) -> Option<Step> {
                 )))
             } else {
                 let every = has(&["-a", "--all"])
-                    || args
-                        .iter()
-                        .any(|arg| crate::invariants::regex(r"^-[a-zA-Z]*a[a-zA-Z]*$").is_match(arg));
+                    || args.iter().any(|arg| {
+                        crate::invariants::regex(r"^-[a-zA-Z]*a[a-zA-Z]*$").is_match(arg)
+                    });
                 Some(Step::new(format!(
                     "Saves {} as a commit{with_message}, on this computer only.",
                     if every {
@@ -949,7 +949,9 @@ fn git(all: &[String]) -> Option<Step> {
             } else {
                 "merges them into this branch".into()
             };
-            Some(Step::new(format!("Gets new commits from {from} and {how}.")))
+            Some(Step::new(format!(
+                "Gets new commits from {from} and {how}."
+            )))
         }
         "fetch" => {
             let from = if has(&["--all"]) {
@@ -1086,9 +1088,7 @@ fn git(all: &[String]) -> Option<Step> {
                     "Puts the changes not committed aside, to bring back later.",
                 )),
                 "pop" | "apply" => Some(Step::new("Brings back changes that were put aside.")),
-                "list" | "show" => {
-                    Some(Step::looking("Lists changes that were put aside."))
-                }
+                "list" | "show" => Some(Step::looking("Lists changes that were put aside.")),
                 "drop" | "clear" => Some(Step::amber(format!(
                     "Throws away {} that was put aside.",
                     if kind == "clear" {
@@ -1181,7 +1181,11 @@ fn git(all: &[String]) -> Option<Step> {
 fn push(args: &[String]) -> Option<Step> {
     let plain = plain_of(args, "git", &["-o", "--push-option", "--repo"]);
     let remote = plain.first().map(|s| s.as_str());
-    let refs = if plain.len() > 1 { &plain[1..] } else { &[][..] };
+    let refs = if plain.len() > 1 {
+        &plain[1..]
+    } else {
+        &[][..]
+    };
     let where_ = remote.unwrap_or("the repository this branch is linked to");
     let branch_of = |r: &str| -> String {
         r.trim_start_matches('+')
@@ -1196,8 +1200,7 @@ fn push(args: &[String]) -> Option<Step> {
         None | Some("HEAD") => "this branch".into(),
         Some(b) => b.to_string(),
     };
-    if args.iter().any(|a| a == "--delete" || a == "-d")
-        || refs.iter().any(|r| r.starts_with(':'))
+    if args.iter().any(|a| a == "--delete" || a == "-d") || refs.iter().any(|r| r.starts_with(':'))
     {
         return Some(Step::amber(format!(
             "Deletes the branch {which} on {where_}."
@@ -1343,7 +1346,11 @@ fn gh(args: &[String]) -> Option<Step> {
         let said = if one {
             format!(
                 "Reads the {}{it} on GitHub.",
-                if area == "pr" { "pull request" } else { "issue" }
+                if area == "pr" {
+                    "pull request"
+                } else {
+                    "issue"
+                }
             )
         } else {
             format!(
@@ -1373,14 +1380,10 @@ fn gh(args: &[String]) -> Option<Step> {
                 )));
             }
             Some("merge") => {
-                return Some(Step::new(format!(
-                    "Merges the pull request{it} on GitHub."
-                )));
+                return Some(Step::new(format!("Merges the pull request{it} on GitHub.")));
             }
             Some("close") => {
-                return Some(Step::new(format!(
-                    "Closes the pull request{it} on GitHub."
-                )));
+                return Some(Step::new(format!("Closes the pull request{it} on GitHub.")));
             }
             Some("comment" | "review") => {
                 return Some(Step::new(format!(
@@ -1435,7 +1438,15 @@ fn gh(args: &[String]) -> Option<Step> {
 
 static BARE_SCRIPTS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     HashSet::from([
-        "build", "dev", "lint", "typecheck", "format", "preview", "check", "serve", "watch",
+        "build",
+        "dev",
+        "lint",
+        "typecheck",
+        "format",
+        "preview",
+        "check",
+        "serve",
+        "watch",
     ])
 });
 
@@ -1490,12 +1501,20 @@ fn packages(manager: &str, args: &[String]) -> Option<Step> {
                 Some(Step::new(format!(
                     "Removes {} from {}.",
                     join(rest),
-                    if global { "this computer" } else { "this project" }
+                    if global {
+                        "this computer"
+                    } else {
+                        "this project"
+                    }
                 )))
             }
         }
         Some("test" | "t" | "start") => {
-            let name = if sub == Some("t") { "test" } else { sub.unwrap() };
+            let name = if sub == Some("t") {
+                "test"
+            } else {
+                sub.unwrap()
+            };
             if manager == "bun" && name != "start" {
                 Some(Step::new(format!(
                     "Runs this project{AP}s tests.",
@@ -1617,9 +1636,7 @@ fn pip(args: &[String]) -> Option<Step> {
                 )))
             }
         }
-        "list" | "freeze" | "show" => {
-            Some(Step::looking("Lists the Python packages installed."))
-        }
+        "list" | "freeze" | "show" => Some(Step::looking("Lists the Python packages installed.")),
         _ => None,
     }
 }
@@ -1671,10 +1688,7 @@ fn script(args: &[String]) -> Option<Step> {
             .filter(|arg| !arg.starts_with('-'))
             .cloned()
             .collect();
-        return Some(Step::new(format!(
-            "Runs the tests in {}.",
-            join(&files)
-        )));
+        return Some(Step::new(format!("Runs the tests in {}.", join(&files))));
     }
     Some(Step::new(format!("Runs the script {file}.")))
 }
@@ -1687,9 +1701,7 @@ fn cargo(args: &[String]) -> Option<Step> {
         ))),
         Some("build") => Some(Step::new("Builds this Rust project.")),
         Some("run") => Some(Step::new("Builds this Rust project and runs it.")),
-        Some("check" | "clippy") => Some(Step::looking(
-            "Checks this Rust project for mistakes.",
-        )),
+        Some("check" | "clippy") => Some(Step::looking("Checks this Rust project for mistakes.")),
         _ => None,
     }
 }
@@ -1701,9 +1713,7 @@ fn go_tool(args: &[String]) -> Option<Step> {
             AP = '\u{2019}'
         ))),
         Some("build") => Some(Step::new("Builds this Go project.")),
-        Some("vet") => Some(Step::looking(
-            "Checks this Go project for mistakes.",
-        )),
+        Some("vet") => Some(Step::looking("Checks this Go project for mistakes.")),
         Some("run") => {
             let file = args.get(1)?;
             Some(Step::new(format!("Builds {file} and runs it.")))
@@ -2021,9 +2031,7 @@ fn search(verb: &str, args: &[String]) -> Option<Step> {
     }
     let pattern = value_of(args, &["-e", "--regexp", "-pattern"]).map(str::to_string);
     let plain = plain_of(args, verb, &takes_value);
-    let what = pattern
-        .clone()
-        .or_else(|| plain.first().cloned())?;
+    let what = pattern.clone().or_else(|| plain.first().cloned())?;
     let mut where_ = values_of(args, &["-path", "-literalpath"]);
     if pattern.is_none() {
         where_.extend(plain.into_iter().skip(1));
@@ -2035,12 +2043,7 @@ fn search(verb: &str, args: &[String]) -> Option<Step> {
         if where_.is_empty() {
             "this folder".into()
         } else {
-            join(
-                &where_
-                    .iter()
-                    .map(|w| place(Some(w)))
-                    .collect::<Vec<_>>(),
-            )
+            join(&where_.iter().map(|w| place(Some(w))).collect::<Vec<_>>())
         },
         cut(&what, 60),
         LDQ = '\u{201c}',
@@ -2076,11 +2079,7 @@ fn waits(args: &[String]) -> Option<Step> {
     }
     let given = value_of(args, &["-seconds", "-s"])
         .map(str::to_string)
-        .or_else(|| {
-            args.iter()
-                .find(|arg| !arg.starts_with('-'))
-                .cloned()
-        })?;
+        .or_else(|| args.iter().find(|arg| !arg.starts_with('-')).cloned())?;
     let time = crate::invariants::regex(r"^(\d+(?:\.\d+)?)([smhd]?)$").captures(&given)?;
     let n: f64 = time[1].parse().ok()?;
     let mult = match &time[2] {
@@ -2111,13 +2110,11 @@ fn waits(args: &[String]) -> Option<Step> {
 }
 
 fn fetches(verb: &str, args: &[String]) -> Option<Step> {
-    let url = value_of(args, &["-uri"])
-        .map(str::to_string)
-        .or_else(|| {
-            args.iter()
-                .find(|arg| crate::invariants::regex(r"(?i)^https?://").is_match(arg))
-                .cloned()
-        })?;
+    let url = value_of(args, &["-uri"]).map(str::to_string).or_else(|| {
+        args.iter()
+            .find(|arg| crate::invariants::regex(r"(?i)^https?://").is_match(arg))
+            .cloned()
+    })?;
     if !crate::invariants::regex(r"(?i)^https?://").is_match(&url) {
         return None;
     }
@@ -2145,12 +2142,13 @@ fn fetches(verb: &str, args: &[String]) -> Option<Step> {
     }
     let out = value_of(args, &out_names);
     if let Some(out) = out
-        && out != "-" {
-            return Some(Step::new(format!(
-                "Downloads {} into {out}.",
-                short_url(&url)
-            )));
-        }
+        && out != "-"
+    {
+        return Some(Step::new(format!(
+            "Downloads {} into {out}.",
+            short_url(&url)
+        )));
+    }
     if (args.iter().any(|a| a == "-O") && verb == "curl")
         || args.iter().any(|a| a == "--remote-name")
     {
@@ -2231,11 +2229,7 @@ fn redirects(text: &str) -> Option<Vec<Saved>> {
         if file.is_empty() || crate::invariants::regex(r"[$`(){}@*?]").is_match(&file) {
             return None;
         }
-        found.push(Saved {
-            file,
-            adds,
-            errors,
-        });
+        found.push(Saved { file, adds, errors });
         i += 1;
     }
     Some(found)
@@ -2353,11 +2347,12 @@ fn values_of(args: &[String], names: &[&str]) -> Vec<String> {
                     && one.len() > 2)
         });
         if name.is_some()
-            && let Some(next) = args.get(i + 1) {
-                found.push(next.clone());
-                i += 2;
-                continue;
-            }
+            && let Some(next) = args.get(i + 1)
+        {
+            found.push(next.clone());
+            i += 2;
+            continue;
+        }
         if let Some(long) = names
             .iter()
             .find(|one| one.starts_with("--") && arg.starts_with(&format!("{one}=")))
@@ -2386,10 +2381,7 @@ fn named(list: &[String], say: impl Fn(&[String]) -> String) -> Option<Step> {
 }
 
 fn looks(step: Option<Step>) -> Option<Step> {
-    step.map(|s| Step {
-        looks: true,
-        ..s
-    })
+    step.map(|s| Step { looks: true, ..s })
 }
 
 fn looks_like_a_file(word: &str) -> bool {
@@ -2423,11 +2415,7 @@ fn join(list: &[String]) -> String {
             shown[..shown.len() - 1].join(", "),
             shown[shown.len() - 1]
         ),
-        _ => format!(
-            "{}, and {} more",
-            shown[..2].join(", "),
-            shown.len() - 2
-        ),
+        _ => format!("{}, and {} more", shown[..2].join(", "), shown.len() - 2),
     }
 }
 
@@ -2437,11 +2425,7 @@ fn plural(list: &[String]) -> &'static str {
 
 fn cut(text: &str, most: usize) -> String {
     if text.len() > most {
-        format!(
-            "{}{ELL}",
-            text[..most - 1].trim_end(),
-            ELL = '\u{2026}'
-        )
+        format!("{}{ELL}", text[..most - 1].trim_end(), ELL = '\u{2026}')
     } else {
         text.to_string()
     }
@@ -2498,8 +2482,8 @@ fn parse_url_host_path(url: &str) -> Option<(String, String)> {
 }
 
 fn repository_of(from: &str) -> String {
-    if let Some(c) =
-        crate::invariants::regex(r"(?i)github\.com[/:]([^/\s]+/[^/\s]+?)(?:\.git)?/?$").captures(from)
+    if let Some(c) = crate::invariants::regex(r"(?i)github\.com[/:]([^/\s]+/[^/\s]+?)(?:\.git)?/?$")
+        .captures(from)
     {
         return format!("{} from GitHub", &c[1]);
     }
@@ -2526,7 +2510,9 @@ mod tests {
         );
         assert_eq!(
             said("git push").as_deref(),
-            Some("Sends this branch\u{2019}s new commits to the repository this branch is linked to.")
+            Some(
+                "Sends this branch\u{2019}s new commits to the repository this branch is linked to."
+            )
         );
         let forced = plain_command("git push --force origin main").unwrap();
         assert_eq!(
@@ -2537,7 +2523,9 @@ mod tests {
         assert_eq!(said("git push origin +main"), Some(forced.said.clone()));
         assert_eq!(
             said("git push -f").as_deref(),
-            Some("Replaces this branch on the repository this branch is linked to with this computer\u{2019}s version: commits there that are not on this computer are lost.")
+            Some(
+                "Replaces this branch on the repository this branch is linked to with this computer\u{2019}s version: commits there that are not on this computer are lost."
+            )
         );
         assert!(
             said("git push --force-with-lease origin main")
@@ -2618,10 +2606,12 @@ mod tests {
         assert!(plain_command("node -e \"require('fs').rmSync('x')\"").is_none());
         assert!(plain_command("python -c \"print(1)\"").is_none());
         assert!(plain_command("git ls-files | xargs rm").is_none());
-        assert!(plain_command(
-            "git add -A && git commit -m x && git tag v2 && git push && git push --tags"
-        )
-        .is_none());
+        assert!(
+            plain_command(
+                "git add -A && git commit -m x && git tag v2 && git push && git push --tags"
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -2634,15 +2624,21 @@ mod tests {
         assert!(hard.careful);
         assert_eq!(
             said("git checkout -- src/cart.ts").as_deref(),
-            Some("Throws away the changes to src/cart.ts that are not committed. They cannot be brought back.")
+            Some(
+                "Throws away the changes to src/cart.ts that are not committed. They cannot be brought back."
+            )
         );
         assert_eq!(
             said("git restore .").as_deref(),
-            Some("Throws away the changes to every file in this folder that are not committed. They cannot be brought back.")
+            Some(
+                "Throws away the changes to every file in this folder that are not committed. They cannot be brought back."
+            )
         );
         assert_eq!(
             said("git branch -D spike").as_deref(),
-            Some("Deletes the branch spike, even if its commits are on no other branch: those commits can be lost.")
+            Some(
+                "Deletes the branch spike, even if its commits are on no other branch: those commits can be lost."
+            )
         );
         assert!(!plain_command("git checkout main").unwrap().careful);
         assert_eq!(

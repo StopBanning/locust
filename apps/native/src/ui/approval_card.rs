@@ -302,30 +302,35 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                                 s.approval_reason.clear();
                             }),
                     )
-                    .child(if s.pending_approval.as_ref().is_some_and(approval::can_save_allow_rule) {
-                        el().h(36.0)
-                            .px(12.0)
-                            .child(
-                                text("Never allow this (saves a rule)")
-                                    .font(type_::LABEL)
-                                    .color(p.red),
-                            )
-                            .on_press(|s: &mut State| {
-                                if let Some(card) = s.pending_approval.clone() {
-                                    match approval::save_rule_and_decide(
-                                        &card,
-                                        crate::approval_rules::RuleEffect::Deny,
-                                    ) {
-                                        Ok(()) => decide_pending(s, approval::Decision::Deny),
-                                        Err(words) => {
-                                            s.approval_notice = Some(words);
+                    .child(
+                        if s.pending_approval
+                            .as_ref()
+                            .is_some_and(approval::can_save_allow_rule)
+                        {
+                            el().h(36.0)
+                                .px(12.0)
+                                .child(
+                                    text("Never allow this (saves a rule)")
+                                        .font(type_::LABEL)
+                                        .color(p.red),
+                                )
+                                .on_press(|s: &mut State| {
+                                    if let Some(card) = s.pending_approval.clone() {
+                                        match approval::save_rule_and_decide(
+                                            &card,
+                                            crate::approval_rules::RuleEffect::Deny,
+                                        ) {
+                                            Ok(()) => decide_pending(s, approval::Decision::Deny),
+                                            Err(words) => {
+                                                s.approval_notice = Some(words);
+                                            }
                                         }
                                     }
-                                }
-                            })
-                    } else {
-                        col()
-                    }),
+                                })
+                        } else {
+                            col()
+                        },
+                    ),
             );
     }
     body = body.child(

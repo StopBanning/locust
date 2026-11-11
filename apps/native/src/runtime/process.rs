@@ -321,6 +321,45 @@ mod tests {
         assert!(confirm_exit(&mut child.child, Duration::from_secs(1)));
         child.reaped = true;
     }
+    #[test]
+    fn descendants_of_matches_electron_order_and_skips_unrelated() {
+        // Same fixture as a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts
+        let snapshot = "10 1\n20 10\n30 20\n40 10\n99 1\ninvalid\n1 0";
+        assert_eq!(descendants_of(snapshot, 10), vec![30, 40, 20]);
+        assert!(descendants_of(snapshot, 1).is_empty());
+        assert!(descendants_of("", 10).is_empty());
+    }
+
+    #[test]
+    fn end_terminal_tree_kills_descendants_and_reaps_root() {
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "sleep 120 & sleep 120"]);
+        let mut child = spawn(&mut command, Stdio::null(), Stdio::null()).unwrap();
+        let pid = child.id();
+        std::thread::sleep(Duration::from_millis(80));
+        let snapshot = Command::new("/bin/ps")
+            .args(["-axo", "pid=,ppid="])
+            .output()
+            .unwrap();
+        let kids = descendants_of(&String::from_utf8_lossy(&snapshot.stdout), pid);
+        assert!(
+            !kids.is_empty(),
+            "expected sleep descendants under shell {pid}"
+        );
+        end_terminal_tree(pid);
+        kill_reap(&mut child);
+        let listed = |id: u32| {
+            Command::new("/bin/ps")
+                .args(["-p", &id.to_string(), "-o", "pid="])
+                .output()
+                .map(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty())
+                .unwrap_or(false)
+        };
+        assert!(!listed(pid), "shell {pid} still alive");
+        for kid in kids {
+            assert!(!listed(kid), "descendant {kid} still alive");
+        }
+    }
 }
 
 /// ACP's grace period is three seconds, and it signals only the process group.
@@ -338,4 +377,61 @@ pub(crate) fn watch_group(
             kill(pid);
         }
     });
+}
+
+/// Descendants of `root` from a `ps -axo pid=,ppid=` snapshot, deepest first.
+/// Matches Electron `descendantsOf` in `terminal-host.ts` (BFS, then reverse).
+pub(crate) fn descendants_of(snapshot: &str, root: u32) -> Vec<u32> {
+    if root <= 1 {
+        return Vec::new();
+    }
+    let mut children: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
+    for line in snapshot.lines() {
+        let mut words = line.split_whitespace();
+        let (Ok(pid), Ok(parent)) = (
+            words.next().unwrap_or("").parse::<u32>(),
+            words.next().unwrap_or("").parse::<u32>(),
+        ) else {
+            continue;
+        };
+        if pid <= 1 || parent < 1 {
+            continue;
+        }
+        children.entry(parent).or_default().push(pid);
+    }
+    let mut owned = vec![root];
+    let mut seen = std::collections::HashSet::from([root]);
+    let mut i = 0;
+    while i < owned.len() {
+        if let Some(kids) = children.get(&owned[i]) {
+            for &child in kids {
+                if seen.insert(child) {
+                    owned.push(child);
+                }
+            }
+        }
+        i += 1;
+    }
+    owned.into_iter().skip(1).rev().collect()
+}
+
+/// Terminal jobs may leave the shell's group. Snapshot parentage while the root is owned.
+/// Descendants are signaled by exact PID only (never `kill(-child)`); the root gets the group.
+pub(crate) fn end_terminal_tree(pid: u32) {
+    if pid <= 1 {
+        return;
+    }
+    if let Ok(snapshot) = Command::new("/bin/ps")
+        .args(["-axo", "pid=,ppid="])
+        .output()
+    {
+        for child in descendants_of(&String::from_utf8_lossy(&snapshot.stdout), pid) {
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(child as i32, libc::SIGKILL);
+            }
+        }
+    }
+    // Root: process group, then the process itself if the group is already gone (Electron fallback).
+    kill_process(pid);
 }

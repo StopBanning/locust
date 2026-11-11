@@ -113,7 +113,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .gap(8.0)
             .px(24.0)
             .py(10.0)
-            .child(changes_panel::controls(s, p));
+            .child(changes_panel::controls(s, p))
+            .child(terminal_panel::toggle(p))
+            .child(terminal_panel::runtime_controls(s, p));
         if s.flight.is_some() || s.opening_teammate.is_some() {
             status = status.child(
                 el().key("activity-dot")
@@ -151,7 +153,11 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         if let Some(context) = context_usage::control(s, p) {
             status = status.child(context);
         }
-        let placeholder = composer_placeholder(s);
+        let placeholder = if own_command::bang(&s.draft.text).is_some() {
+            "Type a command".to_owned()
+        } else {
+            composer_placeholder(s)
+        };
         let field = text_input(&s.draft, type_::BODY)
             .key("composer")
             .disabled(turn_running(s) && queue_front(s).is_some())
@@ -196,9 +202,11 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         .on_drop_files(|s: &mut State, files, _| attach_dropped_paths(s, files));
 
         let queueing = can_queue(s);
-        let stopping = can_stop(s) && !queueing;
+        let stopping = can_stop(s) && !queueing && own_command::bang(&s.draft.text).is_none();
         let blocked = send_blocked_now(s);
-        let send_enabled = (can_send(s) || queueing || stopping) && !s.stopping.is_pending();
+        let send_enabled =
+            (own_command::bang(&s.draft.text).is_some() || can_send(s) || queueing || stopping)
+                && !s.stopping.is_pending();
         let send_title = if stopping {
             "Stop the running reply".to_owned()
         } else if queueing {
@@ -719,6 +727,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     ),
             )
             .child(transcript)
+            .child(terminal_panel::commands(s, p))
             .child(status)
             .child(picker)
             .child(composer_stack)

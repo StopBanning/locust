@@ -211,22 +211,17 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 let uses = rule
                     .uses
                     .filter(|&n| n > 0)
-                    .map(|n| {
-                        format!(
-                            " Answered {n} {}.",
-                            if n == 1 { "card" } else { "cards" }
-                        )
-                    })
+                    .map(|n| format!(" Answered {n} {}.", if n == 1 { "card" } else { "cards" }))
                     .unwrap_or_default();
                 body = body.child(
                     row()
                         .w_full()
                         .gap(8.0)
-                        .child(text(tag.to_owned()).font(type_::LABEL).color(if tag == "ALLOW" {
-                            p.green
-                        } else {
-                            p.red
-                        }))
+                        .child(
+                            text(tag.to_owned())
+                                .font(type_::LABEL)
+                                .color(if tag == "ALLOW" { p.green } else { p.red }),
+                        )
                         .child(
                             text(format!("{sentence}{uses}"))
                                 .font(type_::LABEL)
@@ -234,19 +229,21 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                 .grow(1.0)
                                 .wrap(),
                         )
-                        .child(button(crate::approval_rule_store::SAVED_APPROVALS_REMOVE, p).on_press(
-                            move |s: &mut State| {
-                                let result = s
-                                    .data
-                                    .as_ref()
-                                    .ok_or("No native data folder".into())
-                                    .and_then(|store| {
-                                        crate::approval_rule_store::remove(store, &id)?;
-                                        Ok(())
-                                    });
-                                done(s, result);
-                            },
-                        )),
+                        .child(
+                            button(crate::approval_rule_store::SAVED_APPROVALS_REMOVE, p).on_press(
+                                move |s: &mut State| {
+                                    let result = s
+                                        .data
+                                        .as_ref()
+                                        .ok_or("No native data folder".into())
+                                        .and_then(|store| {
+                                            crate::approval_rule_store::remove(store, &id)?;
+                                            Ok(())
+                                        });
+                                    done(s, result);
+                                },
+                            ),
+                        ),
                 );
             }
             if panel.confirming_remove_all {

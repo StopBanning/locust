@@ -19,6 +19,8 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 ctrlc = "3"
 # Match the runtime adapter’s secret redaction rules at the display boundary.
 regex = "1"
+portable-pty = "0.9"
+vt100 = "0.18"
 sha2 = "0.10"
 unicode-normalization = "0.1"
 ureq = { version = "2", default-features = false, features = ["json"] }

@@ -329,13 +329,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                         row()
                             .gap(8.0)
                             .center_y()
-                            .child(
-                                button(format!("{badge}  {}", f.path), p).on_press(
-                                    move |s: &mut State| {
-                                        s.changes.folded.remove(&i);
-                                    },
-                                ),
-                            )
+                            .child(button(format!("{badge}  {}", f.path), p).on_press(
+                                move |s: &mut State| {
+                                    s.changes.folded.remove(&i);
+                                },
+                            ))
                             .child(line_count_marks(a, d, p)),
                     );
                 }
@@ -427,8 +425,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                 }
                                 start
                             };
-                            let keep = keep_mask[k]
-                                || panel.contexts.contains(&(i, j, run_start));
+                            let keep = keep_mask[k] || panel.contexts.contains(&(i, j, run_start));
                             if !keep {
                                 hidden += 1;
                                 continue;
@@ -440,11 +437,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                 } else {
                                     format!("{hidden} unchanged lines")
                                 };
-                                file = file.child(button(label, p).on_press(
-                                    move |s: &mut State| {
+                                file =
+                                    file.child(button(label, p).on_press(move |s: &mut State| {
                                         s.changes.contexts.insert((i, j, start));
-                                    },
-                                ));
+                                    }));
                                 hidden = 0;
                             }
                             file = file.child(code_row(
@@ -474,11 +470,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                             p,
                         ));
                     }
-                    let statement = changes::completeness(
-                        f,
-                        shown,
-                        diff.truncated && shown >= f.hunks.len(),
-                    );
+                    let statement =
+                        changes::completeness(f, shown, diff.truncated && shown >= f.hunks.len());
                     if shown < f.hunks.len() {
                         file = file.child(button(statement, p).on_press(move |s: &mut State| {
                             s.changes.expanded.insert(i);

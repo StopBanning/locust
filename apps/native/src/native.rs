@@ -104,9 +104,13 @@ pub(crate) mod hooks {
     pub static STATE: Mutex<(Option<Store>, Option<(PathBuf, Vec<String>)>)> =
         Mutex::new((None, None));
     /// Serialises tests that point the engine at a temporary store and a fake `codex`.
-    pub struct Guard { _lock: std::sync::MutexGuard<'static, ()> }
+    pub struct Guard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
     pub fn install(store: Store, command: Option<(PathBuf, Vec<String>)>) -> Guard {
-        let guard = Guard { _lock: LOCK.lock().unwrap_or_else(|e| e.into_inner()) };
+        let guard = Guard {
+            _lock: LOCK.lock().unwrap_or_else(|e| e.into_inner()),
+        };
         *crate::invariants::lock(&STATE) = (Some(store), command);
         guard
     }
@@ -404,7 +408,9 @@ fn workspace_folder(electron: &Path) -> Option<PathBuf> {
     path.is_absolute().then_some(path).filter(|p| p.is_dir())
 }
 
-fn folder_for(teammate: &Teammate, electron: &Path) -> Result<PathBuf, String> {
+/// Conversation cwd: teammate folder, else Electron's last workspace, else ~/Documents/Locust.
+/// Worktree paths (Electron `terminalFolder` when `worktree: true`) are not resolved here yet.
+pub fn folder_for(teammate: &Teammate, electron: &Path) -> Result<PathBuf, String> {
     let candidates = [
         teammate.folder.as_ref().map(PathBuf::from),
         workspace_folder(electron),
@@ -472,7 +478,7 @@ pub fn session(dir: PathBuf, id: String) -> ledger::Session {
 }
 
 // ---- resume point: which Codex thread a follow-up reopens ---------------------------------------------------------
-fn find_ledger(id: &str) -> Option<PathBuf> {
+pub(crate) fn find_ledger(id: &str) -> Option<PathBuf> {
     if !ledger::safe_id(id) {
         return None;
     }

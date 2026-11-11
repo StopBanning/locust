@@ -98,7 +98,10 @@ pub fn parsed_rule_file(raw: &str) -> Result<Vec<StoredRule>, String> {
         return Err(UNREADABLE.to_owned());
     }
     let mut rules = Vec::new();
-    for row in value["rules"].as_array().ok_or_else(|| UNREADABLE.to_owned())? {
+    for row in value["rules"]
+        .as_array()
+        .ok_or_else(|| UNREADABLE.to_owned())?
+    {
         // A rule that does not read is refused for the whole file, never half-applied.
         rules.push(parse_rule(row).ok_or_else(|| UNREADABLE.to_owned())?);
     }
@@ -168,9 +171,15 @@ pub fn add(store: &Store, draft: ApprovalRuleDraft) -> Result<StoredRule, String
     // Drop null optional keys so parse_rule treats them as absent.
     let mut provisional = provisional;
     if provisional["teammateId"].is_null()
-        && let Some(object) = provisional.as_object_mut() { object.remove("teammateId"); }
+        && let Some(object) = provisional.as_object_mut()
+    {
+        object.remove("teammateId");
+    }
     if provisional["folder"].is_null()
-        && let Some(object) = provisional.as_object_mut() { object.remove("folder"); }
+        && let Some(object) = provisional.as_object_mut()
+    {
+        object.remove("folder");
+    }
     if parse_rule(&provisional).is_none() {
         return Err("That rule could not be saved.".into());
     }
@@ -223,10 +232,7 @@ pub fn add(store: &Store, draft: ApprovalRuleDraft) -> Result<StoredRule, String
 pub fn remove(store: &Store, rule_id: &str) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let rules = load(store)?;
-    let next: Vec<_> = rules
-        .into_iter()
-        .filter(|r| r.rule_id != rule_id)
-        .collect();
+    let next: Vec<_> = rules.into_iter().filter(|r| r.rule_id != rule_id).collect();
     save(store, &next)
 }
 
@@ -424,10 +430,7 @@ mod tests {
             draft(RuleEffect::Allow, RuleKind::Read, "new-file", None),
         )
         .unwrap_err();
-        assert_eq!(
-            err,
-            "200 rules is the most Locust keeps; remove one first."
-        );
+        assert_eq!(err, "200 rules is the most Locust keeps; remove one first.");
         assert_eq!(list(&store).unwrap(), rules);
         assert_eq!(list(&store).unwrap()[0], rules[0]);
         assert_eq!(fs::read_to_string(&path).unwrap(), before);

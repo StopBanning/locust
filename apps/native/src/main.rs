@@ -1,6 +1,7 @@
 #[path = "ui/context_usage.rs"]
 mod context_usage;
 mod invariants;
+mod own_command;
 mod people;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
@@ -8,8 +9,12 @@ mod people_panel;
 mod recovery;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
+mod runtime_terminal;
 #[path = "ui/scenes.rs"]
 mod scenes;
+mod terminal;
+#[path = "ui/terminal_panel.rs"]
+mod terminal_panel;
 use scenes::*;
 #[path = "ui/composer_wiring.rs"]
 mod composer_wiring;
@@ -53,15 +58,15 @@ mod app_state;
 use app_state::*;
 
 mod approval;
-mod approval_rules;
 mod approval_rule_store;
-mod command_guard;
-mod command_plain;
-mod command_reach;
+mod approval_rules;
 mod changes;
 #[path = "ui/changes_panel.rs"]
 mod changes_panel;
 mod checkpoints;
+mod command_guard;
+mod command_plain;
+mod command_reach;
 mod composer;
 mod engine;
 mod ledger;
@@ -538,7 +543,7 @@ fn send(s: &mut State, _: &mut Tx) {
         .as_ref()
         .map(|p| p.snapshot.tip.clone())
         .filter(|v| !v.is_empty());
-    let message = s.draft.text.clone();
+    let message = terminal_panel::carry(s, s.draft.text.clone());
     s.own_turn = None;
     // Fix 2: keep the real teammate ID on ledger sends and capture this conversation's header and tip on the flight.
     s.flight = Some(Flight {
@@ -1283,6 +1288,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         return false;
     }
     let mut changed = changes_panel::poll(s);
+    changed |= terminal_panel::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -1580,6 +1586,9 @@ fn on_close(s: &mut State, _: &mut Tx) {
     s.ledger = None;
     s.status.clear();
     s.status_tone = StatusTone::Muted;
+    // Electron terminal-host dispose: end every tab and bang command before the window is gone.
+    // Drop ends the PTY/own-command trees; do not wait on the UI thread.
+    terminal_panel::dispose(s);
     // Native turns live in this process: ask each to stop now and let a background thread watch them write their
     // cancelled records. The UI thread does not wait; `main` waits after the window is gone.
     native::shutdown_in_background();
@@ -1651,7 +1660,12 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             .child(find)
             .child(thread);
     }
+    // The conversation keeps room for its message box; side panels (terminal, beside, viewer) shrink first.
+    let thread = col().grow(1.0).h_full().min_w(380.0).child(thread);
     let mut right = row().grow(1.0).h_full().min_w(0.0).child(thread);
+    if s.terminal.open {
+        right = right.child(terminal_panel::view(s, &p));
+    }
     if let Some(beside) = beside_panel(s, &p) {
         right = right.child(beside);
     }
@@ -1828,6 +1842,8 @@ fn main() {
         poll: Some(poll),
         on_key: Some(on_key),
         scenes: &[
+            ("p9-terminal", terminal_panel::scene),
+            ("p9-terminal-light", terminal_panel::light_scene),
             ("p7-undo", changes_panel::undo_scene),
             ("p7-undo-light", changes_panel::undo_light_scene),
             ("p7-changes", changes_panel::scene),

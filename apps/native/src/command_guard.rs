@@ -18,8 +18,7 @@ pub struct GuardContext {
 /// Exact refusal when a Scout fix copy would push / add a remote / use gh.
 pub const FIX_REFUSAL: &str = "Refused: this is a copy Scout made to prepare a fix, and from here Locust does not let anything push, add a remote or use gh. The person brings the fix into their folder with Apply and opens any pull request themselves. Make the fix in these files, then say what you changed.";
 
-const BROWSER_TIP: &str =
-    "A test browser you start needs a profile of its own (--user-data-dir=<a new folder>), so it never meets theirs.";
+const BROWSER_TIP: &str = "A test browser you start needs a profile of its own (--user-data-dir=<a new folder>), so it never meets theirs.";
 
 struct EndEntry {
     names: &'static [&'static str],
@@ -275,9 +274,7 @@ static BY_NAME: LazyLock<Vec<Regex>> = LazyLock::new(|| {
             "\\b(?:pgrep|pidof|grep)\\b{same}{name_group}{pipe}\\|\\s*(?:xargs\\s+(?:-\\S+\\s+)*)?(?:kill|taskkill)\\b"
         ),
         // kill $(pgrep <name>) / kill `pidof <name>`
-        format!(
-            "\\bkill\\b{same}(?:\\$\\(|{tick})\\s*(?:pgrep|pidof)\\b[^){tick}]*?{name_group}"
-        ),
+        format!("\\bkill\\b{same}(?:\\$\\(|{tick})\\s*(?:pgrep|pidof)\\b[^){tick}]*?{name_group}"),
         // wmic … delete / terminate
         format!("\\bwmic\\b{same}{name_group}{same}\\b(?:delete|terminate)\\b"),
         // Win32_Process … Terminate
@@ -370,9 +367,11 @@ pub fn ended_ids(command: &str) -> Vec<u32> {
     let add = |ids: &mut std::collections::BTreeSet<u32>, text: &str| {
         for one in text.split(|c: char| c.is_whitespace() || c == ',') {
             if let Ok(n) = one.parse::<u32>()
-                && (1..=999_999_999).contains(&n) && one.chars().all(|c| c.is_ascii_digit()) {
-                    ids.insert(n);
-                }
+                && (1..=999_999_999).contains(&n)
+                && one.chars().all(|c| c.is_ascii_digit())
+            {
+                ids.insert(n);
+            }
         }
     };
 
@@ -380,11 +379,13 @@ pub fn ended_ids(command: &str) -> Vec<u32> {
         if !crate::invariants::regex(r"(?i)\b(?:taskkill|tskill)\b").is_match(segment) {
             // still check other patterns on whole command below
         } else {
-            for m in crate::invariants::regex(r#"(?i)[/-]{1,2}pid\s+['"]?(\d+)"#).captures_iter(segment)
+            for m in
+                crate::invariants::regex(r#"(?i)[/-]{1,2}pid\s+['"]?(\d+)"#).captures_iter(segment)
             {
                 add(&mut ids, &m[1]);
             }
-            for m in crate::invariants::regex(r"(?i)\btskill(?:\.exe)?\s+(\d+)\b").captures_iter(segment)
+            for m in
+                crate::invariants::regex(r"(?i)\btskill(?:\.exe)?\s+(\d+)\b").captures_iter(segment)
             {
                 add(&mut ids, &m[1]);
             }
@@ -405,11 +406,7 @@ pub fn ended_ids(command: &str) -> Vec<u32> {
         r"(?i)\b(?:stop-process|spps)\b[^\n;&|]*?-id\s+([\d,\s]+)",
         1,
     );
-    each(
-        &mut ids,
-        r"(?i)\b(?:stop-process|spps)\s+(\d[\d,\s]*)",
-        1,
-    );
+    each(&mut ids, r"(?i)\b(?:stop-process|spps)\s+(\d[\d,\s]*)", 1);
     each(&mut ids, r"(?i)\bkill\s+-id\s+([\d,\s]+)", 1);
     each(
         &mut ids,
@@ -513,7 +510,12 @@ pub fn stopped_because(command: &str, ctx: &GuardContext) -> Option<String> {
                 .flatten()
                 .map(|m| m.as_str())
                 .find(|s| !s.is_empty())
-                .map(|s| s.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" "));
+                .map(|s| {
+                    s.to_lowercase()
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                });
             let Some(named) = named else {
                 continue;
             };

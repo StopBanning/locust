@@ -134,9 +134,9 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Interactive multi-tab resizable PTY panel beside conversation | `renderer/src/components/TerminalPanel.tsx`, `renderer/src/components/TerminalToggle.tsx`, `main/terminal-host.ts`, `main/pseudo-terminal.ts` | **missing** | yes |
-| Run own ! command and record output in thread | `renderer/src/components/OwnCommand.tsx`, `main/own-command-host.ts`, `main/own-command-ipc.ts` | **missing** | yes |
-| Open runtime terminal and catch up its conversation turns | `renderer/src/components/OpenInTerminal.tsx`, `renderer/src/components/TerminalDivider.tsx`, `main/open-in-terminal.ts`, `main/terminal-catch-up.ts` | **missing** | yes |
+| Interactive multi-tab resizable PTY panel beside conversation | `renderer/src/components/TerminalPanel.tsx`, `renderer/src/components/TerminalToggle.tsx`, `main/terminal-host.ts`, `main/pseudo-terminal.ts` | **partial** — real PTY, tabs, drag resize, ANSI cells/cursor, scrollback/selection/copy/paste; terminal replies, full key/mouse/accessibility and TS lifecycle matrix remain (P9-NOTES.md) | yes |
+| Run own ! command and record output in thread | `renderer/src/components/OwnCommand.tsx`, `main/own-command-host.ts`, `main/own-command-ipc.ts` | **partial** — typed ! runs in selected folder without agent approvals; stop, bounded output, local thread entry and once-only next-message carry; exact command UI/test coverage remains (P9-NOTES.md) | yes |
+| Open runtime terminal and catch up its conversation turns | `renderer/src/components/OpenInTerminal.tsx`, `renderer/src/components/TerminalDivider.tsx`, `main/open-in-terminal.ts`, `main/terminal-catch-up.ts` | **partial** — macOS script/resume and explicit Claude/Codex catch-up; automatic focus/pre-send catch-up, ownership/account parity and full TS tests remain (P9-NOTES.md) | yes |
 
 ### Area 8: Built-in Browser & Page Previews
 
@@ -276,7 +276,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
 | 5 | Approvals & Permissions | 1 | 5 | 3 | 9 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 3 | 10 | 13 |
-| 7 | Terminal & Own Commands | 0 | 0 | 3 | 3 |
+| 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 |
 | 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
 | 9 | Routines, Compare & Benchmarks | 0 | 0 | 10 | 10 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 |
@@ -285,7 +285,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **26** | **27** | **100** | **153** |
+| | **TOTAL** | **26** | **30** | **97** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
@@ -414,3 +414,7 @@ P7 verification (2026-11-10): partial Changes/diff/Undo implementation, with unp
 
 P7 review (2026-11-10): Undo atomic save + mode-preserving restore + skip-unreadable snapshot; empty-diff words; panel closes off non-repo; git stdout on non-zero; untracked symlink listing; completeness hunk/line words; green/red count marks; gutter/sign colours; per-fold context expand. Review section in `P7-NOTES.md`. Three release runs each 366 passed (13 ignored); release build zero warnings; clippy existing findings only; both CLI scripts pass; snaps re-inspected under `/Users/locust/work/scratch/p7-snaps/`. Live window/exit and real Undo still unrun. Area 6 remains 0 done / 3 partial / 10 missing; M5 unreached.
 P8 evidence: `P8-NOTES.md`. Area 5: saved approval rules **done**; command reach/plain/guard, workspace attach/settings, and shared secrets **partial**. No window or live turn was launched for P8.
+
+P9 verification: see `P9-NOTES.md`. Current Section 1 recount: **153 rows — 26 done, 30 partial, 97 missing**; Area 7 is 0 done / 3 partial / 0 missing. This is an incomplete parity implementation, not M5 reached. Earlier audit counts above are historical.
+
+P9 final checks (2026-11-10): 410 release tests passed ×3 (13 existing live tests ignored); release build zero warnings; clippy four existing argument-count findings only; M1/M3a synthetic CLI scripts pass. Final dark/light terminal scenes at 900×900 scale 1 rendered and inspected. No window or real agent turn. Remaining gaps and TS test disposition: `P9-NOTES.md`.

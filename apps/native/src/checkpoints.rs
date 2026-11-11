@@ -611,10 +611,12 @@ mod tests {
         assert_eq!(fs::read(dir.join(&name)).unwrap(), content);
         save(&s, &dir, &name, content).unwrap();
         assert_eq!(fs::read(dir.join(&name)).unwrap(), content);
-        assert!(!fs::read_dir(&dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .any(|e| e.file_name().to_string_lossy().ends_with(".part")));
+        assert!(
+            !fs::read_dir(&dir)
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .any(|e| e.file_name().to_string_lossy().ends_with(".part"))
+        );
     }
     #[test]
     fn unreadable_paths_are_skipped_not_fatal() {
@@ -650,7 +652,11 @@ mod tests {
             undo(&s, &w, "mode_turn").unwrap();
             assert_eq!(fs::read(w.join("tool.sh")).unwrap(), b"#!/bin/sh\necho a\n");
             assert_eq!(
-                fs::metadata(w.join("tool.sh")).unwrap().permissions().mode() & 0o777,
+                fs::metadata(w.join("tool.sh"))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
                 0o755
             );
         }

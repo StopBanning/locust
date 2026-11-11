@@ -173,13 +173,30 @@ fn whole_detail(value: &str) -> String {
     let normalized = value.replace("\r\n", "\n").replace('\r', "\n");
     let text = normalized.trim();
     let length = text.encode_utf16().count();
-    if length <= MAX_DETAIL { return text.to_owned(); }
+    if length <= MAX_DETAIL {
+        return text.to_owned();
+    }
     let rest = length - MAX_DETAIL;
-    let count = rest.to_string().chars().rev().enumerate().fold(String::new(), |mut out, (i, ch)| {
-        if i > 0 && i % 3 == 0 { out.push(','); }
-        out.push(ch); out
-    }).chars().rev().collect::<String>();
-    format!("{}\n\n[{count} more character{} not shown here. Deny if you cannot see enough to decide.]", utf16_bounded(text, MAX_DETAIL), if rest == 1 { "" } else { "s" })
+    let count = rest
+        .to_string()
+        .chars()
+        .rev()
+        .enumerate()
+        .fold(String::new(), |mut out, (i, ch)| {
+            if i > 0 && i % 3 == 0 {
+                out.push(',');
+            }
+            out.push(ch);
+            out
+        })
+        .chars()
+        .rev()
+        .collect::<String>();
+    format!(
+        "{}\n\n[{count} more character{} not shown here. Deny if you cannot see enough to decide.]",
+        utf16_bounded(text, MAX_DETAIL),
+        if rest == 1 { "" } else { "s" }
+    )
 }
 
 /// `approval-channel.ts:approvalKindFor`
@@ -487,11 +504,16 @@ impl Channel {
     }
 
     pub fn register_teammate(&self, mission_id: &str, teammate_id: &str) {
-        crate::invariants::lock(&self.inner).teammates.insert(mission_id.into(), teammate_id.into());
+        crate::invariants::lock(&self.inner)
+            .teammates
+            .insert(mission_id.into(), teammate_id.into());
     }
 
     pub fn teammate_for(&self, mission_id: &str) -> Option<String> {
-        crate::invariants::lock(&self.inner).teammates.get(mission_id).cloned()
+        crate::invariants::lock(&self.inner)
+            .teammates
+            .get(mission_id)
+            .cloned()
     }
 
     /// Drain answered cards so the turn's ledger writer can append them.
@@ -720,7 +742,10 @@ impl Channel {
                 && let Some(reason) = crate::command_guard::stopped_because(
                     &request.detail,
                     &crate::command_guard::GuardContext {
-                        fix_copy: crate::command_guard::in_fix_copy(&[request.cwd.as_deref().unwrap_or("")]),
+                        fix_copy: crate::command_guard::in_fix_copy(&[request
+                            .cwd
+                            .as_deref()
+                            .unwrap_or("")]),
                         started_pids: Vec::new(),
                     },
                 )
@@ -736,7 +761,8 @@ impl Channel {
                 return Ok(answer);
             }
             // Saved rules answer before a card (Electron decideByRules). Unreadable → every card asks.
-            let saved = decide_by_saved_rules(&request, guard.teammates.get(&request.mission_id).cloned());
+            let saved =
+                decide_by_saved_rules(&request, guard.teammates.get(&request.mission_id).cloned());
             let readable = saved.is_ok();
             if let Ok(Some(auto)) = saved {
                 let mut record = record_of(&request, &auto);
@@ -744,7 +770,9 @@ impl Channel {
                 guard.recorded.push(record);
                 return Ok(auto);
             }
-            if readable && request.kind != Kind::Question && !asks_every_time(&request)
+            if readable
+                && request.kind != Kind::Question
+                && !asks_every_time(&request)
                 && request.always_key.as_ref().is_some_and(|key| {
                     guard
                         .always
@@ -990,7 +1018,10 @@ fn request_view(card: &Request) -> crate::approval_rules::RequestView<'_> {
 }
 
 /// Unreadable rules also block session Always; they are never treated as an empty store.
-fn decide_by_saved_rules(request: &Request, teammate_id: Option<String>) -> Result<Option<Answer>, String> {
+fn decide_by_saved_rules(
+    request: &Request,
+    teammate_id: Option<String>,
+) -> Result<Option<Answer>, String> {
     let store = crate::native::store().ok_or(crate::approval_rule_store::UNREADABLE)?;
     let rules = crate::approval_rule_store::list(&store)?;
     let action = crate::approval_rules::ruled_action_of(request_view(request));
@@ -998,25 +1029,27 @@ fn decide_by_saved_rules(request: &Request, teammate_id: Option<String>) -> Resu
         teammate_id,
         folder: request.cwd.clone(),
     };
-    Ok(match crate::approval_rules::decide_by_rules(&action, &rules, &context) {
-        crate::approval_rules::RuleVerdict::Allow { rule } => {
-            let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
-            Some(Answer::Decision {
-                approval_id: request.approval_id.clone(),
-                decision: Decision::ApproveOnce,
-                reason: None,
-            })
-        }
-        crate::approval_rules::RuleVerdict::Deny { rule } => {
-            let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
-            Some(Answer::Decision {
-                approval_id: request.approval_id.clone(),
-                decision: Decision::Deny,
-                reason: Some(crate::approval_rules::rule_sentence(&rule, None)),
-            })
-        }
-        crate::approval_rules::RuleVerdict::Ask { .. } => None,
-    })
+    Ok(
+        match crate::approval_rules::decide_by_rules(&action, &rules, &context) {
+            crate::approval_rules::RuleVerdict::Allow { rule } => {
+                let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
+                Some(Answer::Decision {
+                    approval_id: request.approval_id.clone(),
+                    decision: Decision::ApproveOnce,
+                    reason: None,
+                })
+            }
+            crate::approval_rules::RuleVerdict::Deny { rule } => {
+                let _ = crate::approval_rule_store::used(&store, &rule.rule_id);
+                Some(Answer::Decision {
+                    approval_id: request.approval_id.clone(),
+                    decision: Decision::Deny,
+                    reason: Some(crate::approval_rules::rule_sentence(&rule, None)),
+                })
+            }
+            crate::approval_rules::RuleVerdict::Ask { .. } => None,
+        },
+    )
 }
 
 /// Whether “Yes, and don't ask again” may save a rule for this card.
@@ -1041,10 +1074,22 @@ pub fn save_rule_and_decide(
     save_pending_rule(&channel, card, effect)
 }
 
-fn save_pending_rule(channel: &Channel, card: &Request, effect: crate::approval_rules::RuleEffect) -> Result<(), String> {
+fn save_pending_rule(
+    channel: &Channel,
+    card: &Request,
+    effect: crate::approval_rules::RuleEffect,
+) -> Result<(), String> {
     let guard = crate::invariants::lock(&channel.inner);
-    let card = &guard.pending.get(&card.approval_id).ok_or("That approval is no longer waiting.")?.request;
-    let teammate_id = guard.teammates.get(&card.mission_id).cloned().ok_or("This approval has no teammate, so no rule was saved.")?;
+    let card = &guard
+        .pending
+        .get(&card.approval_id)
+        .ok_or("That approval is no longer waiting.")?
+        .request;
+    let teammate_id = guard
+        .teammates
+        .get(&card.mission_id)
+        .cloned()
+        .ok_or("This approval has no teammate, so no rule was saved.")?;
     let store = crate::native::store().ok_or("Native data folder could not be determined.")?;
     let action = crate::approval_rules::ruled_action_of(request_view(card));
     let context = crate::approval_rules::RuleContext {
@@ -1117,27 +1162,66 @@ mod tests {
 
     #[test]
     fn saved_deny_and_guard_precede_session_always() {
-        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("work/review/channel-test");
+        let root =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("work/review/channel-test");
         let _ = std::fs::remove_dir_all(&root);
         let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
         let _hook = crate::native::hooks::install(store.clone(), None);
         let ch = Channel::new();
         ch.register_teammate("m", "tm_one");
-        crate::invariants::lock(&ch.inner).always.insert(("m".into(), "claude:Bash".into()), ());
-        crate::approval_rule_store::add(&store, crate::approval_rules::ApprovalRuleDraft {
-            effect: crate::approval_rules::RuleEffect::Deny,
-            kind: crate::approval_rules::RuleKind::Command,
-            pattern: "npm test".into(), teammate_id: Some("tm_one".into()), folder: None,
-        }).unwrap();
-        let result = ch.ask_claude("r", "m", "a", "Bash", &json!({"command":"npm test"}), "/project", &|| false).unwrap();
+        crate::invariants::lock(&ch.inner)
+            .always
+            .insert(("m".into(), "claude:Bash".into()), ());
+        crate::approval_rule_store::add(
+            &store,
+            crate::approval_rules::ApprovalRuleDraft {
+                effect: crate::approval_rules::RuleEffect::Deny,
+                kind: crate::approval_rules::RuleKind::Command,
+                pattern: "npm test".into(),
+                teammate_id: Some("tm_one".into()),
+                folder: None,
+            },
+        )
+        .unwrap();
+        let result = ch
+            .ask_claude(
+                "r",
+                "m",
+                "a",
+                "Bash",
+                &json!({"command":"npm test"}),
+                "/project",
+                &|| false,
+            )
+            .unwrap();
         assert_eq!(result["behavior"], "deny");
         assert_eq!(ch.take_recorded()[0].by, "saved-rule");
-        let result = ch.ask_claude("r", "m", "b", "Bash", &json!({"command":"taskkill /IM chrome.exe"}), "/project", &|| false).unwrap();
+        let result = ch
+            .ask_claude(
+                "r",
+                "m",
+                "b",
+                "Bash",
+                &json!({"command":"taskkill /IM chrome.exe"}),
+                "/project",
+                &|| false,
+            )
+            .unwrap();
         assert_eq!(result["behavior"], "deny");
         assert_eq!(ch.take_recorded()[0].by, "command-guard");
         crate::invariants::lock(&ch.inner).always.clear();
         let worker = ch.clone();
-        let handle = std::thread::spawn(move || worker.ask_claude("r", "m", "c", "Bash", &json!({"command":"printf hi"}), "/project", &|| false));
+        let handle = std::thread::spawn(move || {
+            worker.ask_claude(
+                "r",
+                "m",
+                "c",
+                "Bash",
+                &json!({"command":"printf hi"}),
+                "/project",
+                &|| false,
+            )
+        });
         let end = Instant::now() + Duration::from_secs(5);
         while ch.waiting().is_empty() {
             assert!(Instant::now() < end);
@@ -1154,10 +1238,27 @@ mod tests {
         assert_eq!(handle.join().unwrap().unwrap()["behavior"], "deny");
         assert!(save_pending_rule(&ch, &card, crate::approval_rules::RuleEffect::Allow).is_err());
         assert_eq!(ch.teammate_for("m"), None);
-        store.save_json("approval-rules.json", &json!({"schemaVersion":99,"rules":[]})).unwrap();
-        crate::invariants::lock(&ch.inner).always.insert(("n".into(), "claude:Bash".into()), ());
+        store
+            .save_json(
+                "approval-rules.json",
+                &json!({"schemaVersion":99,"rules":[]}),
+            )
+            .unwrap();
+        crate::invariants::lock(&ch.inner)
+            .always
+            .insert(("n".into(), "claude:Bash".into()), ());
         let worker = ch.clone();
-        let handle = std::thread::spawn(move || worker.ask_claude("r", "n", "d", "Bash", &json!({"command":"printf hi"}), "/project", &|| false));
+        let handle = std::thread::spawn(move || {
+            worker.ask_claude(
+                "r",
+                "n",
+                "d",
+                "Bash",
+                &json!({"command":"printf hi"}),
+                "/project",
+                &|| false,
+            )
+        });
         let end = Instant::now() + Duration::from_secs(5);
         while ch.waiting().is_empty() {
             assert!(Instant::now() < end);
@@ -1172,9 +1273,14 @@ mod tests {
     fn exact_detail_counts_omitted_text_and_keeps_long_paths() {
         assert_eq!(whole_detail("  a\r\nb\rc  "), "a\nb\nc");
         let text = format!("{}x", "a".repeat(20_000));
-        assert!(whole_detail(&text).ends_with("[1 more character not shown here. Deny if you cannot see enough to decide.]"));
+        assert!(whole_detail(&text).ends_with(
+            "[1 more character not shown here. Deny if you cannot see enough to decide.]"
+        ));
         let path = format!("/project/{}outside.txt", "x".repeat(650));
-        assert_eq!(describe_claude_tool("Write", &json!({"file_path":path}), "/project").2, path.strip_prefix("/project/").unwrap());
+        assert_eq!(
+            describe_claude_tool("Write", &json!({"file_path":path}), "/project").2,
+            path.strip_prefix("/project/").unwrap()
+        );
     }
 
     #[test]

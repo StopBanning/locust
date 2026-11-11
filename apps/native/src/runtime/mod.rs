@@ -71,3 +71,5 @@ pub mod permission_bridge;
 
 #[cfg(test)]
 mod test_support;
+
+pub(crate) use discovery::find_named as find_executable;

@@ -130,10 +130,7 @@ fn reach_of(words: &[String], piped: &[Vec<String>]) -> Option<CommandReach> {
             )
         }
         "npx" => {
-            if args
-                .first()
-                .is_some_and(|a| program_name(a) == "kill-port")
-            {
+            if args.first().is_some_and(|a| program_name(a) == "kill-port") {
                 reach_of(args, piped)
             } else {
                 None
@@ -153,8 +150,7 @@ fn reach_of(words: &[String], piped: &[Vec<String>]) -> Option<CommandReach> {
                     kind: CommandReachKind::EveryProcessOfUser,
                     target: "you".into(),
                     short: "signs you out".into(),
-                    said: "Signs you out of Windows, closing every program you are running."
-                        .into(),
+                    said: "Signs you out of Windows, closing every program you are running.".into(),
                 });
             }
             if args
@@ -163,9 +159,9 @@ fn reach_of(words: &[String], piped: &[Vec<String>]) -> Option<CommandReach> {
             {
                 return None;
             }
-            let restart = args.iter().any(|arg| {
-                crate::invariants::regex(r"(?i)^([/-]r|--reboot|-g)$").is_match(arg)
-            });
+            let restart = args
+                .iter()
+                .any(|arg| crate::invariants::regex(r"(?i)^([/-]r|--reboot|-g)$").is_match(arg));
             Some(machine(restart))
         }
         "tskill" => {
@@ -184,10 +180,7 @@ fn reach_of(words: &[String], piped: &[Vec<String>]) -> Option<CommandReach> {
             let method = crate::invariants::regex(r"(?i)^-methodname$");
             let terminate = crate::invariants::regex(r"(?i)^terminate$");
             if args.iter().enumerate().any(|(i, arg)| {
-                method.is_match(arg)
-                    && args
-                        .get(i + 1)
-                        .is_some_and(|next| terminate.is_match(next))
+                method.is_match(arg) && args.get(i + 1).is_some_and(|next| terminate.is_match(next))
             }) {
                 from_pipeline(piped)
             } else {
@@ -290,13 +283,13 @@ fn pkill(args: &[String]) -> Option<CommandReach> {
     let full_re = crate::invariants::regex(r"(?i)^-[a-z]*f[a-z]*$");
     let digit_re = crate::invariants::regex(r"^-\d");
     let full = args.iter().any(|arg| {
-        arg == "-f"
-            || arg == "--full"
-            || (full_re.is_match(arg) && !digit_re.is_match(arg))
+        arg == "-f" || arg == "--full" || (full_re.is_match(arg) && !digit_re.is_match(arg))
     });
     let pattern = last_plain(
         args,
-        &["-u", "-U", "--euid", "--uid", "-s", "--signal", "-g", "-P", "-t"],
+        &[
+            "-u", "-U", "--euid", "--uid", "-s", "--signal", "-g", "-P", "-t",
+        ],
     );
     if let Some(pattern) = pattern {
         return Some(if full {
@@ -374,11 +367,12 @@ fn from_pipeline(piped: &[Vec<String>]) -> Option<CommandReach> {
                 .any(|arg| name_flag.is_match(arg) || !arg.starts_with('-'))
             && !args.iter().any(|arg| ps_list.is_match(arg));
         if verb == "get-process" || verb == "gps" || is_ps {
-            let name = option_value(
-                args,
-                &["-Name", "-name", "-ProcessName", "-processname"],
-            )
-            .or_else(|| args.iter().find(|arg| !arg.starts_with('-')).map(|s| s.as_str()));
+            let name = option_value(args, &["-Name", "-name", "-ProcessName", "-processname"])
+                .or_else(|| {
+                    args.iter()
+                        .find(|arg| !arg.starts_with('-'))
+                        .map(|s| s.as_str())
+                });
             if let Some(name) = name {
                 let first = name.split(',').next().unwrap_or(name);
                 return Some(named(first));
@@ -451,8 +445,7 @@ fn from_pipeline(piped: &[Vec<String>]) -> Option<CommandReach> {
 }
 
 fn looked_up(expression: &str) -> Option<CommandReach> {
-    let nettcp =
-        crate::invariants::regex(r"(?i)get-nettcpconnection[^)]*-localport\s+(\d+)");
+    let nettcp = crate::invariants::regex(r"(?i)get-nettcpconnection[^)]*-localport\s+(\d+)");
     let port = PORT_FLAG
         .captures(expression)
         .or_else(|| nettcp.captures(expression));
@@ -468,19 +461,16 @@ fn looked_up(expression: &str) -> Option<CommandReach> {
             return Some(named(name));
         }
     }
-    let pgrep = crate::invariants::regex(
-        r#"(?i)\b(pgrep|pidof)\s+((?:-\S+\s+)*)['"]?([^'"\s)`]+)"#,
-    );
+    let pgrep =
+        crate::invariants::regex(r#"(?i)\b(pgrep|pidof)\s+((?:-\S+\s+)*)['"]?([^'"\s)`]+)"#);
     if let Some(caps) = pgrep.captures(expression) {
         let flags = caps.get(2).map(|m| m.as_str()).unwrap_or("");
         let pattern = caps.get(3)?.as_str();
-        return Some(
-            if crate::invariants::regex(r"(^|\s)-f\b").is_match(flags) {
-                matching(pattern)
-            } else {
-                named(pattern)
-            },
-        );
+        return Some(if crate::invariants::regex(r"(^|\s)-f\b").is_match(flags) {
+            matching(pattern)
+        } else {
+            named(pattern)
+        });
     }
     None
 }
@@ -493,9 +483,7 @@ fn named(raw: &str) -> CommandReach {
         CommandReach {
             kind: CommandReachKind::EveryProcessNamed,
             short: format!("stops every {target}"),
-            said: format!(
-                "Stops every program named like {target} on this computer, {NOT_ONLY}."
-            ),
+            said: format!("Stops every program named like {target} on this computer, {NOT_ONLY}."),
             target,
         }
     } else {
@@ -533,9 +521,7 @@ fn of_user(raw: &str) -> CommandReach {
         CommandReach {
             kind: CommandReachKind::EveryProcessOfUser,
             short: format!("stops all of {target}'s programs"),
-            said: format!(
-                "Stops every program {target} is running on this computer, {NOT_ONLY}."
-            ),
+            said: format!("Stops every program {target} is running on this computer, {NOT_ONLY}."),
             target,
         }
     }
@@ -758,10 +744,7 @@ pub(crate) fn command_words(words: &[String]) -> Vec<String> {
         let word = &words[at];
         let name = program_name(word);
         // A loop's or a branch's body is a command like any other.
-        if matches!(
-            word.as_str(),
-            "do" | "then" | "else" | "elif" | "{" | "!"
-        ) {
+        if matches!(word.as_str(), "do" | "then" | "else" | "elif" | "{" | "!") {
             at += 1;
             continue;
         }
@@ -1281,10 +1264,7 @@ mod tests {
     fn reaches_table() {
         for (command, kind, target) in reaches() {
             let reach = command_reach(Some(&command));
-            assert!(
-                reach.is_some(),
-                "expected reach for {command:?}"
-            );
+            assert!(reach.is_some(), "expected reach for {command:?}");
             let reach = reach.unwrap();
             assert_eq!(reach.kind.as_str(), kind, "kind for {command:?}");
             assert_eq!(reach.target, target, "target for {command:?}");
@@ -1309,8 +1289,9 @@ mod tests {
                 kind: CommandReachKind::EveryProcessNamed,
                 target: "python.exe".into(),
                 short: "stops every python.exe".into(),
-                said: "Stops every python.exe on this computer, not only the ones this run started."
-                    .into(),
+                said:
+                    "Stops every python.exe on this computer, not only the ones this run started."
+                        .into(),
             })
         );
         assert_eq!(

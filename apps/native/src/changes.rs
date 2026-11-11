@@ -758,6 +758,9 @@ mod tests {
             ],
         )
         .unwrap();
-        assert!(out.contains("a.txt"), "stdout must survive a non-zero git exit: {out:?}");
+        assert!(
+            out.contains("a.txt"),
+            "stdout must survive a non-zero git exit: {out:?}"
+        );
     }
 }

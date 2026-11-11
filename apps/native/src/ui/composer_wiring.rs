@@ -331,6 +331,10 @@ pub(super) fn save_pasted_image(s: &mut State, png: &[u8]) -> Option<String> {
 }
 
 pub(super) fn composer_input_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    if s.draft.text.starts_with('!') && event.key == Key::Escape {
+        s.draft.replace_text(s.draft.text[1..].to_owned());
+        return true;
+    }
     let slash = slash_choices_now(s);
     let at = at_choices_now(s);
     let key = match event.key {
@@ -456,11 +460,19 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
     if s.demo {
         return;
     }
+    if s.terminal.catchup.is_pending() {
+        s.composer_note = Some("Reading terminal turns…".into());
+        return;
+    }
     let typed = s.draft.text.trim().to_owned();
     if typed.is_empty() && s.attached.is_empty() {
         if let Some(why) = send_blocked_now(s) {
             s.composer_note = Some(why.to_owned());
         }
+        return;
+    }
+    if own_command::bang(&s.draft.text).is_some() {
+        terminal_panel::run_command(s);
         return;
     }
     if turn_running(s) {
