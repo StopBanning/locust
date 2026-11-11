@@ -87,10 +87,12 @@ differences that come from the engine itself, and leaves listed the ones that ne
 - No turn ran in the window itself; the live tests drive the same `send` the window calls.
 - Whether Codex's plan panel fills on the native engine: the switch is sent, but no live run looked for
   `turn/plan/updated`.
-- The hook takes about 0.8 s from start to answer on this Mac, mostly the binary starting. Claude Code allows 15 s.
+- The hook answers in about 20 ms on this Mac once the binary has run once; the first run after a build took 0.8 s.
+  Claude Code allows 15 s.
 - The hook does not read the process table, so by-id kills of processes the run did not start are let through.
 - Skills, reference folders, forks and connectors for Claude Code.
-- OpenCode still loads the JavaScript guard plugin, which needs Node.
+- OpenCode still loads Electron's JavaScript guard, inside OpenCode's own runtime (no Node needed), so its words can
+  drift from the Rust guard's.
 - The Codex sandbox and thread config travel over the protocol, so the command grid does not see them; only the
   unit tests and the fake app-server hold them to Electron.
 - Windows: the bridge and browser still use Unix sockets.
