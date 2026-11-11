@@ -5,9 +5,8 @@
 //! and `tokens_match_the_css` fails if a token this module names is missing. Components read `kit(dark)` (rune-kit's
 //! builders) or `tokens(dark)` (a named Locust token); a screen never writes a colour, size or radius of its own.
 //!
-//! Fonts: Electron vendors Figtree (chrome), Geist Mono (machine text) and Anthropic Sans (replies) as `.woff2`, which
-//! Rune's text stack (parley and swash) cannot read. Until `.ttf` copies are added under `assets/fonts/`, `FONTS` is
-//! empty and text uses the system faces at Locust's sizes and weights.
+//! Fonts: Figtree and Geist Mono, as TrueType copies of the faces Electron ships as `.woff2` (which Rune's text stack
+//! cannot read); see `assets/fonts/README.md`. A reply's Anthropic Sans waits on a licence check.
 
 pub mod controls;
 pub mod gallery;
@@ -20,9 +19,15 @@ use std::sync::OnceLock;
 /// Electron's token file, compiled in.
 pub const TOKENS_CSS: &str = include_str!("../../../desktop/src/renderer/src/tokens.css");
 
-/// `AppSpec::fonts` once the `.ttf` faces are added (see the module note); nothing reads it until then.
-#[allow(dead_code)]
-pub const FONTS: &[&[u8]] = &[];
+/// `AppSpec::fonts`: Figtree for the app's own words, Geist Mono for the machine's (`assets/fonts/README.md`).
+pub const FONTS: &[&[u8]] = &[
+    include_bytes!("../../assets/fonts/Figtree-Variable.ttf"),
+    include_bytes!("../../assets/fonts/Figtree-Italic-Variable.ttf"),
+    include_bytes!("../../assets/fonts/GeistMono-Variable.ttf"),
+];
+
+/// `AppSpec::families`: (sans, mono), as `--lc-font-ui` and `--lc-font-mono` name them.
+pub const FAMILIES: (&str, &str) = ("Figtree", "Geist Mono");
 
 /// Every `--lc-*` token for one appearance, as the CSS writes it (without `--lc-`).
 pub struct Tokens {
@@ -349,6 +354,20 @@ mod tests {
                 assert_eq!(tokens(dark).raw(name), value, "{name} dark={dark}");
             }
         }
+    }
+
+    /// Each compiled-in face is TrueType and names the family `FAMILIES` asks for (UTF-16 in its name table), so a
+    /// wrong or renamed file fails here instead of falling back to Inter unseen.
+    #[test]
+    fn the_fonts_are_the_faces_the_app_names() {
+        assert_eq!(FONTS.len(), 3);
+        let utf16 = |s: &str| s.encode_utf16().flat_map(|u| u.to_be_bytes()).collect::<Vec<u8>>();
+        let names = |face: &[u8], family: &str| face.windows(utf16(family).len()).any(|w| w == utf16(family).as_slice());
+        for face in FONTS {
+            assert_eq!(&face[..4], &[0, 1, 0, 0], "not TrueType");
+        }
+        assert!(names(FONTS[0], FAMILIES.0) && names(FONTS[1], FAMILIES.0));
+        assert!(names(FONTS[2], FAMILIES.1));
     }
 
     #[test]

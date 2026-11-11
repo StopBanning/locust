@@ -1138,6 +1138,8 @@ pub fn scenes() -> AppSpec<State> {
             ("quick-answer", answer_scene),
             ("quick-answer-light", answer_light_scene),
         ],
+        fonts: crate::look::FONTS,
+        families: crate::look::FAMILIES,
         ..AppSpec::new("Locust", (WIDTH, 420.0), State::default, view)
     }
 }

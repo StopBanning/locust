@@ -2113,6 +2113,8 @@ fn main() {
             ("whatsnew", home_panel::whatsnew_scene),
             ("whatsnew-light", home_panel::whatsnew_light_scene),
         ],
+        fonts: look::FONTS,
+        families: look::FAMILIES,
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })
     .chrome(Chrome {

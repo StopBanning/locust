@@ -31,12 +31,19 @@ Phase C's first round: one module that is Locust's look, so no screen draws a co
   rewritten first); card text never wrapped (a row sizes to its text; the body is a column now).
 - Tests: 422 in the engine, 185 in the window, all passing.
 
+## Fonts, the same day
+
+Colin said yes to downloading fonts. Figtree (the variable face and its italic, from erikdkennedy/figtree at `032dfa7`,
+the commit Electron's woff2 came from) and Geist Mono (vercel/geist-font at `ef2597c`) are vendored as TrueType under
+`assets/fonts/` with their OFL licences, sources and checksums, and both windows load them (`look::FONTS`,
+`look::FAMILIES`). Every screen now draws in Figtree, with Geist Mono for mono text, instead of Rune's built-in Inter.
+The binary grew by about 0.9 MB. `the_fonts_are_the_faces_the_app_names` checks each file is TrueType and names the
+family the app asks for. Before-and-after frames of the gallery and real screens were compared by eye.
+
 ## Not done
 
-- **Fonts.** Electron vendors Figtree, Geist Mono and Anthropic Sans as `.woff2`, which Rune's text stack cannot read.
-  The frames use the system faces at Locust's sizes and weights. Adding `.ttf` copies needs a download from each
-  font's own repository, which waits for Colin's yes. Anthropic Sans also needs its licence looked at again before it
-  goes in a shipped binary (the plan's note: a third party's MIT repackage).
+- **Anthropic Sans** for a teammate's reply: Electron vendors it from a third party's MIT repackage, so its licence is
+  checked before it goes into a shipped binary. Replies use Figtree until then.
 - **No picture pair against Electron yet.** That is C5's job, with `_tools/polish-frames.mjs` capturing Electron
   headlessly at the same size.
 - **No screen uses the kit yet.** Seven screens each still define their own text `button`; C3 moves the shell onto the
