@@ -68,8 +68,9 @@ jobs:
           if cargo tree -p locust-core -e normal,build,dev | grep -i rune; then
             echo "locust-core depends on Rune"; exit 1
           fi
-      - name: Binary size
+      - name: Release build and binary size
         run: |
+          cargo build --release
           size=$(stat -f %z target/release/locust-native)
           echo "Release binary: $((size / 1048576)) MiB" | tee -a "$GITHUB_STEP_SUMMARY"
 
