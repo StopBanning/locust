@@ -1,39 +1,7 @@
-# Recorded streams Rust does not yet read as Electron 5b8ee3cf reads them.
+# Recorded streams Rust does not yet read as Electron 2378138f reads them.
 # Written by LOCUST_WRITE_NOT_YET=1 cargo test -p locust-core event_goldens; may only shrink.
-agy-2026-10-02/answered-then-unavailable.jsonl	events part at #0: Electron step.started,step.started,step.completed (11 events), Rust run.started,step.started,step.started (12 events)
-agy-2026-10-02/ask-command-denied-done.jsonl	events part at #0: Electron step.started,tool.started,tool.failed (6 events), Rust run.started,step.started,tool.started (7 events)
-agy-2026-10-02/ask-command-denied-then-said.jsonl	events part at #0: Electron step.started,tool.started,message.delta (7 events), Rust run.started,step.started,tool.started (8 events)
-agy-2026-10-02/command-allowed.jsonl	events part at #0: Electron step.started,tool.started,tool.completed (7 events), Rust run.started,step.started,tool.started (8 events)
-agy-2026-10-02/conversation-not-found.jsonl	events part at #0: Electron step.started,step.completed,run.failed (3 events), Rust run.started,step.started,step.completed (4 events)
-agy-2026-10-02/edit-then-command-denied.jsonl	events part at #0: Electron step.started,tool.started,tool.started (8 events), Rust run.started,step.started,tool.started (9 events)
-agy-2026-10-02/plan-mode-writes-its-plan.jsonl	events part at #0: Electron step.started,tool.started,tool.completed (20 events), Rust run.started,step.started,tool.started (21 events)
-agy-2026-10-02/reads-a-file.jsonl	events part at #0: Electron step.started,step.started,step.completed (10 events), Rust run.started,step.started,step.started (11 events)
-agy-2026-10-02/unknown-model.jsonl	event #0 run.failed: Rust lacks payload/evidence/raw
-agy-2026-10-02/write-denied.jsonl	events part at #0: Electron step.started,tool.started,tool.failed (6 events), Rust run.started,step.started,tool.started (7 events)
 antigravity/transcript-plain-reply.jsonl	events part at #1: Electron run.completed (2 events), Rust  (1 events)
 antigravity/transcript-write-then-followup.jsonl	events part at #2: Electron tool.started,tool.completed,message.delta (7 events), Rust adapter.diagnostic,message.delta,message.delta (5 events)
 claude/background-stopped-with-run.jsonl	events part at #2: Electron step.started,tool.started,tool.started (24 events), Rust tool.started,tool.started,step.completed (20 events)
 claude/edit-and-write.jsonl	events part at #3: Electron step.started,step.completed,message.delta (46 events), Rust step.completed,message.delta,message.delta (43 events)
 claude/helper-calls.jsonl	events part at #3: Electron step.started,step.completed,tool.started (48 events), Rust step.completed,tool.started,tool.started (40 events)
-copilot/plain-reply.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-copilot/policy-denied.jsonl	event #0 adapter.diagnostic: payload/evidence/runtimeEventType: Electron "session.warning", Rust "copilot"
-copilot/read-only-tools-denied.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-copilot/session-first-turn.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-copilot/session-resumed-turn.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-copilot/write-apply-patch.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-copilot/write-mode-view-then-edit.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-cursor/edit-result-too-large.jsonl	event #0 tool.started: Rust lacks payload/evidence/raw
-cursor/read-only-partial.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-cursor/resumed-turn.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-cursor/todo-plan.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-cursor/write-mode-shell-rejected.jsonl	event #1 step.started: Rust lacks payload/evidence/raw
-muse/echo-provider-run.jsonl	event #0 step.started: Rust lacks payload/evidence/raw
-muse/wonder-tool-run-1.4.6.jsonl	event #0 step.started: Rust lacks payload/evidence/raw
-opencode/compaction-small-context.jsonl	event #0 step.started: payload/evidence/runtimeEventType: Electron "step_start", Rust "step.started"
-opencode/context-overflow-recovered.jsonl	event #0 adapter.diagnostic: payload/evidence/runtimeEventType: Electron "error", Rust "adapter.diagnostic"
-opencode/plan-agent-text-only.jsonl	event #0 step.started: payload/evidence/runtimeEventType: Electron "step_start", Rust "step.started"
-opencode/read-only-no-write-tool.jsonl	event #0 step.started: payload/evidence/runtimeEventType: Electron "step_start", Rust "step.started"
-opencode/resumed-turn.jsonl	event #0 step.started: payload/evidence/runtimeEventType: Electron "step_start", Rust "step.started"
-opencode/todo-plan.jsonl	event #0 step.started: payload/evidence/runtimeEventType: Electron "step_start", Rust "step.started"
-opencode/write-mode-edit-with-diff.jsonl	event #0 step.started: payload/evidence/runtimeEventType: Electron "step_start", Rust "step.started"
-opencode/write-mode-read-and-write.jsonl	event #0 step.started: payload/evidence/runtimeEventType: Electron "step_start", Rust "step.started"

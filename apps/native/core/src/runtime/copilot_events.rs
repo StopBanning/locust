@@ -72,10 +72,12 @@ pub fn usage(value: &Value) -> Option<Value> {
         .as_f64()
         .filter(|n| n.is_finite())
     {
-        u.insert("premiumRequests".into(), json!(n));
+        let _ = n;
+        u.insert("premiumRequests".into(), value["totalPremiumRequests"].clone());
     }
     if let Some(n) = value["totalNanoAiu"].as_f64().filter(|n| n.is_finite()) {
-        u.insert("nanoAiu".into(), json!(n));
+        let _ = n;
+        u.insert("nanoAiu".into(), value["totalNanoAiu"].clone());
     }
     if u.is_empty() {
         None
@@ -145,6 +147,12 @@ fn patch_from_detailed(detailed: &str) -> Option<Value> {
 
 #[derive(Default)]
 pub struct CopilotNormalizer {
+    /// The line being read, sanitized, for its events' evidence (Electron's evidenceFor); cleared at finish.
+    raw: Option<(Value, bool)>,
+    /// The type of the record being read (its `type` or `event`), for a diagnostic's evidence.
+    kind: Option<String>,
+    /// Every line the process gave, read or not: Electron's process runner's recordCount.
+    records: usize,
     pub thread: Option<String>,
     pub ended: bool,
     pub saw_result: bool,
@@ -179,25 +187,27 @@ impl CopilotNormalizer {
             thread: self.thread.clone(),
         }
     }
-    fn process(&self, success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
+    fn process(&self, _success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
         json!({
             "exitCode": exit_code.map(Value::from).unwrap_or(Value::Null),
             "signal": null, "stderr": text(&self.stderr, 16384), "stderrTruncated": false,
-            "recordCount": self.count, "inputDeliveryFailed": false, "outputLimitExceeded": false,
+            "recordCount": self.records, "inputDeliveryFailed": false, "outputLimitExceeded": false,
             "oversizedRecordsDropped": 0, "forcedTerminationAttempted": cancelled,
-            "terminationUnconfirmed": !success && !cancelled,
+            // Electron passes the runner's own word, true only when stopping the process could not be confirmed; a run that
+            // failed is not that, and these drivers confirm every stop they make.
+            "terminationUnconfirmed": false,
             "startedAt": crate::ledger_write::now(), "finishedAt": crate::ledger_write::now()
         })
     }
     fn evidence(&self, t: &str) -> Value {
-        json!({"runtimeEventType": t, "redacted": true})
+        super::events::evidence_of(t, self.raw.as_ref())
     }
     pub fn diagnostic(&mut self, level: &str, code: &str, message: &str) -> Event {
         self.event(
             "adapter.diagnostic",
             json!({
                 "level": level, "code": code, "message": text(message,16384), "terminal": false,
-                "evidence": self.evidence("copilot")
+                "evidence": super::events::diagnostic_evidence(self.kind.as_deref(), self.raw.as_ref(), "copilot")
             }),
         )
     }
@@ -215,6 +225,8 @@ impl CopilotNormalizer {
         next
     }
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Event {
+        self.raw = None;
+        self.kind = None;
         self.ended = true;
         let thread = self.thread.clone();
         if cancelled {
@@ -281,6 +293,9 @@ impl CopilotNormalizer {
         let parsed: Value = match serde_json::from_str(raw) {
             Ok(v) => v,
             Err(_) => {
+                self.records += 1;
+                self.raw = Some(super::events::malformed_raw(raw));
+                self.kind = None;
                 return vec![self.diagnostic(
                     "warning",
                     "copilot.malformed_record",
@@ -289,6 +304,7 @@ impl CopilotNormalizer {
             }
         };
         if !obj(&parsed) {
+            self.records += 1;
             return vec![self.diagnostic(
                 "warning",
                 "copilot.malformed_record",
@@ -298,6 +314,11 @@ impl CopilotNormalizer {
         self.accept(&parsed)
     }
     pub fn accept(&mut self, parsed: &Value) -> Vec<Event> {
+        // Every record read live comes through here: count it, and keep it (sanitized) and its type for its events' evidence.
+        self.records += 1;
+        // copilot-events.ts: the record with its opaque blobs dropped (scrubCopilotRecord), and always marked redacted.
+        self.raw = Some((super::events::evidence_raw(&scrub_copilot_record(parsed, 0)).0, true));
+        self.kind = parsed["type"].as_str().or_else(|| parsed["event"].as_str()).or_else(|| parsed["payload_type"].as_str()).map(str::to_owned);
         if self.ended {
             return vec![];
         }
@@ -552,5 +573,34 @@ impl CopilotNormalizer {
             "copilot.unknown_event",
             &format!("Unhandled Copilot record: {type_name}"),
         )]
+    }
+}
+
+/// copilot-events.ts OPAQUE_KEYS: provider handles and encrypted reasoning, never evidence.
+const OPAQUE_KEYS: [&str; 9] = [
+    "apiCallId",
+    "api_id",
+    "encryptedContent",
+    "encrypted_content",
+    "reasoningId",
+    "reasoningOpaque",
+    "reasoning_opaque",
+    "previousResponseId",
+    "transformedContent",
+];
+
+/// copilot-events.ts scrubCopilotRecord: the record with each opaque key's value replaced, eight levels down.
+fn scrub_copilot_record(value: &Value, depth: usize) -> Value {
+    if depth >= 8 {
+        return value.clone();
+    }
+    match value {
+        Value::Array(items) => Value::Array(items.iter().map(|v| scrub_copilot_record(v, depth + 1)).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), if OPAQUE_KEYS.contains(&k.as_str()) { json!("[redacted]") } else { scrub_copilot_record(v, depth + 1) }))
+                .collect(),
+        ),
+        other => other.clone(),
     }
 }

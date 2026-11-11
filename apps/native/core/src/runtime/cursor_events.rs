@@ -60,8 +60,9 @@ fn sanitized_usage(value: &Value) -> Value {
     let mut counts = serde_json::Map::new();
     if let Some(obj) = value.as_object() {
         for (k, v) in obj {
-            if let Some(n) = v.as_f64().filter(|n| n.is_finite()) {
-                counts.insert(k.clone(), json!(n));
+            // The number as it came, so a whole count stays whole (19428, not 19428.0), as Electron keeps it.
+            if v.as_f64().is_some_and(f64::is_finite) {
+                counts.insert(k.clone(), v.clone());
             }
         }
     }
@@ -299,6 +300,12 @@ struct OpenTool {
 
 #[derive(Default)]
 pub struct CursorNormalizer {
+    /// The line being read, sanitized, for its events' evidence (Electron's evidenceFor); cleared at finish.
+    raw: Option<(Value, bool)>,
+    /// The type of the record being read (its `type` or `event`), for a diagnostic's evidence.
+    kind: Option<String>,
+    /// Every line the process gave, read or not: Electron's process runner's recordCount.
+    records: usize,
     pub thread: Option<String>,
     pub ended: bool,
     count: usize,
@@ -328,25 +335,27 @@ impl CursorNormalizer {
         }
     }
 
-    fn process(&self, success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
+    fn process(&self, _success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
         json!({
             "exitCode": exit_code.map(Value::from).unwrap_or(Value::Null),
             "signal": null,
             "stderr": "",
             "stderrTruncated": false,
-            "recordCount": self.count,
+            "recordCount": self.records,
             "inputDeliveryFailed": false,
             "outputLimitExceeded": self.output_limit_exceeded,
             "oversizedRecordsDropped": self.oversized_dropped,
             "forcedTerminationAttempted": cancelled,
-            "terminationUnconfirmed": !success && !cancelled,
+            // Electron passes the runner's own word, true only when stopping the process could not be confirmed; a run that
+            // failed is not that, and these drivers confirm every stop they make.
+            "terminationUnconfirmed": false,
             "startedAt": crate::ledger_write::now(),
             "finishedAt": crate::ledger_write::now()
         })
     }
 
     fn evidence(&self, type_name: &str) -> Value {
-        json!({"runtimeEventType": type_name, "redacted": true})
+        super::events::evidence_of(type_name, self.raw.as_ref())
     }
 
     pub fn diagnostic(&mut self, level: &str, code: &str, message: &str) -> Event {
@@ -357,7 +366,7 @@ impl CursorNormalizer {
                 "code": code,
                 "message": text(message, 16384),
                 "terminal": false,
-                "evidence": self.evidence("cursor")
+                "evidence": super::events::diagnostic_evidence(self.kind.as_deref(), self.raw.as_ref(), "cursor")
             }),
         )
     }
@@ -367,6 +376,8 @@ impl CursorNormalizer {
     }
 
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Event {
+        self.raw = None;
+        self.kind = None;
         self.ended = true;
         let thread = self.thread.clone();
         if cancelled {
@@ -436,6 +447,9 @@ impl CursorNormalizer {
         let parsed: Value = match serde_json::from_str(raw) {
             Ok(v) => v,
             Err(_) => {
+                self.records += 1;
+                self.raw = Some(super::events::malformed_raw(raw));
+                self.kind = None;
                 return vec![self.diagnostic(
                     "warning",
                     "cursor.malformed_record",
@@ -444,6 +458,7 @@ impl CursorNormalizer {
             }
         };
         if !obj(&parsed) {
+            self.records += 1;
             return vec![self.diagnostic(
                 "warning",
                 "cursor.malformed_record",
@@ -454,6 +469,10 @@ impl CursorNormalizer {
     }
 
     pub fn accept(&mut self, parsed: &Value) -> Vec<Event> {
+        // Every record read live comes through here: count it, and keep it (sanitized) and its type for its events' evidence.
+        self.records += 1;
+        self.raw = Some(super::events::evidence_raw(parsed));
+        self.kind = parsed["type"].as_str().or_else(|| parsed["event"].as_str()).or_else(|| parsed["payload_type"].as_str()).map(str::to_owned);
         if self.ended {
             return vec![];
         }

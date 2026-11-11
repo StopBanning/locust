@@ -109,6 +109,14 @@ struct Held {
 }
 
 pub struct AgyNormalizer {
+    /// The line being read, sanitized, for its events' evidence (Electron's evidenceFor); cleared at finish.
+    raw: Option<(Value, bool)>,
+    /// The type of the record being read (its `type` or `event`), for a diagnostic's evidence.
+    kind: Option<String>,
+    /// The result record, kept for the run's end, whose failure carries it as evidence (agy-events.ts).
+    result_raw: Option<(Value, bool)>,
+    /// Every line the process gave, read or not: Electron's process runner's recordCount.
+    records: usize,
     pub thread: Option<String>,
     pub ended: bool,
     pub saw_result: bool,
@@ -133,6 +141,10 @@ pub struct AgyNormalizer {
 impl Default for AgyNormalizer {
     fn default() -> Self {
         Self {
+            raw: None,
+            kind: None,
+            result_raw: None,
+            records: 0,
             thread: None,
             ended: false,
             saw_result: false,
@@ -169,21 +181,23 @@ impl AgyNormalizer {
             thread: self.thread.clone(),
         }
     }
-    fn process(&self, success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
+    fn process(&self, _success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
         json!({
             "exitCode": exit_code.map(Value::from).unwrap_or(Value::Null),
             "signal": null, "stderr": "", "stderrTruncated": false,
-            "recordCount": self.count, "inputDeliveryFailed": false, "outputLimitExceeded": false,
+            "recordCount": self.records, "inputDeliveryFailed": false, "outputLimitExceeded": false,
             "oversizedRecordsDropped": 0, "forcedTerminationAttempted": cancelled,
-            "terminationUnconfirmed": !success && !cancelled,
+            // Electron passes the runner's own word, true only when stopping the process could not be confirmed; a run that
+            // failed is not that, and these drivers confirm every stop they make.
+            "terminationUnconfirmed": false,
             "startedAt": crate::ledger_write::now(), "finishedAt": crate::ledger_write::now()
         })
     }
     fn evidence(&self, t: &str) -> Value {
-        json!({"runtimeEventType": t, "redacted": true})
+        super::events::evidence_of(t, self.raw.as_ref())
     }
     pub fn diagnostic(&mut self, level: &str, code: &str, message: &str) -> Event {
-        self.event("adapter.diagnostic", json!({"level":level,"code":code,"message":text(message,16384),"terminal":false,"evidence":self.evidence("antigravity")}))
+        self.event("adapter.diagnostic", json!({"level":level,"code":code,"message":text(message,16384),"terminal":false,"evidence":super::events::diagnostic_evidence(self.kind.as_deref(), self.raw.as_ref(), "antigravity")}))
     }
     fn is_command(kind: &str) -> bool {
         crate::invariants::regex(r"(?i)command|shell|terminal").is_match(kind)
@@ -248,6 +262,8 @@ impl AgyNormalizer {
         out
     }
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Vec<Event> {
+        self.raw = None;
+        self.kind = None;
         if self.ended {
             return vec![];
         }
@@ -286,7 +302,7 @@ impl AgyNormalizer {
         if let Some(q) = &quota {
             ending.push(self.event(
                 "route.limit_detected",
-                json!({"kind":"quota-exhausted","message":q,"evidence":self.evidence("result")}),
+                json!({"kind":"quota-exhausted","message":q,"evidence":super::events::evidence_of("result", self.result_raw.as_ref())}),
             ));
         }
         let message = if lost {
@@ -331,7 +347,7 @@ impl AgyNormalizer {
             "process": self.process(false,false,exit_code)
         });
         if self.saw_result {
-            p["evidence"] = self.evidence("result");
+            p["evidence"] = super::events::evidence_of("result", self.result_raw.as_ref());
         }
         if lost {
             p["sessionEnded"] = json!(true);
@@ -352,6 +368,9 @@ impl AgyNormalizer {
         let parsed: Value = match serde_json::from_str(cleaned) {
             Ok(v) => v,
             Err(_) => {
+                self.records += 1;
+                self.raw = Some(super::events::malformed_raw(raw));
+                self.kind = None;
                 return vec![self.diagnostic(
                     "warning",
                     "antigravity.malformed_record",
@@ -360,6 +379,7 @@ impl AgyNormalizer {
             }
         };
         if !obj(&parsed) {
+            self.records += 1;
             return vec![self.diagnostic(
                 "warning",
                 "antigravity.malformed_record",
@@ -369,6 +389,10 @@ impl AgyNormalizer {
         self.accept(&parsed)
     }
     pub fn accept(&mut self, parsed: &Value) -> Vec<Event> {
+        // Every record read live comes through here: count it, and keep it (sanitized) and its type for its events' evidence.
+        self.records += 1;
+        self.raw = Some(super::events::evidence_raw(parsed));
+        self.kind = parsed["type"].as_str().or_else(|| parsed["event"].as_str()).or_else(|| parsed["payload_type"].as_str()).map(str::to_owned);
         if self.ended {
             return vec![];
         }
@@ -386,10 +410,9 @@ impl AgyNormalizer {
                 return vec![];
             }
             self.turn_open = true;
-            return vec![
-                self.event("run.started", json!({"runtimeThreadId": self.thread.clone().unwrap_or_default(),"evidence":evidence})),
-                self.event("step.started", json!({"stepKind":"turn","evidence":evidence})),
-            ];
+            // agy-events.ts makes no run.started: the turn opens with its step, and the thread rides on each event and on
+            // the run's end, where a follow-up finds it.
+            return vec![self.event("step.started", json!({"stepKind":"turn","evidence":evidence}))];
         }
         if kind == "step_update" {
             let step = if obj(&parsed["step_update"]) {
@@ -430,10 +453,13 @@ impl AgyNormalizer {
             Some(status.into())
         };
         self.result_error = result["error"].as_str().map(str::to_owned);
+        self.result_raw = self.raw.clone();
         if obj(&result["usage"]) {
             let u = &result["usage"];
             if let (Some(i), Some(o)) = (u["input_tokens"].as_f64(), u["output_tokens"].as_f64()) {
-                self.usage = Some(json!({"inputTokens":i,"outputTokens":o}));
+                // The numbers as they came, so whole counts stay whole, as Electron keeps them.
+                let _ = (i, o);
+                self.usage = Some(json!({"inputTokens":u["input_tokens"],"outputTokens":u["output_tokens"]}));
             }
         }
         let mut events = Vec::new();

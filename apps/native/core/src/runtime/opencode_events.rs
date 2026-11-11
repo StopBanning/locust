@@ -78,6 +78,9 @@ impl ErrorFacts {
 }
 pub struct Normalizer {
     pub base: AcpNormalizer,
+    /// The record being read: its type and its sanitized copy, for each event's evidence (opencode-events.ts passes
+    /// `evidenceFor(record, parsed, type)`); cleared at finish.
+    current: Option<(String, (Value, bool))>,
     free: bool,
     step: bool,
     saw_stop: bool,
@@ -98,6 +101,7 @@ impl Normalizer {
     pub fn new(model: Option<&str>) -> Self {
         Self {
             base: AcpNormalizer::default(),
+            current: None,
             free: model.is_some_and(|s| {
                 s.to_lowercase().ends_with("-free") || s.to_lowercase().ends_with("/free")
             }),
@@ -117,7 +121,12 @@ impl Normalizer {
             unknown: HashSet::new(),
         }
     }
-    fn emit(&self, k: &str, p: Value) -> Event {
+    fn emit(&self, k: &str, mut p: Value) -> Event {
+        if p.get("evidence").is_none() && !matches!(k, "run.completed" | "run.failed" | "run.cancelled")
+            && let Some((kind, raw)) = &self.current
+        {
+            p["evidence"] = super::events::evidence_of(kind, Some(raw));
+        }
         self.base.event(k, p)
     }
     fn diagnostic(&self, level: &str, code: &str, message: &str) -> Event {
@@ -141,6 +150,7 @@ impl Normalizer {
             return vec![];
         }
         self.base.records += 1;
+        self.current = Some((v["type"].as_str().unwrap_or("").to_owned(), super::events::evidence_raw(v)));
         if self.base.thread.is_none() {
             self.base.thread = v["sessionID"].as_str().map(|s| text(s, 2048));
         }
@@ -325,18 +335,21 @@ impl Normalizer {
                         input["filePath"].as_str().or(meta["filepath"].as_str()),
                         input["content"].as_str(),
                     )
-                    && let Some(patch) = super::acp_events::patch_of(
-                        &json!([{"type":"diff","path":path,"oldText":null,"newText":content}]),
-                    )
                 {
-                    common["patch"] = patch;
+                    // opencode-events.ts newFilePatch: always `b/` before the path, one `+` line per line of content.
+                    let mut lines: Vec<&str> = content.split('\n').collect();
+                    if lines.len() > 1 && lines.last() == Some(&"") {
+                        lines.pop();
+                    }
+                    let body = lines.iter().map(|l| format!("+{l}")).collect::<Vec<_>>().join("\n");
+                    common["patch"] = patch(&format!("--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{} @@\n{body}\n", lines.len()));
                 }
                 if let (Some(start), Some(end)) = (
                     state["time"]["start"].as_f64(),
                     state["time"]["end"].as_f64(),
                 ) && end >= start
                 {
-                    common["durationMs"] = json!(end - start);
+                    common["durationMs"] = super::events::num(end - start);
                 }
                 common["phase"] = json!("completed");
                 out.push(self.emit(
@@ -390,6 +403,7 @@ impl Normalizer {
         stderr: &str,
         output_limit: bool,
     ) -> Vec<Event> {
+        self.current = None;
         if self.base.ended {
             return vec![];
         }
@@ -470,10 +484,10 @@ impl Normalizer {
         }
         if self.saw_tokens {
             let mut u =
-                json!({"inputTokens":self.usage[0],"outputTokens":self.usage[1]+self.usage[2]});
+                json!({"inputTokens":super::events::num(self.usage[0]),"outputTokens":super::events::num(self.usage[1]+self.usage[2])});
             for (k, i) in [("cacheReadTokens", 3), ("cacheWriteTokens", 4), ("usd", 5)] {
                 if self.usage[i] > 0. {
-                    u[k] = json!(self.usage[i]);
+                    u[k] = super::events::num(self.usage[i]);
                 }
             }
             p["usage"] = u;

@@ -87,7 +87,7 @@ fn steady(v: &Value) -> Value {
                 .filter(|(k, _)| {
                     !matches!(
                         k.as_str(),
-                        "at" | "occurredAt" | "startedAt" | "completedAt" | "endedAt" | "timestamp" | "transportSequence"
+                        "at" | "occurredAt" | "startedAt" | "completedAt" | "endedAt" | "finishedAt" | "timestamp" | "transportSequence"
                     )
                 })
                 .map(|(k, v)| (k.clone(), steady(v)))

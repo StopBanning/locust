@@ -1,5 +1,5 @@
 {
- "electronCommit": "5b8ee3cf",
+ "electronCommit": "2378138f",
  "generatedBy": "scripts/event-goldens.mjs",
  "now": "2026-01-01T00:00:00.000Z",
  "streams": [
@@ -341,8 +341,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 8,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "c0da4624-b6cd-4e9e-9979-87b67b7abe60"
@@ -541,8 +546,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 4,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "292389c7-edfa-4033-9069-13879c160f3d"
@@ -767,8 +777,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 5,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "292389c7-edfa-4033-9069-13879c160f3d"
@@ -991,8 +1006,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 7,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ac3d60d2-e632-464e-b7f8-8d45e79bc6bc"
@@ -1099,8 +1119,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 2,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "920da525-dde6-4610-9d16-9444d0422935"
@@ -1374,8 +1399,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 9,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "53402dd3-3fd6-48e9-9bde-7fc04dcb5f9f"
@@ -1997,8 +2027,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 22,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "462c9e8d-e735-42be-a44a-6ce9f7689a1f"
@@ -2308,8 +2343,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 8,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "c0da4624-b6cd-4e9e-9979-87b67b7abe60"
@@ -2358,8 +2398,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 1,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      }
     }
@@ -2563,8 +2608,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 6,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ee0d100b-04b5-4366-ae20-8d13cb816add"
@@ -2611,8 +2661,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 3,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      }
     }
@@ -2807,8 +2862,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 7,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      }
     }
@@ -3551,8 +3611,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 48,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "86327ecb-d84c-45fe-b40d-9505e275b8b8"
@@ -5219,8 +5284,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 101,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "39ceb38d-b03d-4c21-8950-adedcd17970f"
@@ -6873,8 +6943,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 104,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "5275ac88-0987-4f1b-bdad-395fa7613523"
@@ -7046,8 +7121,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 24,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "5f4fae14-95d8-43b5-8e17-d4108d6cbb17"
@@ -7101,8 +7181,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 4,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      }
     }
@@ -7923,8 +8008,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 124,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "4174843c-3c97-401e-abc7-4febb20402cf"
@@ -8200,8 +8290,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 27,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "9a4575f4-30d4-4d2e-99b3-07d9da08fae5"
@@ -8555,8 +8650,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 30,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "9a4575f4-30d4-4d2e-99b3-07d9da08fae5"
@@ -8891,8 +8991,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 61,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "4e701e30-466a-4baf-8e56-6e405aa189f0"
@@ -9507,8 +9612,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 206,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "fd9f8fe2-a82b-4d87-b426-0a61e1bcdb29"
@@ -9755,8 +9865,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 9,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      }
     }
@@ -11177,8 +11292,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 53,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "5ea83b16-7669-44d8-aaf3-97a1b41d581b"
@@ -11302,8 +11422,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 10,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "5ea83b16-7669-44d8-aaf3-97a1b41d581b"
@@ -15064,8 +15189,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 133,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "f9d9f0a7-523a-47d6-9385-979f01f05d60"
@@ -16242,8 +16372,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 59,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "5ae18831-64f0-4b2c-afb2-26ccae9aa0f3"
@@ -16495,8 +16630,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 27,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "01a0c5fe-68c8-7903-b6db-0d3c9021bfa6"
@@ -17098,8 +17238,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 95,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "01a13136-4dc2-7d02-9f26-25abcdf5d532"
@@ -18456,8 +18601,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 24,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f29126617ffezdPKE5qRO6Y4SR"
@@ -18771,8 +18921,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 8,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f290faffbffeO0Q0hgxkXSfPB5"
@@ -18897,8 +19052,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 3,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f99ed3c70ffevNm7YU1O4SKmEm"
@@ -19249,8 +19409,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 7,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f99ecc903ffe1mz8fOfQA2ne8x"
@@ -19375,8 +19540,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 3,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f99eea38bffe0EoUlZ5GohEmmF"
@@ -20960,8 +21130,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 31,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f63f923ceffeIBy4GmQHFV2RXN"
@@ -21654,8 +21829,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 13,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f99b1f9abffeGxQX8ey4QgJwfM"
@@ -22282,8 +22462,13 @@
        "stderr": "",
        "stderrTruncated": false,
        "recordCount": 11,
+       "inputDeliveryFailed": false,
+       "outputLimitExceeded": false,
+       "oversizedRecordsDropped": 0,
        "forcedTerminationAttempted": false,
-       "terminationUnconfirmed": false
+       "terminationUnconfirmed": false,
+       "startedAt": "2026-01-01T00:00:00.000Z",
+       "finishedAt": "2026-01-01T00:00:00.000Z"
       }
      },
      "thread": "ses_f99eea38bffe0EoUlZ5GohEmmF"

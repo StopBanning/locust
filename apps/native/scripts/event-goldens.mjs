@@ -53,7 +53,9 @@ for (const dir of readdirSync(fixtures, { withFileTypes: true }).filter((d) => d
     try {
       lines.forEach((raw, i) => keep(normalizer.accept({ sequence: i + 1, raw })));
       if (typeof normalizer.finish === "function") {
-        keep(normalizer.finish({ exitCode: 0, signal: null, stderr: "", stderrTruncated: false, recordCount: lines.length, cancelled: false, forcedTerminationAttempted: false, terminationUnconfirmed: false }));
+        // The whole completion a process runner hands a reader (types.ts RuntimeProcessCompletion), so the process
+        // evidence holds every field a real run's does.
+        keep(normalizer.finish({ exitCode: 0, signal: null, stderr: "", stderrTruncated: false, recordCount: lines.length, cancelled: false, forcedTerminationAttempted: false, terminationUnconfirmed: false, inputDeliveryFailed: false, outputLimitExceeded: false, oversizedRecordsDropped: 0, startedAt: FIXED.toISOString(), finishedAt: FIXED.toISOString() }));
       }
       streams.push({ fixture: `${dir}/${file}`, reader, lines, events });
     } catch (error) {

@@ -9,6 +9,148 @@ pub fn redact_secrets(value: &str) -> String {
     secrets::redact_secrets(value)
 }
 
+/// codex-events.ts limits on what evidence keeps.
+const MAX_EVIDENCE_STRING_LENGTH: usize = 8_192;
+const MAX_EVIDENCE_ARRAY_LENGTH: usize = 100;
+const MAX_EVIDENCE_OBJECT_KEYS: usize = 100;
+const MAX_EVIDENCE_DEPTH: usize = 8;
+const MAX_EVIDENCE_KEY_LENGTH: usize = 512;
+
+/// codex-events.ts redactText: evidence text without NUL, bounded to 8,192 UTF-16 units, secrets scrubbed.
+pub fn redact_text(value: &str) -> String {
+    let clean: String = value.chars().filter(|c| *c != '\0').collect();
+    let bounded = if clean.encode_utf16().count() > MAX_EVIDENCE_STRING_LENGTH {
+        let mut used = 0;
+        let head: String = clean
+            .chars()
+            .take_while(|c| {
+                used += c.len_utf16();
+                used <= MAX_EVIDENCE_STRING_LENGTH
+            })
+            .collect();
+        format!("{head}\u{2026}[truncated]")
+    } else {
+        clean
+    };
+    secrets::redact_secrets(&bounded)
+}
+
+fn sensitive_key(key: &str) -> bool {
+    crate::invariants::regex(
+        r"(?i)^(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth(?:orization)?|password|passwd|secret|cookie|set-cookie|credential|session[_-]?token)$",
+    )
+    .is_match(key)
+}
+
+/// codex-events.ts sanitizeJson: a record as evidence may keep it, secret keys and secrets in text redacted, deep or
+/// wide parts cut, and `redacted` set when anything was.
+fn sanitize_json(value: &Value, redacted: &mut bool, depth: usize, key: Option<&str>) -> Value {
+    if key.is_some_and(sensitive_key) {
+        *redacted = true;
+        return json!("[redacted]");
+    }
+    match value {
+        Value::Null | Value::Bool(_) | Value::Number(_) => value.clone(),
+        Value::String(text) => {
+            let clean = redact_text(text);
+            if &clean != text {
+                *redacted = true;
+            }
+            Value::String(clean)
+        }
+        _ if depth >= MAX_EVIDENCE_DEPTH => {
+            *redacted = true;
+            json!("[depth limit]")
+        }
+        Value::Array(items) => {
+            if items.len() > MAX_EVIDENCE_ARRAY_LENGTH {
+                *redacted = true;
+            }
+            Value::Array(items.iter().take(MAX_EVIDENCE_ARRAY_LENGTH).map(|v| sanitize_json(v, redacted, depth + 1, None)).collect())
+        }
+        Value::Object(map) => {
+            if map.len() > MAX_EVIDENCE_OBJECT_KEYS {
+                *redacted = true;
+            }
+            let mut out = serde_json::Map::new();
+            for (k, v) in map.iter().take(MAX_EVIDENCE_OBJECT_KEYS) {
+                let safe = if k.contains('\0') || k.encode_utf16().count() > MAX_EVIDENCE_KEY_LENGTH {
+                    let plain: String = k.chars().filter(|c| *c != '\0').collect();
+                    let mut used = 0;
+                    let head: String = plain
+                        .chars()
+                        .take_while(|c| {
+                            used += c.len_utf16();
+                            used <= MAX_EVIDENCE_KEY_LENGTH - 12
+                        })
+                        .collect();
+                    format!("{head}[truncated]")
+                } else {
+                    k.clone()
+                };
+                if &safe != k {
+                    *redacted = true;
+                }
+                out.insert(safe, sanitize_json(v, redacted, depth + 1, Some(k)));
+            }
+            Value::Object(out)
+        }
+    }
+}
+
+/// codex-events.ts evidenceFor's `raw` and `redacted`: a reasoning item keeps only its id and status, then the record is
+/// sanitized as above. Every reader that keeps a line's record as evidence uses this.
+pub fn evidence_raw(parsed: &Value) -> (Value, bool) {
+    let reasoning = parsed["item"].is_object() && parsed["item"]["type"] == "reasoning";
+    let source = if reasoning {
+        let mut item = serde_json::Map::new();
+        item.insert("type".into(), json!("reasoning"));
+        for key in ["id", "status"] {
+            if let Some(v) = parsed["item"][key].as_str() {
+                item.insert(key.into(), json!(v));
+            }
+        }
+        json!({"type": parsed["type"], "item": item, "reasoning_content": "[redacted]"})
+    } else {
+        parsed.clone()
+    };
+    let mut redacted = false;
+    let raw = sanitize_json(&source, &mut redacted, 0, None);
+    (raw, redacted || reasoning)
+}
+
+/// codex-events.ts malformedEvidence: a line that did not parse, kept as scrubbed text.
+pub fn malformed_raw(line: &str) -> (Value, bool) {
+    let clean = redact_text(line);
+    let changed = clean != line;
+    (Value::String(clean), changed)
+}
+
+/// The evidence of a diagnostic: made while reading a record, it carries that record and its type, as Electron's
+/// readers pass the record's own evidence; made from a line that did not parse, the line's text and no type; made
+/// with nothing being read, the agent's name.
+pub fn diagnostic_evidence(kind: Option<&str>, raw: Option<&(Value, bool)>, agent: &str) -> Value {
+    match (raw, kind) {
+        (Some((record, redacted)), Some(kind)) => json!({"runtimeEventType": kind, "raw": record, "redacted": redacted}),
+        (Some((record, redacted)), None) => json!({"raw": record, "redacted": redacted}),
+        (None, _) => json!({"runtimeEventType": agent, "redacted": true}),
+    }
+}
+
+/// A count or a time as JavaScript writes it: a whole value as an integer (47, not 47.0), anything else as it is.
+pub fn num(n: f64) -> Value {
+    if n.is_finite() && n.fract() == 0.0 && n.abs() < 9_007_199_254_740_992.0 { json!(n as i64) } else { json!(n) }
+}
+
+/// The evidence a reader attaches to an event made from the line it is reading: the line's kind and, when it has one,
+/// the record (`evidence_raw`).
+pub fn evidence_of(runtime_event_type: &str, raw: Option<&(Value, bool)>) -> Value {
+    match raw {
+        Some((record, redacted)) => json!({"runtimeEventType": runtime_event_type, "raw": record, "redacted": redacted}),
+        None => json!({"runtimeEventType": runtime_event_type, "redacted": true}),
+    }
+}
+
 pub fn text(value: &str, limit: usize) -> String {
     let clean = secrets::redact_secrets(value);
     let chars: Vec<char> = clean.chars().collect();

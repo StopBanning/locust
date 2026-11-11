@@ -82,6 +82,32 @@ differences that come from the engine itself, and leaves listed the ones that ne
 - Live: `real_codex_accept_edits_writes_in_its_folder` (new) wrote hello.txt; `real_codex_continue` still passes in Ask.
 - Tests: 422 in the engine, 180 in the window.
 
+## Fourth part: the stream readers (B0's second check)
+
+The recorded-stream check went from 0 of 37 to 32 of 37 streams read exactly as Electron reads them: every Cursor,
+Copilot, Muse, Antigravity (agy) and OpenCode stream. What changed:
+
+- **Evidence keeps the record.** `events::evidence_raw` ports codex-events.ts `evidenceFor` and `sanitizeJson` (secret
+  keys and secrets in text redacted, text capped at 8,192 characters, depth, width and key limits, a reasoning item
+  kept to its id and status) and `malformed_raw` its `malformedEvidence`. The Cursor, Copilot, Muse, Antigravity and
+  OpenCode readers keep the line being read, sanitized, and attach it to each event as Electron does; Copilot first
+  drops its opaque blobs (`scrubCopilotRecord`) and marks its evidence redacted. Diagnostics carry the record and its
+  type. This is in `accept`, the entry live runs use, not only in the test-only `accept_line`: a warning that the
+  scrubber was unused is what showed the first version only reached the tests.
+- **Counts as Electron writes them.** Whole token counts and durations stay whole (`events::num`), and a run's
+  `recordCount` counts the records the process gave, not the events made from them.
+- **`terminationUnconfirmed`** is false unless stopping the process could not be confirmed, as Electron's runner
+  reports it; a failed run is not that.
+- **Antigravity** makes no `run.started` of its own (agy-events.ts makes none; the thread rides on each event and on the
+  run's end), and its failure carries the result record that caused it.
+- **OpenCode** names its evidence by OpenCode's own record type (`step_start`), and writes a new file's patch as
+  `newFilePatch` does, `b/` before the path.
+- **The check itself**: the goldens script now hands each reader the whole completion a process runner gives (it left
+  out `inputDeliveryFailed` and four more), and `finishedAt` is ignored with the other clock fields.
+
+Left: three Claude Code streams (Electron's `system` records for helper tasks, background tasks and status, which the
+Rust reader drops) and two Antigravity transcripts (the transcript reader misses tool events and the run's end).
+
 ## Not checked, not done
 
 - No turn ran in the window itself; the live tests drive the same `send` the window calls.

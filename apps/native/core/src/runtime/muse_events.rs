@@ -47,6 +47,12 @@ pub fn muse_quota_limit(reason: &str) -> String {
 
 #[derive(Default)]
 pub struct MuseNormalizer {
+    /// The line being read, sanitized, for its events' evidence (Electron's evidenceFor); cleared at finish.
+    raw: Option<(Value, bool)>,
+    /// The type of the record being read (its `type` or `event`), for a diagnostic's evidence.
+    kind: Option<String>,
+    /// Every line the process gave, read or not: Electron's process runner's recordCount.
+    records: usize,
     pub thread: Option<String>,
     pub ended: bool,
     pub saw_result: bool,
@@ -80,24 +86,26 @@ impl MuseNormalizer {
             thread: self.thread.clone(),
         }
     }
-    fn process(&self, success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
+    fn process(&self, _success: bool, cancelled: bool, exit_code: Option<i32>) -> Value {
         json!({
             "exitCode": exit_code.map(Value::from).unwrap_or(Value::Null),
             "signal": null, "stderr": "", "stderrTruncated": false,
-            "recordCount": self.count, "inputDeliveryFailed": false,
+            "recordCount": self.records, "inputDeliveryFailed": false,
             "outputLimitExceeded": self.output_limit_exceeded,
             "oversizedRecordsDropped": 0, "forcedTerminationAttempted": cancelled,
-            "terminationUnconfirmed": !success && !cancelled,
+            // Electron passes the runner's own word, true only when stopping the process could not be confirmed; a run that
+            // failed is not that, and these drivers confirm every stop they make.
+            "terminationUnconfirmed": false,
             "startedAt": crate::ledger_write::now(), "finishedAt": crate::ledger_write::now()
         })
     }
     fn evidence(&self, t: &str) -> Value {
-        json!({"runtimeEventType": t, "redacted": true})
+        super::events::evidence_of(t, self.raw.as_ref())
     }
     pub fn diagnostic(&mut self, level: &str, code: &str, message: &str) -> Event {
         self.event(
             "adapter.diagnostic",
-            json!({"level":level,"code":code,"message":text(message,16384),"terminal":false,"evidence":self.evidence("muse")}),
+            json!({"level":level,"code":code,"message":text(message,16384),"terminal":false,"evidence":super::events::diagnostic_evidence(self.kind.as_deref(), self.raw.as_ref(), "muse")}),
         )
     }
     fn tool_row(&self, task_id: &str) -> Value {
@@ -114,6 +122,8 @@ impl MuseNormalizer {
         p
     }
     pub fn finish(&mut self, cancelled: bool, exit_code: Option<i32>) -> Vec<Event> {
+        self.raw = None;
+        self.kind = None;
         if self.ended {
             return vec![];
         }
@@ -200,6 +210,9 @@ impl MuseNormalizer {
         let parsed: Value = match serde_json::from_str(cleaned) {
             Ok(v) => v,
             Err(_) => {
+                self.records += 1;
+                self.raw = Some(super::events::malformed_raw(raw));
+                self.kind = None;
                 return vec![self.diagnostic(
                     "warning",
                     "muse.malformed_record",
@@ -208,6 +221,7 @@ impl MuseNormalizer {
             }
         };
         if !obj(&parsed) {
+            self.records += 1;
             return vec![self.diagnostic(
                 "warning",
                 "muse.malformed_record",
@@ -217,6 +231,10 @@ impl MuseNormalizer {
         self.accept(&parsed)
     }
     pub fn accept(&mut self, parsed: &Value) -> Vec<Event> {
+        // Every record read live comes through here: count it, and keep it (sanitized) and its type for its events' evidence.
+        self.records += 1;
+        self.raw = Some(super::events::evidence_raw(parsed));
+        self.kind = parsed["type"].as_str().or_else(|| parsed["event"].as_str()).or_else(|| parsed["payload_type"].as_str()).map(str::to_owned);
         if self.ended {
             return vec![];
         }
