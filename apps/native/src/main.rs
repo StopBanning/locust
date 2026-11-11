@@ -34,8 +34,8 @@ use locust_core::{
 };
 #[cfg(test)]
 use locust_core::ledger_write;
-#[cfg(target_os = "macos")]
 mod look;
+#[cfg(target_os = "macos")]
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]
 mod browser_panel;
