@@ -158,8 +158,6 @@ impl Store {
     pub fn electron(&self) -> &Path {
         &self.electron
     }
-    #[cfg(test)]
-    #[cfg(test)]
     pub fn root(&self) -> &Path {
         &self.root
     }

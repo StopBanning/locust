@@ -62,6 +62,7 @@ pub(super) fn load_composer_store(s: &mut State) {
             }
         }
         s.org = org::load_org(&store);
+        s.appearance = crate::workspace_settings::load_theme(&store).to_appearance();
         s.data = Some(store);
     }
 }

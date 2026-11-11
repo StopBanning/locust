@@ -178,13 +178,13 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Categorized Settings and project settings | `renderer/src/components/Screens.tsx`, `renderer/src/settingsPages.ts`, `main/workspace.ts` | **missing** | yes |
-| Usage/cost across agents/models/accounts, plan meters and budgets | `renderer/src/components/UsageDialog.tsx`, `renderer/src/components/UsageLine.tsx`, `renderer/src/components/UsageMeters.tsx`, `shared/usage.ts`, `shared/spend.ts` | **missing** | yes |
-| OS keychain/safeStorage and unlock note | `main/keychain.ts`, `renderer/src/components/KeychainNote.tsx` | **missing** | yes |
+| Categorized Settings and project settings | `renderer/src/components/Screens.tsx`, `renderer/src/settingsPages.ts`, `main/workspace.ts` | **partial** — P10: 13 pages / 5 groups / search words exact; theme, sidebar layout, swarm, auto mode, memory mode, relay, native data folder take effect (seed-once); other controls show with `runs in Locust for now` | yes |
+| Usage/cost across agents/models/accounts, plan meters and budgets | `renderer/src/components/UsageDialog.tsx`, `renderer/src/components/UsageLine.tsx`, `renderer/src/components/UsageMeters.tsx`, `shared/usage.ts`, `shared/spend.ts` | **partial** — P10: Usage dialog from native+Electron ledgers (read-only Electron); activity/models/plan meters/spend words; Home UsageLine chip and live send-time budget refusal still missing | yes |
+| OS keychain/safeStorage and unlock note | `main/keychain.ts`, `renderer/src/components/KeychainNote.tsx` | **done** — P10: amber note + ask-gating without storing secrets; never reads or copies keychain items | yes |
 | Retention and manifest-verified local profile backup/restore | `main/retention.ts`, `main/profile-backup.ts` | **missing** | yes |
 | Connector inventory, health and add to supported agents | `renderer/src/components/ConnectorHealth.tsx`, `renderer/src/components/AddConnector.tsx`, `main/connector-reader.ts`, `main/connector-add.ts` | **missing** | yes |
 | Feedback and private report export/send controls | `renderer/src/components/FeedbackDialog.tsx`, `main/report-problem.ts` | **missing** | yes |
-| Keyboard shortcut reference | `renderer/src/components/KeyboardSheet.tsx`, `renderer/src/keyboardShortcuts.ts` | **missing** | no |
+| Keyboard shortcut reference | `renderer/src/components/KeyboardSheet.tsx`, `renderer/src/keyboardShortcuts.ts` | **done** — P10: Electron words; native-bound unmarked; lacking rows marked `runs in Locust for now`; Mac Cmd/Option remap | no |
 | GitHub account and CLI readiness | `renderer/src/components/GitHubAccount.tsx`, `main/github-account.ts` | **missing** | yes |
 
 ### Area 12: Cloud, Remote, Phone & Chat Apps
@@ -280,12 +280,12 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
 | 9 | Routines, Compare & Benchmarks | 0 | 0 | 10 | 10 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 |
-| 11 | Settings, Usage, Privacy & Backup | 0 | 0 | 8 | 8 |
+| 11 | Settings, Usage, Privacy & Backup | 2 | 2 | 4 | 8 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 |
 | 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **26** | **30** | **97** | **153** |
+| | **TOTAL** | **28** | **32** | **93** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

@@ -5,6 +5,19 @@ mod own_command;
 mod people;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
+mod settings_pages;
+mod workspace_settings;
+mod spend;
+mod usage;
+mod usage_ledger;
+mod keyboard_shortcuts;
+mod keychain_note;
+#[path = "ui/settings_panel.rs"]
+mod settings_panel;
+#[path = "ui/usage_panel.rs"]
+mod usage_panel;
+#[path = "ui/keyboard_sheet.rs"]
+mod keyboard_sheet;
 #[path = "ui/recovery.rs"]
 mod recovery;
 #[path = "ui/reply_actions.rs"]
@@ -467,6 +480,15 @@ fn setup(s: &mut State, waker: Waker) {
     load_composer_store(s);
     load_team(s);
     sync_draft_key(s);
+    // No secrets stored in native yet → keeps_key false → note stays down. Never reads the keychain.
+    // Scenes may force the note on for snaps; do not clear that.
+    if !s.keychain_asking {
+        s.keychain_asking = keychain_note::should_show_note(
+            keychain_note::may_ask_on_this_os(),
+            false,
+            false,
+        );
+    }
 }
 
 fn selected_conversation(s: &State) -> Option<(&Teammate, &Conversation)> {
@@ -1009,6 +1031,18 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if event.key == Key::Escape {
         if s.changes.open {
             s.changes.open = false;
+            return true;
+        }
+        if s.settings_panel.open {
+            s.settings_panel.open = false;
+            return true;
+        }
+        if s.usage_panel.open {
+            s.usage_panel.open = false;
+            return true;
+        }
+        if s.keyboard_sheet.open {
+            s.keyboard_sheet.open = false;
             return true;
         }
         if s.people_panel.open {
@@ -1647,6 +1681,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             .is_none_or(|(path, yes)| path == &s.changes.folder && *yes);
     let mut thread = if changes_open {
         changes_panel::view(s, &p)
+    } else if s.settings_panel.open {
+        settings_panel::view(s, &p)
     } else if s.people_panel.open {
         people_panel::view(s, &p)
     } else {
@@ -1672,12 +1708,56 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);
     }
-    let app = row()
+    let mut app = row()
         .w_full()
         .h_full()
         .fill(p.bg)
         .child(sidebar)
         .child(right);
+    if s.keychain_asking {
+        app = col()
+            .w_full()
+            .h_full()
+            .child(
+                row()
+                    .w_full()
+                    .gap(8.0)
+                    .padding(10.0)
+                    .fill(p.amber.alpha(0.2))
+                    .child(
+                        text(crate::keychain_note::KEYCHAIN_NOTE.to_owned())
+                            .font(type_::LABEL)
+                            .color(p.amber)
+                            .wrap()
+                            .grow(1.0),
+                    ),
+            )
+            .child(app);
+    }
+    if s.usage_panel.open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(usage_panel::view(s, &p).modal(true, |s: &mut State| {
+                    s.usage_panel.open = false
+                })),
+        );
+    }
+    if s.keyboard_sheet.open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(keyboard_sheet::view(s, &p).modal(true, |s: &mut State| {
+                    s.keyboard_sheet.open = false
+                })),
+        );
+    }
     if s.palette_open {
         app.child(
             el().absolute(0.0, 0.0)
@@ -1874,6 +1954,14 @@ fn main() {
             ("approval-reach-light", approval_reach_scene_light),
             ("p8-rules", p8_rules_scene_dark),
             ("p8-rules-light", p8_rules_scene_light),
+            ("settings", settings_panel::scene),
+            ("settings-light", settings_panel::light_scene),
+            ("usage", usage_panel::scene),
+            ("usage-light", usage_panel::light_scene),
+            ("keyboard", keyboard_sheet::scene),
+            ("keyboard-light", keyboard_sheet::light_scene),
+            ("keychain-note", keychain_note_scene_dark),
+            ("keychain-note-light", keychain_note_scene_light),
             ("composer", composer_scene),
             ("composer-light", composer_light_scene),
             ("composer-slash", composer_slash_scene),

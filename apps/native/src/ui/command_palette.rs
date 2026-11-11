@@ -72,6 +72,27 @@ pub fn default_palette_actions(
             when_typed: false,
         });
     }
+    actions.push(PaletteAction {
+        id: "settings".into(),
+        group: "Go to".into(),
+        label: "Settings".into(),
+        keywords: Some("preferences appearance theme".into()),
+        when_typed: false,
+    });
+    actions.push(PaletteAction {
+        id: "usage".into(),
+        group: "Go to".into(),
+        label: "Usage".into(),
+        keywords: Some("cost spend tokens meters".into()),
+        when_typed: false,
+    });
+    actions.push(PaletteAction {
+        id: "keyboard".into(),
+        group: "Go to".into(),
+        label: "Keyboard shortcuts".into(),
+        keywords: Some("hotkeys chords".into()),
+        when_typed: false,
+    });
     for (i, row) in conversations.iter().enumerate() {
         actions.push(PaletteAction {
             id: format!("conv:{}", row.mission_id),
@@ -185,6 +206,9 @@ pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
     match id {
         "back" => {}
         "stop" => stop(s),
+        "settings" => crate::settings_panel::open(s),
+        "usage" => crate::usage_panel::open(s),
+        "keyboard" => crate::keyboard_sheet::open(s),
         id if id.starts_with("conv:") => {
             let mission_id = &id[5..];
             if let Some(item) = s.recent.iter().find(|r| r.id == mission_id).cloned() {

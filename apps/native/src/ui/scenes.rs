@@ -845,3 +845,16 @@ pub(super) fn p6_memory_light_scene(s: &mut State) {
     p6_memory_scene(s);
     s.appearance = Some(false);
 }
+
+pub(super) fn keychain_note_scene_dark(s: &mut State) {
+    team_scene(s);
+    s.appearance = Some(true);
+    // Scene forces the note so snaps show copy. Live gating: may_ask_on_this_os + keeps_key.
+    let _ = crate::keychain_note::may_ask_on_this_os();
+    s.keychain_asking = true;
+}
+
+pub(super) fn keychain_note_scene_light(s: &mut State) {
+    keychain_note_scene_dark(s);
+    s.appearance = Some(false);
+}
