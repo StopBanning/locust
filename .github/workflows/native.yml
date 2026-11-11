@@ -1,7 +1,7 @@
 # The Rust port (apps/native) on exec/native: its tests on macOS, the scoreboard checks, and a compile check on Linux
 # and Windows that is allowed to fail while the port is Mac-only, so each push shows what stops it building there.
-# Runs only on pushes to exec/native that touch the port, never on pull requests, one run at a time. GitHub-hosted
-# runners only; no secrets.
+# Runs only on pushes to exec/native that touch the port, never on pull requests, one run at a time. The macOS job
+# runs on Colin's Mac mini; the rest on GitHub's runners. No secrets.
 
 name: native
 
@@ -35,30 +35,29 @@ jobs:
       - name: Every TypeScript test file has a line in parity/tests.tsv
         run: python3 scripts/test-ledger.py --check
 
+  # On Colin's Mac mini (runner `mac-mini`, label locust-mac) since 11 Nov 2026: GitHub's macos-15 runners gave this
+  # job none three times in a row. The runner's guard (_tools/mac-runner-guard.sh) admits this workflow only on
+  # exec/native, pushed or started by the owner. The build cache lives in the runner's own folder, not GitHub's cache.
   mac:
-    runs-on: macos-15
+    runs-on: [self-hosted, macOS, ARM64, locust-mac]
     timeout-minutes: 60
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/../../native-target
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
       - name: Build Electron's ledger reader, which checks every ledger Rust writes
         working-directory: .
         run: |
           pnpm install --frozen-lockfile
           pnpm --filter "@teammate/mission-store..." build
       - name: Rust
-        run: rustup toolchain install stable --profile minimal && rustup default stable
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            apps/native/target
-          key: native-mac-${{ hashFiles('apps/native/Cargo.lock') }}
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" toolchain install stable --profile minimal
       - name: Tests
         env:
           LOCUST_TEST_TS_READER: ${{ github.workspace }}/packages/mission-store/dist/index.js
@@ -71,7 +70,7 @@ jobs:
       - name: Release build and binary size
         run: |
           cargo build --release
-          size=$(stat -f %z target/release/locust-native)
+          size=$(stat -f %z "$CARGO_TARGET_DIR/release/locust-native")
           echo "Release binary: $((size / 1048576)) MiB" | tee -a "$GITHUB_STEP_SUMMARY"
 
   elsewhere:
