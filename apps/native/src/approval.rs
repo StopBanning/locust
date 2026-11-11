@@ -726,6 +726,12 @@ impl Channel {
         })
     }
 
+    /// Browser actions never inherit a command allow rule or Auto-mode bypass.
+    pub fn ask_browser(&self, mission: &str, title: &str, detail: &str, cancel: &dyn Fn() -> bool) -> Result<bool, String> {
+        let request = Request { approval_id: new_id(), mission_id: mission.into(), runtime: "browser".into(), kind: Kind::Connector, summary: whole_detail(title), detail: whole_detail(detail), cwd: None, requested_at: now_iso(), always_covers: None, always_key: None, data_sent_says: None, reversible_says: None, claude_input: None };
+        self.ask(request, cancel).map(|a| matches!(a, Answer::Decision { decision: Decision::ApproveOnce | Decision::ApproveAlways, .. }))
+    }
+
     fn ask(&self, request: Request, cancel: &dyn Fn() -> bool) -> Result<Answer, String> {
         let (tx, rx) = mpsc::sync_channel(1);
         let id = request.approval_id.clone();
@@ -759,7 +765,7 @@ impl Channel {
             }
             // Saved rules answer before a card (Electron decideByRules). Unreadable → every card asks.
             let saved =
-                decide_by_saved_rules(&request, guard.teammates.get(&request.mission_id).cloned());
+                if request.runtime == "browser" { Ok(None) } else { decide_by_saved_rules(&request, guard.teammates.get(&request.mission_id).cloned()) };
             let readable = saved.is_ok();
             if let Ok(Some(auto)) = saved {
                 let mut record = record_of(&request, &auto);
@@ -1001,7 +1007,7 @@ impl Recorded {
 /// Words shared with Electron's ApprovalCard.tsx / approval-data.ts.
 /// A reaching command never gets Always / saved rules (Electron commandReach).
 pub fn asks_every_time(card: &Request) -> bool {
-    command_reach_of(card).is_some()
+    card.runtime == "browser" || command_reach_of(card).is_some()
 }
 
 fn request_view(card: &Request) -> crate::approval_rules::RequestView<'_> {

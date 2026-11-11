@@ -1,3 +1,10 @@
+mod browser;
+mod page_preview;
+mod browser_tools;
+#[cfg(target_os = "macos")]
+mod browser_mac;
+#[path = "ui/browser_panel.rs"]
+mod browser_panel;
 #[path = "ui/context_usage.rs"]
 mod context_usage;
 mod invariants;
@@ -1356,6 +1363,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         return false;
     }
     let mut changed = routines_panel::poll(s);
+    changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
     changed |= commit_panel::poll(s);
     changed |= terminal_panel::poll(s);
@@ -1662,6 +1670,8 @@ fn on_close(s: &mut State, _: &mut Tx) {
     // Drop ends the PTY/own-command trees; do not wait on the UI thread.
     terminal_panel::dispose(s);
     home_panel::save_attention(s);
+    #[cfg(target_os = "macos")]
+    browser_mac::dispose();
     // Native turns live in this process: ask each to stop now and let a background thread watch them write their
     // cancelled records. The UI thread does not wait; `main` waits after the window is gone.
     native::shutdown_in_background();
@@ -1746,6 +1756,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     // The conversation keeps room for its message box; side panels (terminal, beside, viewer) shrink first.
     let thread = col().grow(1.0).h_full().min_w(380.0).child(thread);
     let mut right = row().grow(1.0).h_full().min_w(0.0).child(thread);
+    if let Some(browser) = browser_panel::view(s, &p) { right = right.child(browser); }
     if s.terminal.open {
         right = right.child(terminal_panel::view(s, &p));
     }
@@ -1925,6 +1936,11 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
 }
 
 fn main() {
+    let browser_args: Vec<String> = std::env::args().collect();
+    if browser_args.get(1).map(String::as_str) == Some("--browser-bridge") {
+        if let Some(socket) = browser_args.get(2) && let Err(e) = browser_tools::serve(socket) { eprintln!("Browser tools: {e}"); std::process::exit(1); }
+        return;
+    }
     if std::env::args().nth(1).as_deref() == Some("--permission-bridge") {
         let result =
             runtime::permission_bridge::serve(&std::env::args().nth(2).unwrap_or_default());
@@ -1984,6 +2000,8 @@ fn main() {
         poll: Some(poll),
         on_key: Some(on_key),
         scenes: &[
+            ("browser", browser_panel::scene),
+            ("browser-light", browser_panel::light_scene),
             ("terminal", terminal_panel::scene),
             ("terminal-light", terminal_panel::light_scene),
             ("undo", changes_panel::undo_scene),
@@ -2074,6 +2092,7 @@ fn main() {
         drag_regions: true,
     })
     .on_close(on_close)
+    .on_window(|window| { #[cfg(target_os = "macos")] browser_mac::attach(window); })
     .run();
     // The window is gone: let cancelled records land (bounded; an unresponsive server is killed by its watchdog).
     native::wait_for_shutdown();

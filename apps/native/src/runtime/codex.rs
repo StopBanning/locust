@@ -310,7 +310,11 @@ impl Runtime for Codex {
         )?;
         self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
         let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
-        let config = read_only_config(&settings["config"])?;
+        let mut config = read_only_config(&settings["config"])?;
+        if let Some(browser) = crate::browser_tools::config(&turn.mission_id) {
+            config["mcp_servers.locust_browser"] = browser;
+            config["mcp_servers.locust_browser.enabled"] = json!(true);
+        }
         let policy = crate::approval::codex_app_server_policy(turn.mode, None);
         // Ports codex-app-server-run.ts handshake: `thread/start`, or `thread/resume` with the prior thread id and
         // `excludeTurns` (without it the answer carries the whole history as one line, past the 8 MiB limit).

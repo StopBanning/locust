@@ -115,6 +115,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .py(10.0)
             .child(changes_panel::controls(s, p))
             .child(commit_panel::control(s, p))
+            .child(browser_panel::toggle(p))
             .child(terminal_panel::toggle(p))
             .child(terminal_panel::runtime_controls(s, p));
         if s.flight.is_some() || s.opening_teammate.is_some() {

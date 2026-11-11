@@ -576,6 +576,9 @@ impl Acp {
             return Err(err("The agent does not speak ACP version 1"));
         }
         let mut params = json!({"cwd":t.folder,"mcpServers":[]});
+        if let Some(browser) = crate::browser_tools::config(&t.mission_id) {
+            params["mcpServers"] = json!([{"name":"locust_browser","command":browser["command"],"args":browser["args"],"env":[]}]);
+        }
         let session = if let Some(id) = &t.resume {
             if init["agentCapabilities"]["loadSession"] != true {
                 return Err(err("The agent cannot continue an earlier session."));

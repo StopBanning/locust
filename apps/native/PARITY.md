@@ -104,8 +104,8 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | :--- | :--- | :--- | :---: |
 | Action approval/question cards, remembered answers and denial reasons | `renderer/src/components/ApprovalCard.tsx`, `main/approval-channel.ts`, `main/approval-rule-store.ts` | **partial** (P8: Approve/Deny/Always/Don't-ask-again/Never-allow card, reach/In short rows, saved-rule auto-answer, command-guard hard deny; no question form yet) | yes |
 | Command safety/reach guard and In short explanation | `main/command-guard.ts`, `shared/command-reach.ts`, `shared/command-plain.ts` | **partial** — Rust `command_reach`/`command_plain`/`command_guard` with Electron words; OpenCode still ships the JS guard asset; full PreToolUse writers for every runtime remain (P8-NOTES.md) | yes |
-| Workspace boundary, outside attachments and agent-settings-folder confirmation | `main/permission-host.ts`, `main/attach-outside.ts`, `main/workspace-settings-change.ts` | **partial** — outside-folder card words, `attach_outside` destination/exclude, `settings_change_kept`; full permission-host connector/browser cards remain (P8-NOTES.md) | yes |
-| Connector/browser action permissions | `main/permission-host.ts`, `main/browser-host.ts` | **missing** | yes |
+| Workspace boundary, outside attachments and agent-settings-folder confirmation | `main/permission-host.ts`, `main/attach-outside.ts`, `main/workspace-settings-change.ts` | **partial** — outside-folder card words, `attach_outside` destination/exclude, `settings_change_kept`; browser tool cards via `ask_browser`; connector permission-host cards remain (P8/P13-NOTES.md) | yes |
+| Connector/browser action permissions | `main/permission-host.ts`, `main/browser-host.ts` | **partial** — browser gates through `approval::ask_browser` + `browser_actions` (no saved-rule bypass); connector permission-host cards remain | yes |
 | Saved approval rules list/remove/remove all | `renderer/src/components/SavedApprovalRules.tsx`, `main/approval-rule-store.ts` | **done** — native `approval-rules.json` seed-once, list/remove/remove all, secret/compound/reach refusals; Settings panel words exact | yes |
 | Ask/Plan/Auto/Approve each action and runtime-specific guarantees | `main/mission-mode.ts`, `main/permission-host.ts`, `renderer/src/components/WhatLocustCanStop.tsx` | **partial** (M3b: `codexAppServerPolicy` + Approve-each interactive for Codex/Claude control_request; Ask auto-declines; Claude permission bridge / full mode matrix later) | yes |
 | Scoped secret detection/redaction in memories, records and sharing | `shared/secrets.ts`, `main/mission-export.ts`, `main/memory-store.ts` | **partial** — one `secrets` module (`secret_in`/`scrub_secrets`/`redact_secrets`); people/ledger/events call it; Save-record export UI remains (P8-NOTES.md) | yes |
@@ -142,12 +142,12 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Browser tabs, URL/navigation, reload and viewport | `renderer/src/components/BrowserPanel.tsx`, `renderer/src/components/BrowserToggle.tsx`, `main/browser-host.ts` | **missing** | yes |
-| Local page preview and comparison page previews | `main/page-preview.ts`, `renderer/src/components/FileViewer.tsx`, `renderer/src/components/CompareView.tsx` | **missing** | yes |
+| Browser tabs, URL/navigation, reload and viewport | `renderer/src/components/BrowserPanel.tsx`, `renderer/src/components/BrowserToggle.tsx`, `main/browser-host.ts` | **done** — panel tabs/address/back/forward/reload/stop + WKWebView viewport via `browser_mac`; live paint/focus/IME unverified (p13-NOTES.md) | yes |
+| Local page preview and comparison page previews | `main/page-preview.ts`, `renderer/src/components/FileViewer.tsx`, `renderer/src/components/CompareView.tsx` | **partial** — `locust-page` scheme + folder confinement/size/mime/secret refusal; CompareView/FileViewer comparison preview surfaces remain | yes |
 | Point at page/browser element and attach screenshot/context | `main/browser-point.ts`, `main/page-pick.ts`, `renderer/src/components/PagePointChips.tsx` | **missing** | yes |
-| Teammate browser tools with permission gates | `main/browser-host.ts`, `main/browser-ipc.ts` | **missing** | yes |
-| Browser console/network logs readable by teammate tools | `main/browser-host.ts` | **missing** | yes |
-| Separate teammate browser sign-in profiles | `main/browser-host.ts`, `renderer/src/components/BrowserPanel.tsx` | **missing** | yes |
+| Teammate browser tools with permission gates | `main/browser-host.ts`, `main/browser-ipc.ts` | **done** — per-run MCP bridge for claude/codex/copilot/opencode/acp; profile-scoped tools; Electron gate categories via `approval::ask_browser` | yes |
+| Browser console/network logs readable by teammate tools | `main/browser-host.ts` | **done** — injected capture, 100-entry bounds, `browser_console`/`browser_network` tools scoped per profile | yes |
+| Separate teammate browser sign-in profiles | `main/browser-host.ts`, `renderer/src/components/BrowserPanel.tsx` | **done** — macOS 14+ named persistent stores; macOS 13 non-persistent with panel disclosure; forget clears only that profile | yes |
 
 ### Area 9: Routines, Compare & Benchmarks
 
@@ -274,10 +274,10 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 2 | Composer & Input | 10 | 0 | 4 | 14 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 3 | 9 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
-| 5 | Approvals & Permissions | 1 | 5 | 3 | 9 |
+| 5 | Approvals & Permissions | 1 | 6 | 2 | 9 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 4 | 9 | 13 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 |
-| 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
+| 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 |
 | 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 |
 | 11 | Settings, Usage, Privacy & Backup | 2 | 2 | 4 | 8 |
@@ -285,7 +285,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **32** | **36** | **85** | **153** |
+| | **TOTAL** | **36** | **38** | **79** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

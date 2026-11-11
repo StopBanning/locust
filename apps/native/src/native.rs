@@ -863,6 +863,7 @@ pub fn send(mut job: Send) -> Result<Started, String> {
     } else {
         None
     };
+    let browser_registration = crate::browser_tools::Registration::prepare(&mut command, runtime_name, &id, &job.teammate.id, &folder, channel.clone(), flag.clone())?;
     let args: Vec<String> = command
         .get_args()
         .map(|a| a.to_string_lossy().into_owned())
@@ -900,6 +901,7 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         .spawn(move || {
             // Keep ownership through the final memory write so shutdown/continuation cannot race it.
             let _memory_completion = registered;
+            let _browser_registration = browser_registration;
             let checkpoint = crate::checkpoints::Turn::begin(&memory_store, &memory_folder);
             run_turn(
                 writer,
