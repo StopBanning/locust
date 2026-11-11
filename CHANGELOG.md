@@ -11,6 +11,17 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.872.0 - 2026-11-11
+
+### Improved
+
+- **"Waiting on you" takes you to the conversation.** The notification now names the teammate and the
+  conversation that needs you, and clicking it opens that conversation. In the sidebar, a conversation waiting on
+  you sits at the top under Needs you, with its own turns kept together under it, and the Board lists it.
+- **A conversation another app started says so.** Conversations an app such as Claude Code started through Locust
+  carry a quiet "via app" mark in the sidebar, and when there are any, a filter shows all of them, only the ones you
+  started here, or only the ones from apps.
+
 ## 0.871.0 - 2026-11-10
 
 ### Improved
