@@ -73,6 +73,20 @@ pub fn default_palette_actions(
         });
     }
     actions.push(PaletteAction {
+        id: "home".into(),
+        group: "Go to".into(),
+        label: "Home".into(),
+        keywords: Some("cover team starters away".into()),
+        when_typed: false,
+    });
+    actions.push(PaletteAction {
+        id: "board".into(),
+        group: "Go to".into(),
+        label: "Board".into(),
+        keywords: Some("needs you working done approvals".into()),
+        when_typed: false,
+    });
+    actions.push(PaletteAction {
         id: "settings".into(),
         group: "Go to".into(),
         label: "Settings".into(),
@@ -206,6 +220,8 @@ pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
     match id {
         "back" => {}
         "stop" => stop(s),
+        "home" => crate::p12_panel::open_home(s),
+        "board" => crate::p12_panel::open_board(s),
         "settings" => crate::settings_panel::open(s),
         "usage" => crate::usage_panel::open(s),
         "keyboard" => crate::keyboard_sheet::open(s),

@@ -206,12 +206,12 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
 | Local MCP teammates/conversations/models/stop/carry-on access | `renderer/src/components/LocustMcpSettings.tsx`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts` | **partial** — client only; no native server/settings/routine tools | yes |
-| First launch, discovery and starter team setup | `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/BootScreen.tsx`, `main/start-readiness.ts` | **missing** | yes |
-| Folder/project switcher and remembered conversation folders | `renderer/src/components/Sidebar.tsx`, `main/folders.ts`, `main/named-folder.ts` | **missing** | yes |
-| Home cover, team, starters and compare entry points | `renderer/src/components/HomeCover.tsx`, `renderer/src/components/HomeTeam.tsx`, `renderer/src/components/StarterList.tsx`, `renderer/src/components/IdleTeammate.tsx` | **missing** | yes |
-| Board of waiting/working/done with actionable approvals | `renderer/src/components/BoardScreen.tsx`, `renderer/src/conversationBoard.ts` | **missing** | yes |
-| Since-you-were-away recap | `renderer/src/components/AwayList.tsx`, `main/away.ts` | **missing** | yes |
-| Updates, release notes and big-update splash | `renderer/src/components/WhatsNew.tsx`, `renderer/src/components/Screens.tsx`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts` | **missing** | yes |
+| First launch, discovery and starter team setup | `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/BootScreen.tsx`, `main/start-readiness.ts` | **partial** — boot PATH sweep via `discovery::find_named`, starter templates; install/sign-in/CRT/DiscoveryEvent stream remain (p12-NOTES.md) | yes |
+| Folder/project switcher and remembered conversation folders | `renderer/src/components/Sidebar.tsx`, `main/folders.ts`, `main/named-folder.ts` | **done** — native `folders.json` seed-once registry, Home Choose folder, message-named project switch; OS picker remains synthetic | yes |
+| Home cover, team, starters and compare entry points | `renderer/src/components/HomeCover.tsx`, `renderer/src/components/HomeTeam.tsx`, `renderer/src/components/StarterList.tsx`, `renderer/src/components/IdleTeammate.tsx` | **done** — cover claim, team/templates, Electron starters; Compare/issue deferred; cover animation remains | no |
+| Board of waiting/working/done with actionable approvals | `renderer/src/components/BoardScreen.tsx`, `renderer/src/conversationBoard.ts` | **done** — Needs you / Working / Ready to look at / Done; Allow once / Deny via `approval`; Scout/routine wait cards remain | yes |
+| Since-you-were-away recap | `renderer/src/components/AwayList.tsx`, `main/away.ts` | **done** — reducer/line/Got it; native `away.json` attention mark; 20-minute minimum | yes |
+| Updates, release notes and big-update splash | `renderer/src/components/WhatsNew.tsx`, `renderer/src/components/Screens.tsx`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts` | **partial** — native What's new + big splash from native notes; self-update / tray install remain out of round (p12-NOTES.md) | yes |
 | Global command palette | `renderer/src/components/CommandPalette.tsx` | **done** — Cmd/Ctrl+K; Electron placeholder/groups/labels; filter + group order | no |
 | External CLI client for local MCP tools | `packages/cli/src/index.ts` | **partial** — native --ask covers ask/reply only | yes |
 | Expose team as ACP agent to editors, with opt-in own-turn approval answers | `packages/cli/src/acp.ts`, `main/locust-cli-sessions.ts` | **missing** | yes |
@@ -282,10 +282,10 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 |
 | 11 | Settings, Usage, Privacy & Backup | 2 | 2 | 4 | 8 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 |
-| 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
+| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **28** | **33** | **92** | **153** |
+| | **TOTAL** | **32** | **35** | **86** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

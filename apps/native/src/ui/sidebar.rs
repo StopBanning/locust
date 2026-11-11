@@ -63,6 +63,8 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
                 .filter_map(|m| s.ledger_summaries.get(&m.id).map(|m| m.words.as_str()))
                 .collect::<Vec<_>>()
                 .join(" · "),
+            nested_under: None,
+            integrity_issue_count: 0,
         };
         if let Some(title) = held_for(&mission, &s.org.titles) {
             mission.title = title.clone();

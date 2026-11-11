@@ -41,6 +41,11 @@ pub(super) fn open(s: &mut State) {
     s.settings_panel.open = true;
     s.settings_panel.page = SettingsPageId::from_str("appearance");
     reload(s);
+    if s.p12.changelog.is_empty() {
+        let text = crate::changelog::native_notes(None);
+        s.p12.changelog = crate::changelog::entries(&text);
+        s.p12.changelog_shown = crate::changelog::WHATS_NEW_PAGE;
+    }
 }
 
 fn reload(s: &mut State) {
@@ -300,6 +305,19 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 );
             for heading in headings {
                 body = body.child(deferred(heading, p));
+            }
+        }
+        SettingsPageId::WhatsNew => {
+            if s.p12.changelog.is_empty() {
+                body = body.child(
+                    text(crate::changelog::READING.to_owned())
+                        .font(type_::LABEL)
+                        .color(p.muted)
+                        .wrap()
+                        .padding(10.0),
+                );
+            } else {
+                body = body.child(crate::p12_panel::whats_new_settings(s, p));
             }
         }
 

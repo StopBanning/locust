@@ -15,6 +15,10 @@ pub struct SidebarMission {
     pub owner_id: Option<String>,
     /// What the person said across turns, for sidebar search (`status.ts` ConversationRowExtras.said).
     pub said: String,
+    /// Conversation the sidebar nests this under (`nestedUnder`), when any.
+    pub nested_under: Option<String>,
+    /// Integrity issues on the row; board running mark uses phase, not this count.
+    pub integrity_issue_count: u32,
 }
 
 /// Every id this row has ever been keyed by, newest identity first (root preferred).
@@ -186,6 +190,8 @@ mod tests {
             member_ids: Vec::new(),
             owner_id: None,
             said: String::new(),
+            nested_under: None,
+            integrity_issue_count: 0,
         }
     }
 

@@ -6,6 +6,8 @@ mod keyboard_sheet;
 mod keyboard_shortcuts;
 mod keychain_note;
 mod own_command;
+#[path = "ui/p12_panel.rs"]
+mod p12_panel;
 mod people;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
@@ -78,6 +80,9 @@ use app_state::*;
 mod approval;
 mod approval_rule_store;
 mod approval_rules;
+mod away;
+mod boot_view;
+mod changelog;
 mod changes;
 #[path = "ui/changes_panel.rs"]
 mod changes_panel;
@@ -86,14 +91,18 @@ mod command_guard;
 mod command_plain;
 mod command_reach;
 mod composer;
+mod conversation_board;
 mod engine;
+mod folders;
 mod ledger;
 mod ledger_write;
+mod named_folder;
 mod native;
 mod quick;
 mod run_cli;
 mod runtime;
 mod secrets;
+mod starters;
 mod store;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
@@ -931,6 +940,7 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
 }
 
 fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
+    p12_panel::opened(s, &row.id);
     if let Some(title) =
         crate::conversation_list::conversation_title_for(&recent_as_missions(s), Some(&row.id))
     {
@@ -1033,6 +1043,23 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     if event.key == Key::Escape {
         if s.changes.open {
             s.changes.open = false;
+            return true;
+        }
+        if s.p12.splash_open {
+            s.p12.splash_open = false;
+            s.p12.seen_version = Some(s.p12.current_version.clone());
+            return true;
+        }
+        if s.p12.boot_open {
+            s.p12.boot_open = false;
+            return true;
+        }
+        if s.p12.board_open {
+            s.p12.board_open = false;
+            return true;
+        }
+        if s.p12.home_open {
+            s.p12.home_open = false;
             return true;
         }
         if s.settings_panel.open {
@@ -1338,6 +1365,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         }
     }
     changed |= sync_approvals(s);
+    changed |= p12_panel::sync_board_asks(s);
     let root = selected_conversation(s)
         .and_then(|(t, _)| t.folder.as_ref())
         .map(std::path::PathBuf::from);
@@ -1560,6 +1588,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         changed = true;
         match result {
             Ok(batch) => {
+                p12_panel::record_finishes(s, &batch.rows);
                 s.recent = batch.rows;
                 s.ledger_summaries = batch.summaries;
                 s.ledger_available = batch.local;
@@ -1626,6 +1655,7 @@ fn on_close(s: &mut State, _: &mut Tx) {
     // Electron terminal-host dispose: end every tab and bang command before the window is gone.
     // Drop ends the PTY/own-command trees; do not wait on the UI thread.
     terminal_panel::dispose(s);
+    p12_panel::save_attention(s);
     // Native turns live in this process: ask each to stop now and let a background thread watch them write their
     // cancelled records. The UI thread does not wait; `main` waits after the window is gone.
     native::shutdown_in_background();
@@ -1686,6 +1716,12 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         changes_panel::view(s, &p)
     } else if s.routines.open {
         routines_panel::view(s, &p)
+    } else if s.p12.boot_open {
+        p12_panel::boot_view_ui(s, &p)
+    } else if s.p12.board_open {
+        p12_panel::board_view(s, &p)
+    } else if s.p12.home_open {
+        p12_panel::home_view(s, &p)
     } else if s.settings_panel.open {
         settings_panel::view(s, &p)
     } else if s.people_panel.open {
@@ -1738,6 +1774,19 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                     ),
             )
             .child(app);
+    }
+    if s.p12.splash_open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(p12_panel::splash_view(s, &p).modal(true, |s: &mut State| {
+                    s.p12.splash_open = false;
+                    s.p12.seen_version = Some(s.p12.current_version.clone());
+                })),
+        );
     }
     if s.usage_panel.open {
         app = app.child(
@@ -1997,6 +2046,16 @@ fn main() {
             ("org-palette-light", org_palette_light_scene),
             ("org-beside", org_beside_scene),
             ("org-beside-light", org_beside_light_scene),
+            ("home", p12_panel::home_scene),
+            ("home-light", p12_panel::home_light_scene),
+            ("board", p12_panel::board_scene),
+            ("board-light", p12_panel::board_light_scene),
+            ("boot", p12_panel::boot_scene),
+            ("boot-light", p12_panel::boot_light_scene),
+            ("away", p12_panel::away_scene),
+            ("away-light", p12_panel::away_light_scene),
+            ("whatsnew", p12_panel::whatsnew_scene),
+            ("whatsnew-light", p12_panel::whatsnew_light_scene),
         ],
         ..AppSpec::new("Locust", (1040.0, 720.0), State::default, view)
     })

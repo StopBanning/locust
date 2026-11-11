@@ -1,0 +1,2 @@
+[target.'cfg(unix)']
+runner = ["python3", "scripts/isolated-test-runner.py"]

@@ -16,7 +16,7 @@ pub mod copilot;
 pub(crate) mod copilot_events;
 pub mod cursor;
 pub(crate) mod cursor_events;
-mod discovery;
+pub mod discovery;
 pub(crate) mod events;
 pub mod kilo;
 pub mod muse;
