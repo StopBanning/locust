@@ -2586,7 +2586,7 @@ if (!ownsSingleInstanceLock) {
             const ownerId = owners[request.missionId]
             const roster = ownerId === undefined ? [] : await teammates.list()
             const name = roster.find((entry) => entry.teammateId === ownerId)?.name
-            attention.approvalArrived(request, name)
+            attention.approvalArrived(request, name, await conversationAttentionTitle(request.missionId))
             phoneAlerts.approval(name, request.kind === 'question' ? 'question' : 'approval', request.approvalId)
             // A turn started in a chat app brings its card to the chat too (0.831, 0.832).
             for (const link of chatLinks) link.cardRaised(request, name)
@@ -3065,6 +3065,22 @@ if (!ownsSingleInstanceLock) {
     // The approval transport. It only runs for the mode that asked for it, so
     // an experimental protocol failing cannot take the ordinary paths with it.
     let approvalWindow: BrowserWindow | undefined
+    const conversationAttentionTitle = async (missionId: string): Promise<string> => {
+      const titles = await teammates.missionTitles()
+      let record = await missionLedger.getMission(missionId)
+      let title = titles[missionId]
+      const seen = new Set<string>()
+      while (record?.metadata.continuesFrom !== undefined && seen.size < 500) {
+        const parent = record.metadata.continuesFrom.missionId
+        if (seen.has(parent)) break
+        seen.add(parent)
+        title = titles[parent] ?? title
+        const older = await missionLedger.getMission(parent)
+        if (older === undefined) break
+        record = older
+      }
+      return (title ?? record?.metadata.prompt ?? 'Conversation').replace(/\s+/g, ' ').trim().slice(0, 100)
+    }
     const attention = createAttention({
       focused: () => {
         const target = approvalWindow
@@ -4571,10 +4587,11 @@ if (!ownsSingleInstanceLock) {
     // A run that ended waiting for the person -- a question card, an account
     // limit -- is said to the desk the way an approval is (parity row 62).
     attentionReader = createAttentionReader({
+      conversationTitle: conversationAttentionTitle,
       ledger: missionLedger,
       teammates,
       attention: {
-        decisionAsked: (name, question) => { phoneAlerts.approval(name, 'question'); return attention.decisionAsked(name, question) },
+        decisionAsked: (name, question, missionId, title) => { phoneAlerts.approval(name, 'question'); return attention.decisionAsked(name, question, missionId, title) },
         limitHit: (name, runtime, message) => {
           phoneAlerts.limit(name, isMissionRuntime(runtime) ? runtimeDisplayName(runtime) : runtime)
           return attention.limitHit(name, isMissionRuntime(runtime) ? runtimeDisplayName(runtime) : runtime, message)
@@ -11131,18 +11148,24 @@ if (!ownsSingleInstanceLock) {
       awayCountsShown = null
       markAttention()
     })
+    let attentionMissionId: string | undefined
+    const openAttention = (): void => {
+      if (attentionMissionId !== undefined && approvalWindow && !approvalWindow.isDestroyed()) approvalWindow.webContents.send(ATTENTION_OPEN_MISSION_CHANNEL, attentionMissionId)
+    }
     let needsYouShown = 0
     const attentionDotImage = nativeImage.createFromBitmap(attentionDot(16), { width: 16, height: 16 })
-    ipcMain.on(NEEDS_YOU_COUNT_CHANNEL, (event, raw: unknown) => {
+    ipcMain.on(NEEDS_YOU_COUNT_CHANNEL, (event, raw: unknown, missionId: unknown) => {
       const window = windowFromValidSender(event)
       const count = needsYouCountFrom(raw)
       if (!window || count === undefined) return
       const said = taskbarAttention(needsYouShown, count, window.isFocused() && !window.isMinimized())
       needsYouShown = count
+      attentionMissionId = count > 0 && typeof missionId === 'string' && missionId.length > 0 && missionId.length <= 200 ? missionId : undefined
+      if (process.platform === 'darwin') app.dock?.setBadge(count > 0 ? String(count) : '')
       window.setOverlayIcon(said.overlay === 'dot' ? attentionDotImage : null, said.overlay === 'dot' ? said.description : '')
       if (said.flash) {
         window.flashFrame(true)
-        window.once('focus', () => window.flashFrame(false))
+        window.once('focus', () => { window.flashFrame(false); openAttention() })
       }
     })
     // 0.379: a long run the person started finished (the renderer decides
@@ -11395,6 +11418,7 @@ if (!ownsSingleInstanceLock) {
     }
 
     app.on('activate', () => {
+      openAttention()
       // The Dock icon brings back a window kept working in the background
       // (macOS): it is hidden, not gone, so "no windows" was never true of it.
       const hidden = BrowserWindow.getAllWindows().find((one) => !one.isDestroyed() && !one.isVisible())

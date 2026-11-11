@@ -732,7 +732,7 @@ export function desktopApiOver(ipcRenderer: DesktopIpc, given: { readonly platfo
       }
     },
     platform: given.platform,
-    setNeedsYouCount: (count) => ipcRenderer.send(NEEDS_YOU_COUNT_CHANNEL, count),
+    setNeedsYouCount: (count, missionId) => ipcRenderer.send(NEEDS_YOU_COUNT_CHANNEL, count, missionId),
     getAwaySince: () => ipcRenderer.invoke(AWAY_SINCE_GET_CHANNEL) as Promise<{ readonly since?: string }>,
     onAwaySince: (listener) => {
       const wrapped = (_event: IpcEvent, payload: { readonly since?: unknown }): void => {

@@ -1,3 +1,5 @@
+import { parseDecision } from '../shared/decision.js'
+import { createTranscriptTracker } from './peer-exchange.js'
 import { accountFromRoute, accountUsageKey } from '../shared/agent-accounts.js'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -254,8 +256,15 @@ function amountsOf(money: RunMoney | undefined): Spend | undefined {
   }
 }
 
+function questionOf(mission: RecoveredMission): string | undefined {
+  if (mission.phase !== 'completed') return undefined
+  const tracker = createTranscriptTracker()
+  tracker.track(mission.events)
+  return parseDecision(tracker.latestFinal ?? '')?.question
+}
+
 export function publicRecoveredMission(
-  mission: RecoveredMission,
+  mission: RecoveredMission & { readonly waitingQuestion?: string },
   workroomMessages: ReadonlyMap<string, WorkroomMessage> = new Map()
 ): PublicRecoveredMission {
   // Joined BEFORE the window, never after: windowing fragments is what lost
@@ -265,6 +274,7 @@ export function publicRecoveredMission(
   const hostFailureMessage = mission.hostFailures.at(-1)?.message
   const money = amountsOf(moneyOfRun(mission.events))
   return {
+    ...(mission.waitingQuestion === undefined && mission.phase !== 'completed' ? {} : { waitingQuestion: mission.waitingQuestion ?? questionOf(mission) }),
     missionId: mission.metadata.missionId,
     runId: mission.metadata.runId,
     // Which folder it ran in, so the shell can open the conversation that
@@ -549,7 +559,7 @@ interface CachedLedgerFile {
   readonly stamp: string
   readonly issues: number
   /** The record without its events; absent when the file produced no mission. */
-  readonly light?: RecoveredMission
+  readonly light?: RecoveredMission & { readonly waitingQuestion?: string }
   readonly eventCount: number
   readonly eventsTruncated: boolean
   /** What the run cost in money, and when it ended; absent when it reported none. */
@@ -627,11 +637,12 @@ async function refreshedLedger(ledger: MissionLedger): Promise<{
     const turn = usageTurnOf(mission)
     const named = filesNamedIn(mission.events)
     const namedRelative = relativeFilesNamedIn(mission.events)
+    const waitingQuestion = questionOf(mission)
     cache.set(missionId, {
       missionId,
       stamp,
       issues: answer.issues.length,
-      light: { ...mission, events: [] },
+      light: { ...mission, events: [], ...(waitingQuestion === undefined ? {} : { waitingQuestion }) },
       eventCount: mission.events.length,
       eventsTruncated: joinMessageFragments(mission.events).length > MAX_HISTORY_EVENTS,
       ...(money === undefined ? {} : { money }),

@@ -108,7 +108,7 @@ export function needsYou(input: {
    * One per conversation, each its newest turn (`collapseConversations`):
    * a question on an older turn was answered by the turn after it.
    */
-  readonly conversations: readonly { readonly missionId: string; readonly phase: string }[]
+  readonly conversations: readonly { readonly missionId: string; readonly phase: string; readonly waitingQuestion?: string }[]
   readonly ownerOfMission: (missionId: string) => string | undefined
   /** The turn's record, when the window holds it. */
   readonly eventsOf: (missionId: string) => readonly NormalizedRuntimeEvent[] | undefined
@@ -154,7 +154,7 @@ export function needsYou(input: {
   for (const conversation of input.conversations) {
     if (conversation.phase !== 'completed') continue
     const events = input.eventsOf(conversation.missionId)
-    const question = events === undefined ? undefined : openQuestion(events)
+    const question = conversation.waitingQuestion ?? (events === undefined ? undefined : openQuestion(events))
     if (question === undefined) continue
     const teammateId = input.ownerOfMission(conversation.missionId)
     items.push({ kind: 'decision', key: `decision:${conversation.missionId}`, missionId: conversation.missionId, teammateId, name: who(teammateId), what: oneLine(question) })

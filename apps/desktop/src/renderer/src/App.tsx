@@ -8224,6 +8224,7 @@ export default function App(): ReactElement {
         words: splitAttachments(typedPrompt(mission, historyById)).text,
         ...(mission.continuesFrom === undefined ? {} : { parentId: mission.continuesFrom.missionId }),
         ...(routineId === undefined ? {} : { routineId }),
+        ...(mission.waitingQuestion === undefined ? {} : { waitingQuestion: mission.waitingQuestion }),
         phase: mission.phase,
         runtime: mission.runtime,
         model: mission.model,
@@ -8591,8 +8592,8 @@ export default function App(): ReactElement {
   }
   const needsYouCount = needsYouItems.length
   useEffect(() => {
-    window.desktop?.setNeedsYouCount?.(needsYouCount)
-  }, [needsYouCount])
+    window.desktop?.setNeedsYouCount?.(needsYouCount, needsYouItems.find(isConversationWait)?.missionId)
+  }, [needsYouCount, needsYouItems])
   // What is on screen, for the update handler to read (0.380): a finish the
   // person is looking at is not an unseen one. And looking clears it.
   lookingAtRef.current = { screen, teammateId: selectedTeammateId }
@@ -9374,7 +9375,7 @@ export default function App(): ReactElement {
           {...(backgroundRuns.length > 0
             ? { background: { count: backgroundRuns.filter((run) => run.state === 'working' || run.state === 'blocked' || run.state === 'unknown').length, onOpen: () => { setScreen('workroom'); setCloudPanel(false); setBackgroundPanel(true) } } }
             : {})}
-          missions={sidebarMissions}
+          missions={sidebarMissions.map((row) => ({ ...row, needsYou: needsYouMissionIds.has(row.missionId) }))}
           folders={folders}
           {...(workspaceId === undefined ? {} : { currentFolderId: workspaceId })}
           compact={layoutMode === 'compact'}

@@ -58,6 +58,8 @@ export interface SidebarMission {
    * Who the mission belongs to, when the shell knows before the host has
    * recorded it -- a run that is still starting has no missionId to look up.
    */
+  readonly needsYou?: boolean
+  readonly waitingQuestion?: string
   readonly ownerId?: string
   readonly missionId: string
   readonly title: string
@@ -548,7 +550,7 @@ export function Sidebar({
   const shownConversations = conversationRows(missionsMatching(missions, query, ownerName)).filter(
     (mission) =>
       (faceFilter === undefined || ownerOf(mission, missionOwners) === faceFilter)
-      && (searching || isShown(mission, selectedMissionId) || !isPutAway(mission.lastAt, settled[mission.rootId ?? mission.missionId], now))
+      && (mission.needsYou || searching || isShown(mission, selectedMissionId) || !isPutAway(mission.lastAt, settled[mission.rootId ?? mission.missionId], now))
   )
   /*
    * Everything not in a group, keyed by the CONVERSATION rather than the
@@ -627,10 +629,10 @@ export function Sidebar({
   const shownIds = new Set(shownConversations.map((mission) => mission.missionId))
   const childrenOf = new Map<string, SidebarMission[]>()
   for (const mission of shownConversations) {
-    if (mission.nestedUnder === undefined || !shownIds.has(mission.nestedUnder)) continue
+    if (mission.needsYou || mission.nestedUnder === undefined || !shownIds.has(mission.nestedUnder)) continue
     childrenOf.set(mission.nestedUnder, [...(childrenOf.get(mission.nestedUnder) ?? []), mission])
   }
-  const isNestedChild = (mission: SidebarMission): boolean => mission.nestedUnder !== undefined && shownIds.has(mission.nestedUnder)
+  const isNestedChild = (mission: SidebarMission): boolean => !mission.needsYou && mission.nestedUnder !== undefined && shownIds.has(mission.nestedUnder)
   const rowAndChildren = (mission: SidebarMission): ReactElement => (
     <Fragment key={mission.missionId}>
       {conversationRow(mission)}
@@ -647,8 +649,9 @@ export function Sidebar({
      * Claude's own list keeps its starred conversations -- and not listed again below.
      */
     const pinRank = (mission: SidebarMission): number => pinnedKeys.indexOf(mission.rootId ?? mission.missionId)
-    const pinned = allInFolder.filter((mission) => !isNestedChild(mission) && pinRank(mission) >= 0).sort((left, right) => pinRank(left) - pinRank(right))
-    const inFolder = allInFolder.filter((mission) => !isNestedChild(mission) && pinRank(mission) < 0)
+    const waiting = allInFolder.filter((mission) => mission.needsYou)
+    const pinned = allInFolder.filter((mission) => !mission.needsYou && !isNestedChild(mission) && pinRank(mission) >= 0).sort((left, right) => pinRank(left) - pinRank(right))
+    const inFolder = allInFolder.filter((mission) => !mission.needsYou && !isNestedChild(mission) && pinRank(mission) < 0)
     /*
      * PROJECTS, AS CLAUDE HAS THEM (Colin, 2026-09-29: "claude has
      * projects/and workspace folders, like they arent the same thing so
@@ -673,6 +676,7 @@ export function Sidebar({
     const groupsShown = drawnGroups.some((group) => showsGroup(group.groupId, inFolder, keepsEmpty))
     return (
           <>
+            {waiting.length > 0 && <div className="lc-convgroup"><div className="lc-project__head is-plain"><span className="lc-project__name lc-tone-amber">Needs you</span></div>{waiting.map(conversationRow)}</div>}
             {pinned.length > 0 && (
               <div className="lc-convgroup">
                 <div className="lc-project__head is-plain">
@@ -963,7 +967,7 @@ export function Sidebar({
                       * pulled the eye down the list; now a running row keeps the dot's footprint, empty, and a light
                       * band passes slowly through its title, as Claude Code's does.
                       */}
-                    {mission.phase === 'running' ? (
+                    {mission.needsYou ? <span className="lc-dot lc-tone-amber" /> : mission.phase === 'running' ? (
                       <span className="lc-conv__working" aria-hidden="true" data-orb="shimmer" />
                     ) : (
                       <span
@@ -1010,7 +1014,7 @@ export function Sidebar({
                       * while one runs, where its age would be -- the clock
                       * before the title already says it is a routine.
                       */}
-                    {(mission.memberIds ?? [mission.missionId]).some((id) => onCall.has(id)) ? (
+                    {mission.needsYou ? <span className="lc-conv__age lc-tone-amber">needs you</span> : (mission.memberIds ?? [mission.missionId]).some((id) => onCall.has(id)) ? (
                       <span className="lc-conv__age lc-mono lc-conv__oncall"><Icon name="waveform" size={11} />on a call</span>
                     ) : delegating ? (
                       <span className="lc-conv__age lc-mono">subagent working</span>

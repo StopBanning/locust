@@ -24,8 +24,9 @@ export interface AttentionReaderOptions {
     list(): Promise<readonly PublicTeammate[]>
     missionOwners(): Promise<Readonly<Record<string, string>>>
   }
+  readonly conversationTitle?: (missionId: string) => Promise<string>
   readonly attention: {
-    decisionAsked(teammateName: string | undefined, question: string): boolean
+    decisionAsked(teammateName: string | undefined, question: string, missionId?: string, conversationTitle?: string): boolean
     limitHit(teammateName: string | undefined, runtime: string, message: string | undefined): boolean
   }
 }
@@ -74,7 +75,7 @@ export function createAttentionReader(options: AttentionReaderOptions): Attentio
       if (text === undefined) return
       const decision = parseDecision(text)
       if (decision === undefined) return
-      options.attention.decisionAsked(name, decision.question)
+      options.attention.decisionAsked(name, decision.question, mission.missionId, await options.conversationTitle?.(mission.missionId) ?? recovered.metadata?.prompt?.replace(/\s+/g, ' ').trim().slice(0, 100) ?? 'Conversation')
     }
   }
 }

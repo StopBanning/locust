@@ -59,6 +59,7 @@ export function liveRunLastAt(run: {
  * agree are two orderings that will not.
  */
 export function byLiveThenRecent(a: SidebarMission, b: SidebarMission): number {
+  if (Boolean(a.needsYou) !== Boolean(b.needsYou)) return a.needsYou ? -1 : 1
   const liveA = a.phase === 'running' ? 1 : 0
   const liveB = b.phase === 'running' ? 1 : 0
   if (liveA !== liveB) return liveB - liveA

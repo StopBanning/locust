@@ -129,3 +129,21 @@ describe('the history reads only what changed', () => {
     expect(after.ok && after.data.missions[0]?.eventCount).toBe(3)
   }, 30_000)
 })
+
+ describe('an old question still needs an answer', () => {
+  it('keeps its question on light history rows on the first and cached reads', async () => {
+    const ledger = await ledgerWithMissions()
+    const ask = { ...answer(1, 3, 1), payload: { itemId: 'ask', operation: 'append', final: true, evidence: { redacted: true }, text: '<locust-ask>\nWhich database?\n- SQLite :: local\n- Postgres :: server\n</locust-ask>' } } as NormalizedRuntimeEvent
+    const done = { ...answer(1, 4, 1), type: 'run.completed', payload: { process: { exitCode: 0, signal: null, stderr: '', stderrTruncated: false, recordCount: 1, inputDeliveryFailed: false, outputLimitExceeded: false, forcedTerminationAttempted: false, terminationUnconfirmed: false, startedAt: at(1), finishedAt: at(1) } } } as NormalizedRuntimeEvent
+    await ledger.appendEvents(metadata(1).missionId, [ask, done])
+    await ledger.flush()
+    for (let read = 0; read < 2; read++) {
+      const result = await readMissionHistory(ledger, undefined, '/work')
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      const old = result.data.missions.find((mission) => mission.missionId === metadata(1).missionId)
+      expect(old?.events).toEqual([])
+      expect(old?.waitingQuestion).toBe('Which database?')
+    }
+  })
+})
