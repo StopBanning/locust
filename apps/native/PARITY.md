@@ -231,7 +231,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| Dark/light palette following computer | `renderer/src/components/ThemeSetting.tsx`, `main/appearance.ts` | **done** | yes | no | no |
+| Dark/light palette following computer | `renderer/src/components/ThemeSetting.tsx`, `main/appearance.ts` | **done** — `look` reads every `--lc-*` token from `tokens.css` at build time for both themes and maps it onto rune-kit's `Kit`; the kit gallery (`--scene kit`, `kit-light`) draws every control in both; screens still use the older twelve-colour `Palette`, held to the CSS by a test, until C3 moves them onto the kit | yes | no | no |
 | Saved appearance choice and window look settings | `renderer/src/components/ThemeSetting.tsx`, `renderer/src/components/LookSetting.tsx`, `main/appearance.ts` | **missing** | - | no | yes |
 | macOS/Windows liquid glass and rainbow backdrop | `main/mac-glass.ts`, `main/windows-glass.ts`, `renderer/src/components/LookSetting.tsx` | **missing** | - | no | yes |
 | Pet gallery, kept pets, sprites/puppets and bulk removal | `renderer/src/components/PetPicks.tsx`, `renderer/src/components/PetSprite.tsx`, `renderer/src/components/PetPuppet.tsx`, `main/pet-library.ts` | **missing** | - | no | yes |

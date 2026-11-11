@@ -35,6 +35,7 @@ use locust_core::{
 #[cfg(test)]
 use locust_core::ledger_write;
 #[cfg(target_os = "macos")]
+mod look;
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]
 mod browser_panel;
@@ -1731,6 +1732,9 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
 }
 
 fn view(s: &State, cx: &mut Cx<State>) -> El {
+    if s.gallery {
+        return look::gallery::view(s.appearance.unwrap_or_else(|| cx.system_dark()));
+    }
     let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
     let sidebar = sidebar(s, &p);
     let changes_open = s.changes.open
@@ -2017,6 +2021,8 @@ fn main() {
         poll: Some(poll),
         on_key: Some(on_key),
         scenes: &[
+            ("kit", kit_scene),
+            ("kit-light", kit_light_scene),
             ("browser", browser_panel::scene),
             ("browser-light", browser_panel::light_scene),
             ("terminal", terminal_panel::scene),

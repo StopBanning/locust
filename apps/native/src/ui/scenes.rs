@@ -912,3 +912,16 @@ pub(super) fn keychain_note_scene_light(s: &mut State) {
     keychain_note_scene_dark(s);
     s.appearance = Some(false);
 }
+
+/// Every control of Locust's kit (look::gallery), the exit test of round C1.
+pub(super) fn kit_scene(s: &mut State) {
+    s.demo = true;
+    s.gallery = true;
+    s.appearance = Some(true);
+}
+
+pub(super) fn kit_light_scene(s: &mut State) {
+    s.demo = true;
+    s.gallery = true;
+    s.appearance = Some(false);
+}

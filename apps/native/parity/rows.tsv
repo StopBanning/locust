@@ -139,7 +139,7 @@ area	feature	where	built	detail	engine	alone	not_alone_because	live	seen
 13	One-click Claude desktop MCP connection and restart/remove	`main/claude-app-connection.ts`, `renderer/src/components/LocustMcpSettings.tsx`	missing		yes	-		no	
 13	Deep links prefill message/project	`main/locust-links.ts`, `shared/locust-link.ts`	missing		yes	-		no	
 13	Startup/login item, keep running/tray and keep awake	`main/login-item.ts`, `main/quit-guard.ts`, `main/keep-running.ts`, `main/keep-awake.ts`, `main/index.ts`	missing		yes	-		no	
-14	Dark/light palette following computer	`renderer/src/components/ThemeSetting.tsx`, `main/appearance.ts`	done		no	yes		no	
+14	Dark/light palette following computer	`renderer/src/components/ThemeSetting.tsx`, `main/appearance.ts`	done	`look` reads every `--lc-*` token from `tokens.css` at build time for both themes and maps it onto rune-kit's `Kit`; the kit gallery (`--scene kit`, `kit-light`) draws every control in both; screens still use the older twelve-colour `Palette`, held to the CSS by a test, until C3 moves them onto the kit	no	yes		no	
 14	Saved appearance choice and window look settings	`renderer/src/components/ThemeSetting.tsx`, `renderer/src/components/LookSetting.tsx`, `main/appearance.ts`	missing		yes	-		no	
 14	macOS/Windows liquid glass and rainbow backdrop	`main/mac-glass.ts`, `main/windows-glass.ts`, `renderer/src/components/LookSetting.tsx`	missing		yes	-		no	
 14	Pet gallery, kept pets, sprites/puppets and bulk removal	`renderer/src/components/PetPicks.tsx`, `renderer/src/components/PetSprite.tsx`, `renderer/src/components/PetPuppet.tsx`, `main/pet-library.ts`	missing		yes	-		no	

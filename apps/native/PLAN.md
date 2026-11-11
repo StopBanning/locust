@@ -111,6 +111,9 @@ on 11 Nov, and the guard became a hook inside Claude Code, Codex and Copilot (`n
     fix copy refused by the hook. Grid: 264 of 385. Tests: 421 in the engine, 180 in the window.
   - **Codex's modes.** Accept edits had run read-only on the native engine; it writes in the folder now, and the
     person's own MCP servers are off in Ask and Plan only, as in Electron. Tests: 422 in the engine.
+  - **The kit (C1).** `src/look/` reads every token from Electron's `tokens.css` at build time and maps it onto
+    rune-kit; Locust's controls are drawn to their `shell.css` rules, and `--scene kit` / `kit-light` show them all.
+    Fonts wait on `.ttf` copies; no screen uses the kit yet (`notes/C1-NOTES.md`).
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

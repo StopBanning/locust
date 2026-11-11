@@ -11,6 +11,7 @@ checked. PARITY.md cites them by name. Paths inside them point at the copy folde
 | Every other agent | `M4A-NOTES.md`, `M4B-NOTES.md`, `M4C-NOTES.md`, `M4-REVIEW.md`, `CLEAN1-NOTES.md` |
 | Parity rounds | `P1-NOTES.md`, `P4-NOTES.md` to `P10-NOTES.md`, `p11-NOTES.md` to `p14-NOTES.md` |
 | Phase B | `B3-NOTES.md` |
+| Phase C | `C1-NOTES.md` |
 | Reviews | `argon-review-2.md` to `argon-review-5.md`, `codec-round8-pieces.md` |
 
 Where two copy folders held a file of the same name, the newer one is kept.

@@ -159,6 +159,8 @@ pub(super) struct State {
     pub(super) demo: bool,
     // None follows the system; snapshot scenes explicitly choose an appearance.
     pub(super) appearance: Option<bool>,
+    /// The kit gallery scene (look::gallery) instead of the app.
+    pub(super) gallery: bool,
     pub(super) activity_open: HashMap<String, bool>,
     pub(super) recent: Vec<ConversationRow>,
     pub(super) recent_error: Option<String>,
@@ -287,6 +289,7 @@ impl Default for State {
             flight: None,
             demo: false,
             appearance: None,
+            gallery: false,
             activity_open: HashMap::new(),
             recent: Vec::new(),
             recent_error: None,
