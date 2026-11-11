@@ -64,51 +64,204 @@ pub fn user_line(prompt: &str) -> Vec<u8> {
     bytes
 }
 
-/// Ask-mode argv from createClaudePrintCommand (sandbox read-only, no bridge).
-pub fn ask_args(model: Option<&str>) -> Vec<String> {
-    let mut args = vec![
-        "--restricted".into(),
-        "--print".into(),
-        "--input-format".into(),
-        "stream-json".into(),
-        "--output-format".into(),
-        "stream-json".into(),
-        "--verbose".into(),
-        "--include-partial-messages".into(),
-        "--permission-mode".into(),
-        "manual".into(),
-        "--tools".into(),
-        ASK_TOOLS.into(),
-    ];
-    if let Some(model) = model.map(str::trim).filter(|m| !m.is_empty()) {
-        args.push("--model".into());
-        args.push(model.into());
+/// The editing tool list, for every mode that may write.
+const EDIT_TOOLS: &str = "Read,Glob,Grep,Edit,Write,NotebookEdit,Bash,Task,Skill,WebSearch,WebFetch,mcp__*";
+/// The permission bridge's tool, as `permission_bridge` serves it.
+pub const BRIDGE_TOOL: &str = "mcp__locust__approve";
+
+/// Everything a Claude Code turn's command line can carry. Paths are the files and folders this run made or was given.
+#[derive(Debug, Clone, Default)]
+pub struct PrintOptions<'a> {
+    pub mode: Mode,
+    /// The permission bridge's MCP config; Electron's host passes it in every mode but Auto.
+    pub bridge: Option<&'a str>,
+    /// Locust's browser MCP config, when the run has the browser.
+    pub browser: Option<&'a str>,
+    /// The command guard's `--settings` file (every mode, Auto included).
+    pub guard_settings: Option<&'a str>,
+    pub skills: &'a [&'a str],
+    pub references: &'a [&'a str],
+    /// The person's connectors this teammate was given; one allow rule each outside Auto.
+    pub connectors: &'a [&'a str],
+    /// False keeps the person's account MCP servers out of the run (`--strict-mcp-config`).
+    pub account_connectors: bool,
+    pub model: Option<&'a str>,
+    pub effort: Option<&'a str>,
+    pub resume: Option<&'a str>,
+    pub fork: bool,
+}
+
+fn require_text<'a>(value: &'a str, label: &str) -> Result<&'a str, String> {
+    if value.trim().is_empty() || value.contains('\0') {
+        return Err(format!("{label} must be non-empty"));
     }
-    args
+    Ok(value)
 }
 
-/// Approve-each argv: Ask's, with the editing tools named in place of the reading list.
-pub fn approve_each_args(model: Option<&str>) -> Vec<String> {
-    let mut args = ask_args(model);
-    let tools = args
-        .iter()
-        .position(|a| a == "--tools")
-        // Invariant: ask_args always includes the literal --tools option.
-        .expect("ask_args always includes the literal --tools option")
-        + 1;
-    args[tools] =
-        "Read,Glob,Grep,Edit,Write,NotebookEdit,Bash,Task,Skill,WebSearch,WebFetch,mcp__*".into();
-    args
+/// commands.ts requireEffort: one plain lowercase word.
+fn require_effort(value: &str) -> Result<&str, String> {
+    if !(1..=16).contains(&value.len()) || !value.bytes().all(|b| b.is_ascii_lowercase()) {
+        return Err("Effort is invalid".into());
+    }
+    Ok(value)
 }
 
-pub fn approve_each_command(folder: &Path, model: Option<&str>) -> io::Result<Command> {
-    let c = command(folder, model)?;
-    // Rebuild rather than append a second --tools (which can change CLI parsing).
-    let mut c = Command::new(c.get_program());
-    c.args(approve_each_args(model))
-        .current_dir(folder)
-        .env_remove("ANTHROPIC_API_KEY")
-        .env_remove("CLAUDE_API_KEY");
+/// connectors.ts toolPrefixFor: Claude Code's own rule, read from 2.1.281. Every character outside `[A-Za-z0-9_-]`
+/// becomes an underscore; only for a `claude.ai ` name are runs collapsed and the ends trimmed.
+pub fn tool_prefix_for(name: &str) -> String {
+    let trimmed = name.trim();
+    let mut server: String =
+        trimmed.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect();
+    if trimmed.starts_with("claude.ai ") {
+        let mut collapsed = String::new();
+        for c in server.chars() {
+            if !(c == '_' && collapsed.ends_with('_')) {
+                collapsed.push(c);
+            }
+        }
+        server = collapsed.strip_prefix('_').unwrap_or(&collapsed).to_owned();
+        if server.ends_with('_') {
+            server.pop();
+        }
+    }
+    format!("mcp__{server}__")
+}
+
+/// connectors.ts allowRuleFor: fails closed on a name with no letter or digit, which would widen `mcp____*`.
+pub fn allow_rule_for(name: &str) -> Option<String> {
+    let prefix = tool_prefix_for(name);
+    let server = &prefix["mcp__".len()..prefix.len() - "__".len()];
+    server.bytes().any(|b| b.is_ascii_alphanumeric()).then(|| format!("{prefix}*"))
+}
+
+fn connector_rules(names: &[&str], browser: bool) -> Vec<String> {
+    let mut rules: Vec<String> = Vec::new();
+    for name in names {
+        if let Some(rule) = allow_rule_for(name)
+            && !rules.contains(&rule)
+        {
+            rules.push(rule);
+        }
+    }
+    if browser {
+        rules.push("mcp__locust_browser__*".into());
+    }
+    if rules.is_empty() { Vec::new() } else { vec!["--allowedTools".into(), rules.join(",")] }
+}
+
+/// commands.ts claudeReferenceDenyRule: Claude's file rules use Edit for every editing tool and `//` for an absolute
+/// path. A path the rules cannot name literally is refused, so a reference is never left unprotected.
+pub fn reference_deny_rule(folder: &str) -> Result<String, String> {
+    let mut path = require_text(folder, "Reference folder")?.replace('\\', "/");
+    while path.ends_with('/') {
+        path.pop();
+    }
+    let bytes = path.as_bytes();
+    if bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'/' {
+        path = format!("/{}{}", (bytes[0] as char).to_ascii_lowercase(), &path[2..]);
+    }
+    if !path.starts_with('/') || path.starts_with("//") || path.contains(['\r', '\n', ',', '(', ')', '*', '?', '[', ']']) {
+        return Err("This reference path cannot be protected by Claude Code's file rules. Nothing was sent; remove it or choose a local folder without pattern characters.".into());
+    }
+    Ok(format!("Edit(/{path}/**)"))
+}
+
+/// commands.ts createClaudePrintCommand, argument for argument. The reasons for each flag, and the measurements
+/// behind them, are kept beside the TypeScript; `command_grid_tests` holds the two to the same output.
+///
+/// The mode decides the sandbox as Electron's host does: Ask and Plan read only, Accept edits and Approve each write
+/// in the folder, Auto runs as the person (`bypassPermissions`, which `--restricted` refuses, so Auto drops it).
+pub fn print_args(o: &PrintOptions) -> Result<Vec<String>, String> {
+    let auto = o.mode == Mode::Auto;
+    let editing = !matches!(o.mode, Mode::Ask | Mode::Plan);
+    let ask_each = o.mode == Mode::ApproveEach;
+    if ask_each && o.bridge.is_none() {
+        return Err("Approve each on Claude Code asks through Locust's permission host, which this run does not have.".into());
+    }
+    let mut args: Vec<String> = Vec::new();
+    if !auto {
+        args.push("--restricted".into());
+    }
+    args.extend(
+        ["--print", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--permission-mode"]
+            .map(String::from),
+    );
+    args.push(if auto { "bypassPermissions" } else if ask_each { "default" } else if editing { "acceptEdits" } else { "default" }.into());
+    args.push("--tools".into());
+    args.push(if editing { EDIT_TOOLS } else { ASK_TOOLS }.into());
+    if !auto {
+        args.extend(connector_rules(o.connectors, o.browser.is_some()));
+    }
+    if let Some(settings) = o.guard_settings {
+        args.extend(["--settings".into(), require_text(settings, "Command guard settings")?.to_owned()]);
+    }
+    // One --mcp-config naming every server file, so the bridge is never lost to a later one.
+    let bridge = if auto { None } else { o.bridge };
+    let mut files: Vec<String> = Vec::new();
+    if let Some(b) = bridge {
+        files.push(require_text(b, "Permission bridge config")?.to_owned());
+    }
+    if let Some(b) = o.browser {
+        files.push(require_text(b, "Browser MCP config")?.to_owned());
+    }
+    if !files.is_empty() {
+        args.push("--mcp-config".into());
+        args.extend(files);
+    }
+    if bridge.is_some() {
+        args.extend(["--permission-prompt-tool".into(), BRIDGE_TOOL.into()]);
+    }
+    if !o.account_connectors {
+        args.push("--strict-mcp-config".into());
+    }
+    for dir in o.skills {
+        let folder = require_text(dir, "Skill folder")?;
+        args.extend(["--plugin-dir".into(), folder.to_owned()]);
+        if !auto {
+            args.extend(["--add-dir".into(), folder.to_owned()]);
+        }
+    }
+    if !auto {
+        for folder in o.references {
+            args.extend(["--add-dir".into(), require_text(folder, "Reference folder")?.to_owned()]);
+        }
+        if editing && !o.references.is_empty() {
+            args.push("--disallowedTools".into());
+            for folder in o.references {
+                args.push(reference_deny_rule(folder)?);
+            }
+        }
+    }
+    if let Some(model) = o.model {
+        args.extend(["--model".into(), require_text(model, "Model")?.to_owned()]);
+    }
+    if let Some(effort) = o.effort {
+        args.extend(["--effort".into(), require_effort(effort)?.to_owned()]);
+    }
+    if let Some(session) = o.resume {
+        args.extend(["--resume".into(), require_text(session, "Session id")?.to_owned()]);
+        if o.fork {
+            args.push("--fork-session".into());
+        }
+    }
+    Ok(args)
+}
+
+/// Ask's command line with nothing else: read only, no bridge, no guard. The context meter's probe and the few
+/// callers that start Claude outside a turn use it.
+pub fn ask_args(model: Option<&str>) -> Vec<String> {
+    let model = model.map(str::trim).filter(|m| !m.is_empty());
+    print_args(&PrintOptions { mode: Mode::Ask, model, ..Default::default() })
+        .expect("Ask without a bridge always builds")
+}
+
+/// Claude Code with no arguments yet: a turn adds `print_args` once the bridge, browser and guard files exist.
+pub fn bare_command(folder: &Path) -> io::Result<Command> {
+    let mut c = Command::new(super::discovery::find_named("claude")?);
+    c.current_dir(folder);
+    // Never pass Locust API keys; Claude Code reads its own login.
+    c.env_remove("ANTHROPIC_API_KEY");
+    c.env_remove("CLAUDE_API_KEY");
     Ok(c)
 }
 
@@ -433,8 +586,16 @@ impl Runtime for Claude {
             }
             Ok(None) => Ok(None),
             Err(e) => {
+                // Claude Code closes stdout as it exits. After the turn's result that is the end, not a transport
+                // failure (seen live on 2.1.322: a diagnostic row on a turn that completed); give the exit a moment
+                // to be seen so the run keeps its code.
+                let until = Instant::now() + Duration::from_secs(2);
                 self.poll_exit();
-                if self.exited {
+                while self.normal.saw_result() && !self.exited && Instant::now() < until {
+                    std::thread::sleep(Duration::from_millis(10));
+                    self.poll_exit();
+                }
+                if self.exited || self.normal.saw_result() {
                     let cancelled = self.stopping.is_some() || self.cancelled();
                     Ok(Some(self.normal.finish(cancelled, &e.to_string())))
                 } else {
@@ -473,36 +634,68 @@ mod tests {
     fn ask_args_match_read_only_print_command() {
         let args = ask_args(Some("haiku"));
         assert!(args.contains(&"--restricted".into()));
-        assert!(args.contains(&"--print".into()));
-        assert!(
-            args.windows(2)
-                .any(|w| w == ["--input-format", "stream-json"])
-        );
-        assert!(
-            args.windows(2)
-                .any(|w| w == ["--output-format", "stream-json"])
-        );
-        assert!(
-            args.windows(2)
-                .any(|w| w == ["--permission-mode", "manual"])
-        );
+        assert!(args.windows(2).any(|w| w == ["--input-format", "stream-json"]));
+        assert!(args.windows(2).any(|w| w == ["--output-format", "stream-json"]));
+        // Claude Code 2.1.322 lists `manual` and still takes `default`, which Electron sends.
+        assert!(args.windows(2).any(|w| w == ["--permission-mode", "default"]));
         assert!(args.windows(2).any(|w| w == ["--tools", ASK_TOOLS]));
         assert!(args.windows(2).any(|w| w == ["--model", "haiku"]));
+        assert!(args.contains(&"--strict-mcp-config".into()));
         assert!(!args.iter().any(|a| a.contains("bypassPermissions")));
     }
 
+    fn with(mode: Mode) -> Vec<String> {
+        print_args(&PrintOptions { mode, bridge: Some("/b/mcp.json"), ..Default::default() }).unwrap()
+    }
+
     #[test]
-    fn approve_each_exposes_writes_without_bypassing_permissions() {
-        // The argv alone, so the test needs no Claude Code on PATH.
-        let owned = approve_each_args(None);
-        let args: Vec<&str> = owned.iter().map(String::as_str).collect();
-        let tools = args[args.iter().position(|s| *s == "--tools").unwrap() + 1];
-        assert!(tools.contains("Write") && tools.contains("Bash"));
-        assert!(
-            args.windows(2)
-                .any(|w| w == ["--permission-mode", "manual"])
-        );
-        assert!(!args.iter().any(|s| s.contains("bypass")));
+    fn the_mode_decides_tools_and_permission_mode() {
+        let pair = |a: &[String], flag: &str| a[a.iter().position(|s| s == flag).unwrap() + 1].clone();
+        for (mode, permission, tools) in [
+            (Mode::Ask, "default", ASK_TOOLS),
+            (Mode::Plan, "default", ASK_TOOLS),
+            (Mode::AcceptEdits, "acceptEdits", EDIT_TOOLS),
+            (Mode::ApproveEach, "default", EDIT_TOOLS),
+            (Mode::Auto, "bypassPermissions", EDIT_TOOLS),
+        ] {
+            let a = with(mode);
+            assert_eq!(pair(&a, "--permission-mode"), permission, "{mode:?}");
+            assert_eq!(pair(&a, "--tools"), tools, "{mode:?}");
+            // bypassPermissions cannot be combined with --restricted, and Auto asks nothing, so it has no bridge.
+            assert_eq!(a.contains(&"--restricted".into()), mode != Mode::Auto, "{mode:?}");
+            assert_eq!(a.contains(&"--permission-prompt-tool".into()), mode != Mode::Auto, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn approve_each_needs_the_bridge() {
+        assert!(print_args(&PrintOptions { mode: Mode::ApproveEach, ..Default::default() }).is_err());
+    }
+
+    #[test]
+    fn one_mcp_config_names_bridge_and_browser() {
+        let a = print_args(&PrintOptions { mode: Mode::AcceptEdits, bridge: Some("/b"), browser: Some("/w"), ..Default::default() }).unwrap();
+        assert_eq!(a.iter().filter(|s| *s == "--mcp-config").count(), 1);
+        assert!(a.windows(3).any(|w| w == ["--mcp-config", "/b", "/w"]));
+        assert!(a.windows(2).any(|w| w == ["--allowedTools", "mcp__locust_browser__*"]));
+    }
+
+    // connectors.test.ts's live tool names
+    #[test]
+    fn connector_prefixes_follow_claude_code() {
+        assert_eq!(tool_prefix_for("claude.ai Anthropic Economic Index"), "mcp__claude_ai_Anthropic_Economic_Index__");
+        assert_eq!(tool_prefix_for("robinhood-trading"), "mcp__robinhood-trading__");
+        assert_eq!(tool_prefix_for("Robinhood"), "mcp__Robinhood__");
+        assert_eq!(allow_rule_for("..."), None);
+        assert_eq!(allow_rule_for("claude.ai Notion").as_deref(), Some("mcp__claude_ai_Notion__*"));
+    }
+
+    #[test]
+    fn reference_rules_name_one_literal_folder() {
+        assert_eq!(reference_deny_rule("/work/reference/").unwrap(), "Edit(//work/reference/**)");
+        assert_eq!(reference_deny_rule("C:\\Users\\me\\ref").unwrap(), "Edit(//c/Users/me/ref/**)");
+        assert!(reference_deny_rule("/work/a*b").is_err());
+        assert!(reference_deny_rule("relative").is_err());
     }
 
     #[test]
@@ -535,6 +728,40 @@ time.sleep(.1)
         }
         assert!(channel.waiting().is_empty());
         assert!(channel.take_recorded().is_empty());
+    }
+
+    #[test]
+    fn stdout_closing_after_the_result_is_no_failure() {
+        let mut command = Command::new("python3");
+        command.args(["-c", r#"import json,os,sys,time
+print(json.dumps({"type":"system","subtype":"init","session_id":"s"}),flush=True)
+print(json.dumps({"type":"result","subtype":"success","result":"done"}),flush=True)
+os.close(1)
+time.sleep(.3)
+"#]);
+        let mut runtime = Claude::spawn(&mut command).unwrap();
+        let turn = Turn {
+            prompt: "hello".into(),
+            folder: PathBuf::from("/tmp"),
+            model: None,
+            effort: None,
+            resume: None,
+            mode: Mode::Ask,
+            approvals: None,
+            mission_id: "eof".into(),
+            run_id: "r".into(),
+        };
+        runtime.start(&turn).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut kinds = Vec::new();
+        while !runtime.normal.ended || !runtime.queued.is_empty() {
+            if let Some(e) = runtime.next_event().unwrap() {
+                kinds.push(e.kind.clone());
+            }
+            assert!(Instant::now() < deadline);
+        }
+        assert!(!kinds.iter().any(|k| k == "adapter.diagnostic"), "{kinds:?}");
+        assert_eq!(kinds.last().map(String::as_str), Some("run.completed"), "{kinds:?}");
     }
 
     #[test]

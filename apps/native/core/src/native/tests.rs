@@ -1026,6 +1026,22 @@ fn real_codex_continue() {
         Some("1"),
         "set LOCUST_REAL_CODEX=1 to run this real test"
     );
+    real_continue("codex");
+}
+
+/// The same with real Claude Code: the second turn passes `--resume` with the session the first one recorded.
+#[test]
+#[ignore = "real Claude Code; signed-in CLI, no Electron, isolated temp project"]
+fn real_claude_continue() {
+    assert_eq!(
+        std::env::var("LOCUST_REAL_CLAUDE").ok().as_deref(),
+        Some("1"),
+        "set LOCUST_REAL_CLAUDE=1 to run this real test"
+    );
+    real_continue("claude");
+}
+
+fn real_continue(runtime: &str) {
     let t = Temp::new();
     fs::write(t.0.join("work/note.txt"), "alpha beta gamma\n").unwrap();
     let _g = hooks::install(t.store(), None);
@@ -1033,7 +1049,7 @@ fn real_codex_continue() {
         id: "tm_real".into(),
         name: "Real".into(),
         role: String::new(),
-        runtime: Some("codex".into()),
+        runtime: Some(runtime.into()),
         model: None,
         busy: false,
         runs_in: "ask".into(),
@@ -1113,7 +1129,7 @@ fn real_codex_continue() {
     );
     assert!(
         text_b.contains(&thread_a),
-        "second turn did not resume the same Codex thread"
+        "second turn did not resume the same {runtime} session"
     );
     assert!(
         text_b.contains("continuesFrom"),

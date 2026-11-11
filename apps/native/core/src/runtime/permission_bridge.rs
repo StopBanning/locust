@@ -8,7 +8,6 @@ use std::{
     os::fd::AsRawFd,
     os::unix::net::{UnixListener, UnixStream},
     path::PathBuf,
-    process::Command,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -18,13 +17,14 @@ use std::{
 
 pub struct Bridge {
     dir: PathBuf,
+    /// The MCP config naming this bridge, for Claude's one `--mcp-config` (claude::print_args).
+    config: String,
     stopped: Arc<AtomicBool>,
     channel: Arc<Channel>,
     mission: String,
 }
 impl Bridge {
     pub fn prepare(
-        command: &mut Command,
         channel: Arc<Channel>,
         mission: &str,
         run: &str,
@@ -39,14 +39,10 @@ impl Bridge {
         let config = dir.join("mcp.json");
         let executable = bridge_executable()?;
         fs::write(&config, json!({"mcpServers":{"locust":{"command":executable,"args":["--permission-bridge",socket]}}}).to_string())?;
-        command.args([
-            "--mcp-config",
-            config
-                .to_str()
-                .ok_or_else(|| io::Error::other("Permission config path is not UTF-8"))?,
-            "--permission-prompt-tool",
-            "mcp__locust__approve",
-        ]);
+        let config = config
+            .to_str()
+            .ok_or_else(|| io::Error::other("Permission config path is not UTF-8"))?
+            .to_owned();
         let stopped = Arc::new(AtomicBool::new(false));
         let end = stopped.clone();
         let ch = channel.clone();
@@ -89,10 +85,16 @@ impl Bridge {
         });
         Ok(Self {
             dir,
+            config,
             stopped,
             channel,
             mission: mission.into(),
         })
+    }
+}
+impl Bridge {
+    pub fn config(&self) -> &str {
+        &self.config
     }
 }
 impl Drop for Bridge {
@@ -103,7 +105,8 @@ impl Drop for Bridge {
     }
 }
 
-fn bridge_executable() -> io::Result<PathBuf> {
+/// This app's own binary, which serves the bridge, the browser tools and the command guard hook.
+pub fn bridge_executable() -> io::Result<PathBuf> {
     let executable = std::env::current_exe()?;
     // Unit tests run in libtest, whose main cannot serve MCP. Live ignored
     // tests use the adjacent release binary built by `cargo build --release`.
@@ -168,9 +171,7 @@ mod tests {
     #[test]
     fn permission_tool_routes_decisions_and_refuses_after_end() {
         let channel = Channel::new();
-        let mut cmd = Command::new("claude");
         let bridge = Bridge::prepare(
-            &mut cmd,
             channel.clone(),
             "bridge_mission",
             "run_bridge_mission",
@@ -178,7 +179,7 @@ mod tests {
             Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
-        assert!(cmd.get_args().any(|a| a == "mcp__locust__approve"));
+        assert!(fs::read_to_string(bridge.config()).unwrap().contains("--permission-bridge"));
         assert_eq!(
             std::os::unix::fs::PermissionsExt::mode(&fs::metadata(&bridge.dir).unwrap().permissions()) & 0o777,
             0o700

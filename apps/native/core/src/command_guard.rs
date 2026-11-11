@@ -552,6 +552,67 @@ pub fn stopped_because(command: &str, ctx: &GuardContext) -> Option<String> {
     None
 }
 
+/// The hook (resources/locust-command-guard.mjs `main`): one PreToolUse event as JSON; a deny to print, or `None` to
+/// let it run. Where it runs is the runtime's own word for it, then `here`, the folder the hook was started in.
+///
+/// The process table is not read yet, so a by-id kill of a process this run did not start is let through (as the
+/// approval cards' guard does); the by-name refusals and the fix-copy refusals are whole.
+pub fn hook_reply(input: &str, here: &str) -> Option<String> {
+    let event: serde_json::Value = serde_json::from_str(input).ok()?;
+    let command = event["tool_input"]["command"].as_str()?;
+    let folders = [event["cwd"].as_str().unwrap_or(""), event["tool_input"]["workdir"].as_str().unwrap_or(""), here];
+    let reason = stopped_because(command, &GuardContext { fix_copy: in_fix_copy(&folders), started_pids: Vec::new() })?;
+    Some(
+        serde_json::json!({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":reason}})
+            .to_string(),
+    )
+}
+
+/// `locust-native --command-guard`: read the event (at most 1 MiB), print the deny if there is one, exit 0 whatever
+/// happens, as the TypeScript hook does, so a broken hook never blocks a command by accident.
+pub fn hook_main() {
+    use std::io::{Read, Write};
+    let mut input = String::new();
+    let _ = std::io::stdin().take(1 << 20).read_to_string(&mut input);
+    let here = std::env::current_dir().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default();
+    if let Some(reply) = hook_reply(&input, &here) {
+        let _ = std::io::stdout().write_all(reply.as_bytes());
+    }
+}
+
+/// command-guard.ts commandGuardSettings: the `--settings` every Claude Code turn gets, naming this binary as a
+/// PreToolUse hook on the shell tools. Claude Code runs a hook in a POSIX shell (Git Bash on Windows), so the path is
+/// quoted for one, with forward slashes.
+pub fn claude_settings(executable: &std::path::Path) -> String {
+    let path = executable.to_string_lossy().replace('\\', "/");
+    let mut quoted = String::from("\"");
+    for c in path.chars() {
+        if matches!(c, '"' | '$' | '`') {
+            quoted.push('\\');
+        }
+        quoted.push(c);
+    }
+    quoted.push('"');
+    serde_json::to_string_pretty(&serde_json::json!({
+        "hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": format!("{quoted} --command-guard"), "timeout": 15}]}]}
+    }))
+    .expect("plain JSON")
+}
+
+/// Writes the settings into `dir` (the native data folder's `guard`) and returns the file's path.
+pub fn write_claude_settings(dir: &std::path::Path, executable: &std::path::Path) -> std::io::Result<String> {
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join("claude-settings.json");
+    let text = claude_settings(executable);
+    if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
+        // A new name, then a rename, so a turn starting meanwhile never reads half a file.
+        let temp = dir.join(format!(".claude-settings.{}.tmp", std::process::id()));
+        std::fs::write(&temp, text.as_bytes())?;
+        std::fs::rename(&temp, &path)?;
+    }
+    path.into_os_string().into_string().map_err(|_| std::io::Error::other("Guard settings path is not UTF-8"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -620,5 +681,29 @@ mod tests {
         assert!(stopped_because("taskkill //F //PID 7300", &ctx).is_none());
         // No started_pids list → fail open for pure by-id (no process table).
         assert!(stopped_because("taskkill //F //PID 10544", &empty_ctx()).is_none());
+    }
+
+    #[test]
+    fn the_hook_denies_ending_a_browser_and_lets_the_rest_run() {
+        let ask = |command: &str| {
+            hook_reply(&serde_json::json!({"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":command},"cwd":"/work"}).to_string(), "/work")
+        };
+        let deny: serde_json::Value = serde_json::from_str(&ask("pkill -f 'Google Chrome'").unwrap()).unwrap();
+        assert_eq!(deny["hookSpecificOutput"]["permissionDecision"], "deny");
+        assert!(deny["hookSpecificOutput"]["permissionDecisionReason"].as_str().unwrap().contains("Chrome"));
+        assert!(ask("ls -la").is_none());
+        assert!(hook_reply("not json", "/").is_none());
+        let fix = serde_json::json!({"tool_input":{"command":"git push origin main"},"cwd":"/tmp/rt_scoutfix0123456789ab"}).to_string();
+        assert!(hook_reply(&fix, "/").unwrap().contains("Scout"));
+    }
+
+    #[test]
+    fn claude_settings_quote_the_binary_for_a_shell() {
+        let text = claude_settings(std::path::Path::new("/Apps/Lo$cust \"x\"/locust-native"));
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let hook = &v["hooks"]["PreToolUse"][0];
+        assert_eq!(hook["matcher"], "Bash|PowerShell");
+        assert_eq!(hook["hooks"][0]["command"], "\"/Apps/Lo\\$cust \\\"x\\\"/locust-native\" --command-guard");
+        assert_eq!(hook["hooks"][0]["timeout"], 15);
     }
 }

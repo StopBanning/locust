@@ -74,12 +74,16 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
         "codex" => {
             let mut command = crate::runtime::codex::command()?;
             command.current_dir(&turn.folder);
-            let mut writer = LedgerWriter::create(
+            let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+            let mut writer = LedgerWriter::create_runtime(
                 &store,
                 &id,
                 &turn.prompt,
                 turn.model.as_deref().unwrap_or("account-default"),
                 &command.get_program().to_string_lossy(),
+                "codex",
+                &args,
+                None,
             )?;
             eprintln!("Ledger: {}", writer.path.display());
             let mut runtime = match Codex::spawn(&mut command) {

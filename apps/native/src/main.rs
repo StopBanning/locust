@@ -1945,6 +1945,12 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
 }
 
 fn main() {
+    // The command guard hook runs before every shell command a Claude Code turn makes: answer at once, before anything
+    // else this binary does at start.
+    if std::env::args().nth(1).as_deref() == Some("--command-guard") {
+        locust_core::command_guard::hook_main();
+        std::process::exit(0);
+    }
     // First, before any thread: the PATH a terminal has, or an app opened from Finder finds no agent (shell_path.rs).
     shell_path::adopt_terminal_path();
     let browser_args: Vec<String> = std::env::args().collect();

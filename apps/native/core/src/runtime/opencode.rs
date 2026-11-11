@@ -3,7 +3,7 @@ use super::{
     Event, Runtime, Turn,
     acp::{Acp, Profile},
     acp_events::AcpNormalizer,
-    process::{Process, copy_command},
+    process::copy_command,
 };
 use crate::{approval::Mode, store::Store};
 use serde_json::{Value, json};
@@ -37,39 +37,7 @@ pub fn version_uses_acp(version: &str) -> bool {
 }
 pub fn command(folder: &std::path::Path, mode: Mode, store: &Store) -> io::Result<Command> {
     let path = super::discovery::find_named("opencode")?;
-    let mut probe = Command::new(&path);
-    probe.arg("--version");
-    let mut process = Process::spawn(&mut probe)?;
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let mut output = String::new();
-    loop {
-        while let Ok(s) = process.lines.try_recv() {
-            if output.len() + s.len() > 4096 {
-                let _ = process.stop();
-                return Err(err("OpenCode's version output exceeded its bound"));
-            }
-            output.push_str(&s);
-        }
-        if let Some(code) = process.exited()? {
-            while let Ok(s) = process.lines.try_recv() {
-                if output.len() + s.len() > 4096 {
-                    return Err(err("OpenCode's version output exceeded its bound"));
-                }
-                output.push_str(&s);
-            }
-            if code != 0 {
-                return Err(err("OpenCode's version command failed"));
-            }
-            break;
-        }
-        if Instant::now() >= deadline {
-            let _ = process.stop();
-            return Err(err(
-                "OpenCode did not report its version within five seconds",
-            ));
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    }
+    let output = super::version::probe(&path, "OpenCode")?;
     let version = output.trim();
     let major =
         version_major(version).ok_or_else(|| err("OpenCode's version could not be identified"))?;

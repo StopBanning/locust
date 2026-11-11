@@ -19,8 +19,9 @@ const MAX_PENDING: usize = 16;
 const MAX_DETAIL: usize = 20_000;
 
 /// Product modes Locust names on a teammate.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Mode {
+    #[default]
     Ask,
     AcceptEdits,
     ApproveEach,

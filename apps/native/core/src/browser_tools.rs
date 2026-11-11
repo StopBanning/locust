@@ -24,6 +24,8 @@ pub fn config(mission: &str) -> Option<Value> {
 }
 pub struct Registration {
     dir: PathBuf,
+    /// Claude's browser MCP config, for its one `--mcp-config` (claude::print_args).
+    claude_config: Option<String>,
     stop: Arc<AtomicBool>,
     mission: String,
 }
@@ -35,6 +37,9 @@ impl Drop for Registration {
     }
 }
 impl Registration {
+    pub fn claude_config(&self) -> Option<&str> {
+        self.claude_config.as_deref()
+    }
     pub fn prepare(
         command: &mut std::process::Command,
         runtime: &str,
@@ -54,8 +59,9 @@ impl Registration {
         // Short enough for the socket path limit even under an app's long TMPDIR (invariants::socket_dir).
         let dir = crate::invariants::socket_dir("lcb").map_err(|e| e.to_string())?;
         let stop = Arc::new(AtomicBool::new(false));
-        let registration = Self {
+        let mut registration = Self {
             dir: dir.clone(),
+            claude_config: None,
             stop: stop.clone(),
             mission: mission.into(),
         };
@@ -77,7 +83,7 @@ impl Registration {
             )
             .map_err(|e| e.to_string())?;
             if runtime == "claude" {
-                command.arg("--mcp-config").arg(path);
+                registration.claude_config = Some(path.to_str().ok_or("Browser config path is not UTF-8")?.to_owned());
             } else {
                 command
                     .arg("--additional-mcp-config")

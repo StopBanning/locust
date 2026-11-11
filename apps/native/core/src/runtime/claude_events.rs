@@ -255,6 +255,10 @@ impl ClaudeNormalizer {
         )
     }
 
+    /// The turn's `result` record has arrived.
+    pub fn saw_result(&self) -> bool {
+        self.saw_result
+    }
     pub fn finish(&mut self, cancelled: bool, message: &str) -> Event {
         self.ended = true;
         if cancelled {

@@ -158,7 +158,7 @@ fn command_for_turn(
         return Ok(c);
     }
     match runtime {
-        "claude" => crate::runtime::claude::command(folder, model),
+        "claude" => crate::runtime::claude::bare_command(folder),
         "cursor" => crate::runtime::cursor::command(folder, mode, model, resume),
         "copilot" => crate::runtime::copilot::command(
             folder, prompt, mode, model, effort, resume, session_id,
@@ -709,6 +709,31 @@ fn new_id() -> String {
     )
 }
 
+/// What a Claude Code turn's command line carries in this engine: the bridge outside Auto, the browser when the run
+/// has it, the command guard in every mode, and no account connectors (none can be ticked here yet, and leaving them
+/// out keeps about 170,000 tokens of their tool lists out of each turn). Skills, reference folders and forks are not
+/// wired yet. `command_grid_tests` compares the same composition with Electron's.
+pub fn claude_args(
+    mode: Mode,
+    bridge: Option<&str>,
+    browser: Option<&str>,
+    guard_settings: &str,
+    model: Option<&str>,
+    effort: Option<&str>,
+    resume: Option<&str>,
+) -> Result<Vec<String>, String> {
+    crate::runtime::claude::print_args(&crate::runtime::claude::PrintOptions {
+        mode,
+        bridge: if mode == Mode::Auto { None } else { bridge },
+        browser,
+        guard_settings: Some(guard_settings),
+        model,
+        effort,
+        resume,
+        ..Default::default()
+    })
+}
+
 /// Start (or continue) a Codex/Claude turn natively. Returns once the ledger exists and the turn is running on its own thread;
 /// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
@@ -756,7 +781,18 @@ pub fn send(mut job: Send) -> Result<Started, String> {
                     "This conversation ran on another agent. Native continues {runtime_name} conversations only for now."
                 ));
             }
-            if matches!(
+            if runtime_name == "claude" {
+                // A Claude conversation resumes its session when one was recorded; one that never reached Claude
+                // Code's init (or ended it) starts a new one, as it always has here.
+                let thread = prior.thread;
+                (
+                    Some(Continuation {
+                        mission_id: tip.to_owned(),
+                        thread: thread.clone(),
+                    }),
+                    thread,
+                )
+            } else if matches!(
                 runtime_name,
                 "codex"
                     | "acp"
@@ -827,14 +863,6 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         session_id.as_deref(),
     )
     .map_err(|e| e.to_string())?;
-    // Test hooks supply their own wire fixtures; real Approve-each exposes the editing tools.
-    if runtime_name == "claude"
-        && mode == Mode::ApproveEach
-        && command.get_program().to_string_lossy().ends_with("claude")
-    {
-        command = crate::runtime::claude::approve_each_command(&folder, model.as_deref())
-            .map_err(|e| e.to_string())?;
-    }
     command.current_dir(&folder);
     let anchor = job.conversation.clone().unwrap_or_else(|| id.clone());
     let flag = Arc::new(AtomicBool::new(false));
@@ -848,10 +876,11 @@ pub fn send(mut job: Send) -> Result<Started, String> {
     })
     .ok_or("A turn is already running in this conversation.")?;
     let channel = approvals_channel();
-    let bridge = if runtime_name == "claude" && mode == Mode::ApproveEach {
+    // Claude Code asks through the bridge in every mode but Auto, as Electron's host has it: a connector, a web fetch
+    // or a command outside Accept edits' reach becomes a card instead of a refusal nobody sees.
+    let bridge = if runtime_name == "claude" && mode != Mode::Auto {
         Some(
             crate::runtime::permission_bridge::Bridge::prepare(
-                &mut command,
                 channel.clone(),
                 &id,
                 &format!("run_{id}"),
@@ -864,6 +893,20 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         None
     };
     let browser_registration = crate::browser_tools::Registration::prepare(&mut command, runtime_name, &id, &job.teammate.id, &folder, channel.clone(), flag.clone())?;
+    if runtime_name == "claude" {
+        let guard = crate::runtime::permission_bridge::bridge_executable()
+            .and_then(|exe| crate::command_guard::write_claude_settings(&store.root().join("guard"), &exe))
+            .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;
+        command.args(claude_args(
+            mode,
+            bridge.as_ref().map(|b| b.config()),
+            browser_registration.as_ref().and_then(|r| r.claude_config()),
+            &guard,
+            model.as_deref(),
+            job.effort.as_deref(),
+            resume.as_deref(),
+        )?);
+    }
     let args: Vec<String> = command
         .get_args()
         .map(|a| a.to_string_lossy().into_owned())

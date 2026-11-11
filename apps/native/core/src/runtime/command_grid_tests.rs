@@ -20,6 +20,7 @@ use std::path::Path;
 const WORKSPACE: &str = "/work/project";
 const BRIDGE: &str = "/locust/bridge/mcp.json";
 const BROWSER: &str = "/locust/browser/mcp.json";
+const GUARD_SETTINGS: &str = "/locust/guard/settings.json";
 const BROWSER_COPILOT: &str = "/locust/browser/copilot-mcp.json";
 const OPENCODE_GUARD: &str = "file:///guard/locust-command-guard.mjs";
 const COPILOT_SESSION: &str = "00000000-0000-4000-8000-000000000000";
@@ -43,18 +44,18 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     let folder = Path::new(WORKSPACE);
     let mut env = Env::new();
     let mut args: Vec<String> = match runtime {
-        // command_for_turn: claude::command(folder, model) whatever the mode; Approve each swaps in the editing tools.
-        "claude" => {
-            let mut a = super::claude::ask_args(model);
-            if mode == Mode::ApproveEach {
-                a = super::claude::approve_each_args(model);
-                a.extend(
-                    ["--mcp-config", BRIDGE, "--permission-prompt-tool", "mcp__locust__approve"].map(String::from),
-                );
-            }
-            a
-        }
-        "codex" => vec!["app-server".into()],
+        // native.rs claude_args. Skills, reference folders, forks and ticked connectors are not wired in the Rust
+        // engine yet, so those cases stay listed; a case without the guard is one Electron's host never builds.
+        "claude" => crate::native::claude_args(
+            mode,
+            Some(BRIDGE),
+            browser.then_some(BROWSER),
+            GUARD_SETTINGS,
+            model,
+            effort,
+            resume,
+        )?,
+        "codex" => super::codex::app_server_args(Some("0.160.0")),
         "cursor" => {
             if mode == Mode::ApproveEach {
                 return Err("Cursor does not support Approve-each in the native driver.".into());
@@ -106,7 +107,7 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     // browser_tools::Registration::prepare
     if browser {
         match runtime {
-            "claude" => args.extend(["--mcp-config".into(), BROWSER.into()]),
+            // Claude's browser file is in print_args' one --mcp-config.
             "copilot" => args.extend(["--additional-mcp-config".into(), format!("@{BROWSER_COPILOT}")]),
             "opencode" => {
                 let mut op: Value = serde_json::from_str(&env["OPENCODE_CONFIG_CONTENT"]).unwrap();

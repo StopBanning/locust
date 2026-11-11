@@ -423,9 +423,40 @@ impl Drop for Codex {
         super::process::kill_reap(&mut self.child);
     }
 }
+/// commands.ts CODEX_PLAN_TOOL_FROM: from this release, Codex offers its `update_plan` tool only when its config
+/// switches it on, and without it the model types its todo list into the reply and the plan panel stays empty.
+pub const PLAN_TOOL_FROM: &str = "0.153.0";
+
+/// commands.ts codexPlanToolArguments. `version` is what `codex --version` printed, read by `version::parse`;
+/// unknown or older builds get nothing, since an older one might read the setting as something else.
+pub fn plan_tool_args(version: Option<&str>) -> Vec<String> {
+    match version {
+        Some(v) if super::version::at_least(v, PLAN_TOOL_FROM) => {
+            vec!["-c".into(), "tools.update_plan.enabled=true".into()]
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// commands.ts createCodexAppServerCommand: the folder, sandbox, model, effort and prompt all travel over the protocol.
+pub fn app_server_args(version: Option<&str>) -> Vec<String> {
+    let mut args = vec!["app-server".to_string()];
+    args.extend(plan_tool_args(version));
+    args
+}
+
+/// The installed Codex's version, or None when it does not say; a failed probe never stops the turn, as Electron's
+/// discovery leaves `cliVersion` out then.
+pub fn installed_version(path: &std::path::Path) -> Option<String> {
+    let printed = super::version::probe(path, "Codex").ok()?;
+    super::version::parse(&printed).map(|v| v.version)
+}
+
 pub fn command() -> io::Result<Command> {
-    let mut c = Command::new(super::discovery::find()?);
-    c.arg("app-server");
+    let path = super::discovery::find()?;
+    let version = installed_version(&path);
+    let mut c = Command::new(path);
+    c.args(app_server_args(version.as_deref()));
     Ok(c)
 }
 

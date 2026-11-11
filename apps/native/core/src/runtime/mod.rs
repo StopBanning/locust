@@ -26,6 +26,7 @@ pub mod opencode_config;
 pub mod opencode_events;
 pub mod opencode_serve;
 pub mod process;
+pub mod version;
 use crate::approval::{Channel, Mode};
 use serde_json::Value;
 use std::{io, path::PathBuf, sync::Arc};

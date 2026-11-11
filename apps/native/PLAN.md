@@ -81,10 +81,10 @@ rather than behaviour. The milestones above stay; the work towards them now runs
 | D. The rest of the map | The remaining rows, with overlapping features simplified in Electron first | No row missing |
 | E. Ship | Windows and Linux, the updater, moving the data folder, the switch | M7 |
 
-Known gaps the review found, now in the rows: Claude Code runs only Ask and Approve each (Edit and Auto get read-only
-tools, follow-ups start new sessions); Codex starts without its plan tool; the command guard runs only at approval
-time, not as a hook inside the agents; there is no door server, hand-over, carry-on or notification on the native
-engine.
+Known gaps the review found, now in the rows: the command guard is a hook inside Claude Code only, not Codex or
+Copilot; Claude Code has no skill or reference folders, forks or connectors; there is no door server, hand-over,
+carry-on or notification on the native engine. Claude Code's modes and follow-ups and Codex's plan tool were fixed
+on 11 Nov (`notes/B3-NOTES.md`).
 
 ## Status
 
@@ -101,6 +101,11 @@ engine.
     streams with Electron's readers into `parity/events.json`; Rust's readers match none of them yet
     (`parity/events-not-yet.txt`). Both lists may only shrink. Re-run either script with `--electron` on a newer
     checkout (the grid also has `--compare`) to see what Electron changed.
+  - **Codex and Claude Code (B3, first part).** Codex switches its plan tool on as Electron does, and Claude Code's
+    command line is a port of Electron's builder: every mode with its own tools, the permission bridge outside Auto,
+    `--resume` on a follow-up, and Locust's command guard as a hook served by this binary. The grid went from 146 to
+    227 of 385: Codex 55 of 55, Claude Code 26 of 55. Live tests on the real CLIs passed, including a resumed Claude
+    session. Tests: 419 in the engine, 180 in the window.
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.
