@@ -223,8 +223,14 @@ mod tests {
         assert!(note.starts_with("Left out 51 lines and "));
         assert!(note.ends_with(" from the start."));
         assert_eq!(note.matches("Left out").count(), 1);
-        assert_eq!(omitted_note(0, 500).as_deref(), Some("Left out 500 bytes from the start."));
-        assert_eq!(omitted_note(0, 1024).as_deref(), Some("Left out 1 KB from the start."));
+        assert_eq!(
+            omitted_note(0, 500).as_deref(),
+            Some("Left out 500 bytes from the start.")
+        );
+        assert_eq!(
+            omitted_note(0, 1024).as_deref(),
+            Some("Left out 1 KB from the start.")
+        );
     }
     #[test]
     fn command_runs_in_temp_folder_and_reports_exit() {
@@ -248,10 +254,7 @@ mod tests {
         let marker = dir.join(format!("p9-own-stop-{}", std::process::id()));
         let _ = std::fs::remove_file(&marker);
         let mut r = Running::start(
-            &format!(
-                "trap 'touch {}' TERM; sleep 60",
-                marker.display()
-            ),
+            &format!("trap 'touch {}' TERM; sleep 60", marker.display()),
             &dir,
         )
         .unwrap();

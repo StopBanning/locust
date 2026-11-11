@@ -487,9 +487,7 @@ mod tests {
             }
             out
         }
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("work")
-            .join(format!("settings-review-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("settings-review-{}", std::process::id()));
         fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
         let electron = root.join("electron");
         fs::write(

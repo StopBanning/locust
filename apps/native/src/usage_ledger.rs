@@ -282,9 +282,7 @@ mod tests {
 
     #[test]
     fn remembered_limits_use_electron_filename_and_newest_reading() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("work")
-            .join(format!("usage-windows-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("usage-windows-{}", std::process::id()));
         fs::create_dir_all(root.join("native")).unwrap();
         fs::create_dir_all(root.join("electron")).unwrap();
         let newer = "5-hour window 20% used · from a run at 2026-11-10T12:00:00Z";

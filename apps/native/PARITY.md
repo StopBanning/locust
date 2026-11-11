@@ -153,7 +153,7 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
-| Routine editor, schedules/days/one-off, pause and run history | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/RoutineDialog.tsx`, `main/routine-runner.ts`, `main/routine-store.ts` | **missing** | yes |
+| Routine editor, schedules/days/one-off, pause and run history | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/RoutineDialog.tsx`, `main/routine-runner.ts`, `main/routine-store.ts` | **partial** — native-owned seeded shelf/editor, clock schedule validation/calculation, pause/resume and retained history; single-step native dispatch held for review; automatic scheduler, completion accounting, full history/recovery UI and remaining TS tests are not ported (p11-NOTES.md) | yes |
 | Arriving-file routine trigger | `main/routine-file-watch.ts` | **missing** | yes |
 | Private routine link hook | `main/routine-hooks.ts`, `shared/routine-hook.ts` | **missing** | yes |
 | Routine input forms, Markdown import/export and starter templates | `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineTemplates.tsx`, `main/routine-file.ts`, `main/routine-templates.ts` | **missing** | yes |
@@ -278,14 +278,14 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 3 | 10 | 13 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 |
 | 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
-| 9 | Routines, Compare & Benchmarks | 0 | 0 | 10 | 10 |
+| 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 |
 | 11 | Settings, Usage, Privacy & Backup | 2 | 2 | 4 | 8 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 |
 | 13 | Onboarding, Home, Updates & CLI | 1 | 2 | 10 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **28** | **32** | **93** | **153** |
+| | **TOTAL** | **28** | **33** | **92** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
@@ -418,3 +418,5 @@ P8 evidence: `P8-NOTES.md`. Area 5: saved approval rules **done**; command reach
 P9 verification: see `P9-NOTES.md`. Current Section 1 recount: **153 rows — 26 done, 30 partial, 97 missing**; Area 7 is 0 done / 3 partial / 0 missing. This is an incomplete parity implementation, not M5 reached. Earlier audit counts above are historical.
 
 P9 final checks (2026-11-10): 410 release tests passed ×3 (13 existing live tests ignored); release build zero warnings; clippy four existing argument-count findings only; M1/M3a synthetic CLI scripts pass. Final dark/light terminal scenes at 900×900 scale 1 rendered and inspected. No window or real agent turn. Remaining gaps and TS test disposition: `P9-NOTES.md`.
+
+P11 verification (2026-11-10): incomplete routines subset, no compare implementation. See `p11-NOTES.md` for implemented editor/storage/clock calculations, dispatch review holds, unported TS tests, remaining scheduler/execution gaps, and the unintended default-native roster seed during a failed test. Final release tests: 459 passed ×3, 13 existing live tests ignored; release build zero warnings; clippy four existing findings only; both synthetic CLI scripts pass. Dark/light shelf scenes rendered at 900×900 scale 1 and inspected under `/Users/locust/work/scratch/p11-snaps/`. No window or real agent turn. Current row recount: **153 rows — 28 done, 33 partial, 92 missing**; Area 9 is **0 done / 1 partial / 9 missing**. M5 remains unreached.

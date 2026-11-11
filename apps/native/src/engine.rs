@@ -152,6 +152,10 @@ pub fn default_data_folder() -> Option<PathBuf> {
     // An empty variable counts as unset, as Electron and the XDG rules read it (Argon's review, 8 Nov).
     let set = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty());
     let home = set("HOME").map(PathBuf::from);
+    #[cfg(test)]
+    if let Some(home) = &home {
+        crate::test_isolation::require_temporary(home);
+    }
     if cfg!(target_os = "macos") {
         home.map(|h| h.join("Library/Application Support/@teammate/desktop"))
     } else if cfg!(target_os = "windows") {

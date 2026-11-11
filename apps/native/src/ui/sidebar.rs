@@ -479,6 +479,13 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             .padding(12.0)
             .on_press(crate::people_panel::open),
     );
+    rows = rows.child(
+        text("Automations")
+            .font(type_::BODY)
+            .color(p.secondary)
+            .padding(12.0)
+            .on_press(crate::routines_panel::open),
+    );
     let missions = sidebar_missions_now(s);
     let all_count = recent_as_missions(s).len();
     let (pinned, recent_rows) = pinned_and_recent(&missions, &s.org.pins);

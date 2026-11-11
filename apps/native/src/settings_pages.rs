@@ -122,7 +122,14 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
             ),
             (
                 "Let your other AI apps use Locust",
-                &["MCP server", "stdio", "Claude Code", "Codex", "Cursor", "other apps"],
+                &[
+                    "MCP server",
+                    "stdio",
+                    "Claude Code",
+                    "Codex",
+                    "Cursor",
+                    "other apps",
+                ],
             ),
             (
                 "Your account",
@@ -162,7 +169,13 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
             ),
             (
                 "Voice typing",
-                &["dictation", "microphone", "speech", "whisper", "transcription"],
+                &[
+                    "dictation",
+                    "microphone",
+                    "speech",
+                    "whisper",
+                    "transcription",
+                ],
             ),
             (
                 "Talk from any app",
@@ -185,7 +198,10 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
                     "review requests",
                 ],
             ),
-            ("Startup", &["login item", "tray", "keep running", "sign-in"]),
+            (
+                "Startup",
+                &["login item", "tray", "keep running", "sign-in"],
+            ),
             ("Updates", &["version", "upgrade"]),
             ("Report a problem", &["bug", "feedback", "crash"]),
             ("Help", &["email", "contact", "support", "issue"]),
@@ -221,7 +237,10 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
             "Boot screen",
         ],
         also_known_as: &[
-            ("Sidebar", &["theme", "dark", "light", "colour", "color", "width"]),
+            (
+                "Sidebar",
+                &["theme", "dark", "light", "colour", "color", "width"],
+            ),
             (
                 "Send button",
                 &[
@@ -257,16 +276,8 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
             (
                 "Terminal faces",
                 &[
-                    "face",
-                    "faces",
-                    "screen",
-                    "eyes",
-                    "bot",
-                    "bots",
-                    "avatar",
-                    "terminal",
-                    "mascot",
-                    "look",
+                    "face", "faces", "screen", "eyes", "bot", "bots", "avatar", "terminal",
+                    "mascot", "look",
                 ],
             ),
             (
@@ -286,14 +297,7 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
             (
                 "Plush",
                 &[
-                    "plush",
-                    "fur",
-                    "furry",
-                    "fabric",
-                    "soft",
-                    "fluffy",
-                    "plastic",
-                    "material",
+                    "plush", "fur", "furry", "fabric", "soft", "fluffy", "plastic", "material",
                     "texture",
                 ],
             ),
@@ -308,7 +312,14 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         also_known_as: &[
             (
                 "Privacy & local data",
-                &["ledger", "log", "logs", "telemetry", "privacy", "where is my data"],
+                &[
+                    "ledger",
+                    "log",
+                    "logs",
+                    "telemetry",
+                    "privacy",
+                    "where is my data",
+                ],
             ),
             (
                 "Trash",
@@ -352,7 +363,10 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
         ],
         also_known_as: &[
             ("Swarm", &["parallel", "at once", "concurrent"]),
-            ("Auto mode", &["permission", "approve", "ask first", "sandbox"]),
+            (
+                "Auto mode",
+                &["permission", "approve", "ask first", "sandbox"],
+            ),
             ("Plans", &["plan", "steps"]),
             (
                 "Your skills",
@@ -360,7 +374,13 @@ pub const SETTINGS_PAGES: &[SettingsPage] = &[
             ),
             (
                 "Skills from GitHub",
-                &["github", "repository", "library", "download", "skill folder"],
+                &[
+                    "github",
+                    "repository",
+                    "library",
+                    "download",
+                    "skill folder",
+                ],
             ),
             (
                 "Saved approvals",
@@ -649,8 +669,19 @@ mod tests {
         assert_eq!(
             groups,
             vec![
-                "Locust", "Locust", "Locust", "Locust", "Team", "Team", "Team", "Agents", "Agents",
-                "Agents", "Agents", "This folder", "About",
+                "Locust",
+                "Locust",
+                "Locust",
+                "Locust",
+                "Team",
+                "Team",
+                "Team",
+                "Agents",
+                "Agents",
+                "Agents",
+                "Agents",
+                "This folder",
+                "About",
             ]
         );
         assert_eq!(HOW_IT_WORKS, "How it works");
@@ -681,7 +712,10 @@ mod tests {
     #[test]
     fn search_finds_memory_worktree_node_ledger() {
         assert!(page_matches(page_by_id(SettingsPageId::Memory), "memory"));
-        assert!(page_matches(page_by_id(SettingsPageId::Workspace), "worktree"));
+        assert!(page_matches(
+            page_by_id(SettingsPageId::Workspace),
+            "worktree"
+        ));
         assert!(page_matches(page_by_id(SettingsPageId::Runtimes), "node"));
         assert!(page_matches(page_by_id(SettingsPageId::Privacy), "ledger"));
         assert!(!SETTINGS_PAGES.iter().any(|p| page_matches(p, "kombucha")));

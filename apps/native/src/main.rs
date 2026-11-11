@@ -1,33 +1,38 @@
 #[path = "ui/context_usage.rs"]
 mod context_usage;
 mod invariants;
+#[path = "ui/keyboard_sheet.rs"]
+mod keyboard_sheet;
+mod keyboard_shortcuts;
+mod keychain_note;
 mod own_command;
 mod people;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
-mod settings_pages;
-mod workspace_settings;
-mod spend;
-mod usage;
-mod usage_ledger;
-mod keyboard_shortcuts;
-mod keychain_note;
-#[path = "ui/settings_panel.rs"]
-mod settings_panel;
-#[path = "ui/usage_panel.rs"]
-mod usage_panel;
-#[path = "ui/keyboard_sheet.rs"]
-mod keyboard_sheet;
 #[path = "ui/recovery.rs"]
 mod recovery;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
+mod routines;
+#[path = "ui/routines_panel.rs"]
+mod routines_panel;
 mod runtime_terminal;
 #[path = "ui/scenes.rs"]
 mod scenes;
+mod settings_pages;
+#[path = "ui/settings_panel.rs"]
+mod settings_panel;
+mod spend;
 mod terminal;
 #[path = "ui/terminal_panel.rs"]
 mod terminal_panel;
+#[cfg(test)]
+mod test_isolation;
+mod usage;
+mod usage_ledger;
+#[path = "ui/usage_panel.rs"]
+mod usage_panel;
+mod workspace_settings;
 use scenes::*;
 #[path = "ui/composer_wiring.rs"]
 mod composer_wiring;
@@ -483,11 +488,8 @@ fn setup(s: &mut State, waker: Waker) {
     // No secrets stored in native yet → keeps_key false → note stays down. Never reads the keychain.
     // Scenes may force the note on for snaps; do not clear that.
     if !s.keychain_asking {
-        s.keychain_asking = keychain_note::should_show_note(
-            keychain_note::may_ask_on_this_os(),
-            false,
-            false,
-        );
+        s.keychain_asking =
+            keychain_note::should_show_note(keychain_note::may_ask_on_this_os(), false, false);
     }
 }
 
@@ -1321,7 +1323,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if s.demo {
         return false;
     }
-    let mut changed = changes_panel::poll(s);
+    let mut changed = routines_panel::poll(s);
+    changed |= changes_panel::poll(s);
     changed |= terminal_panel::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
@@ -1681,6 +1684,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
             .is_none_or(|(path, yes)| path == &s.changes.folder && *yes);
     let mut thread = if changes_open {
         changes_panel::view(s, &p)
+    } else if s.routines.open {
+        routines_panel::view(s, &p)
     } else if s.settings_panel.open {
         settings_panel::view(s, &p)
     } else if s.people_panel.open {
@@ -1741,9 +1746,10 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .h_full()
                 .fill(Color::BLACK.alpha(0.55))
                 .center()
-                .child(usage_panel::view(s, &p).modal(true, |s: &mut State| {
-                    s.usage_panel.open = false
-                })),
+                .child(
+                    usage_panel::view(s, &p)
+                        .modal(true, |s: &mut State| s.usage_panel.open = false),
+                ),
         );
     }
     if s.keyboard_sheet.open {
@@ -1753,9 +1759,10 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .h_full()
                 .fill(Color::BLACK.alpha(0.55))
                 .center()
-                .child(keyboard_sheet::view(s, &p).modal(true, |s: &mut State| {
-                    s.keyboard_sheet.open = false
-                })),
+                .child(
+                    keyboard_sheet::view(s, &p)
+                        .modal(true, |s: &mut State| s.keyboard_sheet.open = false),
+                ),
         );
     }
     if s.palette_open {
@@ -1954,6 +1961,8 @@ fn main() {
             ("approval-reach-light", approval_reach_scene_light),
             ("p8-rules", p8_rules_scene_dark),
             ("p8-rules-light", p8_rules_scene_light),
+            ("routines", routines_panel::scene),
+            ("routines-light", routines_panel::light_scene),
             ("settings", settings_panel::scene),
             ("settings-light", settings_panel::light_scene),
             ("usage", usage_panel::scene),

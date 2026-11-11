@@ -257,21 +257,12 @@ pub fn shortcut_groups() -> Vec<(ShortcutGroup, Vec<&'static ShortcutRow>)> {
     ];
     names
         .into_iter()
-        .map(|name| {
-            (
-                name,
-                SHORTCUTS.iter().filter(|r| r.group == name).collect(),
-            )
-        })
+        .map(|name| (name, SHORTCUTS.iter().filter(|r| r.group == name).collect()))
         .collect()
 }
 
 pub fn lacking_note(native: bool) -> Option<&'static str> {
-    if native {
-        None
-    } else {
-        Some(RUNS_IN_LOCUST)
-    }
+    if native { None } else { Some(RUNS_IN_LOCUST) }
 }
 
 #[cfg(test)]

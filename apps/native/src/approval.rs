@@ -1162,8 +1162,10 @@ mod tests {
 
     #[test]
     fn saved_deny_and_guard_precede_session_always() {
-        let root =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("work/review/channel-test");
+        let root = std::env::temp_dir().join(format!(
+            "channel-test-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&root);
         let store = crate::store::Store::new(root.join("native"), root.join("electron")).unwrap();
         let _hook = crate::native::hooks::install(store.clone(), None);

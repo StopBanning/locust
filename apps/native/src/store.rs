@@ -78,6 +78,11 @@ impl Store {
         Self::with_codex(root, electron, codex)
     }
     pub fn with_codex(root: PathBuf, electron: PathBuf, codex: Vec<PathBuf>) -> io::Result<Self> {
+        #[cfg(test)]
+        {
+            crate::test_isolation::require_temporary(&root);
+            crate::test_isolation::require_temporary(&electron);
+        }
         let mut store = Self {
             root: PathBuf::new(),
             electron,

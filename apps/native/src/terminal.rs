@@ -187,10 +187,7 @@ mod tests {
         let dir = std::env::temp_dir();
         let marker = dir.join(format!("p9-pty-drop-{}", std::process::id()));
         let _ = std::fs::remove_file(&marker);
-        let script = format!(
-            "echo $$ > {}; exec sleep 120",
-            marker.display()
-        );
+        let script = format!("echo $$ > {}; exec sleep 120", marker.display());
         let terminal = Terminal::open(&dir, Path::new("/bin/sh"), &["-c", &script]).unwrap();
         let until = std::time::Instant::now() + std::time::Duration::from_secs(2);
         let pid = loop {

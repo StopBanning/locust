@@ -9,7 +9,7 @@ static TEMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
-        let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
+        let p = std::env::temp_dir().join(format!(
             ".m4-acp-{}-{}-{}",
             std::process::id(),
             TEMP_COUNTER.fetch_add(1, Ordering::Relaxed),

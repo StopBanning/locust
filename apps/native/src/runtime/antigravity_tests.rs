@@ -18,7 +18,7 @@ static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
-        let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
+        let p = std::env::temp_dir().join(format!(
             ".m4-agy-{}-{}-{}",
             std::process::id(),
             TEMP_COUNTER.fetch_add(1, Ordering::Relaxed),

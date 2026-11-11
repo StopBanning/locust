@@ -119,6 +119,7 @@ pub(super) struct OwnTurn {
 }
 
 pub(super) struct State {
+    pub(super) routines: crate::routines_panel::Panel,
     pub(super) terminal: crate::terminal_panel::Panel,
     pub(super) changes: crate::changes_panel::Panel,
     pub(super) changes_job: Latest<crate::changes_panel::ReadResult>,
@@ -242,6 +243,7 @@ impl Default for State {
         Self {
             engine: None,
             recent_hover: None,
+            routines: crate::routines_panel::Panel::default(),
             people_panel: crate::people_panel::Panel::default(),
             terminal: crate::terminal_panel::Panel::default(),
             settings_panel: crate::settings_panel::Panel::default(),
