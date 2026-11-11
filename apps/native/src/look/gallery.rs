@@ -132,3 +132,44 @@ pub fn view(dark: bool) -> El {
         .child(row().gap(40.0).items_start().child(left).child(right));
     rune_kit::root(body, layer)
 }
+
+/// Every icon of `Icon.tsx`, every agent's mark and the Locust lockup (`--scene icons`, `icons-light`): round C2's exit.
+pub fn icons_view(dark: bool) -> El {
+    use super::controls::{agent_mark, glyph, lockup};
+    use super::icons;
+    let l = Look::new(dark);
+    let cell = |e: El, name: &str| {
+        col()
+            .w(100.0)
+            .gap(6.0)
+            .center()
+            .child(row().h(28.0).center().child(e))
+            .child(text(name.to_owned()).font(l.ty.mono).color(l.c("text-muted")))
+    };
+    let mut grid = row().gap(4.0).flex_wrap().w(1040.0);
+    for i in icons::ALL {
+        grid = grid.child(cell(glyph(&l, i, 18.0, None), i.name));
+    }
+    let mut marks = row().gap(4.0).flex_wrap().w(1040.0);
+    for runtime in icons::RUNTIMES {
+        if let Some(m) = agent_mark(&l, runtime, 22.0, l.c("text-secondary")) {
+            marks = marks.child(cell(m, runtime));
+        }
+    }
+    col()
+        .w_full()
+        .h_full()
+        .fill(l.c("bg-window"))
+        .padding(28.0)
+        .gap(22.0)
+        .child(
+            row()
+                .gap(12.0)
+                .center_y()
+                .child(title(&l, "Locust icons"))
+                .child(text(if dark { "dark" } else { "light" }).font(l.ty.mono).color(l.c("text-muted"))),
+        )
+        .child(row().gap(40.0).items_start().child(section(&l, "Icon.tsx", grid)))
+        .child(section(&l, "Agents", marks))
+        .child(section(&l, "Locust", row().pt(8.0).child(lockup(&l, 140.0))))
+}

@@ -10,6 +10,7 @@
 
 pub mod controls;
 pub mod gallery;
+pub mod icons;
 
 use rune::{Color, Shadow, TextStyle};
 use rune_kit::{Kit, PaletteSeed, StateColors, Type, css};
@@ -368,6 +369,19 @@ mod tests {
         }
         assert!(names(FONTS[0], FAMILIES.0) && names(FONTS[1], FAMILIES.0));
         assert!(names(FONTS[2], FAMILIES.1));
+    }
+
+    /// Every icon, agent mark and Locust drawing covers some pixels at 16 points, so an SVG feature Rune's icon drawer
+    /// skips fails here instead of drawing a blank. Gemini's gradient is drawn as full SVG, so its mask may be empty.
+    #[test]
+    fn every_drawing_draws() {
+        let mut drawings: Vec<&rune::Icon> = icons::ALL.to_vec();
+        drawings.extend(icons::RUNTIMES.iter().filter(|r| **r != "gemini").filter_map(|r| icons::mark(r)));
+        drawings.extend([&icons::LOCUST_MARK, &icons::LOCUST_WORDMARK]);
+        for d in drawings {
+            let covered = rune::text::icon_coverage(d, 32).iter().filter(|&&a| a > 0).count();
+            assert!(covered > 8, "{} draws almost nothing ({covered} pixels)", d.name);
+        }
     }
 
     #[test]

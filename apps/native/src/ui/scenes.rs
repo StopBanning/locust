@@ -925,3 +925,16 @@ pub(super) fn kit_light_scene(s: &mut State) {
     s.gallery = true;
     s.appearance = Some(false);
 }
+
+/// Every icon and agent mark, and the Locust lockup (look::gallery::icons_view), the exit test of round C2.
+pub(super) fn icons_scene(s: &mut State) {
+    s.demo = true;
+    s.icon_gallery = true;
+    s.appearance = Some(true);
+}
+
+pub(super) fn icons_light_scene(s: &mut State) {
+    s.demo = true;
+    s.icon_gallery = true;
+    s.appearance = Some(false);
+}

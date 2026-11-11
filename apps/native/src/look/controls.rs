@@ -3,7 +3,7 @@
 //! toasts and segmented controls come from rune-kit, styled by `look::kit`, for their keyboard and overlay behaviour.
 
 use super::{LocustType, Tokens, kit, locust_type, tokens};
-use rune::{Color, El, Shadow, TextStyle, col, row, text};
+use rune::{Color, El, Icon, Shadow, TextStyle, col, row, text};
 use rune_kit::Kit;
 
 /// One appearance's tokens, kit and type, handed to every builder.
@@ -197,4 +197,59 @@ pub fn title(l: &Look, words: &str) -> El {
 /// A small mono capital label over a group.
 pub fn label(l: &Look, words: &str) -> El {
     text(words.to_uppercase()).font(l.ty.label).color(l.c("text-muted"))
+}
+
+/// An icon from `look::icons` (Electron's `Icon.tsx`), in the control foreground unless given a colour; decorative,
+/// since every place that draws one also says what it means.
+pub fn glyph(l: &Look, i: &'static Icon, size: f32, colour: Option<Color>) -> El {
+    rune::icon(i, size).color(colour.unwrap_or_else(|| l.c("text-control-fg"))).a11y_hidden()
+}
+
+/// An agent's mark (`RuntimeMark.tsx`): Claude's in its own orange (`--lc-mark-claude`), Gemini's in its gradient,
+/// the rest in the colour of the words beside it. Nothing for a runtime with no mark.
+pub fn agent_mark(l: &Look, runtime: &str, size: f32, words: Color) -> Option<El> {
+    let mark = super::icons::mark(runtime)?;
+    let colour = if runtime == "claude" { l.c("mark-claude") } else { words };
+    Some(rune::icon(mark, size).color(colour).a11y_hidden())
+}
+
+/// The Locust mark above the wordmark, as the boot screen and About draw them, in the primary text colour.
+pub fn lockup(l: &Look, width: f32) -> El {
+    // Both drawings sit centred in square boxes; negative margins take back the empty rows above and below them.
+    let mark_h = width * 176.39 / 306.89;
+    let word_w = width * 0.92;
+    let word_h = word_w * 39.36 / 283.65;
+    col()
+        .center()
+        .gap(width * 0.12)
+        .child(rune::icon(&super::icons::LOCUST_MARK, width).color(l.c("text-primary")).my(-(width - mark_h) / 2.0))
+        .child(rune::icon(&super::icons::LOCUST_WORDMARK, word_w).color(l.c("text-primary")).my(-(word_w - word_h) / 2.0))
+        .role("img")
+        .label("Locust")
+}
+
+/// `.lc-headicon`: a toolbar's icon button, a quiet glyph whose `help` is its tooltip and whose `label` is its name
+/// for screen readers, as Electron's header and composer toolbars draw Browser, Terminal and Open in terminal.
+/// Add `.on_press(..)` and `.build(l.k)`.
+pub fn head_icon(i: &'static Icon, label: &str, help: &str) -> rune_kit::IconButton {
+    rune_kit::IconButton::new(i).variant(rune_kit::IconButtonVariant::Ghost).label(label).help(help)
+}
+
+/// `.lc-brand__lockup`: the mark (24 high) beside the wordmark (13 high), 9 apart, as the sidebar's head draws them.
+pub fn brand_row(l: &Look) -> El {
+    let (mark_h, word_h) = (24.0_f32, 13.0_f32);
+    let mark_w = mark_h * 306.89 / 176.39;
+    let word_w = word_h * 283.65 / 39.36;
+    row()
+        .gap(9.0)
+        .center_y()
+        .child(
+            rune::icon(&super::icons::LOCUST_MARK, mark_w)
+                .color(l.c("text-primary").alpha(0.95))
+                .my(-(mark_w - mark_h) / 2.0)
+                .a11y_hidden(),
+        )
+        .child(rune::icon(&super::icons::LOCUST_WORDMARK, word_w).color(l.c("text-primary").alpha(0.9)).my(-(word_w - word_h) / 2.0))
+        .role("img")
+        .label("Locust")
 }

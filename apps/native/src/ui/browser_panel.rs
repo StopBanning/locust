@@ -27,11 +27,10 @@ fn add(s: &mut State, profile: Profile) {
     }
     s.browser.menu = false;
 }
+/// BrowserToggle.tsx: the globe in the toolbar.
 pub(super) fn toggle(p: &Palette) -> El {
-    text("Browser")
-        .font(type_::LABEL)
-        .color(p.secondary)
-        .padding(7.)
+    let l = crate::look::controls::Look::new(p.dark);
+    crate::look::controls::head_icon(&crate::look::icons::GLOBE, "Browser", "Browser")
         .on_press(|s: &mut State| {
             {
                 let mut h = crate::invariants::lock(&s.browser.host);
@@ -45,6 +44,7 @@ pub(super) fn toggle(p: &Palette) -> El {
                 add(s, Profile(None));
             }
         })
+        .build(l.k)
 }
 fn submit(s: &mut State) {
     let id = crate::invariants::lock(&s.browser.host).active;

@@ -34,6 +34,8 @@ jobs:
         run: python3 scripts/recount.py --check
       - name: Every TypeScript test file has a line in parity/tests.tsv
         run: python3 scripts/test-ledger.py --check
+      - name: The icons and marks match Electron's drawings
+        run: python3 scripts/marks.py --check
 
   # On Colin's Mac mini (runner `mac-mini`, label locust-mac) since 11 Nov 2026: GitHub's macos-15 runners gave this
   # job none three times in a row. The runner's guard (_tools/mac-runner-guard.sh) admits this workflow only on

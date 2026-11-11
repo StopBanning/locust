@@ -51,17 +51,17 @@ fn add(s: &mut State) {
         Err(e) => s.terminal.error = Some(e),
     }
 }
+/// TerminalToggle.tsx: the terminal glyph in the toolbar.
 pub(super) fn toggle(p: &Palette) -> El {
-    text("Terminal")
-        .font(type_::LABEL)
-        .color(p.secondary)
-        .padding(7.)
+    let l = crate::look::controls::Look::new(p.dark);
+    crate::look::controls::head_icon(&crate::look::icons::TERMINAL, "Terminal", "Terminal (Ctrl+`)")
         .on_press(|s: &mut State| {
             s.terminal.open = !s.terminal.open;
             if s.terminal.open && s.terminal.tabs.is_empty() {
                 add(s);
             }
         })
+        .build(l.k)
 }
 pub(super) fn run_command(s: &mut State) {
     let command = own_command::bang(&s.draft.text)
@@ -565,11 +565,14 @@ pub(super) fn runtime_controls(s: &State, p: &Palette) -> El {
     };
     let id = pane.snapshot.tip.clone();
     let open_id = id.clone();
-    row().gap(6.).child(text("Open in terminal").font(type_::LABEL).color(p.secondary).on_press(move|s:&mut State|{
+    // OpenInTerminal.tsx's code glyph, and the catch-up beside it (TerminalDivider.tsx's clock), as icon buttons.
+    let l = crate::look::controls::Look::new(p.dark);
+    let _ = p;
+    row().gap(2.).child(crate::look::controls::head_icon(&crate::look::icons::CODE, "Open in terminal", "Open this conversation in a terminal").on_press(move|s:&mut State|{
  if turn_running(s){s.composer_note=Some("This conversation is still running. Open it in a terminal once the run finishes: two programs on one session at once would talk over each other.".into());return;}
  let result=(||{let newest=native::real_tip(&open_id)?;let(m,rows)=runtime_terminal::mission(&newest)?;let runtime=m["runtime"].as_str().ok_or("That conversation is not in the ledger.")?;if m["model"].as_str().is_some_and(|m|m.starts_with("own-")){return Err("A model of your own runs on settings only Locust gives OpenCode, so a terminal could not run it. Keep this conversation here.".into());}let session=runtime_terminal::session(&rows).ok_or("This conversation has no session its runtime can resume in a terminal.")?;let args=runtime_terminal::resume_args(runtime,&session).ok_or("This conversation has no session its runtime can resume in a terminal.")?;let executable=crate::runtime::find_executable(match runtime {"cursor"=>"cursor-agent","antigravity"=>"agy",other=>other}).map_err(|e|e.to_string())?;let folder=folder(s).ok_or("Choose a folder first. Nothing was run.")?;let store=native::store().ok_or("Native data folder is unavailable.")?;let dir=store.attachments_dir().map_err(|e|e.to_string())?;let script=dir.join(format!("terminal-{}.command",native::uuid_v4().map_err(|e|e.to_string())?));runtime_terminal::open(&executable,&args,&folder,&script,&store)?;Ok::<_,String>(matches!(runtime,"claude"|"codex"))})();
  s.composer_note=Some(match result{Ok(true)=>"Opened in Terminal. Use Catch up terminal when you return.".into(),Ok(false)=>"Opened in Terminal. Locust won't see what happens there.".into(),Err(e)=>e});
- })).child(text("Catch up terminal").font(type_::LABEL).color(p.secondary).on_press(move|s:&mut State|{if !turn_running(s)&&!s.terminal.catchup.is_pending(){s.terminal.catchup.request(id.clone(),|id|runtime_terminal::catch_up(&id));}}))
+ }).build(l.k)).child(crate::look::controls::head_icon(&crate::look::icons::CLOCK, "Catch up terminal", "Catch up on what happened in the terminal").on_press(move|s:&mut State|{if !turn_running(s)&&!s.terminal.catchup.is_pending(){s.terminal.catchup.request(id.clone(),|id|runtime_terminal::catch_up(&id));}}).build(l.k))
 }
 
 #[cfg(test)]

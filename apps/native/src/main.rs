@@ -1732,6 +1732,9 @@ fn markdown_style(p: &Palette) -> MarkdownStyle {
 }
 
 fn view(s: &State, cx: &mut Cx<State>) -> El {
+    if s.icon_gallery {
+        return look::gallery::icons_view(s.appearance.unwrap_or_else(|| cx.system_dark()));
+    }
     if s.gallery {
         return look::gallery::view(s.appearance.unwrap_or_else(|| cx.system_dark()));
     }
@@ -2023,6 +2026,8 @@ fn main() {
         scenes: &[
             ("kit", kit_scene),
             ("kit-light", kit_light_scene),
+            ("icons", icons_scene),
+            ("icons-light", icons_light_scene),
             ("browser", browser_panel::scene),
             ("browser-light", browser_panel::light_scene),
             ("terminal", terminal_panel::scene),

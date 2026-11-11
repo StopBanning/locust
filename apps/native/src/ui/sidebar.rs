@@ -747,7 +747,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .pl(52.0)
                 .pr(20.0)
                 .window_drag()
-                .child(text("LOCUST").font(type_::LABEL).color(p.secondary))
+                .child(crate::look::controls::brand_row(&crate::look::controls::Look::new(p.dark)))
                 .child(
                     text(if s.engine == Some(Kind::Native) {
                         "Native team copy"
