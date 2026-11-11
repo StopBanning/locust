@@ -125,10 +125,10 @@ pub fn prepare_reply_markdown(body: &str) -> String {
                     out.push_str(code);
                     out.push_str(&after[..close_line_end]);
                 } else {
-                    // Capital-M `Mermaid` keeps the language label Electron shows, but rune-kit
-                    // only routes lowercase `mermaid` to rune-mermaid — so this stays a code fence.
+                    // A plain fence with no language: rune-kit lowercases the info word, so `Mermaid`
+                    // was still a diagram fence, drawn as source without the code frame, and the
+                    // caption below never showed. The caption names what it was.
                     out.push_str(&rest[start.byte..start.byte + start.ticks]);
-                    out.push_str("Mermaid");
                     out.push('\n');
                     out.push_str(code);
                     out.push_str(&after[..close_line_end]);
@@ -374,5 +374,17 @@ mod tests {
         assert_eq!(WAITING, "Drawing the diagram…");
         assert_eq!(TABS_ARIA, "Show the diagram or its text");
         assert_eq!(DIAGRAM_UNDRAWN, "Locust could not draw it");
+    }
+}
+
+#[cfg(test)]
+mod caption_index_tests {
+    #[test]
+    fn an_undrawable_diagram_after_a_drawn_one_keeps_its_caption_on_its_own_fence() {
+        let body = "Here is how a deploy runs:\n\n```mermaid\ngraph LR\n  A[Push] --> B[Tests]\n```\n\nStaging goes first.\n\n```mermaid\nkanban\n  Todo\n```\n";
+        let prepared = super::prepare_reply_markdown(body);
+        let (clean, markers) = super::take_undrawn_markers(&prepared);
+        assert!(!clean.contains("```Mermaid") && !clean.contains("```mermaid\nkanban"), "{clean}");
+        assert_eq!(markers.keys().copied().collect::<Vec<_>>(), vec![1], "{markers:?}");
     }
 }
