@@ -667,7 +667,6 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
         let mut grid = row().w_full().gap(10.0).flex_wrap();
         for mate in &s.teammates {
-            let initial = mate.name.trim_start().chars().next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default();
             let runtime = mate.runtime.as_deref().unwrap_or("codex");
             let mut agent = row().gap(5.0).center_y();
             if let Some(mark) = crate::look::controls::agent_mark(&l, runtime, 11.0, l.c("text-muted")) {
@@ -689,15 +688,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .radius(10.0)
                     .fill(l.c("bg-raised"))
                     .border(1.0, l.c("border-card"))
-                    .child(
-                        row()
-                            .w(44.0)
-                            .h(44.0)
-                            .center()
-                            .radius(10.0)
-                            .fill(l.c("bg-control"))
-                            .child(text(initial).font(rune::TextStyle::new(16.0, 600.0)).color(l.c("text-secondary"))),
-                    )
+                    .child(crate::look::faces::tile(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), &l))
                     .child(
                         col()
                             .gap(2.0)

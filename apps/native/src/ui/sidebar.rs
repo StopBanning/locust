@@ -402,13 +402,6 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     let mut rows = col().w_full().gap(2.0).padding(10.0);
 
     for (index, teammate) in s.teammates.iter().enumerate() {
-        let initial = teammate
-            .name
-            .trim_start()
-            .chars()
-            .next()
-            .map(|c| c.to_uppercase().collect::<String>())
-            .unwrap_or_else(|| "?".into());
         let selected = s
             .ledger
             .as_ref()
@@ -426,13 +419,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
             .w_full()
             .center_y()
             .gap(8.0)
-            .child(
-                el().size(22.0, 22.0)
-                    .radius(11.0)
-                    .center()
-                    .fill(p.raised)
-                    .child(text(initial).font(type_::LABEL).color(p.secondary)),
-            )
+            .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 22.0, &l))
             .child(
                 text(teammate.name.clone())
                     .font(rune::TextStyle::new(13.5, 500.0))

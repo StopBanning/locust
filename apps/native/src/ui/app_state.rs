@@ -161,6 +161,8 @@ pub(super) struct State {
     pub(super) appearance: Option<bool>,
     /// The kit gallery scene (look::gallery) instead of the app.
     pub(super) gallery: bool,
+    /// Each teammate's look (hue, seeded parts, picked bot), read beside the roster (native::load_looks).
+    pub(super) looks: std::collections::HashMap<String, locust_core::native::FaceLook>,
     /// The icon gallery scene (look::gallery::icons_view).
     pub(super) icon_gallery: bool,
     pub(super) activity_open: HashMap<String, bool>,
@@ -292,6 +294,7 @@ impl Default for State {
             demo: false,
             appearance: None,
             gallery: false,
+            looks: std::collections::HashMap::new(),
             icon_gallery: false,
             activity_open: HashMap::new(),
             recent: Vec::new(),

@@ -741,19 +741,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     .center_y()
                     .window_drag()
                     .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
-                    .child(
-                        row()
-                            .w(36.0)
-                            .h(36.0)
-                            .center()
-                            .radius(10.0)
-                            .fill(l.c("bg-control"))
-                            .child(
-                                text(teammate.name.trim_start().chars().next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default())
-                                    .font(rune::TextStyle::new(15.0, 600.0))
-                                    .color(l.c("text-secondary")),
-                            ),
-                    )
+                    .child(crate::look::faces::face(s.image_cache.as_deref(), &teammate.id, &teammate.name, s.looks.get(&teammate.id), 36.0, &l))
                     .child(
                         col()
                             .gap(3.0)

@@ -8,7 +8,9 @@
 //! Fonts: Figtree and Geist Mono, as TrueType copies of the faces Electron ships as `.woff2` (which Rune's text stack
 //! cannot read); see `assets/fonts/README.md`. A reply's Anthropic Sans waits on a licence check.
 
+pub mod bots;
 pub mod controls;
+pub mod faces;
 pub mod gallery;
 pub mod icons;
 

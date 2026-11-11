@@ -1,0 +1,806 @@
+{
+ "electronCommit": "2378138f",
+ "generatedBy": "scripts/face-goldens.mjs",
+ "faces": [
+  {
+   "id": "tm_wren",
+   "headwear": 4,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "mech",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_atlas",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "puddle",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_sable",
+   "headwear": 5,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "triangle",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_quill",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "codec",
+   "headwear": 2,
+   "accessory": 0,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "argon",
+   "headwear": 5,
+   "accessory": 0,
+   "mouth": 1,
+   "shape": "flower",
+   "face": "eyes"
+  },
+  {
+   "id": "scout",
+   "headwear": 5,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "droid",
+   "face": "eyes"
+  },
+  {
+   "id": "a",
+   "headwear": 0,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "b",
+   "headwear": 1,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "puddle",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_a1",
+   "headwear": 2,
+   "accessory": 1,
+   "mouth": 3,
+   "shape": "alien",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_a2",
+   "headwear": 1,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "flower",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_0",
+   "headwear": 3,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "flower",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_17wdrqp",
+   "headwear": 4,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "cat",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_grnhia",
+   "headwear": 1,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "puddle",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1oo198z",
+   "headwear": 2,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "circle",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_xjaz0k",
+   "headwear": 0,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "droid",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_6ekos5",
+   "headwear": 5,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "square",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1eaygiu",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "hopper",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_n686af",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "puddle",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1v2ly14",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_13xvnsp",
+   "headwear": 4,
+   "accessory": 1,
+   "mouth": 3,
+   "shape": "pill",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_ct5dka",
+   "headwear": 5,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "mech",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1kpj5az",
+   "headwear": 2,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "hexagon",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_tksv2k",
+   "headwear": 1,
+   "accessory": 1,
+   "mouth": 2,
+   "shape": "hopper",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_2g2ku5",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "pebble",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1acgcku",
+   "headwear": 2,
+   "accessory": 0,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_j7q2cf",
+   "headwear": 2,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "circle",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1r43u34",
+   "headwear": 1,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "cloud",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_zzdjup",
+   "headwear": 5,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "alien",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_8un9ma",
+   "headwear": 2,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "hexagon",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1gr11cz",
+   "headwear": 4,
+   "accessory": 0,
+   "mouth": 1,
+   "shape": "droid",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_pmar4k",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "drop",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1xioiv9",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_16dy8mu",
+   "headwear": 5,
+   "accessory": 0,
+   "mouth": 1,
+   "shape": "flower",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_f97yef",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "puddle",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1n5lq54",
+   "headwear": 5,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_w0vfwp",
+   "headwear": 5,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_4w55oa",
+   "headwear": 1,
+   "accessory": 1,
+   "mouth": 2,
+   "shape": "hopper",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1csixez",
+   "headwear": 1,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "pill",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_lnsn6k",
+   "headwear": 0,
+   "accessory": 1,
+   "mouth": 3,
+   "shape": "drop",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1tk6ex9",
+   "headwear": 0,
+   "accessory": 0,
+   "mouth": 0,
+   "shape": "clover",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_12fg4ou",
+   "headwear": 0,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_bapugf",
+   "headwear": 1,
+   "accessory": 0,
+   "mouth": 0,
+   "shape": "hexagon",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1j73m74",
+   "headwear": 5,
+   "accessory": 0,
+   "mouth": 1,
+   "shape": "flower",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_s2dbyp",
+   "headwear": 3,
+   "accessory": 1,
+   "mouth": 3,
+   "shape": "square",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_xn1qa",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "hopper",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_18u0tgz",
+   "headwear": 2,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "star",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_hpaj8k",
+   "headwear": 4,
+   "accessory": 0,
+   "mouth": 1,
+   "shape": "droid",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1ploaz9",
+   "headwear": 0,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_ygy0qu",
+   "headwear": 4,
+   "accessory": 1,
+   "mouth": 3,
+   "shape": "pill",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_7c7qif",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1f8li94",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "puddle",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_o3v80p",
+   "headwear": 4,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "hexagon",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1w08zre",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 0,
+   "shape": "pebble",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_14vipiz",
+   "headwear": 5,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "square",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_dqsfak",
+   "headwear": 5,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "mech",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1ln6719",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_uifwsu",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "hopper",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_3dpmkf",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1ba3eb4",
+   "headwear": 0,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "droid",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_k5d42p",
+   "headwear": 1,
+   "accessory": 1,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1s1qvte",
+   "headwear": 1,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "clover",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_10x0lkz",
+   "headwear": 1,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "square",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_9sabck",
+   "headwear": 3,
+   "accessory": 1,
+   "mouth": 2,
+   "shape": "triangle",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1hoo339",
+   "headwear": 5,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "alien",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_qjxsuu",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 0,
+   "shape": "pebble",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1ygbklj",
+   "headwear": 3,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "clover",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_17blad4",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_g6v04p",
+   "headwear": 5,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "mech",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1o38rve",
+   "headwear": 4,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "hexagon",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_wyihmz",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_5ts7ek",
+   "headwear": 2,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "cloud",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1dq5z59",
+   "headwear": 1,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "pebble",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_mlfowu",
+   "headwear": 2,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "cloud",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1uhtgnj",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "drop",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_13d36f4",
+   "headwear": 2,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "star",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_c8cw6p",
+   "headwear": 1,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "triangle",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1k4qnxe",
+   "headwear": 0,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "star",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_t00doz",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1va3gk",
+   "headwear": 1,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "triangle",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_19rnv79",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_imxkyu",
+   "headwear": 3,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1qjbcpj",
+   "headwear": 0,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "mech",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_zel2h4",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_89us8p",
+   "headwear": 2,
+   "accessory": 1,
+   "mouth": 2,
+   "shape": "mech",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1g68jze",
+   "headwear": 3,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "clover",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_p1i9qz",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "drop",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_1wxw1ho",
+   "headwear": 1,
+   "accessory": 2,
+   "mouth": 2,
+   "shape": "triangle",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_15t5r99",
+   "headwear": 0,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "droid",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_eofh0u",
+   "headwear": 1,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "cloud",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_1mkt8rj",
+   "headwear": 4,
+   "accessory": 0,
+   "mouth": 3,
+   "shape": "alien",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_vg2yj4",
+   "headwear": 2,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "pill",
+   "face": "eyes"
+  },
+  {
+   "id": "00000000-0000-4000-8000-000000000000",
+   "headwear": 0,
+   "accessory": 1,
+   "mouth": 1,
+   "shape": "ghost",
+   "face": "eyes"
+  },
+  {
+   "id": "1234567890",
+   "headwear": 1,
+   "accessory": 0,
+   "mouth": 2,
+   "shape": "cloud",
+   "face": "mouth"
+  },
+  {
+   "id": "tm_ÄÖÜ",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_日本語",
+   "headwear": 3,
+   "accessory": 2,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_🦗",
+   "headwear": 2,
+   "accessory": 2,
+   "mouth": 1,
+   "shape": "cat",
+   "face": "eyes"
+  },
+  {
+   "id": "tm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_xtm_x",
+   "headwear": 0,
+   "accessory": 1,
+   "mouth": 0,
+   "shape": "blob",
+   "face": "eyes"
+  },
+  {
+   "id": "Z",
+   "headwear": 4,
+   "accessory": 2,
+   "mouth": 3,
+   "shape": "swarm",
+   "face": "eyes"
+  },
+  {
+   "id": "tm-dash_under",
+   "headwear": 1,
+   "accessory": 0,
+   "mouth": 0,
+   "shape": "hexagon",
+   "face": "eyes"
+  }
+ ]
+}

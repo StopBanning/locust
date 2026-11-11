@@ -392,6 +392,57 @@ pub fn roster(electron: &Path) -> Result<Vec<Teammate>, String> {
     parse_roster(&text)
 }
 
+/// What a teammate's face is drawn from (teammate-store.ts: `hue` and `avatar`): the hue the person chose, the three
+/// seeded parts when the record keeps them, and the bot they picked, if any. Pets are not drawn here yet; a teammate
+/// wearing one shows its bot.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FaceLook {
+    pub hue: String,
+    /// headwear, accessory, mouth (avatar.ts AvatarSpec), when the record has a valid avatar.
+    pub parts: Option<[u8; 3]>,
+    /// The picked bot's shape and face (`eyes` or `mouth`).
+    pub bot: Option<(String, String)>,
+}
+
+/// Each valid teammate's look, by id, from the same file `parse_roster` reads. Records it drops are left out.
+pub fn parse_looks(text: &str) -> std::collections::HashMap<String, FaceLook> {
+    let mut out = std::collections::HashMap::new();
+    let Ok(file) = serde_json::from_str::<Value>(text) else { return out };
+    let kept: Vec<String> = parse_roster(text).map(|r| r.into_iter().map(|t| t.id).collect()).unwrap_or_default();
+    for entry in file["teammates"].as_array().into_iter().flatten().take(MAX_TEAMMATES) {
+        let (Some(id), Some(hue)) = (safe_id(&entry["teammateId"]), entry["hue"].as_str().filter(|h| HUES.contains(h)))
+        else {
+            continue;
+        };
+        if !kept.iter().any(|k| k == id) || out.contains_key(id) {
+            continue;
+        }
+        let avatar = &entry["avatar"];
+        let part = |name: &str, count: u64| avatar[name].as_u64().filter(|v| *v < count).map(|v| v as u8);
+        let parts = match (part("headwear", 6), part("accessory", 3), part("mouth", 4)) {
+            (Some(h), Some(a), Some(m)) => Some([h, a, m]),
+            _ => None,
+        };
+        let bot = (|| {
+            let shape = avatar["bot"]["shape"].as_str()?;
+            let face = avatar["bot"]["face"].as_str().filter(|f| matches!(*f, "eyes" | "mouth"))?;
+            let ok = !shape.is_empty() && shape.len() <= 24 && shape.bytes().all(|b| b.is_ascii_lowercase());
+            ok.then(|| (shape.to_owned(), face.to_owned()))
+        })();
+        out.insert(id.to_owned(), FaceLook { hue: hue.to_owned(), parts, bot });
+    }
+    out
+}
+
+/// The looks of the teammates in this computer's roster (see `load_roster`).
+pub fn load_looks() -> std::collections::HashMap<String, FaceLook> {
+    Store::local()
+        .ok()
+        .and_then(|store| crate::people::team(&store).ok())
+        .map(|file| parse_looks(&file.to_string()))
+        .unwrap_or_default()
+}
+
 pub fn load_roster() -> Result<Vec<Teammate>, String> {
     let store = Store::local().map_err(|e| e.to_string())?;
     let file = crate::people::team(&store)?;

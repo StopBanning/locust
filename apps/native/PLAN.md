@@ -119,6 +119,8 @@ on 11 Nov, and the guard became a hook inside Claude Code, Codex and Copilot (`n
     the sidebar's head draws the mark and wordmark (`notes/C2-NOTES.md`).
   - **The shell, first part (C3).** The message box, the thread's head, your bubble, the approval card, the sidebar's
     rows and Home are on the kit, compared with Electron's frames in both themes (`notes/C3-NOTES.md`).
+  - **Faces (C4).** Every teammate shows its bot, as stills exported from Electron's own TeammateBot (440 bots), chosen
+    by a port of avatar.ts that matches Electron for 100 ids (`notes/C4-NOTES.md`).
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

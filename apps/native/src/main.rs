@@ -935,6 +935,7 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
         s.conversations.entry(t.id.clone()).or_default();
     }
     s.teammates = team;
+    s.looks = native::load_looks();
     s.selected = selected
         .as_deref()
         .and_then(|id| s.teammates.iter().position(|t| t.id == id))
