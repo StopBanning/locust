@@ -159,6 +159,23 @@ def main():
         f"{len(rows)} rows. Built: {t['done']} done, {t['partial']} partial, {t['missing']} missing. "
         f"Alone: {t['alone']} of the {built} built. Live: {t['live']}."
     )
+    grid = ROOT / "parity" / "commands.json"
+    if grid.exists():
+        import json
+        data = json.loads(grid.read_text(encoding="utf-8"))
+        listed = [l for l in (ROOT / "parity" / "commands-not-yet.txt").read_text(encoding="utf-8").splitlines()
+                  if l.strip() and not l.startswith("#")] if (ROOT / "parity" / "commands-not-yet.txt").exists() else []
+        n = len(data["cases"])
+        print(f"Command grid: {n - len(listed)} of {n} cases build what Electron {data['electronCommit']} builds.")
+    events = ROOT / "parity" / "events.json"
+    if events.exists():
+        import json
+        data = json.loads(events.read_text(encoding="utf-8"))
+        nyl = ROOT / "parity" / "events-not-yet.txt"
+        listed = [l for l in nyl.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")] if nyl.exists() else []
+        n = len(data["streams"])
+        print(f"Recorded streams: {n - len(listed)} of {n} read as Electron {data['electronCommit']} reads them; "
+              f"{len(data['later'])} two-way transcripts not checked yet.")
     tests = test_totals()
     if tests is not None:
         print("TypeScript test files: " + ", ".join(f"{v} {k}" for k, v in sorted(tests.items())) + f" ({sum(tests.values())} in all).")

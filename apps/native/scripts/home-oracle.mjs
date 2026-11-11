@@ -1,7 +1,10 @@
 // Execute the actual read-only Electron reducers on the same synthetic rows as Rust.
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const root = '/Users/locust/work/locust/apps/desktop/src/';
+// Electron's source in this repository (apps/desktop/src), or the checkout LOCUST_ELECTRON_CHECKOUT names.
+const root = process.env.LOCUST_ELECTRON_CHECKOUT
+  ? `${process.env.LOCUST_ELECTRON_CHECKOUT}/apps/desktop/src/`
+  : new URL('../../desktop/src/', import.meta.url).pathname;
 const load = file => stripTypeScriptTypes(readFileSync(root + file, 'utf8'));
 const url = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const list = url(load('renderer/src/conversationList.ts'));

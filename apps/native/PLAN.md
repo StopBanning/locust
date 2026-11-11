@@ -94,6 +94,13 @@ engine.
     window crate keeps drawing. Tests: 407 in the engine, 180 in the window, all passing. Release rebuild after
     touching one window file: 28.1 s before, 23.6 to 26.0 s after; after touching one engine file: 27.6 s before,
     31.2 s after (both crates rebuild).
+  - **Checks from the TypeScript (B0).** `scripts/command-grid.mjs` runs Electron's own command builders over 385
+    cases (7 agents, 5 modes, 11 option sets) into `parity/commands.json`; a Rust test builds each case the way the
+    engine does and lists the ones that differ in `parity/commands-not-yet.txt`. First count: 146 match, 239 not yet
+    (every Claude Code and Codex case, as the review predicted). `scripts/event-goldens.mjs` reads 37 recorded agent
+    streams with Electron's readers into `parity/events.json`; Rust's readers match none of them yet
+    (`parity/events-not-yet.txt`). Both lists may only shrink. Re-run either script with `--electron` on a newer
+    checkout (the grid also has `--compare`) to see what Electron changed.
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

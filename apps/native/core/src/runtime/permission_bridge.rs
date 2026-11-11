@@ -183,15 +183,20 @@ mod tests {
             std::os::unix::fs::PermissionsExt::mode(&fs::metadata(&bridge.dir).unwrap().permissions()) & 0o777,
             0o700
         );
+        let mut answered = Vec::new();
         for decision in [Decision::Deny, Decision::ApproveOnce] {
             let mut stream = UnixStream::connect(bridge.dir.join("host")).unwrap();
             writeln!(stream, "{}", json!({"tool_name":"Write","input":{"file_path":"/project/hello.txt","content":"hello\n"}})).unwrap();
-            let deadline = std::time::Instant::now() + Duration::from_secs(5);
-            while channel.waiting().is_empty() {
-                assert!(std::time::Instant::now() < deadline);
+            // Wait for THIS request: the one answered last round can still be listed for a moment under load.
+            let deadline = std::time::Instant::now() + Duration::from_secs(10);
+            let request = loop {
+                if let Some(r) = channel.waiting().into_iter().find(|r| !answered.contains(&r.approval_id)) {
+                    break r;
+                }
+                assert!(std::time::Instant::now() < deadline, "the bridge's request never reached the channel");
                 std::thread::sleep(Duration::from_millis(10));
-            }
-            let request = channel.waiting()[0].clone();
+            };
+            answered.push(request.approval_id.clone());
             channel
                 .decide(Answer::Decision {
                     approval_id: request.approval_id,

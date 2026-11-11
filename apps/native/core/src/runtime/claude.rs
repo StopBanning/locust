@@ -87,8 +87,8 @@ pub fn ask_args(model: Option<&str>) -> Vec<String> {
     args
 }
 
-pub fn approve_each_command(folder: &Path, model: Option<&str>) -> io::Result<Command> {
-    let mut c = command(folder, model)?;
+/// Approve-each argv: Ask's, with the editing tools named in place of the reading list.
+pub fn approve_each_args(model: Option<&str>) -> Vec<String> {
     let mut args = ask_args(model);
     let tools = args
         .iter()
@@ -98,9 +98,14 @@ pub fn approve_each_command(folder: &Path, model: Option<&str>) -> io::Result<Co
         + 1;
     args[tools] =
         "Read,Glob,Grep,Edit,Write,NotebookEdit,Bash,Task,Skill,WebSearch,WebFetch,mcp__*".into();
+    args
+}
+
+pub fn approve_each_command(folder: &Path, model: Option<&str>) -> io::Result<Command> {
+    let c = command(folder, model)?;
     // Rebuild rather than append a second --tools (which can change CLI parsing).
-    c = Command::new(c.get_program());
-    c.args(args)
+    let mut c = Command::new(c.get_program());
+    c.args(approve_each_args(model))
         .current_dir(folder)
         .env_remove("ANTHROPIC_API_KEY")
         .env_remove("CLAUDE_API_KEY");
@@ -488,8 +493,9 @@ mod tests {
 
     #[test]
     fn approve_each_exposes_writes_without_bypassing_permissions() {
-        let c = approve_each_command(Path::new("/tmp"), None).unwrap();
-        let args: Vec<_> = c.get_args().map(|s| s.to_str().unwrap()).collect();
+        // The argv alone, so the test needs no Claude Code on PATH.
+        let owned = approve_each_args(None);
+        let args: Vec<&str> = owned.iter().map(String::as_str).collect();
         let tools = args[args.iter().position(|s| *s == "--tools").unwrap() + 1];
         assert!(tools.contains("Write") && tools.contains("Bash"));
         assert!(

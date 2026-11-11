@@ -66,6 +66,10 @@ mod cursor_tests;
 mod muse_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod command_grid_tests;
+#[cfg(test)]
+mod event_goldens_tests;
 
 pub mod permission_bridge;
 
