@@ -21,6 +21,7 @@ const WORKSPACE: &str = "/work/project";
 const BRIDGE: &str = "/locust/bridge/mcp.json";
 const BROWSER: &str = "/locust/browser/mcp.json";
 const GUARD_SETTINGS: &str = "/locust/guard/settings.json";
+const GUARD_PLUGIN: &str = "/locust/guard";
 const BROWSER_COPILOT: &str = "/locust/browser/copilot-mcp.json";
 const OPENCODE_GUARD: &str = "file:///guard/locust-command-guard.mjs";
 const COPILOT_SESSION: &str = "00000000-0000-4000-8000-000000000000";
@@ -104,6 +105,10 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
         }
         other => panic!("no Rust adapter for {other}"),
     };
+    // native.rs: Copilot's guard plugin, appended before the browser registration.
+    if runtime == "copilot" && case["guard"].as_bool().unwrap() {
+        args.extend(["--plugin-dir".into(), GUARD_PLUGIN.into()]);
+    }
     // browser_tools::Registration::prepare
     if browser {
         match runtime {

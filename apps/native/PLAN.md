@@ -81,10 +81,10 @@ rather than behaviour. The milestones above stay; the work towards them now runs
 | D. The rest of the map | The remaining rows, with overlapping features simplified in Electron first | No row missing |
 | E. Ship | Windows and Linux, the updater, moving the data folder, the switch | M7 |
 
-Known gaps the review found, now in the rows: the command guard is a hook inside Claude Code only, not Codex or
-Copilot; Claude Code has no skill or reference folders, forks or connectors; there is no door server, hand-over,
+Known gaps the review found, now in the rows: OpenCode's command guard is still the JavaScript plugin; Claude Code has
+no skill or reference folders, forks or connectors; there is no door server, hand-over,
 carry-on or notification on the native engine. Claude Code's modes and follow-ups and Codex's plan tool were fixed
-on 11 Nov (`notes/B3-NOTES.md`).
+on 11 Nov, and the guard became a hook inside Claude Code, Codex and Copilot (`notes/B3-NOTES.md`).
 
 ## Status
 
@@ -106,6 +106,9 @@ on 11 Nov (`notes/B3-NOTES.md`).
     `--resume` on a follow-up, and Locust's command guard as a hook served by this binary. The grid went from 146 to
     227 of 385: Codex 55 of 55, Claude Code 26 of 55. Live tests on the real CLIs passed, including a resumed Claude
     session. Tests: 419 in the engine, 180 in the window.
+  - **The guard inside the agents.** Codex gets it in its thread config (only when no other Codex hook would load) and
+    Copilot as a plugin folder, as Electron does. Live, each of Claude Code, Codex and Copilot in Auto had a push from a
+    fix copy refused by the hook. Grid: 264 of 385. Tests: 421 in the engine, 180 in the window.
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

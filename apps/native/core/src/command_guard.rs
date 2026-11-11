@@ -584,6 +584,7 @@ pub fn hook_main() {
 /// PreToolUse hook on the shell tools. Claude Code runs a hook in a POSIX shell (Git Bash on Windows), so the path is
 /// quoted for one, with forward slashes.
 pub fn claude_settings(executable: &std::path::Path) -> String {
+    // Claude Code runs hooks in a POSIX shell everywhere (Git Bash on Windows), so not hook_command's PowerShell form.
     let path = executable.to_string_lossy().replace('\\', "/");
     let mut quoted = String::from("\"");
     for c in path.chars() {
@@ -597,6 +598,169 @@ pub fn claude_settings(executable: &std::path::Path) -> String {
         "hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": format!("{quoted} --command-guard"), "timeout": 15}]}]}
     }))
     .expect("plain JSON")
+}
+
+/// command-guard.ts guardCommand: the hook's command line. Codex runs it with PowerShell on Windows (measured on
+/// 0.162.1) and a POSIX shell elsewhere.
+pub fn hook_command(executable: &std::path::Path) -> String {
+    let path = executable.to_string_lossy().replace('\\', "/");
+    if cfg!(windows) {
+        format!("& '{}' '--command-guard'", path.replace('\'', "''"))
+    } else {
+        let mut quoted = String::from("\"");
+        for c in path.chars() {
+            if matches!(c, '"' | '$' | '`') {
+                quoted.push('\\');
+            }
+            quoted.push(c);
+        }
+        format!("{quoted}\" --command-guard")
+    }
+}
+
+/// command-guard.ts codexCommandGuardConfig: the config a Codex thread is started or resumed with. Codex runs only
+/// hooks the person has reviewed, and `bypass_hook_trust` skips that review for every hook the thread loads, so this
+/// is sent only when `other_codex_hooks` finds none.
+pub fn codex_config(executable: &std::path::Path) -> serde_json::Value {
+    serde_json::json!({
+        "bypass_hook_trust": true,
+        "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": hook_command(executable), "timeout": 15}]}]}
+    })
+}
+
+/// command-guard.ts otherCodexHooks: every hook Codex might load besides Locust's, by where Codex keeps them. Any of
+/// them, or any place that cannot be read, and the run goes without the guard rather than run someone's unreviewed
+/// hook. The plugins Codex ships itself (`plugins/cache/openai-bundled`) are skipped: each declares a hook and they
+/// are on by default.
+pub fn other_codex_hooks(codex_home: &std::path::Path, folder: &std::path::Path) -> Vec<String> {
+    use std::path::Path;
+    let mut found: Vec<String> = Vec::new();
+    let names = |folder: &Path, found: &mut Vec<String>| -> Vec<(String, bool, bool)> {
+        match std::fs::read_dir(folder) {
+            Ok(entries) => entries
+                .flatten()
+                .filter_map(|e| {
+                    let kind = e.file_type().ok()?;
+                    Some((e.file_name().to_string_lossy().into_owned(), kind.is_file(), kind.is_dir()))
+                })
+                .collect(),
+            Err(e) => {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    found.push(format!("{} (could not be read)", folder.display()));
+                }
+                Vec::new()
+            }
+        }
+    };
+    let names_hooks = |path: &Path, found: &mut Vec<String>| -> bool {
+        match std::fs::read_to_string(path) {
+            Ok(text) => crate::invariants::regex(r#"(?m)^\s*\[\s*"?hooks\b|^\s*"?hooks"?\s*[.=]"#).is_match(&text),
+            Err(_) => {
+                found.push(format!("{} (could not be read)", path.display()));
+                false
+            }
+        }
+    };
+    for (name, file, _) in names(codex_home, &mut found) {
+        let path = codex_home.join(&name);
+        if file && name.ends_with(".toml") && names_hooks(&path, &mut found) {
+            found.push(path.display().to_string());
+        }
+    }
+    for dir in [codex_home.to_path_buf(), codex_home.join("hooks")] {
+        for (name, file, _) in names(&dir, &mut found) {
+            if file && name == "hooks.json" {
+                found.push(dir.join(name).display().to_string());
+            }
+        }
+    }
+    let plugins = codex_home.join("plugins");
+    let bundled = plugins.join("cache").join("openai-bundled");
+    let mut stack = vec![(plugins, 0usize)];
+    while let Some((dir, depth)) = stack.pop() {
+        if depth > 8 || dir == bundled {
+            continue;
+        }
+        for (name, file, is_dir) in names(&dir, &mut found) {
+            let path = dir.join(&name);
+            if file && name == "hooks.json" {
+                found.push(path.display().to_string());
+            } else if file && name == "plugin.json" {
+                match std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()) {
+                    Some(v) => {
+                        let declared = &v["hooks"];
+                        if !(declared.is_null() || declared.as_object().is_some_and(|o| o.is_empty())) {
+                            found.push(path.display().to_string());
+                        }
+                    }
+                    None => found.push(format!("{} (could not be read)", path.display())),
+                }
+            } else if is_dir && (!name.starts_with('.') || name == ".codex-plugin" || name == ".claude-plugin") {
+                stack.push((path, depth + 1));
+            }
+        }
+    }
+    let mut at = Some(folder);
+    for _ in 0..64 {
+        let Some(dir) = at else { break };
+        let project = dir.join(".codex");
+        if project != codex_home {
+            for (name, file, _) in names(&project, &mut found) {
+                let path = project.join(&name);
+                if file && name == "hooks.json" {
+                    found.push(path.display().to_string());
+                }
+                if file && name.ends_with(".toml") && names_hooks(&path, &mut found) {
+                    found.push(path.display().to_string());
+                }
+            }
+        }
+        at = dir.parent();
+    }
+    found
+}
+
+/// The guard for a Codex turn in `folder`, or `None` when Codex would load another hook too (the run then goes
+/// without it, as Electron's does) or this binary cannot be found.
+pub fn codex_config_for(folder: &std::path::Path) -> Option<serde_json::Value> {
+    let home = std::env::var_os("CODEX_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".codex")))?;
+    if !other_codex_hooks(&home, folder).is_empty() {
+        return None;
+    }
+    crate::runtime::permission_bridge::bridge_executable().ok().map(|exe| codex_config(&exe))
+}
+
+/// command-guard.ts copilotCommandGuardHooks. Unlike Claude Code and Codex, Copilot refuses the command when a hook
+/// fails (measured on 1.0.95), so a guard that could not start would stop every command: the line cannot fail.
+pub fn copilot_hooks(executable: &std::path::Path) -> String {
+    let command = hook_command(executable);
+    let line = if cfg!(windows) { format!("try {{ {command} }} catch {{}}; exit 0") } else { format!("{command} || true") };
+    serde_json::to_string_pretty(&serde_json::json!({
+        "hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": line, "timeout": 15}]}]}
+    }))
+    .expect("plain JSON")
+}
+
+/// command-guard.ts writeCopilotCommandGuard: the plugin folder every Copilot run is given with `--plugin-dir`, in
+/// Claude Code's plugin format. Returns the folder's path.
+pub fn write_copilot_plugin(dir: &std::path::Path, executable: &std::path::Path) -> std::io::Result<String> {
+    let plugin = dir.join("copilot-command-guard");
+    std::fs::create_dir_all(plugin.join(".claude-plugin"))?;
+    std::fs::create_dir_all(plugin.join("hooks"))?;
+    let manifest = format!(
+        "{}\n",
+        serde_json::to_string_pretty(&serde_json::json!({"name": "locust-command-guard", "version": "1.0.0", "description": "Locust refuses a command that would end a program the person runs."})).expect("plain JSON")
+    );
+    for (path, text) in [(plugin.join(".claude-plugin/plugin.json"), manifest), (plugin.join("hooks/hooks.json"), copilot_hooks(executable))] {
+        if std::fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
+            let temp = path.with_extension(format!("{}.tmp", std::process::id()));
+            std::fs::write(&temp, text.as_bytes())?;
+            std::fs::rename(&temp, &path)?;
+        }
+    }
+    plugin.into_os_string().into_string().map_err(|_| std::io::Error::other("Guard plugin path is not UTF-8"))
 }
 
 /// Writes the settings into `dir` (the native data folder's `guard`) and returns the file's path.
@@ -705,5 +869,45 @@ mod tests {
         assert_eq!(hook["matcher"], "Bash|PowerShell");
         assert_eq!(hook["hooks"][0]["command"], "\"/Apps/Lo\\$cust \\\"x\\\"/locust-native\" --command-guard");
         assert_eq!(hook["hooks"][0]["timeout"], 15);
+    }
+
+    #[test]
+    fn codex_gets_the_guard_only_where_no_other_hook_would_load() {
+        let root = std::env::temp_dir().join(format!("lcg-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+        let home = root.join("codex-home");
+        let work = root.join("work/project");
+        std::fs::create_dir_all(home.join("plugins/cache/openai-bundled/browser/.codex-plugin")).unwrap();
+        std::fs::create_dir_all(&work).unwrap();
+        std::fs::write(home.join("config.toml"), "model = \"x\"\n[mcp_servers.a]\ncommand = \"a\"\n").unwrap();
+        // Codex's own bundled plugins declare hooks and are skipped.
+        std::fs::write(home.join("plugins/cache/openai-bundled/browser/.codex-plugin/plugin.json"), r#"{"hooks":{"Stop":[]}}"#).unwrap();
+        assert!(other_codex_hooks(&home, &work).is_empty());
+        let v = codex_config(std::path::Path::new("/Apps/locust-native"));
+        assert_eq!(v["bypass_hook_trust"], true);
+        assert_eq!(v["hooks"]["PreToolUse"][0]["matcher"], "Bash");
+        // A hook in the person's config, an installed plugin's, or a project's .codex above the folder each stop it.
+        std::fs::write(home.join("config.toml"), "[hooks]\nPreToolUse = []\n").unwrap();
+        assert_eq!(other_codex_hooks(&home, &work).len(), 1);
+        std::fs::write(home.join("config.toml"), "model = \"x\"\n").unwrap();
+        std::fs::create_dir_all(home.join("plugins/mine/.codex-plugin")).unwrap();
+        std::fs::write(home.join("plugins/mine/.codex-plugin/plugin.json"), r#"{"hooks":{"PreToolUse":[{}]}}"#).unwrap();
+        assert_eq!(other_codex_hooks(&home, &work).len(), 1);
+        std::fs::write(home.join("plugins/mine/.codex-plugin/plugin.json"), r#"{"hooks":{}}"#).unwrap();
+        std::fs::create_dir_all(root.join("work/.codex")).unwrap();
+        std::fs::write(root.join("work/.codex/hooks.json"), "{}").unwrap();
+        assert_eq!(other_codex_hooks(&home, &work).len(), 1);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn copilot_gets_a_plugin_whose_hook_cannot_fail() {
+        let root = std::env::temp_dir().join(format!("lcp-guard-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+        let plugin = write_copilot_plugin(&root, std::path::Path::new("/Apps/locust-native")).unwrap();
+        let manifest: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(format!("{plugin}/.claude-plugin/plugin.json")).unwrap()).unwrap();
+        assert_eq!(manifest["name"], "locust-command-guard");
+        let hooks: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(format!("{plugin}/hooks/hooks.json")).unwrap()).unwrap();
+        assert_eq!(hooks["hooks"]["PreToolUse"][0]["matcher"], "Bash|PowerShell");
+        assert_eq!(hooks["hooks"]["PreToolUse"][0]["hooks"][0]["command"], "\"/Apps/locust-native\" --command-guard || true");
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

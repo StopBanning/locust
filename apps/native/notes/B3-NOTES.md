@@ -1,4 +1,4 @@
-# B3, first part: Codex and Claude Code build what Electron builds (11 Nov 2026)
+# B3, first part: Codex and Claude Code build what Electron builds, and the guard runs inside the agents (11 Nov 2026)
 
 The command grid from B0 found every Codex and every Claude Code case different from Electron. This round closes the
 differences that come from the engine itself, and leaves listed the ones that need a feature the engine does not have.
@@ -53,6 +53,24 @@ differences that come from the engine itself, and leaves listed the ones that ne
 - `--permission-mode default` was run once by hand: Claude Code 2.1.322 lists `manual` among its choices, not
   `default`, but still accepts `default`, which Electron sends.
 
+## Second part, the same day: the guard inside Codex and Copilot
+
+- **Codex.** `command_guard::codex_config` is `codexCommandGuardConfig`: `bypass_hook_trust` and the hook, laid over
+  the thread's config at `thread/start` and `thread/resume` (`Codex::with_thread_config`). `other_codex_hooks` ports
+  `otherCodexHooks` (the person's `.toml` files, `hooks.json`, installed plugins except Codex's bundled ones, and any
+  `.codex/` above the folder); if it finds one, or a place it cannot read, the run goes without the guard, since the
+  bypass would skip the review of their hook too. This Mac has none, so its Codex runs get the guard.
+- **Copilot.** `write_copilot_plugin` writes `writeCopilotCommandGuard`'s folder (a `.claude-plugin/plugin.json` and
+  `hooks/hooks.json`), and every Copilot turn gets `--plugin-dir` for it before the browser's config. The hook line
+  ends `|| true`, because Copilot refuses a command whose hook fails.
+- **Grid:** 264 of 385 (Copilot added 37). Left per agent: Claude Code 29, OpenCode 25, Cursor 22, Antigravity 21,
+  Copilot 13, Muse 11.
+- **Live:** `real_claude_guard_refuses_a_push_from_a_fix_copy`, `real_codex_guard_refuses_a_push_from_a_fix_copy` and
+  `real_copilot_guard_refuses_a_push_from_a_fix_copy` (Copilot CLI 1.0.109). Each runs the agent in Auto, where
+  nothing asks first, in a git folder named like a Scout fix copy, and asks for `git push origin main`; each ledger
+  holds the guard's refusal and a completed turn.
+- Tests: 421 in the engine (18 ignored live tests), 180 in the window, all passing.
+
 ## Not checked, not done
 
 - No turn ran in the window itself; the live tests drive the same `send` the window calls.
@@ -60,5 +78,8 @@ differences that come from the engine itself, and leaves listed the ones that ne
   `turn/plan/updated`.
 - The hook takes about 0.8 s from start to answer on this Mac, mostly the binary starting. Claude Code allows 15 s.
 - The hook does not read the process table, so by-id kills of processes the run did not start are let through.
-- Skills, reference folders, forks and connectors for Claude Code; the guard as a hook for Codex and Copilot.
+- Skills, reference folders, forks and connectors for Claude Code.
+- OpenCode still loads the JavaScript guard plugin, which needs Node.
+- Rust gives Codex `read_only_config` (the person's MCP programs off) in every mode; Electron does it in Ask and Plan
+  only. Not changed here; it needs its own grid row, since it travels over the protocol, not the command line.
 - Windows: the bridge and browser still use Unix sockets.

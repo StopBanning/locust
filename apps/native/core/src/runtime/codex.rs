@@ -33,6 +33,9 @@ pub struct Codex {
     run_id: String,
     mode: Mode,
     approval_lifecycle: ApprovalLifecycle,
+    /// Config for this thread only, laid over the person's own (codex-app-server-run.ts `threadConfig`): Locust's
+    /// command guard. Nothing is written to their config.toml.
+    thread_config: Option<Value>,
 }
 
 fn err(message: impl ToString) -> io::Error {
@@ -129,7 +132,12 @@ impl Codex {
             run_id: String::new(),
             mode: Mode::Ask,
             approval_lifecycle,
+            thread_config: None,
         })
+    }
+    pub fn with_thread_config(mut self, config: Option<Value>) -> Self {
+        self.thread_config = config;
+        self
     }
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
         self.cancel = Some(flag);
@@ -311,6 +319,11 @@ impl Runtime for Codex {
         self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
         let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
         let mut config = read_only_config(&settings["config"])?;
+        if let Some(Value::Object(extra)) = &self.thread_config {
+            for (key, value) in extra {
+                config[key] = value.clone();
+            }
+        }
         if let Some(browser) = crate::browser_tools::config(&turn.mission_id) {
             config["mcp_servers.locust_browser"] = browser;
             config["mcp_servers.locust_browser.enabled"] = json!(true);

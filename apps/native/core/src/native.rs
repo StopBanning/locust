@@ -864,6 +864,13 @@ pub fn send(mut job: Send) -> Result<Started, String> {
     )
     .map_err(|e| e.to_string())?;
     command.current_dir(&folder);
+    // No teammate ends the person's browser, Copilot too (0.721): the guard as a plugin, before the browser's config.
+    if runtime_name == "copilot" {
+        let plugin = crate::runtime::permission_bridge::bridge_executable()
+            .and_then(|exe| crate::command_guard::write_copilot_plugin(&store.root().join("guard"), &exe))
+            .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;
+        command.args(["--plugin-dir", &plugin]);
+    }
     let anchor = job.conversation.clone().unwrap_or_else(|| id.clone());
     let flag = Arc::new(AtomicBool::new(false));
     let registered = with_running(|m| {
@@ -1315,8 +1322,10 @@ fn run_turn(
         );
         return;
     }
+    // No teammate ends the person's browser, Codex too (0.720): the guard as a hook in this thread's config.
+    let guard = crate::command_guard::codex_config_for(&turn.folder);
     let mut runtime = match Codex::spawn(&mut command) {
-        Ok(r) => r.with_cancel(flag.clone()),
+        Ok(r) => r.with_cancel(flag.clone()).with_thread_config(guard),
         Err(e) => {
             record_failure(&mut writer, false, &e);
             return finish(&mut writer, &mut registered, &channel, &mission_id);

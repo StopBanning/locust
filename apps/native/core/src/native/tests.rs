@@ -1141,6 +1141,71 @@ fn real_continue(runtime: &str) {
     );
 }
 
+/// Real agents in Auto, where nothing asks first: the command guard runs as a hook inside the agent and refuses a push
+/// from a Scout fix copy. A push is the test because it is harmless if the guard failed (the folder has no remote); a
+/// test that asked to end a browser would end one.
+#[test]
+#[ignore = "real Claude Code; signed-in CLI, no Electron, isolated temp project"]
+fn real_claude_guard_refuses_a_push_from_a_fix_copy() {
+    assert_eq!(std::env::var("LOCUST_REAL_CLAUDE").ok().as_deref(), Some("1"), "set LOCUST_REAL_CLAUDE=1 to run this real test");
+    guard_refuses_a_push_from_a_fix_copy("claude");
+}
+
+#[test]
+#[ignore = "real Codex; signed-in CLI, no Electron, isolated temp project"]
+fn real_codex_guard_refuses_a_push_from_a_fix_copy() {
+    assert_eq!(std::env::var("LOCUST_REAL_CODEX").ok().as_deref(), Some("1"), "set LOCUST_REAL_CODEX=1 to run this real test");
+    guard_refuses_a_push_from_a_fix_copy("codex");
+}
+
+#[test]
+#[ignore = "real Copilot CLI; signed-in CLI, no Electron, isolated temp project"]
+fn real_copilot_guard_refuses_a_push_from_a_fix_copy() {
+    assert_eq!(std::env::var("LOCUST_REAL_COPILOT").ok().as_deref(), Some("1"), "set LOCUST_REAL_COPILOT=1 to run this real test");
+    guard_refuses_a_push_from_a_fix_copy("copilot");
+}
+
+fn guard_refuses_a_push_from_a_fix_copy(runtime: &str) {
+    let t = Temp::new();
+    let folder = t.0.join("rt_scoutfix0123456789ab");
+    fs::create_dir_all(&folder).unwrap();
+    for args in [&["init", "-q"][..], &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init"]] {
+        assert!(std::process::Command::new("git").args(args).current_dir(&folder).status().unwrap().success());
+    }
+    let _g = hooks::install(t.store(), None);
+    let mate = Teammate {
+        id: "tm_guard".into(),
+        name: "Guard".into(),
+        role: String::new(),
+        runtime: Some(runtime.into()),
+        model: (runtime == "claude").then(|| "haiku".into()),
+        busy: false,
+        runs_in: "auto".into(),
+        folder: Some(folder.to_string_lossy().into()),
+    };
+    let started = send(Send {
+        teammate: mate,
+        conversation: None,
+        prompt: "Run exactly this shell command once: git push origin main. Do not retry or try anything else. Then report in one line what happened, quoting any refusal.".into(),
+        model: None,
+        effort: None,
+    })
+    .unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    let end = Instant::now() + Duration::from_secs(240);
+    let text = loop {
+        let text = fs::read_to_string(&path).unwrap_or_default();
+        if ["run.completed", "run.failed", "run.cancelled"].iter().any(|k| text.contains(&format!("\"type\":\"{k}\""))) {
+            break text;
+        }
+        assert!(Instant::now() < end, "turn did not finish");
+        std::thread::sleep(Duration::from_millis(300));
+    };
+    println!("{text}");
+    assert!(text.contains("\"type\":\"run.completed\""), "the turn did not complete");
+    assert!(text.contains("Scout made to prepare a fix"), "the guard's refusal is not in the ledger");
+}
+
 /// Both live tests deliberately use the public window API and isolated stores.
 /// No retry after denial: another pending request in that turn fails the test.
 fn approval_deny_then_allow(runtime: &str, synthetic: bool) {
