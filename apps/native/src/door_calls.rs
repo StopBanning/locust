@@ -11,17 +11,18 @@ fn calls_into_electrons_door_only_shrink() {
     let allowed: &[(&str, usize)] = &[
         // choose_engine, send (door path), open_models, stop (a turn this process does not own), carry,
         // refresh_recent (fallback), request_reply, open_recent, poll (model list).
-        ("main.rs", 9),
+        ("src/main.rs", 9),
         // Quick Ask runs only through the door today.
-        ("quick.rs", 3),
+        ("src/quick.rs", 3),
         // The live scene, which shows the real team through the door.
-        ("ui/scenes.rs", 1),
+        ("src/ui/scenes.rs", 1),
         // The ignored real test of the door client itself.
-        ("engine.rs", 1),
+        ("core/src/engine.rs", 1),
     ];
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    // Both crates: the window (src) and the engine (core/src).
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut found = std::collections::BTreeMap::new();
-    let mut stack = vec![root.clone()];
+    let mut stack = vec![root.join("src"), root.join("core/src")];
     while let Some(dir) = stack.pop() {
         for entry in std::fs::read_dir(&dir).unwrap() {
             let path = entry.unwrap().path();
@@ -31,7 +32,7 @@ fn calls_into_electrons_door_only_shrink() {
                 let text = std::fs::read_to_string(&path).unwrap();
                 let n = text.matches(&needle).count();
                 if n > 0 {
-                    let rel = path.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/");
+                    let rel = path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
                     found.insert(rel, n);
                 }
             }

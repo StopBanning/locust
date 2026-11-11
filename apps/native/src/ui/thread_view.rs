@@ -152,7 +152,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             );
         }
 
-        if let Some(context) = context_usage::control(s, p) {
+        if let Some(context) = context_ring::control(s, p) {
             status = status.child(context);
         }
         let placeholder = if own_command::bang(&s.draft.text).is_some() {

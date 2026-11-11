@@ -589,3 +589,23 @@ pub(super) fn undo_light_scene(s: &mut State) {
     undo_scene(s);
     s.appearance = Some(false);
 }
+
+#[cfg(test)]
+mod tests {
+    // Syntax colour is the toolkit's job, so this check of a diff's two sides lives with the window.
+    #[test]
+    fn a_change_is_coloured_as_two_whole_sides() {
+        let f = crate::changes::parse("--- a/cart.ts\n+++ b/cart.ts\n@@ -1,4 +1,4 @@\n /* cart,\n    priced */\n-export const total = 2\n+export const total = 1\n const label = \"done\"\n").remove(0);
+        let h = &f.hunks[0];
+        let (b, a) = h.sides();
+        assert!(b.contains("total = 2"));
+        assert!(a.contains("total = 1"));
+        for code in [a, b] {
+            let highlights = rune_kit::syntax::highlight(Some("ts"), &code);
+            assert!(!highlights.is_empty());
+            for (range, _) in highlights.iter() {
+                assert!(code.get(range.clone()).is_some())
+            }
+        }
+    }
+}

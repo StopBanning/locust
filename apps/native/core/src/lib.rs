@@ -1,0 +1,44 @@
+//! Locust's engine: everything the app does that is not drawing. It must never depend on the UI toolkit;
+//! `cargo tree -p locust-core` shows no Rune.
+
+pub mod approval;
+pub mod approval_rule_store;
+pub mod approval_rules;
+pub mod away;
+pub mod browser;
+pub mod browser_tools;
+pub mod changes;
+pub mod checkpoints;
+pub mod command_guard;
+pub mod command_plain;
+pub mod command_reach;
+pub mod commit_draft;
+pub mod context_usage;
+pub mod engine;
+pub mod folder_commit;
+pub mod folders;
+pub mod invariants;
+pub mod ledger;
+pub mod ledger_write;
+pub mod named_folder;
+pub mod native;
+pub mod office;
+pub mod own_command;
+pub mod page_preview;
+pub mod pdf;
+pub mod people;
+pub mod recovery;
+pub mod routines;
+pub mod run_cli;
+pub mod runtime;
+pub mod runtime_terminal;
+pub mod secrets;
+pub mod shell_path;
+pub mod spend;
+pub mod store;
+pub mod terminal;
+#[cfg(any(test, feature = "test-hooks"))]
+pub mod test_isolation;
+pub mod usage;
+pub mod usage_ledger;
+pub mod workspace_settings;

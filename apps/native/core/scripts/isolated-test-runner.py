@@ -1,0 +1,1 @@
+../../scripts/isolated-test-runner.py

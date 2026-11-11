@@ -8,7 +8,7 @@ Path convention: renderer/, main/ and shared/ resolve under `/Users/locust/work/
 
 **Updated 11 Nov 2026.** The rows are kept in [`parity/rows.tsv`](parity/rows.tsv); the tables in sections 1 and 3 are generated from it by `python3 scripts/recount.py`, and `python3 scripts/recount.py --check` fails when they drift. Edit the data file, not the tables.
 
-Native has its own engine (`native.rs`, `runtime/`): it runs Codex, Claude Code, OpenCode, Kilo, Cursor, Copilot, Antigravity, Muse and ACP agents itself and writes its own ledgers, which Electron's reader accepts. When Electron's door answers, the window uses Electron's engine instead (`main.rs` `choose_engine`); with Electron quit, or `LOCUST_NATIVE_ENGINE=1`, it uses its own. Round notes are in [`notes/`](notes).
+Native has its own engine (the `locust-core` crate in `core/`): it runs Codex, Claude Code, OpenCode, Kilo, Cursor, Copilot, Antigravity, Muse and ACP agents itself and writes its own ledgers, which Electron's reader accepts. When Electron's door answers, the window uses Electron's engine instead (`main.rs` `choose_engine`); with Electron quit, or `LOCUST_NATIVE_ENGINE=1`, it uses its own. Round notes are in [`notes/`](notes).
 
 Each row has three marks:
 
@@ -20,7 +20,7 @@ Each row has three marks:
 
 **done** = stated feature implemented; **partial** = subset implemented, with the gap in the cell; **missing** = no equivalent native surface or driver. Alone and Live are explained in the overview. Engine = requires runtime, persistence, filesystem mutation or OS integration; no = rendering/interaction over available data. Related release additions share a feature row.
 
-Native status evidence: each cell names its module or round notes; the engine lives in `native/src/native.rs`, `native/src/runtime/` and `native/src/ledger.rs`, the door client in `native/src/engine.rs`. Starting an Electron-backed agent does not implement its approval, settings or development-tool UI.
+Native status evidence: each cell names its module or round notes; the engine is its own crate under `native/core/src/` (`native.rs`, `runtime/`, `ledger.rs`; the door client is `engine.rs`), and the window is `native/src/`. Starting an Electron-backed agent does not implement its approval, settings or development-tool UI.
 
 ### Area 1: Conversations & Thread Rendering
 

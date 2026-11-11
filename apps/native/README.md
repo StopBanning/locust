@@ -24,6 +24,9 @@ through that local door instead, so the two never run the same teammate twice. W
 a model for one turn, the model list, carrying a conversation on with another agent, the hand-over brief, Quick Ask
 and `--ask`.
 
+The code is two crates. `core/` (`locust-core`) is the engine: agent drivers, ledgers, approvals and the command
+guard, stores, routines, usage. It does not depend on the UI toolkit. The window (`src/`, `locust-native`) draws it.
+
 The Rust app never writes Electron's data. It reads Electron's folder and writes its own (`LOCUST_NATIVE_DATA`, by
 default `<Electron's data folder>-native`).
 
@@ -65,7 +68,7 @@ Tests. Electron's own ledger reader checks what Rust writes when `LOCUST_TEST_TS
 `packages/mission-store/dist/index.js`:
 
 ```bash
-cargo test --release
+cargo test --release --workspace
 ```
 
 ## Benchmark

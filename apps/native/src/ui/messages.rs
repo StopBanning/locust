@@ -124,7 +124,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         };
         messages = messages.child(content.key(key));
     }
-    if let Some(card) = recovery::card(s, p) {
+    if let Some(card) = recovery_card::card(s, p) {
         messages = messages.child(card);
     }
     messages.child(approval_card(s, p))

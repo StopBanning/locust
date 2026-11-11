@@ -1,49 +1,70 @@
-mod browser;
-mod page_preview;
-mod browser_tools;
+use locust_core::{
+    approval,
+    approval_rule_store,
+    approval_rules,
+    away,
+    browser,
+    browser_tools,
+    changes,
+    checkpoints,
+    commit_draft,
+    context_usage,
+    engine,
+    folder_commit,
+    folders,
+    invariants,
+    ledger,
+    named_folder,
+    native,
+    office,
+    own_command,
+    pdf,
+    people,
+    recovery,
+    routines,
+    run_cli,
+    runtime,
+    runtime_terminal,
+    shell_path,
+    store,
+    terminal,
+    usage,
+    usage_ledger,
+    workspace_settings,
+};
+#[cfg(test)]
+use locust_core::ledger_write;
 #[cfg(target_os = "macos")]
 mod browser_mac;
 #[path = "ui/browser_panel.rs"]
 mod browser_panel;
-#[path = "ui/context_usage.rs"]
-mod context_usage;
-mod invariants;
+#[path = "ui/context_ring.rs"]
+mod context_ring;
+#[path = "ui/recovery_card.rs"]
+mod recovery_card;
 #[path = "ui/keyboard_sheet.rs"]
 mod keyboard_sheet;
 mod keyboard_shortcuts;
 mod keychain_note;
-mod own_command;
 #[path = "ui/home_panel.rs"]
 mod home_panel;
-mod people;
 #[path = "ui/people_panel.rs"]
 mod people_panel;
-#[path = "ui/recovery.rs"]
-mod recovery;
 #[path = "ui/reply_actions.rs"]
 mod reply_actions;
-mod routines;
 #[path = "ui/routines_panel.rs"]
 mod routines_panel;
-mod runtime_terminal;
 #[path = "ui/scenes.rs"]
 mod scenes;
 mod settings_pages;
 #[path = "ui/settings_panel.rs"]
 mod settings_panel;
-mod spend;
-mod terminal;
 #[path = "ui/terminal_panel.rs"]
 mod terminal_panel;
 #[cfg(test)]
 mod door_calls;
-#[cfg(test)]
-mod test_isolation;
-mod usage;
-mod usage_ledger;
 #[path = "ui/usage_panel.rs"]
 mod usage_panel;
-mod workspace_settings;
 use scenes::*;
 #[path = "ui/composer_wiring.rs"]
 mod composer_wiring;
@@ -86,43 +107,19 @@ use thread_view::*;
 mod app_state;
 use app_state::*;
 
-mod approval;
-mod approval_rule_store;
-mod approval_rules;
-mod away;
 mod boot_view;
 mod changelog;
-mod changes;
-mod commit_draft;
-mod folder_commit;
-mod shell_path;
 #[path = "ui/changes_panel.rs"]
 mod changes_panel;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
-mod checkpoints;
 mod diagram;
 mod math_tex;
-mod pdf;
-mod office;
 mod file_menu;
-mod command_guard;
-mod command_plain;
-mod command_reach;
 mod composer;
 mod conversation_board;
-mod engine;
-mod folders;
-mod ledger;
-mod ledger_write;
-mod named_folder;
-mod native;
 mod quick;
-mod run_cli;
-mod runtime;
-mod secrets;
 mod starters;
-mod store;
 
 use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use native::Kind;

@@ -1810,10 +1810,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "locust-native"
+name = "locust-core"
 version = "0.1.0"
 dependencies = [
- "block2 0.6.2",
  "calamine",
  "chrono",
  "ctrlc",
@@ -1822,8 +1821,27 @@ dependencies = [
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "objc2-pdf-kit",
- "objc2-web-kit",
  "portable-pty",
+ "regex",
+ "serde_json",
+ "sha2 0.10.9",
+ "ureq",
+ "url",
+ "vt100",
+ "zip 2.6.1",
+]
+
+[[package]]
+name = "locust-native"
+version = "0.1.0"
+dependencies = [
+ "block2 0.6.2",
+ "chrono",
+ "locust-core",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "objc2-web-kit",
  "ratex-layout",
  "ratex-parser",
  "ratex-render",
@@ -1834,10 +1852,8 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "unicode-normalization",
- "ureq",
  "url",
  "vt100",
- "zip 2.6.1",
 ]
 
 [[package]]

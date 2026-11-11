@@ -49,7 +49,7 @@ jobs:
         working-directory: .
         run: |
           pnpm install --frozen-lockfile
-          pnpm --filter @teammate/mission-store build
+          pnpm --filter "@teammate/mission-store..." build
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: actions/cache@v4
@@ -62,7 +62,12 @@ jobs:
       - name: Tests
         env:
           LOCUST_TEST_TS_READER: ${{ github.workspace }}/packages/mission-store/dist/index.js
-        run: cargo test --release
+        run: cargo test --release --workspace
+      - name: The engine does not depend on the UI toolkit
+        run: |
+          if cargo tree -p locust-core -e normal,build,dev | grep -i rune; then
+            echo "locust-core depends on Rune"; exit 1
+          fi
       - name: Binary size
         run: |
           size=$(stat -f %z target/release/locust-native)
@@ -85,7 +90,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          cargo check --all-targets --message-format short 2> check.log
+          cargo check --workspace --all-targets --message-format short 2> check.log
           status=$?
           {
             echo "### ${{ matrix.os }}: cargo check exit $status"
@@ -95,5 +100,5 @@ jobs:
             grep -E '^[^ ]+\.rs:[0-9]+:[0-9]+: error' check.log | cut -d: -f1 | sort | uniq -c | sort -rn | head -40
             tail -5 check.log
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           exit $status

@@ -90,6 +90,10 @@ engine.
 
 - **11 Nov 2026:** the scoreboard is generated from `parity/rows.tsv`. Every call into Electron's door is pinned by a
   test (`src/door_calls.rs`). The round notes are in `notes/`.
+  - The engine is its own crate, `core/` (`locust-core`, 40 modules), with no dependency on Rune; CI checks that. The
+    window crate keeps drawing. Tests: 407 in the engine, 180 in the window, all passing. Release rebuild after
+    touching one window file: 28.1 s before, 23.6 to 26.0 s after; after touching one engine file: 27.6 s before,
+    31.2 s after (both crates rebuild).
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.
