@@ -26,6 +26,13 @@ function sidebar(missions: readonly SidebarMission[]): string {
 }
 
 describe('a conversation waiting on the person', () => {
+  it('keeps a waiting parent and its nested conversations visible exactly once', () => {
+    const html = sidebar([row('waiting', { needsYou: true }), row('child', { nestedUnder: 'waiting' })])
+    expect(html.match(/>Conversation waiting<\/span>/g)).toHaveLength(1)
+    expect(html.match(/>Conversation child<\/span>/g)).toHaveLength(1)
+    expect(html).toContain('lc-convnest')
+  })
+
   it('stands above a running row with an amber mark and words, even when nested', () => {
     const html = sidebar([row('working', { phase: 'running' }), row('waiting', { needsYou: true, nestedUnder: 'working' })])
     expect(html.indexOf('Conversation waiting')).toBeLessThan(html.indexOf('Conversation working'))

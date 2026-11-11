@@ -676,7 +676,7 @@ export function Sidebar({
     const groupsShown = drawnGroups.some((group) => showsGroup(group.groupId, inFolder, keepsEmpty))
     return (
           <>
-            {waiting.length > 0 && <div className="lc-convgroup"><div className="lc-project__head is-plain"><span className="lc-project__name lc-tone-amber">Needs you</span></div>{waiting.map(conversationRow)}</div>}
+            {waiting.length > 0 && <div className="lc-convgroup"><div className="lc-project__head is-plain"><span className="lc-project__name lc-tone-amber">Needs you</span></div>{waiting.map(rowAndChildren)}</div>}
             {pinned.length > 0 && (
               <div className="lc-convgroup">
                 <div className="lc-project__head is-plain">
