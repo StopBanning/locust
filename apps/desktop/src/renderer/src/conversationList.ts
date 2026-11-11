@@ -79,6 +79,12 @@ export function conversationRows(missions: readonly SidebarMission[]): readonly 
   return [...missions].sort(byLiveThenRecent)
 }
 
+export type ConversationSource = 'all' | 'person' | 'app'
+
+export function conversationSourceMatches(mission: SidebarMission, source: ConversationSource): boolean {
+  return source === 'all' || Boolean(mission.appStarted) === (source === 'app')
+}
+
 /**
  * Who a conversation belongs to, or nobody.
  *
@@ -293,4 +299,12 @@ export function withRoomsFolded(
     else entries.splice(at, 0, row)
   }
   return entries
+}
+
+/** The first turn owns the origin; an app follow-up does not relabel a person's conversation. */
+export function appStartedConversation(
+  run: { readonly startedBy?: { readonly kind: string }; readonly earlierTurns?: readonly { readonly startedBy?: { readonly kind: string } }[] },
+  root?: { readonly startedBy?: { readonly kind: string } }
+): boolean {
+  return (root ?? run.earlierTurns?.[0] ?? run).startedBy?.kind === 'mcp'
 }

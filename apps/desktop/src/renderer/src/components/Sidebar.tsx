@@ -30,9 +30,10 @@ import { LIST_PAGE, ListMore, WhenNear } from './ListWindow.js'
 import { RuntimeMark } from './RuntimeMark.js'
 import type { TeammateStatusView } from '../status.js'
 import { Icon } from './Icon.js'
+import { Select } from './Select.js'
 import { teammateTooltip } from '../teammateTooltip.js'
 import { railCountBadge } from '../railFlyout.js'
-import { conversationRows, heldFor, narrowingLine, ownerOf, unreadableSentence, withRoomsFolded } from '../conversationList.js'
+import { conversationSourceMatches, type ConversationSource, conversationRows, heldFor, narrowingLine, ownerOf, unreadableSentence, withRoomsFolded } from '../conversationList.js'
 import { RailFlyout } from './RailFlyout.js'
 import { useLiveCallPlace } from '../liveCall.js'
 import { routineStepLabel } from '../routines.js'
@@ -58,9 +59,11 @@ export interface SidebarMission {
    * Who the mission belongs to, when the shell knows before the host has
    * recorded it -- a run that is still starting has no missionId to look up.
    */
+  readonly ownerId?: string
+  /** The conversation was started through the MCP door, even if the person later replied. */
+  readonly appStarted?: boolean
   readonly needsYou?: boolean
   readonly waitingQuestion?: string
-  readonly ownerId?: string
   readonly missionId: string
   readonly title: string
   readonly phase: PublicRecoveredMission['phase'] | 'running'
@@ -484,10 +487,11 @@ export function Sidebar({
    */
 
   const [faceFilter, setFaceFilter] = useState<string>()
+  const [sourceFilter, setSourceFilter] = useState<ConversationSource>('all')
   /** How many of the long list's rows are drawn (ListWindow.tsx): a page, and more as it is scrolled. */
   const [listBudget, setListBudget] = useState(LIST_PAGE)
   // A new search or filter is a new list: it starts at one page again.
-  useEffect(() => setListBudget(LIST_PAGE), [query, faceFilter])
+  useEffect(() => setListBudget(LIST_PAGE), [query, faceFilter, sourceFilter])
   const railOpenFor = railPinned ?? railHovered
   /*
    * M35 (the code review): in the rail, Rename and New group did nothing --
@@ -549,7 +553,8 @@ export function Sidebar({
   const searching = query.trim().length > 0
   const shownConversations = conversationRows(missionsMatching(missions, query, ownerName)).filter(
     (mission) =>
-      (faceFilter === undefined || ownerOf(mission, missionOwners) === faceFilter)
+      conversationSourceMatches(mission, sourceFilter)
+      && (faceFilter === undefined || ownerOf(mission, missionOwners) === faceFilter)
       && (mission.needsYou || searching || isShown(mission, selectedMissionId) || !isPutAway(mission.lastAt, settled[mission.rootId ?? mission.missionId], now))
   )
   /*
@@ -596,13 +601,14 @@ export function Sidebar({
    * "everything".
    */
   const filteredTo = teammates.find((entry) => entry.teammateId === faceFilter)
-  const narrowing = narrowingLine({
+  const sourceNarrowing = narrowingLine({
     faceName: filteredTo?.name,
     query,
     shown: shownConversations.length,
     inFace: missions.filter((mission) => ownerOf(mission, missionOwners) === faceFilter).length,
     all: missions.length
   })
+  const narrowing = sourceFilter === 'all' ? sourceNarrowing : [sourceFilter === 'app' ? 'Via apps' : 'Started here', sourceNarrowing ?? `${String(shownConversations.length)} of ${String(missions.length)} conversations`].join(' · ')
 
   const shownFaces = facesByRecency.slice(
     0,
@@ -1014,6 +1020,7 @@ export function Sidebar({
                       * while one runs, where its age would be -- the clock
                       * before the title already says it is a routine.
                       */}
+                    {mission.appStarted && <span className="lc-conv__age" role="img" aria-label="Started by another app through Locust">via app</span>}
                     {mission.needsYou ? <span className="lc-conv__age lc-tone-amber">needs you</span> : (mission.memberIds ?? [mission.missionId]).some((id) => onCall.has(id)) ? (
                       <span className="lc-conv__age lc-mono lc-conv__oncall"><Icon name="waveform" size={11} />on a call</span>
                     ) : delegating ? (
@@ -1112,6 +1119,16 @@ export function Sidebar({
           autoComplete="off"
         />
       </div>
+
+      {!compact && (sourceFilter !== 'all' || missions.some((mission) => mission.appStarted)) && (
+        <div className="lc-faces__clear">
+          <Select className="lc-control" aria-label="Conversation source" value={sourceFilter} onChange={(value) => setSourceFilter(value as ConversationSource)} options={[
+            { value: 'all', label: 'All conversations' },
+            { value: 'person', label: 'Started here' },
+            { value: 'app', label: 'Via apps' }
+          ]} />
+        </div>
+      )}
 
       {/*
         * THE PLACES, AT THE TOP, one to a line -- Claude's sidebar, from
@@ -1310,6 +1327,7 @@ export function Sidebar({
             onClick={() => {
               setFaceFilter(undefined)
               setQuery('')
+              setSourceFilter('all')
             }}
           >
             Clear

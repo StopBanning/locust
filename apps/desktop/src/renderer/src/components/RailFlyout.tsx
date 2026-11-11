@@ -189,6 +189,7 @@ export function RailFlyout({
                   <span className={`lc-dot lc-tone-${view.tone}${live ? ' is-pulsing' : ''}`} />
                   <span className="lc-railflyout__title">{mission.title}</span>
                   {(mission.turns ?? 1) > 1 && <span className="lc-railflyout__turns lc-mono">{mission.turns}</span>}
+                  {mission.appStarted && <span className="lc-railflyout__age" role="img" aria-label="Started by another app through Locust">via app</span>}
                   {age !== undefined && <span className="lc-railflyout__age lc-mono">{age}</span>}
                 </button>
               )

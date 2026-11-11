@@ -260,7 +260,7 @@ import { installCommand } from '../../shared/runtime-install.js'
 import { splitAttachments, withAttachments } from '../../shared/attachments.js'
 // Only `heldFor`: this file has its own `ownerOf` for live runs, which is a
 // different question from who owns a recorded mission.
-import { conversationKeys, conversationTitleFor, heldFor, liveRunLastAt, routineOf } from './conversationList.js'
+import { appStartedConversation, conversationKeys, conversationTitleFor, heldFor, liveRunLastAt, routineOf } from './conversationList.js'
 import { stepConversation } from './conversationSteps.js'
 import { snoozeChoices } from './settled.js'
 import { PullRequestNewsBanner } from './components/PullRequestNewsBanner.js'
@@ -8216,6 +8216,7 @@ export default function App(): ReactElement {
       rows.push({
         missionId: mission.missionId,
         folderId: mission.workspaceId,
+        appStarted: root.startedBy?.kind === 'mcp',
         // A continuation's own prompt is the briefing; name it by the words
         // the person typed at the start of the chain.
         title: missionTitle(relayedTitle(root) ?? shownPrompt(root)),
@@ -8300,6 +8301,7 @@ export default function App(): ReactElement {
       if (folderId !== undefined && !runFolders.current.has(missionId)) runFolders.current.set(missionId, folderId)
       rows.push({
         missionId,
+        appStarted: appStartedConversation(run, rootId === undefined ? undefined : historyById.get(rootId)),
         ...(folderId === undefined ? {} : { folderId }),
         ...(rootId === undefined ? {} : { rootId }),
         ...(parentId === undefined ? {} : { parentId }),
