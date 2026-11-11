@@ -38,6 +38,52 @@ pub fn with_attachments(prompt: &str, paths: &[String]) -> String {
     }
 }
 
+/// Split an attachment preamble from the person's text (Electron `splitAttachments`).
+/// Matches `/^Read th(?:is file|ese \d+ files) in the workspace before you answer:\n((?:- [^\n]+\n?)+)\n([\s\S]+)$/`.
+pub fn split_attachments(prompt: &str) -> (String, Vec<String>) {
+    let rest = if let Some(after) = prompt.strip_prefix("Read this file in the workspace before you answer:\n") {
+        after
+    } else if let Some(after) = prompt.strip_prefix("Read these ") {
+        let Some((n, after)) = after.split_once(" files in the workspace before you answer:\n") else {
+            return (prompt.to_owned(), Vec::new());
+        };
+        if n.is_empty() || !n.chars().all(|c| c.is_ascii_digit()) {
+            return (prompt.to_owned(), Vec::new());
+        }
+        after
+    } else {
+        return (prompt.to_owned(), Vec::new());
+    };
+    // ((?:- [^\n]+\n?)+)\n([\s\S]+)$ — list lines, then a separating newline, then the body.
+    let mut listed = Vec::new();
+    let mut at = 0;
+    while at < rest.len() {
+        if !rest[at..].starts_with("- ") {
+            break;
+        }
+        let after_dash = at + 2;
+        let line_end = rest[after_dash..].find('\n').map(|i| after_dash + i).unwrap_or(rest.len());
+        if line_end == after_dash {
+            break;
+        }
+        listed.push(rest[after_dash..line_end].to_owned());
+        at = line_end;
+        if rest[at..].starts_with('\n') {
+            at += 1;
+        }
+    }
+    // Required separating newline after the list group (withAttachments inserts preamble\n\nbody).
+    if listed.is_empty() || !rest[at..].starts_with('\n') {
+        return (prompt.to_owned(), Vec::new());
+    }
+    let body = &rest[at + 1..];
+    if body.is_empty() {
+        (prompt.to_owned(), Vec::new())
+    } else {
+        (body.to_owned(), listed)
+    }
+}
+
 pub fn attachment_label(count: usize) -> String {
     if count == 1 {
         "1 file".into()
@@ -95,5 +141,22 @@ mod tests {
         let (kept, note) = attach_paths(&current, &added);
         assert_eq!(kept.len(), 8);
         assert!(note.unwrap().contains("not attached"));
+    }
+
+    #[test]
+    fn split_attachments_strips_preamble_like_electron() {
+        let one = with_attachments("Fix the cart", &["NOTES.md".into()]);
+        assert_eq!(split_attachments(&one), ("Fix the cart".into(), vec!["NOTES.md".into()]));
+        let many = with_attachments("and test", &["a.md".into(), "b.md".into()]);
+        assert_eq!(
+            split_attachments(&many),
+            ("and test".into(), vec!["a.md".into(), "b.md".into()])
+        );
+        assert_eq!(split_attachments("plain ask"), ("plain ask".into(), Vec::new()));
+        // A preamble with nothing under it is not one of ours.
+        assert_eq!(
+            split_attachments("Read this file in the workspace before you answer:\n- x.md\n"),
+            ("Read this file in the workspace before you answer:\n- x.md\n".into(), Vec::new())
+        );
     }
 }

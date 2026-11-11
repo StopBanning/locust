@@ -114,6 +114,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .px(24.0)
             .py(10.0)
             .child(changes_panel::controls(s, p))
+            .child(commit_panel::control(s, p))
             .child(terminal_panel::toggle(p))
             .child(terminal_panel::runtime_controls(s, p));
         if s.flight.is_some() || s.opening_teammate.is_some() {
@@ -729,6 +730,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .child(transcript)
             .child(terminal_panel::commands(s, p))
             .child(status)
+            .child(commit_panel::view(s, p).map_or_else(row, |panel| row().w_full().px(24.0).pb(8.0).child(panel)))
             .child(picker)
             .child(composer_stack)
     } else {

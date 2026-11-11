@@ -84,8 +84,11 @@ mod away;
 mod boot_view;
 mod changelog;
 mod changes;
+mod folder_commit;
 #[path = "ui/changes_panel.rs"]
 mod changes_panel;
+#[path = "ui/commit_panel.rs"]
+mod commit_panel;
 mod checkpoints;
 mod command_guard;
 mod command_plain;
@@ -481,6 +484,8 @@ fn load_team(s: &mut State) {
 
 fn setup(s: &mut State, waker: Waker) {
     s.changes_job.set_waker(waker.clone());
+    s.commit_read_job.set_waker(waker.clone());
+    s.commit_job.set_waker(waker.clone());
     s.changes_repo_job.set_waker(waker.clone());
     s.team.set_waker(waker.clone());
     s.sending.set_waker(waker.clone());
@@ -1352,6 +1357,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     }
     let mut changed = routines_panel::poll(s);
     changed |= changes_panel::poll(s);
+    changed |= commit_panel::poll(s);
     changed |= terminal_panel::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
@@ -1982,6 +1988,9 @@ fn main() {
             ("terminal-light", terminal_panel::light_scene),
             ("undo", changes_panel::undo_scene),
             ("undo-light", changes_panel::undo_light_scene),
+            ("commit", commit_panel::scene),
+            ("commit-light", commit_panel::light_scene),
+            ("commit-done", commit_panel::done_scene),
             ("changes", changes_panel::scene),
             ("changes-light", changes_panel::light_scene),
             ("thread-rich", thread_rich_scene),

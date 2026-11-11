@@ -119,7 +119,7 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Folder-wide Changes panel, file kinds and line counts | `renderer/src/components/ChangesPanel.tsx`, `renderer/src/components/FileTypeIcon.tsx`, `renderer/src/components/LineCounts.tsx`, `main/recent-edits.ts` | **partial** — native branch/base read-only panel, file list/kinds/counts, commit selection; folder tree, full icon/menu/probe parity remain (P7-NOTES.md) | yes |
 | Coloured unified diffs, expandable hunks and copy change/file | `renderer/src/components/DiffView.tsx`, `renderer/src/diff.ts`, `renderer/src/diffColours.ts` | **partial** — native syntax-coloured unified rows, hunk/context expansion and both copy controls; word marks, document passages and complete TS coverage remain (P7-NOTES.md) | no |
 | Undo turn, including non-Git folder changes | `renderer/src/components/TurnUndo.tsx`, `main/checkpoints.ts`, `main/checkpoints-plain.ts` | **partial** — native before/after byte checkpoints, confirmed guarded restore and receipts; Electron storage/retention, turn-foot/card integration and runtime notice remain (P7-NOTES.md) | yes |
-| Commit composer and generated commit message | `renderer/src/components/CommitChanges.tsx`, `main/folder-commit.ts` | **missing** | yes |
+| Commit composer and generated commit message | `renderer/src/components/CommitChanges.tsx`, `main/folder-commit.ts` | **partial** — commit, commit and push, open a pull request with Electron's safety rules and words, draft from the last five asks; "Write it from the changes" (a teammate drafting from the diff) not yet | yes |
 | Own-branch turn commits and worktree lifecycle | `renderer/src/components/WorktreeRow.tsx`, `main/worktrees.ts`, `main/turn-checkpoint.ts` | **missing** | yes |
 | Review/land branch as one commit and return conflicts to teammate | `renderer/src/components/ReviewChanges.tsx`, `main/worktrees.ts` | **missing** | yes |
 | GitHub PR header/link state, checks and watched news | `renderer/src/components/PullRequestChip.tsx`, `renderer/src/components/PullRequestNewsBanner.tsx`, `main/pull-request-watch.ts`, `main/pull-link.ts` | **missing** | yes |
@@ -275,7 +275,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 3 | 9 | 14 |
 | 4 | Runtimes, Routing & Fallback | 2 | 3 | 6 | 11 |
 | 5 | Approvals & Permissions | 1 | 5 | 3 | 9 |
-| 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 3 | 10 | 13 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 0 | 4 | 9 | 13 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 |
 | 8 | Built-in Browser & Page Previews | 0 | 0 | 6 | 6 |
 | 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 |
@@ -285,7 +285,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
 | 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **32** | **35** | **86** | **153** |
+| | **TOTAL** | **32** | **36** | **85** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
