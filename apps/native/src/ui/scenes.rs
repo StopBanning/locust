@@ -437,7 +437,7 @@ pub(super) fn approval_reach_scene_light(s: &mut State) {
     approval_reach_scene(s, true);
 }
 
-pub(super) fn p8_rules_scene(s: &mut State, light: bool) {
+pub(super) fn approval_rules_scene(s: &mut State, light: bool) {
     team_scene(s);
     s.appearance = Some(!light);
     s.people_panel.open = true;
@@ -468,11 +468,11 @@ pub(super) fn p8_rules_scene(s: &mut State, light: bool) {
         },
     ];
 }
-pub(super) fn p8_rules_scene_dark(s: &mut State) {
-    p8_rules_scene(s, false);
+pub(super) fn approval_rules_scene_dark(s: &mut State) {
+    approval_rules_scene(s, false);
 }
-pub(super) fn p8_rules_scene_light(s: &mut State) {
-    p8_rules_scene(s, true);
+pub(super) fn approval_rules_scene_light(s: &mut State) {
+    approval_rules_scene(s, true);
 }
 
 pub(super) fn ledger_scene(s: &mut State, live: bool, light: bool) {
@@ -757,7 +757,61 @@ pub(super) fn org_beside_light_scene(s: &mut State) {
     s.appearance = Some(false);
 }
 
-pub(super) fn p5_code_scene(s: &mut State) {
+pub(super) fn diagram_scene(s: &mut State) {
+    ledger_scene(s, false, false);
+    if let Some(pane) = &mut s.ledger {
+        pane.items = vec![
+            ledger::Item::User("Draw how a deploy runs.".into()),
+            ledger::Item::Assistant {
+                item_id: "diagram-example".into(),
+                r#final: true,
+                text: "Here is how a deploy runs:\n\n```mermaid\ngraph LR\n  A[Push] --> B[Tests] --> C[Staging]\n```\n\nStaging goes first.\n\n```mermaid\nkanban\n  Todo\n```\n".into(),
+            },
+        ];
+    }
+}
+
+pub(super) fn diagram_light_scene(s: &mut State) {
+    diagram_scene(s);
+    s.appearance = Some(false);
+}
+
+pub(super) fn math_scene(s: &mut State) {
+    ledger_scene(s, false, false);
+    if let Some(pane) = &mut s.ledger {
+        pane.items = vec![
+            ledger::Item::User("Show the linear algebra.".into()),
+            ledger::Item::Assistant {
+                item_id: "math-example".into(),
+                r#final: true,
+                text: "The first coefficient is $c_1 = y$, and the whole system is\n\n$$\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$$\n\nMoney like $5 and $10 stays prose.".into(),
+            },
+        ];
+    }
+}
+
+pub(super) fn math_light_scene(s: &mut State) {
+    math_scene(s);
+    s.appearance = Some(false);
+}
+
+pub(super) fn documents_scene(s: &mut State) {
+    file_viewer_scene(s);
+    if let Some(pane) = &mut s.ledger {
+        pane.items.push(ledger::Item::Assistant {
+            item_id: "documents-example".into(),
+            r#final: true,
+            text: "Attached: notes.pdf, budget.xlsx, Brief.docx. Diagram and math above.".into(),
+        });
+    }
+}
+
+pub(super) fn documents_light_scene(s: &mut State) {
+    documents_scene(s);
+    s.appearance = Some(false);
+}
+
+pub(super) fn reply_code_scene(s: &mut State) {
     ledger_scene(s, false, false);
     if let Some(pane) = &mut s.ledger {
         pane.items = vec![ledger::Item::User("Show the code and the file reference.".into()), ledger::Item::Assistant {
@@ -770,12 +824,12 @@ pub(super) fn p5_code_scene(s: &mut State) {
         });
     }
 }
-pub(super) fn p5_code_light_scene(s: &mut State) {
-    p5_code_scene(s);
+pub(super) fn reply_code_light_scene(s: &mut State) {
+    reply_code_scene(s);
     s.appearance = Some(false);
 }
-pub(super) fn p5_file_scene(s: &mut State) {
-    p5_code_scene(s);
+pub(super) fn file_viewer_scene(s: &mut State) {
+    reply_code_scene(s);
     s.file_view = Some((
         reply_actions::FileTarget {
             path: "src/cart.ts".into(),
@@ -788,23 +842,23 @@ pub(super) fn p5_file_scene(s: &mut State) {
             .join("\n")),
     ));
 }
-pub(super) fn p5_file_light_scene(s: &mut State) {
-    p5_file_scene(s);
+pub(super) fn file_viewer_light_scene(s: &mut State) {
+    file_viewer_scene(s);
     s.appearance = Some(false);
 }
-pub(super) fn p5_recovery_scene(s: &mut State) {
-    p5_code_scene(s);
+pub(super) fn recovery_scene(s: &mut State) {
+    reply_code_scene(s);
     if let Some(pane) = &mut s.ledger {
         pane.items.truncate(1);
         pane.snapshot.recovery = Some(recovery::Offer::Resume {epoch:3,note:"One action started and never reported an outcome, so whether it took effect is unknown.".into(),unverified:vec!["command: npm publish".into()]});
     }
 }
-pub(super) fn p5_recovery_light_scene(s: &mut State) {
-    p5_recovery_scene(s);
+pub(super) fn recovery_light_scene(s: &mut State) {
+    recovery_scene(s);
     s.appearance = Some(false);
 }
 
-pub(super) fn p6_people_scene(s: &mut State) {
+pub(super) fn people_scene(s: &mut State) {
     team_scene(s);
     s.people_panel.open = true;
     s.people_panel.entry = serde_json::json!({"teammateId":"codec"});
@@ -827,11 +881,11 @@ pub(super) fn p6_people_scene(s: &mut State) {
     })
     .collect();
 }
-pub(super) fn p6_people_light_scene(s: &mut State) {
-    p6_people_scene(s);
+pub(super) fn people_light_scene(s: &mut State) {
+    people_scene(s);
     s.appearance = Some(false);
 }
-pub(super) fn p6_memory_scene(s: &mut State) {
+pub(super) fn memory_scene(s: &mut State) {
     team_scene(s);
     s.people_panel.open = true;
     s.people_panel.memory_tab = true;
@@ -841,8 +895,8 @@ pub(super) fn p6_memory_scene(s: &mut State) {
     s.people_panel.team = serde_json::json!({"settings":{"aboutYouSuggestions":[{"id":"ays_demo","text":"Keep verification explicit.","by":"Codec","at":"2026-11-10T12:00:00Z"}]}});
     s.people_panel.memories = serde_json::json!({"schemaVersion":1,"memories":[{"memoryId":"mem_example","text":"The native suite passes 338 tests.","name":"native-suite","previousText":"The native suite passes 324 tests.","by":{"name":"Codec"},"scope":"workspace","status":"kept","enabled":true}],"forgotten":[{"memory":{"memoryId":"mem_old","text":"Use the previous build folder."}}]});
 }
-pub(super) fn p6_memory_light_scene(s: &mut State) {
-    p6_memory_scene(s);
+pub(super) fn memory_light_scene(s: &mut State) {
+    memory_scene(s);
     s.appearance = Some(false);
 }
 

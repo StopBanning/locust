@@ -231,6 +231,10 @@ pub(super) struct State {
     pub(super) file_view: Option<(reply_actions::FileTarget, Result<String, String>)>,
     /// Last Copy press feedback (`Copied` / `Not copied`), keyed by body.
     pub(super) copy_feedback: Option<reply_actions::CopyFeedback>,
+    /// ReplyDiagram Code tab is selected when true; keyed by fence source hash.
+    pub(super) diagram_code_tab: HashMap<u64, bool>,
+    /// Decodes math/PDF/attachment PNGs for Markdown images (set in setup).
+    pub(super) image_cache: Option<std::sync::Arc<rune::ImageCache>>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -344,6 +348,8 @@ impl Default for State {
             org_menu_id: None,
             file_view: None,
             copy_feedback: None,
+            diagram_code_tab: HashMap::new(),
+            image_cache: None,
         }
     }
 }

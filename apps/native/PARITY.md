@@ -235,12 +235,12 @@ Native status evidence: `native/src/main.rs` (State, message_column, view, send/
 | Feature | Where in TS | Native status | Depends on engine |
 | :--- | :--- | :--- | :---: |
 | Coloured code blocks, copy and file path controls | `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/ColouredCode.tsx`, `renderer/src/components/CopyButton.tsx` | **partial** — Rune syntax colours, code/reply Copy and file-path controls; full Electron grammars, confirmed clipboard feedback and change-copy semantics remain | no |
-| File viewer, line targeting and context menu/editor/reveal actions | `renderer/src/components/FileViewer.tsx`, `main/reveal-file.ts`, `shared/file-menu.ts` | **partial** — bounded read-only UTF-8 reader with targeted lines, close and whole-file Copy; Markdown mode, version history, context menu/editor/reveal/save remain | yes |
-| Mermaid diagram/source view | `renderer/src/components/ReplyDiagram.tsx`, `main/diagrams.ts`, `main/diagram-view.ts` | **missing** | yes |
-| PDF pages, attachment thumbnail and text reading | `renderer/src/components/PdfPages.tsx`, `renderer/src/components/PdfTile.tsx`, `main/pdf-pages.ts`, `main/pdf-reading.ts` | **missing** | yes |
-| Word/PowerPoint reading, document changes, XLSX/CSV sheets and image zoom | `renderer/src/components/DocPreview.tsx`, `renderer/src/components/DocumentView.tsx`, `renderer/src/components/DocumentChange.tsx`, `renderer/src/components/SheetView.tsx`, `renderer/src/components/ZoomableImage.tsx`, `main/office-words.ts`, `main/xlsx.ts` | **missing** | yes |
+| File viewer, line targeting and context menu/editor/reveal actions | `renderer/src/components/FileViewer.tsx`, `main/reveal-file.ts`, `shared/file-menu.ts` | **partial** — bounded read-only UTF-8 reader with targeted lines, close, whole-file Copy, file-menu words, copy path/relative/name, attach, Show in Finder (rooted reveal); Markdown mode, version history, editor/default-app open and save remain | yes |
+| Mermaid diagram/source view | `renderer/src/components/ReplyDiagram.tsx`, `main/diagrams.ts`, `main/diagram-view.ts` | **partial** — rune-mermaid via rune-kit; Diagram/Code tabs and Electron words; flowchart draws; undrawable types (kanban, packet, architecture, …) stay source with undrawn caption (caption index can miss); no diagram-view window | yes |
+| PDF pages, attachment thumbnail and text reading | `renderer/src/components/PdfPages.tsx`, `renderer/src/components/PdfTile.tsx`, `main/pdf-pages.ts`, `main/pdf-reading.ts` | **partial** — macOS PDFKit via objc2-pdf-kit 0.3: text (+ BOM), page PNGs, readablePdfNote and refusal words; PdfPages/PdfTile thread chrome and non-macOS engine remain | yes |
+| Word/PowerPoint reading, document changes, XLSX/CSV sheets and image zoom | `renderer/src/components/DocPreview.tsx`, `renderer/src/components/DocumentView.tsx`, `renderer/src/components/DocumentChange.tsx`, `renderer/src/components/SheetView.tsx`, `renderer/src/components/ZoomableImage.tsx`, `main/office-words.ts`, `main/xlsx.ts` | **partial** — docx/pptx zip+XML and xlsx (calamine 0.38) / csv reading with Electron documentWords, 40 MiB / 12-sheet caps, and native `.locust/office-words/`; DocumentChange, SheetView grid and ZoomableImage remain | yes |
 | Runnable HTML reply pages and source/preview view | `renderer/src/components/ReplyPage.tsx`, `main/reply-page.ts`, `main/page-preview.ts` | **missing** | yes |
-| Rendered math in replies | `renderer/src/components/MathTex.tsx`, `renderer/src/components/ThreadItems.tsx` | **missing** | no |
+| Rendered math in replies | `renderer/src/components/MathTex.tsx`, `renderer/src/components/ThreadItems.tsx` | **done** — RaTeX 0.1.15 PNG via ImageCache; `$`/`$$`/`\(`/`\[` rules, fence skip, money stays prose | no |
 
 ## 2. Engine Breakdown: Main-Process Services & Standalone Requirements
 
@@ -284,8 +284,8 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 |
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 |
-| 15 | Documents, Diagrams & File Viewer | 0 | 2 | 5 | 7 |
-| | **TOTAL** | **36** | **38** | **79** | **153** |
+| 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 |
+| | **TOTAL** | **37** | **41** | **75** | **153** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

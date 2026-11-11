@@ -67,6 +67,15 @@ pub fn file_target(raw: &str) -> Option<FileTarget> {
     if raw.contains("://") || raw.contains('\0') {
         return None;
     }
+    // Plain path chips (no :line) still count when they look like file paths.
+    if !raw.contains(':')
+        && !raw.contains('#')
+        && !crate::file_menu::looks_like_file_path(raw)
+        && !raw.contains('/')
+        && !raw.contains('.')
+    {
+        return None;
+    }
     let re = crate::invariants::regex(r"^(.*?)(?::(\d+)(?:-(\d+))?|#L(\d+)(?:-L?(\d+))?)?$");
     let c = re.captures(raw)?;
     let path = c.get(1)?.as_str();
@@ -134,21 +143,103 @@ pub(super) fn open_file(s: &mut State, target: FileTarget) {
         .map(PathBuf::from);
     let body = root
         .ok_or_else(|| "This conversation has no folder.".into())
-        .and_then(|root| read_file(&root, &target));
+        .and_then(|root| read_document(&root, &target));
     s.file_view = Some((target, body));
+}
+
+/// UTF-8 text, or extracted PDF/office/sheet words when the path is one of those.
+fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
+    let ext = crate::file_menu::file_extension(&target.path);
+    if ext == "pdf" || crate::pdf::is_pdf_path(&target.path) {
+        let name = crate::file_menu::file_base_name(&target.path);
+        // Write text + page PNGs beside the file (Electron readablePdf), then show the text.
+        let readable = crate::pdf::readable_pdf(
+            root,
+            &target.path,
+            &name,
+            crate::pdf::MAX_PICTURES,
+        )?;
+        let _ = crate::pdf::readable_pdf_note(std::slice::from_ref(&readable));
+        let abs = crate::pdf::decide_pdf_pages(&target.path, &root.to_string_lossy())
+            .map_err(str::to_owned)?;
+        if abs.metadata().map(|m| m.len()).unwrap_or(0) > crate::pdf::MAX_PDF_BYTES {
+            return Err(crate::pdf::pages_refusal("too-large").into());
+        }
+        let bytes = std::fs::read(&abs).map_err(|e| e.to_string())?;
+        let reading = crate::pdf::read_pdf_bytes(&bytes)?;
+        return Ok(crate::pdf::reading_text(&name, &reading));
+    }
+    if ext == "docx" || ext == "pptx" {
+        let path = root.join(&target.path);
+        let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > crate::office::MAX_OFFICE_FILE_BYTES {
+            return Err("That document is too large to show here.".into());
+        }
+        let doc = crate::office::read_office(&bytes, &ext)?;
+        return Ok(crate::office::document_words(
+            crate::file_menu::file_base_name(&target.path).as_str(),
+            &doc,
+        ));
+    }
+    if ext == "xlsx" {
+        let path = root.join(&target.path);
+        let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+        let book = crate::office::read_xlsx(&bytes)?;
+        return Ok(format_workbook(&book));
+    }
+    if ext == "csv" || ext == "tsv" {
+        let text = read_file(root, target)?;
+        let book = crate::office::read_csv(&text, ext == "tsv");
+        return Ok(format_workbook(&book));
+    }
+    read_file(root, target)
+}
+
+fn format_workbook(book: &crate::office::Workbook) -> String {
+    let mut blocks = Vec::new();
+    for (name, rows) in &book.sheets {
+        blocks.push(crate::office::DocumentBlock::Heading {
+            level: 2,
+            text: name.clone(),
+        });
+        let table_rows: Vec<Vec<String>> = rows
+            .iter()
+            .map(|row| row.iter().map(|c| c.text.clone()).collect())
+            .collect();
+        if !table_rows.is_empty() {
+            blocks.push(crate::office::DocumentBlock::Table { rows: table_rows });
+        }
+    }
+    crate::office::document_words(
+        "workbook",
+        &crate::office::OfficeDocument { blocks, more: 0 },
+    )
 }
 
 pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
     let frame_palette = Palette::new(p.dark);
     let feedback = s.copy_feedback.clone();
+    let prepared = crate::diagram::prepare_reply_markdown(body);
+    let (prepared, undrawn) = crate::diagram::take_undrawn_markers(&prepared);
+    let (prepared, math_pngs) = crate::math_tex::prepare_math_markdown(&prepared, p.dark);
+    let diagram_tabs = s.diagram_code_tab.clone();
+    let image_cache = s.image_cache.clone();
     let mut out = col().w_full().gap(8.0).child(
-        Markdown::new(body.to_owned())
+        Markdown::new(prepared)
             .streaming(live)
             .selectable(true)
             .on_link(|s: &mut State, url| {
                 if let Some(target) = file_target(url) {
                     open_file(s, target);
                 }
+            })
+            .images(move |src| {
+                let bytes = math_pngs.get(src)?;
+                let cache = image_cache.as_ref()?;
+                let image = cache.load(bytes.clone());
+                // Headless snaps and the first live frame need the decode done before paint.
+                let _ = image.wait();
+                Some(image)
             })
             .highlight(move |language, code| {
                 if live || code.encode_utf16().count() > 60_000 {
@@ -157,10 +248,106 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
                     rune_kit::syntax::highlight(language, code).to_vec()
                 }
             })
+            .diagram_frame({
+                let tabs = diagram_tabs.clone();
+                let palette = Palette::new(p.dark);
+                move |card, frame| {
+                    let key = body_key(frame.source);
+                    let code_on = tabs.get(&key).copied().unwrap_or(false);
+                    let kind = crate::diagram::diagram_kind_words(crate::diagram::diagram_kind_of(
+                        frame.source,
+                    ));
+                    let p = &palette;
+                    let diagram_tab = el()
+                        .padding(6.0)
+                        .radius(4.0)
+                        .fill(if !code_on { p.selected } else { p.raised })
+                        .child(
+                            text(crate::diagram::TAB_DIAGRAM)
+                                .font(type_::LABEL)
+                                .color(if !code_on { p.text } else { p.secondary }),
+                        )
+                        .on_press(move |s: &mut State| {
+                            s.diagram_code_tab.insert(key, false);
+                        });
+                    let code_tab = el()
+                        .padding(6.0)
+                        .radius(4.0)
+                        .fill(if code_on { p.selected } else { p.raised })
+                        .child(
+                            text(crate::diagram::TAB_CODE)
+                                .font(type_::LABEL)
+                                .color(if code_on { p.text } else { p.secondary }),
+                        )
+                        .on_press(move |s: &mut State| {
+                            s.diagram_code_tab.insert(key, true);
+                        });
+                    let mut bar = row()
+                        .w_full()
+                        .gap(8.0)
+                        .child(
+                            row()
+                                .gap(4.0)
+                                .role("tablist")
+                                .label(crate::diagram::TABS_ARIA)
+                                .child(diagram_tab)
+                                .child(code_tab),
+                        )
+                        .child(text(kind).font(type_::LABEL).color(p.muted));
+                    if frame.open {
+                        // Electron shows this while its WebView draws; native shows it only
+                        // while the fence is still arriving.
+                        bar = bar.child(
+                            text(crate::diagram::WAITING)
+                                .font(type_::LABEL)
+                                .color(p.muted),
+                        );
+                    }
+                    let body = if code_on {
+                        // Plain source — do not re-enter a ```mermaid fence.
+                        col()
+                            .w_full()
+                            .gap(4.0)
+                            .child(text("mermaid").font(type_::LABEL).color(p.muted))
+                            .child(
+                                text(frame.source.to_owned())
+                                    .font(type_::LABEL)
+                                    .color(p.text)
+                                    .wrap_anywhere(),
+                            )
+                    } else {
+                        card
+                    };
+                    col()
+                        .key(format!("diagram-{}", frame.index))
+                        .w_full()
+                        .gap(8.0)
+                        .role("figure")
+                        .label("A diagram in this reply")
+                        .child(bar)
+                        .child(body)
+                }
+            })
             .code_frame({
                 let feedback = feedback.clone();
+                let undrawn = undrawn.clone();
                 move |card, frame| {
                     let p = &frame_palette;
+                    if let Some(message) = undrawn.get(&frame.index) {
+                        let caption = crate::diagram::not_drawn_caption(message);
+                        return col()
+                            .key(format!("diagram-text-{}", frame.index))
+                            .w_full()
+                            .gap(4.0)
+                            .role("figure")
+                            .child(card)
+                            .child(
+                                text(caption)
+                                    .font(type_::LABEL)
+                                    .color(p.muted)
+                                    .wrap_anywhere(),
+                            );
+                    }
                     let mut controls = row().w_full().justify_end().gap(8.0);
                     if let Some(target) = frame.language.and_then(file_target) {
                         let label = target.path.clone();
@@ -209,6 +396,70 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
 
 pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
     let (target, body) = s.file_view.as_ref()?;
+    let folder = selected_conversation(s)
+        .and_then(|(t, _)| t.folder.clone());
+    let absolute = crate::file_menu::rooted_path(&target.path, folder.as_deref());
+    let menu = crate::file_menu::file_menu_choices(
+        &absolute,
+        folder.as_deref(),
+        if cfg!(target_os = "macos") {
+            "darwin"
+        } else if cfg!(target_os = "linux") {
+            "linux"
+        } else {
+            "win32"
+        },
+        &["vscode", "cursor"],
+        false,
+    );
+    let mut menu_row = row().w_full().gap(6.0);
+    for choice in menu {
+        let label = choice.label;
+        let id = choice.id;
+        let absolute = absolute.clone();
+        let folder = folder.clone();
+        menu_row = menu_row.child(
+            el().padding(4.0)
+                .radius(4.0)
+                .fill(p.raised)
+                .child(text(label).font(type_::LABEL).color(p.secondary))
+                .on_press_tx(move |s: &mut State, tx| match id {
+                    crate::file_menu::FileMenuId::CopyPath => {
+                        request_copy(tx, crate::file_menu::system_path(&absolute, "darwin"));
+                    }
+                    crate::file_menu::FileMenuId::CopyRelative => {
+                        let rel = crate::file_menu::relative_to_folder(
+                            &absolute,
+                            folder.as_deref(),
+                            "darwin",
+                        );
+                        request_copy(tx, rel);
+                    }
+                    crate::file_menu::FileMenuId::CopyName => {
+                        request_copy(tx, crate::file_menu::file_base_name(&absolute));
+                    }
+                    crate::file_menu::FileMenuId::Reveal => {
+                        let path = std::path::PathBuf::from(&absolute);
+                        let roots: Vec<_> = folder
+                            .as_ref()
+                            .map(|f| vec![std::path::PathBuf::from(f)])
+                            .unwrap_or_default();
+                        if let crate::file_menu::RevealDecision::Ok { path, .. } =
+                            crate::file_menu::decide_reveal(&path.to_string_lossy(), &roots)
+                        {
+                            let _ = crate::file_menu::reveal_path(&path);
+                        }
+                        let _ = s;
+                    }
+                    crate::file_menu::FileMenuId::Attach
+                        if !s.attached.iter().any(|a| a == &absolute) =>
+                    {
+                        s.attached.push(absolute.clone());
+                    }
+                    _ => {}
+                }),
+        );
+    }
     let mut pane = col()
         .key("file-reader")
         .w(340.0)
@@ -221,6 +472,7 @@ pub(super) fn viewer(s: &State, p: &Palette) -> Option<El> {
                 .color(p.text)
                 .wrap_anywhere(),
         )
+        .child(menu_row)
         .child(
             el().child(text("Close").color(p.secondary))
                 .on_press(|s: &mut State| s.file_view = None),

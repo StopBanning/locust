@@ -97,6 +97,11 @@ mod changes_panel;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
 mod checkpoints;
+mod diagram;
+mod math_tex;
+mod pdf;
+mod office;
+mod file_menu;
 mod command_guard;
 mod command_plain;
 mod command_reach;
@@ -119,9 +124,10 @@ use engine::{ConversationRow, Engine, Reply, Started, Teammate};
 use native::Kind;
 use rune::tok::type_;
 use rune::{
-    Align, App, AppSpec, Chrome, Color, Cx, Cycle, El, Key, KeyEvent, Latest, ScrollSpec, TextEdit,
-    Tx, Waker, col, el, row, text, text_input,
+    Align, App, AppSpec, Chrome, Color, Cx, Cycle, El, ImageCache, Key, KeyEvent, Latest,
+    ScrollSpec, TextEdit, Tx, Waker, col, el, row, text, text_input,
 };
+use std::sync::Arc;
 use rune_kit::{Markdown, MarkdownStyle};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -502,6 +508,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.model_job.set_waker(waker.clone());
     s.files_job.set_waker(waker.clone());
     s.stopping.set_waker(waker.clone());
+    s.image_cache = Some(Arc::new(ImageCache::new(waker.clone())));
     s.ledger_job.set_waker(waker);
     load_composer_store(s);
     load_team(s);
@@ -2015,10 +2022,10 @@ fn main() {
             ("thread-rich-open", thread_rich_open_scene),
             ("thread-rich-open-light", thread_rich_open_light_scene),
             ("thread-rich-light", thread_rich_light_scene),
-            ("people", p6_people_scene),
-            ("people-light", p6_people_light_scene),
-            ("memory", p6_memory_scene),
-            ("memory-light", p6_memory_light_scene),
+            ("people", people_scene),
+            ("people-light", people_light_scene),
+            ("memory", memory_scene),
+            ("memory-light", memory_light_scene),
             ("team", team_scene),
             ("empty", empty_scene),
             ("replay", replay_scene),
@@ -2035,8 +2042,8 @@ fn main() {
             ("approval-light", approval_scene_light),
             ("approval-reach", approval_reach_scene_dark),
             ("approval-reach-light", approval_reach_scene_light),
-            ("approval-rules", p8_rules_scene_dark),
-            ("approval-rules-light", p8_rules_scene_light),
+            ("approval-rules", approval_rules_scene_dark),
+            ("approval-rules-light", approval_rules_scene_light),
             ("routines", routines_panel::scene),
             ("routines-light", routines_panel::light_scene),
             ("settings", settings_panel::scene),
@@ -2057,12 +2064,18 @@ fn main() {
             ("composer-queue-light", composer_queue_light_scene),
             ("composer-blocked", composer_blocked_scene),
             ("composer-blocked-light", composer_blocked_light_scene),
-            ("reply-code", p5_code_scene),
-            ("reply-code-light", p5_code_light_scene),
-            ("file-viewer", p5_file_scene),
-            ("file-viewer-light", p5_file_light_scene),
-            ("recovery", p5_recovery_scene),
-            ("recovery-light", p5_recovery_light_scene),
+            ("diagram", diagram_scene),
+            ("diagram-light", diagram_light_scene),
+            ("math", math_scene),
+            ("math-light", math_light_scene),
+            ("documents", documents_scene),
+            ("documents-light", documents_light_scene),
+            ("reply-code", reply_code_scene),
+            ("reply-code-light", reply_code_light_scene),
+            ("file-viewer", file_viewer_scene),
+            ("file-viewer-light", file_viewer_light_scene),
+            ("recovery", recovery_scene),
+            ("recovery-light", recovery_light_scene),
             ("org-sidebar", org_sidebar_scene),
             ("org-sidebar-light", org_sidebar_light_scene),
             ("org-search", org_search_scene),

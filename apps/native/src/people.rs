@@ -633,6 +633,9 @@ pub fn brief(store: &Store, who: &str, folder: &Path, prompt: &str) -> Result<St
             chrono::Utc::now(),
         ));
     }
+    if let Some(office) = crate::office::office_words_section(folder) {
+        sections.push(office);
+    }
     sections.push(prompt.to_owned());
     Ok(sections.join("\n\n"))
 }
