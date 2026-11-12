@@ -169,7 +169,9 @@ fn opencode_acp_success_sets_locust_mode_and_records() {
     let channel = Channel::new();
     let ch = channel.clone();
     let answer = std::thread::spawn(move || {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        // The card can come late on a loaded machine. A helper that gave up after 5 s died quietly and left the
+        // turn waiting forever for an answer (a full parallel run hung on it, 12 Nov 2026).
+        let deadline = Instant::now() + Duration::from_secs(60);
         loop {
             if let Some(card) = ch.waiting().first() {
                 ch.decide(Answer::Decision {

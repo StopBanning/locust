@@ -41,7 +41,8 @@ use always kept and "N more models · type to search them" under a capped group,
 
 ## Not done
 
-- `runtime::opencode::tests::opencode_acp_success_sets_locust_mode` hung once under a full parallel run (it passes alone,
-  three of three): a race in the fake ACP server to look at.
+- (Fixed the same night) `opencode_acp_success_sets_locust_mode` hung once under a full parallel run: its helper thread
+  answered the approval card within 5 seconds or gave up quietly, leaving the turn waiting forever. The three helpers
+  that answer cards from a thread (OpenCode, Copilot, ACP) now wait 60 seconds.
 - OpenCode 2's and Kilo's models (an ACP session), the models Claude Code's handshake lists, and usage readings.
 - The catalog treats an installed agent as ready; Electron also checks each one's sign-in first.
