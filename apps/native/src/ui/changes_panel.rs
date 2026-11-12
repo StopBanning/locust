@@ -14,6 +14,8 @@ pub(super) struct Panel {
     pub records: Vec<(String, serde_json::Value)>,
     pub asking: Option<String>,
     pub result: Option<String>,
+    /// The header's More menu.
+    pub menu: bool,
 }
 fn button(label: impl Into<String>, p: &Palette) -> El {
     text(label.into())
@@ -225,32 +227,97 @@ fn code_row(
         .child(text(sign.to_owned()).color(sign_tone))
         .child(spans)
 }
-pub(super) fn view(s: &State, p: &Palette) -> El {
+/// ChangesPanel.tsx's head (`.lc-viewer__head`): the files toggle, the branch and the change's line counts, then More
+/// (show or hide files, collapse, expand, refresh) and Close, as icon buttons with their names.
+fn head(s: &State, p: &Palette) -> El {
     let panel = &s.changes;
-    let mut head = row()
+    let l = crate::look::controls::Look::new(p.dark);
+    let files = crate::look::controls::head_icon(&crate::look::icons::COLUMNS, "Show files", "Show the files (⌘ ⇧ Y)")
+        .on_press(|s: &mut State| s.changes.files = !s.changes.files)
+        .build(l.k)
+        .key("changes-files");
+    let files = if panel.files { files.fill(l.c("bg-selected")).radius(7.0) } else { files };
+    let branch = match &panel.diff {
+        Some(Ok(diff)) => format!("{} → {}", diff.base, diff.branch),
+        _ => "Changes".into(),
+    };
+    let mut row_ = row()
         .w_full()
         .center_y()
-        .gap(8.0)
-        .child(text("Changes").font(type_::TITLE).color(p.text))
+        .gap(10.0)
+        .pb(6.0)
+        .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-hairline"))
+        .child(files)
+        .child(text(branch).font(rune::TextStyle::new(12.0, 400.0).mono()).color(l.c("text-secondary")).shrink().truncate());
+    if let Some(Ok(diff)) = &panel.diff
+        && !diff.files.is_empty()
+    {
+        let (a, d) = diff.files.iter().map(|f| f.counts()).fold((0, 0), |(x, y), (a, d)| (x + a, y + d));
+        row_ = row_.child(line_count_marks(a, d, p));
+    }
+    row_.child(rune::spacer())
         .child(
-            button(
-                if panel.files {
-                    "Hide files"
-                } else {
-                    "Show files"
-                },
-                p,
-            )
-            .on_press(|s: &mut State| s.changes.files = !s.changes.files),
+            crate::look::controls::head_icon(&crate::look::icons::DOTS, "More", "More")
+                .on_press(|s: &mut State| s.changes.menu = !s.changes.menu)
+                .build(l.k)
+                .key("changes-more"),
         )
-        .child(button("Refresh", p).on_press(|s: &mut State| refresh(s, None)))
-        .child(button("Close", p).on_press(|s: &mut State| s.changes.open = false));
-    if let Some(Ok(diff)) = &panel.diff {
-        head = head.child(
-            text(format!("{} → {}", diff.base, diff.branch))
-                .color(p.muted)
-                .wrap(),
-        );
+        .child(
+            crate::look::controls::head_icon(&crate::look::icons::CLOSE, "Close", "Close")
+                .on_press(|s: &mut State| {
+                    s.changes.open = false;
+                    s.changes.menu = false;
+                })
+                .build(l.k)
+                .key("changes-close"),
+        )
+}
+
+/// The More menu, in Electron's words and order.
+fn more_menu(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let item = |words: &'static str, run: fn(&mut State)| {
+        row()
+            .w_full()
+            .py(7.0)
+            .px(10.0)
+            .radius(7.0)
+            .hover(l.c("bg-selected"))
+            .child(text(words).font(l.ty.control).color(l.c("text-primary")))
+            .role("menuitem")
+            .label(words)
+            .on_press(move |s: &mut State| {
+                run(s);
+                s.changes.menu = false;
+            })
+    };
+    let files_words = if s.changes.files { "Hide files" } else { "Show files" };
+    row().w_full().justify_end().child(
+        col()
+            .key("changes-menu")
+            .w(200.0)
+            .padding(4.0)
+            .radius(11.0)
+            .fill(l.c("bg-raised-2"))
+            .border(1.0, l.c("border-strong"))
+            .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default())
+            .role("menu")
+            .child(item(files_words, |s| s.changes.files = !s.changes.files))
+            .child(item("Collapse all files", |s| {
+                if let Some(Ok(d)) = &s.changes.diff {
+                    s.changes.folded = (0..d.files.len()).collect()
+                }
+            }))
+            .child(item("Expand all files", |s| s.changes.folded.clear()))
+            .child(item("Refresh", |s| refresh(s, None))),
+    )
+}
+
+pub(super) fn view(s: &State, p: &Palette) -> El {
+    let panel = &s.changes;
+    let mut head = col().w_full().gap(6.0).child(self::head(s, p));
+    if panel.menu {
+        head = head.child(more_menu(s, p));
     }
     let mut body = col().w_full().gap(8.0);
     if let Some(result) = &panel.result {
@@ -347,61 +414,52 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     );
                 }
             }
-            body = body.child(
-                row()
-                    .child(button("Collapse all files", p).on_press(|s: &mut State| {
-                        if let Some(Ok(d)) = &s.changes.diff {
-                            s.changes.folded = (0..d.files.len()).collect()
-                        }
-                    }))
-                    .child(
-                        button("Expand all files", p)
-                            .on_press(|s: &mut State| s.changes.folded.clear()),
-                    ),
-            );
             for (i, f) in diff.files.iter().enumerate() {
                 let (a, d) = f.counts();
                 let open = !panel.folded.contains(&i);
-                let mut file = col().w_full().gap(4.0).child(
-                    row()
-                        .gap(8.0)
-                        .center_y()
-                        .child(
-                            button(
-                                format!(
-                                    "{} {} · {}",
-                                    if open { "⌄" } else { "›" },
-                                    f.path,
-                                    f.status,
-                                ),
-                                p,
-                            )
-                            .on_press(move |s: &mut State| {
-                                if !s.changes.folded.remove(&i) {
-                                    s.changes.folded.insert(i);
-                                }
-                            }),
-                        )
-                        .child(line_count_marks(a, d, p)),
-                );
-                if open {
-                    if f.status != "DELETED" {
-                        let folder = panel.folder.clone();
-                        let path = f.path.clone();
-                        file = file.child(button(format!("Copy {}", f.path), p).on_press_tx(
-                            move |s: &mut State, tx| {
-                                let target = reply_actions::FileTarget {
-                                    path: path.clone(),
-                                    start: 1,
-                                    end: 1,
-                                };
+                // The file's head (`.lc-changes__file`): a chevron that folds it, its path in the code face, how it
+                // changed, its line counts, and a copy button at the right.
+                let l = crate::look::controls::Look::new(p.dark);
+                let chevron = if open { &crate::look::icons::CHEVRON_DOWN } else { &crate::look::icons::CHEVRON_RIGHT };
+                let mut file_head = row()
+                    .w_full()
+                    .gap(8.0)
+                    .py(6.0)
+                    .px(8.0)
+                    .center_y()
+                    .radius(7.0)
+                    .fill(l.c("hover-surface"))
+                    .child(crate::look::controls::glyph(&l, chevron, 12.0, Some(l.c("text-muted"))))
+                    .child(text(f.path.clone()).font(rune::TextStyle::new(12.0, 500.0).mono()).color(l.c("text-primary")).shrink().truncate())
+                    .child(text(f.status.to_lowercase()).font(l.ty.body).color(l.c("text-muted")))
+                    .child(line_count_marks(a, d, p))
+                    .child(rune::spacer())
+                    .key(format!("changes-file-{i}"))
+                    .role("button")
+                    .label(format!("{} · {}", f.path, f.status))
+                    .on_press(move |s: &mut State| {
+                        if !s.changes.folded.remove(&i) {
+                            s.changes.folded.insert(i);
+                        }
+                    });
+                if open && f.status != "DELETED" {
+                    let folder = panel.folder.clone();
+                    let path = f.path.clone();
+                    file_head = file_head.child(
+                        crate::look::controls::head_icon(&crate::look::icons::COPY, &format!("Copy {}", f.path), "Copy the file")
+                            .control_size(rune_kit::ControlSize::Small)
+                            .on_press_tx(move |s: &mut State, tx| {
+                                let target = reply_actions::FileTarget { path: path.clone(), start: 1, end: 1 };
                                 match reply_actions::read_file(&folder, &target) {
                                     Ok(body) => reply_actions::request_copy(tx, body),
                                     Err(e) => s.changes.result = Some(e),
                                 }
-                            },
-                        ));
-                    }
+                            })
+                            .build(l.k),
+                    );
+                }
+                let mut file = col().w_full().gap(4.0).child(file_head);
+                if open {
                     let shown = if panel.expanded.contains(&i) {
                         f.hunks.len()
                     } else {

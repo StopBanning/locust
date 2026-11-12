@@ -876,15 +876,15 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                             }
                         }
                     };
-                    let mut card_el = col()
-                        .w_full()
-                        .gap(4.0)
-                        .padding(10.0)
-                        .fill(p.raised)
-                        .radius(8.0)
-                        .child(text(title).font(type_::BODY).color(p.text));
-                    // Whose conversation it is (BoardView's face and name), not the column's own key.
-                    if let Some(who) = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.clone()) {
+                    // The card's words, beside its teammate's face (built below).
+                    let mut card_el = col().grow(1.0).shrink().gap(4.0);
+                    // Whose conversation it is: BoardView's face beside the title, the name under it.
+                    let who = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.clone());
+                    let mate = who.as_ref().and_then(|name| s.teammates.iter().find(|t| &t.name == name));
+                    let l = crate::look::controls::Look::new(p.dark);
+                    let face = mate.map(|mate| crate::look::faces::face(s.image_cache.as_deref(), &mate.id, &mate.name, s.looks.get(&mate.id), 26.0, &l));
+                    card_el = card_el.child(text(title).font(type_::BODY).color(p.text).truncate());
+                    if let Some(who) = who {
                         card_el = card_el.child(text(who).font(type_::LABEL).color(p.secondary));
                     }
                     if let Some(under) = under {
@@ -942,6 +942,11 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                         card_el = card_el.child(text(state_line).font(type_::LABEL).color(p.muted));
                     }
                     let open_id = mission_id.clone();
+                    let mut card_el_ = row().w_full().gap(12.0).padding(10.0).fill(p.raised).radius(8.0);
+                    if let Some(face) = face {
+                        card_el_ = card_el_.child(face);
+                    }
+                    let card_el = card_el_.child(card_el);
                     body = body.child(card_el.on_press(move |s: &mut State| {
                         s.opening_conversation = Some(open_id.clone());
                         s.home.to_look_at.remove(&open_id);
@@ -1216,7 +1221,7 @@ pub(super) fn board_scene(s: &mut State) {
     s.recent = vec![
         ConversationRow {
             id: "m_live".into(),
-            teammate: "Wren".into(),
+            teammate: "Codec".into(),
             title: "Wire the board".into(),
             started_by: "the person".into(),
             state: "running".into(),
@@ -1224,7 +1229,7 @@ pub(super) fn board_scene(s: &mut State) {
         },
         ConversationRow {
             id: "m_ask".into(),
-            teammate: "Wren".into(),
+            teammate: "Codec".into(),
             title: "Needs a say-so".into(),
             started_by: "the person".into(),
             state: "running".into(),
@@ -1232,7 +1237,7 @@ pub(super) fn board_scene(s: &mut State) {
         },
         ConversationRow {
             id: "m_done".into(),
-            teammate: "Wren".into(),
+            teammate: "Codec".into(),
             title: "Finished earlier".into(),
             started_by: "the person".into(),
             state: "completed".into(),
