@@ -44,7 +44,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Decision options, handed-over files and suggested task cards | `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/Thread.tsx`, `shared/protocolTags.ts` | **missing** | - | no | yes |
 | Reasoning duration and folded traces | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **done** — normalized public messages only, scrubbed/bounded, timed and folded; raw/legacy reasoning excluded; synthetic tests and headless scenes | yes | no | no |
 | Context breakdown/compact now and per-reply usage/cost | `renderer/src/components/ContextRing.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/compactNow.ts`, `renderer/src/cost.ts` | **partial** — runtime-measured context pie and exact reading; compaction diagnostic line and invalidation; category menu, Compact now execution and cost remain | yes | no | yes |
-| Save Markdown record and raw JSON | `renderer/src/components/SaveRecordDialog.tsx`, `main/mission-export.ts` | **missing** | - | no | yes |
+| Save Markdown record and raw JSON | `renderer/src/components/SaveRecordDialog.tsx`, `main/mission-export.ts` | **done** — `core/src/mission_export.rs` (record, raw JSON, chain walk, ledger recovery; 41 Electron tests incl. the golden byte for byte) and `src/ui/save_record.rs` (the dialog in Electron's words, in each conversation's … menu and ⌘K); headless window tests for save and cancel; `.jsonl.gz` archives not read yet (notes/EXPORT-NOTES.md, notes/SAVE-RECORD-NOTES.md) | yes | no | yes |
 | Import Claude Code, Codex, OpenCode and Cursor conversations | `renderer/src/components/ImportDialog.tsx`, `main/session-import.ts`, `main/agent-session-import.ts` | **missing** | - | no | yes |
 | Resume interrupted run from checkpoint | `renderer/src/components/ResumeCard.tsx`, `renderer/src/resume.ts` | **partial** — newest-checkpoint recovery decision and card, including named uncertain actions and refusal; reconciled resume execution remains unavailable | yes | no | yes |
 | Prompt rail, jump to bottom and timeline markers | `renderer/src/components/PromptRail.tsx`, `renderer/src/components/JumpToBottom.tsx`, `renderer/src/components/TimeMarker.tsx` | **missing** | - | no | no |
@@ -278,7 +278,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 9 | 8 | 8 | 25 | 17 | 3 |
+| 1 | Conversations & Thread Rendering | 10 | 8 | 7 | 25 | 18 | 3 |
 | 2 | Composer & Input | 10 | 2 | 2 | 14 | 12 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 5 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **39** | **46** | **68** | **153** | **85** | **15** |
+| | **TOTAL** | **40** | **46** | **67** | **153** | **86** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
