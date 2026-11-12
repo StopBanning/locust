@@ -893,7 +893,7 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                             card_el = card_el.child(
                                 row()
                                     .gap(8.0)
-                                    .child(primary(ALLOW_ONCE, p).on_press(move |s: &mut State| {
+                                    .child(primary(ALLOW_ONCE, p).key(format!("board-allow-{mission_id}")).on_press(move |s: &mut State| {
                                         answer_board(s, &approval_id, true)
                                     }))
                                     .child(button(DENY, p).on_press(move |s: &mut State| {

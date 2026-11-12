@@ -17,7 +17,7 @@ impl Drop for Dirs {
     }
 }
 
-fn teammate(root: &Path) -> Teammate {
+fn teammate(root: &Path, mode: &str) -> Teammate {
     Teammate {
         id: "tm_codec".into(),
         name: "Codec".into(),
@@ -25,13 +25,17 @@ fn teammate(root: &Path) -> Teammate {
         runtime: Some("codex".into()),
         model: Some("synthetic-model".into()),
         busy: false,
-        runs_in: "ask".into(),
+        runs_in: mode.into(),
         folder: Some(root.join("work").to_string_lossy().into()),
     }
 }
 
-/// A window on the native engine with one teammate, over a temporary data folder.
+/// A window on the native engine with one teammate (Codec, in Ask), over a temporary data folder.
 fn window() -> (Dirs, Store, Runtime<State>) {
+    window_in("ask")
+}
+
+fn window_in(mode: &str) -> (Dirs, Store, Runtime<State>) {
     let root = std::env::temp_dir().join(format!(
         "locust-drive-{}-{}",
         std::process::id(),
@@ -47,7 +51,7 @@ fn window() -> (Dirs, Store, Runtime<State>) {
     let mut s = State::default();
     s.engine = Some(Kind::Native);
     s.data = Some(store.clone());
-    apply_team(&mut s, vec![teammate(&root)]);
+    apply_team(&mut s, vec![teammate(&root, mode)]);
     let mut rt = Runtime::new(s, view, (1100.0, 780.0), Env::new(true, 1.0));
     rt.frame(0.0);
     (Dirs(root), store, rt)
@@ -188,4 +192,62 @@ fn choosing_a_teammate_leaves_the_board_for_their_conversation() {
     click(&mut rt, "rail-tm_codec");
     assert!(!rt.state.home.board_open, "the Board closed");
     assert!(rt.find("composer").is_some(), "the conversation's message box is on screen");
+}
+
+fn kinds(store: &Store, mission: &str) -> Vec<String> {
+    let path = store.ledger_dir().unwrap().join(format!("{mission}.jsonl"));
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter_map(|r| r["event"]["type"].as_str().map(str::to_owned))
+        .collect()
+}
+
+#[test]
+fn a_turn_started_outside_the_window_shows_its_card_on_the_board_and_allow_once_finishes_it() {
+    let (_dirs, store, mut rt) = window_in("approve-each");
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "approve-allow"));
+    // Started as the door starts one: by the engine, not by this window's send.
+    let codec = rt.state.teammates[0].clone();
+    let started = native::send_from(
+        native::Send { teammate: codec, conversation: None, prompt: "Synthetic prompt".into(), model: None, effort: None },
+        native::Origin { started_by: Some(json!({"kind": "mcp"})), ..Default::default() },
+    )
+    .unwrap();
+    let mission = native::real_tip(&started.conversation_id).unwrap_or(started.conversation_id.clone());
+    // The window learns of it by itself: the recent list and the Board's card (once, neither did).
+    pump(&mut rt, "the card", |s| !s.home.asks.is_empty() && s.recent.iter().any(|r| r.id == mission));
+    rt.update(|s, _| home_panel::open_board(s));
+    // A card shown for under half a second cannot be approved (a stray click must not allow anything).
+    std::thread::sleep(Duration::from_millis(600));
+    click(&mut rt, &format!("board-allow-{mission}"));
+    pump(&mut rt, "the turn's end", |_| kinds(&store, &mission).iter().any(|k| k == "run.completed"));
+}
+
+#[test]
+fn stop_in_the_window_ends_a_long_turn_with_stopped_and_no_error() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the turn running", |s| can_stop(s));
+    click(&mut rt, "send");
+    pump(&mut rt, "the stopped turn", |s| s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running) && s.flight.is_none());
+    let items = &rt.state.ledger.as_ref().unwrap().items;
+    assert!(items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped")), "{items:?}");
+    assert!(!items.iter().any(|i| matches!(i, ledger::Item::Note { level, .. } if level == "error")), "{items:?}");
+}
+
+#[test]
+fn quitting_writes_each_running_turns_ending() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the turn running", |s| can_stop(s));
+    let running = native::running_ids();
+    assert!(!running.is_empty());
+    on_quit(&mut rt.state, &mut Tx::default());
+    let mission = running.iter().find(|id| store.ledger_dir().unwrap().join(format!("{id}.jsonl")).exists()).unwrap().clone();
+    assert!(kinds(&store, &mission).iter().any(|k| k == "run.cancelled"), "{:?}", kinds(&store, &mission));
+    assert!(native::running_ids().is_empty());
 }
