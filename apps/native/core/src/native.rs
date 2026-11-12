@@ -150,6 +150,7 @@ fn command_for_turn(
     prompt: &str,
     effort: Option<&str>,
     session_id: Option<&str>,
+    references: &[&str],
 ) -> io::Result<Command> {
     #[cfg(any(test, feature = "test-hooks"))]
     if let Some((program, args)) = crate::invariants::lock(&hooks::STATE).1.clone() {
@@ -161,9 +162,9 @@ fn command_for_turn(
         "claude" => crate::runtime::claude::bare_command(folder),
         "cursor" => crate::runtime::cursor::command(folder, mode, model, resume),
         "copilot" => crate::runtime::copilot::command(
-            folder, prompt, mode, model, effort, resume, session_id,
+            folder, prompt, mode, model, effort, resume, session_id, references,
         ),
-        "antigravity" => crate::runtime::antigravity::command(folder, mode, model, effort, resume),
+        "antigravity" => crate::runtime::antigravity::command(folder, mode, model, effort, resume, references),
         "muse" => crate::runtime::muse::command(folder, mode, model, effort, resume),
         "acp" => crate::runtime::acp::command(
             &electron_dir().ok_or_else(|| io::Error::other("Locust profile not found"))?,
@@ -173,7 +174,16 @@ fn command_for_turn(
         "opencode" => {
             let store = store()
                 .ok_or_else(|| io::Error::other("Native data folder could not be determined"))?;
-            crate::runtime::opencode::command(folder, mode, &store)
+            let mut c = crate::runtime::opencode::command(folder, mode, &store)?;
+            // OpenCode 1's config gets the reference folders a read-only run may read (openCodeModeEnv).
+            let config = c
+                .get_envs()
+                .find(|(k, _)| *k == "OPENCODE_CONFIG_CONTENT")
+                .and_then(|(_, v)| v.and_then(|v| v.to_str()).and_then(|v| serde_json::from_str::<Value>(v).ok()));
+            if let Some(config) = config.filter(|c| c["permission"].is_object() && !references.is_empty()) {
+                c.env("OPENCODE_CONFIG_CONTENT", crate::runtime::opencode_config::with_references(config, mode, references).to_string());
+            }
+            Ok(c)
         }
         "kilo" => {
             let store = store()
@@ -784,6 +794,7 @@ pub fn claude_args(
     model: Option<&str>,
     effort: Option<&str>,
     resume: Option<&str>,
+    references: &[&str],
 ) -> Result<Vec<String>, String> {
     crate::runtime::claude::print_args(&crate::runtime::claude::PrintOptions {
         mode,
@@ -793,6 +804,7 @@ pub fn claude_args(
         model,
         effort,
         resume,
+        references,
         ..Default::default()
     })
 }
@@ -935,7 +947,7 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
         model: model.map(str::to_owned),
         effort: None,
     };
-    let origin = Origin { mode: Mode::parse(&mode), folder: folder.clone(), started_by: Some(started_by), runtime: Some(runtime.to_owned()) };
+    let origin = Origin { mode: Mode::parse(&mode), folder: folder.clone(), started_by: Some(started_by), runtime: Some(runtime.to_owned()), ..Default::default() };
     let started = send_from(job, origin).and_then(|s| real_tip(&s.conversation_id));
     match started {
         Ok(id) => Ok((id, folder.map(|f| f.to_string_lossy().into_owned()), mode)),
@@ -996,6 +1008,8 @@ pub struct Origin {
     pub started_by: Option<Value>,
     /// A follow-up's runtime and model, kept from the conversation rather than the teammate's saved route.
     pub runtime: Option<String>,
+    /// Reference folders attached to the conversation; each is checked against the mode before it is shared.
+    pub references: Vec<String>,
 }
 
 /// Start (or continue) a turn the person asked for in the window.
@@ -1139,7 +1153,21 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if let Some(switch) = &switched {
         job.prompt = switch.prompt.clone();
     }
-    let runtime_prompt = crate::people::brief(&store, &job.teammate.id, &folder, &job.prompt)?;
+    // The references this turn may read without its mode changing (referenceAccess), named in its prompt and handed
+    // to the agents that take a folder.
+    let folder_text = folder.to_string_lossy().into_owned();
+    let shared: Vec<String> = origin
+        .references
+        .iter()
+        .filter(|path| crate::references::access(runtime_name, mode.as_str(), path, Some(&folder_text), false).0)
+        .cloned()
+        .collect();
+    let references: Vec<&str> = shared.iter().map(String::as_str).collect();
+    let runtime_prompt = format!(
+        "{}\n\n{}",
+        crate::people::brief(&store, &job.teammate.id, &folder, &job.prompt)?,
+        crate::references::section(&references)
+    );
     let id = new_id();
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
     let session_id = if runtime_name == "copilot" && resume.is_none() {
@@ -1157,6 +1185,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         &runtime_prompt,
         job.effort.as_deref(),
         session_id.as_deref(),
+        &references,
     )
     .map_err(|e| e.to_string())?;
     command.current_dir(&folder);
@@ -1208,6 +1237,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             model.as_deref(),
             job.effort.as_deref(),
             resume.as_deref(),
+            &references,
         )?);
     }
     let args: Vec<String> = command
@@ -1337,7 +1367,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
     let runtime_name = teammate.runtime.as_deref().unwrap_or("codex");
     let model = teammate.model.clone().filter(|m| !m.is_empty() && m != "account-default");
     let session = if runtime_name == "copilot" { Some(uuid_v4().map_err(|e| e.to_string())?) } else { None };
-    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref())
+    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[])
         .map_err(|e| e.to_string())?;
     command.current_dir(folder);
     let id = new_id();

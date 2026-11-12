@@ -65,7 +65,9 @@ for line in sys.stdin:
         # (Electron workspace-brief + about-you + memory); the ledger still keeps the bare prompt.
         assert len(p.get('input') or []) == 1 and p['input'][0].get('type') == 'text', p
         text = p['input'][0].get('text') or ''
-        assert text == PROMPT or text.endswith('\n\n' + PROMPT), text
+        # Every turn ends with the reference-folders line, after the person's words (codex-mission.ts referencesSection).
+        words = text.split('\n\nReference folders — for reading, not changing:')[0]
+        assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})

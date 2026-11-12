@@ -244,6 +244,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
                 turn.effort.as_deref(),
                 turn.resume.as_deref(),
                 Some(&id),
+                &[],
             )?;
             let args: Vec<String> = command
                 .get_args()
@@ -276,6 +277,7 @@ pub fn run(args: &[String]) -> Result<i32, Box<dyn std::error::Error>> {
                 turn.model.as_deref(),
                 turn.effort.as_deref(),
                 turn.resume.as_deref(),
+                &[],
             )?;
             let args: Vec<String> = command
                 .get_args()

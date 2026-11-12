@@ -161,3 +161,19 @@ Left after this part: three Claude Code streams and two Antigravity transcripts.
 - Muse matches in every case. Left: Claude Code 29, OpenCode 21, Copilot 13, Cursor 8, Antigravity 6: skills,
   reference folders, forks, ticked connectors, Copilot's browser in Approve each, and `no-guard` (Electron runs
   without the guard only when writing it failed; Rust refuses to run instead, and that is kept).
+
+## Seventh part (12 Nov): reference folders in every agent's command (grid 318 of 385)
+
+- `core/src/references.rs` ports shared/references.ts `referenceAccess` (a reference never widens a mode: where adding
+  the folder would also make it writable it is left out, with the chip's words) and workroom-briefing.ts
+  `referencesSection`, the line every turn's prompt now ends with, as Electron's does ("none attached for this turn"
+  when there are none).
+- The builders take the folders as commands.ts gives them: Claude Code `--add-dir` with `Edit(...)` denials outside
+  Ask (it was already in `print_args`; the turn now passes it), OpenCode 1's `external_directory` allow entries in a
+  read-only run, Copilot's and Antigravity's `--add-dir` in a read-only run. Codex, Cursor and Muse are told in the
+  prompt only.
+- A turn takes its folders from `Origin.references`. Nothing fills it yet: the conversation's reference store and
+  the composer's chips are the next step.
+- The fake app-server now accepts the references line after the person's words.
+- Left in the grid: Claude Code 25, OpenCode 15, Copilot 11, Cursor 8, Antigravity 8: skills, forks, ticked connectors,
+  Copilot's browser in Approve each, and `no-guard`.

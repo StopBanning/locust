@@ -2,31 +2,26 @@
 # Written by LOCUST_WRITE_NOT_YET=1 cargo test -p locust-core command_grid; may only shrink.
 antigravity/accept-edits/everything	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
 antigravity/accept-edits/skills	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
-antigravity/ask/everything	Rust lacks ["--add-dir", "/locust/skills", "--add-dir", "/work/reference"]; Rust adds []
-antigravity/ask/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
+antigravity/ask/everything	Rust lacks ["/locust/skills"]; Rust adds []
 antigravity/ask/skills	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
 antigravity/auto/everything	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
 antigravity/auto/skills	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
-antigravity/plan/everything	Rust lacks ["--add-dir", "/locust/skills", "--add-dir", "/work/reference"]; Rust adds []
-antigravity/plan/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
+antigravity/plan/everything	Rust lacks ["/locust/skills"]; Rust adds []
 antigravity/plan/skills	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
 claude/accept-edits/connectors	Rust lacks ["--allowedTools", "mcp__Robinhood__*"]; Rust adds ["--strict-mcp-config"]
-claude/accept-edits/everything	Rust lacks ["mcp__Robinhood__*,mcp__locust_browser__*", "--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills", "--add-dir", "/work/reference", "--disallowedTools", "Edit(//work/reference/**)", "--fork-session"]; Rust adds ["mcp__locust_browser__*", "--strict-mcp-config"]
+claude/accept-edits/everything	Rust lacks ["mcp__Robinhood__*,mcp__locust_browser__*", "--plugin-dir", "/locust/skills", "/locust/skills", "--fork-session"]; Rust adds ["mcp__locust_browser__*", "--strict-mcp-config"]
 claude/accept-edits/fork	Rust lacks ["--fork-session"]; Rust adds []
 claude/accept-edits/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
-claude/accept-edits/references	Rust lacks ["--add-dir", "/work/reference", "--disallowedTools", "Edit(//work/reference/**)"]; Rust adds []
 claude/accept-edits/skills	Rust lacks ["--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills"]; Rust adds []
 claude/approve-each/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
-claude/approve-each/everything	Rust lacks ["--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills", "--add-dir", "/work/reference", "--disallowedTools", "Edit(//work/reference/**)", "--fork-session"]; Rust adds ["--strict-mcp-config"]
+claude/approve-each/everything	Rust lacks ["--plugin-dir", "/locust/skills", "/locust/skills", "--fork-session"]; Rust adds ["--strict-mcp-config"]
 claude/approve-each/fork	Rust lacks ["--fork-session"]; Rust adds []
 claude/approve-each/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
-claude/approve-each/references	Rust lacks ["--add-dir", "/work/reference", "--disallowedTools", "Edit(//work/reference/**)"]; Rust adds []
 claude/approve-each/skills	Rust lacks ["--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills"]; Rust adds []
 claude/ask/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
-claude/ask/everything	Rust lacks ["--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills", "--add-dir", "/work/reference", "--fork-session"]; Rust adds ["--strict-mcp-config"]
+claude/ask/everything	Rust lacks ["--plugin-dir", "/locust/skills", "/locust/skills", "--fork-session"]; Rust adds ["--strict-mcp-config"]
 claude/ask/fork	Rust lacks ["--fork-session"]; Rust adds []
 claude/ask/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
-claude/ask/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
 claude/ask/skills	Rust lacks ["--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills"]; Rust adds []
 claude/auto/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
 claude/auto/everything	Rust lacks ["--plugin-dir", "/locust/skills", "--fork-session"]; Rust adds ["--strict-mcp-config"]
@@ -34,23 +29,20 @@ claude/auto/fork	Rust lacks ["--fork-session"]; Rust adds []
 claude/auto/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
 claude/auto/skills	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
 claude/plan/connectors	Rust lacks []; Rust adds ["--strict-mcp-config"]
-claude/plan/everything	Rust lacks ["--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills", "--add-dir", "/work/reference", "--fork-session"]; Rust adds ["--strict-mcp-config"]
+claude/plan/everything	Rust lacks ["--plugin-dir", "/locust/skills", "/locust/skills", "--fork-session"]; Rust adds ["--strict-mcp-config"]
 claude/plan/fork	Rust lacks ["--fork-session"]; Rust adds []
 claude/plan/no-guard	Rust lacks []; Rust adds ["--settings", "/locust/guard/settings.json"]
-claude/plan/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
 claude/plan/skills	Rust lacks ["--plugin-dir", "/locust/skills", "--add-dir", "/locust/skills"]; Rust adds []
 copilot/accept-edits/everything	Rust lacks ["/locust/skills"]; Rust adds []
 copilot/accept-edits/skills	Rust lacks ["/locust/skills"]; Rust adds []
 copilot/approve-each/browser	Rust lacks []; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]
 copilot/approve-each/everything	Rust lacks ["/locust/skills"]; Rust adds ["--additional-mcp-config", "@/locust/browser/copilot-mcp.json"]
 copilot/approve-each/skills	Rust lacks ["/locust/skills"]; Rust adds []
-copilot/ask/everything	Rust lacks ["--add-dir", "/work/reference", "/locust/skills"]; Rust adds []
-copilot/ask/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
+copilot/ask/everything	Rust lacks ["/locust/skills"]; Rust adds []
 copilot/ask/skills	Rust lacks ["/locust/skills"]; Rust adds []
 copilot/auto/everything	Rust lacks ["/locust/skills"]; Rust adds []
 copilot/auto/skills	Rust lacks ["/locust/skills"]; Rust adds []
-copilot/plan/everything	Rust lacks ["--add-dir", "/work/reference", "/locust/skills"]; Rust adds []
-copilot/plan/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
+copilot/plan/everything	Rust lacks ["/locust/skills"]; Rust adds []
 copilot/plan/skills	Rust lacks ["/locust/skills"]; Rust adds []
 cursor/accept-edits/everything	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
 cursor/accept-edits/skills	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
@@ -66,14 +58,12 @@ opencode/accept-edits/skills	OPENCODE_CONFIG_CONTENT differs: /permission/extern
 opencode/approve-each/everything	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"ask","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "ask"
 opencode/approve-each/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
 opencode/approve-each/skills	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"ask","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "ask"
-opencode/ask/everything	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/work/reference":"allow","/work/reference/**":"allow","/work/reference/*":"allow","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "deny"
+opencode/ask/everything	OPENCODE_CONFIG_CONTENT differs: Rust lacks /permission/external_directory//locust/skills
 opencode/ask/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
-opencode/ask/references	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/work/reference":"allow","/work/reference/**":"allow","/work/reference/*":"allow"}, Rust "deny"
 opencode/ask/skills	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "deny"
 opencode/auto/everything	OPENCODE_CONFIG_CONTENT differs: Rust lacks /skills
 opencode/auto/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
 opencode/auto/skills	OPENCODE_CONFIG_CONTENT differs: Rust lacks /skills
-opencode/plan/everything	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/work/reference":"allow","/work/reference/**":"allow","/work/reference/*":"allow","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "deny"
+opencode/plan/everything	OPENCODE_CONFIG_CONTENT differs: Rust lacks /permission/external_directory//locust/skills
 opencode/plan/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
-opencode/plan/references	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/work/reference":"allow","/work/reference/**":"allow","/work/reference/*":"allow"}, Rust "deny"
 opencode/plan/skills	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "deny"

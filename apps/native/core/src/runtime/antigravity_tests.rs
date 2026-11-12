@@ -220,11 +220,11 @@ fn agy_unknown_model() {
 
 #[test]
 fn agy_print_args_and_user_line() {
-    let ask = crate::runtime::antigravity::print_args(Mode::Ask, Some("gemini"), None, None);
+    let ask = crate::runtime::antigravity::print_args(Mode::Ask, Some("gemini"), None, None, &[]);
     assert!(!ask.iter().any(|a| a == "--dangerously-skip-permissions"));
     assert!(ask.windows(2).any(|w| w == ["--model", "gemini"]));
     assert!(ask.contains(&"-p=".into()));
-    let auto = crate::runtime::antigravity::print_args(Mode::Auto, None, Some("low"), Some("c1"));
+    let auto = crate::runtime::antigravity::print_args(Mode::Auto, None, Some("low"), Some("c1"), &[]);
     assert!(auto.contains(&"--dangerously-skip-permissions".into()));
     let parsed: serde_json::Value =
         serde_json::from_slice(&crate::runtime::antigravity::user_line("Fix it")).unwrap();
@@ -345,7 +345,7 @@ fn real_antigravity_one_line() {
     let folder = temp.0.join("ws");
     std::fs::create_dir_all(&folder).unwrap();
     let mut command =
-        crate::runtime::antigravity::command(&folder, Mode::Ask, None, None, None).unwrap();
+        crate::runtime::antigravity::command(&folder, Mode::Ask, None, None, None, &[]).unwrap();
     let mut rt = Antigravity::spawn(&mut command).unwrap();
     let turn = Turn {
         prompt: "Reply with exactly: ok".into(),

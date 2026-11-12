@@ -52,6 +52,7 @@ pub fn prompt_args(
     effort: Option<&str>,
     resume: Option<&str>,
     session_id: Option<&str>,
+    references: &[&str],
 ) -> Vec<String> {
     let sandbox = sandbox_for(mode);
     let mut args = vec![
@@ -65,6 +66,10 @@ pub fn prompt_args(
     ];
     if sandbox == "read-only" {
         args.push("--deny-tool=write,shell".into());
+        // Reference folders, read only: an extra root would also be writable outside Ask (commands.ts).
+        for folder in references {
+            args.extend(["--add-dir".into(), (*folder).into()]);
+        }
     }
     if sandbox == "full-access" {
         args.push("--allow-all-paths".into());
@@ -94,6 +99,7 @@ pub fn command(
     effort: Option<&str>,
     resume: Option<&str>,
     session_id: Option<&str>,
+    references: &[&str],
 ) -> io::Result<Command> {
     let mut c = Command::new(super::discovery::find_named("copilot")?);
     if mode == Mode::ApproveEach {
@@ -105,7 +111,7 @@ pub fn command(
             c.args(["--effort", e]);
         }
     } else {
-        c.args(prompt_args(prompt, mode, model, effort, resume, session_id));
+        c.args(prompt_args(prompt, mode, model, effort, resume, session_id, references));
     }
     c.current_dir(folder);
     Ok(c)
@@ -317,7 +323,7 @@ mod unit_tests {
     use super::*;
     #[test]
     fn read_only_denies_write_and_shell() {
-        let args = prompt_args("hi", Mode::Ask, None, None, None, Some("sess"));
+        let args = prompt_args("hi", Mode::Ask, None, None, None, Some("sess"), &[]);
         assert!(args.iter().any(|a| a == "--deny-tool=write,shell"));
         assert!(args.windows(2).any(|w| w == ["--session-id", "sess"]));
         assert!(!args.iter().any(|a| a == "--allow-all-paths"));
@@ -332,6 +338,7 @@ mod unit_tests {
             Some("high"),
             Some("old"),
             None,
+            &[],
         );
         assert!(args.contains(&"--allow-all-paths".into()));
         assert!(args.windows(2).any(|w| w == ["--model", "gpt"]));

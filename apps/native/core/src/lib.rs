@@ -32,6 +32,7 @@ pub mod page_preview;
 pub mod pdf;
 pub mod people;
 pub mod recovery;
+pub mod references;
 pub mod routines;
 pub mod run_cli;
 pub mod runtime;

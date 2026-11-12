@@ -599,7 +599,7 @@ fn print_only_runtimes_refuse_unsupported_approve_each_before_launch() {
     let folder = std::path::Path::new("/unused");
     for result in [
         crate::runtime::cursor::command(folder, Mode::ApproveEach, None, None),
-        crate::runtime::antigravity::command(folder, Mode::ApproveEach, None, None, None),
+        crate::runtime::antigravity::command(folder, Mode::ApproveEach, None, None, None, &[]),
         crate::runtime::muse::command(folder, Mode::ApproveEach, None, None, None),
     ] {
         assert!(

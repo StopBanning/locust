@@ -18,6 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 const WORKSPACE: &str = "/work/project";
+const REFERENCE: &str = "/work/reference";
 const BRIDGE: &str = "/locust/bridge/mcp.json";
 const BROWSER: &str = "/locust/browser/mcp.json";
 const GUARD_SETTINGS: &str = "/locust/guard/settings.json";
@@ -43,10 +44,11 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     let resume = text(case, "resume");
     let browser = case["browser"].as_bool().unwrap();
     let folder = Path::new(WORKSPACE);
+    let references: Vec<&str> = if case["references"] == true { vec![REFERENCE] } else { vec![] };
     let mut env = Env::new();
     let mut args: Vec<String> = match runtime {
-        // native.rs claude_args. Skills, reference folders, forks and ticked connectors are not wired in the Rust
-        // engine yet, so those cases stay listed; a case without the guard is one Electron's host never builds.
+        // native.rs claude_args. Skills, forks and ticked connectors are not wired in the Rust engine yet, so those
+        // cases stay listed; a case without the guard is one Electron's host never builds.
         "claude" => crate::native::claude_args(
             mode,
             Some(BRIDGE),
@@ -55,6 +57,7 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
             model,
             effort,
             resume,
+            &references,
         )?,
         "codex" => super::codex::app_server_args(Some("0.160.0")),
         "cursor" => {
@@ -75,14 +78,14 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
                 a
             } else {
                 let session = resume.is_none().then_some(COPILOT_SESSION);
-                super::copilot::prompt_args("Say hi.", mode, model, effort, resume, session)
+                super::copilot::prompt_args("Say hi.", mode, model, effort, resume, session, &references)
             }
         }
         "antigravity" => {
             if mode == Mode::ApproveEach {
                 return Err("Antigravity does not support Approve-each in the native driver.".into());
             }
-            super::antigravity::print_args(mode, model, effort, resume)
+            super::antigravity::print_args(mode, model, effort, resume, &references)
         }
         "muse" => {
             if mode == Mode::ApproveEach {
@@ -96,7 +99,7 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
         }
         // OpenCode 1 through its local server (opencode.rs), configured by opencode_config::configure.
         "opencode" => {
-            let config = super::opencode_config::legacy_config(mode, Some(OPENCODE_GUARD));
+            let config = super::opencode_config::with_references(super::opencode_config::legacy_config(mode, Some(OPENCODE_GUARD)), mode, &references);
             env.insert("OPENCODE_CONFIG_CONTENT".into(), config.to_string());
             if matches!(mode, Mode::Ask | Mode::Plan) {
                 env.insert("OPENCODE_PURE".into(), "1".into());

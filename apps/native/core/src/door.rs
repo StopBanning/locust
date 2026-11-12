@@ -529,6 +529,7 @@ impl Locust for Engine {
             folder: request.folder,
             started_by: Some(started_by),
             runtime: request.runtime,
+            ..Default::default()
         };
         let started = crate::native::send_from(job, origin)?;
         // The new turn's own id: for a follow-up, the conversation's newest turn now.

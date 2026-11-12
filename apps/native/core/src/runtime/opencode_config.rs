@@ -41,6 +41,33 @@ pub fn legacy_config(mode: Mode, plugin: Option<&str>) -> Value {
     }
     config
 }
+/// openCodeModeEnv's reference folders: in a read-only run, each folder (and what is under it) readable outside the
+/// workspace, after a default denial. Other modes leave the config alone: an extra root would also be writable.
+pub fn with_references(mut config: Value, mode: Mode, references: &[&str]) -> Value {
+    if !matches!(mode, Mode::Ask | Mode::Plan) || references.is_empty() {
+        return config;
+    }
+    let old = config["permission"]["external_directory"].clone();
+    let mut allowed = serde_json::Map::new();
+    allowed.insert("*".into(), json!("deny"));
+    if let Some(o) = old.as_object() {
+        allowed.extend(o.clone());
+    }
+    for folder in references {
+        let path = folder.replace('\\', "/").trim_end_matches('/').to_owned();
+        let windows = path.len() > 2 && path.as_bytes()[1] == b':' && path.as_bytes()[2] == b'/';
+        let spellings = if windows { vec![path.clone(), path.replace('/', "\\")] } else { vec![path.clone()] };
+        for spelling in spellings {
+            let sep = if spelling.contains('\\') { "\\" } else { "/" };
+            allowed.insert(spelling.clone(), json!("allow"));
+            allowed.insert(format!("{spelling}{sep}**"), json!("allow"));
+            allowed.insert(format!("{spelling}{sep}*"), json!("allow"));
+        }
+    }
+    config["permission"]["external_directory"] = Value::Object(allowed);
+    config
+}
+
 pub fn acp_config(mode: Mode, plugin: &Path) -> Value {
     let old = legacy_config(mode, None);
     let mut permissions = vec![
