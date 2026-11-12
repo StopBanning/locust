@@ -102,8 +102,10 @@ Read the pair that matches: both behind other windows.
 - Electron's first frame. The drive starts it its own way.
 - CPU while a reply streams.
 
-**First frame.** The Rust app's first frame, from launch to the conversation on screen, was 408–1,374 ms across these
-runs: it now includes the real app reading its data. The older bench showed made-up data and reported 154–209 ms (9 Nov).
+**First frame.** It is not a fair figure in this setup. The bench window sits behind other windows, and a covered window
+draws nothing until Rune looks again on a back-off timer. So the first frame depends on what covers it. The same bench
+with made-up data and no setup at all ranged from 146 to 1,524 ms in the same conditions; the paired runs gave
+408–1,374 ms. A clean first frame needs an uncovered window, and these runs never take the screen.
 
 ## Notes
 

@@ -51,7 +51,10 @@ These were thrown out:
 - **A run at 1100 wide from the start.** Electron folds to the rail there, and the drive's open step found no name. The
   conversation is now opened while the window is wide, then the window is made 1100.
 
-## Next
+## The first frame is not measured fairly here
 
-The Rust first frame ranges from 408 ms to 1.4 s now that setup reads real data. Setup work that can wait belongs after
-the first frame.
+The Rust first frame ranged from 408 ms to 1.4 s. It is not the app's setup: setup reads a few small files and loads the
+team off the main thread. The same bench with made-up data and no setup ranged from 146 to 1,524 ms in the same
+conditions. The bench window sits below other windows, and Rune does not draw a covered window until it looks again on a
+back-off timer, so the first frame depends on what covers it. A clean figure needs an uncovered window, which these runs
+never take.
