@@ -2135,6 +2135,8 @@ fn main() {
             ("routines-light", routines_panel::light_scene),
             ("settings", settings_panel::scene),
             ("settings-door", settings_panel::door_scene),
+            ("settings-carry", settings_panel::carry_settings_scene),
+            ("settings-carry-light", settings_panel::carry_settings_light_scene),
             ("carry-on", carry_on_scene),
             ("carry-on-light", carry_on_light_scene),
             ("settings-door-light", settings_panel::door_light_scene),

@@ -69,3 +69,17 @@ fn a_rescue_with_no_reply_is_refused_rather_than_clipped() {
     let c = reconcile(&meta, &[], false, "route-switch", 1, "2026-11-12T03:00:00.000Z");
     assert!(compose_handoff_prompt(&"x".repeat(9000), &c, "Codex CLI", None, &[], None).is_none());
 }
+
+#[test]
+fn the_card_offers_the_persons_pick_when_it_can_run_else_the_first_ready_in_electrons_order() {
+    let ready: Vec<String> = ["codex", "opencode"].iter().map(|r| (*r).to_owned()).collect();
+    let pick = PlanRunsOut { runtime: "opencode".into(), model: Some("opencode/free".into()), automatic: false };
+    assert_eq!(carry_on_offer("codex", Some(&pick), &ready), Some(("opencode".into(), Some("opencode/free".into()))));
+    // The pick is the agent that stopped, or not ready: the first ready other agent.
+    assert_eq!(carry_on_offer("opencode", Some(&pick), &ready), Some(("codex".into(), None)));
+    let away = PlanRunsOut { runtime: "claude".into(), model: None, automatic: true };
+    assert_eq!(carry_on_offer("codex", Some(&away), &ready), Some(("opencode".into(), None)));
+    assert_eq!(carry_on_offer("codex", None, &["codex".to_owned()]), None);
+    assert_eq!(parse_plan_runs_out(&json!({"runtime": "gemini"})), None);
+    assert_eq!(parse_plan_runs_out(&json!({"runtime": "claude", "model": "account-default", "automatic": true})), Some(away));
+}

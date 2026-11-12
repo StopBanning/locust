@@ -64,11 +64,12 @@ a brief of the work so far, as Electron does.
   an app or a carry-on started, so one empty plan cannot start a chain. When it cannot (the pick is the agent that
   stopped, or the carry-on is refused), the stopped turn's thread says why (`host.carry_on`, Electron's words),
   appended to its native ledger; Electron's reader accepts it.
-- Tests: 446 in the engine, 190 in the window.
+- **Settings > AI agents, "When an agent cannot go on"**: First one ready or one agent (a picked agent that is not
+  installed here stays listed, "(not ready)"), and Without asking once one is picked, in Electron's words; saved as
+  `planRunsOut` beside the other settings. Scenes `settings-carry` and `settings-carry-light`.
+- Tests: 448 in the engine, 190 in the window.
 
 ## Not done
 
-- A Settings control to pick the carry-on agent and Without asking: the pick is read from `planRunsOut` (seeded from
-  Electron's settings), but the Rust window cannot change it yet.
 - Checking a model against a catalog before a carry-on.
 - The window does not draw the switch's seam from the native engine's receipt yet.

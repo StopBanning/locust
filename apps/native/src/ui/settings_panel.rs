@@ -21,6 +21,9 @@ pub(super) struct Panel {
     pub error: String,
     /// Locust's door, as its switches stand (None when this window has no door).
     pub door: Option<locust_core::door::State>,
+    /// "When an agent cannot go on": the person's pick, and the agents that can carry work on here.
+    pub plan_runs_out: Option<locust_core::carry_on::PlanRunsOut>,
+    pub carry_choices: Vec<String>,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -65,6 +68,10 @@ fn reload(s: &mut State) {
                 Err(e) => s.settings_panel.error = e,
             }
             s.settings_panel.door = crate::DOOR.get().map(|d| d.state(None));
+            s.settings_panel.plan_runs_out = locust_core::people::team(store)
+                .ok()
+                .and_then(|team| locust_core::carry_on::parse_plan_runs_out(&team["settings"]["planRunsOut"]));
+            s.settings_panel.carry_choices = locust_core::carry_on::installed_runtimes();
             s.settings_panel.theme = workspace_settings::load_theme(store);
             s.appearance = s.settings_panel.theme.to_appearance();
             // Round-trip keeps State.appearance and the stored theme aligned.
@@ -244,6 +251,87 @@ fn door_section(s: &State, p: &Palette) -> El {
     section
 }
 
+fn set_plan(s: &mut State, plan: Option<locust_core::carry_on::PlanRunsOut>) {
+    let Some(store) = s.data.clone() else { return };
+    match locust_core::people::set_plan_runs_out(&store, plan.as_ref()) {
+        Ok(()) => {
+            s.settings_panel.plan_runs_out = plan;
+            s.settings_panel.error.clear();
+        }
+        Err(e) => s.settings_panel.error = e,
+    }
+}
+
+/// Screens.tsx "When an agent cannot go on": First one ready, or one agent; and Without asking once one is picked.
+fn plan_runs_out_section(s: &State, p: &Palette) -> El {
+    use locust_core::carry_on::{PlanRunsOut, display_name};
+    let l = crate::look::controls::Look::new(p.dark);
+    let plan = s.settings_panel.plan_runs_out.clone();
+    let mut choices: Vec<String> = s.settings_panel.carry_choices.clone();
+    if let Some(chosen) = &plan
+        && !choices.contains(&chosen.runtime)
+    {
+        choices.push(chosen.runtime.clone());
+    }
+    let label = |runtime: &str| -> String {
+        let named = match &plan {
+            Some(c) if c.runtime == runtime && c.model.is_some() => format!("{} · {}", display_name(runtime), c.model.clone().unwrap_or_default()),
+            _ => display_name(runtime).to_owned(),
+        };
+        if s.settings_panel.carry_choices.iter().any(|c| c == runtime) { named } else { format!("{named} (not ready)") }
+    };
+    let lede = match &plan {
+        None => "A run whose plan runs out, or whose provider fails before it does anything, stops where it is. Its card offers to carry the work on with the first AI agent that is ready, told what was done. Pick one here to choose which.".to_owned(),
+        Some(c) if c.automatic => format!("{} carries the work on by itself when another agent's plan runs out, or its provider fails before it does anything, told what was done.", label(&c.runtime)),
+        Some(c) => format!("A run whose plan runs out, or whose provider fails before it does anything, stops where it is, and its card offers to carry the work on with {}.", label(&c.runtime)),
+    };
+    let mut picks = row().gap(6.0).wrap();
+    picks = picks.child(
+        crate::look::controls::button(&l, "First one ready", if plan.is_none() { crate::look::controls::Tone::Active } else { crate::look::controls::Tone::Neutral }, false)
+            .role("radio")
+            .on_press(|s: &mut State| set_plan(s, None)),
+    );
+    for runtime in choices {
+        let on = plan.as_ref().is_some_and(|c| c.runtime == runtime);
+        let automatic = plan.as_ref().is_some_and(|c| c.automatic);
+        let keep = plan.clone();
+        let words = label(&runtime);
+        picks = picks.child(
+            crate::look::controls::button(&l, &words, if on { crate::look::controls::Tone::Active } else { crate::look::controls::Tone::Neutral }, false)
+                .role("radio")
+                .on_press(move |s: &mut State| {
+                    let next = if on { keep.clone() } else { Some(PlanRunsOut { runtime: runtime.clone(), model: None, automatic }) };
+                    set_plan(s, next);
+                }),
+        );
+    }
+    let without = match &plan {
+        None => "Pick an agent above first: Locust never moves your work on its own to an agent you did not choose.",
+        Some(c) if c.automatic => "On. Only for messages you send yourself, never a comparison, a routine or a reply between teammates.",
+        Some(_) => "Off. The card waits for your press.",
+    };
+    let words = col()
+        .grow(1.0)
+        .gap(4.0)
+        .child(text("Without asking").font(l.ty.control).color(l.c("text-primary")))
+        .child(text(without).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    let automatic = plan.as_ref().is_some_and(|c| c.automatic);
+    let toggle = crate::look::controls::switch(&l, automatic, "Carry on without asking", plan.is_none()).on_press(|s: &mut State| {
+        if let Some(mut c) = s.settings_panel.plan_runs_out.clone() {
+            c.automatic = !c.automatic;
+            set_plan(s, Some(c));
+        }
+    });
+    col()
+        .w_full()
+        .gap(10.0)
+        .padding(10.0)
+        .child(text("When an agent cannot go on").font(l.ty.control).color(l.c("text-primary")))
+        .child(text(lede).font(l.ty.body).color(l.c("text-secondary")).wrap())
+        .child(picks)
+        .child(row().w_full().gap(16.0).pl(24.0).center_y().child(words).child(toggle))
+}
+
 fn deferred(heading: &str, p: &Palette) -> El {
     col()
         .w_full()
@@ -336,6 +424,15 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
+                } else {
+                    body = body.child(deferred(heading, p));
+                }
+            }
+        }
+        SettingsPageId::Runtimes => {
+            for heading in headings {
+                if heading == "When an agent cannot go on" {
+                    body = body.child(plan_runs_out_section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -639,6 +736,20 @@ pub(super) fn door_scene(s: &mut State) {
         codex_config: Some(codex),
         message: None,
     });
+}
+
+/// AI agents with Claude Code picked to carry work on without asking.
+pub(super) fn carry_settings_scene(s: &mut State) {
+    scene(s);
+    s.settings_panel.page = Some(SettingsPageId::Runtimes);
+    s.settings_panel.carry_choices = vec!["claude".into(), "codex".into(), "cursor".into(), "opencode".into()];
+    s.settings_panel.plan_runs_out = Some(locust_core::carry_on::PlanRunsOut { runtime: "claude".into(), model: None, automatic: true });
+}
+
+pub(super) fn carry_settings_light_scene(s: &mut State) {
+    carry_settings_scene(s);
+    s.appearance = Some(false);
+    s.settings_panel.theme = ThemeChoice::Light;
 }
 
 pub(super) fn door_light_scene(s: &mut State) {

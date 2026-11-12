@@ -149,6 +149,31 @@ pub fn save_teammate(store: &Store, mut entry: Value) -> Result<(), String> {
     }
     store.save_json("teammates.json", &file)
 }
+/// Settings' "When an agent cannot go on" (`planRunsOut`): who carries the work on, and whether without asking. None
+/// clears it ("First one ready").
+pub fn set_plan_runs_out(store: &Store, plan: Option<&crate::carry_on::PlanRunsOut>) -> Result<(), String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    if !file["settings"].is_object() {
+        file["settings"] = json!({});
+    }
+    match plan {
+        None => {
+            if let Some(settings) = file["settings"].as_object_mut() {
+                settings.remove("planRunsOut");
+            }
+        }
+        Some(p) => {
+            let mut value = json!({"runtime": p.runtime, "automatic": p.automatic});
+            if let Some(model) = &p.model {
+                value["model"] = json!(model);
+            }
+            file["settings"]["planRunsOut"] = value;
+        }
+    }
+    store.save_json("teammates.json", &file)
+}
+
 /// The teammate a conversation's turn belongs to (`missionOwners`), as Electron's host records it when a turn starts.
 pub fn record_owner(store: &Store, mission: &str, who: &str) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
@@ -1364,4 +1389,15 @@ mod tests {
             instructions_secret_refusal("Codec", "an Anthropic API key")
         );
     }
+    #[test]
+    fn the_carry_on_pick_is_saved_beside_the_other_settings_and_cleared_for_first_one_ready() {
+        let (_t, store) = fixture();
+        let pick = crate::carry_on::PlanRunsOut { runtime: "claude".into(), model: None, automatic: true };
+        set_plan_runs_out(&store, Some(&pick)).unwrap();
+        let team_file = team(&store).unwrap();
+        assert_eq!(crate::carry_on::parse_plan_runs_out(&team_file["settings"]["planRunsOut"]), Some(pick));
+        set_plan_runs_out(&store, None).unwrap();
+        assert!(team(&store).unwrap()["settings"].get("planRunsOut").is_none());
+    }
+
 }
