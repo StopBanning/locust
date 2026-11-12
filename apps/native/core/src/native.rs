@@ -79,9 +79,13 @@ pub fn door_unreachable(words: &str) -> bool {
         || words.starts_with("Locust's data folder could not be found")
 }
 
-/// Can native run this teammate this milestone? Codex or Claude, and never an account of its own (that needs its own
-/// login home, which native does not touch).
+/// Can native run this teammate this milestone? Not on an account of its own (that needs its own login home, which
+/// native does not touch), and not through one of the person's own API routes: Electron writes OpenCode a provider
+/// entry for those (own-models.ts), which the port does not yet, so such a teammate says it runs in Locust for now.
 pub fn supported(t: &Teammate) -> bool {
+    if t.runtime.as_deref() == Some("opencode") && t.model.as_deref().is_some_and(|m| crate::spend::is_own_model("opencode", m)) {
+        return false;
+    }
     matches!(
         t.runtime.as_deref(),
         Some("codex")
@@ -659,6 +663,19 @@ impl Drop for Registered {
 }
 
 /// Every turn (and conversation anchor) this process is running now.
+/// shared/live-missions.ts MAX_LIVE_MISSIONS: past this many turns at once the screen stalls, so the ninth is refused.
+pub const MAX_LIVE_TURNS: usize = 8;
+
+/// codex-mission.ts, the pool's refusal, in Electron's words.
+pub fn too_many_live() -> String {
+    format!("Up to {MAX_LIVE_TURNS} missions can run at once. Wait for one to finish or stop it first.")
+}
+
+/// Turns running in this process: each registers under its conversation and its own id, sharing one stop flag.
+fn live_turns(m: &HashMap<String, Arc<AtomicBool>>) -> usize {
+    m.values().map(Arc::as_ptr).collect::<std::collections::HashSet<_>>().len()
+}
+
 pub fn running_ids() -> Vec<String> {
     with_running(|m| m.keys().cloned().collect())
 }
@@ -1012,6 +1029,19 @@ pub fn carry_on_without_asking(store: &Store, mission: &str) {
     }
 }
 
+/// createSpendRefusal for a teammate's own limit (the port has no organization policy yet). Reads both ledgers, so it
+/// runs only for a teammate that has a limit.
+fn spend_gate(store: &Store, owners: &Value, teammate: &Teammate, limit: f64) -> Result<(), String> {
+    let now = chrono::Local::now();
+    let month = crate::spend::month_of(&now.to_rfc3339()).ok_or("The current month could not be read.")?;
+    let turns = crate::usage_ledger::usage_turns(store).map_err(|_| "The spending record could not be read.".to_owned())?;
+    let spent = crate::spend::spent_by(&turns, &month, |conversation| owners[conversation] == teammate.id.as_str());
+    if crate::spend::limit_reached(Some(&spent), limit) {
+        return Err(crate::spend::limit_refusal(&teammate.name, Some(&spent), limit, now));
+    }
+    Ok(())
+}
+
 /// codex-mission.ts AUTO_OFF_REFUSAL.
 pub const AUTO_OFF_REFUSAL: &str = "Auto mode is switched off for this workspace. Turn it on in Settings to let a run work outside the workspace folder. Nothing was recorded.";
 
@@ -1056,9 +1086,22 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if !supported(&job.teammate) {
         return Err(format!("{} runs in Locust for now.", job.teammate.name));
     }
+    // organization-spend.ts: a teammate with a monthly limit that this month's spending has reached does not start.
+    let limit = saved["teammates"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|r| r["teammateId"] == job.teammate.id))
+        .and_then(|entry| entry["monthlyLimitUsd"].as_f64())
+        .filter(|l| crate::spend::is_monthly_limit(*l));
+    if let Some(limit) = limit {
+        spend_gate(&store, &saved["missionOwners"], &job.teammate, limit)?;
+    }
     // One turn at a time per conversation: refused before anything is read or created.
     if job.conversation.as_deref().is_some_and(owns) {
         return Err("A turn is already running in this conversation.".into());
+    }
+    // And no more than eight at once (checked again where the turn registers, so two sends cannot both slip in).
+    if with_running(|m| live_turns(m)) >= MAX_LIVE_TURNS {
+        return Err(too_many_live());
     }
     let runtime_name = job.teammate.runtime.as_deref().unwrap_or("codex");
     let mode = origin.mode.unwrap_or_else(|| Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask));
@@ -1251,13 +1294,15 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     let flag = Arc::new(AtomicBool::new(false));
     let registered = with_running(|m| {
         if m.contains_key(&anchor) {
-            return None;
+            return Err("A turn is already running in this conversation.".to_owned());
+        }
+        if live_turns(m) >= MAX_LIVE_TURNS {
+            return Err(too_many_live());
         }
         m.insert(anchor.clone(), flag.clone());
         m.insert(id.clone(), flag.clone());
-        Some(Registered(vec![anchor.clone(), id.clone()]))
-    })
-    .ok_or("A turn is already running in this conversation.")?;
+        Ok(Registered(vec![anchor.clone(), id.clone()]))
+    })?;
     let channel = approvals_channel();
     // Claude Code asks through the bridge in every mode but Auto, as Electron's host has it: a connector, a web fetch
     // or a command outside Accept edits' reach becomes a card instead of a refusal nobody sees.

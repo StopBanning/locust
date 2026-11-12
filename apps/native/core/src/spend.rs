@@ -39,7 +39,7 @@ pub fn money_of_usage(usage: &Value) -> (Spend, bool) {
     )
 }
 
-#[cfg(any(test, feature = "test-hooks"))]
+/// own-models.ts isOwnRouteModel: an OpenCode route through one of the person's own API keys (`own-<id>/<model>`).
 pub fn is_own_model(runtime: &str, model: &str) -> bool {
     runtime == "opencode" && model.starts_with("own-")
 }
@@ -85,7 +85,6 @@ pub fn month_of(at: &str) -> Option<String> {
     Some(format!("{:04}-{:02}", date.year(), date.month()))
 }
 
-#[cfg(any(test, feature = "test-hooks"))]
 pub fn next_month_starts(now: chrono::DateTime<chrono::Local>) -> String {
     use chrono::Datelike;
     let (y, m) = if now.month() == 12 {
@@ -139,11 +138,20 @@ pub fn dollars(usd: f64) -> String {
 }
 
 #[cfg(any(test, feature = "test-hooks"))]
+/// spendByTeammate for one teammate and one month: the priced turns of the conversations it owns.
+pub fn spent_by(turns: &[crate::usage::UsageTurn], month: &str, owns: impl Fn(&str) -> bool) -> Spend {
+    let usd: f64 = turns
+        .iter()
+        .filter(|t| month_of(&t.at).as_deref() == Some(month) && owns(&t.conversation))
+        .filter_map(|t| t.usd)
+        .sum();
+    Spend { usd: Some(usd), ..Default::default() }
+}
+
 pub fn limit_reached(spent: Option<&Spend>, limit_usd: f64) -> bool {
     spent.and_then(|s| s.usd).unwrap_or(0.0) >= limit_usd
 }
 
-#[cfg(any(test, feature = "test-hooks"))]
 pub fn limit_refusal(
     name: &str,
     spent: Option<&Spend>,
@@ -162,6 +170,34 @@ pub fn limit_refusal(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_teammates_month_counts_only_its_own_priced_turns() {
+        let turn = |at: &str, conversation: &str, usd: Option<f64>| crate::usage::UsageTurn {
+            at: at.into(),
+            runtime: "claude".into(),
+            model: "opus".into(),
+            conversation: conversation.into(),
+            input_tokens: None,
+            output_tokens: None,
+            cache_read_tokens: None,
+            cache_write_tokens: None,
+            usd,
+            premium_requests: None,
+            plan: false,
+        };
+        let turns = vec![
+            turn("2026-11-03T12:00:00Z", "mine", Some(2.5)),
+            turn("2026-11-09T12:00:00Z", "mine", Some(1.0)),
+            turn("2026-11-09T12:00:00Z", "mine", None),
+            turn("2026-10-20T12:00:00Z", "mine", Some(9.0)),
+            turn("2026-11-05T12:00:00Z", "theirs", Some(50.0)),
+        ];
+        let month = month_of("2026-11-10T12:00:00Z").unwrap();
+        let spent = spent_by(&turns, &month, |c| c == "mine");
+        assert_eq!(spent.usd, Some(3.5));
+        assert!(limit_reached(Some(&spent), 3.5) && !limit_reached(Some(&spent), 3.51));
+    }
 
     #[test]
     fn nullish_money_and_binary_rounding_match_javascript() {

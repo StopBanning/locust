@@ -1586,3 +1586,30 @@ fn the_folder_the_native_app_opened_is_where_turns_work() {
     mate.folder = None;
     assert_eq!(folder_for(&mate, &t.electron()).unwrap(), mine.canonicalize().unwrap());
 }
+
+#[test]
+fn a_ninth_turn_at_once_is_refused_in_electrons_words() {
+    let flags: Vec<Arc<AtomicBool>> = (0..8).map(|_| Arc::new(AtomicBool::new(false))).collect();
+    let mut m = HashMap::new();
+    for (i, f) in flags.iter().enumerate() {
+        // Each turn registers twice, under its conversation and its own id: it still counts once.
+        m.insert(format!("conversation-{i}"), f.clone());
+        m.insert(format!("mission-{i}"), f.clone());
+    }
+    assert_eq!(live_turns(&m), MAX_LIVE_TURNS);
+    m.remove("conversation-0");
+    m.remove("mission-0");
+    assert_eq!(live_turns(&m), 7);
+    assert_eq!(too_many_live(), "Up to 8 missions can run at once. Wait for one to finish or stop it first.");
+}
+
+#[test]
+fn a_teammate_on_an_own_api_route_runs_in_locust_for_now() {
+    let t = Temp::new();
+    let mut sage = codex(&t);
+    sage.runtime = Some("opencode".into());
+    sage.model = Some("own-bf9f2516/claude-sonnet-5-5".into());
+    assert!(!supported(&sage));
+    sage.model = Some("opencode/deepseek-v4.1-flash-free".into());
+    assert!(supported(&sage));
+}

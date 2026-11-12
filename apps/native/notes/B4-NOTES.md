@@ -60,3 +60,17 @@ use always kept and "N more models · type to search them" under a capped group,
   Electron's shape), which turns now use before Electron's. A project named in a message opens the same way.
 - Not done: clicking a notification does not open its conversation yet; no notification for a question asked in a
   reply (`locust-ask`); none on Linux or Windows; not seen live (a test would put a permission prompt on screen).
+
+## Third part (12 Nov, from Fable's review): limits at send
+
+- **Eight turns at once** (`native::MAX_LIVE_TURNS`, shared/live-missions.ts): the ninth is refused in Electron's words,
+  "Up to 8 missions can run at once. Wait for one to finish or stop it first." It is checked before anything is
+  prepared, and again inside the lock that registers the turn, so two sends at once cannot both slip past. The count is
+  per process: a turn Quick Ask runs in its own process is not counted by the window (Electron's `liveElsewhere` has
+  no counterpart yet).
+- **A teammate's monthly limit** (organization-spend.ts, for the teammate's own limit; the port has no organization
+  policy): a send is refused when this month's priced turns of that teammate's conversations, from both ledgers, have
+  reached it. The words are Electron's `limitRefusal`. Both ledgers are read only when the teammate has a limit.
+- **Own API routes** (`own-<id>/<model>` on OpenCode, as Sage has): `native::supported` says no, so the teammate shows
+  "runs in Locust for now" and a send says so, instead of handing the route to OpenCode, which cannot use it. Running
+  such a route needs Electron's provider entry (own-models.ts) ported.
