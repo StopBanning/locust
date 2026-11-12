@@ -20,10 +20,9 @@ for approvals in its own window.
 
 When the Electron app is running with **Let your other AI apps use Locust** on, the window uses Electron's engine
 through that local door instead, so the two never run the same teammate twice. With Electron quit, or with
-`LOCUST_NATIVE_ENGINE=1`, it uses its own. With Electron quit, everything the Rust app has built runs on its own
-engine: the model list and a model for one turn, carrying a conversation on with another agent and the hand-over
-brief, its own door for other apps, Quick Ask and `--ask`. What it has not built yet is listed in
-[PARITY.md](PARITY.md).
+`LOCUST_NATIVE_ENGINE=1`, it uses its own, and everything the Rust app has built runs there: the model list and a
+model for one turn, carrying a conversation on with another agent, its own door for other apps, Quick Ask and
+`--ask`.
 
 The code is two crates. `core/` (`locust-core`) is the engine: agent drivers, ledgers, approvals and the command
 guard, stores, routines, usage. It does not depend on the UI toolkit. The window (`src/`, `locust-native`) draws it.
@@ -31,7 +30,7 @@ guard, stores, routines, usage. It does not depend on the UI toolkit. The window
 The Rust app never writes Electron's data. It reads Electron's folder and writes its own (`LOCUST_NATIVE_DATA`, by
 default `<Electron's data folder>-native`).
 
-## What is behind the engine
+## What is built
 
 - Conversations: the full thread, streaming Markdown, tool steps, plans, reasoning, find, search, the beside view.
 - The composer: drafts, @ files and teammates, slash commands, attachments, the queue.
@@ -43,6 +42,13 @@ default `<Electron's data folder>-native`).
   panel over any app.
 
 Partial and missing pieces are listed row by row in PARITY.md.
+
+## How it is checked
+
+Electron's own TypeScript is the answer key. Scripts run Electron's command builders, stream readers, carry-on code,
+model catalog and avatar rule, and the Rust has to give the same answers: today 358 of 385 agent commands and all 37
+recorded streams, and every conversation file the Rust writes is opened by Electron's reader. What a live hour in the
+real window caught that those tests did not, and the window tests that now guard it, are in [METHOD.md](METHOD.md).
 
 ## Try it (developers)
 
