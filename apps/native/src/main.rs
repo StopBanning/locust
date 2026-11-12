@@ -1718,6 +1718,14 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed
 }
 
+/// The app is quitting (⌘Q, the Dock, logout): macOS may end the process once the quit hooks return, before `main`
+/// gets to wait. So the turns are asked to stop and their cancelled records waited for here, bounded, or a quit leaves
+/// ledgers with no ending that read as running.
+fn on_quit(_: &mut State, _: &mut Tx) {
+    native::shutdown_in_background();
+    native::wait_for_shutdown();
+}
+
 fn on_close(s: &mut State, _: &mut Tx) {
     // Fix: cancelled handles never land; clear their flight and visible status too.
     s.team.cancel();
@@ -2265,6 +2273,7 @@ fn main() {
         drag_regions: true,
     })
     .on_close(on_close)
+    .on_quit(on_quit)
     .on_window(|window| { #[cfg(target_os = "macos")] browser_mac::attach(window); })
     .run();
     // The door closes with the window: its connection file goes, so no app reaches a Locust that is not there.

@@ -514,6 +514,12 @@ impl Tail {
     }
 }
 
+/// missionView: the diagnostics that may interrupt a thread before any work: the run itself in trouble, a runtime's
+/// notification, a compaction.
+fn run_trouble(code: &str) -> bool {
+    code.ends_with(".runtime_error") || code.ends_with(".notification") || code.ends_with(".context_compacted")
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Transcript {
     pub metadata: Option<Metadata>,
@@ -569,10 +575,16 @@ impl Transcript {
         self.context = None;
         let mut carry = false;
         let mut finished = false;
+        // missionView's workBegan: until the turn says or does anything, only trouble with the run itself reaches the
+        // thread. OpenCode's "Aborted" when the person presses Stop is not that.
+        let mut work_began = false;
         for (sequence, event) in &self.events {
             let kind = string(event, "type");
             let p = event.get("payload").unwrap_or(&Value::Null);
             let id = string(p, "itemId");
+            if matches!(kind.as_str(), "message.delta" | "tool.started" | "tool.completed" | "tool.failed") {
+                work_began = true;
+            }
             match kind.as_str() {
                 "message.delta" if !id.is_empty() => {
                     let (at, used) = messages.entry(id.clone()).or_insert_with(|| {
@@ -773,7 +785,9 @@ impl Transcript {
                             level: String::new(),
                             text: scrub(&string(p, "message")),
                         });
-                    } else if level == "warning" || level == "error" {
+                    } else if (level == "warning" || level == "error")
+                        && (work_began || run_trouble(&string(p, "code")))
+                    {
                         items.push(Item::Note {
                             level,
                             text: scrub(&string(p, "message")),
@@ -826,6 +840,7 @@ impl Transcript {
                 "run.started" => {
                     carry = false;
                     finished = false;
+                    work_began = false;
                     self.running = true;
                     self.failed = false;
                 }
@@ -1672,13 +1687,41 @@ mod tests {
     }
 
     #[test]
+    fn before_any_work_only_trouble_with_the_run_reaches_the_thread() {
+        let notes = |t: &Transcript| t.items.iter().filter(|i| matches!(i, Item::Note { level, .. } if level == "error")).count();
+        // OpenCode's word when the person presses Stop, before the turn said anything: kept out of the thread.
+        let mut stopped = Transcript::default();
+        stopped.apply(vec![
+            event(1, "run.started", json!({})),
+            event(2, "adapter.diagnostic", json!({"level":"error","code":"opencode.provider_error","message":"OpenCode stopped: Aborted"})),
+            event(3, "run.cancelled", json!({})),
+        ]);
+        assert_eq!(notes(&stopped), 0);
+        // The run itself in trouble is said at once.
+        let mut trouble = Transcript::default();
+        trouble.apply(vec![
+            event(1, "run.started", json!({})),
+            event(2, "adapter.diagnostic", json!({"level":"error","code":"codex.runtime_error","message":"Reconnecting... 2/5"})),
+        ]);
+        assert_eq!(notes(&trouble), 1);
+        // Once work began, a provider's error is the thread's news.
+        let mut later = Transcript::default();
+        later.apply(vec![
+            event(1, "run.started", json!({})),
+            event(2, "message.delta", json!({"itemId":"a","operation":"append","text":"Looking","final":false})),
+            event(3, "adapter.diagnostic", json!({"level":"error","code":"opencode.provider_error","message":"Rate limited"})),
+        ]);
+        assert_eq!(notes(&later), 1);
+    }
+
+    #[test]
     fn display_strings_and_json_arguments_follow_ts_secret_rules() {
         let t = synthetic_transcript(vec![
             json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"sec","prompt":"Bearer eyJabc.eyJdef.ghi_signature_here","createdAt":"2026-01-01T00:00:00Z"}}),
             event(
                 1,
                 "adapter.diagnostic",
-                json!({"level":"error","message":format!("token {}-{}", "sk", "abcdefghijklmnopqrstuvwxyz")}),
+                json!({"level":"error","code":"codex.runtime_error","message":format!("token {}-{}", "sk", "abcdefghijklmnopqrstuvwxyz")}),
             ),
             event(
                 2,

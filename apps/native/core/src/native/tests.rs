@@ -1613,3 +1613,16 @@ fn a_teammate_on_an_own_api_route_runs_in_locust_for_now() {
     sage.model = Some("opencode/deepseek-v4.1-flash-free".into());
     assert!(supported(&sage));
 }
+
+#[test]
+fn a_turn_whose_process_is_gone_is_not_running() {
+    // This process, not running it: ended without its last record.
+    assert!(orphaned(&format!("mission_native_{}_1", std::process::id())));
+    // A process that cannot exist.
+    assert!(orphaned("mission_native_4194999_1"));
+    // A live process (launchd).
+    assert!(!orphaned("mission_native_1_1"));
+    // Electron's ids and odd shapes are left to the file's own state.
+    assert!(!orphaned("mission_87e6bbdd-b609-4690-bf13-24c3c9fc03d7"));
+    assert!(!orphaned("mission_native_x_1"));
+}

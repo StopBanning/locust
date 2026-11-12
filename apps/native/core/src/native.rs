@@ -545,6 +545,13 @@ pub fn list_recent(limit: usize, native_engine: bool) -> Option<Listed> {
     });
     all.dedup_by(|a, b| a.mission_id == b.mission_id);
     all.truncate(limit);
+    // A native turn whose process is gone (Locust quit or crashed before its last record) is not running, whatever the
+    // file's age says.
+    for summary in all.iter_mut().filter(|s| s.running) {
+        if orphaned(&summary.mission_id) {
+            summary.running = false;
+        }
+    }
     Some(Listed {
         summaries: all,
         native,
@@ -674,6 +681,36 @@ pub fn too_many_live() -> String {
 /// Turns running in this process: each registers under its conversation and its own id, sharing one stop flag.
 fn live_turns(m: &HashMap<String, Arc<AtomicBool>>) -> usize {
     m.values().map(Arc::as_ptr).collect::<std::collections::HashSet<_>>().len()
+}
+
+/// A native turn id names the process that ran it (`mission_native_<pid>_<nanos>`). It is orphaned when that process is
+/// this one and no longer runs it, or another process that is gone. Ids of any other shape are never orphaned here.
+pub fn orphaned(mission_id: &str) -> bool {
+    let Some(pid) = mission_id
+        .strip_prefix("mission_native_")
+        .and_then(|rest| rest.split('_').next())
+        .and_then(|pid| pid.parse::<u32>().ok())
+    else {
+        return false;
+    };
+    if pid == std::process::id() {
+        return !owns(mission_id);
+    }
+    !process_alive(pid)
+}
+
+fn process_alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        // Signal 0 checks the process exists without touching it; EPERM means it exists under another user.
+        let result = unsafe { libc::kill(pid as i32, 0) };
+        result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        true
+    }
 }
 
 pub fn running_ids() -> Vec<String> {

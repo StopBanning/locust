@@ -640,9 +640,11 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             "auto" => "Auto",
             _ => "Ask",
         };
+        // Where the turn will run, as native::folder_for chooses: the teammate's own folder, else the one Locust has open.
         let folder_word = teammate
             .folder
             .as_deref()
+            .or(s.home.folder_path.as_deref())
             .and_then(|f| f.trim_end_matches('/').rsplit('/').next())
             .filter(|f| !f.is_empty())
             .unwrap_or("No folder");
