@@ -1521,6 +1521,12 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         return false;
     }
     let mut changed = routines_panel::poll(s);
+    // The shared engine had stopped and was started again (E5): said once, where the window says what it is doing.
+    if let Some(words) = locust_core::engine_api::api().notice() {
+        s.status = words;
+        s.status_tone = StatusTone::Muted;
+        changed = true;
+    }
     changed |= reference_chips::poll(s);
     changed |= attention_watch::poll(s);
     changed |= rail::poll(s);

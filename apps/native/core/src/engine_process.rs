@@ -390,14 +390,28 @@ impl Drop for Server {
 // ---- the client -------------------------------------------------------------------------------------------------
 
 /// [`EngineApi`] over the socket of an engine in another process.
+/// How a client starts the engine again when it finds it gone.
+pub type Restart = Arc<dyn Fn() -> Result<(), String> + std::marker::Send + Sync>;
+
+/// After a restart was tried, how long before another may be.
+const RESTART_PAUSE: Duration = Duration::from_secs(10);
+
 pub struct Client {
     socket: PathBuf,
     shutting: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
+    restart: Option<Restart>,
+    last_restart: std::sync::Mutex<Option<std::time::Instant>>,
+    restarted: AtomicBool,
 }
 
 impl Client {
     pub fn new(socket: PathBuf) -> Self {
-        Client { socket, shutting: std::sync::Mutex::new(None) }
+        Client { socket, shutting: std::sync::Mutex::new(None), restart: None, last_restart: std::sync::Mutex::new(None), restarted: AtomicBool::new(false) }
+    }
+
+    /// A client that starts the engine again when it finds it gone (E5): at most once every ten seconds.
+    pub fn restarting(socket: PathBuf, restart: Restart) -> Self {
+        Client { restart: Some(restart), ..Client::new(socket) }
     }
 
     /// Does an engine answer on this socket?
@@ -405,10 +419,31 @@ impl Client {
         self.call(json!({"op": "ping"})).ok().and_then(|v| v.as_str().map(|s| s == "engine")).unwrap_or(false)
     }
 
+    /// A connection to the engine. When none answers and this client may restart it, start it once and connect again.
+    /// That is no retry of a request: a request that found no engine never reached one, so nothing it asked happened.
+    fn connect(&self) -> Result<UnixStream, String> {
+        if let Ok(stream) = UnixStream::connect(&self.socket) {
+            return Ok(stream);
+        }
+        let gone = || "Locust's engine is not running.".to_string();
+        let Some(restart) = &self.restart else { return Err(gone()) };
+        {
+            let mut last = crate::invariants::lock(&self.last_restart);
+            if last.is_some_and(|t| t.elapsed() < RESTART_PAUSE) {
+                return Err(gone());
+            }
+            *last = Some(std::time::Instant::now());
+        }
+        restart()?;
+        let stream = UnixStream::connect(&self.socket).map_err(|_| gone())?;
+        self.restarted.store(true, Ordering::Relaxed);
+        Ok(stream)
+    }
+
     /// One request, one reply. Never retried: whether a send that failed midway started a turn is for the ledger to
     /// say, not for a second attempt to find out.
     fn call(&self, request: Value) -> Result<Value, String> {
-        let stream = UnixStream::connect(&self.socket).map_err(|_| "Locust's engine is not running.".to_string())?;
+        let stream = self.connect()?;
         let _ = stream.set_read_timeout(Some(REPLY_WAIT));
         let mut out = &stream;
         out.write_all(format!("{request}\n").as_bytes())
@@ -477,15 +512,34 @@ impl EngineApi for Client {
     fn door(&self, change: DoorChange) -> Result<crate::door::State, String> {
         self.call(json!({"op": "door", "door": door_change_json(change)})).map(|v| door_state_from(&v))
     }
+    fn notice(&self) -> Option<String> {
+        self.restarted.swap(false, Ordering::Relaxed).then(|| {
+            "Locust's engine had stopped, so it was started again. A turn it was running shows where it stopped.".to_string()
+        })
+    }
 }
 
 /// The engine for a window, Quick Ask or `--ask` (plan E3): the one answering in `dir`, else a new
 /// `<exe> --engine` started there, waited for up to five seconds. Two callers starting at once both end up on the one
 /// that won the lock.
 pub fn join_or_start(dir: &Path, exe: &Path) -> Result<Arc<dyn EngineApi>, String> {
-    let client = Client::new(dir.join(SOCKET));
+    let (dir_for, exe_for) = (dir.to_path_buf(), exe.to_path_buf());
+    let restart: Restart = Arc::new(move || start_engine(&dir_for, &exe_for));
+    let client = Client::restarting(dir.join(SOCKET), restart);
     if client.answers() {
         return Ok(Arc::new(client));
+    }
+    start_engine(dir, exe)?;
+    // Started by joining, not found gone: nothing to tell the window.
+    client.restarted.store(false, Ordering::Relaxed);
+    Ok(Arc::new(client))
+}
+
+/// Start `<exe> --engine` in `dir` and wait up to five seconds for it to answer.
+fn start_engine(dir: &Path, exe: &Path) -> Result<(), String> {
+    let probe = Client::new(dir.join(SOCKET));
+    if probe.answers() {
+        return Ok(());
     }
     std::fs::create_dir_all(dir).map_err(|e| format!("The engine's folder could not be made: {e}"))?;
     let log = std::fs::OpenOptions::new()
@@ -502,8 +556,8 @@ pub fn join_or_start(dir: &Path, exe: &Path) -> Result<Arc<dyn EngineApi>, Strin
         .map_err(|e| format!("Locust's engine could not be started: {e}"))?;
     let end = std::time::Instant::now() + Duration::from_secs(5);
     while std::time::Instant::now() < end {
-        if client.answers() {
-            return Ok(Arc::new(client));
+        if probe.answers() {
+            return Ok(());
         }
         std::thread::sleep(Duration::from_millis(50));
     }

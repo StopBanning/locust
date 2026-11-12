@@ -298,3 +298,31 @@ fn the_engine_serves_the_door_its_turns_are_the_engines_and_no_app_answers_a_car
     let saved: Value = serde_json::from_str(&std::fs::read_to_string(store.root().join(crate::door::SETTINGS_FILE)).unwrap()).unwrap();
     assert_eq!(saved["enabled"], false);
 }
+
+#[test]
+fn a_client_starts_the_engine_again_once_when_it_finds_it_gone_and_says_so() {
+    // Plan E5. The restart here starts an engine in this process, as `locust-native --engine` would in its own.
+    let t = Temp::new();
+    let dir = t.0.join("native");
+    let running: Arc<std::sync::Mutex<Option<Server>>> = Arc::new(std::sync::Mutex::new(None));
+    let starts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let (slot, count, at) = (running.clone(), starts.clone(), dir.clone());
+    let restart: Restart = Arc::new(move || {
+        count.fetch_add(1, Ordering::Relaxed);
+        *slot.lock().unwrap() = Some(Server::start(&at)?);
+        Ok(())
+    });
+    let window = Client::restarting(dir.join(SOCKET), restart);
+
+    // No engine: the call starts one and is answered by it (its own refusal, not "not running").
+    let said = window.stop("mission_none").unwrap_err();
+    assert_ne!(said, "Locust's engine is not running.");
+    assert_eq!(starts.load(Ordering::Relaxed), 1);
+    assert!(window.notice().is_some_and(|n| n.contains("started again")), "the window is told");
+    assert!(window.notice().is_none(), "once");
+
+    // Gone again at once: not started again within ten seconds, so a dead binary cannot become a spawn storm.
+    drop(running.lock().unwrap().take());
+    assert_eq!(window.stop("mission_none").unwrap_err(), "Locust's engine is not running.");
+    assert_eq!(starts.load(Ordering::Relaxed), 1);
+}

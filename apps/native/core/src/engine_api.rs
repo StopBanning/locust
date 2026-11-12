@@ -46,6 +46,10 @@ pub trait EngineApi: std::marker::Send + Sync {
     fn shut_down(&self);
     /// Wait until the endings asked for by [`EngineApi::shut_down`] are written.
     fn wait_for_shutdown(&self);
+    /// Something the window should say about the engine itself, once: that it had stopped and was started again (E5).
+    fn notice(&self) -> Option<String> {
+        None
+    }
     /// The door for other apps, served where the turns run (E4). The engine in this process serves none: a window
     /// that could not join the shared engine keeps its own.
     fn door(&self, change: DoorChange) -> Result<crate::door::State, String> {

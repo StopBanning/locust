@@ -1319,8 +1319,11 @@ impl Session {
             }
             snapshot.context = reader.transcript.context.clone().or(snapshot.context);
             snapshot.tip = reader.id.clone();
-            snapshot.running =
-                reader.transcript.running && fresh(reader.tail.modified, SystemTime::now());
+            // Not running once its engine is gone (E5): a turn whose process died has no ending, and its ledger may
+            // have been written a moment ago, so the quiet window alone would show it running for fifteen minutes.
+            snapshot.running = reader.transcript.running
+                && fresh(reader.tail.modified, SystemTime::now())
+                && !crate::native::orphaned(&reader.id);
             snapshot.failed = reader.transcript.failed;
             snapshot.recovery = if snapshot.running {
                 None
@@ -2243,6 +2246,23 @@ mod tests {
         let file = OpenOptions::new().write(true).open(path).unwrap();
         file.set_times(fs::FileTimes::new().set_modified(SystemTime::now() - ago))
             .unwrap();
+    }
+
+    #[test]
+    fn a_turn_whose_engine_is_gone_reads_as_stopped_at_once() {
+        // E5: the engine process that ran it died, so its ledger has no ending and was written just now.
+        let mut child = std::process::Command::new("true").spawn().unwrap();
+        let dead = child.id();
+        child.wait().unwrap();
+        let temp = Temp::new();
+        let gone = format!("mission_native_{dead}_1");
+        write(&temp.path(&gone), &[created(&gone, "Prompt"), delta(1, "Partial", "append", false)]);
+        let snapshot = Session::new(temp.0.clone(), gone.clone()).poll().unwrap();
+        assert!(!snapshot.running, "its engine is gone, so it is not running, though it was written just now");
+        // A turn of a process that is still there (launchd, pid 1) reads as running.
+        let alive = "mission_native_1_2".to_string();
+        write(&temp.path(&alive), &[created(&alive, "Prompt"), delta(1, "Partial", "append", false)]);
+        assert!(Session::new(temp.0.clone(), alive).poll().unwrap().running);
     }
 
     #[test]
