@@ -1126,6 +1126,15 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     } else {
         model
     };
+    // Cursor takes its effort inside the model id (model-catalog.ts cursorChoiceFor): a level the family lists becomes
+    // that variant's id; one it does not list stays, and the driver refuses it in words.
+    let model = if runtime_name == "cursor" && job.effort.is_some() {
+        let (chosen, effort) = crate::models::cursor_choice_for(&crate::models::local(), model.as_deref(), job.effort.as_deref());
+        job.effort = effort;
+        chosen
+    } else {
+        model
+    };
     // A switch starts the new agent with the brief, not the bare reply, and records the brief as the turn's words.
     if let Some(switch) = &switched {
         job.prompt = switch.prompt.clone();

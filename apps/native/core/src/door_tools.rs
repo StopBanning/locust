@@ -7,7 +7,7 @@
 //! answer one. Every refusal says that nothing was started, sent or stopped, so an app never retries blind.
 //!
 //! The rules and words follow Electron's; what the native engine cannot do yet is said the way Electron's tools say it
-//! for a server that does not offer it: a choice of model for a teammate's turn (no catalog yet) and routines.
+//! for a server that does not offer it: routines.
 
 use crate::approval::Mode;
 use crate::engine::Teammate;
@@ -61,9 +61,10 @@ pub struct StartRequest {
     pub mode: Mode,
     /// A folder the app named (checked), or the folder the conversation was started in.
     pub folder: Option<PathBuf>,
-    /// A follow-up keeps its conversation's runtime and model.
+    /// A follow-up keeps its conversation's runtime and model; a model and effort the app named for this turn alone.
     pub runtime: Option<String>,
     pub model: Option<String>,
+    pub effort: Option<String>,
 }
 
 /// What the engine reports once a turn is running: its id and the mode it really runs in.
@@ -169,8 +170,8 @@ pub trait Locust: Send + Sync {
     fn own_mode(&self) -> bool;
     /// "Let apps see your conversations".
     fn see_all(&self) -> bool;
-    /// The agents a turn can be carried on to here.
-    fn runtimes(&self) -> Vec<String>;
+    /// The model list (models.rs, Electron's PublicModel shape): what each agent offers on this computer.
+    fn models(&self) -> Vec<Value>;
     /// Locust's own carry-on (main/carry-on.ts): the new turn's id and the folder it works in.
     fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String>;
     /// How a waiting read_reply sleeps between looks.
@@ -282,6 +283,24 @@ fn stopped_reason(turn: &Turn) -> Option<crate::carry_on::Reason> {
     }
 }
 
+/// A model's efforts: its levels, and the variants it is listed under (Cursor's).
+fn efforts(model: &Value) -> Vec<String> {
+    let mut out: Vec<String> = model["supportedEfforts"].as_array().into_iter().flatten().filter_map(|e| e.as_str().map(str::to_owned)).collect();
+    for key in model["variants"].as_object().into_iter().flat_map(|v| v.keys()) {
+        if !out.contains(key) {
+            out.push(key.clone());
+        }
+    }
+    out
+}
+
+/// A model and effort for one turn, checked (choiceOf): the runtime, the model's id and the effort kept.
+struct Choice {
+    runtime: String,
+    model: String,
+    effort: Option<String>,
+}
+
 /// The door's tools, over a `Locust`.
 pub struct Tools<L: Locust> {
     pub locust: L,
@@ -321,13 +340,118 @@ impl<L: Locust> Tools<L> {
         turn.cwd.clone().or_else(|| conversation_folder(&turn.started_by))
     }
 
-    fn started(&self, teammate: Teammate, prompt: &str, conversation: Option<&str>, args: &Value, previous: Option<&Turn>) -> ToolResult {
-        // A model and effort for one turn need the window's model list, which the native engine does not have yet.
-        if !args["model"].is_null() || !args["effort"].is_null() {
-            return ToolResult::refused(
-                "This server does not take a model or effort. Leave them out to use the teammate’s own. Nothing was started.",
-            );
+    /// The models the teammate's agent offers here (modelsFor), not the person's own.
+    fn models_for(&self, runtime: &str) -> Vec<Value> {
+        self.locust.models().into_iter().filter(|m| m["runtime"] == runtime && m["own"] != true).collect()
+    }
+
+    /// choiceOf: a model and effort for this turn alone, on the teammate's own agent, only ones it offers here; the
+    /// saved route is not changed.
+    fn choice_of(&self, teammate: &Teammate, effort_saved: Option<&str>, args: &Value, previous: Option<&Turn>) -> Result<Option<Choice>, String> {
+        if args["model"].is_null() && args["effort"].is_null() {
+            return Ok(None);
         }
+        if (!args["model"].is_null() && text_arg(&args["model"], 200).is_none()) || (!args["effort"].is_null() && text_arg(&args["effort"], 40).is_none()) {
+            return Err("model and effort are short text: use the ids list_models gives.".into());
+        }
+        let (runtime, route_model, route_effort) = match previous.and_then(|p| p.runtime.clone()) {
+            Some(r) => (r, previous.and_then(|p| p.model.clone()).unwrap_or_else(|| "account-default".into()), None),
+            None => match &teammate.runtime {
+                Some(r) => (r.clone(), teammate.model.clone().unwrap_or_else(|| "account-default".into()), effort_saved.map(str::to_owned)),
+                None => return Err("That teammate has no AI agent set up yet. Choose one for it in Locust first.".into()),
+            },
+        };
+        let offered = self.models_for(&runtime);
+        let asked = args["model"].as_str().map(|m| m.trim().to_lowercase()).unwrap_or_else(|| route_model.to_lowercase());
+        let model = offered.iter().find(|m| {
+            m["id"].as_str().is_some_and(|id| id.to_lowercase() == asked)
+                || m["displayName"].as_str().is_some_and(|n| n.to_lowercase() == asked)
+                || m["variants"].as_object().is_some_and(|v| v.values().any(|id| id.as_str().is_some_and(|id| id.to_lowercase() == asked)))
+        });
+        let Some(model) = model else {
+            return Err(if args["model"].is_null() {
+                "The teammate runs on its account’s default model, whose efforts Locust cannot name: give a model too, from list_models.".into()
+            } else {
+                format!("That model is not one {runtime} offers in this Locust. Ask list_models for this teammate’s choices.")
+            });
+        };
+        let levels = efforts(model);
+        let name = model["displayName"].as_str().unwrap_or_default();
+        let effort = args["effort"].as_str().map(|e| e.trim().to_lowercase());
+        if let Some(e) = &effort
+            && !levels.contains(e)
+        {
+            return Err(if levels.is_empty() {
+                format!("{name} takes no effort level here: leave effort out.")
+            } else {
+                format!("{name} takes these efforts here: {}.", levels.join(", "))
+            });
+        }
+        // The saved effort goes with a model asked for alone, when that model takes it.
+        let kept = effort.or_else(|| route_effort.filter(|e| levels.contains(e)));
+        Ok(Some(Choice { runtime, model: model["id"].as_str().unwrap_or_default().to_owned(), effort: kept }))
+    }
+
+    /// list_models: a teammate's agent's models with their efforts, or, with no teammate, every agent and its models.
+    pub fn list_models(&self, teammate: Option<&str>) -> ToolResult {
+        let all = self.locust.models();
+        let Some(who) = teammate else {
+            let current: Vec<&Value> = all.iter().filter(|m| m["own"] != true && m["older"] != true).collect();
+            let mut runtimes: Vec<&str> = Vec::new();
+            for m in &current {
+                if let Some(r) = m["runtime"].as_str()
+                    && !runtimes.contains(&r)
+                {
+                    runtimes.push(r);
+                }
+            }
+            let rows: Vec<Value> = runtimes
+                .iter()
+                .map(|r| {
+                    let models: Vec<Value> =
+                        current.iter().filter(|m| m["runtime"] == *r).map(|m| json!({"id": m["id"], "name": m["displayName"]})).collect();
+                    json!({"runtime": r, "models": models})
+                })
+                .collect();
+            return ToolResult::ok(Value::Array(rows).to_string());
+        };
+        let list = match self.locust.teammates() {
+            Ok(l) => l,
+            Err(why) => return ToolResult::refused(why),
+        };
+        let lower = who.to_lowercase();
+        let matches: Vec<_> = list.into_iter().filter(|(t, _)| t.id == who || t.name.to_lowercase() == lower).collect();
+        if matches.len() != 1 {
+            return ToolResult::refused("That teammate could not be identified. Use its id from list_teammates.");
+        }
+        let (mate, effort) = matches.into_iter().next().expect("one match");
+        let Some(runtime) = mate.runtime.clone() else {
+            return ToolResult::refused("That teammate has no AI agent set up yet. Choose one for it in Locust first.");
+        };
+        let models: Vec<Value> = self
+            .models_for(&runtime)
+            .iter()
+            .filter(|m| m["older"] != true)
+            .map(|m| {
+                let mut row = json!({"id": m["id"], "name": m["displayName"], "efforts": efforts(m)});
+                if let Some(d) = m.get("defaultEffort") {
+                    row["default_effort"] = d.clone();
+                }
+                row
+            })
+            .collect();
+        ToolResult::ok(
+            json!({"teammate": mate.name, "runtime": runtime, "model": mate.model.unwrap_or_else(|| "account-default".into()), "effort": effort, "models": models})
+                .to_string(),
+        )
+    }
+
+    fn started(&self, teammate: Teammate, prompt: &str, conversation: Option<&str>, args: &Value, previous: Option<&Turn>) -> ToolResult {
+        let saved_effort = self.locust.teammates().ok().and_then(|l| l.into_iter().find(|(t, _)| t.id == teammate.id).and_then(|(_, e)| e));
+        let choice = match self.choice_of(&teammate, saved_effort.as_deref(), args, previous) {
+            Ok(c) => c,
+            Err(why) => return ToolResult::refused(format!("{why} Nothing was started.")),
+        };
         let named = !args["mode"].is_null() || !args["folder"].is_null();
         if named && !self.locust.own_mode() {
             return ToolResult::refused(
@@ -371,8 +495,9 @@ impl<L: Locust> Tools<L> {
             follow_up_of: previous.map(|p| p.mission_id.clone()),
             mode,
             folder: folder.clone(),
-            runtime: previous.and_then(|p| p.runtime.clone()),
-            model: previous.and_then(|p| p.model.clone()),
+            runtime: choice.as_ref().map(|c| c.runtime.clone()).or_else(|| previous.and_then(|p| p.runtime.clone())),
+            model: choice.as_ref().map(|c| c.model.clone()).or_else(|| previous.and_then(|p| p.model.clone())),
+            effort: choice.as_ref().and_then(|c| c.effort.clone()),
         };
         let begun = match self.locust.start(request) {
             Ok(b) => b,
@@ -393,8 +518,11 @@ impl<L: Locust> Tools<L> {
         if begun.mode != mode.as_str() {
             reply["mode_asked"] = json!(mode.as_str());
         }
-        if let Some(m) = &begun.model {
+        if let Some(m) = begun.model.as_ref().or(choice.as_ref().map(|c| &c.model)) {
             reply["model"] = json!(m);
+        }
+        if let Some(e) = choice.as_ref().and_then(|c| c.effort.as_ref()) {
+            reply["effort"] = json!(e);
         }
         if let Some(f) = shown {
             reply["folder"] = json!(f);
@@ -478,12 +606,13 @@ impl<L: Locust> Tools<L> {
                 }
             }
             "list_models" => {
-                // Every agent this Locust can run, for carry_on. Its models are not listed: there is no catalog yet.
                 if args["teammate"].is_null() {
-                    let rows: Vec<Value> = self.locust.runtimes().iter().map(|r| json!({"runtime": r, "models": []})).collect();
-                    return ToolResult::ok(Value::Array(rows).to_string());
+                    return self.list_models(None);
                 }
-                ToolResult::refused("This server does not offer a choice of model.")
+                match text_arg(&args["teammate"], 200) {
+                    Some(who) => self.list_models(Some(who)),
+                    None => ToolResult::refused("Name a teammate by its id or name from list_teammates."),
+                }
             }
             "carry_on" => self.carry_on(args),
             "list_routines" | "routine_status" => ToolResult::refused("This Locust does not offer routines to other apps."),
@@ -583,14 +712,30 @@ impl<L: Locust> Tools<L> {
                 "That turn ran in {mode}, not Ask. An app carries on only an Ask turn unless the person has turned on \"Use each teammate's own mode\" in Locust; they can carry it on from its card there. Nothing was started."
             ));
         }
-        let runtimes = self.locust.runtimes();
+        let all: Vec<Value> = self.locust.models().into_iter().filter(|m| m["own"] != true).collect();
+        let mut runtimes: Vec<String> = Vec::new();
+        for m in &all {
+            if let Some(r) = m["runtime"].as_str()
+                && !runtimes.iter().any(|x| x == r)
+            {
+                runtimes.push(r.to_owned());
+            }
+        }
         let Some(runtime) = text_arg(&args["runtime"], 40).filter(|r| runtimes.iter().any(|known| known == r)) else {
             let named = if runtimes.is_empty() { "none".to_owned() } else { runtimes.join(", ") };
             return ToolResult::refused(format!(
                 "Name an AI agent this Locust can run, as list_models with no teammate lists them: {named}. Nothing was started."
             ));
         };
-        let model = text_arg(&args["model"], 200);
+        let asked = text_arg(&args["model"], 200);
+        let offered: Vec<&Value> = all.iter().filter(|m| m["runtime"] == runtime).collect();
+        let found = asked.and_then(|a| {
+            offered.iter().find(|m| m["id"] == a || m["displayName"].as_str().is_some_and(|n| n.to_lowercase() == a.to_lowercase())).and_then(|m| m["id"].as_str())
+        });
+        if asked.is_some() && found.is_none() {
+            return ToolResult::refused(format!("{runtime} does not offer that model here. Use one from list_models. Nothing was started."));
+        }
+        let model = found;
         match self.locust.carry_on(&turn.mission_id, runtime, model) {
             Err(why) => ToolResult::refused(format!("{why} Nothing was started.")),
             Ok((carried, folder)) => {

@@ -1,0 +1,4739 @@
+{
+ "electronCommit": "2378138f",
+ "generatedBy": "scripts/model-goldens.mjs",
+ "hints": {
+  "claude": {
+   "aliases": [
+    "fable",
+    "opus",
+    "sonnet"
+   ],
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  "cursor": {
+   "aliases": [
+    "auto",
+    "gpt-5.3-codex-low",
+    "gpt-5.3-codex-low-fast",
+    "gpt-5.3-codex",
+    "gpt-5.3-codex-fast",
+    "gpt-5.3-codex-high",
+    "gpt-5.3-codex-high-fast",
+    "gpt-5.3-codex-xhigh",
+    "gpt-5.3-codex-xhigh-fast",
+    "gpt-5.2",
+    "composer-2.5",
+    "claude-opus-5-thinking-high",
+    "claude-opus-5-thinking-high-fast",
+    "gpt-5.6-sol-high",
+    "gpt-5.6-sol-high-fast",
+    "gpt-5.6-sol-xhigh",
+    "gpt-5.6-sol-xhigh-fast",
+    "claude-fable-5-thinking-high",
+    "claude-fable-5-thinking-xhigh",
+    "cursor-grok-4.5-high",
+    "cursor-grok-4.5-high-fast",
+    "claude-sonnet-5-thinking-high",
+    "claude-sonnet-5-thinking-xhigh",
+    "gpt-5.6-luna-high",
+    "grok-4.7-low",
+    "grok-4.7-low-fast",
+    "grok-4.7-medium",
+    "grok-4.7-medium-fast",
+    "grok-4.7-high",
+    "grok-4.7-high-fast",
+    "grok-4.7-xhigh",
+    "grok-4.7-xhigh-fast",
+    "cursor-grok-4.6-low",
+    "cursor-grok-4.6-low-fast",
+    "cursor-grok-4.6-medium",
+    "cursor-grok-4.6-medium-fast",
+    "cursor-grok-4.6-high",
+    "cursor-grok-4.6-high-fast",
+    "cursor-grok-4.6-xhigh",
+    "cursor-grok-4.6-xhigh-fast",
+    "composer-2.5-fast",
+    "claude-opus-5-5-low",
+    "claude-opus-5-5-low-fast",
+    "claude-opus-5-5-medium",
+    "claude-opus-5-5-medium-fast",
+    "claude-opus-5-5-high",
+    "claude-opus-5-5-high-fast",
+    "claude-opus-5-5-xhigh",
+    "claude-opus-5-5-xhigh-fast",
+    "claude-opus-5-5-max",
+    "claude-opus-5-5-max-fast",
+    "claude-opus-5-low",
+    "claude-opus-5-low-fast",
+    "claude-opus-5-medium",
+    "claude-opus-5-medium-fast",
+    "claude-opus-5-high",
+    "claude-opus-5-high-fast",
+    "claude-opus-5-thinking-low",
+    "claude-opus-5-thinking-low-fast",
+    "claude-opus-5-thinking-medium",
+    "claude-opus-5-thinking-medium-fast",
+    "claude-opus-5-thinking-xhigh",
+    "claude-opus-5-thinking-xhigh-fast",
+    "claude-opus-5-thinking-max",
+    "claude-opus-5-thinking-max-fast",
+    "claude-opus-4-8-low",
+    "claude-opus-4-8-low-fast",
+    "claude-opus-4-8-medium",
+    "claude-opus-4-8-medium-fast",
+    "claude-opus-4-8-high",
+    "claude-opus-4-8-high-fast",
+    "claude-opus-4-8-xhigh",
+    "claude-opus-4-8-xhigh-fast",
+    "claude-opus-4-8-max",
+    "claude-opus-4-8-max-fast",
+    "claude-opus-4-8-thinking-low",
+    "claude-opus-4-8-thinking-low-fast",
+    "claude-opus-4-8-thinking-medium",
+    "claude-opus-4-8-thinking-medium-fast",
+    "claude-opus-4-8-thinking-high",
+    "claude-opus-4-8-thinking-high-fast",
+    "claude-opus-4-8-thinking-xhigh",
+    "claude-opus-4-8-thinking-xhigh-fast",
+    "claude-opus-4-8-thinking-max",
+    "claude-opus-4-8-thinking-max-fast",
+    "gemini-4-carbon-low",
+    "gemini-4-carbon-medium",
+    "gemini-4-carbon-high",
+    "gemini-4-argon-low",
+    "gemini-4-argon-medium",
+    "gemini-4-argon-high",
+    "muse-wonder-1.0-minimal",
+    "muse-wonder-1.0-low",
+    "muse-wonder-1.0-medium",
+    "muse-wonder-1.0-high",
+    "muse-wonder-1.0-xhigh",
+    "muse-wonder-1.0-max",
+    "gpt-5.6-sol-none",
+    "gpt-5.6-sol-none-fast",
+    "gpt-5.6-sol-low",
+    "gpt-5.6-sol-low-fast",
+    "gpt-5.6-sol-medium",
+    "gpt-5.6-sol-medium-fast",
+    "gpt-5.6-sol-max",
+    "gpt-5.6-sol-max-fast",
+    "gpt-5.5-none",
+    "gpt-5.5-none-fast",
+    "gpt-5.5-low",
+    "gpt-5.5-low-fast",
+    "gpt-5.5-medium",
+    "gpt-5.5-medium-fast",
+    "gpt-5.5-high",
+    "gpt-5.5-high-fast",
+    "gpt-5.5-extra-high",
+    "gpt-5.5-extra-high-fast",
+    "claude-fable-5-2-low",
+    "claude-fable-5-2-low-fast",
+    "claude-fable-5-2-medium",
+    "claude-fable-5-2-medium-fast",
+    "claude-fable-5-2-high",
+    "claude-fable-5-2-high-fast",
+    "claude-fable-5-2-xhigh",
+    "claude-fable-5-2-xhigh-fast",
+    "claude-fable-5-2-max",
+    "claude-fable-5-2-max-fast",
+    "claude-fable-5-1-low",
+    "claude-fable-5-1-medium",
+    "claude-fable-5-1-high",
+    "claude-fable-5-1-xhigh",
+    "claude-fable-5-1-max",
+    "claude-fable-5-1-thinking-low",
+    "claude-fable-5-1-thinking-medium",
+    "claude-fable-5-1-thinking-high",
+    "claude-fable-5-1-thinking-xhigh",
+    "claude-fable-5-1-thinking-max",
+    "claude-fable-5-low",
+    "claude-fable-5-medium",
+    "claude-fable-5-high",
+    "claude-fable-5-xhigh",
+    "claude-fable-5-max",
+    "claude-fable-5-thinking-low",
+    "claude-fable-5-thinking-medium",
+    "claude-fable-5-thinking-max",
+    "cursor-grok-4.5-low",
+    "cursor-grok-4.5-low-fast",
+    "cursor-grok-4.5-medium",
+    "cursor-grok-4.5-medium-fast",
+    "gemini-3.8-flash-low",
+    "gemini-3.8-flash-medium",
+    "gemini-3.8-flash-high",
+    "muse-spark-1.3-minimal",
+    "muse-spark-1.3-low",
+    "muse-spark-1.3-medium",
+    "muse-spark-1.3-high",
+    "muse-spark-1.3-xhigh",
+    "muse-spark-1.3-max",
+    "gpt-5.6-terra-none",
+    "gpt-5.6-terra-none-fast",
+    "gpt-5.6-terra-low",
+    "gpt-5.6-terra-low-fast",
+    "gpt-5.6-terra-medium",
+    "gpt-5.6-terra-medium-fast",
+    "gpt-5.6-terra-high",
+    "gpt-5.6-terra-high-fast",
+    "gpt-5.6-terra-xhigh",
+    "gpt-5.6-terra-xhigh-fast",
+    "gpt-5.6-terra-max",
+    "gpt-5.6-terra-max-fast",
+    "claude-sonnet-5-5-low",
+    "claude-sonnet-5-5-medium",
+    "claude-sonnet-5-5-high",
+    "claude-sonnet-5-5-xhigh",
+    "claude-sonnet-5-5-max",
+    "claude-sonnet-5-low",
+    "claude-sonnet-5-medium",
+    "claude-sonnet-5-high",
+    "claude-sonnet-5-xhigh",
+    "claude-sonnet-5-max",
+    "claude-sonnet-5-thinking-low",
+    "claude-sonnet-5-thinking-medium",
+    "claude-sonnet-5-thinking-max",
+    "claude-4.6-sonnet-medium",
+    "claude-4.6-sonnet-medium-thinking",
+    "claude-opus-4-7-low",
+    "claude-opus-4-7-low-fast",
+    "claude-opus-4-7-medium",
+    "claude-opus-4-7-medium-fast",
+    "claude-opus-4-7-high",
+    "claude-opus-4-7-high-fast",
+    "claude-opus-4-7-xhigh",
+    "claude-opus-4-7-xhigh-fast",
+    "claude-opus-4-7-max",
+    "claude-opus-4-7-max-fast",
+    "claude-opus-4-7-thinking-low",
+    "claude-opus-4-7-thinking-low-fast",
+    "claude-opus-4-7-thinking-medium",
+    "claude-opus-4-7-thinking-medium-fast",
+    "claude-opus-4-7-thinking-high",
+    "claude-opus-4-7-thinking-high-fast",
+    "claude-opus-4-7-thinking-xhigh",
+    "claude-opus-4-7-thinking-xhigh-fast",
+    "claude-opus-4-7-thinking-max",
+    "claude-opus-4-7-thinking-max-fast",
+    "gpt-5.4-low",
+    "gpt-5.4-medium",
+    "gpt-5.4-medium-fast",
+    "gpt-5.4-high",
+    "gpt-5.4-high-fast",
+    "gpt-5.4-xhigh",
+    "gpt-5.4-xhigh-fast",
+    "claude-4.6-opus-high",
+    "claude-4.6-opus-max",
+    "claude-4.6-opus-high-thinking",
+    "claude-4.6-opus-max-thinking",
+    "claude-4.5-opus-high",
+    "claude-4.5-opus-high-thinking",
+    "gpt-5.2-low",
+    "gpt-5.2-low-fast",
+    "gpt-5.2-fast",
+    "gpt-5.2-high",
+    "gpt-5.2-high-fast",
+    "gpt-5.2-xhigh",
+    "gpt-5.2-xhigh-fast",
+    "gpt-5.6-luna-none",
+    "gpt-5.6-luna-none-fast",
+    "gpt-5.6-luna-low",
+    "gpt-5.6-luna-low-fast",
+    "gpt-5.6-luna-medium",
+    "gpt-5.6-luna-medium-fast",
+    "gpt-5.6-luna-high-fast",
+    "gpt-5.6-luna-xhigh",
+    "gpt-5.6-luna-xhigh-fast",
+    "gpt-5.6-luna-max",
+    "gpt-5.6-luna-max-fast",
+    "gemini-3.1-pro",
+    "gpt-5.4-mini-none",
+    "gpt-5.4-mini-low",
+    "gpt-5.4-mini-medium",
+    "gpt-5.4-mini-high",
+    "gpt-5.4-mini-xhigh",
+    "gpt-5.4-nano-none",
+    "gpt-5.4-nano-low",
+    "gpt-5.4-nano-medium",
+    "gpt-5.4-nano-high",
+    "gpt-5.4-nano-xhigh",
+    "claude-haiku-5-5-low",
+    "claude-haiku-5-5-medium",
+    "claude-haiku-5-5-high",
+    "claude-haiku-5-5-xhigh",
+    "claude-haiku-5-5-max",
+    "claude-haiku-5-5-thinking-low",
+    "claude-haiku-5-5-thinking-medium",
+    "claude-haiku-5-5-thinking-high",
+    "claude-haiku-5-5-thinking-xhigh",
+    "claude-haiku-5-5-thinking-max",
+    "claude-4.5-sonnet",
+    "claude-4.5-sonnet-thinking",
+    "gpt-5.1-low",
+    "gpt-5.1",
+    "gpt-5.1-high",
+    "gemini-3-flash",
+    "gemini-3.5-flash",
+    "claude-4-sonnet",
+    "claude-4-sonnet-thinking",
+    "gpt-5-mini",
+    "kimi-k3-low",
+    "kimi-k3-high",
+    "kimi-k3-max",
+    "kimi-k2.7-code",
+    "glm-5.2-high",
+    "glm-5.2-max",
+    "deepseek-v41-flash-1017-none",
+    "deepseek-v41-flash-1017-low",
+    "deepseek-v41-flash-1017-medium",
+    "deepseek-v41-flash-1017-high",
+    "deepseek-v41-flash-1017-max"
+   ],
+   "efforts": [],
+   "models": [
+    {
+     "id": "auto",
+     "displayName": "Auto (current, default)"
+    },
+    {
+     "id": "gpt-5.3-codex-low",
+     "displayName": "Codex 5.3 Low"
+    },
+    {
+     "id": "gpt-5.3-codex-low-fast",
+     "displayName": "Codex 5.3 Low Fast"
+    },
+    {
+     "id": "gpt-5.3-codex",
+     "displayName": "Codex 5.3"
+    },
+    {
+     "id": "gpt-5.3-codex-fast",
+     "displayName": "Codex 5.3 Fast"
+    },
+    {
+     "id": "gpt-5.3-codex-high",
+     "displayName": "Codex 5.3 High"
+    },
+    {
+     "id": "gpt-5.3-codex-high-fast",
+     "displayName": "Codex 5.3 High Fast"
+    },
+    {
+     "id": "gpt-5.3-codex-xhigh",
+     "displayName": "Codex 5.3 Extra High"
+    },
+    {
+     "id": "gpt-5.3-codex-xhigh-fast",
+     "displayName": "Codex 5.3 Extra High Fast"
+    },
+    {
+     "id": "gpt-5.2",
+     "displayName": "GPT-5.2"
+    },
+    {
+     "id": "composer-2.5",
+     "displayName": "Composer 2.5"
+    },
+    {
+     "id": "claude-opus-5-thinking-high",
+     "displayName": "Claude Opus 5 1M Thinking"
+    },
+    {
+     "id": "claude-opus-5-thinking-high-fast",
+     "displayName": "Claude Opus 5 1M Thinking Fast"
+    },
+    {
+     "id": "gpt-5.6-sol-high",
+     "displayName": "GPT-5.6 Sol 1M High"
+    },
+    {
+     "id": "gpt-5.6-sol-high-fast",
+     "displayName": "GPT-5.6 Sol 1M High Fast"
+    },
+    {
+     "id": "gpt-5.6-sol-xhigh",
+     "displayName": "GPT-5.6 Sol 1M Extra High"
+    },
+    {
+     "id": "gpt-5.6-sol-xhigh-fast",
+     "displayName": "GPT-5.6 Sol 1M Extra High Fast"
+    },
+    {
+     "id": "claude-fable-5-thinking-high",
+     "displayName": "Claude Fable 5 1M Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-thinking-xhigh",
+     "displayName": "Claude Fable 5 1M Extra High Thinking (NO ZDR)"
+    },
+    {
+     "id": "cursor-grok-4.5-high",
+     "displayName": "Grok 4.5"
+    },
+    {
+     "id": "cursor-grok-4.5-high-fast",
+     "displayName": "Grok 4.5 Fast"
+    },
+    {
+     "id": "claude-sonnet-5-thinking-high",
+     "displayName": "Claude Sonnet 5 1M Thinking"
+    },
+    {
+     "id": "claude-sonnet-5-thinking-xhigh",
+     "displayName": "Claude Sonnet 5 1M Extra High Thinking"
+    },
+    {
+     "id": "gpt-5.6-luna-high",
+     "displayName": "GPT-5.6 Luna 1M High"
+    },
+    {
+     "id": "grok-4.7-low",
+     "displayName": "Grok 4.7  Low"
+    },
+    {
+     "id": "grok-4.7-low-fast",
+     "displayName": "Grok 4.7  Low Fast​​"
+    },
+    {
+     "id": "grok-4.7-medium",
+     "displayName": "Grok 4.7  Medium"
+    },
+    {
+     "id": "grok-4.7-medium-fast",
+     "displayName": "Grok 4.7  Medium Fast​​"
+    },
+    {
+     "id": "grok-4.7-high",
+     "displayName": "Grok 4.7  High"
+    },
+    {
+     "id": "grok-4.7-high-fast",
+     "displayName": "Grok 4.7  High Fast​​"
+    },
+    {
+     "id": "grok-4.7-xhigh",
+     "displayName": "Grok 4.7  Extra High"
+    },
+    {
+     "id": "grok-4.7-xhigh-fast",
+     "displayName": "Grok 4.7  Extra High Fast​​"
+    },
+    {
+     "id": "cursor-grok-4.6-low",
+     "displayName": "Grok 4.6 Low"
+    },
+    {
+     "id": "cursor-grok-4.6-low-fast",
+     "displayName": "Grok 4.6 Low Fast"
+    },
+    {
+     "id": "cursor-grok-4.6-medium",
+     "displayName": "Grok 4.6 Medium"
+    },
+    {
+     "id": "cursor-grok-4.6-medium-fast",
+     "displayName": "Grok 4.6 Medium Fast"
+    },
+    {
+     "id": "cursor-grok-4.6-high",
+     "displayName": "Grok 4.6"
+    },
+    {
+     "id": "cursor-grok-4.6-high-fast",
+     "displayName": "Grok 4.6 Fast"
+    },
+    {
+     "id": "cursor-grok-4.6-xhigh",
+     "displayName": "Grok 4.6 Extra High"
+    },
+    {
+     "id": "cursor-grok-4.6-xhigh-fast",
+     "displayName": "Grok 4.6 Extra High Fast"
+    },
+    {
+     "id": "composer-2.5-fast",
+     "displayName": "Composer 2.5 Fast"
+    },
+    {
+     "id": "claude-opus-5-5-low",
+     "displayName": "Claude Opus 5.5 1M Low"
+    },
+    {
+     "id": "claude-opus-5-5-low-fast",
+     "displayName": "Claude Opus 5.5 1M Low Fast"
+    },
+    {
+     "id": "claude-opus-5-5-medium",
+     "displayName": "Claude Opus 5.5 1M"
+    },
+    {
+     "id": "claude-opus-5-5-medium-fast",
+     "displayName": "Claude Opus 5.5 1M Fast"
+    },
+    {
+     "id": "claude-opus-5-5-high",
+     "displayName": "Claude Opus 5.5 1M High"
+    },
+    {
+     "id": "claude-opus-5-5-high-fast",
+     "displayName": "Claude Opus 5.5 1M High Fast"
+    },
+    {
+     "id": "claude-opus-5-5-xhigh",
+     "displayName": "Claude Opus 5.5 1M Extra High"
+    },
+    {
+     "id": "claude-opus-5-5-xhigh-fast",
+     "displayName": "Claude Opus 5.5 1M Extra High Fast"
+    },
+    {
+     "id": "claude-opus-5-5-max",
+     "displayName": "Claude Opus 5.5 1M Max"
+    },
+    {
+     "id": "claude-opus-5-5-max-fast",
+     "displayName": "Claude Opus 5.5 1M Max Fast"
+    },
+    {
+     "id": "claude-opus-5-low",
+     "displayName": "Claude Opus 5 1M Low"
+    },
+    {
+     "id": "claude-opus-5-low-fast",
+     "displayName": "Claude Opus 5 1M Low Fast"
+    },
+    {
+     "id": "claude-opus-5-medium",
+     "displayName": "Claude Opus 5 1M Medium"
+    },
+    {
+     "id": "claude-opus-5-medium-fast",
+     "displayName": "Claude Opus 5 1M Medium Fast"
+    },
+    {
+     "id": "claude-opus-5-high",
+     "displayName": "Claude Opus 5 1M"
+    },
+    {
+     "id": "claude-opus-5-high-fast",
+     "displayName": "Claude Opus 5 1M Fast"
+    },
+    {
+     "id": "claude-opus-5-thinking-low",
+     "displayName": "Claude Opus 5 1M Low Thinking"
+    },
+    {
+     "id": "claude-opus-5-thinking-low-fast",
+     "displayName": "Claude Opus 5 1M Low Thinking Fast"
+    },
+    {
+     "id": "claude-opus-5-thinking-medium",
+     "displayName": "Claude Opus 5 1M Medium Thinking"
+    },
+    {
+     "id": "claude-opus-5-thinking-medium-fast",
+     "displayName": "Claude Opus 5 1M Medium Thinking Fast"
+    },
+    {
+     "id": "claude-opus-5-thinking-xhigh",
+     "displayName": "Claude Opus 5 1M Extra High Thinking"
+    },
+    {
+     "id": "claude-opus-5-thinking-xhigh-fast",
+     "displayName": "Claude Opus 5 1M Extra High Thinking Fast"
+    },
+    {
+     "id": "claude-opus-5-thinking-max",
+     "displayName": "Claude Opus 5 1M Max Thinking"
+    },
+    {
+     "id": "claude-opus-5-thinking-max-fast",
+     "displayName": "Claude Opus 5 1M Max Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-8-low",
+     "displayName": "Claude Opus 4.8 1M Low"
+    },
+    {
+     "id": "claude-opus-4-8-low-fast",
+     "displayName": "Claude Opus 4.8 1M Low Fast"
+    },
+    {
+     "id": "claude-opus-4-8-medium",
+     "displayName": "Claude Opus 4.8 1M Medium"
+    },
+    {
+     "id": "claude-opus-4-8-medium-fast",
+     "displayName": "Claude Opus 4.8 1M Medium Fast"
+    },
+    {
+     "id": "claude-opus-4-8-high",
+     "displayName": "Claude Opus 4.8 1M"
+    },
+    {
+     "id": "claude-opus-4-8-high-fast",
+     "displayName": "Claude Opus 4.8 1M Fast"
+    },
+    {
+     "id": "claude-opus-4-8-xhigh",
+     "displayName": "Claude Opus 4.8 1M Extra High"
+    },
+    {
+     "id": "claude-opus-4-8-xhigh-fast",
+     "displayName": "Claude Opus 4.8 1M Extra High Fast"
+    },
+    {
+     "id": "claude-opus-4-8-max",
+     "displayName": "Claude Opus 4.8 1M Max"
+    },
+    {
+     "id": "claude-opus-4-8-max-fast",
+     "displayName": "Claude Opus 4.8 1M Max Fast"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-low",
+     "displayName": "Claude Opus 4.8 1M Low Thinking"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-low-fast",
+     "displayName": "Claude Opus 4.8 1M Low Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-medium",
+     "displayName": "Claude Opus 4.8 1M Medium Thinking"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-medium-fast",
+     "displayName": "Claude Opus 4.8 1M Medium Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-high",
+     "displayName": "Claude Opus 4.8 1M Thinking"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-high-fast",
+     "displayName": "Claude Opus 4.8 1M Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-xhigh",
+     "displayName": "Claude Opus 4.8 1M Extra High Thinking"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-xhigh-fast",
+     "displayName": "Claude Opus 4.8 1M Extra High Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-max",
+     "displayName": "Claude Opus 4.8 1M Max Thinking"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-max-fast",
+     "displayName": "Claude Opus 4.8 1M Max Thinking Fast"
+    },
+    {
+     "id": "gemini-4-carbon-low",
+     "displayName": "Gemini 4 Carbon Low"
+    },
+    {
+     "id": "gemini-4-carbon-medium",
+     "displayName": "Gemini 4 Carbon Medium"
+    },
+    {
+     "id": "gemini-4-carbon-high",
+     "displayName": "Gemini 4 Carbon High"
+    },
+    {
+     "id": "gemini-4-argon-low",
+     "displayName": "Gemini 4 Argon Low"
+    },
+    {
+     "id": "gemini-4-argon-medium",
+     "displayName": "Gemini 4 Argon Medium"
+    },
+    {
+     "id": "gemini-4-argon-high",
+     "displayName": "Gemini 4 Argon High"
+    },
+    {
+     "id": "muse-wonder-1.0-minimal",
+     "displayName": "Muse Wonder  Minimal"
+    },
+    {
+     "id": "muse-wonder-1.0-low",
+     "displayName": "Muse Wonder  Low"
+    },
+    {
+     "id": "muse-wonder-1.0-medium",
+     "displayName": "Muse Wonder  Medium"
+    },
+    {
+     "id": "muse-wonder-1.0-high",
+     "displayName": "Muse Wonder  High"
+    },
+    {
+     "id": "muse-wonder-1.0-xhigh",
+     "displayName": "Muse Wonder  Extra High"
+    },
+    {
+     "id": "muse-wonder-1.0-max",
+     "displayName": "Muse Wonder  Max"
+    },
+    {
+     "id": "gpt-5.6-sol-none",
+     "displayName": "GPT-5.6 Sol 1M None"
+    },
+    {
+     "id": "gpt-5.6-sol-none-fast",
+     "displayName": "GPT-5.6 Sol 1M None Fast"
+    },
+    {
+     "id": "gpt-5.6-sol-low",
+     "displayName": "GPT-5.6 Sol 1M Low"
+    },
+    {
+     "id": "gpt-5.6-sol-low-fast",
+     "displayName": "GPT-5.6 Sol 1M Low Fast"
+    },
+    {
+     "id": "gpt-5.6-sol-medium",
+     "displayName": "GPT-5.6 Sol 1M"
+    },
+    {
+     "id": "gpt-5.6-sol-medium-fast",
+     "displayName": "GPT-5.6 Sol 1M Fast"
+    },
+    {
+     "id": "gpt-5.6-sol-max",
+     "displayName": "GPT-5.6 Sol 1M Max"
+    },
+    {
+     "id": "gpt-5.6-sol-max-fast",
+     "displayName": "GPT-5.6 Sol 1M Max Fast"
+    },
+    {
+     "id": "gpt-5.5-none",
+     "displayName": "GPT-5.5 1M None"
+    },
+    {
+     "id": "gpt-5.5-none-fast",
+     "displayName": "GPT-5.5 None Fast"
+    },
+    {
+     "id": "gpt-5.5-low",
+     "displayName": "GPT-5.5 1M Low"
+    },
+    {
+     "id": "gpt-5.5-low-fast",
+     "displayName": "GPT-5.5 Low Fast"
+    },
+    {
+     "id": "gpt-5.5-medium",
+     "displayName": "GPT-5.5 1M"
+    },
+    {
+     "id": "gpt-5.5-medium-fast",
+     "displayName": "GPT-5.5 Fast"
+    },
+    {
+     "id": "gpt-5.5-high",
+     "displayName": "GPT-5.5 1M High"
+    },
+    {
+     "id": "gpt-5.5-high-fast",
+     "displayName": "GPT-5.5 High Fast"
+    },
+    {
+     "id": "gpt-5.5-extra-high",
+     "displayName": "GPT-5.5 1M Extra High"
+    },
+    {
+     "id": "gpt-5.5-extra-high-fast",
+     "displayName": "GPT-5.5 Extra High Fast"
+    },
+    {
+     "id": "claude-fable-5-2-low",
+     "displayName": "Claude Fable 5.2 1M Low (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-low-fast",
+     "displayName": "Claude Fable 5.2 1M Low Fast (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-medium",
+     "displayName": "Claude Fable 5.2 1M Medium (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-medium-fast",
+     "displayName": "Claude Fable 5.2 1M Medium Fast (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-high",
+     "displayName": "Claude Fable 5.2 1M (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-high-fast",
+     "displayName": "Claude Fable 5.2 1M Fast (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-xhigh",
+     "displayName": "Claude Fable 5.2 1M Extra High (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-xhigh-fast",
+     "displayName": "Claude Fable 5.2 1M Extra High Fast (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-max",
+     "displayName": "Claude Fable 5.2 1M Max (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-2-max-fast",
+     "displayName": "Claude Fable 5.2 1M Max Fast (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-low",
+     "displayName": "Claude Fable 5.1 1M Low (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-medium",
+     "displayName": "Claude Fable 5.1 1M Medium (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-high",
+     "displayName": "Claude Fable 5.1 1M (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-xhigh",
+     "displayName": "Claude Fable 5.1 1M Extra High (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-max",
+     "displayName": "Claude Fable 5.1 1M Max (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-thinking-low",
+     "displayName": "Claude Fable 5.1 1M Low Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-thinking-medium",
+     "displayName": "Claude Fable 5.1 1M Medium Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-thinking-high",
+     "displayName": "Claude Fable 5.1 1M Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-thinking-xhigh",
+     "displayName": "Claude Fable 5.1 1M Extra High Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-1-thinking-max",
+     "displayName": "Claude Fable 5.1 1M Max Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-low",
+     "displayName": "Claude Fable 5 1M Low (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-medium",
+     "displayName": "Claude Fable 5 1M Medium (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-high",
+     "displayName": "Claude Fable 5 1M (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-xhigh",
+     "displayName": "Claude Fable 5 1M Extra High (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-max",
+     "displayName": "Claude Fable 5 1M Max (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-thinking-low",
+     "displayName": "Claude Fable 5 1M Low Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-thinking-medium",
+     "displayName": "Claude Fable 5 1M Medium Thinking (NO ZDR)"
+    },
+    {
+     "id": "claude-fable-5-thinking-max",
+     "displayName": "Claude Fable 5 1M Max Thinking (NO ZDR)"
+    },
+    {
+     "id": "cursor-grok-4.5-low",
+     "displayName": "Grok 4.5 Low"
+    },
+    {
+     "id": "cursor-grok-4.5-low-fast",
+     "displayName": "Grok 4.5 Low Fast"
+    },
+    {
+     "id": "cursor-grok-4.5-medium",
+     "displayName": "Grok 4.5 Medium"
+    },
+    {
+     "id": "cursor-grok-4.5-medium-fast",
+     "displayName": "Grok 4.5 Medium Fast"
+    },
+    {
+     "id": "gemini-3.8-flash-low",
+     "displayName": "Gemini 3.8 Flash Low"
+    },
+    {
+     "id": "gemini-3.8-flash-medium",
+     "displayName": "Gemini 3.8 Flash Medium"
+    },
+    {
+     "id": "gemini-3.8-flash-high",
+     "displayName": "Gemini 3.8 Flash High"
+    },
+    {
+     "id": "muse-spark-1.3-minimal",
+     "displayName": "Muse Spark 1.3 1M Minimal"
+    },
+    {
+     "id": "muse-spark-1.3-low",
+     "displayName": "Muse Spark 1.3 1M Low"
+    },
+    {
+     "id": "muse-spark-1.3-medium",
+     "displayName": "Muse Spark 1.3 1M Medium"
+    },
+    {
+     "id": "muse-spark-1.3-high",
+     "displayName": "Muse Spark 1.3 1M"
+    },
+    {
+     "id": "muse-spark-1.3-xhigh",
+     "displayName": "Muse Spark 1.3 1M Extra High"
+    },
+    {
+     "id": "muse-spark-1.3-max",
+     "displayName": "Muse Spark 1.3 1M Max"
+    },
+    {
+     "id": "gpt-5.6-terra-none",
+     "displayName": "GPT-5.6 Terra 1M None"
+    },
+    {
+     "id": "gpt-5.6-terra-none-fast",
+     "displayName": "GPT-5.6 Terra 1M None Fast"
+    },
+    {
+     "id": "gpt-5.6-terra-low",
+     "displayName": "GPT-5.6 Terra 1M Low"
+    },
+    {
+     "id": "gpt-5.6-terra-low-fast",
+     "displayName": "GPT-5.6 Terra 1M Low Fast"
+    },
+    {
+     "id": "gpt-5.6-terra-medium",
+     "displayName": "GPT-5.6 Terra 1M"
+    },
+    {
+     "id": "gpt-5.6-terra-medium-fast",
+     "displayName": "GPT-5.6 Terra 1M Fast"
+    },
+    {
+     "id": "gpt-5.6-terra-high",
+     "displayName": "GPT-5.6 Terra 1M High"
+    },
+    {
+     "id": "gpt-5.6-terra-high-fast",
+     "displayName": "GPT-5.6 Terra 1M High Fast"
+    },
+    {
+     "id": "gpt-5.6-terra-xhigh",
+     "displayName": "GPT-5.6 Terra 1M Extra High"
+    },
+    {
+     "id": "gpt-5.6-terra-xhigh-fast",
+     "displayName": "GPT-5.6 Terra 1M Extra High Fast"
+    },
+    {
+     "id": "gpt-5.6-terra-max",
+     "displayName": "GPT-5.6 Terra 1M Max"
+    },
+    {
+     "id": "gpt-5.6-terra-max-fast",
+     "displayName": "GPT-5.6 Terra 1M Max Fast"
+    },
+    {
+     "id": "claude-sonnet-5-5-low",
+     "displayName": "Claude Sonnet 5.5  Low"
+    },
+    {
+     "id": "claude-sonnet-5-5-medium",
+     "displayName": "Claude Sonnet 5.5  Medium"
+    },
+    {
+     "id": "claude-sonnet-5-5-high",
+     "displayName": "Claude Sonnet 5.5  High"
+    },
+    {
+     "id": "claude-sonnet-5-5-xhigh",
+     "displayName": "Claude Sonnet 5.5  Extra High"
+    },
+    {
+     "id": "claude-sonnet-5-5-max",
+     "displayName": "Claude Sonnet 5.5  Max"
+    },
+    {
+     "id": "claude-sonnet-5-low",
+     "displayName": "Claude Sonnet 5 1M Low"
+    },
+    {
+     "id": "claude-sonnet-5-medium",
+     "displayName": "Claude Sonnet 5 1M Medium"
+    },
+    {
+     "id": "claude-sonnet-5-high",
+     "displayName": "Claude Sonnet 5 1M"
+    },
+    {
+     "id": "claude-sonnet-5-xhigh",
+     "displayName": "Claude Sonnet 5 1M Extra High"
+    },
+    {
+     "id": "claude-sonnet-5-max",
+     "displayName": "Claude Sonnet 5 1M Max"
+    },
+    {
+     "id": "claude-sonnet-5-thinking-low",
+     "displayName": "Claude Sonnet 5 1M Low Thinking"
+    },
+    {
+     "id": "claude-sonnet-5-thinking-medium",
+     "displayName": "Claude Sonnet 5 1M Medium Thinking"
+    },
+    {
+     "id": "claude-sonnet-5-thinking-max",
+     "displayName": "Claude Sonnet 5 1M Max Thinking"
+    },
+    {
+     "id": "claude-4.6-sonnet-medium",
+     "displayName": "Claude Sonnet 4.6 1M"
+    },
+    {
+     "id": "claude-4.6-sonnet-medium-thinking",
+     "displayName": "Claude Sonnet 4.6 1M Thinking"
+    },
+    {
+     "id": "claude-opus-4-7-low",
+     "displayName": "Claude Opus 4.7 1M Low"
+    },
+    {
+     "id": "claude-opus-4-7-low-fast",
+     "displayName": "Claude Opus 4.7 1M Low Fast"
+    },
+    {
+     "id": "claude-opus-4-7-medium",
+     "displayName": "Claude Opus 4.7 1M Medium"
+    },
+    {
+     "id": "claude-opus-4-7-medium-fast",
+     "displayName": "Claude Opus 4.7 1M Medium Fast"
+    },
+    {
+     "id": "claude-opus-4-7-high",
+     "displayName": "Claude Opus 4.7 1M High"
+    },
+    {
+     "id": "claude-opus-4-7-high-fast",
+     "displayName": "Claude Opus 4.7 1M High Fast"
+    },
+    {
+     "id": "claude-opus-4-7-xhigh",
+     "displayName": "Claude Opus 4.7 1M"
+    },
+    {
+     "id": "claude-opus-4-7-xhigh-fast",
+     "displayName": "Claude Opus 4.7 1M Fast"
+    },
+    {
+     "id": "claude-opus-4-7-max",
+     "displayName": "Claude Opus 4.7 1M Max"
+    },
+    {
+     "id": "claude-opus-4-7-max-fast",
+     "displayName": "Claude Opus 4.7 1M Max Fast"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-low",
+     "displayName": "Claude Opus 4.7 1M Low Thinking"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-low-fast",
+     "displayName": "Claude Opus 4.7 1M Low Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-medium",
+     "displayName": "Claude Opus 4.7 1M Medium Thinking"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-medium-fast",
+     "displayName": "Claude Opus 4.7 1M Medium Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-high",
+     "displayName": "Claude Opus 4.7 1M High Thinking"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-high-fast",
+     "displayName": "Claude Opus 4.7 1M High Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-xhigh",
+     "displayName": "Claude Opus 4.7 1M Thinking"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-xhigh-fast",
+     "displayName": "Claude Opus 4.7 1M Thinking Fast"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-max",
+     "displayName": "Claude Opus 4.7 1M Max Thinking"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-max-fast",
+     "displayName": "Claude Opus 4.7 1M Max Thinking Fast"
+    },
+    {
+     "id": "gpt-5.4-low",
+     "displayName": "GPT-5.4 1M Low"
+    },
+    {
+     "id": "gpt-5.4-medium",
+     "displayName": "GPT-5.4 1M"
+    },
+    {
+     "id": "gpt-5.4-medium-fast",
+     "displayName": "GPT-5.4 Fast"
+    },
+    {
+     "id": "gpt-5.4-high",
+     "displayName": "GPT-5.4 1M High"
+    },
+    {
+     "id": "gpt-5.4-high-fast",
+     "displayName": "GPT-5.4 High Fast"
+    },
+    {
+     "id": "gpt-5.4-xhigh",
+     "displayName": "GPT-5.4 1M Extra High"
+    },
+    {
+     "id": "gpt-5.4-xhigh-fast",
+     "displayName": "GPT-5.4 Extra High Fast"
+    },
+    {
+     "id": "claude-4.6-opus-high",
+     "displayName": "Claude Opus 4.6 1M"
+    },
+    {
+     "id": "claude-4.6-opus-max",
+     "displayName": "Claude Opus 4.6 1M Max"
+    },
+    {
+     "id": "claude-4.6-opus-high-thinking",
+     "displayName": "Claude Opus 4.6 1M Thinking"
+    },
+    {
+     "id": "claude-4.6-opus-max-thinking",
+     "displayName": "Claude Opus 4.6 1M Max Thinking"
+    },
+    {
+     "id": "claude-4.5-opus-high",
+     "displayName": "Claude Opus 4.5"
+    },
+    {
+     "id": "claude-4.5-opus-high-thinking",
+     "displayName": "Claude Opus 4.5 Thinking"
+    },
+    {
+     "id": "gpt-5.2-low",
+     "displayName": "GPT-5.2 Low"
+    },
+    {
+     "id": "gpt-5.2-low-fast",
+     "displayName": "GPT-5.2 Low Fast"
+    },
+    {
+     "id": "gpt-5.2-fast",
+     "displayName": "GPT-5.2 Fast"
+    },
+    {
+     "id": "gpt-5.2-high",
+     "displayName": "GPT-5.2 High"
+    },
+    {
+     "id": "gpt-5.2-high-fast",
+     "displayName": "GPT-5.2 High Fast"
+    },
+    {
+     "id": "gpt-5.2-xhigh",
+     "displayName": "GPT-5.2 Extra High"
+    },
+    {
+     "id": "gpt-5.2-xhigh-fast",
+     "displayName": "GPT-5.2 Extra High Fast"
+    },
+    {
+     "id": "gpt-5.6-luna-none",
+     "displayName": "GPT-5.6 Luna 1M None"
+    },
+    {
+     "id": "gpt-5.6-luna-none-fast",
+     "displayName": "GPT-5.6 Luna 1M None Fast"
+    },
+    {
+     "id": "gpt-5.6-luna-low",
+     "displayName": "GPT-5.6 Luna 1M Low"
+    },
+    {
+     "id": "gpt-5.6-luna-low-fast",
+     "displayName": "GPT-5.6 Luna 1M Low Fast"
+    },
+    {
+     "id": "gpt-5.6-luna-medium",
+     "displayName": "GPT-5.6 Luna 1M"
+    },
+    {
+     "id": "gpt-5.6-luna-medium-fast",
+     "displayName": "GPT-5.6 Luna 1M Fast"
+    },
+    {
+     "id": "gpt-5.6-luna-high-fast",
+     "displayName": "GPT-5.6 Luna 1M High Fast"
+    },
+    {
+     "id": "gpt-5.6-luna-xhigh",
+     "displayName": "GPT-5.6 Luna 1M Extra High"
+    },
+    {
+     "id": "gpt-5.6-luna-xhigh-fast",
+     "displayName": "GPT-5.6 Luna 1M Extra High Fast"
+    },
+    {
+     "id": "gpt-5.6-luna-max",
+     "displayName": "GPT-5.6 Luna 1M Max"
+    },
+    {
+     "id": "gpt-5.6-luna-max-fast",
+     "displayName": "GPT-5.6 Luna 1M Max Fast"
+    },
+    {
+     "id": "gemini-3.1-pro",
+     "displayName": "Gemini 3.1 Pro"
+    },
+    {
+     "id": "gpt-5.4-mini-none",
+     "displayName": "GPT-5.4 Mini None"
+    },
+    {
+     "id": "gpt-5.4-mini-low",
+     "displayName": "GPT-5.4 Mini Low"
+    },
+    {
+     "id": "gpt-5.4-mini-medium",
+     "displayName": "GPT-5.4 Mini"
+    },
+    {
+     "id": "gpt-5.4-mini-high",
+     "displayName": "GPT-5.4 Mini High"
+    },
+    {
+     "id": "gpt-5.4-mini-xhigh",
+     "displayName": "GPT-5.4 Mini Extra High"
+    },
+    {
+     "id": "gpt-5.4-nano-none",
+     "displayName": "GPT-5.4 Nano None"
+    },
+    {
+     "id": "gpt-5.4-nano-low",
+     "displayName": "GPT-5.4 Nano Low"
+    },
+    {
+     "id": "gpt-5.4-nano-medium",
+     "displayName": "GPT-5.4 Nano"
+    },
+    {
+     "id": "gpt-5.4-nano-high",
+     "displayName": "GPT-5.4 Nano High"
+    },
+    {
+     "id": "gpt-5.4-nano-xhigh",
+     "displayName": "GPT-5.4 Nano Extra High"
+    },
+    {
+     "id": "claude-haiku-5-5-low",
+     "displayName": "Claude Haiku 5.5  Low No Thinking"
+    },
+    {
+     "id": "claude-haiku-5-5-medium",
+     "displayName": "Claude Haiku 5.5  Medium No Thinking"
+    },
+    {
+     "id": "claude-haiku-5-5-high",
+     "displayName": "Claude Haiku 5.5  High No Thinking"
+    },
+    {
+     "id": "claude-haiku-5-5-xhigh",
+     "displayName": "Claude Haiku 5.5  Extra High No Thinking"
+    },
+    {
+     "id": "claude-haiku-5-5-max",
+     "displayName": "Claude Haiku 5.5  Max No Thinking"
+    },
+    {
+     "id": "claude-haiku-5-5-thinking-low",
+     "displayName": "Claude Haiku 5.5  Low"
+    },
+    {
+     "id": "claude-haiku-5-5-thinking-medium",
+     "displayName": "Claude Haiku 5.5  Medium"
+    },
+    {
+     "id": "claude-haiku-5-5-thinking-high",
+     "displayName": "Claude Haiku 5.5  High"
+    },
+    {
+     "id": "claude-haiku-5-5-thinking-xhigh",
+     "displayName": "Claude Haiku 5.5  Extra High"
+    },
+    {
+     "id": "claude-haiku-5-5-thinking-max",
+     "displayName": "Claude Haiku 5.5  Max"
+    },
+    {
+     "id": "claude-4.5-sonnet",
+     "displayName": "Claude Sonnet 4.5"
+    },
+    {
+     "id": "claude-4.5-sonnet-thinking",
+     "displayName": "Claude Sonnet 4.5 Thinking"
+    },
+    {
+     "id": "gpt-5.1-low",
+     "displayName": "GPT-5.1 Low"
+    },
+    {
+     "id": "gpt-5.1",
+     "displayName": "GPT-5.1"
+    },
+    {
+     "id": "gpt-5.1-high",
+     "displayName": "GPT-5.1 High"
+    },
+    {
+     "id": "gemini-3-flash",
+     "displayName": "Gemini 3 Flash"
+    },
+    {
+     "id": "gemini-3.5-flash",
+     "displayName": "Gemini 3.5 Flash"
+    },
+    {
+     "id": "claude-4-sonnet",
+     "displayName": "Claude Sonnet 4"
+    },
+    {
+     "id": "claude-4-sonnet-thinking",
+     "displayName": "Claude Sonnet 4 Thinking"
+    },
+    {
+     "id": "gpt-5-mini",
+     "displayName": "GPT-5 Mini"
+    },
+    {
+     "id": "kimi-k3-low",
+     "displayName": "Kimi K3 Low"
+    },
+    {
+     "id": "kimi-k3-high",
+     "displayName": "Kimi K3 High"
+    },
+    {
+     "id": "kimi-k3-max",
+     "displayName": "Kimi K3"
+    },
+    {
+     "id": "kimi-k2.7-code",
+     "displayName": "Kimi K2.7 Code"
+    },
+    {
+     "id": "glm-5.2-high",
+     "displayName": "GLM 5.2"
+    },
+    {
+     "id": "glm-5.2-max",
+     "displayName": "GLM 5.2 Max"
+    },
+    {
+     "id": "deepseek-v41-flash-1017-none",
+     "displayName": "DeepSeek V4.1 Flash 1017 None"
+    },
+    {
+     "id": "deepseek-v41-flash-1017-low",
+     "displayName": "DeepSeek V4.1 Flash 1017 Low"
+    },
+    {
+     "id": "deepseek-v41-flash-1017-medium",
+     "displayName": "DeepSeek V4.1 Flash 1017 Medium"
+    },
+    {
+     "id": "deepseek-v41-flash-1017-high",
+     "displayName": "DeepSeek V4.1 Flash 1017 High"
+    },
+    {
+     "id": "deepseek-v41-flash-1017-max",
+     "displayName": "DeepSeek V4.1 Flash 1017 Max"
+    }
+   ]
+  },
+  "opencode": {
+   "aliases": [
+    "opencode/beam-free",
+    "opencode/big-pickle",
+    "opencode/deepseek-v4.1-flash-free",
+    "opencode/flint-40b-free",
+    "opencode/glm-5.3-flash-free",
+    "opencode/iceman-free",
+    "opencode/inkling-2-small-free",
+    "opencode/longcat-2.5-free",
+    "opencode/mimo-v2.6-flash-free",
+    "opencode/minimax-m3.1-flash-free",
+    "opencode/nemotron-3.5-lightning-free",
+    "opencode/nemotron-3.5-super-vl-free"
+   ],
+   "efforts": [],
+   "models": [
+    {
+     "id": "opencode/beam-free",
+     "displayName": "beam-free",
+     "description": "free",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/big-pickle",
+     "displayName": "big-pickle"
+    },
+    {
+     "id": "opencode/deepseek-v4.1-flash-free",
+     "displayName": "deepseek-v4.1-flash-free",
+     "description": "free",
+     "efforts": [
+      "low",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/flint-40b-free",
+     "displayName": "flint-40b-free",
+     "description": "free",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/glm-5.3-flash-free",
+     "displayName": "glm-5.3-flash-free",
+     "description": "free",
+     "efforts": [
+      "low",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/iceman-free",
+     "displayName": "iceman-free",
+     "description": "free"
+    },
+    {
+     "id": "opencode/inkling-2-small-free",
+     "displayName": "inkling-2-small-free",
+     "description": "free",
+     "efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/longcat-2.5-free",
+     "displayName": "longcat-2.5-free",
+     "description": "free",
+     "efforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "opencode/mimo-v2.6-flash-free",
+     "displayName": "mimo-v2.6-flash-free",
+     "description": "free"
+    },
+    {
+     "id": "opencode/minimax-m3.1-flash-free",
+     "displayName": "minimax-m3.1-flash-free",
+     "description": "free",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/nemotron-3.5-lightning-free",
+     "displayName": "nemotron-3.5-lightning-free",
+     "description": "free"
+    },
+    {
+     "id": "opencode/nemotron-3.5-super-vl-free",
+     "displayName": "nemotron-3.5-super-vl-free",
+     "description": "free",
+     "efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ]
+    }
+   ]
+  },
+  "antigravity": {
+   "aliases": [
+    "gemini-4-argon",
+    "gemini-3.8-flash",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "gpt-oss-120b"
+   ],
+   "efforts": [],
+   "models": [
+    {
+     "id": "gemini-4-argon",
+     "displayName": "Gemini 4 Argon",
+     "efforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "gemini-3.8-flash",
+     "displayName": "Gemini 3.8 Flash",
+     "efforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "claude-opus-5-5",
+     "displayName": "Claude Opus 5.5",
+     "efforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "claude-sonnet-5-5",
+     "displayName": "Claude Sonnet 5.5",
+     "efforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "gpt-oss-120b",
+     "displayName": "GPT-OSS 120B",
+     "efforts": [
+      "medium"
+     ]
+    }
+   ]
+  }
+ },
+ "machines": [
+  {
+   "name": "this Mac",
+   "muse": false,
+   "codex": true,
+   "models": [
+    {
+     "id": "account-default",
+     "runtime": "codex",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "account-default",
+     "runtime": "claude",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "account-default",
+     "runtime": "cursor",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": []
+    },
+    {
+     "id": "account-default",
+     "runtime": "opencode",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": []
+    },
+    {
+     "id": "account-default",
+     "runtime": "copilot",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": []
+    },
+    {
+     "id": "account-default",
+     "runtime": "antigravity",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": [
+      "medium"
+     ]
+    },
+    {
+     "id": "gpt-6.1-sol",
+     "runtime": "codex",
+     "displayName": "GPT-6.1-Sol",
+     "description": "Latest workhorse model for coding and everyday work.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ]
+    },
+    {
+     "id": "gpt-6-astra",
+     "runtime": "codex",
+     "displayName": "GPT-6-Astra",
+     "description": "Frontier intelligence for the most demanding work.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ]
+    },
+    {
+     "id": "gpt-6.1-terra",
+     "runtime": "codex",
+     "displayName": "GPT-6.1 Terra",
+     "description": "GPT-6.1 Terra Codex model.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ]
+    },
+    {
+     "id": "gpt-6-sol",
+     "runtime": "codex",
+     "displayName": "GPT-6-Sol",
+     "description": "Previous generation workhorse model.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ]
+    },
+    {
+     "id": "gpt-6-luna",
+     "runtime": "codex",
+     "displayName": "GPT-6-Luna",
+     "description": "Fast and affordable model for easier tasks.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "gpt-5.6-sol",
+     "runtime": "codex",
+     "displayName": "GPT-5.6-Sol",
+     "description": "Older generation workhorse model.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ]
+    },
+    {
+     "id": "gpt-5.6-terra",
+     "runtime": "codex",
+     "displayName": "GPT-5.6-Terra",
+     "description": "Older balanced model for straightforward work.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ]
+    },
+    {
+     "id": "gpt-5.6-luna",
+     "runtime": "codex",
+     "displayName": "GPT-5.6-Luna",
+     "description": "Older fast and efficient model.",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "fable",
+     "runtime": "claude",
+     "displayName": "Fable 5.1",
+     "description": "Always the newest Fable",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opus",
+     "runtime": "claude",
+     "displayName": "Opus 5.5",
+     "description": "Always the newest Opus",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "sonnet",
+     "runtime": "claude",
+     "displayName": "Sonnet 5.5",
+     "description": "Always the newest Sonnet",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "haiku",
+     "runtime": "claude",
+     "displayName": "Haiku 5.5",
+     "description": "Always the newest Haiku",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "claude-opus-5",
+     "runtime": "claude",
+     "displayName": "Opus 5",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-8",
+     "runtime": "claude",
+     "displayName": "Opus 4.8",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-7",
+     "runtime": "claude",
+     "displayName": "Opus 4.7",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-6",
+     "runtime": "claude",
+     "displayName": "Opus 4.6",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-5",
+     "runtime": "claude",
+     "displayName": "Opus 4.5",
+     "description": "This version, always",
+     "supportedEfforts": [],
+     "older": true
+    },
+    {
+     "id": "claude-fable-5",
+     "runtime": "claude",
+     "displayName": "Fable 5",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-sonnet-5",
+     "runtime": "claude",
+     "displayName": "Sonnet 5",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-sonnet-4-6",
+     "runtime": "claude",
+     "displayName": "Sonnet 4.6",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-sonnet-4-5",
+     "runtime": "claude",
+     "displayName": "Sonnet 4.5",
+     "description": "This version, always",
+     "supportedEfforts": [],
+     "older": true
+    },
+    {
+     "id": "claude-haiku-4-5-20251001",
+     "runtime": "claude",
+     "displayName": "Haiku 4.5",
+     "description": "This version, always",
+     "supportedEfforts": [],
+     "older": true
+    },
+    {
+     "id": "auto",
+     "runtime": "cursor",
+     "displayName": "Auto (current, default)",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5.3-codex",
+     "runtime": "cursor",
+     "displayName": "Codex 5.3",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "gpt-5.3-codex-low",
+      "low-fast": "gpt-5.3-codex-low-fast",
+      "fast": "gpt-5.3-codex-fast",
+      "high": "gpt-5.3-codex-high",
+      "high-fast": "gpt-5.3-codex-high-fast",
+      "xhigh": "gpt-5.3-codex-xhigh",
+      "xhigh-fast": "gpt-5.3-codex-xhigh-fast"
+     }
+    },
+    {
+     "id": "gpt-5.2",
+     "runtime": "cursor",
+     "displayName": "GPT-5.2",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "gpt-5.2-low",
+      "low-fast": "gpt-5.2-low-fast",
+      "fast": "gpt-5.2-fast",
+      "high": "gpt-5.2-high",
+      "high-fast": "gpt-5.2-high-fast",
+      "xhigh": "gpt-5.2-xhigh",
+      "xhigh-fast": "gpt-5.2-xhigh-fast"
+     }
+    },
+    {
+     "id": "composer-2.5",
+     "runtime": "cursor",
+     "displayName": "Composer 2.5",
+     "description": "",
+     "supportedEfforts": [
+      "fast"
+     ],
+     "variants": {
+      "fast": "composer-2.5-fast"
+     }
+    },
+    {
+     "id": "claude-opus-5-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 5 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "high-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "high": "claude-opus-5-thinking-high",
+      "high-fast": "claude-opus-5-thinking-high-fast",
+      "low": "claude-opus-5-thinking-low",
+      "low-fast": "claude-opus-5-thinking-low-fast",
+      "medium": "claude-opus-5-thinking-medium",
+      "medium-fast": "claude-opus-5-thinking-medium-fast",
+      "xhigh": "claude-opus-5-thinking-xhigh",
+      "xhigh-fast": "claude-opus-5-thinking-xhigh-fast",
+      "max": "claude-opus-5-thinking-max",
+      "max-fast": "claude-opus-5-thinking-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gpt-5.6-sol-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.6 Sol 1M",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "high": "gpt-5.6-sol-high",
+      "high-fast": "gpt-5.6-sol-high-fast",
+      "xhigh": "gpt-5.6-sol-xhigh",
+      "xhigh-fast": "gpt-5.6-sol-xhigh-fast",
+      "none": "gpt-5.6-sol-none",
+      "none-fast": "gpt-5.6-sol-none-fast",
+      "low": "gpt-5.6-sol-low",
+      "low-fast": "gpt-5.6-sol-low-fast",
+      "medium": "gpt-5.6-sol-medium",
+      "medium-fast": "gpt-5.6-sol-medium-fast",
+      "max": "gpt-5.6-sol-max",
+      "max-fast": "gpt-5.6-sol-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-fable-5-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5 1M Thinking (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "xhigh",
+      "low",
+      "medium",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-fable-5-thinking-high",
+      "xhigh": "claude-fable-5-thinking-xhigh",
+      "low": "claude-fable-5-thinking-low",
+      "medium": "claude-fable-5-thinking-medium",
+      "max": "claude-fable-5-thinking-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "cursor-grok-4.5-high",
+     "runtime": "cursor",
+     "displayName": "Grok 4.5",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "high-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast"
+     ],
+     "variants": {
+      "high": "cursor-grok-4.5-high",
+      "high-fast": "cursor-grok-4.5-high-fast",
+      "low": "cursor-grok-4.5-low",
+      "low-fast": "cursor-grok-4.5-low-fast",
+      "medium": "cursor-grok-4.5-medium",
+      "medium-fast": "cursor-grok-4.5-medium-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-sonnet-5-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 5 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "xhigh",
+      "low",
+      "medium",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-sonnet-5-thinking-high",
+      "xhigh": "claude-sonnet-5-thinking-xhigh",
+      "low": "claude-sonnet-5-thinking-low",
+      "medium": "claude-sonnet-5-thinking-medium",
+      "max": "claude-sonnet-5-thinking-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gpt-5.6-luna-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.6 Luna 1M",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "high": "gpt-5.6-luna-high",
+      "none": "gpt-5.6-luna-none",
+      "none-fast": "gpt-5.6-luna-none-fast",
+      "low": "gpt-5.6-luna-low",
+      "low-fast": "gpt-5.6-luna-low-fast",
+      "medium": "gpt-5.6-luna-medium",
+      "medium-fast": "gpt-5.6-luna-medium-fast",
+      "high-fast": "gpt-5.6-luna-high-fast",
+      "xhigh": "gpt-5.6-luna-xhigh",
+      "xhigh-fast": "gpt-5.6-luna-xhigh-fast",
+      "max": "gpt-5.6-luna-max",
+      "max-fast": "gpt-5.6-luna-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "grok-4.7-low",
+     "runtime": "cursor",
+     "displayName": "Grok 4.7",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "grok-4.7-low",
+      "low-fast": "grok-4.7-low-fast",
+      "medium": "grok-4.7-medium",
+      "medium-fast": "grok-4.7-medium-fast",
+      "high": "grok-4.7-high",
+      "high-fast": "grok-4.7-high-fast",
+      "xhigh": "grok-4.7-xhigh",
+      "xhigh-fast": "grok-4.7-xhigh-fast"
+     }
+    },
+    {
+     "id": "cursor-grok-4.6-high",
+     "runtime": "cursor",
+     "displayName": "Grok 4.6",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "cursor-grok-4.6-low",
+      "low-fast": "cursor-grok-4.6-low-fast",
+      "medium": "cursor-grok-4.6-medium",
+      "medium-fast": "cursor-grok-4.6-medium-fast",
+      "high": "cursor-grok-4.6-high",
+      "high-fast": "cursor-grok-4.6-high-fast",
+      "xhigh": "cursor-grok-4.6-xhigh",
+      "xhigh-fast": "cursor-grok-4.6-xhigh-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-opus-5-5-medium",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 5.5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-5-5-low",
+      "low-fast": "claude-opus-5-5-low-fast",
+      "medium": "claude-opus-5-5-medium",
+      "medium-fast": "claude-opus-5-5-medium-fast",
+      "high": "claude-opus-5-5-high",
+      "high-fast": "claude-opus-5-5-high-fast",
+      "xhigh": "claude-opus-5-5-xhigh",
+      "xhigh-fast": "claude-opus-5-5-xhigh-fast",
+      "max": "claude-opus-5-5-max",
+      "max-fast": "claude-opus-5-5-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-opus-5-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-5-low",
+      "low-fast": "claude-opus-5-low-fast",
+      "medium": "claude-opus-5-medium",
+      "medium-fast": "claude-opus-5-medium-fast",
+      "high": "claude-opus-5-high",
+      "high-fast": "claude-opus-5-high-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-opus-4-8-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.8 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-8-low",
+      "low-fast": "claude-opus-4-8-low-fast",
+      "medium": "claude-opus-4-8-medium",
+      "medium-fast": "claude-opus-4-8-medium-fast",
+      "high": "claude-opus-4-8-high",
+      "high-fast": "claude-opus-4-8-high-fast",
+      "xhigh": "claude-opus-4-8-xhigh",
+      "xhigh-fast": "claude-opus-4-8-xhigh-fast",
+      "max": "claude-opus-4-8-max",
+      "max-fast": "claude-opus-4-8-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.8 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-8-thinking-low",
+      "low-fast": "claude-opus-4-8-thinking-low-fast",
+      "medium": "claude-opus-4-8-thinking-medium",
+      "medium-fast": "claude-opus-4-8-thinking-medium-fast",
+      "high": "claude-opus-4-8-thinking-high",
+      "high-fast": "claude-opus-4-8-thinking-high-fast",
+      "xhigh": "claude-opus-4-8-thinking-xhigh",
+      "xhigh-fast": "claude-opus-4-8-thinking-xhigh-fast",
+      "max": "claude-opus-4-8-thinking-max",
+      "max-fast": "claude-opus-4-8-thinking-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gemini-4-carbon-low",
+     "runtime": "cursor",
+     "displayName": "Gemini 4 Carbon",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "variants": {
+      "low": "gemini-4-carbon-low",
+      "medium": "gemini-4-carbon-medium",
+      "high": "gemini-4-carbon-high"
+     }
+    },
+    {
+     "id": "gemini-4-argon-low",
+     "runtime": "cursor",
+     "displayName": "Gemini 4 Argon",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "variants": {
+      "low": "gemini-4-argon-low",
+      "medium": "gemini-4-argon-medium",
+      "high": "gemini-4-argon-high"
+     }
+    },
+    {
+     "id": "muse-wonder-1.0-minimal",
+     "runtime": "cursor",
+     "displayName": "Muse Wonder",
+     "description": "",
+     "supportedEfforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "minimal": "muse-wonder-1.0-minimal",
+      "low": "muse-wonder-1.0-low",
+      "medium": "muse-wonder-1.0-medium",
+      "high": "muse-wonder-1.0-high",
+      "xhigh": "muse-wonder-1.0-xhigh",
+      "max": "muse-wonder-1.0-max"
+     }
+    },
+    {
+     "id": "gpt-5.5-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "none": "gpt-5.5-none",
+      "none-fast": "gpt-5.5-none-fast",
+      "low": "gpt-5.5-low",
+      "low-fast": "gpt-5.5-low-fast",
+      "medium": "gpt-5.5-medium",
+      "medium-fast": "gpt-5.5-medium-fast",
+      "high": "gpt-5.5-high",
+      "high-fast": "gpt-5.5-high-fast",
+      "xhigh": "gpt-5.5-extra-high",
+      "xhigh-fast": "gpt-5.5-extra-high-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-fable-5-2-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5.2 1M (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-fable-5-2-low",
+      "low-fast": "claude-fable-5-2-low-fast",
+      "medium": "claude-fable-5-2-medium",
+      "medium-fast": "claude-fable-5-2-medium-fast",
+      "high": "claude-fable-5-2-high",
+      "high-fast": "claude-fable-5-2-high-fast",
+      "xhigh": "claude-fable-5-2-xhigh",
+      "xhigh-fast": "claude-fable-5-2-xhigh-fast",
+      "max": "claude-fable-5-2-max",
+      "max-fast": "claude-fable-5-2-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-fable-5-1-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5.1 1M (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-fable-5-1-low",
+      "medium": "claude-fable-5-1-medium",
+      "high": "claude-fable-5-1-high",
+      "xhigh": "claude-fable-5-1-xhigh",
+      "max": "claude-fable-5-1-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-fable-5-1-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5.1 1M Thinking (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-fable-5-1-thinking-low",
+      "medium": "claude-fable-5-1-thinking-medium",
+      "high": "claude-fable-5-1-thinking-high",
+      "xhigh": "claude-fable-5-1-thinking-xhigh",
+      "max": "claude-fable-5-1-thinking-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-fable-5-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5 1M (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-fable-5-low",
+      "medium": "claude-fable-5-medium",
+      "high": "claude-fable-5-high",
+      "xhigh": "claude-fable-5-xhigh",
+      "max": "claude-fable-5-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gemini-3.8-flash-low",
+     "runtime": "cursor",
+     "displayName": "Gemini 3.8 Flash",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "variants": {
+      "low": "gemini-3.8-flash-low",
+      "medium": "gemini-3.8-flash-medium",
+      "high": "gemini-3.8-flash-high"
+     }
+    },
+    {
+     "id": "muse-spark-1.3-high",
+     "runtime": "cursor",
+     "displayName": "Muse Spark 1.3 1M",
+     "description": "",
+     "supportedEfforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "minimal": "muse-spark-1.3-minimal",
+      "low": "muse-spark-1.3-low",
+      "medium": "muse-spark-1.3-medium",
+      "high": "muse-spark-1.3-high",
+      "xhigh": "muse-spark-1.3-xhigh",
+      "max": "muse-spark-1.3-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gpt-5.6-terra-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.6 Terra 1M",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "none": "gpt-5.6-terra-none",
+      "none-fast": "gpt-5.6-terra-none-fast",
+      "low": "gpt-5.6-terra-low",
+      "low-fast": "gpt-5.6-terra-low-fast",
+      "medium": "gpt-5.6-terra-medium",
+      "medium-fast": "gpt-5.6-terra-medium-fast",
+      "high": "gpt-5.6-terra-high",
+      "high-fast": "gpt-5.6-terra-high-fast",
+      "xhigh": "gpt-5.6-terra-xhigh",
+      "xhigh-fast": "gpt-5.6-terra-xhigh-fast",
+      "max": "gpt-5.6-terra-max",
+      "max-fast": "gpt-5.6-terra-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-sonnet-5-5-low",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 5.5",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-sonnet-5-5-low",
+      "medium": "claude-sonnet-5-5-medium",
+      "high": "claude-sonnet-5-5-high",
+      "xhigh": "claude-sonnet-5-5-xhigh",
+      "max": "claude-sonnet-5-5-max"
+     }
+    },
+    {
+     "id": "claude-sonnet-5-high",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-sonnet-5-low",
+      "medium": "claude-sonnet-5-medium",
+      "high": "claude-sonnet-5-high",
+      "xhigh": "claude-sonnet-5-xhigh",
+      "max": "claude-sonnet-5-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.6-sonnet-medium",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.6 1M",
+     "description": "",
+     "supportedEfforts": [
+      "medium"
+     ],
+     "variants": {
+      "medium": "claude-4.6-sonnet-medium"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-4.6-sonnet-medium-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.6 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "medium"
+     ],
+     "variants": {
+      "medium": "claude-4.6-sonnet-medium-thinking"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-opus-4-7-xhigh",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.7 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-7-low",
+      "low-fast": "claude-opus-4-7-low-fast",
+      "medium": "claude-opus-4-7-medium",
+      "medium-fast": "claude-opus-4-7-medium-fast",
+      "high": "claude-opus-4-7-high",
+      "high-fast": "claude-opus-4-7-high-fast",
+      "xhigh": "claude-opus-4-7-xhigh",
+      "xhigh-fast": "claude-opus-4-7-xhigh-fast",
+      "max": "claude-opus-4-7-max",
+      "max-fast": "claude-opus-4-7-max-fast"
+     },
+     "defaultEffort": "xhigh"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-xhigh",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.7 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-7-thinking-low",
+      "low-fast": "claude-opus-4-7-thinking-low-fast",
+      "medium": "claude-opus-4-7-thinking-medium",
+      "medium-fast": "claude-opus-4-7-thinking-medium-fast",
+      "high": "claude-opus-4-7-thinking-high",
+      "high-fast": "claude-opus-4-7-thinking-high-fast",
+      "xhigh": "claude-opus-4-7-thinking-xhigh",
+      "xhigh-fast": "claude-opus-4-7-thinking-xhigh-fast",
+      "max": "claude-opus-4-7-thinking-max",
+      "max-fast": "claude-opus-4-7-thinking-max-fast"
+     },
+     "defaultEffort": "xhigh"
+    },
+    {
+     "id": "gpt-5.4-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.4 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "gpt-5.4-low",
+      "medium": "gpt-5.4-medium",
+      "medium-fast": "gpt-5.4-medium-fast",
+      "high": "gpt-5.4-high",
+      "high-fast": "gpt-5.4-high-fast",
+      "xhigh": "gpt-5.4-xhigh",
+      "xhigh-fast": "gpt-5.4-xhigh-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-4.6-opus-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.6 1M",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-4.6-opus-high",
+      "max": "claude-4.6-opus-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.6-opus-high-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.6 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-4.6-opus-high-thinking",
+      "max": "claude-4.6-opus-max-thinking"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.5-opus-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.5",
+     "description": "",
+     "supportedEfforts": [
+      "high"
+     ],
+     "variants": {
+      "high": "claude-4.5-opus-high"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.5-opus-high-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.5 Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high"
+     ],
+     "variants": {
+      "high": "claude-4.5-opus-high-thinking"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gemini-3.1-pro",
+     "runtime": "cursor",
+     "displayName": "Gemini 3.1 Pro",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5.4-mini-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.4 Mini",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "variants": {
+      "none": "gpt-5.4-mini-none",
+      "low": "gpt-5.4-mini-low",
+      "medium": "gpt-5.4-mini-medium",
+      "high": "gpt-5.4-mini-high",
+      "xhigh": "gpt-5.4-mini-xhigh"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "gpt-5.4-nano-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.4 Nano",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "variants": {
+      "none": "gpt-5.4-nano-none",
+      "low": "gpt-5.4-nano-low",
+      "medium": "gpt-5.4-nano-medium",
+      "high": "gpt-5.4-nano-high",
+      "xhigh": "gpt-5.4-nano-xhigh"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-haiku-5-5-low",
+     "runtime": "cursor",
+     "displayName": "Claude Haiku 5.5 No Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-haiku-5-5-low",
+      "medium": "claude-haiku-5-5-medium",
+      "high": "claude-haiku-5-5-high",
+      "xhigh": "claude-haiku-5-5-xhigh",
+      "max": "claude-haiku-5-5-max"
+     }
+    },
+    {
+     "id": "claude-haiku-5-5-thinking-low",
+     "runtime": "cursor",
+     "displayName": "Claude Haiku 5.5",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-haiku-5-5-thinking-low",
+      "medium": "claude-haiku-5-5-thinking-medium",
+      "high": "claude-haiku-5-5-thinking-high",
+      "xhigh": "claude-haiku-5-5-thinking-xhigh",
+      "max": "claude-haiku-5-5-thinking-max"
+     }
+    },
+    {
+     "id": "claude-4.5-sonnet",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.5",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "claude-4.5-sonnet-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.5 Thinking",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5.1",
+     "runtime": "cursor",
+     "displayName": "GPT-5.1",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "high"
+     ],
+     "variants": {
+      "low": "gpt-5.1-low",
+      "high": "gpt-5.1-high"
+     }
+    },
+    {
+     "id": "gemini-3-flash",
+     "runtime": "cursor",
+     "displayName": "Gemini 3 Flash",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gemini-3.5-flash",
+     "runtime": "cursor",
+     "displayName": "Gemini 3.5 Flash",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "claude-4-sonnet",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "claude-4-sonnet-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4 Thinking",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5-mini",
+     "runtime": "cursor",
+     "displayName": "GPT-5 Mini",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "kimi-k3-max",
+     "runtime": "cursor",
+     "displayName": "Kimi K3",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "high",
+      "max"
+     ],
+     "variants": {
+      "low": "kimi-k3-low",
+      "high": "kimi-k3-high",
+      "max": "kimi-k3-max"
+     },
+     "defaultEffort": "max"
+    },
+    {
+     "id": "kimi-k2.7-code",
+     "runtime": "cursor",
+     "displayName": "Kimi K2.7 Code",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "glm-5.2-high",
+     "runtime": "cursor",
+     "displayName": "GLM 5.2",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "max"
+     ],
+     "variants": {
+      "high": "glm-5.2-high",
+      "max": "glm-5.2-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "deepseek-v41-flash-1017-none",
+     "runtime": "cursor",
+     "displayName": "DeepSeek V4.1 Flash 1017",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "variants": {
+      "none": "deepseek-v41-flash-1017-none",
+      "low": "deepseek-v41-flash-1017-low",
+      "medium": "deepseek-v41-flash-1017-medium",
+      "high": "deepseek-v41-flash-1017-high",
+      "max": "deepseek-v41-flash-1017-max"
+     }
+    },
+    {
+     "id": "opencode/beam-free",
+     "runtime": "opencode",
+     "displayName": "beam-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/big-pickle",
+     "runtime": "opencode",
+     "displayName": "big-pickle",
+     "description": "Through OpenCode",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/deepseek-v4.1-flash-free",
+     "runtime": "opencode",
+     "displayName": "deepseek-v4.1-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/flint-40b-free",
+     "runtime": "opencode",
+     "displayName": "flint-40b-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/glm-5.3-flash-free",
+     "runtime": "opencode",
+     "displayName": "glm-5.3-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/iceman-free",
+     "runtime": "opencode",
+     "displayName": "iceman-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/inkling-2-small-free",
+     "runtime": "opencode",
+     "displayName": "inkling-2-small-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/longcat-2.5-free",
+     "runtime": "opencode",
+     "displayName": "longcat-2.5-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "opencode/mimo-v2.6-flash-free",
+     "runtime": "opencode",
+     "displayName": "mimo-v2.6-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/minimax-m3.1-flash-free",
+     "runtime": "opencode",
+     "displayName": "minimax-m3.1-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/nemotron-3.5-lightning-free",
+     "runtime": "opencode",
+     "displayName": "nemotron-3.5-lightning-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/nemotron-3.5-super-vl-free",
+     "runtime": "opencode",
+     "displayName": "nemotron-3.5-super-vl-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ]
+    },
+    {
+     "id": "auto",
+     "runtime": "copilot",
+     "displayName": "Auto",
+     "description": "Copilot picks the model your plan allows",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gemini-4-argon",
+     "runtime": "antigravity",
+     "displayName": "Gemini 4 Argon",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "gemini-3.8-flash",
+     "runtime": "antigravity",
+     "displayName": "Gemini 3.8 Flash",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "claude-opus-5-5",
+     "runtime": "antigravity",
+     "displayName": "Claude Opus 5.5",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "claude-sonnet-5-5",
+     "runtime": "antigravity",
+     "displayName": "Claude Sonnet 5.5",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "gpt-oss-120b",
+     "runtime": "antigravity",
+     "displayName": "GPT-OSS 120B",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "medium"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "with Muse, Codex not ready",
+   "muse": true,
+   "codex": false,
+   "models": [
+    {
+     "id": "account-default",
+     "runtime": "claude",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "account-default",
+     "runtime": "cursor",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": []
+    },
+    {
+     "id": "account-default",
+     "runtime": "opencode",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": []
+    },
+    {
+     "id": "account-default",
+     "runtime": "copilot",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": []
+    },
+    {
+     "id": "account-default",
+     "runtime": "antigravity",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": [
+      "medium"
+     ]
+    },
+    {
+     "id": "account-default",
+     "runtime": "muse",
+     "displayName": "Account default",
+     "description": "The model your account picks for you",
+     "supportedEfforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ]
+    },
+    {
+     "id": "fable",
+     "runtime": "claude",
+     "displayName": "Fable 5.1",
+     "description": "Always the newest Fable",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opus",
+     "runtime": "claude",
+     "displayName": "Opus 5.5",
+     "description": "Always the newest Opus",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "sonnet",
+     "runtime": "claude",
+     "displayName": "Sonnet 5.5",
+     "description": "Always the newest Sonnet",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "haiku",
+     "runtime": "claude",
+     "displayName": "Haiku 5.5",
+     "description": "Always the newest Haiku",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "claude-opus-5",
+     "runtime": "claude",
+     "displayName": "Opus 5",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-8",
+     "runtime": "claude",
+     "displayName": "Opus 4.8",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-7",
+     "runtime": "claude",
+     "displayName": "Opus 4.7",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-6",
+     "runtime": "claude",
+     "displayName": "Opus 4.6",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-opus-4-5",
+     "runtime": "claude",
+     "displayName": "Opus 4.5",
+     "description": "This version, always",
+     "supportedEfforts": [],
+     "older": true
+    },
+    {
+     "id": "claude-fable-5",
+     "runtime": "claude",
+     "displayName": "Fable 5",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-sonnet-5",
+     "runtime": "claude",
+     "displayName": "Sonnet 5",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-sonnet-4-6",
+     "runtime": "claude",
+     "displayName": "Sonnet 4.6",
+     "description": "This version, always",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "older": true
+    },
+    {
+     "id": "claude-sonnet-4-5",
+     "runtime": "claude",
+     "displayName": "Sonnet 4.5",
+     "description": "This version, always",
+     "supportedEfforts": [],
+     "older": true
+    },
+    {
+     "id": "claude-haiku-4-5-20251001",
+     "runtime": "claude",
+     "displayName": "Haiku 4.5",
+     "description": "This version, always",
+     "supportedEfforts": [],
+     "older": true
+    },
+    {
+     "id": "auto",
+     "runtime": "cursor",
+     "displayName": "Auto (current, default)",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5.3-codex",
+     "runtime": "cursor",
+     "displayName": "Codex 5.3",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "gpt-5.3-codex-low",
+      "low-fast": "gpt-5.3-codex-low-fast",
+      "fast": "gpt-5.3-codex-fast",
+      "high": "gpt-5.3-codex-high",
+      "high-fast": "gpt-5.3-codex-high-fast",
+      "xhigh": "gpt-5.3-codex-xhigh",
+      "xhigh-fast": "gpt-5.3-codex-xhigh-fast"
+     }
+    },
+    {
+     "id": "gpt-5.2",
+     "runtime": "cursor",
+     "displayName": "GPT-5.2",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "gpt-5.2-low",
+      "low-fast": "gpt-5.2-low-fast",
+      "fast": "gpt-5.2-fast",
+      "high": "gpt-5.2-high",
+      "high-fast": "gpt-5.2-high-fast",
+      "xhigh": "gpt-5.2-xhigh",
+      "xhigh-fast": "gpt-5.2-xhigh-fast"
+     }
+    },
+    {
+     "id": "composer-2.5",
+     "runtime": "cursor",
+     "displayName": "Composer 2.5",
+     "description": "",
+     "supportedEfforts": [
+      "fast"
+     ],
+     "variants": {
+      "fast": "composer-2.5-fast"
+     }
+    },
+    {
+     "id": "claude-opus-5-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 5 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "high-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "high": "claude-opus-5-thinking-high",
+      "high-fast": "claude-opus-5-thinking-high-fast",
+      "low": "claude-opus-5-thinking-low",
+      "low-fast": "claude-opus-5-thinking-low-fast",
+      "medium": "claude-opus-5-thinking-medium",
+      "medium-fast": "claude-opus-5-thinking-medium-fast",
+      "xhigh": "claude-opus-5-thinking-xhigh",
+      "xhigh-fast": "claude-opus-5-thinking-xhigh-fast",
+      "max": "claude-opus-5-thinking-max",
+      "max-fast": "claude-opus-5-thinking-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gpt-5.6-sol-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.6 Sol 1M",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "high": "gpt-5.6-sol-high",
+      "high-fast": "gpt-5.6-sol-high-fast",
+      "xhigh": "gpt-5.6-sol-xhigh",
+      "xhigh-fast": "gpt-5.6-sol-xhigh-fast",
+      "none": "gpt-5.6-sol-none",
+      "none-fast": "gpt-5.6-sol-none-fast",
+      "low": "gpt-5.6-sol-low",
+      "low-fast": "gpt-5.6-sol-low-fast",
+      "medium": "gpt-5.6-sol-medium",
+      "medium-fast": "gpt-5.6-sol-medium-fast",
+      "max": "gpt-5.6-sol-max",
+      "max-fast": "gpt-5.6-sol-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-fable-5-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5 1M Thinking (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "xhigh",
+      "low",
+      "medium",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-fable-5-thinking-high",
+      "xhigh": "claude-fable-5-thinking-xhigh",
+      "low": "claude-fable-5-thinking-low",
+      "medium": "claude-fable-5-thinking-medium",
+      "max": "claude-fable-5-thinking-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "cursor-grok-4.5-high",
+     "runtime": "cursor",
+     "displayName": "Grok 4.5",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "high-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast"
+     ],
+     "variants": {
+      "high": "cursor-grok-4.5-high",
+      "high-fast": "cursor-grok-4.5-high-fast",
+      "low": "cursor-grok-4.5-low",
+      "low-fast": "cursor-grok-4.5-low-fast",
+      "medium": "cursor-grok-4.5-medium",
+      "medium-fast": "cursor-grok-4.5-medium-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-sonnet-5-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 5 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "xhigh",
+      "low",
+      "medium",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-sonnet-5-thinking-high",
+      "xhigh": "claude-sonnet-5-thinking-xhigh",
+      "low": "claude-sonnet-5-thinking-low",
+      "medium": "claude-sonnet-5-thinking-medium",
+      "max": "claude-sonnet-5-thinking-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gpt-5.6-luna-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.6 Luna 1M",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "high": "gpt-5.6-luna-high",
+      "none": "gpt-5.6-luna-none",
+      "none-fast": "gpt-5.6-luna-none-fast",
+      "low": "gpt-5.6-luna-low",
+      "low-fast": "gpt-5.6-luna-low-fast",
+      "medium": "gpt-5.6-luna-medium",
+      "medium-fast": "gpt-5.6-luna-medium-fast",
+      "high-fast": "gpt-5.6-luna-high-fast",
+      "xhigh": "gpt-5.6-luna-xhigh",
+      "xhigh-fast": "gpt-5.6-luna-xhigh-fast",
+      "max": "gpt-5.6-luna-max",
+      "max-fast": "gpt-5.6-luna-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "grok-4.7-low",
+     "runtime": "cursor",
+     "displayName": "Grok 4.7",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "grok-4.7-low",
+      "low-fast": "grok-4.7-low-fast",
+      "medium": "grok-4.7-medium",
+      "medium-fast": "grok-4.7-medium-fast",
+      "high": "grok-4.7-high",
+      "high-fast": "grok-4.7-high-fast",
+      "xhigh": "grok-4.7-xhigh",
+      "xhigh-fast": "grok-4.7-xhigh-fast"
+     }
+    },
+    {
+     "id": "cursor-grok-4.6-high",
+     "runtime": "cursor",
+     "displayName": "Grok 4.6",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "cursor-grok-4.6-low",
+      "low-fast": "cursor-grok-4.6-low-fast",
+      "medium": "cursor-grok-4.6-medium",
+      "medium-fast": "cursor-grok-4.6-medium-fast",
+      "high": "cursor-grok-4.6-high",
+      "high-fast": "cursor-grok-4.6-high-fast",
+      "xhigh": "cursor-grok-4.6-xhigh",
+      "xhigh-fast": "cursor-grok-4.6-xhigh-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-opus-5-5-medium",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 5.5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-5-5-low",
+      "low-fast": "claude-opus-5-5-low-fast",
+      "medium": "claude-opus-5-5-medium",
+      "medium-fast": "claude-opus-5-5-medium-fast",
+      "high": "claude-opus-5-5-high",
+      "high-fast": "claude-opus-5-5-high-fast",
+      "xhigh": "claude-opus-5-5-xhigh",
+      "xhigh-fast": "claude-opus-5-5-xhigh-fast",
+      "max": "claude-opus-5-5-max",
+      "max-fast": "claude-opus-5-5-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-opus-5-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-5-low",
+      "low-fast": "claude-opus-5-low-fast",
+      "medium": "claude-opus-5-medium",
+      "medium-fast": "claude-opus-5-medium-fast",
+      "high": "claude-opus-5-high",
+      "high-fast": "claude-opus-5-high-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-opus-4-8-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.8 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-8-low",
+      "low-fast": "claude-opus-4-8-low-fast",
+      "medium": "claude-opus-4-8-medium",
+      "medium-fast": "claude-opus-4-8-medium-fast",
+      "high": "claude-opus-4-8-high",
+      "high-fast": "claude-opus-4-8-high-fast",
+      "xhigh": "claude-opus-4-8-xhigh",
+      "xhigh-fast": "claude-opus-4-8-xhigh-fast",
+      "max": "claude-opus-4-8-max",
+      "max-fast": "claude-opus-4-8-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-opus-4-8-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.8 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-8-thinking-low",
+      "low-fast": "claude-opus-4-8-thinking-low-fast",
+      "medium": "claude-opus-4-8-thinking-medium",
+      "medium-fast": "claude-opus-4-8-thinking-medium-fast",
+      "high": "claude-opus-4-8-thinking-high",
+      "high-fast": "claude-opus-4-8-thinking-high-fast",
+      "xhigh": "claude-opus-4-8-thinking-xhigh",
+      "xhigh-fast": "claude-opus-4-8-thinking-xhigh-fast",
+      "max": "claude-opus-4-8-thinking-max",
+      "max-fast": "claude-opus-4-8-thinking-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gemini-4-carbon-low",
+     "runtime": "cursor",
+     "displayName": "Gemini 4 Carbon",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "variants": {
+      "low": "gemini-4-carbon-low",
+      "medium": "gemini-4-carbon-medium",
+      "high": "gemini-4-carbon-high"
+     }
+    },
+    {
+     "id": "gemini-4-argon-low",
+     "runtime": "cursor",
+     "displayName": "Gemini 4 Argon",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "variants": {
+      "low": "gemini-4-argon-low",
+      "medium": "gemini-4-argon-medium",
+      "high": "gemini-4-argon-high"
+     }
+    },
+    {
+     "id": "muse-wonder-1.0-minimal",
+     "runtime": "cursor",
+     "displayName": "Muse Wonder",
+     "description": "",
+     "supportedEfforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "minimal": "muse-wonder-1.0-minimal",
+      "low": "muse-wonder-1.0-low",
+      "medium": "muse-wonder-1.0-medium",
+      "high": "muse-wonder-1.0-high",
+      "xhigh": "muse-wonder-1.0-xhigh",
+      "max": "muse-wonder-1.0-max"
+     }
+    },
+    {
+     "id": "gpt-5.5-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "none": "gpt-5.5-none",
+      "none-fast": "gpt-5.5-none-fast",
+      "low": "gpt-5.5-low",
+      "low-fast": "gpt-5.5-low-fast",
+      "medium": "gpt-5.5-medium",
+      "medium-fast": "gpt-5.5-medium-fast",
+      "high": "gpt-5.5-high",
+      "high-fast": "gpt-5.5-high-fast",
+      "xhigh": "gpt-5.5-extra-high",
+      "xhigh-fast": "gpt-5.5-extra-high-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-fable-5-2-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5.2 1M (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-fable-5-2-low",
+      "low-fast": "claude-fable-5-2-low-fast",
+      "medium": "claude-fable-5-2-medium",
+      "medium-fast": "claude-fable-5-2-medium-fast",
+      "high": "claude-fable-5-2-high",
+      "high-fast": "claude-fable-5-2-high-fast",
+      "xhigh": "claude-fable-5-2-xhigh",
+      "xhigh-fast": "claude-fable-5-2-xhigh-fast",
+      "max": "claude-fable-5-2-max",
+      "max-fast": "claude-fable-5-2-max-fast"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-fable-5-1-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5.1 1M (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-fable-5-1-low",
+      "medium": "claude-fable-5-1-medium",
+      "high": "claude-fable-5-1-high",
+      "xhigh": "claude-fable-5-1-xhigh",
+      "max": "claude-fable-5-1-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-fable-5-1-thinking-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5.1 1M Thinking (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-fable-5-1-thinking-low",
+      "medium": "claude-fable-5-1-thinking-medium",
+      "high": "claude-fable-5-1-thinking-high",
+      "xhigh": "claude-fable-5-1-thinking-xhigh",
+      "max": "claude-fable-5-1-thinking-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-fable-5-high",
+     "runtime": "cursor",
+     "displayName": "Claude Fable 5 1M (NO ZDR)",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-fable-5-low",
+      "medium": "claude-fable-5-medium",
+      "high": "claude-fable-5-high",
+      "xhigh": "claude-fable-5-xhigh",
+      "max": "claude-fable-5-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gemini-3.8-flash-low",
+     "runtime": "cursor",
+     "displayName": "Gemini 3.8 Flash",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "variants": {
+      "low": "gemini-3.8-flash-low",
+      "medium": "gemini-3.8-flash-medium",
+      "high": "gemini-3.8-flash-high"
+     }
+    },
+    {
+     "id": "muse-spark-1.3-high",
+     "runtime": "cursor",
+     "displayName": "Muse Spark 1.3 1M",
+     "description": "",
+     "supportedEfforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "minimal": "muse-spark-1.3-minimal",
+      "low": "muse-spark-1.3-low",
+      "medium": "muse-spark-1.3-medium",
+      "high": "muse-spark-1.3-high",
+      "xhigh": "muse-spark-1.3-xhigh",
+      "max": "muse-spark-1.3-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gpt-5.6-terra-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.6 Terra 1M",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "none-fast",
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "none": "gpt-5.6-terra-none",
+      "none-fast": "gpt-5.6-terra-none-fast",
+      "low": "gpt-5.6-terra-low",
+      "low-fast": "gpt-5.6-terra-low-fast",
+      "medium": "gpt-5.6-terra-medium",
+      "medium-fast": "gpt-5.6-terra-medium-fast",
+      "high": "gpt-5.6-terra-high",
+      "high-fast": "gpt-5.6-terra-high-fast",
+      "xhigh": "gpt-5.6-terra-xhigh",
+      "xhigh-fast": "gpt-5.6-terra-xhigh-fast",
+      "max": "gpt-5.6-terra-max",
+      "max-fast": "gpt-5.6-terra-max-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-sonnet-5-5-low",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 5.5",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-sonnet-5-5-low",
+      "medium": "claude-sonnet-5-5-medium",
+      "high": "claude-sonnet-5-5-high",
+      "xhigh": "claude-sonnet-5-5-xhigh",
+      "max": "claude-sonnet-5-5-max"
+     }
+    },
+    {
+     "id": "claude-sonnet-5-high",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 5 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-sonnet-5-low",
+      "medium": "claude-sonnet-5-medium",
+      "high": "claude-sonnet-5-high",
+      "xhigh": "claude-sonnet-5-xhigh",
+      "max": "claude-sonnet-5-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.6-sonnet-medium",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.6 1M",
+     "description": "",
+     "supportedEfforts": [
+      "medium"
+     ],
+     "variants": {
+      "medium": "claude-4.6-sonnet-medium"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-4.6-sonnet-medium-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.6 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "medium"
+     ],
+     "variants": {
+      "medium": "claude-4.6-sonnet-medium-thinking"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-opus-4-7-xhigh",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.7 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-7-low",
+      "low-fast": "claude-opus-4-7-low-fast",
+      "medium": "claude-opus-4-7-medium",
+      "medium-fast": "claude-opus-4-7-medium-fast",
+      "high": "claude-opus-4-7-high",
+      "high-fast": "claude-opus-4-7-high-fast",
+      "xhigh": "claude-opus-4-7-xhigh",
+      "xhigh-fast": "claude-opus-4-7-xhigh-fast",
+      "max": "claude-opus-4-7-max",
+      "max-fast": "claude-opus-4-7-max-fast"
+     },
+     "defaultEffort": "xhigh"
+    },
+    {
+     "id": "claude-opus-4-7-thinking-xhigh",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.7 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "low-fast",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast",
+      "max",
+      "max-fast"
+     ],
+     "variants": {
+      "low": "claude-opus-4-7-thinking-low",
+      "low-fast": "claude-opus-4-7-thinking-low-fast",
+      "medium": "claude-opus-4-7-thinking-medium",
+      "medium-fast": "claude-opus-4-7-thinking-medium-fast",
+      "high": "claude-opus-4-7-thinking-high",
+      "high-fast": "claude-opus-4-7-thinking-high-fast",
+      "xhigh": "claude-opus-4-7-thinking-xhigh",
+      "xhigh-fast": "claude-opus-4-7-thinking-xhigh-fast",
+      "max": "claude-opus-4-7-thinking-max",
+      "max-fast": "claude-opus-4-7-thinking-max-fast"
+     },
+     "defaultEffort": "xhigh"
+    },
+    {
+     "id": "gpt-5.4-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.4 1M",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "medium-fast",
+      "high",
+      "high-fast",
+      "xhigh",
+      "xhigh-fast"
+     ],
+     "variants": {
+      "low": "gpt-5.4-low",
+      "medium": "gpt-5.4-medium",
+      "medium-fast": "gpt-5.4-medium-fast",
+      "high": "gpt-5.4-high",
+      "high-fast": "gpt-5.4-high-fast",
+      "xhigh": "gpt-5.4-xhigh",
+      "xhigh-fast": "gpt-5.4-xhigh-fast"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-4.6-opus-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.6 1M",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-4.6-opus-high",
+      "max": "claude-4.6-opus-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.6-opus-high-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.6 1M Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "max"
+     ],
+     "variants": {
+      "high": "claude-4.6-opus-high-thinking",
+      "max": "claude-4.6-opus-max-thinking"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.5-opus-high",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.5",
+     "description": "",
+     "supportedEfforts": [
+      "high"
+     ],
+     "variants": {
+      "high": "claude-4.5-opus-high"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "claude-4.5-opus-high-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Opus 4.5 Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "high"
+     ],
+     "variants": {
+      "high": "claude-4.5-opus-high-thinking"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "gemini-3.1-pro",
+     "runtime": "cursor",
+     "displayName": "Gemini 3.1 Pro",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5.4-mini-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.4 Mini",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "variants": {
+      "none": "gpt-5.4-mini-none",
+      "low": "gpt-5.4-mini-low",
+      "medium": "gpt-5.4-mini-medium",
+      "high": "gpt-5.4-mini-high",
+      "xhigh": "gpt-5.4-mini-xhigh"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "gpt-5.4-nano-medium",
+     "runtime": "cursor",
+     "displayName": "GPT-5.4 Nano",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "variants": {
+      "none": "gpt-5.4-nano-none",
+      "low": "gpt-5.4-nano-low",
+      "medium": "gpt-5.4-nano-medium",
+      "high": "gpt-5.4-nano-high",
+      "xhigh": "gpt-5.4-nano-xhigh"
+     },
+     "defaultEffort": "medium"
+    },
+    {
+     "id": "claude-haiku-5-5-low",
+     "runtime": "cursor",
+     "displayName": "Claude Haiku 5.5 No Thinking",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-haiku-5-5-low",
+      "medium": "claude-haiku-5-5-medium",
+      "high": "claude-haiku-5-5-high",
+      "xhigh": "claude-haiku-5-5-xhigh",
+      "max": "claude-haiku-5-5-max"
+     }
+    },
+    {
+     "id": "claude-haiku-5-5-thinking-low",
+     "runtime": "cursor",
+     "displayName": "Claude Haiku 5.5",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "variants": {
+      "low": "claude-haiku-5-5-thinking-low",
+      "medium": "claude-haiku-5-5-thinking-medium",
+      "high": "claude-haiku-5-5-thinking-high",
+      "xhigh": "claude-haiku-5-5-thinking-xhigh",
+      "max": "claude-haiku-5-5-thinking-max"
+     }
+    },
+    {
+     "id": "claude-4.5-sonnet",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.5",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "claude-4.5-sonnet-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4.5 Thinking",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5.1",
+     "runtime": "cursor",
+     "displayName": "GPT-5.1",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "high"
+     ],
+     "variants": {
+      "low": "gpt-5.1-low",
+      "high": "gpt-5.1-high"
+     }
+    },
+    {
+     "id": "gemini-3-flash",
+     "runtime": "cursor",
+     "displayName": "Gemini 3 Flash",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gemini-3.5-flash",
+     "runtime": "cursor",
+     "displayName": "Gemini 3.5 Flash",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "claude-4-sonnet",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "claude-4-sonnet-thinking",
+     "runtime": "cursor",
+     "displayName": "Claude Sonnet 4 Thinking",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gpt-5-mini",
+     "runtime": "cursor",
+     "displayName": "GPT-5 Mini",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "kimi-k3-max",
+     "runtime": "cursor",
+     "displayName": "Kimi K3",
+     "description": "",
+     "supportedEfforts": [
+      "low",
+      "high",
+      "max"
+     ],
+     "variants": {
+      "low": "kimi-k3-low",
+      "high": "kimi-k3-high",
+      "max": "kimi-k3-max"
+     },
+     "defaultEffort": "max"
+    },
+    {
+     "id": "kimi-k2.7-code",
+     "runtime": "cursor",
+     "displayName": "Kimi K2.7 Code",
+     "description": "",
+     "supportedEfforts": []
+    },
+    {
+     "id": "glm-5.2-high",
+     "runtime": "cursor",
+     "displayName": "GLM 5.2",
+     "description": "",
+     "supportedEfforts": [
+      "high",
+      "max"
+     ],
+     "variants": {
+      "high": "glm-5.2-high",
+      "max": "glm-5.2-max"
+     },
+     "defaultEffort": "high"
+    },
+    {
+     "id": "deepseek-v41-flash-1017-none",
+     "runtime": "cursor",
+     "displayName": "DeepSeek V4.1 Flash 1017",
+     "description": "",
+     "supportedEfforts": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "variants": {
+      "none": "deepseek-v41-flash-1017-none",
+      "low": "deepseek-v41-flash-1017-low",
+      "medium": "deepseek-v41-flash-1017-medium",
+      "high": "deepseek-v41-flash-1017-high",
+      "max": "deepseek-v41-flash-1017-max"
+     }
+    },
+    {
+     "id": "opencode/beam-free",
+     "runtime": "opencode",
+     "displayName": "beam-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/big-pickle",
+     "runtime": "opencode",
+     "displayName": "big-pickle",
+     "description": "Through OpenCode",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/deepseek-v4.1-flash-free",
+     "runtime": "opencode",
+     "displayName": "deepseek-v4.1-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/flint-40b-free",
+     "runtime": "opencode",
+     "displayName": "flint-40b-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/glm-5.3-flash-free",
+     "runtime": "opencode",
+     "displayName": "glm-5.3-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/iceman-free",
+     "runtime": "opencode",
+     "displayName": "iceman-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/inkling-2-small-free",
+     "runtime": "opencode",
+     "displayName": "inkling-2-small-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/longcat-2.5-free",
+     "runtime": "opencode",
+     "displayName": "longcat-2.5-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "opencode/mimo-v2.6-flash-free",
+     "runtime": "opencode",
+     "displayName": "mimo-v2.6-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/minimax-m3.1-flash-free",
+     "runtime": "opencode",
+     "displayName": "minimax-m3.1-flash-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ]
+    },
+    {
+     "id": "opencode/nemotron-3.5-lightning-free",
+     "runtime": "opencode",
+     "displayName": "nemotron-3.5-lightning-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": []
+    },
+    {
+     "id": "opencode/nemotron-3.5-super-vl-free",
+     "runtime": "opencode",
+     "displayName": "nemotron-3.5-super-vl-free",
+     "description": "Free · no sign-in",
+     "supportedEfforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ]
+    },
+    {
+     "id": "auto",
+     "runtime": "copilot",
+     "displayName": "Auto",
+     "description": "Copilot picks the model your plan allows",
+     "supportedEfforts": []
+    },
+    {
+     "id": "gemini-4-argon",
+     "runtime": "antigravity",
+     "displayName": "Gemini 4 Argon",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "gemini-3.8-flash",
+     "runtime": "antigravity",
+     "displayName": "Gemini 3.8 Flash",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "claude-opus-5-5",
+     "runtime": "antigravity",
+     "displayName": "Claude Opus 5.5",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "claude-sonnet-5-5",
+     "runtime": "antigravity",
+     "displayName": "Claude Sonnet 5.5",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    {
+     "id": "gpt-oss-120b",
+     "runtime": "antigravity",
+     "displayName": "GPT-OSS 120B",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "medium"
+     ]
+    },
+    {
+     "id": "muse-wonder-1.0",
+     "runtime": "muse",
+     "displayName": "Muse Wonder 1.0",
+     "description": "Meta's newest, and Muse Code's default",
+     "supportedEfforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ],
+     "defaultEffort": "high"
+    },
+    {
+     "id": "muse-spark-1.3",
+     "runtime": "muse",
+     "displayName": "Muse Spark 1.3",
+     "description": "The Muse before it",
+     "supportedEfforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra"
+     ],
+     "defaultEffort": "high"
+    }
+   ]
+  }
+ ]
+}

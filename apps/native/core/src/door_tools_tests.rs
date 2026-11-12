@@ -106,8 +106,13 @@ impl Locust for Fake {
     fn see_all(&self) -> bool {
         self.see_all
     }
-    fn runtimes(&self) -> Vec<String> {
-        vec!["codex".into(), "opencode".into()]
+    fn models(&self) -> Vec<Value> {
+        vec![
+            json!({"id": "account-default", "runtime": "codex", "displayName": "Account default", "description": "", "supportedEfforts": ["low", "high"]}),
+            json!({"id": "gpt-5.5", "runtime": "codex", "displayName": "GPT-5.5", "description": "", "supportedEfforts": ["low", "high"]}),
+            json!({"id": "gpt-4", "runtime": "codex", "displayName": "GPT-4", "description": "", "supportedEfforts": [], "older": true}),
+            json!({"id": "opencode/free", "runtime": "opencode", "displayName": "free", "description": "", "supportedEfforts": []}),
+        ]
     }
     fn carry_on(&self, mission: &str, runtime: &str, _model: Option<&str>) -> Result<(String, Option<String>), String> {
         if runtime == "codex" {
@@ -189,12 +194,33 @@ fn the_reply_says_what_ran_when_the_host_held_a_turn_in_another_mode() {
 }
 
 #[test]
-fn a_model_or_effort_is_refused_until_the_engine_has_a_model_list() {
+fn a_model_and_effort_for_one_turn_are_checked_against_what_the_agent_offers_here() {
     let tools = Tools::new(Fake::default());
-    let r = tools.call("start_conversation", &json!({"teammate": "Scout", "message": "hi", "model": "gpt-5.5"}));
-    assert!(r.is_error);
-    assert!(r.text.contains("does not take a model or effort"));
-    assert_eq!(tools.call("list_models", &json!({"teammate": "Scout"})).text, "This server does not offer a choice of model.");
+    let r = tools.call("start_conversation", &json!({"teammate": "Scout", "message": "hi", "model": "gpt-5.5", "effort": "high"}));
+    assert!(!r.is_error, "{}", r.text);
+    assert_eq!((reply(&r)["model"].as_str(), reply(&r)["effort"].as_str()), (Some("gpt-5.5"), Some("high")));
+    let sent = tools.locust.started.lock().unwrap()[0].clone();
+    assert_eq!((sent.model.as_deref(), sent.effort.as_deref()), (Some("gpt-5.5"), Some("high")));
+    // A model alone keeps the teammate's saved effort when the model takes it (Scout saves high).
+    assert_eq!(reply(&tools.call("start_conversation", &json!({"teammate": "Scout", "message": "hi", "model": "GPT-5.5"})))["effort"], "high");
+    let unknown = tools.call("start_conversation", &json!({"teammate": "Scout", "message": "hi", "model": "gpt-9"}));
+    assert_eq!(unknown.text, "That model is not one codex offers in this Locust. Ask list_models for this teammate’s choices. Nothing was started.");
+    let level = tools.call("start_conversation", &json!({"teammate": "Scout", "message": "hi", "model": "gpt-5.5", "effort": "max"}));
+    assert_eq!(level.text, "GPT-5.5 takes these efforts here: low, high. Nothing was started.");
+    // Effort alone rides on the model the teammate runs on.
+    let alone = tools.call("start_conversation", &json!({"teammate": "Scout", "message": "hi", "effort": "low"}));
+    assert_eq!((reply(&alone)["model"].as_str(), reply(&alone)["effort"].as_str()), (Some("gpt-5.5"), Some("low")));
+}
+
+#[test]
+fn list_models_gives_a_teammates_choices_or_every_agent_without_older_versions() {
+    let tools = Tools::new(Fake::default());
+    let mine = reply(&tools.call("list_models", &json!({"teammate": "Scout"})));
+    assert_eq!(mine["runtime"], "codex");
+    assert_eq!(mine["effort"], "high");
+    assert_eq!(mine["models"].as_array().unwrap().len(), 2, "older versions are left out");
+    let every = reply(&tools.call("list_models", &json!({})));
+    assert_eq!(every[1], json!({"runtime": "opencode", "models": [{"id": "opencode/free", "name": "free"}]}));
 }
 
 #[test]
@@ -338,6 +364,8 @@ fn a_turn_whose_plan_ran_out_is_offered_and_carried_on_to_an_agent_this_locust_c
     assert_eq!(unknown.text, "Name an AI agent this Locust can run, as list_models with no teammate lists them: codex, opencode. Nothing was started.");
     let same = tools.call("carry_on", &json!({"conversation_id": "out", "runtime": "codex"}));
     assert_eq!(same.text, "Codex CLI is the agent whose plan ran out. Nothing was started.");
+    let wrong = tools.call("carry_on", &json!({"conversation_id": "out", "runtime": "opencode", "model": "nope"}));
+    assert_eq!(wrong.text, "opencode does not offer that model here. Use one from list_models. Nothing was started.");
     let carried = tools.call("carry_on", &json!({"conversation_id": "out", "runtime": "opencode", "model": "opencode/free"}));
     assert!(!carried.is_error, "{}", carried.text);
     let r = reply(&carried);

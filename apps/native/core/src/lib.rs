@@ -23,6 +23,7 @@ pub mod folders;
 pub mod invariants;
 pub mod ledger;
 pub mod ledger_write;
+pub mod models;
 pub mod named_folder;
 pub mod native;
 pub mod office;

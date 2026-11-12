@@ -134,6 +134,9 @@ on 11 Nov, and the guard became a hook inside Claude Code, Codex and Copilot (`n
     provider or process failed, start the new agent cold with Electron's brief and checkpoint; the door has
     `carry_on`. Rust matches Electron's code on eight generated cases byte for byte, and a live carry-on from a stopped
     Codex turn to OpenCode's free model finished from the brief alone (`notes/B2-NOTES.md`).
+  - **The model list (B4, first part).** The native engine builds Electron's catalog itself (Codex, Claude Code,
+    Cursor, OpenCode, Antigravity, Copilot, Muse), matching Electron's model for model on this Mac's real lists; the
+    door takes a model and effort per turn and `list_models`, and the window's picker reads it (`notes/B4-NOTES.md`).
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

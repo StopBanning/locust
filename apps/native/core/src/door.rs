@@ -466,6 +466,14 @@ pub fn check_folder(store: &Store, path: &str) -> Result<PathBuf, String> {
     check_app_folder(path, &known, &common_dir)
 }
 
+/// The door's `list_models` answer for this computer, for the window's own model picker on the native engine.
+pub fn list_models_here(teammate: Option<&str>) -> Result<String, String> {
+    let store = Store::local().map_err(|e| e.to_string())?;
+    let tools = Tools::new(Engine { store, settings: Arc::new(Mutex::new(Settings::default())) });
+    let said = tools.list_models(teammate);
+    if said.is_error { Err(said.text) } else { Ok(said.text) }
+}
+
 // ---- the live engine ------------------------------------------------------------------------------------------------
 
 /// The door's view of this machine's native engine.
@@ -514,7 +522,7 @@ impl Locust for Engine {
             conversation: request.follow_up_of.clone(),
             prompt: request.prompt,
             model: request.model,
-            effort: None,
+            effort: request.effort,
         };
         let origin = crate::native::Origin {
             mode: Some(request.mode),
@@ -574,8 +582,8 @@ impl Locust for Engine {
         check_folder(&self.store, path)
     }
 
-    fn runtimes(&self) -> Vec<String> {
-        crate::carry_on::installed_runtimes()
+    fn models(&self) -> Vec<Value> {
+        crate::models::local()
     }
 
     fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {

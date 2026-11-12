@@ -267,6 +267,23 @@ pub(super) fn composer_scene(s: &mut State) {
     s.scene_popup = ComposerScenePopup::None;
 }
 
+/// The model picker open on the native engine, with Codex's list as the door gives it.
+pub(super) fn models_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    let listed = r#"{"teammate":"Codec","runtime":"codex","model":"gpt-6.1-sol","effort":"high","models":[
+        {"id":"account-default","name":"Account default","efforts":["low","medium","high","xhigh"]},
+        {"id":"gpt-6.1-sol","name":"GPT-6.1 Sol","efforts":["low","medium","high","xhigh"]},
+        {"id":"gpt-6-astra","name":"GPT-6 Astra","efforts":["low","medium","high"]},
+        {"id":"gpt-6.1-terra","name":"GPT-6.1 Terra","efforts":["low","medium","high","xhigh"]}]}"#;
+    s.models.insert("codec".into(), engine::parse_models(listed).unwrap_or_default());
+    s.model_menu = Some("codec".into());
+}
+
+pub(super) fn models_light_scene(s: &mut State) {
+    models_scene(s);
+    s.appearance = Some(false);
+}
+
 pub(super) fn composer_light_scene(s: &mut State) {
     composer_base_scene(s, true);
     s.draft

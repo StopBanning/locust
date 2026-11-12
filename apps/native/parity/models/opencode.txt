@@ -1,0 +1,739 @@
+opencode/beam-free
+{
+  "id": "beam-free",
+  "providerID": "opencode",
+  "name": "Beam Free",
+  "family": "beam",
+  "api": {
+    "id": "beam-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 1048576,
+    "output": 131072
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-10-05",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "xhigh": {
+      "reasoningEffort": "xhigh"
+    },
+    "max": {
+      "reasoningEffort": "max"
+    }
+  }
+}
+opencode/big-pickle
+{
+  "id": "big-pickle",
+  "providerID": "opencode",
+  "name": "Big Pickle",
+  "family": "big-pickle",
+  "api": {
+    "id": "big-pickle",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 200000,
+    "input": 160000,
+    "output": 32000
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2025-10-17",
+  "variants": {}
+}
+opencode/deepseek-v4.1-flash-free
+{
+  "id": "deepseek-v4.1-flash-free",
+  "providerID": "opencode",
+  "name": "DeepSeek V4.1 Flash Free",
+  "family": "deepseek-flash",
+  "api": {
+    "id": "deepseek-v4.1-flash-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 200000,
+    "output": 32000
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": true,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-10-17",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "max": {
+      "reasoningEffort": "max"
+    }
+  }
+}
+opencode/flint-40b-free
+{
+  "id": "flint-40b-free",
+  "providerID": "opencode",
+  "name": "Flint 40B Free",
+  "family": "flint",
+  "api": {
+    "id": "flint-40b-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 262144,
+    "output": 65536
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-10-21",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "xhigh": {
+      "reasoningEffort": "xhigh"
+    },
+    "max": {
+      "reasoningEffort": "max"
+    }
+  }
+}
+opencode/glm-5.3-flash-free
+{
+  "id": "glm-5.3-flash-free",
+  "providerID": "opencode",
+  "name": "GLM-5.3-Flash Free",
+  "family": "glm-flash",
+  "api": {
+    "id": "glm-5.3-flash-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 200000,
+    "output": 32000
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": true,
+      "video": true,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-08-26",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "max": {
+      "reasoningEffort": "max"
+    }
+  }
+}
+opencode/iceman-free
+{
+  "id": "iceman-free",
+  "providerID": "opencode",
+  "name": "Iceman Free",
+  "api": {
+    "id": "iceman-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 262144,
+    "output": 131072
+  },
+  "capabilities": {
+    "temperature": false,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": false
+  },
+  "release_date": "2026-11-06",
+  "variants": {}
+}
+opencode/inkling-2-small-free
+{
+  "id": "inkling-2-small-free",
+  "providerID": "opencode",
+  "name": "Inkling 2 Small Free",
+  "family": "ling",
+  "api": {
+    "id": "inkling-2-small-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 1048576,
+    "output": 131072
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": true,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-11-05",
+  "variants": {
+    "none": {
+      "reasoningEffort": "none"
+    },
+    "minimal": {
+      "reasoningEffort": "minimal"
+    },
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "max": {
+      "reasoningEffort": "max"
+    }
+  }
+}
+opencode/longcat-2.5-free
+{
+  "id": "longcat-2.5-free",
+  "providerID": "opencode",
+  "name": "LongCat 2.5 Free",
+  "family": "longcat",
+  "api": {
+    "id": "longcat-2.5-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 1000000,
+    "output": 262144
+  },
+  "capabilities": {
+    "temperature": false,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": true,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-11-02",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    }
+  }
+}
+opencode/mimo-v2.6-flash-free
+{
+  "id": "mimo-v2.6-flash-free",
+  "providerID": "opencode",
+  "name": "MiMo-V2.6-Flash Free",
+  "family": "mimo",
+  "api": {
+    "id": "mimo-v2.6-flash-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 200000,
+    "output": 32000
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": true,
+      "image": true,
+      "video": true,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-09-22",
+  "variants": {}
+}
+opencode/minimax-m3.1-flash-free
+{
+  "id": "minimax-m3.1-flash-free",
+  "providerID": "opencode",
+  "name": "MiniMax M3.1 Flash Free",
+  "family": "minimax",
+  "api": {
+    "id": "minimax-m3.1-flash-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 1000000,
+    "output": 512000
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": true,
+      "video": true,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-10-19",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "xhigh": {
+      "reasoningEffort": "xhigh"
+    },
+    "max": {
+      "reasoningEffort": "max"
+    }
+  }
+}
+opencode/nemotron-3.5-lightning-free
+{
+  "id": "nemotron-3.5-lightning-free",
+  "providerID": "opencode",
+  "name": "Nemotron 3.5 Lightning Free",
+  "family": "nemotron",
+  "api": {
+    "id": "nemotron-3.5-lightning-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 262144,
+    "output": 262144
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-08-11",
+  "variants": {}
+}
+opencode/nemotron-3.5-super-vl-free
+{
+  "id": "nemotron-3.5-super-vl-free",
+  "providerID": "opencode",
+  "name": "Nemotron 3.5 Super VL Free",
+  "family": "nemotron",
+  "api": {
+    "id": "nemotron-3.5-super-vl-free",
+    "url": "https://opencode.ai/inference/openai/v1",
+    "npm": "@ai-sdk/openai-compatible"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 1048576,
+    "input": 1048576,
+    "output": 131072
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": true,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": true,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "release_date": "2026-10-15",
+  "variants": {
+    "none": {
+      "reasoningEffort": "none"
+    },
+    "minimal": {
+      "reasoningEffort": "minimal"
+    },
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "xhigh": {
+      "reasoningEffort": "xhigh"
+    }
+  }
+}

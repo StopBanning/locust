@@ -676,33 +676,8 @@ fn open_models(s: &mut State, id: String) {
     if s.demo {
         return;
     }
-    // Native: the agents a stopped turn can be carried on to, each on its own default model (there is no model list
-    // on the native engine yet).
-    if s.engine == Some(Kind::Native) && id == CARRY_TARGET {
-        if s.model_menu.as_deref() == Some(CARRY_TARGET) {
-            s.model_menu = None;
-            return;
-        }
-        let agents = locust_core::carry_on::installed_runtimes()
-            .into_iter()
-            .map(|runtime| engine::Models {
-                teammate: None,
-                runtime,
-                model: None,
-                effort: None,
-                models: vec![engine::Model { id: String::new(), name: "its own default model".into(), efforts: Vec::new() }],
-            })
-            .collect();
-        s.models.insert(CARRY_TARGET.into(), agents);
-        s.model_menu = Some(CARRY_TARGET.into());
-        return;
-    }
-    if s.engine == Some(Kind::Native) {
-        // The model list comes from Locust's door; native runs the teammate's own model for now.
-        s.status = "Choosing a model for a turn runs in Locust for now; native uses the teammate's own model.".into();
-        s.status_tone = StatusTone::Muted;
-        return;
-    }
+    // On the native engine the list is this computer's own (models.rs), in the door's words, read off the UI thread.
+    let native_list = s.engine == Some(Kind::Native);
     if s.model_menu.as_ref() == Some(&id) {
         s.model_menu = None;
         return;
@@ -711,14 +686,13 @@ fn open_models(s: &mut State, id: String) {
         s.models.remove(&id);
     }
     s.model_menu = Some(id.clone());
-    s.model_job.request(id, |id| {
-        let result = Engine::local().and_then(|e| {
-            e.list_models(if id == LEDGER_TARGET || id == CARRY_TARGET {
-                None
-            } else {
-                Some(&id)
-            })
-        });
+    s.model_job.request(id, move |id| {
+        let teammate = if id == LEDGER_TARGET || id == CARRY_TARGET { None } else { Some(id.as_str()) };
+        let result = if native_list {
+            locust_core::door::list_models_here(teammate).and_then(|text| engine::parse_models(&text))
+        } else {
+            Engine::local().and_then(|e| e.list_models(teammate))
+        };
         (id, result)
     });
 }
@@ -2005,6 +1979,11 @@ fn main() {
     }
     // First, before any thread: the PATH a terminal has, or an app opened from Finder finds no agent (shell_path.rs).
     shell_path::adopt_terminal_path();
+    // The model list this computer's agents give, as JSON: a scripted check of what the picker and the door offer.
+    if std::env::args().nth(1).as_deref() == Some("--models") {
+        println!("{}", serde_json::Value::Array(locust_core::models::local()));
+        std::process::exit(0);
+    }
     // The door with no window, for scripted checks: open until stdin closes.
     if std::env::args().nth(1).as_deref() == Some("--serve-door") {
         let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
@@ -2137,6 +2116,8 @@ fn main() {
             ("settings-door", settings_panel::door_scene),
             ("settings-carry", settings_panel::carry_settings_scene),
             ("settings-carry-light", settings_panel::carry_settings_light_scene),
+            ("models", models_scene),
+            ("models-light", models_light_scene),
             ("carry-on", carry_on_scene),
             ("carry-on-light", carry_on_light_scene),
             ("settings-door-light", settings_panel::door_light_scene),
