@@ -398,3 +398,310 @@ fn the_folder_chip_names_the_folder_the_turn_runs_in() {
         "the turn ran in the folder the chip names"
     );
 }
+
+fn write_synthetic_turn(
+    ledger_dir: &Path,
+    mission_id: &str,
+    continues_from: Option<&str>,
+    prompt: &str,
+    reply: &str,
+    tool_output: Option<&str>,
+    created_at: &str,
+) {
+    let mut meta = json!({
+        "missionId": mission_id,
+        "runId": format!("run_{mission_id}"),
+        "prompt": prompt,
+        "runtime": "codex",
+        "model": "gpt-test",
+        "requestedRouteId": "codex",
+        "resolvedRouteId": "codex:default",
+        "cliVersion": "0.160.0",
+        "workspaceId": "ws_test",
+        "sandbox": "workspace-write",
+        "mode": "approve-each",
+        "executionPolicyVersion": 1,
+        "createdAt": created_at,
+    });
+    if let Some(parent) = continues_from {
+        meta["continuesFrom"] = json!({
+            "missionId": parent,
+            "reason": "continued",
+        });
+    }
+    let mut seq = 1u64;
+    let mut lines = vec![
+        json!({
+            "schemaVersion": 27,
+            "recordType": "mission.created",
+            "ledgerSequence": seq,
+            "occurredAt": created_at,
+            "metadata": meta,
+        }),
+    ];
+    seq += 1;
+    lines.push(json!({
+        "schemaVersion": 27,
+        "recordType": "mission.event",
+        "ledgerSequence": seq,
+        "occurredAt": created_at,
+        "event": {
+            "id": format!("run_{mission_id}:1"),
+            "runId": format!("run_{mission_id}"),
+            "missionId": mission_id,
+            "sequence": 1,
+            "occurredAt": created_at,
+            "sourceAdapter": "codex",
+            "type": "run.started",
+            "payload": {"runtimeThreadId": "thread_1"},
+        }
+    }));
+    let mut ev_seq = 1u64;
+    if let Some(output) = tool_output {
+        seq += 1;
+        ev_seq += 1;
+        lines.push(json!({
+            "schemaVersion": 27,
+            "recordType": "mission.event",
+            "ledgerSequence": seq,
+            "occurredAt": created_at,
+            "event": {
+                "id": format!("run_{mission_id}:{ev_seq}"),
+                "runId": format!("run_{mission_id}"),
+                "missionId": mission_id,
+                "sequence": ev_seq,
+                "occurredAt": created_at,
+                "sourceAdapter": "codex",
+                "type": "tool.completed",
+                "payload": {
+                    "itemId": "tool_1",
+                    "toolKind": "command_execution",
+                    "name": "shell",
+                    "command": "env",
+                    "status": "completed",
+                    "exitCode": 0,
+                    "output": output,
+                }
+            }
+        }));
+    }
+    seq += 1;
+    ev_seq += 1;
+    lines.push(json!({
+        "schemaVersion": 27,
+        "recordType": "mission.event",
+        "ledgerSequence": seq,
+        "occurredAt": created_at,
+        "event": {
+            "id": format!("run_{mission_id}:{ev_seq}"),
+            "runId": format!("run_{mission_id}"),
+            "missionId": mission_id,
+            "sequence": ev_seq,
+            "occurredAt": created_at,
+            "sourceAdapter": "codex",
+            "type": "message.delta",
+            "payload": {
+                "itemId": "msg_1",
+                "operation": "append",
+                "text": reply,
+                "final": true,
+            }
+        }
+    }));
+    seq += 1;
+    ev_seq += 1;
+    lines.push(json!({
+        "schemaVersion": 27,
+        "recordType": "mission.event",
+        "ledgerSequence": seq,
+        "occurredAt": created_at,
+        "event": {
+            "id": format!("run_{mission_id}:{ev_seq}"),
+            "runId": format!("run_{mission_id}"),
+            "missionId": mission_id,
+            "sequence": ev_seq,
+            "occurredAt": created_at,
+            "sourceAdapter": "codex",
+            "type": "run.completed",
+            "payload": {"runtimeThreadId": "thread_1"},
+        }
+    }));
+    let body = lines
+        .iter()
+        .map(|l| serde_json::to_string(l).unwrap())
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    std::fs::write(ledger_dir.join(format!("{mission_id}.jsonl")), body).unwrap();
+}
+
+fn seed_two_turn_ledger_conversation(dirs: &Dirs, store: &Store, rt: &mut Runtime<State>) -> String {
+    let work = dirs.0.join("work");
+    let ledger_dir = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_codec",
+                    "name": "Codec",
+                    "role": "Code & Migrations",
+                    "hue": "teal",
+                    "createdAt": "2026-10-02T09:00:00.000Z",
+                    "folder": work.to_string_lossy(),
+                }],
+                "missionOwners": {
+                    "m_save_1": "tm_codec",
+                    "m_save_2": "tm_codec",
+                },
+                "settings": {}
+            }),
+        )
+        .unwrap();
+
+    write_synthetic_turn(
+        &ledger_dir,
+        "m_save_1",
+        None,
+        "First prompt from disk",
+        "First reply from disk.",
+        None,
+        "2026-10-02T09:00:00.000Z",
+    );
+    let secret = format!("{}-ant-abcdefghijklmnopqrst", "sk");
+    write_synthetic_turn(
+        &ledger_dir,
+        "m_save_2",
+        Some("m_save_1"),
+        "Second prompt from disk",
+        "Second reply from disk.",
+        Some(&format!("ANTHROPIC_API_KEY={secret}")),
+        "2026-10-02T09:01:00.000Z",
+    );
+
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(rt, "synthetic turns listed in sidebar", |s| {
+        s.recent.iter().any(|r| r.id == "m_save_2")
+    });
+    click(rt, "recent-m_save_2");
+    pump(rt, "synthetic conversation loaded from disk", |s| {
+        s.ledger
+            .as_ref()
+            .is_some_and(|p| p.snapshot.tip == "m_save_2" && !p.loading)
+    });
+    settle(rt);
+    secret
+}
+
+#[test]
+fn save_the_record_writes_markdown_matching_ledger_and_optional_raw_json() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+    let secret = seed_two_turn_ledger_conversation(&dirs, &store, &mut rt);
+
+    // Open from the conversation's sidebar actions (`...`) menu.
+    click(&mut rt, "org-menu-open-m_save_2");
+    click(&mut rt, "org-save-record-m_save_2");
+    assert!(rt.state.save_record.open);
+    assert!(!text_in(&rt, "save-record-claim").is_empty());
+
+    // Save Markdown only.
+    click(&mut rt, "save-record-submit");
+    let (kind, options) = rt.file_dialog().expect("system save dialog opens");
+    assert_eq!(kind, rune::FileDialogKind::Save);
+    assert_eq!(options.title, "Save the record");
+    assert!(
+        options
+            .file_name
+            .as_deref()
+            .is_some_and(|n| n.starts_with("Locust record - Codec - ") && n.ends_with(".md"))
+    );
+
+    let out_dir = dirs.0.join("downloads");
+    std::fs::create_dir_all(&out_dir).unwrap();
+    let target = out_dir.join("saved-record.md");
+    rt.resolve_file_dialog(Some(target.clone())).unwrap();
+    settle(&mut rt);
+
+    let written = std::fs::read_to_string(&target).expect("markdown saved on disk");
+    let saved_at = written
+        .lines()
+        .find_map(|line| line.strip_prefix("- **Saved:** "))
+        .expect("Saved timestamp in header")
+        .to_owned();
+    let chain = locust_core::mission_export::record_turns(
+        locust_core::mission_export::recover_mission,
+        "m_save_2",
+    );
+    let expected = locust_core::mission_export::mission_record_markdown(
+        &locust_core::mission_export::RecordSource {
+            missions: &chain.missions,
+            teammate: Some("Codec"),
+            folder: Some(&dirs.0.join("work").to_string_lossy()),
+            locust_version: env!("CARGO_PKG_VERSION"),
+            saved_at: &saved_at,
+            missing_parent: chain.missing_parent.as_deref(),
+        },
+    );
+    assert_eq!(written, expected);
+    assert!(!written.contains(&secret));
+    assert!(
+        text_in(&rt, "save-record-status")
+            .iter()
+            .any(|s| s.starts_with("Saved to ") && s.ends_with('.'))
+    );
+
+    // Toggle raw JSON on and save beside a second path without overwriting Markdown.
+    click(&mut rt, "save-record-include-raw");
+    click(&mut rt, "save-record-submit");
+    let _ = rt.file_dialog().expect("second save dialog opens");
+    let target2 = out_dir.join("with-raw.md");
+    rt.resolve_file_dialog(Some(target2.clone())).unwrap();
+    settle(&mut rt);
+
+    let raw_path = out_dir.join("with-raw.json");
+    assert!(target2.exists());
+    let raw = std::fs::read_to_string(&raw_path).expect("raw json saved beside markdown");
+    assert!(raw.contains(&secret));
+    assert!(
+        text_in(&rt, "save-record-status")
+            .iter()
+            .any(|s| s.contains("raw record beside it"))
+    );
+}
+
+#[test]
+fn save_the_record_cancel_writes_nothing_and_command_palette_opens_it() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+    let _ = seed_two_turn_ledger_conversation(&dirs, &store, &mut rt);
+
+    // Open via Command Palette (Cmd+K).
+    rt.update(|s, tx| {
+        assert!(on_key(s, &KeyEvent::from(Key::Command('k')), tx));
+    });
+    settle(&mut rt);
+    click(&mut rt, "palette-save-record");
+    assert!(rt.state.save_record.open);
+
+    click(&mut rt, "save-record-submit");
+    let (kind, _) = rt.file_dialog().expect("system save dialog opens");
+    assert_eq!(kind, rune::FileDialogKind::Save);
+    rt.resolve_file_dialog(None).unwrap();
+    settle(&mut rt);
+
+    // Cancelling leaves the dialog open, clears status (like Electron's setSaid(undefined)), and writes nothing.
+    assert!(rt.state.save_record.open);
+    assert!(!rt.state.save_record.busy);
+    assert_eq!(rt.state.save_record.said, None);
+    assert!(
+        !text_in(&rt, "save-record-dialog")
+            .iter()
+            .any(|s| s.contains("Saved") || s.contains("could not be saved"))
+    );
+}

@@ -771,7 +771,7 @@ pub(super) fn org_palette_scene(s: &mut State) {
     s.appearance = Some(true);
     s.palette_open = true;
     let missions = sidebar_missions_now(s);
-    s.palette_actions = default_palette_actions(&missions, false);
+    s.palette_actions = default_palette_actions(&missions, false, active_record_mission_id(s).is_some());
     s.palette_query.replace_text("");
 }
 

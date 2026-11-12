@@ -54,6 +54,7 @@ pub fn palette_matches(actions: &[PaletteAction], query: &str) -> Vec<PaletteAct
 pub fn default_palette_actions(
     conversations: &[SidebarMission],
     has_flight: bool,
+    has_record_conversation: bool,
 ) -> Vec<PaletteAction> {
     // Electron supplies only commands the current build can execute.
     let mut actions = vec![PaletteAction {
@@ -63,6 +64,15 @@ pub fn default_palette_actions(
         keywords: None,
         when_typed: false,
     }];
+    if has_record_conversation {
+        actions.push(PaletteAction {
+            id: "save-record".into(),
+            group: "This conversation".into(),
+            label: "Save the record…".into(),
+            keywords: Some("export markdown record json".into()),
+            when_typed: false,
+        });
+    }
     if has_flight {
         actions.push(PaletteAction {
             id: "stop".into(),
@@ -219,6 +229,11 @@ pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
     s.palette_open = false;
     match id {
         "back" => {}
+        "save-record" => {
+            if let Some(mission_id) = crate::active_record_mission_id(s) {
+                crate::save_record::open(s, mission_id);
+            }
+        }
         "stop" => stop(s),
         "home" => crate::home_panel::open_home(s),
         "board" => crate::home_panel::open_board(s),
@@ -285,5 +300,19 @@ mod tests {
     #[test]
     fn palette_empty_words() {
         assert!(palette_matches(&[], "x").is_empty());
+    }
+
+    #[test]
+    fn palette_includes_save_record_only_when_conversation_is_open() {
+        let without = default_palette_actions(&[], false, false);
+        assert!(without.iter().all(|a| a.id != "save-record"));
+
+        let with = default_palette_actions(&[], false, true);
+        let entry = with
+            .iter()
+            .find(|a| a.id == "save-record")
+            .expect("save-record palette action");
+        assert_eq!(entry.group, "This conversation");
+        assert_eq!(entry.label, "Save the record…");
     }
 }
