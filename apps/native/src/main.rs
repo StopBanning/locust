@@ -47,6 +47,8 @@ mod recovery_card;
 mod reference_chips;
 #[path = "ui/attention_watch.rs"]
 mod attention_watch;
+#[path = "ui/rail.rs"]
+mod rail;
 mod notify;
 #[path = "ui/keyboard_sheet.rs"]
 mod keyboard_sheet;
@@ -1087,6 +1089,11 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if event.key == Key::Escape {
+        if s.rail_open.is_some() {
+            s.rail_open = None;
+            s.rail_pinned = false;
+            return true;
+        }
         if s.changes.open {
             s.changes.open = false;
             return true;
@@ -1399,6 +1406,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     let mut changed = routines_panel::poll(s);
     changed |= reference_chips::poll(s);
     changed |= attention_watch::poll(s);
+    changed |= rail::poll(s);
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
     changed |= commit_panel::poll(s);
@@ -1765,7 +1773,22 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         return look::gallery::view(s.appearance.unwrap_or_else(|| cx.system_dark()));
     }
     let p = Palette::new(s.appearance.unwrap_or_else(|| cx.system_dark()));
-    let sidebar = sidebar(s, &p);
+    // The rail at 1199 points or less unless the person chose (layout.ts resolveLayout).
+    // Read only which side of the line the window is on, so resizing re-runs this only when it crosses it.
+    let width = match s.layout_pref.as_str() {
+        "compact" | "wide" => 0.0,
+        _ => cx
+            .layout_with("app-body", |r| if r[2] <= rail::COMPACT_MAX_WIDTH { 0.0 } else { f32::MAX })
+            .unwrap_or(f32::MAX),
+    };
+    let compact = rail::compact_for(&s.layout_pref, width);
+    s.layout_compact.set(compact);
+    let sidebar = if compact { rail::rail(s, &p) } else { sidebar(s, &p) };
+    let flyout_top = if compact {
+        s.rail_open.as_ref().and_then(|id| cx.layout(&format!("rail-{id}"))).map(|r| r[1])
+    } else {
+        None
+    };
     let changes_open = s.changes.open
         && s.changes_repo
             .as_ref()
@@ -1808,12 +1831,33 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);
     }
-    let mut app = row()
+    // The title bar above both columns; its toggles only while no conversation fills the window (TitleBar.tsx).
+    let thread_shown = !(changes_open
+        || s.routines.open
+        || s.home.boot_open
+        || s.home.board_open
+        || s.home.home_open
+        || s.settings_panel.open
+        || s.people_panel.open);
+    let running = sidebar_missions_now(s).iter().filter(|m| m.phase == "running").count();
+    let mut body = row()
+        .key("app-body")
+        .w_full()
+        .grow(1.0)
+        .min_h(0.0)
+        .child(sidebar)
+        .child(right);
+    if let Some(top) = flyout_top
+        && let Some(card) = rail::flyout(s, &p, top - rail::TITLEBAR_HEIGHT)
+    {
+        body = body.child(card);
+    }
+    let mut app = col()
         .w_full()
         .h_full()
         .fill(p.bg)
-        .child(sidebar)
-        .child(right)
+        .child(rail::title_bar(s, &p, !thread_shown, running))
+        .child(body)
         // Locust taps you on the shoulder only while its window is elsewhere (attention.ts shouldNotify).
         .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| s.window_focused = focused);
     if s.keychain_asking {
@@ -1950,7 +1994,7 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
     })
     .chrome(Chrome {
         full_size_content: true,
-        traffic_lights: Some((20.0, 18.0)),
+        traffic_lights: Some((14.0, 13.0)),
         drag_regions: true,
     });
     let handle = app.handle();
@@ -2181,6 +2225,9 @@ fn main() {
             ("org-beside", org_beside_scene),
             ("org-beside-light", org_beside_light_scene),
             ("home", home_panel::home_scene),
+            ("rail-flyout", rail::flyout_scene),
+            ("rail-flyout-light", rail::flyout_light_scene),
+            ("settings-sidebar", rail::sidebar_setting_scene),
             ("home-light", home_panel::home_light_scene),
             ("board", home_panel::board_scene),
             ("board-light", home_panel::board_light_scene),
@@ -2197,7 +2244,7 @@ fn main() {
     })
     .chrome(Chrome {
         full_size_content: true,
-        traffic_lights: Some((20.0, 18.0)),
+        traffic_lights: Some((14.0, 13.0)),
         drag_regions: true,
     })
     .on_close(on_close)

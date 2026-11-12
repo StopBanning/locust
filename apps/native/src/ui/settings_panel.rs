@@ -104,6 +104,22 @@ fn set_theme(s: &mut State, theme: ThemeChoice) {
     }
 }
 
+/// Screens.tsx's Sidebar line: Auto follows the window, Full and Rail hold whatever its width.
+fn sidebar_line(s: &State, p: &Palette) -> El {
+    let pref = s.layout_pref.as_str();
+    let choice = |value: &'static str, label: &str| {
+        active_button(label, p, pref == value || (value == "auto" && !matches!(pref, "wide" | "compact")))
+            .on_press(move |s: &mut State| crate::rail::choose_layout(s, value))
+    };
+    col()
+        .w_full()
+        .gap(6.0)
+        .padding(10.0)
+        .child(text("Sidebar").font(type_::TITLE).color(p.text))
+        .child(text(crate::rail::layout_lede(pref, s.layout_compact.get())).font(type_::LABEL).color(p.secondary).wrap())
+        .child(row().gap(6.0).child(choice("auto", "Auto")).child(choice("wide", "Full")).child(choice("compact", "Rail")))
+}
+
 /// The heading Electron's General page gives the door.
 const DOOR_HEADING: &str = "Let your other AI apps use Locust";
 
@@ -417,7 +433,11 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 );
             }
             for heading in headings {
-                body = body.child(deferred(heading, p));
+                if heading == "Sidebar" {
+                    body = body.child(sidebar_line(s, p));
+                } else {
+                    body = body.child(deferred(heading, p));
+                }
             }
         }
         SettingsPageId::App => {

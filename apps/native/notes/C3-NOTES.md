@@ -32,10 +32,27 @@ then redone on the kit and snapped at the same size.
   frames and Colin's screenshot.
 - Tests: 422 in the engine, 187 in the window, all passing.
 
+## The rail and the title bar (12 Nov)
+
+- `ui/rail.rs`. At 1199 points wide or less the sidebar folds to Electron's 64-point rail, unless Settings › Appearance ›
+  Sidebar says Full or Rail (Electron's own `layout` setting, so both apps agree). Top to bottom:
+  - the mark, which goes Home;
+  - the `+`;
+  - All conversations (the Board, since the port has no separate list screen), Teammates & Memory, Automations;
+  - a face per teammate, with a count badge past one conversation and the lime bar on the selected one;
+  - Settings and Board at the foot.
+- Hovering a face opens that teammate's card beside it: their state and route, up to six conversations (live first,
+  ages as `3d`), All of their conversations, and New conversation with them. Pressing the face pins the card; a press
+  outside or Escape closes it, and an unpinned card closes 160 ms after the pointer leaves, as Electron's does.
+- The width is read with `cx.layout_with` on the body, so the view re-runs only when the window crosses the line.
+- The title bar sits above both layouts at 38 points, the traffic lights moved to Electron's 14,13. It shows the folder's
+  name centred, or `Locust` and the build when there is none. While no conversation fills the window it also has the
+  browser and terminal toggles, and `N running` with the pulsing dot.
+- Scenes: `rail-flyout`, `rail-flyout-light`, `settings-sidebar`. Home at 1100x780 is the rail now, as Electron's is.
+
 ## Not done
 
-- The narrow-window rail (Electron folds the sidebar to 64 points of icons and faces under about 1200 points wide).
-- The title bar with the folder's name, and its glass.
+- The glass behind the sidebar and title bar on a Mac (Electron's `vibrancy: 'sidebar'`).
 - Faces and bots (C4); Home's connected-accounts and usage lines (no data for them in the port yet).
 - Plan card, activity rows and live line still use the older palette; Settings, Board and the other screens are C5.
 - No pixel score: the pairs are judged by eye, as the plan asks.

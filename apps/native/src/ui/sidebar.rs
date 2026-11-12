@@ -741,13 +741,12 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         .fill(p.sidebar)
         .border_sides([0.0, 1.0, 0.0, 0.0], p.hairline)
         .child(
+            // `.lc-sidebar__brand`: under the title bar now, which holds the window's lights.
             col()
                 .w_full()
-                .h(88.0)
-                .pt(48.0)
-                .pl(52.0)
-                .pr(20.0)
-                .window_drag()
+                .pt(18.0)
+                .px(16.0)
+                .pb(12.0)
                 .child(crate::look::controls::brand_row(&crate::look::controls::Look::new(p.dark)))
                 .child(
                     text(if s.engine == Some(Kind::Native) {
