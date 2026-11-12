@@ -2,7 +2,6 @@
 
 use serde_json::Value;
 
-#[cfg(any(test, feature = "test-hooks"))]
 pub const MAX_MONTHLY_LIMIT_USD: f64 = 100_000.0;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -71,7 +70,6 @@ pub fn sum_spend(list: &[Spend]) -> Option<Spend> {
     }
 }
 
-#[cfg(any(test, feature = "test-hooks"))]
 pub fn month_of(at: &str) -> Option<String> {
     use chrono::Datelike;
     let date = chrono::DateTime::parse_from_rfc3339(at)
@@ -97,7 +95,6 @@ pub fn next_month_starts(now: chrono::DateTime<chrono::Local>) -> String {
     format!("{} {}", next.format("%B"), next.day())
 }
 
-#[cfg(any(test, feature = "test-hooks"))]
 pub fn is_monthly_limit(value: f64) -> bool {
     value.is_finite() && (0.01..=MAX_MONTHLY_LIMIT_USD).contains(&value)
 }
@@ -137,7 +134,6 @@ pub fn dollars(usd: f64) -> String {
     }
 }
 
-#[cfg(any(test, feature = "test-hooks"))]
 /// spendByTeammate for one teammate and one month: the priced turns of the conversations it owns.
 pub fn spent_by(turns: &[crate::usage::UsageTurn], month: &str, owns: impl Fn(&str) -> bool) -> Spend {
     let usd: f64 = turns
