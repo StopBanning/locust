@@ -149,8 +149,8 @@ pub(super) fn ask_cli(who: &str, message: &str) -> Result<(), String> {
             Reply::WaitingForYou(words) => {
                 // A card raised in this process has no window to answer it: refuse it rather than wait forever.
                 if engine.is_direct() {
-                    for card in native::waiting_approvals() {
-                        let _ = native::decide_approval(&card.approval_id, locust_core::approval::Decision::Deny, Some(crate::quick::QUICK_DENY.into()));
+                    for card in locust_core::engine_api::api().waiting() {
+                        let _ = locust_core::engine_api::api().decide(&card.approval_id, locust_core::approval::Decision::Deny, Some(crate::quick::QUICK_DENY.into()));
                     }
                 }
                 eprintln!("waiting for you in Locust: {words}");

@@ -166,7 +166,7 @@ fn refresh_away(s: &mut State) {
 }
 
 pub(super) fn sync_board_asks(s: &mut State) -> bool {
-    let waiting = native::waiting_approvals();
+    let waiting = locust_core::engine_api::api().waiting();
     update_board_asks(s, &waiting)
 }
 
@@ -224,7 +224,7 @@ fn answer_board(s: &mut State, approval_id: &str, approve: bool) {
     } else {
         approval::Decision::Deny
     };
-    match native::decide_approval(approval_id, decision, None) {
+    match locust_core::engine_api::api().decide(approval_id, decision, None) {
         Ok(()) => {
             if s.pending_approval
                 .as_ref()

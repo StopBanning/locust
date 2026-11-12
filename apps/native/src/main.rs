@@ -71,6 +71,8 @@ mod settings_panel;
 mod terminal_panel;
 #[cfg(test)]
 mod door_calls;
+#[cfg(test)]
+mod engine_calls;
 #[path = "ui/usage_panel.rs"]
 mod usage_panel;
 use scenes::*;
@@ -326,7 +328,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         match result {
             Ok((worker, mut snapshot)) => {
                 // The ledger terminal event precedes native checkpoint/memory persistence.
-                if s.engine == Some(Kind::Native) && native::owns(worker.anchor()) {
+                if s.engine == Some(Kind::Native) && locust_core::engine_api::api().owns(worker.anchor()) {
                     snapshot.running = true;
                 }
                 // Ignore a worker result if the open ledger changed while the job was running.
@@ -658,7 +660,7 @@ fn send(s: &mut State, _: &mut Tx) {
             if let Some(teammate) = native_job {
                 let teammate = teammate
                     .ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
-                return native::send_from(
+                return locust_core::engine_api::api().send(
                     native::Send {
                         teammate,
                         conversation,
@@ -742,13 +744,13 @@ fn native_stop_key(s: &State) -> Option<String> {
         return None;
     }
     match &s.ledger {
-        Some(p) if p.snapshot.running => native::owned_key(
+        Some(p) if p.snapshot.running => locust_core::engine_api::api().owned_key(
             Some(&p.snapshot.tip),
             p.conversation.conversation_id.as_deref(),
         ),
         Some(_) => None,
         None => selected_conversation(s)
-            .and_then(|(_, c)| native::owned_key(None, c.conversation_id.as_deref())),
+            .and_then(|(_, c)| locust_core::engine_api::api().owned_key(None, c.conversation_id.as_deref())),
     }
 }
 
@@ -780,7 +782,7 @@ fn stop(s: &mut State) {
     }
     if let Some(key) = native_stop_key(s) {
         s.stopping.request(key, |id| {
-            let result = native::stop(&id);
+            let result = locust_core::engine_api::api().stop(&id);
             (id, result)
         });
         return;
@@ -789,8 +791,8 @@ fn stop(s: &mut State) {
         s.stopping.request(own.conversation.clone(), |id| {
             // A turn this process runs stops through the runtime (turn/interrupt, recorded as cancelled); any other
             // goes through Locust's door.
-            let result = if native::owns(&id) {
-                native::stop(&id)
+            let result = if locust_core::engine_api::api().owns(&id) {
+                locust_core::engine_api::api().stop(&id)
             } else {
                 Engine::local().and_then(|e| e.stop_turn(&id)).map_err(|words| {
                     if native::door_unreachable(&words) { STOP_ELSEWHERE.to_owned() } else { words }
@@ -835,7 +837,7 @@ fn carry(s: &mut State, id: String, runtime: String, model: String) {
     let native = s.engine == Some(Kind::Native);
     s.sending.request((id, runtime, model), move |(id, runtime, model)| {
         if native {
-            let (_, _, mode) = native::carry(&id, &runtime, Some(model.as_str()).filter(|m| !m.is_empty()))?;
+            let (_, _, mode) = locust_core::engine_api::api().carry(&id, &runtime, Some(model.as_str()).filter(|m| !m.is_empty()))?;
             return Ok(engine::Started { conversation_id: id, mode });
         }
         Engine::local()?.carry_on(&id, &runtime, &model)
@@ -1494,8 +1496,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= sync_approvals(s);
     changed |= home_panel::sync_board_asks(s);
     // A turn started or ended outside this window's own send (the door, a carry-on): read the list again.
-    let mut live = native::running_ids();
-    live.extend(native::waiting_approvals().into_iter().map(|card| card.mission_id));
+    let mut live = locust_core::engine_api::api().running();
+    live.extend(locust_core::engine_api::api().waiting().into_iter().map(|card| card.mission_id));
     live.sort();
     live.dedup();
     if live != s.seen_live {
@@ -1784,8 +1786,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 /// gets to wait. So the turns are asked to stop and their cancelled records waited for here, bounded, or a quit leaves
 /// ledgers with no ending that read as running.
 fn on_quit(_: &mut State, _: &mut Tx) {
-    native::shutdown_in_background();
-    native::wait_for_shutdown();
+    locust_core::engine_api::api().shut_down();
+    locust_core::engine_api::api().wait_for_shutdown();
 }
 
 fn on_close(s: &mut State, _: &mut Tx) {
@@ -1805,7 +1807,7 @@ fn on_close(s: &mut State, _: &mut Tx) {
     browser_mac::dispose();
     // Native turns live in this process: ask each to stop now and let a background thread watch them write their
     // cancelled records. The UI thread does not wait; `main` waits after the window is gone.
-    native::shutdown_in_background();
+    locust_core::engine_api::api().shut_down();
 }
 
 /// The agent line, plus what native cannot yet run: "runs in Locust for now".
@@ -2394,7 +2396,7 @@ fn main() {
         door.dispose();
     }
     // The window is gone: let cancelled records land (bounded; an unresponsive server is killed by its watchdog).
-    native::wait_for_shutdown();
+    locust_core::engine_api::api().wait_for_shutdown();
 }
 
 #[cfg(test)]

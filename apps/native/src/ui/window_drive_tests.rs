@@ -225,7 +225,7 @@ fn a_turn_started_outside_the_window_shows_its_card_on_the_board_and_allow_once_
     let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "approve-allow"));
     // Started as the door starts one: by the engine, not by this window's send.
     let codec = rt.state.teammates[0].clone();
-    let started = native::send_from(
+    let started = locust_core::engine_api::api().send(
         native::Send { teammate: codec, conversation: None, prompt: "Synthetic prompt".into(), model: None, effort: None },
         native::Origin { started_by: Some(json!({"kind": "mcp"})), ..Default::default() },
     )
@@ -259,12 +259,12 @@ fn quitting_writes_each_running_turns_ending() {
     let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
     type_and_send(&mut rt, "Synthetic prompt");
     pump(&mut rt, "the turn running", |s| can_stop(s));
-    let running = native::running_ids();
+    let running = locust_core::engine_api::api().running();
     assert!(!running.is_empty());
     on_quit(&mut rt.state, &mut Tx::default());
     let mission = running.iter().find(|id| store.ledger_dir().unwrap().join(format!("{id}.jsonl")).exists()).unwrap().clone();
     assert!(kinds(&store, &mission).iter().any(|k| k == "run.cancelled"), "{:?}", kinds(&store, &mission));
-    assert!(native::running_ids().is_empty());
+    assert!(locust_core::engine_api::api().running().is_empty());
 }
 
 #[test]

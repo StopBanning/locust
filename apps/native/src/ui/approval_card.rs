@@ -8,7 +8,7 @@ pub(super) fn sync_approvals(s: &mut State) -> bool {
         }
         return false;
     }
-    let waiting = native::waiting_approvals();
+    let waiting = locust_core::engine_api::api().waiting();
     let mission = s.ledger.as_ref().map(|pane| pane.snapshot.tip.as_str());
     let next = waiting
         .into_iter()
@@ -57,7 +57,7 @@ pub(super) fn decide_pending(s: &mut State, decision: approval::Decision) {
     } else {
         Some(reason.chars().take(500).collect())
     };
-    match native::decide_approval(&card.approval_id, decision, reason) {
+    match locust_core::engine_api::api().decide(&card.approval_id, decision, reason) {
         Ok(()) => {
             s.pending_approval = None;
             s.approval_notice = None;
@@ -197,7 +197,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                         .key("dont-ask-again")
                         .on_press(|s: &mut State| {
                             if let Some(card) = s.pending_approval.clone() {
-                                match approval::save_rule_and_decide(
+                                match locust_core::engine_api::api().save_rule_and_decide(
                                     &card,
                                     crate::approval_rules::RuleEffect::Allow,
                                 ) {
@@ -271,7 +271,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                             crate::look::controls::deny_button(&l, "Never allow this (saves a rule)")
                                 .on_press(|s: &mut State| {
                                     if let Some(card) = s.pending_approval.clone() {
-                                        match approval::save_rule_and_decide(
+                                        match locust_core::engine_api::api().save_rule_and_decide(
                                             &card,
                                             crate::approval_rules::RuleEffect::Deny,
                                         ) {

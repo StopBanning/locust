@@ -352,9 +352,9 @@ pub(crate) const QUICK_DENY: &str = "Quick Ask ran this turn on its own and cann
 
 /// Refuses every card waiting in this process: each belongs to a turn Quick Ask ran itself, and nothing can show it.
 fn deny_own_cards(s: &mut State) -> bool {
-    let waiting = locust_core::native::waiting_approvals();
+    let waiting = locust_core::engine_api::api().waiting();
     for card in &waiting {
-        let _ = locust_core::native::decide_approval(&card.approval_id, locust_core::approval::Decision::Deny, Some(QUICK_DENY.into()));
+        let _ = locust_core::engine_api::api().decide(&card.approval_id, locust_core::approval::Decision::Deny, Some(QUICK_DENY.into()));
     }
     if waiting.is_empty() {
         return false;

@@ -277,7 +277,7 @@ fn stop_is_never_offered_for_a_turn_another_process_started() {
         !can_stop(&s),
         "native ownership is the registry, not a flag in the window"
     );
-    assert!(native::stop("someone_elses").is_err());
+    assert!(locust_core::engine_api::api().stop("someone_elses").is_err());
 }
 
 #[test]
@@ -432,13 +432,16 @@ fn a_teammate_native_cannot_run_sends_nothing() {
         "Send is off for a teammate that runs in Locust for now"
     );
     // Even if a send were forced, the engine refuses and creates no ledger.
-    let refused = native::send(native::Send {
-        teammate: s.teammates[1].clone(),
-        conversation: None,
-        prompt: "x".into(),
-        model: None,
-        effort: None,
-    });
+    let refused = locust_core::engine_api::api().send(
+        native::Send {
+            teammate: s.teammates[1].clone(),
+            conversation: None,
+            prompt: "x".into(),
+            model: None,
+            effort: None,
+        },
+        native::Origin::default(),
+    );
     assert!(refused.unwrap_err().contains("runs in Locust for now"));
     assert!(!dirs.0.join("native/mission-ledger").exists());
 }

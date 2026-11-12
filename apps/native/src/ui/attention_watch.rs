@@ -13,7 +13,7 @@ pub(super) fn poll(s: &mut State) -> bool {
     }
     let tell = attention::should_notify(s.window_focused, crate::notify::supported());
     // A card raised since the last look.
-    for card in native::waiting_approvals() {
+    for card in locust_core::engine_api::api().waiting() {
         if !s.told_cards.insert(card.approval_id.clone()) || !tell {
             continue;
         }
@@ -23,7 +23,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         crate::notify::show(&title, &body, Some(&card.mission_id));
     }
     // A turn this process ran that has ended since the last look.
-    let now: std::collections::HashSet<String> = native::running_ids().into_iter().collect();
+    let now: std::collections::HashSet<String> = locust_core::engine_api::api().running().into_iter().collect();
     let ended: Vec<String> = s.live_turns.difference(&now).cloned().collect();
     s.live_turns = now;
     for id in ended {
