@@ -19,8 +19,9 @@ pub fn legacy_config(mode: Mode, plugin: Option<&str>) -> Value {
                 "allow"
             });
         }
-        for k in ["edit", "write", "patch"] {
-            p[k] = json!(if each { "ask" } else { "deny" });
+        // Approve each asks for `edit` alone, as commands.ts writes it; read-only refuses every way to write.
+        for k in if each { &["edit"][..] } else { &["edit", "write", "patch"][..] } {
+            p[*k] = json!(if each { "ask" } else { "deny" });
         }
         p["bash"] = json!("ask");
     }

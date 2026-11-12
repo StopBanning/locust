@@ -1,5 +1,5 @@
 {
- "electronCommit": "5b8ee3cf",
+ "electronCommit": "2378138f",
  "generatedBy": "scripts/command-grid.mjs",
  "cases": [
   {
@@ -16,6 +16,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -56,6 +57,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -98,6 +100,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -140,6 +143,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -182,6 +186,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -225,6 +230,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -268,6 +274,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -306,6 +313,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -350,6 +358,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -394,6 +403,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -435,6 +445,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -490,6 +501,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -530,6 +542,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -572,6 +585,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -614,6 +628,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -656,6 +671,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -699,6 +715,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -742,6 +759,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -780,6 +798,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -824,6 +843,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -868,6 +888,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -909,6 +930,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -964,6 +986,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1004,6 +1027,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1046,6 +1070,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1088,6 +1113,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1130,6 +1156,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1173,6 +1200,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1216,6 +1244,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1254,6 +1283,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1298,6 +1328,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1344,6 +1375,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1387,6 +1419,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1444,6 +1477,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1484,6 +1518,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1526,6 +1561,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1568,6 +1604,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1610,6 +1647,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1653,6 +1691,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1696,6 +1735,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1734,6 +1774,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1778,6 +1819,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1824,6 +1866,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1865,6 +1908,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--restricted",
@@ -1922,6 +1966,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -1957,6 +2002,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -1994,6 +2040,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2031,6 +2078,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2068,6 +2116,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2106,6 +2155,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2143,6 +2193,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2176,6 +2227,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2213,6 +2265,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2250,6 +2303,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2286,6 +2340,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -2331,6 +2386,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2355,6 +2411,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2379,6 +2436,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2403,6 +2461,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2427,6 +2486,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2451,6 +2511,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2475,6 +2536,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2499,6 +2561,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2523,6 +2586,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2549,6 +2613,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2575,6 +2640,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2599,6 +2665,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2623,6 +2690,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2647,6 +2715,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2671,6 +2740,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2695,6 +2765,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2719,6 +2790,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2743,6 +2815,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2767,6 +2840,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2791,6 +2865,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2817,6 +2892,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2843,6 +2919,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2867,6 +2944,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2891,6 +2969,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2915,6 +2994,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2939,6 +3019,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2963,6 +3044,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -2987,6 +3069,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3011,6 +3094,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3035,6 +3119,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3059,6 +3144,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3085,6 +3171,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3111,6 +3198,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3135,6 +3223,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3159,6 +3248,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3183,6 +3273,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3207,6 +3298,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3231,6 +3323,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3255,6 +3348,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3279,6 +3373,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3303,6 +3398,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3327,6 +3423,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3353,6 +3450,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3379,6 +3477,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3403,6 +3502,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3427,6 +3527,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3451,6 +3552,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3475,6 +3577,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3499,6 +3602,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3523,6 +3627,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3547,6 +3652,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3571,6 +3677,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3595,6 +3702,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3621,6 +3729,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3647,6 +3756,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "app-server",
@@ -3671,6 +3781,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3703,6 +3814,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3737,6 +3849,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "refused": "Cursor Agent takes no effort level"
    }
@@ -3755,6 +3868,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3789,6 +3903,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3823,6 +3938,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3855,6 +3971,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3887,6 +4004,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3921,6 +4039,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3955,6 +4074,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -3989,6 +4109,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4027,6 +4148,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4059,6 +4181,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4093,6 +4216,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "refused": "Cursor Agent takes no effort level"
    }
@@ -4111,6 +4235,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4145,6 +4270,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4179,6 +4305,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4211,6 +4338,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4243,6 +4371,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4277,6 +4406,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4311,6 +4441,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4345,6 +4476,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4383,6 +4515,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4412,6 +4545,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4443,6 +4577,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "refused": "Cursor Agent takes no effort level"
    }
@@ -4461,6 +4596,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4492,6 +4628,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4523,6 +4660,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4552,6 +4690,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4581,6 +4720,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4612,6 +4752,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4643,6 +4784,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4674,6 +4816,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -4709,6 +4852,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4738,6 +4882,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4769,6 +4914,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "refused": "Cursor Agent takes no effort level"
    }
@@ -4787,6 +4933,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4818,6 +4965,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4849,6 +4997,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4878,6 +5027,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4907,6 +5057,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4938,6 +5089,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -4969,6 +5121,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -5000,6 +5153,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": false,
    "electron": {
     "args": [
      "--print",
@@ -5035,6 +5189,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5065,6 +5220,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5097,6 +5253,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "refused": "Cursor Agent takes no effort level"
    }
@@ -5115,6 +5272,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5147,6 +5305,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5179,6 +5338,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5209,6 +5369,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5239,6 +5400,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5271,6 +5433,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5303,6 +5466,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5335,6 +5499,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--print",
@@ -5371,6 +5536,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5404,6 +5570,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5439,6 +5606,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5474,6 +5642,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5506,6 +5675,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5538,6 +5708,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5573,6 +5744,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5604,6 +5776,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5639,6 +5812,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5676,6 +5850,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5711,6 +5886,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5753,6 +5929,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5786,6 +5963,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5821,6 +5999,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5856,6 +6035,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5888,6 +6068,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5920,6 +6101,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5955,6 +6137,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -5986,6 +6169,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6021,6 +6205,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6058,6 +6243,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6093,6 +6279,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6135,6 +6322,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6167,6 +6355,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6201,6 +6390,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6235,6 +6425,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6266,6 +6457,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6297,6 +6489,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6331,6 +6524,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6361,6 +6555,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6395,6 +6590,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6429,6 +6625,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6463,6 +6660,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6502,6 +6700,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6527,6 +6726,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6554,6 +6754,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6581,6 +6782,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6606,6 +6808,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6631,6 +6834,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6656,6 +6860,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6679,6 +6884,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6706,6 +6912,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6733,6 +6940,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6760,6 +6968,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--acp",
@@ -6791,6 +7000,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6824,6 +7034,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6859,6 +7070,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6894,6 +7106,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6926,6 +7139,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6958,6 +7172,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -6993,6 +7208,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -7024,6 +7240,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -7059,6 +7276,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -7094,6 +7312,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -7129,6 +7348,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "-p",
@@ -7169,6 +7389,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7195,6 +7416,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7223,6 +7445,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7251,6 +7474,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7279,6 +7503,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7307,6 +7532,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7333,6 +7559,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7359,6 +7586,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7387,6 +7615,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7417,6 +7646,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7445,6 +7675,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7481,6 +7712,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7507,6 +7739,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7535,6 +7768,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7563,6 +7797,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7591,6 +7826,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7619,6 +7855,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7645,6 +7882,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7671,6 +7909,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7699,6 +7938,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7729,6 +7969,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7757,6 +7998,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7793,6 +8035,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7821,6 +8064,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7851,6 +8095,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7881,6 +8126,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7911,6 +8157,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7941,6 +8188,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7969,6 +8217,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -7997,6 +8246,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8027,6 +8277,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8057,6 +8308,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8087,6 +8339,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8123,6 +8376,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8151,6 +8405,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8181,6 +8436,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8211,6 +8467,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8241,6 +8498,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8271,6 +8529,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8299,6 +8558,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8327,6 +8587,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8357,6 +8618,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8387,6 +8649,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8417,6 +8680,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": false,
    "electron": {
     "args": [
      "--output-format",
@@ -8453,6 +8717,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8480,6 +8745,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8509,6 +8775,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8538,6 +8805,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8567,6 +8835,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8596,6 +8865,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8623,6 +8893,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8650,6 +8921,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8679,6 +8951,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8708,6 +8981,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8737,6 +9011,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "--output-format",
@@ -8772,6 +9047,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -8801,6 +9077,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -8832,6 +9109,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -8863,6 +9141,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -8894,6 +9173,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -8925,6 +9205,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -8954,6 +9235,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -8983,6 +9265,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9012,6 +9295,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9043,6 +9327,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9074,6 +9359,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9109,6 +9395,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9138,6 +9425,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9169,6 +9457,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9200,6 +9489,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9231,6 +9521,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9262,6 +9553,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9291,6 +9583,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9320,6 +9613,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9349,6 +9643,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9380,6 +9675,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9411,6 +9707,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9446,6 +9743,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9475,6 +9773,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9506,6 +9805,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9537,6 +9837,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9568,6 +9869,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9599,6 +9901,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9628,6 +9931,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9657,6 +9961,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9686,6 +9991,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9717,6 +10023,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9748,6 +10055,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -9783,6 +10091,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -9812,6 +10121,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -9843,6 +10153,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -9874,6 +10185,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -9905,6 +10217,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -9936,6 +10249,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -9965,6 +10279,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -9994,6 +10309,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -10023,6 +10339,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -10054,6 +10371,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -10085,6 +10403,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": false,
    "electron": {
     "args": [
      "exec",
@@ -10120,6 +10439,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10150,6 +10470,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10182,6 +10503,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10214,6 +10536,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10246,6 +10569,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10278,6 +10602,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10308,6 +10633,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10338,6 +10664,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10368,6 +10695,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10400,6 +10728,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10432,6 +10761,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "exec",
@@ -10468,6 +10798,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10497,6 +10828,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10526,6 +10858,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10555,6 +10888,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10584,6 +10918,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10613,6 +10948,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10642,6 +10978,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10671,6 +11008,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10700,6 +11038,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10731,6 +11070,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10762,6 +11102,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10791,6 +11132,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10820,6 +11162,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10849,6 +11192,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10878,6 +11222,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10907,6 +11252,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10936,6 +11282,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10965,6 +11312,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -10994,6 +11342,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11023,6 +11372,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11054,6 +11404,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11085,6 +11436,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11114,6 +11466,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11142,6 +11495,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11170,6 +11524,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11198,6 +11553,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11226,6 +11582,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11254,6 +11611,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11282,6 +11640,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11310,6 +11669,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11338,6 +11698,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11368,6 +11729,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11398,6 +11760,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11426,6 +11789,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11454,6 +11818,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11482,6 +11847,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11510,6 +11876,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11538,6 +11905,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11566,6 +11934,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11594,6 +11963,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11622,6 +11992,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11650,6 +12021,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11680,6 +12052,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11710,6 +12083,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11738,6 +12112,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11766,6 +12141,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11794,6 +12170,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11822,6 +12199,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11850,6 +12228,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11878,6 +12257,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11906,6 +12286,7 @@
    "skills": false,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11934,6 +12315,7 @@
    "skills": true,
    "references": false,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11962,6 +12344,7 @@
    "skills": false,
    "references": true,
    "connectors": [],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -11992,6 +12375,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",
@@ -12022,6 +12406,7 @@
    "connectors": [
     "Robinhood"
    ],
+   "offered": true,
    "electron": {
     "args": [
      "serve",

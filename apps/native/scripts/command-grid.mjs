@@ -24,6 +24,23 @@ const compare = flag("--compare", undefined);
 
 const c = await import(pathToFileURL(join(electron, "packages/runtime-adapters/dist/commands.js")).href);
 
+// Which modes Electron's app offers each agent (renderer/src/status.ts modeRunsOn, on a Mac): a case in a mode the
+// app never offers is one no person can reach, and the Rust engine refusing it is the same outcome.
+const modeRunsOn = await (async () => {
+  const desktop = join(electron, "apps", "desktop");
+  const { createRequire } = await import("node:module");
+  const require = createRequire(join(desktop, "package.json"));
+  const esbuild = createRequire(require.resolve("vite/package.json"))("esbuild");
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const work = mkdtempSync(join(tmpdir(), "locust-grid-modes-"));
+  writeFileSync(join(work, "entry.ts"), `export { modeRunsOn } from ${JSON.stringify(join(desktop, "src/renderer/src/status.ts"))}\n`);
+  await esbuild.build({ entryPoints: [join(work, "entry.ts")], bundle: true, format: "esm", platform: "node", outfile: join(work, "entry.mjs"),
+    nodePaths: [join(desktop, "node_modules"), join(electron, "node_modules")], absWorkingDir: electron, logLevel: "warning",
+    loader: { ".css": "empty", ".png": "empty", ".svg": "empty" } });
+  return (await import(pathToFileURL(join(work, "entry.mjs")).href)).modeRunsOn;
+})();
+
 const P = {
   workspace: "/work/project",
   reference: "/work/reference",
@@ -146,12 +163,13 @@ function grid() {
       for (const variant of VARIANTS) {
         const p = point(runtime, mode, variant);
         const id = `${runtime}/${mode}/${variant}`;
+        const offered = modeRunsOn(mode, runtime, "darwin");
         try {
           const spec = electronCommand(p);
           const env = spec.env ?? {};
-          cases.push({ id, ...p, electron: { args: spec.args, stdin: spec.stdin, env: Object.fromEntries(Object.keys(env).sort().map((k) => [k, env[k]])) } });
+          cases.push({ id, ...p, offered, electron: { args: spec.args, stdin: spec.stdin, env: Object.fromEntries(Object.keys(env).sort().map((k) => [k, env[k]])) } });
         } catch (error) {
-          cases.push({ id, ...p, electron: { refused: String(error?.message ?? error) } });
+          cases.push({ id, ...p, offered, electron: { refused: String(error?.message ?? error) } });
         }
       }
     }

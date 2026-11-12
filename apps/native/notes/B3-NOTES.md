@@ -146,3 +146,18 @@ Left after this part: three Claude Code streams and two Antigravity transcripts.
 - The Codex sandbox and thread config travel over the protocol, so the command grid does not see them; only the
   unit tests and the fake app-server hold them to Electron.
 - Windows: the bridge and browser still use Unix sockets.
+
+## Sixth part (12 Nov): the grid at 308 of 385
+
+- **Modes Electron's app never offers.** `scripts/command-grid.mjs` now bundles renderer/src/status.ts and records,
+  per case, whether Electron's app offers that mode for that agent on a Mac (`modeRunsOn`). Approve each is offered
+  only for Claude Code, Codex, OpenCode and Copilot ("Claude Code, Codex CLI, OpenCode and Copilot CLI only"), so the
+  33 Approve-each cases for Cursor, Muse and Antigravity are ones no person can reach; Electron's builder still builds
+  them. The grid counts them as matching when Rust refuses them, and lists them if Rust ever builds one.
+- **OpenCode in Approve each** asks for `edit` alone, as commands.ts writes it; Rust also asked for `write` and
+  `patch`.
+- **Cursor's refusals** (Approve each, an effort level) are one function the driver and the grid both use; the grid
+  had built a Cursor command with an effort level the driver refuses at start.
+- Muse matches in every case. Left: Claude Code 29, OpenCode 21, Copilot 13, Cursor 8, Antigravity 6: skills,
+  reference folders, forks, ticked connectors, Copilot's browser in Approve each, and `no-guard` (Electron runs
+  without the guard only when writing it failed; Rust refuses to run instead, and that is kept).

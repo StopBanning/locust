@@ -1,18 +1,7 @@
-# Command grid cases where Rust does not yet build what Electron 5b8ee3cf builds.
+# Command grid cases where Rust does not yet build what Electron 2378138f builds.
 # Written by LOCUST_WRITE_NOT_YET=1 cargo test -p locust-core command_grid; may only shrink.
 antigravity/accept-edits/everything	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
 antigravity/accept-edits/skills	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
-antigravity/approve-each/base	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/browser	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/connectors	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/effort	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/everything	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/fork	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/model	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/no-guard	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/references	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/resume	Rust refuses (Antigravity does not support Approve-each in the native driver.)
-antigravity/approve-each/skills	Rust refuses (Antigravity does not support Approve-each in the native driver.)
 antigravity/ask/everything	Rust lacks ["--add-dir", "/locust/skills", "--add-dir", "/work/reference"]; Rust adds []
 antigravity/ask/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
 antigravity/ask/skills	Rust lacks ["--add-dir", "/locust/skills"]; Rust adds []
@@ -63,52 +52,19 @@ copilot/auto/skills	Rust lacks ["/locust/skills"]; Rust adds []
 copilot/plan/everything	Rust lacks ["--add-dir", "/work/reference", "/locust/skills"]; Rust adds []
 copilot/plan/references	Rust lacks ["--add-dir", "/work/reference"]; Rust adds []
 copilot/plan/skills	Rust lacks ["/locust/skills"]; Rust adds []
-cursor/accept-edits/effort	Electron refuses (Cursor Agent takes no effort level); Rust builds it
 cursor/accept-edits/everything	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
 cursor/accept-edits/skills	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
-cursor/approve-each/base	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/browser	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/connectors	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/everything	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/fork	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/model	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/no-guard	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/references	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/resume	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/approve-each/skills	Rust refuses (Cursor does not support Approve-each in the native driver.)
-cursor/ask/effort	Electron refuses (Cursor Agent takes no effort level); Rust builds it
 cursor/ask/everything	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
 cursor/ask/skills	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
-cursor/auto/effort	Electron refuses (Cursor Agent takes no effort level); Rust builds it
 cursor/auto/everything	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
 cursor/auto/skills	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
-cursor/plan/effort	Electron refuses (Cursor Agent takes no effort level); Rust builds it
 cursor/plan/everything	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
 cursor/plan/skills	Rust lacks ["--plugin-dir", "/locust/skills"]; Rust adds []
-muse/approve-each/base	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/browser	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/connectors	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/effort	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/everything	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/fork	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/model	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/no-guard	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/references	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/resume	Rust refuses (Muse does not support Approve-each in the native driver.)
-muse/approve-each/skills	Rust refuses (Muse does not support Approve-each in the native driver.)
 opencode/accept-edits/everything	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "deny"
 opencode/accept-edits/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
 opencode/accept-edits/skills	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "deny"
-opencode/approve-each/base	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
-opencode/approve-each/browser	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
-opencode/approve-each/connectors	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
-opencode/approve-each/effort	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
 opencode/approve-each/everything	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"ask","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "ask"
-opencode/approve-each/fork	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
-opencode/approve-each/model	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
-opencode/approve-each/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
-opencode/approve-each/references	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
-opencode/approve-each/resume	OPENCODE_CONFIG_CONTENT differs: Rust adds /permission/write
+opencode/approve-each/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin
 opencode/approve-each/skills	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"ask","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "ask"
 opencode/ask/everything	OPENCODE_CONFIG_CONTENT differs: /permission/external_directory: Electron {"*":"deny","/work/reference":"allow","/work/reference/**":"allow","/work/reference/*":"allow","/locust/skills":"allow","/locust/skills/**":"allow"}, Rust "deny"
 opencode/ask/no-guard	OPENCODE_CONFIG_CONTENT differs: Rust adds /plugin

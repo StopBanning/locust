@@ -58,8 +58,8 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
         )?,
         "codex" => super::codex::app_server_args(Some("0.160.0")),
         "cursor" => {
-            if mode == Mode::ApproveEach {
-                return Err("Cursor does not support Approve-each in the native driver.".into());
+            if let Some(why) = super::cursor::refusal(mode, effort) {
+                return Err(why.into());
             }
             super::cursor::print_args(folder, mode, model, resume).map_err(|e| e.to_string())?
         }
@@ -130,6 +130,13 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
 fn difference(case: &Value) -> Option<String> {
     let electron = &case["electron"];
     let rust = rust_command(case);
+    // A mode Electron's app never offers this agent: no person can reach it there, so Rust refusing it is a match.
+    if case["offered"] == false {
+        return match rust {
+            Err(_) => None,
+            Ok(_) => Some("Electron's app never offers this mode for this agent; Rust builds it".into()),
+        };
+    }
     match (electron.get("refused").and_then(Value::as_str), rust) {
         (Some(_), Err(_)) => None,
         (Some(why), Ok(_)) => Some(format!("Electron refuses ({why}); Rust builds it")),

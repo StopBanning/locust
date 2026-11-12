@@ -60,6 +60,15 @@ pub fn cursor_sandbox_available() -> bool {
     cfg!(any(target_os = "macos", target_os = "linux"))
 }
 
+/// What a Cursor turn refuses before it starts: Approve each (Cursor cannot stop and ask), and an effort level, which
+/// createCursorPrintCommand refuses in the same words.
+pub fn refusal(mode: Mode, effort: Option<&str>) -> Option<&'static str> {
+    if mode == Mode::ApproveEach {
+        return Some("Cursor does not support Approve-each in the native driver.");
+    }
+    effort.is_some_and(|e| !e.trim().is_empty()).then_some("Cursor Agent takes no effort level")
+}
+
 /// Argv after the executable, matching createCursorPrintCommand.
 pub fn print_args(
     workspace: &Path,
@@ -414,16 +423,9 @@ impl Cursor {
 
 impl Runtime for Cursor {
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
-        if turn.mode == Mode::ApproveEach {
-            return Err(err(
-                "Cursor does not support Approve-each in the native driver.",
-            ));
-        }
+        refusal(turn.mode, turn.effort.as_deref()).map_or(Ok(()), |why| Err(err(why)))?;
         if turn.prompt.trim().is_empty() {
             return Err(err("Prompt must be nonempty"));
-        }
-        if turn.effort.as_deref().is_some_and(|e| !e.trim().is_empty()) {
-            return Err(err("Cursor Agent takes no effort level"));
         }
         // Prompt on stdin, then close (process-runner default transport).
         self.send(turn.prompt.as_bytes().to_vec())?;
