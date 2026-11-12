@@ -630,6 +630,16 @@ impl Drop for Registered {
     }
 }
 
+/// Every turn (and conversation anchor) this process is running now.
+pub fn running_ids() -> Vec<String> {
+    with_running(|m| m.keys().cloned().collect())
+}
+
+/// The folder Locust has open: Electron's last workspace, read only.
+pub fn open_folder() -> Option<PathBuf> {
+    workspace_folder(store()?.electron())
+}
+
 /// Did this process start a turn in this conversation that is still running? (Stop shows only for those.)
 pub fn owns(conversation: &str) -> bool {
     with_running(|m| m.contains_key(conversation))
@@ -701,9 +711,7 @@ pub fn waiting_approvals() -> Vec<ApprovalRequest> {
     approvals_channel().waiting()
 }
 
-/// Cards waiting for one mission (or conversation tip).
-#[cfg(any(test, feature = "test-hooks"))]
-#[cfg(any(test, feature = "test-hooks"))]
+/// Cards waiting for one mission (or conversation tip): the door says a turn waits on the person.
 pub fn waiting_approvals_for(mission_id: &str) -> Vec<ApprovalRequest> {
     approvals_channel().waiting_for_mission(mission_id)
 }
@@ -785,10 +793,32 @@ pub fn claude_args(
     })
 }
 
+/// codex-mission.ts AUTO_OFF_REFUSAL.
+pub const AUTO_OFF_REFUSAL: &str = "Auto mode is switched off for this workspace. Turn it on in Settings to let a run work outside the workspace folder. Nothing was recorded.";
+
+/// What started a turn, when it was not the person in the window: another app through the door. A mode and folder it
+/// named (already checked), and the `startedBy` the ledger records.
+#[derive(Default, Clone)]
+pub struct Origin {
+    pub mode: Option<Mode>,
+    pub folder: Option<PathBuf>,
+    pub started_by: Option<Value>,
+    /// A follow-up's runtime and model, kept from the conversation rather than the teammate's saved route.
+    pub runtime: Option<String>,
+}
+
+/// Start (or continue) a turn the person asked for in the window.
+pub fn send(job: Send) -> Result<Started, String> {
+    send_from(job, Origin::default())
+}
+
 /// Start (or continue) a Codex/Claude turn natively. Returns once the ledger exists and the turn is running on its own thread;
 /// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
-pub fn send(mut job: Send) -> Result<Started, String> {
+pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
+    if let Some(runtime) = &origin.runtime {
+        job.teammate.runtime = Some(runtime.clone());
+    }
     let store = store().ok_or("Native data folder could not be determined.")?;
     let saved = crate::people::team(&store)?;
     if let Some(entry) = saved["teammates"]
@@ -807,7 +837,11 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         return Err("A turn is already running in this conversation.".into());
     }
     let runtime_name = job.teammate.runtime.as_deref().unwrap_or("codex");
-    let mode = Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask);
+    let mode = origin.mode.unwrap_or_else(|| Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask));
+    // codex-mission.ts AUTO_OFF_REFUSAL: Auto runs only where the person turned it on in Settings.
+    if mode == Mode::Auto && !crate::workspace_settings::load(&store).map(|s| s.auto_mode).unwrap_or(false) {
+        return Err(AUTO_OFF_REFUSAL.into());
+    }
     let electron = store.electron().to_path_buf();
     let (continues, resume) = match job.conversation.as_deref() {
         None => (None, None),
@@ -883,7 +917,10 @@ pub fn send(mut job: Send) -> Result<Started, String> {
             }
         }
     };
-    let folder = folder_for(&job.teammate, &electron)?;
+    let folder = match &origin.folder {
+        Some(named) => named.clone(),
+        None => folder_for(&job.teammate, &electron)?,
+    };
     let model = job
         .model
         .clone()
@@ -969,7 +1006,12 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         .get_args()
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
-    let writer = LedgerWriter::create_runtime(
+    // The mode and sandbox the turn really runs in, where it stands, and who started it, as Electron records them.
+    let mut extra = json!({"mode": mode.as_str(), "sandbox": mode.sandbox(), "cwd": folder.to_string_lossy()});
+    if let Some(by) = &origin.started_by {
+        extra["startedBy"] = by.clone();
+    }
+    let writer = LedgerWriter::create_runtime_with(
         &store,
         &id,
         &job.prompt,
@@ -978,9 +1020,13 @@ pub fn send(mut job: Send) -> Result<Started, String> {
         runtime_name,
         &args,
         continues.as_ref(),
+        &extra,
     )
     .map_err(|e| e.to_string())?;
     channel.register_teammate(&id, &job.teammate.id);
+    if let Err(error) = crate::people::record_owner(&store, &id, &job.teammate.id) {
+        eprintln!("The conversation's teammate was not recorded: {error}");
+    }
     let turn = Turn {
         prompt: runtime_prompt,
         folder,

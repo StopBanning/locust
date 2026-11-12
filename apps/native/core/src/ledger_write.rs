@@ -69,6 +69,24 @@ impl LedgerWriter {
         args: &[String],
         continues: Option<&Continuation>,
     ) -> io::Result<Self> {
+        Self::create_runtime_with(store, id, prompt, model, executable, runtime, args, continues, &Value::Null)
+    }
+
+    /// `create_runtime`, with more of the turn recorded in its `mission.created` metadata: `extra`'s keys (the mode and
+    /// sandbox it really runs in, who started it) laid over the defaults, and `cwd` put inside `command`, as Electron's
+    /// host records where a turn stood.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_runtime_with(
+        store: &Store,
+        id: &str,
+        prompt: &str,
+        model: &str,
+        executable: &str,
+        runtime: &str,
+        args: &[String],
+        continues: Option<&Continuation>,
+        extra: &Value,
+    ) -> io::Result<Self> {
         if prompt.trim().is_empty() || prompt.contains('\0') || prompt.encode_utf16().count() > 8000
         {
             return Err(io::Error::other("Prompt must be nonempty text without NUL"));
@@ -140,6 +158,15 @@ impl LedgerWriter {
         }});
         if let Some(link) = continuation {
             record["metadata"]["continuesFrom"] = link;
+        }
+        if let Some(fields) = extra.as_object() {
+            for (key, value) in fields {
+                if key == "cwd" {
+                    record["metadata"]["command"]["cwd"] = value.clone();
+                } else {
+                    record["metadata"][key] = value.clone();
+                }
+            }
         }
         writer.line(record)?;
         if let Ok(dir) = File::open(

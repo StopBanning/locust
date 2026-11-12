@@ -14,6 +14,8 @@ pub mod command_plain;
 pub mod command_reach;
 pub mod commit_draft;
 pub mod context_usage;
+pub mod door;
+pub mod door_tools;
 pub mod engine;
 pub mod folder_commit;
 pub mod folders;

@@ -1952,6 +1952,9 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
     .run();
 }
 
+/// Locust's door for this window's lifetime, opened at start when the person left it on.
+static DOOR: std::sync::OnceLock<locust_core::door::Door> = std::sync::OnceLock::new();
+
 fn main() {
     // The command guard hook runs before every shell command a Claude Code turn makes: answer at once, before anything
     // else this binary does at start.
@@ -1959,8 +1962,23 @@ fn main() {
         locust_core::command_guard::hook_main();
         std::process::exit(0);
     }
+    // Another app's stdio connection to Locust's door: it only reads the connection file and posts to the door.
+    if std::env::args().nth(1).as_deref() == Some("--door-bridge") {
+        let connection = std::env::args().nth(2).unwrap_or_default();
+        locust_core::door::bridge_main(std::path::Path::new(&connection));
+        std::process::exit(0);
+    }
     // First, before any thread: the PATH a terminal has, or an app opened from Finder finds no agent (shell_path.rs).
     shell_path::adopt_terminal_path();
+    // The door with no window, for scripted checks: open until stdin closes.
+    if std::env::args().nth(1).as_deref() == Some("--serve-door") {
+        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+        if let Err(why) = locust_core::door::serve_main(&exe) {
+            eprintln!("{why}");
+            std::process::exit(1);
+        }
+        std::process::exit(0);
+    }
     let browser_args: Vec<String> = std::env::args().collect();
     if browser_args.get(1).map(String::as_str) == Some("--browser-bridge") {
         if let Some(socket) = browser_args.get(2) && let Err(e) = browser_tools::serve(socket) { eprintln!("Browser tools: {e}"); std::process::exit(1); }
@@ -2016,6 +2034,18 @@ fn main() {
     if args.iter().any(|arg| arg == "--list-scenes") {
         for (name, _) in quick::scenes().scenes {
             println!("{name}");
+        }
+    }
+
+    // A real window opens the door when the person left it on; a snapshot, a video or a script never does.
+    let headless = args.iter().any(|a| matches!(a.as_str(), "--snap" | "--video" | "--out" | "--script" | "--strip" | "--scene" | "--list-scenes"));
+    if !headless {
+        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+        if let Ok(door) = locust_core::door::Door::local(&exe) {
+            if let Some(why) = door.load().message {
+                eprintln!("Locust's door: {why}");
+            }
+            let _ = DOOR.set(door);
         }
     }
 
@@ -2131,6 +2161,10 @@ fn main() {
     .on_close(on_close)
     .on_window(|window| { #[cfg(target_os = "macos")] browser_mac::attach(window); })
     .run();
+    // The door closes with the window: its connection file goes, so no app reaches a Locust that is not there.
+    if let Some(door) = DOOR.get() {
+        door.dispose();
+    }
     // The window is gone: let cancelled records land (bounded; an unresponsive server is killed by its watchdog).
     native::wait_for_shutdown();
 }

@@ -549,7 +549,7 @@ impl Channel {
         rows
     }
 
-    #[cfg(any(test, feature = "test-hooks"))]
+    /// Cards one turn raised that wait on the person.
     pub fn waiting_for_mission(&self, mission_id: &str) -> Vec<Request> {
         self.waiting()
             .into_iter()

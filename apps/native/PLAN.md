@@ -82,8 +82,8 @@ rather than behaviour. The milestones above stay; the work towards them now runs
 | E. Ship | Windows and Linux, the updater, moving the data folder, the switch | M7 |
 
 Known gaps the review found, now in the rows: OpenCode's command guard is still the JavaScript plugin; Claude Code has
-no skill or reference folders, forks or connectors; there is no door server, hand-over,
-carry-on or notification on the native engine. Claude Code's modes and follow-ups and Codex's plan tool were fixed
+no skill or reference folders, forks or connectors; there is no hand-over, carry-on or notification on the native
+engine. The door is served by Rust since 12 Nov (`notes/B1-NOTES.md`). Claude Code's modes and follow-ups and Codex's plan tool were fixed
 on 11 Nov, and the guard became a hook inside Claude Code, Codex and Copilot (`notes/B3-NOTES.md`).
 
 ## Status
@@ -124,6 +124,11 @@ on 11 Nov, and the guard became a hook inside Claude Code, Codex and Copilot (`n
   - **Stream readers.** All 37 recorded agent streams now read exactly as Electron reads them (was 0): evidence keeps
     the sanitized record, counts and numbers as Electron writes them; Claude Code's helper, background and status
     records; a full port of Antigravity's transcript reader (`notes/B3-NOTES.md`).
+  - **The door (B1, first part).** The Rust app serves its own door: the local server, Electron's tools and rules for
+    mode and folder, and a stdio bridge (`locust-native --door-bridge`). Live through the bridge, an Auto turn in a
+    named folder, a follow-up, a stop and a refused folder; Electron's reader accepted every ledger. Native ledgers now
+    record the mode, sandbox and folder a turn really ran in, and Auto runs only where Settings allow it
+    (`notes/B1-NOTES.md`).
 
 - **M0:** written and pushed on 9 Nov 2026, waiting for Colin's approval.
 - **M1:** reached on 9 Nov 2026, except the run with Electron fully quit, which needs Colin.

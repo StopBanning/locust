@@ -149,6 +149,25 @@ pub fn save_teammate(store: &Store, mut entry: Value) -> Result<(), String> {
     }
     store.save_json("teammates.json", &file)
 }
+/// The teammate a conversation's turn belongs to (`missionOwners`), as Electron's host records it when a turn starts.
+pub fn record_owner(store: &Store, mission: &str, who: &str) -> Result<(), String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    if !file["missionOwners"].is_object() {
+        file["missionOwners"] = json!({});
+    }
+    file["missionOwners"][mission] = json!(who);
+    store.save_json("teammates.json", &file)
+}
+/// Who a conversation's turn belongs to: the native file's record, else Electron's (read only).
+pub fn owner_of(store: &Store, mission: &str) -> Option<String> {
+    let own = team(store).ok().and_then(|f| f["missionOwners"][mission].as_str().map(str::to_owned));
+    own.or_else(|| {
+        let text = std::fs::read_to_string(store.electron().join("teammates.json")).ok()?;
+        let theirs: Value = serde_json::from_str(&text).ok()?;
+        theirs["missionOwners"][mission].as_str().map(str::to_owned)
+    })
+}
 pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = team(store)?;

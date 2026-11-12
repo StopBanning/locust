@@ -1173,6 +1173,10 @@ fn guard_refuses_a_push_from_a_fix_copy(runtime: &str) {
         assert!(std::process::Command::new("git").args(args).current_dir(&folder).status().unwrap().success());
     }
     let _g = hooks::install(t.store(), None);
+    // Auto runs only where Settings allow it, as in Electron.
+    let mut settings = crate::workspace_settings::load(&t.store()).unwrap();
+    settings.auto_mode = true;
+    crate::workspace_settings::save(&t.store(), &settings).unwrap();
     let mate = Teammate {
         id: "tm_guard".into(),
         name: "Guard".into(),
