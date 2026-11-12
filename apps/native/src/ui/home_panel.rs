@@ -1191,7 +1191,7 @@ pub(super) fn board_scene(s: &mut State) {
     s.recent = vec![
         ConversationRow {
             id: "m_live".into(),
-            teammate: "tm_wren".into(),
+            teammate: "Wren".into(),
             title: "Wire the board".into(),
             started_by: "the person".into(),
             state: "running".into(),
@@ -1199,7 +1199,7 @@ pub(super) fn board_scene(s: &mut State) {
         },
         ConversationRow {
             id: "m_ask".into(),
-            teammate: "tm_wren".into(),
+            teammate: "Wren".into(),
             title: "Needs a say-so".into(),
             started_by: "the person".into(),
             state: "running".into(),
@@ -1207,7 +1207,7 @@ pub(super) fn board_scene(s: &mut State) {
         },
         ConversationRow {
             id: "m_done".into(),
-            teammate: "tm_wren".into(),
+            teammate: "Wren".into(),
             title: "Finished earlier".into(),
             started_by: "the person".into(),
             state: "completed".into(),
