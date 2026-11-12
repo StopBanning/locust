@@ -21,6 +21,8 @@ use std::collections::{HashMap, HashSet};
 pub(super) struct Panel {
     pub home_open: bool,
     pub board_open: bool,
+    /// The Board narrowed to one teammate's conversations (the rail card's "All of Scout's conversations").
+    pub board_teammate: Option<String>,
     pub boot_open: bool,
     pub splash_open: bool,
     pub folder_path: Option<String>,
@@ -74,6 +76,7 @@ pub(super) fn open_home(s: &mut State) {
 }
 
 pub(super) fn open_board(s: &mut State) {
+    s.home.board_teammate = None;
     s.home.board_open = true;
     s.home.home_open = false;
     s.home.boot_open = false;
@@ -771,8 +774,19 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         .scroll(ScrollSpec { stick_bottom: false })
 }
 
+/// The Board with one teammate's conversations only (Electron opens their list from the rail card).
+pub(super) fn open_board_for(s: &mut State, teammate: &str) {
+    open_board(s);
+    s.home.board_teammate = Some(teammate.to_owned());
+}
+
 pub(super) fn board_view(s: &State, p: &Palette) -> El {
-    let missions = recent_as_missions(s);
+    let mut missions = recent_as_missions(s);
+    if let Some(name) = &s.home.board_teammate {
+        missions.retain(|m| {
+            std::iter::once(&m.mission_id).chain(m.member_ids.iter()).any(|id| s.recent.iter().any(|r| &r.id == id && &r.teammate == name))
+        });
+    }
     let facts = ConversationBoardFacts {
         needs_you: s.home.asks.keys().cloned().collect(),
         to_look_at: s.home.to_look_at.clone(),
@@ -793,6 +807,17 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
             .child(text(meta).font(type_::LABEL).color(p.muted).grow(1.0))
             .child(button("Close", p).on_press(|s: &mut State| s.home.board_open = false)),
     );
+    if let Some(name) = &s.home.board_teammate {
+        body = body.child(
+            row()
+                .key("board-narrowed")
+                .w_full()
+                .gap(10.0)
+                .center_y()
+                .child(text(format!("Only {name}'s conversations")).font(type_::LABEL).color(p.secondary))
+                .child(button("Show everyone's", p).key("board-everyone").on_press(|s: &mut State| s.home.board_teammate = None)),
+        );
+    }
 
     match board {
         None => {

@@ -29,6 +29,11 @@ Each was a live-session check or a live-session bug.
 6. Stop in the window ends a long turn with "Stopped" and no error line.
 7. Quitting writes each running turn's cancelled record.
 
+More since (Phase 1, Thu):
+8. A mode chosen on the message box is the mode the turn runs in; picking a teammate goes back to theirs.
+9. A pressed notification opens its conversation, from wherever the window was.
+10. "All of Codec's conversations" opens the Board narrowed to Codec, and "Show everyone's" widens it.
+
 Checks 3, 5 and 7 were each run once with their fix taken out, and failed as the bug did.
 
 ## Things learned on the way

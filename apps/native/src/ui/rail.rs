@@ -437,9 +437,12 @@ pub(super) fn flyout(s: &State, p: &Palette, top: f32) -> Option<El> {
             .w_full()
             .padding(6.0)
             .gap(1.0)
-            .child(action(&crate::look::icons::INBOX, format!("All of {}'s conversations", teammate.name)).on_press(|s: &mut State| {
-                close(s);
-                home_panel::open_board(s);
+            .child(action(&crate::look::icons::INBOX, format!("All of {}'s conversations", teammate.name)).key("rail-all-theirs").on_press({
+                let name = teammate.name.clone();
+                move |s: &mut State| {
+                    close(s);
+                    home_panel::open_board_for(s, &name);
+                }
             }))
             .child(action(&crate::look::icons::PLUS, format!("New conversation with {}", teammate.name)).on_press_tx(move |s: &mut State, tx| {
                 close(s);

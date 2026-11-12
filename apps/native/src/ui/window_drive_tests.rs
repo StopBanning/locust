@@ -286,3 +286,20 @@ fn a_pressed_notification_opens_its_conversation() {
     });
     assert_eq!(rt.state.ledger.as_ref().unwrap().header.name, "Codec");
 }
+
+#[test]
+fn all_of_a_teammates_conversations_opens_the_board_narrowed_to_them() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    pump(&mut rt, "the recent row", |s| s.recent.iter().any(|r| r.teammate == "Codec"));
+    click(&mut rt, "rail-tm_codec");
+    click(&mut rt, "rail-all-theirs");
+    assert!(rt.state.home.board_open);
+    assert_eq!(rt.state.home.board_teammate.as_deref(), Some("Codec"));
+    assert!(rt.find("board-narrowed").is_some(), "the Board says it shows only Codec's");
+    click(&mut rt, "board-everyone");
+    assert_eq!(rt.state.home.board_teammate, None);
+    assert!(rt.find("board-narrowed").is_none());
+}
