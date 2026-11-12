@@ -1,5 +1,5 @@
 {
- "electronCommit": "2378138f",
+ "electronCommit": "6e16ea22",
  "generatedBy": "scripts/model-goldens.mjs",
  "hints": {
   "claude": {
@@ -1536,6 +1536,7 @@
   "antigravity": {
    "aliases": [
     "gemini-4-argon",
+    "gemini-4-hydrogen",
     "gemini-3.8-flash",
     "claude-opus-5-5",
     "claude-sonnet-5-5",
@@ -1550,6 +1551,16 @@
       "low",
       "medium",
       "high"
+     ]
+    },
+    {
+     "id": "gemini-4-hydrogen",
+     "displayName": "Gemini 4 Hydrogen",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
      ]
     },
     {
@@ -3156,6 +3167,18 @@
      ]
     },
     {
+     "id": "gemini-4-hydrogen",
+     "runtime": "antigravity",
+     "displayName": "Gemini 4 Hydrogen",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ]
+    },
+    {
      "id": "gemini-3.8-flash",
      "runtime": "antigravity",
      "displayName": "Gemini 3.8 Flash",
@@ -4655,6 +4678,18 @@
       "low",
       "medium",
       "high"
+     ]
+    },
+    {
+     "id": "gemini-4-hydrogen",
+     "runtime": "antigravity",
+     "displayName": "Gemini 4 Hydrogen",
+     "description": "Through Antigravity CLI",
+     "supportedEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh"
      ]
     },
     {

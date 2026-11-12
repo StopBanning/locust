@@ -82,12 +82,12 @@ pub fn parse_agy_model_list(text: &str) -> Option<Value> {
     let mut models: Vec<(String, String, Vec<String>)> = Vec::new();
     for line in text.lines() {
         let Some(m) = re(r"^([a-z0-9][a-z0-9.-]{0,80})\t(.{1,80})$").captures(line.trim()) else { continue };
-        let variant = re(r"^(.*)-(low|medium|high|max)$").captures(&m[1]);
+        let variant = re(r"^(.*)-(low|medium|high|xhigh|max)$").captures(&m[1]);
         let (id, name, effort) = match &variant {
             None => (m[1].to_owned(), m[2].trim().to_owned(), None),
             Some(v) => (
                 v[1].to_owned(),
-                re(r"(?i)\s*\((low|medium|high|max)\)\s*$").replace(&m[2], "").trim().to_owned(),
+                re(r"(?i)\s*\((low|medium|high|xhigh|max)\)\s*$").replace(&m[2], "").trim().to_owned(),
                 Some(v[2].to_owned()),
             ),
         };
@@ -105,7 +105,7 @@ pub fn parse_agy_model_list(text: &str) -> Option<Value> {
     if models.is_empty() {
         return None;
     }
-    let order = ["low", "medium", "high", "max"];
+    let order = ["low", "medium", "high", "xhigh", "max"];
     let named: Vec<Value> = models
         .into_iter()
         .map(|(id, name, mut efforts)| {
