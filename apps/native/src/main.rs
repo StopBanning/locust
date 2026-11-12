@@ -43,6 +43,8 @@ mod browser_panel;
 mod context_ring;
 #[path = "ui/recovery_card.rs"]
 mod recovery_card;
+#[path = "ui/reference_chips.rs"]
+mod reference_chips;
 #[path = "ui/keyboard_sheet.rs"]
 mod keyboard_sheet;
 mod keyboard_shortcuts;
@@ -626,21 +628,25 @@ fn send(s: &mut State, _: &mut Tx) {
     s.model_menu = None;
     // On the native engine the turn runs here, in this process, not through the Electron door.
     let native_job = (s.engine == Some(Kind::Native)).then(|| flight_teammate(s, &teammate_id));
+    let references = reference_chips::ids(s);
     s.sending.request(
         (teammate_id, conversation_id, message, pick, native_job),
-        |(id, conversation, message, pick, native_job)| {
+        move |(id, conversation, message, pick, native_job)| {
             let model = pick.as_ref().map(|p| p.model.as_str());
             let effort = pick.as_ref().and_then(|p| p.effort.as_deref());
             if let Some(teammate) = native_job {
                 let teammate = teammate
                     .ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
-                return native::send(native::Send {
-                    teammate,
-                    conversation,
-                    prompt: message,
-                    model: model.map(str::to_owned),
-                    effort: effort.map(str::to_owned),
-                });
+                return native::send_from(
+                    native::Send {
+                        teammate,
+                        conversation,
+                        prompt: message,
+                        model: model.map(str::to_owned),
+                        effort: effort.map(str::to_owned),
+                    },
+                    native::Origin { reference_ids: Some(references), ..Default::default() },
+                );
             }
             let engine = Engine::local()?;
             match conversation {
@@ -1384,6 +1390,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         return false;
     }
     let mut changed = routines_panel::poll(s);
+    changed |= reference_chips::poll(s);
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
     changed |= commit_panel::poll(s);
@@ -2117,6 +2124,8 @@ fn main() {
             ("settings-door", settings_panel::door_scene),
             ("settings-carry", settings_panel::carry_settings_scene),
             ("settings-carry-light", settings_panel::carry_settings_light_scene),
+            ("references", references_scene),
+            ("references-light", references_light_scene),
             ("models", models_scene),
             ("models-light", models_light_scene),
             ("carry-on", carry_on_scene),

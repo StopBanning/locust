@@ -660,13 +660,21 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     false,
                 )
                 .key("folder-chip")
-                .max_w(260.0),
+                .max_w(260.0)
+                .role("button")
+                .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
             )
             .child(rune::spacer())
             .child(chip);
+        if let Some(chips) = crate::reference_chips::view(s, &l, teammate) {
+            composer_stack = composer_stack.child(chips);
+        }
         composer_stack = composer_stack
             .child(crate::look::controls::composer_box(&l).child(composer).child(button))
             .child(footer);
+        if let Some(menu) = crate::reference_chips::folder_menu(s, &l) {
+            composer_stack = composer_stack.child(row().w_full().px(6.0).child(menu));
+        }
 
         col()
             .grow(1.0)

@@ -177,3 +177,19 @@ Left after this part: three Claude Code streams and two Antigravity transcripts.
 - The fake app-server now accepts the references line after the person's words.
 - Left in the grid: Claude Code 25, OpenCode 15, Copilot 11, Cursor 8, Antigravity 8: skills, forks, ticked connectors,
   Copilot's browser in Approve each, and `no-guard`.
+
+## Eighth part (12 Nov): references from the composer
+
+- **The store** (`references.rs`, from conversation-references.ts): `conversation-references.json` in the native data
+  folder, in Electron's shape, seeded from Electron's once. Folders on this computer are added (`add_folder`, the
+  real path named by its last part), a conversation keeps up to five (`set`, and `bind` after each turn, with the
+  folder the turn stood in), a later turn finds them through the conversation's first turn (`rootOf`), and a
+  reference no conversation uses is dropped. GitHub repositories are not added from here yet; an Electron
+  repository copy that was seeded is read but never moved.
+- **A turn** uses the references the composer names (or, from the door or a carry-on, the conversation's own),
+  filtered by `referenceAccess`, and binds them once it starts.
+- **The composer**: the folder chip opens a menu with "Add a reference…"; the picker (Electron's words) adds a "Folder
+  on this computer" through the native dialog (Rune's `open_folder`, which needed its `native-file-dialog` feature);
+  each reference is a chip above the box with its folder mark, name, access note and remove button, faded where this
+  mode leaves it out. Scenes `references` and `references-light`.
+- Not checked: the dialog itself (a native window no snapshot can show); a live turn reading a reference.

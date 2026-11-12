@@ -285,7 +285,7 @@ fn plan_runs_out_section(s: &State, p: &Palette) -> El {
         Some(c) if c.automatic => format!("{} carries the work on by itself when another agent's plan runs out, or its provider fails before it does anything, told what was done.", label(&c.runtime)),
         Some(c) => format!("A run whose plan runs out, or whose provider fails before it does anything, stops where it is, and its card offers to carry the work on with {}.", label(&c.runtime)),
     };
-    let mut picks = row().gap(6.0).wrap();
+    let mut picks = row().gap(6.0).flex_wrap();
     picks = picks.child(
         crate::look::controls::button(&l, "First one ready", if plan.is_none() { crate::look::controls::Tone::Active } else { crate::look::controls::Tone::Neutral }, false)
             .role("radio")

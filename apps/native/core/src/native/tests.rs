@@ -1558,3 +1558,15 @@ fn carrying_on_without_asking_needs_the_persons_pick_and_never_hands_back_to_the
         assert!(status.success(), "Electron's reader did not accept the noted ledger");
     }
 }
+
+/// A turn sent with reference ids keeps them on its conversation (references.rs bind), so the next turn has them too.
+#[test]
+fn a_turn_keeps_the_references_it_was_sent_with_for_the_conversation() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let store = t.store();
+    let docs = crate::references::add_folder(&store, &t.0.join("work")).unwrap();
+    let started = send_from(job(&t, None, "Synthetic prompt"), Origin { reference_ids: Some(vec![docs.id.clone()]), ..Default::default() }).unwrap();
+    finished(&started.conversation_id);
+    assert_eq!(crate::references::select(&store, Some(&started.conversation_id), None).unwrap(), vec![docs]);
+}

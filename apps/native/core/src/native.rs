@@ -1008,8 +1008,8 @@ pub struct Origin {
     pub started_by: Option<Value>,
     /// A follow-up's runtime and model, kept from the conversation rather than the teammate's saved route.
     pub runtime: Option<String>,
-    /// Reference folders attached to the conversation; each is checked against the mode before it is shared.
-    pub references: Vec<String>,
+    /// The references the composer names for this turn (ids in `references.rs`); None keeps the conversation's.
+    pub reference_ids: Option<Vec<String>>,
 }
 
 /// Start (or continue) a turn the person asked for in the window.
@@ -1156,11 +1156,13 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     // The references this turn may read without its mode changing (referenceAccess), named in its prompt and handed
     // to the agents that take a folder.
     let folder_text = folder.to_string_lossy().into_owned();
-    let shared: Vec<String> = origin
-        .references
+    // The conversation it continues: the prior turn, or (for a switch) the turn it was briefed from.
+    let previous: Option<String> = continues.as_ref().map(|c| c.mission_id.clone()).or_else(|| switched.as_ref().and_then(|s| s.link["missionId"].as_str().map(str::to_owned)));
+    let attached = crate::references::select(&store, previous.as_deref(), origin.reference_ids.as_deref())?;
+    let shared: Vec<String> = attached
         .iter()
-        .filter(|path| crate::references::access(runtime_name, mode.as_str(), path, Some(&folder_text), false).0)
-        .cloned()
+        .filter(|item| crate::references::access(runtime_name, mode.as_str(), &item.path, Some(&folder_text), false).0)
+        .map(|item| item.path.clone())
         .collect();
     let references: Vec<&str> = shared.iter().map(String::as_str).collect();
     let runtime_prompt = format!(
@@ -1273,6 +1275,11 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     channel.register_teammate(&id, &job.teammate.id);
     if let Err(error) = crate::people::record_owner(&store, &id, &job.teammate.id) {
         eprintln!("The conversation's teammate was not recorded: {error}");
+    }
+    // The conversation keeps these references for its next turns (bind), with the folder this turn stood in.
+    let attached_ids: Vec<String> = attached.iter().map(|i| i.id.clone()).collect();
+    if let Err(error) = crate::references::bind(&store, &id, previous.as_deref(), &attached_ids, Some(&folder_text)) {
+        eprintln!("The conversation's references were not kept: {error}");
     }
     let turn = Turn {
         prompt: runtime_prompt,

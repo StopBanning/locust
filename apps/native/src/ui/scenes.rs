@@ -285,6 +285,22 @@ pub(super) fn models_light_scene(s: &mut State) {
     s.appearance = Some(false);
 }
 
+/// Two reference folders on the conversation and the picker open.
+pub(super) fn references_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.reference_items = vec![
+        locust_core::references::Item { id: "r1".into(), name: "locust-site".into(), path: "/Users/locust/work/locust-site".into(), repository: None },
+        locust_core::references::Item { id: "r2".into(), name: "now-coding".into(), path: "/Users/locust/work/now-coding".into(), repository: None },
+    ];
+    s.reference_picker = true;
+    s.references_key = "scene".into();
+}
+
+pub(super) fn references_light_scene(s: &mut State) {
+    references_scene(s);
+    s.appearance = Some(false);
+}
+
 pub(super) fn composer_light_scene(s: &mut State) {
     composer_base_scene(s, true);
     s.draft
