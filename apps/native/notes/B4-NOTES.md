@@ -35,9 +35,13 @@ RoutePicker.tsx's look: a 420-wide card on the raised fill with a strong edge an
 under its mark and name, one row per model with a dot, its name, the levels it takes, and ACTIVE on the one in use;
 "Teammate's own" first to go back to the saved route; the level for the turn chosen at the foot, apart from the
 model, as Electron chose it. It was one row per model and level. Scenes `models` and `models-light`.
+Then the search (`.lc-picker__head`: a mono slash and "Search runtimes and models", matching agent and model names
+the way routeSearchText reads them), and each agent's group capped at six rows (twelve while searching) with the one in
+use always kept and "N more models · type to search them" under a capped group, as capRouteRows does.
 
 ## Not done
 
-- The picker has no search box and no "N more · type to search" cap yet: Cursor's 56 models scroll in the list.
+- `runtime::opencode::tests::opencode_acp_success_sets_locust_mode` hung once under a full parallel run (it passes alone,
+  three of three): a race in the fake ACP server to look at.
 - OpenCode 2's and Kilo's models (an ACP session), the models Claude Code's handshake lists, and usage readings.
 - The catalog treats an installed agent as ready; Electron also checks each one's sign-in first.

@@ -151,6 +151,8 @@ pub(super) struct State {
     pub(super) picks: HashMap<String, TurnPick>,
     pub(super) models: HashMap<String, Vec<engine::Models>>,
     pub(super) model_menu: Option<String>,
+    /// What the person typed in the model picker's search.
+    pub(super) model_query: TextEdit,
     pub(super) model_job: Latest<(String, Result<Vec<engine::Models>, String>)>,
     pub(super) own_turn: Option<OwnTurn>,
     pub(super) stopping: Latest<(String, Result<String, String>)>,
@@ -287,6 +289,7 @@ impl Default for State {
             picks: HashMap::new(),
             models: HashMap::new(),
             model_menu: None,
+            model_query: TextEdit::default(),
             model_job: Latest::default(),
             own_turn: None,
             stopping: Latest::default(),

@@ -769,17 +769,31 @@ fn model_picker(
     };
     let reset_id = id.to_owned();
     let picked = s.picks.get(id);
-    list = list.child(row_of("Teammate’s own".into(), "its saved model and level".into(), picked.is_none()).on_press(move |s: &mut State| {
-        s.picks.remove(&reset_id);
-        s.model_menu = None;
-    }));
+    let needle = route_search_text(&s.model_query.text);
+    let searching = !needle.is_empty();
+    if !searching {
+        list = list.child(row_of("Teammate’s own".into(), "its saved model and level".into(), picked.is_none()).on_press(move |s: &mut State| {
+            s.picks.remove(&reset_id);
+            s.model_menu = None;
+        }));
+    }
+    let mut any = false;
     for agent in agents.iter().filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str())) {
+        let group_name = locust_core::carry_on::display_name(&agent.runtime).to_owned();
+        let matched: Vec<&engine::Model> =
+            agent.models.iter().filter(|m| !searching || route_search_text(&format!("{group_name} {}", m.name)).contains(&needle)).collect();
+        if matched.is_empty() {
+            continue;
+        }
+        any = true;
+        let active_at = matched.iter().position(|m| picked.is_some() && m.id == model);
+        let (shown, hidden) = cap_rows(matched.len(), active_at, if searching { ROUTE_GROUP_LIMIT * 2 } else { ROUTE_GROUP_LIMIT });
         let mut group = row().gap(6.0).px(9.0).pt(12.0).pb(4.0).center_y();
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
             group = group.child(mark);
         }
-        list = list.child(group.child(text(locust_core::carry_on::display_name(&agent.runtime).to_owned()).font(l.ty.body).color(l.c("text-muted"))));
-        for m in &agent.models {
+        list = list.child(group.child(text(group_name).font(l.ty.body).color(l.c("text-muted"))));
+        for m in shown.into_iter().map(|i| matched[i]) {
             let active = picked.is_some() && m.id == model;
             let detail = if m.efforts.is_empty() { String::new() } else { m.efforts.join(" · ") };
             let (key, choice, levels) = (id.to_owned(), m.id.clone(), m.efforts.clone());
@@ -791,6 +805,18 @@ fn model_picker(
                 s.model_menu = None;
             }));
         }
+        // Nothing dropped silently: a capped group says how many it holds back.
+        if hidden > 0 {
+            let said = format!(
+                "{hidden} more {} {}",
+                if hidden == 1 { "model" } else { "models" },
+                if searching { "match · keep typing" } else { "· type to search them" }
+            );
+            list = list.child(text(said).font(l.ty.mono).color(l.c("text-muted")).pl(30.0).py(2.0));
+        }
+    }
+    if !any && searching {
+        list = list.child(text("Nothing matches that.").font(l.ty.body).color(l.c("text-muted")).padding(10.0));
     }
     // The levels the chosen model takes, at the foot.
     let levels: Vec<String> = agents
@@ -817,19 +843,79 @@ fn model_picker(
         .gap(8.0)
         .child(foot)
         .child(text("Privacy and permissions live in Settings.").font(l.ty.body).color(l.c("text-muted")));
-    picker_card(l, list, Some(foot))
+    // `.lc-picker__head`: a mono slash, then the search.
+    let head = row()
+        .w_full()
+        .gap(9.0)
+        .py(10.0)
+        .px(14.0)
+        .center_y()
+        .border_sides([0.0, 0.0, 1.0, 0.0], l.c("border-card"))
+        .child(text("/").font(l.ty.mono).color(l.c("text-muted")))
+        .child(
+            text_input(&s.model_query, l.ty.control)
+                .key("model-search")
+                .grow(1.0)
+                .color(l.c("text-primary"))
+                .placeholder("Search runtimes and models", l.c("text-muted"))
+                .on_edit(|s: &mut State| &mut s.model_query),
+        );
+    picker_card_with(l, Some(head), list, Some(foot))
+}
+
+/// status.ts ROUTE_GROUP_LIMIT: rows a group shows until the person searches (twice that while searching).
+const ROUTE_GROUP_LIMIT: usize = 6;
+
+/// status.ts routeSearchText: lower case, separators as spaces.
+fn route_search_text(text: &str) -> String {
+    let spaced: String = text.to_lowercase().chars().map(|c| if matches!(c, '-' | '_' | '/' | '.' | ':') { ' ' } else { c }).collect();
+    spaced.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// capRouteRows for one group: the first `limit` rows, the active one kept by taking the last kept place, and how
+/// many are held back.
+fn cap_rows(len: usize, active: Option<usize>, limit: usize) -> (Vec<usize>, usize) {
+    let mut kept: Vec<usize> = (0..len.min(limit)).collect();
+    if let Some(a) = active
+        && a >= limit
+        && let Some(last) = kept.last_mut()
+    {
+        *last = a;
+    }
+    (kept, len.saturating_sub(limit))
 }
 
 fn picker_card(l: &crate::look::controls::Look, list: El, foot: Option<El>) -> El {
+    picker_card_with(l, None, list, foot)
+}
+
+fn picker_card_with(l: &crate::look::controls::Look, head: Option<El>, list: El, foot: Option<El>) -> El {
     let mut card = col()
         .w(420.0)
         .radius(11.0)
         .fill(l.c("bg-raised-2"))
         .border(1.0, l.c("border-strong"))
-        .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default())
-        .child(list);
+        .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default());
+    if let Some(head) = head {
+        card = card.child(head);
+    }
+    card = card.child(list);
     if let Some(foot) = foot {
         card = card.child(row().w_full().py(10.0).px(14.0).border_sides([0.5, 0.0, 0.0, 0.0], l.c("border-hairline")).child(foot));
     }
     card
+}
+
+#[cfg(test)]
+mod picker_tests {
+    use super::*;
+
+    #[test]
+    fn a_group_shows_six_says_how_many_more_and_never_hides_the_one_in_use() {
+        assert_eq!(cap_rows(4, None, 6), (vec![0, 1, 2, 3], 0));
+        assert_eq!(cap_rows(56, None, 6), (vec![0, 1, 2, 3, 4, 5], 50));
+        assert_eq!(cap_rows(56, Some(30), 6), (vec![0, 1, 2, 3, 4, 30], 50));
+        assert_eq!(route_search_text("Claude-Opus 5.5"), "claude opus 5 5");
+        assert!(route_search_text("Cursor Agent GPT-5.5 Extra High").contains(&route_search_text("gpt 5.5")));
+    }
 }

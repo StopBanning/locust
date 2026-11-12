@@ -686,6 +686,7 @@ fn open_models(s: &mut State, id: String) {
         s.models.remove(&id);
     }
     s.model_menu = Some(id.clone());
+    s.model_query = TextEdit::default();
     s.model_job.request(id, move |id| {
         let teammate = if id == LEDGER_TARGET || id == CARRY_TARGET { None } else { Some(id.as_str()) };
         let result = if native_list {
