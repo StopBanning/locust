@@ -167,6 +167,9 @@ pub(super) struct State {
     pub(super) told_cards: std::collections::HashSet<String>,
     pub(super) live_turns: std::collections::HashSet<String>,
     pub(super) finishes: Vec<(String, String)>,
+    pub(super) finish_ids: Vec<String>,
+    /// A conversation to open once the recent list has it (a pressed notification's), and until when to keep looking.
+    pub(super) open_when_listed: Option<(String, std::time::Instant)>,
     pub(super) finishes_due: Option<std::time::Instant>,
     /// Settings › Appearance › Sidebar (`auto`, `wide`, `compact`), whether this window drew the rail last, and the
     /// rail's card: whose it is, whether a press pinned it, where the pointer is, and when it left.
@@ -330,6 +333,8 @@ impl Default for State {
             told_cards: std::collections::HashSet::new(),
             live_turns: std::collections::HashSet::new(),
             finishes: Vec::new(),
+            finish_ids: Vec::new(),
+            open_when_listed: None,
             finishes_due: None,
             seen_live: Vec::new(),
             composer_mode: None,

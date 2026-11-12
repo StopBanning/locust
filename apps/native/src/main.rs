@@ -1440,6 +1440,32 @@ fn land_reply(s: &mut State, teammate_id: &str, result: Result<Reply, String>, t
     }
 }
 
+/// A pressed notification opens its conversation (main/attention.ts). Its row may not be in the list yet: the list is
+/// read again and the open waits for it, for up to ten seconds.
+fn open_pressed_notification(s: &mut State, tx: &mut Tx) -> bool {
+    if let Some(id) = notify::take_clicked() {
+        s.open_when_listed = Some((id, std::time::Instant::now() + Duration::from_secs(10)));
+        refresh_recent(s);
+    }
+    let Some((id, until)) = s.open_when_listed.clone() else { return false };
+    let row = s.recent.iter().find(|r| r.id == id).cloned().or_else(|| {
+        let tip = recent_as_missions(s).into_iter().find(|m| m.mission_id == id || m.member_ids.contains(&id))?;
+        s.recent.iter().find(|r| r.id == tip.mission_id).cloned()
+    });
+    if let Some(row) = row {
+        s.open_when_listed = None;
+        s.home.home_open = false;
+        s.home.board_open = false;
+        s.settings_panel.open = false;
+        open_recent(s, row, tx);
+        return true;
+    }
+    if std::time::Instant::now() >= until {
+        s.open_when_listed = None;
+    }
+    false
+}
+
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if s.demo {
         return false;
@@ -1448,6 +1474,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= reference_chips::poll(s);
     changed |= attention_watch::poll(s);
     changed |= rail::poll(s);
+    changed |= open_pressed_notification(s, tx);
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
     changed |= commit_panel::poll(s);

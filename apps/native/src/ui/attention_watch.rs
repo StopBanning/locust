@@ -20,7 +20,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         let who = s.data.as_ref().and_then(|store| locust_core::people::owner_of(store, &card.mission_id)).and_then(|id| s.teammates.iter().find(|t| t.id == id).map(|t| t.name.clone()));
         let question = card.kind == locust_core::approval::Kind::Question;
         let (title, body) = attention::approval_text(question, &card.summary, who.as_deref(), None);
-        crate::notify::show(&title, &body);
+        crate::notify::show(&title, &body, Some(&card.mission_id));
     }
     // A turn this process ran that has ended since the last look.
     let now: std::collections::HashSet<String> = native::running_ids().into_iter().collect();
@@ -38,7 +38,7 @@ pub(super) fn poll(s: &mut State) -> bool {
             if tell {
                 let runtime = locust_core::carry_on::display_name(turn.metadata["runtime"].as_str().unwrap_or(""));
                 let (title, body) = attention::limit_text(who.as_deref(), runtime, end.and_then(|e| e["payload"]["message"].as_str()));
-                crate::notify::show(&title, &body);
+                crate::notify::show(&title, &body, Some(&id));
             }
             continue;
         }
@@ -58,15 +58,18 @@ pub(super) fn poll(s: &mut State) -> bool {
                 s.finishes_due = Some(std::time::Instant::now() + std::time::Duration::from_millis(attention::FINISH_WINDOW_MS));
             }
             s.finishes.push(finish);
+            s.finish_ids.push(id.clone());
         }
     }
     // Finishes gathered for four seconds, said as one, and only if the window is still elsewhere.
     if s.finishes_due.is_some_and(|due| std::time::Instant::now() >= due) {
         let said = std::mem::take(&mut s.finishes);
+        let ids = std::mem::take(&mut s.finish_ids);
         s.finishes_due = None;
         if tell && !said.is_empty() {
             let (title, body) = attention::finished_text(&said);
-            crate::notify::show(&title, &body);
+            // Several finishes said as one open the newest of them.
+            crate::notify::show(&title, &body, ids.last().map(String::as_str));
         }
     }
     false

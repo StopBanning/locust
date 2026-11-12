@@ -269,3 +269,20 @@ fn a_mode_chosen_on_the_message_box_is_the_mode_the_turn_runs_in() {
     click(&mut rt, "rail-tm_codec");
     assert_eq!(rt.state.composer_mode, None);
 }
+
+#[test]
+fn a_pressed_notification_opens_its_conversation() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    let mission = rt.state.ledger.as_ref().unwrap().conversation.conversation_id.clone().unwrap();
+    // Somewhere else in the window when the banner is pressed.
+    rt.update(|s, _| home_panel::open_board(s));
+    settle(&mut rt);
+    crate::notify::clicked(&mission);
+    pump(&mut rt, "the conversation open", |s| {
+        !s.home.board_open && s.ledger.as_ref().is_some_and(|p| !p.loading && p.conversation.conversation_id.as_deref() == Some(mission.as_str()))
+    });
+    assert_eq!(rt.state.ledger.as_ref().unwrap().header.name, "Codec");
+}

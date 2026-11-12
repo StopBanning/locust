@@ -49,4 +49,4 @@ objc2-app-kit = { version = "0.3", features = ["NSBitmapImageRep", "NSImage", "N
 objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKWebsiteDataStore", "WKUserContentController", "WKUserScript", "WKScriptMessageHandler", "WKScriptMessage", "WKNavigationDelegate", "WKNavigationAction", "WKContentRuleListStore", "WKContentRuleList", "WKURLSchemeHandler", "WKURLSchemeTask", "WKFrameInfo", "WKUIDelegate", "WKWindowFeatures"] }
 block2 = "0.6"
 # System notifications for the app bundle (attention: a card waiting, a limit hit, a long turn ended).
-objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCenter", "UNNotificationRequest", "UNNotificationContent", "UNNotificationTrigger", "block2"] }
+objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCenter", "UNNotificationRequest", "UNNotificationContent", "UNNotificationTrigger", "UNNotification", "UNNotificationResponse", "block2"] }
