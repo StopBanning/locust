@@ -701,6 +701,23 @@ describe('Codex mission service', () => {
     expect(response.ok ? '' : response.error.message).not.toContain('sign in')
   })
 
+  it("says a runtime whose check did not answer in time was not confirmed, not to install or sign in (12 Nov 2026)", async () => {
+    // A turn sent while Locust was still starting: Antigravity's check missed its cap, and the refusal sent the
+    // person to install or sign in to a CLI that was both.
+    const start = vi.fn() satisfies RuntimeProcessRunner['start']
+    const service = createCodexMissionService({
+      workspacePath: WORKSPACE,
+      discover: async () => [codexRuntime('unknown')],
+      runner: { start },
+      ledger: fakeLedger()
+    })
+    const response = await service.start('Do safe work.', 'codex', 'ask', {}, () => undefined)
+    const message = response.ok ? '' : response.error.message
+    expect(message).toBe('Codex CLI did not answer in time when Locust checked whether it was ready, so nothing was sent. Try again in a moment.')
+    expect(message).not.toMatch(/install|sign in/i)
+    expect(start).not.toHaveBeenCalled()
+  })
+
   it('returns an actionable generic error when Codex is not ready', async () => {
     const start = vi.fn() satisfies RuntimeProcessRunner['start']
     const service = createCodexMissionService({
