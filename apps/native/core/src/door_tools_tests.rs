@@ -106,6 +106,17 @@ impl Locust for Fake {
     fn see_all(&self) -> bool {
         self.see_all
     }
+    fn runtimes(&self) -> Vec<String> {
+        vec!["codex".into(), "opencode".into()]
+    }
+    fn carry_on(&self, mission: &str, runtime: &str, _model: Option<&str>) -> Result<(String, Option<String>), String> {
+        if runtime == "codex" {
+            return Err("Codex CLI is the agent whose plan ran out.".into());
+        }
+        let id = format!("{mission}-carried");
+        self.turns.lock().unwrap().insert(id.clone(), turn(&id, false, vec![]));
+        Ok((id, None))
+    }
     fn pause(&self, _: u64) {
         // A waiting read finds the turn finished at its first look.
         let mut live = self.live.lock().unwrap();
@@ -183,7 +194,7 @@ fn a_model_or_effort_is_refused_until_the_engine_has_a_model_list() {
     let r = tools.call("start_conversation", &json!({"teammate": "Scout", "message": "hi", "model": "gpt-5.5"}));
     assert!(r.is_error);
     assert!(r.text.contains("does not take a model or effort"));
-    assert_eq!(tools.call("list_models", &json!({})).text, "This server does not offer a choice of model.");
+    assert_eq!(tools.call("list_models", &json!({"teammate": "Scout"})).text, "This server does not offer a choice of model.");
 }
 
 #[test]
@@ -277,7 +288,7 @@ fn a_message_is_not_queued_while_a_turn_works() {
 fn unknown_tools_bad_arguments_and_unoffered_features_are_said_plainly() {
     let tools = Tools::new(Fake::default());
     assert_eq!(tools.call("rm_rf", &json!({})).text, "That tool is not offered by Locust.");
-    assert_eq!(tools.call("carry_on", &json!({})).text, "That tool is not offered by Locust.");
+    assert_eq!(tools.call("carry_on", &json!({})).text, "Give a conversation id from start_conversation or list_conversations.");
     assert!(tools.call("start_conversation", &json!({"teammate": "Scout"})).text.starts_with("Choose a teammate and give it a message"));
     assert!(tools.call("start_conversation", &json!({"teammate": "Nobody", "message": "x"})).text.starts_with("That teammate could not be identified"));
     assert_eq!(tools.call("run_routine", &json!({"routine": "r"})).text, "This Locust does not offer routines to other apps. Nothing was started.");
@@ -308,4 +319,33 @@ fn a_turn_is_read_from_its_ledger_records() {
     assert!(t.from_app());
     assert_eq!(conversation_folder(&t.started_by).as_deref(), Some("/w"));
     assert_eq!(answer_of(&t).text, "hi");
+}
+
+#[test]
+fn a_turn_whose_plan_ran_out_is_offered_and_carried_on_to_an_agent_this_locust_can_run() {
+    let fake = Fake::default();
+    let ran_out = vec![
+        ev("tool.started", json!({"itemId": "t1", "toolKind": "shell", "name": "shell"})),
+        ev("route.limit_detected", json!({"kind": "quota-exhausted", "message": "Usage limit reached."})),
+        ev("run.failed", json!({"kind": "quota-exhausted", "message": "Usage limit reached."})),
+    ];
+    fake.turns.lock().unwrap().insert("out".into(), turn("out", true, ran_out));
+    let tools = Tools::new(fake);
+    let read = tools.call("read_reply", &json!({"conversation_id": "out"}));
+    assert_eq!(read.structured.as_ref().unwrap()["can_carry_on"], true);
+    assert_eq!(reply(&tools.call("list_models", &json!({})))[1]["runtime"], "opencode");
+    let unknown = tools.call("carry_on", &json!({"conversation_id": "out", "runtime": "gemini"}));
+    assert_eq!(unknown.text, "Name an AI agent this Locust can run, as list_models with no teammate lists them: codex, opencode. Nothing was started.");
+    let same = tools.call("carry_on", &json!({"conversation_id": "out", "runtime": "codex"}));
+    assert_eq!(same.text, "Codex CLI is the agent whose plan ran out. Nothing was started.");
+    let carried = tools.call("carry_on", &json!({"conversation_id": "out", "runtime": "opencode", "model": "opencode/free"}));
+    assert!(!carried.is_error, "{}", carried.text);
+    let r = reply(&carried);
+    assert_eq!((r["conversation_id"].as_str(), r["runtime"].as_str(), r["mode"].as_str()), (Some("out-carried"), Some("opencode"), Some("ask")));
+
+    // A turn in a mode above Ask is carried on from here only with the person's switch on.
+    let mut edits = turn("edits", true, vec![ev("run.failed", json!({"kind": "quota-exhausted"}))]);
+    edits.mode = Some("accept-edits".into());
+    tools.locust.turns.lock().unwrap().insert("edits".into(), edits);
+    assert!(tools.call("carry_on", &json!({"conversation_id": "edits", "runtime": "opencode"})).text.starts_with("That turn ran in accept-edits, not Ask."));
 }

@@ -668,7 +668,8 @@ fn only_codex_runs_natively_and_nothing_else_is_started() {
     other.teammate.runs_in = IN_LOCUST.into();
     assert!(send(other).unwrap_err().contains("runs in Locust for now"));
     assert!(ledgers(&t).is_empty());
-    // A conversation that ran on another agent cannot be continued by the Codex runtime.
+    // A conversation that ran on another agent is continued on this one through a route switch (codex-mission.ts):
+    // the new turn starts cold with a brief, and the stopped turn's ledger gets its checkpoint.
     let mut w =
         LedgerWriter::create_continuing(&t.store(), "claude_c", "p", "m", "x", None).unwrap();
     w.append("run.completed", json!({}), None).unwrap();
@@ -679,11 +680,19 @@ fn only_codex_runs_natively_and_nothing_else_is_started() {
         1,
     );
     fs::write(&path, text).unwrap();
-    assert!(
-        send(job(&t, Some("claude_c"), "Synthetic follow-up"))
-            .unwrap_err()
-            .contains("another agent")
-    );
+    let started = send(job(&t, Some("claude_c"), "Synthetic follow-up")).unwrap();
+    assert_eq!(started.conversation_id, "claude_c");
+    let records: Vec<Value> = fs::read_to_string(&path).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    let checkpoint = records.iter().find(|r| r["recordType"] == "mission.checkpoint").expect("the stopped turn is reconciled");
+    assert_eq!(checkpoint["checkpoint"]["reason"], "route-switch");
+    assert_eq!(checkpoint["checkpoint"]["resumeSafety"], "safe");
+    let newest = ledgers(&t).into_iter().find(|p| p != &path).expect("the switched turn's ledger");
+    let first: Value = serde_json::from_str(fs::read_to_string(&newest).unwrap().lines().next().unwrap()).unwrap();
+    let meta = &first["metadata"];
+    assert_eq!(meta["continuesFrom"], json!({"missionId": "claude_c", "checkpointEpoch": 1, "reason": "route-switch"}));
+    let brief = meta["prompt"].as_str().unwrap();
+    assert!(brief.starts_with("You are taking over this conversation from another agent (Claude Code), which finished its last turn."), "{brief}");
+    assert!(brief.ends_with("The person now asks:\n\nSynthetic follow-up"), "{brief}");
 }
 
 // ---- stop -----------------------------------------------------------------------------------------------------
@@ -1424,4 +1433,85 @@ fn a_copilot_session_id_is_a_version_4_uuid() {
     assert!(a.chars().all(|c| c == '-' || c.is_ascii_hexdigit()));
     assert_eq!(&parts[2][..1], "4");
     assert!(matches!(&parts[3][..1], "8" | "9" | "a" | "b"));
+}
+
+/// Carry-on, live (B2): a Codex turn that stopped when its plan ran out, carried on to OpenCode's free model. The
+/// stopped turn chose a code word and said it, then ran out before writing it down, so the carried turn can only
+/// write the right word from the brief. `LOCUST_REAL_OPENCODE=1 cargo test --release real_carry_on -- --ignored --nocapture`.
+#[test]
+#[ignore = "real OpenCode on its free route; isolated temp folders"]
+fn real_carry_on_from_a_plan_that_ran_out() {
+    assert_eq!(std::env::var("LOCUST_REAL_OPENCODE").ok().as_deref(), Some("1"), "set LOCUST_REAL_OPENCODE=1");
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), None);
+    let store = t.store();
+    let work = t.0.join("work");
+    store
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_carry", "name": "Carry", "role": "Custom", "hue": "lime",
+                "createdAt": "2026-11-12T00:00:00.000Z", "folder": work.to_string_lossy(), "route": {"runtime": "codex", "model": "gpt-5.5", "mode": "auto"}}],
+                "missionOwners": {}, "settings": {"autoMode": true}}),
+        )
+        .unwrap();
+    let prompt = "Choose a code word, tell me what it is, then write exactly that code word into answer.txt.";
+    let mut w = LedgerWriter::create_runtime_with(&store, "mission_stopped", prompt, "gpt-5.5", "codex", "codex", &[], None, &json!({"mode": "auto", "sandbox": "full-access"})).unwrap();
+    // Each event as a real Codex run writes it: with its evidence, and the run's end with its process.
+    let evidence = json!({"runtimeEventType": "codex", "redacted": true});
+    let process = json!({"exitCode": 1, "signal": null, "stderr": "", "stderrTruncated": false, "recordCount": 5, "inputDeliveryFailed": false,
+        "outputLimitExceeded": false, "oversizedRecordsDropped": 0, "forcedTerminationAttempted": false, "terminationUnconfirmed": false,
+        "startedAt": crate::ledger_write::now(), "finishedAt": crate::ledger_write::now()});
+    for (kind, payload) in [
+        ("tool.started", json!({"itemId": "c1", "toolKind": "command", "name": "shell", "command": "ls", "phase": "started"})),
+        ("tool.completed", json!({"itemId": "c1", "toolKind": "command", "name": "shell", "command": "ls", "phase": "completed", "output": ""})),
+        ("message.delta", json!({"itemId": "m1", "operation": "replace", "text": "My code word is AMBER-42. Next I will write it into answer.txt.", "final": true})),
+        ("route.limit_detected", json!({"kind": "quota-exhausted", "message": "You've hit your usage limit."})),
+        ("run.failed", json!({"kind": "quota-exhausted", "message": "You've hit your usage limit.", "runtimeTerminal": "failed", "process": process})),
+    ] {
+        let mut payload = payload;
+        payload["evidence"] = evidence.clone();
+        w.append(kind, payload, None).unwrap();
+    }
+    drop(w);
+    crate::people::record_owner(&store, "mission_stopped", "tm_carry").unwrap();
+
+    let (carried, _) = carry("mission_stopped", "opencode", Some("opencode/deepseek-v4.1-flash-free")).unwrap();
+    assert_eq!(carry("mission_stopped", "opencode", None).unwrap_err(), "This turn was already carried on.");
+    let path = path_of(&t, &carried);
+    let end = Instant::now() + Duration::from_secs(300);
+    let text = loop {
+        let text = fs::read_to_string(&path).unwrap_or_default();
+        if ["run.completed", "run.failed", "run.cancelled"].iter().any(|k| text.contains(&format!("\"type\":\"{k}\""))) {
+            break text;
+        }
+        assert!(Instant::now() < end, "the carried turn did not finish");
+        std::thread::sleep(Duration::from_millis(500));
+    };
+    let records: Vec<Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    let meta = &records[0]["metadata"];
+    println!("brief:\n{}\n", meta["prompt"].as_str().unwrap());
+    assert_eq!(meta["runtime"], "opencode");
+    assert_eq!(meta["mode"], "auto");
+    assert_eq!(meta["continuesFrom"]["reason"], "route-switch");
+    assert_eq!(meta["startedBy"], json!({"kind": "carry-on", "from": "codex"}));
+    let reply = crate::carry_on::latest_final(&records.iter().filter_map(|r| r.get("event").cloned()).collect::<Vec<_>>()).unwrap_or_default();
+    println!("reply: {reply}");
+    let answer = fs::read_to_string(work.join("answer.txt")).unwrap_or_default();
+    println!("answer.txt: {answer}");
+    assert!(text.contains("\"type\":\"run.completed\""), "the carried turn did not complete");
+    // The word is only in the brief: the carried turn wrote it, rather than choosing its own.
+    assert_eq!(answer.trim(), "AMBER-42", "the carried turn did not finish from the brief");
+    let stopped = fs::read_to_string(path_of(&t, "mission_stopped")).unwrap();
+    assert!(stopped.contains("\"recordType\":\"mission.checkpoint\""));
+    if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
+        for (id, phase) in [("mission_stopped", "failed"), (carried.as_str(), "completed")] {
+            let status = Command::new("node")
+                .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/check-m1-ledger.mjs"))
+                .args([reader.as_str(), store.ledger_dir().unwrap().to_str().unwrap(), id, phase])
+                .status()
+                .unwrap();
+            assert!(status.success(), "TypeScript reader rejected {id}");
+        }
+    }
+    wait_for_shutdown();
 }

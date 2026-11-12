@@ -458,6 +458,14 @@ pub fn check_app_folder(requested: &str, known: &[PathBuf], common: &dyn Fn(&Pat
     ))
 }
 
+/// The folders Locust knows (the ones it worked in, the teammates' own, the open one), and the rule over them.
+pub fn check_folder(store: &Store, path: &str) -> Result<PathBuf, String> {
+    let mut known: Vec<PathBuf> = crate::folders::list(store).unwrap_or_default().into_iter().map(|f| PathBuf::from(f.path)).collect();
+    known.extend(crate::native::roster_in(store).unwrap_or_default().into_iter().filter_map(|t| t.folder.map(PathBuf::from)));
+    known.extend(crate::native::open_folder());
+    check_app_folder(path, &known, &common_dir)
+}
+
 // ---- the live engine ------------------------------------------------------------------------------------------------
 
 /// The door's view of this machine's native engine.
@@ -481,7 +489,7 @@ impl Engine {
 impl Locust for Engine {
     fn teammates(&self) -> Result<Vec<(Teammate, Option<String>)>, String> {
         let efforts = self.efforts();
-        Ok(crate::native::load_roster()?
+        Ok(crate::native::roster_in(&self.store)?
             .into_iter()
             .map(|t| {
                 let effort = efforts.get(&t.id).cloned();
@@ -563,14 +571,15 @@ impl Locust for Engine {
     }
 
     fn check_folder(&self, path: &str) -> Result<PathBuf, String> {
-        let mut known: Vec<PathBuf> = crate::folders::list(&self.store)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|f| PathBuf::from(f.path))
-            .collect();
-        known.extend(crate::native::load_roster().unwrap_or_default().into_iter().filter_map(|t| t.folder.map(PathBuf::from)));
-        known.extend(crate::native::open_folder());
-        check_app_folder(path, &known, &common_dir)
+        check_folder(&self.store, path)
+    }
+
+    fn runtimes(&self) -> Vec<String> {
+        crate::carry_on::installed_runtimes()
+    }
+
+    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
+        crate::native::carry(mission, runtime, model)
     }
 
     fn folder(&self) -> Option<String> {

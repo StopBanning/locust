@@ -11,6 +11,25 @@ pub fn now() -> String {
 }
 /// `continuesFrom` of a follow-up turn, as `codex-mission.ts` writes it: checkpointEpoch 1 (a follow-up reconciles
 /// nothing, so epoch 1 is the only one a reader could mean), reason `follow-up`, the resumed thread when there is one.
+/// A stopped turn's checkpoint, appended to its own (native) ledger as mission-store's `createCheckpoint` appends it:
+/// the next ledger sequence, the ledger's schema version, fsynced. The turn is not running, so no writer holds the file.
+pub fn append_checkpoint(path: &std::path::Path, checkpoint: &Value) -> io::Result<()> {
+    use std::io::Write;
+    let text = std::fs::read_to_string(path)?;
+    let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let schema = records.first().and_then(|r| r["schemaVersion"].as_u64()).ok_or_else(|| io::Error::other("Ledger has no first record"))?;
+    let next = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    let record = json!({"schemaVersion": schema, "recordType": "mission.checkpoint", "ledgerSequence": next, "occurredAt": checkpoint["createdAt"], "checkpoint": checkpoint});
+    let mut line = serde_json::to_vec(&record)?;
+    line.push(b'\n');
+    if !text.is_empty() && !text.ends_with('\n') {
+        return Err(io::Error::other("Ledger does not end on a whole record"));
+    }
+    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
+    file.write_all(&line)?;
+    file.sync_all()
+}
+
 pub struct Continuation {
     pub mission_id: String,
     pub thread: Option<String>,

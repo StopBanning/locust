@@ -7,7 +7,7 @@
 //! answer one. Every refusal says that nothing was started, sent or stopped, so an app never retries blind.
 //!
 //! The rules and words follow Electron's; what the native engine cannot do yet is said the way Electron's tools say it
-//! for a server that does not offer it: a choice of model (no catalog yet), routines, and carry-on (B2).
+//! for a server that does not offer it: a choice of model for a teammate's turn (no catalog yet) and routines.
 
 use crate::approval::Mode;
 use crate::engine::Teammate;
@@ -169,6 +169,10 @@ pub trait Locust: Send + Sync {
     fn own_mode(&self) -> bool;
     /// "Let apps see your conversations".
     fn see_all(&self) -> bool;
+    /// The agents a turn can be carried on to here.
+    fn runtimes(&self) -> Vec<String>;
+    /// Locust's own carry-on (main/carry-on.ts): the new turn's id and the folder it works in.
+    fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String>;
     /// How a waiting read_reply sleeps between looks.
     fn pause(&self, ms: u64) {
         std::thread::sleep(Duration::from_millis(ms));
@@ -268,6 +272,14 @@ pub fn answer_of(turn: &Turn) -> ToolResult {
     }
     let answer = unwrap_protocol_tags(said);
     ToolResult::ok(if warned.is_empty() { answer } else { format!("{answer}\n\nLocust: {}", warned.join(" ")) })
+}
+
+/// Why a turn that ended can be carried on (main/carry-on.ts stoppedFor).
+fn stopped_reason(turn: &Turn) -> Option<crate::carry_on::Reason> {
+    match turn.phase() {
+        "completed" | "cancelled" => None,
+        _ => crate::carry_on::carry_on_reason(&turn.events),
+    }
 }
 
 /// The door's tools, over a `Locust`.
@@ -406,8 +418,7 @@ impl<L: Locust> Tools<L> {
             "runtime": turn.runtime,
             "model": turn.model,
             "folder": self.turn_folder(turn).or_else(|| self.locust.folder()),
-            // Carry-on is not on this door yet (B2), so nothing is offered to carry on.
-            "can_carry_on": false
+            "can_carry_on": !live && stopped_reason(turn).is_some()
         }));
         result
     }
@@ -466,7 +477,15 @@ impl<L: Locust> Tools<L> {
                     Err(refused) => refused,
                 }
             }
-            "list_models" => ToolResult::refused("This server does not offer a choice of model."),
+            "list_models" => {
+                // Every agent this Locust can run, for carry_on. Its models are not listed: there is no catalog yet.
+                if args["teammate"].is_null() {
+                    let rows: Vec<Value> = self.locust.runtimes().iter().map(|r| json!({"runtime": r, "models": []})).collect();
+                    return ToolResult::ok(Value::Array(rows).to_string());
+                }
+                ToolResult::refused("This server does not offer a choice of model.")
+            }
+            "carry_on" => self.carry_on(args),
             "list_routines" | "routine_status" => ToolResult::refused("This Locust does not offer routines to other apps."),
             "run_routine" => ToolResult::refused("This Locust does not offer routines to other apps. Nothing was started."),
             "list_conversations" => {
@@ -484,12 +503,18 @@ impl<L: Locust> Tools<L> {
                         let owner = self.locust.owner(&turn.mission_id);
                         let teammate = owner.and_then(|o| names.iter().find(|(t, _)| t.id == o).map(|(t, _)| t.name.clone()));
                         let live = self.locust.live(&turn.mission_id);
+                        let stopped = if live { None } else { stopped_reason(turn) };
                         let state = if live {
                             if self.locust.waiting(&turn.mission_id) { "waiting for the person in Locust" } else { "working" }
                         } else {
-                            turn.phase()
+                            match stopped {
+                                Some(crate::carry_on::Reason::Plan) => "stopped: its plan ran out",
+                                Some(crate::carry_on::Reason::Provider) => "stopped: its provider failed",
+                                Some(crate::carry_on::Reason::Process) => "stopped: its process failed",
+                                None => turn.phase(),
+                            }
                         };
-                        json!({
+                        let mut row = json!({
                             "conversation_id": turn.mission_id,
                             "teammate": teammate,
                             "title": turn.prompt.chars().take(80).collect::<String>(),
@@ -497,7 +522,11 @@ impl<L: Locust> Tools<L> {
                             "runtime": turn.runtime, "model": turn.model, "state": state,
                             "folder": self.turn_folder(turn),
                             "updated": turn.updated
-                        })
+                        });
+                        if stopped.is_some() {
+                            row["can_carry_on"] = json!(true);
+                        }
+                        row
                     })
                     .collect();
                 ToolResult::ok(Value::Array(rows).to_string())
@@ -528,6 +557,53 @@ impl<L: Locust> Tools<L> {
             }
             "send_message" | "read_reply" => self.send_or_read(name, args),
             _ => ToolResult::refused("That tool is not offered by Locust."),
+        }
+    }
+
+    /// carry_on: a conversation whose turn stopped on its plan, provider or process, on to another agent.
+    fn carry_on(&self, args: &Value) -> ToolResult {
+        let Some(id) = text_arg(&args["conversation_id"], 200) else {
+            return ToolResult::refused("Give a conversation id from start_conversation or list_conversations.");
+        };
+        let Some(turn) = self.lookup(id) else {
+            return ToolResult::refused(
+                "That conversation could not be read from the local ledger. Use an id returned by this server.",
+            );
+        };
+        if self.locust.live(&turn.mission_id) {
+            return ToolResult::refused("It is still working, so there is nothing to carry on. Nothing was started.");
+        }
+        // The stopped turn's own mode, as its card carries it on, but never above what an app's turns may run in.
+        let mode = turn
+            .mode
+            .clone()
+            .unwrap_or_else(|| if turn.sandbox.as_deref() == Some("read-only") { "ask".into() } else { "accept-edits".into() });
+        if mode != "ask" && !self.locust.own_mode() {
+            return ToolResult::refused(format!(
+                "That turn ran in {mode}, not Ask. An app carries on only an Ask turn unless the person has turned on \"Use each teammate's own mode\" in Locust; they can carry it on from its card there. Nothing was started."
+            ));
+        }
+        let runtimes = self.locust.runtimes();
+        let Some(runtime) = text_arg(&args["runtime"], 40).filter(|r| runtimes.iter().any(|known| known == r)) else {
+            let named = if runtimes.is_empty() { "none".to_owned() } else { runtimes.join(", ") };
+            return ToolResult::refused(format!(
+                "Name an AI agent this Locust can run, as list_models with no teammate lists them: {named}. Nothing was started."
+            ));
+        };
+        let model = text_arg(&args["model"], 200);
+        match self.locust.carry_on(&turn.mission_id, runtime, model) {
+            Err(why) => ToolResult::refused(format!("{why} Nothing was started.")),
+            Ok((carried, folder)) => {
+                let mut reply = json!({"conversation_id": carried, "runtime": runtime});
+                if let Some(m) = model {
+                    reply["model"] = json!(m);
+                }
+                reply["mode"] = json!(mode);
+                if let Some(f) = self.locust.read(&carried).and_then(|t| self.turn_folder(&t)).or(folder) {
+                    reply["folder"] = json!(f);
+                }
+                ToolResult::ok(reply.to_string())
+            }
         }
     }
 

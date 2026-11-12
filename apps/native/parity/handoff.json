@@ -1,0 +1,1790 @@
+{
+ "electronCommit": "2378138f",
+ "generatedBy": "scripts/handoff-goldens.mjs",
+ "cases": [
+  {
+   "name": "plan ran out mid-work",
+   "prompt": "Fix the failing test in app.ts",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "c1",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "npm test",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:2",
+     "sequence": 2,
+     "occurredAt": "2026-11-12T03:00:02.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "c1",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:3",
+     "sequence": 3,
+     "occurredAt": "2026-11-12T03:00:03.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "c2",
+      "toolKind": "file_change",
+      "name": "apply_patch",
+      "command": "app.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:4",
+     "sequence": 4,
+     "occurredAt": "2026-11-12T03:00:04.000Z",
+     "type": "message.delta",
+     "payload": {
+      "itemId": "m1",
+      "operation": "append",
+      "text": "I found the bug in ",
+      "final": true
+     }
+    },
+    {
+     "id": "run_x:native:5",
+     "sequence": 5,
+     "occurredAt": "2026-11-12T03:00:05.000Z",
+     "type": "message.delta",
+     "payload": {
+      "itemId": "m1",
+      "operation": "append",
+      "text": "parse().",
+      "final": true
+     }
+    },
+    {
+     "id": "run_x:native:6",
+     "sequence": 6,
+     "occurredAt": "2026-11-12T03:00:06.000Z",
+     "type": "route.limit_detected",
+     "payload": {
+      "kind": "quota-exhausted",
+      "message": "You hit your usage limit."
+     }
+    },
+    {
+     "id": "run_x:native:7",
+     "sequence": 7,
+     "occurredAt": "2026-11-12T03:00:07.000Z",
+     "type": "run.failed",
+     "payload": {
+      "kind": "quota-exhausted",
+      "message": "You hit your usage limit."
+     }
+    }
+   ],
+   "next": null,
+   "earlier": [],
+   "reason": "plan",
+   "instruction": "Codex CLI ran out of its plan's usage before it finished. Carry on with the task from where it stopped: what it already did is above, so finish what is left, the way the task asks.",
+   "ended": "its usage limit was reached",
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 7,
+    "settledActions": [
+     "c1"
+    ],
+    "settledNames": [
+     "command: shell: npm test"
+    ],
+    "unsettledActions": [
+     {
+      "itemId": "c2",
+      "toolKind": "file_change",
+      "name": "apply_patch",
+      "startedAt": "2026-11-12T03:00:03.000Z",
+      "startedAtSequence": 3
+     }
+    ],
+    "resumeSafety": "approval-required",
+    "safetyReason": "One action started and never reported an outcome, so whether it took effect is unknown.",
+    "transcriptDigest": "59dad023a1438b2a18a10bf0c46e948fc7312c593b797d31f0883b4b2dc5c0d9",
+    "assistantSummary": "I found the bug in parse().",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are continuing work that another agent (Codex CLI) started and stopped partway through. The original task was:\n\nFix the failing test in app.ts\n\nThese actions STARTED and never reported back. Whether each took effect is unknown. Check the current state before you redo or build on any of them:\n- file_change: apply_patch\n\nThese actions reported finishing before the stop:\n- command: shell: npm test\n\nWhat the previous agent said it had done:\n\nI found the bug in parse().",
+    "omitted": [],
+    "taskClipped": false
+   }
+  },
+  {
+   "name": "provider failed first",
+   "prompt": "Write a haiku",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "run.failed",
+     "payload": {
+      "kind": "process-failed",
+      "message": "stream disconnected before completion",
+      "process": {
+       "stderr": "error\nHTTP 503 Service Unavailable\n"
+      }
+     }
+    }
+   ],
+   "next": null,
+   "earlier": [],
+   "reason": "provider",
+   "instruction": "Codex CLI stopped on an error from its provider before it did anything. Do the task from the start, the way the task asks.",
+   "ended": "it failed",
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 1,
+    "settledActions": [],
+    "settledNames": [],
+    "unsettledActions": [],
+    "resumeSafety": "safe",
+    "safetyReason": "Every recorded action reported an outcome and the ledger was read to its end.",
+    "transcriptDigest": "6f9b9e6d15cb08b7e398aa9446ab94a5e76fe31ac5bdec85095477801b665a55",
+    "assistantSummary": "",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are continuing work that another agent (Codex CLI) started and stopped partway through. The original task was:\n\nWrite a haiku",
+    "omitted": [],
+    "taskClipped": false
+   }
+  },
+  {
+   "name": "process crashed after a tool",
+   "prompt": "Rename the file",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "c1",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "git mv a b",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:2",
+     "sequence": 2,
+     "occurredAt": "2026-11-12T03:00:02.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "c1",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:3",
+     "sequence": 3,
+     "occurredAt": "2026-11-12T03:00:03.000Z",
+     "type": "run.failed",
+     "payload": {
+      "kind": "process-failed",
+      "message": "Codex exited with code 1."
+     }
+    }
+   ],
+   "next": null,
+   "earlier": [],
+   "reason": "process",
+   "instruction": "Codex CLI stopped because its process failed. Carry on from the recorded work. Reconcile any action without a confirmed result using receipts and idempotency keys before proceeding; never retry an irreversible action with an uncertain result.",
+   "ended": "it failed",
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 3,
+    "settledActions": [
+     "c1"
+    ],
+    "settledNames": [
+     "command: shell: git mv a b"
+    ],
+    "unsettledActions": [],
+    "resumeSafety": "safe",
+    "safetyReason": "Every recorded action reported an outcome and the ledger was read to its end.",
+    "transcriptDigest": "565cc1d124a2a8bb775c0b9c6966d3f85fc1ab8cfa83bcdda5f87bf66d103dc8",
+    "assistantSummary": "",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are continuing work that another agent (Codex CLI) started and stopped partway through. The original task was:\n\nRename the file\n\nThese actions reported finishing before the stop:\n- command: shell: git mv a b",
+    "omitted": [],
+    "taskClipped": false
+   }
+  },
+  {
+   "name": "refused is never carried",
+   "prompt": "Read outside",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "run.failed",
+     "payload": {
+      "kind": "process-failed",
+      "message": "The read was refused: outside the folder."
+     }
+    }
+   ],
+   "next": null,
+   "earlier": [],
+   "reason": null,
+   "instruction": null,
+   "ended": "it failed",
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 1,
+    "settledActions": [],
+    "settledNames": [],
+    "unsettledActions": [],
+    "resumeSafety": "safe",
+    "safetyReason": "Every recorded action reported an outcome and the ledger was read to its end.",
+    "transcriptDigest": "6f9b9e6d15cb08b7e398aa9446ab94a5e76fe31ac5bdec85095477801b665a55",
+    "assistantSummary": "",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are continuing work that another agent (Codex CLI) started and stopped partway through. The original task was:\n\nRead outside",
+    "omitted": [],
+    "taskClipped": false
+   }
+  },
+  {
+   "name": "finished turn, reply on another agent",
+   "prompt": "What does main.rs do?",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "message.delta",
+     "payload": {
+      "itemId": "m1",
+      "operation": "append",
+      "text": "It starts the window.",
+      "final": true
+     }
+    },
+    {
+     "id": "run_x:native:2",
+     "sequence": 2,
+     "occurredAt": "2026-11-12T03:00:02.000Z",
+     "type": "run.completed",
+     "payload": {}
+    }
+   ],
+   "next": "Now add a test for it.",
+   "earlier": [
+    {
+     "asked": "Open the project",
+     "answered": "Opened."
+    },
+    {
+     "asked": "List the files",
+     "answered": null
+    }
+   ],
+   "reason": null,
+   "instruction": null,
+   "ended": null,
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 2,
+    "settledActions": [],
+    "settledNames": [],
+    "unsettledActions": [],
+    "resumeSafety": "safe",
+    "safetyReason": "Every recorded action reported an outcome and the ledger was read to its end.",
+    "transcriptDigest": "a25b92d88f66f58a99e23a264fc919a09586c0c6f57dbbd057fef47b910c5474",
+    "assistantSummary": "It starts the window.",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are taking over this conversation from another agent (Codex CLI), which finished its last turn. The last thing it was asked was:\n\nWhat does main.rs do?\n\nEarlier in this conversation, oldest first:\n- Asked: \"Open the project\" -- answered: \"Opened.\"\n- Asked: \"List the files\" -- no reply was recorded.\n\nWhat the previous agent said it had done:\n\nIt starts the window.\n\nThe person now asks:\n\nNow add a test for it.",
+    "omitted": [],
+    "taskClipped": false
+   }
+  },
+  {
+   "name": "stopped by the person, reply",
+   "prompt": "Summarize the repo",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "r1",
+      "toolKind": "read",
+      "name": "read",
+      "command": "README.md",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:2",
+     "sequence": 2,
+     "occurredAt": "2026-11-12T03:00:02.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "r1",
+      "toolKind": "read",
+      "name": "read",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:3",
+     "sequence": 3,
+     "occurredAt": "2026-11-12T03:00:03.000Z",
+     "type": "run.cancelled",
+     "payload": {}
+    }
+   ],
+   "next": "Carry on but shorter.",
+   "earlier": [],
+   "reason": null,
+   "instruction": null,
+   "ended": "the person stopped it",
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 3,
+    "settledActions": [
+     "r1"
+    ],
+    "settledNames": [
+     "read: README.md"
+    ],
+    "unsettledActions": [],
+    "resumeSafety": "safe",
+    "safetyReason": "Every recorded action reported an outcome and the ledger was read to its end.",
+    "transcriptDigest": "22acb7c6f4ed6f854cd0b35293fe088af691b846136df12c0d96cee74b5fd2a1",
+    "assistantSummary": "",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are taking over this conversation from another agent (Codex CLI), whose last turn ended before it finished: the person stopped it. The last thing it was asked was:\n\nSummarize the repo\n\nThese actions reported finishing before the stop:\n- read: README.md\n\nThe person now asks:\n\nCarry on but shorter.",
+    "omitted": [],
+    "taskClipped": false
+   }
+  },
+  {
+   "name": "long task clipped beside a reply",
+   "prompt": "Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. ",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "message.delta",
+     "payload": {
+      "itemId": "m1",
+      "operation": "append",
+      "text": "Started.",
+      "final": true
+     }
+    },
+    {
+     "id": "run_x:native:2",
+     "sequence": 2,
+     "occurredAt": "2026-11-12T03:00:02.000Z",
+     "type": "run.failed",
+     "payload": {
+      "kind": "quota-exhausted",
+      "message": "limit"
+     }
+    }
+   ],
+   "next": "Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. ",
+   "earlier": [],
+   "reason": "plan",
+   "instruction": "Codex CLI ran out of its plan's usage before it finished. Carry on with the task from where it stopped: what it already did is above, so finish what is left, the way the task asks.",
+   "ended": "its usage limit was reached",
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 2,
+    "settledActions": [],
+    "settledNames": [],
+    "unsettledActions": [],
+    "resumeSafety": "safe",
+    "safetyReason": "Every recorded action reported an outcome and the ledger was read to its end.",
+    "transcriptDigest": "b3f0232cda9b5d4dfd63af032acd3e5efbae98da7209225d131bae568c10ec70",
+    "assistantSummary": "Started.",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are taking over this conversation from another agent (Codex CLI), whose last turn ended before it finished: its usage limit was reached. The last thing it was asked was:\n\nRefactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the payment module. Refactor the paymen\n\n[The original task continues for 735 more characters that did not fit here. Ask the person if the part above is not enough.]\n\nThe person now asks:\n\nFinish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor. Finish the refactor.\n\n(Some handoff detail did not fit and was left out: summary.)",
+    "omitted": [
+     "summary"
+    ],
+    "taskClipped": true
+   }
+  },
+  {
+   "name": "many settled actions shrink",
+   "prompt": "Tidy every file",
+   "events": [
+    {
+     "id": "run_x:native:1",
+     "sequence": 1,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t0",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-0-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:2",
+     "sequence": 2,
+     "occurredAt": "2026-11-12T03:00:02.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t0",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:3",
+     "sequence": 3,
+     "occurredAt": "2026-11-12T03:00:03.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t1",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:4",
+     "sequence": 4,
+     "occurredAt": "2026-11-12T03:00:04.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t1",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:5",
+     "sequence": 5,
+     "occurredAt": "2026-11-12T03:00:05.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t2",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-2-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:6",
+     "sequence": 6,
+     "occurredAt": "2026-11-12T03:00:06.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t2",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:7",
+     "sequence": 7,
+     "occurredAt": "2026-11-12T03:00:07.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t3",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-3-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:8",
+     "sequence": 8,
+     "occurredAt": "2026-11-12T03:00:08.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t3",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:9",
+     "sequence": 9,
+     "occurredAt": "2026-11-12T03:00:09.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t4",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-4-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:10",
+     "sequence": 10,
+     "occurredAt": "2026-11-12T03:00:10.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t4",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:11",
+     "sequence": 11,
+     "occurredAt": "2026-11-12T03:00:11.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t5",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-5-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:12",
+     "sequence": 12,
+     "occurredAt": "2026-11-12T03:00:12.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t5",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:13",
+     "sequence": 13,
+     "occurredAt": "2026-11-12T03:00:13.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t6",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-6-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:14",
+     "sequence": 14,
+     "occurredAt": "2026-11-12T03:00:14.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t6",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:15",
+     "sequence": 15,
+     "occurredAt": "2026-11-12T03:00:15.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t7",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-7-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:16",
+     "sequence": 16,
+     "occurredAt": "2026-11-12T03:00:16.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t7",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:17",
+     "sequence": 17,
+     "occurredAt": "2026-11-12T03:00:17.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t8",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-8-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:18",
+     "sequence": 18,
+     "occurredAt": "2026-11-12T03:00:18.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t8",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:19",
+     "sequence": 19,
+     "occurredAt": "2026-11-12T03:00:19.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t9",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-9-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:20",
+     "sequence": 20,
+     "occurredAt": "2026-11-12T03:00:20.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t9",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:21",
+     "sequence": 21,
+     "occurredAt": "2026-11-12T03:00:21.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t10",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-10-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:22",
+     "sequence": 22,
+     "occurredAt": "2026-11-12T03:00:22.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t10",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:23",
+     "sequence": 23,
+     "occurredAt": "2026-11-12T03:00:23.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t11",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-11-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:24",
+     "sequence": 24,
+     "occurredAt": "2026-11-12T03:00:24.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t11",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:25",
+     "sequence": 25,
+     "occurredAt": "2026-11-12T03:00:25.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t12",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-12-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:26",
+     "sequence": 26,
+     "occurredAt": "2026-11-12T03:00:26.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t12",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:27",
+     "sequence": 27,
+     "occurredAt": "2026-11-12T03:00:27.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t13",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-13-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:28",
+     "sequence": 28,
+     "occurredAt": "2026-11-12T03:00:28.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t13",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:29",
+     "sequence": 29,
+     "occurredAt": "2026-11-12T03:00:29.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t14",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-14-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:30",
+     "sequence": 30,
+     "occurredAt": "2026-11-12T03:00:30.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t14",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:31",
+     "sequence": 31,
+     "occurredAt": "2026-11-12T03:00:31.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t15",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-15-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:32",
+     "sequence": 32,
+     "occurredAt": "2026-11-12T03:00:32.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t15",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:33",
+     "sequence": 33,
+     "occurredAt": "2026-11-12T03:00:33.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t16",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-16-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:34",
+     "sequence": 34,
+     "occurredAt": "2026-11-12T03:00:34.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t16",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:35",
+     "sequence": 35,
+     "occurredAt": "2026-11-12T03:00:35.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t17",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-17-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:36",
+     "sequence": 36,
+     "occurredAt": "2026-11-12T03:00:36.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t17",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:37",
+     "sequence": 37,
+     "occurredAt": "2026-11-12T03:00:37.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t18",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-18-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:38",
+     "sequence": 38,
+     "occurredAt": "2026-11-12T03:00:38.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t18",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:39",
+     "sequence": 39,
+     "occurredAt": "2026-11-12T03:00:39.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t19",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-19-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:40",
+     "sequence": 40,
+     "occurredAt": "2026-11-12T03:00:40.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t19",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:41",
+     "sequence": 41,
+     "occurredAt": "2026-11-12T03:00:41.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t20",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-20-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:42",
+     "sequence": 42,
+     "occurredAt": "2026-11-12T03:00:42.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t20",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:43",
+     "sequence": 43,
+     "occurredAt": "2026-11-12T03:00:43.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t21",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-21-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:44",
+     "sequence": 44,
+     "occurredAt": "2026-11-12T03:00:44.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t21",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:45",
+     "sequence": 45,
+     "occurredAt": "2026-11-12T03:00:45.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t22",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-22-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:46",
+     "sequence": 46,
+     "occurredAt": "2026-11-12T03:00:46.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t22",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:47",
+     "sequence": 47,
+     "occurredAt": "2026-11-12T03:00:47.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t23",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-23-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:48",
+     "sequence": 48,
+     "occurredAt": "2026-11-12T03:00:48.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t23",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:49",
+     "sequence": 49,
+     "occurredAt": "2026-11-12T03:00:49.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t24",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-24-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:50",
+     "sequence": 50,
+     "occurredAt": "2026-11-12T03:00:50.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t24",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:51",
+     "sequence": 51,
+     "occurredAt": "2026-11-12T03:00:51.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t25",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-25-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:52",
+     "sequence": 52,
+     "occurredAt": "2026-11-12T03:00:52.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t25",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:53",
+     "sequence": 53,
+     "occurredAt": "2026-11-12T03:00:53.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t26",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-26-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:54",
+     "sequence": 54,
+     "occurredAt": "2026-11-12T03:00:54.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t26",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:55",
+     "sequence": 55,
+     "occurredAt": "2026-11-12T03:00:55.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t27",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-27-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:56",
+     "sequence": 56,
+     "occurredAt": "2026-11-12T03:00:56.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t27",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:57",
+     "sequence": 57,
+     "occurredAt": "2026-11-12T03:00:57.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t28",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-28-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:58",
+     "sequence": 58,
+     "occurredAt": "2026-11-12T03:00:58.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t28",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:59",
+     "sequence": 59,
+     "occurredAt": "2026-11-12T03:00:59.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t29",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-29-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:60",
+     "sequence": 60,
+     "occurredAt": "2026-11-12T03:00:00.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t29",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:61",
+     "sequence": 61,
+     "occurredAt": "2026-11-12T03:00:01.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t30",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-30-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:62",
+     "sequence": 62,
+     "occurredAt": "2026-11-12T03:00:02.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t30",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:63",
+     "sequence": 63,
+     "occurredAt": "2026-11-12T03:00:03.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t31",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-31-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:64",
+     "sequence": 64,
+     "occurredAt": "2026-11-12T03:00:04.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t31",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:65",
+     "sequence": 65,
+     "occurredAt": "2026-11-12T03:00:05.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t32",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-32-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:66",
+     "sequence": 66,
+     "occurredAt": "2026-11-12T03:00:06.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t32",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:67",
+     "sequence": 67,
+     "occurredAt": "2026-11-12T03:00:07.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t33",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-33-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:68",
+     "sequence": 68,
+     "occurredAt": "2026-11-12T03:00:08.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t33",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:69",
+     "sequence": 69,
+     "occurredAt": "2026-11-12T03:00:09.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t34",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-34-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:70",
+     "sequence": 70,
+     "occurredAt": "2026-11-12T03:00:10.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t34",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:71",
+     "sequence": 71,
+     "occurredAt": "2026-11-12T03:00:11.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t35",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-35-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:72",
+     "sequence": 72,
+     "occurredAt": "2026-11-12T03:00:12.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t35",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:73",
+     "sequence": 73,
+     "occurredAt": "2026-11-12T03:00:13.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t36",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-36-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:74",
+     "sequence": 74,
+     "occurredAt": "2026-11-12T03:00:14.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t36",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:75",
+     "sequence": 75,
+     "occurredAt": "2026-11-12T03:00:15.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t37",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-37-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:76",
+     "sequence": 76,
+     "occurredAt": "2026-11-12T03:00:16.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t37",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:77",
+     "sequence": 77,
+     "occurredAt": "2026-11-12T03:00:17.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t38",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-38-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:78",
+     "sequence": 78,
+     "occurredAt": "2026-11-12T03:00:18.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t38",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:79",
+     "sequence": 79,
+     "occurredAt": "2026-11-12T03:00:19.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t39",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-39-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:80",
+     "sequence": 80,
+     "occurredAt": "2026-11-12T03:00:20.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t39",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:81",
+     "sequence": 81,
+     "occurredAt": "2026-11-12T03:00:21.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t40",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-40-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:82",
+     "sequence": 82,
+     "occurredAt": "2026-11-12T03:00:22.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t40",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:83",
+     "sequence": 83,
+     "occurredAt": "2026-11-12T03:00:23.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t41",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-41-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:84",
+     "sequence": 84,
+     "occurredAt": "2026-11-12T03:00:24.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t41",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:85",
+     "sequence": 85,
+     "occurredAt": "2026-11-12T03:00:25.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t42",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-42-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:86",
+     "sequence": 86,
+     "occurredAt": "2026-11-12T03:00:26.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t42",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:87",
+     "sequence": 87,
+     "occurredAt": "2026-11-12T03:00:27.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t43",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-43-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:88",
+     "sequence": 88,
+     "occurredAt": "2026-11-12T03:00:28.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t43",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:89",
+     "sequence": 89,
+     "occurredAt": "2026-11-12T03:00:29.000Z",
+     "type": "tool.started",
+     "payload": {
+      "itemId": "t44",
+      "toolKind": "command",
+      "name": "shell",
+      "command": "prettier --write src/file-number-44-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+      "phase": "started"
+     }
+    },
+    {
+     "id": "run_x:native:90",
+     "sequence": 90,
+     "occurredAt": "2026-11-12T03:00:30.000Z",
+     "type": "tool.completed",
+     "payload": {
+      "itemId": "t44",
+      "toolKind": "command",
+      "name": "shell",
+      "phase": "completed"
+     }
+    },
+    {
+     "id": "run_x:native:91",
+     "sequence": 91,
+     "occurredAt": "2026-11-12T03:00:31.000Z",
+     "type": "run.failed",
+     "payload": {
+      "kind": "quota-exhausted",
+      "message": "limit"
+     }
+    }
+   ],
+   "next": "Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. ",
+   "earlier": [],
+   "reason": "plan",
+   "instruction": "Codex CLI ran out of its plan's usage before it finished. Carry on with the task from where it stopped: what it already did is above, so finish what is left, the way the task asks.",
+   "ended": "its usage limit was reached",
+   "checkpoint": {
+    "schemaVersion": 1,
+    "missionId": "mission_prior",
+    "runId": "run_prior",
+    "epoch": 1,
+    "reason": "route-switch",
+    "reconciledThroughSequence": 91,
+    "settledActions": [
+     "t0",
+     "t1",
+     "t2",
+     "t3",
+     "t4",
+     "t5",
+     "t6",
+     "t7",
+     "t8",
+     "t9",
+     "t10",
+     "t11",
+     "t12",
+     "t13",
+     "t14",
+     "t15",
+     "t16",
+     "t17",
+     "t18",
+     "t19",
+     "t20",
+     "t21",
+     "t22",
+     "t23",
+     "t24",
+     "t25",
+     "t26",
+     "t27",
+     "t28",
+     "t29",
+     "t30",
+     "t31",
+     "t32",
+     "t33",
+     "t34",
+     "t35",
+     "t36",
+     "t37",
+     "t38",
+     "t39",
+     "t40",
+     "t41",
+     "t42",
+     "t43",
+     "t44"
+    ],
+    "settledNames": [
+     "command: shell: prettier --write src/file-number-5-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-6-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-7-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-8-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-9-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-10-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-11-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-12-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-13-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-14-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-15-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-16-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-17-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-18-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-19-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-20-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-21-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-22-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-23-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-24-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-25-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-26-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-27-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-28-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-29-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-30-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-31-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-32-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-33-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-34-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-35-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-36-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-37-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-38-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-39-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-40-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-41-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-42-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-43-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+     "command: shell: prettier --write src/file-number-44-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts"
+    ],
+    "unsettledActions": [],
+    "resumeSafety": "safe",
+    "safetyReason": "Every recorded action reported an outcome and the ledger was read to its end.",
+    "transcriptDigest": "0d371b39735d67232c7d2e1034515b3ef7e8e2ead3ff697f4ff422ee0aae1736",
+    "assistantSummary": "",
+    "createdAt": "2026-11-12T03:00:00.000Z"
+   },
+   "briefing": {
+    "prompt": "You are taking over this conversation from another agent (Codex CLI), whose last turn ended before it finished: its usage limit was reached. The last thing it was asked was:\n\nTidy every file\n\nThese actions reported finishing before the stop:\n- command: shell: prettier --write src/file-number-24-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-25-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-26-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-27-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-28-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-29-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-30-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-31-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-32-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-33-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-34-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-35-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-36-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-37-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-38-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-39-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-40-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-41-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-42-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-43-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- command: shell: prettier --write src/file-number-44-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts\n- and 24 earlier actions, not listed here\n\nThe person now asks:\n\nKeep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones. Keep going with the last ones.",
+    "omitted": [],
+    "taskClipped": false
+   }
+  }
+ ],
+ "refusals": [
+  {
+   "mode": "approve-each",
+   "to": "claude",
+   "refusal": "Claude Code cannot ask before each action, so this turn was not carried on there."
+  },
+  {
+   "mode": "auto",
+   "to": "claude",
+   "refusal": null
+  },
+  {
+   "mode": "approve-each",
+   "to": "codex",
+   "refusal": null
+  },
+  {
+   "mode": "auto",
+   "to": "codex",
+   "refusal": null
+  },
+  {
+   "mode": "approve-each",
+   "to": "cursor",
+   "refusal": "Cursor Agent cannot ask before each action, so this turn was not carried on there."
+  },
+  {
+   "mode": "auto",
+   "to": "cursor",
+   "refusal": null
+  },
+  {
+   "mode": "approve-each",
+   "to": "opencode",
+   "refusal": null
+  },
+  {
+   "mode": "auto",
+   "to": "opencode",
+   "refusal": null
+  },
+  {
+   "mode": "approve-each",
+   "to": "copilot",
+   "refusal": null
+  },
+  {
+   "mode": "auto",
+   "to": "copilot",
+   "refusal": null
+  },
+  {
+   "mode": "approve-each",
+   "to": "antigravity",
+   "refusal": "Antigravity cannot ask before each action, so this turn was not carried on there."
+  },
+  {
+   "mode": "auto",
+   "to": "antigravity",
+   "refusal": null
+  }
+ ]
+}

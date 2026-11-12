@@ -445,8 +445,12 @@ pub fn load_looks() -> std::collections::HashMap<String, FaceLook> {
 
 pub fn load_roster() -> Result<Vec<Teammate>, String> {
     let store = Store::local().map_err(|e| e.to_string())?;
-    let file = crate::people::team(&store)?;
-    parse_roster(&file.to_string())
+    roster_in(&store)
+}
+
+/// The roster in one data folder.
+pub fn roster_in(store: &Store) -> Result<Vec<Teammate>, String> {
+    parse_roster(&crate::people::team(store)?.to_string())
 }
 
 /// The folder Locust last had open (`workspace.json`, read-only), else Locust's default `~/Documents/Locust` if it exists.
@@ -793,6 +797,155 @@ pub fn claude_args(
     })
 }
 
+/// A reply on another agent: the brief that starts it, the link it records, and the stopped turn's checkpoint.
+struct RouteSwitch {
+    prompt: String,
+    link: Value,
+    checkpoint: Value,
+    /// The stopped turn's ledger, when it is the native engine's own (the checkpoint is appended there).
+    native_prior: Option<PathBuf>,
+}
+
+/// One turn's records, read whole: its metadata, its events in order, its checkpoints, and whether every line read.
+pub struct TurnRecords {
+    pub path: PathBuf,
+    pub metadata: Value,
+    pub events: Vec<Value>,
+    pub checkpoints: usize,
+    pub incomplete: bool,
+}
+
+pub fn turn_records(mission: &str) -> Option<TurnRecords> {
+    let path = find_ledger(mission)?;
+    let text = std::fs::read_to_string(&path).ok()?;
+    let lines = text.lines().filter(|l| !l.trim().is_empty()).count();
+    let records = Tail::new(&path, 0).poll();
+    let metadata = records.iter().find(|r| r["recordType"] == "mission.created")?["metadata"].clone();
+    let mut events: Vec<Value> = records.iter().filter_map(|r| r.get("event").cloned()).collect();
+    events.sort_by_key(|e| e["sequence"].as_u64().unwrap_or(0));
+    events.dedup_by_key(|e| e["sequence"].as_u64());
+    let checkpoints = records.iter().filter(|r| r["recordType"] == "mission.checkpoint").count();
+    Some(TurnRecords { incomplete: records.len() < lines, path, metadata, events, checkpoints })
+}
+
+/// earlierTurnsOf: the turns before this one, oldest first, up to four.
+fn earlier_turns(metadata: &Value) -> Vec<crate::carry_on::EarlierTurn> {
+    let mut turns = Vec::new();
+    let mut from = metadata["continuesFrom"]["missionId"].as_str().map(str::to_owned);
+    let mut seen = HashSet::new();
+    while let Some(id) = from.take() {
+        if turns.len() >= 4 || !seen.insert(id.clone()) {
+            break;
+        }
+        let Some(earlier) = turn_records(&id) else { break };
+        turns.insert(
+            0,
+            crate::carry_on::EarlierTurn {
+                asked: earlier.metadata["prompt"].as_str().unwrap_or_default().to_owned(),
+                answered: crate::carry_on::latest_final(&earlier.events),
+            },
+        );
+        from = earlier.metadata["continuesFrom"]["missionId"].as_str().map(str::to_owned);
+    }
+    turns
+}
+
+fn route_switch(store: &Store, tip: &str, reply: &str) -> Result<RouteSwitch, String> {
+    let prior = turn_records(tip).ok_or("That conversation cannot be continued: its earlier mission is not in the ledger.")?;
+    let epoch = prior.checkpoints as u64 + 1;
+    let checkpoint = crate::carry_on::reconcile(&prior.metadata, &prior.events, prior.incomplete, "route-switch", epoch, &crate::ledger_write::now());
+    if checkpoint["resumeSafety"] == "unsafe" {
+        return Err(format!(
+            "That conversation cannot be continued safely on another runtime: {}",
+            checkpoint["safetyReason"].as_str().unwrap_or_default()
+        ));
+    }
+    let from = prior.metadata["runtime"].as_str().unwrap_or_default();
+    let briefing = crate::carry_on::compose_handoff_prompt(
+        prior.metadata["prompt"].as_str().unwrap_or_default(),
+        &checkpoint,
+        crate::carry_on::display_name(from),
+        Some(reply),
+        &earlier_turns(&prior.metadata),
+        crate::carry_on::how_turn_ended(&prior.events),
+    )
+    .ok_or("That conversation is too long to carry to another runtime with this reply.")?;
+    let mut link = json!({"missionId": tip, "checkpointEpoch": epoch, "reason": "route-switch"});
+    if !briefing.omitted.is_empty() {
+        link["leftOut"] = json!(briefing.omitted);
+    }
+    let native_prior = store.ledger_dir().ok().filter(|dir| prior.path.starts_with(dir)).map(|_| prior.path.clone());
+    Ok(RouteSwitch { prompt: briefing.prompt, link, checkpoint, native_prior })
+}
+
+/// Turns already carried on, so a second press while the first is starting is refused rather than run twice.
+static CARRIED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// main/carry-on.ts `carry`: carry a turn that stopped on its plan, its provider or its process on to another agent.
+/// The new turn continues the conversation in the stopped turn's mode (and an app's folder), told what was done.
+/// Returns the new turn's id and the folder it works in.
+pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
+    if crate::invariants::lock(&CARRIED).iter().any(|m| m == mission) {
+        return Err("This turn was already carried on.".into());
+    }
+    let store = store().ok_or("Native data folder could not be determined.")?;
+    let prior = turn_records(mission).ok_or("This conversation is not in the record any more, so it cannot be carried on.")?;
+    let phase_done = prior.events.iter().rev().find_map(|e| e["type"].as_str().filter(|t| matches!(*t, "run.completed" | "run.cancelled" | "run.failed")));
+    let reason = match phase_done {
+        Some("run.completed" | "run.cancelled") => None,
+        _ => crate::carry_on::carry_on_reason(&prior.events),
+    }
+    .ok_or("This turn did not stop on its plan running out or its provider or process failing, so there is nothing to carry on.")?;
+    let from = prior.metadata["runtime"].as_str().unwrap_or_default().to_owned();
+    if runtime == from {
+        let name = crate::carry_on::display_name(&from);
+        return Err(if reason == crate::carry_on::Reason::Plan {
+            format!("{name} is the agent whose plan ran out.")
+        } else {
+            format!("{name} is the agent that just failed.")
+        });
+    }
+    let mode = prior.metadata["mode"]
+        .as_str()
+        .map(str::to_owned)
+        .unwrap_or_else(|| if prior.metadata["sandbox"] == "read-only" { "ask".into() } else { "accept-edits".into() });
+    if let Some(refused) = crate::carry_on::carry_on_refusal(&mode, runtime) {
+        return Err(refused);
+    }
+    let owner = crate::people::owner_of(&store, mission).ok_or("This conversation no longer has a teammate, so it cannot be carried on.")?;
+    let mut teammate = roster_in(&store)?
+        .into_iter()
+        .find(|t| t.id == owner)
+        .ok_or("This conversation no longer has a teammate, so it cannot be carried on.")?;
+    // A conversation an app sent to a folder is carried on there, checked again: it may be gone.
+    let mut folder = None;
+    if let Some(was) = crate::door_tools::conversation_folder(&prior.metadata["startedBy"]) {
+        folder = Some(crate::door::check_folder(&store, &was).map_err(|why| format!("This conversation worked in {was}: {why}"))?);
+    }
+    crate::invariants::lock(&CARRIED).push(mission.to_owned());
+    teammate.model = model.map(str::to_owned);
+    let mut started_by = json!({"kind": "carry-on", "from": from});
+    if let Some(f) = &folder {
+        started_by["folder"] = json!(f.to_string_lossy());
+    }
+    let job = Send {
+        teammate,
+        conversation: Some(mission.to_owned()),
+        prompt: crate::carry_on::carry_on_prompt(&from, reason),
+        model: model.map(str::to_owned),
+        effort: None,
+    };
+    let origin = Origin { mode: Mode::parse(&mode), folder: folder.clone(), started_by: Some(started_by), runtime: Some(runtime.to_owned()) };
+    let started = send_from(job, origin).and_then(|s| real_tip(&s.conversation_id));
+    match started {
+        Ok(id) => Ok((id, folder.map(|f| f.to_string_lossy().into_owned()))),
+        Err(why) => {
+            crate::invariants::lock(&CARRIED).retain(|m| m != mission);
+            Err(why)
+        }
+    }
+}
+
 /// codex-mission.ts AUTO_OFF_REFUSAL.
 pub const AUTO_OFF_REFUSAL: &str = "Auto mode is switched off for this workspace. Turn it on in Settings to let a run work outside the workspace folder. Nothing was recorded.";
 
@@ -816,15 +969,18 @@ pub fn send(job: Send) -> Result<Started, String> {
 /// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
 pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
+    let own_agent = origin.runtime.is_none() || origin.runtime == job.teammate.runtime;
     if let Some(runtime) = &origin.runtime {
         job.teammate.runtime = Some(runtime.clone());
     }
     let store = store().ok_or("Native data folder could not be determined.")?;
     let saved = crate::people::team(&store)?;
+    // The saved effort belongs to the teammate's own agent; another agent's turn (a carry-on) takes its own default.
     if let Some(entry) = saved["teammates"]
         .as_array()
         .and_then(|rows| rows.iter().find(|r| r["teammateId"] == job.teammate.id))
         && job.effort.is_none()
+        && own_agent
     {
         job.effort = entry["route"]["effort"].as_str().map(str::to_owned);
     }
@@ -843,6 +999,9 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         return Err(AUTO_OFF_REFUSAL.into());
     }
     let electron = store.electron().to_path_buf();
+    // A reply on ANOTHER agent (codex-mission.ts, the route switch): the conversation is reconciled, and a brief of
+    // what was done starts the new agent cold, with the reply as the latest word.
+    let mut switched: Option<RouteSwitch> = None;
     let (continues, resume) = match job.conversation.as_deref() {
         None => (None, None),
         Some(conversation) => {
@@ -862,11 +1021,9 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 );
             }
             if prior.runtime != runtime_name {
-                return Err(format!(
-                    "This conversation ran on another agent. Native continues {runtime_name} conversations only for now."
-                ));
-            }
-            if runtime_name == "claude" {
+                switched = Some(route_switch(&store, tip, &job.prompt)?);
+                (None, None)
+            } else if runtime_name == "claude" {
                 // A Claude conversation resumes its session when one was recorded; one that never reached Claude
                 // Code's init (or ended it) starts a new one, as it always has here.
                 let thread = prior.thread;
@@ -931,6 +1088,10 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     } else {
         model
     };
+    // A switch starts the new agent with the brief, not the bare reply, and records the brief as the turn's words.
+    if let Some(switch) = &switched {
+        job.prompt = switch.prompt.clone();
+    }
     let runtime_prompt = crate::people::brief(&store, &job.teammate.id, &folder, &job.prompt)?;
     let id = new_id();
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
@@ -1010,6 +1171,15 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     let mut extra = json!({"mode": mode.as_str(), "sandbox": mode.sandbox(), "cwd": folder.to_string_lossy()});
     if let Some(by) = &origin.started_by {
         extra["startedBy"] = by.clone();
+    }
+    if let Some(switch) = &switched {
+        extra["continuesFrom"] = switch.link.clone();
+        // The stopped turn's checkpoint, written into its own ledger when that ledger is the native engine's;
+        // Electron's ledgers are only read.
+        if let Some(path) = &switch.native_prior {
+            crate::ledger_write::append_checkpoint(path, &switch.checkpoint)
+                .map_err(|_| "That conversation could not be reconciled, so it cannot be continued on another runtime.".to_string())?;
+        }
     }
     let writer = LedgerWriter::create_runtime_with(
         &store,
