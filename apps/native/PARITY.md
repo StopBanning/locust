@@ -58,7 +58,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | :--- | :--- | :--- | :--- | :--- | :---: |
 | Send text and stop an owned turn | `renderer/src/components/Composer.tsx`, `main/locust-mcp-tools.ts` | **done** | yes | no — send seen live 11 Nov; Stop not yet proven live | yes |
 | Restore failed-send text | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
-| Per-turn model and effort selection | `renderer/src/components/RoutePicker.tsx`, `renderer/src/components/EffortSlider.tsx`, `main/model-catalog.ts` | **done** | no — the model list and per-turn pick come from Electron (`main.rs` `open_models`); native says it runs in Locust for now | no | yes |
+| Per-turn model and effort selection | `renderer/src/components/RoutePicker.tsx`, `renderer/src/components/EffortSlider.tsx`, `main/model-catalog.ts` | **done** | yes | 2026-11-12 — door: a turn on a named free OpenCode model answered; picker drawn in both themes | yes |
 | Multiline auto-expanding editor, Shift+Enter | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | Separate conversation drafts while switching within window | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | @ file attachment and teammate tagging | `renderer/src/components/Composer.tsx`, `renderer/src/fileMentions.ts`, `main/workspace-files.ts` | **done** | yes | no | yes |
@@ -66,7 +66,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Paste/drop files, images and PDF attachment previews | `renderer/src/components/Composer.tsx`, `renderer/src/components/AttachedImage.tsx`, `renderer/src/components/PdfTile.tsx`, `shared/attachments.ts` | **done** | yes | no | yes |
 | Durable busy-turn queue, edit/discard and stop/send now | `renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts` | **done** | yes | no | yes |
 | Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
-| Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **missing** | - | no | yes |
+| Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **partial** — folders on this computer; no GitHub repositories yet | yes | no | yes |
 | Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **missing** | - | no | yes |
 | Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **missing** | - | no | yes |
 | Connector-off and unavailable-route pre-send warnings | `renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts` | **missing** | - | no | yes |
@@ -82,7 +82,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Rooms, targeted mentions and project standing instructions | `renderer/src/components/RoomScreen.tsx`, `renderer/src/components/GroupSettingsDialog.tsx`, `main/room-store.ts`, `main/group-store.ts` | **missing** | - | no | yes |
 | Automatic peer exchanges and optional handoff omissions | `main/peer-exchange.ts`, `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **missing** | - | no | yes |
 | Memory store, named replacements, recently forgotten and tidy suggestions | `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/MemoryCard.tsx`, `main/memory-store.ts`, `shared/memory.ts` | **partial** — native-owned Electron-shaped memory, named rewrites/proposals, edit/toggle/remove/restore and gated tidy application; full validation, recall, tidy UI and turn-card receipts remain (P6-NOTES.md) | yes | no | yes |
-| Workspace/runtime skills and GitHub popular/recent skill packs | `renderer/src/components/SkillsFromGitHub.tsx`, `renderer/src/components/CliArtifacts.tsx`, `main/skill-discovery.ts`, `main/skill-library.ts` | **missing** | - | no | yes |
+| Workspace/runtime skills and GitHub popular/recent skill packs | `renderer/src/components/SkillsFromGitHub.tsx`, `renderer/src/components/CliArtifacts.tsx`, `main/skill-discovery.ts`, `main/skill-library.ts` | **partial** — run skills for every agent (Electron's kept skills, read only); no GitHub skill packs or native skill store | yes | no | yes |
 | Teammate secret environment keys and scoped run injection | `renderer/src/components/KeyCard.tsx`, `main/teammate-keys.ts` | **missing** | - | no | yes |
 | Custom faces, colours, bot/mascot and status legend | `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/FaceLegend.tsx`, `renderer/src/components/PixelFace.tsx`, `renderer/src/components/AgentMark.tsx` | **missing** | - | no | no |
 | About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **partial** — native About-you editor and suggestion approval/dismissal, included in native runtime prompts; full secret refusal vocabulary, change notices and TS test coverage remain (P6-NOTES.md) | yes | no | yes |
@@ -94,17 +94,17 @@ Native status evidence: each cell names its module or round notes; the engine is
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| Manual carry-on after plan/provider failure with runtime/model picker | `renderer/src/components/Thread.tsx`, `main/carry-on.ts` | **done** | no — `carry_on` through Electron (`main.rs` `carry`); native refuses it | no | yes |
-| Query models and effort levels | `main/model-catalog.ts`, `main/locust-mcp-tools.ts` | **done** | no — `list_models` through Electron (`main.rs` `open_models`, `poll`) | no | yes |
+| Manual carry-on after plan/provider failure with runtime/model picker | `renderer/src/components/Thread.tsx`, `main/carry-on.ts` | **done** | yes | 2026-11-12 — real OpenCode test: a stopped Codex turn carried on, finished from the brief | yes |
+| Query models and effort levels | `main/model-catalog.ts`, `main/locust-mcp-tools.ts` | **done** | yes | 2026-11-12 — locust-native --models: 101 models on this Mac; door list_models | yes |
 | Standalone Codex app-server execution | `packages/runtime-adapters/src/codex-app-server-run.ts`, `main/codex-mission.ts` | **partial** — `runtime/codex.rs` runs `codex app-server` with continuation, approvals and Stop, and switches the plan tool on from Codex 0.153 as Electron does (`runtime/version.rs` reads the version; all 55 command-grid cases match); each mode gets Electron's sandbox (Accept edits writes in the folder) and the person's MCP programs are off in Ask and Plan only; no steer, fork, compact or `model/list` | yes | 2026-11-11 — real-agent tests `real_codex_continue`, `real_codex_approval_deny_then_allow` and `real_codex_accept_edits_writes_in_its_folder` on Codex 0.167.1 with the plan tool switch | yes |
 | Standalone Claude Code execution | `packages/runtime-adapters/src/process-runner.ts`, `packages/runtime-adapters/src/claude-events.ts` | **partial** — `claude::print_args` ports `createClaudePrintCommand`: each mode gets Electron's tools and permission mode, the permission bridge outside Auto in one `--mcp-config` with the browser, the guard hook, `--strict-mcp-config`, `--effort`, and `--resume` on a follow-up (26 of 55 command-grid cases match); skills, reference folders, forks and ticked connectors are not wired | yes | 2026-11-11 — real-agent tests `real_claude_continue` (the resumed session kept a word) and `real_claude_approval_deny_then_allow` on Claude Code 2.1.322 | yes |
 | Standalone Antigravity/OpenCode/Cursor/Copilot/Muse/Kilo execution | `packages/runtime-adapters/src/index.ts`, `packages/runtime-adapters/src/opencode-serve-run.ts`, `packages/runtime-adapters/src/kilo-acp-run.ts`, `main/antigravity-mission.ts` | **partial** — M4A/M4C: OpenCode 1/2, Kilo ACP, Cursor, Copilot, Antigravity (`agy`) and Muse Code run natively with continuation and Stop; no native discovery/sign-in/install UI, and live one-line CLI turns remain unrun | yes | no — OpenCode seen live 11 Nov; the other agents not yet | yes |
 | Custom Agent Client Protocol agents by command | `renderer/src/components/AcpAgentsSettings.tsx`, `main/acp-agents.ts`, `packages/runtime-adapters/src/acp-run.ts` | **partial** — M4A: saved agents run over native stdio ACP, with continuation, model config, approvals and Stop; no native agent settings/Test/save/remove or capability display | yes | no | yes |
 | Own OpenAI-compatible API/local models, pricing and chat-only capability | `renderer/src/components/OwnModels.tsx`, `main/own-models.ts`, `main/listed-prices.ts` | **missing** | - | no | yes |
-| Automatic carry-on policy | `main/carry-on.ts`, `shared/carry-on.ts` | **missing** | - | no | yes |
+| Automatic carry-on policy | `main/carry-on.ts`, `shared/carry-on.ts` | **done** | yes | no | yes |
 | Named Codex/Claude accounts and explicit account selection | `renderer/src/components/AgentAccountsSettings.tsx`, `main/agent-accounts.ts` | **missing** | - | no | yes |
 | Agent discovery (including Gemini), install, sign-in, updates and capability reporting | `renderer/src/components/SignInButton.tsx`, `main/runtime-discovery.ts`, `main/runtime-installer.ts`, `main/runtime-setup.ts`, `main/runtime-sign-in.ts`, `main/runtime-updates.ts`, `shared/runtimes.ts` | **missing** | - | no | yes |
-| Cross-runtime handoff briefing and omission choices | `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **partial** — delegates briefing to Electron; no omission UI | no — the briefing is written by Electron | no | yes |
+| Cross-runtime handoff briefing and omission choices | `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **partial** — Electron's brief and checkpoint, matched on generated cases; no omission UI | yes | no | yes |
 
 ### Area 5: Approvals & Permissions
 
@@ -213,7 +213,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| Local MCP teammates/conversations/models/stop/carry-on access | `renderer/src/components/LocustMcpSettings.tsx`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts` | **partial** — client only; no native server/settings/routine tools | no — this is the client of Electron's door; no native server | no | yes |
+| Local MCP teammates/conversations/models/stop/carry-on access | `renderer/src/components/LocustMcpSettings.tsx`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts` | **partial** — native server, tools, bridge and Settings switches; no routines, voice-call copy or editor sessions | yes | 2026-11-12 — door bridge: Auto turn in a named folder, follow-up, stop, refused folder, model choice | yes |
 | First launch, discovery and starter team setup | `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/BootScreen.tsx`, `main/start-readiness.ts` | **partial** — boot PATH sweep via `discovery::find_named`, starter templates; install/sign-in/CRT/DiscoveryEvent stream remain (p12-NOTES.md) | yes | no | yes |
 | Folder/project switcher and remembered conversation folders | `renderer/src/components/Sidebar.tsx`, `main/folders.ts`, `main/named-folder.ts` | **done** — native `folders.json` seed-once registry, Home Choose folder, message-named project switch; OS picker remains synthetic | yes | no | yes |
 | Home cover, team, starters and compare entry points | `renderer/src/components/HomeCover.tsx`, `renderer/src/components/HomeTeam.tsx`, `renderer/src/components/StarterList.tsx`, `renderer/src/components/IdleTeammate.tsx` | **done** — cover claim, team/templates, Electron starters; Compare/issue deferred; cover animation remains | yes | no | no |
@@ -279,9 +279,9 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 9 | 8 | 8 | 25 | 17 | 3 |
-| 2 | Composer & Input | 10 | 0 | 4 | 14 | 9 | 0 |
-| 3 | Teammates, Rooms, Memory & Skills | 2 | 3 | 9 | 14 | 5 | 0 |
-| 4 | Runtimes, Routing & Fallback | 2 | 5 | 4 | 11 | 4 | 2 |
+| 2 | Composer & Input | 10 | 1 | 3 | 14 | 11 | 1 |
+| 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
+| 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 4 |
 | 5 | Approvals & Permissions | 1 | 6 | 2 | 9 | 7 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 1 | 3 | 9 | 13 | 4 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
@@ -290,10 +290,10 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 2 | 2 | 4 | 8 | 4 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
-| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 7 | 0 |
+| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 8 | 1 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 0 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **38** | **42** | **73** | **153** | **74** | **7** |
+| | **TOTAL** | **39** | **44** | **70** | **153** | **82** | **11** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
