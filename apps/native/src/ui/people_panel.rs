@@ -20,6 +20,8 @@ pub(super) struct Panel {
     pub form_open: bool,
     /// The teammate whose remove button was pressed once, asking before it removes (Electron's armed confirm).
     pub removing: Option<String>,
+    /// How memory is kept (`memoryMode`: auto, ask, off), read with the team.
+    pub memory_mode: String,
 }
 fn field(value: &str) -> TextEdit {
     let mut edit = TextEdit::default();
@@ -47,6 +49,7 @@ fn reload(s: &mut State) {
         });
     match result {
         Ok((team, memories, rules)) => {
+            s.people_panel.memory_mode = team["settings"]["memoryMode"].as_str().unwrap_or(crate::workspace_settings::DEFAULT_MEMORY_MODE).to_owned();
             s.people_panel.note = field(team["settings"]["aboutYou"].as_str().unwrap_or(""));
             s.people_panel.team = team;
             s.people_panel.memories = memories;
@@ -336,202 +339,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         }
         body = body.child(team_grid(s, p));
     } else {
-        body = body
-            .child(text("About you").font(type_::TITLE).color(p.text))
-            .child(
-                text_input(&panel.note, type_::BODY)
-                    .key("about-you")
-                    .label("About you")
-                    .w_full()
-                    .padding(8.0)
-                    .fill(p.field)
-                    .color(p.text)
-                    .on_edit(|s: &mut State| &mut s.people_panel.note),
-            )
-            .child(button("Save", p).on_press(|s: &mut State| {
-                let result = s
-                    .data
-                    .as_ref()
-                    .ok_or("No native data folder".into())
-                    .and_then(|store| people::settings(store, &s.people_panel.note.text, None));
-                done(s, result);
-            }));
-        for suggestion in panel.team["settings"]["aboutYouSuggestions"]
-            .as_array()
-            .into_iter()
-            .flatten()
-        {
-            let id = suggestion["id"].clone();
-            body = body.child(
-                text(suggestion["text"].as_str().unwrap_or("").to_owned())
-                    .color(p.text)
-                    .wrap(),
-            );
-            for (label, add) in [("Add to About you", true), ("Dismiss", false)] {
-                let id = id.clone();
-                body = body.child(button(label, p).on_press(move |s: &mut State| {
-                    let suggestions: Vec<_> =
-                        s.people_panel.team["settings"]["aboutYouSuggestions"]
-                            .as_array()
-                            .into_iter()
-                            .flatten()
-                            .filter(|r| r["id"] != id)
-                            .cloned()
-                            .collect();
-                    let line = s.people_panel.team["settings"]["aboutYouSuggestions"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .find(|r| r["id"] == id)
-                        .and_then(|r| r["text"].as_str())
-                        .unwrap_or("");
-                    let note = if add {
-                        format!("{}\n{}", s.people_panel.note.text, line)
-                    } else {
-                        s.people_panel.note.text.clone()
-                    };
-                    let result = s
-                        .data
-                        .as_ref()
-                        .ok_or("No native data folder".into())
-                        .and_then(|store| people::settings(store, &note, Some(suggestions)));
-                    done(s, result);
-                }));
-            }
-        }
-        body = body
-            .child(text("Memory").font(type_::TITLE).color(p.text))
-            .child(
-                text_input(&panel.memory, type_::BODY)
-                    .label("Memory text")
-                    .key("memory-text")
-                    .w_full()
-                    .padding(8.0)
-                    .fill(p.field)
-                    .color(p.text)
-                    .on_edit(|s: &mut State| &mut s.people_panel.memory),
-            );
-        body = body.child(button("Remember everywhere", p).on_press(|s: &mut State| {
-            let result = s
-                .data
-                .as_ref()
-                .ok_or("No native data folder".into())
-                .and_then(|store| {
-                    people::add_memory(
-                        store,
-                        &s.people_panel.memory.text,
-                        None,
-                        "global",
-                        "native",
-                        json!({"name":"you"}),
-                        "kept",
-                    )
-                });
-            done(s, result);
-        }));
-        for memory in panel.memories["memories"].as_array().into_iter().flatten() {
-            let id = memory["memoryId"].as_str().unwrap_or("").to_owned();
-            let mut card = col()
-                .w_full()
-                .padding(12.0)
-                .gap(5.0)
-                .radius(8.0)
-                .fill(p.raised)
-                .child(
-                    text(memory["text"].as_str().unwrap_or("").to_owned())
-                        .color(p.text)
-                        .wrap(),
-                )
-                .child(
-                    text(format!(
-                        "{} · {} · {}",
-                        memory["by"]["name"].as_str().unwrap_or(""),
-                        memory["scope"].as_str().unwrap_or(""),
-                        memory["status"].as_str().unwrap_or("")
-                    ))
-                    .font(type_::LABEL)
-                    .color(p.muted),
-                );
-            if let Some(previous) = memory["previousText"].as_str() {
-                card = card.child(text(format!("Before: {previous}")).color(p.muted).wrap());
-            }
-            for (label, act) in [
-                ("Keep", "keep"),
-                ("Edit", "edit"),
-                (
-                    if memory["enabled"] == true {
-                        "Switch off"
-                    } else {
-                        "Switch on"
-                    },
-                    "toggle",
-                ),
-                ("Remove", "remove"),
-            ] {
-                if act == "keep" && memory["status"] != "proposed" {
-                    continue;
-                }
-                let id = id.clone();
-                card = card.child(button(label, p).on_press(move |s: &mut State| {
-                    if act == "edit" && s.people_panel.editing.as_deref() != Some(&id) {
-                        if let Some(m) = s.people_panel.memories["memories"]
-                            .as_array()
-                            .and_then(|r| r.iter().find(|m| m["memoryId"] == id))
-                        {
-                            s.people_panel.memory = field(m["text"].as_str().unwrap_or(""));
-                            s.people_panel.editing = Some(id.clone());
-                        }
-                    } else {
-                        action(s, &id, act);
-                        s.people_panel.editing = None;
-                    }
-                }));
-            }
-            body = body.child(card);
-        }
-        body = body.child(button("Suggest rewrite", p).on_press(|s: &mut State| {
-            let result = s
-                .data
-                .as_ref()
-                .ok_or("No native data folder".into())
-                .and_then(|store| {
-                    let id = s
-                        .people_panel
-                        .editing
-                        .clone()
-                        .ok_or("Choose Edit on a memory first.")?;
-                    let m = s.people_panel.memories["memories"]
-                        .as_array()
-                        .and_then(|rows| rows.iter().find(|m| m["memoryId"] == id))
-                        .ok_or("That memory no longer exists.")?;
-                    people::propose_tidy(
-                        store,
-                        m["workspaceId"].as_str().unwrap_or(""),
-                        &[id],
-                        &s.people_panel.memory.text,
-                        false,
-                    )
-                });
-            done(s, result);
-        }));
-        body = body.child(text("Recently forgotten").font(type_::TITLE).color(p.text));
-        for held in panel.memories["forgotten"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .rev()
-        {
-            let id = held["memory"]["memoryId"].as_str().unwrap_or("").to_owned();
-            body = body
-                .child(
-                    text(held["memory"]["text"].as_str().unwrap_or("").to_owned())
-                        .color(p.muted)
-                        .wrap(),
-                )
-                .child(
-                    button("Restore", p).on_press(move |s: &mut State| action(s, &id, "restore")),
-                );
-        }
+        body = body.child(memory_screen(s, p));
     }
     col()
         .key("people-scroll")
@@ -734,4 +542,222 @@ fn team_grid(s: &State, p: &Palette) -> El {
             .child(text("New teammate").font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")))
             .child(text("Name, role and avatar. Their conversations group under them.").font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")).w_full().wrap()),
     )
+}
+
+fn set_memory_mode(s: &mut State, mode: &str) {
+    let result = s.data.clone().ok_or("No native data folder".to_owned()).and_then(|store| {
+        let mut settings = crate::workspace_settings::load(&store)?;
+        settings.memory_mode = mode.to_owned();
+        crate::workspace_settings::save(&store, &settings)
+    });
+    done(s, result);
+}
+
+/// MemoryScreen.tsx: About you, How memory is kept, This folder, Everywhere and Recently forgotten, each a card in
+/// Electron's words, with every action the memory store has (keep, edit, switch off or on, remove, suggest a rewrite,
+/// remember, restore).
+fn memory_screen(s: &State, p: &Palette) -> El {
+    let panel = &s.people_panel;
+    let l = crate::look::controls::Look::new(p.dark);
+    let card = || col().w_full().max_w(680.0).gap(10.0).padding(16.0).radius(10.0).border(1.0, l.c("border-hairline")).fill(l.c("bg-raised"));
+    let heading = |words: String| text(words).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name"));
+    let lede = |words: &str| text(words.to_owned()).font(l.ty.body).color(l.c("text-secondary")).w_full().wrap();
+    let note = |words: &str| text(words.to_owned()).font(l.ty.body).color(l.c("text-muted")).w_full().wrap();
+    let memories: Vec<&Value> = panel.memories["memories"].as_array().into_iter().flatten().collect();
+    let kept = memories.iter().filter(|m| m["status"] != "proposed").count();
+    let mode = panel.memory_mode.as_str();
+    let mode_word = match mode {
+        "ask" => crate::workspace_settings::MEMORY_ASK,
+        "off" => crate::workspace_settings::MEMORY_OFF,
+        _ => crate::workspace_settings::MEMORY_KEEP,
+    }
+    .to_lowercase();
+    let mut out = col().w_full().gap(14.0).child(
+        row()
+            .w_full()
+            .gap(10.0)
+            .center_y()
+            .pt(6.0)
+            .child(text("Memory").font(rune::TextStyle::new(20.0, 600.0)).color(p.text))
+            .child(text(format!("{} · {mode_word}", if kept == 0 { "nothing remembered yet".to_owned() } else { format!("{kept} remembered") })).font(type_::LABEL).color(p.muted)),
+    );
+
+    // About you, with the suggestions waiting for it.
+    let mut about = card()
+        .key("memory-about")
+        .child(heading("About you".into()))
+        .child(lede("Every teammate reads this before each run, on every runtime — how you like to work, what to always or never do. Only you change it."))
+        .child(
+            text_input(&panel.note, type_::BODY)
+                .key("about-you")
+                .label("About you")
+                .w_full()
+                .min_h(72.0)
+                .padding(10.0)
+                .radius(8.0)
+                .fill(p.field)
+                .border(1.0, l.c("border-control"))
+                .color(p.text)
+                .placeholder("For example: I read diffs, not long explanations. Keep answers short. Ask before deleting anything.", p.muted)
+                .on_edit(|s: &mut State| &mut s.people_panel.note),
+        )
+        .child(row().w_full().justify_end().child(button("Save", p).on_press(|s: &mut State| {
+            let result = s.data.as_ref().ok_or("No native data folder".into()).and_then(|store| people::settings(store, &s.people_panel.note.text, None));
+            done(s, result);
+        })));
+    for suggestion in panel.team["settings"]["aboutYouSuggestions"].as_array().into_iter().flatten() {
+        let id = suggestion["id"].clone();
+        let mut actions = row().gap(6.0);
+        for (label, add) in [("Add to About you", true), ("Dismiss", false)] {
+            let id = id.clone();
+            actions = actions.child(button(label, p).on_press(move |s: &mut State| {
+                let all = s.people_panel.team["settings"]["aboutYouSuggestions"].as_array().cloned().unwrap_or_default();
+                let line = all.iter().find(|r| r["id"] == id).and_then(|r| r["text"].as_str()).unwrap_or("").to_owned();
+                let rest: Vec<_> = all.into_iter().filter(|r| r["id"] != id).collect();
+                let text_now = if add { format!("{}\n{}", s.people_panel.note.text, line) } else { s.people_panel.note.text.clone() };
+                let result = s.data.as_ref().ok_or("No native data folder".into()).and_then(|store| people::settings(store, &text_now, Some(rest)));
+                done(s, result);
+            }));
+        }
+        about = about.child(
+            col()
+                .w_full()
+                .gap(6.0)
+                .padding(10.0)
+                .radius(8.0)
+                .fill(l.c("hover-surface"))
+                .child(text(suggestion["text"].as_str().unwrap_or("").to_owned()).font(l.ty.control).color(l.c("text-primary")).w_full().wrap())
+                .child(actions),
+        );
+    }
+    out = out.child(about);
+
+    // How memory is kept.
+    let mut modes = row().gap(6.0);
+    for (value, label) in [("auto", crate::workspace_settings::MEMORY_KEEP), ("ask", crate::workspace_settings::MEMORY_ASK), ("off", crate::workspace_settings::MEMORY_OFF)] {
+        let on = mode == value || (value == "auto" && !matches!(mode, "ask" | "off"));
+        modes = modes.child(crate::look::controls::chip(&l, label, on).key(format!("memory-mode-{value}")).on_press(move |s: &mut State| set_memory_mode(s, value)));
+    }
+    out = out.child(
+        card()
+            .key("memory-mode")
+            .child(heading("How memory is kept".into()))
+            .child(lede("Every teammate in a folder reads what is remembered for that folder and everything marked everywhere. A teammate writes a memory by ending a reply with one; you can also write one below. Nothing here is uploaded: memory lives in Locust's own data on this machine."))
+            .child(modes)
+            .child(note(match mode {
+                "ask" => "A memory a teammate writes, changes or forgets waits below until you answer it.",
+                "off" => "Teammates are not told what is remembered and cannot write memory. What is kept stays here.",
+                _ => "A memory a teammate writes is kept at once and said in the conversation; undo it here.",
+            })),
+    );
+
+    // The memories, in this folder and everywhere.
+    let row_of = |memory: &Value| {
+        let id = memory["memoryId"].as_str().unwrap_or("").to_owned();
+        let mut item = col()
+            .w_full()
+            .gap(4.0)
+            .py(8.0)
+            .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
+            .child(text(memory["text"].as_str().unwrap_or("").to_owned()).font(l.ty.control).color(if memory["enabled"] == false { l.c("text-muted") } else { l.c("text-primary") }).w_full().wrap())
+            .child(text(format!("{} · {}", memory["by"]["name"].as_str().unwrap_or(""), memory["status"].as_str().unwrap_or(""))).font(type_::LABEL).color(l.c("text-muted")));
+        if let Some(previous) = memory["previousText"].as_str() {
+            item = item.child(text(format!("Before: {previous}")).font(type_::LABEL).color(l.c("text-muted")).w_full().wrap());
+        }
+        let mut actions = row().gap(6.0).pt(2.0);
+        for (label, act) in [("Keep", "keep"), ("Edit", "edit"), (if memory["enabled"] == true { "Switch off" } else { "Switch on" }, "toggle"), ("Remove", "remove")] {
+            if act == "keep" && memory["status"] != "proposed" {
+                continue;
+            }
+            let id = id.clone();
+            actions = actions.child(button(label, p).on_press(move |s: &mut State| {
+                if act == "edit" && s.people_panel.editing.as_deref() != Some(&id) {
+                    if let Some(m) = s.people_panel.memories["memories"].as_array().and_then(|r| r.iter().find(|m| m["memoryId"] == id)) {
+                        s.people_panel.memory = field(m["text"].as_str().unwrap_or(""));
+                        s.people_panel.editing = Some(id.clone());
+                    }
+                } else {
+                    action(s, &id, act);
+                    s.people_panel.editing = None;
+                }
+            }));
+        }
+        item.child(actions)
+    };
+    let folder_name = s.home.folder_path.as_deref().and_then(|f| f.trim_end_matches('/').rsplit('/').next()).unwrap_or("no folder").to_owned();
+    let here: Vec<&&Value> = memories.iter().filter(|m| m["scope"] != "global").collect();
+    let everywhere: Vec<&&Value> = memories.iter().filter(|m| m["scope"] == "global").collect();
+    let mut here_card = card().key("memory-here").child(heading(format!("This folder · {folder_name}")));
+    if here.is_empty() {
+        here_card = here_card.child(note("Nothing remembered for this folder yet."));
+    }
+    for m in here {
+        here_card = here_card.child(row_of(m));
+    }
+    out = out.child(here_card);
+    let mut everywhere_card = card().key("memory-everywhere").child(heading("Everywhere".into()));
+    if everywhere.is_empty() {
+        everywhere_card = everywhere_card.child(note("Nothing remembered for every folder yet."));
+    }
+    for m in everywhere {
+        everywhere_card = everywhere_card.child(row_of(m));
+    }
+    // Writing one, and a rewrite of the one being edited.
+    everywhere_card = everywhere_card
+        .child(
+            text_input(&panel.memory, type_::BODY)
+                .label("Memory text")
+                .key("memory-text")
+                .w_full()
+                .padding(10.0)
+                .radius(8.0)
+                .fill(p.field)
+                .border(1.0, l.c("border-control"))
+                .color(p.text)
+                .placeholder("Something every teammate should remember", p.muted)
+                .on_edit(|s: &mut State| &mut s.people_panel.memory),
+        )
+        .child(
+            row()
+                .gap(6.0)
+                .child(button("Remember everywhere", p).on_press(|s: &mut State| {
+                    let result = s.data.as_ref().ok_or("No native data folder".into()).and_then(|store| {
+                        people::add_memory(store, &s.people_panel.memory.text, None, "global", "native", json!({"name":"you"}), "kept")
+                    });
+                    done(s, result);
+                }))
+                .child(button("Suggest rewrite", p).on_press(|s: &mut State| {
+                    let result = s.data.as_ref().ok_or("No native data folder".into()).and_then(|store| {
+                        let id = s.people_panel.editing.clone().ok_or("Choose Edit on a memory first.")?;
+                        let m = s.people_panel.memories["memories"]
+                            .as_array()
+                            .and_then(|rows| rows.iter().find(|m| m["memoryId"] == id))
+                            .ok_or("That memory no longer exists.")?;
+                        people::propose_tidy(store, m["workspaceId"].as_str().unwrap_or(""), &[id], &s.people_panel.memory.text, false)
+                    });
+                    done(s, result);
+                })),
+        );
+    out = out.child(everywhere_card);
+
+    // Recently forgotten, newest first, with the way back.
+    let forgotten: Vec<&Value> = panel.memories["forgotten"].as_array().into_iter().flatten().rev().collect();
+    if !forgotten.is_empty() {
+        let mut held_card = card().key("memory-forgotten").child(heading("Recently forgotten".into()));
+        for held in forgotten {
+            let id = held["memory"]["memoryId"].as_str().unwrap_or("").to_owned();
+            held_card = held_card.child(
+                row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .py(4.0)
+                    .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
+                    .child(text(held["memory"]["text"].as_str().unwrap_or("").to_owned()).font(l.ty.control).color(l.c("text-muted")).grow(1.0).shrink().wrap())
+                    .child(button("Restore", p).on_press(move |s: &mut State| action(s, &id, "restore"))),
+            );
+        }
+        out = out.child(held_card);
+    }
+    out
 }

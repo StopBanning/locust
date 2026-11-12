@@ -338,3 +338,18 @@ fn the_plus_menu_attaches_a_file_picked_in_the_systems_dialog() {
     settle(&mut rt);
     assert!(rt.state.attached.iter().any(|p| p.ends_with("notes.md")), "{:?}", rt.state.attached);
 }
+
+#[test]
+fn how_memory_is_kept_is_chosen_on_the_memory_screen() {
+    let (_dirs, store, mut rt) = window();
+    rt.update(|s, _| {
+        crate::people_panel::open(s);
+        s.people_panel.tab = 1;
+        s.people_panel.memory_tab = true;
+    });
+    settle(&mut rt);
+    assert!(rt.find("memory-about").is_some() && rt.find("memory-mode").is_some());
+    click(&mut rt, "memory-mode-ask");
+    assert_eq!(rt.state.people_panel.memory_mode, "ask");
+    assert_eq!(crate::workspace_settings::load(&store).unwrap().memory_mode, "ask", "saved in the settings");
+}
