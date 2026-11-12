@@ -96,7 +96,7 @@ pub(super) struct Conversation {
     pub(super) turns: Vec<(String, String)>,
 }
 
-// Fix 2: tag each flight with its teammate ID, conversation ID, header, and tip so stale results are dropped.
+// Tag each flight with its teammate ID, conversation ID, header, and tip so stale results are dropped.
 pub(super) struct Flight {
     pub(super) teammate_id: String,
     pub(super) conversation_id: Option<String>,

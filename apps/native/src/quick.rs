@@ -1824,7 +1824,7 @@ mod tests {
         assert!(s.sending.take().is_none() && s.waiting.take().is_none());
     }
 
-    // Finding 1: a quiet turn is not finished at 15 minutes, shows "waiting for you",
+    // A quiet turn is not finished at 15 minutes, shows "waiting for you",
     // re-asks at 3 s / 15 s, and is stopped only by the 30-minute watchdog.
     #[test]
     fn a_quiet_unfinished_turn_waits_until_the_watchdog_and_shows_waiting() {
@@ -1855,7 +1855,7 @@ mod tests {
         assert_eq!(s.notice.as_deref(), Some(STOPPED));
     }
 
-    // Finding 1: hidden polling does not rescan the folder every 2 s.
+    // Hidden polling does not rescan the folder every 2 s.
     #[test]
     fn hidden_polling_asks_for_a_slow_folder_rescan() {
         let temp = TempDir::new();
@@ -1879,7 +1879,7 @@ mod tests {
         assert_eq!(s.answer.as_deref(), Some("Hello"));
     }
 
-    // Finding 2: a failure or notice from a turn survives re-showing and a failed team load.
+    // A failure or notice from a turn survives re-showing and a failed team load.
     #[test]
     fn re_showing_keeps_turn_errors_and_notices_apart_from_team_errors() {
         let now = Instant::now();
@@ -1916,7 +1916,7 @@ mod tests {
         );
     }
 
-    // Finding 3: replies carry their conversation id and follow mode.
+    // Replies carry their conversation id and follow mode.
     #[test]
     fn replies_for_another_conversation_or_mode_are_ignored() {
         let now = Instant::now();
@@ -1983,7 +1983,7 @@ mod tests {
         assert!(s.flight.is_some() && s.error.is_none());
     }
 
-    // Finding 3: Reply::Answer and a new send stop every handle of the old flight.
+    // Reply::Answer and a new send stop every handle of the old flight.
     #[test]
     fn answer_and_new_send_cancel_background_handles() {
         let now = Instant::now();
@@ -2018,7 +2018,7 @@ mod tests {
         assert!(s.flight.is_some() && s.error.is_none());
     }
 
-    // Finding 4: first poll 400 ms after the follow begins; a missing file in the first
+    // First poll 400 ms after the follow begins; a missing file in the first
     // 3 s is "starting"; a folder that was listed is not listed again.
     #[test]
     fn the_first_poll_waits_and_a_missing_file_is_starting_not_an_error() {

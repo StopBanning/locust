@@ -511,7 +511,7 @@ fn switching_conversations_restores_cancelled_ledger_send_and_drops_stale_result
         message: Some("follow-up question".into()),
     });
 
-    // Fix 2 & 9: switching teammates cancels the ledger send, keeps the unsent words under that
+    // Switching teammates cancels the ledger send, keeps the unsent words under that
     // conversation's draft key (Electron Map), and shows Argon's own draft in the box.
     let left_key = conversation_draft_key(&s);
     select_teammate(&mut s, "argon", &mut Tx::default());
@@ -524,7 +524,7 @@ fn switching_conversations_restores_cancelled_ledger_send_and_drops_stale_result
     );
     assert_eq!(s.status, "Argon: Ready");
 
-    // Fix 2: a stale send result tagged for Codec must not swap in Argon's state or hijack Argon's view.
+    // A stale send result tagged for Codec must not swap in Argon's state or hijack Argon's view.
     s.flight = Some(Flight {
         teammate_id: "codec".into(),
         conversation_id: Some("old-conv".into()),
@@ -611,7 +611,7 @@ fn idle_ledger_stops_polling_errors_back_off_without_rebuilding_and_after_tip_ti
         backoff: 0.0,
     });
 
-    // Fix 3: finished conversation stops scheduling wakeups after its initial load.
+    // Finished conversation stops scheduling wakeups after its initial load.
     let mut tx = Tx::default();
     ledger_tick(&mut s, 0.0, &mut tx);
     wait_job(&mut s);
@@ -622,7 +622,7 @@ fn idle_ledger_stops_polling_errors_back_off_without_rebuilding_and_after_tip_ti
     assert!(!s.ledger_job.is_pending());
     assert_eq!(pane.worker.as_ref().unwrap().cached_headers(), 2);
 
-    // Fix 3: bound after_tip waiting to 30 s, then show "No new reply yet" and unlock Send.
+    // Bound after_tip waiting to 30 s, then show "No new reply yet" and unlock Send.
     s.ledger.as_mut().unwrap().after_tip = Some("done".into());
     s.ledger.as_mut().unwrap().due = 10.0;
     ledger_tick(&mut s, 10.0, &mut tx);
@@ -639,7 +639,7 @@ fn idle_ledger_stops_polling_errors_back_off_without_rebuilding_and_after_tip_ti
     assert!(s.flight.is_none());
     assert!(s.ledger.as_ref().unwrap().after_tip.is_none());
 
-    // Fix 3: transient errors back off 2 s, 4 s, 8 s, 16 s, 30 s without rebuilding the Session.
+    // Transient errors back off 2 s, 4 s, 8 s, 16 s, 30 s without rebuilding the Session.
     std::fs::remove_file(temp.0.join("done.jsonl")).unwrap();
     std::fs::remove_file(temp.0.join("other.jsonl")).unwrap();
     let mut now = 100.0;
