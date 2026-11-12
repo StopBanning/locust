@@ -579,7 +579,7 @@ impl Locust for Engine {
     }
 
     fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
-        crate::native::carry(mission, runtime, model)
+        crate::native::carry(mission, runtime, model).map(|(id, folder, _)| (id, folder))
     }
 
     fn folder(&self) -> Option<String> {

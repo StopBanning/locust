@@ -19,6 +19,8 @@ pub(super) struct Panel {
     pub theme: ThemeChoice,
     pub data_folder: String,
     pub error: String,
+    /// Locust's door, as its switches stand (None when this window has no door).
+    pub door: Option<locust_core::door::State>,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -62,6 +64,7 @@ fn reload(s: &mut State) {
                 }
                 Err(e) => s.settings_panel.error = e,
             }
+            s.settings_panel.door = crate::DOOR.get().map(|d| d.state(None));
             s.settings_panel.theme = workspace_settings::load_theme(store);
             s.appearance = s.settings_panel.theme.to_appearance();
             // Round-trip keeps State.appearance and the stored theme aligned.
@@ -92,6 +95,153 @@ fn set_theme(s: &mut State, theme: ThemeChoice) {
     {
         s.settings_panel.error = e;
     }
+}
+
+/// The heading Electron's General page gives the door.
+const DOOR_HEADING: &str = "Let your other AI apps use Locust";
+
+/// One switch with its words (`.lc-settingline`), indented when it belongs to the line above (`--sub`).
+fn setting_line(l: &crate::look::controls::Look, heading: &str, lede: &str, on: bool, sub: bool, press: fn(&mut State)) -> El {
+    use crate::look::controls;
+    let words = col()
+        .grow(1.0)
+        .gap(4.0)
+        .child(text(heading.to_owned()).font(l.ty.control).color(l.c("text-primary")))
+        .child(text(lede.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    row()
+        .w_full()
+        .gap(16.0)
+        .padding(10.0)
+        .pl(if sub { 34.0 } else { 10.0 })
+        .center_y()
+        .child(words)
+        .child(controls::switch(l, on, heading, false).on_press(press))
+}
+
+/// A setup line to paste, with its Copy.
+fn setup_block(l: &crate::look::controls::Look, said: &str, line: &str) -> El {
+    let body = line.to_owned();
+    col()
+        .w_full()
+        .gap(6.0)
+        .child(text(said.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
+        .child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .padding(10.0)
+                .radius(l.t.px("radius-control"))
+                .fill(l.c("bg-control"))
+                .child(col().grow(1.0).child(text(line.to_owned()).font(l.ty.mono).color(l.c("text-primary")).wrap()))
+                .child(
+                    text("Copy")
+                        .font(l.ty.control)
+                        .color(l.c("text-secondary"))
+                        .py(4.0)
+                        .px(8.0)
+                        .radius(l.t.px("radius-control"))
+                        .hover(l.c("hover-surface"))
+                        .role("button")
+                        .label(format!("Copy: {said}"))
+                        .on_press_tx(move |_s: &mut State, tx| crate::reply_actions::request_copy(tx, body.clone())),
+                ),
+        )
+}
+
+fn toggle_door(s: &mut State) {
+    if let Some(door) = crate::DOOR.get() {
+        let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.enabled);
+        s.settings_panel.door = Some(door.set_enabled(!on));
+    }
+}
+
+fn toggle_own_mode(s: &mut State) {
+    if let Some(door) = crate::DOOR.get() {
+        let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.own_mode);
+        s.settings_panel.door = Some(door.set_own_mode(!on));
+    }
+}
+
+fn toggle_conversations(s: &mut State) {
+    if let Some(door) = crate::DOOR.get() {
+        let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.conversations);
+        s.settings_panel.door = Some(door.set_conversations(!on));
+    }
+}
+
+/// LocustMcpSettings.tsx: the door's switch, and once it is on, each teammate's own mode, the person's
+/// conversations, and the lines that add it to Claude Code and Codex.
+fn door_section(s: &State, p: &Palette) -> El {
+    let l = crate::look::controls::Look::new(p.dark);
+    let Some(door) = &s.settings_panel.door else {
+        return deferred(DOOR_HEADING, p);
+    };
+    let set = &door.settings;
+    let mut section = col().w_full().gap(2.0);
+    section = section.child(setting_line(
+        &l,
+        DOOR_HEADING,
+        &if set.enabled {
+            format!(
+                "On. Other apps on this computer can ask teammates and read replies. {}, with no automatic teammate handoffs. Locust must be running; your AI account usage and monthly limits still apply.",
+                if set.own_mode { "New turns use each teammate's own mode" } else { "New turns are Ask mode (read only)" }
+            )
+        } else {
+            "Off. No local server is listening.".to_owned()
+        },
+        set.enabled,
+        false,
+        toggle_door,
+    ));
+    if set.enabled {
+        section = section
+            .child(setting_line(
+                &l,
+                "Use each teammate's own mode",
+                if set.own_mode {
+                    "On. A turn another app starts runs in the mode the teammate is set to here, or the mode and folder the app asks for, so it can edit files. A folder must be one Locust knows or a worktree of one. Approval cards appear in this window and only you can answer them. Auto runs only if Auto is on in Settings."
+                } else {
+                    "Off. Every turn another app starts is Ask mode (read only), whatever mode the teammate is set to."
+                },
+                set.own_mode,
+                true,
+                toggle_own_mode,
+            ))
+            .child(setting_line(
+                &l,
+                "Let apps see your conversations",
+                if set.conversations {
+                    "On. An app can list, read, continue and stop your conversations, and carry one whose plan ran out on to another AI agent, by the same rules as its own: no higher mode, and cards answered only here."
+                } else {
+                    "Off. An app sees only the conversations it started. A turn it started that runs out can still be carried on to another AI agent."
+                },
+                set.conversations,
+                true,
+                toggle_conversations,
+            ));
+        let mut by_hand = col()
+            .w_full()
+            .gap(10.0)
+            .padding(10.0)
+            .child(text("Add Locust to Claude Code or Codex").font(l.ty.control).color(l.c("text-primary")));
+        if let Some(line) = &door.claude_command {
+            by_hand = by_hand.child(setup_block(&l, "Claude Code: run this in Terminal.", line));
+        }
+        if let Some(config) = &door.codex_config {
+            by_hand = by_hand.child(setup_block(&l, "Codex: add this to ~/.codex/config.toml.", config));
+        }
+        by_hand = by_hand.child(
+            text("Locust never changes another app's settings itself. Turning this off stops new requests, not turns already running.")
+                .font(l.ty.body)
+                .color(l.c("text-muted"))
+                .wrap(),
+        );
+        section = section.child(by_hand);
+    }
+    if let Some(message) = &door.message {
+        section = section.child(text(message.clone()).font(l.ty.body).color(l.c("amber-text")).wrap().padding(10.0));
+    }
+    section
 }
 
 fn deferred(heading: &str, p: &Palette) -> El {
@@ -180,6 +330,15 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             }
             for heading in headings {
                 body = body.child(deferred(heading, p));
+            }
+        }
+        SettingsPageId::App => {
+            for heading in headings {
+                if heading == DOOR_HEADING {
+                    body = body.child(door_section(s, p));
+                } else {
+                    body = body.child(deferred(heading, p));
+                }
             }
         }
         SettingsPageId::Teammates => {
@@ -464,6 +623,28 @@ pub(super) fn scene(s: &mut State) {
         settings: workspace_settings::WorkspaceSettings::default(),
         ..Panel::default()
     };
+}
+
+/// General with the door on: its switches and the lines to add it to another app.
+pub(super) fn door_scene(s: &mut State) {
+    scene(s);
+    s.settings_panel.page = Some(SettingsPageId::App);
+    let (claude, codex) = locust_core::door::setup(
+        "/Applications/Locust Native.app/Contents/MacOS/locust-native",
+        "/Users/locust/Library/Application Support/@teammate/desktop-native/locust-mcp-connection.json",
+    );
+    s.settings_panel.door = Some(locust_core::door::State {
+        settings: locust_core::door::Settings { enabled: true, own_mode: true, conversations: false },
+        claude_command: Some(claude),
+        codex_config: Some(codex),
+        message: None,
+    });
+}
+
+pub(super) fn door_light_scene(s: &mut State) {
+    door_scene(s);
+    s.appearance = Some(false);
+    s.settings_panel.theme = ThemeChoice::Light;
 }
 
 pub(super) fn light_scene(s: &mut State) {

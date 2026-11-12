@@ -25,7 +25,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             continue;
         }
         let content = match item {
-            ledger::Item::CarryOn { conversation_id } => {
+            ledger::Item::CarryOn { conversation_id, from, why } => {
                 if s.flight.is_some()
                     || s.sending.is_pending()
                     || s.ledger
@@ -35,16 +35,44 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     continue;
                 }
                 let id = conversation_id.clone();
-                let mut card = col()
+                let l = crate::look::controls::Look::new(p.dark);
+                // `.lc-rerun`: the reason in muted words beside one press for the agent Locust suggests, on a green
+                // rule; every other agent is behind "Choose another agent".
+                let mut line = row()
                     .w_full()
-                    .gap(8.0)
-                    .padding(12.0)
-                    .radius(9.0)
-                    .fill(p.raised)
-                    .child(text("Carry on with").font(type_::LABEL).color(p.text))
+                    .gap(12.0)
+                    .center_y()
                     .child(
-                        el().padding(8.0)
-                            .child(text("Choose AI agent and model").color(p.text))
+                        col()
+                            .grow(1.0)
+                            .child(text(locust_core::carry_on::stopped_sentence(from, why)).font(l.ty.body).color(l.c("text-muted")).wrap()),
+                    );
+                if let Some((runtime, model)) = &s.carry_offer {
+                    let label = format!(
+                        "Carry on with {}",
+                        model.clone().unwrap_or_else(|| locust_core::carry_on::display_name(runtime).to_owned())
+                    );
+                    let (id, runtime, model) = (id.clone(), runtime.clone(), model.clone().unwrap_or_default());
+                    line = line.child(
+                        crate::look::controls::button(&l, &label, crate::look::controls::Tone::Neutral, false)
+                            .on_press(move |s: &mut State| carry(s, id.clone(), runtime.clone(), model.clone())),
+                    );
+                }
+                // Indented 36 inside the thread's width: a row whose first cell is the indent, so nothing runs past.
+                let mut card = col()
+                    .grow(1.0)
+                    .gap(6.0)
+                    .py(8.0)
+                    .pl(12.0)
+                    .border_sides([0.0, 0.0, 0.0, 2.0], l.c("green-border"))
+                    .child(line)
+                    .child(
+                        text("Choose another agent")
+                            .font(l.ty.body)
+                            .color(l.c("text-muted"))
+                            .hover(l.c("hover-surface"))
+                            .py(2.0)
+                            .role("button")
                             .on_press(|s: &mut State| open_models(s, CARRY_TARGET.into())),
                     );
                 if s.model_menu.as_deref() == Some(CARRY_TARGET) {
@@ -57,7 +85,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                                 stick_bottom: false,
                             })
                             .gap(4.0);
-                        for agent in agents {
+                        for agent in agents.iter().filter(|a| a.runtime != *from) {
                             for model in &agent.models {
                                 let (id, runtime, model_id) =
                                     (id.clone(), agent.runtime.clone(), model.id.clone());
@@ -83,7 +111,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                         card = card.child(text("Loading models…").color(p.muted));
                     }
                 }
-                card
+                row().w_full().child(el().w(36.0)).child(card)
             }
             ledger::Item::User(body) => row().w_full().justify_end().child(
                 row().w_frac(0.7).justify_end().child(

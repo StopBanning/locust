@@ -204,6 +204,49 @@ pub fn installed_runtimes() -> Vec<String> {
         .collect()
 }
 
+/// CARRY_ON_ORDER: the agents Locust suggests, best first, when the person has picked none.
+pub const CARRY_ON_ORDER: [&str; 7] = ["claude", "codex", "cursor", "copilot", "antigravity", "muse", "opencode"];
+
+/// The person's pick in Settings (`planRunsOut`): the agent, its model, and whether to carry on without a press.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlanRunsOut {
+    pub runtime: String,
+    pub model: Option<String>,
+    pub automatic: bool,
+}
+
+/// parsedPlanRunsOut: only a known agent that can run a turn.
+pub fn parse_plan_runs_out(value: &Value) -> Option<PlanRunsOut> {
+    let runtime = value["runtime"].as_str()?;
+    if !matches!(runtime, "codex" | "claude" | "cursor" | "opencode" | "copilot" | "antigravity" | "muse" | "kilo" | "acp") {
+        return None;
+    }
+    let model = value["model"].as_str().filter(|m| !m.is_empty() && m.len() <= 200 && *m != "account-default").map(str::to_owned);
+    Some(PlanRunsOut { runtime: runtime.to_owned(), model, automatic: value["automatic"] == true })
+}
+
+/// carryOnOffer: the agent the stopped turn's card offers, the person's pick when it can run, else the first in
+/// `CARRY_ON_ORDER` that can.
+pub fn carry_on_offer(from: &str, chosen: Option<&PlanRunsOut>, ready: &[String]) -> Option<(String, Option<String>)> {
+    if let Some(c) = chosen
+        && c.runtime != from
+        && ready.contains(&c.runtime)
+    {
+        return Some((c.runtime.clone(), c.model.clone()));
+    }
+    CARRY_ON_ORDER.iter().find(|r| **r != from && ready.iter().any(|x| x == *r)).map(|r| ((*r).to_owned(), None))
+}
+
+/// The card's sentence for why a turn stopped (Thread.tsx).
+pub fn stopped_sentence(from: &str, why: &str) -> String {
+    let name = display_name(from);
+    match why {
+        "provider" => format!("{name} stopped on an error before it did anything, so another agent can do the task from the start."),
+        "process" => format!("{name} stopped because its process failed. The next agent is told to reconcile unfinished actions before carrying on."),
+        _ => format!("{name} ran out of its plan. What it did is kept, and the next agent is told what was done and what is left."),
+    }
+}
+
 // ---- the checkpoint ------------------------------------------------------------------------------------------------
 
 pub const MAX_CHECKPOINT_SUMMARY_LENGTH: usize = 4000;

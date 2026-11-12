@@ -48,8 +48,27 @@ a brief of the work so far, as Electron does.
 - The engine test that asserted the old refusal now asserts the switch: the brief, the link and the checkpoint.
 - Tests: 445 in the engine (20 ignored live tests), 190 in the window, all passing.
 
+## Second part, the same night: the window
+
+- **The door's switches in Settings** (General, from LocustMcpSettings.tsx): "Let your other AI apps use Locust", and
+  once it is on, "Use each teammate's own mode" and "Let apps see your conversations" as indented sub-switches, in
+  Electron's words, and the lines that add it to Claude Code and Codex with a Copy each. Scenes `settings-door` and
+  `settings-door-light`.
+- **The stopped turn's card** (Thread.tsx's carry-on block): the reason in a sentence on a green rule, one press for
+  the agent Locust suggests (the person's pick in Settings when it can run here, else the first ready agent in
+  Electron's order, `carry_on_offer`), and "Choose another agent" for the rest. On the native engine it now carries
+  on here; it used to say carrying on "runs in Locust for now". The transcript's card knows which agent stopped and
+  why. Scenes `carry-on` and `carry-on-light`.
+- **Without asking** (main/carry-on.ts `onRunEnded`): when the person picked an agent and turned on Without asking, a
+  turn they sent from the chat box that stopped on its plan, provider or process is carried on at once. Never a turn
+  an app or a carry-on started, so one empty plan cannot start a chain. When it cannot (the pick is the agent that
+  stopped, or the carry-on is refused), the stopped turn's thread says why (`host.carry_on`, Electron's words),
+  appended to its native ledger; Electron's reader accepts it.
+- Tests: 446 in the engine, 190 in the window.
+
 ## Not done
 
-- Carrying on without a press (Settings' "Without asking" pick) and the stopped turn's card in the window.
+- A Settings control to pick the carry-on agent and Without asking: the pick is read from `planRunsOut` (seeded from
+  Electron's settings), but the Rust window cannot change it yet.
 - Checking a model against a catalog before a carry-on.
 - The window does not draw the switch's seam from the native engine's receipt yet.

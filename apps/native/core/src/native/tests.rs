@@ -1475,7 +1475,7 @@ fn real_carry_on_from_a_plan_that_ran_out() {
     drop(w);
     crate::people::record_owner(&store, "mission_stopped", "tm_carry").unwrap();
 
-    let (carried, _) = carry("mission_stopped", "opencode", Some("opencode/deepseek-v4.1-flash-free")).unwrap();
+    let (carried, _, _) = carry("mission_stopped", "opencode", Some("opencode/deepseek-v4.1-flash-free")).unwrap();
     assert_eq!(carry("mission_stopped", "opencode", None).unwrap_err(), "This turn was already carried on.");
     let path = path_of(&t, &carried);
     let end = Instant::now() + Duration::from_secs(300);
@@ -1514,4 +1514,47 @@ fn real_carry_on_from_a_plan_that_ran_out() {
         }
     }
     wait_for_shutdown();
+}
+
+/// main/carry-on.ts onRunEnded: without the person's "Without asking" nothing is carried on; with it, a pick that is the
+/// agent which stopped is said in the stopped turn's own thread, and that ledger still reads in Electron.
+#[test]
+fn carrying_on_without_asking_needs_the_persons_pick_and_never_hands_back_to_the_agent_that_stopped() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), None);
+    let store = t.store();
+    let stopped = |id: &str| {
+        let mut w = LedgerWriter::create_runtime_with(&store, id, "Fix it", "gpt-5.5", "codex", "codex", &[], None, &json!({"mode": "ask", "sandbox": "read-only"})).unwrap();
+        let process = json!({"exitCode": 1, "signal": null, "stderr": "", "stderrTruncated": false, "recordCount": 1, "inputDeliveryFailed": false,
+            "outputLimitExceeded": false, "oversizedRecordsDropped": 0, "forcedTerminationAttempted": false, "terminationUnconfirmed": false,
+            "startedAt": crate::ledger_write::now(), "finishedAt": crate::ledger_write::now()});
+        w.append("run.failed", json!({"kind": "quota-exhausted", "message": "Usage limit reached.", "runtimeTerminal": "failed", "process": process, "evidence": {"runtimeEventType": "codex", "redacted": true}}), None).unwrap();
+    };
+    let team = |plan: Value| {
+        store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [], "missionOwners": {}, "settings": {"planRunsOut": plan}})).unwrap();
+    };
+    stopped("mission_quiet");
+    team(json!({"runtime": "codex", "automatic": false}));
+    carry_on_without_asking(&store, "mission_quiet");
+    assert!(!fs::read_to_string(path_of(&t, "mission_quiet")).unwrap().contains("host.carry_on"));
+
+    stopped("mission_same");
+    team(json!({"runtime": "codex", "automatic": true}));
+    carry_on_without_asking(&store, "mission_same");
+    let text = fs::read_to_string(path_of(&t, "mission_same")).unwrap();
+    assert!(
+        text.contains("Codex CLI is the agent picked to carry on when a plan runs out, and its own plan ran out, so nothing was carried on."),
+        "{text}"
+    );
+    // The note comes after the run's end, as Electron appends it: its reader finds no issue and the turn still failed.
+    if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
+        let script = "const [r, d, id] = process.argv.slice(1); const { createFileMissionLedger } = await import('file://' + r); \
+            const got = await createFileMissionLedger({ rootDirectory: d }).readMission(id); \
+            if (!got.mission || got.issues.length || got.mission.issues.length || got.mission.phase !== 'failed') { console.error(JSON.stringify(got.issues)); process.exit(1) }";
+        let status = Command::new("node")
+            .args(["--input-type=module", "-e", script, reader.as_str(), store.ledger_dir().unwrap().to_str().unwrap(), "mission_same"])
+            .status()
+            .unwrap();
+        assert!(status.success(), "Electron's reader did not accept the noted ledger");
+    }
 }

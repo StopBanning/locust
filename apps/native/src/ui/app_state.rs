@@ -134,6 +134,8 @@ pub(super) struct State {
     pub(super) recent_hover: Option<String>,
     pub(super) people_panel: crate::people_panel::Panel,
     pub(super) settings_panel: crate::settings_panel::Panel,
+    /// The agent (and model) a stopped turn's card offers to carry on with: the person's pick, else the first ready.
+    pub(super) carry_offer: Option<(String, Option<String>)>,
     pub(super) usage_panel: crate::usage_panel::Panel,
     pub(super) keyboard_sheet: crate::keyboard_sheet::Panel,
     pub(super) home: crate::home_panel::Panel,
@@ -264,6 +266,7 @@ impl Default for State {
             browser: crate::browser_panel::Panel::default(),
             terminal: crate::terminal_panel::Panel::default(),
             settings_panel: crate::settings_panel::Panel::default(),
+            carry_offer: None,
             usage_panel: crate::usage_panel::Panel::default(),
             keyboard_sheet: crate::keyboard_sheet::Panel::default(),
             home: crate::home_panel::Panel::default(),

@@ -56,6 +56,9 @@ pub enum Item {
     User(String),
     CarryOn {
         conversation_id: String,
+        /// The agent that stopped, and why in carry-on.ts's word (plan, provider or process), for the card's sentence.
+        from: String,
+        why: String,
     },
     Assistant {
         item_id: String,
@@ -834,8 +837,16 @@ impl Transcript {
             && !finished
             && let Some(m) = &self.metadata
         {
+            let events: Vec<Value> = self.events.values().cloned().collect();
+            let why = match crate::carry_on::carry_on_reason(&events) {
+                Some(crate::carry_on::Reason::Provider) => "provider",
+                Some(crate::carry_on::Reason::Process) => "process",
+                _ => "plan",
+            };
             items.push(Item::CarryOn {
                 conversation_id: m.mission_id.clone(),
+                from: m.runtime.clone(),
+                why: why.into(),
             });
         }
         // Attach children in reverse order so nested helpers retain their own calls.
@@ -2409,7 +2420,7 @@ mod carry_tests {
         let mut session = Session::new(temp.0.clone(), "turn_1".into());
         let first = session.poll().unwrap();
         assert!(first.items.iter().any(
-            |i| matches!(i, Item::CarryOn { conversation_id } if conversation_id == "turn_1")
+            |i| matches!(i, Item::CarryOn { conversation_id, .. } if conversation_id == "turn_1")
         ));
         assert!(!list_recent(&temp.0, 5)[0].running);
 

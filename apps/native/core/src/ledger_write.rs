@@ -30,6 +30,39 @@ pub fn append_checkpoint(path: &std::path::Path, checkpoint: &Value) -> io::Resu
     file.sync_all()
 }
 
+/// A line Locust adds to a turn that has ended (index.ts noteCarryOn): an `adapter.diagnostic` warning with
+/// `host.carry_on`, the next event and ledger sequence, appended to the turn's own native ledger.
+pub fn append_note(path: &std::path::Path, code: &str, message: &str) -> io::Result<()> {
+    use std::io::Write;
+    let text = std::fs::read_to_string(path)?;
+    if !text.is_empty() && !text.ends_with('\n') {
+        return Err(io::Error::other("Ledger does not end on a whole record"));
+    }
+    let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let first = records.first().ok_or_else(|| io::Error::other("Ledger has no first record"))?;
+    let meta = &first["metadata"];
+    let last = records.iter().rev().find_map(|r| r.get("event"));
+    let sequence = last.and_then(|e| e["sequence"].as_u64()).unwrap_or(0) + 1;
+    let ledger = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    let at = now();
+    let run = meta["runId"].as_str().unwrap_or_default();
+    let mut event = json!({"id": format!("{run}:carry-on:{sequence}"), "runId": run, "missionId": meta["missionId"], "sequence": sequence,
+        "occurredAt": at, "sourceAdapter": last.and_then(|e| e["sourceAdapter"].as_str()).or(meta["runtime"].as_str()).unwrap_or_default()});
+    for key in ["requestedRouteId", "resolvedRouteId"] {
+        if let Some(route) = last.and_then(|e| e.get(key)) {
+            event[key] = route.clone();
+        }
+    }
+    event["type"] = json!("adapter.diagnostic");
+    event["payload"] = json!({"level": "warning", "code": code, "message": message, "terminal": false, "evidence": {"redacted": true}});
+    let record = json!({"schemaVersion": first["schemaVersion"], "recordType": "mission.event", "ledgerSequence": ledger, "occurredAt": at, "event": event});
+    let mut line = serde_json::to_vec(&record)?;
+    line.push(b'\n');
+    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
+    file.write_all(&line)?;
+    file.sync_all()
+}
+
 pub struct Continuation {
     pub mission_id: String,
     pub thread: Option<String>,

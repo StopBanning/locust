@@ -883,8 +883,8 @@ static CARRIED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 /// main/carry-on.ts `carry`: carry a turn that stopped on its plan, its provider or its process on to another agent.
 /// The new turn continues the conversation in the stopped turn's mode (and an app's folder), told what was done.
-/// Returns the new turn's id and the folder it works in.
-pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
+/// Returns the new turn's id, the folder it works in and the mode it runs in.
+pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>, String), String> {
     if crate::invariants::lock(&CARRIED).iter().any(|m| m == mission) {
         return Err("This turn was already carried on.".into());
     }
@@ -938,11 +938,49 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
     let origin = Origin { mode: Mode::parse(&mode), folder: folder.clone(), started_by: Some(started_by), runtime: Some(runtime.to_owned()) };
     let started = send_from(job, origin).and_then(|s| real_tip(&s.conversation_id));
     match started {
-        Ok(id) => Ok((id, folder.map(|f| f.to_string_lossy().into_owned()))),
+        Ok(id) => Ok((id, folder.map(|f| f.to_string_lossy().into_owned()), mode)),
         Err(why) => {
             crate::invariants::lock(&CARRIED).retain(|m| m != mission);
             Err(why)
         }
+    }
+}
+
+/// main/carry-on.ts onRunEnded: when the person picked an agent in Settings and turned on Without asking, a turn
+/// that stopped on its plan, provider or process is carried on to it at once; when that cannot be, the stopped turn
+/// says why in its own thread.
+pub fn carry_on_without_asking(store: &Store, mission: &str) {
+    let Some(chosen) = crate::people::team(store)
+        .ok()
+        .and_then(|team| crate::carry_on::parse_plan_runs_out(&team["settings"]["planRunsOut"]))
+        .filter(|c| c.automatic)
+    else {
+        return;
+    };
+    let Some(prior) = turn_records(mission) else { return };
+    let ended = prior.events.iter().rev().find_map(|e| e["type"].as_str().filter(|t| matches!(*t, "run.completed" | "run.cancelled" | "run.failed")));
+    let reason = match ended {
+        Some("run.completed" | "run.cancelled") => None,
+        _ => crate::carry_on::carry_on_reason(&prior.events),
+    };
+    let Some(reason) = reason else { return };
+    let name = crate::carry_on::display_name(&chosen.runtime).to_owned();
+    let native_ledger = store.ledger_dir().ok().is_some_and(|dir| prior.path.starts_with(dir));
+    let note = |message: String| {
+        if native_ledger && let Err(error) = crate::ledger_write::append_note(&prior.path, "host.carry_on", &message) {
+            eprintln!("The carry-on note was not kept: {error}");
+        }
+    };
+    if prior.metadata["runtime"].as_str() == Some(chosen.runtime.as_str()) {
+        note(match reason {
+            crate::carry_on::Reason::Plan => format!("{name} is the agent picked to carry on when a plan runs out, and its own plan ran out, so nothing was carried on."),
+            crate::carry_on::Reason::Process => format!("{name} is the agent picked to carry on, and its own process failed, so nothing was carried on."),
+            crate::carry_on::Reason::Provider => format!("{name} is the agent picked to carry on, and it is the one whose provider failed, so nothing was carried on."),
+        });
+        return;
+    }
+    if let Err(why) = carry(mission, &chosen.runtime, chosen.model.as_deref()) {
+        note(format!("Locust could not carry this on with {name}: {why}"));
     }
 }
 
@@ -1209,6 +1247,9 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         run_id: format!("run_{id}"),
     };
     let runtime_owned = runtime_name.to_owned();
+    // Only a turn the person sent from the chat box is carried on without a press: never one an app started, nor a
+    // turn Locust carried on itself, so one empty plan cannot start a chain of them.
+    let person_sent = origin.started_by.is_none();
     let memory_store = store.clone();
     let memory_who = job.teammate.id.clone();
     let memory_folder = turn.folder.clone();
@@ -1217,7 +1258,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         .name("native-turn".into())
         .spawn(move || {
             // Keep ownership through the final memory write so shutdown/continuation cannot race it.
-            let _memory_completion = registered;
+            let memory_completion = registered;
             let _browser_registration = browser_registration;
             let checkpoint = crate::checkpoints::Turn::begin(&memory_store, &memory_folder);
             run_turn(
@@ -1261,6 +1302,11 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                         eprintln!("Memory was not recorded: {error}");
                     }
                 }
+            }
+            // The turn is no longer this window's: a carry-on may now continue its conversation.
+            drop(memory_completion);
+            if person_sent {
+                carry_on_without_asking(&memory_store, &memory_id);
             }
         })
         .map_err(|e| format!("Could not start the turn: {e}"))?;

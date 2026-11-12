@@ -858,6 +858,24 @@ pub(super) fn recovery_light_scene(s: &mut State) {
     s.appearance = Some(false);
 }
 
+/// A turn whose plan ran out: the warning, Locust's note, and the card that carries it on.
+pub(super) fn carry_on_scene(s: &mut State) {
+    reply_code_scene(s);
+    if let Some(pane) = &mut s.ledger {
+        pane.items.truncate(2);
+        pane.items.push(ledger::Item::Note { level: "warning".into(), text: "You've hit your usage limit. Upgrade to Pro or try again in 3 hours.".into() });
+        pane.items.push(ledger::Item::CarryOn { conversation_id: "mission_scene".into(), from: "codex".into(), why: "plan".into() });
+        pane.snapshot.running = false;
+        pane.after_tip = None;
+    }
+    s.flight = None;
+    s.carry_offer = Some(("claude".into(), None));
+}
+pub(super) fn carry_on_light_scene(s: &mut State) {
+    carry_on_scene(s);
+    s.appearance = Some(false);
+}
+
 pub(super) fn people_scene(s: &mut State) {
     team_scene(s);
     s.people_panel.open = true;

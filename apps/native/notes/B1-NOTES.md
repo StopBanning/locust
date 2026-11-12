@@ -48,7 +48,7 @@ only the client side of that door. It now serves its own.
 - Routines from another app ("This Locust does not offer routines to other apps").
 - `carry_on`, and `can_carry_on` is always false: carry-on is B2.
 - `list_background_runs` answers an empty list: the native engine runs no background Claude turns.
-- No Settings switch in the window yet: the door is turned on by its settings file or `--serve-door`.
+- (Done the same night: the switches are in Settings, General; see `notes/B2-NOTES.md`.)
 - No voice-call copy of the door and no editor (`cli/`) sessions.
 - `list_conversations` lists the newest 20 conversations from both ledger folders, not only the open folder's, and
   states are the turn's phase, without "its plan ran out".

@@ -370,6 +370,12 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         }
                     }
                     pane.items = snapshot.items.clone();
+                    let stopped_from = snapshot.items.iter().find_map(|i| match i {
+                        ledger::Item::CarryOn { from, .. } => Some(from.clone()),
+                        _ => None,
+                    });
+                    s.carry_offer = stopped_from.and_then(|from| carry_offer_for(s.data.as_ref(), &from));
+                    let pane = s.ledger.as_mut().expect("the pane being updated");
                     pane.loading = false;
                     pane.backoff = 0.0;
                     // Fix 3: stop scheduling wakeups once a conversation is finished and no longer waiting on after_tip.
@@ -645,6 +651,15 @@ fn send(s: &mut State, _: &mut Tx) {
     );
 }
 
+/// carryOnOffer for a stopped turn: the person's pick in Settings (`planRunsOut`) when it can run here, else the first
+/// agent Locust suggests that can.
+fn carry_offer_for(store: Option<&locust_core::store::Store>, from: &str) -> Option<(String, Option<String>)> {
+    let chosen = store
+        .and_then(|s| locust_core::people::team(s).ok())
+        .and_then(|team| locust_core::carry_on::parse_plan_runs_out(&team["settings"]["planRunsOut"]));
+    locust_core::carry_on::carry_on_offer(from, chosen.as_ref(), &locust_core::carry_on::installed_runtimes())
+}
+
 fn flight_teammate(s: &State, id: &str) -> Option<Teammate> {
     s.flight
         .as_ref()
@@ -659,6 +674,27 @@ fn take_turn_pick(s: &mut State, teammate: &str) -> Option<TurnPick> {
 
 fn open_models(s: &mut State, id: String) {
     if s.demo {
+        return;
+    }
+    // Native: the agents a stopped turn can be carried on to, each on its own default model (there is no model list
+    // on the native engine yet).
+    if s.engine == Some(Kind::Native) && id == CARRY_TARGET {
+        if s.model_menu.as_deref() == Some(CARRY_TARGET) {
+            s.model_menu = None;
+            return;
+        }
+        let agents = locust_core::carry_on::installed_runtimes()
+            .into_iter()
+            .map(|runtime| engine::Models {
+                teammate: None,
+                runtime,
+                model: None,
+                effort: None,
+                models: vec![engine::Model { id: String::new(), name: "its own default model".into(), efforts: Vec::new() }],
+            })
+            .collect();
+        s.models.insert(CARRY_TARGET.into(), agents);
+        s.model_menu = Some(CARRY_TARGET.into());
         return;
     }
     if s.engine == Some(Kind::Native) {
@@ -752,12 +788,6 @@ fn carry(s: &mut State, id: String, runtime: String, model: String) {
     if s.flight.is_some() || s.sending.is_pending() {
         return;
     }
-    if s.engine == Some(Kind::Native) {
-        s.status = "Carrying on with another agent runs in Locust for now.".into();
-        s.status_tone = StatusTone::Muted;
-        s.model_menu = None;
-        return;
-    }
     let Some((header, c)) = selected_conversation(s) else {
         return;
     };
@@ -784,10 +814,15 @@ fn carry(s: &mut State, id: String, runtime: String, model: String) {
     });
     s.model_menu = None;
     set_status(s, &header_id, "Sending…", StatusTone::Muted);
-    s.sending
-        .request((id, runtime, model), |(id, runtime, model)| {
-            Engine::local()?.carry_on(&id, &runtime, &model)
-        });
+    // On the native engine the carried turn runs here, with the agent's own default model when none was picked.
+    let native = s.engine == Some(Kind::Native);
+    s.sending.request((id, runtime, model), move |(id, runtime, model)| {
+        if native {
+            let (_, _, mode) = native::carry(&id, &runtime, Some(model.as_str()).filter(|m| !m.is_empty()))?;
+            return Ok(engine::Started { conversation_id: id, mode });
+        }
+        Engine::local()?.carry_on(&id, &runtime, &model)
+    });
 }
 
 fn refresh_recent(s: &mut State) {
@@ -2099,6 +2134,10 @@ fn main() {
             ("routines", routines_panel::scene),
             ("routines-light", routines_panel::light_scene),
             ("settings", settings_panel::scene),
+            ("settings-door", settings_panel::door_scene),
+            ("carry-on", carry_on_scene),
+            ("carry-on-light", carry_on_light_scene),
+            ("settings-door-light", settings_panel::door_light_scene),
             ("settings-light", settings_panel::light_scene),
             ("usage", usage_panel::scene),
             ("usage-light", usage_panel::light_scene),
