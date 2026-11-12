@@ -57,7 +57,7 @@ None of these is visible in a demo. Each would have made a Rust turn behave diff
 - **`parity/tests.tsv`** tracks every TypeScript test file (1,309 in all). Each is marked as carried over, partial,
   waiting or does not apply.
 - **`src/door_calls.rs`** pins every place the window still calls into Electron, by file. A new call fails its test.
-- **The suite**: 678 tests pass (472 in the engine, 206 in the window). Another 20 need a real agent and are skipped
+- **The suite**: 679 tests pass (472 in the engine, 207 in the window). Another 20 need a real agent and are skipped
   unless asked for.
 - **The `notes/` folder** has a notes file for each round: what was built, which TypeScript tests came over, what was
   left, and how it was checked.
@@ -86,7 +86,7 @@ never what a person sees.
 
 Each finding became a test that drives the real window code with no window at all. `rune::Runtime` builds the view
 headless, and the tests click by key, paste into the message box, and run the window's own poll
-([notes/WINDOW-TESTS-NOTES.md](notes/WINDOW-TESTS-NOTES.md)). There are 13 now. Three of them were run once with their
+([notes/WINDOW-TESTS-NOTES.md](notes/WINDOW-TESTS-NOTES.md)). There are 14 now. Four of them were run once with their
 fix taken out, and they failed the way the bug did. CI now runs the release build **before** the tests, so a build the
 tests hide fails in the first minutes.
 

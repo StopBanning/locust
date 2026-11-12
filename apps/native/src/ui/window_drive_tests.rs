@@ -108,6 +108,18 @@ fn answered(s: &State) -> bool {
         })
 }
 
+/// The texts drawn inside the element with this key, as a person reads it.
+fn text_in(rt: &Runtime<State>, key: &str) -> Vec<String> {
+    let ([x, y, w, h], _) = rt.presented(key).unwrap_or_else(|| panic!("no element {key} on screen"));
+    rt.elements()
+        .into_iter()
+        .filter_map(|e| {
+            let (cx, cy) = (e.rect[0] + e.rect[2] / 2.0, e.rect[1] + e.rect[3] / 2.0);
+            (cx >= x && cx <= x + w && cy >= y && cy <= y + h).then_some(e.text?)
+        })
+        .collect()
+}
+
 fn first_records(store: &Store) -> Vec<Value> {
     let dir = store.ledger_dir().unwrap();
     std::fs::read_dir(dir)
@@ -161,6 +173,9 @@ fn a_model_of_another_agent_picked_in_the_picker_moves_the_reply_there() {
     let switched = first_records(&store).into_iter().find(|r| r["metadata"]["runtime"] == "claude").unwrap();
     let meta = &switched["metadata"];
     assert_eq!(meta["model"], "sonnet");
+    // The pick reaches the agent's own command line, as launched (the ledger keeps the argv).
+    let args: Vec<&str> = meta["command"]["args"].as_array().unwrap().iter().filter_map(|a| a.as_str()).collect();
+    assert!(args.windows(2).any(|w| w == ["--model", "sonnet"]), "{args:?}");
     assert_eq!(meta["continuesFrom"]["reason"], json!("route-switch"));
     assert!(meta["prompt"].as_str().unwrap().starts_with("You are taking over this conversation from another agent (Codex"), "{}", meta["prompt"]);
 }
@@ -352,4 +367,34 @@ fn how_memory_is_kept_is_chosen_on_the_memory_screen() {
     click(&mut rt, "memory-mode-ask");
     assert_eq!(rt.state.people_panel.memory_mode, "ask");
     assert_eq!(crate::workspace_settings::load(&store).unwrap().memory_mode, "ask", "saved in the settings");
+}
+
+#[test]
+fn the_folder_chip_names_the_folder_the_turn_runs_in() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    // A teammate with a folder of its own: the chip names it.
+    settle(&mut rt);
+    assert_eq!(text_in(&rt, "folder-chip"), ["work"]);
+
+    // One without: the turn runs where Locust has a folder open, and the chip names that one, not "No folder".
+    let project = dirs.0.join("now-coding");
+    std::fs::create_dir_all(&project).unwrap();
+    native::set_open_folder(&store, &project).unwrap();
+    let root = dirs.0.clone();
+    rt.update(move |s, _| {
+        apply_team(s, vec![Teammate { folder: None, ..teammate(&root, "ask") }]);
+        // As the window's setup reads it.
+        s.home.folder_path = native::open_folder().map(|p| p.to_string_lossy().into_owned());
+    });
+    settle(&mut rt);
+    assert_eq!(text_in(&rt, "folder-chip"), ["now-coding"]);
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    let cwd = first_records(&store)[0]["metadata"]["command"]["cwd"].as_str().unwrap().to_owned();
+    assert_eq!(
+        std::fs::canonicalize(&cwd).unwrap(),
+        std::fs::canonicalize(&project).unwrap(),
+        "the turn ran in the folder the chip names"
+    );
 }

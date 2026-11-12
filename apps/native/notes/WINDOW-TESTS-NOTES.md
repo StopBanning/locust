@@ -33,6 +33,17 @@ More since (Phase 1, Thu):
 8. A mode chosen on the message box is the mode the turn runs in; picking a teammate goes back to theirs.
 9. A pressed notification opens its conversation, from wherever the window was.
 10. "All of Codec's conversations" opens the Board narrowed to Codec, and "Show everyone's" widens it.
+11. The Team screen edits a teammate in a form and asks before removing one.
+12. The message box's + attaches a file picked in the system's dialog (the dialog answered by the test).
+13. How memory is kept is chosen on the Memory screen.
+
+Phase 2A's last two (12 Nov, evening):
+14. The folder chip names the folder the turn runs in: the teammate's own, else the one Locust has open. The turn's
+    ledger records that same folder. Run once with the fallback taken out, it failed as the live bug did: "No folder".
+15. Check 2 also reads the launched command: a model picked in the picker reaches the agent's command line
+    (`--model sonnet` in the argv the ledger keeps).
+
+With these, all eight of the plan's Phase 2A checks are window tests.
 
 Checks 3, 5 and 7 were each run once with their fix taken out, and failed as the bug did.
 
