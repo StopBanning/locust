@@ -48,6 +48,29 @@ Afterwards Electron was reopened, and Codec's mode was set back to Edit.
 7. **Pressing a face on the Board keeps the Board.** Electron opens that teammate's conversation.
 8. **Board rows print raw state words**, such as "· needs-you" and "· working", after the title.
 
+## What became of them (12 Nov, later)
+
+1. **Accessibility typing: AccessKit's gap, not Locust's.**
+   - The message box does carry its edit handle, so Rune advertises "set value" and "replace selected text".
+   - AccessKit's macOS adapter (`accesskit_macos` 0.27.2) has no handler for `setAccessibilitySelectedText:`. Inserting
+     at the caret is therefore dropped while the caller is told it worked.
+   - Whole-field `setAccessibilityValue:` is forwarded, but reading it back failed while the window was covered (item
+     2), so it is not proven either way.
+   - Typing that goes through keystrokes or the input system is unaffected; that includes macOS Dictation and a paste.
+   - The fix belongs in AccessKit, an upstream change, which needs Colin's OK before anything is filed.
+2. **Stale frames: Rune by design.** A covered window draws nothing (`window/draw.rs`). Once uncovered, it looks again
+   on a back-off timer or on the next input, so a frame changed by background events can show late. Not a Locust bug.
+3. **Fixed.** A turn whose process is gone (`mission_native_<pid>_…`) no longer reads as running. Quitting now waits
+   in `on_quit` for each turn's cancelled record, because macOS can end the process before `main` waits. Seen: a turn
+   started through the door, then Quit, ended its ledger with `run.cancelled`.
+4. **Fixed.** The folder chip falls back to the folder Locust has open. Seen: it says now-coding.
+5. **Fixed.** Electron's work-began gate: before a turn says or does anything, only trouble with the run itself
+   reaches the thread. Tested.
+6. **Not a bug.** The first attempt set "selected" on the wrong element. The standard press action, which VoiceOver
+   uses, flips the switch.
+7. **Fixed.** Choosing a teammate closes the Board, Home, Settings, Teammates or Automations.
+8. **Fixed.** Board cards show the title and the teammate.
+
 ## Not reached
 
 These need another session:
