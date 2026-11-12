@@ -317,6 +317,12 @@ impl Runtime for Codex {
             json!({"clientInfo":{"name":"locust","version":"0.1.0"}}),
         )?;
         self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
+        // The run's skills, before the thread starts so its first turn lists them (codex-app-server-run.ts). Refused,
+        // the turn runs without them.
+        let roots = crate::skills::roots(&turn.mission_id);
+        if !roots.is_empty() {
+            let _ = self.request("skills/extraRoots/set", json!({"extraRoots": roots}));
+        }
         let policy = crate::approval::codex_app_server_policy(turn.mode, None);
         // Ask and Plan start none of the MCP servers the person's Codex runs as programs (codex-read-only.ts, 0.824):
         // read-only is Codex's sandbox, and a program outside it may write. The other modes keep their Codex as it is.

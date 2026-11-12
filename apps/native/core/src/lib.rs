@@ -39,6 +39,7 @@ pub mod runtime;
 pub mod runtime_terminal;
 pub mod secrets;
 pub mod shell_path;
+pub mod skills;
 pub mod spend;
 pub mod store;
 pub mod terminal;

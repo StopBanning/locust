@@ -75,6 +75,7 @@ pub fn print_args(
     mode: Mode,
     model: Option<&str>,
     resume: Option<&str>,
+    skills: Option<&str>,
 ) -> io::Result<Vec<String>> {
     let sandbox = sandbox_for(mode);
     let read_only = sandbox == "read-only";
@@ -90,6 +91,10 @@ pub fn print_args(
     }
     args.push("--workspace".into());
     args.push(workspace.to_string_lossy().into_owned());
+    // The run's skills, as a Cursor plugin folder (run-skills.ts `.cursor-plugin`).
+    if let Some(dir) = skills {
+        args.extend(["--plugin-dir".into(), dir.into()]);
+    }
     if read_only {
         args.push("--mode".into());
         args.push("ask".into());
@@ -117,6 +122,7 @@ pub fn command(
     mode: Mode,
     model: Option<&str>,
     resume: Option<&str>,
+    skills: Option<&str>,
 ) -> io::Result<Command> {
     if mode == Mode::ApproveEach {
         return Err(err(
@@ -124,7 +130,7 @@ pub fn command(
         ));
     }
     let mut c = Command::new(super::discovery::find_named("cursor-agent")?);
-    c.args(print_args(folder, mode, model, resume)?);
+    c.args(print_args(folder, mode, model, resume, skills)?);
     c.current_dir(folder);
     Ok(c)
 }
@@ -507,7 +513,7 @@ mod unit_tests {
 
     #[test]
     fn ask_mode_is_read_only_without_force_or_approve_mcps() {
-        let args = print_args(Path::new("/tmp/ws"), Mode::Ask, None, None).unwrap();
+        let args = print_args(Path::new("/tmp/ws"), Mode::Ask, None, None, None).unwrap();
         assert!(args.windows(2).any(|w| w == ["--mode", "ask"]));
         assert!(!args.iter().any(|a| a == "--force"));
         assert!(!args.iter().any(|a| a == "--approve-mcps"));
@@ -526,6 +532,7 @@ mod unit_tests {
             Mode::Auto,
             Some("composer-1"),
             Some("sess"),
+            None,
         )
         .unwrap();
         assert!(args.contains(&"--force".into()));
@@ -537,7 +544,7 @@ mod unit_tests {
 
     #[test]
     fn accept_edits_is_workspace_write() {
-        let args = print_args(Path::new("/tmp/ws"), Mode::AcceptEdits, None, None).unwrap();
+        let args = print_args(Path::new("/tmp/ws"), Mode::AcceptEdits, None, None, None).unwrap();
         assert!(args.contains(&"--approve-mcps".into()));
         assert!(!args.contains(&"--force".into()));
         assert!(!args.windows(2).any(|w| w == ["--mode", "ask"]));

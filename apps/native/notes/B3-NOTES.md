@@ -193,3 +193,24 @@ Left after this part: three Claude Code streams and two Antigravity transcripts.
   each reference is a chip above the box with its folder mark, name, access note and remove button, faded where this
   mode leaves it out. Scenes `references` and `references-light`.
 - Not checked: the dialog itself (a native window no snapshot can show); a live turn reading a reference.
+
+## Ninth part (12 Nov): skills for every agent (grid 358 of 385)
+
+- `core/src/skills.rs` ports claude-skills.ts and run-skills.ts. Skills are copied for the run alone, never linked,
+  symlinks inside skipped, within Electron's limits (10 MB a skill, 40 MB in all, 200 skills).
+  - Claude Code gets up to four plugins, in Electron's order: the folder's own `.claude/skills` (not in Auto), the
+    person's `~/.claude/skills` (only with `claudeOwnSkills` on, not in Auto), the library, and the teammate's own.
+    Each is a `--plugin-dir`, plus `--add-dir` outside Auto (the builder already took them).
+  - Codex, OpenCode, Copilot, Antigravity and Cursor get one folder: the teammate's listed skills, then the library's,
+    a name already taken (by folder or by the `name:` in its front matter) dropped, with the `.plugin` and
+    `.cursor-plugin` manifests and the `.agents/skills` copy. Codex is told at the handshake (`skills/extraRoots/set`,
+    through a registry by mission id, as the browser tools are); OpenCode 1 in `skills.paths` with the folder readable;
+    Copilot and Cursor as a `--plugin-dir`; Antigravity as an `--add-dir`, in every mode.
+  - The copies are removed when the turn ends.
+- Where skills come from: Electron's `teammate-skills/<id>` (the names in its `skills.json`) and `skill-library/skills`,
+  read only. The native app keeps none of its own yet, and has no tune candidate.
+- The person's existing OpenCode `skills.paths` are not read first (Electron's `openCodeSkillPaths`): a teammate's
+  OpenCode run keeps only the run's folder there.
+- Not checked live: this Mac has no teammate or library skills.
+- Left in the grid: forks (Claude Code's `--fork-session`), ticked connectors, Copilot's browser in Approve each, and
+  `no-guard`.

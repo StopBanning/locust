@@ -19,6 +19,7 @@ use std::path::Path;
 
 const WORKSPACE: &str = "/work/project";
 const REFERENCE: &str = "/work/reference";
+const SKILLS: &str = "/locust/skills";
 const BRIDGE: &str = "/locust/bridge/mcp.json";
 const BROWSER: &str = "/locust/browser/mcp.json";
 const GUARD_SETTINGS: &str = "/locust/guard/settings.json";
@@ -45,6 +46,7 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
     let browser = case["browser"].as_bool().unwrap();
     let folder = Path::new(WORKSPACE);
     let references: Vec<&str> = if case["references"] == true { vec![REFERENCE] } else { vec![] };
+    let skills: Option<&str> = (case["skills"] == true).then_some(SKILLS);
     let mut env = Env::new();
     let mut args: Vec<String> = match runtime {
         // native.rs claude_args. Skills, forks and ticked connectors are not wired in the Rust engine yet, so those
@@ -58,13 +60,14 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
             effort,
             resume,
             &references,
+            skills.as_slice(),
         )?,
         "codex" => super::codex::app_server_args(Some("0.160.0")),
         "cursor" => {
             if let Some(why) = super::cursor::refusal(mode, effort) {
                 return Err(why.into());
             }
-            super::cursor::print_args(folder, mode, model, resume).map_err(|e| e.to_string())?
+            super::cursor::print_args(folder, mode, model, resume, skills).map_err(|e| e.to_string())?
         }
         "copilot" => {
             if mode == Mode::ApproveEach {
@@ -75,17 +78,20 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
                 if let Some(e) = effort {
                     a.extend(["--effort".into(), e.into()]);
                 }
+                if let Some(dir) = skills {
+                    a.extend(["--plugin-dir".into(), dir.into()]);
+                }
                 a
             } else {
                 let session = resume.is_none().then_some(COPILOT_SESSION);
-                super::copilot::prompt_args("Say hi.", mode, model, effort, resume, session, &references)
+                super::copilot::prompt_args("Say hi.", mode, model, effort, resume, session, &references, skills)
             }
         }
         "antigravity" => {
             if mode == Mode::ApproveEach {
                 return Err("Antigravity does not support Approve-each in the native driver.".into());
             }
-            super::antigravity::print_args(mode, model, effort, resume, &references)
+            super::antigravity::print_args(mode, model, effort, resume, &references, skills)
         }
         "muse" => {
             if mode == Mode::ApproveEach {
@@ -125,6 +131,10 @@ fn rust_command(case: &Value) -> Result<(Vec<String>, Env), String> {
             }
             _ => {}
         }
+    }
+    if runtime == "opencode" && skills.is_some() {
+        let op: Value = serde_json::from_str(&env["OPENCODE_CONFIG_CONTENT"]).unwrap();
+        env.insert("OPENCODE_CONFIG_CONTENT".into(), super::opencode_config::with_skills(op, skills).to_string());
     }
     Ok((args, env))
 }

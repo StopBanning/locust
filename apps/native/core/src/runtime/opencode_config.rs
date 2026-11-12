@@ -68,6 +68,41 @@ pub fn with_references(mut config: Value, mode: Mode, references: &[&str]) -> Va
     config
 }
 
+/// withOpenCodeSkills: the run's skills folder in `skills.paths` (after any the config had), and that folder readable
+/// outside the workspace unless every folder already is.
+pub fn with_skills(mut config: Value, dir: Option<&str>) -> Value {
+    let Some(dir) = dir.filter(|d| !d.is_empty()) else { return config };
+    let mut paths: Vec<Value> = config["skills"]["paths"].as_array().cloned().unwrap_or_default();
+    if !paths.iter().any(|p| p == dir) {
+        paths.push(json!(dir));
+    }
+    if !config["skills"].is_object() {
+        config["skills"] = json!({});
+    }
+    config["skills"]["paths"] = Value::Array(paths);
+    let external = config["permission"]["external_directory"].clone();
+    if config["permission"].is_object() && external != "allow" {
+        let mut allowed = match external.as_object() {
+            Some(o) => o.clone(),
+            None => {
+                let mut m = serde_json::Map::new();
+                m.insert("*".into(), if external.is_null() { json!("ask") } else { external.clone() });
+                m
+            }
+        };
+        let path = dir.replace('\\', "/").trim_end_matches('/').to_owned();
+        let windows = path.len() > 2 && path.as_bytes()[1] == b':' && path.as_bytes()[2] == b'/';
+        let spellings = if windows { vec![path.clone(), path.replace('/', "\\")] } else { vec![path.clone()] };
+        for spelling in spellings {
+            let sep = if spelling.contains('\\') { "\\" } else { "/" };
+            allowed.insert(spelling.clone(), json!("allow"));
+            allowed.insert(format!("{spelling}{sep}**"), json!("allow"));
+        }
+        config["permission"]["external_directory"] = Value::Object(allowed);
+    }
+    config
+}
+
 pub fn acp_config(mode: Mode, plugin: &Path) -> Value {
     let old = legacy_config(mode, None);
     let mut permissions = vec![

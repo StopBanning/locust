@@ -550,7 +550,7 @@ fn real_cursor_one_line() {
     let store = Store::new(native, electron).unwrap();
     let folder = temp.0.join("ws");
     std::fs::create_dir_all(&folder).unwrap();
-    let mut command = crate::runtime::cursor::command(&folder, Mode::Ask, None, None).unwrap();
+    let mut command = crate::runtime::cursor::command(&folder, Mode::Ask, None, None, None).unwrap();
     let mut rt = Cursor::spawn(&mut command).unwrap();
     let turn = Turn {
         prompt: "Reply with exactly: ok".into(),
@@ -598,8 +598,8 @@ fn real_cursor_one_line() {
 fn print_only_runtimes_refuse_unsupported_approve_each_before_launch() {
     let folder = std::path::Path::new("/unused");
     for result in [
-        crate::runtime::cursor::command(folder, Mode::ApproveEach, None, None),
-        crate::runtime::antigravity::command(folder, Mode::ApproveEach, None, None, None, &[]),
+        crate::runtime::cursor::command(folder, Mode::ApproveEach, None, None, None),
+        crate::runtime::antigravity::command(folder, Mode::ApproveEach, None, None, None, &[], None),
         crate::runtime::muse::command(folder, Mode::ApproveEach, None, None, None),
     ] {
         assert!(

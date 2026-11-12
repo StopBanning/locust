@@ -255,6 +255,7 @@ fn real_copilot_one_line() {
         None,
         Some(crate::native::uuid_v4().unwrap().as_str()),
         &[],
+        None,
     )
     .unwrap();
     let mut rt = Copilot::spawn(&mut command).unwrap();

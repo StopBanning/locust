@@ -151,6 +151,7 @@ fn command_for_turn(
     effort: Option<&str>,
     session_id: Option<&str>,
     references: &[&str],
+    skills: Option<&str>,
 ) -> io::Result<Command> {
     #[cfg(any(test, feature = "test-hooks"))]
     if let Some((program, args)) = crate::invariants::lock(&hooks::STATE).1.clone() {
@@ -160,11 +161,11 @@ fn command_for_turn(
     }
     match runtime {
         "claude" => crate::runtime::claude::bare_command(folder),
-        "cursor" => crate::runtime::cursor::command(folder, mode, model, resume),
+        "cursor" => crate::runtime::cursor::command(folder, mode, model, resume, skills),
         "copilot" => crate::runtime::copilot::command(
-            folder, prompt, mode, model, effort, resume, session_id, references,
+            folder, prompt, mode, model, effort, resume, session_id, references, skills,
         ),
-        "antigravity" => crate::runtime::antigravity::command(folder, mode, model, effort, resume, references),
+        "antigravity" => crate::runtime::antigravity::command(folder, mode, model, effort, resume, references, skills),
         "muse" => crate::runtime::muse::command(folder, mode, model, effort, resume),
         "acp" => crate::runtime::acp::command(
             &electron_dir().ok_or_else(|| io::Error::other("Locust profile not found"))?,
@@ -180,8 +181,9 @@ fn command_for_turn(
                 .get_envs()
                 .find(|(k, _)| *k == "OPENCODE_CONFIG_CONTENT")
                 .and_then(|(_, v)| v.and_then(|v| v.to_str()).and_then(|v| serde_json::from_str::<Value>(v).ok()));
-            if let Some(config) = config.filter(|c| c["permission"].is_object() && !references.is_empty()) {
-                c.env("OPENCODE_CONFIG_CONTENT", crate::runtime::opencode_config::with_references(config, mode, references).to_string());
+            if let Some(config) = config.filter(|c| c["permission"].is_object() && (!references.is_empty() || skills.is_some())) {
+                let config = crate::runtime::opencode_config::with_references(config, mode, references);
+                c.env("OPENCODE_CONFIG_CONTENT", crate::runtime::opencode_config::with_skills(config, skills).to_string());
             }
             Ok(c)
         }
@@ -795,6 +797,7 @@ pub fn claude_args(
     effort: Option<&str>,
     resume: Option<&str>,
     references: &[&str],
+    skills: &[&str],
 ) -> Result<Vec<String>, String> {
     crate::runtime::claude::print_args(&crate::runtime::claude::PrintOptions {
         mode,
@@ -805,6 +808,7 @@ pub fn claude_args(
         effort,
         resume,
         references,
+        skills,
         ..Default::default()
     })
 }
@@ -1178,6 +1182,38 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     } else {
         None
     };
+    // The run's skills (claude-skills.ts, run-skills.ts): Claude Code's plugins, or one folder for the agents that
+    // read one. Copied for this run alone, and removed when it ends.
+    let skill_sources = crate::skills::sources_for(store.electron(), &job.teammate.id);
+    let own_skills = saved["settings"]["claudeOwnSkills"] == true;
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let claude_plugins: Vec<crate::skills::Plugin> = if runtime_name == "claude" {
+        crate::skills::prepare_claude(&store.root().join("claude-skills"), &folder, own_skills, home.as_deref(), mode == Mode::Auto, &skill_sources)
+    } else {
+        Vec::new()
+    };
+    let run_skills = if matches!(runtime_name, "codex" | "opencode" | "copilot" | "antigravity" | "cursor") {
+        crate::skills::prepare_run(&store.root().join("run-skills"), &skill_sources)
+    } else {
+        None
+    };
+    let claude_skill_dirs: Vec<String> = claude_plugins.iter().map(|p| p.dir.to_string_lossy().into_owned()).collect();
+    let claude_skills: Vec<&str> = claude_skill_dirs.iter().map(String::as_str).collect();
+    let run_dir = run_skills.as_ref().map(|r| r.dir.to_string_lossy().into_owned());
+    let run_skills_dir = run_skills.as_ref().map(|r| r.skills_dir.to_string_lossy().into_owned());
+    if runtime_name == "codex"
+        && let Some(dir) = &run_skills_dir
+    {
+        crate::skills::set_roots(&id, vec![dir.clone()]);
+    }
+    // OpenCode reads the skills folder itself; Copilot, Cursor and Antigravity read the folder around it.
+    let agent_skills = match runtime_name {
+        "opencode" => run_skills_dir.clone(),
+        "copilot" | "cursor" | "antigravity" => run_dir.clone(),
+        _ => None,
+    };
+    let skill_copies: Vec<PathBuf> =
+        claude_plugins.first().and_then(|p| p.dir.parent().map(Path::to_path_buf)).into_iter().chain(run_skills.as_ref().map(|r| r.dir.clone())).collect();
     let mut command = command_for_turn(
         runtime_name,
         &folder,
@@ -1188,6 +1224,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         job.effort.as_deref(),
         session_id.as_deref(),
         &references,
+        agent_skills.as_deref(),
     )
     .map_err(|e| e.to_string())?;
     command.current_dir(&folder);
@@ -1240,6 +1277,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             job.effort.as_deref(),
             resume.as_deref(),
             &references,
+            &claude_skills,
         )?);
     }
     let args: Vec<String> = command
@@ -1318,6 +1356,11 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 bridge,
                 store,
             );
+            // The run's skill copies go with it.
+            for copy in &skill_copies {
+                let _ = std::fs::remove_dir_all(copy);
+            }
+            crate::skills::forget_roots(&memory_id);
             if let Err(error) = checkpoint.finish(&memory_store, &memory_id) {
                 eprintln!("Undo checkpoint was not kept: {error}");
             }
@@ -1374,7 +1417,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
     let runtime_name = teammate.runtime.as_deref().unwrap_or("codex");
     let model = teammate.model.clone().filter(|m| !m.is_empty() && m != "account-default");
     let session = if runtime_name == "copilot" { Some(uuid_v4().map_err(|e| e.to_string())?) } else { None };
-    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[])
+    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[], None)
         .map_err(|e| e.to_string())?;
     command.current_dir(folder);
     let id = new_id();

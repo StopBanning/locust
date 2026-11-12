@@ -53,6 +53,7 @@ pub fn prompt_args(
     resume: Option<&str>,
     session_id: Option<&str>,
     references: &[&str],
+    skills: Option<&str>,
 ) -> Vec<String> {
     let sandbox = sandbox_for(mode);
     let mut args = vec![
@@ -88,6 +89,10 @@ pub fn prompt_args(
         args.push("--session-id".into());
         args.push(session.into());
     }
+    // The run's skills, as a plugin folder (run-skills.ts `.plugin`), before the guard's.
+    if let Some(dir) = skills {
+        args.extend(["--plugin-dir".into(), dir.into()]);
+    }
     args
 }
 
@@ -100,6 +105,7 @@ pub fn command(
     resume: Option<&str>,
     session_id: Option<&str>,
     references: &[&str],
+    skills: Option<&str>,
 ) -> io::Result<Command> {
     let mut c = Command::new(super::discovery::find_named("copilot")?);
     if mode == Mode::ApproveEach {
@@ -110,8 +116,11 @@ pub fn command(
         if let Some(e) = effort {
             c.args(["--effort", e]);
         }
+        if let Some(dir) = skills {
+            c.args(["--plugin-dir", dir]);
+        }
     } else {
-        c.args(prompt_args(prompt, mode, model, effort, resume, session_id, references));
+        c.args(prompt_args(prompt, mode, model, effort, resume, session_id, references, skills));
     }
     c.current_dir(folder);
     Ok(c)
@@ -323,7 +332,7 @@ mod unit_tests {
     use super::*;
     #[test]
     fn read_only_denies_write_and_shell() {
-        let args = prompt_args("hi", Mode::Ask, None, None, None, Some("sess"), &[]);
+        let args = prompt_args("hi", Mode::Ask, None, None, None, Some("sess"), &[], None);
         assert!(args.iter().any(|a| a == "--deny-tool=write,shell"));
         assert!(args.windows(2).any(|w| w == ["--session-id", "sess"]));
         assert!(!args.iter().any(|a| a == "--allow-all-paths"));
@@ -339,6 +348,7 @@ mod unit_tests {
             Some("old"),
             None,
             &[],
+            None,
         );
         assert!(args.contains(&"--allow-all-paths".into()));
         assert!(args.windows(2).any(|w| w == ["--model", "gpt"]));

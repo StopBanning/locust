@@ -66,6 +66,7 @@ pub fn print_args(
     effort: Option<&str>,
     resume: Option<&str>,
     references: &[&str],
+    skills: Option<&str>,
 ) -> Vec<String> {
     let sandbox = sandbox_for(mode);
     let mut args = vec![
@@ -74,6 +75,10 @@ pub fn print_args(
         "--input-format".into(),
         "stream-json".into(),
     ];
+    // The run's skills, as a workspace folder agy reads `.agents/skills` from (run-skills.ts), in every mode.
+    if let Some(dir) = skills {
+        args.extend(["--add-dir".into(), dir.into()]);
+    }
     if sandbox == "workspace-write" {
         args.push("--mode".into());
         args.push("accept-edits".into());
@@ -110,6 +115,7 @@ pub fn command(
     effort: Option<&str>,
     resume: Option<&str>,
     references: &[&str],
+    skills: Option<&str>,
 ) -> io::Result<Command> {
     if mode == Mode::ApproveEach {
         return Err(err(
@@ -117,7 +123,7 @@ pub fn command(
         ));
     }
     let mut c = Command::new(super::discovery::find_named("agy")?);
-    c.args(print_args(mode, model, effort, resume, references))
+    c.args(print_args(mode, model, effort, resume, references, skills))
         .current_dir(folder);
     Ok(c)
 }
@@ -366,14 +372,14 @@ mod unit_tests {
     use super::*;
     #[test]
     fn ask_is_read_only_without_skip() {
-        let args = print_args(Mode::Ask, Some("gemini"), None, None, &[]);
+        let args = print_args(Mode::Ask, Some("gemini"), None, None, &[], None);
         assert!(!args.iter().any(|a| a == "--dangerously-skip-permissions"));
         assert!(args.windows(2).any(|w| w == ["--model", "gemini"]));
         assert!(args.contains(&"-p=".into()));
     }
     #[test]
     fn auto_skips_permissions() {
-        let args = print_args(Mode::Auto, None, Some("low"), Some("c1"), &[]);
+        let args = print_args(Mode::Auto, None, Some("low"), Some("c1"), &[], None);
         assert!(args.contains(&"--dangerously-skip-permissions".into()));
         assert!(args.windows(2).any(|w| w == ["--effort", "low"]));
         assert!(args.windows(2).any(|w| w == ["--conversation", "c1"]));
