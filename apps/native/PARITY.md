@@ -29,7 +29,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Recent conversations with state dots and relative age | `renderer/src/components/Sidebar.tsx`, `main/mission-history.ts` | **done** | yes | no | yes |
 | Local JSONL transcript reader and live tailing (schema 1–27) | `packages/mission-store/src/index.ts`, `main/mission-history.ts` | **done** | yes | 2026-11-11 — window: a real OpenCode turn streamed in | yes |
 | Continuation chain assembly | `main/conversation-chain.ts`, `renderer/src/components/Thread.tsx` | **done** | yes | 2026-11-11 — window: a follow-up kept its context | yes |
-| Streaming Markdown and user message bubbles | `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/Thread.tsx` | **done** | yes | 2026-11-11 — window: the answer streamed as Markdown | no |
+| Streaming Markdown and user message bubbles | `renderer/src/components/ThreadItems.tsx`, `renderer/src/components/Thread.tsx` | **done** | yes | 2026-11-11 — window: the answer streamed as Markdown; live hour 12 Nov: bubbles and streamed replies in the real window | no |
 | Working, waiting, ready and failure status | `renderer/src/missionView.ts`, `renderer/src/components/Thread.tsx` | **done** | yes | no | no |
 | Expandable tool arguments/output | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/ThreadItems.tsx` | **partial** — per-item argument/output drawers, elapsed times and bounded output expansion implemented; full Electron tool classification/group-label grammar remains | yes | no | no |
 | Interactive step/plan progress | `renderer/src/components/ActivityCard.tsx`, `renderer/src/components/Thread.tsx` | **partial** — expandable structured plan with live step states/counts implemented; Electron animated plan header and live-line plan peek remain | yes | no | no |
@@ -56,7 +56,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| Send text and stop an owned turn | `renderer/src/components/Composer.tsx`, `main/locust-mcp-tools.ts` | **done** | yes | no — send seen live 11 Nov; Stop not yet proven live | yes |
+| Send text and stop an owned turn | `renderer/src/components/Composer.tsx`, `main/locust-mcp-tools.ts` | **done** | yes | 2026-11-12 — send seen live 11 Nov; Stop not yet proven live; live hour 12 Nov: sent from the real window with Electron quit (Scout, OpenCode free route), answer streamed; Stop on a long turn ended it | yes |
 | Restore failed-send text | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | Per-turn model and effort selection | `renderer/src/components/RoutePicker.tsx`, `renderer/src/components/EffortSlider.tsx`, `main/model-catalog.ts` | **done** | yes | 2026-11-12 — door: a turn on a named free OpenCode model answered; picker drawn in both themes | yes |
 | Multiline auto-expanding editor, Shift+Enter | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
@@ -98,7 +98,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Query models and effort levels | `main/model-catalog.ts`, `main/locust-mcp-tools.ts` | **done** | yes | 2026-11-12 — locust-native --models: 101 models on this Mac; door list_models | yes |
 | Standalone Codex app-server execution | `packages/runtime-adapters/src/codex-app-server-run.ts`, `main/codex-mission.ts` | **partial** — `runtime/codex.rs` runs `codex app-server` with continuation, approvals and Stop, and switches the plan tool on from Codex 0.153 as Electron does (`runtime/version.rs` reads the version; all 55 command-grid cases match); each mode gets Electron's sandbox (Accept edits writes in the folder) and the person's MCP programs are off in Ask and Plan only; no steer, fork, compact or `model/list` | yes | 2026-11-11 — real-agent tests `real_codex_continue`, `real_codex_approval_deny_then_allow` and `real_codex_accept_edits_writes_in_its_folder` on Codex 0.167.1 with the plan tool switch | yes |
 | Standalone Claude Code execution | `packages/runtime-adapters/src/process-runner.ts`, `packages/runtime-adapters/src/claude-events.ts` | **partial** — `claude::print_args` ports `createClaudePrintCommand`: each mode gets Electron's tools and permission mode, the permission bridge outside Auto in one `--mcp-config` with the browser, the guard hook, `--strict-mcp-config`, `--effort`, and `--resume` on a follow-up (26 of 55 command-grid cases match); skills, reference folders, forks and ticked connectors are not wired | yes | 2026-11-11 — real-agent tests `real_claude_continue` (the resumed session kept a word) and `real_claude_approval_deny_then_allow` on Claude Code 2.1.322 | yes |
-| Standalone Antigravity/OpenCode/Cursor/Copilot/Muse/Kilo execution | `packages/runtime-adapters/src/index.ts`, `packages/runtime-adapters/src/opencode-serve-run.ts`, `packages/runtime-adapters/src/kilo-acp-run.ts`, `main/antigravity-mission.ts` | **partial** — M4A/M4C: OpenCode 1/2, Kilo ACP, Cursor, Copilot, Antigravity (`agy`) and Muse Code run natively with continuation and Stop; no native discovery/sign-in/install UI, and live one-line CLI turns remain unrun; the ninth turn at once is refused; an OpenCode teammate on an own API route runs in Locust for now | yes | no — OpenCode seen live 11 Nov; the other agents not yet | yes |
+| Standalone Antigravity/OpenCode/Cursor/Copilot/Muse/Kilo execution | `packages/runtime-adapters/src/index.ts`, `packages/runtime-adapters/src/opencode-serve-run.ts`, `packages/runtime-adapters/src/kilo-acp-run.ts`, `main/antigravity-mission.ts` | **partial** — M4A/M4C: OpenCode 1/2, Kilo ACP, Cursor, Copilot, Antigravity (`agy`) and Muse Code run natively with continuation and Stop; no native discovery/sign-in/install UI, and live one-line CLI turns remain unrun; the ninth turn at once is refused; an OpenCode teammate on an own API route runs in Locust for now | yes | 2026-11-12 — OpenCode seen live 11 Nov; the other agents not yet; live hour 12 Nov: OpenCode turn and follow-up (remembered the word) from the real window | yes |
 | Custom Agent Client Protocol agents by command | `renderer/src/components/AcpAgentsSettings.tsx`, `main/acp-agents.ts`, `packages/runtime-adapters/src/acp-run.ts` | **partial** — M4A: saved agents run over native stdio ACP, with continuation, model config, approvals and Stop; no native agent settings/Test/save/remove or capability display | yes | no | yes |
 | Own OpenAI-compatible API/local models, pricing and chat-only capability | `renderer/src/components/OwnModels.tsx`, `main/own-models.ts`, `main/listed-prices.ts` | **missing** | - | no | yes |
 | Automatic carry-on policy | `main/carry-on.ts`, `shared/carry-on.ts` | **done** | yes | no | yes |
@@ -213,11 +213,11 @@ Native status evidence: each cell names its module or round notes; the engine is
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| Local MCP teammates/conversations/models/stop/carry-on access | `renderer/src/components/LocustMcpSettings.tsx`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts` | **partial** — native server, tools, bridge and Settings switches; no routines, voice-call copy or editor sessions | yes | 2026-11-12 — door bridge: Auto turn in a named folder, follow-up, stop, refused folder, model choice | yes |
+| Local MCP teammates/conversations/models/stop/carry-on access | `renderer/src/components/LocustMcpSettings.tsx`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts` | **partial** — native server, tools, bridge and Settings switches; no routines, voice-call copy or editor sessions | yes | 2026-11-12 — door bridge: Auto turn in a named folder, follow-up, stop, refused folder, model choice; live hour 12 Nov: switch turned on in the window; start_conversation and read_reply through --door-bridge; the turn ran in the window in the teammate's own mode | yes |
 | First launch, discovery and starter team setup | `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/BootScreen.tsx`, `main/start-readiness.ts` | **partial** — boot PATH sweep via `discovery::find_named`, starter templates; install/sign-in/CRT/DiscoveryEvent stream remain (p12-NOTES.md) | yes | no | yes |
 | Folder/project switcher and remembered conversation folders | `renderer/src/components/Sidebar.tsx`, `main/folders.ts`, `main/named-folder.ts` | **done** — native `folders.json` seed-once registry and its own open folder (`workspace.json`); Home's Choose folder opens the system folder dialog; message-named project switch | yes | no | yes |
 | Home cover, team, starters and compare entry points | `renderer/src/components/HomeCover.tsx`, `renderer/src/components/HomeTeam.tsx`, `renderer/src/components/StarterList.tsx`, `renderer/src/components/IdleTeammate.tsx` | **done** — cover claim, team/templates, Electron starters; Compare/issue deferred; cover animation remains | yes | no | no |
-| Board of waiting/working/done with actionable approvals | `renderer/src/components/BoardScreen.tsx`, `renderer/src/conversationBoard.ts` | **done** — Needs you / Working / Ready to look at / Done; Allow once / Deny via `approval`; Scout/routine wait cards remain | yes | no | yes |
+| Board of waiting/working/done with actionable approvals | `renderer/src/components/BoardScreen.tsx`, `renderer/src/conversationBoard.ts` | **done** — Needs you / Working / Ready to look at / Done; Allow once / Deny via `approval`; Scout/routine wait cards remain | yes | 2026-11-12 — live hour 12 Nov: a door turn's card showed under Needs you; Allow once ran the command and the turn completed | yes |
 | Since-you-were-away recap | `renderer/src/components/AwayList.tsx`, `main/away.ts` | **done** — reducer/line/Got it; native `away.json` attention mark; 20-minute minimum | yes | no | yes |
 | Updates, release notes and big-update splash | `renderer/src/components/WhatsNew.tsx`, `renderer/src/components/Screens.tsx`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts` | **partial** — native What's new + big splash from native notes; self-update / tray install remain out of round (p12-NOTES.md) | yes | no | yes |
 | Global command palette | `renderer/src/components/CommandPalette.tsx` | **done** — Cmd/Ctrl+K; Electron placeholder/groups/labels; filter + group order | yes | no | no |
@@ -236,7 +236,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | macOS/Windows liquid glass and rainbow backdrop | `main/mac-glass.ts`, `main/windows-glass.ts`, `renderer/src/components/LookSetting.tsx` | **missing** | - | no | yes |
 | Pet gallery, kept pets, sprites/puppets and bulk removal | `renderer/src/components/PetPicks.tsx`, `renderer/src/components/PetSprite.tsx`, `renderer/src/components/PetPuppet.tsx`, `main/pet-library.ts` | **missing** | - | no | yes |
 | Animated bots, plush/terminal eyes and agent mascots | `renderer/src/components/Bot.tsx`, `renderer/src/components/TeammateBot.tsx`, `renderer/src/buddyRig.ts`, `renderer/src/botLook.ts` | **missing** | - | no | no |
-| Native titlebar/dragging and collapsible compact sidebar | `renderer/src/components/TitleBar.tsx`, `renderer/src/components/Sidebar.tsx`, `main/window-chrome.ts` | **partial** — `ui/rail.rs`: the 38-point title bar (folder name centred, `Locust` and the build with none; browser and terminal toggles while no conversation is open; N running) with the lights at Electron's 14,13; the 64-point rail at 1199 points or less, or as chosen in Settings › Appearance › Sidebar (Auto, Full, Rail; Electron's `layout` setting, in the Rust app's own copy), with count badges, the lime bar and the hover/pin conversation card; no Mac glass behind the sidebar and title bar yet | yes | no | no |
+| Native titlebar/dragging and collapsible compact sidebar | `renderer/src/components/TitleBar.tsx`, `renderer/src/components/Sidebar.tsx`, `main/window-chrome.ts` | **partial** — `ui/rail.rs`: the 38-point title bar (folder name centred, `Locust` and the build with none; browser and terminal toggles while no conversation is open; N running) with the lights at Electron's 14,13; the 64-point rail at 1199 points or less, or as chosen in Settings › Appearance › Sidebar (Auto, Full, Rail; Electron's `layout` setting, in the Rust app's own copy), with count badges, the lime bar and the hover/pin conversation card; no Mac glass behind the sidebar and title bar yet | yes | 2026-11-12 — live hour 12 Nov: title bar with the folder's name, the rail at 1040 wide, count badges and the face card | no |
 
 ### Area 15: Documents, Diagrams & File Viewer
 
@@ -279,9 +279,9 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 9 | 8 | 8 | 25 | 17 | 3 |
-| 2 | Composer & Input | 10 | 1 | 3 | 14 | 11 | 1 |
+| 2 | Composer & Input | 10 | 1 | 3 | 14 | 11 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
-| 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 4 |
+| 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 1 | 3 | 9 | 13 | 4 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
@@ -290,10 +290,10 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 2 | 2 | 4 | 8 | 4 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
-| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 1 |
-| 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 0 |
+| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
+| 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **39** | **45** | **69** | **153** | **84** | **11** |
+| | **TOTAL** | **39** | **45** | **69** | **153** | **84** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

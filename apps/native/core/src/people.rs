@@ -193,6 +193,33 @@ pub fn owner_of(store: &Store, mission: &str) -> Option<String> {
         theirs["missionOwners"][mission].as_str().map(str::to_owned)
     })
 }
+/// Every conversation turn's owner by name, read once: the native file's owners over Electron's (read only), and each
+/// teammate's name from either file. For lists that show a teammate beside each conversation.
+pub fn owner_names(store: &Store) -> std::collections::HashMap<String, String> {
+    let theirs: Value = std::fs::read_to_string(store.electron().join("teammates.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default();
+    let own = team(store).unwrap_or_default();
+    let mut names = std::collections::HashMap::new();
+    for file in [&theirs, &own] {
+        for row in file["teammates"].as_array().into_iter().flatten() {
+            if let (Some(id), Some(name)) = (row["teammateId"].as_str(), row["name"].as_str()) {
+                names.insert(id.to_owned(), name.to_owned());
+            }
+        }
+    }
+    let mut out = std::collections::HashMap::new();
+    for file in [&theirs, &own] {
+        for (mission, who) in file["missionOwners"].as_object().into_iter().flatten() {
+            if let Some(name) = who.as_str().and_then(|id| names.get(id)) {
+                out.insert(mission.clone(), name.clone());
+            }
+        }
+    }
+    out
+}
+
 pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = team(store)?;
@@ -916,6 +943,23 @@ mod tests {
         let store = Store::new(path.join("native"), path.join("electron")).unwrap();
         (Temp(path), store)
     }
+    #[test]
+    fn each_conversation_is_named_for_its_teammate_from_either_app() {
+        let (_t, store) = fixture();
+        std::fs::write(
+            store.electron().join("teammates.json"),
+            json!({"schemaVersion":1,"teammates":[{"teammateId":"tm_codec","name":"Codec"},{"teammateId":"tm_scout","name":"Scout"}],"missionOwners":{"m_old":"tm_codec","m_both":"tm_codec"}}).to_string(),
+        )
+        .unwrap();
+        record_owner(&store, "m_new", "tm_scout").unwrap();
+        record_owner(&store, "m_both", "tm_scout").unwrap();
+        let names = owner_names(&store);
+        assert_eq!(names.get("m_old").map(String::as_str), Some("Codec"), "Electron's owners, read only");
+        assert_eq!(names.get("m_new").map(String::as_str), Some("Scout"), "the native file's owners");
+        assert_eq!(names.get("m_both").map(String::as_str), Some("Scout"), "the native record wins");
+        assert!(!names.contains_key("m_unknown"));
+    }
+
     fn person(name: &str) -> Value {
         json!({"teammateId":"","name":name,"role":"Custom","instructions":"Read first.","route":{"runtime":"codex","model":"account-default","mode":"ask","effort":"high"}})
     }

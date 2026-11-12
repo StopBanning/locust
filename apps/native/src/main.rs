@@ -828,12 +828,14 @@ fn refresh_recent(s: &mut State) {
     s.recents.request((), move |()| {
         // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
         if let Some(listed) = native::list_recent(usize::MAX, on_native) {
+            // The teammate each conversation belongs to, by name, as Electron's list shows it; the agent when unknown.
+            let owners = native::store().map(|store| locust_core::people::owner_names(&store)).unwrap_or_default();
             let rows = listed
                 .summaries
                 .iter()
                 .map(|m| ConversationRow {
                     id: m.mission_id.clone(),
-                    teammate: engine::runtime_name(&m.runtime).into(),
+                    teammate: owners.get(&m.mission_id).cloned().unwrap_or_else(|| engine::runtime_name(&m.runtime).into()),
                     title: m.title.clone(),
                     started_by: if listed.native.contains(&m.mission_id) {
                         "native"
@@ -1429,6 +1431,16 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     }
     changed |= sync_approvals(s);
     changed |= home_panel::sync_board_asks(s);
+    // A turn started or ended outside this window's own send (the door, a carry-on): read the list again.
+    let mut live = native::running_ids();
+    live.extend(native::waiting_approvals().into_iter().map(|card| card.mission_id));
+    live.sort();
+    live.dedup();
+    if live != s.seen_live {
+        s.seen_live = live;
+        refresh_recent(s);
+        changed = true;
+    }
     let root = selected_conversation(s)
         .and_then(|(t, _)| t.folder.as_ref())
         .map(std::path::PathBuf::from);

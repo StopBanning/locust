@@ -167,6 +167,9 @@ pub(super) struct State {
     pub(super) finishes_due: Option<std::time::Instant>,
     /// Settings › Appearance › Sidebar (`auto`, `wide`, `compact`), whether this window drew the rail last, and the
     /// rail's card: whose it is, whether a press pinned it, where the pointer is, and when it left.
+    /// The turns running or waiting in this process at the last look: when the set changes (a turn another app started
+    /// through the door, one ending), the recent list is read again so the sidebar and Board show it.
+    pub(super) seen_live: Vec<String>,
     pub(super) layout_pref: String,
     pub(super) layout_compact: std::cell::Cell<bool>,
     pub(super) rail_open: Option<String>,
@@ -321,6 +324,7 @@ impl Default for State {
             live_turns: std::collections::HashSet::new(),
             finishes: Vec::new(),
             finishes_due: None,
+            seen_live: Vec::new(),
             layout_pref: "auto".into(),
             layout_compact: std::cell::Cell::new(false),
             rail_open: None,
