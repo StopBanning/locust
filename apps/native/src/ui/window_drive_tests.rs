@@ -40,6 +40,10 @@ fn window() -> (Dirs, Store, Runtime<State>) {
     std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
     std::fs::create_dir_all(root.join("work")).unwrap();
     let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+    // The team as the native file keeps it, so owners have names, as on a real computer.
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec"}], "missionOwners": {}, "settings": {}}))
+        .unwrap();
     let mut s = State::default();
     s.engine = Some(Kind::Native);
     s.data = Some(store.clone());
@@ -155,4 +159,33 @@ fn a_model_of_another_agent_picked_in_the_picker_moves_the_reply_there() {
     assert_eq!(meta["model"], "sonnet");
     assert_eq!(meta["continuesFrom"]["reason"], json!("route-switch"));
     assert!(meta["prompt"].as_str().unwrap().starts_with("You are taking over this conversation from another agent (Codex"), "{}", meta["prompt"]);
+}
+
+#[test]
+fn a_conversation_opened_from_the_rail_card_is_its_teammates_not_a_stand_in() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    // The recent list names the teammate (it once named the agent, and the card was always empty).
+    pump(&mut rt, "the recent row", |s| s.recent.iter().any(|r| r.teammate == "Codec"));
+    let mission = rt.state.recent.iter().find(|r| r.teammate == "Codec").unwrap().id.clone();
+    // Away from the conversation, then back to it through the face's card, as at 1100 points wide.
+    click(&mut rt, "rail-tm_codec");
+    click(&mut rt, &format!("rail-row-{mission}"));
+    pump(&mut rt, "the conversation open", |s| s.ledger.as_ref().is_some_and(|p| !p.loading));
+    let header = &rt.state.ledger.as_ref().unwrap().header;
+    assert_eq!((header.id.as_str(), header.name.as_str()), ("tm_codec", "Codec"), "the owner, not \"Codex · Conversation\"");
+    assert_eq!(header.runs_in, "ask", "a reply runs in the teammate's own mode");
+}
+
+#[test]
+fn choosing_a_teammate_leaves_the_board_for_their_conversation() {
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| home_panel::open_board(s));
+    settle(&mut rt);
+    assert!(rt.state.home.board_open);
+    click(&mut rt, "rail-tm_codec");
+    assert!(!rt.state.home.board_open, "the Board closed");
+    assert!(rt.find("composer").is_some(), "the conversation's message box is on screen");
 }

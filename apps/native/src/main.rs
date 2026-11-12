@@ -1023,16 +1023,28 @@ fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
         s.own_turn = None;
         s.picks.remove(LEDGER_TARGET);
         s.model_menu = None;
-        // Ledger metadata has no reliable teammate identity; do not guess from a model.
-        let header = Teammate {
-            id: LEDGER_TARGET.into(),
-            name: engine::runtime_name(&summary.runtime).into(),
-            role: "Conversation".into(),
-            runtime: (!summary.runtime.is_empty()).then_some(summary.runtime),
-            model: (!summary.model.is_empty()).then_some(summary.model),
-            busy: summary.running,
-            runs_in: String::new(),
-            folder: None,
+        // The teammate the conversation belongs to, from the owners both apps record (missionOwners): its name, face,
+        // mode and folder, on the agent and model the conversation is on now. Never guessed from a model; with no
+        // owner on record it stays a conversation of that agent.
+        let runtime = (!summary.runtime.is_empty()).then_some(summary.runtime);
+        let model = (!summary.model.is_empty()).then_some(summary.model);
+        let owner = s
+            .data
+            .as_ref()
+            .and_then(|store| locust_core::people::owner_of(store, &row.id))
+            .and_then(|id| s.teammates.iter().find(|t| t.id == id).cloned());
+        let header = match owner {
+            Some(t) => Teammate { runtime: runtime.or(t.runtime.clone()), model: model.or(t.model.clone()), busy: summary.running, ..t },
+            None => Teammate {
+                id: LEDGER_TARGET.into(),
+                name: engine::runtime_name(runtime.as_deref().unwrap_or("")).into(),
+                role: "Conversation".into(),
+                runtime,
+                model,
+                busy: summary.running,
+                runs_in: String::new(),
+                folder: None,
+            },
         };
         begin_ledger(s, row.id, row.title, header, None, tx);
         return;
