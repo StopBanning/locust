@@ -279,6 +279,9 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     let previous_key = conversation_draft_key(s);
     leave_ledger(s);
     s.model_menu = None;
+    // Picking a teammate picks their mode, as Electron's composer does.
+    s.composer_mode = None;
+    s.mode_menu = false;
     // Choosing a teammate opens their conversation, whatever screen was open (Electron's onSelectTeammate).
     s.home.board_open = false;
     s.home.home_open = false;
@@ -643,6 +646,8 @@ fn send(s: &mut State, _: &mut Tx) {
     s.model_menu = None;
     // On the native engine the turn runs here, in this process, not through the Electron door.
     let native_job = (s.engine == Some(Kind::Native)).then(|| flight_teammate(s, &teammate_id));
+    // The mode chosen on the message box, when one was; else the engine takes the teammate's own.
+    let mode = s.composer_mode.as_deref().and_then(locust_core::approval::Mode::parse);
     let references = reference_chips::ids(s);
     s.sending.request(
         (teammate_id, conversation_id, message, pick, native_job),
@@ -661,7 +666,7 @@ fn send(s: &mut State, _: &mut Tx) {
                         model: model.map(str::to_owned),
                         effort: effort.map(str::to_owned),
                     },
-                    native::Origin { reference_ids: Some(references), runtime, ..Default::default() },
+                    native::Origin { reference_ids: Some(references), runtime, mode, ..Default::default() },
                 );
             }
             let engine = Engine::local()?;
@@ -2233,6 +2238,8 @@ fn main() {
             ("settings-carry", settings_panel::carry_settings_scene),
             ("settings-carry-light", settings_panel::carry_settings_light_scene),
             ("references", references_scene),
+            ("mode-menu", mode_menu_scene),
+            ("mode-menu-light", mode_menu_light_scene),
             ("references-light", references_light_scene),
             ("models", models_scene),
             ("models-light", models_light_scene),

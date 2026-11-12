@@ -35,7 +35,7 @@ area	feature	where	built	detail	engine	alone	not_alone_because	live	seen
 2	Durable busy-turn queue, edit/discard and stop/send now	`renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts`	done		yes	yes		no	
 2	Up-arrow sent-message history	`renderer/src/components/Composer.tsx`	done		no	yes		no	
 2	Reference folders retained with conversation	`renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts`	partial	folders on this computer; no GitHub repositories yet	yes	yes		no	
-2	Permission mode, folder/own branch, Direct/Compare/Blind controls	`renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts`	missing		yes	-		no	
+2	Permission mode, folder/own branch, Direct/Compare/Blind controls	`renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts`	partial	the mode menu on the message box (`mode_facts`, Electron's words; agents' modes match all 385 grid cases; choosing Auto turns Auto on); folder chip shows where the turn runs; no own branch, Direct/Compare/Blind	yes	yes		no	
 2	Review notes and browser page points attached to next message	`renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx`	missing		yes	-		no	
 2	Connector-off and unavailable-route pre-send warnings	`renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts`	missing		yes	-		no	
 3	Teammate list with initial, role, runtime/model and busy dot	`renderer/src/components/Sidebar.tsx`, `main/teammate-store.ts`	done		yes	yes		no	

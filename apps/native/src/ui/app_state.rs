@@ -173,6 +173,10 @@ pub(super) struct State {
     /// The turns running or waiting in this process at the last look: when the set changes (a turn another app started
     /// through the door, one ending), the recent list is read again so the sidebar and Board show it.
     pub(super) seen_live: Vec<String>,
+    /// The mode chosen on the message box for the turns sent from here (Electron's composer mode); None is the
+    /// teammate's own. Picking another teammate goes back to theirs.
+    pub(super) composer_mode: Option<String>,
+    pub(super) mode_menu: bool,
     pub(super) layout_pref: String,
     pub(super) layout_compact: std::cell::Cell<bool>,
     pub(super) rail_open: Option<String>,
@@ -328,6 +332,8 @@ impl Default for State {
             finishes: Vec::new(),
             finishes_due: None,
             seen_live: Vec::new(),
+            composer_mode: None,
+            mode_menu: false,
             layout_pref: "auto".into(),
             layout_compact: std::cell::Cell::new(false),
             rail_open: None,

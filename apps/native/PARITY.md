@@ -67,7 +67,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Durable busy-turn queue, edit/discard and stop/send now | `renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts` | **done** | yes | no | yes |
 | Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **partial** — folders on this computer; no GitHub repositories yet | yes | no | yes |
-| Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **missing** | - | no | yes |
+| Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **partial** — the mode menu on the message box (`mode_facts`, Electron's words; agents' modes match all 385 grid cases; choosing Auto turns Auto on); folder chip shows where the turn runs; no own branch, Direct/Compare/Blind | yes | no | yes |
 | Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **missing** | - | no | yes |
 | Connector-off and unavailable-route pre-send warnings | `renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts` | **missing** | - | no | yes |
 
@@ -279,7 +279,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 9 | 8 | 8 | 25 | 17 | 3 |
-| 2 | Composer & Input | 10 | 1 | 3 | 14 | 11 | 2 |
+| 2 | Composer & Input | 10 | 2 | 2 | 14 | 12 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **39** | **45** | **69** | **153** | **84** | **15** |
+| | **TOTAL** | **39** | **46** | **68** | **153** | **85** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

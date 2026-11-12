@@ -633,13 +633,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
 
         // The box, then the chips under it: the mode and the folder on the left, the model on the right (Electron's
         // `.lc-composer__box` and its footer row).
-        let mode_word = match teammate.runs_in.as_str() {
-            "accept-edits" => "Edit",
-            "plan" => "Plan",
-            "approve-each" => "Approve",
-            "auto" => "Auto",
-            _ => "Ask",
-        };
+        // The mode these turns run in: the one chosen here, else the teammate's own (Electron's composer mode).
+        let mode_now = s.composer_mode.clone().unwrap_or_else(|| teammate.runs_in.clone());
+        let mode_word = locust_core::mode_facts::fact(&mode_now).chip;
         // Where the turn will run, as native::folder_for chooses: the teammate's own folder, else the one Locust has open.
         let folder_word = teammate
             .folder
@@ -653,7 +649,16 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .center_y()
             .gap(10.0)
             .px(6.0)
-            .child(crate::look::controls::composer_chip(&l, None, mode_word, false).key("mode-chip"))
+            .child(
+                crate::look::controls::composer_chip(&l, None, mode_word, false)
+                    .key("mode-chip")
+                    .role("button")
+                    .label(format!("Mode: {}", locust_core::mode_facts::fact(&mode_now).name))
+                    .on_press(|s: &mut State| {
+                        s.mode_menu = !s.mode_menu;
+                        s.reference_menu = false;
+                    }),
+            )
             .child(
                 crate::look::controls::composer_chip(
                     &l,
@@ -674,8 +679,13 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         composer_stack = composer_stack
             .child(crate::look::controls::composer_box(&l).child(composer).child(button))
             .child(footer);
+        // The footer's menus open above the box, where the model picker does, taking their room from the thread: the
+        // box never moves (Electron's menus open upward from their chip).
         if let Some(menu) = crate::reference_chips::folder_menu(s, &l) {
-            composer_stack = composer_stack.child(row().w_full().px(6.0).child(menu));
+            picker = picker.child(row().w_full().px(6.0).child(menu));
+        }
+        if s.mode_menu {
+            picker = picker.child(row().w_full().px(6.0).child(mode_menu(s, &l, teammate, &mode_now)));
         }
 
         col()
@@ -930,5 +940,74 @@ mod picker_tests {
         assert_eq!(cap_rows(56, Some(30), 6), (vec![0, 1, 2, 3, 4, 30], 50));
         assert_eq!(route_search_text("Claude-Opus 5.5"), "claude opus 5 5");
         assert!(route_search_text("Cursor Agent GPT-5.5 Extra High").contains(&route_search_text("gpt 5.5")));
+    }
+}
+
+/// Electron's mode menu ("Permission mode"): the five modes, each with what it does; one the agent cannot run is
+/// greyed with why. Choosing Auto is what turns Auto on, as in Electron, rather than a trip to Settings first.
+fn mode_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate, current: &str) -> El {
+    let runtime = s
+        .picks
+        .get(&teammate.id)
+        .and_then(|p| p.runtime.clone())
+        .or_else(|| teammate.runtime.clone())
+        .unwrap_or_else(|| "codex".into());
+    let mut menu = col()
+        .key("mode-menu")
+        .w(320.0)
+        .padding(4.0)
+        .radius(11.0)
+        .fill(l.c("bg-raised-2"))
+        .border(1.0, l.c("border-strong"))
+        .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default())
+        .role("menu")
+        .label("Permission mode");
+    for fact in locust_core::mode_facts::MODE_FACTS {
+        let unavailable = locust_core::mode_facts::unavailable_reason(fact.mode, &runtime);
+        let chosen = fact.mode == current;
+        let said = unavailable.clone().unwrap_or_else(|| fact.consequence.to_owned());
+        let tone = if unavailable.is_none() && fact.mode == "auto" { l.c("amber-text") } else { l.c("text-muted") };
+        let mut name = row().w_full().gap(8.0).center_y().child(
+            text(fact.name).font(l.ty.control).color(if unavailable.is_some() { l.c("text-faint") } else { l.c("text-primary") }).grow(1.0),
+        );
+        if chosen {
+            name = name.child(crate::look::controls::glyph(l, &crate::look::icons::CHECK, 13.0, Some(l.c("text-secondary"))));
+        }
+        let mut item = col()
+            .key(format!("mode-{}", fact.mode))
+            .w_full()
+            .gap(2.0)
+            .py(7.0)
+            .px(10.0)
+            .radius(l.t.px("radius-control"))
+            .child(name)
+            .child(text(said).font(l.ty.body).color(tone).w_full().wrap())
+            .role("menuitemradio")
+            .label(fact.name);
+        if unavailable.is_none() {
+            let mode = fact.mode;
+            item = item.hover(l.c("bg-selected")).on_press(move |s: &mut State| {
+                if mode == "auto" {
+                    enable_auto_mode(s);
+                }
+                s.composer_mode = Some(mode.to_owned());
+                s.mode_menu = false;
+            });
+        }
+        menu = menu.child(item);
+    }
+    menu
+}
+
+/// Settings' Auto switch, turned on where the person chose Auto (Electron's onEnableAutoMode).
+fn enable_auto_mode(s: &mut State) {
+    let Some(store) = s.data.clone() else { return };
+    if let Ok(mut settings) = crate::workspace_settings::load(&store)
+        && !settings.auto_mode
+    {
+        settings.auto_mode = true;
+        if crate::workspace_settings::save(&store, &settings).is_ok() {
+            s.settings_panel.settings.auto_mode = true;
+        }
     }
 }

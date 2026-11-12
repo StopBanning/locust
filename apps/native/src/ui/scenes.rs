@@ -996,3 +996,14 @@ pub(super) fn icons_light_scene(s: &mut State) {
     s.icon_gallery = true;
     s.appearance = Some(false);
 }
+
+/// The message box's mode menu, open over the composer.
+pub(super) fn mode_menu_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.mode_menu = true;
+}
+
+pub(super) fn mode_menu_light_scene(s: &mut State) {
+    mode_menu_scene(s);
+    s.appearance = Some(false);
+}

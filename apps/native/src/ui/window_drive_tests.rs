@@ -251,3 +251,21 @@ fn quitting_writes_each_running_turns_ending() {
     assert!(kinds(&store, &mission).iter().any(|k| k == "run.cancelled"), "{:?}", kinds(&store, &mission));
     assert!(native::running_ids().is_empty());
 }
+
+#[test]
+fn a_mode_chosen_on_the_message_box_is_the_mode_the_turn_runs_in() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    click(&mut rt, "mode-chip");
+    assert!(rt.find("mode-menu").is_some(), "the chip opens the menu");
+    // Codex runs every mode; an agent that cannot stop and ask has Approve each greyed out (mode_facts tests).
+    click(&mut rt, "mode-plan");
+    assert_eq!(rt.state.composer_mode.as_deref(), Some("plan"));
+    assert!(rt.find("mode-menu").is_none(), "choosing closes it");
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    assert_eq!(first_records(&store)[0]["metadata"]["mode"], "plan", "the ledger records the chosen mode, not the teammate's Ask");
+    // Picking a teammate goes back to theirs.
+    click(&mut rt, "rail-tm_codec");
+    assert_eq!(rt.state.composer_mode, None);
+}

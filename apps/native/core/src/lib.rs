@@ -2,6 +2,7 @@
 //! `cargo tree -p locust-core` shows no Rune.
 
 pub mod approval;
+pub mod mode_facts;
 pub mod approval_rule_store;
 pub mod approval_rules;
 pub mod attention;
