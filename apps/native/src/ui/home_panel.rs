@@ -826,7 +826,6 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                             .find(|m| m.mission_id == *parent)
                             .map(|m| conversation_board::under_title(&m.title))
                     });
-                    let column_key = section.key.as_str();
                     let ask = s.home.asks.get(&mission_id).cloned().or_else(|| {
                         card.row
                             .member_ids
@@ -858,11 +857,11 @@ pub(super) fn board_view(s: &State, p: &Palette) -> El {
                         .padding(10.0)
                         .fill(p.raised)
                         .radius(8.0)
-                        .child(
-                            text(format!("{title} · {column_key}"))
-                                .font(type_::BODY)
-                                .color(p.text),
-                        );
+                        .child(text(title).font(type_::BODY).color(p.text));
+                    // Whose conversation it is (BoardView's face and name), not the column's own key.
+                    if let Some(who) = s.recent.iter().find(|r| r.id == mission_id).map(|r| r.teammate.clone()) {
+                        card_el = card_el.child(text(who).font(type_::LABEL).color(p.secondary));
+                    }
                     if let Some(under) = under {
                         card_el = card_el.child(text(under).font(type_::LABEL).color(p.muted));
                     }

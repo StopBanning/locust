@@ -12,6 +12,8 @@ pub enum ConversationBoardKey {
 }
 
 impl ConversationBoardKey {
+    /// The column's key, as Electron's data names it (the tests compare against it).
+    #[cfg(test)]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::NeedsYou => "needs-you",

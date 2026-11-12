@@ -279,6 +279,12 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     let previous_key = conversation_draft_key(s);
     leave_ledger(s);
     s.model_menu = None;
+    // Choosing a teammate opens their conversation, whatever screen was open (Electron's onSelectTeammate).
+    s.home.board_open = false;
+    s.home.home_open = false;
+    s.settings_panel.open = false;
+    s.people_panel.open = false;
+    s.routines.open = false;
     // Fix 2: cancel any in-flight request from the previous conversation when switching teammates.
     if s.selected != index || s.flight.is_some() || s.opening_teammate.is_some() {
         detach(s);
