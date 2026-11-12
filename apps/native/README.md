@@ -74,21 +74,36 @@ cargo test --release --workspace
 
 ## Benchmark
 
-`scripts/bench.sh [out-dir]` measures the native window against the Electron app that is already running. It never
-launches, quits or signals Electron. The native window runs with `--bench`, which opens it behind other windows
-without taking focus and uses synthetic data only.
+`scripts/bench-pair.mjs` measures both apps showing **the same conversation** at the same size, the same way
+([notes/BENCH-PAIR-NOTES.md](notes/BENCH-PAIR-NOTES.md)):
 
-First run, 9 Nov 2026, Apple M6, macOS 27.2, Electron 0.870.0 (native figures are medians of three runs):
+- **Electron:** the built app from this checkout, as every drive runs it. Its window has a throwaway profile, sits
+  behind other windows and never takes focus.
+- **Rust:** the bench window, below other windows and click-through. It reads a copy of that same profile and nothing
+  else.
 
-| metric | native | Electron |
-| --- | ---: | ---: |
-| Idle memory (median RSS) | 80–84 MiB | 224–409 MiB across two runs |
-| Idle CPU (interval) | 0.00 % | 0.03 % |
-| First frame | 154–209 ms | not measured (never relaunched) |
-| Size | 27 MiB binary then; 41 MiB on 11 Nov | 320 MiB app bundle |
+Both show Wren's two-turn conversation (tool calls, a table, code), and each run checks that both really did. Each app's
+whole process tree is sampled once a second over a minute at rest. No agent runs.
 
-This run is not a fair memory comparison yet: Electron held real conversations and the native window synthetic ones.
-It will be measured again with the same conversations open in both.
+12 Nov 2026, Apple M6, macOS 27.2.1, Electron 0.872.0, 1100 × 780. The ranges are across three runs:
+
+| metric | Rust (behind other windows) | Electron (behind other windows) | Electron (told it is in front) |
+| --- | ---: | ---: | ---: |
+| Memory, median | 38–69 MiB | 122–183 MiB | 237–285 MiB |
+| Memory, peak | 71–73 MiB | 253–277 MiB | 295–332 MiB |
+| CPU at rest | 0.03 % | 0.23–0.36 % | 5.0–8.8 % |
+| Processes | 1 | 4 | 4 |
+| Size on disk | 44 MiB binary | 320 MiB app bundle | |
+
+Read the pair that matches: both behind other windows.
+
+**What this does not measure:**
+- The Rust window in front. Its bench window stays behind, so that it never takes the screen.
+- Electron's first frame. The drive starts it its own way.
+- CPU while a reply streams.
+
+**First frame.** The Rust app's first frame, from launch to the conversation on screen, was 408–1,374 ms across these
+runs: it now includes the real app reading its data. The older bench showed made-up data and reported 154–209 ms (9 Nov).
 
 ## Notes
 

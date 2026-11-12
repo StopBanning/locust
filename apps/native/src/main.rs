@@ -1475,6 +1475,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= attention_watch::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
+    bench_opened(s);
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
     changed |= commit_panel::poll(s);
@@ -2028,6 +2029,23 @@ fn model_chip_name<'a>(id: &'a str, current: Option<&'a engine::Models>) -> &'a 
         .unwrap_or(id)
 }
 
+/// `--bench-conversation <id>`: the real app over the data `HOME` and `LOCUST_NATIVE_DATA` name, opening that
+/// conversation, for a fair measurement beside Electron showing the same one (scripts/bench-pair.mjs).
+static BENCH_CONVERSATION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+/// Where the bench says the conversation opened (`<out>.opened`): proof the measured window showed it.
+static BENCH_OPENED: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Writes the bench's proof once the conversation it was asked to open is on screen, with how many items it shows.
+fn bench_opened(s: &State) {
+    let (Some(id), Some(path)) = (BENCH_CONVERSATION.get(), BENCH_OPENED.get()) else { return };
+    if path.exists() {
+        return;
+    }
+    if let Some(pane) = s.ledger.as_ref().filter(|p| !p.loading && p.conversation.conversation_id.as_deref() == Some(id.as_str())) {
+        let _ = std::fs::write(path, serde_json::json!({"conversation": id, "items": pane.items.len(), "teammate": pane.header.name}).to_string());
+    }
+}
+
 fn bench_options(args: &[String]) -> Result<(std::path::PathBuf, Duration), String> {
     let mut out = None;
     let mut seconds = 30_u64;
@@ -2035,6 +2053,13 @@ fn bench_options(args: &[String]) -> Result<(std::path::PathBuf, Duration), Stri
     while let Some(flag) = args.next() {
         match flag.as_str() {
             "--bench" => out = Some(args.next().ok_or("--bench requires an output path")?.into()),
+            "--bench-conversation" => {
+                let id = args.next().ok_or("--bench-conversation requires a conversation id")?;
+                if !locust_core::ledger::safe_id(id) {
+                    return Err("--bench-conversation requires a conversation id".into());
+                }
+                let _ = BENCH_CONVERSATION.set(id.clone());
+            }
             "--bench-seconds" => {
                 seconds = args
                     .next()
@@ -2059,17 +2084,40 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
         eprintln!("{error}");
         std::process::exit(2);
     });
-    // No setup, poll, key handlers or live scenes: no engine or ledger access.
-    let app = App::new(AppSpec::new(
-        "Locust — benchmark",
-        (1040.0, 720.0),
-        || {
-            let mut state = State::default();
-            team_scene(&mut state);
-            state
-        },
-        view,
-    ))
+    // Without a conversation: no setup, poll, key handlers or live scenes, so no engine or ledger access. With one: the
+    // real app's setup and poll over the data the environment names, opening that conversation as a person would.
+    if BENCH_CONVERSATION.get().is_some() {
+        let _ = BENCH_OPENED.set(out.with_extension("opened"));
+    }
+    let spec = if BENCH_CONVERSATION.get().is_some() {
+        AppSpec {
+            setup: Some(setup),
+            poll: Some(poll),
+            ..AppSpec::new(
+                "Locust — benchmark",
+                (1100.0, 780.0),
+                || {
+                    let mut state = State::default();
+                    let id = BENCH_CONVERSATION.get().cloned().unwrap_or_default();
+                    state.open_when_listed = Some((id, std::time::Instant::now() + Duration::from_secs(60)));
+                    state
+                },
+                view,
+            )
+        }
+    } else {
+        AppSpec::new(
+            "Locust — benchmark",
+            (1040.0, 720.0),
+            || {
+                let mut state = State::default();
+                team_scene(&mut state);
+                state
+            },
+            view,
+        )
+    };
+    let app = App::new(spec)
     .args(Vec::<String>::new())
     .accessory()
     .open_inactive()

@@ -306,6 +306,8 @@ fn bench_arguments_are_isolated_and_bounded() {
         vec!["--bench-seconds", "2"],
         vec!["--bench", "x", "--bench-seconds", "0"],
         vec!["--bench", "x", "--scene", "replay"],
+        vec!["--bench", "x", "--bench-conversation"],
+        vec!["--bench", "x", "--bench-conversation", "../escape"],
     ] {
         assert!(parse(&args).is_err());
     }
