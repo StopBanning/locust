@@ -285,64 +285,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .on_press(move |s: &mut State| open_models(s, chip_id.clone()));
         let mut picker = col().w_full().px(24.0);
         if s.model_menu.as_ref() == Some(&id) {
-            let mut menu = col()
-                .key("model-menu")
-                .w_full()
-                .max_h(180.0)
-                .scroll(ScrollSpec {
-                    stick_bottom: false,
-                })
-                .gap(4.0);
-            if let Some(agents) = s.models.get(&id).filter(|a| !a.is_empty()) {
-                let reset_id = id.clone();
-                menu = menu.child(
-                    el().padding(6.0)
-                        .child(text("Teammate’s own").color(p.text))
-                        .on_press(move |s: &mut State| {
-                            s.picks.remove(&reset_id);
-                            s.model_menu = None;
-                        }),
-                );
-                for agent in agents.iter().filter(|a| {
-                    id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str())
-                }) {
-                    for model in &agent.models {
-                        let efforts = if model.efforts.is_empty() {
-                            vec![None]
-                        } else {
-                            model.efforts.iter().cloned().map(Some).collect()
-                        };
-                        for effort in efforts {
-                            let (id, pick) = (
-                                id.clone(),
-                                TurnPick {
-                                    model: model.id.clone(),
-                                    effort,
-                                },
-                            );
-                            let label = format!(
-                                "{}{}",
-                                model.name,
-                                pick.effort
-                                    .as_ref()
-                                    .map(|e| format!(" · {e}"))
-                                    .unwrap_or_default()
-                            );
-                            menu = menu.child(
-                                el().padding(6.0).child(text(label).color(p.text)).on_press(
-                                    move |s: &mut State| {
-                                        s.picks.insert(id.clone(), pick.clone());
-                                        s.model_menu = None;
-                                    },
-                                ),
-                            );
-                        }
-                    }
-                }
-            } else {
-                menu = menu.child(text("Loading models…").color(p.muted));
-            }
-            picker = picker.child(menu);
+            picker = picker.child(row().w_full().justify_end().child(model_picker(s, &l, &id, teammate, current, model, effort)));
         }
 
         let mut composer_stack = col().w_full().gap(8.0).px(24.0).pb(24.0);
@@ -785,4 +728,108 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     .wrap(),
             )
     }
+}
+
+/// RoutePicker.tsx (`.lc-picker`): 420 wide on the raised fill with a strong edge and a menu shadow. Each agent's models
+/// under its mark and name, one row per model (a dot, its name, the levels it takes, ACTIVE on the one in use), and the
+/// level for the turn chosen at the foot, apart from the model, as Electron chose it ("effort being separate").
+fn model_picker(
+    s: &State,
+    l: &crate::look::controls::Look,
+    id: &str,
+    teammate: &Teammate,
+    current: Option<&engine::Models>,
+    model: &str,
+    effort: Option<&str>,
+) -> El {
+    let mut list = col().key("model-menu").w_full().max_h(330.0).scroll(ScrollSpec { stick_bottom: false }).padding(6.0);
+    let Some(agents) = s.models.get(id).filter(|a| !a.is_empty()) else {
+        return picker_card(l, list.child(text("Reading the models…").font(l.ty.body).color(l.c("text-muted")).padding(10.0)), None);
+    };
+    let row_of = |label: String, detail: String, active: bool| -> El {
+        let dot = row().w(7.0).h(7.0).radius(4.0).fill(l.c(if active { "lime-text" } else { "green-text" }));
+        let mut r = row()
+            .w_full()
+            .gap(10.0)
+            .py(7.0)
+            .px(9.0)
+            .center_y()
+            .radius(l.t.px("radius-control"))
+            .hover(l.c("bg-selected"))
+            .child(dot)
+            .child(text(label).font(l.ty.control).color(l.c("text-primary")))
+            .child(col().grow(1.0).child(text(detail).font(l.ty.body).color(l.c("text-muted"))));
+        if active {
+            r = r
+                .fill(l.c("lime-tint"))
+                .border(1.0, l.c("lime-border"))
+                .child(text("ACTIVE").font(l.ty.mono).color(l.c("lime-text")));
+        }
+        r.role("button")
+    };
+    let reset_id = id.to_owned();
+    let picked = s.picks.get(id);
+    list = list.child(row_of("Teammate’s own".into(), "its saved model and level".into(), picked.is_none()).on_press(move |s: &mut State| {
+        s.picks.remove(&reset_id);
+        s.model_menu = None;
+    }));
+    for agent in agents.iter().filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str())) {
+        let mut group = row().gap(6.0).px(9.0).pt(12.0).pb(4.0).center_y();
+        if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
+            group = group.child(mark);
+        }
+        list = list.child(group.child(text(locust_core::carry_on::display_name(&agent.runtime).to_owned()).font(l.ty.body).color(l.c("text-muted"))));
+        for m in &agent.models {
+            let active = picked.is_some() && m.id == model;
+            let detail = if m.efforts.is_empty() { String::new() } else { m.efforts.join(" · ") };
+            let (key, choice, levels) = (id.to_owned(), m.id.clone(), m.efforts.clone());
+            let keep = effort.map(str::to_owned);
+            list = list.child(row_of(m.name.clone(), detail, active).on_press(move |s: &mut State| {
+                // The level stays with the turn when the new model takes it.
+                let effort = keep.clone().filter(|e| levels.contains(e));
+                s.picks.insert(key.clone(), TurnPick { model: choice.clone(), effort });
+                s.model_menu = None;
+            }));
+        }
+    }
+    // The levels the chosen model takes, at the foot.
+    let levels: Vec<String> = agents
+        .iter()
+        .flat_map(|a| a.models.iter())
+        .find(|m| m.id == model)
+        .map(|m| m.efforts.clone())
+        .or_else(|| current.and_then(|a| a.models.iter().find(|m| Some(m.id.as_str()) == a.model.as_deref())).map(|m| m.efforts.clone()))
+        .unwrap_or_default();
+    let mut foot = row().w_full().gap(6.0).center_y();
+    if !levels.is_empty() {
+        foot = foot.child(text("Level").font(l.ty.body).color(l.c("text-muted")).pr(4.0));
+        for level in levels {
+            let on = effort == Some(level.as_str());
+            let (key, choice, pick_model) = (id.to_owned(), level.clone(), model.to_owned());
+            foot = foot.child(crate::look::controls::chip(l, &level, on).on_press(move |s: &mut State| {
+                s.picks.insert(key.clone(), TurnPick { model: pick_model.clone(), effort: Some(choice.clone()) });
+            }));
+        }
+    }
+    // The note on a line of its own: beside four levels it ran past the card's edge.
+    let foot = col()
+        .w_full()
+        .gap(8.0)
+        .child(foot)
+        .child(text("Privacy and permissions live in Settings.").font(l.ty.body).color(l.c("text-muted")));
+    picker_card(l, list, Some(foot))
+}
+
+fn picker_card(l: &crate::look::controls::Look, list: El, foot: Option<El>) -> El {
+    let mut card = col()
+        .w(420.0)
+        .radius(11.0)
+        .fill(l.c("bg-raised-2"))
+        .border(1.0, l.c("border-strong"))
+        .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default())
+        .child(list);
+    if let Some(foot) = foot {
+        card = card.child(row().w_full().py(10.0).px(14.0).border_sides([0.5, 0.0, 0.0, 0.0], l.c("border-hairline")).child(foot));
+    }
+    card
 }

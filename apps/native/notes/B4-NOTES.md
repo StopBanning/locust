@@ -29,8 +29,15 @@ a model or effort. It now builds Electron's catalog itself.
 - Tests: 453 in the engine, 190 in the window. The isolated test runner gives tests their own home folder, so a live
   read inside a test cannot see Cursor's or Antigravity's sign-in; the check runs through the binary instead.
 
+## The picker, restyled (same night)
+
+RoutePicker.tsx's look: a 420-wide card on the raised fill with a strong edge and a menu shadow; each agent's models
+under its mark and name, one row per model with a dot, its name, the levels it takes, and ACTIVE on the one in use;
+"Teammate's own" first to go back to the saved route; the level for the turn chosen at the foot, apart from the
+model, as Electron chose it. It was one row per model and level. Scenes `models` and `models-light`.
+
 ## Not done
 
-- The picker is a plain list, one row per model and level; Electron's groups each model with a level control.
+- The picker has no search box and no "N more · type to search" cap yet: Cursor's 56 models scroll in the list.
 - OpenCode 2's and Kilo's models (an ACP session), the models Claude Code's handshake lists, and usage readings.
 - The catalog treats an installed agent as ready; Electron also checks each one's sign-in first.
