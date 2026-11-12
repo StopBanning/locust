@@ -242,6 +242,10 @@ describe("the agy command", () => {
     // Each effort a row of its own in agy: one model here, efforts in order.
     const flash = parseAgyModelList("gemini-3.8-flash-high\tGemini 3.8 Flash (High)\ngemini-3.8-flash-low\tGemini 3.8 Flash (Low)\ngemini-3.8-flash-medium\tGemini 3.8 Flash (Medium)\n");
     expect(flash?.models).toEqual([{ id: "gemini-3.8-flash", displayName: "Gemini 3.8 Flash", efforts: ["low", "medium", "high"] }]);
+    // Gemini 4 Hydrogen as agy listed it on 12 Nov 2026: an xhigh row folds in too,
+    // instead of standing as a second "Gemini 4 Hydrogen (XHigh)" model.
+    const hydrogen = parseAgyModelList("gemini-4-hydrogen-high\tGemini 4 Hydrogen (High)\ngemini-4-hydrogen-xhigh\tGemini 4 Hydrogen (XHigh)\ngemini-4-hydrogen-medium\tGemini 4 Hydrogen (Medium)\ngemini-4-hydrogen-low\tGemini 4 Hydrogen (Low)\n");
+    expect(hydrogen?.models).toEqual([{ id: "gemini-4-hydrogen", displayName: "Gemini 4 Hydrogen", efforts: ["low", "medium", "high", "xhigh"] }]);
   });
 
   it("thinking reads as its time, only where thinking tokens were spent (0.542)", () => {

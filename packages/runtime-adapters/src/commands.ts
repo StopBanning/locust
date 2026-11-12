@@ -1333,15 +1333,17 @@ export function parseAgyModelList(text: string): RuntimeModelHints | undefined {
   for (const line of text.split(/\r?\n/)) {
     const match = /^([a-z0-9][a-z0-9.-]{0,80})\t(.{1,80})$/.exec(line.trim());
     if (match === null) continue;
-    const variant = /^(.*)-(low|medium|high|max)$/.exec(match[1]!);
+    const variant = /^(.*)-(low|medium|high|xhigh|max)$/.exec(match[1]!);
     const id = variant === null ? match[1]! : variant[1]!;
-    const displayName = variant === null ? match[2]!.trim() : match[2]!.replace(/\s*\((low|medium|high|max)\)\s*$/i, "").trim();
+    const displayName = variant === null ? match[2]!.trim() : match[2]!.replace(/\s*\((low|medium|high|xhigh|max)\)\s*$/i, "").trim();
     const known = models.find((model) => model.id === id);
     if (known === undefined) models.push({ id, displayName, efforts: variant === null ? [] : [variant[2]!] });
     else if (variant !== null && !known.efforts.includes(variant[2]!)) known.efforts.push(variant[2]!);
   }
   if (models.length === 0) return undefined;
-  const order = ["low", "medium", "high", "max"];
+  // agy 1.2.x takes `--effort low|medium|high|xhigh|max` (its --help); Gemini 4
+  // Hydrogen, 12 Nov 2026, was the first model listed with an xhigh row.
+  const order = ["low", "medium", "high", "xhigh", "max"];
   const named: RuntimeModelName[] = models.map((model) => ({
     id: model.id,
     displayName: model.displayName,
