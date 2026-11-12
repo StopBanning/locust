@@ -1,0 +1,381 @@
+//! THE ENGINE AS A PROCESS (plan E2).
+//!
+//! `locust-native --engine` runs the engine with no window. It answers [`EngineApi`] on a Unix socket, `engine.sock`, in
+//! the native data folder. The socket file is the owner's alone (0600). [`Client`] is the same trait spoken over that
+//! socket, so E3 can make the window, Quick Ask and `--ask` use one engine instead of each keeping its own turns.
+//!
+//! - **One engine at a time.** The server holds an exclusive lock on `engine.lock` for as long as it runs. A second
+//!   engine finds the lock taken and refuses to start. A stale socket left by a crash is replaced only by the process
+//!   that holds the lock.
+//! - **Only state crosses the socket.** Windows still follow the ledger files for streaming.
+//! - **One request per connection.** One JSON line goes in and one comes out, so a half-read reply can never be
+//!   mistaken for the next one. A send is never retried here: an error says what happened, and the caller decides.
+
+use crate::{
+    approval::{Decision, Kind, Mode, Request},
+    approval_rules::RuleEffect,
+    engine::{Started, Teammate},
+    engine_api::{EngineApi, InProcess},
+    native::{Origin, Send},
+};
+use serde_json::{Value, json};
+use std::{
+    io::{BufRead, BufReader, Write},
+    os::unix::{
+        fs::PermissionsExt,
+        net::{UnixListener, UnixStream},
+    },
+    path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
+
+pub const SOCKET: &str = "engine.sock";
+pub const LOCK: &str = "engine.lock";
+/// Long enough for a shutdown to write every turn's ending (`native::shutdown_in_background` allows 8 s).
+const REPLY_WAIT: Duration = Duration::from_secs(30);
+
+// ---- the wire ---------------------------------------------------------------------------------------------------
+
+fn text(v: &Value, key: &str) -> Option<String> {
+    v[key].as_str().map(str::to_owned)
+}
+
+fn needed(v: &Value, key: &str) -> Result<String, String> {
+    text(v, key).ok_or_else(|| format!("The engine's message has no {key}."))
+}
+
+fn teammate_json(t: &Teammate) -> Value {
+    json!({"id": t.id, "name": t.name, "role": t.role, "runtime": t.runtime, "model": t.model, "busy": t.busy,
+        "runsIn": t.runs_in, "folder": t.folder})
+}
+
+fn teammate_from(v: &Value) -> Result<Teammate, String> {
+    Ok(Teammate {
+        id: needed(v, "id")?,
+        name: needed(v, "name")?,
+        role: text(v, "role").unwrap_or_default(),
+        runtime: text(v, "runtime"),
+        model: text(v, "model"),
+        busy: v["busy"].as_bool().unwrap_or(false),
+        runs_in: text(v, "runsIn").unwrap_or_default(),
+        folder: text(v, "folder"),
+    })
+}
+
+fn send_json(job: &Send) -> Value {
+    json!({"teammate": teammate_json(&job.teammate), "conversation": job.conversation, "prompt": job.prompt,
+        "model": job.model, "effort": job.effort})
+}
+
+fn send_from(v: &Value) -> Result<Send, String> {
+    Ok(Send {
+        teammate: teammate_from(&v["teammate"])?,
+        conversation: text(v, "conversation"),
+        prompt: needed(v, "prompt")?,
+        model: text(v, "model"),
+        effort: text(v, "effort"),
+    })
+}
+
+fn origin_json(o: &Origin) -> Value {
+    json!({"mode": o.mode.map(Mode::as_str), "folder": o.folder.as_ref().map(|f| f.to_string_lossy()),
+        "startedBy": o.started_by, "runtime": o.runtime, "referenceIds": o.reference_ids})
+}
+
+fn origin_from(v: &Value) -> Result<Origin, String> {
+    let mode = match text(v, "mode") {
+        None => None,
+        Some(m) => Some(Mode::parse(&m).ok_or_else(|| format!("The engine does not know the mode {m}."))?),
+    };
+    Ok(Origin {
+        mode,
+        folder: text(v, "folder").map(PathBuf::from),
+        started_by: Some(v["startedBy"].clone()).filter(|b| !b.is_null()),
+        runtime: text(v, "runtime"),
+        reference_ids: v["referenceIds"]
+            .as_array()
+            .map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect()),
+    })
+}
+
+fn decision_word(d: &Decision) -> &'static str {
+    match d {
+        Decision::ApproveOnce => "approve-once",
+        Decision::ApproveAlways => "approve-always",
+        Decision::Deny => "deny",
+    }
+}
+
+fn decision_from(word: &str) -> Result<Decision, String> {
+    match word {
+        "approve-once" => Ok(Decision::ApproveOnce),
+        "approve-always" => Ok(Decision::ApproveAlways),
+        "deny" => Ok(Decision::Deny),
+        other => Err(format!("The engine does not know the answer {other}.")),
+    }
+}
+
+fn effect_word(e: &RuleEffect) -> &'static str {
+    match e {
+        RuleEffect::Allow => "allow",
+        RuleEffect::Deny => "deny",
+    }
+}
+
+fn effect_from(word: &str) -> Result<RuleEffect, String> {
+    match word {
+        "allow" => Ok(RuleEffect::Allow),
+        "deny" => Ok(RuleEffect::Deny),
+        other => Err(format!("The engine does not know the rule {other}.")),
+    }
+}
+
+fn kind_from(word: &str) -> Result<Kind, String> {
+    [Kind::Command, Kind::FileChange, Kind::Question, Kind::Connector]
+        .into_iter()
+        .find(|k| k.as_str() == word)
+        .ok_or_else(|| format!("The engine does not know the card kind {word}."))
+}
+
+fn card_json(c: &Request) -> Value {
+    json!({"approvalId": c.approval_id, "missionId": c.mission_id, "runtime": c.runtime, "kind": c.kind.as_str(),
+        "summary": c.summary, "detail": c.detail, "cwd": c.cwd, "requestedAt": c.requested_at,
+        "alwaysCovers": c.always_covers, "alwaysKey": c.always_key, "dataSentSays": c.data_sent_says,
+        "reversibleSays": c.reversible_says, "claudeInput": c.claude_input})
+}
+
+fn card_from(v: &Value) -> Result<Request, String> {
+    Ok(Request {
+        approval_id: needed(v, "approvalId")?,
+        mission_id: needed(v, "missionId")?,
+        runtime: needed(v, "runtime")?,
+        kind: kind_from(&needed(v, "kind")?)?,
+        summary: text(v, "summary").unwrap_or_default(),
+        detail: text(v, "detail").unwrap_or_default(),
+        cwd: text(v, "cwd"),
+        requested_at: text(v, "requestedAt").unwrap_or_default(),
+        always_covers: text(v, "alwaysCovers"),
+        always_key: text(v, "alwaysKey"),
+        data_sent_says: text(v, "dataSentSays"),
+        reversible_says: text(v, "reversibleSays"),
+        claude_input: Some(v["claudeInput"].clone()).filter(|i| !i.is_null()),
+    })
+}
+
+fn strings(v: &Value) -> Vec<String> {
+    v.as_array().into_iter().flatten().filter_map(|s| s.as_str().map(str::to_owned)).collect()
+}
+
+// ---- the server -------------------------------------------------------------------------------------------------
+
+/// One request, answered by the engine in this process. Errors become `{"error": ...}`.
+fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
+    let result: Result<Value, String> = (|| match request["op"].as_str().unwrap_or("") {
+        "send" => {
+            let started = engine.send(send_from(&request["job"])?, origin_from(&request["origin"])?)?;
+            Ok(json!({"conversationId": started.conversation_id, "mode": started.mode}))
+        }
+        "stop" => engine.stop(&needed(request, "conversation")?).map(Value::from),
+        "owns" => Ok(Value::from(engine.owns(&needed(request, "conversation")?))),
+        "running" => Ok(json!(engine.running())),
+        "waiting" => Ok(Value::Array(engine.waiting().iter().map(card_json).collect())),
+        "decide" => engine
+            .decide(&needed(request, "approvalId")?, decision_from(&needed(request, "decision")?)?, text(request, "reason"))
+            .map(|()| Value::Null),
+        "save-rule-and-decide" => engine
+            .save_rule_and_decide(&card_from(&request["card"])?, effect_from(&needed(request, "effect")?)?)
+            .map(|()| Value::Null),
+        "carry" => {
+            let (conversation, folder, mode) = engine.carry(
+                &needed(request, "mission")?,
+                &needed(request, "runtime")?,
+                text(request, "model").as_deref(),
+            )?;
+            Ok(json!({"conversation": conversation, "folder": folder, "mode": mode}))
+        }
+        "shut-down" => {
+            engine.shut_down();
+            engine.wait_for_shutdown();
+            Ok(Value::Null)
+        }
+        other => Err(format!("The engine does not know the request {other}.")),
+    })();
+    match result {
+        Ok(value) => json!({"ok": value}),
+        Err(error) => json!({"error": error}),
+    }
+}
+
+fn serve_one(engine: &dyn EngineApi, stream: UnixStream) {
+    let _ = stream.set_read_timeout(Some(REPLY_WAIT));
+    let mut reader = BufReader::new(&stream);
+    let mut line = String::new();
+    if reader.read_line(&mut line).is_err() || line.trim().is_empty() {
+        return;
+    }
+    let reply = match serde_json::from_str::<Value>(&line) {
+        Ok(request) => answer(engine, &request),
+        Err(_) => json!({"error": "The engine could not read that request."}),
+    };
+    let mut out = &stream;
+    let _ = out.write_all(format!("{reply}\n").as_bytes());
+}
+
+/// A running engine: the lock it holds and the socket it answers on.
+pub struct Server {
+    socket: PathBuf,
+    stopping: Arc<AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+    // Held for the server's life: dropping it lets another engine start.
+    _lock: std::fs::File,
+}
+
+impl Server {
+    /// Take the lock in `dir`, bind `engine.sock`, and answer on a thread. Refused while another engine holds the lock.
+    pub fn start(dir: &Path) -> Result<Server, String> {
+        Self::start_with(dir, Arc::new(InProcess))
+    }
+
+    fn start_with(dir: &Path, engine: Arc<dyn EngineApi>) -> Result<Server, String> {
+        std::fs::create_dir_all(dir).map_err(|e| format!("The engine's folder could not be made: {e}"))?;
+        let lock = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(dir.join(LOCK))
+            .map_err(|e| format!("The engine's lock could not be opened: {e}"))?;
+        // SAFETY: flock on a descriptor this function owns; it only reads the descriptor.
+        let taken = unsafe { libc::flock(std::os::fd::AsRawFd::as_raw_fd(&lock), libc::LOCK_EX | libc::LOCK_NB) };
+        if taken != 0 {
+            return Err("Another Locust engine is already running.".into());
+        }
+        let socket = dir.join(SOCKET);
+        // Holding the lock, any socket file left here is a crashed engine's.
+        let _ = std::fs::remove_file(&socket);
+        let listener = UnixListener::bind(&socket).map_err(|e| format!("The engine could not listen: {e}"))?;
+        std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("The engine's socket could not be made private: {e}"))?;
+        let stopping = Arc::new(AtomicBool::new(false));
+        let stop = stopping.clone();
+        let thread = std::thread::Builder::new()
+            .name("locust-engine".into())
+            .spawn(move || {
+                for stream in listener.incoming() {
+                    if stop.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    if let Ok(stream) = stream {
+                        let engine = engine.clone();
+                        let _ = std::thread::Builder::new()
+                            .name("locust-engine-call".into())
+                            .spawn(move || serve_one(engine.as_ref(), stream));
+                    }
+                }
+            })
+            .map_err(|e| format!("The engine could not start: {e}"))?;
+        Ok(Server { socket, stopping, thread: Some(thread), _lock: lock })
+    }
+
+    pub fn socket(&self) -> &Path {
+        &self.socket
+    }
+
+    /// Run until the process ends (`locust-native --engine`).
+    pub fn run(mut self) {
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        self.stopping.store(true, Ordering::Relaxed);
+        // Wake the accept loop so it sees the flag.
+        let _ = UnixStream::connect(&self.socket);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+        let _ = std::fs::remove_file(&self.socket);
+    }
+}
+
+// ---- the client -------------------------------------------------------------------------------------------------
+
+/// [`EngineApi`] over the socket of an engine in another process.
+pub struct Client {
+    socket: PathBuf,
+}
+
+impl Client {
+    pub fn new(socket: PathBuf) -> Self {
+        Client { socket }
+    }
+
+    /// One request, one reply. Never retried: whether a send that failed midway started a turn is for the ledger to
+    /// say, not for a second attempt to find out.
+    fn call(&self, request: Value) -> Result<Value, String> {
+        let stream = UnixStream::connect(&self.socket).map_err(|_| "Locust's engine is not running.".to_string())?;
+        let _ = stream.set_read_timeout(Some(REPLY_WAIT));
+        let mut out = &stream;
+        out.write_all(format!("{request}\n").as_bytes())
+            .map_err(|e| format!("The request could not reach Locust's engine: {e}"))?;
+        let mut line = String::new();
+        BufReader::new(&stream)
+            .read_line(&mut line)
+            .map_err(|e| format!("Locust's engine did not answer: {e}"))?;
+        let reply: Value =
+            serde_json::from_str(&line).map_err(|_| "Locust's engine gave an answer that could not be read.".to_string())?;
+        match reply.get("error").and_then(Value::as_str) {
+            Some(error) => Err(error.to_owned()),
+            None => Ok(reply["ok"].clone()),
+        }
+    }
+}
+
+impl EngineApi for Client {
+    fn send(&self, job: Send, origin: Origin) -> Result<Started, String> {
+        let v = self.call(json!({"op": "send", "job": send_json(&job), "origin": origin_json(&origin)}))?;
+        Ok(Started { conversation_id: needed(&v, "conversationId")?, mode: text(&v, "mode").unwrap_or_default() })
+    }
+    fn stop(&self, conversation: &str) -> Result<String, String> {
+        Ok(self.call(json!({"op": "stop", "conversation": conversation}))?.as_str().unwrap_or_default().to_owned())
+    }
+    fn owns(&self, conversation: &str) -> bool {
+        self.call(json!({"op": "owns", "conversation": conversation})).ok().and_then(|v| v.as_bool()).unwrap_or(false)
+    }
+    fn running(&self) -> Vec<String> {
+        self.call(json!({"op": "running"})).map(|v| strings(&v)).unwrap_or_default()
+    }
+    fn waiting(&self) -> Vec<Request> {
+        self.call(json!({"op": "waiting"}))
+            .map(|v| v.as_array().into_iter().flatten().filter_map(|c| card_from(c).ok()).collect())
+            .unwrap_or_default()
+    }
+    fn decide(&self, approval_id: &str, decision: Decision, reason: Option<String>) -> Result<(), String> {
+        self.call(json!({"op": "decide", "approvalId": approval_id, "decision": decision_word(&decision), "reason": reason}))
+            .map(|_| ())
+    }
+    fn save_rule_and_decide(&self, card: &Request, effect: RuleEffect) -> Result<(), String> {
+        self.call(json!({"op": "save-rule-and-decide", "card": card_json(card), "effect": effect_word(&effect)}))
+            .map(|_| ())
+    }
+    fn carry(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>, String), String> {
+        let v = self.call(json!({"op": "carry", "mission": mission, "runtime": runtime, "model": model}))?;
+        Ok((needed(&v, "conversation")?, text(&v, "folder"), text(&v, "mode").unwrap_or_default()))
+    }
+    fn shut_down(&self) {
+        let _ = self.call(json!({"op": "shut-down"}));
+    }
+    fn wait_for_shutdown(&self) {
+        // The engine's shut-down reply comes once every ending is written.
+    }
+}
+
+#[cfg(test)]
+#[path = "engine_process_tests.rs"]
+mod tests;

@@ -2191,6 +2191,25 @@ fn main() {
         }
         std::process::exit(0);
     }
+    // The engine with no window (plan E2): turns, cards and endings answered on `engine.sock` in the native data folder.
+    // A second one refuses while this one runs. The window joins it in E3; until then it keeps its own.
+    if std::env::args().nth(1).as_deref() == Some("--engine") {
+        let Some(store) = locust_core::native::store() else {
+            eprintln!("Native data folder could not be determined.");
+            std::process::exit(1);
+        };
+        match locust_core::engine_process::Server::start(store.root()) {
+            Ok(server) => {
+                eprintln!("Locust's engine is listening on {}", server.socket().display());
+                server.run();
+            }
+            Err(why) => {
+                eprintln!("{why}");
+                std::process::exit(1);
+            }
+        }
+        std::process::exit(0);
+    }
     let browser_args: Vec<String> = std::env::args().collect();
     if browser_args.get(1).map(String::as_str) == Some("--browser-bridge") {
         if let Some(socket) = browser_args.get(2) && let Err(e) = browser_tools::serve(socket) { eprintln!("Browser tools: {e}"); std::process::exit(1); }
