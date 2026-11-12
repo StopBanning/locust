@@ -60,6 +60,13 @@ jobs:
         run: |
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           "$HOME/.cargo/bin/rustup" toolchain install stable --profile minimal
+      # The app is built before anything is tested: tests turn on core's test hooks, so a green suite does not prove
+      # the release build compiles (f76c8744 broke it with every test passing). This fails in the first minutes.
+      - name: Release build and binary size
+        run: |
+          cargo build --release
+          size=$(stat -f %z "$CARGO_TARGET_DIR/release/locust-native")
+          echo "Release binary: $((size / 1048576)) MiB" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Tests
         env:
           LOCUST_TEST_TS_READER: ${{ github.workspace }}/packages/mission-store/dist/index.js
@@ -69,11 +76,6 @@ jobs:
           if cargo tree -p locust-core -e normal,build,dev | grep -i rune; then
             echo "locust-core depends on Rune"; exit 1
           fi
-      - name: Release build and binary size
-        run: |
-          cargo build --release
-          size=$(stat -f %z "$CARGO_TARGET_DIR/release/locust-native")
-          echo "Release binary: $((size / 1048576)) MiB" | tee -a "$GITHUB_STEP_SUMMARY"
 
   elsewhere:
     strategy:
