@@ -287,6 +287,157 @@ pub fn redact_secrets(text: &str) -> String {
     safe
 }
 
+pub const SECRET_SHAPED_TEXT_REMOVED: &str = "[secret-shaped text removed]";
+
+fn scrub_aws_secret_keys(text: &str, replaced: &mut usize) -> String {
+    static NEAR: OnceLock<Regex> = OnceLock::new();
+    let near = NEAR.get_or_init(|| {
+        invariants::regex(r"(?i)(?-u:\b)(?:secret|aws)(?-u:\b)[^\n]{0,60}?([A-Za-z0-9/+]{40})")
+    });
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for caps in near.captures_iter(text) {
+        let Some(full) = caps.get(0) else { continue };
+        let Some(key) = caps.get(1) else { continue };
+        if full.start() < last {
+            continue;
+        }
+        let prev_ok = key.start() == 0
+            || !matches!(bytes[key.start() - 1], b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'+');
+        let next_ok = key.end() >= bytes.len()
+            || !matches!(bytes[key.end()], b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'+' | b'=');
+        let s = key.as_str();
+        let has_digit = s.chars().any(|c| c.is_ascii_digit() || c == '/' || c == '+');
+        let has_lower = s.chars().any(|c| c.is_ascii_lowercase());
+        let has_upper = s.chars().any(|c| c.is_ascii_uppercase());
+        if prev_ok && next_ok && has_digit && has_lower && has_upper {
+            out.push_str(&text[last..full.start()]);
+            out.push_str(SECRET_SHAPED_TEXT_REMOVED);
+            last = full.end();
+            *replaced += 1;
+        }
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
+fn scrub_card_numbers(text: &str, replaced: &mut usize) -> String {
+    static CARD_RE: OnceLock<Regex> = OnceLock::new();
+    let re = CARD_RE.get_or_init(|| invariants::regex(r"[0-9](?:[ -]?[0-9]){12,18}"));
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for m in re.find_iter(text) {
+        if m.start() < last {
+            continue;
+        }
+        let prev_digit = m.start() > 0 && bytes[m.start() - 1].is_ascii_digit();
+        let next_digit = m.end() < bytes.len() && bytes[m.end()].is_ascii_digit();
+        if prev_digit || next_digit {
+            continue;
+        }
+        let digits: String = m.as_str().chars().filter(|c| c.is_ascii_digit()).collect();
+        if looks_like_a_card(&digits) {
+            out.push_str(&text[last..m.start()]);
+            out.push_str(SECRET_SHAPED_TEXT_REMOVED);
+            last = m.end();
+            *replaced += 1;
+        }
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
+/// Replace every secret-shaped piece with `[secret-shaped text removed]`, returning the cleaned text and count.
+/// Matches Electron `shared/secrets.ts` `scrubSecrets`.
+pub fn scrub_secrets(text: &str) -> (String, usize) {
+    static SHAPES: OnceLock<Vec<Regex>> = OnceLock::new();
+    static SPOKEN: OnceLock<Vec<Regex>> = OnceLock::new();
+    let shapes = SHAPES.get_or_init(|| {
+        [
+            r"(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:.*?-----END [A-Z0-9 ]*PRIVATE KEY-----)?",
+            r"(?-u:\b)eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
+            r"(?-u:\b)(?:sk|pk)-[A-Za-z0-9_-]{12,}",
+            r"(?-u:\b)(?:AKIA|ASIA)[0-9A-Z]{16}(?-u:\b)",
+            r"(?-u:\b)AIza[0-9A-Za-z_-]{35}(?-u:\b)",
+            r"(?-u:\b)(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,})",
+            r"(?-u:\b)glpat-[A-Za-z0-9_-]{20,}",
+            r"(?-u:\b)xox[abprs]-[A-Za-z0-9-]{10,}",
+            r"(?-u:\b)xapp-\d-[A-Za-z0-9-]{10,}",
+            r"(?-u:\b)[MNO][A-Za-z0-9_-]{23,27}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,40}(?-u:\b)",
+            r"(?-u:\b)\d{5,15}:AA[A-Za-z0-9_-]{30,40}(?-u:\b)",
+            r"(?-u:\b)npm_[A-Za-z0-9]{36}(?-u:\b)",
+            r"(?-u:\b)hf_[A-Za-z0-9]{30,}(?-u:\b)",
+            r"(?i)(?-u:\b)Bearer\s+[A-Za-z0-9._~+/=-]{8,}",
+            r"(?i)(?-u:\b)[a-z][a-z0-9+.-]*://[^\s:/@]+:[^\s@/]+@",
+            r#"(?i)(?-u:\b)(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|authorization|cookie|credential)["']?\s*[:=]\s*["']?[^\s"'<>,;}]{8,}"#,
+            r"(?i)(?-u:\b)passphrase(?-u:\b)[^.\n]{0,30}?(?-u:\b)(?:is|was)\s*[:=]?\s*\S{3,}|(?-u:\b)passphrase\s*[:=]\s*\S{3,}",
+        ]
+        .into_iter()
+        .map(invariants::regex)
+        .collect()
+    });
+    let spoken = SPOKEN.get_or_init(|| {
+        [
+            r#"(?i)(?-u:\b)(?:password|passwd|pwd|pin)(?-u:\b)[^.\n]{0,30}?(?-u:\b)(?:is|was)\s+["'`]?([^\s"'`]+)"#,
+            r#"(?i)(?-u:\b)(?:login|logins|credentials?|username)(?-u:\b)[^\n]{0,40}?\S+\s*[/:]\s*([^\s"'`]+)"#,
+        ]
+        .into_iter()
+        .map(invariants::regex)
+        .collect()
+    });
+
+    let mut replaced = 0usize;
+    let mut clean = text.to_owned();
+    // Apply the first 15 shapes, then AWS secret keys (shape 16 in TS), then the remaining 2 shapes,
+    // matching SCRUB_SHAPES order in shared/secrets.ts.
+    for re in &shapes[..15] {
+        let mut next = String::with_capacity(clean.len());
+        let mut last = 0;
+        for m in re.find_iter(&clean) {
+            next.push_str(&clean[last..m.start()]);
+            next.push_str(SECRET_SHAPED_TEXT_REMOVED);
+            last = m.end();
+            replaced += 1;
+        }
+        next.push_str(&clean[last..]);
+        clean = next;
+    }
+    clean = scrub_aws_secret_keys(&clean, &mut replaced);
+    for re in &shapes[15..] {
+        let mut next = String::with_capacity(clean.len());
+        let mut last = 0;
+        for m in re.find_iter(&clean) {
+            next.push_str(&clean[last..m.start()]);
+            next.push_str(SECRET_SHAPED_TEXT_REMOVED);
+            last = m.end();
+            replaced += 1;
+        }
+        next.push_str(&clean[last..]);
+        clean = next;
+    }
+    for re in spoken {
+        let mut next = String::with_capacity(clean.len());
+        let mut last = 0;
+        for caps in re.captures_iter(&clean) {
+            let Some(val) = caps.get(1) else { continue };
+            let bare = val.as_str().trim_end_matches(|c| ".,;)".contains(c));
+            if bare.starts_with("[secret-shaped") || !looks_like_a_password(bare) {
+                continue;
+            }
+            next.push_str(&clean[last..val.start()]);
+            next.push_str(SECRET_SHAPED_TEXT_REMOVED);
+            last = val.start() + bare.len();
+            replaced += 1;
+        }
+        next.push_str(&clean[last..]);
+        clean = next;
+    }
+    clean = scrub_card_numbers(&clean, &mut replaced);
+    (clean, replaced)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
