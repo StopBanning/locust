@@ -371,6 +371,11 @@ impl AcpNormalizer {
         out
     }
 }
+/// line-diff.ts unifiedDiffOf: the diff's text alone, for readers that do not count lines.
+pub fn unified_diff_text(path: &str, old: Option<&str>, new: &str) -> Option<String> {
+    unified_diff(path, old, new).map(|(diff, _, _)| diff)
+}
+
 /// line-diff.ts: common ends, bounded LCS, and three lines of context.
 fn unified_diff(path: &str, old: Option<&str>, new: &str) -> Option<(String, usize, usize)> {
     fn lines(s: &str) -> Vec<&str> {

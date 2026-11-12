@@ -55,6 +55,7 @@ fn rust_events(reader: &str, lines: &[String]) -> Vec<Event> {
             for l in lines {
                 out.extend(n.accept_line(l));
             }
+            out.extend(n.finish(false, Some(0)));
         }
         "muse" => {
             let mut n = super::muse_events::MuseNormalizer::default();

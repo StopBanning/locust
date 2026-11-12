@@ -189,11 +189,134 @@ pub fn claude_tool_title(name: &str, input: &Value) -> Option<String> {
     input["description"].as_str().map(str::to_owned)
 }
 
+/// claude-events.ts withoutThinkingEvidence: a thinking block or delta kept only as its type. None when nothing changed.
+fn without_thinking_evidence(parsed: &Value) -> Option<Value> {
+    let block = |v: &Value| -> Value {
+        match v["type"].as_str() {
+            Some(t @ ("thinking" | "thinking_delta" | "redacted_thinking" | "signature_delta")) if v.is_object() => json!({"type": t}),
+            _ => v.clone(),
+        }
+    };
+    if parsed["type"] == "stream_event" && parsed["event"].is_object() {
+        let event = &parsed["event"];
+        let has_block = event.get("content_block").is_some();
+        let has_delta = event.get("delta").is_some();
+        if has_block || has_delta {
+            let mut out = parsed.clone();
+            if has_block {
+                out["event"]["content_block"] = block(&event["content_block"]);
+            }
+            if has_delta {
+                out["event"]["delta"] = block(&event["delta"]);
+            }
+            return Some(out);
+        }
+    }
+    if parsed["type"] == "assistant" && parsed["message"]["content"].is_array() {
+        let mut out = parsed.clone();
+        out["message"]["content"] = Value::Array(parsed["message"]["content"].as_array().into_iter().flatten().map(block).collect());
+        return Some(out);
+    }
+    None
+}
+
+/// claude-events.ts CLAUDE_COMPACTED and CLAUDE_COMPACTED_ON_REQUEST.
+pub const CLAUDE_COMPACTED: &str =
+    "The conversation outgrew the model's context, so Claude Code summarized it and carried on from the summary.";
+pub const CLAUDE_COMPACTED_ON_REQUEST: &str = "Claude Code summarized the conversation so far, as asked, and carries on from the summary.";
+
 struct OpenTool {
     name: String,
     target: Option<String>,
     title: Option<String>,
     parent: Option<String>,
+    /// A Bash call run in the background (`run_in_background`), which ends later than its result.
+    background: bool,
+}
+
+/// claude-events.ts claudeToolBackgrounded.
+fn claude_tool_backgrounded(name: &str, input: &Value) -> bool {
+    name == "Bash" && input["run_in_background"] == true
+}
+
+/// claude-events.ts backgroundEnding: how background work ended, in the words its row uses. A stop after the run's own
+/// result could only be the run ending.
+pub fn background_ending(status: Option<&str>, after_result: bool) -> &'static str {
+    match status {
+        Some("completed") => "completed",
+        Some("failed") => "failed",
+        Some("stopped") | Some("killed") => {
+            if after_result { "stopped-with-run" } else { "stopped" }
+        }
+        _ => "ended",
+    }
+}
+
+/// claude-events.ts claudeShowsOutput: the tools whose printed output Claude Code shows under them.
+fn claude_shows_output(name: Option<&str>) -> bool {
+    match name {
+        None => false,
+        Some(n) if n.starts_with("mcp__") => true,
+        Some(n) => matches!(n, "Bash" | "BashOutput" | "PowerShell" | "Grep" | "Glob" | "WebFetch" | "WebSearch" | "LS"),
+    }
+}
+
+/// claude-events.ts claudeToolResultText: a tool_result's string content, or its text parts joined.
+fn claude_tool_result_text(block: &Value) -> Option<String> {
+    match &block["content"] {
+        Value::String(t) => (!t.is_empty()).then(|| t.clone()),
+        Value::Array(parts) => {
+            let joined = parts
+                .iter()
+                .filter(|p| p["type"] == "text")
+                .filter_map(|p| p["text"].as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            (!joined.is_empty()).then_some(joined)
+        }
+        _ => None,
+    }
+}
+
+/// claude-events.ts LOCUST_GUARD_SAID: how the command guard's refusals begin.
+const LOCUST_GUARD_SAID: &str = "Locust stopped this command before it ran";
+
+/// claude-events.ts claudeFilePatch: the change a file call made, from the record that answers it (`tool_use_result`):
+/// its hunks written out, or, for a new or rewritten file, its text compared with what it was.
+fn claude_file_patch(result: &Value) -> Option<Value> {
+    let path = result["filePath"].as_str()?;
+    let hunks: Vec<&Value> = result["structuredPatch"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter(|h| {
+                    ["oldStart", "oldLines", "newStart", "newLines"].iter().all(|k| h[*k].as_f64().is_some_and(f64::is_finite))
+                        && h["lines"].as_array().is_some_and(|l| l.iter().all(Value::is_string))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let unified = if !hunks.is_empty() {
+        let side = |prefix: &str| {
+            if path.starts_with(['/', '\\']) || path.as_bytes().get(1) == Some(&b':') { path.to_owned() } else { format!("{prefix}{path}") }
+        };
+        let mut lines = vec![format!("--- {}", side("a/")), format!("+++ {}", side("b/"))];
+        let n = |h: &Value, k: &str| super::events::num(h[k].as_f64().unwrap_or(0.0)).to_string();
+        for h in hunks {
+            lines.push(format!("@@ -{},{} +{},{} @@", n(h, "oldStart"), n(h, "oldLines"), n(h, "newStart"), n(h, "newLines")));
+            lines.extend(h["lines"].as_array().into_iter().flatten().filter_map(|l| l.as_str().map(str::to_owned)));
+        }
+        lines.join("\n") + "\n"
+    } else {
+        let content = result["content"].as_str()?;
+        let original = match &result["originalFile"] {
+            Value::Null => None,
+            Value::String(t) => Some(t.as_str()),
+            _ => return None,
+        };
+        super::acp_events::unified_diff_text(path, original, content)?
+    };
+    super::cursor_events::tool_patch_from(&unified)
 }
 
 #[derive(Default)]
@@ -213,6 +336,38 @@ pub struct ClaudeNormalizer {
     completed_usage: Option<Value>,
     resolved_model: Option<String>,
     limits: HashSet<String>,
+    /// Background work by task id, and the call that started it (claude-events.ts backgroundTasks).
+    background_tasks: HashMap<String, Option<String>>,
+    /// A helper's type and its summary, by the call that launched it, for that call's end.
+    subagent_kinds: HashMap<String, String>,
+    subagent_summaries: HashMap<String, String>,
+    /// Calls Claude Code refused before they ran (`permission_denied`), and why, for their result that follows.
+    refused_calls: HashMap<String, String>,
+    /// The teammate's latest model call: its message id, prompt tokens and output tokens (claude-events.ts lastCall),
+    /// so the run can say how full the conversation is.
+    last_call: Option<(Option<String>, f64, f64)>,
+    /// The run was on the subscription's usage windows, and whether it spilled into extra usage.
+    on_usage_windows: bool,
+    used_extra_usage: bool,
+    /// Records the process gave, for `recordCount`.
+    records: usize,
+}
+
+/// claude-events.ts promptTokensOf: input, cache-write and cache-read tokens together.
+fn prompt_tokens_of(usage: &Value) -> Option<f64> {
+    usage.as_object()?;
+    let mut total = None;
+    for key in ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"] {
+        if let Some(n) = usage[key].as_f64().filter(|n| n.is_finite() && *n >= 0.0) {
+            total = Some(total.unwrap_or(0.0) + n);
+        }
+    }
+    total
+}
+
+/// claude-events.ts outputTokensOf.
+fn output_tokens_of(usage: &Value) -> Option<f64> {
+    usage["output_tokens"].as_f64().filter(|n| n.is_finite() && *n >= 0.0)
 }
 
 impl ClaudeNormalizer {
@@ -231,12 +386,12 @@ impl ClaudeNormalizer {
             "signal": null,
             "stderr": "",
             "stderrTruncated": false,
-            "recordCount": self.count,
+            "recordCount": self.records,
             "inputDeliveryFailed": false,
             "outputLimitExceeded": false,
             "oversizedRecordsDropped": 0,
             "forcedTerminationAttempted": cancelled,
-            "terminationUnconfirmed": !success && !cancelled,
+            "terminationUnconfirmed": false,
             "startedAt": crate::ledger_write::now(),
             "finishedAt": crate::ledger_write::now()
         })
@@ -301,7 +456,14 @@ impl ClaudeNormalizer {
             p["runtimeThreadId"] = json!(t);
         }
         if let Some(usage) = &self.completed_usage {
-            p["usage"] = usage.clone();
+            let mut usage = usage.clone();
+            if let Some((_, prompt, output)) = self.last_call {
+                usage["contextTokens"] = super::events::num(prompt + output);
+            }
+            if self.on_usage_windows && !self.used_extra_usage {
+                usage["billing"] = json!("subscription");
+            }
+            p["usage"] = usage;
         }
         if let Some(model) = &self.resolved_model {
             p["resolvedModel"] = json!(model);
@@ -313,11 +475,15 @@ impl ClaudeNormalizer {
         if self.ended {
             return vec![];
         }
+        self.records += 1;
         let type_name = s(parsed, "type");
         if type_name.is_empty() {
             return vec![];
         }
-        let evidence = json!({"runtimeEventType": type_name, "redacted": true});
+        // The record kept as evidence, with thinking cut to its type (claude-events.ts withoutThinkingEvidence).
+        let safe = without_thinking_evidence(parsed);
+        let (raw, changed) = super::events::evidence_raw(safe.as_ref().unwrap_or(parsed));
+        let evidence = json!({"runtimeEventType": type_name, "raw": raw, "redacted": changed || safe.is_some()});
 
         if type_name == "tool_progress" {
             return vec![];
@@ -336,6 +502,12 @@ impl ClaudeNormalizer {
             };
             let mut out = Vec::new();
             // Emit limit then reading in that order (0.413 sequence counting).
+            if info["unifiedWindows"].as_object().is_some_and(|w| !w.is_empty()) {
+                self.on_usage_windows = true;
+            }
+            if info["isUsingOverage"] == true {
+                self.used_extra_usage = true;
+            }
             if let Some(kind) = limit_kind_for(s(info, "status")) {
                 let key = format!("{kind}:{}", limit_sentence(info));
                 if self.limits.insert(key) {
@@ -379,13 +551,108 @@ impl ClaudeNormalizer {
                     }),
                 )];
             }
-            if subtype == "thinking_tokens"
-                || subtype == "task_updated"
-                || subtype == "background_tasks_changed"
-                || subtype == "commands_changed"
-                || subtype == "permission_denied"
-            {
+            if subtype == "task_started" || subtype == "task_progress" {
+                let task_id = Some(identity(parsed, "task_id")).filter(|t| !t.is_empty()).unwrap_or_else(|| "task".into());
+                let started_by = Some(identity(parsed, "tool_use_id")).filter(|t| !t.is_empty());
+                let string_of = |k: &str| parsed[k].as_str().filter(|v| !v.is_empty()).map(str::to_owned);
+                if parsed["is_backgrounded"] == true || self.background_tasks.contains_key(&task_id) {
+                    let call_id = started_by.clone().or_else(|| self.background_tasks.get(&task_id).cloned().flatten());
+                    self.background_tasks.insert(task_id.clone(), call_id.clone());
+                    if let Some(id) = &call_id
+                        && let Some(open) = self.open_tools.get_mut(id)
+                    {
+                        open.background = true;
+                    }
+                    if let (Some(id), Some(kind)) = (&call_id, string_of("subagent_type")) {
+                        self.subagent_kinds.insert(id.clone(), kind);
+                    }
+                    let doing = [string_of("description"), string_of("last_tool_name").map(|t| format!("last tool {t}"))]
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<_>>()
+                        .join(" · ");
+                    let mut p = json!({
+                        "stepKind": "item",
+                        "itemId": call_id.unwrap_or_else(|| format!("background:{task_id}")),
+                        "itemType": "background",
+                        "status": "running",
+                        "evidence": evidence
+                    });
+                    if !doing.is_empty() {
+                        p["message"] = json!(text(&doing, 16384));
+                    }
+                    return vec![self.event("step.started", p)];
+                }
+                let kind = string_of("subagent_type");
+                let words: Vec<String> = [kind.clone(), string_of("description"), string_of("last_tool_name").map(|t| format!("last tool {t}"))]
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                if let (Some(id), Some(k)) = (&started_by, &kind) {
+                    self.subagent_kinds.insert(id.clone(), k.clone());
+                }
+                let mut p = json!({"stepKind":"item","itemId":format!("subagent:{task_id}"),"itemType":"subagent","evidence":evidence});
+                if !words.is_empty() {
+                    p["message"] = json!(text(&words.join(" · "), 16384));
+                }
+                return vec![self.event("step.started", p)];
+            }
+            if subtype == "task_notification" {
+                let task_id = Some(identity(parsed, "task_id")).filter(|t| !t.is_empty()).unwrap_or_else(|| "task".into());
+                let tool_use_id = Some(identity(parsed, "tool_use_id")).filter(|t| !t.is_empty());
+                let summary = parsed["summary"].as_str().filter(|v| !v.is_empty()).map(str::to_owned);
+                let status = parsed["status"].as_str().filter(|v| !v.is_empty());
+                if self.background_tasks.contains_key(&task_id) {
+                    let call_id = tool_use_id.or_else(|| self.background_tasks.get(&task_id).cloned().flatten());
+                    self.background_tasks.remove(&task_id);
+                    let ended = background_ending(status, self.saw_result);
+                    let mut p = json!({
+                        "stepKind": "item",
+                        "itemId": call_id.unwrap_or_else(|| format!("background:{task_id}")),
+                        "itemType": "background",
+                        "status": ended,
+                        "evidence": evidence
+                    });
+                    if let Some(said) = &summary {
+                        p["message"] = json!(text(said, 16384));
+                    }
+                    return vec![self.event(if ended == "failed" { "step.failed" } else { "step.completed" }, p)];
+                }
+                if let (Some(id), Some(said)) = (&tool_use_id, &summary) {
+                    self.subagent_summaries.insert(id.clone(), said.clone());
+                }
+                let mut p = json!({"stepKind":"item","itemId":format!("subagent:{task_id}"),"itemType":"subagent","evidence":evidence});
+                if let Some(st) = status {
+                    p["status"] = json!(st);
+                }
+                return vec![self.event(if status == Some("failed") { "step.failed" } else { "step.completed" }, p)];
+            }
+            if subtype == "task_updated" || subtype == "thinking_tokens" {
                 return vec![];
+            }
+            if subtype == "permission_denied" {
+                let call_id = identity(parsed, "tool_use_id");
+                let why = parsed["decision_reason"].as_str().or_else(|| parsed["message"].as_str()).unwrap_or("");
+                if !call_id.is_empty() {
+                    self.refused_calls.insert(call_id, why.to_owned());
+                }
+                return vec![];
+            }
+            if subtype == "background_tasks_changed" || subtype == "commands_changed" {
+                return vec![];
+            }
+            if subtype == "compact_boundary" {
+                let manual = parsed["compact_metadata"]["trigger"] == "manual";
+                return vec![self.event(
+                    "adapter.diagnostic",
+                    json!({
+                        "code": "claude.context_compacted",
+                        "level": "info",
+                        "terminal": false,
+                        "message": if manual { CLAUDE_COMPACTED_ON_REQUEST } else { CLAUDE_COMPACTED },
+                        "evidence": evidence
+                    }),
+                )];
             }
             if subtype == "notification" {
                 let text_v = s(parsed, "text");
@@ -405,7 +672,15 @@ impl ClaudeNormalizer {
                     }),
                 )];
             }
-            return vec![];
+            // Any other system record is the turn moving on: its status, as a step (claude-events.ts).
+            let mut p = json!({"stepKind":"turn","evidence":evidence});
+            if !subtype.is_empty() {
+                p["status"] = json!(subtype);
+            }
+            if let Some(st) = parsed["status"].as_str().filter(|v| !v.is_empty()) {
+                p["message"] = json!(st);
+            }
+            return vec![self.event("step.started", p)];
         }
 
         if type_name == "stream_event" {
@@ -416,6 +691,13 @@ impl ClaudeNormalizer {
             };
             let inner_type = s(inner, "type");
             if inner_type == "message_start" {
+                let message = &inner["message"];
+                if let Some(prompt) = prompt_tokens_of(&message["usage"])
+                    && !from_subagent(parsed)
+                {
+                    let id = Some(identity(message, "id")).filter(|s| !s.is_empty());
+                    self.last_call = Some((id, prompt, output_tokens_of(&message["usage"]).unwrap_or(0.0)));
+                }
                 if !from_subagent(parsed) {
                     self.message_ordinal += 1;
                     self.text_block_id = None;
@@ -426,6 +708,16 @@ impl ClaudeNormalizer {
                     "step.started",
                     json!({"stepKind":"turn","evidence":evidence}),
                 )];
+            }
+            if inner_type == "message_delta" {
+                // The call's final output count arrives here, at its end.
+                if let Some(output) = output_tokens_of(&inner["usage"])
+                    && !from_subagent(parsed)
+                    && let Some(call) = self.last_call.as_mut()
+                {
+                    call.2 = call.2.max(output);
+                }
+                return vec![];
             }
             if inner_type == "content_block_start" {
                 let block = &inner["content_block"];
@@ -466,6 +758,7 @@ impl ClaudeNormalizer {
                             target: None,
                             title: None,
                             parent: parent.clone(),
+                            background: false,
                         },
                     );
                     let mut payload = json!({
@@ -539,8 +832,63 @@ impl ClaudeNormalizer {
                 self.synthetic_error = parsed["error"].as_str().map(str::to_owned);
                 return vec![];
             }
+            // The complete message states its call's usage too: the same call as the last `message_start` when the run
+            // streams, the only word on it when it does not.
+            if !from_subagent(parsed) {
+                let id = Some(identity(message, "id")).filter(|s| !s.is_empty());
+                let output = output_tokens_of(&message["usage"]);
+                let prompt = prompt_tokens_of(&message["usage"]);
+                match self.last_call.as_mut() {
+                    Some(call) if id.is_some() && call.0 == id => {
+                        if let Some(o) = output {
+                            call.2 = call.2.max(o);
+                        }
+                    }
+                    _ => {
+                        if let Some(p) = prompt {
+                            self.last_call = Some((id, p, output.unwrap_or(0.0)));
+                        }
+                    }
+                }
+            }
+            // A helper's own calls are its row's children (claude-events.ts, helper visibility): this complete message is
+            // the first and only word on each, so each opens here, named, under the Agent call that sent the helper.
+            // Its words stay out; only its calls are kept.
             if from_subagent(parsed) {
-                return vec![];
+                let parent = identity(parsed, "parent_tool_use_id");
+                let mut opened = Vec::new();
+                for block in &content {
+                    if s(block, "type") != "tool_use" {
+                        continue;
+                    }
+                    let item_id = identity(block, "id");
+                    if item_id.is_empty() || self.open_tools.contains_key(&item_id) {
+                        continue;
+                    }
+                    let name = Some(identity(block, "name")).filter(|n| !n.is_empty()).unwrap_or_else(|| "tool".into());
+                    let target = claude_tool_target(&name, &block["input"]);
+                    let title = claude_tool_title(&name, &block["input"]);
+                    self.open_tools.insert(
+                        item_id.clone(),
+                        OpenTool { name: name.clone(), target: target.clone(), title: title.clone(), parent: Some(parent.clone()), background: false },
+                    );
+                    let mut p = json!({
+                        "itemId": item_id,
+                        "toolKind": "tool_use",
+                        "name": name,
+                        "parentItemId": parent,
+                        "phase": "started",
+                        "evidence": evidence
+                    });
+                    if let Some(t) = &target {
+                        p["command"] = json!(text(t, 16384));
+                    }
+                    if let Some(t) = &title {
+                        p["title"] = json!(text(t, 16384));
+                    }
+                    opened.push(self.event("tool.started", p));
+                }
+                return opened;
             }
             let mut restated = Vec::new();
             for block in &content {
@@ -554,17 +902,34 @@ impl ClaudeNormalizer {
                 let Some(open) = self.open_tools.get(&item_id) else {
                     continue;
                 };
-                if open.target.is_some() || open.title.is_some() {
-                    continue;
-                }
                 let target = claude_tool_target(&open.name, &block["input"]);
                 let title = claude_tool_title(&open.name, &block["input"]);
-                if target.is_none() && title.is_none() {
+                let background = claude_tool_backgrounded(&open.name, &block["input"]);
+                // A helper's type is on its own call, so its row carries it however the launch and its notice are ordered.
+                let helper_type = matches!(open.name.as_str(), "Agent" | "Task")
+                    .then(|| block["input"]["subagent_type"].as_str().filter(|t| !t.is_empty()).map(str::to_owned))
+                    .flatten();
+                if let Some(kind) = &helper_type
+                    && !self.subagent_kinds.contains_key(&item_id)
+                {
+                    self.subagent_kinds.insert(item_id.clone(), kind.clone());
+                }
+                if target.is_none() && title.is_none() && !background {
                     continue;
                 }
+                let first_naming = open.target.is_none() && open.title.is_none();
                 if let Some(entry) = self.open_tools.get_mut(&item_id) {
-                    entry.target = target.clone();
-                    entry.title = title.clone();
+                    if target.is_some() {
+                        entry.target = target.clone();
+                    }
+                    if title.is_some() {
+                        entry.title = title.clone();
+                    }
+                    entry.background |= background;
+                }
+                // Announced again only the first time the call can be named (claude-events.ts).
+                if !first_naming {
+                    continue;
                 }
                 let open = self
                     .open_tools
@@ -583,6 +948,12 @@ impl ClaudeNormalizer {
                 }
                 if let Some(t) = &title {
                     payload["title"] = json!(text(t, 16384));
+                }
+                if background {
+                    payload["background"] = json!(true);
+                }
+                if let Some(kind) = &helper_type {
+                    payload["status"] = json!(kind);
                 }
                 if let Some(p) = &open.parent {
                     payload["parentItemId"] = json!(p);
@@ -646,10 +1017,17 @@ impl ClaudeNormalizer {
                     continue;
                 }
                 let failed = block["is_error"] == true;
-                let name = open
-                    .as_ref()
-                    .map(|o| o.name.clone())
-                    .unwrap_or_else(|| "tool".into());
+                let mut refused_for = self.refused_calls.remove(&item_id);
+                // Locust's own guard said no: refused, never run, in its words.
+                if failed
+                    && let Some(said) = claude_tool_result_text(block)
+                    && let Some(at) = said.find(LOCUST_GUARD_SAID)
+                {
+                    refused_for = Some(said[at..].to_owned());
+                }
+                let subagent_kind = self.subagent_kinds.remove(&item_id);
+                let subagent_summary = self.subagent_summaries.remove(&item_id);
+                let name = open.as_ref().map(|o| o.name.clone()).unwrap_or_else(|| "tool".into());
                 let mut payload = json!({
                     "itemId": item_id,
                     "toolKind": "tool_use",
@@ -664,21 +1042,42 @@ impl ClaudeNormalizer {
                     if let Some(t) = &o.title {
                         payload["title"] = json!(text(t, 16384));
                     }
+                    if o.background {
+                        payload["background"] = json!(true);
+                    }
                     if let Some(p) = &o.parent {
                         payload["parentItemId"] = json!(p);
                     }
                 }
-                if failed {
+                // Refused is not failed: it never ran, and the reason rides along.
+                if let Some(why) = &refused_for {
+                    payload["status"] = json!("refused");
+                    if !why.is_empty() {
+                        payload["output"] = json!(text(why, 16384));
+                    }
+                } else if failed {
                     payload["status"] = json!("error");
+                } else if let Some(kind) = &subagent_kind {
+                    payload["status"] = json!(kind);
                 }
-                events.push(self.event(
-                    if failed {
-                        "tool.failed"
-                    } else {
-                        "tool.completed"
-                    },
-                    payload,
-                ));
+                // What a helper came back with, in its own words.
+                if let Some(summary) = &subagent_summary {
+                    payload["output"] = json!(text(summary, 16384));
+                }
+                if !failed
+                    && refused_for.is_none()
+                    && let Some(patch) = claude_file_patch(&parsed["tool_use_result"])
+                {
+                    payload["patch"] = patch;
+                }
+                if refused_for.is_none()
+                    && subagent_summary.is_none()
+                    && claude_shows_output(open.as_ref().map(|o| o.name.as_str()))
+                    && let Some(printed) = claude_tool_result_text(block)
+                {
+                    payload["output"] = json!(text(&printed, 16384));
+                }
+                events.push(self.event(if failed { "tool.failed" } else { "tool.completed" }, payload));
             }
             return events;
         }
@@ -687,7 +1086,7 @@ impl ClaudeNormalizer {
             self.saw_result = true;
             let mut usage = json!({});
             if let Some(n) = parsed["total_cost_usd"].as_f64().filter(|n| n.is_finite()) {
-                usage["usd"] = json!(n);
+                usage["usd"] = super::events::num(n);
             }
             if obj(&parsed["usage"]) {
                 for (from, to) in [
@@ -697,7 +1096,7 @@ impl ClaudeNormalizer {
                     ("cache_creation_input_tokens", "cacheWriteTokens"),
                 ] {
                     if let Some(n) = parsed["usage"][from].as_f64().filter(|n| n.is_finite()) {
-                        usage[to] = json!(n);
+                        usage[to] = super::events::num(n);
                     }
                 }
             }
@@ -726,7 +1125,7 @@ impl ClaudeNormalizer {
                     }
                 }
                 if let Some(w) = widest {
-                    usage["contextWindow"] = json!(w);
+                    usage["contextWindow"] = super::events::num(w);
                 }
             }
             if usage.as_object().is_some_and(|o| !o.is_empty()) {

@@ -105,8 +105,32 @@ Copilot, Muse, Antigravity (agy) and OpenCode stream. What changed:
 - **The check itself**: the goldens script now hands each reader the whole completion a process runner gives (it left
   out `inputDeliveryFailed` and four more), and `finishedAt` is ignored with the other clock fields.
 
-Left: three Claude Code streams (Electron's `system` records for helper tasks, background tasks and status, which the
-Rust reader drops) and two Antigravity transcripts (the transcript reader misses tool events and the run's end).
+Left after this part: three Claude Code streams and two Antigravity transcripts. Both closed in the fifth part.
+
+## Fifth part: the last five streams (37 of 37)
+
+- **Claude Code's `system` records.** `claude_events.rs` now reads them as claude-events.ts does: `task_started` and
+  `task_progress` open a helper's row (`subagent:<task>`) or a background row on the call that started it;
+  `task_notification` closes it (`background_ending`: completed, failed, stopped, or stopped-with-run when the stop
+  came after the run's own result); `permission_denied` marks the call refused for its result that follows;
+  `compact_boundary` says the conversation was summarized; any other subtype is the turn moving on, with its status.
+- **A tool call's end carries what Electron's does**: refused (with the reason, or the command guard's own words),
+  the helper's type and its summary, `background`, the file patch from `tool_use_result` (`claude_file_patch`: its
+  hunks written out, or a new or rewritten file compared with what it was), and printed output for the tools Claude
+  Code shows it under. The call's start is restated once it can be named, now with `background` and the helper type.
+- **A helper's own calls** open under the Agent call that sent it (`parentItemId`), as in Electron's helper
+  visibility. Before, Rust dropped every record from a helper.
+- **Evidence and counts.** Each Claude record is kept as evidence, sanitized, with thinking cut to its type
+  (`without_thinking_evidence`). Usage counts stay whole. `contextTokens` is the last model call's prompt and output
+  (`last_call`, from `message_start`, `message_delta` and the complete message). `billing: subscription` is set when
+  the run was on the usage windows and did not spill into extra usage. `recordCount` counts records.
+- **Antigravity's transcript reader** is a full port of `createAntigravityEventNormalizer`, replacing a sketch that
+  only found final answers: tool calls and their results matched by step index (a planner line at step p with n calls
+  is answered at p+1..p+n), results written before their call held for it, background tasks and timers settled by
+  Antigravity's notices, `ask_question` with its options, new-file patches from `write_to_file`, decoded arguments,
+  and the run's end (completed, cancelled, or failed when the transcript never ended on an answer). Electron's
+  Antigravity runtime reads this; the native engine still drives the agy CLI, so the reader waits for that runtime.
+- Tests: 424 in the engine (19 ignored live tests), 190 in the window, all passing; three new transcript tests.
 
 ## Not checked, not done
 

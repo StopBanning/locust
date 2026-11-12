@@ -1,7 +1,2 @@
 # Recorded streams Rust does not yet read as Electron 2378138f reads them.
 # Written by LOCUST_WRITE_NOT_YET=1 cargo test -p locust-core event_goldens; may only shrink.
-antigravity/transcript-plain-reply.jsonl	events part at #1: Electron run.completed (2 events), Rust  (1 events)
-antigravity/transcript-write-then-followup.jsonl	events part at #2: Electron tool.started,tool.completed,message.delta (7 events), Rust adapter.diagnostic,message.delta,message.delta (5 events)
-claude/background-stopped-with-run.jsonl	events part at #2: Electron step.started,tool.started,tool.started (24 events), Rust tool.started,tool.started,step.completed (20 events)
-claude/edit-and-write.jsonl	events part at #3: Electron step.started,step.completed,message.delta (46 events), Rust step.completed,message.delta,message.delta (43 events)
-claude/helper-calls.jsonl	events part at #3: Electron step.started,step.completed,tool.started (48 events), Rust step.completed,tool.started,tool.started (40 events)
