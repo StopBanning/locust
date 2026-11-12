@@ -124,8 +124,17 @@ fn a_second_engine_refuses_to_start_while_one_runs() {
     let mode = std::fs::metadata(first.socket()).unwrap().permissions().mode() & 0o777;
     assert_eq!(mode, 0o600, "the socket is the owner's alone");
     drop(first);
-    // Once it has gone, the next one starts, over the socket file a crash would have left.
-    let again = Server::start(&dir).unwrap();
+    // Once it has gone, the next one starts, over the socket file a crash would have left. A process another test
+    // forks at that moment holds a copy of the lock's descriptor until its exec closes it, so allow two seconds; a
+    // lock that never frees still fails here.
+    let end = Instant::now() + Duration::from_secs(2);
+    let again = loop {
+        match Server::start(&dir) {
+            Ok(server) => break server,
+            Err(_) if Instant::now() < end => std::thread::sleep(Duration::from_millis(20)),
+            Err(why) => panic!("the engine did not start again: {why}"),
+        }
+    };
     assert!(again.socket().exists());
 }
 
