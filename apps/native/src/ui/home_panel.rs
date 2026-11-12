@@ -368,6 +368,7 @@ pub(super) fn maybe_switch_named_folder(s: &mut State, text: &str) {
     if let Some(project) = named_folder::project_named_in(text, &ctx) {
         let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
         if let Ok(entry) = folders::use_folder(&store, &project, &now) {
+            let _ = native::set_open_folder(&store, std::path::Path::new(&entry.path));
             s.home.folder_path = Some(entry.path);
             s.home.folder_invented = false;
         }
@@ -510,24 +511,24 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     .child(text(folder_line).font(l.ty.control).color(l.c("text-primary")).wrap()),
             )
             .child(text(FOLDER_LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
-            .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press(|s: &mut State| {
-                // Native has no OS folder picker in this round; invent a working folder once.
-                if let Some(store) = s.data.clone() {
-                    let path = store.root().join("Projects").join("Locust");
-                    let _ = std::fs::create_dir_all(&path);
-                    let now =
-                        chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-                    match folders::use_folder(&store, &path, &now) {
+            .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press_tx(|_s: &mut State, tx: &mut Tx| {
+                // The system's own folder dialog; the folder chosen becomes the one Locust has open.
+                let options = rune::FileDialogOptions { title: "Choose a project folder".into(), ..Default::default() };
+                tx.open_folder(options, |s: &mut State, answer, _tx| {
+                    let Ok(Some(path)) = answer else { return };
+                    let Some(store) = s.data.clone() else { return };
+                    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+                    match folders::use_folder(&store, &path, &now).and_then(|entry| native::set_open_folder(&store, std::path::Path::new(&entry.path)).map(|_| entry)) {
                         Ok(entry) => {
                             s.home.folder_path = Some(entry.path);
-                            s.home.folder_invented = true;
+                            s.home.folder_invented = false;
                         }
                         Err(e) => {
                             s.status = e;
                             s.status_tone = StatusTone::Amber;
                         }
                     }
-                }
+                });
             }))),
     );
     if s.home.folder_invented {

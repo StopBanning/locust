@@ -4,6 +4,7 @@
 pub mod approval;
 pub mod approval_rule_store;
 pub mod approval_rules;
+pub mod attention;
 pub mod away;
 pub mod browser;
 pub mod browser_tools;

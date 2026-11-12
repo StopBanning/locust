@@ -1570,3 +1570,19 @@ fn a_turn_keeps_the_references_it_was_sent_with_for_the_conversation() {
     finished(&started.conversation_id);
     assert_eq!(crate::references::select(&store, Some(&started.conversation_id), None).unwrap(), vec![docs]);
 }
+
+/// The native app's own open folder wins over Electron's, and a turn works there when its teammate has none.
+#[test]
+fn the_folder_the_native_app_opened_is_where_turns_work() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), None);
+    let mine = t.0.join("mine");
+    fs::create_dir_all(&mine).unwrap();
+    fs::write(t.electron().join("workspace.json"), json!({"schemaVersion": 1, "path": t.0.join("work")}).to_string()).unwrap();
+    assert_eq!(open_folder().unwrap(), t.0.join("work"));
+    set_open_folder(&t.store(), &mine).unwrap();
+    assert_eq!(open_folder().unwrap(), mine);
+    let mut mate = job(&t, None, "x").teammate;
+    mate.folder = None;
+    assert_eq!(folder_for(&mate, &t.electron()).unwrap(), mine.canonicalize().unwrap());
+}

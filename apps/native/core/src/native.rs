@@ -465,14 +465,26 @@ pub fn roster_in(store: &Store) -> Result<Vec<Teammate>, String> {
     parse_roster(&crate::people::team(store)?.to_string())
 }
 
-/// The folder Locust last had open (`workspace.json`, read-only), else Locust's default `~/Documents/Locust` if it exists.
-fn workspace_folder(electron: &Path) -> Option<PathBuf> {
-    let file = std::fs::File::open(electron.join("workspace.json")).ok()?;
+/// The folder a `workspace.json` names, when it is a folder that exists.
+fn workspace_in(file: &Path) -> Option<PathBuf> {
+    let file = std::fs::File::open(file).ok()?;
     let mut text = String::new();
     file.take(64 * 1024).read_to_string(&mut text).ok()?;
     let value: Value = serde_json::from_str(&text).ok()?;
     let path = PathBuf::from(value["path"].as_str()?);
     path.is_absolute().then_some(path).filter(|p| p.is_dir())
+}
+
+/// The folder Locust has open: the native app's own choice (its `workspace.json`), else the one Electron last had open
+/// (read only).
+fn workspace_folder(electron: &Path) -> Option<PathBuf> {
+    store().and_then(|s| workspace_in(&s.root().join("workspace.json"))).or_else(|| workspace_in(&electron.join("workspace.json")))
+}
+
+/// Opens a folder in the native app (Home's Choose folder, a project named in a message): its own `workspace.json`,
+/// in Electron's shape. Electron's is never written.
+pub fn set_open_folder(store: &Store, path: &Path) -> Result<(), String> {
+    store.save_json("workspace.json", &json!({"schemaVersion": 1, "path": path.to_string_lossy()}))
 }
 
 /// Conversation cwd: teammate folder, else Electron's last workspace, else ~/Documents/Locust.

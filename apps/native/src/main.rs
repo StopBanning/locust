@@ -45,6 +45,9 @@ mod context_ring;
 mod recovery_card;
 #[path = "ui/reference_chips.rs"]
 mod reference_chips;
+#[path = "ui/attention_watch.rs"]
+mod attention_watch;
+mod notify;
 #[path = "ui/keyboard_sheet.rs"]
 mod keyboard_sheet;
 mod keyboard_shortcuts;
@@ -524,6 +527,10 @@ fn setup(s: &mut State, waker: Waker) {
     load_composer_store(s);
     load_team(s);
     sync_draft_key(s);
+    // Home shows the folder Locust has open: the native app's own choice, else Electron's.
+    if !s.demo && s.home.folder_path.is_none() {
+        s.home.folder_path = native::open_folder().map(|p| p.to_string_lossy().into_owned());
+    }
     // No secrets stored in native yet → keeps_key false → note stays down. Never reads the keychain.
     // Scenes may force the note on for snaps; do not clear that.
     if !s.keychain_asking {
@@ -1391,6 +1398,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     }
     let mut changed = routines_panel::poll(s);
     changed |= reference_chips::poll(s);
+    changed |= attention_watch::poll(s);
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
     changed |= commit_panel::poll(s);
@@ -1805,7 +1813,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         .h_full()
         .fill(p.bg)
         .child(sidebar)
-        .child(right);
+        .child(right)
+        // Locust taps you on the shoulder only while its window is elsewhere (attention.ts shouldNotify).
+        .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| s.window_focused = focused);
     if s.keychain_asking {
         app = col()
             .w_full()

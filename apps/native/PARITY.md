@@ -117,7 +117,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Saved approval rules list/remove/remove all | `renderer/src/components/SavedApprovalRules.tsx`, `main/approval-rule-store.ts` | **done** — native `approval-rules.json` seed-once, list/remove/remove all, secret/compound/reach refusals; Settings panel words exact | yes | no | yes |
 | Ask/Plan/Auto/Approve each action and runtime-specific guarantees | `main/mission-mode.ts`, `main/permission-host.ts`, `renderer/src/components/WhatLocustCanStop.tsx` | **partial** — Claude Code and Codex follow Electron's mapping: Ask and Plan read only, Accept edits and Approve each in the folder, Auto as the person; Claude with the permission bridge in every mode but Auto, Codex through `codexAppServerPolicy` with Approve each interactive; Ask auto-declines; the other agents' mode matrix and the "what Locust can stop" view remain | yes | 2026-11-09 — real-agent tests `real_claude_approval_deny_then_allow`, `real_codex_approval_deny_then_allow`, `real_codex_accept_edits_writes_in_its_folder`, and the three guard tests in Auto | yes |
 | Scoped secret detection/redaction in memories, records and sharing | `shared/secrets.ts`, `main/mission-export.ts`, `main/memory-store.ts` | **partial** — one `secrets` module (`secret_in`/`scrub_secrets`/`redact_secrets`); people/ledger/events call it; Save-record export UI remains (P8-NOTES.md) | yes | no | yes |
-| Approval alerts on Board/sidebar/taskbar/phone/chat | `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/Sidebar.tsx`, `main/raised-approvals.ts`, `main/taskbar-attention.ts` | **missing** | - | no | yes |
+| Approval alerts on Board/sidebar/taskbar/phone/chat | `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/Sidebar.tsx`, `main/raised-approvals.ts`, `main/taskbar-attention.ts` | **partial** — system notifications while the window is elsewhere (cards, limits, long turns you started), from the app bundle; no Board, taskbar, phone or chat alerts | yes | no | yes |
 | Organization machine policy and spend limits | `main/organization-policy.ts`, `main/organization-spend.ts`, `shared/organization-policy.ts` | **missing** | - | no | yes |
 
 ### Area 6: Changes, Git, Worktrees, Issues & Scout
@@ -215,7 +215,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | :--- | :--- | :--- | :--- | :--- | :---: |
 | Local MCP teammates/conversations/models/stop/carry-on access | `renderer/src/components/LocustMcpSettings.tsx`, `main/locust-mcp-host.ts`, `main/locust-mcp-tools.ts` | **partial** — native server, tools, bridge and Settings switches; no routines, voice-call copy or editor sessions | yes | 2026-11-12 — door bridge: Auto turn in a named folder, follow-up, stop, refused folder, model choice | yes |
 | First launch, discovery and starter team setup | `renderer/src/components/FirstLaunch.tsx`, `renderer/src/components/BootScreen.tsx`, `main/start-readiness.ts` | **partial** — boot PATH sweep via `discovery::find_named`, starter templates; install/sign-in/CRT/DiscoveryEvent stream remain (p12-NOTES.md) | yes | no | yes |
-| Folder/project switcher and remembered conversation folders | `renderer/src/components/Sidebar.tsx`, `main/folders.ts`, `main/named-folder.ts` | **done** — native `folders.json` seed-once registry, Home Choose folder, message-named project switch; OS picker remains synthetic | yes | no | yes |
+| Folder/project switcher and remembered conversation folders | `renderer/src/components/Sidebar.tsx`, `main/folders.ts`, `main/named-folder.ts` | **done** — native `folders.json` seed-once registry and its own open folder (`workspace.json`); Home's Choose folder opens the system folder dialog; message-named project switch | yes | no | yes |
 | Home cover, team, starters and compare entry points | `renderer/src/components/HomeCover.tsx`, `renderer/src/components/HomeTeam.tsx`, `renderer/src/components/StarterList.tsx`, `renderer/src/components/IdleTeammate.tsx` | **done** — cover claim, team/templates, Electron starters; Compare/issue deferred; cover animation remains | yes | no | no |
 | Board of waiting/working/done with actionable approvals | `renderer/src/components/BoardScreen.tsx`, `renderer/src/conversationBoard.ts` | **done** — Needs you / Working / Ready to look at / Done; Allow once / Deny via `approval`; Scout/routine wait cards remain | yes | no | yes |
 | Since-you-were-away recap | `renderer/src/components/AwayList.tsx`, `main/away.ts` | **done** — reducer/line/Got it; native `away.json` attention mark; 20-minute minimum | yes | no | yes |
@@ -282,7 +282,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 2 | Composer & Input | 10 | 1 | 3 | 14 | 11 | 1 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 4 |
-| 5 | Approvals & Permissions | 1 | 6 | 2 | 9 | 7 | 2 |
+| 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 1 | 3 | 9 | 13 | 4 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 8 | 1 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 0 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **39** | **44** | **70** | **153** | **82** | **11** |
+| | **TOTAL** | **39** | **45** | **69** | **153** | **83** | **11** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

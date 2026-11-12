@@ -46,3 +46,17 @@ use always kept and "N more models · type to search them" under a capped group,
   that answer cards from a thread (OpenCode, Copilot, ACP) now wait 60 seconds.
 - OpenCode 2's and Kilo's models (an ACP session), the models Claude Code's handshake lists, and usage readings.
 - The catalog treats an installed agent as ready; Electron also checks each one's sign-in first.
+
+## Second part (12 Nov): notifications and the folder picker
+
+- **Notifications** (`core/src/attention.rs`, from attention.ts and finishedToast.ts, in Electron's words): only while
+  Locust's window is not in front (`on_window_focus`), for a card waiting for an answer ("Codec needs your approval"),
+  a turn that hit its plan's limit, and a turn you started that ran at least a minute and ended ("Wren finished",
+  with its first line and how long it took). Finishes within four seconds of each other are said as one ("3 teammates
+  are done"). `src/notify.rs` posts them through macOS's notification center, which needs the app bundle
+  (`scripts/bundle-mac.sh`); a bare binary shows none. The first one asks macOS for permission.
+- **The folder picker**: Home's Choose folder opens the system folder dialog (it used to make a folder under the data
+  folder), and the folder chosen becomes the native app's own open folder (`workspace.json` in its data folder, in
+  Electron's shape), which turns now use before Electron's. A project named in a message opens the same way.
+- Not done: clicking a notification does not open its conversation yet; no notification for a question asked in a
+  reply (`locust-ask`); none on Linux or Windows; not seen live (a test would put a permission prompt on screen).
