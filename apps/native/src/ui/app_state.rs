@@ -110,6 +110,9 @@ pub(super) struct Flight {
 pub(super) struct TurnPick {
     pub(super) model: String,
     pub(super) effort: Option<String>,
+    /// Another agent than the teammate's own, picked for this turn: the reply runs there (a route switch, with the
+    /// hand-over brief), as Electron's RoutePicker offers every installed agent.
+    pub(super) runtime: Option<String>,
 }
 
 pub(super) struct OwnTurn {

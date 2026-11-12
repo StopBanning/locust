@@ -649,6 +649,7 @@ fn send(s: &mut State, _: &mut Tx) {
         move |(id, conversation, message, pick, native_job)| {
             let model = pick.as_ref().map(|p| p.model.as_str());
             let effort = pick.as_ref().and_then(|p| p.effort.as_deref());
+            let runtime = pick.as_ref().and_then(|p| p.runtime.clone());
             if let Some(teammate) = native_job {
                 let teammate = teammate
                     .ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
@@ -660,7 +661,7 @@ fn send(s: &mut State, _: &mut Tx) {
                         model: model.map(str::to_owned),
                         effort: effort.map(str::to_owned),
                     },
-                    native::Origin { reference_ids: Some(references), ..Default::default() },
+                    native::Origin { reference_ids: Some(references), runtime, ..Default::default() },
                 );
             }
             let engine = Engine::local()?;
@@ -711,7 +712,17 @@ fn open_models(s: &mut State, id: String) {
     s.model_job.request(id, move |id| {
         let teammate = if id == LEDGER_TARGET || id == CARRY_TARGET { None } else { Some(id.as_str()) };
         let result = if native_list {
-            locust_core::door::list_models_here(teammate).and_then(|text| engine::parse_models(&text))
+            // The teammate's own agent first (its saved model and level), then every other agent installed here, as
+            // Electron's RoutePicker lists them: a model of another agent moves this reply there.
+            locust_core::door::list_models_here(teammate).and_then(|text| engine::parse_models(&text)).map(|mut own| {
+                if teammate.is_some()
+                    && let Ok(all) = locust_core::door::list_models_here(None).and_then(|text| engine::parse_models(&text))
+                {
+                    let mine: Vec<String> = own.iter().map(|a| a.runtime.clone()).collect();
+                    own.extend(all.into_iter().filter(|a| !mine.contains(&a.runtime)));
+                }
+                own
+            })
         } else {
             Engine::local().and_then(|e| e.list_models(teammate))
         };
@@ -2301,6 +2312,9 @@ mod daily_controls_tests;
 #[cfg(test)]
 #[path = "ui/native_window_tests.rs"]
 mod native_window_tests;
+#[cfg(test)]
+#[path = "ui/window_drive_tests.rs"]
+mod window_drive_tests;
 
 #[cfg(test)]
 #[path = "ui/approval_review_tests.rs"]

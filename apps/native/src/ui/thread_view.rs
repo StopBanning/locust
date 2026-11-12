@@ -808,10 +808,12 @@ fn model_picker(
             let detail = if m.efforts.is_empty() { String::new() } else { m.efforts.join(" · ") };
             let (key, choice, levels) = (id.to_owned(), m.id.clone(), m.efforts.clone());
             let keep = effort.map(str::to_owned);
-            list = list.child(row_of(m.name.clone(), detail, active).on_press(move |s: &mut State| {
+            // A model of another agent than the teammate's own moves this reply there.
+            let runtime = (teammate.runtime.as_deref() != Some(agent.runtime.as_str())).then(|| agent.runtime.clone());
+            list = list.child(row_of(m.name.clone(), detail, active).key(format!("model-{}-{}", agent.runtime, m.id)).on_press(move |s: &mut State| {
                 // The level stays with the turn when the new model takes it.
                 let effort = keep.clone().filter(|e| levels.contains(e));
-                s.picks.insert(key.clone(), TurnPick { model: choice.clone(), effort });
+                s.picks.insert(key.clone(), TurnPick { model: choice.clone(), effort, runtime: runtime.clone() });
                 s.model_menu = None;
             }));
         }
@@ -842,8 +844,9 @@ fn model_picker(
         for level in levels {
             let on = effort == Some(level.as_str());
             let (key, choice, pick_model) = (id.to_owned(), level.clone(), model.to_owned());
+            let pick_runtime = s.picks.get(id).and_then(|p| p.runtime.clone());
             foot = foot.child(crate::look::controls::chip(l, &level, on).on_press(move |s: &mut State| {
-                s.picks.insert(key.clone(), TurnPick { model: pick_model.clone(), effort: Some(choice.clone()) });
+                s.picks.insert(key.clone(), TurnPick { model: pick_model.clone(), effort: Some(choice.clone()), runtime: pick_runtime.clone() });
             }));
         }
     }
