@@ -104,7 +104,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 .grow(1.0)
                 .min_h(0.0)
                 .scroll(ScrollSpec { stick_bottom: true })
-                .child(message_column(items, &teammate.name, p, s))
+                .child(row().w_full().justify_center().child(message_column(items, &teammate.name, p, s)))
         };
 
         // The conversation's actions sit in its header, on the right, as Electron's thread header draws them.
@@ -729,10 +729,10 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             )
             .child(transcript)
             .child(terminal_panel::commands(s, p))
-            .child(status)
+            .child(column(status))
             .child(commit_panel::view(s, p).map_or_else(row, |panel| row().w_full().px(24.0).pb(8.0).child(panel)))
-            .child(picker)
-            .child(composer_stack)
+            .child(column(picker))
+            .child(column(composer_stack))
     } else {
         col()
             .grow(1.0)
@@ -1010,4 +1010,12 @@ fn enable_auto_mode(s: &mut State) {
             s.settings_panel.settings.auto_mode = true;
         }
     }
+}
+
+/// `--lc-thread-max-width`: the thread and its message box keep to one centred column, 840 points of content at any
+/// ordinary window width (`clamp(760px, 68vw, 840px)`), with their own 24-point sides.
+pub(super) const THREAD_MAX: f32 = 840.0 + 48.0;
+
+fn column(inner: El) -> El {
+    row().w_full().justify_center().child(inner.max_w(THREAD_MAX))
 }

@@ -1,7 +1,7 @@
 use super::*;
 
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
-    let mut messages = col().w_full().gap(24.0).padding(24.0);
+    let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
     for (index, item) in items.iter().enumerate() {
         let conversation = s
             .ledger
