@@ -16,6 +16,10 @@ pub(super) struct Panel {
     pub rules: Vec<crate::approval_rules::ApprovalRule>,
     pub confirming_remove_all: bool,
     pub error: String,
+    /// The edit form is open (a teammate's pencil, or New teammate); closed, the Team screen is the cards alone.
+    pub form_open: bool,
+    /// The teammate whose remove button was pressed once, asking before it removes (Electron's armed confirm).
+    pub removing: Option<String>,
 }
 fn field(value: &str) -> TextEdit {
     let mut edit = TextEdit::default();
@@ -26,6 +30,8 @@ pub(super) fn open(s: &mut State) {
     s.people_panel.open = true;
     reload(s);
     edit(s, None);
+    s.people_panel.form_open = false;
+    s.people_panel.removing = None;
 }
 fn reload(s: &mut State) {
     let result = s
@@ -67,6 +73,7 @@ fn edit(s: &mut State, id: Option<&str>) {
     .map(field)
     .collect();
     s.people_panel.entry = entry;
+    s.people_panel.form_open = true;
 }
 fn done(s: &mut State, result: Result<(), String>) {
     match result {
@@ -115,6 +122,9 @@ fn save(s: &mut State) {
         .ok_or("Native data folder could not be determined.".into())
         .and_then(|store| people::save_teammate(store, entry));
     done(s, result);
+    if s.people_panel.error.is_empty() {
+        s.people_panel.form_open = false;
+    }
 }
 fn action(s: &mut State, id: &str, action: &str) {
     let result = s
@@ -311,67 +321,20 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             }
         }
     } else if !panel.memory_tab {
-        body = body.child(text("Teammates").font(type_::TITLE).color(p.text));
-        for t in panel.team["teammates"].as_array().into_iter().flatten() {
-            let id = t["teammateId"].as_str().unwrap_or("").to_owned();
-            let delete_id = id.clone();
-            body = body.child(
-                row()
-                    .w_full()
-                    .child(
-                        button(t["name"].as_str().unwrap_or(""), p)
-                            .on_press(move |s: &mut State| edit(s, Some(&id))),
-                    )
-                    .child(button("Remove teammate", p).on_press(move |s: &mut State| {
-                        let result = s
-                            .data
-                            .as_ref()
-                            .ok_or("No native data folder".into())
-                            .and_then(|store| people::remove_teammate(store, &delete_id));
-                        done(s, result);
-                    })),
-            );
-        }
-        body = body.child(button("New teammate", p).on_press(|s: &mut State| edit(s, None)));
-        for (i, label) in [
-            "Name",
-            "Role",
-            "Instructions",
-            "Runtime",
-            "Model",
-            "Effort",
-            "Mode",
-            "Folder",
-        ]
-        .iter()
-        .enumerate()
-        {
-            if let Some(edit) = panel.fields.get(i) {
-                body = body
-                    .child(text(*label).font(type_::LABEL).color(p.secondary))
-                    .child(
-                        text_input(edit, type_::BODY)
-                            .key(format!("person-field-{i}"))
-                            .label(*label)
-                            .w_full()
-                            .padding(8.0)
-                            .fill(p.field)
-                            .color(p.text)
-                            .on_edit(move |s: &mut State| &mut s.people_panel.fields[i]),
-                    );
-            }
-        }
+        let count = panel.team["teammates"].as_array().map_or(0, Vec::len);
         body = body.child(
-            button(
-                if panel.entry["teammateId"].as_str().unwrap_or("").is_empty() {
-                    "Create teammate"
-                } else {
-                    "Save changes"
-                },
-                p,
-            )
-            .on_press(save),
+            row()
+                .w_full()
+                .gap(10.0)
+                .center_y()
+                .pt(6.0)
+                .child(text("Team").font(rune::TextStyle::new(20.0, 600.0)).color(p.text))
+                .child(text(format!("{count} {}", if count == 1 { "teammate" } else { "teammates" })).font(type_::LABEL).color(p.muted)),
         );
+        if panel.form_open {
+            body = body.child(edit_form(s, p));
+        }
+        body = body.child(team_grid(s, p));
     } else {
         body = body
             .child(text("About you").font(type_::TITLE).color(p.text))
@@ -579,4 +542,196 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             stick_bottom: false,
         })
         .child(body)
+}
+
+/// Electron's agoLabel: "just now", "5 minutes ago", "1 week ago".
+fn ago_label(iso: &str) -> Option<String> {
+    let at = chrono::DateTime::parse_from_rfc3339(iso).ok()?;
+    let seconds = (chrono::Utc::now() - at.with_timezone(&chrono::Utc)).num_seconds();
+    if seconds < 60 {
+        return Some("just now".into());
+    }
+    for (size, name) in [(604_800, "week"), (86_400, "day"), (3_600, "hour"), (60, "minute")] {
+        let count = seconds / size;
+        if count >= 1 {
+            return Some(format!("{count} {name}{} ago", if count == 1 { "" } else { "s" }));
+        }
+    }
+    None
+}
+
+/// The teammate's edit form (create or change), as a card above the grid while it is open.
+fn edit_form(s: &State, p: &Palette) -> El {
+    let panel = &s.people_panel;
+    let l = crate::look::controls::Look::new(p.dark);
+    let creating = panel.entry["teammateId"].as_str().unwrap_or("").is_empty();
+    let heading = if creating { "New teammate".to_owned() } else { format!("Edit {}", panel.entry["name"].as_str().unwrap_or("teammate")) };
+    let mut form = col()
+        .key("team-form")
+        .w_full()
+        .gap(8.0)
+        .padding(16.0)
+        .radius(10.0)
+        .border(1.0, l.c("border-hairline"))
+        .fill(l.c("bg-raised"))
+        .child(text(heading).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")));
+    for (i, label) in ["Name", "Role", "Instructions", "Runtime", "Model", "Effort", "Mode", "Folder"].iter().enumerate() {
+        if let Some(edit) = panel.fields.get(i) {
+            form = form.child(text(*label).font(type_::LABEL).color(p.secondary)).child(
+                text_input(edit, type_::BODY)
+                    .key(format!("person-field-{i}"))
+                    .label(*label)
+                    .w_full()
+                    .padding(8.0)
+                    .fill(p.field)
+                    .color(p.text)
+                    .on_edit(move |s: &mut State| &mut s.people_panel.fields[i]),
+            );
+        }
+    }
+    form.child(
+        row()
+            .gap(8.0)
+            .pt(4.0)
+            .child(button(if creating { "Create teammate" } else { "Save changes" }, p).key("team-save").on_press(save))
+            .child(button("Cancel", p).on_press(|s: &mut State| s.people_panel.form_open = false)),
+    )
+}
+
+/// Screens.tsx's roster (`.lc-rostergrid`, `.lc-rostercard`): a card per teammate with its face, name and role, the
+/// message, edit and remove buttons, its route and mode, how many conversations and when it last ran, and its two most
+/// recent conversations; then the New teammate card.
+fn team_grid(s: &State, p: &Palette) -> El {
+    let panel = &s.people_panel;
+    let l = crate::look::controls::Look::new(p.dark);
+    let mono = |size: f32| rune::TextStyle::new(size, 400.0).mono();
+    let mut grid = row().key("team-grid").w_full().gap(12.0).flex_wrap();
+    for t in panel.team["teammates"].as_array().into_iter().flatten() {
+        let id = t["teammateId"].as_str().unwrap_or("").to_owned();
+        let name = t["name"].as_str().unwrap_or("").to_owned();
+        let role = t["role"].as_str().unwrap_or("").to_owned();
+        let runtime = t["route"]["runtime"].as_str().unwrap_or("").to_owned();
+        let model = t["route"]["model"].as_str().unwrap_or("").to_owned();
+        let mode = t["route"]["mode"].as_str().unwrap_or("ask").to_owned();
+        let mut owned: Vec<&ConversationRow> = s.recent.iter().filter(|r| r.teammate == name).collect();
+        owned.sort_by(|a, b| b.updated.cmp(&a.updated));
+        let last = owned.first().and_then(|r| ago_label(&r.updated));
+
+        let mut head = row()
+            .w_full()
+            .gap(12.0)
+            .child(crate::look::faces::face(s.image_cache.as_deref(), &id, &name, s.looks.get(&id), 40.0, &l))
+            .child(
+                col()
+                    .grow(1.0)
+                    .shrink()
+                    .gap(2.0)
+                    .child(text(name.clone()).font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")).w_full().truncate())
+                    .child(text(role).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")).w_full().truncate()),
+            );
+        if panel.removing.as_deref() == Some(id.as_str()) {
+            let yes = id.clone();
+            head = head.child(
+                row()
+                    .gap(6.0)
+                    .center_y()
+                    .child(text(format!("Remove {name}?")).font(type_::LABEL).color(l.c("text-secondary")))
+                    .child(button("Remove", p).key(format!("team-remove-yes-{id}")).on_press(move |s: &mut State| {
+                        let result = s.data.as_ref().ok_or("No native data folder".into()).and_then(|store| people::remove_teammate(store, &yes));
+                        s.people_panel.removing = None;
+                        done(s, result);
+                    }))
+                    .child(button("Keep", p).on_press(|s: &mut State| s.people_panel.removing = None)),
+            );
+        } else {
+            let (message, edit_id, remove_id) = (id.clone(), id.clone(), id.clone());
+            let small = |icon: &'static rune::Icon, label: String, help: &str| {
+                crate::look::controls::head_icon(icon, &label, help).control_size(rune_kit::ControlSize::Small)
+            };
+            head = head
+                .child(small(&crate::look::icons::MESSAGE, format!("Message {name}"), "Message teammate").on_press_tx(move |s: &mut State, tx| {
+                    s.people_panel.open = false;
+                    select_teammate(s, &message, tx);
+                }).build(l.k).key(format!("team-message-{id}")))
+                .child(small(&crate::look::icons::PENCIL, format!("Edit {name}"), "Edit teammate").on_press(move |s: &mut State| edit(s, Some(&edit_id))).build(l.k).key(format!("team-edit-{id}")))
+                .child(small(&crate::look::icons::CLOSE, format!("Remove {name}"), "Remove teammate").on_press(move |s: &mut State| s.people_panel.removing = Some(remove_id.clone())).build(l.k).key(format!("team-remove-{id}")));
+        }
+
+        let mut route = row().w_full().gap(6.0).center_y();
+        if !runtime.is_empty() {
+            if let Some(mark) = crate::look::controls::agent_mark(&l, &runtime, 12.0, l.c("text-secondary")) {
+                route = route.child(mark);
+            }
+            route = route.child(
+                text(format!("{} / {}", locust_core::carry_on::display_name(&runtime), model))
+                    .font(mono(11.5))
+                    .color(l.c("text-secondary"))
+                    .grow(1.0)
+                    .shrink()
+                    .truncate(),
+            );
+        }
+        let mode_chip = row().child(crate::look::controls::chip(&l, locust_core::mode_facts::fact(&mode).chip, false));
+
+        let stat = |label: &str, value: String, quiet: bool| {
+            col()
+                .gap(2.0)
+                .child(text(label.to_owned()).font(mono(11.5)).color(l.c("text-muted")))
+                .child(text(value).font(l.ty.control).color(if quiet { l.c("text-muted") } else { l.c("text-primary") }))
+        };
+        let stats = row()
+            .w_full()
+            .gap(24.0)
+            .child(stat("Runs", owned.len().to_string(), owned.is_empty()))
+            .child(stat("Last run", last.clone().unwrap_or_else(|| "never".into()), last.is_none()));
+
+        let mut card = col()
+            .key(format!("team-card-{id}"))
+            .w(300.0)
+            .grow(1.0)
+            .min_w(260.0)
+            .gap(14.0)
+            .padding(16.0)
+            .radius(10.0)
+            .border(1.0, l.c("border-hairline"))
+            .fill(l.c("bg-raised"))
+            .child(head)
+            .child(col().w_full().gap(6.0).child(route).child(mode_chip))
+            .child(stats);
+        if !owned.is_empty() {
+            let mut recent = col()
+                .w_full()
+                .gap(4.0)
+                .pt(10.0)
+                .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
+                .child(text("RECENT").font(rune::TextStyle::new(10.5, 400.0).mono().tracking(1.0)).color(l.c("text-muted")));
+            for r in owned.iter().take(2) {
+                let mut line = row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .child(el().size(5.0, 5.0).radius(2.5).fill(l.c("text-faint")))
+                    .child(text(r.title.clone()).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")).grow(1.0).shrink().truncate());
+                if let Some(age) = ago_label(&r.updated) {
+                    line = line.child(text(age).font(mono(11.0)).color(l.c("text-muted")));
+                }
+                recent = recent.child(line);
+            }
+            card = card.child(recent);
+        }
+        grid = grid.child(card);
+    }
+    grid.child(
+        col()
+            .key("team-new")
+            .w(300.0)
+            .min_w(260.0)
+            .gap(10.0)
+            .padding(16.0)
+            .radius(10.0)
+            .border(1.0, l.c("border-hairline"))
+            .child(crate::look::controls::head_icon(&crate::look::icons::PLUS, "New teammate", "New teammate").on_press(|s: &mut State| edit(s, None)).build(l.k))
+            .child(text("New teammate").font(rune::TextStyle::new(14.5, 500.0)).color(l.c("text-name")))
+            .child(text("Name, role and avatar. Their conversations group under them.").font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-muted")).w_full().wrap()),
+    )
 }

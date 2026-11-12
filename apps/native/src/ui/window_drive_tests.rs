@@ -303,3 +303,21 @@ fn all_of_a_teammates_conversations_opens_the_board_narrowed_to_them() {
     assert_eq!(rt.state.home.board_teammate, None);
     assert!(rt.find("board-narrowed").is_none());
 }
+
+#[test]
+fn the_team_screen_edits_in_a_form_and_asks_before_removing() {
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| crate::people_panel::open(s));
+    settle(&mut rt);
+    assert!(rt.find("team-card-tm_codec").is_some(), "a card per teammate");
+    assert!(rt.find("team-form").is_none(), "no form until asked for");
+    // Remove asks first; nothing is removed on the first press.
+    click(&mut rt, "team-remove-tm_codec");
+    assert_eq!(rt.state.people_panel.removing.as_deref(), Some("tm_codec"));
+    assert!(rt.find("team-remove-yes-tm_codec").is_some());
+    assert_eq!(rt.state.people_panel.team["teammates"].as_array().map(Vec::len), Some(1));
+    rt.update(|s, _| s.people_panel.removing = None);
+    // The pencil opens the form.
+    click(&mut rt, "team-edit-tm_codec");
+    assert!(rt.find("team-form").is_some());
+}

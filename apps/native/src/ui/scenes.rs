@@ -920,7 +920,11 @@ pub(super) fn people_scene(s: &mut State) {
     team_scene(s);
     s.people_panel.open = true;
     s.people_panel.entry = serde_json::json!({"teammateId":"codec"});
-    s.people_panel.team = serde_json::json!({"schemaVersion":1,"teammates":[{"teammateId":"codec","name":"Codec"}],"settings":{}});
+    s.people_panel.team = serde_json::json!({"schemaVersion":1,"teammates":[
+        {"teammateId":"codec","name":"Codec","role":"Code & Migrations","route":{"runtime":"codex","model":"gpt-6.1-sol","mode":"accept-edits","effort":"high"}},
+        {"teammateId":"argon","name":"Argon","role":"Code & Migrations","route":{"runtime":"antigravity","model":"gemini-3.8-flash","mode":"auto"}},
+        {"teammateId":"scout","name":"Scout","role":"Custom","route":{"runtime":"opencode","model":"opencode/deepseek-v4.1-flash-free","mode":"ask"}}
+    ],"settings":{}});
     s.people_panel.fields = [
         "Codec",
         "Code & Migrations",
