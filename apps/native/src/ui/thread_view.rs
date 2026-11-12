@@ -677,7 +677,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             composer_stack = composer_stack.child(chips);
         }
         composer_stack = composer_stack
-            .child(crate::look::controls::composer_box(&l).child(composer).child(button))
+            .child(crate::look::controls::composer_box(&l).child(plus_button(s, &l)).child(composer).child(button))
             .child(footer);
         // The footer's menus open above the box, where the model picker does, taking their room from the thread: the
         // box never moves (Electron's menus open upward from their chip).
@@ -686,6 +686,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         }
         if s.mode_menu {
             picker = picker.child(row().w_full().px(6.0).child(mode_menu(s, &l, teammate, &mode_now)));
+        }
+        if s.plus_menu {
+            picker = picker.child(row().w_full().px(6.0).child(plus_menu(s, &l, teammate)));
         }
 
         col()
@@ -1018,4 +1021,72 @@ pub(super) const THREAD_MAX: f32 = 840.0 + 48.0;
 
 fn column(inner: El) -> El {
     row().w_full().justify_center().child(inner.max_w(THREAD_MAX))
+}
+
+/// PlusMenu.tsx's +: at the box's left, closed while a turn runs (Electron's `disabled={running}`).
+fn plus_button(s: &State, l: &crate::look::controls::Look) -> El {
+    let running = s.flight.is_some() || s.ledger.as_ref().is_some_and(|p| p.snapshot.running);
+    crate::look::controls::head_icon(&crate::look::icons::PLUS, "Attach files or choose a folder", "Attach files, or choose the folder teammates work in")
+        .disabled(running)
+        .on_press(|s: &mut State| {
+            s.plus_menu = !s.plus_menu;
+            s.mode_menu = false;
+            s.reference_menu = false;
+        })
+        .build(l.k)
+        .key("plus")
+}
+
+/// The + menu's two choices, in Electron's words: Attach files (the system's picker, opening in the conversation's
+/// folder; a file outside it is attached as the drop path attaches one) and Choose a folder (Home's folder dialog).
+fn plus_menu(s: &State, l: &crate::look::controls::Look, teammate: &Teammate) -> El {
+    let folder = teammate.folder.clone().or_else(|| s.home.folder_path.clone());
+    let item = |key: &str, icon: &'static rune::Icon, words: &str, said: &str| {
+        row()
+            .key(key.to_owned())
+            .w_full()
+            .gap(10.0)
+            .py(7.0)
+            .px(10.0)
+            .center_y()
+            .radius(l.t.px("radius-control"))
+            .hover(l.c("bg-selected"))
+            .child(crate::look::controls::glyph(l, icon, 14.0, Some(l.c("text-secondary"))))
+            .child(
+                col()
+                    .grow(1.0)
+                    .gap(2.0)
+                    .child(text(words.to_owned()).font(l.ty.control).color(l.c("text-primary")))
+                    .child(text(said.to_owned()).font(l.ty.body).color(l.c("text-muted")).w_full().wrap()),
+            )
+            .role("menuitem")
+            .label(words.to_owned())
+    };
+    let folder_said = if folder.is_some() { "The folder teammates work in" } else { "None is chosen yet" };
+    col()
+        .key("plus-menu")
+        .w(280.0)
+        .padding(4.0)
+        .radius(11.0)
+        .fill(l.c("bg-raised-2"))
+        .border(1.0, l.c("border-strong"))
+        .box_shadow(l.t.shadows("shadow-menu").first().copied().unwrap_or_default())
+        .role("menu")
+        .child(item("plus-attach", &crate::look::icons::ATTACHMENT, "Attach files", "Their paths go with your message").on_press_tx(move |s: &mut State, tx| {
+            s.plus_menu = false;
+            let options = rune::FileDialogOptions {
+                title: "Attach a file".into(),
+                directory: folder.clone().map(std::path::PathBuf::from),
+                ..Default::default()
+            };
+            tx.open_file(options, |s: &mut State, answer, _tx| {
+                if let Ok(Some(path)) = answer {
+                    crate::composer_wiring::attach_dropped_paths(s, &[path]);
+                }
+            });
+        }))
+        .child(item("plus-folder", &crate::look::icons::FOLDER, "Choose a folder", folder_said).on_press_tx(|s: &mut State, tx| {
+            s.plus_menu = false;
+            crate::home_panel::choose_folder(tx);
+        }))
 }

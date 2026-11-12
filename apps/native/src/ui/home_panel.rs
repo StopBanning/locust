@@ -515,23 +515,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             )
             .child(text(FOLDER_LEDE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap())
             .child(row().pt(4.0).child(crate::look::controls::ghost_button(&l, CHOOSE_FOLDER).on_press_tx(|_s: &mut State, tx: &mut Tx| {
-                // The system's own folder dialog; the folder chosen becomes the one Locust has open.
-                let options = rune::FileDialogOptions { title: "Choose a project folder".into(), ..Default::default() };
-                tx.open_folder(options, |s: &mut State, answer, _tx| {
-                    let Ok(Some(path)) = answer else { return };
-                    let Some(store) = s.data.clone() else { return };
-                    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-                    match folders::use_folder(&store, &path, &now).and_then(|entry| native::set_open_folder(&store, std::path::Path::new(&entry.path)).map(|_| entry)) {
-                        Ok(entry) => {
-                            s.home.folder_path = Some(entry.path);
-                            s.home.folder_invented = false;
-                        }
-                        Err(e) => {
-                            s.status = e;
-                            s.status_tone = StatusTone::Amber;
-                        }
-                    }
-                });
+                choose_folder(tx);
             }))),
     );
     if s.home.folder_invented {
@@ -1544,4 +1528,25 @@ mod finish_review_tests {
         assert!(s.home.to_look_at.is_empty());
         assert!(!s.home.board_open);
     }
+}
+
+/// The system's own folder dialog; the folder chosen becomes the one Locust has open (Home's Choose folder, and the
+/// message box's + menu).
+pub(super) fn choose_folder(tx: &mut Tx) {
+    let options = rune::FileDialogOptions { title: "Choose a project folder".into(), ..Default::default() };
+    tx.open_folder(options, |s: &mut State, answer, _tx| {
+        let Ok(Some(path)) = answer else { return };
+        let Some(store) = s.data.clone() else { return };
+        let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        match folders::use_folder(&store, &path, &now).and_then(|entry| native::set_open_folder(&store, std::path::Path::new(&entry.path)).map(|_| entry)) {
+            Ok(entry) => {
+                s.home.folder_path = Some(entry.path);
+                s.home.folder_invented = false;
+            }
+            Err(e) => {
+                s.status = e;
+                s.status_tone = StatusTone::Amber;
+            }
+        }
+    });
 }

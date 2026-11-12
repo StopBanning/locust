@@ -180,6 +180,8 @@ pub(super) struct State {
     /// teammate's own. Picking another teammate goes back to theirs.
     pub(super) composer_mode: Option<String>,
     pub(super) mode_menu: bool,
+    /// The message box's + menu (Attach files, Choose a folder).
+    pub(super) plus_menu: bool,
     pub(super) layout_pref: String,
     pub(super) layout_compact: std::cell::Cell<bool>,
     pub(super) rail_open: Option<String>,
@@ -339,6 +341,7 @@ impl Default for State {
             seen_live: Vec::new(),
             composer_mode: None,
             mode_menu: false,
+            plus_menu: false,
             layout_pref: "auto".into(),
             layout_compact: std::cell::Cell::new(false),
             rail_open: None,

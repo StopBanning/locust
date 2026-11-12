@@ -1011,3 +1011,14 @@ pub(super) fn mode_menu_light_scene(s: &mut State) {
     mode_menu_scene(s);
     s.appearance = Some(false);
 }
+
+/// The message box's + menu, open.
+pub(super) fn plus_menu_scene(s: &mut State) {
+    composer_base_scene(s, false);
+    s.plus_menu = true;
+}
+
+pub(super) fn plus_menu_light_scene(s: &mut State) {
+    plus_menu_scene(s);
+    s.appearance = Some(false);
+}

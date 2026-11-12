@@ -2266,6 +2266,8 @@ fn main() {
             ("settings-carry-light", settings_panel::carry_settings_light_scene),
             ("references", references_scene),
             ("mode-menu", mode_menu_scene),
+            ("plus-menu", plus_menu_scene),
+            ("plus-menu-light", plus_menu_light_scene),
             ("mode-menu-light", mode_menu_light_scene),
             ("references-light", references_light_scene),
             ("models", models_scene),

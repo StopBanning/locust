@@ -321,3 +321,20 @@ fn the_team_screen_edits_in_a_form_and_asks_before_removing() {
     click(&mut rt, "team-edit-tm_codec");
     assert!(rt.find("team-form").is_some());
 }
+
+#[test]
+fn the_plus_menu_attaches_a_file_picked_in_the_systems_dialog() {
+    let (dirs, _store, mut rt) = window();
+    let file = dirs.0.join("work").join("notes.md");
+    std::fs::write(&file, "notes").unwrap();
+    click(&mut rt, "plus");
+    assert!(rt.find("plus-menu").is_some(), "the + opens its menu");
+    click(&mut rt, "plus-attach");
+    let (kind, options) = rt.file_dialog().expect("the picker is asked for");
+    assert_eq!(kind, rune::FileDialogKind::Open);
+    assert_eq!(options.directory.as_deref(), Some(dirs.0.join("work").as_path()), "it opens in the conversation's folder");
+    // Answered as the system's dialog would answer it (no window: nothing is shown on a screen).
+    rt.resolve_file_dialog(Some(file.clone())).unwrap();
+    settle(&mut rt);
+    assert!(rt.state.attached.iter().any(|p| p.ends_with("notes.md")), "{:?}", rt.state.attached);
+}
