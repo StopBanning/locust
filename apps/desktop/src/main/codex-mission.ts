@@ -998,6 +998,12 @@ const notReadyRefusal = (runtime: MissionRuntimeId, found?: RuntimeDiscovery): s
   if (found === undefined || found.availability !== 'available' || found.executable === undefined) return `${name} is not installed on this machine. Install it, then retry discovery.`
   if (found.readiness === 'authentication-required') return `${name} is signed out. Sign in to it, then retry discovery.`
   if (found.readiness === 'unhealthy') return `${name} could not be reached just now: it did not answer when Locust checked on it, which usually means its own service is down. Try again in a minute, or pick another model.`
+  /*
+   * Its check did not answer in time (12 Nov 2026): Antigravity's `agy models`, run while Locust was still starting,
+   * missed its ten-second cap, and the turn was refused with "Install or sign in" for a CLI that was installed and
+   * signed in. Discovery's readiness says it was not confirmed, not that anything is wrong.
+   */
+  if (found.readiness === 'unknown') return `${name} did not answer in time when Locust checked whether it was ready, so nothing was sent. Try again in a moment.`
   return `${name} is not ready. Install or sign in to it, then retry discovery.`
 }
 
