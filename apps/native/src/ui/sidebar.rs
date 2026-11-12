@@ -747,15 +747,26 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .pt(18.0)
                 .px(16.0)
                 .pb(12.0)
-                .child(crate::look::controls::brand_row(&crate::look::controls::Look::new(p.dark)))
+                // The lockup is the way home and the `+` starts a conversation, side by side (`.lc-sidebar__brand`).
                 .child(
-                    text(if s.engine == Some(Kind::Native) {
-                        "Native team copy"
-                    } else {
-                        ""
-                    })
-                    .font(type_::LABEL)
-                    .color(p.muted),
+                    row()
+                        .w_full()
+                        .center_y()
+                        .gap(12.0)
+                        .child(
+                            row()
+                                .grow(1.0)
+                                .child(crate::look::controls::brand_row(&l))
+                                .role("button")
+                                .label("Home")
+                                .help("Home")
+                                .on_press(crate::rail::go_home),
+                        )
+                        .child(
+                            crate::look::controls::head_icon(&crate::look::icons::PLUS, "New conversation", "New conversation (⌘ N)")
+                                .on_press(crate::rail::new_conversation)
+                                .build(l.k),
+                        ),
                 ),
         )
         .child(
@@ -769,6 +780,35 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 })
                 .child(col().w_full().child(rows).child(recent)),
         )
+        .child(footer(&l))
+}
+
+/// `.lc-sidebar__footer`: Settings and Board in equal cells under a hairline, as Electron's wide sidebar ends.
+fn footer(l: &crate::look::controls::Look) -> El {
+    let cell = |icon: &'static rune::Icon, words: &'static str, press: fn(&mut State)| {
+        row()
+            .w(0.0)
+            .grow(1.0)
+            .py(7.0)
+            .gap(7.0)
+            .center()
+            .radius(7.0)
+            .hover(l.c("hover-surface"))
+            .child(crate::look::controls::glyph(l, icon, 14.0, Some(l.c("text-secondary"))))
+            .child(text(words).font(rune::TextStyle::new(13.0, 400.0)).color(l.c("text-secondary")))
+            .role("button")
+            .label(words)
+            .on_press(press)
+    };
+    row()
+        .w_full()
+        .gap(2.0)
+        .pt(8.0)
+        .px(10.0)
+        .pb(10.0)
+        .border_sides([1.0, 0.0, 0.0, 0.0], l.c("border-hairline"))
+        .child(cell(&crate::look::icons::SETTINGS, "Settings", settings_panel::open))
+        .child(cell(&crate::look::icons::COLUMNS, "Board", home_panel::open_board))
 }
 
 #[cfg(test)]

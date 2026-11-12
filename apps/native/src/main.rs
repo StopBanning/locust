@@ -749,6 +749,9 @@ fn can_stop(s: &State) -> bool {
         })
 }
 
+/// Stop for a turn neither this window nor Electron runs: Quick Ask or `--ask` ran it in their own process.
+const STOP_ELSEWHERE: &str = "This turn runs in another Locust process (Quick Ask or --ask), and only that one can stop it.";
+
 fn stop(s: &mut State) {
     if !can_stop(s) || s.stopping.is_pending() {
         return;
@@ -767,7 +770,9 @@ fn stop(s: &mut State) {
             let result = if native::owns(&id) {
                 native::stop(&id)
             } else {
-                Engine::local().and_then(|e| e.stop_turn(&id))
+                Engine::local().and_then(|e| e.stop_turn(&id)).map_err(|words| {
+                    if native::door_unreachable(&words) { STOP_ELSEWHERE.to_owned() } else { words }
+                })
             };
             (id, result)
         });

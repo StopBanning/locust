@@ -340,9 +340,27 @@ pub(crate) fn reach() -> Result<(Engine, bool, Vec<Teammate>), String> {
             Err(_) => {}
         }
     }
-    let engine = Engine::direct(Door::native_tools()?);
+    // This panel cannot show an approval card, and no other window sees one raised in this process: its own turns
+    // run in Ask, and a card one still raises is refused at once (deny_own_cards), so no turn waits on nobody.
+    let engine = Engine::direct(Door::native_tools(true)?);
     let team = engine.teammates()?;
     Ok((engine, true, team))
+}
+
+/// What a card raised by a turn this panel runs itself is refused with.
+pub(crate) const QUICK_DENY: &str = "Quick Ask ran this turn on its own and cannot show approvals. Ask from the Locust window to allow actions.";
+
+/// Refuses every card waiting in this process: each belongs to a turn Quick Ask ran itself, and nothing can show it.
+fn deny_own_cards(s: &mut State) -> bool {
+    let waiting = locust_core::native::waiting_approvals();
+    for card in &waiting {
+        let _ = locust_core::native::decide_approval(&card.approval_id, locust_core::approval::Decision::Deny, Some(QUICK_DENY.into()));
+    }
+    if waiting.is_empty() {
+        return false;
+    }
+    s.notice = Some(QUICK_DENY.into());
+    true
 }
 
 fn show_team_failure(s: &mut State, words: String) {
@@ -869,6 +887,9 @@ fn poll_at(s: &mut State, tx: &mut Tx, now: Instant) -> bool {
         return false;
     }
     let mut changed = expire(s, now);
+    if s.engine.as_ref().is_some_and(|(engine, _)| engine.is_direct()) {
+        changed |= deny_own_cards(s);
+    }
 
     if let Some(result) = s.team.take() {
         changed = true;

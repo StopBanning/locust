@@ -80,7 +80,8 @@ fn owned_by(s: &State, teammate: &Teammate) -> Vec<SidebarMission> {
         .collect()
 }
 
-/// Settings › Appearance › Sidebar: kept in the workspace settings Electron reads (`layout`).
+/// Settings › Appearance › Sidebar: Electron's `layout` setting, kept in the Rust app's own copy of the workspace
+/// settings (seeded once from Electron's, then separate: changing it in one app does not change the other).
 pub(super) fn choose_layout(s: &mut State, preference: &str) {
     s.layout_pref = preference.to_owned();
     s.settings_panel.settings.layout = preference.to_owned();
@@ -114,7 +115,7 @@ fn close(s: &mut State) {
 
 /// Closes a card the pointer left, once it has been gone long enough to not be on its way into the card.
 pub(super) fn poll(s: &mut State) -> bool {
-    if s.rail_pinned || s.rail_open.is_none() || s.rail_over_face || s.rail_over_card {
+    if s.rail_pinned || s.rail_open.is_none() || s.rail_over_face.is_some() || s.rail_over_card {
         return false;
     }
     if s.rail_left_at.is_some_and(|t| t.elapsed().as_millis() >= CLOSE_AFTER_MS) {
@@ -141,7 +142,7 @@ fn place(l: &crate::look::controls::Look, icon: &'static rune::Icon, words: &str
         })
 }
 
-fn new_conversation(s: &mut State) {
+pub(super) fn new_conversation(s: &mut State) {
     s.home.home_open = false;
     s.home.board_open = false;
     s.settings_panel.open = false;
@@ -150,7 +151,7 @@ fn new_conversation(s: &mut State) {
     fresh_conversation(s);
 }
 
-fn go_home(s: &mut State) {
+pub(super) fn go_home(s: &mut State) {
     s.settings_panel.open = false;
     s.people_panel.open = false;
     s.routines.open = false;
@@ -257,12 +258,14 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
             slot.role("button")
                 .label(format!("{}, {} · {}", teammate.name, teammate.role, state_words))
                 .on_hover_change(move |s: &mut State, over, _| {
-                    s.rail_over_face = over;
+                    // Which face the pointer is on: leaving one after entering the next, in either order, keeps a card.
                     if over {
+                        s.rail_over_face = Some(hover_id.clone());
                         if !s.rail_pinned {
                             s.rail_open = Some(hover_id.clone());
                         }
-                    } else {
+                    } else if s.rail_over_face.as_deref() == Some(hover_id.as_str()) {
+                        s.rail_over_face = None;
                         s.rail_left_at = Some(std::time::Instant::now());
                     }
                 })

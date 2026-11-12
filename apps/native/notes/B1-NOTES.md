@@ -82,3 +82,7 @@ only the client side of that door. It now serves its own.
   model and printed the exact reply.
 - Not seen live: the Quick Ask panel itself on the native path (it needs the global chord in a real session).
 - `door_calls.rs`: Electron's door is now called from `quick.rs` once (was 3) and from `scenes.rs` not at all.
+- Fenced after Fable's review (12 Nov). A turn Quick Ask or `--ask` runs in its own process is always Ask
+  (`Door::native_tools(true)`). A card such a turn still raises is refused at once with `quick::QUICK_DENY`, since no
+  window can show it. The window's Stop on a turn it does not run, with Electron quit, now says the turn runs in
+  another Locust process, instead of "Locust isn't running".

@@ -35,7 +35,8 @@ then redone on the kit and snapped at the same size.
 ## The rail and the title bar (12 Nov)
 
 - `ui/rail.rs`. At 1199 points wide or less the sidebar folds to Electron's 64-point rail, unless Settings › Appearance ›
-  Sidebar says Full or Rail (Electron's own `layout` setting, so both apps agree). Top to bottom:
+  Sidebar says Full or Rail. It is Electron's `layout` setting with the same values, but saved in the Rust app's own
+  copy of the settings: changing it in one app does not change the other. Top to bottom:
   - the mark, which goes Home;
   - the `+`;
   - All conversations (the Board, since the port has no separate list screen), Teammates & Memory, Automations;
@@ -49,6 +50,16 @@ then redone on the kit and snapped at the same size.
   name centred, or `Locust` and the build when there is none. While no conversation fills the window it also has the
   browser and terminal toggles, and `N running` with the pulsing dot.
 - Scenes: `rail-flyout`, `rail-flyout-light`, `settings-sidebar`. Home at 1100x780 is the rail now, as Electron's is.
+
+## After Fable's review (12 Nov)
+
+- The wide sidebar has the way home and the `+` beside the brand, as Electron's does, and Settings and Board in a
+  footer under a hairline. Until now the wide window had none of the four on screen.
+- "Native team copy" under the brand is gone; the status line still names the engine.
+- The rail remembers which face the pointer is over, so sliding from one face to the next keeps a card open whichever
+  of leave and enter arrives first.
+- Still open: the card's "All of Scout's conversations" opens everyone's Board, and the rail's All conversations and
+  Board go to the same screen, because the port has no list of one teammate's conversations yet.
 
 ## Not done
 

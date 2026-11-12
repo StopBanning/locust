@@ -20,9 +20,10 @@ for approvals in its own window.
 
 When the Electron app is running with **Let your other AI apps use Locust** on, the window uses Electron's engine
 through that local door instead, so the two never run the same teammate twice. With Electron quit, or with
-`LOCUST_NATIVE_ENGINE=1`, it uses its own. A few things still need Electron's door and say so in the window: choosing
-a model for one turn, the model list, carrying a conversation on with another agent, the hand-over brief, Quick Ask
-and `--ask`.
+`LOCUST_NATIVE_ENGINE=1`, it uses its own. With Electron quit, everything the Rust app has built runs on its own
+engine: the model list and a model for one turn, carrying a conversation on with another agent and the hand-over
+brief, its own door for other apps, Quick Ask and `--ask`. What it has not built yet is listed in
+[PARITY.md](PARITY.md).
 
 The code is two crates. `core/` (`locust-core`) is the engine: agent drivers, ledgers, approvals and the command
 guard, stores, routines, usage. It does not depend on the UI toolkit. The window (`src/`, `locust-native`) draws it.

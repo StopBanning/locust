@@ -147,6 +147,12 @@ pub(super) fn ask_cli(who: &str, message: &str) -> Result<(), String> {
         match engine.reply(&started.conversation_id, engine::WAIT_LIMIT_S)? {
             Reply::Working(doing) => eprintln!("working: {doing}"),
             Reply::WaitingForYou(words) => {
+                // A card raised in this process has no window to answer it: refuse it rather than wait forever.
+                if engine.is_direct() {
+                    for card in native::waiting_approvals() {
+                        let _ = native::decide_approval(&card.approval_id, locust_core::approval::Decision::Deny, Some(crate::quick::QUICK_DENY.into()));
+                    }
+                }
                 eprintln!("waiting for you in Locust: {words}");
                 std::thread::sleep(Duration::from_secs(3));
             }
