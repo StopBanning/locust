@@ -189,6 +189,8 @@ mod tests {
 
     #[test]
     fn says_how_long_the_silence_was_and_skips_short_gaps() {
+        // Electron's value (missionView.ts QUIET_GAP_MINUTES).
+        assert_eq!(QUIET_GAP_MINUTES, 2);
         let markers = thread_markers(&[
             turn(0, "2026-09-22T08:00:00.000Z"),
             turn(2, "2026-09-22T08:05:00.000Z"),

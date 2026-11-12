@@ -415,6 +415,8 @@ mod tests {
 
     #[test]
     fn gives_rail_to_four_messages_when_scrollable_and_room_suffices() {
+        // Electron's values (promptRail.ts): its own test reads them back symbolically, so pin them here.
+        assert_eq!((PROMPT_RAIL_MIN, PROMPT_RAIL_ROOM), (4, 18.0));
         assert!(prompt_rail_shows(PROMPT_RAIL_MIN, true, false, PROMPT_RAIL_ROOM));
         assert!(!prompt_rail_shows(PROMPT_RAIL_MIN - 1, true, false, PROMPT_RAIL_ROOM));
         assert!(!prompt_rail_shows(PROMPT_RAIL_MIN, false, false, PROMPT_RAIL_ROOM));
