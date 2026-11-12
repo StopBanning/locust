@@ -104,8 +104,32 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 .grow(1.0)
                 .min_h(0.0)
                 .scroll(ScrollSpec { stick_bottom: true })
+                .on_at_bottom(|s: &mut State, at| {
+                    s.thread_away = !at;
+                })
+                .on_layout_tx(|s: &mut State, r, tx| {
+                    let changed = (0..4).any(|i| (s.prompt_rail.viewport_rect[i] - r[i]).abs() > 0.5);
+                    s.prompt_rail.viewport_rect = r;
+                    if !changed {
+                        tx.live_only();
+                    }
+                })
                 .child(row().w_full().justify_center().child(message_column(items, &teammate.name, p, s)))
         };
+        let mut transcript_box = col()
+            .w_full()
+            .grow(1.0)
+            .min_h(0.0)
+            .items_center()
+            .child(transcript);
+        if !items.is_empty() {
+            if let Some(rail) = prompt_rail::view(s, items, p) {
+                transcript_box = transcript_box.child(rail);
+            }
+            if let Some(jump) = jump_to_bottom::view(s.thread_away, turn_running(s), s.jump_hover, p) {
+                transcript_box = transcript_box.child(jump);
+            }
+        }
 
         // The conversation's actions sit in its header, on the right, as Electron's thread header draws them.
         let actions = row()
@@ -730,7 +754,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     )
                     .child(actions),
             )
-            .child(transcript)
+            .child(transcript_box)
             .child(terminal_panel::commands(s, p))
             .child(column(status))
             .child(commit_panel::view(s, p).map_or_else(row, |panel| row().w_full().px(24.0).pb(8.0).child(panel)))

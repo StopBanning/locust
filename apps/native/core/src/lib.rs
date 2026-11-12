@@ -48,6 +48,7 @@ pub mod skills;
 pub mod spend;
 pub mod store;
 pub mod terminal;
+pub mod time_marker;
 #[cfg(any(test, feature = "test-hooks"))]
 pub mod test_isolation;
 pub mod usage;
