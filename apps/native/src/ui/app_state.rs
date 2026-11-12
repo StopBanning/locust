@@ -141,6 +141,7 @@ pub(super) struct State {
     pub(super) carry_offer: Option<(String, Option<String>)>,
     pub(super) usage_panel: crate::usage_panel::Panel,
     pub(super) keyboard_sheet: crate::keyboard_sheet::Panel,
+    pub(super) save_record: crate::save_record::Panel,
     pub(super) home: crate::home_panel::Panel,
     /// Amber macOS keychain note — never reads the keychain itself.
     pub(super) keychain_asking: bool,
@@ -307,6 +308,7 @@ impl Default for State {
             carry_offer: None,
             usage_panel: crate::usage_panel::Panel::default(),
             keyboard_sheet: crate::keyboard_sheet::Panel::default(),
+            save_record: crate::save_record::Panel::default(),
             home: crate::home_panel::Panel::default(),
             keychain_asking: false,
             changes: crate::changes_panel::Panel::default(),

@@ -52,6 +52,8 @@ mod rail;
 mod notify;
 #[path = "ui/keyboard_sheet.rs"]
 mod keyboard_sheet;
+#[path = "ui/save_record.rs"]
+mod save_record;
 mod keyboard_shortcuts;
 mod keychain_note;
 #[path = "ui/home_panel.rs"]
@@ -778,6 +780,22 @@ fn native_stop_key(s: &State) -> Option<String> {
     }
 }
 
+pub(crate) fn active_record_mission_id(s: &State) -> Option<String> {
+    if s.demo || s.home.splash_open || s.home.boot_open || s.home.board_open || s.home.home_open {
+        return None;
+    }
+    if let Some(pane) = &s.ledger
+        && !pane.snapshot.tip.is_empty()
+        && !pane.snapshot.tip.starts_with("pending:")
+    {
+        return Some(pane.snapshot.tip.clone());
+    }
+    selected_conversation(s)
+        .and_then(|(_, conv)| conv.conversation_id.as_deref())
+        .filter(|id| !id.is_empty() && !id.starts_with("pending:"))
+        .map(ToOwned::to_owned)
+}
+
 fn can_stop(s: &State) -> bool {
     if s.demo || s.sending.is_pending() || s.flight.is_none() {
         return false;
@@ -1194,6 +1212,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
             s.keyboard_sheet.open = false;
             return true;
         }
+        if s.save_record.open {
+            s.save_record.open = false;
+            return true;
+        }
         if s.people_panel.open {
             s.people_panel.open = false;
             return true;
@@ -1271,7 +1293,8 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
     }
     if event.is_command('k') {
         let missions = sidebar_missions_now(s);
-        s.palette_actions = default_palette_actions(&missions, can_stop(s));
+        s.palette_actions =
+            default_palette_actions(&missions, can_stop(s), active_record_mission_id(s).is_some());
         s.palette_query.clear();
         s.draft.focused = false;
         s.find_query.focused = false;
@@ -2029,6 +2052,19 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .child(
                     keyboard_sheet::view(s, &p)
                         .modal(true, |s: &mut State| s.keyboard_sheet.open = false),
+                ),
+        );
+    }
+    if s.save_record.open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(
+                    save_record::view(s, &p)
+                        .modal(true, |s: &mut State| s.save_record.open = false),
                 ),
         );
     }

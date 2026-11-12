@@ -210,11 +210,12 @@ fn org_menu(s: &State, p: &Palette, mission_id: &str) -> El {
         .is_some_and(|m| held_for(m, &s.org.settled).is_some());
     let id = mission_id.to_owned();
     let mut menu = col().w_full().gap(4.0).pt(6.0);
-    let actions: [(&str, &str); 4] = [
+    let actions: [(&str, &str); 5] = [
         ("Open beside", "beside"),
         ("Rename", "rename"),
         (if pinned { "Unpin" } else { "Pin to top" }, "pin"),
         (if settled { "Bring back" } else { "Settle" }, "settle"),
+        ("Save the record…", "save-record"),
     ];
     for (label, action) in actions {
         let id = id.clone();
@@ -267,6 +268,11 @@ fn org_menu(s: &State, p: &Palette, mission_id: &str) -> El {
 }
 
 pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
+    if action == "save-record" {
+        crate::save_record::open(s, mission_id);
+        s.org_menu_id = None;
+        return;
+    }
     let Some(store) = s.data.clone() else {
         s.status = "No native data folder for conversation organization.".into();
         s.status_tone = StatusTone::Amber;

@@ -1558,6 +1558,394 @@ pub fn record_file_name(teammate: Option<&str>, now: impl Datelike) -> String {
     )
 }
 
+/// Result of walking a conversation back through `metadata.continuesFrom.missionId`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecordChain {
+    /// Turns ordered from oldest to newest.
+    pub missions: Vec<Value>,
+    /// Parent mission id referenced by `continuesFrom.missionId` that could not be found.
+    pub missing_parent: Option<String>,
+}
+
+/// Collect a conversation's turns from `mission_id` back through `continuesFrom`, oldest first.
+/// Stops cleanly on a missing turn or a `continuesFrom` cycle.
+pub fn record_turns<F>(mut get_mission: F, mission_id: &str) -> RecordChain
+where
+    F: FnMut(&str) -> Option<Value>,
+{
+    let mut turns = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut missing_parent = None;
+    let mut cursor = (!mission_id.is_empty()).then(|| mission_id.to_owned());
+
+    while let Some(id) = cursor.take() {
+        if !seen.insert(id.clone()) {
+            break;
+        }
+        let Some(mission) = get_mission(&id) else {
+            if !turns.is_empty() {
+                missing_parent = Some(id);
+            }
+            break;
+        };
+        let parent = mission
+            .get("metadata")
+            .and_then(|m| m.get("continuesFrom"))
+            .and_then(|c| c.get("missionId"))
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned);
+        turns.push(mission);
+        cursor = parent;
+    }
+
+    turns.reverse();
+    RecordChain {
+        missions: turns,
+        missing_parent,
+    }
+}
+
+fn push_issue(issues: &mut Vec<&'static str>, code: &'static str) {
+    if !issues.contains(&code) {
+        issues.push(code);
+    }
+}
+
+fn phase_after_event(current: &'static str, event_type: Option<&str>) -> &'static str {
+    match event_type {
+        Some("run.started" | "mission.started") => "running",
+        Some("run.completed" | "mission.completed") => "completed",
+        Some("run.failed" | "mission.failed") => "failed",
+        Some("run.cancelled" | "mission.aborted") => "cancelled",
+        _ => current,
+    }
+}
+
+/// Rebuild a `RecoveredMission`-shaped JSON value from a single `.jsonl` ledger file on disk.
+/// Matches `packages/mission-store`'s `readLedgerFile` shape so `mission_record_markdown` and
+/// `raw_record_json` read strictly what was recorded on disk.
+pub fn recover_mission_from_path(path: &std::path::Path) -> Option<Value> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    if raw.trim().is_empty() {
+        return None;
+    }
+
+    let mut issues: Vec<&'static str> = Vec::new();
+    let complete_slice = match raw.rfind('\n') {
+        Some(idx) if idx + 1 == raw.len() => raw.as_str(),
+        Some(idx) => {
+            push_issue(&mut issues, "truncated-tail");
+            &raw[..idx]
+        }
+        None => {
+            push_issue(&mut issues, "truncated-tail");
+            ""
+        }
+    };
+
+    let mut metadata: Option<Value> = None;
+    let mut schema_version: u64 = 0;
+    let mut events: Vec<Value> = Vec::new();
+    let mut host_failures: Vec<Value> = Vec::new();
+    let mut checkpoints: Vec<Value> = Vec::new();
+    let mut peer_links: Vec<Value> = Vec::new();
+    let mut edit_checks: Vec<Value> = Vec::new();
+    let mut approvals: Vec<Value> = Vec::new();
+    let mut phase: &'static str = "pending";
+    let mut last_updated_at = String::new();
+    let mut ledger_sequence: u64 = 0;
+
+    for line in complete_slice.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(rec) = serde_json::from_str::<Value>(trimmed) else {
+            push_issue(&mut issues, "invalid-record");
+            continue;
+        };
+        if let Some(seq) = rec
+            .get("ledgerSequence")
+            .or_else(|| rec.get("sequence"))
+            .and_then(Value::as_u64)
+        {
+            ledger_sequence = seq;
+        }
+        let kind = rec
+            .get("recordType")
+            .or_else(|| rec.get("type"))
+            .and_then(Value::as_str);
+        match kind {
+            Some("mission.created") => {
+                if let Some(ver) = rec.get("schemaVersion").and_then(Value::as_u64) {
+                    schema_version = ver;
+                }
+                if let Some(meta) = rec.get("metadata").filter(|v| v.is_object()) {
+                    if let Some(at) = meta.get("createdAt").and_then(Value::as_str) {
+                        last_updated_at = at.to_owned();
+                    }
+                    metadata = Some(meta.clone());
+                } else {
+                    push_issue(&mut issues, "invalid-record");
+                }
+            }
+            Some("mission.event") => {
+                if let Some(event) = rec.get("event").filter(|v| v.is_object()) {
+                    if let Some(at) = event.get("occurredAt").and_then(Value::as_str) {
+                        last_updated_at = at.to_owned();
+                    }
+                    phase = phase_after_event(phase, event.get("type").and_then(Value::as_str));
+                    events.push(event.clone());
+                } else {
+                    push_issue(&mut issues, "invalid-record");
+                }
+            }
+            Some("mission.host_failure") => {
+                if let Some(failure) = rec.get("failure").filter(|v| v.is_object()) {
+                    if let Some(at) = failure.get("occurredAt").and_then(Value::as_str) {
+                        last_updated_at = at.to_owned();
+                    }
+                    phase = "failed";
+                    host_failures.push(failure.clone());
+                } else {
+                    push_issue(&mut issues, "invalid-record");
+                }
+            }
+            Some("mission.checkpoint") => {
+                if let Some(cp) = rec.get("checkpoint").filter(|v| v.is_object()) {
+                    if let Some(at) = cp
+                        .get("createdAt")
+                        .or_else(|| cp.get("recordedAt"))
+                        .or_else(|| cp.get("occurredAt"))
+                        .and_then(Value::as_str)
+                    {
+                        last_updated_at = at.to_owned();
+                    }
+                    checkpoints.push(cp.clone());
+                } else {
+                    push_issue(&mut issues, "invalid-record");
+                }
+            }
+            Some("mission.peer") => {
+                if let Some(peer) = rec
+                    .get("link")
+                    .or_else(|| rec.get("peer"))
+                    .filter(|v| v.is_object())
+                {
+                    if let Some(at) = peer.get("occurredAt").and_then(Value::as_str) {
+                        last_updated_at = at.to_owned();
+                    }
+                    peer_links.push(peer.clone());
+                } else {
+                    push_issue(&mut issues, "invalid-record");
+                }
+            }
+            Some("mission.edit_check") => {
+                if let Some(check) = rec
+                    .get("check")
+                    .or_else(|| rec.get("editCheck"))
+                    .filter(|v| v.is_object())
+                {
+                    if let Some(at) = check.get("occurredAt").and_then(Value::as_str) {
+                        last_updated_at = at.to_owned();
+                    }
+                    edit_checks.push(check.clone());
+                } else {
+                    push_issue(&mut issues, "invalid-record");
+                }
+            }
+            Some("mission.approval") => {
+                if let Some(approval) = rec.get("approval").filter(|v| v.is_object()) {
+                    if let Some(at) = approval.get("occurredAt").and_then(Value::as_str) {
+                        last_updated_at = at.to_owned();
+                    }
+                    approvals.push(approval.clone());
+                } else {
+                    push_issue(&mut issues, "invalid-record");
+                }
+            }
+            _ => push_issue(&mut issues, "invalid-record"),
+        }
+    }
+
+    let metadata = metadata?;
+    if phase == "running" {
+        phase = "interrupted";
+    }
+    Some(json!({
+        "metadata": metadata,
+        "events": events,
+        "hostFailures": host_failures,
+        "checkpoints": checkpoints,
+        "peerLinks": peer_links,
+        "editChecks": edit_checks,
+        "approvals": approvals,
+        "schemaVersion": schema_version,
+        "phase": phase,
+        "lastUpdatedAt": last_updated_at,
+        "ledgerSequence": ledger_sequence,
+        "issues": issues,
+    }))
+}
+
+/// Recover a mission from either the native ledger or Electron's ledger (read-only).
+pub fn recover_mission(mission_id: &str) -> Option<Value> {
+    let path = crate::native::find_ledger(mission_id)?;
+    recover_mission_from_path(&path)
+}
+
+/// Prebuilt record data ready to save once a destination path is chosen.
+pub struct PreparedRecord {
+    pub suggested_file_name: String,
+    pub markdown: String,
+    pub missions: Vec<Value>,
+    pub saved_at: String,
+}
+
+fn resolve_owner_and_folder(
+    missions: &[Value],
+    store: Option<&crate::store::Store>,
+) -> (Option<String>, Option<String>) {
+    let Some(store) = store else {
+        return (None, None);
+    };
+    let owner_names = crate::people::owner_names(store);
+    let roster = crate::native::roster_in(store).unwrap_or_default();
+
+    let mut teammate_name = None;
+    let mut owner_folder = None;
+    for turn in missions.iter().rev() {
+        let Some(id) = turn["metadata"]["missionId"].as_str() else {
+            continue;
+        };
+        if let Some(owner_id) = crate::people::owner_of(store, id)
+            && let Some(owner) = roster.iter().find(|t| t.id == owner_id)
+        {
+            teammate_name = Some(owner.name.clone());
+            owner_folder = owner.folder.clone();
+            break;
+        }
+        if let Some(name) = owner_names.get(id) {
+            teammate_name = Some(name.clone());
+            break;
+        }
+    }
+
+    let folder = owner_folder.or_else(|| {
+        let open = crate::native::open_folder()?;
+        let ws_id = crate::people::workspace_id(&open);
+        let first_ws = missions.first()?["metadata"]["workspaceId"].as_str()?;
+        (first_ws == ws_id).then(|| open.to_string_lossy().into_owned())
+    });
+    (teammate_name, folder)
+}
+
+/// Load a conversation strictly from the ledger on disk and render its Markdown record.
+pub fn prepare_record_for_mission(
+    mission_id: &str,
+    store: Option<&crate::store::Store>,
+    locust_version: &str,
+    now: chrono::DateTime<chrono::Local>,
+) -> Result<PreparedRecord, String> {
+    let chain = record_turns(recover_mission, mission_id);
+    if chain.missions.is_empty() {
+        return Err(
+            "That conversation is not in the ledger, so there is nothing to save.".to_owned(),
+        );
+    }
+    let (teammate, folder) = resolve_owner_and_folder(&chain.missions, store);
+    let saved_at = now.to_utc().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let markdown = mission_record_markdown(&RecordSource {
+        missions: &chain.missions,
+        teammate: teammate.as_deref(),
+        folder: folder.as_deref(),
+        locust_version,
+        saved_at: &saved_at,
+        missing_parent: chain.missing_parent.as_deref(),
+    });
+    let suggested_file_name = record_file_name(teammate.as_deref(), now);
+    Ok(PreparedRecord {
+        suggested_file_name,
+        markdown,
+        missions: chain.missions,
+        saved_at,
+    })
+}
+
+fn raw_stem(target: &std::path::Path) -> std::path::PathBuf {
+    let Some(name) = target.file_name().and_then(|n| n.to_str()) else {
+        return target.to_path_buf();
+    };
+    let stem = match name.rfind('.') {
+        Some(idx) if idx > 0 => &name[..idx],
+        _ => name,
+    };
+    match target.parent() {
+        Some(parent) => parent.join(stem),
+        None => std::path::PathBuf::from(stem),
+    }
+}
+
+fn write_exclusive_raw_json(
+    target: &std::path::Path,
+    raw_json: &str,
+    store: Option<&crate::store::Store>,
+) -> Result<std::path::PathBuf, String> {
+    use std::io::Write as _;
+
+    let stem = raw_stem(target);
+    for attempt in 1..100 {
+        let candidate = if attempt == 1 {
+            std::path::PathBuf::from(format!("{}.json", stem.display()))
+        } else {
+            std::path::PathBuf::from(format!("{} ({attempt}).json", stem.display()))
+        };
+        if let Some(store) = store {
+            store.check(&candidate).map_err(|e| e.to_string())?;
+        }
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidate)
+        {
+            Ok(mut file) => {
+                file.write_all(raw_json.as_bytes())
+                    .map_err(|e| e.to_string())?;
+                return Ok(candidate);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Err("Could not find a free filename for the raw record.".to_owned())
+}
+
+/// Write the scrubbed Markdown record and, when requested, the non-overwriting raw JSON beside it.
+/// Refuses paths inside Electron's or Codex's own folders when `store` is supplied.
+pub fn write_record_files(
+    target: &std::path::Path,
+    prepared: &PreparedRecord,
+    include_raw: bool,
+    locust_version: &str,
+    store: Option<&crate::store::Store>,
+) -> Result<(std::path::PathBuf, Option<std::path::PathBuf>), String> {
+    let safe_target = if let Some(store) = store {
+        store.check(target).map_err(|e| e.to_string())?
+    } else {
+        target.to_path_buf()
+    };
+    let raw_payload =
+        include_raw.then(|| raw_record_json(&prepared.missions, locust_version, &prepared.saved_at));
+    std::fs::write(&safe_target, &prepared.markdown).map_err(|e| e.to_string())?;
+    let raw_path = if let Some(raw_json) = raw_payload {
+        Some(write_exclusive_raw_json(&safe_target, &raw_json, store)?)
+    } else {
+        None
+    };
+    Ok((safe_target, raw_path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2523,5 +2911,284 @@ mod tests {
         let text = ["````", "```", "", "", "```", "````", "", "", "after"].join("\n");
         let expected = ["````", "```", "", "", "```", "````", "", "after"].join("\n");
         assert_eq!(collapse_outside_fences(&text), expected);
+    }
+
+    // ---- recordTurns (a-saved-record-says-only-what-the-ledger-holds.test.ts) ----
+
+    fn stub_mission(mission_id: &str, continues_from: Option<&str>, prompt: &str) -> Value {
+        let mut meta = make_metadata(mission_id, prompt, "codex", iso(0, 0));
+        if let Some(parent) = continues_from {
+            meta["continuesFrom"] = json!({
+                "missionId": parent,
+                "reason": "continued",
+            });
+        }
+        json!({
+            "metadata": meta,
+            "events": [],
+            "hostFailures": [],
+            "checkpoints": [],
+            "peerLinks": [],
+            "editChecks": [],
+            "approvals": [],
+            "schemaVersion": 22,
+            "phase": "completed",
+            "lastUpdatedAt": iso(0, 0),
+            "ledgerSequence": 1,
+            "issues": [],
+        })
+    }
+
+    #[test]
+    fn record_turns_brings_every_turn_before_it_oldest_first() {
+        let m1 = stub_mission("m_1", None, "first");
+        let m2 = stub_mission("m_2", Some("m_1"), "second");
+        let m3 = stub_mission("m_3", Some("m_2"), "third");
+        let store: HashMap<&str, Value> = [("m_1", m1), ("m_2", m2), ("m_3", m3)].into_iter().collect();
+
+        let chain = record_turns(|id| store.get(id).cloned(), "m_3");
+        let ids: Vec<&str> = chain
+            .missions
+            .iter()
+            .filter_map(|m| m["metadata"]["missionId"].as_str())
+            .collect();
+        assert_eq!(ids, vec!["m_1", "m_2", "m_3"]);
+        assert_eq!(chain.missing_parent, None);
+    }
+
+    #[test]
+    fn record_turns_from_middle_turn_brings_parent_and_not_child() {
+        let m1 = stub_mission("m_1", None, "first");
+        let m2 = stub_mission("m_2", Some("m_1"), "second");
+        let m3 = stub_mission("m_3", Some("m_2"), "third");
+        let store: HashMap<&str, Value> = [("m_1", m1), ("m_2", m2), ("m_3", m3)].into_iter().collect();
+
+        let chain = record_turns(|id| store.get(id).cloned(), "m_2");
+        let ids: Vec<&str> = chain
+            .missions
+            .iter()
+            .filter_map(|m| m["metadata"]["missionId"].as_str())
+            .collect();
+        assert_eq!(ids, vec!["m_1", "m_2"]);
+    }
+
+    #[test]
+    fn record_turns_names_missing_parent_instead_of_skipping_it() {
+        let m2 = stub_mission("m_2", Some("m_gone"), "second");
+        let chain = record_turns(|id| (id == "m_2").then(|| m2.clone()), "m_2");
+        let ids: Vec<&str> = chain
+            .missions
+            .iter()
+            .filter_map(|m| m["metadata"]["missionId"].as_str())
+            .collect();
+        assert_eq!(ids, vec!["m_2"]);
+        assert_eq!(chain.missing_parent.as_deref(), Some("m_gone"));
+    }
+
+    #[test]
+    fn record_turns_returns_empty_when_no_turn_is_found() {
+        let chain = record_turns(|_| None, "m_missing");
+        assert!(chain.missions.is_empty());
+        assert_eq!(chain.missing_parent, None);
+    }
+
+    #[test]
+    fn record_turns_stops_at_a_cycle_instead_of_spinning() {
+        let m1 = stub_mission("m_1", Some("m_2"), "first");
+        let m2 = stub_mission("m_2", Some("m_1"), "second");
+        let store: HashMap<&str, Value> = [("m_1", m1), ("m_2", m2)].into_iter().collect();
+
+        let chain = record_turns(|id| store.get(id).cloned(), "m_2");
+        let ids: Vec<&str> = chain
+            .missions
+            .iter()
+            .filter_map(|m| m["metadata"]["missionId"].as_str())
+            .collect();
+        assert_eq!(ids, vec!["m_1", "m_2"]);
+    }
+
+    // ---- ledger recovery from disk & safe record writing ----
+
+    struct TestDir(std::path::PathBuf);
+    impl TestDir {
+        fn new(tag: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "locust-save-record-{tag}-{}-{}",
+                std::process::id(),
+                chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Self(dir)
+        }
+    }
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn recover_mission_rebuilds_events_approvals_and_truncated_tail_from_jsonl() {
+        let dir = TestDir::new("recover");
+        let path = dir.0.join("m_1.jsonl");
+        let meta = make_metadata("m_1", "Check the ledger.", "codex", iso(0, 1));
+        let mut ev = Events::new(&meta);
+        let lines = vec![
+            json!({
+                "recordType": "mission.created",
+                "schemaVersion": 22,
+                "ledgerSequence": 1,
+                "occurredAt": iso(0, 1),
+                "metadata": meta,
+            })
+            .to_string(),
+            json!({
+                "recordType": "mission.event",
+                "schemaVersion": 22,
+                "ledgerSequence": 2,
+                "occurredAt": iso(0, 0),
+                "event": ev.started(0),
+            })
+            .to_string(),
+            json!({
+                "recordType": "mission.event",
+                "schemaVersion": 22,
+                "ledgerSequence": 3,
+                "occurredAt": iso(0, 5),
+                "event": ev.said("Checked from disk.", 0, "msg_1"),
+            })
+            .to_string(),
+            json!({
+                "recordType": "mission.approval",
+                "schemaVersion": 22,
+                "ledgerSequence": 4,
+                "occurredAt": iso(0, 12),
+                "approval": {
+                    "kind": "command",
+                    "asked": "git status",
+                    "askedAt": iso(0, 10),
+                    "occurredAt": iso(0, 12),
+                    "answer": "allowed",
+                    "by": "person",
+                    "scope": "once",
+                }
+            })
+            .to_string(),
+            json!({
+                "recordType": "mission.edit_check",
+                "schemaVersion": 22,
+                "ledgerSequence": 5,
+                "occurredAt": iso(0, 20),
+                "check": {
+                    "command": "cargo test",
+                    "outcome": "passed",
+                    "newLines": [],
+                    "unchanged": false,
+                    "first": true,
+                    "occurredAt": iso(0, 20),
+                }
+            })
+            .to_string(),
+            json!({
+                "recordType": "mission.peer",
+                "schemaVersion": 22,
+                "ledgerSequence": 6,
+                "occurredAt": iso(0, 25),
+                "link": {
+                    "to": "sage",
+                    "label": "Sage",
+                    "question": "Ready?",
+                    "answer": "Yes.",
+                    "status": "answered",
+                    "occurredAt": iso(0, 25),
+                }
+            })
+            .to_string(),
+            json!({
+                "recordType": "mission.event",
+                "schemaVersion": 22,
+                "ledgerSequence": 7,
+                "occurredAt": iso(1, 50),
+                "event": ev.completed(1, Some("Check complete")),
+            })
+            .to_string(),
+        ];
+        // Intentionally append a partial trailing line without a newline.
+        let content = format!("{}\n{{\"recordType\":\"mission.event\"", lines.join("\n"));
+        std::fs::write(&path, content).unwrap();
+
+        let recovered = recover_mission_from_path(&path).expect("recovered mission");
+        assert_eq!(recovered["metadata"]["missionId"], "m_1");
+        assert_eq!(recovered["schemaVersion"], 22);
+        assert_eq!(recovered["phase"], "completed");
+        assert_eq!(recovered["ledgerSequence"], 7);
+        assert_eq!(recovered["issues"], json!(["truncated-tail"]));
+        assert_eq!(recovered["events"].as_array().unwrap().len(), 3);
+        assert_eq!(recovered["approvals"].as_array().unwrap().len(), 1);
+        assert_eq!(recovered["editChecks"].as_array().unwrap().len(), 1);
+        assert_eq!(recovered["peerLinks"].as_array().unwrap().len(), 1);
+
+        let md = mission_record_markdown(&RecordSource {
+            missions: &[recovered],
+            teammate: Some("Wren"),
+            folder: Some("/work/project"),
+            locust_version: "0.1.0",
+            saved_at: SAVED_AT,
+            missing_parent: None,
+        });
+        assert!(md.contains("Checked from disk."));
+        assert!(md.contains("**Finished.**"));
+        assert!(md.contains("truncated-tail") || md.contains("incomplete"));
+    }
+
+    #[test]
+    fn write_record_files_writes_non_overwriting_raw_json_and_refuses_electron_dir() {
+        let dir = TestDir::new("write");
+        let native_root = dir.0.join("native");
+        let electron_root = dir.0.join("electron");
+        let out_dir = dir.0.join("downloads");
+        std::fs::create_dir_all(&native_root).unwrap();
+        std::fs::create_dir_all(&electron_root).unwrap();
+        std::fs::create_dir_all(&out_dir).unwrap();
+        let store = crate::store::Store::with_codex(native_root, electron_root.clone(), vec![])
+            .expect("store");
+
+        let prepared = PreparedRecord {
+            suggested_file_name: "Locust record - Wren - 2026-10-03.md".into(),
+            markdown: "# Saved record\n".into(),
+            missions: vec![stub_mission("m_1", None, "hello")],
+            saved_at: SAVED_AT.into(),
+        };
+
+        let target = out_dir.join("my-record.md");
+        let (md1, raw1) =
+            write_record_files(&target, &prepared, true, "0.1.0", Some(&store)).unwrap();
+        let raw1 = raw1.expect("first raw json");
+        assert_eq!(md1.canonicalize().unwrap(), target.canonicalize().unwrap());
+        assert_eq!(
+            raw1.file_name().and_then(|n| n.to_str()),
+            Some("my-record.json")
+        );
+        assert_eq!(std::fs::read_to_string(&md1).unwrap(), "# Saved record\n");
+        let raw_parsed: Value =
+            serde_json::from_str(&std::fs::read_to_string(&raw1).unwrap()).unwrap();
+        assert_eq!(raw_parsed["savedAt"], SAVED_AT);
+
+        // Second save to the same target must not overwrite my-record.json.
+        let (_, raw2) =
+            write_record_files(&target, &prepared, true, "0.1.0", Some(&store)).unwrap();
+        let raw2 = raw2.expect("second raw json");
+        assert_eq!(
+            raw2.file_name().and_then(|n| n.to_str()),
+            Some("my-record (2).json")
+        );
+
+        // Refusing Electron's own folder must not create any file inside it.
+        let forbidden = electron_root.join("record.md");
+        let err = write_record_files(&forbidden, &prepared, false, "0.1.0", Some(&store))
+            .unwrap_err();
+        assert!(err.contains("Electron"));
+        assert!(!forbidden.exists());
     }
 }
