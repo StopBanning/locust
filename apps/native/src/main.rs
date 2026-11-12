@@ -503,12 +503,36 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 // Item 1: pick the engine. `LOCUST_NATIVE_ENGINE=1` forces native; otherwise the Electron door is used while it
 // answers, and native takes over only when the door is unreachable (a door that answered and refused is not down).
 fn choose_engine() -> Result<(Kind, Vec<Teammate>), String> {
-    native::choose(
+    let chosen = native::choose(
         native::forced(),
         || Engine::local().and_then(|engine| engine.teammates()),
         native::load_roster,
-    )
+    )?;
+    if chosen.0 == Kind::Native {
+        join_engine();
+    }
+    Ok(chosen)
 }
+
+/// Plan E3: this process joins the one engine, starting it when none answers, so a turn begun in the window, Quick Ask,
+/// `--ask` or the door shows its card and its Stop in every one. If it cannot, turns run in this process as before.
+#[cfg(not(test))]
+pub(crate) fn join_engine() {
+    if locust_core::engine_api::shared() {
+        return;
+    }
+    let (Some(store), Ok(exe)) = (native::store(), std::env::current_exe()) else { return };
+    match locust_core::engine_process::join_or_start(store.root(), &exe) {
+        Ok(engine) => {
+            let _ = locust_core::engine_api::install(engine);
+        }
+        Err(why) => eprintln!("{why} Turns run in this process instead."),
+    }
+}
+
+/// Tests keep the engine in their own process, with its fakes.
+#[cfg(test)]
+pub(crate) fn join_engine() {}
 
 fn load_team(s: &mut State) {
     if s.demo || s.team.is_pending() || s.flight.is_some() {

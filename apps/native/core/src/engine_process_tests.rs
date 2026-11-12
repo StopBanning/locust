@@ -171,3 +171,57 @@ fn with_no_engine_running_the_client_says_so() {
     assert_eq!(refused, "Locust's engine is not running.");
     assert!(engine.running().is_empty() && engine.waiting().is_empty() && !engine.owns("mission_a"));
 }
+
+#[test]
+fn a_turn_quick_ask_starts_is_answered_and_stopped_from_the_window() {
+    // Plan E3's check: two processes on one engine. One client stands for Quick Ask, the other for the window.
+    let t = Temp::new();
+    let store = t.store();
+    let _hook = native::hooks::install(store.clone(), fake("approve-allow"));
+    let server = Server::start(store.root()).unwrap();
+    let quick = Client::new(server.socket().to_path_buf());
+    let window = Client::new(server.socket().to_path_buf());
+
+    // A turn Quick Ask starts raises its card where the window reads cards, and the window's answer finishes it.
+    let asked = quick
+        .send(
+            Send { teammate: codec(&t, "approve-each"), conversation: None, prompt: "Synthetic prompt".into(), model: None, effort: None },
+            Origin::default(),
+        )
+        .unwrap();
+    let mission = native::real_tip(&asked.conversation_id).unwrap_or(asked.conversation_id.clone());
+    until("the card in the window", || window.waiting().iter().any(|c| c.mission_id == mission));
+    let card = window.waiting().into_iter().find(|c| c.mission_id == mission).unwrap();
+    window.decide(&card.approval_id, Decision::ApproveOnce, None).unwrap();
+    until("the answered turn's end", || kinds(&store, &mission).iter().any(|k| k == "run.completed"));
+
+    // A long turn Quick Ask starts is the window's to stop: it owns it, and Stop ends it as cancelled.
+    *crate::invariants::lock(&native::hooks::STATE) = (Some(store.clone()), fake("interrupt"));
+    let long = quick
+        .send(
+            Send { teammate: codec(&t, "ask"), conversation: None, prompt: "Synthetic prompt".into(), model: None, effort: None },
+            Origin::default(),
+        )
+        .unwrap();
+    let long_mission = native::real_tip(&long.conversation_id).unwrap_or(long.conversation_id.clone());
+    assert!(window.owns(&long.conversation_id), "the window sees the turn as one it can stop");
+    window.stop(&long.conversation_id).unwrap();
+    until("the stopped turn's ending", || kinds(&store, &long_mission).iter().any(|k| k == "run.cancelled"));
+    until("the stopped turn to leave the running list", || !window.owns(&long.conversation_id));
+}
+
+#[test]
+fn join_or_start_finds_the_engine_that_answers() {
+    let t = Temp::new();
+    let dir = t.0.join("native");
+    let server = Server::start(&dir).unwrap();
+    // The engine is running: joining it starts nothing (the path given would fail if it were run).
+    let joined = join_or_start(&dir, Path::new("/nonexistent/locust-native")).unwrap();
+    // Asked through it, the engine answers (other tests' turns may be running, so ask about one that cannot exist).
+    assert!(!joined.owns("mission_join_check_none"));
+    assert!(joined.stop("mission_join_check_none").is_err());
+    drop(server);
+    // None running, and the binary cannot start: said in words, not hung.
+    let refused = join_or_start(&dir, Path::new("/nonexistent/locust-native")).err().unwrap();
+    assert!(refused.starts_with("Locust's engine could not be started"), "{refused}");
+}

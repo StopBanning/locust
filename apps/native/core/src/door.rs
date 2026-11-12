@@ -530,7 +530,7 @@ impl Locust for Engine {
     }
 
     fn busy(&self, teammate: &str) -> bool {
-        crate::native::running_ids().iter().any(|id| crate::people::owner_of(&self.store, id).as_deref() == Some(teammate))
+        crate::engine_api::api().running().iter().any(|id| crate::people::owner_of(&self.store, id).as_deref() == Some(teammate))
     }
 
     fn start(&self, request: StartRequest) -> Result<Begun, String> {
@@ -554,7 +554,7 @@ impl Locust for Engine {
             runtime: request.runtime,
             ..Default::default()
         };
-        let started = crate::native::send_from(job, origin)?;
+        let started = crate::engine_api::api().send(job, origin)?;
         // The new turn's own id: for a follow-up, the conversation's newest turn now.
         let mission_id = match &request.follow_up_of {
             Some(_) => crate::native::real_tip(&started.conversation_id)?,
@@ -578,15 +578,15 @@ impl Locust for Engine {
     }
 
     fn live(&self, mission: &str) -> bool {
-        crate::native::owns(mission)
+        crate::engine_api::api().owns(mission)
     }
 
     fn waiting(&self, mission: &str) -> bool {
-        !crate::native::waiting_approvals_for(mission).is_empty()
+        !crate::engine_api::api().waiting_for(mission).is_empty()
     }
 
     fn cancel(&self, mission: &str) -> bool {
-        crate::native::stop(mission).is_ok()
+        crate::engine_api::api().stop(mission).is_ok()
     }
 
     fn conversations(&self) -> Vec<Turn> {
@@ -611,7 +611,7 @@ impl Locust for Engine {
     }
 
     fn carry_on(&self, mission: &str, runtime: &str, model: Option<&str>) -> Result<(String, Option<String>), String> {
-        crate::native::carry(mission, runtime, model).map(|(id, folder, _)| (id, folder))
+        crate::engine_api::api().carry(mission, runtime, model).map(|(id, folder, _)| (id, folder))
     }
 
     fn folder(&self) -> Option<String> {

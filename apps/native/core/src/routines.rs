@@ -219,13 +219,10 @@ pub fn run(store: &Store, id: &str) -> Result<(), String> {
         held["execution"] = execution;
         Ok(())
     })?;
-    let result = crate::native::send(crate::native::Send {
-        model: t.model.clone(),
-        effort: None,
-        teammate: t,
-        conversation: None,
-        prompt,
-    });
+    let result = crate::engine_api::api().send(
+        crate::native::Send { model: t.model.clone(), effort: None, teammate: t, conversation: None, prompt },
+        crate::native::Origin::default(),
+    );
     mutate(store, id, |held| {
         if held["execution"]["attemptId"] != attempt {
             return Err("Routine execution changed.".into());
@@ -254,7 +251,7 @@ pub fn acknowledge(store: &Store, id: &str, attempt: &str) -> Result<(), String>
         }
         if r["execution"]["missionId"]
             .as_str()
-            .is_some_and(crate::native::owns)
+            .is_some_and(|m| crate::engine_api::api().owns(m))
         {
             return Err("Stop the running turn before abandoning this attempt.".into());
         }
@@ -279,7 +276,7 @@ pub fn keep(store: &Store, id: &str, attempt: &str, kept_at: &str) -> Result<(),
         }
         if r["execution"]["missionId"]
             .as_str()
-            .is_some_and(crate::native::owns)
+            .is_some_and(|m| crate::engine_api::api().owns(m))
         {
             return Err("Stop the running turn before keeping this attempt.".into());
         }

@@ -32,6 +32,10 @@ pub trait EngineApi: std::marker::Send + Sync {
     fn running(&self) -> Vec<String>;
     /// Cards waiting on the person.
     fn waiting(&self) -> Vec<Request>;
+    /// Cards waiting for one turn: the door says that turn waits on the person.
+    fn waiting_for(&self, mission: &str) -> Vec<Request> {
+        self.waiting().into_iter().filter(|r| r.mission_id == mission).collect()
+    }
     /// Answer a card once.
     fn decide(&self, approval_id: &str, decision: Decision, reason: Option<String>) -> Result<(), String>;
     /// Save an allow or deny rule from the card, then answer it once.
@@ -86,6 +90,11 @@ static INSTALLED: OnceLock<Arc<dyn EngineApi>> = OnceLock::new();
 pub fn api() -> &'static dyn EngineApi {
     static LOCAL: InProcess = InProcess;
     INSTALLED.get().map(|a| a.as_ref()).unwrap_or(&LOCAL)
+}
+
+/// Is this process talking to the shared engine (an installed one), not keeping turns of its own?
+pub fn shared() -> bool {
+    INSTALLED.get().is_some()
 }
 
 /// Choose the engine once, at startup (E3: a client of `locust-native --engine`). A second call is refused.

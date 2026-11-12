@@ -340,9 +340,12 @@ pub(crate) fn reach() -> Result<(Engine, bool, Vec<Teammate>), String> {
             Err(_) => {}
         }
     }
-    // This panel cannot show an approval card, and no other window sees one raised in this process: its own turns
-    // run in Ask, and a card one still raises is refused at once (deny_own_cards), so no turn waits on nobody.
-    let engine = Engine::direct(Door::native_tools(true)?);
+    // Joined to the one engine, a turn this panel starts runs there: its card shows in the window and is answered
+    // there, in the teammate's own mode. Only when the engine cannot be joined does a turn run in this process, where
+    // nothing can show a card: then it runs in Ask, and a card it still raises is refused at once (deny_own_cards).
+    crate::join_engine();
+    let shared = locust_core::engine_api::shared();
+    let engine = Engine::direct(Door::native_tools(!shared)?);
     let team = engine.teammates()?;
     Ok((engine, true, team))
 }
@@ -887,7 +890,7 @@ fn poll_at(s: &mut State, tx: &mut Tx, now: Instant) -> bool {
         return false;
     }
     let mut changed = expire(s, now);
-    if s.engine.as_ref().is_some_and(|(engine, _)| engine.is_direct()) {
+    if s.engine.as_ref().is_some_and(|(engine, _)| engine.is_direct()) && !locust_core::engine_api::shared() {
         changed |= deny_own_cards(s);
     }
 

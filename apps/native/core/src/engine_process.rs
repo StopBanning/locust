@@ -202,6 +202,7 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
             engine.wait_for_shutdown();
             Ok(Value::Null)
         }
+        "ping" => Ok(Value::from("engine")),
         other => Err(format!("The engine does not know the request {other}.")),
     })();
     match result {
@@ -223,6 +224,17 @@ fn serve_one(engine: &dyn EngineApi, stream: UnixStream) {
     };
     let mut out = &stream;
     let _ = out.write_all(format!("{reply}\n").as_bytes());
+    // Decision 3's default: quitting the window stops its turns. Once their endings are written and the window told,
+    // `locust-native --engine` has nothing left to run, so it ends; the next window, Quick Ask or `--ask` starts one.
+    if EXIT_ON_SHUTDOWN.load(Ordering::Relaxed) && request_was(&line, "shut-down") {
+        std::process::exit(0);
+    }
+}
+
+static EXIT_ON_SHUTDOWN: AtomicBool = AtomicBool::new(false);
+
+fn request_was(line: &str, op: &str) -> bool {
+    serde_json::from_str::<Value>(line).ok().is_some_and(|r| r["op"] == op)
 }
 
 /// A running engine: the lock it holds and the socket it answers on.
@@ -284,8 +296,9 @@ impl Server {
         &self.socket
     }
 
-    /// Run until the process ends (`locust-native --engine`).
+    /// Run until the process ends (`locust-native --engine`): until a shut-down has written every ending.
     pub fn run(mut self) {
+        EXIT_ON_SHUTDOWN.store(true, Ordering::Relaxed);
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
@@ -309,11 +322,17 @@ impl Drop for Server {
 /// [`EngineApi`] over the socket of an engine in another process.
 pub struct Client {
     socket: PathBuf,
+    shutting: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl Client {
     pub fn new(socket: PathBuf) -> Self {
-        Client { socket }
+        Client { socket, shutting: std::sync::Mutex::new(None) }
+    }
+
+    /// Does an engine answer on this socket?
+    pub fn answers(&self) -> bool {
+        self.call(json!({"op": "ping"})).ok().and_then(|v| v.as_str().map(|s| s == "engine")).unwrap_or(false)
     }
 
     /// One request, one reply. Never retried: whether a send that failed midway started a turn is for the ledger to
@@ -369,11 +388,53 @@ impl EngineApi for Client {
         Ok((needed(&v, "conversation")?, text(&v, "folder"), text(&v, "mode").unwrap_or_default()))
     }
     fn shut_down(&self) {
-        let _ = self.call(json!({"op": "shut-down"}));
+        // Asked from the UI thread as the window closes, which must not wait: the request goes on its own thread, and
+        // its reply (once every ending is written) is what `wait_for_shutdown` waits for.
+        let socket = self.socket.clone();
+        let handle = std::thread::Builder::new()
+            .name("locust-engine-shut-down".into())
+            .spawn(move || {
+                let _ = Client::new(socket).call(json!({"op": "shut-down"}));
+            })
+            .ok();
+        *crate::invariants::lock(&self.shutting) = handle;
     }
     fn wait_for_shutdown(&self) {
-        // The engine's shut-down reply comes once every ending is written.
+        if let Some(handle) = crate::invariants::lock(&self.shutting).take() {
+            let _ = handle.join();
+        }
     }
+}
+
+/// The engine for a window, Quick Ask or `--ask` (plan E3): the one answering in `dir`, else a new
+/// `<exe> --engine` started there, waited for up to five seconds. Two callers starting at once both end up on the one
+/// that won the lock.
+pub fn join_or_start(dir: &Path, exe: &Path) -> Result<Arc<dyn EngineApi>, String> {
+    let client = Client::new(dir.join(SOCKET));
+    if client.answers() {
+        return Ok(Arc::new(client));
+    }
+    std::fs::create_dir_all(dir).map_err(|e| format!("The engine's folder could not be made: {e}"))?;
+    let log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("engine.log"))
+        .map_err(|e| format!("The engine's log could not be opened: {e}"))?;
+    std::process::Command::new(exe)
+        .arg("--engine")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(log)
+        .spawn()
+        .map_err(|e| format!("Locust's engine could not be started: {e}"))?;
+    let end = std::time::Instant::now() + Duration::from_secs(5);
+    while std::time::Instant::now() < end {
+        if client.answers() {
+            return Ok(Arc::new(client));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Err("Locust's engine did not start in time.".into())
 }
 
 #[cfg(test)]

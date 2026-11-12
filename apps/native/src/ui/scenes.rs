@@ -148,7 +148,8 @@ pub(super) fn ask_cli(who: &str, message: &str) -> Result<(), String> {
             Reply::Working(doing) => eprintln!("working: {doing}"),
             Reply::WaitingForYou(words) => {
                 // A card raised in this process has no window to answer it: refuse it rather than wait forever.
-                if engine.is_direct() {
+                // Joined to the shared engine, the window shows it, so it waits there.
+                if engine.is_direct() && !locust_core::engine_api::shared() {
                     for card in locust_core::engine_api::api().waiting() {
                         let _ = locust_core::engine_api::api().decide(&card.approval_id, locust_core::approval::Decision::Deny, Some(crate::quick::QUICK_DENY.into()));
                     }
