@@ -11,6 +11,21 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.873.0 - 2026-11-12
+
+### Fixed
+
+- **A teammate asked to read outside its folder in Ask says why.** Ask and Plan read freely inside the
+  conversation's folder. A read outside it was refused as "Ask mode, which reads and changes nothing", and teammates
+  passed that on as "reading is disabled". The refusal now names the folder the teammate may read, says the path is
+  outside it, and says to read inside it or move the files there.
+- **Gemini 4 Hydrogen is one model with four efforts.** Antigravity lists Hydrogen's new XHigh effort as a row of its
+  own, and the model picker showed it as a second "Gemini 4 Hydrogen (XHigh)". XHigh is now one of Hydrogen's
+  efforts, after High.
+- **A turn sent before an agent's check answers says so.** Sent while Locust was still starting, a turn to
+  Antigravity could be refused with "Install or sign in to it" for an agent that was both. It now says the agent did
+  not answer in time when Locust checked, that nothing was sent, and to try again in a moment.
+
 ## 0.872.0 - 2026-11-11
 
 ### Improved
