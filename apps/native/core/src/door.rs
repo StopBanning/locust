@@ -261,6 +261,25 @@ impl Door {
         Ok(Self::with(store.root().to_path_buf(), exe, settings, Arc::new(move |name: &str, args: &Value| tools.call(name, args).to_json())))
     }
 
+    /// The native engine's tools, answered in this process, under the person's saved door switches (their own mode,
+    /// their conversations): for Quick Ask when no door is open to ask.
+    pub fn native_tools() -> Result<Caller, String> {
+        let store = Store::local().map_err(|e| e.to_string())?;
+        let saved = std::fs::read_to_string(store.root().join(SETTINGS_FILE))
+            .ok()
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .map(|v| Settings::parse(&v))
+            .unwrap_or_default();
+        let settings = Arc::new(Mutex::new(saved));
+        let tools = Arc::new(Tools::new(Engine { store, settings }));
+        Ok(Arc::new(move |name: &str, args: &Value| tools.call(name, args).to_json()))
+    }
+
+    /// Where the native window's door writes its connection while it is open.
+    pub fn native_connection() -> Option<PathBuf> {
+        Store::local().ok().map(|store| store.root().join(CONNECTION_FILE))
+    }
+
     /// A door over any tool caller (the tests use their own).
     pub fn with(
         dir: PathBuf,

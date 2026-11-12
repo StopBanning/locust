@@ -143,7 +143,9 @@ pub struct State {
     retry: Option<Retry>,
     activity: Activity,
     flight: Option<Flight>,
-    team: Latest<Result<Vec<Teammate>, String>>,
+    team: Latest<Result<(Engine, bool, Vec<Teammate>), String>>,
+    // The Locust the team came from, and whether it is the native engine (its ledgers are in the native folder).
+    engine: Option<(Engine, bool)>,
     sending: Latest<StartAnswer>,
     waiting: Latest<ReplyAnswer>,
     stream: Latest<StreamAnswer>,
@@ -171,6 +173,7 @@ impl Default for State {
             activity: Activity::Working,
             flight: None,
             team: Latest::default(),
+            engine: None,
             sending: Latest::default(),
             waiting: Latest::default(),
             stream: Latest::default(),
@@ -201,7 +204,7 @@ fn begin_show_at(s: &mut State, now: Instant) {
         // Only the team-load error: a failed turn or the 30-minute notice stays visible.
         s.team_error = None;
         if !s.demo {
-            s.team.request((), |()| Engine::local()?.teammates());
+            s.team.request((), |()| reach());
         }
     }
     // Keep the previous exchange and any timeout notice until a new send.
@@ -317,6 +320,31 @@ fn show_failure(s: &mut State, words: String) {
 }
 
 // A failed team load: touches nothing else, so it cannot wipe a turn's failure or notice.
+/// Which Locust Quick Ask asks, chosen as the window chooses (native::choose): Electron's door when it answers; else
+/// the native window's own door when it is open, so the turn runs in that window and can be stopped there; else this
+/// panel runs the turn itself with the native engine. Returns whether the one chosen is the native engine.
+pub(crate) fn reach() -> Result<(Engine, bool, Vec<Teammate>), String> {
+    use locust_core::{door::Door, native};
+    if !native::forced() {
+        match Engine::local().and_then(|engine| engine.teammates().map(|team| (engine, team))) {
+            Ok((engine, team)) => return Ok((engine, false, team)),
+            Err(words) if !native::door_unreachable(&words) => return Err(words),
+            Err(_) => {}
+        }
+    }
+    if let Some(connection) = Door::native_connection().filter(|path| path.exists()) {
+        let engine = Engine::new(connection);
+        match engine.teammates() {
+            Ok(team) => return Ok((engine, true, team)),
+            Err(words) if !native::door_unreachable(&words) => return Err(words),
+            Err(_) => {}
+        }
+    }
+    let engine = Engine::direct(Door::native_tools()?);
+    let team = engine.teammates()?;
+    Ok((engine, true, team))
+}
+
 fn show_team_failure(s: &mut State, words: String) {
     s.team_error = Some(error_words(words));
 }
@@ -381,12 +409,14 @@ fn send_at(s: &mut State, tx: &mut Tx, now: Instant) {
     let message = s.draft.text.clone();
 
     let serial = start_flight(s, id.clone(), name, message.clone(), now);
+    let engine = s.engine.as_ref().map(|(e, _)| e.clone());
     s.sending
-        .request((id, message, serial), |(id, message, serial)| {
-            (
-                serial,
-                Engine::local().and_then(|engine| engine.start(&id, &message, None, None)),
-            )
+        .request((id, message, serial), move |(id, message, serial)| {
+            let engine = match engine {
+                Some(engine) => Ok(engine),
+                None => reach().map(|(engine, _, _)| engine),
+            };
+            (serial, engine.and_then(|engine| engine.start(&id, &message, None, None)))
         });
     arm_deadline(s, now, tx);
 }
@@ -451,8 +481,13 @@ fn land_started(s: &mut State, tag: u64, result: Result<Started, String>, now: I
                 flight.conversation_id = Some(started.conversation_id);
                 flight.unsent = None;
             }
-            // crate::ledger_dir is private to main.rs, but a child module may use it.
-            begin_follow(s, crate::ledger_dir(), now);
+            // A native turn's ledger is in the native folder; Electron's in Electron's (crate::ledger_dir).
+            let dir = if s.engine.as_ref().is_some_and(|(_, native)| *native) {
+                locust_core::native::store().and_then(|store| store.ledger_dir().ok())
+            } else {
+                crate::ledger_dir()
+            };
+            begin_follow(s, dir, now);
         }
         Err(words) => {
             let unsent = s.flight.as_mut().and_then(|f| f.unsent.take());
@@ -569,8 +604,13 @@ fn request_reply(s: &mut State) {
         return;
     };
     s.retry = None;
-    s.waiting.request(id, |id| {
-        let result = Engine::local().and_then(|engine| engine.reply(&id, 20));
+    let engine = s.engine.as_ref().map(|(e, _)| e.clone());
+    s.waiting.request(id, move |id| {
+        let engine = match engine {
+            Some(engine) => Ok(engine),
+            None => reach().map(|(engine, _, _)| engine),
+        };
+        let result = engine.and_then(|engine| engine.reply(&id, 20));
         (id, result)
     });
 }
@@ -832,6 +872,13 @@ fn poll_at(s: &mut State, tx: &mut Tx, now: Instant) -> bool {
 
     if let Some(result) = s.team.take() {
         changed = true;
+        // The flight in the air keeps the Locust it was sent to.
+        let result = result.map(|(engine, native, team)| {
+            if s.flight.is_none() {
+                s.engine = Some((engine, native));
+            }
+            team
+        });
         land_team(s, result);
     }
     if let Some((tag, result)) = s.sending.take() {

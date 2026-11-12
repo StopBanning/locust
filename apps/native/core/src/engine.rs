@@ -180,10 +180,21 @@ pub const DOWN: &str = "Locust isn't running, or isn't taking requests from othe
 
 pub const NOT_ON: &str = "Locust isn't taking requests from other apps. Open Locust, then in Settings, General, turn on \"Let your other AI apps use Locust\".";
 
-#[derive(Debug, Clone)]
+/// A door answered in this process instead of over the network: a tool's name and arguments in, the body a door's
+/// `/tools/call` would send back out.
+pub type Direct = std::sync::Arc<dyn Fn(&str, &Value) -> Value + Send + Sync>;
+
+#[derive(Clone)]
 pub struct Engine {
     connection: PathBuf,
     agent: ureq::Agent,
+    direct: Option<Direct>,
+}
+
+impl std::fmt::Debug for Engine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Engine").field("connection", &self.connection).field("direct", &self.direct.is_some()).finish()
+    }
 }
 
 impl Engine {
@@ -193,7 +204,19 @@ impl Engine {
             .timeout_connect(Duration::from_secs(3))
             .timeout_read(Duration::from_secs(WAIT_LIMIT_S + 15))
             .build();
-        Self { connection, agent }
+        Self { connection, agent, direct: None }
+    }
+
+    /// The same tools answered in this process (the native engine, when no door is open to ask).
+    pub fn direct(call: Direct) -> Self {
+        let mut engine = Self::new(PathBuf::new());
+        engine.direct = Some(call);
+        engine
+    }
+
+    /// Whether this asks a door over the network, rather than answering in this process.
+    pub fn is_direct(&self) -> bool {
+        self.direct.is_some()
     }
 
     /// The engine on this computer, or why it can't be reached.
@@ -209,6 +232,9 @@ impl Engine {
 
     /// One tool call: Locust's own words back, or why the call didn't happen.
     pub fn call(&self, name: &str, arguments: Value) -> Result<ToolText, String> {
+        if let Some(direct) = &self.direct {
+            return Ok(tool_text(&direct(name, &arguments)));
+        }
         let (url, token) = self.door()?;
         let response = self
             .agent
@@ -457,6 +483,23 @@ mod tests {
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn a_direct_engine_answers_in_this_process_with_no_door() {
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        let engine = Engine::direct(std::sync::Arc::new(move |name: &str, args: &Value| {
+            log.lock().unwrap().push((name.to_owned(), args.clone()));
+            json!({ "content": [{ "type": "text", "text": "No teammate called Nobody." }], "isError": true })
+        }));
+        assert!(engine.is_direct() && !Engine::new(PathBuf::from("/nowhere")).is_direct());
+        assert_eq!(engine.teammates().unwrap_err(), "No teammate called Nobody.");
+        assert_eq!(engine.stop_turn("m1").unwrap_err(), "No teammate called Nobody.");
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen[0].0, "list_teammates");
+        assert_eq!(seen[1], ("stop_turn".to_owned(), json!({ "conversation_id": "m1" })));
+    }
+
 
     const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 

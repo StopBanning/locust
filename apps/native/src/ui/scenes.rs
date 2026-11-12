@@ -134,8 +134,8 @@ pub(super) fn replay_path() -> std::path::PathBuf {
 }
 
 pub(super) fn ask_cli(who: &str, message: &str) -> Result<(), String> {
-    let engine = Engine::local()?;
-    let team = engine.teammates()?;
+    // The Locust Quick Ask would ask: Electron's door, the native window's, or the native engine in this process.
+    let (engine, _, team) = crate::quick::reach()?;
     let teammate = team
         .iter()
         .find(|t| t.name.eq_ignore_ascii_case(who) || t.id == who)

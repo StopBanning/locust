@@ -12,10 +12,8 @@ fn calls_into_electrons_door_only_shrink() {
         // choose_engine, send (door path), open_models, stop (a turn this process does not own), carry,
         // refresh_recent (fallback), request_reply, open_recent, poll (model list).
         ("src/main.rs", 9),
-        // Quick Ask runs only through the door today.
-        ("src/quick.rs", 3),
-        // The live scene, which shows the real team through the door.
-        ("src/ui/scenes.rs", 1),
+        // Quick Ask asks Electron's door first, as the window does; it falls back to the native door or engine.
+        ("src/quick.rs", 1),
         // The ignored real test of the door client itself.
         ("core/src/engine.rs", 1),
     ];

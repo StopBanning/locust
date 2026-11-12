@@ -221,7 +221,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Since-you-were-away recap | `renderer/src/components/AwayList.tsx`, `main/away.ts` | **done** — reducer/line/Got it; native `away.json` attention mark; 20-minute minimum | yes | no | yes |
 | Updates, release notes and big-update splash | `renderer/src/components/WhatsNew.tsx`, `renderer/src/components/Screens.tsx`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts` | **partial** — native What's new + big splash from native notes; self-update / tray install remain out of round (p12-NOTES.md) | yes | no | yes |
 | Global command palette | `renderer/src/components/CommandPalette.tsx` | **done** — Cmd/Ctrl+K; Electron placeholder/groups/labels; filter + group order | yes | no | no |
-| External CLI client for local MCP tools | `packages/cli/src/index.ts` | **partial** — native --ask covers ask/reply only | no — `--ask` talks to Electron's door | no | yes |
+| External CLI client for local MCP tools | `packages/cli/src/index.ts` | **partial** — native --ask covers ask/reply only; `--ask` and Quick Ask ask Electron's door when it answers, else the native window's own door, else run the turn in their own process with the native engine (`quick::reach`) | yes | no | yes |
 | Expose team as ACP agent to editors, with opt-in own-turn approval answers | `packages/cli/src/acp.ts`, `main/locust-cli-sessions.ts` | **missing** | - | no | yes |
 | One-click Claude desktop MCP connection and restart/remove | `main/claude-app-connection.ts`, `renderer/src/components/LocustMcpSettings.tsx` | **missing** | - | no | yes |
 | Deep links prefill message/project | `main/locust-links.ts`, `shared/locust-link.ts` | **missing** | - | no | yes |
@@ -290,10 +290,10 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 2 | 2 | 4 | 8 | 4 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
-| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 8 | 1 |
+| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 1 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 0 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **39** | **45** | **69** | **153** | **83** | **11** |
+| | **TOTAL** | **39** | **45** | **69** | **153** | **84** | **11** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

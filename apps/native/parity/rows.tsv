@@ -134,7 +134,7 @@ area	feature	where	built	detail	engine	alone	not_alone_because	live	seen
 13	Since-you-were-away recap	`renderer/src/components/AwayList.tsx`, `main/away.ts`	done	reducer/line/Got it; native `away.json` attention mark; 20-minute minimum	yes	yes		no	
 13	Updates, release notes and big-update splash	`renderer/src/components/WhatsNew.tsx`, `renderer/src/components/Screens.tsx`, `main/updates.ts`, `main/mac-self-update.ts`, `main/linux-install.ts`	partial	native What's new + big splash from native notes; self-update / tray install remain out of round (p12-NOTES.md)	yes	yes		no	
 13	Global command palette	`renderer/src/components/CommandPalette.tsx`	done	Cmd/Ctrl+K; Electron placeholder/groups/labels; filter + group order	no	yes		no	
-13	External CLI client for local MCP tools	`packages/cli/src/index.ts`	partial	native --ask covers ask/reply only	yes	no	`--ask` talks to Electron's door	no	
+13	External CLI client for local MCP tools	`packages/cli/src/index.ts`	partial	native --ask covers ask/reply only; `--ask` and Quick Ask ask Electron's door when it answers, else the native window's own door, else run the turn in their own process with the native engine (`quick::reach`)	yes	yes		no	
 13	Expose team as ACP agent to editors, with opt-in own-turn approval answers	`packages/cli/src/acp.ts`, `main/locust-cli-sessions.ts`	missing		yes	-		no	
 13	One-click Claude desktop MCP connection and restart/remove	`main/claude-app-connection.ts`, `renderer/src/components/LocustMcpSettings.tsx`	missing		yes	-		no	
 13	Deep links prefill message/project	`main/locust-links.ts`, `shared/locust-link.ts`	missing		yes	-		no	

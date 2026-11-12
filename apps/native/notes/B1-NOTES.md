@@ -69,3 +69,16 @@ only the client side of that door. It now serves its own.
   Electron); a teammate whose turn raises a card (no window was open, so the drive stayed in Auto); Claude Code,
   Codex or Codex's app-server through the door.
 - Tests: 441 in the engine (19 ignored live tests), 190 in the window, all passing.
+
+## Quick Ask and `--ask` stand alone (12 Nov)
+
+- `quick::reach` chooses the Locust to ask the way the window does. First Electron's door, when it answers. Then the
+  native window's own door (its connection file in the native data folder), so the turn runs in that window and can be
+  stopped there. Otherwise the panel runs the turn itself: `engine::Engine::direct` over `door::Door::native_tools`,
+  under the person's saved door switches.
+- Quick Ask remembers which one gave it the team. Its send and its fallback reply go to the same place, and it follows a
+  native turn's ledger in the native folder.
+- Seen live: `LOCUST_NATIVE_ENGINE=1 locust-native --ask Scout "…"` started a native turn in Ask mode on OpenCode's free
+  model and printed the exact reply.
+- Not seen live: the Quick Ask panel itself on the native path (it needs the global chord in a real session).
+- `door_calls.rs`: Electron's door is now called from `quick.rs` once (was 3) and from `scenes.rs` not at all.
