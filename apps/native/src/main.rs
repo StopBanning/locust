@@ -512,6 +512,7 @@ fn choose_engine() -> Result<(Kind, Vec<Teammate>), String> {
     )?;
     if chosen.0 == Kind::Native {
         join_engine();
+        open_door();
     }
     Ok(chosen)
 }
@@ -2219,8 +2220,52 @@ fn run_bench(args: &[String], process_start: std::time::Instant) {
     .run();
 }
 
-/// Locust's door for this window's lifetime, opened at start when the person left it on.
+/// Locust's door when this window serves it itself: only when it could not join the shared engine (E4).
 static DOOR: std::sync::OnceLock<locust_core::door::Door> = std::sync::OnceLock::new();
+/// A snapshot, video or script: it never opens the door.
+static HEADLESS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The door for other apps, wherever it is served: by the shared engine, which runs the door's turns (E4), else by
+/// this window. None when there is no door at all.
+pub(crate) fn door_now(change: locust_core::engine_api::DoorChange) -> Option<locust_core::door::State> {
+    use locust_core::engine_api::DoorChange;
+    if locust_core::engine_api::shared() {
+        return match locust_core::engine_api::api().door(change) {
+            Ok(state) => Some(state),
+            Err(why) => Some(locust_core::door::State { message: Some(why), ..Default::default() }),
+        };
+    }
+    let door = DOOR.get()?;
+    Some(match change {
+        DoorChange::Load => door.load(),
+        DoorChange::Read => door.state(None),
+        DoorChange::Enabled(on) => door.set_enabled(on),
+        DoorChange::OwnMode(on) => door.set_own_mode(on),
+        DoorChange::Conversations(on) => door.set_conversations(on),
+    })
+}
+
+/// Open the door as the person left it, once the window is on the native engine: the shared engine serves it, or,
+/// when it could not be joined, this window does, as before E4.
+#[cfg(not(test))]
+fn open_door() {
+    if HEADLESS.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    if !locust_core::engine_api::shared() && DOOR.get().is_none() {
+        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+        if let Ok(door) = locust_core::door::Door::local(&exe) {
+            let _ = DOOR.set(door);
+        }
+    }
+    if let Some(why) = door_now(locust_core::engine_api::DoorChange::Load).and_then(|d| d.message) {
+        eprintln!("Locust's door: {why}");
+    }
+}
+
+/// Tests never open a door.
+#[cfg(test)]
+fn open_door() {}
 
 fn main() {
     // The command guard hook runs before every shell command a Claude Code turn makes: answer at once, before anything
@@ -2328,17 +2373,10 @@ fn main() {
         }
     }
 
-    // A real window opens the door when the person left it on; a snapshot, a video or a script never does.
+    // A real window opens the door when the person left it on; a snapshot, a video or a script never does. It opens
+    // once the window knows its engine (open_door): served by the shared engine, else by this window.
     let headless = args.iter().any(|a| matches!(a.as_str(), "--snap" | "--video" | "--out" | "--script" | "--strip" | "--scene" | "--list-scenes"));
-    if !headless {
-        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
-        if let Ok(door) = locust_core::door::Door::local(&exe) {
-            if let Some(why) = door.load().message {
-                eprintln!("Locust's door: {why}");
-            }
-            let _ = DOOR.set(door);
-        }
-    }
+    HEADLESS.store(headless, std::sync::atomic::Ordering::Relaxed);
 
     App::new(AppSpec {
         min_size: Some((720.0, 480.0)),

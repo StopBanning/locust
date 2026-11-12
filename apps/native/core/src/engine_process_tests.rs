@@ -234,3 +234,67 @@ fn join_or_start_finds_the_engine_that_answers() {
     let refused = join_or_start(&dir, Path::new("/nonexistent/locust-native")).err().unwrap();
     assert!(refused.starts_with("Locust's engine could not be started"), "{refused}");
 }
+
+/// One call to a door, as another app's bridge makes it: the connection file's address and token.
+fn door_call(connection: &Path, body: &str) -> String {
+    use std::io::{Read, Write};
+    let c: Value = serde_json::from_str(&std::fs::read_to_string(connection).unwrap()).unwrap();
+    let (url, token) = (c["url"].as_str().unwrap(), c["token"].as_str().unwrap());
+    let address = url.trim_start_matches("http://").split('/').next().unwrap().to_owned();
+    let mut s = std::net::TcpStream::connect(address).unwrap();
+    write!(s, "POST /tools/call HTTP/1.1\r\nhost: x\r\nauthorization: Bearer {token}\r\ncontent-length: {}\r\n\r\n{body}", body.len()).unwrap();
+    let mut out = String::new();
+    s.read_to_string(&mut out).unwrap();
+    out
+}
+
+#[test]
+fn the_engine_serves_the_door_its_turns_are_the_engines_and_no_app_answers_a_card() {
+    // Plan E4. The engine keeps one door per process (a static), so this is the only test that opens it.
+    let t = Temp::new();
+    let store = t.store();
+    let work = t.0.join("work").to_string_lossy().into_owned();
+    std::fs::write(
+        t.0.join("electron/teammates.json"),
+        json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "hue": "blue",
+            "role": "Code & Migrations", "createdAt": "2026-11-01T00:00:00.000Z", "avatar": {}, "folder": work,
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}}],
+            "missionOwners": {}, "missionTitles": {}, "missionPins": [], "missionSettled": {}, "settings": {}})
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(store.root().join(crate::door::SETTINGS_FILE), r#"{"enabled":true}"#).unwrap();
+    let _hook = native::hooks::install(store.clone(), fake("success"));
+    let server = Server::start(store.root()).unwrap();
+    let window = Client::new(server.socket().to_path_buf());
+
+    // Opened as the person left it: by the engine, at the window's word.
+    let opened = window.door(DoorChange::Load).unwrap();
+    assert!(opened.settings.enabled, "{:?}", opened.message);
+    assert!(opened.claude_command.as_deref().is_some_and(|c| c.contains("--door-bridge")));
+    let connection = store.root().join(crate::door::CONNECTION_FILE);
+    assert!(connection.exists());
+
+    // Another app starts a turn through it, and the turn runs where the door is: the engine.
+    let started = door_call(&connection, r#"{"name":"start_conversation","arguments":{"teammate":"Codec","message":"Synthetic prompt"}}"#);
+    assert!(started.starts_with("HTTP/1.1 200"), "{started}");
+    let mission = std::fs::read_dir(store.ledger_dir().unwrap())
+        .unwrap()
+        .flatten()
+        .filter_map(|e| e.file_name().to_str().and_then(|n| n.strip_suffix(".jsonl")).map(str::to_owned))
+        .next()
+        .expect("the door's turn wrote its ledger in the engine's data folder");
+    until("the door's turn to end", || kinds(&store, &mission).iter().any(|k| k == "run.completed"));
+
+    // No app can answer a card: the door has no such tool.
+    let refused = door_call(&connection, r#"{"name":"decide_approval","arguments":{"approval_id":"x","decision":"approve-once"}}"#);
+    assert!(refused.contains("That tool is not offered by Locust."), "{refused}");
+
+    // The switch flips through the engine, is saved, and closes the door.
+    let off = window.door(DoorChange::Enabled(false)).unwrap();
+    assert!(!off.settings.enabled);
+    assert!(!connection.exists(), "a closed door leaves no connection file");
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(store.root().join(crate::door::SETTINGS_FILE)).unwrap()).unwrap();
+    assert_eq!(saved["enabled"], false);
+}

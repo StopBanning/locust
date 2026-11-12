@@ -46,6 +46,22 @@ pub trait EngineApi: std::marker::Send + Sync {
     fn shut_down(&self);
     /// Wait until the endings asked for by [`EngineApi::shut_down`] are written.
     fn wait_for_shutdown(&self);
+    /// The door for other apps, served where the turns run (E4). The engine in this process serves none: a window
+    /// that could not join the shared engine keeps its own.
+    fn door(&self, change: DoorChange) -> Result<crate::door::State, String> {
+        let _ = change;
+        Err("This engine serves no door.".into())
+    }
+}
+
+/// What a window asks of the door for other apps (plan E4): read it, open it as saved, or flip one of its switches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DoorChange {
+    Load,
+    Read,
+    Enabled(bool),
+    OwnMode(bool),
+    Conversations(bool),
 }
 
 /// The engine in this process: what every caller reached directly before E1.

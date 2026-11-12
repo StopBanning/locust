@@ -255,10 +255,14 @@ pub struct Door {
 impl Door {
     /// The live door over this machine's native engine.
     pub fn local(exe: &str) -> Result<Self, String> {
-        let store = Store::local().map_err(|e| e.to_string())?;
+        Ok(Self::for_store(Store::local().map_err(|e| e.to_string())?, exe))
+    }
+
+    /// The live door over the native engine whose data is in `store` (the engine process's own, E4).
+    pub fn for_store(store: Store, exe: &str) -> Self {
         let settings = Arc::new(Mutex::new(Settings::default()));
         let tools = Arc::new(Tools::new(Engine { store: store.clone(), settings: settings.clone() }));
-        Ok(Self::with(store.root().to_path_buf(), exe, settings, Arc::new(move |name: &str, args: &Value| tools.call(name, args).to_json())))
+        Self::with(store.root().to_path_buf(), exe, settings, Arc::new(move |name: &str, args: &Value| tools.call(name, args).to_json()))
     }
 
     /// The native engine's tools, answered in this process, under the person's saved door switches (their own mode,

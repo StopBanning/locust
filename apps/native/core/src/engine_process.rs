@@ -15,7 +15,7 @@ use crate::{
     approval::{Decision, Kind, Mode, Request},
     approval_rules::RuleEffect,
     engine::{Started, Teammate},
-    engine_api::{EngineApi, InProcess},
+    engine_api::{DoorChange, EngineApi, InProcess},
     native::{Origin, Send},
 };
 use serde_json::{Value, json};
@@ -166,6 +166,71 @@ fn card_from(v: &Value) -> Result<Request, String> {
     })
 }
 
+fn door_state_json(d: &crate::door::State) -> Value {
+    json!({"settings": {"enabled": d.settings.enabled, "ownMode": d.settings.own_mode, "conversations": d.settings.conversations},
+        "claudeCommand": d.claude_command, "codexConfig": d.codex_config, "message": d.message})
+}
+
+fn door_state_from(v: &Value) -> crate::door::State {
+    crate::door::State {
+        settings: crate::door::Settings {
+            enabled: v["settings"]["enabled"].as_bool().unwrap_or(false),
+            own_mode: v["settings"]["ownMode"].as_bool().unwrap_or(false),
+            conversations: v["settings"]["conversations"].as_bool().unwrap_or(false),
+        },
+        claude_command: text(v, "claudeCommand"),
+        codex_config: text(v, "codexConfig"),
+        message: text(v, "message"),
+    }
+}
+
+fn door_change_json(c: DoorChange) -> Value {
+    match c {
+        DoorChange::Load => json!({"change": "load"}),
+        DoorChange::Read => json!({"change": "read"}),
+        DoorChange::Enabled(on) => json!({"change": "enabled", "on": on}),
+        DoorChange::OwnMode(on) => json!({"change": "own-mode", "on": on}),
+        DoorChange::Conversations(on) => json!({"change": "conversations", "on": on}),
+    }
+}
+
+fn door_change_from(v: &Value) -> Result<DoorChange, String> {
+    let on = v["on"].as_bool().unwrap_or(false);
+    match v["change"].as_str().unwrap_or("") {
+        "load" => Ok(DoorChange::Load),
+        "read" => Ok(DoorChange::Read),
+        "enabled" => Ok(DoorChange::Enabled(on)),
+        "own-mode" => Ok(DoorChange::OwnMode(on)),
+        "conversations" => Ok(DoorChange::Conversations(on)),
+        other => Err(format!("The engine does not know the door change {other}.")),
+    }
+}
+
+/// The door for other apps, served by the engine process (E4), over the data folder its turns use. It keeps its own
+/// switch, token and tools; none of its tools answers a card, so no app can.
+static DOOR: std::sync::OnceLock<crate::door::Door> = std::sync::OnceLock::new();
+
+fn engine_door() -> Result<&'static crate::door::Door, String> {
+    if let Some(door) = DOOR.get() {
+        return Ok(door);
+    }
+    let store = crate::native::store().ok_or("The native data folder could not be determined.")?;
+    let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+    let _ = DOOR.set(crate::door::Door::for_store(store, &exe));
+    DOOR.get().ok_or_else(|| "The door could not be made.".to_string())
+}
+
+fn change_door(change: DoorChange) -> Result<crate::door::State, String> {
+    let door = engine_door()?;
+    Ok(match change {
+        DoorChange::Load => door.load(),
+        DoorChange::Read => door.state(None),
+        DoorChange::Enabled(on) => door.set_enabled(on),
+        DoorChange::OwnMode(on) => door.set_own_mode(on),
+        DoorChange::Conversations(on) => door.set_conversations(on),
+    })
+}
+
 fn strings(v: &Value) -> Vec<String> {
     v.as_array().into_iter().flatten().filter_map(|s| s.as_str().map(str::to_owned)).collect()
 }
@@ -200,8 +265,13 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
         "shut-down" => {
             engine.shut_down();
             engine.wait_for_shutdown();
+            // The door closes with the engine: its connection file goes, so no app reaches a Locust that is not there.
+            if let Some(door) = DOOR.get() {
+                door.dispose();
+            }
             Ok(Value::Null)
         }
+        "door" => change_door(door_change_from(&request["door"])?).map(|state| door_state_json(&state)),
         "ping" => Ok(Value::from("engine")),
         other => Err(format!("The engine does not know the request {other}.")),
     })();
@@ -403,6 +473,9 @@ impl EngineApi for Client {
         if let Some(handle) = crate::invariants::lock(&self.shutting).take() {
             let _ = handle.join();
         }
+    }
+    fn door(&self, change: DoorChange) -> Result<crate::door::State, String> {
+        self.call(json!({"op": "door", "door": door_change_json(change)})).map(|v| door_state_from(&v))
     }
 }
 

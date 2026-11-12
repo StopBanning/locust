@@ -67,7 +67,7 @@ fn reload(s: &mut State) {
                 }
                 Err(e) => s.settings_panel.error = e,
             }
-            s.settings_panel.door = crate::DOOR.get().map(|d| d.state(None));
+            s.settings_panel.door = crate::door_now(locust_core::engine_api::DoorChange::Read);
             s.settings_panel.plan_runs_out = locust_core::people::team(store)
                 .ok()
                 .and_then(|team| locust_core::carry_on::parse_plan_runs_out(&team["settings"]["planRunsOut"]));
@@ -172,23 +172,23 @@ fn setup_block(l: &crate::look::controls::Look, said: &str, line: &str) -> El {
 }
 
 fn toggle_door(s: &mut State) {
-    if let Some(door) = crate::DOOR.get() {
-        let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.enabled);
-        s.settings_panel.door = Some(door.set_enabled(!on));
+    let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.enabled);
+    if let Some(state) = crate::door_now(locust_core::engine_api::DoorChange::Enabled(!on)) {
+        s.settings_panel.door = Some(state);
     }
 }
 
 fn toggle_own_mode(s: &mut State) {
-    if let Some(door) = crate::DOOR.get() {
-        let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.own_mode);
-        s.settings_panel.door = Some(door.set_own_mode(!on));
+    let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.own_mode);
+    if let Some(state) = crate::door_now(locust_core::engine_api::DoorChange::OwnMode(!on)) {
+        s.settings_panel.door = Some(state);
     }
 }
 
 fn toggle_conversations(s: &mut State) {
-    if let Some(door) = crate::DOOR.get() {
-        let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.conversations);
-        s.settings_panel.door = Some(door.set_conversations(!on));
+    let on = s.settings_panel.door.as_ref().is_some_and(|d| d.settings.conversations);
+    if let Some(state) = crate::door_now(locust_core::engine_api::DoorChange::Conversations(!on)) {
+        s.settings_panel.door = Some(state);
     }
 }
 
