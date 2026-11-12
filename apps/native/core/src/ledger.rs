@@ -1145,6 +1145,7 @@ pub struct Snapshot {
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
     pub items: Vec<Item>,
+    pub timings: Vec<crate::time_marker::TurnTiming>,
     pub tip: String,
     pub running: bool,
     pub failed: bool,
@@ -1301,6 +1302,28 @@ impl Session {
                     reader.drained = true;
                 }
             }
+            let before_item = snapshot.items.len();
+            let first_at = reader
+                .transcript
+                .events
+                .values()
+                .next()
+                .and_then(|e| e.get("occurredAt"))
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            let last_at = reader
+                .transcript
+                .events
+                .values()
+                .next_back()
+                .and_then(|e| e.get("occurredAt"))
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            snapshot.timings.push(crate::time_marker::TurnTiming {
+                before_item,
+                first_at,
+                last_at,
+            });
             snapshot.items.extend(
                 reader
                     .transcript

@@ -2,7 +2,16 @@ use super::*;
 
 pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s: &State) -> El {
     let mut messages = col().w_full().max_w(super::thread_view::THREAD_MAX).gap(24.0).padding(24.0);
+    let markers = s
+        .ledger
+        .as_ref()
+        .map(|pane| locust_core::time_marker::thread_markers(&pane.snapshot.timings))
+        .unwrap_or_default();
+    let mut user_index = 0usize;
     for (index, item) in items.iter().enumerate() {
+        for marker in markers.iter().filter(|m| m.before_item == index) {
+            messages = messages.child(time_marker::view(marker, p));
+        }
         let conversation = s
             .ledger
             .as_ref()
@@ -113,21 +122,34 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 }
                 row().w_full().child(el().w(36.0)).child(card)
             }
-            ledger::Item::User(body) => row().w_full().justify_end().child(
-                row().w_frac(0.7).justify_end().child(
-                    // `.lc-bubble`: your words at the said size, 12 by 16, radius 10, no border.
-                    text(body.clone())
-                        .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
-                        .color(p.text)
-                        .shrink()
-                        .wrap_anywhere()
-                        .selectable(true)
-                        .py(12.0)
-                        .px(16.0)
-                        .radius(10.0)
-                        .fill(p.your_bubble),
-                ),
-            ),
+            ledger::Item::User(body) => {
+                let ui = user_index;
+                user_index += 1;
+                let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
+                let mut bubble = text(body.clone())
+                    .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
+                    .color(p.text)
+                    .shrink()
+                    .wrap_anywhere()
+                    .selectable(true)
+                    .py(12.0)
+                    .px(16.0)
+                    .radius(10.0)
+                    .fill(p.your_bubble);
+                if hit {
+                    bubble = bubble.border(1.5, p.amber);
+                }
+                row()
+                    .w_full()
+                    .justify_end()
+                    .on_layout_tx(move |s: &mut State, r, tx| {
+                        let rel_top = r[1] - s.prompt_rail.column_rect[1];
+                        if !s.prompt_rail.set_top(ui, rel_top) {
+                            tx.live_only();
+                        }
+                    })
+                    .child(row().w_frac(0.7).justify_end().child(bubble))
+            }
             ledger::Item::Assistant {
                 text: body,
                 r#final,
@@ -156,5 +178,19 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if let Some(card) = recovery_card::card(s, p) {
         messages = messages.child(card);
     }
-    messages.child(approval_card(s, p))
+    messages
+        .child(approval_card(s, p))
+        .on_layout_tx(|s: &mut State, r, tx| {
+            let resized = (s.prompt_rail.column_rect[2] - r[2]).abs() > 0.5
+                || (s.prompt_rail.column_rect[3] - r[3]).abs() > 0.5
+                || (s.prompt_rail.column_rect[0] - r[0]).abs() > 0.5;
+            s.prompt_rail.column_rect = r;
+            let view_top = (s.prompt_rail.viewport_rect[1] - r[1]).max(0.0);
+            let next_current = prompt_rail::current_prompt_mark(&s.prompt_rail.tops, view_top);
+            let current_changed = next_current != s.prompt_rail.current;
+            s.prompt_rail.current = next_current;
+            if !resized && !current_changed {
+                tx.live_only();
+            }
+        })
 }

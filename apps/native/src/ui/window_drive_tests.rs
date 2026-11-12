@@ -705,3 +705,213 @@ fn save_the_record_cancel_writes_nothing_and_command_palette_opens_it() {
             .any(|s| s.contains("Saved") || s.contains("could not be saved"))
     );
 }
+
+#[test]
+fn long_conversation_shows_prompt_rail_time_markers_and_pressing_mark_jumps() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+    let ledger_dir = dirs.0.join("electron/mission-ledger");
+    let work = dirs.0.join("work");
+    let mut owners = serde_json::Map::new();
+    for i in 1..=5 {
+        owners.insert(format!("m_rail_{i}"), json!("tm_codec"));
+    }
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_codec",
+                    "name": "Codec",
+                    "role": "Code & Migrations",
+                    "hue": "teal",
+                    "createdAt": "2026-10-02T09:00:00.000Z",
+                    "folder": work.to_string_lossy(),
+                }],
+                "missionOwners": Value::Object(owners),
+                "settings": {}
+            }),
+        )
+        .unwrap();
+
+    let long_reply = (1..=16)
+        .map(|n| format!("Line {n} of the synthetic reply so the thread overflows the viewport."))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let times = [
+        "2026-10-02T09:00:00.000Z",
+        "2026-10-02T09:05:00.000Z",
+        "2026-10-03T09:30:00.000Z",
+        "2026-10-03T09:31:00.000Z",
+        "2026-10-03T09:32:00.000Z",
+    ];
+    for i in 1..=5 {
+        let id = format!("m_rail_{i}");
+        let parent = (i > 1).then(|| format!("m_rail_{}", i - 1));
+        write_synthetic_turn(
+            &ledger_dir,
+            &id,
+            parent.as_deref(),
+            &format!("Prompt number {i} from the person"),
+            &format!("Reply {i}:\n{long_reply}"),
+            None,
+            times[i - 1],
+        );
+    }
+
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(&mut rt, "long synthetic turns listed", |s| {
+        s.recent.iter().any(|r| r.id == "m_rail_5")
+    });
+    click(&mut rt, "recent-m_rail_5");
+    pump(&mut rt, "long synthetic conversation loaded", |s| {
+        s.ledger
+            .as_ref()
+            .is_some_and(|p| p.snapshot.tip == "m_rail_5" && !p.loading)
+    });
+    settle(&mut rt);
+
+    // Narrow thread with sidebar open (1100px window, 888px column): no room for the rail.
+    assert!(rt.find("prompt-rail").is_none(), "prompt rail should withhold when room < 18");
+
+    // Collapsing the sidebar gives the thread room, so the prompt rail appears with 5 marks.
+    rt.update(|s, _| s.layout_pref = "compact".into());
+    settle(&mut rt);
+    assert!(rt.find("prompt-rail").is_some(), "prompt rail should appear");
+    for i in 0..5 {
+        assert!(
+            rt.find(&format!("prompt-rail-mark-{i}")).is_some(),
+            "mark {i} should appear"
+        );
+    }
+
+    // Time markers appear for the 5-minute gap and the next-day turn.
+    let all_text: Vec<String> = rt
+        .elements()
+        .into_iter()
+        .filter_map(|e| e.text)
+        .collect();
+    assert!(
+        all_text.iter().any(|t| t.contains("waited 5 min")),
+        "expected quiet gap time marker in {all_text:?}"
+    );
+    assert!(
+        all_text.iter().any(|t| t.contains("Oct 3") && t.contains("1d")),
+        "expected next-day time marker in {all_text:?}"
+    );
+
+    // Pressing the first mark brings the first user message into view.
+    click(&mut rt, "prompt-rail-mark-0");
+    let conv_id = rt
+        .state
+        .ledger
+        .as_ref()
+        .and_then(|p| p.conversation.conversation_id.as_deref())
+        .unwrap()
+        .to_owned();
+    let ([_, vy, _, vh], _) = rt.presented("messages").expect("messages viewport");
+    let ([_, by, _, _], _) = rt
+        .presented(&format!("{conv_id}/ledger-item-0"))
+        .expect("first user bubble");
+    assert!(
+        by >= vy - 1.0 && by < vy + vh,
+        "first user bubble (y={by}) should be inside viewport ({vy}..{})",
+        vy + vh
+    );
+}
+
+#[test]
+fn scrolling_up_shows_way_down_working_says_so_and_pressing_returns_to_bottom() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+    let ledger_dir = dirs.0.join("electron/mission-ledger");
+    let work = dirs.0.join("work");
+    let mut owners = serde_json::Map::new();
+    for i in 1..=4 {
+        owners.insert(format!("m_way_{i}"), json!("tm_codec"));
+    }
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_codec",
+                    "name": "Codec",
+                    "role": "Code & Migrations",
+                    "hue": "teal",
+                    "createdAt": "2026-10-02T09:00:00.000Z",
+                    "folder": work.to_string_lossy(),
+                }],
+                "missionOwners": Value::Object(owners),
+                "settings": {}
+            }),
+        )
+        .unwrap();
+
+    let long_reply = (1..=20)
+        .map(|n| format!("Line {n} of the synthetic reply so the thread overflows the viewport."))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for i in 1..=4 {
+        let id = format!("m_way_{i}");
+        let parent = (i > 1).then(|| format!("m_way_{}", i - 1));
+        write_synthetic_turn(
+            &ledger_dir,
+            &id,
+            parent.as_deref(),
+            &format!("Way down prompt {i}"),
+            &format!("Way down reply {i}:\n{long_reply}"),
+            None,
+            &format!("2026-10-02T09:0{i}:00.000Z"),
+        );
+    }
+
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(&mut rt, "way down turns listed", |s| {
+        s.recent.iter().any(|r| r.id == "m_way_4")
+    });
+    click(&mut rt, "recent-m_way_4");
+    pump(&mut rt, "way down conversation loaded", |s| {
+        s.ledger
+            .as_ref()
+            .is_some_and(|p| p.snapshot.tip == "m_way_4" && !p.loading)
+    });
+    settle(&mut rt);
+
+    // At the bottom, the way down is absent.
+    assert!(rt.find("jump-to-bottom").is_none());
+
+    // Scroll to top: the way down appears with the idle chevron.
+    rt.update(|_, tx| tx.scroll_to_instant("messages", 0.0, 0.0));
+    settle(&mut rt);
+    assert!(rt.find("jump-to-bottom").is_some(), "way down should appear when scrolled up");
+    assert!(rt.find("jump-to-bottom-chevron").is_some());
+    assert!(rt.find("jump-to-bottom-dots").is_none());
+
+    // While a run is working, the way down wears the thinking dots and says so.
+    rt.update(|s, _| {
+        if let Some(pane) = &mut s.ledger {
+            pane.snapshot.running = true;
+        }
+    });
+    settle(&mut rt);
+    assert!(rt.find("jump-to-bottom-dots").is_some());
+    assert!(rt.find("jump-to-bottom-chevron").is_none());
+    let has_working_label = rt.elements().into_iter().any(|e| {
+        e.key.as_deref() == Some("jump-to-bottom")
+            && e.label.as_deref() == Some("Still working. Go to the newest message")
+    });
+    assert!(has_working_label, "jump-to-bottom should carry working label");
+
+    // Pressing the way down returns to the bottom and hides the pill.
+    click(&mut rt, "jump-to-bottom");
+    assert!(rt.find("jump-to-bottom").is_none(), "way down should hide at bottom");
+}

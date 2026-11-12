@@ -90,6 +90,12 @@ use activity_drawers::*;
 #[path = "ui/messages.rs"]
 mod messages;
 use messages::*;
+#[path = "ui/prompt_rail.rs"]
+mod prompt_rail;
+#[path = "ui/jump_to_bottom.rs"]
+mod jump_to_bottom;
+#[path = "ui/time_marker.rs"]
+mod time_marker;
 #[path = "ui/conversation_list.rs"]
 mod conversation_list;
 #[path = "ui/conversation_search.rs"]
@@ -273,6 +279,8 @@ fn leave_ledger(s: &mut State) {
         detach(s);
     }
     s.ledger = None;
+    s.thread_away = false;
+    s.prompt_rail.reset();
 }
 
 fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
@@ -1121,6 +1129,8 @@ fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
     s.picks.remove(&id);
     s.model_menu = None;
     s.ledger = None;
+    s.thread_away = false;
+    s.prompt_rail.reset();
     s.selected = index;
     s.conversations.insert(
         id.clone(),
@@ -1149,6 +1159,8 @@ fn fresh_conversation(s: &mut State) {
     s.picks.remove(LEDGER_TARGET);
     s.model_menu = None;
     s.ledger = None;
+    s.thread_away = false;
+    s.prompt_rail.reset();
     let target_id = match ledger_owner.as_deref() {
         Some(LEDGER_TARGET) => s.teammates.get(s.selected).map(|t| t.id.clone()),
         Some(id) => Some(id.to_owned()),
@@ -1281,6 +1293,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         s.find_pieces = find_pieces_now(s);
         refresh_find_hits(s);
         s.find_index = thread_find::step_hit(s.find_index, s.find_hits.len(), event.mods.shift);
+        return true;
+    }
+    if prompt_rail::handle_key(s, event, tx) {
         return true;
     }
     if event.mods.shift || event.mods.alt {
@@ -1517,6 +1532,7 @@ fn open_pressed_notification(s: &mut State, tx: &mut Tx) -> bool {
 }
 
 fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
+    s.prompt_rail.tick(std::time::Instant::now());
     if s.demo {
         return false;
     }
@@ -1851,6 +1867,8 @@ fn on_close(s: &mut State, _: &mut Tx) {
     s.flight = None;
     detach(s);
     s.ledger = None;
+    s.thread_away = false;
+    s.prompt_rail.reset();
     s.status.clear();
     s.status_tone = StatusTone::Muted;
     // Electron terminal-host dispose: end every tab and bang command before the window is gone.
