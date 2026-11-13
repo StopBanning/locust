@@ -55,3 +55,16 @@
 - **`resolvedRouteId` format**: Recorded `"{runtime}:{model}-account:{id|default}"` on `mission.created` and every `mission.event` (`ledger_write.rs` + `native.rs`), matching Electron's `-account:<id>` convention so `usage_ledger`, `prior_of`, and `terminal_panel` read account provenance directly without duplicating metadata logic.
 - **Test isolation for shared `agent_accounts_card` global**: Added `agent_accounts_card::test_guard()` (`Mutex` + `Drop` cleanup) and explicit array format (`[{"id","runtime","name","state"}]`) in UI/window tests so parallel test execution does not leak global account registries or policy state across tests.
 - **PARITY row 63 marked `done` (`live=no`)**: All UI, engine, Compare, usage, terminal, and policy paths for named accounts and explicit selection are implemented and verified with fake CLIs/headless windows; the sole omitted test case (`claude-background`) belongs to row 128 (`Claude Code remote control and background access`), and no live run against real `claude`/`codex` binaries was executed in this task.
+
+## Review (13 Nov)
+
+The scripted review passed: 1,295 tests, no warnings, and the three window tests alone and together three times.
+Checked by hand:
+- no account means the launch is exactly as it was;
+- an account run's environment is applied after the runtime builds its command, so nothing sets the person's keys
+  again;
+- an account of another agent, or a removed one, refuses with words and never falls back to this computer's sign-in;
+- the picker and the people panel read no files while drawing.
+
+Nothing to fix. One note for later: `resolvedRouteId` is written as `<runtime>:<model>-account:<id|default>`. That is
+only read by this app, and `account_from_route` ignores `default`, so it is harmless.
