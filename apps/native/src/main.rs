@@ -47,6 +47,8 @@ mod recovery_card;
 mod reference_chips;
 #[path = "ui/attention_watch.rs"]
 mod attention_watch;
+#[path = "ui/pull_request_chip.rs"]
+mod pull_request_chip;
 #[path = "ui/rail.rs"]
 mod rail;
 mod notify;
@@ -1623,6 +1625,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
     changed |= commit_panel::poll(s);
+    changed |= pull_request_chip::poll(s, tx);
     changed |= terminal_panel::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback

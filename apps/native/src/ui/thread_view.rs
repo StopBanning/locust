@@ -135,6 +135,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         let actions = row()
             .gap(4.0)
             .center_y()
+            .child(pull_request_chip::control(s, p))
             .child(commit_panel::control(s, p))
             .child(changes_panel::controls(s, p))
             .child(terminal_panel::runtime_controls(s, p))
@@ -605,6 +606,10 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     .w_full()
                     .wrap(),
             );
+        }
+
+        if let Some(banner) = pull_request_chip::news_banner(s, p) {
+            composer_stack = composer_stack.child(banner);
         }
 
         // Attachment chips (path labels; PDF page tiles are not drawn — see M4B-NOTES).
