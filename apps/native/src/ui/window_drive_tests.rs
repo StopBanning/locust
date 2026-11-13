@@ -3295,7 +3295,9 @@ fn the_remote_control_switch_runs_the_server_and_shows_claudes_own_words() {
     assert!(off.contains("Let me start sessions on this computer from claude.ai") && off.contains("Off. When on, you can start Claude Code sessions") && off.contains("It needs your claude.ai sign-in; API keys do not work."), "{off}");
     assert!(rt.find("remote-control-output").is_none());
 
-    click(&mut rt, "remote-control-switch");
+    // Through the switch's own handler: other cards on this page (another test's stand-ins) can push it out of view.
+    assert!(rt.find("remote-control-switch").is_some());
+    rt.update(|s, _| crate::remote_control_card::toggle(s));
     pump(&mut rt, "the server running", |s| s.remote_control.as_ref().is_some_and(|r| r.phase == locust_core::remote_control::Phase::Running));
     let running_events = events.lock().unwrap().clone().unwrap();
     running_events.output(Stream::Stdout, b"  https://claude.ai/code/session_fake\r\n");

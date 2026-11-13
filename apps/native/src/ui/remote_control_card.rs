@@ -50,7 +50,7 @@ pub(super) fn poll(s: &mut State) -> bool {
     true
 }
 
-fn toggle(s: &mut State) {
+pub(super) fn toggle(s: &mut State) {
     let Some(service) = service(s) else { return };
     let Some(state) = &s.remote_control else { return };
     if state.phase == Phase::Stopping || managed() {
