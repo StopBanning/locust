@@ -73,6 +73,7 @@ pub(super) fn open_home(s: &mut State) {
     sync_board_asks(s);
     refresh_away(s);
     refresh_changelog(s);
+    crate::usage_line::request(s);
 }
 
 pub(super) fn open_board(s: &mut State) {
@@ -650,6 +651,9 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             crate::people_panel::open(s);
             s.home.home_open = false;
         });
+        if let Some(usage) = crate::usage_line::line(s, &l) {
+            body = body.child(usage);
+        }
         body = body.child(section_head(&l, YOUR_TEAM, Some(s.teammates.len()), Some(add)));
         // HomeTeam.tsx's cards: a square for the face (faces come in C4), the name, the role, the agent and model.
         let mut grid = row().w_full().gap(10.0).flex_wrap();

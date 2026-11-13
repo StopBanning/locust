@@ -3883,3 +3883,26 @@ fn a_codex_question_is_answered_by_id_and_label_not_approved() {
         s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.snapshot.running && p.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if text == "Using SQLite, keeping the migration names.")))
     });
 }
+
+/// UsageLine (0.714): nothing on a new person's Home; after a turn, one line with the month's facts, a bar a day and
+/// Details, which opens the usage dialog. The ledgers are read off the window's thread.
+#[test]
+fn home_shows_the_months_usage_once_there_is_something_to_count() {
+    let (_dirs, store, mut rt) = window();
+    rt.update(|s, _| crate::home_panel::open_home(s));
+    pump(&mut rt, "the first usage read", |s| !s.usage_line_job.is_pending());
+    settle(&mut rt);
+    assert!(rt.find("usage-line").is_none(), "a new person's Home is unchanged");
+
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    rt.update(|s, _| s.home.home_open = false);
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    rt.update(|s, _| crate::home_panel::open_home(s));
+    pump(&mut rt, "the usage read after a turn", |s| s.usage_line.as_ref().is_some_and(|u| u.turns > 0));
+    settle(&mut rt);
+    let line = text_in(&rt, "usage-line").join(" | ");
+    assert!(line.contains("Usage") && line.contains("last 30 days") && line.contains("1 turn") && line.contains("Details"), "{line}");
+    click(&mut rt, "usage-line-open");
+    assert!(rt.state.usage_panel.open);
+}

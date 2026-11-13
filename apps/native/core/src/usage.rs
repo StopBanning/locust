@@ -474,6 +474,23 @@ pub fn usage_line_facts(summary: &UsageSummary) -> String {
     parts.join(" · ")
 }
 
+/// One day's bar on Home's usage line (usageView.ts sparkBars): the busiest day full height, a quiet day flat, any
+/// day with turns at least a sixth tall so it reads as a day with turns.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SparkBar {
+    pub date: String,
+    pub turns: u64,
+    pub today: bool,
+    pub height: f64,
+}
+
+pub fn spark_bars(days: &[UsageDay], today: &str) -> Vec<SparkBar> {
+    let most = days.iter().map(|d| d.turns).max().unwrap_or(0).max(1) as f64;
+    days.iter()
+        .map(|d| SparkBar { date: d.date.clone(), turns: d.turns, today: d.date == today, height: if d.turns == 0 { 0.0 } else { (d.turns as f64 / most).max(0.16) } })
+        .collect()
+}
+
 pub fn heat_level(turns: u64, busiest: u64) -> u8 {
     if turns == 0 || busiest == 0 {
         return 0;
@@ -767,6 +784,16 @@ mod tests {
     }
 
     #[test]
+    // usage-is-drawn.test.tsx: a bar a day, the busiest full height, a quiet day flat, today marked.
+    #[test]
+    fn a_bar_a_day_the_busiest_full_height_a_quiet_day_flat_today_marked() {
+        let day = |date: &str, turns: u64| UsageDay { date: date.into(), turns, tokens: 0 };
+        let bars = spark_bars(&[day("2026-11-11", 10), day("2026-11-12", 0), day("2026-11-13", 1)], "2026-11-13");
+        assert_eq!(bars.iter().map(|b| b.height).collect::<Vec<_>>(), vec![1.0, 0.0, 0.16]);
+        assert_eq!(bars.iter().map(|b| b.today).collect::<Vec<_>>(), vec![false, false, true]);
+        assert!(spark_bars(&[day("2026-11-13", 0)], "2026-11-13")[0].height == 0.0);
+    }
+
     fn heat_and_compact_words() {
         assert_eq!(heat_level(0, 10), 0);
         assert_eq!(heat_level(9, 10), 4);

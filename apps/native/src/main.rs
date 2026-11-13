@@ -175,6 +175,8 @@ mod agent_accounts_card;
 mod published_cards;
 #[path = "ui/question_card.rs"]
 mod question_card;
+#[path = "ui/usage_line.rs"]
+mod usage_line;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -1766,6 +1768,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= link_open::poll(s);
     changed |= remote_control_card::poll(s);
     changed |= agent_accounts_card::poll(s);
+    changed |= usage_line::poll(s);
     changed |= connectors_section::poll(s);
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);

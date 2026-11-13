@@ -152,6 +152,9 @@ pub(super) struct State {
     pub(super) opened_links: Vec<String>,
     /// What the person has chosen and typed on a question card.
     pub(super) question_answers: crate::question_card::Answers,
+    /// Home's usage line: the last 30 days, read when Home opens.
+    pub(super) usage_line: Option<locust_core::usage::UsageSummary>,
+    pub(super) usage_line_job: Latest<Option<locust_core::usage::UsageSummary>>,
     pub(super) diff_notes: crate::diff_notes_ui::Notes,
     pub(super) issues: crate::issue_list::Picker,
     pub(super) issues_job: Latest<crate::issue_list::Answer>,
@@ -392,6 +395,8 @@ impl Default for State {
             link_refusal: None,
             opened_links: Vec::new(),
             question_answers: Default::default(),
+            usage_line: None,
+            usage_line_job: Latest::default(),
             diff_notes: Default::default(),
             issues: Default::default(),
             issues_job: Latest::default(),
