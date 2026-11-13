@@ -54,6 +54,8 @@ mod notify;
 mod keyboard_sheet;
 #[path = "ui/save_record.rs"]
 mod save_record;
+#[path = "ui/agents_section.rs"]
+mod agents_section;
 #[path = "ui/import_dialog.rs"]
 mod import_dialog;
 mod keyboard_shortcuts;
@@ -581,6 +583,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.recents.set_waker(waker.clone());
     s.opening.set_waker(waker.clone());
     s.model_job.set_waker(waker.clone());
+    s.settings_panel.agents_job.set_waker(waker.clone());
     s.files_job.set_waker(waker.clone());
     s.stopping.set_waker(waker.clone());
     s.import_dialog.list_job.set_waker(waker.clone());
@@ -1571,6 +1574,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         changed = true;
     }
     changed |= reference_chips::poll(s);
+    changed |= agents_section::poll(s);
     changed |= attention_watch::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);
@@ -2572,6 +2576,8 @@ fn main() {
             ("rail-flyout", rail::flyout_scene),
             ("rail-flyout-light", rail::flyout_light_scene),
             ("settings-sidebar", rail::sidebar_setting_scene),
+            ("settings-agents", agents_section::scene),
+            ("settings-agents-light", agents_section::light_scene),
             ("home-light", home_panel::home_light_scene),
             ("board", home_panel::board_scene),
             ("board-light", home_panel::board_light_scene),

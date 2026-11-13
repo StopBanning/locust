@@ -103,7 +103,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Own OpenAI-compatible API/local models, pricing and chat-only capability | `renderer/src/components/OwnModels.tsx`, `main/own-models.ts`, `main/listed-prices.ts` | **missing** | - | no | yes |
 | Automatic carry-on policy | `main/carry-on.ts`, `shared/carry-on.ts` | **done** | yes | no | yes |
 | Named Codex/Claude accounts and explicit account selection | `renderer/src/components/AgentAccountsSettings.tsx`, `main/agent-accounts.ts` | **missing** | - | no | yes |
-| Agent discovery (including Gemini), install, sign-in, updates and capability reporting | `renderer/src/components/SignInButton.tsx`, `main/runtime-discovery.ts`, `main/runtime-installer.ts`, `main/runtime-setup.ts`, `main/runtime-sign-in.ts`, `main/runtime-updates.ts`, `shared/runtimes.ts` | **missing** | - | no | yes |
+| Agent discovery (including Gemini), install, sign-in, updates and capability reporting | `renderer/src/components/SignInButton.tsx`, `main/runtime-discovery.ts`, `main/runtime-installer.ts`, `main/runtime-setup.ts`, `main/runtime-sign-in.ts`, `main/runtime-updates.ts`, `shared/runtimes.ts` | **partial** — `core/src/agents.rs`: discovery of nine agents (version, help features, sign-in check, credentials file presence, Antigravity through agy), each check bounded at 10 s, held to 72 Electron discovery decisions over real help texts; the AI agents screen's tags and words held to 396 Electron answers; `src/ui/agents_section.rs` lists them usable first with the install or sign-in line and Copy (`--agents` prints the same). Install, Sign in and Update buttons, and capability reporting, remain (notes/AGENTS-NOTES.md) | yes | no | yes |
 | Cross-runtime handoff briefing and omission choices | `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **partial** — Electron's brief and checkpoint, matched on generated cases; no omission UI | yes | no | yes |
 
 ### Area 5: Approvals & Permissions
@@ -281,7 +281,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 1 | Conversations & Thread Rendering | 12 | 9 | 4 | 25 | 21 | 3 |
 | 2 | Composer & Input | 10 | 2 | 2 | 14 | 12 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
-| 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 5 |
+| 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 1 | 3 | 9 | 13 | 4 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **42** | **47** | **64** | **153** | **89** | **15** |
+| | **TOTAL** | **42** | **48** | **63** | **153** | **90** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

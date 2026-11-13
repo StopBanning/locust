@@ -24,6 +24,9 @@ pub(super) struct Panel {
     /// "When an agent cannot go on": the person's pick, and the agents that can carry work on here.
     pub plan_runs_out: Option<locust_core::carry_on::PlanRunsOut>,
     pub carry_choices: Vec<String>,
+    /// "AI agents & accounts": what discovery found (None until the first check lands), and the check itself.
+    pub agents: Option<Vec<locust_core::agents::Found>>,
+    pub agents_job: Latest<Vec<locust_core::agents::Found>>,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -78,6 +81,7 @@ fn reload(s: &mut State) {
             s.settings_panel.theme = ThemeChoice::from_appearance(s.appearance);
         }
     }
+    crate::agents_section::request(s);
 }
 
 fn persist(s: &mut State) {
@@ -453,6 +457,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == "When an agent cannot go on" {
                     body = body.child(plan_runs_out_section(s, p));
+                } else if heading == crate::agents_section::HEADING {
+                    body = body.child(crate::agents_section::section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }

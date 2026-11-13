@@ -1168,3 +1168,54 @@ fn import_dialog_lists_synthetic_session_imports_it_and_opens_the_conversation()
         Some(shop_s.as_str())
     );
 }
+
+#[test]
+fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
+    use locust_core::agents::{Auth, Found, Probe};
+    let (_dirs, _store, mut rt) = window();
+    let agent = |id: &str, name: &str, installed: bool, auth: Auth, status: Probe| Found {
+        id: id.into(),
+        display_name: name.into(),
+        installed,
+        version: installed.then(|| "1.2.3".to_string()),
+        auth,
+        ready: status == Probe::Ready,
+        status,
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    };
+    // Made-up discovery results (the test never runs a real agent), in an order the page must not keep.
+    let found = vec![
+        agent("gemini", "Gemini CLI", true, Auth::Authenticated, Probe::Ready),
+        agent("opencode", "OpenCode", false, Auth::NotApplicable, Probe::Missing),
+        agent("claude", "Claude Code", true, Auth::Unauthenticated, Probe::AuthRequired),
+        agent("codex", "Codex CLI", true, Auth::Authenticated, Probe::Ready),
+    ];
+    rt.update(move |s, _| {
+        s.settings_panel.open = true;
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
+        s.settings_panel.agents = Some(found);
+    });
+    settle(&mut rt);
+    let words = text_in(&rt, "agents-section").join("\n");
+    assert!(words.contains("AI agents & accounts") && words.contains("Each AI agent starts with this Mac's sign-in."), "{words}");
+    // Usable first, then signed out, then not installed, then planned (Electron's RUNTIME_BAND).
+    let at = |needle: &str| words.find(needle).unwrap_or_else(|| panic!("{needle} missing:\n{words}"));
+    assert!(at("Codex CLI") < at("Claude Code") && at("Claude Code") < at("OpenCode") && at("OpenCode") < at("Gemini CLI"), "{words}");
+    // A ready row says nothing more; the others say what to do, with the line to copy.
+    assert!(!words.contains("Signed in on this machine"), "said once, in the lede");
+    assert!(words.contains("Installed, but Claude Code is not signed in."), "{words}");
+    assert!(words.contains("claude") && rt.find("agents-copy-sign-in-claude").is_some(), "the sign-in line, with Copy");
+    assert!(words.contains("npm install -g opencode-ai") && rt.find("agents-copy-install-opencode").is_some(), "the install line, with Copy");
+    // No Install button here yet, so the sentence says to run the line, not to press a button that is not there.
+    assert!(words.contains("OpenCode was not found on this machine. Run the line below.") && !words.contains("Press Install"), "{words}");
+    assert!(words.contains("Not built yet. Shown so the roadmap is visible, not because it works."), "{words}");
+    for tag in ["READY", "SIGN IN", "NOT INSTALLED", "PLANNED"] {
+        assert!(words.contains(tag), "{tag} missing:\n{words}");
+    }
+    // While nothing has been found yet, the page says it is checking.
+    rt.update(|s, _| s.settings_panel.agents = None);
+    settle(&mut rt);
+    assert!(text_in(&rt, "agents-section").join(" ").contains("Checking each AI agent on this Mac"));
+}
