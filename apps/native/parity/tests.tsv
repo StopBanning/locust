@@ -1200,7 +1200,7 @@ apps/relay/test/a-wrong-password-does-not-cost-the-room.test.ts		does-not-apply	
 apps/relay/test/an-app-signs-in-on-the-computer.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
 apps/relay/test/github-sign-in-checks-its-state.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
 apps/relay/test/scouts-away-look-leaves-letters.test.ts		does-not-apply		the relay stays a Cloudflare Worker in TypeScript
-packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts		waiting		
+packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts	ACP	partial	core/src/acp_agent_tests.rs	8 of 10: setup starts nothing, teammate by flag or option, reply and a second prompt, cancel, an approval left in Locust, concurrent prompts, files and MCP programs and unknown sessions, malformed JSON and hidden turns; real stdio checked by hand. The two cases about an editor answering a permission are Electron's opt-in, not offered here
 packages/cli/test/the-command-talks-only-to-locust.test.ts		waiting		
 packages/mission-store/src/a-busy-file-does-not-end-a-run.test.ts		waiting		
 packages/mission-store/src/deleting-is-reversible.test.ts	TRASH-INSPECTOR	carried	core/src/trash.rs, core/src/inspector.rs tests	carried (Hydrogen; reviewed 13 Nov)
