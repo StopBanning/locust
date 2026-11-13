@@ -364,7 +364,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
 }
 
 /// Electron's agoLabel: "just now", "5 minutes ago", "1 week ago".
-fn ago_label(iso: &str) -> Option<String> {
+pub(super) fn ago_label(iso: &str) -> Option<String> {
     let at = chrono::DateTime::parse_from_rfc3339(iso).ok()?;
     let seconds = (chrono::Utc::now() - at.with_timezone(&chrono::Utc)).num_seconds();
     if seconds < 60 {

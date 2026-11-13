@@ -54,7 +54,7 @@ fn name_of(s: &State, teammate_id: &str) -> String {
 }
 
 /// A run is live in this copy: its teammate owns a running turn.
-fn busy(s: &State, teammate_id: &str) -> bool {
+pub(super) fn busy(s: &State, teammate_id: &str) -> bool {
     let Some(store) = &s.data else { return false };
     locust_core::engine_api::api()
         .running()

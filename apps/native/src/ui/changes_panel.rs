@@ -32,9 +32,11 @@ pub(super) fn controls(s: &State, p: &Palette) -> El {
     let l = crate::look::controls::Look::new(p.dark);
     let mut out = row().gap(2.0);
     if let Some(folder) = root(s) {
-        if s.changes_repo
-            .as_ref()
-            .is_some_and(|(p, yes)| p == &folder && *yes)
+        // A teammate on its own branch has Review changes instead (Electron's header).
+        if !crate::review_changes::applies(s)
+            && s.changes_repo
+                .as_ref()
+                .is_some_and(|(p, yes)| p == &folder && *yes)
         {
             out = out.child(
                 crate::look::controls::head_icon(&crate::look::icons::DIFF, "Changes", "Changes in this folder")
@@ -129,7 +131,7 @@ pub(super) fn poll(s: &mut State) -> bool {
     changed
 }
 
-fn line_count_marks(added: usize, removed: usize, p: &Palette) -> El {
+pub(super) fn line_count_marks(added: usize, removed: usize, p: &Palette) -> El {
     if added > 0 && removed == 0 {
         return text(changes::line_counts(added, 0)).color(p.green);
     }
@@ -146,7 +148,7 @@ fn line_count_marks(added: usize, removed: usize, p: &Palette) -> El {
     }
     row()
 }
-fn code_row(
+pub(super) fn code_row(
     r: &changes::Row,
     line: &str,
     offset: usize,

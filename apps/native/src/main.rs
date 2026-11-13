@@ -147,6 +147,8 @@ mod changelog;
 mod changes_panel;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
+#[path = "ui/review_changes.rs"]
+mod review_changes;
 #[path = "ui/side_chat.rs"]
 mod side_chat;
 mod diagram;
@@ -620,6 +622,7 @@ fn load_team(s: &mut State) {
 
 fn setup(s: &mut State, waker: Waker) {
     s.changes_job.set_waker(waker.clone());
+    s.review_job.set_waker(waker.clone());
     s.commit_read_job.set_waker(waker.clone());
     s.commit_job.set_waker(waker.clone());
     s.commit_draft_job.set_waker(waker.clone());
@@ -1638,6 +1641,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= pull_request_chip::poll(s, tx);
     changed |= terminal_panel::poll(s);
     changed |= side_chat::poll(s);
+    changed |= review_changes::poll(s, tx);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -2086,6 +2090,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     if let Some(side) = side_chat::panel(s, &p) {
         right = right.child(side);
+    }
+    if let Some(review) = review_changes::panel(s, &p) {
+        right = right.child(review);
     }
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);

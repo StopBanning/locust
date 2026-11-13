@@ -1498,3 +1498,120 @@ fn selecting_text_in_a_reply_asks_on_the_side_and_keeps_main_ledger_unchanged() 
     let recent = native::list_recent(20, true).unwrap();
     assert!(recent.summaries.iter().all(|m| m.mission_id != side_id));
 }
+
+/// A project with Codec on its own branch and two turns saved there (cart.py changed, notes.md added).
+fn own_branch_with_two_turns(dirs: &Dirs, store: &Store) -> (PathBuf, PathBuf) {
+    use locust_core::worktrees::{CheckpointMessage, Manager};
+    let work = dirs.0.join("work");
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git").args(args).current_dir(&work).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "person@locust.test"]); // made-up person; public-guard: allow
+    git(&["config", "user.name", "The person"]);
+    std::fs::write(work.join("cart.py"), "def total(items):\n    return 0\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+    store
+        .save_json("teammates.json", &serde_json::json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec",
+            "hue": "lime", "role": "Code & Migrations", "createdAt": "2026-11-01T00:00:00.000Z", "route": {"runtime": "codex", "mode": "accept-edits"},
+            "folder": work.to_string_lossy(), "worktree": true}],
+            "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    let manager = Manager::new(&work);
+    let tree = manager.ensure("tm_codec", "Codec", None).unwrap();
+    let turn = |subject: &str| CheckpointMessage {
+        subject: subject.into(),
+        body: None,
+        trailers: vec![("Locust-Route".into(), "codex / synthetic-model".into())],
+        author_name: "Codec".into(),
+        author_email: "tm_codec@teammates.locust".into(), // made-up teammate author; public-guard: allow
+    };
+    std::fs::write(tree.join("cart.py"), "def total(items):\n    return sum(items)\n").unwrap();
+    manager.checkpoint("tm_codec", &turn("Fix the cart total")).unwrap();
+    std::fs::write(tree.join("notes.md"), "summed items\n").unwrap();
+    manager.checkpoint("tm_codec", &turn("Write down why")).unwrap();
+    (work, tree)
+}
+
+#[test]
+fn review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let (work, _tree) = own_branch_with_two_turns(&dirs, &store);
+    // A conversation on screen, so the thread has its header (a turn that changes nothing saves nothing).
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the reply", answered);
+    settle(&mut rt);
+    click(&mut rt, "review-changes-open");
+    pump(&mut rt, "the branch read", |s| s.review.as_ref().is_some_and(|r| r.review.is_some() && r.preview.is_some()));
+    settle(&mut rt);
+    let panel = text_in(&rt, "review-changes").join(" | ");
+    assert!(panel.contains("Review Codec's changes"), "{panel}");
+    assert!(panel.contains("locust/codec against main"), "{panel}");
+    assert!(panel.contains("2 turns saved on locust/codec since it left main. Nothing here is in your branch until you land it."), "{panel}");
+    assert!(panel.contains("The whole change") && panel.contains("Fix the cart total") && panel.contains("Write down why"), "{panel}");
+    assert!(panel.contains("Land on main") && panel.contains("2 files as one commit"), "{panel}");
+
+    // One turn, on its own.
+    click(&mut rt, "review-turn-1");
+    pump(&mut rt, "the first turn's diff", |s| s.review.as_ref().is_some_and(|r| r.turn_text.is_some()));
+    let turn = rt.state.review.as_ref().unwrap().turn_text.clone().unwrap().1;
+    assert!(turn.contains("cart.py") && !turn.contains("notes.md"), "{turn}");
+
+    // Land it: the draft, then one commit of the person's, and the branch starts from it.
+    click(&mut rt, "review-land-start");
+    let draft = rt.state.review.as_ref().unwrap().message.text.clone();
+    assert_eq!(draft, "Fix the cart total\n\n- Fix the cart total\n- Write down why\n\nLocust-Teammate: Codec\nLocust-Route: codex / synthetic-model");
+    let card = text_in(&rt, "review-land").join(" | ");
+    assert!(card.contains("The commit on main") && card.contains("2 files, one commit made as you. Your commit hooks run; if one refuses, your checkout is left as it was."), "{card}");
+    click(&mut rt, "review-land-it");
+    pump(&mut rt, "the landing, read again", |s| s.review.as_ref().is_some_and(|r| r.note.is_some() && r.preview.is_some()));
+    let note = rt.state.review.as_ref().unwrap().note.clone().unwrap();
+    assert!(note.starts_with("Landed on main as ") && note.ends_with(": 2 files, one commit of yours. Codec's branch now starts from there."), "{note}");
+    let log = std::process::Command::new("git").args(["log", "--format=%an|%s", "main"]).current_dir(&work).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&log.stdout), "The person|Fix the cart total\nThe person|first\n");
+    settle(&mut rt);
+    let after = text_in(&rt, "review-changes").join(" | ");
+    assert!(after.contains("Nothing new on locust/codec. Each turn Codec finishes is saved there as it ends."), "{after}");
+    assert!(rt.find("review-land").is_none(), "nothing left to land");
+    click(&mut rt, "review-close");
+    assert!(rt.state.review.is_none());
+}
+
+#[test]
+fn review_changes_names_a_conflict_and_asks_the_teammate_to_resolve_it_in_its_conversation() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let (work, tree) = own_branch_with_two_turns(&dirs, &store);
+    std::fs::write(work.join("cart.py"), "def total(items):\n    return len(items)\n").unwrap();
+    let out = std::process::Command::new("git").args(["commit", "-q", "-am", "mine"]).current_dir(&work).output().unwrap();
+    assert!(out.status.success());
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the reply", answered);
+    settle(&mut rt);
+    click(&mut rt, "review-changes-open");
+    pump(&mut rt, "the branch read", |s| s.review.as_ref().is_some_and(|r| r.preview.is_some()));
+    settle(&mut rt);
+    // Codec runs in Ask, which cannot edit: the card names the conflict and says so instead of offering the ask.
+    let read_only = text_in(&rt, "review-land").join(" | ");
+    assert!(read_only.contains("cart.py was changed on main too, in the same places."), "{read_only}");
+    assert!(read_only.contains("Codec is in a mode that cannot edit files. Switch the mode to Edit, then ask Codec to resolve it."), "{read_only}");
+    assert!(rt.find("review-land-start").is_none(), "no Land button while it conflicts");
+    // With an editing mode on the message box, the ask is offered.
+    rt.update(|s, _| s.composer_mode = Some("accept-edits".into()));
+    settle(&mut rt);
+    let card = text_in(&rt, "review-land").join(" | ");
+    assert!(card.contains("Ask Codec to resolve"), "{card}");
+
+    click(&mut rt, "review-resolve");
+    pump(&mut rt, "the ask", |s| s.review.as_ref().is_some_and(|r| r.note.is_some()));
+    let note = rt.state.review.as_ref().unwrap().note.clone().unwrap();
+    assert_eq!(note, "Asked Codec to resolve cart.py. Land it when that turn ends.");
+    let sent = rt.state.flight.as_ref().and_then(|f| f.message.clone()).unwrap_or_default();
+    assert_eq!(sent, "Merging main into your branch has begun, and cart.py conflict. Resolve them: keep what both sides meant, remove every conflict marker, and change nothing else.");
+    assert!(std::fs::read_to_string(tree.join("cart.py")).unwrap().contains("<<<<<<<"), "the merge is begun on the branch");
+    assert!(!std::fs::read_to_string(work.join("cart.py")).unwrap().contains("<<<<<<<"), "the person's checkout is untouched");
+}
+

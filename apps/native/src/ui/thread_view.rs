@@ -141,6 +141,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .child(pull_request_chip::control(s, p))
             .child(commit_panel::control(s, p))
             .child(changes_panel::controls(s, p))
+            .children(review_changes::control(s, p))
             .child(terminal_panel::runtime_controls(s, p))
             .child(terminal_panel::toggle(p))
             .child(browser_panel::toggle(p));
