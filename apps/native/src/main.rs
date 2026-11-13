@@ -163,6 +163,8 @@ mod connectors_section;
 mod github_section;
 #[path = "ui/claude_app_card.rs"]
 mod claude_app_card;
+#[path = "ui/link_open.rs"]
+mod link_open;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -1741,6 +1743,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= agents_section::poll(s);
     changed |= github_section::poll(s);
     changed |= claude_app_card::poll(s);
+    changed |= link_open::poll(s);
     changed |= connectors_section::poll(s);
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
@@ -2821,6 +2824,7 @@ fn main() {
         drag_regions: true,
     })
     .on_close(on_close)
+    .on_open_url(link_open::opened)
     .on_quit(on_quit)
     .on_window(|window| { #[cfg(target_os = "macos")] browser_mac::attach(window); })
     .run();

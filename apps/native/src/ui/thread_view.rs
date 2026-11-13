@@ -859,6 +859,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         if let Some(chips) = crate::reference_chips::view(s, &l, teammate) {
             composer_stack = composer_stack.child(chips);
         }
+        if let Some(note) = crate::link_open::note(s, &l) {
+            composer_stack = composer_stack.child(note);
+        }
         if let Some(list) = crate::issue_list::view(s, p) {
             composer_stack = composer_stack.child(list);
         }

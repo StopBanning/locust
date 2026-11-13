@@ -224,7 +224,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | External CLI client for local MCP tools | `packages/cli/src/index.ts` | **partial** — native --ask covers ask/reply only; `--ask` and Quick Ask ask Electron's door when it answers, else the native window's own door, else run the turn in their own process with the native engine (`quick::reach`) | yes | no | yes |
 | Expose team as ACP agent to editors, with opt-in own-turn approval answers | `packages/cli/src/acp.ts`, `main/locust-cli-sessions.ts` | **missing** | - | no | yes |
 | One-click Claude desktop MCP connection and restart/remove | `main/claude-app-connection.ts`, `renderer/src/components/LocustMcpSettings.tsx` | **done** — `core/src/claude_app.rs` (Electron's claude-app-connection.ts: the settings file's place per platform, one entry beside the person's own settings, the original kept once as .before-locust, overlapping presses one at a time, a file it cannot read or a number it cannot keep exactly left as it is, another add-on named locust never touched, permissions kept, a link written at its target, a stale entry for another copy or moved files, restart needed only until Claude has restarted since the change, an emptied list dropped) and `src/ui/claude_app_card.rs`, Settings › App's card: Add (turns the door on first), Update, Restart Claude, Remove, hidden without the app and on a managed computer unless already added; the entry runs this program's --door-bridge | yes | no | yes |
-| Deep links prefill message/project | `main/locust-links.ts`, `shared/locust-link.ts` | **missing** | - | no | yes |
+| Deep links prefill message/project | `main/locust-links.ts`, `shared/locust-link.ts` | **done** — `core/src/locust_link.rs` (Electron's shared/locust-link.ts: locust://new?prompt= in every spelling a system hands over, nothing but the message riding along, what a person cannot see taken out, 8,000 characters at most, a link among launch arguments) and `src/ui/link_open.rs`: Rune's on_open_url opens a new conversation with the message in the box, never sent, under From a link with its Clear. The Mac bundle claims locust:// only with LOCUST_NATIVE_LINKS=1, so it never takes links from the Electron app beside it; Windows' registry claim and the one-minute inbox are Electron's host's | yes | no | yes |
 | Startup/login item, keep running/tray and keep awake | `main/login-item.ts`, `main/quit-guard.ts`, `main/keep-running.ts`, `main/keep-awake.ts`, `main/index.ts` | **partial** — `core/src/login_item.rs`, `core/src/keep_awake.rs`, `core/src/quit_guard.rs`, `src/ui/quit_guard_dialog.rs`: packaged-only login item logic behind `LoginItemHost` seam, `background.json`/`awake.json` stores, `KeepAwake` behind `PowerBlocker` seam, Quit Guard modal and Startup settings, and window test; OS `SMAppService`/`IOPMAssertion`/tray menu remain behind seams (SETTINGS-NOTES.md) | yes | no | yes |
 
 ### Area 14: Pets, Bots & Look / Window Chrome
@@ -290,10 +290,10 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
-| 13 | Onboarding, Home, Updates & CLI | 6 | 5 | 2 | 13 | 11 | 2 |
+| 13 | Onboarding, Home, Updates & CLI | 7 | 5 | 1 | 13 | 12 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **58** | **58** | **37** | **153** | **116** | **15** |
+| | **TOTAL** | **59** | **58** | **36** | **153** | **117** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

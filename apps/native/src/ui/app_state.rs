@@ -139,6 +139,8 @@ pub(super) struct State {
     pub(super) review: Option<crate::review_changes::Review>,
     pub(super) github: crate::github_section::Card,
     pub(super) claude_app: crate::claude_app_card::Card,
+    /// The box holds a message a locust:// link brought, not yet sent or cleared.
+    pub(super) from_link: bool,
     pub(super) diff_notes: crate::diff_notes_ui::Notes,
     pub(super) issues: crate::issue_list::Picker,
     pub(super) issues_job: Latest<crate::issue_list::Answer>,
@@ -370,6 +372,7 @@ impl Default for State {
             review: None,
             github: Default::default(),
             claude_app: Default::default(),
+            from_link: false,
             diff_notes: Default::default(),
             issues: Default::default(),
             issues_job: Latest::default(),

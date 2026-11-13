@@ -114,7 +114,7 @@ apps/desktop/src/main/a-kilo-follow-up-finds-its-session.test.ts		waiting
 apps/desktop/src/main/a-language-server-that-did-not-change-is-not-asked-again.test.ts		waiting		
 apps/desktop/src/main/a-large-file-in-a-plain-folder-shows-its-change.test.ts		waiting		
 apps/desktop/src/main/a-launch-from-an-agents-settings-folder-is-not-a-workspace.test.ts		waiting		
-apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts		waiting		
+apps/desktop/src/main/a-link-opens-locust-with-a-message-ready.test.ts	LINKS	partial	core/src/locust_link_tests.rs	"a link": all 4 cases carried, and the window test a_link_opens_a_new_conversation_with_its_message_ready_and_never_sends_it; the inbox (Rune keeps the launching link itself) and claiming locust:// on Windows are Electron's host's
 apps/desktop/src/main/a-linux-app-sees-the-terminals-path.test.ts	P9	does-not-apply		main/a-linux-terminal-is-the-one-the-desktop-has.test.ts, main/a-linux-app-sees-the-terminals-path.test.ts | Linux launcher/environment not applicable to macOS pass.
 apps/desktop/src/main/a-linux-copy-updates-the-way-it-was-installed.test.ts		waiting		
 apps/desktop/src/main/a-linux-terminal-is-the-one-the-desktop-has.test.ts	P9	does-not-apply		main/a-linux-terminal-is-the-one-the-desktop-has.test.ts, main/a-linux-app-sees-the-terminals-path.test.ts | Linux launcher/environment not applicable to macOS pass.

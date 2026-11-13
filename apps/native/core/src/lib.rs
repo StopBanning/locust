@@ -12,6 +12,7 @@ pub mod browser;
 pub mod browser_tools;
 pub mod carry_on;
 pub mod claude_app;
+pub mod locust_link;
 pub mod changes;
 pub mod checkpoints;
 pub mod command_guard;

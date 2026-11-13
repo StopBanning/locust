@@ -17,6 +17,12 @@ for s in 16 32 128 256 512; do
   sips -z $((s*2)) $((s*2)) "$SRC" --out "$SET/icon_${s}x${s}@2x.png" >/dev/null
 done
 iconutil -c icns "$SET" -o "$APP/Contents/Resources/icon.icns"
+# locust:// links (a message ready in the box, core/src/locust_link.rs). Only when asked: while the Electron app is
+# installed beside it, both claiming the scheme would leave which one opens a link to the system.
+URLS=""
+if [ "${LOCUST_NATIVE_LINKS:-}" = "1" ]; then
+  URLS="<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>Locust link</string><key>CFBundleURLSchemes</key><array><string>locust</string></array></dict></array>"
+fi
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -30,6 +36,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
+$URLS
 </dict></plist>
 PLIST
 codesign --force --sign - "$APP" >/dev/null 2>&1
