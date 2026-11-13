@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 
-import { ruleSentence } from '../../../shared/approval-rules.js'
+import { ruleSentence, whatIf, whatIfSentence } from '../../../shared/approval-rules.js'
 import type { PublicApprovalRule } from '../../../shared/ipc.js'
 
 /**
@@ -16,6 +16,7 @@ export function SavedApprovalRules(): ReactElement {
   const [names, setNames] = useState<Readonly<Record<string, string>>>({})
   const [problem, setProblem] = useState<string>()
   const [removing, setRemoving] = useState<string>()
+  const [tried, setTried] = useState('')
   useEffect(() => {
     const bridge = window.desktop
     if (bridge === undefined) return
@@ -89,6 +90,7 @@ export function SavedApprovalRules(): ReactElement {
           <RemoveAllRules count={rules.length} confirming={confirmingAll} removing={removingAll} onAsk={() => setConfirmingAll(true)} onConfirm={removeAll} onKeep={() => setConfirmingAll(false)} />
         </div>
       )}
+      {rules !== undefined && rules.length > 0 && <TryARule rules={rules} names={names} command={tried} onCommand={setTried} />}
     </>
   )
 }
@@ -134,6 +136,51 @@ export function RemoveAllRules({
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * WHAT WOULD HAPPEN IF (0.874): a command typed here is tried against the saved rules in every place they speak to,
+ * and each place says what a card would do and which rule decides (shared/approval-rules.ts `whatIf`). Nothing runs.
+ */
+export function TryARule({
+  rules,
+  names,
+  command,
+  onCommand
+}: {
+  readonly rules: readonly PublicApprovalRule[]
+  readonly names: Readonly<Record<string, string>>
+  readonly command: string
+  readonly onCommand: (command: string) => void
+}): ReactElement {
+  const lines = whatIf(command, rules)
+  return (
+    <div className="lc-settingcard lc-ruletry">
+      <label className="lc-settings__note" htmlFor="lc-ruletry-command">
+        What would happen if a teammate asked to run:
+      </label>
+      <input
+        id="lc-ruletry-command"
+        className="lc-input lc-mono"
+        value={command}
+        maxLength={500}
+        placeholder="npm run test -- --watch"
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(event) => onCommand(event.target.value)}
+      />
+      {lines.length > 0 && (
+        <ul className="lc-ruletry__answers" aria-live="polite">
+          {lines.map((line) => (
+            <li key={`${line.teammateId ?? ''}:${line.folder ?? ''}`} className={`lc-settings__note${line.verdict.decision === 'deny' ? ' lc-ruletry__deny' : ''}`}>
+              {whatIfSentence(line, line.teammateId === undefined ? undefined : names[line.teammateId])}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="lc-settings__note">Nothing runs here. It asks the saved rules the same question a card would.</p>
     </div>
   )
 }

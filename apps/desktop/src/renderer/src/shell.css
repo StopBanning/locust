@@ -15346,6 +15346,27 @@ textarea.lc-compare__judgecriteria {
   border-top: 1px solid var(--lc-border-hairline);
 }
 
+/* What would happen if (0.874): a command tried against the rules, each place's answer on its own line. */
+.lc-ruletry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lc-space-3);
+  margin-top: var(--lc-space-5);
+}
+
+.lc-ruletry__answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lc-ruletry__deny {
+  color: var(--lc-red-text);
+}
+
 .lc-savedrule__uses {
   color: var(--lc-text-muted);
 }
