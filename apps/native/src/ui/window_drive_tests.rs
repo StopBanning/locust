@@ -1219,6 +1219,9 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
     assert!(!words.contains("Signed in on this machine"), "said once, in the lede");
     assert!(words.contains("Installed, but Claude Code is not signed in."), "{words}");
     assert!(words.contains("claude") && rt.find("agents-copy-sign-in-claude").is_some(), "the sign-in line, with Copy");
+    // And Sign in, which opens a Terminal running the agent's own sign-in (recorded here, never opened).
+    click(&mut rt, "agents-sign-in-claude");
+    assert_eq!(rt.state.agents_signed_in, vec!["claude".to_owned()]);
     assert!(words.contains("npm install -g opencode-ai") && rt.find("agents-copy-install-opencode").is_some(), "the install line, with Copy");
     // No Install button here yet, so the sentence says to run the line, not to press a button that is not there.
     assert!(words.contains("OpenCode was not found on this machine. Run the line below.") && !words.contains("Press Install"), "{words}");

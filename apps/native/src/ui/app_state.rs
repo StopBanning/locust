@@ -159,6 +159,10 @@ pub(super) struct State {
     pub(super) stopped_by_you: Option<String>,
     pub(super) own_models: crate::own_models_card::Card,
     pub(super) own_models_job: Latest<crate::own_models_card::TestAnswer>,
+    /// Why a sign-in window could not be opened.
+    pub(super) agents_sign_in_said: Option<String>,
+    /// Sign-ins a test pressed, kept instead of opened.
+    pub(super) agents_signed_in: Vec<String>,
     pub(super) diff_notes: crate::diff_notes_ui::Notes,
     pub(super) issues: crate::issue_list::Picker,
     pub(super) issues_job: Latest<crate::issue_list::Answer>,
@@ -404,6 +408,8 @@ impl Default for State {
             stopped_by_you: None,
             own_models: Default::default(),
             own_models_job: Latest::default(),
+            agents_sign_in_said: None,
+            agents_signed_in: Vec::new(),
             diff_notes: Default::default(),
             issues: Default::default(),
             issues_job: Latest::default(),
