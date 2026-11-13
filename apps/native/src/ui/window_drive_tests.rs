@@ -1048,6 +1048,17 @@ fn a_reply_hands_over_files_and_half_written_tags_never_show_while_streaming() {
         msg_texts.contains("Not shown as a file: //server/share/bad.md -- a file is handed over by its path on this computer, and this is not one."),
         "{msg_texts}"
     );
+    // Copy and Save a copy sit beside each file (Thread.tsx's handed files). A file not written is said, nothing copied.
+    assert!(msg_texts.contains("Copy") && msg_texts.contains("Save a copy\u{2026}"), "{msg_texts}");
+    let copy_key = rt.elements().into_iter().filter_map(|e| e.key).find(|k| k.contains("handed-file-copy-")).expect("a Copy beside the file");
+    click(&mut rt, &copy_key);
+    assert!(rt.state.handed_file_refusal.as_ref().is_some_and(|(_, why)| why == "Locust could not reach that file. Nothing was changed."), "{:?}", rt.state.handed_file_refusal);
+    // Written, it copies.
+    let folder = rt.state.teammates[0].folder.clone().unwrap();
+    std::fs::create_dir_all(Path::new(&folder).join("docs")).unwrap();
+    std::fs::write(Path::new(&folder).join("docs/report.md"), "# Rollup\n").unwrap();
+    click(&mut rt, &copy_key);
+    assert_eq!(rt.state.handed_file_refusal, None);
     drop(_g);
 
     // Streaming: a half-written tag never flashes on screen and the decision card waits until finished.
