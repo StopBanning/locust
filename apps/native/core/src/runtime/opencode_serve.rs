@@ -89,6 +89,19 @@ impl Api {
                 .build(),
         }
     }
+    /// The same server, for a call that answers only when a whole turn is over.
+    fn patient(&self) -> Api {
+        Api {
+            base: self.base.clone(),
+            auth: self.auth.clone(),
+            agent: ureq::AgentBuilder::new()
+                .redirects(0)
+                .timeout_connect(Duration::from_secs(3))
+                .timeout_read(Duration::from_secs(6 * 60 * 60))
+                .timeout_write(Duration::from_secs(10))
+                .build(),
+        }
+    }
     fn request(&self, path: &str, body: Option<&Value>) -> io::Result<Value> {
         let request = self
             .agent
@@ -146,6 +159,10 @@ pub struct Serve {
     prompt_id: Option<String>,
     resumed: bool,
     fork: bool,
+    /// One of OpenCode's own commands the person typed (0.427): sent to `/session/{id}/command`, not as a message.
+    slash: Option<String>,
+    /// Why the server refused that command, when it did.
+    refused: Arc<Mutex<Option<String>>>,
     prompted: bool,
     begun: bool,
     errored: bool,
@@ -178,6 +195,8 @@ impl Serve {
             prompt_id: None,
             resumed: false,
             fork: false,
+            slash: None,
+            refused: Arc::new(Mutex::new(None)),
             prompted: false,
             begun: false,
             errored: false,
@@ -191,6 +210,10 @@ impl Serve {
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
         self.fork = fork;
+        self
+    }
+    pub fn with_command(mut self, name: Option<String>) -> Self {
+        self.slash = name;
         self
     }
     fn cancelled(&self) -> bool {
@@ -427,6 +450,27 @@ impl Serve {
         self.normal.base.thread = Some(self.session.clone());
         if self.cancelled() {
             return Err(err("OpenCode startup stopped"));
+        }
+        if let Some(name) = self.slash.clone() {
+            // Answered only when the command's turn is over, so it is not waited for here: the turn is read from the
+            // event stream like any other, and a refusal ends the run with the server's reason.
+            let mut body = json!({"command": name, "arguments": t.prompt});
+            if let Some(model) = t.model.as_deref().filter(|m| !m.is_empty()) {
+                body["model"] = json!(model);
+            }
+            if let Some(e) = &t.effort {
+                body["variant"] = json!(e);
+            }
+            self.prompted = true;
+            let (api, refused, path) = (api.patient(), self.refused.clone(), format!("/session/{}/command", encoded(&self.session)));
+            std::thread::spawn(move || {
+                if let Err(e) = api.request(&path, Some(&body)) {
+                    *crate::invariants::lock(&refused) = Some(format!("OpenCode's server refused the command ({e})."));
+                }
+            });
+            self.started = Instant::now();
+            self.last_check = Instant::now();
+            return Ok(());
         }
         let mut body = json!({"parts":[{"type":"text","text":t.prompt}]});
         if let Some((provider, model)) = t.model.as_deref().and_then(|s| s.split_once('/'))
@@ -836,10 +880,15 @@ impl Runtime for Serve {
             self.finish(Some("OpenCode output overflow"));
             return Ok(self.queued.pop_front());
         }
+        let refused = crate::invariants::lock(&self.refused).take();
+        if let Some(why) = refused {
+            self.finish(Some(&why));
+            return Ok(self.queued.pop_front());
+        }
         let result = self
             .rx
             .as_ref()
-            .ok_or_else(|| err("OpenCode event stream is unavailable"))?
+            .ok_or_else(|| err("OpenCode's event stream is unavailable"))?
             .recv_timeout(Duration::from_millis(50));
         match result {
             Ok(Ok(v)) => {

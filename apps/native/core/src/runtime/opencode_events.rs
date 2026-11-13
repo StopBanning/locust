@@ -76,6 +76,8 @@ impl ErrorFacts {
         "OpenCode reported an error and stopped, without saying what it was.".into()
     }
 }
+/// The line the thread draws for a compaction (OPENCODE_COMPACTED): never the summary or the note to the model.
+pub const COMPACTED: &str = "The conversation outgrew the model's context, so OpenCode summarized it and carried on from the summary.";
 pub struct Normalizer {
     pub base: AcpNormalizer,
     /// The record being read: its type and its sanitized copy, for each event's evidence (opencode-events.ts passes
@@ -214,7 +216,7 @@ impl Normalizer {
                         if self.overflow == 1 {
                             self.overflow = 2;
                         }
-                        out.push(self.diagnostic("info","opencode.context_compacted","The conversation outgrew the model's context, so OpenCode summarized it and carried on from the summary."));
+                        out.push(self.diagnostic("info","opencode.context_compacted",COMPACTED));
                     }
                     return out;
                 }

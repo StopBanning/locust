@@ -2664,3 +2664,284 @@ fn an_edit_is_refused_while_the_turn_it_replaces_is_running() {
     stop(&running.conversation_id).unwrap();
     finished(&running.conversation_id);
 }
+
+// ---- a runtime's own slash commands, sent as typed (0.426-0.428; a-runtime-command-is-sent-as-typed.test.ts) ---------
+// Every turn used to be wrapped in the brief, so `/compact` arrived as the last line of a long prompt and was just words.
+
+/// A Claude Code that writes every message it is sent to `claude-sent.jsonl` in its folder, and lists its commands at the
+/// start of the run, as the real one does (one of them a command that would change the person's own setup).
+fn commands_claude(t: &Temp) -> PathBuf {
+    let fake = t.0.join("claude_lists_commands.py");
+    fs::write(
+        &fake,
+        r#"import json, sys
+def send(v):
+    print(json.dumps(v), flush=True)
+line = sys.stdin.readline()
+sent = json.loads(line)["message"]["content"]
+with open("claude-sent.jsonl", "a") as log:
+    log.write(json.dumps(sent) + "\n")
+send({"type": "system", "subtype": "init", "session_id": "33b21513-a4fb-478d-ad84-21cb7ef30571", "cwd": "/tmp", "tools": ["Read"], "mcp_servers": [], "model": "synthetic-model", "permissionMode": "default", "slash_commands": ["compact"], "claude_code_version": "2.1.252", "agents": [], "skills": []})
+send({"type": "system", "subtype": "commands_changed", "commands": [
+    {"name": "compact", "description": "Clear conversation history but keep a summary", "argumentHint": "<optional custom summarization instructions>"},
+    {"name": "clear", "description": "Clear conversation history", "argumentHint": ""},
+    {"name": "model", "description": "Set the AI model", "argumentHint": "[model]"},
+    {"name": "security-review", "description": "Complete a security review of the pending changes", "argumentHint": ""}]})
+send({"type": "assistant", "message": {"id": "msg_c", "content": [{"type": "text", "text": "OK"}]}})
+send({"type": "result", "subtype": "success", "is_error": False, "result": "OK"})
+try:
+    sys.stdin.read()
+except Exception:
+    pass
+"#,
+    )
+    .unwrap();
+    fake
+}
+
+fn claude_mate(t: &Temp) -> Teammate {
+    fs::create_dir_all(t.0.join("work")).unwrap();
+    Teammate {
+        id: "tm_claude".into(),
+        name: "Claude".into(),
+        role: "Code & Migrations".into(),
+        runtime: Some("claude".into()),
+        model: Some("sonnet".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: Some(t.0.join("work").to_string_lossy().into()),
+    }
+}
+
+fn claude_job(t: &Temp, conversation: Option<&str>, prompt: &str) -> Send {
+    Send { teammate: claude_mate(t), conversation: conversation.map(str::to_owned), prompt: prompt.into(), model: None, effort: None }
+}
+
+/// What the fake runtime was sent, oldest first, from its log in the work folder.
+fn sent_log(t: &Temp, file: &str) -> Vec<Value> {
+    let path = t.0.join("work").join(file);
+    fs::read_to_string(path).map(|text| text.lines().map(|l| serde_json::from_str(l).unwrap()).collect()).unwrap_or_default()
+}
+
+fn claude_lists(store: &Store, names: &[&str]) {
+    let rows: Vec<crate::runtime_commands::CommandInfo> = names
+        .iter()
+        .map(|n| crate::runtime_commands::CommandInfo { name: (*n).into(), description: String::new(), argument_hint: String::new() })
+        .collect();
+    crate::runtime_commands::for_store(store).set("claude", &rows).unwrap();
+}
+
+/// What a briefed message looks like: a long brief before the person's words, the references line after.
+fn briefed(sent: &str, words: &str) -> bool {
+    sent != words && sent.len() > words.len() + 100 && sent.contains(&format!("\n\n{words}\n\nReference folders"))
+}
+
+#[test]
+fn a_command_the_person_typed_goes_to_the_runtime_alone_with_no_brief_and_no_plan_instruction_after_it() {
+    let t = Temp::new();
+    let store = t.store();
+    claude_lists(&store, &["compact", "clear"]);
+    let fake = commands_claude(&t);
+    let _g = hooks::install(store, Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let mate = Teammate { runs_in: "plan".into(), ..claude_mate(&t) };
+    let typed = send(Send { teammate: mate, ..claude_job(&t, None, "  /compact keep the test names  ") }).unwrap();
+    finished(&typed.conversation_id);
+    assert_eq!(sent_log(&t, "claude-sent.jsonl"), vec![json!("/compact keep the test names")]);
+    // The record keeps what the person typed, as for any message.
+    let first = &records(&path_of(&t, &typed.conversation_id))[0];
+    assert_eq!(first["metadata"]["prompt"], "  /compact keep the test names  ");
+}
+
+#[test]
+fn a_command_is_briefed_like_any_message_when_the_words_came_from_a_routine_whatever_the_words_say() {
+    let t = Temp::new();
+    let store = t.store();
+    claude_lists(&store, &["compact"]);
+    let fake = commands_claude(&t);
+    let _g = hooks::install(store, Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let origin = Origin { started_by: Some(json!({"kind": "routine", "routineId": "rt_1", "step": 1})), ..Default::default() };
+    let replayed = send_from(claude_job(&t, None, "/compact"), origin).unwrap();
+    finished(&replayed.conversation_id);
+    let sent = sent_log(&t, "claude-sent.jsonl");
+    assert!(briefed(sent[0].as_str().unwrap(), "/compact"), "{sent:?}");
+}
+
+#[test]
+fn a_command_is_briefed_like_any_message_when_the_runtime_never_listed_it() {
+    let t = Temp::new();
+    let store = t.store();
+    // Nothing listed yet (and not even Claude Code's own list on disk): `/compact` is only words.
+    let fake = commands_claude(&t);
+    let _g = hooks::install(store.clone(), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let first = send(claude_job(&t, None, "/compact")).unwrap();
+    finished(&first.conversation_id);
+    assert!(briefed(sent_log(&t, "claude-sent.jsonl")[0].as_str().unwrap(), "/compact"));
+    // And a name another runtime lists is not this runtime's command.
+    crate::runtime_commands::for_store(&store)
+        .set("opencode", &[crate::runtime_commands::CommandInfo { name: "init".into(), description: String::new(), argument_hint: String::new() }])
+        .unwrap();
+    let other = send(claude_job(&t, None, "/init")).unwrap();
+    finished(&other.conversation_id);
+    assert!(briefed(sent_log(&t, "claude-sent.jsonl")[1].as_str().unwrap(), "/init"));
+}
+
+#[test]
+fn a_command_leaves_the_next_turn_briefed_in_full_since_it_may_have_cleared_or_compacted_the_session() {
+    let t = Temp::new();
+    let store = t.store();
+    claude_lists(&store, &["clear"]);
+    let fake = commands_claude(&t);
+    let _g = hooks::install(store, Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let first = send(claude_job(&t, None, "Look around.")).unwrap();
+    finished(&first.conversation_id);
+    let command = send(claude_job(&t, Some(&first.conversation_id), "/clear")).unwrap();
+    finished(&command.conversation_id);
+    let next = send(claude_job(&t, Some(&command.conversation_id), "What next?")).unwrap();
+    finished(&next.conversation_id);
+    let sent = sent_log(&t, "claude-sent.jsonl");
+    assert!(briefed(sent[0].as_str().unwrap(), "Look around."));
+    assert_eq!(sent[1], "/clear");
+    assert!(briefed(sent[2].as_str().unwrap(), "What next?"), "{sent:?}");
+}
+
+#[test]
+fn claude_code_lists_its_commands_at_the_start_of_a_run_kept_once_outside_the_record_and_without_the_hidden_ones() {
+    let t = Temp::new();
+    let store = t.store();
+    let fake = commands_claude(&t);
+    let _g = hooks::install(store.clone(), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let run = send(claude_job(&t, None, "Look around.")).unwrap();
+    finished(&run.conversation_id);
+    let listed = crate::runtime_commands::for_store(&store).list();
+    let names: Vec<&str> = listed["claude"].iter().map(|c| c.name.as_str()).collect();
+    // `model` is the teammate's, chosen in Locust: left out of the menu, not out of what Claude Code sent.
+    assert_eq!(names, vec!["compact", "clear", "security-review"]);
+    assert_eq!(listed["claude"][0].argument_hint, "<optional custom summarization instructions>");
+    let ledger = fs::read_to_string(path_of(&t, &run.conversation_id)).unwrap();
+    assert!(!ledger.contains("security review") && !ledger.contains("Set the AI model"), "the list is not in the mission's record");
+    // The next run says the same thing: nothing changes, and a message that starts with one is a command now.
+    assert!(!crate::runtime_commands::keep_learned("claude", &crate::runtime_commands::for_store(&store).held_for_test("claude")));
+    assert!(crate::runtime_commands::for_store(&store).is_command(Some("claude"), "/security-review the auth code"));
+}
+
+/// The fake Codex app-server's requests, in order.
+fn codex_requests(t: &Temp) -> Vec<Value> {
+    sent_log(t, "commands-requests.jsonl")
+}
+fn codex_commands_hook(t: &Temp) -> Option<(PathBuf, Vec<String>)> {
+    let _ = t;
+    Some((PathBuf::from("python3"), vec![concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/commands-app-server.py").into()]))
+}
+fn methods(requests: &[Value]) -> Vec<&str> {
+    requests.iter().map(|r| r["method"].as_str().unwrap()).collect()
+}
+
+#[test]
+fn codexs_review_goes_as_its_own_request_with_what_follows_as_the_instructions_and_compact_as_its_own() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), codex_commands_hook(&t));
+    fs::create_dir_all(t.0.join("work")).unwrap();
+    let review = send(job(&t, None, "/review only the tests")).unwrap();
+    finished(&review.conversation_id);
+    let asked = codex_requests(&t);
+    assert_eq!(methods(&asked), vec!["initialize", "config/read", "thread/start", "review/start"]);
+    let started = &asked[2]["params"];
+    assert_eq!(started["model"], "synthetic-model", "neither request takes a model: the thread is started with it");
+    assert_eq!(asked[3]["params"], json!({"threadId": "thread_fake", "target": {"type": "custom", "instructions": "only the tests"}, "delivery": "inline"}));
+    // With nothing after it, the review is of the uncommitted changes.
+    let bare = send(job(&t, None, "/review")).unwrap();
+    finished(&bare.conversation_id);
+    let asked = codex_requests(&t);
+    assert_eq!(asked.last().unwrap()["params"]["target"], json!({"type": "uncommittedChanges"}));
+    // A compaction is a request of its own, never a turn.
+    let compact = send(job(&t, None, "/compact")).unwrap();
+    finished(&compact.conversation_id);
+    let asked = codex_requests(&t);
+    assert_eq!(asked.last().unwrap()["method"], "thread/compact/start");
+    assert_eq!(asked.last().unwrap()["params"], json!({"threadId": "thread_fake"}));
+    assert!(!methods(&asked).contains(&"turn/start"));
+    assert_eq!(kinds(&path_of(&t, &compact.conversation_id)).last().map(String::as_str), Some("run.completed"));
+}
+
+#[test]
+fn codexs_init_is_a_turn_carrying_locusts_words_for_it_and_a_command_it_has_no_request_for_is_briefed() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), codex_commands_hook(&t));
+    fs::create_dir_all(t.0.join("work")).unwrap();
+    let init = send(job(&t, None, "/init keep it short")).unwrap();
+    finished(&init.conversation_id);
+    let turn = codex_requests(&t).into_iter().find(|r| r["method"] == "turn/start").unwrap();
+    let text = turn["params"]["input"][0]["text"].as_str().unwrap();
+    assert_eq!(text, format!("{}\n\nkeep it short", crate::runtime_commands::CODEX_INIT_PROMPT));
+    // `/model` is Locust's own control, not a Codex command: an ordinary briefed message.
+    let model = send(job(&t, None, "/model gpt-6-luna")).unwrap();
+    finished(&model.conversation_id);
+    let turns: Vec<Value> = codex_requests(&t).into_iter().filter(|r| r["method"] == "turn/start").collect();
+    assert!(briefed(turns[1]["params"]["input"][0]["text"].as_str().unwrap(), "/model gpt-6-luna"));
+    // A routine's `/compact` is the same: words, in a turn.
+    let origin = Origin { started_by: Some(json!({"kind": "routine", "routineId": "rt_1", "step": 1})), ..Default::default() };
+    let replayed = send_from(job(&t, None, "/compact"), origin).unwrap();
+    finished(&replayed.conversation_id);
+    assert_eq!(methods(&codex_requests(&t)).iter().filter(|m| **m == "thread/compact/start").count(), 0);
+}
+
+fn opencode_mate(t: &Temp) -> Teammate {
+    fs::create_dir_all(t.0.join("work")).unwrap();
+    Teammate { runtime: Some("opencode".into()), model: Some("opencode/beam-free".into()), id: "tm_open".into(), name: "Open".into(), ..codex(t) }
+}
+
+fn opencode_hook(scenario: &str) -> Option<(PathBuf, Vec<String>)> {
+    Some((
+        PathBuf::from("python3"),
+        vec![concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/m4-opencode-serve.py").into(), "serve".into(), scenario.into()],
+    ))
+}
+
+fn opencode_job(t: &Temp, prompt: &str) -> Send {
+    Send { teammate: opencode_mate(t), conversation: None, prompt: prompt.into(), model: None, effort: None }
+}
+
+#[test]
+fn a_command_goes_to_opencode_by_name_with_only_what_follows_the_name_as_its_message() {
+    let t = Temp::new();
+    let store = t.store();
+    let rows: Vec<_> = ["init", "review"]
+        .iter()
+        .map(|n| crate::runtime_commands::CommandInfo { name: (*n).into(), description: String::new(), argument_hint: String::new() })
+        .collect();
+    crate::runtime_commands::for_store(&store).set("opencode", &rows).unwrap();
+    let _g = hooks::install(store, opencode_hook("success"));
+    let typed = send(opencode_job(&t, "/init keep it under five lines")).unwrap();
+    finished(&typed.conversation_id);
+    // With nothing after it, nothing is the message.
+    let bare = send(opencode_job(&t, "/review")).unwrap();
+    finished(&bare.conversation_id);
+    let asked = sent_log(&t, "opencode-requests.jsonl");
+    assert_eq!(asked[0], json!({"path": "command", "body": {"command": "init", "arguments": "keep it under five lines", "model": "opencode/beam-free"}}));
+    assert_eq!(asked[1]["body"]["command"], "review");
+    assert_eq!(asked[1]["body"]["arguments"], "");
+    // Not typed as a command: an ordinary briefed run, through the prompt and not the command call.
+    let origin = Origin { started_by: Some(json!({"kind": "routine", "routineId": "rt_1", "step": 1})), ..Default::default() };
+    let replayed = send_from(opencode_job(&t, "/init"), origin).unwrap();
+    finished(&replayed.conversation_id);
+    let asked = sent_log(&t, "opencode-requests.jsonl");
+    assert_eq!(asked[2]["path"], "prompt_async");
+    assert!(briefed(asked[2]["body"]["parts"][0]["text"].as_str().unwrap(), "/init"));
+}
+
+#[test]
+fn a_command_opencodes_server_refuses_ends_the_run_with_its_reason() {
+    let t = Temp::new();
+    let store = t.store();
+    crate::runtime_commands::for_store(&store)
+        .set("opencode", &[crate::runtime_commands::CommandInfo { name: "init".into(), description: String::new(), argument_hint: String::new() }])
+        .unwrap();
+    let _g = hooks::install(store, opencode_hook("command-refused"));
+    let typed = send(opencode_job(&t, "/init")).unwrap();
+    finished(&typed.conversation_id);
+    let kinds = kinds(&path_of(&t, &typed.conversation_id));
+    assert!(kinds.contains(&"run.failed".to_owned()), "{kinds:?}");
+    let ledger = fs::read_to_string(path_of(&t, &typed.conversation_id)).unwrap();
+    assert!(ledger.contains("refused the command"), "{ledger}");
+}

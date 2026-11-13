@@ -58,6 +58,10 @@ pub trait Runtime {
     fn can_steer(&self) -> bool {
         false
     }
+    /// The runtime's own slash commands, when it announced a list during the run (Claude Code, at its start).
+    fn learned_commands(&mut self) -> Option<Vec<crate::runtime_commands::CommandInfo>> {
+        None
+    }
     fn steer(&mut self, _text: &str) -> bool {
         false
     }
@@ -65,6 +69,8 @@ pub trait Runtime {
 
 #[cfg(test)]
 mod antigravity_tests;
+#[cfg(test)]
+mod compaction_tests;
 #[cfg(test)]
 mod copilot_tests;
 #[cfg(test)]

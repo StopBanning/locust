@@ -76,6 +76,8 @@ pub struct OpenCode {
     v2: bool,
     started: bool,
     fork: bool,
+    /// One of OpenCode's own commands the person typed: sent by name to its server (0.427).
+    slash: Option<String>,
 }
 /// Whether this OpenCode command runs OpenCode 2 over ACP (its `acp` argument, or the tests' protocol switch).
 pub fn uses_acp(c: &Command) -> bool {
@@ -98,10 +100,15 @@ impl OpenCode {
             v2,
             started: false,
             fork: false,
+            slash: None,
         })
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
         self.fork = fork;
+        self
+    }
+    pub fn with_command(mut self, name: Option<String>) -> Self {
+        self.slash = name;
         self
     }
     pub fn with_cancel(mut self, cancel: Arc<AtomicBool>) -> Self {
@@ -125,6 +132,25 @@ impl Runtime for OpenCode {
             return Err(err("OpenCode turn already started"));
         }
         self.started = true;
+        // OpenCode 2 over ACP has no command call: the words go as typed, `/name` first.
+        let typed;
+        let t = match (&self.slash, self.v2) {
+            (Some(name), true) => {
+                typed = Turn {
+                    prompt: format!("/{name} {}", t.prompt).trim().to_owned(),
+                    folder: t.folder.clone(),
+                    model: t.model.clone(),
+                    effort: t.effort.clone(),
+                    resume: t.resume.clone(),
+                    mode: t.mode,
+                    approvals: t.approvals.clone(),
+                    mission_id: t.mission_id.clone(),
+                    run_id: t.run_id.clone(),
+                };
+                &typed
+            }
+            _ => t,
+        };
         if self.cancelled() {
             self.failure(
                 "OpenCode was stopped before startup.",
@@ -137,7 +163,8 @@ impl Runtime for OpenCode {
         if !self.v2 {
             let mut serve =
                 super::opencode_serve::Serve::new(copy_command(&self.command), self.cancel.clone())
-                    .with_fork(self.fork);
+                    .with_fork(self.fork)
+                    .with_command(self.slash.clone());
             serve.start(t)?;
             self.driver = Some(Driver::Serve(Box::new(serve)));
             return Ok(());

@@ -4849,3 +4849,56 @@ fn a_file_changed_after_the_box_offered_it_holds_everything_back_and_the_edit_st
     let said = text_in(&rt, &format!("edit-note-{new}")).join(" ");
     assert!(said.contains("Nothing was put back: made.txt (changed since the replies) could not be, and putting back only the other 1 could leave the project half changed."), "{said}");
 }
+
+/// runtime-commands (0.426) and slashCommands.ts, in the window: the `/` menu offers the conversation's runtime's own
+/// commands under its name; choosing one writes `/name ` into the box and the menu stays shut while its arguments are
+/// written, so Enter sends it.
+#[test]
+fn the_slash_menu_offers_the_runtimes_own_commands_and_writes_one_into_the_box() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "main reply", answered);
+    pump(&mut rt, "the runtime's commands are read", |s| s.runtime_commands.by_runtime.contains_key("codex"));
+    rt.update(|s, _| s.draft.replace_text("/re"));
+    settle(&mut rt);
+    let rows = crate::composer_wiring::slash_choices_now(&rt.state);
+    let review = rows.iter().find(|c| c.name == "review").expect("Codex's own review command");
+    assert_eq!((review.group.as_deref(), review.action.clone()), (Some("Codex CLI"), composer::SlashAction::Runtime));
+    let picked = review.clone();
+    rt.update(move |s, _| crate::composer_wiring::run_slash_command(s, &picked));
+    assert_eq!(rt.state.draft.text, "/review ");
+    assert!(crate::composer_wiring::slash_choices_now(&rt.state).is_empty(), "writing its arguments, the menu stays shut");
+    rt.update(|s, _| s.draft.replace_text("/review the cart change"));
+    assert!(crate::composer_wiring::slash_choices_now(&rt.state).is_empty());
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+/// a-full-context-is-compacted-from-the-ring, in the window: pressing the ring opens what it says with Compact now
+/// beneath, and Compact now sends `/compact` as the conversation's next message while what is in the box stays there.
+#[test]
+fn compact_now_from_the_ring_sends_compact_and_keeps_the_box() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "main reply", answered);
+    pump(&mut rt, "the runtime's commands are read", |s| s.runtime_commands.by_runtime.contains_key("codex"));
+    // A context nearly full, as the engine reads it from a run.
+    rt.update(|s, _| {
+        if let Some(pane) = s.ledger.as_mut() {
+            pane.snapshot.context = Some(locust_core::context_usage::Reading { used: 164_000, window: 200_000, percent: 82 });
+        }
+        s.draft.replace_text("half a thought");
+    });
+    settle(&mut rt);
+    assert!(rt.find("context-ring-menu").is_none(), "shut until pressed");
+    click(&mut rt, "context-ring");
+    let menu = text_in(&rt, "context-ring-menu").join(" ");
+    assert!(menu.contains("Compact now") && menu.contains("Summarize the conversation so far, so the turns ahead have room. Codex CLI also does this on its own when the context is full."), "{menu}");
+    click(&mut rt, "compact-now");
+    assert_eq!(rt.state.flight.as_ref().and_then(|f| f.message.as_deref()), Some("/compact"), "sent as typing it would send");
+    assert_eq!(rt.state.draft.text, "half a thought", "what was in the box stays");
+    assert!(rt.find("context-ring-menu").is_none(), "the menu shuts");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+

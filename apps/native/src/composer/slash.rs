@@ -9,6 +9,8 @@ pub enum SlashAction {
     Issues,
     Tune,
     Setup,
+    /// One of the runtime's own commands (0.426): written into the box, to be sent as the message.
+    Runtime,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -150,6 +152,21 @@ pub fn available_commands(input: AvailableInput<'_>) -> Vec<SlashCommand> {
         out.extend(theirs);
     }
     out
+}
+
+/// A runtime's own commands as menu rows (0.426), under the runtime's name (`runtimeSlashCommands`). Choosing one
+/// writes `/name ` into the box, where its arguments go, and the message is sent to the runtime as that command.
+pub fn runtime_slash_commands(group: &str, rows: &[(String, String, String)]) -> Vec<SlashCommand> {
+    rows.iter()
+        .map(|(name, description, hint)| SlashCommand {
+            name: name.clone(),
+            detail: if description.is_empty() { format!("{group}'s own command.") } else { description.clone() },
+            action: SlashAction::Runtime,
+            group: Some(group.to_owned()),
+            hint: (!hint.is_empty()).then(|| hint.clone()),
+            weighted: false,
+        })
+        .collect()
 }
 
 /// Those whose name starts with what has been typed so far.

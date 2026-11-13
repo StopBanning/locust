@@ -94,7 +94,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/session':
             state['session'] = 'sess1'
             return self._json(200, {'id': 'sess1'})
-        if '/prompt_async' in self.path:
+        # Every message and command it is sent, for a test to read (cwd is the run's folder).
+        if '/prompt_async' in self.path or self.path.endswith('/command'):
+            with open('opencode-requests.jsonl', 'a') as log:
+                log.write(json.dumps({'path': self.path.rsplit('/', 1)[-1], 'body': body}) + '\n')
+        if self.path.endswith('/command') and scenario == 'command-refused':
+            return self._json(400, {'error': 'no such command'})
+        if '/prompt_async' in self.path or self.path.endswith('/command'):
             state['prompted'] = True
             sid = 'sess1'
             def work():

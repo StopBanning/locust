@@ -42,7 +42,7 @@ apps/desktop/src/main/a-column-answers-in-a-copy.test.ts		waiting
 apps/desktop/src/main/a-column-can-be-tried-again.test.ts	compare-more	carried	a_column_run_again_answers_again,retry_clears_refusal_rejects_unknown_slot_and_compares_gone_with_checks_all_runs	`compare_window_tests::a_column_run_again_answers_again` + `compare::tests::retry_clears_refusal_rejects_unknown_slot_and_compares_gone_with_checks_all_runs` (all cases carried)
 apps/desktop/src/main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts	P8	does-not-apply		`main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts` | No candidate; store refusal words; disk holds only ordinary rules
 apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts		waiting		
-apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts		waiting		
+apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts	P10	carried	core/src/runtime/compaction_tests.rs	both cases
 apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	compare	carried		`compare_copies::tests::a_compare_column_works_outside_the_folder`
 apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts	compare	carried		`compare_copies::tests::a_compare_root_follows_the_environment`
 apps/desktop/src/main/a-comparison-is-remembered.test.ts		waiting		
@@ -217,7 +217,7 @@ apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	ROUTINES	carried	core/sr
 apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts		waiting		
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts		waiting		
 apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts		waiting		
-apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts		waiting		
+apps/desktop/src/main/a-runtime-command-is-sent-as-typed.test.ts	P10	carried	core/src/native/tests.rs	all 5 cases: bare to Claude Code, by name to OpenCode, Codex review/compact as requests and init as a turn, briefed when the words came from a routine, an app or a relay
 apps/desktop/src/main/a-runtime-mark-wears-its-colour-as-a-token.test.ts		waiting		
 apps/desktop/src/main/a-runtime-that-cannot-start-says-why.test.ts		waiting		
 apps/desktop/src/main/a-save-windows-holds-is-tried-again.test.ts		waiting		
@@ -462,7 +462,7 @@ apps/desktop/src/main/routine-recovery.test.ts	ROUTINES	carried	core/src/routine
 apps/desktop/src/main/routine-runner.test.ts	TEAM-FILES	carried	core/src/routine_runner_tests.rs	all routine runner cases including W7 input validation, automatic defaults/refusals, and persisted filled steps carried
 apps/desktop/src/main/routine-store.test.ts	p11	partial		`main/routine-store.test.ts` | Partially ported: basic validation/create/edit/remove/read-back; run completion, full schema filtering, route/provenance validation and advanced definitions remain.
 apps/desktop/src/main/runtime-artifacts.test.ts		waiting		
-apps/desktop/src/main/runtime-commands.test.ts		waiting		
+apps/desktop/src/main/runtime-commands.test.ts	P10	carried	core/src/runtime_commands_tests.rs; core/src/native/tests.rs	all 8 cases: kept once outside the record, per runtime, hidden ones left out, learned from Claude Code's run and OpenCode's server
 apps/desktop/src/main/runtime-discovery.test.ts		waiting		
 apps/desktop/src/main/runtime-installer.test.ts	P10	carried	core/src/agent_install_tests.rs; src/ui/window_drive_tests.rs install_runs_the_rows_line_and_says_how_it_ended	every it() ported (25), plus an update's version check, the Windows lock case and the window's Install
 apps/desktop/src/main/runtime-setup.test.ts		waiting		
@@ -644,7 +644,7 @@ apps/desktop/src/renderer/src/a-command-that-reaches-other-programs-says-so.test
 apps/desktop/src/renderer/src/a-command-wraps-at-its-spaces.test.tsx	P9	partial		renderer/src/a-command-wraps-at-its-spaces.test.tsx | Applicable approval/Board command typography not newly ported; own text uses Rune wrapping; no claim that every flag wrap assertion is met.
 apps/desktop/src/renderer/src/a-commands-card-says-unknown-once.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	P5	partial	compaction_is_a_line_and_invalidates_context	`a-compaction-is-a-line-not-a-reply.test.ts` | `context_usage::ledger_tests::compaction_is_a_line_and_invalidates_context` proves an info-level compaction is a Note, not an Assistant message. The existing OpenCode normalizer suppresses synt
+apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	P10	carried	core/src/runtime/compaction_tests.rs	an OpenCode compaction is a line, not the summary or the note to the model
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts		waiting		
 apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	compare	carried		`compare::tests::compare_record_counts_decided_comparisons`
@@ -695,7 +695,7 @@ apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts		wa
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts		waiting		
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts		waiting		
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	P5	partial		`a-full-context-is-compacted-from-the-ring.test.tsx` | Compaction invalidation and restored later usage are covered by the ledger test. All offer/menu/queue/route/startup-button assertions remain unported. Native command discovery currently
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	P10	partial	core/src/compact_now_tests.rs; src/ui/window_drive_tests.rs compact_now_from_the_ring_sends_compact_and_keeps_the_box	offer rules, its words, the menu under the reading, the ring a button only where it can compact; not yet: a turn still starting, and the reading reset after a compaction
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts		waiting		

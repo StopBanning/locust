@@ -349,6 +349,8 @@ pub struct ClaudeNormalizer {
     /// The run was on the subscription's usage windows, and whether it spilled into extra usage.
     on_usage_windows: bool,
     used_extra_usage: bool,
+    /// The latest list of the CLI's own commands it announced, until the host takes it.
+    learned_commands: Option<Vec<crate::runtime_commands::CommandInfo>>,
     /// Records the process gave, for `recordCount`.
     records: usize,
 }
@@ -371,6 +373,10 @@ fn output_tokens_of(usage: &Value) -> Option<f64> {
 }
 
 impl ClaudeNormalizer {
+    /// The commands Claude Code announced since this was last asked, for the host's `/` menu.
+    pub fn take_commands(&mut self) -> Option<Vec<crate::runtime_commands::CommandInfo>> {
+        self.learned_commands.take()
+    }
     fn event(&mut self, kind: &str, payload: Value) -> Event {
         self.count += 1;
         Event {
@@ -638,7 +644,16 @@ impl ClaudeNormalizer {
                 }
                 return vec![];
             }
-            if subtype == "background_tasks_changed" || subtype == "commands_changed" {
+            if subtype == "background_tasks_changed" {
+                return vec![];
+            }
+            // The person's slash commands and skills, with descriptions: sent twice at the start of every run, 44 KB
+            // each, and no part of the run's news, so never the ledger's (0.426): handed to the host for the `/` menu.
+            if subtype == "commands_changed" {
+                let listed = crate::runtime_commands::commands_from(&parsed["commands"]);
+                if !listed.is_empty() {
+                    self.learned_commands = Some(listed);
+                }
                 return vec![];
             }
             if subtype == "compact_boundary" {

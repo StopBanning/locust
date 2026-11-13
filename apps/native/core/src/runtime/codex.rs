@@ -38,6 +38,7 @@ pub struct Codex {
     thread_config: Option<Value>,
     /// Fork the resumed thread (`thread/fork`) instead of resuming it (`thread/resume`), for a side question.
     fork: bool,
+    slash: Option<String>,
 }
 
 fn err(message: impl ToString) -> io::Error {
@@ -136,6 +137,7 @@ impl Codex {
             approval_lifecycle,
             thread_config: None,
             fork: false,
+            slash: None,
         })
     }
     pub fn with_thread_config(mut self, config: Option<Value>) -> Self {
@@ -144,6 +146,12 @@ impl Codex {
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
         self.fork = fork;
+        self
+    }
+    /// One of Codex's own commands the person typed (0.428): `review` and `compact` go as the requests its own terminal
+    /// sends instead of a turn.
+    pub fn with_command(mut self, name: Option<String>) -> Self {
+        self.slash = name.filter(|n| matches!(n.as_str(), "review" | "compact"));
         self
     }
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
@@ -380,12 +388,26 @@ impl Runtime for Codex {
         }
         // Ports codex-app-server-run.ts handshake: `thread/start`, or `thread/resume` with the prior thread id and
         // `excludeTurns` (without it the answer carries the whole history as one line, past the 8 MiB limit).
+        // The route on the THREAD for a command whose request takes none (0.428): neither `review/start` nor
+        // `thread/compact/start` takes a model, so the thread is started or reopened with it.
+        let model_on_thread = turn.model.as_deref().filter(|m| !m.trim().is_empty());
+        if self.slash.is_some()
+            && let Some(effort) = turn.effort.as_deref().filter(|e| (1..=16).contains(&e.len()) && e.bytes().all(|b| b.is_ascii_lowercase()))
+        {
+            config["model_reasoning_effort"] = json!(effort);
+        }
         let result = match &turn.resume {
-            None => self.request("thread/start",json!({"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy,"config":config}))?,
+            None => {
+                let mut params = json!({"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy,"config":config});
+                if let Some(model) = model_on_thread.filter(|_| self.slash.is_some()) {
+                    params["model"] = json!(model);
+                }
+                self.request("thread/start", params)?
+            }
             Some(prior) => {
                 let mut params = json!({"threadId":prior,"excludeTurns":true,"cwd":turn.folder,"sandbox":policy.sandbox,"approvalPolicy":policy.approval_policy,"config":config});
                 // The model on the THREAD too (0.864): reopening on the turn's own model leaves nothing to warn about.
-                if let Some(model) = turn.model.as_deref().filter(|m| !m.trim().is_empty()) {
+                if let Some(model) = model_on_thread {
                     params["model"] = json!(model);
                 }
                 let method = if self.fork { "thread/fork" } else { "thread/resume" };
@@ -400,6 +422,21 @@ impl Runtime for Codex {
         self.normal.thread = Some(thread.clone());
         if let Some((_, _, id)) = crate::invariants::lock(&self.approval_lifecycle).as_mut() {
             *id = Some(thread.clone());
+        }
+        match self.slash.as_deref() {
+            Some("review") => {
+                let instructions = turn.prompt.trim();
+                let target = if instructions.is_empty() { json!({"type":"uncommittedChanges"}) } else { json!({"type":"custom","instructions":instructions}) };
+                let reviewing = self.request("review/start", json!({"threadId":thread,"target":target,"delivery":"inline"}))?;
+                self.normal.turn = reviewing["turn"]["id"].as_str().map(str::to_owned).or(self.normal.turn.clone());
+                return Ok(());
+            }
+            Some("compact") => {
+                // Answered with nothing; the turn's id arrives on `turn/started`.
+                self.request("thread/compact/start", json!({"threadId":thread}))?;
+                return Ok(());
+            }
+            _ => {}
         }
         let mut params = json!({"threadId":thread,"approvalPolicy":policy.approval_policy,"input":[{"type":"text","text":turn.prompt}],"summary":"detailed"});
         if let Some(model) = &turn.model {
