@@ -3228,3 +3228,31 @@ fn a_link_opens_a_new_conversation_with_its_message_ready_and_never_sends_it() {
     settle(&mut rt);
     assert!(!rt.state.from_link && rt.find("from-a-link").is_none());
 }
+
+/// ReplyPage (0.553): a reply's whole page gets Open the page, which writes it to a folder of its own and runs it in
+/// the browser panel; a fragment, and a page still arriving, stay code.
+#[test]
+fn a_whole_page_in_a_reply_opens_in_the_browser_panel_and_a_fragment_stays_code() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    let page = "<!DOCTYPE html>\n<html><body><canvas id=game></canvas></body></html>";
+    rt.update(|s, _| {
+        if let Some(pane) = &mut s.ledger {
+            pane.items.push(ledger::Item::Assistant {
+                item_id: "page-1".into(),
+                text: format!("Here it is:\n\n```html\n{page}\n```\n\nAnd a piece:\n\n```html\n<div class=\"card\">hi</div>\n```\n"),
+                r#final: true,
+            });
+        }
+    });
+    settle(&mut rt);
+    let buttons: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).filter(|t| t == crate::reply_page_ui::OPEN_THE_PAGE).collect();
+    assert_eq!(buttons.len(), 1, "only the whole page runs");
+    let key = (0..4).map(|i| format!("reply-page-{i}")).find(|k| rt.find(k).is_some()).expect("the page's control");
+    click(&mut rt, &key);
+    let written = std::fs::read_dir(store.root().join("reply-pages")).unwrap().next().unwrap().unwrap().path().join("index.html");
+    assert_eq!(std::fs::read_to_string(&written).unwrap(), page);
+    assert!(crate::invariants::lock(&rt.state.browser.host).open, "status {:?}", rt.state.status);
+}

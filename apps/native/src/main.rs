@@ -165,6 +165,8 @@ mod github_section;
 mod claude_app_card;
 #[path = "ui/link_open.rs"]
 mod link_open;
+#[path = "ui/reply_page_ui.rs"]
+mod reply_page_ui;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]

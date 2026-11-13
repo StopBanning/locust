@@ -247,7 +247,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Mermaid diagram/source view | `renderer/src/components/ReplyDiagram.tsx`, `main/diagrams.ts`, `main/diagram-view.ts` | **partial** — rune-mermaid via rune-kit; Diagram/Code tabs and Electron words; flowchart draws; undrawable types (kanban, packet, architecture, …) stay source with undrawn caption (caption index can miss); no diagram-view window | yes | no | yes |
 | PDF pages, attachment thumbnail and text reading | `renderer/src/components/PdfPages.tsx`, `renderer/src/components/PdfTile.tsx`, `main/pdf-pages.ts`, `main/pdf-reading.ts` | **partial** — macOS PDFKit via objc2-pdf-kit 0.3: text (+ BOM), page PNGs, readablePdfNote and refusal words; PdfPages/PdfTile thread chrome and non-macOS engine remain | yes | no | yes |
 | Word/PowerPoint reading, document changes, XLSX/CSV sheets and image zoom | `renderer/src/components/DocPreview.tsx`, `renderer/src/components/DocumentView.tsx`, `renderer/src/components/DocumentChange.tsx`, `renderer/src/components/SheetView.tsx`, `renderer/src/components/ZoomableImage.tsx`, `main/office-words.ts`, `main/xlsx.ts` | **partial** — docx/pptx zip+XML and xlsx (calamine 0.38) / csv reading with Electron documentWords, 40 MiB / 12-sheet caps, and native `.locust/office-words/`; DocumentChange, SheetView grid and ZoomableImage remain | yes | no | yes |
-| Runnable HTML reply pages and source/preview view | `renderer/src/components/ReplyPage.tsx`, `main/reply-page.ts`, `main/page-preview.ts` | **missing** | - | no | yes |
+| Runnable HTML reply pages and source/preview view | `renderer/src/components/ReplyPage.tsx`, `main/reply-page.ts`, `main/page-preview.ts` | **partial** — `core/src/reply_page.rs` (Electron's shared/reply-page.ts and main/reply-page.ts: only a whole page runs, never a fragment, another language, one cut off or one past 2,000,000 characters; one folder per page named by its hash, under the app's own data folder) and `src/ui/reply_page_ui.rs`: Open the page over such a block, once it has arrived, runs it in the browser panel through page_preview. Electron's framed stage inside the reply, its Page and Code tabs and Reload remain: this window has no frame inside a reply | yes | no | yes |
 | Rendered math in replies | `renderer/src/components/MathTex.tsx`, `renderer/src/components/ThreadItems.tsx` | **done** — RaTeX 0.1.15 PNG via ImageCache; `$`/`$$`/`\(`/`\[` rules, fence skip, money stays prose | yes | no | no |
 
 ## 2. Engine Breakdown: Main-Process Services & Standalone Requirements
@@ -292,8 +292,8 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 7 | 5 | 1 | 13 | 12 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
-| 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **61** | **58** | **34** | **153** | **119** | **15** |
+| 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
+| | **TOTAL** | **61** | **59** | **33** | **153** | **120** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

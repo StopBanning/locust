@@ -1135,7 +1135,7 @@ apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts		waiting
 apps/desktop/src/shared/a-long-room-post-still-starts.test.ts		waiting		
 apps/desktop/src/shared/a-point-can-count-twice.test.ts		waiting		
 apps/desktop/src/shared/a-question-that-is-not-a-card-stays-in-the-reply.test.ts		waiting		
-apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts		waiting		
+apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	REPLY-PAGE	carried	core/src/reply_page.rs	all 4 cases; and the window test a_whole_page_in_a_reply_opens_in_the_browser_panel_and_a_fragment_stays_code
 apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts		waiting		
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts		waiting		

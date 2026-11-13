@@ -360,6 +360,9 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
                             );
                     }
                     let mut controls = row().w_full().justify_end().gap(8.0);
+                    if let Some(open_page) = crate::reply_page_ui::control(frame.source, frame.language, frame.open, frame.index, p) {
+                        controls = controls.child(open_page);
+                    }
                     if let Some(target) = frame.language.and_then(file_target) {
                         let label = target.path.clone();
                         controls = controls.child(
