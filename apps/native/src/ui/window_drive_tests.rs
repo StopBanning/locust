@@ -1457,6 +1457,10 @@ fn selecting_text_in_a_reply_asks_on_the_side_and_keeps_main_ledger_unchanged() 
     settle(&mut rt);
 
     let main_id = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
+    // The answer shows before the turn's thread has written its last records; under load, reading the bytes then made
+    // "unchanged" fail. The engine owns the conversation until that last write.
+    let owner = main_id.clone();
+    pump(&mut rt, "the main turn's last write", move |_| !locust_core::engine_api::api().owns(&owner));
     let main_ledger_path = store.write_path(&main_id).unwrap();
     let main_bytes_before = std::fs::read(&main_ledger_path).unwrap();
 
