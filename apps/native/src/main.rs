@@ -64,6 +64,10 @@ mod backup_section;
 mod own_copies;
 #[path = "ui/import_dialog.rs"]
 mod import_dialog;
+#[path = "ui/feedback_dialog.rs"]
+mod feedback_dialog;
+#[path = "ui/quit_guard_dialog.rs"]
+mod quit_guard_dialog;
 mod keyboard_shortcuts;
 mod keychain_note;
 #[path = "ui/home_panel.rs"]
@@ -1365,6 +1369,14 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
             s.save_record.open = false;
             return true;
         }
+        if s.quit_guard.open {
+            s.quit_guard.open = false;
+            return true;
+        }
+        if s.feedback_dialog.open {
+            crate::feedback_dialog::close(s);
+            return true;
+        }
         if s.import_dialog.open {
             crate::import_dialog::close(s);
             return true;
@@ -1443,6 +1455,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if decision_card::handle_key(s, event, tx) {
+        return true;
+    }
+    if !event.mods.shift && !event.mods.alt && (event.is_command('q') || event.is_command('w')) {
+        quit_guard_dialog::request_close(s, tx);
         return true;
     }
     if event.mods.shift || event.mods.alt {
@@ -2277,6 +2293,32 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .child(
                     import_dialog::view(s, &p)
                         .modal(true, crate::import_dialog::close),
+                ),
+        );
+    }
+    if s.feedback_dialog.open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(
+                    feedback_dialog::view(s, &p)
+                        .modal(true, crate::feedback_dialog::close),
+                ),
+        );
+    }
+    if s.quit_guard.open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(
+                    quit_guard_dialog::view(s, &p)
+                        .modal(true, |s: &mut State| s.quit_guard.open = false),
                 ),
         );
     }

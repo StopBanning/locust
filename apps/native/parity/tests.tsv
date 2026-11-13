@@ -3,7 +3,7 @@ apps/desktop/src/main/a-background-turn-comes-back.test.ts		waiting
 apps/desktop/src/main/a-bang-refuses-a-folder-from-the-window.test.ts	P9	does-not-apply		main/a-bang-refuses-a-folder-from-the-window.test.ts | Electron IPC/window ownership checks do not apply: native has no IPC endpoint accepting folders/shells; only State-selected context reaches entry points. Markdown folder-opening tests o
 apps/desktop/src/main/a-bang-runs-in-the-conversations-folder.test.ts	P9	partial		main/a-bang-runs-in-the-conversations-folder.test.ts | Partial: real synthetic command/default shell path and result; process-tree stop/policy implementation lacks matching full fake-host tests. Global/project template cases outside typed-c
 apps/desktop/src/main/a-bare-machine-drive-sees-a-bare-machine.test.ts		waiting		
-apps/desktop/src/main/a-beta-can-report-itself.test.ts		waiting		
+apps/desktop/src/main/a-beta-can-report-itself.test.ts	settings	partial	core/src/report_problem.rs	diagnostic log rolling/line/startup helpers + Settings > General > Report a problem
 apps/desktop/src/main/a-big-folder-compares-in-place.test.ts		waiting		
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts		waiting		
 apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	WORKTREES	carried	core/src/worktrees_tests.rs (landing)	all 11 tests carried: one commit, branch reset, draft, your changes, unsaved edits kept, conflicts resolved on the branch, keep-own-side and asked-instead merges, markers, hook refusal put back, detached, git 2.38, draft format
@@ -121,7 +121,7 @@ apps/desktop/src/main/a-linux-terminal-is-the-one-the-desktop-has.test.ts	P9	doe
 apps/desktop/src/main/a-live-step-stays-in-its-column.test.ts		waiting		
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts		waiting		
 apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts		waiting		
-apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts		waiting		
+apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	settings	done	core/src/login_item.rs	packaged-only, Windows --background query, Mac no-query + requires-approval
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts		waiting		
 apps/desktop/src/main/a-long-antigravity-answer-comes-back-whole.test.ts		waiting		
 apps/desktop/src/main/a-long-command-does-not-stop-the-run.test.ts		waiting		
@@ -169,7 +169,7 @@ apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts		waitin
 apps/desktop/src/main/a-plain-folder-is-watched-too.test.ts		waiting		
 apps/desktop/src/main/a-plan-that-runs-out-is-carried-on.test.ts		waiting		
 apps/desktop/src/main/a-planted-git-is-never-run.test.ts		waiting		
-apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts		waiting		
+apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts	settings	done	core/src/keep_awake.rs	standing AC-power hold + awake.json persistence
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts		waiting		
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts		waiting		
@@ -196,7 +196,7 @@ apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts		waiting
 apps/desktop/src/main/a-reply-lines-up-with-the-box.test.ts		waiting		
 apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts		waiting		
 apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts		waiting		
-apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts		waiting		
+apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	settings	done	core/src/report_problem.rs	support mailto limit/fallback + uncut file report + secret scrubbing
 apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts		waiting		
 apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts		waiting		
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts		waiting		
@@ -262,7 +262,7 @@ apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.tes
 apps/desktop/src/main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts	P9	does-not-apply		main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts | Electron IPC ownership/payload shape does not apply to in-process native handlers. Native path/refusal tests remain incomplete.
 apps/desktop/src/main/a-text-box-shows-the-lines-it-asks-for.test.ts		waiting		
 apps/desktop/src/main/a-text-box-takes-the-soft-focus.test.ts		waiting		
-apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts		waiting		
+apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	settings	done	core/src/workspace_settings.rs	saved theme, Linux new-profile system default, resolved theme, window ground, CLI args
 apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts		waiting		
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts		waiting		
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts		waiting		
@@ -396,7 +396,7 @@ apps/desktop/src/main/home-spacing-matches-its-measure.test.ts		waiting
 apps/desktop/src/main/install-node-is-not-said-to-a-person-with-npm.test.ts		waiting		
 apps/desktop/src/main/installed-editors.test.ts		waiting		
 apps/desktop/src/main/judges-see-the-check.test.ts		waiting		
-apps/desktop/src/main/keep-awake.test.ts		waiting		
+apps/desktop/src/main/keep-awake.test.ts	settings	done	core/src/keep_awake.rs	single hold for live runs, dispose release, retry on failure
 apps/desktop/src/main/leads-settled-2026-09-24.test.ts		waiting		
 apps/desktop/src/main/locust-counts-its-cloud-hours.test.ts		waiting		
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts		waiting		
@@ -440,11 +440,11 @@ apps/desktop/src/main/qa-0365-concurrency.test.ts		waiting
 apps/desktop/src/main/qa-0365-fresh.test.ts		waiting		
 apps/desktop/src/main/qa-0365-rooms.test.ts		waiting		
 apps/desktop/src/main/question-answers.test.ts		waiting		
-apps/desktop/src/main/quit-guard.test.ts		waiting		
+apps/desktop/src/main/quit-guard.test.ts	settings	done	core/src/quit_guard.rs	should_ask_before_closing, hide_to_tray_on_close, close_question, CLOSE_BUTTONS, tray_line
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts		waiting		
 apps/desktop/src/main/relay-note-is-writable.test.ts		waiting		
 apps/desktop/src/main/relay.test.ts		waiting		
-apps/desktop/src/main/report-problem.test.ts		waiting		
+apps/desktop/src/main/report-problem.test.ts	settings	done	core/src/report_problem.rs	GitHub URL, end-trimming, systemName/windowsName, secret scrubbing
 apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts		waiting		
 apps/desktop/src/main/retention.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/reveal-file.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
@@ -939,7 +939,7 @@ apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx		waiting
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
 apps/desktop/src/renderer/src/exchange.test.ts		waiting		
 apps/desktop/src/renderer/src/faceState.test.ts		waiting		
-apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx		waiting		
+apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx	settings	done	src/ui/window_drive_tests.rs	report_shows_what_it_sends_and_sends_nothing_until_pressed + core/src/report_problem.rs
 apps/desktop/src/renderer/src/finishedToast.test.ts		waiting		
 apps/desktop/src/renderer/src/fold-tool-runs.test.ts		waiting		
 apps/desktop/src/renderer/src/follow-bottom.test.ts		waiting		
@@ -1071,7 +1071,7 @@ apps/desktop/src/renderer/src/the-live-line-says-the-starts-phase.test.tsx		wait
 apps/desktop/src/renderer/src/the-live-line-says-which-plan-step.test.ts		waiting		
 apps/desktop/src/renderer/src/the-live-word-says-three-dots.test.ts		waiting		
 apps/desktop/src/renderer/src/the-lockup-powers-on.test.tsx		waiting		
-apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-look-is-offered-only-where-it-can-be-drawn.test.tsx	settings	partial	core/src/workspace_settings.rs	Look/Behind-the-glass ledes + liquid_offered gate in settings_panel.rs
 apps/desktop/src/renderer/src/the-model-chip-shows-usage-on-hover.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-newest-group-stays-folded.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-orb-never-contradicts-the-row.test.ts		waiting		
@@ -1089,7 +1089,7 @@ apps/desktop/src/renderer/src/the-screens-say-less.test.ts		waiting
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	P9	partial		renderer/src/the-terminal-opens-before-the-first-message.test.tsx | Partial: toggle before ledger exists; shortcut, accessibility and IPC chunk-boundary tests remain (native bytes stream directly to parser).
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	P9	waiting		renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx | TerminalDivider/ownership rendering unported.
-apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx		waiting		
+apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	settings	done	src/ui/window_drive_tests.rs	choosing_a_theme_is_kept_after_restart + core/src/workspace_settings.rs ledes
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts		waiting		
 apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx		waiting		

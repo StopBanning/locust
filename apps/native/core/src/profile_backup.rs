@@ -1187,7 +1187,9 @@ mod tests {
         assert!(!teammates().contains("Mira"), "nothing restored under a running engine");
         drop(engine);
         // With the lock free, the next start applies it.
-        let outcome = apply_pending_restore_alone(&here, this, at(), std::time::Duration::ZERO).unwrap();
+        // As a window's start does: a moment for the lock to be let go (the full suite runs many tests at once).
+        let outcome = apply_pending_restore_alone(&here, this, at(), std::time::Duration::from_secs(5))
+            .unwrap_or_else(|| panic!("not applied; still pending: {}", here.join(PENDING_RESTORE_FILE).is_file()));
         assert!(outcome.ok);
         assert!(teammates().contains("Mira"));
         let _ = fs::remove_dir_all(&here);

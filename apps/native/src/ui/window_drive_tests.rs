@@ -2888,3 +2888,146 @@ fn github_signs_in_from_the_connectors_card_with_the_code_gh_prints() {
     assert!(done.contains("octo-cat") && done.contains("Signed in to GitHub.") && done.contains("Open on GitHub"), "{done}");
     assert!(!done.contains("Sign in with GitHub"), "{done}");
 }
+
+#[test]
+fn choosing_a_theme_is_kept_after_restart() {
+    let (_dirs, store, mut rt) = window();
+    rt.update(|s, _| crate::settings_panel::open(s));
+    settle(&mut rt);
+
+    click(&mut rt, "settings-theme-light");
+    assert_eq!(rt.state.appearance, Some(false));
+    assert_eq!(
+        rt.state.settings_panel.theme,
+        crate::workspace_settings::ThemeChoice::Light
+    );
+    drop(rt);
+
+    // Simulate a restart on the same Store: startup loads appearance.json.
+    let mut s2 = State::default();
+    s2.engine = Some(Kind::Native);
+    s2.data = Some(store.clone());
+    let prefs = crate::workspace_settings::load_appearance(&store);
+    s2.appearance = prefs.theme.to_appearance();
+    s2.settings_panel.theme = prefs.theme;
+    let mut rt2 = Runtime::new(s2, view, (1100.0, 780.0), Env::new(true, 1.0));
+    rt2.frame(0.0);
+    rt2.update(|s, _| crate::settings_panel::open(s));
+    settle(&mut rt2);
+
+    assert_eq!(rt2.state.appearance, Some(false));
+    assert_eq!(
+        rt2.state.settings_panel.theme,
+        crate::workspace_settings::ThemeChoice::Light
+    );
+    assert!(rt2.find("settings-theme-light").is_some());
+}
+
+#[test]
+fn quitting_with_a_turn_running_says_so_first() {
+    let (_dirs, store, mut rt) = window();
+    // A real turn, running in the engine: the guard asks the engine, not a teammate's busy mark.
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    rt.update(|s, tx| crate::quit_guard_dialog::request_close(s, tx));
+    assert!(!rt.state.quit_guard.open && rt.state.quit_guard.quit_requested, "nothing running: it quits without asking");
+    rt.update(|s, _| s.quit_guard = Default::default());
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the turn running", |s| can_stop(s));
+    rt.update(|s, tx| crate::quit_guard_dialog::request_close(s, tx));
+    settle(&mut rt);
+
+    assert!(rt.state.quit_guard.open);
+    assert!(!rt.state.quit_guard.quit_requested);
+    assert_eq!(rt.state.quit_guard.message, "Codec is still working.");
+    assert!(rt.find("quit-guard-keep").is_some());
+    assert!(rt.find("quit-guard-quit").is_some());
+    assert!(rt.find("quit-guard-cancel").is_some());
+
+    click(&mut rt, "quit-guard-cancel");
+    assert!(!rt.state.quit_guard.open);
+    assert!(!rt.state.quit_guard.quit_requested);
+
+    rt.update(|s, tx| {
+        crate::quit_guard_dialog::request_close(s, tx);
+    });
+    settle(&mut rt);
+    click(&mut rt, "quit-guard-quit");
+    assert!(!rt.state.quit_guard.open);
+    assert!(rt.state.quit_guard.confirmed);
+    assert!(rt.state.quit_guard.quit_requested);
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn report_shows_what_it_sends_and_sends_nothing_until_pressed() {
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| {
+        s.feedback_dialog.suppress_os_open = true;
+        crate::settings_panel::open(s);
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+        s.settings_panel.search.replace_text("Report a problem");
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "settings-send-feedback");
+    assert!(rt.state.feedback_dialog.open);
+    assert!(rt.state.feedback_dialog.last_sent.is_none());
+    assert!(rt.find("feedback-send").is_some());
+    assert!(rt.find("feedback-email").is_some());
+    assert!(rt.find("feedback-save").is_some());
+
+    // Attach a conversation and verify it stays unticked and unsent until Send is pressed.
+    rt.update(|s, _| {
+        s.feedback_dialog.conversation = Some("You: hi\n\nCodec: hello".into());
+    });
+    settle(&mut rt);
+    assert!(rt.find("feedback-include-conversation").is_some());
+    assert!(!rt.state.feedback_dialog.include_conversation);
+    assert!(rt.state.feedback_dialog.last_sent.is_none());
+
+    let secret = ["sk", "ant", "api03-abcdefghijklmnopqrstuvwxyz0123456789"].join("-");
+    click(&mut rt, "feedback-description");
+    rt.paste(&format!("Problem with {secret}"));
+    rt.frame(0.016);
+    assert!(rt.state.feedback_dialog.last_sent.is_none());
+
+    click(&mut rt, "feedback-send");
+    match &rt.state.feedback_dialog.last_sent {
+        Some(crate::feedback_dialog::FeedbackSent::Issue(url)) => {
+            assert!(url.starts_with(locust_core::report_problem::REPORT_DESTINATION));
+            assert!(!url.contains(&secret), "secret must be scrubbed from report");
+        }
+        other => panic!("expected Issue sent after press, got {other:?}"),
+    }
+}
+
+/// A turn the door or Quick Ask started runs in the engine with no busy mark on the window's teammate yet: the quit
+/// guard still asks, because it counts what the engine runs.
+#[test]
+fn quitting_asks_about_a_turn_started_outside_the_window() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    let started = locust_core::engine_api::api()
+        .send(
+            native::Send { teammate: teammate(&dirs.0, "ask"), conversation: None, prompt: "Started through the door".into(), model: None, effort: None },
+            native::Origin::default(),
+        )
+        .expect("a turn through the engine");
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while !locust_core::engine_api::api().running().contains(&started.conversation_id) {
+        assert!(std::time::Instant::now() < deadline, "the turn never ran");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    rt.update(|s, tx| {
+        s.flight = None;
+        for t in &mut s.teammates {
+            t.busy = false;
+        }
+        crate::quit_guard_dialog::request_close(s, tx);
+    });
+    settle(&mut rt);
+    assert!(rt.state.quit_guard.open, "quit without asking while a turn ran");
+    assert!(!rt.state.quit_guard.quit_requested);
+    assert_eq!(rt.state.quit_guard.message, "Codec is still working.");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
