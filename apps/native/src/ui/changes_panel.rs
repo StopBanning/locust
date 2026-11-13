@@ -81,6 +81,35 @@ fn refresh(s: &mut State, sha: Option<&str>) {
     s.changes.contexts.clear();
     s.changes.asking = None;
 }
+/// Undo's answer: the folder, the turn, and the receipt or why it could not.
+pub(super) type UndoAnswer = (PathBuf, String, Result<serde_json::Value, String>);
+
+/// Put the turn's files back, off the window's thread (checkpoints::undo reads and writes the folder). One at a time.
+pub(super) fn undo_turn(s: &mut State, run: String) {
+    if s.undo_job.is_pending() {
+        return;
+    }
+    let (folder, store) = (s.changes.folder.clone(), native::store());
+    s.undo_job.request((folder, run, store), |(folder, run, store)| {
+        let answer = store.ok_or_else(|| "No native store".to_owned()).and_then(|store| checkpoints::undo(&store, &folder, &run).map_err(|e| e.to_string()));
+        (folder, run, answer)
+    });
+}
+
+/// What Undo did, in words: how many files were put back, and each one left alone with why.
+fn undone_words(receipt: &serde_json::Value) -> String {
+    let n = receipt["restored"].as_array().map_or(0, Vec::len);
+    let mut said = match n {
+        0 => "Nothing was put back.".to_owned(),
+        1 => "Undone: 1 file put back as it was before this turn.".to_owned(),
+        _ => format!("Undone: {n} files put back as they were before this turn."),
+    };
+    for f in receipt["leftAlone"].as_array().into_iter().flatten() {
+        said.push_str(&format!("\n{} left as it is: {}", f["path"].as_str().unwrap_or(""), f["why"].as_str().unwrap_or("")));
+    }
+    said
+}
+
 pub(super) type ReadResult = (
     PathBuf,
     Result<changes::Folder, String>,
@@ -119,6 +148,20 @@ pub(super) fn poll(s: &mut State) -> bool {
         match records {
             Ok(r) => s.changes.records = r,
             Err(e) => s.changes.result = Some(e),
+        }
+        changed = true;
+    }
+    if let Some((folder, _run, answer)) = s.undo_job.take() {
+        s.changes.result = Some(match answer {
+            Ok(receipt) => undone_words(&receipt),
+            Err(e) => e,
+        });
+        s.changes.asking = None;
+        // Read again, so the turn shows its receipt and the diff the folder now has.
+        if s.changes.open && s.changes.folder == folder {
+            let said = s.changes.result.clone();
+            refresh(s, None);
+            s.changes.result = said;
         }
         changed = true;
     }
@@ -366,13 +409,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 })
                 .unwrap_or_default();
             undo=undo.child(text(format!("Put back the {} this turn changed, as they were before it? A file changed since is left as it is.{}",if count==1{"1 file".into()}else{format!("{count} files")},if not.is_empty(){String::new()}else{format!(" Too large to have been kept: {not}.")})).color(p.text).wrap())
-            .child(row().child(button("Undo",p).on_press(move |s:&mut State|{
-                let answer=native::store().ok_or_else(||"No native store".into()).and_then(|store|checkpoints::undo(&store,&s.changes.folder,&run).map_err(|e|e.to_string()));
-                s.changes.result=Some(match answer{Ok(v)=>{let n=v["restored"].as_array().map_or(0,Vec::len);let mut said=if n==0{"Nothing was put back.".into()}else if n==1{"Undone: 1 file put back as it was before this turn.".into()}else{format!("Undone: {n} files put back as they were before this turn.")};if let Some(left)=v["leftAlone"].as_array(){for f in left{said.push_str(&format!("\n{} left as it is: {}",f["path"].as_str().unwrap_or(""),f["why"].as_str().unwrap_or("")))}}said},Err(e)=>e});s.changes.asking=None;
-            })).child(button("Keep them",p).on_press(|s:&mut State|s.changes.asking=None)));
+            .child(row().w_full().gap(6.0).child(button(if s.undo_job.is_pending() { "Undoing\u{2026}" } else { "Undo" },p).key(format!("changes-undo-{id}")).on_press(move |s:&mut State| undo_turn(s, run.clone()))            ).child(button("Keep them",p).key("changes-undo-keep").on_press(|s:&mut State|s.changes.asking=None)));
         } else {
             undo = undo.child(
                 button("Undo these changes", p)
+                    .key(format!("changes-undo-ask-{id}"))
                     .on_press(move |s: &mut State| s.changes.asking = Some(run.clone())),
             )
         }

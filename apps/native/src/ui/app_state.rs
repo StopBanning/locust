@@ -129,6 +129,8 @@ pub(super) struct State {
     pub(super) terminal: crate::terminal_panel::Panel,
     pub(super) changes: crate::changes_panel::Panel,
     pub(super) changes_job: Latest<crate::changes_panel::ReadResult>,
+    /// Undo of a turn, run off the window's thread.
+    pub(super) undo_job: Latest<crate::changes_panel::UndoAnswer>,
     pub(super) commit: crate::commit_panel::Panel,
     pub(super) commit_read_job: Latest<crate::commit_panel::ReadAnswer>,
     pub(super) commit_job: Latest<crate::commit_panel::CommitAnswer>,
@@ -402,6 +404,7 @@ impl Default for State {
             keychain_asking: false,
             changes: crate::changes_panel::Panel::default(),
             changes_job: Latest::default(),
+            undo_job: Latest::default(),
             commit: crate::commit_panel::Panel::default(),
             commit_read_job: Latest::default(),
             commit_job: Latest::default(),

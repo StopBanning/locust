@@ -115,3 +115,14 @@ scripts/test-m3a-cli.py /Users/locust/work/scratch/native-target-p7/release/locu
 Logs: `work/p7-review/` (including `test-final-*.log`, `build-final.log`, `clippy-final.log`, `m1-cli.log`, `m3a-cli.log`).
 
 Not verified in this review: live window with Electron quit, live OS Undo against a real turn, live clipboard, crash/fault injection on checkpoint writes, Windows/Linux restore, word-level marks, and the remaining TypeScript suites listed under Remaining parity work.
+
+## 13 Nov: Undo off the window's thread, and the next turn told
+
+- Undo's folder work runs in a job (`undo_job`); the button reads "Undoing…" while it runs, and the panel reads the
+  records again afterwards, so the turn shows its receipt and no second Undo. Window test
+  `undo_puts_a_turns_files_back_off_the_windows_thread_and_says_so` presses the real buttons.
+- `core/src/undone_note.rs` ports `undone-note.ts`; `native::send_from` puts it before the runtime prompt of a follow-up
+  (same runtime, not a side question, not sealed) when the turn it continues has an Undo receipt. The ledger keeps the
+  person's words only.
+- Still not ported: "· undone" on the turn's heading (the native thread has no files heading yet), Undo under each
+  turn in the thread.

@@ -1948,6 +1948,12 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         delivered = quoted;
         format!("{brief}\n\n{}", crate::references::section(&references))
     };
+    // A follow-up to a turn the person undid starts with what Undo put back (undone-note.ts, 0.784): the session it
+    // resumes still remembers writing those files. Not a side question, and not a sealed run.
+    let runtime_prompt = match continues.as_ref().filter(|_| !is_side && !sealed).and_then(|c| crate::checkpoints::undone(&store, &folder, &c.mission_id)).and_then(|r| crate::undone_note::undone_note(&r)) {
+        Some(told) => format!("{told}\n\n{runtime_prompt}"),
+        None => runtime_prompt,
+    };
     let id = new_id();
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
     let session_id = if runtime_name == "copilot" && resume.is_none() {

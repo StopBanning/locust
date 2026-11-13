@@ -4386,3 +4386,39 @@ fn update_installs_the_newer_version_and_the_row_says_updated() {
     assert!(rt.find("agents-update-codex").is_none(), "Update is gone once it has landed");
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+/// a-turn-can-be-undone, in the window: Undo asks, then puts the turn's file back off the window's thread ("Undoing"
+/// while it runs), says what it did, and the turn then shows its receipt instead of offering Undo again.
+#[test]
+fn undo_puts_a_turns_files_back_off_the_windows_thread_and_says_so() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let folder = dirs.0.join("undo-work");
+    std::fs::create_dir_all(&folder).unwrap();
+    assert!(std::process::Command::new("git").args(["init", "-q"]).current_dir(&folder).status().unwrap().success());
+    let turn = locust_core::checkpoints::Turn::begin(&store, &folder);
+    std::fs::write(folder.join("laptop-setup.md"), "made by the turn\n").unwrap();
+    turn.finish(&store, "mission_native_undo_1").unwrap();
+    let mate = Teammate { id: "tm_wren".into(), name: "Wren".into(), role: "Code".into(), runtime: Some("codex".into()), model: None, account: None, busy: false, runs_in: "ask".into(), folder: Some(folder.to_string_lossy().into()) };
+    rt.update(move |s, _| {
+        s.home.home_open = false;
+        s.teammates = vec![mate.clone()];
+        s.selected = 0;
+        s.conversations.entry(mate.id.clone()).or_default();
+        crate::changes_panel::open(s);
+    });
+    pump(&mut rt, "the turn's record is read", |s| !s.changes_job.is_pending() && !s.changes.records.is_empty());
+    settle(&mut rt);
+    click(&mut rt, "changes-undo-ask-mission_native_undo_1");
+    settle(&mut rt);
+    assert_eq!(rt.state.changes.asking.as_deref(), Some("mission_native_undo_1"), "Undo asks first");
+    click(&mut rt, "changes-undo-mission_native_undo_1");
+    pump(&mut rt, "Undo finishes", |s| !s.undo_job.is_pending() && s.changes.result.is_some());
+    assert_eq!(rt.state.changes.result.as_deref(), Some("Undone: 1 file put back as it was before this turn."));
+    assert!(!folder.join("laptop-setup.md").exists(), "the file the turn made is gone");
+    pump(&mut rt, "the records are read again", |s| !s.changes_job.is_pending() && s.changes.records.iter().any(|(_, r)| r.get("undone").is_some()));
+    settle(&mut rt);
+    assert!(rt.find("changes-undo-ask-mission_native_undo_1").is_none(), "an undone turn offers no second Undo");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+

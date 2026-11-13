@@ -348,6 +348,19 @@ pub fn records(store: &Store, workspace: &Path) -> io::Result<Vec<(String, Value
     out.sort_by(|a, b| b.0.cmp(&a.0));
     Ok(out)
 }
+/// Undo's receipt for a turn, if it was undone: what was put back and what was left (read only; no lock is taken).
+pub fn undone(store: &Store, workspace: &Path, id: &str) -> Option<Value> {
+    let workspace = workspace.canonicalize().ok()?;
+    let receipt = base(store, &workspace).ok()?.join("receipts").join(format!("{}.json", valid_id(id).ok()?));
+    serde_json::from_slice(&fs::read(receipt).ok()?).ok()
+}
+/// A receipt, as Undo leaves one, for a test of what follows an undone turn.
+#[cfg(test)]
+pub(crate) fn put_receipt(store: &Store, workspace: &Path, id: &str, receipt: &Value) {
+    let dir = base(store, workspace).unwrap().join("receipts");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join(format!("{id}.json")), receipt.to_string()).unwrap();
+}
 pub fn changed(v: &Value) -> Vec<String> {
     let before: Files = serde_json::from_value(v["before"].clone()).unwrap_or_default();
     let after: Files = serde_json::from_value(v["after"].clone()).unwrap_or_default();

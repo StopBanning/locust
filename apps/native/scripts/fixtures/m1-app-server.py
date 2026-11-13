@@ -17,7 +17,7 @@ approving = scenario.startswith('approve-')
 is_resumed_turn = False
 is_forked_turn = False
 base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
-if approving:
+if approving or scenario == 'resume-undone':
     base = 'success'
 SANDBOX = 'workspace-write' if (approving or scenario == 'cards-edit-check') else 'read-only'
 POLICY = 'untrusted' if approving else 'never'
@@ -86,6 +86,11 @@ for line in sys.stdin:
             continue
         if not cards_mode and not scenario.startswith('relay-'):
             assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
+        # A follow-up to an undone turn starts with what Undo put back (undone-note.ts); any other follow-up says nothing of it.
+        if scenario == 'resume-undone':
+            assert text.startswith('Before this message, the person pressed Undo on your previous turn in Locust.') and 'laptop-setup.md' in text, text
+        elif resuming:
+            assert 'pressed Undo' not in text, text
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})

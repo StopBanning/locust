@@ -2528,3 +2528,30 @@ except Exception:
     assert!(crate::teammate_keys::for_store(&store).run_keys("tm_claude").is_empty());
 }
 
+/// a-teammate-hears-its-turn-was-undone.test.ts: a follow-up to a turn the person undid starts with what Undo put back,
+/// and still ends with the person's words (the fake fails the turn otherwise); a follow-up to one not undone says
+/// nothing of Undo (the plain resume scenario fails on it).
+#[test]
+fn a_follow_up_to_an_undone_turn_starts_with_what_undo_put_back() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let first = send(job(&t, None, "Synthetic prompt")).unwrap();
+    finished(&first.conversation_id);
+    let folder = codex(&t).folder.map(PathBuf::from).unwrap();
+    crate::checkpoints::put_receipt(&t.store(), &folder, &first.conversation_id, &json!({"restored": ["laptop-setup.md"], "leftAlone": []}));
+    *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), fake("resume-undone"));
+    let second = send(job(&t, Some(&first.conversation_id), "Synthetic follow-up")).unwrap();
+    finished(&second.conversation_id);
+    let child = ledgers(&t).into_iter().find(|p| *p != path_of(&t, &first.conversation_id)).unwrap();
+    assert_eq!(kinds(&child).last().map(String::as_str), Some("run.completed"), "{:?}", records(&child));
+    let said = records(&child)[0]["metadata"]["prompt"].as_str().unwrap().to_owned();
+    assert_eq!(said, "Synthetic follow-up", "the record keeps the person's words; the note goes to the runtime only");
+    // The turn after that follows a turn that was not undone, and is told nothing.
+    let tip = second.conversation_id.clone();
+    *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), fake("resume"));
+    let third = send(job(&t, Some(&tip), "Synthetic follow-up")).unwrap();
+    finished(&third.conversation_id);
+    let newest = ledgers(&t).into_iter().max_by_key(|p| std::fs::metadata(p).unwrap().modified().unwrap()).unwrap();
+    assert_eq!(kinds(&newest).last().map(String::as_str), Some("run.completed"), "{:?}", records(&newest));
+}
+
