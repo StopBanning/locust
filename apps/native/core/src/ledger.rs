@@ -30,6 +30,12 @@ pub struct Metadata {
     pub parent: Option<String>,
     pub check_fix: Option<crate::edit_check::CheckFixStarter>,
     pub side: bool,
+    pub cli_version: Option<String>,
+    pub resolved_route_id: String,
+    pub sandbox: String,
+    pub mode: Option<String>,
+    pub continues_reason: Option<String>,
+    pub started_by_kind: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -340,6 +346,23 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
             .and_then(|v| v.get("kind"))
             .and_then(Value::as_str)
             == Some("side"),
+        cli_version: m
+            .get("cliVersion")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        resolved_route_id: string(m, "resolvedRouteId"),
+        sandbox: string(m, "sandbox"),
+        mode: m.get("mode").and_then(Value::as_str).map(str::to_owned),
+        continues_reason: m
+            .get("continuesFrom")
+            .and_then(|v| v.get("reason"))
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        started_by_kind: m
+            .get("startedBy")
+            .and_then(|v| v.get("kind"))
+            .and_then(Value::as_str)
+            .map(str::to_owned),
     })
 }
 
@@ -1326,6 +1349,53 @@ impl Session {
 
     pub fn anchor(&self) -> &str {
         &self.anchor
+    }
+
+    pub fn inspector_inputs(&self) -> Vec<crate::inspector::TurnInput> {
+        self.readers
+            .iter()
+            .filter_map(|reader| {
+                let t = &reader.transcript;
+                let m = t.metadata.as_ref()?;
+                let phase = if t.running {
+                    "running"
+                } else if t.failed {
+                    "failed"
+                } else if t
+                    .items
+                    .iter()
+                    .any(|i| matches!(i, Item::Note { text, .. } if text == "Stopped"))
+                {
+                    "cancelled"
+                } else {
+                    "completed"
+                };
+                let last_checkpoint_epoch = t
+                    .checkpoints
+                    .iter()
+                    .filter_map(|p| p["epoch"].as_u64())
+                    .max();
+                Some(crate::inspector::TurnInput {
+                    mission_id: m.mission_id.clone(),
+                    prompt: m.prompt.clone(),
+                    runtime: m.runtime.clone(),
+                    cli_version: m.cli_version.clone(),
+                    model: m.model.clone(),
+                    resolved_route_id: m.resolved_route_id.clone(),
+                    sandbox: m.sandbox.clone(),
+                    mode: m.mode.clone(),
+                    continues_reason: m.continues_reason.clone(),
+                    started_by_kind: m.started_by_kind.clone(),
+                    phase: phase.to_owned(),
+                    running: t.running,
+                    events: t.events.values().cloned().collect(),
+                    checkpoints_count: t.checkpoints.len(),
+                    last_checkpoint_epoch,
+                    integrity_issue_count: usize::from(t.error.is_some()),
+                    recovery: t.recovery.clone(),
+                })
+            })
+            .collect()
     }
 
     #[cfg(any(test, feature = "test-hooks"))]

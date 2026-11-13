@@ -483,6 +483,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     "Privacy & local data" => {
                         body = body.child(crate::backup_section::storage_and_retention_section(s, p));
                     }
+                    "Trash" => {
+                        body = body.child(crate::trash_section::section(s, p));
+                    }
                     "Back up and restore" => {
                         body = body.child(crate::backup_section::backup_section(s, p));
                     }

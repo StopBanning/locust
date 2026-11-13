@@ -151,6 +151,10 @@ mod changes_panel;
 mod commit_panel;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
+#[path = "ui/inspector_panel.rs"]
+mod inspector_panel;
+#[path = "ui/trash_section.rs"]
+mod trash_section;
 #[path = "ui/side_chat.rs"]
 mod side_chat;
 mod diagram;
@@ -647,6 +651,11 @@ fn setup(s: &mut State, waker: Waker) {
         s.import_dialog.opencode_enabled = true;
     }
     load_composer_store(s);
+    if !s.demo && s.last_restore.is_none()
+        && let Some(store) = &s.data
+    {
+        s.last_restore = locust_core::profile_backup::take_last_restore(store.root());
+    }
     load_team(s);
     sync_draft_key(s);
     // Home shows the folder Locust has open: the native app's own choice, else Electron's.
@@ -2096,6 +2105,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     if let Some(review) = review_changes::panel(s, &p) {
         right = right.child(review);
     }
+    if let Some(inspector) = inspector_panel::panel(s, &p) {
+        right = right.child(inspector);
+    }
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);
     }
@@ -2125,6 +2137,7 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         .h_full()
         .fill(p.bg)
         .child(rail::title_bar(s, &p, !thread_shown, running))
+        .children(backup_section::restore_notice_banner(s, &p))
         .child(body)
         // Locust taps you on the shoulder only while its window is elsewhere (attention.ts shouldNotify).
         .on_window_focus(|s: &mut State, focused: bool, _tx: &mut Tx| s.window_focused = focused);

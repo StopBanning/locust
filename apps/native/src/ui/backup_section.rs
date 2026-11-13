@@ -42,6 +42,7 @@ pub(crate) struct PrivacyPanelState {
     pub retention_days: i64,
     pub retention: RetentionUiState,
     pub backup: BackupUiState,
+    pub trash: crate::trash_section::TrashUiState,
 }
 
 impl Default for PrivacyPanelState {
@@ -51,11 +52,45 @@ impl Default for PrivacyPanelState {
             retention_days: 90,
             retention: RetentionUiState::Idle,
             backup: BackupUiState::Idle,
+            trash: crate::trash_section::TrashUiState::default(),
         }
     }
 }
 
+pub(super) fn restore_notice_banner(s: &State, p: &Palette) -> Option<El> {
+    let outcome = s.last_restore.as_ref()?;
+    let tone = if outcome.ok { p.green } else { p.amber };
+    let line = profile_backup::restore_notice_line(outcome);
+    Some(
+        row()
+            .key("restore-notice")
+            .w_full()
+            .center_y()
+            .gap(8.0)
+            .px(16.0)
+            .py(8.0)
+            .fill(p.raised)
+            .border(1.0, p.hairline)
+            .child(
+                text(line)
+                    .font(type_::LABEL)
+                    .color(tone)
+                    .grow(1.0)
+                    .shrink()
+                    .wrap(),
+            )
+            .child(
+                action_button("OK", p)
+                    .key("restore-notice-ok")
+                    .on_press(|s: &mut State| {
+                        s.last_restore = None;
+                    }),
+            ),
+    )
+}
+
 pub(super) fn reload(s: &mut State) {
+    crate::trash_section::reload(s);
     let Some(store) = s.data.clone() else {
         s.settings_panel.privacy.storage = None;
         return;
