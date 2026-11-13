@@ -381,6 +381,8 @@ pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
     }
     let _ = crate::tune_lesson_store::remove_for_teammate(store, who);
     let _ = crate::teammate_skills::remove_for_teammate(store, who);
+    // Its keys go with it (teammate-keys.ts forget). None kept: no keychain is asked.
+    crate::teammate_keys::for_store(store).forget(who);
     Ok(())
 }
 pub fn settings(store: &Store, note: &str, suggestions: Option<Vec<Value>>) -> Result<(), String> {
@@ -817,7 +819,7 @@ pub fn brief_with_instructions(
     prompt: &str,
     instructions_override: Option<&str>,
 ) -> Result<String, String> {
-    let mut sections = workspace_sections(store, who, folder, instructions_override)?;
+    let mut sections = workspace_sections(store, who, folder, instructions_override, None)?;
     sections.push(prompt.to_owned());
     Ok(sections.join("\n\n"))
 }
@@ -854,7 +856,7 @@ pub fn turn_brief(
             standing.push(crate::briefing::roster_section(me, &others));
         }
     }
-    standing.extend(workspace_sections(store, who, folder, instructions_override)?);
+    standing.extend(workspace_sections(store, who, folder, instructions_override, runtime)?);
     standing.extend(crate::briefing::standing_formats(runtime));
     let (composed, kept) = crate::briefing::assemble(&standing, inbound, remaining, &roster, Some(chrono::Utc::now()), prompt);
     Ok((composed, inbound[..kept].to_vec()))
@@ -907,6 +909,7 @@ fn workspace_sections(
     who: &str,
     folder: &Path,
     instructions_override: Option<&str>,
+    runtime: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let file = team(store)?;
     let teammate = file["teammates"]
@@ -928,6 +931,13 @@ fn workspace_sections(
                 t["name"].as_str().unwrap_or("a teammate"),
                 &instructions,
             ));
+        }
+    }
+    // Its keys by name, never by value, and how to ask for one it needs (teammate_keys, 0.833).
+    if teammate.is_some() {
+        let keys = crate::teammate_keys::keys_section(&crate::teammate_keys::for_store(store).names(who), runtime.is_some_and(crate::teammate_keys::reaches));
+        if !keys.is_empty() {
+            sections.push(keys);
         }
     }
     if let Some(note) = about {

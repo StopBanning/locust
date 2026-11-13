@@ -590,6 +590,10 @@ fn edit_form(s: &State, p: &Palette) -> El {
                     ),
             ),
     );
+    // Its keys (KeyCard.tsx TeammateKeysField), for a teammate that exists: a new one has no id to keep them under yet.
+    if let Some(id) = panel.editing.as_deref().filter(|_| !creating) {
+        form = form.child(crate::key_card::field(s, p, id, if name_now.is_empty() { "this teammate" } else { &name_now }));
+    }
     let who = if name_now.is_empty() { "this teammate" } else { &name_now };
     let who_pronoun = if name_now.is_empty() { "it" } else { &name_now };
     let interview_label = if creating {

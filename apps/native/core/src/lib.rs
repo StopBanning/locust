@@ -18,6 +18,7 @@ pub mod reply_page;
 pub mod remote_control;
 pub mod agent_accounts;
 pub mod agent_install;
+pub mod teammate_keys;
 pub mod published_links;
 pub mod workroom;
 pub mod peer_share;

@@ -119,8 +119,14 @@ pub struct LedgerWriter {
     ledger_seq: u64,
     poisoned: bool,
     bytes: u64,
+    /// A teammate's keys given to this run: their values are taken out of every record before it is written.
+    keys: Vec<crate::teammate_keys::RunKey>,
 }
 impl LedgerWriter {
+    /// Take these keys' values out of everything this writer writes from now on (teammate_keys, scrubKeyValues).
+    pub fn take_out(&mut self, keys: Vec<crate::teammate_keys::RunKey>) {
+        self.keys = keys;
+    }
     pub fn create(
         store: &Store,
         id: &str,
@@ -237,6 +243,7 @@ impl LedgerWriter {
             ledger_seq: 2,
             poisoned: false,
             bytes: 0,
+            keys: Vec::new(),
         };
         let at = now();
         let continuation = continues.map(|c| {
@@ -282,6 +289,7 @@ impl LedgerWriter {
                 "Ledger write previously failed; refusing further appends",
             ));
         }
+        let value = if self.keys.is_empty() { value } else { crate::teammate_keys::scrub_key_values(&value, &self.keys) };
         let mut bytes = serde_json::to_vec(&value)?;
         bytes.push(b'\n');
         if bytes.len() > 512 * 1024 || self.bytes + bytes.len() as u64 > 64 * 1024 * 1024 {

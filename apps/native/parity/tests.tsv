@@ -255,7 +255,7 @@ apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts		wa
 apps/desktop/src/main/a-teammate-signs-in-apart-in-the-browser.test.ts	p13	does-not-apply		`main/a-teammate-signs-in-apart-in-the-browser.test.ts` (profile isolation) | profile-scoped tabs; forget closes only that profile’s tabs
 apps/desktop/src/main/a-teammate-suggests-a-line-for-about-you.test.ts	P6	does-not-apply		`main/a-teammate-suggests-a-line-for-about-you.test.ts` | Suggestions do not change the person's existing note.
 apps/desktop/src/main/a-teammates-key-reaches-only-its-runs.test.ts		waiting		
-apps/desktop/src/main/a-teammates-keys-are-kept-for-it-alone.test.ts		waiting		
+apps/desktop/src/main/a-teammates-keys-are-kept-for-it-alone.test.ts	P10	carried	core/src/teammate_keys_tests.rs; core/src/native/tests.rs a_teammates_key_reaches_its_claude_run_and_never_its_record	every it() ported (7), plus the file's mode, a value never in a debug print, and a real run's environment and record
 apps/desktop/src/main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts	P6	does-not-apply		`main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts` | Only the **scope/enabled/kept filtering subset** is covered, not relevance scoring.
 apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts	SETUP	carried	teammate_setup::tests	`main/a-teammates-setup-is-read-fresh.test.ts` | Ported `last_turn_of`, `claude_code_setup_reads_each_layer_fresh`, `other_runtimes_and_codex_opencode_skills_match_electron`, `card_words_match_electron_in_order`, `skill_census_follows_symlinks_ignores_broken_and_stops_cycles` (group=None in high-level reader)
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	P9	partial		main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts | Partial: PTY printf output/ANSI/resize/exit; process-tree disposal implemented but fake lifecycle, policy, backpressure, unknown-worktree and late-spawn assertions remain
@@ -707,7 +707,7 @@ apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-hung-cli-gets-a-way-past.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-judge-scorecard-sits-under-the-answers.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-key-is-asked-for-on-a-card.test.tsx	P10	carried	src/ui/window_drive_tests.rs a_key_asked_for_is_kept_from_its_card_and_listed_in_the_teammates_form	all three it()s, in one drive of the window's card and edit form
 apps/desktop/src/renderer/src/a-kilo-model-has-one-name.test.ts		waiting		
 apps/desktop/src/renderer/src/a-landing-says-why-it-cannot.test.ts		waiting		
 apps/desktop/src/renderer/src/a-large-diff-says-the-right-counts.test.tsx		waiting		

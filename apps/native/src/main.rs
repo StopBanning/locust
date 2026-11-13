@@ -187,6 +187,8 @@ mod usage_line;
 mod cancellation_card;
 #[path = "ui/own_models_card.rs"]
 mod own_models_card;
+#[path = "ui/key_card.rs"]
+mod key_card;
 mod os_hosts;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
@@ -1840,6 +1842,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
     changed |= own_models_card::poll(s);
+    changed |= key_card::poll(s);
     // The Mac stays awake while a turn runs, or always when the person asked it to (powerSaveBlocker).
     os_hosts::keep_awake(locust_core::engine_api::api().running().len(), s.settings_panel.stay_awake);
     changed |= connectors_section::poll(s);

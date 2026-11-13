@@ -4230,3 +4230,69 @@ fn install_runs_the_rows_line_and_says_how_it_ended() {
     on_quit(&mut rt.state, &mut Tx::default());
 }
 
+/// a-key-is-asked-for-on-a-card.test.tsx, in the window: under the answer that asked, a masked box and Keep; once kept,
+/// that the teammate has it; a reserved name refused; an agent that cannot pass keys says so; and the edit form lists
+/// the teammate's keys with Remove.
+#[test]
+fn a_key_asked_for_is_kept_from_its_card_and_listed_in_the_teammates_form() {
+    // The same sealing as own_models' tests, so a test of theirs beside this one opens what it sealed.
+    struct Reversed;
+    impl locust_core::own_models::SecretBox for Reversed {
+        fn available(&self) -> bool {
+            true
+        }
+        fn seal(&self, text: &str) -> Result<String, String> {
+            Ok(format!("sealed:{}", text.chars().rev().collect::<String>()))
+        }
+        fn open(&self, sealed: &str) -> Result<String, String> {
+            Ok(sealed.trim_start_matches("sealed:").chars().rev().collect())
+        }
+    }
+    locust_core::own_models::use_secrets(std::sync::Arc::new(Reversed));
+    let (_dirs, store, mut rt) = window();
+    let mira = Teammate { id: "tm_mira".into(), name: "Mira".into(), role: "Code".into(), runtime: Some("claude".into()), model: None, account: None, busy: false, runs_in: "ask".into(), folder: None };
+    let answer = "I need two keys.\n\n<locust-key name=\"STRIPE_KEY\">To make test charges</locust-key>\n<locust-key name=\"OPENAI_API_KEY\">to call the model</locust-key>";
+    let (who, said) = (mira.clone(), answer.to_owned());
+    rt.update(move |s, _| {
+        s.home.home_open = false;
+        s.teammates = vec![who.clone()];
+        s.selected = 0;
+        s.conversations.entry(who.id.clone()).or_default().turns = vec![("You".into(), "Charge a test card".into()), (who.name.clone(), said.clone())];
+    });
+    pump(&mut rt, "the key names are read", |s| s.keys.names.contains_key("tm_mira"));
+    settle(&mut rt);
+    let card = text_in(&rt, "key-card").join(" ");
+    assert!(card.contains("Mira asks for a key: STRIPE_KEY -- To make test charges") && card.contains("Kept encrypted on this computer, for Mira alone"), "{card}");
+    assert!(card.contains("OPENAI_API_KEY is a name an agent or this computer reads for itself") && rt.find("key-card-value-OPENAI_API_KEY").is_none(), "a reserved name gets no box: {card}");
+    click(&mut rt, "key-card-value-STRIPE_KEY");
+    rt.update(|s, _| s.keys.drafts.entry(("tm_mira".into(), "STRIPE_KEY".into())).or_default().replace_text("locust-made-up-key-value-0042"));
+    settle(&mut rt);
+    click(&mut rt, "key-card-keep-STRIPE_KEY");
+    pump(&mut rt, "the key is kept", |s| !s.keys_job.is_pending() && s.keys.names.get("tm_mira").is_some_and(|n| !n.is_empty()));
+    settle(&mut rt);
+    assert!(text_in(&rt, "key-card").join(" ").contains("Mira has STRIPE_KEY."), "kept");
+    assert!(rt.find("key-card-value-STRIPE_KEY").is_none(), "no box once kept");
+    assert!(rt.state.keys.drafts.values().all(|d| !d.text.contains("locust-made-up-key")), "the value left the window");
+    assert_eq!(locust_core::teammate_keys::for_store(&store).run_keys("tm_mira").len(), 1);
+    // On an agent that cannot pass keys, the card says so instead of offering a box.
+    rt.update(|s, _| s.teammates[0].runtime = Some("codex".into()));
+    settle(&mut rt);
+    let codex = text_in(&rt, "key-card").join(" ");
+    assert!(codex.contains("Locust does not give keys to its agent yet") && codex.contains("Keys reach Claude Code, Cursor and OpenCode teammates for now"), "{codex}");
+    // The edit form lists it by name, with Remove.
+    rt.update(|s, _| {
+        crate::people_panel::open(s);
+        s.people_panel.form_open = true;
+        s.people_panel.editing = Some("tm_mira".into());
+        s.people_panel.entry = serde_json::json!({"teammateId": "tm_mira", "name": "Mira"});
+    });
+    settle(&mut rt);
+    rt.update(|_, tx| tx.scroll_key_to("team-keys", 0.0));
+    settle(&mut rt);
+    assert!(rt.find("team-key-remove-STRIPE_KEY").is_some(), "{:?}", text_in(&rt, "team-keys"));
+    click(&mut rt, "team-key-remove-STRIPE_KEY");
+    pump(&mut rt, "the key is removed", |s| !s.keys_job.is_pending() && s.keys.names.get("tm_mira").is_some_and(Vec::is_empty));
+    assert!(locust_core::teammate_keys::for_store(&store).run_keys("tm_mira").is_empty());
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+

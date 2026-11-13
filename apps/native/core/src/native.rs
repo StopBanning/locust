@@ -2017,6 +2017,12 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     {
         crate::own_models::add_provider_env(&mut command, &store, own)?;
     }
+    // A teammate's own keys (teammate_keys, 0.833): environment variables of its run, on an agent measured to pass them
+    // to its commands, never in a sealed run, whose prompt holds other people's words. None kept: no keychain is asked.
+    let run_keys = if !sealed && crate::teammate_keys::reaches(runtime_name) { crate::teammate_keys::for_store(&store).run_keys(&job.teammate.id) } else { Vec::new() };
+    for key in &run_keys {
+        command.env(&key.name, &key.value);
+    }
     let codex_home = launch_env
         .iter()
         .find(|(k, _)| *k == "CODEX_HOME")
@@ -2181,6 +2187,8 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         &extra,
     )
     .map_err(|e| e.to_string())?;
+    // Whatever the run says or does that holds a key's value has it taken out before it is written.
+    writer.take_out(run_keys);
     for msg in &delivered {
         let _ = writer.write_peer_link("received", &msg.message_id, &msg.from.teammate_id, &msg.posted_at);
     }

@@ -2462,3 +2462,68 @@ fn relay_route_switch_records_left_out_by_you_and_decodes_in_snapshot() {
     assert_eq!(snap.metadata.unwrap().left_out_by_you, vec!["summary".to_owned()]);
     assert_eq!(crate::carry_on::left_out_in_words(&[String::from("summary")]), "its last reply");
 }
+
+/// teammate-keys.ts in a run: a teammate's key reaches its Claude Code run as an environment variable, and what the run
+/// says with it is recorded with the value taken out. A Codex run, which drops key-named variables, gets none.
+#[test]
+fn a_teammates_key_reaches_its_claude_run_and_never_its_record() {
+    // The same sealing as own_models' tests, so a test of theirs running beside this one opens what it sealed.
+    struct Reversed;
+    impl crate::own_models::SecretBox for Reversed {
+        fn available(&self) -> bool {
+            true
+        }
+        fn seal(&self, text: &str) -> Result<String, String> {
+            Ok(format!("sealed:{}", text.chars().rev().collect::<String>()))
+        }
+        fn open(&self, sealed: &str) -> Result<String, String> {
+            Ok(sealed.trim_start_matches("sealed:").chars().rev().collect())
+        }
+    }
+    const VALUE: &str = "locust-made-up-key-value-0042";
+    let t = Temp::new();
+    let store = t.store();
+    crate::own_models::use_secrets(std::sync::Arc::new(Reversed));
+    crate::teammate_keys::for_store(&store).set("tm_claude", "STRIPE_KEY", VALUE).unwrap();
+    // A Claude Code that says back the key its run was given, in stream-json.
+    let fake = t.0.join("claude_says_key.py");
+    fs::write(
+        &fake,
+        r#"import json, os, sys
+def send(v):
+    print(json.dumps(v), flush=True)
+sys.stdin.readline()
+send({"type": "system", "subtype": "init", "session_id": "33b21513-a4fb-478d-ad84-21cb7ef30571", "cwd": "/tmp", "tools": ["Read"], "mcp_servers": [], "model": "synthetic-model", "permissionMode": "default", "slash_commands": [], "claude_code_version": "2.1.252", "agents": [], "skills": []})
+said = "The key is " + os.environ.get("STRIPE_KEY", "missing")
+send({"type": "assistant", "message": {"id": "msg_k", "content": [{"type": "text", "text": said}]}})
+send({"type": "result", "subtype": "success", "is_error": False, "result": said})
+try:
+    sys.stdin.read()
+except Exception:
+    pass
+"#,
+    )
+    .unwrap();
+    *crate::invariants::lock(&hooks::STATE) = (Some(store.clone()), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    let mate = Teammate {
+        id: "tm_claude".into(),
+        name: "Claude".into(),
+        role: "Code & Migrations".into(),
+        runtime: Some("claude".into()),
+        model: Some("sonnet".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: Some(t.0.join("work").to_string_lossy().into()),
+    };
+    fs::create_dir_all(t.0.join("work")).unwrap();
+    let run = send(Send { teammate: mate, ..job(&t, None, "Say the key") }).unwrap();
+    wait("the keyed turn finishes", || !owns(&run.conversation_id));
+    let ledger = fs::read_to_string(path_of(&t, &run.conversation_id)).unwrap();
+    assert!(ledger.contains("The key is [key STRIPE_KEY]"), "the run had the key, and the record has its name: {ledger}");
+    assert!(!ledger.contains(VALUE) && !ledger.contains("missing"), "never the value");
+    // A removed teammate's keys go with it.
+    crate::people::remove_teammate(&store, "tm_claude").unwrap();
+    assert!(crate::teammate_keys::for_store(&store).run_keys("tm_claude").is_empty());
+}
+

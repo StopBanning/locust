@@ -83,7 +83,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Automatic peer exchanges and optional handoff omissions | `main/peer-exchange.ts`, `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **done** — Automatic teammate relay (`core/src/relay.rs` wired into `core/src/native.rs`) with workroom delivery, busy deferral/steer/interrupt, meeting barriers, reply budget, diagnostic notes, and handoff divider omission toggles (`ui/handoff_divider.rs`) synced via `left_out` and `carry_on`. Room exchanges wait on Rooms | yes | no | yes |
 | Memory store, named replacements, recently forgotten and tidy suggestions | `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/MemoryCard.tsx`, `main/memory-store.ts`, `shared/memory.ts` | **partial** — native-owned Electron-shaped memory, named rewrites/proposals, edit/toggle/remove/restore and gated tidy application; full validation, recall, tidy UI and turn-card receipts remain (P6-NOTES.md) | yes | no | yes |
 | Workspace/runtime skills and GitHub popular/recent skill packs | `renderer/src/components/SkillsFromGitHub.tsx`, `renderer/src/components/CliArtifacts.tsx`, `main/skill-discovery.ts`, `main/skill-library.ts` | **partial** — run skills for every agent (Electron's kept skills, read only); no GitHub skill packs or native skill store | yes | no | yes |
-| Teammate secret environment keys and scoped run injection | `renderer/src/components/KeyCard.tsx`, `main/teammate-keys.ts` | **missing** | - | no | yes |
+| Teammate secret environment keys and scoped run injection | `renderer/src/components/KeyCard.tsx`, `main/teammate-keys.ts` | **done** — `core/src/teammate_keys.rs`: names checked as Electron checks them (reserved agent and system names refused), values sealed in this Mac's keychain in a file this account alone reads, 20 a teammate; a run on Claude Code, Cursor or OpenCode gets them as environment variables (never a sealed run), its brief names them, and the ledger writer takes their values out of every record; gone with the teammate. `ui/key_card.rs`: the card under an answer that asks (masked box, Keep, reserved names refused, an agent that cannot pass keys says so) and Keys in the teammate's edit form | yes | no | yes |
 | Custom faces, colours, bot/mascot and status legend | `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/FaceLegend.tsx`, `renderer/src/components/PixelFace.tsx`, `renderer/src/components/AgentMark.tsx` | **missing** | - | no | no |
 | About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **partial** — native About-you editor and suggestion approval/dismissal, included in native runtime prompts; full secret refusal vocabulary, change notices and TS test coverage remain (P6-NOTES.md) | yes | no | yes |
 | Team image import/export with routines | `renderer/src/components/TeamCard.tsx`, `main/team-card-routines.ts`, `shared/team-card.ts` | **done** — Hydrogen: `core/src/png_text.rs`, `core/src/team_card.rs`, `src/ui/people_panel.rs`, `src/ui/home_panel.rs` (PNG tEXt team card export/import with routines, stripping secrets/ids/folders/own models and downgrading Auto to accept-edits; TEAM-FILES-NOTES.md) | yes | no | yes |
@@ -280,7 +280,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 13 | 12 | 0 | 25 | 25 | 3 |
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
-| 3 | Teammates, Rooms, Memory & Skills | 7 | 4 | 3 | 14 | 11 | 0 |
+| 3 | Teammates, Rooms, Memory & Skills | 8 | 4 | 2 | 14 | 12 | 0 |
 | 4 | Runtimes, Routing & Fallback | 5 | 6 | 0 | 11 | 11 | 5 |
 | 5 | Approvals & Permissions | 1 | 8 | 0 | 9 | 9 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 7 | 3 | 13 | 10 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **66** | **62** | **25** | **153** | **128** | **15** |
+| | **TOTAL** | **67** | **62** | **24** | **153** | **129** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
