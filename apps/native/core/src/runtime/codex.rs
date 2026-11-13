@@ -39,6 +39,8 @@ pub struct Codex {
     /// Fork the resumed thread (`thread/fork`) instead of resuming it (`thread/resume`), for a side question.
     fork: bool,
     slash: Option<String>,
+    /// Sealed run (`SlotOrigin.sealed`, e.g. Scout's look): no tools, no shell, no web search, no connectors.
+    sealed: bool,
 }
 
 fn err(message: impl ToString) -> io::Error {
@@ -138,6 +140,7 @@ impl Codex {
             thread_config: None,
             fork: false,
             slash: None,
+            sealed: false,
         })
     }
     pub fn with_thread_config(mut self, config: Option<Value>) -> Self {
@@ -146,6 +149,10 @@ impl Codex {
     }
     pub fn with_fork(mut self, fork: bool) -> Self {
         self.fork = fork;
+        self
+    }
+    pub fn with_sealed(mut self, sealed: bool) -> Self {
+        self.sealed = sealed;
         self
     }
     /// One of Codex's own commands the person typed (0.428): `review` and `compact` go as the requests its own terminal
@@ -318,18 +325,32 @@ impl Codex {
     }
 }
 pub fn read_only_config(settings: &Value) -> io::Result<Value> {
+    thread_config(settings, false)
+}
+
+/// Sealed run's thread config (`codexSealedThreadConfig`, Scout's look): no shell, no web search, no ChatGPT apps, and all MCP servers (connectors included) disabled.
+pub fn sealed_config(settings: &Value) -> io::Result<Value> {
+    thread_config(settings, true)
+}
+
+fn thread_config(settings: &Value, sealed: bool) -> io::Result<Value> {
     if !settings.is_object() {
         return Err(err(
             "Could not read Codex settings; refusing to start Ask with unknown MCP programs",
         ));
     }
     let mut config = json!({"features.plugins":false,"features.browser_use":false,"features.browser_use_external":false,"features.in_app_browser":false,"features.computer_use":false});
+    if sealed {
+        config["features.apps"] = json!(false);
+        config["features.shell_tool"] = json!(false);
+        config["web_search"] = json!("disabled");
+    }
     if !settings["mcp_servers"].is_null() {
         let servers = settings["mcp_servers"]
             .as_object()
             .ok_or_else(|| err("Invalid Codex MCP settings"))?;
         for (name, fields) in servers {
-            if fields["url"].is_string() && fields.get("command").is_none() {
+            if !sealed && fields["url"].is_string() && fields.get("command").is_none() {
                 continue;
             }
             if name.is_empty()
@@ -364,16 +385,22 @@ impl Runtime for Codex {
         self.send(json!({"jsonrpc":"2.0","method":"initialized"}))?;
         // The run's skills, before the thread starts so its first turn lists them (codex-app-server-run.ts). Refused,
         // the turn runs without them.
-        let roots = crate::skills::roots(&turn.mission_id);
-        if !roots.is_empty() {
-            let _ = self.request("skills/extraRoots/set", json!({"extraRoots": roots}));
+        if !self.sealed {
+            let roots = crate::skills::roots(&turn.mission_id);
+            if !roots.is_empty() {
+                let _ = self.request("skills/extraRoots/set", json!({"extraRoots": roots}));
+            }
         }
         let policy = crate::approval::codex_app_server_policy(turn.mode, None);
         // Ask and Plan start none of the MCP servers the person's Codex runs as programs (codex-read-only.ts, 0.824):
         // read-only is Codex's sandbox, and a program outside it may write. The other modes keep their Codex as it is.
         let mut config = if policy.sandbox == "read-only" {
             let settings = self.request("config/read", json!({"cwd":turn.folder}))?;
-            read_only_config(&settings["config"])?
+            if self.sealed {
+                sealed_config(&settings["config"])?
+            } else {
+                read_only_config(&settings["config"])?
+            }
         } else {
             json!({})
         };
@@ -382,7 +409,9 @@ impl Runtime for Codex {
                 config[key] = value.clone();
             }
         }
-        if let Some(browser) = crate::browser_tools::config(&turn.mission_id) {
+        if !self.sealed
+            && let Some(browser) = crate::browser_tools::config(&turn.mission_id)
+        {
             config["mcp_servers.locust_browser"] = browser;
             config["mcp_servers.locust_browser.enabled"] = json!(true);
         }

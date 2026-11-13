@@ -518,3 +518,24 @@ fn opencode_config_and_writable_homes_stay_native_for_both_versions() {
         }
     }
 }
+
+#[test]
+fn opencode_sealed_config_asks_every_tool_and_drops_plugins() {
+    let legacy = crate::runtime::opencode_config::legacy_sealed_config(Some("file:///tmp/plugin.js"));
+    assert_eq!(legacy["permission"]["*"], "ask");
+    assert_eq!(legacy["permission"]["external_directory"], "deny");
+    assert_eq!(legacy["tools"]["question"], false);
+    assert!(legacy.get("plugin").is_none());
+    assert_eq!(legacy["experimental"]["continue_loop_on_deny"], true);
+
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    std::fs::create_dir_all(store.electron()).unwrap();
+    let plugin = crate::runtime::opencode_config::write_guard(&store, true).unwrap();
+    let acp = crate::runtime::opencode_config::acp_sealed_config(&plugin);
+    let perms = acp["agents"]["locust"]["permissions"].as_array().unwrap();
+    assert!(perms.iter().any(|p| p["action"] == "*" && p["effect"] == "ask"));
+    assert!(perms.iter().any(|p| p["action"] == "external_directory" && p["effect"] == "deny"));
+    assert!(perms.iter().any(|p| p["action"] == "question" && p["effect"] == "deny"));
+    assert!(perms.iter().any(|p| p["action"] == "subagent" && p["effect"] == "deny"));
+}

@@ -157,6 +157,7 @@ fn command_for_turn(
     session_id: Option<&str>,
     references: &[&str],
     skills: Option<&str>,
+    sealed: bool,
 ) -> io::Result<Command> {
     #[cfg(any(test, feature = "test-hooks"))]
     if let Some((program, args)) = crate::invariants::lock(&hooks::STATE).1.clone() {
@@ -180,13 +181,13 @@ fn command_for_turn(
         "opencode" => {
             let store = store()
                 .ok_or_else(|| io::Error::other("Native data folder could not be determined"))?;
-            let mut c = crate::runtime::opencode::command(folder, mode, &store)?;
+            let mut c = crate::runtime::opencode::command_with_seal(folder, mode, &store, sealed)?;
             // OpenCode 1's config gets the reference folders a read-only run may read (openCodeModeEnv).
             let config = c
                 .get_envs()
                 .find(|(k, _)| *k == "OPENCODE_CONFIG_CONTENT")
                 .and_then(|(_, v)| v.and_then(|v| v.to_str()).and_then(|v| serde_json::from_str::<Value>(v).ok()));
-            if let Some(config) = config.filter(|c| c["permission"].is_object() && (!references.is_empty() || skills.is_some())) {
+            if let Some(config) = config.filter(|c| !sealed && c["permission"].is_object() && (!references.is_empty() || skills.is_some())) {
                 let config = crate::runtime::opencode_config::with_references(config, mode, references);
                 c.env("OPENCODE_CONFIG_CONTENT", crate::runtime::opencode_config::with_skills(config, skills).to_string());
             }
@@ -1282,9 +1283,8 @@ pub struct SlotOrigin {
     pub instructions: Option<String>,
     /// Candidate skill for a tune column, handed only to that column's run.
     pub skill: Option<crate::tune::TuneSkill>,
-    /// Electron seals only Scout's runs (index.ts 8681, 10103): no brief, no skills, no browser here. Its full seal also
-    /// refuses every OpenCode tool and starts Codex with none (codexSealedThreadConfig); that part is not ported yet,
-    /// and nothing sets this until Scout is.
+    /// Electron seals only Scout's runs (index.ts 8681, 10103): no brief, no skills, no browser, OpenCode refuses every
+    /// tool (`OPENCODE_SEALED_CONFIG`), and Codex starts with no shell/apps/web_search/MCP/connectors (`sealed_config`).
     pub sealed: bool,
 }
 
@@ -2134,6 +2134,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         session_id.as_deref(),
         &references,
         agent_skills.as_deref(),
+        sealed,
     )
     .map_err(|e| e.to_string())?;
     command.current_dir(&folder);
@@ -2388,7 +2389,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         .map(|n| n as u32);
     let check_apart = matches!(
         check_started_by_kind.as_deref(),
-        Some("relay" | "side" | "compare" | "judge")
+        Some("relay" | "side" | "compare" | "judge" | "scout")
     );
     let relay_origin = origin.relay.as_ref().and_then(crate::relay::RelayOrigin::from_json);
     let relay_started_by = origin
@@ -2414,6 +2415,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 bridge,
                 store,
                 is_side,
+                sealed,
                 codex_home,
                 slash_command,
             );
@@ -2697,7 +2699,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
     let launch_env = account_launch_env(&store, runtime_name, teammate.account.as_deref())?;
     let model = teammate.model.clone().filter(|m| !m.is_empty() && m != "account-default");
     let session = if runtime_name == "copilot" { Some(uuid_v4().map_err(|e| e.to_string())?) } else { None };
-    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[], None)
+    let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[], None, false)
         .map_err(|e| e.to_string())?;
     command.current_dir(folder);
     for (key, value) in &launch_env {
@@ -2762,6 +2764,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
         None,
         panel.clone(),
         false,
+        false,
         codex_home,
         None,
     );
@@ -2809,6 +2812,7 @@ fn run_turn(
     _bridge: Option<crate::runtime::permission_bridge::Bridge>,
     store: Store,
     fork: bool,
+    sealed: bool,
     codex_home: Option<PathBuf>,
     slash: Option<String>,
 ) {
@@ -3036,7 +3040,12 @@ fn run_turn(
     // No teammate ends the person's browser, Codex too (0.720): the guard as a hook in this thread's config.
     let guard = crate::command_guard::codex_config_for_home(&turn.folder, codex_home.as_deref());
     let mut runtime = match Codex::spawn(&mut command) {
-        Ok(r) => r.with_cancel(flag.clone()).with_thread_config(guard).with_fork(fork).with_command(slash.clone()),
+        Ok(r) => r
+            .with_cancel(flag.clone())
+            .with_thread_config(guard)
+            .with_fork(fork)
+            .with_sealed(sealed)
+            .with_command(slash.clone()),
         Err(e) => {
             record_failure(&mut writer, false, &e);
             return finish(&mut writer, &mut registered, &channel, &mission_id);

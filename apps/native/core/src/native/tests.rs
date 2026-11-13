@@ -3013,3 +3013,45 @@ sys.exit(proc.wait())
     assert!(captured[1].contains("Trading"));
     assert!(captured[1].contains("Never bypass stops."));
 }
+
+#[test]
+fn sealed_slot_sends_plain_prompt_without_tools_or_briefs_and_roundtrips_origin() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("sealed"));
+    let origin = Origin {
+        mode: Some(Mode::Ask),
+        folder: Some(t.0.join("work")),
+        started_by: Some(serde_json::json!({"kind": "scout"})),
+        slot: Some(SlotOrigin {
+            key: "scout:tm_scout:gpt-5.4-mini".into(),
+            cwd: None,
+            instructions: None,
+            skill: None,
+            sealed: true,
+        }),
+        ..Origin::default()
+    };
+    let started = send_from(job(&t, None, "Synthetic prompt"), origin).unwrap();
+    finished(&started.conversation_id);
+    let transcript = crate::ledger::read_transcript(path_of(&t, &started.conversation_id));
+    assert!(!transcript.running && !transcript.failed, "transcript should complete: {transcript:?}");
+
+    // Also verify EngineProcess origin serialization preserves SlotOrigin.sealed.
+    let back = Origin {
+        mode: Some(Mode::Ask),
+        folder: Some(t.0.join("work")),
+        started_by: Some(serde_json::json!({"kind": "scout"})),
+        slot: Some(SlotOrigin {
+            key: "scout:tm_1:m".into(),
+            cwd: None,
+            instructions: None,
+            skill: None,
+            sealed: true,
+        }),
+        ..Origin::default()
+    };
+    let json_val = crate::engine_process::origin_json(&back);
+    assert_eq!(json_val["slot"]["sealed"], true);
+    let decoded = crate::engine_process::origin_from(&json_val).unwrap();
+    assert!(decoded.slot.as_ref().is_some_and(|s| s.sealed && s.key == "scout:tm_1:m"));
+}

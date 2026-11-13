@@ -1,7 +1,7 @@
 use super::{
     Runtime, Turn,
     claude::Claude,
-    codex::{Codex, read_only_config},
+    codex::{Codex, read_only_config, sealed_config},
 };
 use crate::{
     ledger::{self, Item},
@@ -731,4 +731,26 @@ fn codex_interactive_allow_writes_approval() {
             .unwrap();
         assert!(status.success());
     }
+}
+
+#[test]
+fn codex_sealed_config_turns_off_shell_web_apps_and_connectors() {
+    let settings = json!({
+        "mcp_servers": {
+            "local": {"command": "node"},
+            "remote": {"url": "https://example.invalid"}
+        }
+    });
+    let ro = read_only_config(&settings).unwrap();
+    assert_eq!(ro["mcp_servers.local.enabled"], false);
+    assert!(ro.get("mcp_servers.remote.enabled").is_none());
+    assert!(ro.get("features.shell_tool").is_none());
+
+    let sealed = sealed_config(&settings).unwrap();
+    assert_eq!(sealed["features.plugins"], false);
+    assert_eq!(sealed["features.apps"], false);
+    assert_eq!(sealed["features.shell_tool"], false);
+    assert_eq!(sealed["web_search"], "disabled");
+    assert_eq!(sealed["mcp_servers.local.enabled"], false);
+    assert_eq!(sealed["mcp_servers.remote.enabled"], false);
 }

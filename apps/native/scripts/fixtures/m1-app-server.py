@@ -21,7 +21,8 @@ base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('succes
 # `rewind`: an edited earlier message starts again COLD from the turn before it (thread/start, never thread/resume),
 # told what was said up to there.
 rewinding = scenario == 'rewind'
-if approving or scenario == 'resume-undone' or rewinding:
+sealed_mode = scenario == 'sealed'
+if approving or scenario == 'resume-undone' or rewinding or sealed_mode:
     base = 'success'
 SANDBOX = 'workspace-write' if (approving or scenario == 'cards-edit-check') else 'read-only'
 POLICY = 'untrusted' if approving else 'never'
@@ -36,7 +37,12 @@ def item(done, **fields):
 def check_config(config):
     # codex-read-only.ts: only a read-only thread switches off the person's MCP programs (and Codex's plugins); a
     # server reached at an address stays. Any other sandbox keeps their Codex as it is.
-    if SANDBOX == 'read-only':
+    # A sealed run switches off shell, ChatGPT apps, web search, and remote connectors too (codexSealedThreadConfig).
+    if sealed_mode:
+        assert config['mcp_servers.local.enabled'] is False and config['mcp_servers.remote.enabled'] is False, config
+        assert config['features.plugins'] is False and config['features.apps'] is False and config['features.shell_tool'] is False, config
+        assert config['web_search'] == 'disabled', config
+    elif SANDBOX == 'read-only':
         assert config['mcp_servers.local.enabled'] is False and config['features.plugins'] is False, config
         assert 'mcp_servers.remote.enabled' not in config, config
     else:
