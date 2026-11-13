@@ -13,6 +13,7 @@ scenario = sys.argv[1] if len(sys.argv) > 1 else 'success'
 resuming = scenario.startswith('resume')
 cards_mode = scenario.startswith('cards-')
 relay_mode = scenario.startswith('relay-')
+room_mode = scenario.startswith('room-')
 approving = scenario.startswith('approve-')
 is_resumed_turn = False
 is_forked_turn = False
@@ -84,7 +85,7 @@ for line in sys.stdin:
             item(True, id='answer', type='agentMessage', text=reply)
             notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
             continue
-        if not cards_mode and not scenario.startswith('relay-'):
+        if not cards_mode and not relay_mode and not room_mode:
             assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
         # A follow-up to an undone turn starts with what Undo put back (undone-note.ts); any other follow-up says nothing of it.
         if scenario == 'resume-undone':
@@ -95,6 +96,22 @@ for line in sys.stdin:
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})
         send(dict(method='turn/completed', params={'threadId':'other_thread'}))
+        if room_mode:
+            with open('room-prompts.jsonl', 'a') as f:
+                f.write(json.dumps(words) + '\n')
+            if scenario == 'room-queue' and ('Hold slot' in words or 'You are Codec, answering' in words):
+                while os.path.exists('slot-hold.gate') and not os.path.exists('slot-release.gate'):
+                    time.sleep(0.02)
+            if 'You are Codec, answering' in words:
+                reply = 'Codec room answer.'
+            elif 'You are Pip, answering' in words:
+                reply = 'Pip room answer.'
+            else:
+                reply = 'Room answer.'
+            notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
+            item(True, id='answer', type='agentMessage', text=reply)
+            notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
+            continue
         if cards_mode:
             if scenario == 'cards-decision':
                 if is_resumed_turn:

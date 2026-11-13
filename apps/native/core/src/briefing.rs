@@ -202,21 +202,44 @@ pub fn standing_formats(runtime: Option<&str>) -> Vec<String> {
 /// The brief around the person's words, with waiting messages shed from the newest end only while shedding them can
 /// bring it under the cap (composeRuntimePrompt). Returns the prompt and how many messages went into it.
 pub fn assemble(standing: &[String], inbound: &[Message], remaining: usize, roster: &[PeerEntry], now: Option<chrono::DateTime<chrono::Utc>>, prompt: &str) -> (String, usize) {
-    let build = |count: usize| {
+    assemble_with_room_history(standing, inbound, remaining, roster, now, prompt, None)
+}
+
+/// Same brief as `assemble`, inserting `room_history_section` just before the prompt within whatever
+/// budget remains after inbound messages (so inbound messages are never shed for room history).
+pub fn assemble_with_room_history(
+    standing: &[String],
+    inbound: &[Message],
+    remaining: usize,
+    roster: &[PeerEntry],
+    now: Option<chrono::DateTime<chrono::Utc>>,
+    prompt: &str,
+    room_history: Option<(&crate::room_history::RoomHistory, &str)>,
+) -> (String, usize) {
+    let build = |count: usize, history: Option<&str>| {
         let mut sections: Vec<String> = standing.to_vec();
         if count > 0 {
             sections.push(inbound_section(&inbound[..count], remaining + inbound.len() - count, roster, now));
+        }
+        if let Some(h) = history {
+            sections.push(h.to_owned());
         }
         sections.push(prompt.to_owned());
         sections.join(SECTION_GAP)
     };
     let units = |s: &str| s.encode_utf16().count();
     let mut count = inbound.len();
-    let mut composed = build(count);
-    if units(&composed) > MAX_RUNTIME_PROMPT_LENGTH && units(&build(0)) <= MAX_RUNTIME_PROMPT_LENGTH {
+    let mut composed = build(count, None);
+    if units(&composed) > MAX_RUNTIME_PROMPT_LENGTH && units(&build(0, None)) <= MAX_RUNTIME_PROMPT_LENGTH {
         while units(&composed) > MAX_RUNTIME_PROMPT_LENGTH && count > 0 {
             count -= 1;
-            composed = build(count);
+            composed = build(count, None);
+        }
+    }
+    if let Some((history, self_id)) = room_history {
+        let left = MAX_RUNTIME_PROMPT_LENGTH.saturating_sub(units(&composed) + units(SECTION_GAP));
+        if let Some(section) = crate::room_history::room_history_section(history, self_id, left) {
+            composed = build(count, Some(&section));
         }
     }
     (composed, count)

@@ -67,6 +67,7 @@ fn primary(label: impl Into<String>, p: &Palette) -> El {
 }
 
 pub(super) fn open_home(s: &mut State) {
+    crate::room_screen::close(s);
     s.home.home_open = true;
     s.home.board_open = false;
     s.home.boot_open = false;
@@ -77,6 +78,7 @@ pub(super) fn open_home(s: &mut State) {
 }
 
 pub(super) fn open_board(s: &mut State) {
+    crate::room_screen::close(s);
     s.home.board_teammate = None;
     s.home.board_open = true;
     s.home.home_open = false;

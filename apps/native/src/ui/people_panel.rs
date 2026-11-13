@@ -35,6 +35,7 @@ fn field(value: &str) -> TextEdit {
     edit
 }
 pub(super) fn open(s: &mut State) {
+    crate::room_screen::close(s);
     s.people_panel.open = true;
     reload(s);
     edit(s, None);
@@ -42,6 +43,7 @@ pub(super) fn open(s: &mut State) {
     s.people_panel.removing = None;
 }
 pub(super) fn open_edit(s: &mut State, id: &str) {
+    crate::room_screen::close(s);
     s.home.home_open = false;
     s.home.board_open = false;
     s.settings_panel.open = false;

@@ -143,6 +143,7 @@ fn place(l: &crate::look::controls::Look, icon: &'static rune::Icon, words: &str
 }
 
 pub(super) fn new_conversation(s: &mut State) {
+    crate::room_screen::close(s);
     s.home.home_open = false;
     s.home.board_open = false;
     s.settings_panel.open = false;
@@ -204,6 +205,7 @@ pub(super) fn rail(s: &State, p: &Palette) -> El {
         .px(8.0)
         .py(4.0)
         .child(place(&l, &crate::look::icons::INBOX, "All conversations", home_panel::open_board))
+        .child(place(&l, &crate::look::icons::MESSAGE, "Rooms", crate::room_screen::open_list).key("rail-rooms"))
         .child(place(&l, &crate::look::icons::USERS, "Teammates & Memory", crate::people_panel::open))
         .child(place(&l, &crate::look::icons::CLOCK, "Automations", crate::routines_panel::open));
 

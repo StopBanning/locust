@@ -556,6 +556,81 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     if s.compare.compares.iter().any(|c| !c.reruns.is_empty()) {
         rows = rows.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
     }
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let mut rooms_col = col()
+        .key("sidebar-rooms")
+        .w_full()
+        .px(10.0)
+        .pt(12.0)
+        .gap(2.0)
+        .child(
+            row()
+                .w_full()
+                .pl(10.0)
+                .pb(2.0)
+                .center_y()
+                .child(
+                    row()
+                        .key("sidebar-rooms-open")
+                        .grow(1.0)
+                        .role("button")
+                        .label("Rooms")
+                        .child(crate::look::controls::label(&l, "Rooms"))
+                        .on_press(|s: &mut State| crate::room_screen::open_list(s)),
+                )
+                .child(
+                    row()
+                        .key("sidebar-new-room")
+                        .px(8.0)
+                        .py(4.0)
+                        .radius(6.0)
+                        .hover(l.c("hover-surface"))
+                        .role("button")
+                        .label("New room")
+                        .child(
+                            text("+ New room")
+                                .font(rune::TextStyle::new(12.0, 500.0))
+                                .color(l.c("text-secondary")),
+                        )
+                        .on_press(|s: &mut State| crate::room_screen::open_new(s)),
+                ),
+        );
+    for room in &s.rooms.rooms {
+        let rid = room.room_id.clone();
+        let active = matches!(&s.rooms.active, crate::room_screen::RoomView::Room(id) if id == &rid);
+        let meta = crate::room_screen::room_card_meta(room, &s.teammates, now_ms);
+        rooms_col = rooms_col.child(
+            col()
+                .key(format!("sidebar-room-{rid}"))
+                .w_full()
+                .py(7.0)
+                .px(10.0)
+                .gap(2.0)
+                .radius(8.0)
+                .fill(if active { l.c("bg-selected") } else { p.sidebar })
+                .hover(l.c("hover-surface"))
+                .role("button")
+                .label(room.name.clone())
+                .child(
+                    text(room.name.clone())
+                        .font(rune::TextStyle::new(13.0, 500.0).lh(16.0))
+                        .color(l.c("text-primary"))
+                        .w_full()
+                        .truncate(),
+                )
+                .child(
+                    text(meta)
+                        .font(rune::TextStyle::new(11.5, 400.0).lh(15.0))
+                        .color(l.c("text-muted"))
+                        .w_full()
+                        .truncate(),
+                )
+                .on_press(move |s: &mut State| {
+                    crate::room_screen::open_room(s, rid.clone());
+                }),
+        );
+    }
+    rows = rows.child(rooms_col);
     if !s.compare.compares.is_empty() {
         let mut cmp_col = col()
             .w_full()
@@ -599,6 +674,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                             .truncate(),
                     )
                     .on_press(move |s: &mut State| {
+                        crate::room_screen::close(s);
                         s.compare.active_id = Some(cid.clone());
                         s.benchmarks_open = false;
                         s.home.home_open = false;

@@ -383,6 +383,7 @@ pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
     let _ = crate::teammate_skills::remove_for_teammate(store, who);
     // Its keys go with it (teammate-keys.ts forget). None kept: no keychain is asked.
     crate::teammate_keys::for_store(store).forget(who);
+    let _ = crate::room_store::remove_teammate(store, who);
     Ok(())
 }
 pub fn settings(store: &Store, note: &str, suggestions: Option<Vec<Value>>) -> Result<(), String> {
@@ -847,6 +848,21 @@ pub fn turn_brief(
     inbound: &[crate::workroom::Message],
     remaining: usize,
 ) -> Result<(String, Vec<crate::workroom::Message>), String> {
+    turn_brief_with_room(store, who, folder, prompt, instructions_override, runtime, inbound, remaining, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn turn_brief_with_room(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    prompt: &str,
+    instructions_override: Option<&str>,
+    runtime: Option<&str>,
+    inbound: &[crate::workroom::Message],
+    remaining: usize,
+    room_history: Option<&crate::room_history::RoomHistory>,
+) -> Result<(String, Vec<crate::workroom::Message>), String> {
     let file = team(store)?;
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let mut standing = Vec::new();
@@ -858,7 +874,15 @@ pub fn turn_brief(
     }
     standing.extend(workspace_sections(store, who, folder, instructions_override, runtime)?);
     standing.extend(crate::briefing::standing_formats(runtime));
-    let (composed, kept) = crate::briefing::assemble(&standing, inbound, remaining, &roster, Some(chrono::Utc::now()), prompt);
+    let (composed, kept) = crate::briefing::assemble_with_room_history(
+        &standing,
+        inbound,
+        remaining,
+        &roster,
+        Some(chrono::Utc::now()),
+        prompt,
+        room_history.map(|h| (h, who)),
+    );
     Ok((composed, inbound[..kept].to_vec()))
 }
 
