@@ -36,6 +36,7 @@ fn model_pick_is_consumed_for_one_send_only_and_does_not_leak() {
             running: false,
             failed: false,
             updated: "2026-11-08T00:00:00Z".into(),
+            ..Default::default()
         },
     );
     s.ledger_summaries.insert(
@@ -51,6 +52,7 @@ fn model_pick_is_consumed_for_one_send_only_and_does_not_leak() {
             running: false,
             failed: false,
             updated: "2026-11-08T00:00:00Z".into(),
+            ..Default::default()
         },
     );
     let mut tx = Tx::default();

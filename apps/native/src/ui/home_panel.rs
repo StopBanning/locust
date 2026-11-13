@@ -1509,6 +1509,7 @@ mod review_tests {
                 running: false,
                 failed: false,
                 updated: "2026-11-10T12:05:00Z".into(),
+                ..Default::default()
             },
         );
         refresh_away(&mut s);

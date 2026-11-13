@@ -8,6 +8,29 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         .map(|pane| locust_core::time_marker::thread_markers(&pane.snapshot.timings))
         .unwrap_or_default();
     let mut user_index = 0usize;
+    let self_teammate_id = selected_conversation(s).map(|(t, _)| t.id.as_str()).unwrap_or("");
+    let emit_turn_peers = |messages: El, turn_idx: usize| -> El {
+        let Some(mission_id) = s
+            .ledger
+            .as_ref()
+            .and_then(|pane| pane.snapshot.turn_metas.get(turn_idx))
+            .map(|m| m.mission_id.as_str())
+        else {
+            return messages;
+        };
+        let peer_msgs = peer_thread::messages_for_mission(s, mission_id);
+        let mut out = messages;
+        if let Some(handed) = peer_thread::handed_out(s, &peer_msgs, p) {
+            out = out.child(handed.key(format!("{mission_id}-handed-out")));
+        }
+        for (pi, card) in peer_thread::cards_for_mission(s, self_teammate_id, mission_id, &peer_msgs, p)
+            .into_iter()
+            .enumerate()
+        {
+            out = out.child(card.key(format!("{mission_id}-peer-{pi}")));
+        }
+        out
+    };
     for (index, item) in items.iter().enumerate() {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
@@ -125,6 +148,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             ledger::Item::User(body) => {
                 let ui = user_index;
                 user_index += 1;
+                if ui > 0 {
+                    messages = emit_turn_peers(messages, ui - 1);
+                }
+                if let Some(pane) = s.ledger.as_ref()
+                    && let Some(to_meta) = pane.snapshot.turn_metas.get(ui)
+                {
+                    let from_meta = ui.checked_sub(1).and_then(|i| pane.snapshot.turn_metas.get(i));
+                    if let Some(div) = handoff_divider::view(from_meta, to_meta, p) {
+                        messages = messages.child(div.key(format!("{key}-handoff")));
+                    }
+                }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
@@ -305,6 +339,10 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         };
         messages = messages.child(content.key(key));
     }
+    if user_index > 0 {
+        messages = emit_turn_peers(messages, user_index - 1);
+    }
+    messages = messages.children(peer_thread::live_relay_rows(s, p));
     if let Some(pane) = &s.ledger
         && !pane.snapshot.tip.is_empty()
         && let Some(command) = s.running_checks.get(&pane.snapshot.tip)

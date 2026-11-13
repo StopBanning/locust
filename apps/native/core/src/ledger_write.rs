@@ -52,6 +52,7 @@ pub fn append_note_with_level(path: &std::path::Path, level: &str, code: &str, m
     let run = meta["runId"].as_str().unwrap_or_default();
     let kind_tag = match code {
         "host.check_fix" => "check-fix",
+        "host.relay_ended" => "relay",
         crate::worktrees::CHECKPOINT_CODE => "checkpoint",
         _ => "carry-on",
     };
@@ -342,6 +343,66 @@ impl LedgerWriter {
         self.ledger_seq = ledger + 1;
         Ok(())
     }
+
+    pub fn write_peer_link(
+        &mut self,
+        direction: &str,
+        message_id: &str,
+        peer_teammate_id: &str,
+        occurred_at: &str,
+    ) -> io::Result<()> {
+        let ledger = self.ledger_seq;
+        self.line(json!({
+            "schemaVersion": 27,
+            "recordType": "mission.peer",
+            "ledgerSequence": ledger,
+            "occurredAt": occurred_at,
+            "link": {
+                "direction": direction,
+                "messageId": message_id,
+                "peerTeammateId": peer_teammate_id,
+                "occurredAt": occurred_at,
+            }
+        }))?;
+        self.ledger_seq = ledger + 1;
+        Ok(())
+    }
+}
+
+/// Append `mission.peer` link records to a finished turn's ledger (`peer-exchange.ts` / `mission-store`).
+pub fn append_peer_links(path: &std::path::Path, links: &[(&str, &str, &str, &str)]) -> io::Result<()> {
+    if links.is_empty() {
+        return Ok(());
+    }
+    use std::io::Write;
+    let text = std::fs::read_to_string(path)?;
+    if !text.is_empty() && !text.ends_with('\n') {
+        return Err(io::Error::other("Ledger does not end on a whole record"));
+    }
+    let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let first = records.first().ok_or_else(|| io::Error::other("Ledger has no first record"))?;
+    let schema = first["schemaVersion"].as_u64().unwrap_or(27);
+    let mut ledger_seq = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0);
+    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
+    for (direction, message_id, peer_teammate_id, occurred_at) in links {
+        ledger_seq += 1;
+        let record = json!({
+            "schemaVersion": schema,
+            "recordType": "mission.peer",
+            "ledgerSequence": ledger_seq,
+            "occurredAt": occurred_at,
+            "link": {
+                "direction": direction,
+                "messageId": message_id,
+                "peerTeammateId": peer_teammate_id,
+                "occurredAt": occurred_at,
+            }
+        });
+        let mut line = serde_json::to_vec(&record)?;
+        line.push(b'\n');
+        file.write_all(&line)?;
+    }
+    file.sync_all()
 }
 
 // Keep opening and descriptor validation together: no ledger byte precedes this check. The file is created by

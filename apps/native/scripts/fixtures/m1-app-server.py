@@ -12,6 +12,7 @@ scenario = sys.argv[1] if len(sys.argv) > 1 else 'success'
 # M3b: `approve-allow` / `approve-deny` use Approve-each policy (untrusted + workspace-write).
 resuming = scenario.startswith('resume')
 cards_mode = scenario.startswith('cards-')
+relay_mode = scenario.startswith('relay-')
 approving = scenario.startswith('approve-')
 is_resumed_turn = False
 is_forked_turn = False
@@ -47,7 +48,7 @@ for line in sys.stdin:
     elif method == 'config/read':
         send(dict(id=msg['id'], result={'config': {'mcp_servers': {'local': {'command':'node'}, 'remote': {'url':'https://example.invalid'}}}}))
     elif method == 'thread/resume':
-        assert resuming or cards_mode, 'thread/resume outside a resume scenario'
+        assert resuming or cards_mode or relay_mode, 'thread/resume outside a resume scenario'
         is_resumed_turn = True
         # codex-app-server-run.ts: reopen by the stored id, without the whole history, under the same policy.
         assert p['threadId'] == 'thread_fake' and p['excludeTurns'] is True, p
@@ -83,7 +84,7 @@ for line in sys.stdin:
             item(True, id='answer', type='agentMessage', text=reply)
             notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
             continue
-        if not cards_mode:
+        if not cards_mode and not scenario.startswith('relay-'):
             assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
@@ -128,6 +129,52 @@ for line in sys.stdin:
                     reply = 'Wrote notes.txt.'
             else:
                 reply = 'Unknown cards scenario'
+            notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
+            item(True, id='answer', type='agentMessage', text=reply)
+            notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
+            continue
+        if scenario.startswith('relay-'):
+            with open('relay-prompts.jsonl', 'a') as f:
+                f.write(json.dumps({'prompt': text, 'words': words, 'resumed': is_resumed_turn}) + '\n')
+            if scenario == 'relay-roundtrip':
+                if 'What port is Vite on?' in text and not is_resumed_turn:
+                    reply = '<locust-share to="Codec">Vite listens on port 5173. Please confirm.</locust-share>'
+                elif 'Vite listens on port 5173.' in text:
+                    reply = 'Got it, thanks!'
+                else:
+                    reply = 'Asking Pip now.\n\n<locust-share to="Pip">What port is Vite on?</locust-share>'
+            elif scenario == 'relay-prose-return':
+                if 'Which port should docs use?' in text and not is_resumed_turn:
+                    reply = 'Use port 5173 for docs.'
+                elif 'Use port 5173 for docs.' in text:
+                    reply = 'Recorded 5173.'
+                else:
+                    reply = '<locust-share to="Pip">Which port should docs use?</locust-share>'
+            elif scenario == 'relay-busy':
+                if 'Check the lock first' in text:
+                    while os.path.exists('pip-busy.gate') and not os.path.exists('pip-release.gate'):
+                        time.sleep(0.02)
+                    reply = 'Lock checked.'
+                elif 'Please review migration 4.' in text and not is_resumed_turn:
+                    reply = '<locust-share to="Codec">Reviewed migration 4. Thanks!</locust-share>'
+                elif 'Reviewed migration 4.' in text:
+                    reply = 'Received migration review.'
+                else:
+                    reply = '<locust-share to="Pip">Please review migration 4.</locust-share>'
+            elif scenario == 'relay-cap':
+                if 'Step from Codec' in text:
+                    reply = '<locust-share to="Codec">Step from Pip?</locust-share>'
+                elif 'Step from Pip?' in text:
+                    reply = '<locust-share to="Pip">Step from Codec?</locust-share>'
+                else:
+                    reply = '<locust-share to="Pip">Step from Codec?</locust-share>'
+            elif scenario == 'relay-stop':
+                if 'Long audit task' in text and not is_resumed_turn:
+                    notify('item/agentMessage/delta', itemId='answer', operation='replace', delta='Working on audit...')
+                    continue
+                reply = '<locust-share to="Pip">Long audit task</locust-share>'
+            else:
+                reply = 'Unknown relay scenario'
             notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
             item(True, id='answer', type='agentMessage', text=reply)
             notify('turn/completed', turn={'id':'turn_fake','status':'completed'})

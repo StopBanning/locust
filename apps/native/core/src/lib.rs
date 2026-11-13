@@ -73,6 +73,7 @@ pub mod pull_requests;
 pub mod quit_guard;
 pub mod recovery;
 pub mod references;
+pub mod relay;
 pub mod report_problem;
 pub mod retention;
 pub mod route_at_start;

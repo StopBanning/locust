@@ -1918,7 +1918,7 @@ fn a_share_waits_in_the_workroom_and_reaches_the_teammates_next_brief() {
     let t = Temp::new();
     let store = t.store();
     let mate = |id: &str, name: &str, role: &str| json!({"teammateId": id, "name": name, "role": role, "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}});
-    store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [mate("tm_codec", "Codec", "Code & Migrations"), mate("tm_pip", "Pip", "Docs & QA")], "missionOwners": {}, "settings": {}})).unwrap();
+    store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [mate("tm_codec", "Codec", "Code & Migrations"), mate("tm_pip", "Pip", "Docs & QA")], "missionOwners": {}, "settings": {"relay": false}})).unwrap();
     let _g = hooks::install(store.clone(), fake("cards-share"));
     let prompt_file = t.0.join("work").join("last-prompt.txt");
 
@@ -2126,4 +2126,335 @@ fn named_codex_and_claude_accounts_launch_with_own_home_and_fail_cleanly() {
     assert_eq!(claude_logged["ANTHROPIC_API_KEY"].as_str(), Some(""));
     assert_eq!(claude_logged["ANTHROPIC_AUTH_TOKEN"].as_str(), Some(""));
     assert_eq!(claude_logged["CLAUDE_CODE_OAUTH_TOKEN"].as_str(), Some(""));
+}
+
+#[test]
+fn relay_roundtrip_starts_recipient_records_peer_links_remembers_hub_and_returns_to_origin_thread() {
+    let t = Temp::new();
+    let store = t.store();
+    let mate = |id: &str, name: &str, role: &str| {
+        json!({
+            "teammateId": id,
+            "name": name,
+            "hue": "blue",
+            "role": "Custom",
+            "roleTitle": role,
+            "createdAt": "2026-11-01T00:00:00.000Z",
+            "avatar": {},
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}
+        })
+    };
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    mate("tm_codec", "Codec", "Code & Migrations"),
+                    mate("tm_pip", "Pip", "Docs & QA")
+                ],
+                "missionOwners": {},
+                "settings": {"relay": true, "relayHopCap": 6}
+            }),
+        )
+        .unwrap();
+    let _g = hooks::install(store.clone(), fake("relay-roundtrip"));
+
+    let first = send(job(&t, None, "Check Vite config")).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(6);
+    while Instant::now() < deadline {
+        if !owns(&first.conversation_id)
+            && crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
+            && crate::people::hub_of(&store, "tm_pip").is_some()
+            && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str())
+        {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    if !( !owns(&first.conversation_id)
+        && crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
+        && crate::people::hub_of(&store, "tm_pip").is_some()
+        && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str()) )
+    {
+        panic!(
+            "roundtrip stuck: owns={} active={:?} hub={:?} tip={:?} notices={:?} prompts={:?}",
+            owns(&first.conversation_id),
+            *crate::invariants::lock(&ACTIVE_TEAMMATES),
+            crate::people::hub_of(&store, "tm_pip"),
+            real_tip(&first.conversation_id),
+            *crate::invariants::lock(&RELAY_NOTICES),
+            fs::read_to_string(t.0.join("work/relay-prompts.jsonl")),
+        );
+    }
+
+    // Pip's hub mission exists, was started by relay hop 1, is titled "<Name>'s replies", and has links.
+    let pip_hub = crate::people::hub_of(&store, "tm_pip").expect("Pip hub mission recorded");
+    wait("Pip hub run to release", || !owns(&pip_hub));
+    let pip_snap = crate::ledger::read_transcript(store.write_path(&pip_hub).unwrap());
+    let pip_meta = pip_snap.metadata.as_ref().unwrap();
+    assert_eq!(pip_meta.started_by_kind.as_deref(), Some("relay"));
+    assert_eq!(pip_meta.started_by_hop, Some(1));
+    assert!(pip_meta.relay.is_some());
+    assert!(pip_snap.peer_links.iter().any(|l| l.direction == "received" && l.peer_teammate_id == "tm_codec"));
+    assert!(pip_snap.peer_links.iter().any(|l| l.direction == "posted" && l.peer_teammate_id == "tm_codec"));
+
+    let team_file = crate::people::team(&store).unwrap();
+    assert_eq!(team_file["missionTitles"][&pip_hub].as_str(), Some("Pip's replies"));
+
+    // Codec's conversation received Pip's reply as a hop-2 relay continuation.
+    let codec_tip = real_tip(&first.conversation_id).unwrap();
+    assert_ne!(codec_tip, first.conversation_id);
+    wait("Codec continuation to finish", || !owns(&codec_tip));
+    let codec_first_snap = crate::ledger::read_transcript(store.write_path(&first.conversation_id).unwrap());
+    assert!(codec_first_snap.peer_links.iter().any(|l| l.direction == "posted" && l.peer_teammate_id == "tm_pip"));
+
+    let codec_tip_snap = crate::ledger::read_transcript(store.write_path(&codec_tip).unwrap());
+    let codec_tip_meta = codec_tip_snap.metadata.as_ref().unwrap();
+    assert_eq!(codec_tip_meta.started_by_kind.as_deref(), Some("relay"));
+    assert_eq!(codec_tip_meta.started_by_hop, Some(2));
+    assert!(codec_tip_snap.peer_links.iter().any(|l| l.direction == "received" && l.peer_teammate_id == "tm_pip"));
+
+    // Both Codec (root) and Pip (nested under Codec) nest cleanly at 1 level deep.
+    let rows = vec![
+        crate::relay::NestedRow {
+            mission_id: codec_tip.clone(),
+            member_ids: vec![first.conversation_id.clone(), codec_tip.clone()],
+        },
+        crate::relay::NestedRow {
+            mission_id: pip_hub.clone(),
+            member_ids: vec![pip_hub.clone()],
+        },
+    ];
+    let nested = crate::relay::nested_under(&rows, |row| {
+        (row.mission_id == pip_hub).then(|| first.conversation_id.clone())
+    });
+    assert_eq!(nested.get(&pip_hub).map(String::as_str), Some(codec_tip.as_str()));
+}
+
+#[test]
+fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
+    let t = Temp::new();
+    let store = t.store();
+    let mate = |id: &str, name: &str, role: &str| {
+        json!({
+            "teammateId": id,
+            "name": name,
+            "hue": "blue",
+            "role": "Custom",
+            "roleTitle": role,
+            "createdAt": "2026-11-01T00:00:00.000Z",
+            "avatar": {},
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}
+        })
+    };
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    mate("tm_codec", "Codec", "Code & Migrations"),
+                    mate("tm_pip", "Pip", "Docs & QA")
+                ],
+                "missionOwners": {},
+                "settings": {"relay": true, "relayHopCap": 6}
+            }),
+        )
+        .unwrap();
+    let _g = hooks::install(store.clone(), fake("relay-prose-return"));
+
+    let first = send(job(&t, None, "Ask Pip about docs port")).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(6);
+    while Instant::now() < deadline {
+        if crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
+            && crate::people::hub_of(&store, "tm_pip").is_some()
+            && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str())
+        {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    if !( crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
+        && crate::people::hub_of(&store, "tm_pip").is_some()
+        && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str()) )
+    {
+        panic!(
+            "prose return stuck: owns={} active={:?} hub={:?} tip={:?} notices={:?} prompts={:?}",
+            owns(&first.conversation_id),
+            *crate::invariants::lock(&ACTIVE_TEAMMATES),
+            crate::people::hub_of(&store, "tm_pip"),
+            real_tip(&first.conversation_id),
+            *crate::invariants::lock(&RELAY_NOTICES),
+            fs::read_to_string(t.0.join("work/relay-prompts.jsonl")),
+        );
+    }
+
+    let pip_hub = crate::people::hub_of(&store, "tm_pip").unwrap();
+    wait("Pip hub finished", || !owns(&pip_hub));
+    let codec_tip = real_tip(&first.conversation_id).unwrap();
+    wait("Codec follow-up finished", || !owns(&codec_tip));
+    let codec_tip_snap = crate::ledger::read_transcript(store.write_path(&codec_tip).unwrap());
+    assert!(codec_tip_snap.items.iter().any(|item| matches!(item, Item::Assistant { text, .. } if text == "Recorded 5173.")));
+}
+
+#[test]
+fn relay_defers_while_busy_and_records_cap_diagnostic() {
+    let t = Temp::new();
+    let store = t.store();
+    let mate = |id: &str, name: &str, role: &str| {
+        json!({
+            "teammateId": id,
+            "name": name,
+            "hue": "blue",
+            "role": "Custom",
+            "roleTitle": role,
+            "createdAt": "2026-11-01T00:00:00.000Z",
+            "avatar": {},
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}
+        })
+    };
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    mate("tm_codec", "Codec", "Code & Migrations"),
+                    mate("tm_pip", "Pip", "Docs & QA")
+                ],
+                "missionOwners": {},
+                "settings": {"relay": true, "relayHopCap": 2}
+            }),
+        )
+        .unwrap();
+    // 1) Busy-defer end-to-end: Pip runs a slow turn while Codec shares to Pip; Codec sees held notice,
+    // and as soon as Pip finishes, Pip's deferred relay turn starts automatically and returns the review.
+    let busy_gate = t.0.join("work").join("pip-busy.gate");
+    let release_gate = t.0.join("work").join("pip-release.gate");
+    fs::write(&busy_gate, "hold").unwrap();
+    {
+        let _g = hooks::install(store.clone(), fake("relay-busy"));
+        let mut pip_job = job(&t, None, "Check the lock first");
+        pip_job.teammate.id = "tm_pip".into();
+        pip_job.teammate.name = "Pip".into();
+        let pip_first = send(pip_job).unwrap();
+        let pip_prompt_file = t.0.join("work").join("relay-prompts.jsonl");
+        wait("Pip first turn to enter turn/start", || {
+            pip_prompt_file.is_file() && owns(&pip_first.conversation_id)
+        });
+
+        let codec_run = send(job(&t, None, "Ask Pip to review migration 4")).unwrap();
+        finished(&codec_run.conversation_id);
+        wait("busy defer notice", || {
+            relay_live_state(&[codec_run.conversation_id.clone()])
+                .notices
+                .iter()
+                .any(|n| n.message.contains("Pip is part-way through another mission"))
+        });
+        assert!(crate::people::hub_of(&store, "tm_pip").is_none());
+
+        fs::write(&release_gate, "go").unwrap();
+        wait("deferred relay to finish on Pip and return to Codec", || {
+            crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
+                && crate::people::hub_of(&store, "tm_pip").is_some()
+                && real_tip(&codec_run.conversation_id).ok().as_deref() != Some(codec_run.conversation_id.as_str())
+        });
+    }
+
+    // 2) Verify cap=2 stops automatic replies and records `host.relay_ended` diagnostic on the ledger.
+    let _ = fs::remove_file(&busy_gate);
+    let _ = fs::remove_file(&release_gate);
+    let t2 = Temp::new();
+    let store2 = t2.store();
+    store2
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    mate("tm_codec", "Codec", "Code & Migrations"),
+                    mate("tm_pip", "Pip", "Docs & QA")
+                ],
+                "missionOwners": {},
+                "settings": {"relay": true, "relayHopCap": 2}
+            }),
+        )
+        .unwrap();
+    let _g = hooks::install(store2.clone(), fake("relay-cap"));
+    let cap_run = send(job(&t2, None, "Start exchange")).unwrap();
+    wait("cap=2 exchange to settle cleanly", || {
+        crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
+            && crate::people::hub_of(&store2, "tm_pip").is_some()
+            && !owns(&cap_run.conversation_id)
+            && real_tip(&cap_run.conversation_id).ok().as_deref() != Some(cap_run.conversation_id.as_str())
+    });
+    wait("hop 2 finished and cap diagnostic recorded", || {
+        let codec_tip = real_tip(&cap_run.conversation_id).unwrap();
+        let pip_hub = crate::people::hub_of(&store2, "tm_pip").unwrap_or_default();
+        let snap1 = crate::ledger::read_transcript(store2.write_path(&codec_tip).unwrap());
+        let snap2 = if pip_hub.is_empty() {
+            Default::default()
+        } else {
+            crate::ledger::read_transcript(store2.write_path(&pip_hub).unwrap())
+        };
+        let has_note = |s: &crate::ledger::Transcript| {
+            s.items.iter().any(|i| matches!(i, Item::Note { level, text } if level.is_empty() && text.contains("Stopped after 2 automatic replies.")))
+        };
+        has_note(&snap1) || has_note(&snap2)
+    });
+}
+
+#[test]
+fn relay_route_switch_records_left_out_by_you_and_decodes_in_snapshot() {
+    let t = Temp::new();
+    let store = t.store();
+    let mate = |id: &str, name: &str, role: &str| {
+        json!({
+            "teammateId": id,
+            "name": name,
+            "hue": "blue",
+            "role": "Custom",
+            "roleTitle": role,
+            "createdAt": "2026-11-01T00:00:00.000Z",
+            "avatar": {},
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}
+        })
+    };
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [mate("tm_codec", "Codec", "Code & Migrations")],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    let _g = hooks::install(store.clone(), fake("cards-next"));
+
+    let first = send(job(&t, None, "Clean the Linux cache too: Do the same for the AppImage cache.")).unwrap();
+    finished(&first.conversation_id);
+
+    let sw = route_switch(&store, &first.conversation_id, "Continue", &[String::from("summary")]).unwrap();
+    assert_eq!(sw.link["leftOutByYou"], json!(["summary"]));
+    let mut writer = LedgerWriter::create_runtime_with(
+        &store,
+        "mission_sw_leftout",
+        "Continue",
+        "sonnet",
+        "claude",
+        "claude",
+        &[],
+        None,
+        &json!({
+            "continuesFrom": sw.link,
+        }),
+    )
+    .unwrap();
+    writer.append("run.completed", json!({}), None).unwrap();
+    let snap = crate::ledger::read_transcript(store.write_path("mission_sw_leftout").unwrap());
+    assert_eq!(snap.metadata.unwrap().left_out_by_you, vec!["summary".to_owned()]);
+    assert_eq!(crate::carry_on::left_out_in_words(&[String::from("summary")]), "its last reply");
 }

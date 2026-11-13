@@ -117,11 +117,13 @@ pub mod hooks {
         let guard = Guard {
             _lock: LOCK.lock().unwrap_or_else(|e| e.into_inner()),
         };
+        super::reset_relay_state();
         *crate::invariants::lock(&STATE) = (Some(store), command);
         guard
     }
     impl Drop for Guard {
         fn drop(&mut self) {
+            super::reset_relay_state();
             *crate::invariants::lock(&STATE) = (None, None);
         }
     }
@@ -763,12 +765,22 @@ pub fn account_launch_env(
     accounts_for(store).launch_env(runtime, Some(account))
 }
 
-struct Registered(Vec<String>, Option<String>);
+struct Registered(Vec<String>, Option<String>, Option<(String, String)>);
 impl Drop for Registered {
     fn drop(&mut self) {
         with_running(|m| self.0.iter().for_each(|k| drop(m.remove(k))));
         if let Some(id) = &self.1 {
             with_running_accounts(|m| drop(m.remove(id)));
+        }
+        if let Some((teammate_id, mission_id)) = &self.2 {
+            let mut active = crate::invariants::lock(&ACTIVE_TEAMMATES);
+            active.retain(|(t, m, _)| !(t == teammate_id && m == mission_id));
+            if let Some(capable) = crate::invariants::lock(&STEER_CAPABLE).as_mut() {
+                capable.remove(mission_id);
+            }
+            if let Some(queues) = crate::invariants::lock(&STEER_QUEUES).as_mut() {
+                queues.remove(mission_id);
+            }
         }
     }
 }
@@ -1076,7 +1088,7 @@ fn earlier_turns(metadata: &Value) -> Vec<crate::carry_on::EarlierTurn> {
     turns
 }
 
-fn route_switch(store: &Store, tip: &str, reply: &str) -> Result<RouteSwitch, String> {
+fn route_switch(store: &Store, tip: &str, reply: &str, left_out_by_you: &[String]) -> Result<RouteSwitch, String> {
     let prior = turn_records(tip).ok_or("That conversation cannot be continued: its earlier mission is not in the ledger.")?;
     let epoch = prior.checkpoints as u64 + 1;
     let checkpoint = crate::carry_on::reconcile(&prior.metadata, &prior.events, prior.incomplete, "route-switch", epoch, &crate::ledger_write::now());
@@ -1087,18 +1099,22 @@ fn route_switch(store: &Store, tip: &str, reply: &str) -> Result<RouteSwitch, St
         ));
     }
     let from = prior.metadata["runtime"].as_str().unwrap_or_default();
-    let briefing = crate::carry_on::compose_handoff_prompt(
+    let briefing = crate::carry_on::compose_handoff_prompt_with(
         prior.metadata["prompt"].as_str().unwrap_or_default(),
         &checkpoint,
         crate::carry_on::display_name(from),
         Some(reply),
         &earlier_turns(&prior.metadata),
         crate::carry_on::how_turn_ended(&prior.events),
+        left_out_by_you,
     )
     .ok_or("That conversation is too long to carry to another runtime with this reply.")?;
     let mut link = json!({"missionId": tip, "checkpointEpoch": epoch, "reason": "route-switch"});
     if !briefing.omitted.is_empty() {
         link["leftOut"] = json!(briefing.omitted);
+    }
+    if !left_out_by_you.is_empty() {
+        link["leftOutByYou"] = json!(left_out_by_you);
     }
     let native_prior = store.ledger_dir().ok().filter(|dir| prior.path.starts_with(dir)).map(|_| prior.path.clone());
     Ok(RouteSwitch { prompt: briefing.prompt, link, checkpoint, native_prior })
@@ -1285,10 +1301,397 @@ pub struct Origin {
     pub reference_ids: Option<Vec<String>>,
     /// A comparison column or judge slot.
     pub slot: Option<SlotOrigin>,
+    /// Workroom message ids a relayed turn was started to answer, quoted even if marked delivered.
+    pub include_messages: Vec<String>,
+    /// Serialized `RelayOrigin` recorded in `mission.created["metadata"]["relay"]`.
+    pub relay: Option<Value>,
+    /// Handoff sections the person opted to omit when switching runtimes.
+    pub left_out_by_you: Vec<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RelayNotice {
+    pub mission_id: String,
+    pub message: String,
+    pub level: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RelayStarting {
+    pub teammate_id: String,
+    pub name: String,
+    pub answering: String,
+    pub hop: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RelayLiveState {
+    pub notices: Vec<RelayNotice>,
+    pub starting: Option<RelayStarting>,
+}
+
+static ACTIVE_TEAMMATES: Mutex<Vec<(String, String, PathBuf)>> = Mutex::new(Vec::new());
+static STEER_CAPABLE: Mutex<Option<std::collections::HashSet<String>>> = Mutex::new(None);
+static STEER_QUEUES: Mutex<Option<HashMap<String, Vec<String>>>> = Mutex::new(None);
+static RELAY_NOTICES: Mutex<Vec<RelayNotice>> = Mutex::new(Vec::new());
+static RELAY_STARTING: Mutex<Vec<RelayStarting>> = Mutex::new(Vec::new());
+static RELAY: Mutex<Option<Arc<crate::relay::Relay<NativeRelayHost>>>> = Mutex::new(None);
 static EDIT_CHECK: std::sync::OnceLock<crate::edit_check::EditCheck> = std::sync::OnceLock::new();
 static CHECK_FIX: std::sync::OnceLock<crate::edit_check::CheckFix> = std::sync::OnceLock::new();
+
+#[cfg(any(test, feature = "test-hooks"))]
+pub(crate) fn reset_relay_state() {
+    *crate::invariants::lock(&RELAY) = None;
+    crate::invariants::lock(&ACTIVE_TEAMMATES).clear();
+    *crate::invariants::lock(&STEER_CAPABLE) = None;
+    *crate::invariants::lock(&STEER_QUEUES) = None;
+    crate::invariants::lock(&RELAY_NOTICES).clear();
+    crate::invariants::lock(&RELAY_STARTING).clear();
+}
+
+fn push_relay_notice(mission_id: &str, message: &str, level: &str) {
+    let mut notices = crate::invariants::lock(&RELAY_NOTICES);
+    notices.push(RelayNotice {
+        mission_id: mission_id.to_owned(),
+        message: message.to_owned(),
+        level: level.to_owned(),
+    });
+    if notices.len() > 200 {
+        let extra = notices.len() - 200;
+        notices.drain(..extra);
+    }
+}
+
+pub fn relay_live_state(mission_ids: &[String]) -> RelayLiveState {
+    let notices = crate::invariants::lock(&RELAY_NOTICES)
+        .iter()
+        .filter(|n| mission_ids.iter().any(|m| m == &n.mission_id))
+        .cloned()
+        .collect();
+    let starting = crate::invariants::lock(&RELAY_STARTING)
+        .iter()
+        .rev()
+        .find(|s| mission_ids.iter().any(|m| m == &s.answering))
+        .cloned();
+    RelayLiveState { notices, starting }
+}
+
+fn relay() -> Arc<crate::relay::Relay<NativeRelayHost>> {
+    let mut slot = crate::invariants::lock(&RELAY);
+    if let Some(existing) = slot.as_ref() {
+        return existing.clone();
+    }
+    let created = Arc::new(crate::relay::Relay::new(NativeRelayHost));
+    *slot = Some(created.clone());
+    created
+}
+
+struct NativeRelayHost;
+
+impl NativeRelayHost {
+    fn folder_for_mission(&self, mission_id: &str) -> Option<PathBuf> {
+        if let Some((_, _, folder)) = crate::invariants::lock(&ACTIVE_TEAMMATES)
+            .iter()
+            .find(|(_, m, _)| m == mission_id)
+        {
+            return Some(folder.clone());
+        }
+        turn_records(mission_id)
+            .and_then(|r| {
+                r.metadata["cwd"]
+                    .as_str()
+                    .or_else(|| r.metadata["command"]["cwd"].as_str())
+                    .map(PathBuf::from)
+            })
+            .filter(|p| p.is_dir())
+    }
+}
+
+impl crate::relay::RelayHost for NativeRelayHost {
+    fn enabled(&self) -> bool {
+        let Some(store) = store() else { return true };
+        crate::workspace_settings::load(&store).map(|s| s.relay).unwrap_or(true)
+    }
+
+    fn hop_cap(&self) -> usize {
+        let Some(store) = store() else {
+            return crate::relay::MAX_RELAY_HOPS;
+        };
+        crate::workspace_settings::load(&store)
+            .map(|s| s.relay_hop_cap as usize)
+            .unwrap_or(crate::relay::MAX_RELAY_HOPS)
+    }
+
+    fn peer_context_for(&self, teammate_id: &str) -> Option<crate::relay::PeerRosterEntry> {
+        let store = store()?;
+        crate::people::peer_roster_entry(&store, teammate_id)
+    }
+
+    fn final_reply_of(&self, mission_id: &str) -> Option<String> {
+        let rec = turn_records(mission_id)?;
+        crate::carry_on::latest_final(&rec.events)
+    }
+
+    fn how_ended(&self, mission_id: &str) -> Option<String> {
+        let rec = turn_records(mission_id)?;
+        crate::carry_on::how_turn_ended(&rec.events).map(str::to_owned)
+    }
+
+    fn post_returned_answer(
+        &self,
+        from_teammate_id: &str,
+        from_name: &str,
+        from_mission_id: &str,
+        to_teammate_id: &str,
+        to_name: &str,
+        text: &str,
+    ) -> Option<String> {
+        let store = store()?;
+        let from = crate::workroom::Party {
+            teammate_id: from_teammate_id.to_owned(),
+            name: from_name.to_owned(),
+        };
+        let to = crate::workroom::Party {
+            teammate_id: to_teammate_id.to_owned(),
+            name: to_name.to_owned(),
+        };
+        let msg = crate::workroom::Workroom::for_store(&store)
+            .post(&from, from_mission_id, &to, text, None)
+            .ok()?;
+        if let Ok(path) = store.write_path(from_mission_id)
+            && path.is_file()
+        {
+            let _ = crate::ledger_write::append_peer_links(
+                &path,
+                &[("posted", &msg.message_id, &msg.to.teammate_id, &msg.posted_at)],
+            );
+        }
+        Some(msg.message_id)
+    }
+
+    fn cursor_holds_read_only(&self) -> bool {
+        #[cfg(target_os = "windows")]
+        {
+            false
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            true
+        }
+    }
+
+    fn route_of(&self, mission_id: &str) -> Option<crate::relay::TurnRoute> {
+        let rec = turn_records(mission_id)?;
+        let runtime = rec.metadata["runtime"].as_str()?.to_owned();
+        let model = rec.metadata["model"]
+            .as_str()
+            .filter(|m| !m.is_empty() && *m != "account-default")
+            .map(str::to_owned);
+        let account = rec.metadata["account"]
+            .as_str()
+            .filter(|a| !a.is_empty())
+            .map(str::to_owned);
+        let mode = rec.metadata["mode"]
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                if rec.metadata["sandbox"] == "workspace-write" {
+                    "accept-edits".to_owned()
+                } else {
+                    "ask".to_owned()
+                }
+            });
+        Some(crate::relay::TurnRoute {
+            runtime,
+            model,
+            effort: None,
+            account,
+            mode,
+        })
+    }
+
+    fn out_of_plan(&self, runtime: &str, account: Option<&str>) -> Option<String> {
+        let store = store()?;
+        let key = crate::agent_accounts::usage_key(runtime, account);
+        crate::usage_ledger::limited_runtimes(&store).get(&key).cloned()
+    }
+
+    fn start(&self, req: crate::relay::StartRequest) -> Result<crate::relay::StartResult, String> {
+        let store = store().ok_or_else(|| "Native data folder could not be determined.".to_owned())?;
+        if with_running(|m| live_turns(m)) >= MAX_LIVE_TURNS {
+            return Ok(crate::relay::StartResult::Busy { pool: true });
+        }
+        if crate::invariants::lock(&ACTIVE_TEAMMATES)
+            .iter()
+            .any(|(t, _, _)| t == &req.peer.teammate_id)
+        {
+            return Ok(crate::relay::StartResult::Busy { pool: false });
+        }
+        let roster = roster_in(&store)?;
+        let mut tm = roster
+            .into_iter()
+            .find(|t| t.id == req.peer.teammate_id)
+            .ok_or_else(|| format!("{} is no longer on the roster.", req.peer.name))?;
+        tm.runtime = Some(req.runtime.clone());
+        tm.model = req.model.clone();
+        tm.account = req.account.clone();
+        let folder = req
+            .relay
+            .last_mission_of
+            .last()
+            .and_then(|(_, m)| self.folder_for_mission(m))
+            .or_else(|| tm.folder.as_deref().map(PathBuf::from).filter(|p| p.is_dir()))
+            .or_else(open_folder);
+        let job = Send {
+            teammate: tm,
+            conversation: req.follow_up_of,
+            prompt: req.prompt,
+            model: req.model,
+            effort: req.effort,
+        };
+        let origin = Origin {
+            mode: Mode::parse(&req.mode),
+            folder,
+            started_by: Some(json!({"kind": "relay", "hop": req.relay.hop})),
+            runtime: Some(req.runtime),
+            account: Some(req.account),
+            include_messages: req.relay.answering.clone(),
+            relay: Some(req.relay.to_json()),
+            ..Default::default()
+        };
+        match crate::engine_api::api().send(job, origin) {
+            Ok(started) => {
+                let mission_id = real_tip(&started.conversation_id).unwrap_or(started.conversation_id);
+                Ok(crate::relay::StartResult::Started {
+                    run_id: format!("run_{mission_id}"),
+                    mission_id,
+                })
+            }
+            Err(msg) => {
+                if msg == too_many_live() {
+                    Ok(crate::relay::StartResult::Busy { pool: true })
+                } else if msg.contains("already running") {
+                    Ok(crate::relay::StartResult::Busy { pool: false })
+                } else {
+                    Ok(crate::relay::StartResult::Refused { message: msg })
+                }
+            }
+        }
+    }
+
+    fn assign_owner(&self, teammate_id: &str, mission_id: &str) {
+        if let Some(store) = store() {
+            let _ = crate::people::record_owner(&store, mission_id, teammate_id);
+        }
+    }
+
+    fn hub_of(&self, teammate_id: &str) -> Option<String> {
+        let store = store()?;
+        crate::people::hub_of(&store, teammate_id)
+    }
+
+    fn remember_hub(&self, teammate_id: &str, mission_id: &str, began: bool) {
+        let Some(store) = store() else { return };
+        let _ = crate::people::remember_hub(&store, teammate_id, mission_id);
+        if began && let Some(entry) = self.peer_context_for(teammate_id) {
+            let _ = crate::people::set_mission_title(&store, mission_id, &format!("{}'s replies", entry.name));
+        }
+    }
+
+    fn still_waiting(&self, teammate_id: &str) -> Option<bool> {
+        let store = store()?;
+        crate::workroom::Workroom::for_store(&store)
+            .unread(teammate_id, 1, &[])
+            .ok()
+            .map(|u| !u.messages.is_empty())
+    }
+
+    fn may_interrupt(&self) -> bool {
+        let Some(store) = store() else { return false };
+        crate::workspace_settings::load(&store).map(|s| s.interrupt).unwrap_or(false)
+    }
+
+    fn stop_work_of(&self, teammate_id: &str) -> bool {
+        let missions: Vec<String> = crate::invariants::lock(&ACTIVE_TEAMMATES)
+            .iter()
+            .filter(|(t, _, _)| t == teammate_id)
+            .map(|(_, m, _)| m.clone())
+            .collect();
+        let mut any = false;
+        for m in missions {
+            if stop(&m).is_ok() {
+                any = true;
+            }
+        }
+        any
+    }
+
+    fn steer_work_of(&self, teammate_id: &str, text: &str) -> bool {
+        let missions: Vec<String> = crate::invariants::lock(&ACTIVE_TEAMMATES)
+            .iter()
+            .filter(|(t, _, _)| t == teammate_id)
+            .map(|(_, m, _)| m.clone())
+            .collect();
+        let capable = crate::invariants::lock(&STEER_CAPABLE);
+        let target = missions.into_iter().find(|m| capable.as_ref().is_some_and(|s| s.contains(m)));
+        drop(capable);
+        let Some(mission_id) = target else {
+            return false;
+        };
+        let mut queues = crate::invariants::lock(&STEER_QUEUES);
+        queues
+            .get_or_insert_with(HashMap::new)
+            .entry(mission_id)
+            .or_default()
+            .push(text.to_owned());
+        true
+    }
+
+    fn notify(&self, update: crate::relay::RelayUpdate) {
+        match update {
+            crate::relay::RelayUpdate::Notice {
+                mission_id,
+                message,
+                level,
+                ..
+            } => {
+                let lvl = match level {
+                    crate::relay::RelayNoticeLevel::Info => "info",
+                    crate::relay::RelayNoticeLevel::Warning => "warning",
+                };
+                push_relay_notice(&mission_id, &message, lvl);
+            }
+            crate::relay::RelayUpdate::Starting {
+                teammate_id,
+                name,
+                answering,
+                hop,
+            } => {
+                let mut list = crate::invariants::lock(&RELAY_STARTING);
+                list.retain(|s| s.teammate_id != teammate_id);
+                list.push(RelayStarting {
+                    teammate_id,
+                    name,
+                    answering,
+                    hop,
+                });
+            }
+            crate::relay::RelayUpdate::StartSettled { teammate_id } => {
+                crate::invariants::lock(&RELAY_STARTING).retain(|s| s.teammate_id != teammate_id);
+            }
+            crate::relay::RelayUpdate::MissionStarted { .. } => {}
+        }
+    }
+
+    fn note(&self, mission_id: &str, message: &str) {
+        let Some(store) = store() else { return };
+        if let Ok(path) = store.write_path(mission_id)
+            && path.is_file()
+        {
+            let _ = crate::ledger_write::append_note_with_level(&path, "info", "host.relay_ended", message);
+        }
+    }
+}
 
 fn edit_check() -> &'static crate::edit_check::EditCheck {
     EDIT_CHECK.get_or_init(crate::edit_check::EditCheck::new)
@@ -1414,7 +1817,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 );
             }
             if prior.runtime != runtime_name || prior.account != effective_account {
-                switched = Some(route_switch(&store, tip, &job.prompt)?);
+                switched = Some(route_switch(&store, tip, &job.prompt, &origin.left_out_by_you)?);
                 (None, None)
             } else if runtime_name == "claude" {
                 // A Claude conversation resumes its session when one was recorded; one that never reached Claude
@@ -1536,7 +1939,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         // What teammates left for this one, quoted into its brief (peer-exchange.ts prepare). A workroom that cannot be
         // read is left out: the run goes on without it, and the messages wait.
         let (waiting, remaining) = crate::workroom::Workroom::for_store(&store)
-            .unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &[])
+            .unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &origin.include_messages)
             .map(|u| (u.messages, u.remaining))
             .unwrap_or_default();
         let (brief, quoted) = crate::people::turn_brief(&store, &job.teammate.id, &folder, &job.prompt, slot_inst, Some(runtime_name), &waiting, remaining)?;
@@ -1649,6 +2052,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             return Err(too_many_live());
         }
         let mut keys = Vec::new();
+        let register_teammate = side_slot.is_none() && compare_slot.is_none();
         if let Some(slot) = side_slot {
             m.insert(slot.clone(), flag.clone());
             keys.push(slot);
@@ -1670,7 +2074,17 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         } else {
             None
         };
-        Ok(Registered(keys, account_key))
+        let teammate_key = if register_teammate {
+            crate::invariants::lock(&ACTIVE_TEAMMATES).push((
+                job.teammate.id.clone(),
+                id.clone(),
+                folder.clone(),
+            ));
+            Some((job.teammate.id.clone(), id.clone()))
+        } else {
+            None
+        };
+        Ok(Registered(keys, account_key, teammate_key))
     })?;
     let channel = approvals_channel();
     // Claude Code asks through the bridge in every mode but Auto, as Electron's host has it: a connector, a web fetch
@@ -1735,6 +2149,9 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if let Some(by) = &origin.started_by {
         extra["startedBy"] = by.clone();
     }
+    if let Some(relay_val) = &origin.relay {
+        extra["relay"] = relay_val.clone();
+    }
     if let Some(switch) = &switched {
         extra["continuesFrom"] = switch.link.clone();
         // The stopped turn's checkpoint, written into its own ledger when that ledger is the native engine's;
@@ -1744,7 +2161,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 .map_err(|_| "That conversation could not be reconciled, so it cannot be continued on another runtime.".to_string())?;
         }
     }
-    let writer = LedgerWriter::create_runtime_with(
+    let mut writer = LedgerWriter::create_runtime_with(
         &store,
         &id,
         &job.prompt,
@@ -1756,6 +2173,9 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         &extra,
     )
     .map_err(|e| e.to_string())?;
+    for msg in &delivered {
+        let _ = writer.write_peer_link("received", &msg.message_id, &msg.from.teammate_id, &msg.posted_at);
+    }
     channel.register_teammate(&id, &job.teammate.id);
     if let Err(error) = crate::people::record_owner(&store, &id, &job.teammate.id) {
         eprintln!("The conversation's teammate was not recorded: {error}");
@@ -1808,6 +2228,12 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         check_started_by_kind.as_deref(),
         Some("relay" | "side" | "compare" | "judge")
     );
+    let relay_origin = origin.relay.as_ref().and_then(crate::relay::RelayOrigin::from_json);
+    let relay_started_by = origin
+        .started_by
+        .as_ref()
+        .and_then(crate::relay::MissionStarter::from_json);
+    let relay_teammate = crate::people::peer_roster_entry(&store, &job.teammate.id);
     std::thread::Builder::new()
         .name("native-turn".into())
         .spawn(move || {
@@ -1820,7 +2246,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 command,
                 turn,
                 flag,
-                Registered(Vec::new(), None),
+                Registered(Vec::new(), None, None),
                 runtime_owned,
                 channel,
                 bridge,
@@ -1843,15 +2269,15 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             // What a share carries as seen by the host: nothing for a read-only run, which cannot have changed files.
             let observed = if check_mode.sandbox() == "read-only" { None } else { seen_changes };
             let mut completed = false;
+            let mut posted_relayed = Vec::new();
             if let Ok(path) = memory_store.write_path(&memory_id) {
-                let transcript = ledger::read_transcript(path);
+                let transcript = ledger::read_transcript(&path);
                 completed = !transcript.failed
                     && !transcript.running
                     && !transcript.items.iter().any(
                         |item| matches!(item, ledger::Item::Note { text, .. } if text == "Stopped"),
                     );
-                if completed && !is_side
-                {
+                if completed && !is_side {
                     let reply = transcript
                         .items
                         .iter()
@@ -1870,8 +2296,34 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                     ) {
                         eprintln!("Memory was not recorded: {error}");
                     }
-                    // What the reply shares with a teammate goes to the workroom, to wait for that teammate's next run.
-                    for said in crate::people::share_reply(&memory_store, &memory_who, &memory_id, &reply, observed.as_deref()) {
+                    // What the reply shares with a teammate goes to the workroom, to wait for that teammate's next run,
+                    // and may automatically start or steer the recipient through the relay.
+                    let (posted, relayed, notices) = crate::people::share_reply_for_relay(
+                        &memory_store,
+                        &memory_who,
+                        &memory_id,
+                        &reply,
+                        observed.as_deref(),
+                    );
+                    if !posted.is_empty() {
+                        let links: Vec<(&str, &str, &str, &str)> = posted
+                            .iter()
+                            .map(|msg| {
+                                (
+                                    "posted",
+                                    msg.message_id.as_str(),
+                                    msg.to.teammate_id.as_str(),
+                                    msg.posted_at.as_str(),
+                                )
+                            })
+                            .collect();
+                        if let Err(error) = crate::ledger_write::append_peer_links(&path, &links) {
+                            eprintln!("Teammate share links were not recorded: {error}");
+                        }
+                    }
+                    posted_relayed = relayed;
+                    for said in notices {
+                        push_relay_notice(&memory_id, &said, "warning");
                         eprintln!("{said}");
                     }
                 }
@@ -1925,8 +2377,31 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             if !is_side && let Some(root) = &checkpoint_root {
                 checkpoint_turn(&memory_store, &memory_id, root, &check_teammate, &checkpoint_prompt, &check_runtime, check_model.as_deref());
             }
-            // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation.
+            // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation,
+            // and the relay may hand off posted messages or return unanswered questions.
             drop(memory_completion);
+            if !posted_relayed.is_empty()
+                && let Some(peer) = relay_teammate.clone()
+            {
+                let sharing = crate::relay::SharingMission {
+                    run_id: format!("run_{memory_id}"),
+                    mission_id: memory_id.clone(),
+                    runtime: check_runtime.clone(),
+                    sandbox: check_mode.sandbox().to_owned(),
+                    model: check_model.clone(),
+                    peer,
+                    relay: relay_origin.clone(),
+                    started_by: relay_started_by.clone(),
+                };
+                relay().on_shared(&sharing, &posted_relayed);
+            }
+            if !is_side {
+                relay().on_run_ended(&crate::relay::EndedMission {
+                    mission_id: memory_id.clone(),
+                    peer: relay_teammate,
+                    relay: relay_origin,
+                });
+            }
             if person_sent {
                 carry_on_without_asking(&memory_store, &memory_id);
             }
@@ -2015,9 +2490,7 @@ fn run_check_fix(
                 folder: Some(folder.to_path_buf()),
                 started_by: Some(req.started_by.to_json()),
                 runtime: Some(runtime.to_owned()),
-                account: None,
-                reference_ids: None,
-                slot: None,
+                ..Default::default()
             };
             match crate::engine_api::api().send(job, origin) {
                 Ok(started) => {
@@ -2114,7 +2587,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
         command,
         turn,
         flag.clone(),
-        Registered(Vec::new(), None),
+        Registered(Vec::new(), None, None),
         runtime_name.to_owned(),
         approvals_channel(),
         None,
@@ -2424,12 +2897,35 @@ fn drive_runtime(
     channel: &Channel,
     mission_id: &str,
 ) {
+    if runtime.can_steer() {
+        crate::invariants::lock(&STEER_CAPABLE)
+            .get_or_insert_with(std::collections::HashSet::new)
+            .insert(mission_id.to_owned());
+    }
+    let finish_steer = || {
+        if let Some(capable) = crate::invariants::lock(&STEER_CAPABLE).as_mut() {
+            capable.remove(mission_id);
+        }
+        if let Some(queues) = crate::invariants::lock(&STEER_QUEUES).as_mut() {
+            queues.remove(mission_id);
+        }
+    };
     let mut stopped = false;
     loop {
         flush_approvals(writer, channel, mission_id);
         if !stopped && flag.load(Ordering::Relaxed) {
             stopped = true;
             let _ = runtime.stop();
+        }
+        if !stopped {
+            let queued = crate::invariants::lock(&STEER_QUEUES)
+                .as_mut()
+                .and_then(|q| q.remove(mission_id));
+            if let Some(msgs) = queued {
+                for msg in msgs {
+                    let _ = runtime.steer(&msg);
+                }
+            }
         }
         match runtime.next_event() {
             Ok(Some(event)) => {
@@ -2440,6 +2936,7 @@ fn drive_runtime(
                     || done
                 {
                     flush_approvals(writer, channel, mission_id);
+                    finish_steer();
                     channel.release(mission_id);
                     drop(registered.take());
                     return;
@@ -2449,6 +2946,7 @@ fn drive_runtime(
             Err(e) => {
                 record_failure(writer, stopped, &e);
                 flush_approvals(writer, channel, mission_id);
+                finish_steer();
                 channel.release(mission_id);
                 drop(registered.take());
                 return;

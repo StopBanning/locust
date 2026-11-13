@@ -3855,3 +3855,172 @@ fn removing_account_while_teammate_turn_runs_is_refused() {
     assert!(rt.state.agent_accounts.accounts.is_empty(), "{:?}", rt.state.agent_accounts.message);
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+fn two_teammate_window(hop_cap: u32) -> (Dirs, Store, Runtime<State>) {
+    let root = std::env::temp_dir().join(format!(
+        "locust-drive-relay-{}-{}",
+        std::process::id(),
+        TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
+    std::fs::create_dir_all(root.join("work")).unwrap();
+    let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+    let mate_json = |id: &str, name: &str, role: &str| {
+        json!({
+            "teammateId": id,
+            "name": name,
+            "hue": "blue",
+            "role": "Custom",
+            "roleTitle": role,
+            "createdAt": "2026-11-01T00:00:00.000Z",
+            "avatar": {},
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"},
+            "folder": root.join("work").to_string_lossy()
+        })
+    };
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    mate_json("tm_codec", "Codec", "Code & Migrations"),
+                    mate_json("tm_pip", "Pip", "Docs & QA")
+                ],
+                "missionOwners": {},
+                "settings": {"relay": true, "relayHopCap": hop_cap}
+            }),
+        )
+        .unwrap();
+    let mut s = State::default();
+    s.engine = Some(Kind::Native);
+    s.data = Some(store.clone());
+    let codec = teammate(&root, "ask");
+    let pip = Teammate {
+        id: "tm_pip".into(),
+        name: "Pip".into(),
+        role: "Docs & QA".into(),
+        runtime: Some("codex".into()),
+        model: Some("synthetic-model".into()),
+        account: None,
+        busy: false,
+        runs_in: "ask".into(),
+        folder: Some(root.join("work").to_string_lossy().into()),
+    };
+    apply_team(&mut s, vec![codec, pip]);
+    let mut rt = Runtime::new(s, view, (1100.0, 780.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+    (Dirs(root), store, rt)
+}
+
+#[test]
+fn relay_share_starts_recipient_and_returns_reply_to_origin_thread() {
+    let (_dirs, store, mut rt) = two_teammate_window(6);
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "relay-roundtrip"));
+
+    type_and_send(&mut rt, "Check Vite config");
+    pump(&mut rt, "relay roundtrip finishes and returns to Codec's thread", |s| {
+        s.flight.is_none()
+            && locust_core::engine_api::api().running().is_empty()
+            && locust_core::people::hub_of(&store, "tm_pip").is_some()
+            && s.ledger.as_ref().is_some_and(|p| {
+                !p.snapshot.running
+                    && p.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if text == "Got it, thanks!"))
+                    && !p.snapshot.peer_links.is_empty()
+            })
+            && !s.workroom_messages.is_empty()
+    });
+    settle(&mut rt);
+
+    assert!(rt.presented("exchange-strip").is_some(), "ExchangeStrip must appear on Codec's thread");
+    let has_peer_thread = rt.elements().iter().any(|e| {
+        e.text.as_deref().is_some_and(|t| t.contains("Pip") || t.contains("Vite listens on port 5173"))
+    });
+    assert!(has_peer_thread, "PeerThread details should be drawn in the asking thread");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn relay_holds_reply_for_busy_teammate_and_starts_when_finished() {
+    let (dirs, store, mut rt) = two_teammate_window(6);
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "relay-busy"));
+    let busy_gate = dirs.0.join("work").join("pip-busy.gate");
+    let release_gate = dirs.0.join("work").join("pip-release.gate");
+    std::fs::write(&busy_gate, "hold").unwrap();
+
+    rt.update(|s, tx| select_teammate(s, "tm_pip", tx));
+    settle(&mut rt);
+    type_and_send(&mut rt, "Check the lock first");
+    let prompt_log = dirs.0.join("work").join("relay-prompts.jsonl");
+    pump(&mut rt, "Pip's slow run enters turn/start", |_| {
+        prompt_log.is_file() && !locust_core::engine_api::api().running().is_empty()
+    });
+
+    rt.update(|s, tx| select_teammate(s, "tm_codec", tx));
+    settle(&mut rt);
+    type_and_send(&mut rt, "Ask Pip to review migration 4");
+    pump(&mut rt, "busy hold notice shown for Pip", |s| {
+        s.relay_live
+            .notices
+            .iter()
+            .any(|n| n.message.contains("Pip is part-way through another mission"))
+    });
+    assert!(locust_core::people::hub_of(&store, "tm_pip").is_none());
+
+    std::fs::write(&release_gate, "go").unwrap();
+    pump(&mut rt, "held reply starts after Pip finishes and returns to Codec", |s| {
+        s.flight.is_none()
+            && locust_core::engine_api::api().running().is_empty()
+            && locust_core::people::hub_of(&store, "tm_pip").is_some()
+            && s.ledger.as_ref().is_some_and(|p| {
+                !p.snapshot.running
+                    && p.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if text == "Received migration review."))
+            })
+    });
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run() {
+    // 1) Exchange stops automatically at the hop cap (2).
+    {
+        let (_dirs, store, mut rt) = two_teammate_window(2);
+        let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "relay-cap"));
+        type_and_send(&mut rt, "Start exchange");
+        pump(&mut rt, "cap=2 stops exchange", |s| {
+            s.flight.is_none()
+                && locust_core::engine_api::api().running().is_empty()
+                && locust_core::people::hub_of(&store, "tm_pip").is_some()
+                && s.ledger.as_ref().is_some_and(|p| {
+                    !p.snapshot.running
+                        && p.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text.contains("Stopped after 2 automatic replies.")))
+                })
+        });
+        settle(&mut rt);
+        assert!(rt.presented("exchange-strip").is_some(), "ExchangeStrip shown after cap stop");
+        assert!(rt.presented("exchange-stop").is_none(), "Stop button disappears once no run is live");
+        on_quit(&mut rt.state, &mut Tx::default());
+    }
+
+    // 2) Stop button on ExchangeStrip stops a live relayed run.
+    let (_dirs2, store2, mut rt2) = two_teammate_window(6);
+    let _g2 = native::hooks::install(store2.clone(), fake("m1-app-server.py", "relay-stop"));
+    type_and_send(&mut rt2, "Audit workspace");
+    pump(&mut rt2, "Pip's relayed run is live and ExchangeStrip sees live run", |s| {
+        !locust_core::engine_api::api().running().is_empty()
+            && !s.seen_live.is_empty()
+            && crate::exchange_strip::compute(s).is_some_and(|(ex, _)| !ex.live_run_ids.is_empty())
+    });
+    settle(&mut rt2);
+    assert!(rt2.presented("exchange-stop").is_some(), "Stop button shows on ExchangeStrip");
+    click(&mut rt2, "exchange-stop");
+    pump(&mut rt2, "ExchangeStrip Stop ends the live run", |s| {
+        locust_core::engine_api::api().running().is_empty()
+            && !s.exchange_stopping
+            && s.seen_live.is_empty()
+            && crate::exchange_strip::compute(s).is_some_and(|(ex, _)| ex.live_run_ids.is_empty())
+    });
+    settle(&mut rt2);
+    assert!(rt2.presented("exchange-stop").is_none(), "Stop button gone after stopping live run");
+    on_quit(&mut rt2.state, &mut Tx::default());
+}

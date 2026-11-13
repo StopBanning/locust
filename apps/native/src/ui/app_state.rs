@@ -337,6 +337,14 @@ pub(super) struct State {
     pub(super) tune_card: Option<crate::tune_teammate::TuneCardState>,
     pub(super) compare: crate::compare_view::CompareState,
     pub(super) benchmarks_open: bool,
+    pub(super) workroom_messages: HashMap<String, locust_core::workroom::Message>,
+    pub(super) mission_owners: HashMap<String, String>,
+    pub(super) relay_live: native::RelayLiveState,
+    pub(super) relay_hop_cap: u32,
+    pub(super) left_out_by_you: Vec<String>,
+    pub(super) exchange_open: Option<String>,
+    pub(super) exchange_stopping: bool,
+    pub(super) peer_thread_open: HashMap<String, bool>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -526,6 +534,14 @@ impl Default for State {
             tune_card: None,
             compare: crate::compare_view::CompareState::default(),
             benchmarks_open: false,
+            workroom_messages: HashMap::new(),
+            mission_owners: HashMap::new(),
+            relay_live: native::RelayLiveState::default(),
+            relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,
+            left_out_by_you: Vec::new(),
+            exchange_open: None,
+            exchange_stopping: false,
+            peer_thread_open: HashMap::new(),
         }
     }
 }

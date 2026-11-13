@@ -219,6 +219,7 @@ pub(super) fn send(s: &mut State) {
         account: None,
         reference_ids: None,
         slot: None,
+        ..Default::default()
     };
     let result = api().send(job, origin);
     let Some(side) = s.side_chat.as_mut() else {
