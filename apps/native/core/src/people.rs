@@ -234,6 +234,89 @@ pub fn record_owner(store: &Store, mission: &str, who: &str) -> Result<(), Strin
     file["missionOwners"][mission] = json!(who);
     store.save_json("teammates.json", &file)
 }
+
+/// Set a conversation title in `missionTitles` (used by relay `remember_hub`: "<Name>'s replies").
+pub fn set_mission_title(store: &Store, mission: &str, title: &str) -> Result<(), String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    if !file["missionTitles"].is_object() {
+        file["missionTitles"] = json!({});
+    }
+    file["missionTitles"][mission] = json!(title);
+    store.save_json("teammates.json", &file)
+}
+
+/// Record a teammate's newest hub turn (`hubMissionId` on their teammate record).
+pub fn remember_hub(store: &Store, teammate_id: &str, mission: &str) -> Result<(), String> {
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    let Some(list) = file["teammates"].as_array_mut() else {
+        return Ok(());
+    };
+    for t in list.iter_mut() {
+        if t["teammateId"].as_str() == Some(teammate_id) {
+            t["hubMissionId"] = json!(mission);
+        }
+    }
+    store.save_json("teammates.json", &file)
+}
+
+/// The teammate's recorded hub mission, if it still exists in the ledger.
+pub fn hub_of(store: &Store, teammate_id: &str) -> Option<String> {
+    let file = team(store).ok()?;
+    let hub = file["teammates"]
+        .as_array()?
+        .iter()
+        .find(|t| t["teammateId"].as_str() == Some(teammate_id))
+        .and_then(|t| t["hubMissionId"].as_str())
+        .map(str::to_owned)?;
+    let has_native = store.write_path(&hub).ok().is_some_and(|p| p.is_file());
+    let has_electron = store
+        .electron()
+        .join("mission-ledger")
+        .join(format!("{hub}.jsonl"))
+        .is_file();
+    (has_native || has_electron).then_some(hub)
+}
+
+/// Build a relay `PeerRosterEntry` from `teammates.json` (`peerContextFor`).
+pub fn peer_roster_entry(store: &Store, teammate_id: &str) -> Option<crate::relay::PeerRosterEntry> {
+    let file = team(store).ok()?;
+    let entry = file["teammates"]
+        .as_array()?
+        .iter()
+        .find(|t| t["teammateId"].as_str() == Some(teammate_id))?;
+    let role = entry["roleTitle"]
+        .as_str()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| entry["role"].as_str())
+        .unwrap_or("Teammate")
+        .to_owned();
+    let route = entry["route"].as_object().and_then(|r| {
+        let runtime = r.get("runtime")?.as_str()?.to_owned();
+        let model = r.get("model").and_then(Value::as_str).map(str::to_owned);
+        let effort = r.get("effort").and_then(Value::as_str).map(str::to_owned);
+        let account = r.get("account").and_then(Value::as_str).map(str::to_owned);
+        let mode = r
+            .get("mode")
+            .and_then(Value::as_str)
+            .unwrap_or("ask")
+            .to_owned();
+        Some(crate::relay::TurnRoute {
+            runtime,
+            model,
+            effort,
+            account,
+            mode,
+        })
+    });
+    Some(crate::relay::PeerRosterEntry {
+        teammate_id: teammate_id.to_owned(),
+        name: entry["name"].as_str()?.to_owned(),
+        role,
+        route,
+    })
+}
 /// Who a conversation's turn belongs to: the native file's record, else Electron's (read only).
 pub fn owner_of(store: &Store, mission: &str) -> Option<String> {
     let own = team(store).ok().and_then(|f| f["missionOwners"][mission].as_str().map(str::to_owned));
@@ -780,14 +863,42 @@ pub fn turn_brief(
 /// Post a finished reply's share blocks from this teammate (peer_exchange::share_reply); returns what the person should
 /// be told.
 pub fn share_reply(store: &Store, who: &str, mission_id: &str, reply: &str, observed: Option<&[String]>) -> Vec<String> {
-    let Ok(file) = team(store) else { return vec![] };
-    let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
-    let Some(me) = roster.iter().find(|e| e.teammate_id == who).cloned() else { return vec![] };
-    let others: Vec<crate::briefing::PeerEntry> = roster.into_iter().filter(|e| e.teammate_id != who).collect();
+    share_reply_for_relay(store, who, mission_id, reply, observed).2
+}
+
+/// Post share blocks and return `(posted_workroom_messages, posted_relayed_messages, host_warnings)`.
+pub fn share_reply_for_relay(
+    store: &Store,
+    who: &str,
+    mission_id: &str,
+    reply: &str,
+    observed: Option<&[String]>,
+) -> (Vec<crate::workroom::Message>, Vec<crate::relay::RelayedMessage>, Vec<String>) {
+    let Ok(file) = team(store) else {
+        return (Vec::new(), Vec::new(), Vec::new());
+    };
+    let roster: Vec<crate::briefing::PeerEntry> = file["teammates"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(peer_entry)
+        .collect();
+    let Some(me) = roster.iter().find(|e| e.teammate_id == who).cloned() else {
+        return (Vec::new(), Vec::new(), Vec::new());
+    };
+    let others: Vec<crate::briefing::PeerEntry> =
+        roster.into_iter().filter(|e| e.teammate_id != who).collect();
     if crate::peer_share::parse_share_blocks(reply).is_empty() {
-        return vec![];
+        return (Vec::new(), Vec::new(), Vec::new());
     }
-    crate::peer_exchange::share_reply(&crate::workroom::Workroom::for_store(store), &me, &others, mission_id, reply, observed).1
+    crate::peer_exchange::share_reply_for_relay(
+        &crate::workroom::Workroom::for_store(store),
+        &me,
+        &others,
+        mission_id,
+        reply,
+        observed,
+    )
 }
 
 /// The workspace, the teammate's standing instructions, the person's note, the memory, and the folder's office files.

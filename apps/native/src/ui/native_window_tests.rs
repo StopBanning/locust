@@ -236,6 +236,9 @@ fn a_native_window_starts_continues_and_stops_a_codex_conversation_without_elect
                 })
                 .collect(),
             summaries: HashMap::new(),
+            workroom_messages: HashMap::new(),
+            mission_owners: HashMap::new(),
+            relay_hop_cap: locust_core::relay::MAX_RELAY_HOPS as u32,
             local: true,
         })
     });

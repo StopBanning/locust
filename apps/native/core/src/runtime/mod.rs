@@ -55,6 +55,12 @@ pub trait Runtime {
     /// A timeout returns None; terminal events are explicit.
     fn next_event(&mut self) -> io::Result<Option<Event>>;
     fn stop(&mut self) -> io::Result<()>;
+    fn can_steer(&self) -> bool {
+        false
+    }
+    fn steer(&mut self, _text: &str) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]

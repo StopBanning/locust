@@ -323,6 +323,7 @@ mod tests {
                 account: None,
                 reference_ids: None,
                 slot: None,
+                ..Default::default()
             },
         )
         .unwrap();
@@ -461,6 +462,7 @@ mod tests {
                 account: None,
                 reference_ids: None,
                 slot: None,
+                ..Default::default()
             },
         )
         .unwrap();

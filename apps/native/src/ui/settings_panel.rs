@@ -915,6 +915,115 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             }
             body = body.child(crate::own_copies::section(s, p));
         }
+        SettingsPageId::Relay => {
+            let l = crate::look::controls::Look::new(p.dark);
+            let relay = s.settings_panel.settings.relay;
+            let cap = s.settings_panel.settings.relay_hop_cap;
+            let interrupt = s.settings_panel.settings.interrupt;
+            let lede = if relay {
+                format!(
+                    "Teammates answer each other on their own, each on its own route, and stop after {cap} automatic {}.",
+                    if cap == 1 { "reply" } else { "replies" }
+                )
+            } else {
+                "Teammates do not answer each other on their own. A message waits until its recipient next runs.".to_owned()
+            };
+            body = body
+                .child(
+                    text(lede)
+                        .font(type_::LABEL)
+                        .color(p.secondary)
+                        .wrap()
+                        .padding(10.0),
+                )
+                .child(
+                    col()
+                        .w_full()
+                        .gap(4.0)
+                        .padding(10.0)
+                        .child(
+                            text(if relay {
+                                "Automatic replies: on. Teammates reply to each other until the work is done."
+                            } else {
+                                "Automatic replies: off. Messages wait for the recipient's next run."
+                            })
+                            .font(type_::LABEL)
+                            .color(p.secondary)
+                            .wrap(),
+                        )
+                        .child(
+                            row().w_full().center_y().gap(10.0).child(
+                                crate::look::controls::switch(&l, relay, "Automatic replies", false)
+                                    .key("settings-relay-auto")
+                                    .on_press(|s: &mut State| {
+                                        s.settings_panel.settings.relay = !s.settings_panel.settings.relay;
+                                        persist(s);
+                                    }),
+                            ),
+                        ),
+                )
+                .child(
+                    col()
+                        .w_full()
+                        .gap(4.0)
+                        .padding(10.0)
+                        .child(
+                            text(if interrupt {
+                                "Urgent messages interrupt: on. An urgent message stops the recipient part-way. Their unfinished work stays in their own conversation."
+                            } else {
+                                "Urgent messages interrupt: off. An urgent message still waits for the recipient to finish."
+                            })
+                            .font(type_::LABEL)
+                            .color(p.secondary)
+                            .wrap(),
+                        )
+                        .child(
+                            row().w_full().center_y().gap(10.0).child({
+                                let mut sw = crate::look::controls::switch(
+                                    &l,
+                                    interrupt,
+                                    "Urgent messages interrupt",
+                                    !relay,
+                                )
+                                .key("settings-relay-interrupt");
+                                if relay {
+                                    sw = sw.on_press(|s: &mut State| {
+                                        s.settings_panel.settings.interrupt =
+                                            !s.settings_panel.settings.interrupt;
+                                        persist(s);
+                                    });
+                                }
+                                sw
+                            }),
+                        ),
+                );
+            let mut cap_row = row().w_full().center_y().gap(6.0);
+            for opt in [2u32, 4, 8, 12, 16, 24] {
+                let mut btn = active_button(opt.to_string(), p, cap == opt)
+                    .key(format!("settings-relay-cap-{opt}"))
+                    .disabled(!relay);
+                if relay {
+                    btn = btn.on_press(move |s: &mut State| {
+                        s.settings_panel.settings.relay_hop_cap = opt;
+                        persist(s);
+                    });
+                }
+                cap_row = cap_row.child(btn);
+            }
+            body = body.child(
+                col()
+                    .w_full()
+                    .gap(6.0)
+                    .padding(10.0)
+                    .child(
+                        text("Automatic replies per exchange before they wait for you")
+                            .font(type_::LABEL)
+                            .color(p.secondary)
+                            .wrap(),
+                    )
+                    .child(cap_row),
+            );
+        }
         SettingsPageId::WhatsNew => {
             if s.home.changelog.is_empty() {
                 body = body.child(
@@ -1201,5 +1310,31 @@ mod tests {
         scene(&mut s);
         assert!(s.settings_panel.open);
         assert_eq!(s.settings_panel.page, Some(SettingsPageId::Appearance));
+    }
+
+    #[test]
+    fn relay_settings_page_renders_and_persists_switches_and_hop_cap() {
+        let root = std::env::temp_dir().join(format!("settings-relay-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
+        let store = store::Store::new(root.join("native"), root.join("electron")).unwrap();
+        let mut s = State {
+            data: Some(store.clone()),
+            ..State::default()
+        };
+        open(&mut s);
+        s.settings_panel.page = Some(SettingsPageId::Relay);
+        let _ = view(&s, &Palette::new(true));
+
+        s.settings_panel.settings.relay = false;
+        s.settings_panel.settings.interrupt = true;
+        s.settings_panel.settings.relay_hop_cap = 24;
+        persist(&mut s);
+
+        let saved = workspace_settings::load(&store).unwrap();
+        assert!(!saved.relay);
+        assert!(saved.interrupt);
+        assert_eq!(saved.relay_hop_cap, 24);
+        let _ = view(&s, &Palette::new(false));
+        let _ = std::fs::remove_dir_all(root);
     }
 }

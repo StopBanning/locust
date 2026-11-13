@@ -76,7 +76,38 @@ pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
         }
         rows.push(mission);
     }
-    crate::conversation_list::conversation_rows(&rows)
+    let mut list = crate::conversation_list::conversation_rows(&rows);
+    let nested_rows: Vec<locust_core::relay::NestedRow> = list
+        .iter()
+        .map(|m| locust_core::relay::NestedRow {
+            mission_id: m.mission_id.clone(),
+            member_ids: m.member_ids.clone(),
+        })
+        .collect();
+    let parents = locust_core::relay::nested_under(&nested_rows, |nr| {
+        let row = list.iter().find(|r| r.mission_id == nr.mission_id)?;
+        let root_id = row.root_id.as_deref().unwrap_or(&row.mission_id);
+        let summary = s.ledger_summaries.get(root_id)?;
+        if summary.started_by_kind.as_deref() != Some("relay") {
+            return None;
+        }
+        summary
+            .peer_links
+            .iter()
+            .find(|l| l.direction == "received")
+            .and_then(|l| {
+                s.workroom_messages
+                    .get(&l.message_id)
+                    .map(|msg| msg.from_mission.clone())
+            })
+            .or_else(|| summary.relay.as_ref().and_then(|r| r.root_mission_id.clone()))
+    });
+    for m in &mut list {
+        if let Some(parent) = parents.get(&m.mission_id) {
+            m.nested_under = Some(parent.clone());
+        }
+    }
+    list
 }
 
 pub(super) fn sidebar_missions_now(s: &State) -> Vec<SidebarMission> {
@@ -704,34 +735,65 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .wrap(),
         );
     } else {
+        let is_picked = |item: &SidebarMission| {
+            selected_conversation(s)
+                .and_then(|(_, c)| c.conversation_id.as_deref())
+                == Some(item.mission_id.as_str())
+                || s.ledger.as_ref().is_some_and(|p| {
+                    !p.snapshot.tip.is_empty() && p.snapshot.tip == item.mission_id
+                })
+        };
+        let append_rows = |mut container: El, list: &[SidebarMission]| -> El {
+            let shown_ids: std::collections::HashSet<&str> =
+                list.iter().map(|m| m.mission_id.as_str()).collect();
+            let mut children_of: std::collections::HashMap<&str, Vec<&SidebarMission>> =
+                std::collections::HashMap::new();
+            for m in list {
+                if let Some(parent) = m.nested_under.as_deref()
+                    && shown_ids.contains(parent)
+                {
+                    children_of.entry(parent).or_default().push(m);
+                }
+            }
+            for item in list {
+                if item
+                    .nested_under
+                    .as_deref()
+                    .is_some_and(|p| shown_ids.contains(p))
+                {
+                    continue;
+                }
+                container = container.child(mission_row(s, p, item, is_picked(item)));
+                if let Some(children) = children_of.get(item.mission_id.as_str()) {
+                    for child in children {
+                        container = container.child(
+                            col()
+                                .key(format!("nested-{}", child.mission_id))
+                                .w_full()
+                                .pl(16.0)
+                                .child(mission_row(s, p, child, is_picked(child))),
+                        );
+                    }
+                }
+            }
+            container
+        };
         if show_sections && !pinned.is_empty() {
             recent = recent.child(section_label(p, "Pinned"));
-            for item in &pinned {
-                let picked = selected_conversation(s)
-                    .and_then(|(_, c)| c.conversation_id.as_deref())
-                    == Some(item.mission_id.as_str())
-                    || s.ledger.as_ref().is_some_and(|p| {
-                        !p.snapshot.tip.is_empty() && p.snapshot.tip == item.mission_id
-                    });
-                recent = recent.child(mission_row(s, p, item, picked));
-            }
+            recent = append_rows(recent, &pinned);
         }
         // Project groups
         if groups_shown {
             for group in &s.org.groups {
                 recent = recent.child(section_label(p, &group.name));
-                let in_group: Vec<_> = recent_rows
+                let in_group: Vec<SidebarMission> = recent_rows
                     .iter()
                     .filter(|m| {
                         held_for(m, &s.org.members).is_some_and(|gid| gid == &group.group_id)
                     })
+                    .cloned()
                     .collect();
-                for item in in_group {
-                    let picked = selected_conversation(s)
-                        .and_then(|(_, c)| c.conversation_id.as_deref())
-                        == Some(item.mission_id.as_str());
-                    recent = recent.child(mission_row(s, p, item, picked));
-                }
+                recent = append_rows(recent, &in_group);
             }
         }
         let rest = if groups_shown {
@@ -749,14 +811,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 if groups_shown { "Ungrouped" } else { "Recents" },
             ));
         }
-        for item in &rest {
-            let picked = selected_conversation(s).and_then(|(_, c)| c.conversation_id.as_deref())
-                == Some(item.mission_id.as_str())
-                || s.ledger.as_ref().is_some_and(|p| {
-                    !p.snapshot.tip.is_empty() && p.snapshot.tip == item.mission_id
-                });
-            recent = recent.child(mission_row(s, p, item, picked));
-        }
+        recent = append_rows(recent, &rest);
     }
 
     if let Some(id) = &s.rename_id {
@@ -978,6 +1033,7 @@ mod review_tests {
                     updated: at,
                     running: false,
                     failed: false,
+                    ..Default::default()
                 },
             );
         }
@@ -1036,5 +1092,87 @@ mod review_tests {
         on_key(&mut s, &event(Key::Escape, false), &mut tx);
         assert!(!s.find_open);
         assert!(s.find_query.text.is_empty());
+    }
+
+    #[test]
+    fn relayed_conversations_nest_one_level_deep_under_their_origin() {
+        let mut s = State::default();
+        s.demo = true;
+        s.workroom_messages.insert(
+            "wm_relayed".into(),
+            locust_core::workroom::Message {
+                message_id: "wm_relayed".into(),
+                from: locust_core::workroom::Party {
+                    teammate_id: "tm_codec".into(),
+                    name: "Codec".into(),
+                },
+                from_mission: "origin".into(),
+                to: locust_core::workroom::Party {
+                    teammate_id: "tm_pip".into(),
+                    name: "Pip".into(),
+                },
+                text: "question".into(),
+                posted_at: "2026-10-01T10:00:01Z".into(),
+                sequence: 1,
+                observed: None,
+            },
+        );
+        for (id, words, time, relay, started_by_kind, peer_links) in [
+            ("origin", "Start exchange", "01", None, Some("native".to_owned()), vec![]),
+            (
+                "relayed",
+                "Pip's reply",
+                "02",
+                Some(locust_core::relay::RelayOrigin {
+                    hop: 1,
+                    root_mission_id: Some("origin".into()),
+                    last_mission_of: vec![("tm_codec".into(), "origin".into())],
+                    relayed_to: vec!["tm_pip".into()],
+                    answering: vec!["wm_relayed".into()],
+                }),
+                Some("relay".to_owned()),
+                vec![ledger::PeerLink {
+                    direction: "received".into(),
+                    message_id: "wm_relayed".into(),
+                    peer_teammate_id: "tm_codec".into(),
+                    occurred_at: "2026-10-01T10:00:01Z".into(),
+                }],
+            ),
+            ("standalone", "Standalone", "03", None, Some("native".to_owned()), vec![]),
+        ] {
+            let at = format!("2026-10-01T10:00:{time}Z");
+            s.recent.push(ConversationRow {
+                id: id.into(),
+                title: words.into(),
+                teammate: "Codec".into(),
+                started_by: started_by_kind.clone().unwrap_or_else(|| "native".into()),
+                state: "completed".into(),
+                updated: at.clone(),
+            });
+            s.ledger_summaries.insert(
+                id.into(),
+                ledger::Summary {
+                    mission_id: id.into(),
+                    title: words.into(),
+                    parent: None,
+                    words: words.into(),
+                    runtime: "codex".into(),
+                    model: String::new(),
+                    created_at: at.clone(),
+                    updated: at,
+                    started_by_kind,
+                    relay,
+                    peer_links,
+                    ..Default::default()
+                },
+            );
+        }
+        let rows = recent_as_missions(&s);
+        let orig = rows.iter().find(|r| r.mission_id == "origin").unwrap();
+        let rel = rows.iter().find(|r| r.mission_id == "relayed").unwrap();
+        let lone = rows.iter().find(|r| r.mission_id == "standalone").unwrap();
+        assert_eq!(orig.nested_under, None);
+        assert_eq!(rel.nested_under.as_deref(), Some("origin"));
+        assert_eq!(lone.nested_under, None);
     }
 }

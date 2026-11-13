@@ -99,7 +99,7 @@ apps/desktop/src/main/a-half-made-worktree-is-finished-not-trusted.test.ts		wait
 apps/desktop/src/main/a-handoff-keeps-its-mode.test.ts		waiting		
 apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts		waiting		
 apps/desktop/src/main/a-held-back-copy-says-why.test.ts		waiting		
-apps/desktop/src/main/a-held-reply-that-cannot-start-tells-every-thread.test.ts		waiting		
+apps/desktop/src/main/a-held-reply-that-cannot-start-tells-every-thread.test.ts	RELAY	carried	core/src/relay_tests.rs	busy_teammate_defers_steers_or_interrupts_and_tells_every_held_thread_on_refusal covers both interrupt-on and interrupt-off cases
 apps/desktop/src/main/a-history-read-names-the-processes-still-owned.test.ts		waiting		
 apps/desktop/src/main/a-judge-reads-each-columns-work.test.ts	compare	carried		`compare_judge::tests::a_judge_reads_each_columns_work`
 apps/desktop/src/main/a-judge-reads-the-answers-blind.test.ts	compare	carried		`compare_judge::tests::a_judge_reads_the_answers_blind`
@@ -187,14 +187,14 @@ apps/desktop/src/main/a-reference-stays-with-its-conversation.test.ts		waiting
 apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts		waiting		
 apps/desktop/src/main/a-refusal-keeps-the-reason-it-was-refused-for.test.ts		waiting		
 apps/desktop/src/main/a-refused-link-says-so.test.ts		waiting		
-apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts		waiting		
+apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts	RELAY	partial	core/src/relay_tests.rs, src/ui/sidebar.rs	4/5 nestedUnder cases carried + sidebar::review_tests::relayed_conversations_nest_one_level_deep_under_their_origin (self-loop case omitted)
 apps/desktop/src/main/a-remote-control-server-lives-only-while-enabled.test.ts	REMOTE-CONTROL	carried	core/src/remote_control_tests.rs	every case but the two Windows launch shapes (a cmd shim's quoting; detached is a process group here): lifetime, one server, off and quit wait for close, cancelled starts, verbatim errors and output, trust questions, bounded output, the stop deadline, earlier off, repeated trust; plus an ended process reporting nothing into a later one
 apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts	REMOTE-CONTROL	partial	core/src/remote_control_tests.rs	the setup terminal opens only after the server closed, never answering for the person; the per-platform terminal launch cases are the terminal module's
 apps/desktop/src/main/a-remote-control-switch-accepts-only-its-own-window.test.ts	REMOTE-CONTROL	does-not-apply		one window, no IPC to accept from another
 apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts		waiting		
 apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts		waiting		
 apps/desktop/src/main/a-reply-lines-up-with-the-box.test.ts		waiting		
-apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts		waiting		
+apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts	RELAY	partial	core/src/relay_tests.rs, core/src/native/tests.rs	continues hub + remembers hub tested in relay_skips_mcp_and_deduplicates_recipients_and_tracks_hub and relay_roundtrip
 apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts		waiting		
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	settings	carried	core/src/report_problem.rs	support mailto limit/fallback + uncut file report + secret scrubbing
 apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts		waiting		
@@ -248,7 +248,7 @@ apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	TEAM-FILE
 apps/desktop/src/main/a-team-travels-as-a-picture.test.ts		waiting		
 apps/desktop/src/main/a-teammate-browses-and-asks-before-it-acts.test.ts	p13	does-not-apply		`main/a-teammate-browses-and-asks-before-it-acts.test.ts` (gates/ask) | `browser_actions` + `ask_browser` + tool recheck after deny/close
 apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts		waiting		
-apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts		waiting		
+apps/desktop/src/main/a-teammate-cut-off-is-not-said-to-have-finished.test.ts	RELAY	carried	core/src/relay_tests.rs	silent_question_brings_answer_back_unless_cut_off_or_fyi + prompt_helpers_and_budget_sentences_match_electron cover all 5 cases
 apps/desktop/src/main/a-teammate-has-its-own-instructions.test.ts	P6	does-not-apply		`main/a-teammate-has-its-own-instructions.test.ts`, `main/about-you-is-read-by-every-teammate.test.ts` | Saved instructions and About you reach the native brief; About you survives memory off; protocol tags in the note are disarmed.
 apps/desktop/src/main/a-teammate-hears-its-turn-was-undone.test.ts	P7	does-not-apply		`main/a-teammate-hears-its-turn-was-undone.test.ts` | Runtime notice/prompt reconciliation remains unported. No claim of coverage.
 apps/desktop/src/main/a-teammate-keeps-the-hub-their-replies-live-in.test.ts		waiting		
@@ -287,7 +287,7 @@ apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	ACCOUNTS	c
 apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	ACCOUNTS	partial	core/src/agent_accounts_tests.rs, core/src/route_at_start.rs, core/src/native/tests.rs, core/src/usage_ledger.rs, core/src/runtime_terminal.rs, src/ui/compare_window_tests.rs, src/ui/window_drive_tests.rs	12 of 13: store/home/removal/policy/busy/usage-keys (`agent_accounts_tests.rs`), route_at_start, launch env + route-switch + wrong/unsupported/removed/policy refusals (`named_codex_and_claude_accounts_launch_with_own_home_and_fail_cleanly`), separate account usage windows & limits (`keeps_usage_and_exhausted_limits_separate_for_each_account`), terminal env (`opens_an_existing_conversation_in_a_terminal_with_the_recorded_account_home`), Compare (`compares_the_same_agent_and_model_on_two_distinct_accounts_and_keeps_both_across_reload`), and window teammate/edit/busy-remove flows. Background work (`claude-background`, row 128) remains.
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts		waiting		
 apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts		waiting		
-apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts		waiting		
+apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts	RELAY	carried	core/src/relay_tests.rs, core/src/native/tests.rs	all 7 cases carried in relay_tests.rs + relay_prose_return_posts_unanswered_prose_back_to_asker
 apps/desktop/src/main/an-antigravity-model-with-its-own-limit-is-shown.test.ts		waiting		
 apps/desktop/src/main/an-antigravity-relay-reply-says-who-started-it.test.ts		waiting		
 apps/desktop/src/main/an-api-benchmark-prices-and-checks-each-run.test.mjs		waiting		
@@ -305,8 +305,8 @@ apps/desktop/src/main/an-app-waits-for-the-answer.test.ts		waiting
 apps/desktop/src/main/an-approval-says-what-it-allows.test.ts		waiting		
 apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	P8	partial		`main/an-approval-shows-the-whole-action.test.ts` | New detail normalization/counting and long Claude path regression; full tool-input/question matrix still partial.
 apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts		waiting		
-apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts		waiting		
-apps/desktop/src/main/an-fyi-need-not-page-a-model.test.ts		waiting		
+apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	RELAY	partial	core/src/relay_tests.rs	conversation_model_is_kept_when_replied_to_and_borrows_when_none + meeting_waits_for_all_recipients_and_closes_once
+apps/desktop/src/main/an-fyi-need-not-page-a-model.test.ts	RELAY	carried	core/src/peer_share.rs, core/src/relay_tests.rs	fyi share kind parsing + decide_relay_respects_defer_closes_disabled_and_cap cover all cases
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts		waiting		
 apps/desktop/src/main/an-input-method-keeps-its-keys.test.ts		waiting		
 apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	ISSUES	partial	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	Partial: the list and its choice are carried; picture fetching and Home’s Start from an issue wait
@@ -442,8 +442,8 @@ apps/desktop/src/main/qa-0365-rooms.test.ts		waiting
 apps/desktop/src/main/question-answers.test.ts	QUESTIONS	carried	core/src/approval.rs question_tests	all 10 cases, and the window test a_codex_question_is_answered_by_id_and_label_not_approved
 apps/desktop/src/main/quit-guard.test.ts	settings	carried	core/src/quit_guard.rs	should_ask_before_closing, hide_to_tray_on_close, close_question, CLOSE_BUTTONS, tray_line
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts		waiting		
-apps/desktop/src/main/relay-note-is-writable.test.ts		waiting		
-apps/desktop/src/main/relay.test.ts		waiting		
+apps/desktop/src/main/relay-note-is-writable.test.ts	RELAY	partial	core/src/ledger_write.rs, core/src/native/tests.rs, src/ui/window_drive_tests.rs	append_note_with_level, relay_defers_while_busy_and_records_cap_diagnostic, and relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run cover diagnostic notes and cap stops
+apps/desktop/src/main/relay.test.ts	RELAY	partial	core/src/relay_tests.rs, core/src/native/tests.rs	20 relay unit tests in core/src/relay_tests.rs + 4 native engine relay tests in core/src/native/tests.rs cover workroom share relay, deferral/steer/interrupt, meeting barriers, prose return, budget/cap, diagnostics, and 21 special cases; Starting/StartSettled host assertions and JS throw harness cases unported
 apps/desktop/src/main/report-problem.test.ts	settings	carried	core/src/report_problem.rs	GitHub URL, end-trimming, systemName/windowsName, secret scrubbing
 apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts		waiting		
 apps/desktop/src/main/retention.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
@@ -547,7 +547,7 @@ apps/desktop/src/main/the-plan-is-drawn-as-what-it-is.test.ts		waiting
 apps/desktop/src/main/the-rail-can-be-used.test.ts		waiting		
 apps/desktop/src/main/the-readme-names-this-weeks-packs.test.ts		waiting		
 apps/desktop/src/main/the-renderer-draws-its-own-selects.test.ts		waiting		
-apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts		waiting		
+apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts	RELAY	partial	core/src/relay_tests.rs	reserve/release, concurrent branches, room post keys, closings, held replies carried; room-store integration omitted
 apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts		waiting		
 apps/desktop/src/main/the-starter-routines-are-routines.test.ts	TEAM-FILES	carried	core/src/routine_templates.rs, core/src/routine_io.rs	shipped starter templates list/read/validate, workspace-required import in Ask mode, and one-use preview tokens carried
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts		waiting		
@@ -610,7 +610,7 @@ apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx		waiting
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	compare	carried		`compare_window_tests::blind_comparison_hides_names_until_a_pick_then_shows_them`
 apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	p12	partial	board_and_away_match_electron_on_the_same_synthetic_rows	`renderer/src/conversations-as-a-board.test.ts`, `renderer/src/a-board-of-conversations.test.tsx`, `shared/since-you-were-away.test.ts`: existing pure reducer tests plus `board_and_away_match_electron_on_the_same_synthetic_rows`. `scripts/p
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts		waiting		
-apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx	RELAY	partial	src/ui/handoff_divider.rs, core/src/native/tests.rs	omission checkboxes + relay_route_switch_records_left_out_by_you_and_decodes_in_snapshot carried; JSX source assertions N/A
 apps/desktop/src/renderer/src/a-browser-opens-on-what-it-last-saw.test.ts		waiting		
 apps/desktop/src/renderer/src/a-build-starter-makes-one-page.test.ts	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
 apps/desktop/src/renderer/src/a-busy-free-model-offers-the-next.test.tsx		waiting		
@@ -624,7 +624,7 @@ apps/desktop/src/renderer/src/a-call-sums-up-what-it-handed-out.test.tsx		waitin
 apps/desktop/src/renderer/src/a-call-with-chatgpt-wears-an-orb.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-called-link-says-what-leaves-the-computer.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-cancelled-run-spent-nothing.test.ts		waiting		
-apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-carried-on-turn-is-said-as-locusts.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider carried copy in handoff_divider.rs
 apps/desktop/src/renderer/src/a-chain-template-opens-in-the-editor.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-change-can-be-copied.test.tsx	P7	partial	copies_after_code_with_parts_apart_and_no_deleted_code	`renderer/src/a-change-can-be-copied.test.tsx` | `copies_after_code_with_parts_apart_and_no_deleted_code` covers separated hunks, new/deleted code behavior. Scene inspection covers visible copy controls. React static-markup assertions are i
 apps/desktop/src/renderer/src/a-change-is-coloured.test.tsx	P7	does-not-apply	a_change_is_coloured_as_two_whole_sides	`renderer/src/a-change-is-coloured.test.tsx` | `a_change_is_coloured_as_two_whole_sides` covers before/after construction and valid syntax ranges; dark/light scenes show colours. Pair overlays, character-conservation/mismatch fallback and a
@@ -699,7 +699,7 @@ apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts		waiting		
-apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	RELAY	carried	src/ui/handoff_divider.rs	handoff_divider_renders_models_carried_reason_and_omissions covers all cases
 apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts		waiting		
 apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts		waiting		
@@ -801,7 +801,7 @@ apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx		w
 apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	STOPPED	partial	src/ui/cancellation_card.rs	the press seen in this window says You (window test a_stopped_run_leaves_a_receipt_that_says_who_stopped_it_and_what_is_unknown); a run stopped by anything else is not pinned
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts		waiting		
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider runtime names in handoff_divider.rs; routineDraft extraction omitted
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts		waiting		
 apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
 apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx		waiting		
@@ -937,7 +937,7 @@ apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx		wa
 apps/desktop/src/renderer/src/every-runtime-keeps-its-output.test.tsx		waiting		
 apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx		waiting		
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
-apps/desktop/src/renderer/src/exchange.test.ts		waiting		
+apps/desktop/src/renderer/src/exchange.test.ts	RELAY	partial	src/ui/exchange_strip.rs	exchange_of_and_exchange_across_walk_component_and_sum_cost_and_hops; empty-roots/Nobody edge cases omitted
 apps/desktop/src/renderer/src/faceState.test.ts		waiting		
 apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx	settings	carried	src/ui/window_drive_tests.rs	report_shows_what_it_sends_and_sends_nothing_until_pressed + core/src/report_problem.rs
 apps/desktop/src/renderer/src/finishedToast.test.ts		waiting		
@@ -1057,7 +1057,7 @@ apps/desktop/src/renderer/src/the-effort-thumb-follows-the-pointer.test.ts		wait
 apps/desktop/src/renderer/src/the-face-legend-shows-every-face.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-file-viewer-renders-and-never-runs.test.tsx	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
 apps/desktop/src/renderer/src/the-first-send-cannot-spend.test.ts		waiting		
-apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	P4	waiting		`the-flat-sidebar.test.ts` | Native ordering helpers and chain rows cover part of the list contract. Face filter, nested relayed conversations, compact flyout and all TS presentation assertions remain unported.
+apps/desktop/src/renderer/src/the-flat-sidebar.test.ts	RELAY	partial	src/ui/sidebar.rs	Native ordering helpers, chain rows, and 1-level relayed origin nesting (sidebar::review_tests::relayed_conversations_nest_one_level_deep_under_their_origin) covered; face filter, compact flyout and TS presentation assertions remain unported.
 apps/desktop/src/renderer/src/the-folder-chip-says-a-folder-is-no-place-for-teammates.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-frame-pass.test.ts		waiting		
 apps/desktop/src/renderer/src/the-free-promise-checks-itself.test.ts		waiting		

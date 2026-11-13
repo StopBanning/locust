@@ -112,6 +112,12 @@ use activity_drawers::*;
 #[path = "ui/messages.rs"]
 mod messages;
 use messages::*;
+#[path = "ui/handoff_divider.rs"]
+mod handoff_divider;
+#[path = "ui/peer_thread.rs"]
+mod peer_thread;
+#[path = "ui/exchange_strip.rs"]
+mod exchange_strip;
 #[path = "ui/prompt_rail.rs"]
 mod prompt_rail;
 #[path = "ui/jump_to_bottom.rs"]
@@ -226,6 +232,9 @@ const CARRY_TARGET: &str = "@carry-models";
 struct RecentBatch {
     rows: Vec<ConversationRow>,
     summaries: HashMap<String, ledger::Summary>,
+    workroom_messages: HashMap<String, locust_core::workroom::Message>,
+    mission_owners: HashMap<String, String>,
+    relay_hop_cap: u32,
     local: bool,
 }
 
@@ -242,6 +251,13 @@ struct LedgerPane {
     after_tip: Option<String>,
     after_tip_deadline: Option<f64>,
     backoff: f64,
+}
+
+fn wake_ledger_pane(s: &mut State, now: f64, tx: &mut Tx) {
+    if let Some(pane) = &mut s.ledger {
+        pane.due = pane.due.min(now);
+        tx.wake_after(Duration::ZERO);
+    }
 }
 
 // Return the Session on both Ok and Err so transient errors never rebuild the Session.
@@ -481,6 +497,8 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     // Stop scheduling wakeups once a conversation is finished and no longer waiting on after_tip or a check.
                     pane.due = if active || check_running {
                         now + 0.25
+                    } else if pane.due.is_finite() {
+                        now
                     } else {
                         f64::INFINITY
                     };
@@ -603,10 +621,12 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             || pane.backoff > 0.0
             || check_running
             || check_just_finished
-            || engine_owns;
+            || engine_owns
+            || pane.due.is_finite();
         if pollable {
             if now >= pane.due {
                 if let Some(mut worker) = pane.worker.take() {
+                    pane.due = f64::INFINITY;
                     s.ledger_job.request((), move |()| match worker.poll() {
                         Ok(snapshot) => Ok((worker, snapshot)),
                         Err(_) => Err(Box::new((
@@ -833,6 +853,7 @@ fn send(s: &mut State, _: &mut Tx) {
     // The mode chosen on the message box, when one was; else the engine takes the teammate's own.
     let mode = s.composer_mode.as_deref().and_then(locust_core::approval::Mode::parse);
     let references = reference_chips::ids(s);
+    let left_out_by_you = std::mem::take(&mut s.left_out_by_you);
     s.sending.request(
         (teammate_id, conversation_id, message, pick, native_job),
         move |(id, conversation, message, pick, native_job)| {
@@ -851,7 +872,14 @@ fn send(s: &mut State, _: &mut Tx) {
                         model: model.map(str::to_owned),
                         effort: effort.map(str::to_owned),
                     },
-                    native::Origin { reference_ids: Some(references), runtime, account, mode, ..Default::default() },
+                    native::Origin {
+                        reference_ids: Some(references),
+                        runtime,
+                        account,
+                        mode,
+                        left_out_by_you,
+                        ..Default::default()
+                    },
                 );
             }
             let engine = Engine::local()?;
@@ -1059,6 +1087,33 @@ fn refresh_recent(s: &mut State) {
         if let Some(listed) = native::list_recent(usize::MAX, on_native) {
             // The teammate each conversation belongs to, by name, as Electron's list shows it; the agent when unknown.
             let owners = native::store().map(|store| locust_core::people::owner_names(&store)).unwrap_or_default();
+            let store_opt = native::store();
+            let workroom_messages = store_opt
+                .as_ref()
+                .map(|st| {
+                    locust_core::workroom::Workroom::for_store(st)
+                        .read()
+                        .messages
+                        .into_iter()
+                        .map(|m| (m.message_id.clone(), m))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let mission_owners = store_opt
+                .as_ref()
+                .and_then(|st| locust_core::people::team(st).ok())
+                .and_then(|t| t["missionOwners"].as_object().cloned())
+                .map(|obj| {
+                    obj.into_iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k, s.to_owned())))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let relay_hop_cap = store_opt
+                .as_ref()
+                .and_then(|st| locust_core::workspace_settings::load(st).ok())
+                .map(|s| s.relay_hop_cap)
+                .unwrap_or(locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP);
             let rows = listed
                 .summaries
                 .iter()
@@ -1090,6 +1145,9 @@ fn refresh_recent(s: &mut State) {
                     .into_iter()
                     .map(|m| (m.mission_id.clone(), m))
                     .collect(),
+                workroom_messages,
+                mission_owners,
+                relay_hop_cap,
                 local: true,
             });
         }
@@ -1100,6 +1158,9 @@ fn refresh_recent(s: &mut State) {
         Ok(RecentBatch {
             rows: Engine::local()?.conversations()?,
             summaries: HashMap::new(),
+            workroom_messages: HashMap::new(),
+            mission_owners: HashMap::new(),
+            relay_hop_cap: locust_core::workspace_settings::DEFAULT_RELAY_HOP_CAP,
             local: false,
         })
     });
@@ -1110,6 +1171,8 @@ fn detach(s: &mut State) {
     close_find(s);
     side_chat::close(s);
     s.selection_ask = None;
+    s.left_out_by_you.clear();
+    s.exchange_stopping = false;
     s.find_show_earlier = false;
     s.find_pieces.clear();
     s.sending.cancel();
@@ -1815,6 +1878,29 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     if live != s.seen_live {
         s.seen_live = live;
         refresh_recent(s);
+        wake_ledger_pane(s, now, tx);
+        changed = true;
+    }
+    let mut watched_ids: Vec<String> = s.seen_live.clone();
+    if let Some(pane) = &s.ledger {
+        if let Some(cid) = &pane.conversation.conversation_id
+            && !watched_ids.contains(cid)
+        {
+            watched_ids.push(cid.clone());
+        }
+        if !pane.snapshot.tip.is_empty() && !watched_ids.contains(&pane.snapshot.tip) {
+            watched_ids.push(pane.snapshot.tip.clone());
+        }
+        for m in &pane.snapshot.turn_metas {
+            if !watched_ids.contains(&m.mission_id) {
+                watched_ids.push(m.mission_id.clone());
+            }
+        }
+    }
+    let relay_now = locust_core::engine_api::api().relay_live_state(&watched_ids);
+    if relay_now != s.relay_live {
+        s.relay_live = relay_now;
+        wake_ledger_pane(s, now, tx);
         changed = true;
     }
     let root = selected_conversation(s)
@@ -2046,6 +2132,9 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 home_panel::record_finishes(s, &batch.rows);
                 s.recent = batch.rows;
                 s.ledger_summaries = batch.summaries;
+                s.workroom_messages = batch.workroom_messages;
+                s.mission_owners = batch.mission_owners;
+                s.relay_hop_cap = batch.relay_hop_cap;
                 s.ledger_available = batch.local;
                 s.recent_error = None;
                 if let Some(id) = s.import_dialog.open_after_import.take()

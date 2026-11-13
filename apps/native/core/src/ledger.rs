@@ -21,6 +21,14 @@ const TAIL: u64 = 2 * MAX_LINE as u64;
 pub type Record = Value;
 
 #[derive(Clone, Debug, Default, PartialEq)]
+pub struct PeerLink {
+    pub direction: String,
+    pub message_id: String,
+    pub peer_teammate_id: String,
+    pub occurred_at: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Metadata {
     pub mission_id: String,
     pub prompt: String,
@@ -36,9 +44,14 @@ pub struct Metadata {
     pub mode: Option<String>,
     pub continues_reason: Option<String>,
     pub started_by_kind: Option<String>,
+    pub started_by_hop: Option<usize>,
+    pub relay: Option<crate::relay::RelayOrigin>,
+    pub omitted_briefing: Vec<String>,
+    pub left_out_by_you: Vec<String>,
+    pub carried_on_for: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Summary {
     pub parent: Option<String>,
     pub words: String,
@@ -50,6 +63,11 @@ pub struct Summary {
     pub running: bool,
     pub failed: bool,
     pub updated: String,
+    pub started_by_kind: Option<String>,
+    pub started_by_hop: Option<usize>,
+    pub relay: Option<crate::relay::RelayOrigin>,
+    pub cost: Option<crate::benchmark::RunCost>,
+    pub peer_links: Vec<PeerLink>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -363,6 +381,47 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
             .and_then(|v| v.get("kind"))
             .and_then(Value::as_str)
             .map(str::to_owned),
+        started_by_hop: m
+            .get("startedBy")
+            .and_then(|v| {
+                (v.get("kind").and_then(Value::as_str) == Some("relay"))
+                    .then(|| v.get("hop").and_then(Value::as_u64))
+                    .flatten()
+            })
+            .map(|h| h as usize),
+        relay: m
+            .get("relay")
+            .and_then(crate::relay::RelayOrigin::from_json),
+        omitted_briefing: m
+            .get("continuesFrom")
+            .and_then(|v| v.get("leftOut"))
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        left_out_by_you: m
+            .get("continuesFrom")
+            .and_then(|v| v.get("leftOutByYou"))
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        carried_on_for: m
+            .get("startedBy")
+            .and_then(|v| {
+                (v.get("kind").and_then(Value::as_str) == Some("carry-on"))
+                    .then(|| v.get("for").and_then(Value::as_str))
+                    .flatten()
+            })
+            .map(str::to_owned),
     })
 }
 
@@ -428,6 +487,19 @@ fn decode(line: &[u8]) -> Option<Record> {
             check.get("unchanged")?.as_bool()?;
             check.get("first")?.as_bool()?;
             check.get("occurredAt")?.as_str()?;
+        }
+        "mission.peer" => {
+            let link = value.get("link")?;
+            let dir = link.get("direction")?.as_str()?;
+            if dir != "posted" && dir != "received" {
+                return None;
+            }
+            if link.get("messageId")?.as_str()?.is_empty() {
+                return None;
+            }
+            if link.get("peerTeammateId")?.as_str()?.is_empty() {
+                return None;
+            }
         }
         _ => return None,
     }
@@ -593,9 +665,29 @@ pub struct Transcript {
     // Sequence keys make out-of-order batches and duplicate records replay correctly.
     events: BTreeMap<u64, Value>,
     checkpoints: Vec<Value>,
+    pub peer_links: Vec<PeerLink>,
+    pub cost: Option<crate::benchmark::RunCost>,
     pub edit_check: Option<Value>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
+}
+
+fn parse_peer_link(record: &Value) -> Option<PeerLink> {
+    if record["recordType"] != "mission.peer" {
+        return None;
+    }
+    let link = record.get("link")?;
+    Some(PeerLink {
+        direction: link.get("direction")?.as_str()?.to_owned(),
+        message_id: link.get("messageId")?.as_str()?.to_owned(),
+        peer_teammate_id: link.get("peerTeammateId")?.as_str()?.to_owned(),
+        occurred_at: link
+            .get("occurredAt")
+            .and_then(Value::as_str)
+            .or_else(|| record.get("occurredAt").and_then(Value::as_str))
+            .unwrap_or_default()
+            .to_owned(),
+    })
 }
 
 impl Transcript {
@@ -614,6 +706,14 @@ impl Transcript {
                 }
             } else if record["recordType"] == "mission.edit_check" {
                 self.edit_check = Some(record["check"].clone());
+            } else if let Some(link) = parse_peer_link(&record) {
+                if !self
+                    .peer_links
+                    .iter()
+                    .any(|p| p.direction == link.direction && p.message_id == link.message_id)
+                {
+                    self.peer_links.push(link);
+                }
             } else if let Some(m) = metadata(&record) {
                 self.metadata = Some(m);
             } else if let Some(event) = record.get("event")
@@ -861,7 +961,10 @@ impl Transcript {
                             level: String::new(),
                             text: scrub(&string(p, "message")),
                         });
-                    } else if code == "host.check_fix" || code == crate::worktrees::CHECKPOINT_CODE {
+                    } else if code == "host.check_fix"
+                        || code == "host.relay_ended"
+                        || code == crate::worktrees::CHECKPOINT_CODE
+                    {
                         items.push(Item::Note {
                             level: if level == "info" { String::new() } else { level },
                             text: scrub(&string(p, "message")),
@@ -1053,6 +1156,8 @@ impl Transcript {
         }
         self.recovery =
             crate::recovery::offer(phase, &self.checkpoints, usize::from(self.error.is_some()));
+        let event_vec: Vec<Value> = self.events.values().cloned().collect();
+        self.cost = crate::relay::mission_cost_from_events(&event_vec);
         self.items = items;
     }
 }
@@ -1182,13 +1287,24 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
         }
         // Fix 4: replay run lifecycle events in sequence order so a later run.started clears earlier completed/failed state.
         let mut events = BTreeMap::new();
+        let mut peer_links = Vec::new();
         for record in &records {
+            if let Some(link) = parse_peer_link(record)
+                && !peer_links
+                    .iter()
+                    .any(|p: &PeerLink| p.direction == link.direction && p.message_id == link.message_id)
+            {
+                peer_links.push(link);
+            }
             if let Some(event) = record.get("event")
                 && let Some(seq) = event.get("sequence").and_then(Value::as_u64)
             {
                 events.insert(seq, event);
             }
         }
+        let cost = crate::relay::mission_cost_from_events(
+            &events.values().copied().cloned().collect::<Vec<_>>(),
+        );
         let mut running = true;
         let mut failed = false;
         for event in events.values() {
@@ -1241,6 +1357,11 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             running: running && fresh(Some(modified), SystemTime::now()),
             failed,
             updated,
+            started_by_kind: m.started_by_kind,
+            started_by_hop: m.started_by_hop,
+            relay: m.relay,
+            cost,
+            peer_links,
         });
     }
     Ok(summaries)
@@ -1259,6 +1380,9 @@ pub struct Snapshot {
     pub context: Option<crate::context_usage::Reading>,
     pub items: Vec<Item>,
     pub timings: Vec<crate::time_marker::TurnTiming>,
+    pub peer_links: Vec<(String, PeerLink)>,
+    pub turn_metas: Vec<Metadata>,
+    pub cost: Option<crate::benchmark::RunCost>,
     pub tip: String,
     pub running: bool,
     pub failed: bool,
@@ -1501,6 +1625,30 @@ impl Session {
                 snapshot.context = None;
             }
             snapshot.context = reader.transcript.context.clone().or(snapshot.context);
+            if let Some(m) = &reader.transcript.metadata {
+                snapshot.turn_metas.push(m.clone());
+            }
+            for link in &reader.transcript.peer_links {
+                snapshot
+                    .peer_links
+                    .push((reader.id.clone(), link.clone()));
+            }
+            if let Some(c) = &reader.transcript.cost {
+                let slot = snapshot.cost.get_or_insert_with(Default::default);
+                if let Some(u) = c.usd {
+                    slot.usd = Some(slot.usd.unwrap_or(0.0) + u);
+                }
+                if let Some(pr) = c.premium_requests {
+                    slot.premium_requests = Some(slot.premium_requests.unwrap_or(0.0) + pr);
+                }
+                if let Some(it) = c.input_tokens {
+                    slot.input_tokens = Some(slot.input_tokens.unwrap_or(0) + it);
+                }
+                if let Some(ot) = c.output_tokens {
+                    slot.output_tokens = Some(slot.output_tokens.unwrap_or(0) + ot);
+                }
+                slot.plan |= c.plan;
+            }
             snapshot.tip = reader.id.clone();
             // Not running once its engine is gone (E5): a turn whose process died has no ending, and its ledger may
             // have been written a moment ago, so the quiet window alone would show it running for fifteen minutes.

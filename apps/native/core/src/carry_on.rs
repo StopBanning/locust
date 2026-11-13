@@ -347,6 +347,32 @@ const ASKED_CHARS: usize = 240;
 const ANSWERED_CHARS: usize = 360;
 /// The optional sections in the order they are kept: the first given up is the last here.
 const KEEP_ORDER: [&str; 4] = ["unsettled", "settled", "summary", "earlier"];
+/// Sections the person can opt to leave out of a manual runtime-switch briefing.
+pub const DROPPABLE_SECTION_NAMES: [&str; 3] = ["earlier", "settled", "summary"];
+
+/// Describe dropped handoff sections in the person's words (`leftOutInWords`).
+pub fn left_out_in_words(names: &[String]) -> String {
+    let words: Vec<String> = names
+        .iter()
+        .map(|name| match name.as_str() {
+            "earlier" => "the earlier messages".to_owned(),
+            "settled" => "the steps it finished".to_owned(),
+            "summary" => "its last reply".to_owned(),
+            "unsettled" => "the steps that never reported back".to_owned(),
+            "task" => "part of the task".to_owned(),
+            other => other.to_owned(),
+        })
+        .collect();
+    if words.len() <= 1 {
+        words.join("")
+    } else {
+        format!(
+            "{} and {}",
+            words[..words.len() - 1].join(", "),
+            words.last().map(String::as_str).unwrap_or("")
+        )
+    }
+}
 
 /// One earlier turn of the conversation, oldest first.
 #[derive(Debug, Clone, PartialEq)]
@@ -518,10 +544,24 @@ fn sections_for(original: &str, checkpoint: &Value, from: &str, next: Option<&st
     sections
 }
 
-/// composeHandoffPrompt, without a long task's file or the person's own leave-outs (the window has neither yet).
+/// composeHandoffPrompt, without a long task's file or the person's own leave-outs.
 /// None when even the task and the person's words cannot fit.
 pub fn compose_handoff_prompt(original: &str, checkpoint: &Value, from: &str, next: Option<&str>, earlier: &[EarlierTurn], ended: Option<&str>) -> Option<Briefing> {
+    compose_handoff_prompt_with(original, checkpoint, from, next, earlier, ended, &[])
+}
+
+/// Same as `compose_handoff_prompt`, omitting any droppable section names listed in `left_out_by_you`.
+pub fn compose_handoff_prompt_with(
+    original: &str,
+    checkpoint: &Value,
+    from: &str,
+    next: Option<&str>,
+    earlier: &[EarlierTurn],
+    ended: Option<&str>,
+    left_out_by_you: &[String],
+) -> Option<Briefing> {
     let mut sections = sections_for(original, checkpoint, from, next, earlier, ended);
+    sections.retain(|s| !DROPPABLE_SECTION_NAMES.contains(&s.name) || !left_out_by_you.iter().any(|l| l == s.name));
     let budget = MAX_HANDOFF_PROMPT_LENGTH - if sections.len() > 1 { NOTICE_BUDGET } else { 0 };
     let mandatory_cost = |sections: &[Section]| -> usize {
         sections

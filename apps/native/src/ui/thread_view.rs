@@ -885,6 +885,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             composer_stack = composer_stack.child(picks);
         }
         composer_stack = composer_stack
+            .children(crate::handoff_divider::composer_omissions(s, teammate, p))
             .child(crate::look::controls::composer_box(&l).child(plus_button(s, &l)).child(composer).child(button))
             .child(footer);
         // The footer's menus open above the box, where the model picker does, taking their room from the thread: the
@@ -941,6 +942,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     )
                     .child(actions),
             )
+            .children(crate::exchange_strip::view(s, p))
             .child(transcript_box)
             .child(terminal_panel::commands(s, p))
             .child(column(status))

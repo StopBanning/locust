@@ -88,6 +88,15 @@ fn origin_json(o: &Origin) -> Value {
     if let Some(acc) = &o.account {
         obj["accountOverride"] = json!(acc);
     }
+    if !o.include_messages.is_empty() {
+        obj["includeMessages"] = json!(o.include_messages);
+    }
+    if let Some(relay) = &o.relay {
+        obj["relay"] = relay.clone();
+    }
+    if !o.left_out_by_you.is_empty() {
+        obj["leftOutByYou"] = json!(o.left_out_by_you);
+    }
     obj
 }
 
@@ -97,6 +106,14 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         Some(m) => Some(Mode::parse(&m).ok_or_else(|| format!("The engine does not know the mode {m}."))?),
     };
     let account = v.get("accountOverride").map(|a| a.as_str().map(str::to_owned));
+    let include_messages = v["includeMessages"]
+        .as_array()
+        .map(|arr| arr.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect())
+        .unwrap_or_default();
+    let left_out_by_you = v["leftOutByYou"]
+        .as_array()
+        .map(|arr| arr.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect())
+        .unwrap_or_default();
     Ok(Origin {
         mode,
         folder: text(v, "folder").map(PathBuf::from),
@@ -107,6 +124,9 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
             .as_array()
             .map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect()),
         slot: None,
+        include_messages,
+        relay: v.get("relay").cloned().filter(|r| !r.is_null()),
+        left_out_by_you,
     })
 }
 

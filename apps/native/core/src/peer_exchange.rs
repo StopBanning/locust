@@ -6,7 +6,27 @@
 
 use crate::briefing::PeerEntry;
 use crate::peer_share::{MAX_SHARES_PER_MISSION, bounded_share_text, parse_share_blocks};
+use crate::relay::RelayedMessage;
 use crate::workroom::{Message, Party, Workroom};
+
+/// Extract what the teammate or person asked, omitting attachment headers (`askedIn`).
+pub fn asked_in(prompt: &str, answering: Option<&[Message]>) -> String {
+    if let Some(messages) = answering {
+        return messages
+            .iter()
+            .map(|m| m.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    let mut kept = Vec::new();
+    for line in prompt.lines() {
+        if line.starts_with("Attached files:") || line.starts_with("Attached file:") {
+            continue;
+        }
+        kept.push(line);
+    }
+    kept.join("\n").trim().to_owned()
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Recipient<'a> {
@@ -74,6 +94,76 @@ pub fn share_reply(workroom: &Workroom, me: &PeerEntry, others: &[PeerEntry], mi
         }
     }
     (posted, said)
+}
+
+/// Same as `share_reply`, plus the relay flags (`urgent`, `defer`, `wants_answer`) on every posted message.
+pub fn share_reply_for_relay(
+    workroom: &Workroom,
+    me: &PeerEntry,
+    others: &[PeerEntry],
+    mission_id: &str,
+    reply: &str,
+    observed: Option<&[String]>,
+) -> (Vec<Message>, Vec<RelayedMessage>, Vec<String>) {
+    let blocks = parse_share_blocks(reply);
+    let mut said = Vec::new();
+    let mut posted: Vec<Message> = Vec::new();
+    let mut relayed: Vec<RelayedMessage> = Vec::new();
+    if blocks.len() > MAX_SHARES_PER_MISSION {
+        said.push(format!(
+            "{} tried to share {} messages; only the first {MAX_SHARES_PER_MISSION} were sent.",
+            me.name,
+            blocks.len()
+        ));
+    }
+    let from = Party {
+        teammate_id: me.teammate_id.clone(),
+        name: me.name.clone(),
+    };
+    for block in blocks.iter().take(MAX_SHARES_PER_MISSION) {
+        let target = match recipient_of(&block.to, me, others) {
+            Recipient::Teammate(t) => t,
+            Recipient::Itself => continue,
+            Recipient::Nobody => {
+                said.push(format!(
+                    "{} addressed a message to \"{}\", who is not on the roster. Nothing was sent.",
+                    me.name, block.to
+                ));
+                continue;
+            }
+        };
+        let text = bounded_share_text(&block.text);
+        if text.is_empty() {
+            continue;
+        }
+        let to = Party {
+            teammate_id: target.teammate_id.clone(),
+            name: target.name.clone(),
+        };
+        match workroom.post(&from, mission_id, &to, &text, observed) {
+            Ok(message) if posted.iter().any(|p| p.message_id == message.message_id) => {}
+            Ok(message) => {
+                relayed.push(RelayedMessage {
+                    message_id: message.message_id.clone(),
+                    from_teammate_id: message.from.teammate_id.clone(),
+                    from_name: message.from.name.clone(),
+                    from_mission_id: message.from_mission.clone(),
+                    to_teammate_id: message.to.teammate_id.clone(),
+                    to_name: message.to.name.clone(),
+                    text: message.text.clone(),
+                    urgent: block.urgent,
+                    defer: block.defer,
+                    wants_answer: block.wants_answer,
+                });
+                posted.push(message);
+            }
+            Err(_) => said.push(format!(
+                "A message from {} to {} could not be written to the workroom. Nothing was sent.",
+                me.name, target.name
+            )),
+        }
+    }
+    (posted, relayed, said)
 }
 
 #[cfg(test)]

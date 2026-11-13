@@ -86,7 +86,7 @@ fn the_wire_carries_a_send_an_origin_and_a_card_whole() {
         runtime: Some("claude".into()),
         account: Some(Some("account_0123456789abcdef0123456789abcdef".into())),
         reference_ids: Some(vec!["ref_1".into()]),
-        slot: None,
+        ..Default::default()
     };
     let o = origin_from(&origin_json(&origin)).unwrap();
     assert_eq!(o.mode.map(Mode::as_str), Some("plan"));

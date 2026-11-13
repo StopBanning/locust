@@ -425,6 +425,7 @@ pub(super) fn approval_scene(s: &mut State, light: bool) {
             tip: "synthetic-approval".into(),
             running: true,
             failed: false,
+            ..Default::default()
         },
         due: f64::INFINITY,
         loading: false,
@@ -575,6 +576,7 @@ pub(super) fn ledger_scene(s: &mut State, live: bool, light: bool) {
             tip: "synthetic-ledger".into(),
             running: live,
             failed: false,
+            ..Default::default()
         },
         due: if live { 0.0 } else { f64::INFINITY },
         loading: false,

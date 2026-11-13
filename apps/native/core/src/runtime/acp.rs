@@ -482,7 +482,6 @@ impl Acp {
         self.send(json!({"jsonrpc":"2.0","id":id,"result":{"outcome":outcome}}))
     }
     /// ACP cannot add to an active prompt; steering waits for the next prompt boundary.
-    #[cfg(any(test, feature = "test-hooks"))]
     pub fn steer(&mut self, text: &str) -> bool {
         if self.normal.ended
             || self.stopping.is_some()
@@ -660,6 +659,12 @@ impl Acp {
     }
 }
 impl Runtime for Acp {
+    fn can_steer(&self) -> bool {
+        true
+    }
+    fn steer(&mut self, text: &str) -> bool {
+        Acp::steer(self, text)
+    }
     fn start(&mut self, t: &Turn) -> io::Result<()> {
         if self.turn.is_some() {
             return Err(err("ACP turn already started"));

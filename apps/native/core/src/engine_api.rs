@@ -67,6 +67,11 @@ pub trait EngineApi: std::marker::Send + Sync {
         let _ = change;
         Err("This engine serves no door.".into())
     }
+    /// Live relay notices & starting indicator for a set of mission ids in the visible conversation.
+    fn relay_live_state(&self, mission_ids: &[String]) -> native::RelayLiveState {
+        let _ = mission_ids;
+        native::RelayLiveState::default()
+    }
 }
 
 /// What a window asks of the door for other apps (plan E4): read it, open it as saved, or flip one of its switches.
@@ -121,6 +126,9 @@ impl EngineApi for InProcess {
     }
     fn account_in_use(&self, agent: crate::agent_accounts::Agent, account_id: &str) -> bool {
         native::account_in_use(agent, account_id)
+    }
+    fn relay_live_state(&self, mission_ids: &[String]) -> native::RelayLiveState {
+        native::relay_live_state(mission_ids)
     }
 }
 
