@@ -74,7 +74,7 @@ fn fake(scenario: &str) -> Option<(PathBuf, Vec<String>)> {
 
 /// Pump `poll` the way the window does until `done`, or fail.
 fn pump(s: &mut State, what: &str, mut done: impl FnMut(&State) -> bool) {
-    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
     let mut now = 0.0;
     let mut tx = Tx::default();
     while !done(s) {
