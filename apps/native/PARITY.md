@@ -132,7 +132,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Review/land branch as one commit and return conflicts to teammate | `renderer/src/components/ReviewChanges.tsx`, `main/worktrees.ts` | **missing** | - | no | yes |
 | GitHub PR header/link state, checks and watched news | `renderer/src/components/PullRequestChip.tsx`, `renderer/src/components/PullRequestNewsBanner.tsx`, `main/pull-request-watch.ts`, `main/pull-link.ts` | **missing** | - | no | yes |
 | Browse GitHub issues and start conversation/branch | `renderer/src/components/IssueList.tsx`, `main/github-issues.ts` | **missing** | - | no | yes |
-| Post-edit check and fix-until-check-passes | `renderer/src/components/EditCheckCard.tsx`, `renderer/src/components/CheckFixLine.tsx`, `main/edit-check.ts`, `main/check-fix.ts` | **missing** | - | no | yes |
+| Post-edit check and fix-until-check-passes | `renderer/src/components/EditCheckCard.tsx`, `renderer/src/components/CheckFixLine.tsx`, `main/edit-check.ts`, `main/check-fix.ts` | **done** — `core/src/edit_check.rs` (the check after a turn that changed files, 180 s cap, 256 KiB of output; fix turns through engine_api, 2 by default and 5 at most, stopping on a repeated failure; mission.edit_check records read by Electron's reader), `src/ui/edit_check_card.rs` and the folder's check settings; Electron's 4 edit-check test files carried over, a headless window test (notes/EDIT-CHECK-NOTES.md) | yes | no | yes |
 | Scout watch/checks, findings, notes, morning brief and weekly tune-up | `renderer/src/components/ScoutCards.tsx`, `renderer/src/components/ScoutSetting.tsx`, `main/scout.ts`, `main/scout-folder.ts` | **missing** | - | no | yes |
 | Scout /locust comments, away GitHub workflow and phone cards | `main/scout-comments.ts`, `main/scout-away.ts`, `main/phone-scout-cards.ts` | **missing** | - | no | yes |
 | Scout prepares fixes in copies for review | `main/scout-fix.ts`, `renderer/src/components/ScoutCards.tsx` | **missing** | - | no | yes |
@@ -283,7 +283,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
-| 6 | Changes, Git, Worktrees, Issues & Scout | 1 | 3 | 9 | 13 | 4 | 0 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 2 | 3 | 8 | 13 | 5 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 | 1 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **42** | **48** | **63** | **153** | **90** | **15** |
+| | **TOTAL** | **43** | **48** | **62** | **153** | **91** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
