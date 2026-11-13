@@ -1695,3 +1695,102 @@ fn a_teammate_on_its_own_branch_in_a_folder_that_is_no_repository_is_refused_say
     assert_eq!(refused, "Codec is set to work on its own branch, but the project folder is not a git repository.");
     assert!(ledgers(&t).is_empty(), "nothing was started");
 }
+
+#[test]
+fn slot_busy_check_refuses_second_turn_in_same_slot() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hook = hooks::install(store.clone(), fake("slow"));
+    let first = send_from(
+        job(&t, None, "Synthetic prompt"),
+        Origin {
+            slot: Some(SlotOrigin {
+                key: "slot:cmp_1:a".into(),
+                cwd: None,
+                instructions: None,
+                sealed: false,
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let err = send_from(
+        job(&t, None, "Synthetic prompt"),
+        Origin {
+            slot: Some(SlotOrigin {
+                key: "slot:cmp_1:a".into(),
+                cwd: None,
+                instructions: None,
+                sealed: false,
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(err, "A turn is already running in this conversation.");
+    let _ = stop(&first.conversation_id);
+}
+
+#[test]
+fn slot_cwd_bypasses_own_branch_folder() {
+    let t = Temp::new();
+    let store = t.store();
+    store
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "worktree": true}], "missionOwners": {}, "settings": {}}),
+        )
+        .unwrap();
+    let alt_dir = t.0.join("compare-copy");
+    std::fs::create_dir_all(&alt_dir).unwrap();
+    let _hook = hooks::install(store.clone(), fake("success"));
+    let started = send_from(
+        job(&t, None, "Synthetic prompt"),
+        Origin {
+            slot: Some(SlotOrigin {
+                key: "slot:cmp_2:a".into(),
+                cwd: Some(alt_dir),
+                instructions: None,
+                sealed: false,
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    wait("slot_cwd turn", || !owns(&started.conversation_id));
+}
+
+#[test]
+fn sealed_slot_omits_teammate_brief_and_skills() {
+    let t = Temp::new();
+    let store = t.store();
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [{"teammateId": "tm_codec", "name": "Codec", "role": "SECRET_ROLE_MARKER"}],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    let _hook = hooks::install(store.clone(), fake("success"));
+    let started = send_from(
+        job(&t, None, "Synthetic prompt"),
+        Origin {
+            slot: Some(SlotOrigin {
+                key: "slot:cmp_3:a".into(),
+                cwd: None,
+                instructions: None,
+                sealed: true,
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    wait("sealed_slot turn", || !owns(&started.conversation_id));
+    let path = ledgers(&t).into_iter().next().unwrap();
+    let raw = std::fs::read_to_string(path).unwrap();
+    assert!(!raw.contains("SECRET_ROLE_MARKER"), "sealed slot leaked teammate brief: {raw}");
+}

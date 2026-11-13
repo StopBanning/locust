@@ -217,6 +217,7 @@ pub(super) fn send(s: &mut State) {
         })),
         runtime: Some(side.runtime.clone()),
         reference_ids: None,
+        slot: None,
     };
     let result = api().send(job, origin);
     let Some(side) = s.side_chat.as_mut() else {

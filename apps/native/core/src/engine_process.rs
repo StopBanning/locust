@@ -99,6 +99,7 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         reference_ids: v["referenceIds"]
             .as_array()
             .map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect()),
+        slot: None,
     })
 }
 

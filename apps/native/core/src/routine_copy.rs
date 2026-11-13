@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 pub const MAX_COPY_FILES: u64 = 20_000;
 pub const MAX_COPY_BYTES: u64 = 1024 * 1024 * 1024;
 pub const MAX_COPIED_FILE_BYTES: u64 = 20 * 1024 * 1024;
-const LEFT_OUT: &[&str] = &[".git", ".locust", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", "target", ".cache", ".turbo"];
+pub(crate) const LEFT_OUT: &[&str] = &[".git", ".locust", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", "target", ".cache", ".turbo"];
 /// The folder's dependencies, linked rather than copied, so a check can run in the copy (0.534).
 pub const LINKED_DEPENDENCIES: &[&str] = &["node_modules", ".venv", "venv"];
 
@@ -42,9 +42,9 @@ pub struct Limits {
     pub files: u64,
     pub bytes: u64,
 }
-const LIMITS: Limits = Limits { files: MAX_COPY_FILES, bytes: MAX_COPY_BYTES };
+pub(crate) const LIMITS: Limits = Limits { files: MAX_COPY_FILES, bytes: MAX_COPY_BYTES };
 
-fn too_big(limits: Limits) -> String {
+pub(crate) fn too_big(limits: Limits) -> String {
     let files = limits.files.to_string();
     let mut grouped = String::new();
     for (i, c) in files.chars().enumerate() {
@@ -62,7 +62,7 @@ fn name_for(routine_id: &str) -> Result<&str, String> {
     if ok { Ok(routine_id) } else { Err("That routine cannot name a copy.".into()) }
 }
 
-fn measure(folder: &Path, limits: Limits) -> std::io::Result<bool> {
+pub(crate) fn measure(folder: &Path, limits: Limits) -> std::io::Result<bool> {
     fn walk(dir: &Path, files: &mut u64, bytes: &mut u64, limits: Limits) -> std::io::Result<bool> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
@@ -93,7 +93,7 @@ fn measure(folder: &Path, limits: Limits) -> std::io::Result<bool> {
     walk(folder, &mut files, &mut bytes, limits)
 }
 
-fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
+pub(crate) fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
     fs::create_dir_all(to)?;
     for entry in fs::read_dir(from)? {
         let entry = entry?;
@@ -118,13 +118,17 @@ fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn hash_of(path: &Path) -> std::io::Result<String> {
+pub(crate) fn hash_of(path: &Path) -> std::io::Result<String> {
     Ok(format!("{:x}", Sha256::digest(fs::read(path)?)))
 }
 
 /// Every file under a tree, by its path inside it (forward slashes), with its content's hash (`hashTree`).
-fn hash_tree(tree: &Path) -> std::io::Result<BTreeMap<String, String>> {
-    fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, String>) -> std::io::Result<()> {
+pub(crate) fn hash_tree(tree: &Path) -> std::io::Result<BTreeMap<String, String>> {
+    hash_tree_opts(tree, false)
+}
+
+pub(crate) fn hash_tree_opts(tree: &Path, name_large_files: bool) -> std::io::Result<BTreeMap<String, String>> {
+    fn walk(root: &Path, dir: &Path, name_large: bool, out: &mut BTreeMap<String, String>) -> std::io::Result<()> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let name = entry.file_name();
@@ -134,17 +138,22 @@ fn hash_tree(tree: &Path) -> std::io::Result<BTreeMap<String, String>> {
             let path = entry.path();
             let kind = entry.file_type()?;
             if kind.is_dir() {
-                walk(root, &path, out)?;
-            } else if kind.is_file() && entry.metadata()?.len() <= MAX_COPIED_FILE_BYTES {
+                walk(root, &path, name_large, out)?;
+            } else if kind.is_file() {
+                let len = entry.metadata()?.len();
                 let inside = path.strip_prefix(root).unwrap_or(&path);
                 let key = inside.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/");
-                out.insert(key, hash_of(&path)?);
+                if len <= MAX_COPIED_FILE_BYTES {
+                    out.insert(key, hash_of(&path)?);
+                } else if name_large {
+                    out.insert(key, "too-large-to-inline".to_owned());
+                }
             }
         }
         Ok(())
     }
     let mut out = BTreeMap::new();
-    walk(tree, tree, &mut out)?;
+    walk(tree, tree, name_large_files, &mut out)?;
     Ok(out)
 }
 

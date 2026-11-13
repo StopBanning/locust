@@ -43,8 +43,8 @@ apps/desktop/src/main/a-column-can-be-tried-again.test.ts		waiting
 apps/desktop/src/main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts	P8	does-not-apply		`main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts` | No candidate; store refusal words; disk holds only ordinary rules
 apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts		waiting		
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts		waiting		
-apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts		waiting		
-apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts		waiting		
+apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	compare	yes		`compare_copies::tests::a_compare_column_works_outside_the_folder`
+apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts	compare	yes		`compare_copies::tests::a_compare_root_follows_the_environment`
 apps/desktop/src/main/a-comparison-is-remembered.test.ts		waiting		
 apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts		waiting		
 apps/desktop/src/main/a-comparison-runs-again.test.ts		waiting		
@@ -101,8 +101,8 @@ apps/desktop/src/main/a-handoff-without-a-note-says-so.test.ts		waiting
 apps/desktop/src/main/a-held-back-copy-says-why.test.ts		waiting		
 apps/desktop/src/main/a-held-reply-that-cannot-start-tells-every-thread.test.ts		waiting		
 apps/desktop/src/main/a-history-read-names-the-processes-still-owned.test.ts		waiting		
-apps/desktop/src/main/a-judge-reads-each-columns-work.test.ts		waiting		
-apps/desktop/src/main/a-judge-reads-the-answers-blind.test.ts		waiting		
+apps/desktop/src/main/a-judge-reads-each-columns-work.test.ts	compare	yes		`compare_judge::tests::a_judge_reads_each_columns_work`
+apps/desktop/src/main/a-judge-reads-the-answers-blind.test.ts	compare	yes		`compare_judge::tests::a_judge_reads_the_answers_blind`
 apps/desktop/src/main/a-kept-column-brings-its-changes-in.test.ts		waiting		
 apps/desktop/src/main/a-kept-comparison-leaves-no-branches.test.ts		waiting		
 apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts		waiting		
@@ -130,7 +130,7 @@ apps/desktop/src/main/a-long-conversation-goes-by-file.test.ts		waiting
 apps/desktop/src/main/a-long-diff-line-wraps.test.ts		waiting		
 apps/desktop/src/main/a-long-history-says-what-it-lists.test.ts		waiting		
 apps/desktop/src/main/a-long-json-key-does-not-stop-a-run.test.ts		waiting		
-apps/desktop/src/main/a-long-judge-reads-files.test.ts		waiting		
+apps/desktop/src/main/a-long-judge-reads-files.test.ts	compare	yes		`compare_judge::tests::a_long_judge_reads_files`
 apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	P9	does-not-apply		main/a-mac-app-sees-the-terminals-path.test.ts | Broader app environment acquisition not changed here; unported.
 apps/desktop/src/main/a-mac-asks-only-for-what-locust-uses.test.ts		waiting		
 apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts		waiting		
@@ -395,7 +395,7 @@ apps/desktop/src/main/harness-syntax.test.ts		waiting
 apps/desktop/src/main/home-spacing-matches-its-measure.test.ts		waiting		
 apps/desktop/src/main/install-node-is-not-said-to-a-person-with-npm.test.ts		waiting		
 apps/desktop/src/main/installed-editors.test.ts		waiting		
-apps/desktop/src/main/judges-see-the-check.test.ts		waiting		
+apps/desktop/src/main/judges-see-the-check.test.ts	compare	yes		`compare_judge::tests::judges_see_the_check`
 apps/desktop/src/main/keep-awake.test.ts	settings	done	core/src/keep_awake.rs	single hold for live runs, dispose release, retry on failure
 apps/desktop/src/main/leads-settled-2026-09-24.test.ts		waiting		
 apps/desktop/src/main/locust-counts-its-cloud-hours.test.ts		waiting		
@@ -558,7 +558,7 @@ apps/desktop/src/main/the-whole-window-can-be-liquid-glass.test.ts		waiting
 apps/desktop/src/main/the-window-frame-never-scrolls.test.ts		waiting		
 apps/desktop/src/main/the-working-spark-is-claude-codes.test.ts		waiting		
 apps/desktop/src/main/thread-registers.test.ts		waiting		
-apps/desktop/src/main/three-judges-are-kept.test.ts		waiting		
+apps/desktop/src/main/three-judges-are-kept.test.ts	compare	yes		`compare::tests::three_judges_are_kept`
 apps/desktop/src/main/three-placements.test.ts		waiting		
 apps/desktop/src/main/todo-list-is-opt-in.test.ts		waiting		
 apps/desktop/src/main/tone-classes-win.test.ts		waiting		
@@ -607,7 +607,7 @@ apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	P9	partial		renderer/src/a-bang-in-the-box-is-command-mode.test.tsx | Partial: Escape strips mark; mode note, result/Stop draw; accessibility/static markup assertions remain. Project template prompt outside typed scope.
 apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	compare	yes		`compare_window_tests::blind_comparison_hides_names_until_a_pick_then_shows_them`
 apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	p12	partial	board_and_away_match_electron_on_the_same_synthetic_rows	`renderer/src/conversations-as-a-board.test.ts`, `renderer/src/a-board-of-conversations.test.tsx`, `shared/since-you-were-away.test.ts`: existing pure reducer tests plus `board_and_away_match_electron_on_the_same_synthetic_rows`. `scripts/p
 apps/desktop/src/renderer/src/a-bots-dot-and-ring-sit-on-the-bot.test.ts		waiting		
 apps/desktop/src/renderer/src/a-brief-part-can-be-left-out.test.tsx		waiting		
@@ -647,7 +647,7 @@ apps/desktop/src/renderer/src/a-commands-card-says-what-it-is-for.test.tsx		wait
 apps/desktop/src/renderer/src/a-compaction-is-a-line-not-a-reply.test.ts	P5	partial	compaction_is_a_line_and_invalidates_context	`a-compaction-is-a-line-not-a-reply.test.ts` | `context_usage::ledger_tests::compaction_is_a_line_and_invalidates_context` proves an info-level compaction is a Note, not an Assistant message. The existing OpenCode normalizer suppresses synt
 apps/desktop/src/renderer/src/a-compare-column-is-named-by-its-family.test.ts		waiting		
 apps/desktop/src/renderer/src/a-compare-column-reads-whole.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts		waiting		
+apps/desktop/src/renderer/src/a-compare-record-is-a-table.test.ts	compare	yes		`compare::tests::compare_record_counts_decided_comparisons`
 apps/desktop/src/renderer/src/a-comparison-is-one-row.test.ts		waiting		
 apps/desktop/src/renderer/src/a-comparison-shows-its-models-on-hover.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts		waiting		
@@ -1100,7 +1100,7 @@ apps/desktop/src/renderer/src/the-window-in-a-browser-says-what-stays.test.tsx	P
 apps/desktop/src/renderer/src/the-window-says-when-macos-may-ask.test.tsx		waiting		
 apps/desktop/src/renderer/src/thinking-is-not-using-a-tool.test.ts		waiting		
 apps/desktop/src/renderer/src/thought-folds-to-one-line.test.ts		waiting		
-apps/desktop/src/renderer/src/three-judges-vote.test.tsx		waiting		
+apps/desktop/src/renderer/src/three-judges-vote.test.tsx	compare	yes		`compare_score::tests::weighted_points_and_three_judges_vote` + `compare_window_tests::three_judges_score_the_answers_and_their_pick_is_marked`
 apps/desktop/src/renderer/src/tool-vocabulary.test.ts		waiting		
 apps/desktop/src/renderer/src/transcriptView.test.ts		waiting		
 apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx		waiting		
@@ -1130,7 +1130,7 @@ apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	P
 apps/desktop/src/shared/a-fenced-tidy-block-still-counts.test.ts		waiting		
 apps/desktop/src/shared/a-first-run-names-no-terminal.test.ts		waiting		
 apps/desktop/src/shared/a-half-written-tag-is-never-shown-to-a-person.test.ts		waiting		
-apps/desktop/src/shared/a-judge-scores-each-answer.test.ts		waiting		
+apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	compare	yes		`compare_score::tests::a_judge_scores_each_answer`
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts		waiting		
 apps/desktop/src/shared/a-long-room-post-still-starts.test.ts		waiting		
 apps/desktop/src/shared/a-point-can-count-twice.test.ts		waiting		
@@ -1179,7 +1179,7 @@ apps/desktop/src/shared/text-files.test.ts		waiting
 apps/desktop/src/shared/the-about-you-line-is-taught-once.test.ts		waiting		
 apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts		waiting		
 apps/desktop/src/shared/the-example-file-is-never-a-file.test.ts		waiting		
-apps/desktop/src/shared/the-judges-pick-is-marked.test.ts		waiting		
+apps/desktop/src/shared/the-judges-pick-is-marked.test.ts	compare	yes		`compare::tests::the_judges_pick_is_marked`
 apps/desktop/src/shared/the-memories-that-bear-on-the-ask-come-first.test.ts		waiting		
 apps/desktop/src/shared/the-named-teammate-claims.test.ts		waiting		
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts		waiting		
