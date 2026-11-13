@@ -133,6 +133,7 @@ fn reload(s: &mut State) {
     }
     crate::agents_section::request(s);
     crate::github_section::request(s);
+    crate::claude_app_card::request(s);
     crate::connectors_section::request(s, false);
     crate::backup_section::reload(s);
     let folder = active_project_folder(s);
@@ -320,6 +321,11 @@ fn door_section(s: &State, p: &Palette) -> El {
                 true,
                 toggle_conversations,
             ));
+    }
+    if let Some(card) = crate::claude_app_card::section(s, p) {
+        section = section.child(card);
+    }
+    if set.enabled {
         let mut by_hand = col()
             .w_full()
             .gap(10.0)
@@ -332,7 +338,7 @@ fn door_section(s: &State, p: &Palette) -> El {
             by_hand = by_hand.child(setup_block(&l, "Codex: add this to ~/.codex/config.toml.", config));
         }
         by_hand = by_hand.child(
-            text("Locust never changes another app's settings itself. Turning this off stops new requests, not turns already running.")
+            text("Locust changes another app\u{2019}s settings only when you press Add to the Claude app; it keeps a copy of the file first, and Remove takes its entry out again. Turning this off stops new requests, not turns already running.")
                 .font(l.ty.body)
                 .color(l.c("text-muted"))
                 .wrap(),

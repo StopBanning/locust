@@ -399,7 +399,7 @@ apps/desktop/src/main/judges-see-the-check.test.ts	compare	carried		`compare_jud
 apps/desktop/src/main/keep-awake.test.ts	settings	carried	core/src/keep_awake.rs	single hold for live runs, dispose release, retry on failure
 apps/desktop/src/main/leads-settled-2026-09-24.test.ts		waiting		
 apps/desktop/src/main/locust-counts-its-cloud-hours.test.ts		waiting		
-apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts		waiting		
+apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts	CLAUDE-APP	carried	core/src/claude_app_tests.rs	all cases carried: platform paths, keeps settings and backs up once, makes the file, unreadable and inexact left alone, no app, overlapping presses, a different locust entry, permissions, a link, stale entries, restart marks, Remove while open, Remove takes only ours and drops an emptied list; window test the_claude_app_is_added_in_one_press_and_removed_again
 apps/desktop/src/main/locust-in-a-browser-answers-as-the-window.test.ts		waiting		
 apps/desktop/src/main/memory-file.test.ts	P6	partial		`main/memory-file.test.ts`, `main/memory-store.test.ts` | Torn native memory refuses mutation; native seeding occurs once; Electron bytes remain unchanged.
 apps/desktop/src/main/memory-reader.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest

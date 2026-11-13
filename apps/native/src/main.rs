@@ -161,6 +161,8 @@ mod diff_notes_ui;
 mod connectors_section;
 #[path = "ui/github_section.rs"]
 mod github_section;
+#[path = "ui/claude_app_card.rs"]
+mod claude_app_card;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -1738,6 +1740,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= reference_chips::poll(s);
     changed |= agents_section::poll(s);
     changed |= github_section::poll(s);
+    changed |= claude_app_card::poll(s);
     changed |= connectors_section::poll(s);
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);

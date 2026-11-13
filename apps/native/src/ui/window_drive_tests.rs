@@ -3131,3 +3131,56 @@ fn issues_lists_the_folders_issues_and_choosing_one_fills_the_box_and_sends_noth
     assert!(rt.state.flight.is_none() && !rt.state.issues.open, "choosing an issue sent something");
     assert_eq!(rt.state.issues.pending.as_ref().map(|i| i.number), Some(5));
 }
+
+#[test]
+fn the_claude_app_is_added_in_one_press_and_removed_again() {
+    use locust_core::claude_app::{Connector, Entry};
+    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    let scratch = std::env::temp_dir().join(format!("locust-claude-card-{}-{}", std::process::id(), locust_core::invariants::unique_nanos()));
+    std::fs::create_dir_all(scratch.join("Claude")).unwrap();
+    let file = scratch.join("Claude").join("claude_desktop_config.json");
+    std::fs::write(&file, r#"{"preferences":{"theme":"dark"}}"#).unwrap();
+    let exe = scratch.join("locust-native");
+    std::fs::write(&exe, "").unwrap();
+    let entry = Entry { command: exe.display().to_string(), args: vec!["--door-bridge".into(), scratch.join("door.json").display().to_string()] };
+    let turned_on = Arc::new(AtomicBool::new(false));
+    let on = turned_on.clone();
+    crate::claude_app_card::use_connector(
+        Connector { file: Some(file.clone()), entry: entry.clone(), marks_file: scratch.join("claude-app.json"), started_at: Box::new(|| None), relaunch: None, now: Box::new(|| 1_000) },
+        Arc::new(move || {
+            on.store(true, Ordering::SeqCst);
+            Some(locust_core::door::State { settings: locust_core::door::Settings { enabled: true, own_mode: false, conversations: false }, ..Default::default() })
+        }),
+    );
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("app");
+        s.settings_panel.door = Some(locust_core::door::State::default());
+    });
+    pump(&mut rt, "the Claude app read", |s| s.claude_app.connection.is_some());
+    settle(&mut rt);
+    let card = text_in(&rt, "claude-app-card").join(" | ");
+    assert!(card.contains("The Claude app") && card.contains("Lets a Claude chat ask your teammates and read their replies. Locust backs up Claude\u{2019}s settings first.") && card.contains("Add to the Claude app"), "{card}");
+    assert!(!card.contains("Remove"), "{card}");
+
+    // Add turns the door on and writes the one entry beside the person's own settings.
+    click(&mut rt, "claude-app-add");
+    pump(&mut rt, "the entry written", |s| !s.claude_app.busy && matches!(s.claude_app.connection, Some(locust_core::claude_app::Connection::Added { .. })));
+    settle(&mut rt);
+    assert!(turned_on.load(Ordering::SeqCst));
+    assert!(rt.state.settings_panel.door.as_ref().is_some_and(|d| d.settings.enabled));
+    let written: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(written["preferences"]["theme"], "dark");
+    assert_eq!(written["mcpServers"]["locust"]["command"], entry.command.as_str());
+    assert_eq!(written["mcpServers"]["locust"]["args"][0], "--door-bridge");
+    let added = text_in(&rt, "claude-app-card").join(" | ");
+    assert!(added.contains("Added. Ask a Claude chat about your Locust teammates; it asks before it uses them.") && added.contains("Remove"), "{added}");
+    assert!(!added.contains("Add to the Claude app") && !added.contains("Restart Claude"), "{added}");
+
+    click(&mut rt, "claude-app-remove");
+    pump(&mut rt, "the entry taken out", |s| !s.claude_app.busy && matches!(s.claude_app.connection, Some(locust_core::claude_app::Connection::NotAdded { .. })));
+    let removed: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(removed, serde_json::json!({"preferences": {"theme": "dark"}}));
+    let _ = std::fs::remove_dir_all(&scratch);
+}
