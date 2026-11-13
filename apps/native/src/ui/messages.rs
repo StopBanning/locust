@@ -151,14 +151,55 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     .child(row().w_frac(0.7).justify_end().child(bubble))
             }
             ledger::Item::Assistant {
+                item_id,
                 text: body,
                 r#final,
-                ..
-            } => col()
-                .w_full()
-                .gap(8.0)
-                .child(text(name).font(type_::LABEL).color(p.muted))
-                .child(reply_actions::reply(s, body, !*r#final, p)),
+            } => {
+                let running = turn_running(s);
+                let finished = *r#final || !running;
+                let shown = locust_core::protocol_tags::shown_text(body);
+                let files = if finished {
+                    locust_core::protocol_tags::parse_file_blocks(body)
+                } else {
+                    Vec::new()
+                };
+                let refused = if finished {
+                    locust_core::protocol_tags::refused_file_lines(body)
+                } else {
+                    Vec::new()
+                };
+                let steps = if finished {
+                    locust_core::protocol_tags::parse_next_steps(body)
+                } else {
+                    Vec::new()
+                };
+                if shown.is_empty()
+                    && files.is_empty()
+                    && refused.is_empty()
+                    && steps.is_empty()
+                {
+                    continue;
+                }
+                let scope = format!("{conversation}-{index}-{item_id}");
+                let mut msg = col()
+                    .w_full()
+                    .gap(8.0)
+                    .child(text(name).font(type_::LABEL).color(p.muted));
+                if !shown.is_empty() {
+                    msg = msg.child(reply_actions::reply(s, &shown, !*r#final, p));
+                }
+                if let Some(files_el) = handed_files::view(s, &files, &refused, &scope, p) {
+                    msg = msg.child(files_el);
+                }
+                let can_here = !running
+                    && s.flight.is_none()
+                    && !s.sending.is_pending()
+                    && s.pending_approval.is_none();
+                if let Some(steps_el) = next_steps::view(s, &steps, &scope, can_here, p) {
+                    msg = msg.child(steps_el);
+                }
+                msg
+            }
             ledger::Item::Tool { .. }
             | ledger::Item::Plan { .. }
             | ledger::Item::Thought { .. } => activity_item(item, p, s, conversation),
@@ -176,6 +217,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         messages = messages.child(content.key(key));
     }
     if let Some(card) = recovery_card::card(s, p) {
+        messages = messages.child(card);
+    }
+    if let Some(card) = decision_card::card(s, p) {
         messages = messages.child(card);
     }
     messages

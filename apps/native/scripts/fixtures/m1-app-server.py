@@ -11,7 +11,9 @@ scenario = sys.argv[1] if len(sys.argv) > 1 else 'success'
 # thread/start) with the follow-up prompt; the rest are the M1 scenarios.
 # M3b: `approve-allow` / `approve-deny` use Approve-each policy (untrusted + workspace-write).
 resuming = scenario.startswith('resume')
+cards_mode = scenario.startswith('cards-')
 approving = scenario.startswith('approve-')
+is_resumed_turn = False
 base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
 if approving:
     base = 'success'
@@ -44,7 +46,8 @@ for line in sys.stdin:
     elif method == 'config/read':
         send(dict(id=msg['id'], result={'config': {'mcp_servers': {'local': {'command':'node'}, 'remote': {'url':'https://example.invalid'}}}}))
     elif method == 'thread/resume':
-        assert resuming, 'thread/resume outside a resume scenario'
+        assert resuming or cards_mode, 'thread/resume outside a resume scenario'
+        is_resumed_turn = True
         # codex-app-server-run.ts: reopen by the stored id, without the whole history, under the same policy.
         assert p['threadId'] == 'thread_fake' and p['excludeTurns'] is True, p
         assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY
@@ -67,11 +70,37 @@ for line in sys.stdin:
         text = p['input'][0].get('text') or ''
         # Every turn ends with the reference-folders line, after the person's words (codex-mission.ts referencesSection).
         words = text.split('\n\nReference folders — for reading, not changing:')[0]
-        assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
+        if not cards_mode:
+            assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})
         send(dict(method='turn/completed', params={'threadId':'other_thread'}))
+        if cards_mode:
+            if scenario == 'cards-decision':
+                if is_resumed_turn:
+                    assert 'Keep notes.md (the newer one). Continue with that.' in words, words
+                    reply = 'Got it, keeping notes.md.'
+                else:
+                    reply = 'I checked both.\n\n<locust-ask>\nWhich file is right?\n- Keep notes.md :: the newer one\n- Keep NOTES.txt\n</locust-ask>'
+            elif scenario == 'cards-next':
+                if is_resumed_turn:
+                    assert 'Clean the Linux cache too: Do the same for the AppImage cache.' in words, words
+                    reply = 'Cleaned the Linux cache.'
+                else:
+                    reply = "Done.\n\n<locust-next>\nClean the Linux cache too :: Do the same for the AppImage cache.\nTell people in What's new :: Add a line to the changelog.\n</locust-next>"
+            elif scenario == 'cards-file':
+                reply = 'Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup you asked for\n\\\\server\\share\\bad.md\n</locust-file>'
+            elif scenario == 'cards-streaming':
+                notify('item/agentMessage/delta', itemId='answer', delta='Thinking...\n<locust-ask>\nWhich?\n- A :: one\n<locu')
+                time.sleep(0.35)
+                reply = 'Thinking...\n<locust-ask>\nWhich?\n- A :: one\n- B :: two\n</locust-ask>'
+            else:
+                reply = 'Unknown cards scenario'
+            notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
+            item(True, id='answer', type='agentMessage', text=reply)
+            notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
+            continue
         if base == 'lost':
             sys.exit(0)
         if base == 'failure':

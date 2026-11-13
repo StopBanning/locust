@@ -36,6 +36,7 @@ pub mod own_command;
 pub mod page_preview;
 pub mod pdf;
 pub mod people;
+pub mod protocol_tags;
 pub mod recovery;
 pub mod references;
 pub mod routines;

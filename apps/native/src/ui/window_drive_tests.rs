@@ -915,3 +915,160 @@ fn scrolling_up_shows_way_down_working_says_so_and_pressing_returns_to_bottom() 
     click(&mut rt, "jump-to-bottom");
     assert!(rt.find("jump-to-bottom").is_none(), "way down should hide at bottom");
 }
+
+#[test]
+fn a_decision_is_answered_by_number_and_without_a_teammate_names_nobody() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store, fake("m1-app-server.py", "cards-decision"));
+    type_and_send(&mut rt, "Which file?");
+    pump(&mut rt, "decision card", |s| {
+        s.flight.is_none()
+            && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running)
+    });
+    settle(&mut rt);
+
+    assert!(rt.find("decision-card").is_some(), "decision card should render");
+    let card_texts = text_in(&rt, "decision-card").join("\n");
+    assert!(card_texts.contains("Codec needs a decision to continue"), "{card_texts}");
+    assert!(card_texts.contains("stopped here · nothing was changed"), "{card_texts}");
+    assert!(card_texts.contains("Which file is right?"), "{card_texts}");
+    assert!(card_texts.contains("Keep notes.md"), "{card_texts}");
+    assert!(card_texts.contains("the newer one"), "{card_texts}");
+    assert!(card_texts.contains("Keep NOTES.txt"), "{card_texts}");
+    assert!(card_texts.contains("Or reply below — you are not limited to these"), "{card_texts}");
+
+    let msg_texts = text_in(&rt, "messages").join("\n");
+    assert!(!msg_texts.contains("locust-ask"), "{msg_texts}");
+
+    // When a text field holds focus, number keys must not answer the decision.
+    rt.update(|s, tx| {
+        s.draft.focused = true;
+        assert!(!on_key(s, &KeyEvent::from(Key::Text("1".into())), tx));
+        s.draft.focused = false;
+        assert!(on_key(s, &KeyEvent::from(Key::Text("1".into())), tx));
+    });
+
+    pump(&mut rt, "decision follow-up reply", |s| {
+        s.flight.is_none()
+            && s.ledger.as_ref().is_some_and(|p| {
+                !p.loading
+                    && !p.snapshot.running
+                    && p.items.iter().any(|i| {
+                        matches!(i, ledger::Item::Assistant { text, .. } if text == "Got it, keeping notes.md.")
+                    })
+            })
+    });
+    settle(&mut rt);
+    assert!(rt.find("decision-card").is_none(), "decision card should disappear after answering");
+
+    // Without a teammate (e.g. a @ledger conversation), the card names nobody and never says "runtime".
+    rt.update(|s, _| {
+        if let Some(pane) = &mut s.ledger {
+            pane.header.id = LEDGER_TARGET.into();
+            pane.header.name = "Codex CLI".into();
+            pane.items.push(ledger::Item::Assistant {
+                item_id: "ask-anon".into(),
+                text: "<locust-ask>\nWhat next?\n- Option A\n- Option B\n</locust-ask>".into(),
+                r#final: true,
+            });
+        }
+    });
+    settle(&mut rt);
+    let anon_texts = text_in(&rt, "decision-card").join("\n");
+    assert!(anon_texts.contains("A decision is needed to continue"), "{anon_texts}");
+    assert!(!anon_texts.contains("runtime"), "{anon_texts}");
+}
+
+#[test]
+fn a_reply_suggests_tasks_as_cards_and_acts_on_do_it_here() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store, fake("m1-app-server.py", "cards-next"));
+    type_and_send(&mut rt, "Clean up");
+    pump(&mut rt, "suggested tasks", |s| {
+        s.flight.is_none()
+            && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running)
+    });
+    settle(&mut rt);
+
+    let msg_texts = text_in(&rt, "messages").join("\n");
+    assert!(!msg_texts.contains("locust-next"), "{msg_texts}");
+    assert!(msg_texts.contains("2 suggested tasks"), "{msg_texts}");
+    // No Start all: it would put tasks away that this window cannot start together (next_steps.rs).
+    assert!(!msg_texts.contains("Start all"), "{msg_texts}");
+    assert!(msg_texts.contains("Clean the Linux cache too"), "{msg_texts}");
+    assert!(msg_texts.contains("Tell people in What's new"), "{msg_texts}");
+    assert!(msg_texts.contains("Do it here"), "{msg_texts}");
+
+    // Put away the second task: the count drops to 1.
+    let away_key = rt
+        .elements()
+        .into_iter()
+        .find_map(|e| e.key.filter(|k| k.starts_with("next-step-away-") && k.ends_with("-1")))
+        .expect("put away button for second task");
+    click(&mut rt, &away_key);
+    let after_away = text_in(&rt, "messages").join("\n");
+    assert!(after_away.contains("1 suggested task"), "{after_away}");
+
+    // Press "Do it here" on the remaining task and verify the next turn runs with its prompt.
+    let here_key = rt
+        .elements()
+        .into_iter()
+        .find_map(|e| e.key.filter(|k| k.starts_with("next-step-here-") && k.ends_with("-0")))
+        .expect("do it here button");
+    click(&mut rt, &here_key);
+    pump(&mut rt, "next step follow-up reply", |s| {
+        s.flight.is_none()
+            && s.ledger.as_ref().is_some_and(|p| {
+                !p.loading
+                    && !p.snapshot.running
+                    && p.items.iter().any(|i| {
+                        matches!(i, ledger::Item::Assistant { text, .. } if text == "Cleaned the Linux cache.")
+                    })
+            })
+    });
+}
+
+#[test]
+fn a_reply_hands_over_files_and_half_written_tags_never_show_while_streaming() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-file"));
+    type_and_send(&mut rt, "Send the report");
+    pump(&mut rt, "handed files", |s| {
+        s.flight.is_none()
+            && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running)
+    });
+    settle(&mut rt);
+
+    let msg_texts = text_in(&rt, "messages").join("\n");
+    assert!(!msg_texts.contains("locust-file"), "{msg_texts}");
+    assert!(msg_texts.contains("docs/report.md"), "{msg_texts}");
+    assert!(msg_texts.contains("the rollup you asked for"), "{msg_texts}");
+    assert!(
+        msg_texts.contains("Not shown as a file: //server/share/bad.md -- a file is handed over by its path on this computer, and this is not one."),
+        "{msg_texts}"
+    );
+    drop(_g);
+
+    // Streaming: a half-written tag never flashes on screen and the decision card waits until finished.
+    let (_dirs2, store2, mut rt2) = window();
+    let _g2 = native::hooks::install(store2, fake("m1-app-server.py", "cards-streaming"));
+    type_and_send(&mut rt2, "Stream ask");
+    pump(&mut rt2, "streaming delta", |s| {
+        s.ledger.as_ref().is_some_and(|p| {
+            p.snapshot.running
+                && p.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if text.contains("Thinking")))
+        })
+    });
+    rt2.frame(0.016);
+    let mid_texts = text_in(&rt2, "messages").join("\n");
+    assert!(!mid_texts.contains("<locust"), "half-written tag flashed: {mid_texts}");
+    assert!(!mid_texts.contains("<locu"), "torn tag flashed: {mid_texts}");
+    assert!(rt2.find("decision-card").is_none(), "decision card must wait until run finishes");
+
+    pump(&mut rt2, "streaming finished", |s| {
+        s.flight.is_none()
+            && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running)
+    });
+    settle(&mut rt2);
+    assert!(rt2.find("decision-card").is_some(), "decision card should appear once finished");
+}

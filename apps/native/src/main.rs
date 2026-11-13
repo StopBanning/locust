@@ -84,6 +84,12 @@ use composer_wiring::*;
 #[path = "ui/approval_card.rs"]
 mod approval_card;
 use approval_card::*;
+#[path = "ui/decision_card.rs"]
+mod decision_card;
+#[path = "ui/handed_files.rs"]
+mod handed_files;
+#[path = "ui/next_steps.rs"]
+mod next_steps;
 #[path = "ui/activity_drawers.rs"]
 mod activity_drawers;
 use activity_drawers::*;
@@ -342,6 +348,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     snapshot.running = true;
                 }
                 // Ignore a worker result if the open ledger changed while the job was running.
+                let mut focus_decision = false;
                 if let Some(pane) = s.ledger.as_mut()
                     && pane.conversation.conversation_id.as_deref() == Some(worker.anchor())
                 {
@@ -438,6 +445,7 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     }) {
                         s.flight = None;
                     }
+                    focus_decision = !active && finished && s.draft.text.trim().is_empty();
 
                     if let Some(id) = &pane.conversation.conversation_id {
                         for row in &mut s.recent {
@@ -457,6 +465,9 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         refresh_recent(s);
                     }
                     // stick_bottom follows new text while the listener stays at the bottom.
+                }
+                if focus_decision && decision_card::active_decision(s).is_some() {
+                    s.draft.focused = false;
                 }
             }
             Err(error) => {
@@ -1179,6 +1190,7 @@ fn fresh_conversation(s: &mut State) {
     sync_draft_key(s);
     s.attached.clear();
     s.tagged.clear();
+    s.handed_file_refusal = None;
 }
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
@@ -1296,6 +1308,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
     if prompt_rail::handle_key(s, event, tx) {
+        return true;
+    }
+    if decision_card::handle_key(s, event, tx) {
         return true;
     }
     if event.mods.shift || event.mods.alt {

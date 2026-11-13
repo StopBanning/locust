@@ -286,6 +286,10 @@ pub(super) struct State {
     pub(super) diagram_code_tab: HashMap<u64, bool>,
     /// Decodes math/PDF/attachment PNGs for Markdown images (set in setup).
     pub(super) image_cache: Option<std::sync::Arc<rune::ImageCache>>,
+    /// Suggested tasks the person put away (`NextSteps.tsx` `gone`).
+    pub(super) next_steps_gone: std::collections::HashSet<String>,
+    /// Last handed-file reveal refusal, keyed by message scope.
+    pub(super) handed_file_refusal: Option<(String, String)>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -434,6 +438,8 @@ impl Default for State {
             copy_feedback: None,
             diagram_code_tab: HashMap::new(),
             image_cache: None,
+            next_steps_gone: std::collections::HashSet::new(),
+            handed_file_refusal: None,
         }
     }
 }

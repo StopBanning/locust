@@ -214,31 +214,7 @@ fn messages(events: &[Value]) -> Vec<(String, String, bool, usize)> {
     out
 }
 
-/// protocolTags.ts unwrapProtocolTags: Locust's own tags come off a reply (their words stay), outside code.
-pub fn unwrap_protocol_tags(text: &str) -> String {
-    let code = crate::invariants::regex(r"```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`");
-    let key = crate::invariants::regex(r#"(?i)<locust-key\s+name\s*=\s*"([^"]{1,80})"\s*>[\s\S]*?</locust-key>"#);
-    // PROTOCOL_TAGS, each as a whole word.
-    let loose = crate::invariants::regex(
-        r"(?i)</?(?:locust-share|locust-memory|locust-ask|locust-task|locust-file|locust-tidy|locust-instructions|locust-key|locust-next)\b[^<>]{0,400}>",
-    );
-    let plain = |part: &str| -> String {
-        let keyed = key.replace_all(part, |c: &regex::Captures| format!("Asks for the key {} (below).", c[1].trim()));
-        loose.replace_all(&keyed, "").into_owned()
-    };
-    let mut out = String::new();
-    let mut at = 0;
-    for span in code.find_iter(text) {
-        out.push_str(&plain(&text[at..span.start()]));
-        out.push_str(span.as_str());
-        at = span.end();
-    }
-    out.push_str(&plain(&text[at..]));
-    let torn = crate::invariants::regex(r"(?i)\n?\s*</?(?:locu)[a-z-]*$");
-    let out = torn.replace(&out, "").into_owned();
-    let out = crate::invariants::regex(r"\n{3,}").replace_all(&out, "\n\n").into_owned();
-    out.trim_start_matches('\n').trim_end().to_owned()
-}
+pub use crate::protocol_tags::unwrap_protocol_tags;
 
 /// answerOf: a finished turn's answer, with warnings Locust gave after it, or Locust's words for why there is none.
 pub fn answer_of(turn: &Turn) -> ToolResult {
