@@ -310,3 +310,120 @@ pub(super) fn view(s: &State, p: &Palette) -> Option<El> {
             ),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TICK: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn open_for_teammate_includes_active_group_standing_instructions() {
+        let base = std::env::temp_dir().join(format!(
+            "locust-setup-group-{}-{}",
+            std::process::id(),
+            TICK.fetch_add(1, Ordering::Relaxed)
+        ));
+        let native_dir = base.join("native");
+        let electron_dir = base.join("electron");
+        std::fs::create_dir_all(&native_dir).unwrap();
+        std::fs::create_dir_all(&electron_dir).unwrap();
+        let store = Store::new(native_dir, electron_dir).unwrap();
+        store
+            .save_json(
+                "teammates.json",
+                &serde_json::json!({
+                    "schemaVersion": 1,
+                    "teammates": [{
+                        "teammateId": "tm_codec",
+                        "name": "Codec",
+                        "role": "Engineer",
+                        "createdAt": "2026-09-16T08:00:00.000Z"
+                    }],
+                    "missionOwners": {},
+                    "settings": {}
+                }),
+            )
+            .unwrap();
+
+        let grp = locust_core::groups::create_group(&store, "Trading").unwrap();
+        locust_core::groups::set_group_instructions(&store, &grp.group_id, "Check risk limits.")
+            .unwrap();
+        locust_core::groups::assign_to_group(&store, "m_root", Some(&grp.group_id)).unwrap();
+        let ledger = store.ledger_dir().unwrap();
+        std::fs::create_dir_all(&ledger).unwrap();
+        std::fs::write(
+            ledger.join("m_root.jsonl"),
+            serde_json::json!({"missionId": "m_root"}).to_string() + "\n",
+        )
+        .unwrap();
+        std::fs::write(
+            ledger.join("m_follow.jsonl"),
+            serde_json::json!({
+                "missionId": "m_follow",
+                "continuesFrom": {"missionId": "m_root"}
+            })
+            .to_string()
+                + "\n",
+        )
+        .unwrap();
+
+        let mut s = State::default();
+        s.data = Some(store);
+        s.teammates.push(Teammate {
+            id: "tm_codec".into(),
+            name: "Codec".into(),
+            role: "Engineer".into(),
+            runtime: Some("codex".into()),
+            model: Some("gpt-5".into()),
+            account: None,
+            busy: false,
+            runs_in: "local".into(),
+            folder: None,
+        });
+        s.selected = 0;
+        s.conversations.insert(
+            "tm_codec".into(),
+            Conversation {
+                conversation_id: Some("m_follow".into()),
+                turns: Vec::new(),
+            },
+        );
+
+        open_for_teammate(&mut s, "tm_codec");
+        let setup = s
+            .setup_card
+            .as_ref()
+            .and_then(|c| c.setup.as_ref())
+            .expect("setup read succeeds");
+        assert_eq!(setup.group.as_ref().map(|g| g.name.as_str()), Some("Trading"));
+        assert_eq!(
+            setup.group.as_ref().map(|g| g.characters),
+            Some("Check risk limits.".encode_utf16().count())
+        );
+
+        let mut rt = rune::Runtime::new(
+            s,
+            |s, _| {
+                view(s, &Palette::new(true)).unwrap_or_else(|| col())
+            },
+            (800.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let texts = rt
+            .elements()
+            .into_iter()
+            .filter_map(|e| e.text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            texts.contains("Trading\u{2019}s instructions, 18 characters"),
+            "texts: {texts}"
+        );
+        assert!(texts.find("LOCUST.md") < texts.find("Group"));
+        assert!(texts.find("Group") < texts.find("Its instructions"));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+}

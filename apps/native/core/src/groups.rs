@@ -988,9 +988,9 @@ mod tests {
     }
 
     #[test]
-    fn creates_group_trims_name_and_lists_back() {
+    fn creates_group_trims_name_flattens_newlines_and_lists_back() {
         let (_d, store) = temp_store();
-        let created = create_group(&store, "  Bug   Hunt  ").unwrap();
+        let created = create_group(&store, "  Bug \n  Hunt\t ").unwrap();
         assert_eq!(created.name, "Bug Hunt");
         assert!(created.group_id.starts_with("grp_"));
         assert!(!created.created_at.is_empty());
@@ -1587,6 +1587,76 @@ mod tests {
         let starts: Vec<Option<&str>> = starts_owned.iter().map(|s| Some(s.as_str())).collect();
         assert!(group_leavings(&starts, &[make_left(Some(t(9)), t(10), "   ")]).is_empty());
         assert!(group_leavings(&starts, &[make_left(Some(t(9)), "not a time".into(), "Ask")]).is_empty());
+    }
+
+    #[test]
+    fn drops_unusable_groups_and_preserves_unknown_fields_and_partial_routes() {
+        let (_d, store) = temp_store();
+        let path = store.groups_json_path().unwrap();
+        std::fs::write(
+            &path,
+            json!({
+                "schemaVersion": 1,
+                "extraTopLevel": "keep-me",
+                "groups": [
+                    {"groupId": "grp_bad_name", "name": "   \n ", "createdAt": t(1)},
+                    {"groupId": "../bad", "name": "Unsafe", "createdAt": t(1)},
+                    {
+                        "groupId": "grp_ok",
+                        "name": "Alpha",
+                        "createdAt": t(1),
+                        "instructions": "Existing rule",
+                        "route": {"runtime": "codex"},
+                        "customField": 42
+                    }
+                ],
+                "members": {"m_1": {"groupId": "grp_ok", "at": t(2)}}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let listed = load_groups(&store).unwrap();
+        assert_eq!(listed.groups.len(), 1);
+        assert_eq!(listed.groups[0].group_id, "grp_ok");
+        assert_eq!(listed.groups[0].instructions, "Existing rule");
+        // Mutate via another group and confirm Existing rule + partial route + customField survive
+        let g2 = create_group(&store, "Beta").unwrap();
+        assert_eq!(g2.name, "Beta");
+        let raw: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(raw["groups"][0]["instructions"], "Existing rule");
+        assert_eq!(raw["groups"][0]["route"]["runtime"], "codex");
+        assert_eq!(raw["groups"][0]["customField"], 42);
+    }
+
+    #[test]
+    fn assign_conversation_migrates_prior_turn_keys_to_root() {
+        let (_d, store) = temp_store();
+        let a = create_group(&store, "Alpha").unwrap();
+        let b = create_group(&store, "Beta").unwrap();
+        assign_to_group(&store, "m_turn1", Some(&a.group_id)).unwrap();
+        assign_conversation(
+            &store,
+            "m_root",
+            &["m_root".into(), "m_turn1".into()],
+            Some(&a.group_id),
+        )
+        .unwrap();
+        let listed = load_groups(&store).unwrap();
+        assert!(!listed.members.contains_key("m_turn1"));
+        assert_eq!(listed.members["m_root"].group_id, a.group_id);
+        assert!(!listed.left.contains_key("m_root"));
+
+        assign_conversation(
+            &store,
+            "m_root",
+            &["m_root".into(), "m_turn1".into()],
+            Some(&b.group_id),
+        )
+        .unwrap();
+        let after_move = load_groups(&store).unwrap();
+        assert_eq!(after_move.members["m_root"].group_id, b.group_id);
+        assert_eq!(after_move.left["m_root"].len(), 1);
+        assert_eq!(after_move.left["m_root"][0].group_id, a.group_id);
     }
 
     #[test]

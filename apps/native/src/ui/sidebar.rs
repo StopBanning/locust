@@ -804,7 +804,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .px(12.0)
                 .wrap_anywhere(),
         );
-    } else if missions.is_empty() && s.recent.is_empty() {
+    } else if missions.is_empty() && s.recent.is_empty() && !groups_shown {
         recent = recent.child(
             text(if s.recents.is_pending() {
                 "Loading…"
