@@ -55,6 +55,19 @@ Notes on porting:
   - `after_restore_notice_shows_once_and_dismisses`
   - `inspector_opens_on_two_turn_conversation_and_shows_route_provenance_and_recovery`
 
+## Review (13 Nov)
+
+- `scripts/review-branch.py` passed: 898 tests, a clean release build, and each new window test alone and the four
+  together three times.
+- **Delete took one turn of a conversation.** Electron's App deletes every one of the row's `memberIds`. Deleting only
+  the turn the menu named left the earlier turns live, so the conversation came back as its first turn. Delete now
+  takes every turn (`conversation_keys`). A running turn anywhere in it refuses the delete, with Electron's words: "That
+  mission is still running. Stop it first, then delete it."
+- **Delete on an Electron conversation did nothing and said nothing.** That record is read here, never changed, so the
+  status line now says so (`trash::ELECTRON_ONLY`).
+- `deleting_a_conversation_moves_every_turn_to_the_trash_and_an_electron_one_says_why_not` covers both. It fails when
+  Delete takes one turn only.
+
 ## What was left out
 
 - **Comparisons cleanup on Empty (`comparesGoneWith`)**: Rust has no comparisons feature yet.

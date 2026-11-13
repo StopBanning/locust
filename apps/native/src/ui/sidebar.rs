@@ -370,23 +370,32 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
             org::toggle_conversation_settled(&store, &mut s.org, mission_id, &keys)
         }
         "delete" => {
+            // Every turn of the conversation goes, as Electron's App deletes each of the row's `memberIds`: an earlier
+            // turn left behind would bring the conversation back as that turn.
+            let keys = row.as_ref().map(conversation_keys).unwrap_or_else(|| vec![mission_id.into()]);
             let running = locust_core::engine_api::api().running();
-            store
-                .ledger_dir()
-                .map_err(|e| e.to_string())
-                .and_then(|dir| locust_core::trash::delete_mission(&dir, mission_id, &running))
-                .map(|deleted| {
-                    if deleted {
-                        if s.ledger
-                            .as_ref()
-                            .is_some_and(|pane| pane.conversation.conversation_id.as_deref() == Some(mission_id))
-                        {
-                            s.ledger = None;
-                        }
-                        crate::backup_section::reload(s);
-                        load_team(s);
+            store.ledger_dir().map_err(|e| e.to_string()).and_then(|dir| {
+                if keys.iter().any(|k| running.contains(k)) {
+                    return Err(locust_core::trash::STILL_RUNNING.to_owned());
+                }
+                let mut deleted = 0;
+                for key in &keys {
+                    if locust_core::trash::delete_mission(&dir, key, &running)? {
+                        deleted += 1;
                     }
-                })
+                }
+                if deleted == 0 {
+                    // Not in this app's record: Electron's conversations are read here, never changed.
+                    return Err(locust_core::trash::ELECTRON_ONLY.to_owned());
+                }
+                let shown = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
+                if shown.is_some_and(|id| keys.contains(&id)) {
+                    s.ledger = None;
+                }
+                crate::backup_section::reload(s);
+                load_team(s);
+                Ok(())
+            })
         }
         action if action.starts_with("snooze:") => org::settle_mission(
             &store,

@@ -80,6 +80,11 @@ fn header_of(path: &Path) -> (Option<String>, Option<String>) {
 /// Returns `Ok(false)` when no live file exists for `mission_id`.
 /// Owner (`teammates.json`) and references (`references.json`) are intentionally kept
 /// until `empty_trash` so a restore brings the conversation back whole.
+/// Electron's refusal for a live one (mission-history.ts `deleteMissionRecord`).
+pub const STILL_RUNNING: &str = "That mission is still running. Stop it first, then delete it.";
+/// A conversation only in Electron's record: this app reads that folder and never changes it.
+pub const ELECTRON_ONLY: &str = "This conversation is in the Electron app's record, which this window only reads. Delete it in the Electron app.";
+
 pub fn delete_mission(
     ledger_dir: &Path,
     mission_id: &str,
@@ -87,7 +92,7 @@ pub fn delete_mission(
 ) -> Result<bool, String> {
     let from = mission_path(ledger_dir, mission_id)?;
     if running_ids.iter().any(|id| id == mission_id) {
-        return Err("That conversation is still running. Stop it before deleting.".into());
+        return Err(STILL_RUNNING.into());
     }
     let to = trash_path(ledger_dir, mission_id)?;
     let trash_dir = ledger_dir.join(TRASH_DIR);

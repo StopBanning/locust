@@ -2136,3 +2136,50 @@ fn inspector_opens_on_two_turn_conversation_and_shows_route_provenance_and_recov
 
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+#[test]
+fn deleting_a_conversation_moves_every_turn_to_the_trash_and_an_electron_one_says_why_not() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+    let turn = |id: &str, at: &str, prompt: &str, parent: Option<&str>| {
+        let mut metadata = serde_json::json!({"missionId": id, "runId": format!("run_{id}"), "prompt": prompt, "runtime": "codex",
+            "model": "account-default", "workspaceId": "ws_test", "sandbox": "read-only", "executionPolicyVersion": 1, "createdAt": at});
+        if let Some(parent) = parent {
+            metadata["continuesFrom"] = serde_json::json!({"missionId": parent, "checkpointEpoch": 1, "reason": "follow-up"});
+        }
+        serde_json::json!({"schemaVersion": 1, "recordType": "mission.created", "occurredAt": at, "metadata": metadata}).to_string() + "\n"
+    };
+    std::fs::write(ledger.join("mission_first.jsonl"), turn("mission_first", "2026-11-12T10:00:00.000Z", "Fix the cart", None)).unwrap();
+    std::fs::write(ledger.join("mission_second.jsonl"), turn("mission_second", "2026-11-12T10:05:00.000Z", "And the tax", Some("mission_first"))).unwrap();
+    let electron = dirs.0.join("electron/mission-ledger");
+    std::fs::write(electron.join("mission_theirs.jsonl"), turn("mission_theirs", "2026-11-12T09:00:00.000Z", "Electron's own", None)).unwrap();
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(&mut rt, "both conversations listed", |s| {
+        s.recent.iter().any(|r| r.id == "mission_second" || r.id == "mission_first") && s.recent.iter().any(|r| r.id == "mission_theirs")
+    });
+    let row_id = rt.state.recent.iter().find(|r| r.id == "mission_second" || r.id == "mission_first").unwrap().id.clone();
+
+    // The two-turn conversation: both turns go, so it does not come back as its first turn.
+    rt.update(|s, _| s.org_menu_id = Some(row_id.clone()));
+    settle(&mut rt);
+    click(&mut rt, &format!("org-delete-{row_id}"));
+    for id in ["mission_first", "mission_second"] {
+        assert!(!ledger.join(format!("{id}.jsonl")).exists(), "{id} still live");
+        assert!(ledger.join(format!(".trash/{id}.jsonl")).exists(), "{id} not in the trash");
+    }
+    rt.update(|s, _| refresh_recent(s));
+    pump(&mut rt, "the conversation gone from the list", |s| !s.recent.iter().any(|r| r.id == "mission_first" || r.id == "mission_second"));
+
+    // Electron's conversation: read here, never changed, and the window says so.
+    rt.update(|s, _| s.org_menu_id = Some("mission_theirs".into()));
+    settle(&mut rt);
+    click(&mut rt, "org-delete-mission_theirs");
+    assert!(electron.join("mission_theirs.jsonl").exists());
+    assert_eq!(rt.state.status, locust_core::trash::ELECTRON_ONLY);
+    on_quit(&mut rt.state, &mut Tx::default());
+}
