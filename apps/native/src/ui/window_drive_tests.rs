@@ -3906,3 +3906,23 @@ fn home_shows_the_months_usage_once_there_is_something_to_count() {
     click(&mut rt, "usage-line-open");
     assert!(rt.state.usage_panel.open);
 }
+
+/// CancellationCard: Stop pressed in this window leaves a receipt that says so, what finished and what was cut off,
+/// and the one thing a stop cannot promise, in place of a bare "Stopped".
+#[test]
+fn a_stopped_run_leaves_a_receipt_that_says_who_stopped_it_and_what_is_unknown() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "Stop to appear", can_stop);
+    rt.update(|s, _| stop(s));
+    pump(&mut rt, "the stopped turn", |s| {
+        !s.stopping.is_pending() && s.ledger.as_ref().is_some_and(|p| !p.snapshot.running && p.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped")))
+    });
+    settle(&mut rt);
+    // The thread keys each item itself, so the receipt is read by its words.
+    let shown: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(shown.iter().any(|t| t == "You stopped this run"), "{shown:?}");
+    assert!(shown.iter().any(|t| t == "Stopped before it used any tools, so nothing is half-done."), "{shown:?}");
+    assert!(!shown.iter().any(|t| t.starts_with("A command that had already started")), "no warning where nothing started");
+}

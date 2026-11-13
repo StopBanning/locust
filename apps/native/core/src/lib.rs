@@ -23,6 +23,7 @@ pub mod peer_share;
 pub mod briefing;
 pub mod peer_exchange;
 pub mod acp_agent;
+pub mod cancellation;
 pub mod changes;
 pub mod checkpoints;
 pub mod command_guard;

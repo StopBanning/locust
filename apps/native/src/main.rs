@@ -177,6 +177,8 @@ mod published_cards;
 mod question_card;
 #[path = "ui/usage_line.rs"]
 mod usage_line;
+#[path = "ui/cancellation_card.rs"]
+mod cancellation_card;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -978,6 +980,8 @@ fn stop(s: &mut State) {
     if !can_stop(s) || s.stopping.is_pending() {
         return;
     }
+    // A stop seen in this window: its receipt says "You stopped this run".
+    s.stopped_by_you = s.ledger.as_ref().and_then(|pane| pane.conversation.conversation_id.clone());
     if let Some(key) = native_stop_key(s) {
         s.stopping.request(key, |id| {
             let result = locust_core::engine_api::api().stop(&id);

@@ -155,6 +155,8 @@ pub(super) struct State {
     /// Home's usage line: the last 30 days, read when Home opens.
     pub(super) usage_line: Option<locust_core::usage::UsageSummary>,
     pub(super) usage_line_job: Latest<Option<locust_core::usage::UsageSummary>>,
+    /// The conversation whose run the person stopped from this window.
+    pub(super) stopped_by_you: Option<String>,
     pub(super) diff_notes: crate::diff_notes_ui::Notes,
     pub(super) issues: crate::issue_list::Picker,
     pub(super) issues_job: Latest<crate::issue_list::Answer>,
@@ -397,6 +399,7 @@ impl Default for State {
             question_answers: Default::default(),
             usage_line: None,
             usage_line_job: Latest::default(),
+            stopped_by_you: None,
             diff_notes: Default::default(),
             issues: Default::default(),
             issues_job: Latest::default(),

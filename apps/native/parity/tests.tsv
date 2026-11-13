@@ -798,7 +798,7 @@ apps/desktop/src/renderer/src/a-routine-step-can-go-to-another-teammate.test.tsx
 apps/desktop/src/renderer/src/a-routine-waiting-for-keep-is-on-the-board.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
 apps/desktop/src/renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx	p11	waiting		`renderer/src/a-routine-waiting-for-your-ok-asks-plainly.test.tsx` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
 apps/desktop/src/renderer/src/a-row-repeats-nothing-its-heading-says.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-run-a-teammate-stopped-does-not-say-you.test.tsx	STOPPED	partial	src/ui/cancellation_card.rs	the press seen in this window says You (window test a_stopped_run_leaves_a_receipt_that_says_who_stopped_it_and_what_is_unknown); a run stopped by anything else is not pinned
 apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts		waiting		
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx		waiting		
@@ -822,7 +822,7 @@ apps/desktop/src/renderer/src/a-step-change-stands-in-for-an-unread-file.test.ts
 apps/desktop/src/renderer/src/a-step-keeps-its-own-change.test.ts		waiting		
 apps/desktop/src/renderer/src/a-step-that-never-ran-is-not-still-to-come.test.ts		waiting		
 apps/desktop/src/renderer/src/a-stop-on-a-finished-run-changes-nothing.test.ts		waiting		
-apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-unknown.test.tsx	STOPPED	partial	core/src/cancellation.rs	6 of 9: plan counts beside unrelated tools, the latest plan, a finished plan, no invented plan, the workspace root and its spellings, OpenCode's unreported command; the two OpenCode card variants with reported interrupted commands, and the ordinary runtime warning, are not pinned
 apps/desktop/src/renderer/src/a-streamed-batch-keeps-the-whole-answer.test.ts		waiting		
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts		waiting		

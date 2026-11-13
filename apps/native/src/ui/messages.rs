@@ -246,6 +246,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             ledger::Item::Tool { .. }
             | ledger::Item::Plan { .. }
             | ledger::Item::Thought { .. } => activity_item(item, p, s, conversation),
+            // A stopped run's receipt: what this turn's record says finished, was cut off, or never started.
+            ledger::Item::Note { level, text: body } if level.is_empty() && body == "Stopped" => {
+                let from = items[..index].iter().rposition(|i| matches!(i, ledger::Item::User(_))).map_or(0, |at| at + 1);
+                let teammate = selected_conversation(s).map(|(t, _)| t);
+                let runtime = teammate.and_then(|t| t.runtime.clone()).unwrap_or_default();
+                let folder = teammate.and_then(|t| t.folder.clone());
+                let summary = locust_core::cancellation::summary(&items[from..index], &runtime, folder.as_deref());
+                let last_stop = !items[index + 1..].iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"));
+                let by_person = last_stop && s.stopped_by_you.as_deref().is_some_and(|c| Some(c) == s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.as_deref()));
+                crate::cancellation_card::card(&summary, by_person, p)
+            }
             ledger::Item::Note { level, text: body } => text(if level.is_empty() {
                 body.clone()
             } else {
