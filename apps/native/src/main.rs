@@ -173,6 +173,8 @@ mod inspector_panel;
 mod instructions_card;
 #[path = "ui/setup_card.rs"]
 mod setup_card;
+#[path = "ui/tune_teammate.rs"]
+mod tune_teammate;
 #[path = "ui/benchmarks_panel.rs"]
 mod benchmarks_panel;
 #[path = "ui/compare_view.rs"]
@@ -1760,6 +1762,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= side_chat::poll(s);
     changed |= review_changes::poll(s, tx);
     changed |= compare_view::poll(s);
+    changed |= tune_teammate::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -2221,6 +2224,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     if let Some(setup) = setup_card::view(s, &p) {
         right = right.child(setup);
+    }
+    if let Some(tune_modal) = tune_teammate::view(s, &p) {
+        right = right.child(tune_modal);
     }
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);

@@ -39,14 +39,14 @@ apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts		waiting
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts		waiting		
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts		waiting		
 apps/desktop/src/main/a-column-answers-in-a-copy.test.ts		waiting		
-apps/desktop/src/main/a-column-can-be-tried-again.test.ts	compare-more	partial		the new answer in the failed column: `compare_window_tests::a_column_run_again_answers_again`; a column that could not start, the going-for-good rule and an unknown column are not pinned yet
+apps/desktop/src/main/a-column-can-be-tried-again.test.ts	compare-more	carried	a_column_run_again_answers_again,retry_clears_refusal_rejects_unknown_slot_and_compares_gone_with_checks_all_runs	`compare_window_tests::a_column_run_again_answers_again` + `compare::tests::retry_clears_refusal_rejects_unknown_slot_and_compares_gone_with_checks_all_runs` (all cases carried)
 apps/desktop/src/main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts	P8	does-not-apply		`main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts` | No candidate; store refusal words; disk holds only ordinary rules
 apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts		waiting		
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts		waiting		
 apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	compare	carried		`compare_copies::tests::a_compare_column_works_outside_the_folder`
 apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts	compare	carried		`compare_copies::tests::a_compare_root_follows_the_environment`
 apps/desktop/src/main/a-comparison-is-remembered.test.ts		waiting		
-apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	compare-more	partial		2 of 10: `compare::tests::keeps_column_instructions_through_restart_followup_and_retry`, `compare_reruns::tests::keeps_each_columns_instructions_when_whole_comparison_runs_again`; the instruction-trial drafting and validation cases come with Tune (row 54)
+apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	compare-more	carried	keeps_column_instructions_through_restart_followup_and_retry,column_instructions_and_skill_validation_rules,keeps_each_columns_instructions_when_whole_comparison_runs_again,brief_overrides_instructions_ignores_tune_lessons_and_remove_cleans_tune_stores	`compare::tests::{keeps_column_instructions_through_restart_followup_and_retry,column_instructions_and_skill_validation_rules}`, `compare_reruns::tests::keeps_each_columns_instructions_when_whole_comparison_runs_again`, `people::tests::brief_overrides_instructions_ignores_tune_lessons_and_remove_cleans_tune_stores` (all 10 cases carried)
 apps/desktop/src/main/a-comparison-runs-again.test.ts	compare-more	carried		`compare_reruns::tests::*` (11 unit tests) + `compare::tests::rerun_refusal_messages_match_electron`
 apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts		waiting		
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	CONNECTORS	carried	core/src/connector_reader_tests.rs	carried (13 Nov)
@@ -63,7 +63,7 @@ apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	P9	partia
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts		waiting		
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts		waiting		
 apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts		waiting		
-apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	compare-more	partial		keep writes and the folder outside the copy: `compare_copies::tests::a_compare_column_works_outside_the_folder`, `copy_diff_reads_git_and_plain_copies` and the window test; the refusals (own edits, a same-name file made meanwhile), git's line counting and the up-front refusal are not pinned here yet
+apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	tune	carried	refuses_bring_in_copy_over_own_edits_or_same_name_file_and_checks_lines_and_upfront_limit	`compare_copies::tests::*` + `compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go` (all cases carried)
 apps/desktop/src/main/a-credential-file-is-never-shown.test.ts		waiting		
 apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts		waiting		
 apps/desktop/src/main/a-cursor-mission-gives-its-connector-rules-back-when-it-ends.test.ts		waiting		
@@ -264,8 +264,8 @@ apps/desktop/src/main/a-text-box-shows-the-lines-it-asks-for.test.ts		waiting
 apps/desktop/src/main/a-text-box-takes-the-soft-focus.test.ts		waiting		
 apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	settings	carried	core/src/workspace_settings.rs	saved theme, Linux new-profile system default, resolved theme, window ground, CLI args
 apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts		waiting		
-apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts		waiting		
-apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts		waiting		
+apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts	tune	carried	tune_skills_validate_name_description_and_body,saves_replaces_same_name_caps_at_20_and_removes,tune_candidate_skill_is_handed_to_run_and_claude_and_wins_name_collision,column_instructions_and_skill_validation_rules,slot_instructions_override_brief_and_sealed_omits_candidate_skill	`tune::tests::tune_skills_validate_name_description_and_body`, `teammate_skills::tests::saves_replaces_same_name_caps_at_20_and_removes`, `skills::tests::tune_candidate_skill_is_handed_to_run_and_claude_and_wins_name_collision`, `compare::tests::column_instructions_and_skill_validation_rules`, `native::tests::slot_instructions_override_brief_and_sealed_omits_candidate_skill`
+apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts	tune	carried	measured_tune_prompt_carries_scores_runs_and_kept_marker	`tune::tests::measured_tune_prompt_carries_scores_runs_and_kept_marker`
 apps/desktop/src/main/a-turn-can-be-undone-without-git.test.ts	P7	does-not-apply	without_git_walk_skips_dot_folders_and_dependencies	`main/a-turn-can-be-undone-without-git.test.ts` | `without_git_walk_skips_dot_folders_and_dependencies` forces the no-git path; other byte/later-edit/oversize/record tests share its restore path. `fileAt`, stable plain state IDs, hold and g
 apps/desktop/src/main/a-turn-can-be-undone.test.ts	P7	does-not-apply	git_ignore_and_raw_bytes_never_run_filters_or_fsmonitor,later_edits_and_removals_are_left_alone,overlapping_turns_are_never_offered_or_undone,restores_bytes_edits_additions_and_deletions_once,too_large_files_named_never_deleted_by_undo	`main/a-turn-can-be-undone.test.ts` | `checkpoints::tests::{restores_bytes_edits_additions_and_deletions_once, later_edits_and_removals_are_left_alone, overlapping_turns_are_never_offered_or_undone, git_ignore_and_raw_bytes_never_run_filter
 apps/desktop/src/main/a-turn-is-committed-on-its-own-branch.test.ts		waiting		
@@ -355,12 +355,12 @@ apps/desktop/src/main/classes-are-styled.test.ts		waiting
 apps/desktop/src/main/claude-background-is-watched-not-run.test.ts		waiting		
 apps/desktop/src/main/cloud-task-service.test.ts		waiting		
 apps/desktop/src/main/cloud-tasks.test.ts		waiting		
-apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts		waiting		
+apps/desktop/src/main/codex-and-opencode-teammates-get-their-skills.test.ts	tune	partial	tune_skills_validate_name_description_and_body,tune_candidate_skill_is_handed_to_run_and_claude_and_wins_name_collision,saves_replaces_same_name_caps_at_20_and_removes	`skill_runtimes`, `tune::tests::tune_skills_validate_name_description_and_body`, `skills::tests::tune_candidate_skill_is_handed_to_run_and_claude_and_wins_name_collision`, `teammate_skills::tests::saves_replaces_same_name_caps_at_20_and_removes`; cloud-computer exclusion, symlink/case-disk copies, and OpenCode/Copilot/Antigravity config/CLI flag delivery wait on their adapters
 apps/desktop/src/main/codex-cloud-leaves-no-log.test.ts		waiting		
 apps/desktop/src/main/codex-mission.test.ts		waiting		
 apps/desktop/src/main/codex-usage-is-read-with-the-models.test.ts		waiting		
 apps/desktop/src/main/cold-start-is-not-an-alert.test.ts		waiting		
-apps/desktop/src/main/combining-a-tunes-two-edits.test.ts		waiting		
+apps/desktop/src/main/combining-a-tunes-two-edits.test.ts	tune	carried	combine_setups_and_parser_reject_duplicates_or_baseline,tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed	`tune::tests::combine_setups_and_parser_reject_duplicates_or_baseline` + `window_drive_tests::tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed`
 apps/desktop/src/main/command-length.test.ts		waiting		
 apps/desktop/src/main/command-record.test.ts		waiting		
 apps/desktop/src/main/composer-chords.test.ts		waiting		
@@ -372,7 +372,7 @@ apps/desktop/src/main/cursor-connector-allow.test.ts		waiting
 apps/desktop/src/main/cursor-rules-left-by-a-quit-are-taken-back.test.ts		waiting		
 apps/desktop/src/main/cursor-visibility.test.ts		waiting		
 apps/desktop/src/main/disk-observation.test.ts		waiting		
-apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts		waiting		
+apps/desktop/src/main/earlier-tunes-reach-only-the-next-tune.test.ts	tune	carried	earlier_lessons_reach_draft_prompt_only_when_given,parses_valid_and_vague_lessons_explicitly,a_lesson_reads_as_one_sentence,dedupes_by_compare_caps_at_20_and_removes_per_teammate,brief_overrides_instructions_ignores_tune_lessons_and_remove_cleans_tune_stores,tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it	`tune::tests::*`, `tune_lesson_store::tests::dedupes_by_compare_caps_at_20_and_removes_per_teammate`, `people::tests::brief_overrides_instructions_ignores_tune_lessons_and_remove_cleans_tune_stores`, `window_drive_tests::tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it`
 apps/desktop/src/main/edit-check.test.ts		waiting		
 apps/desktop/src/main/embedded-scripts-parse.test.ts		waiting		
 apps/desktop/src/main/escapes-survived-the-shell.test.ts		waiting		
@@ -848,10 +848,10 @@ apps/desktop/src/renderer/src/a-tidy-pass-is-answered-in-one-press.test.tsx		wai
 apps/desktop/src/renderer/src/a-tidy-suggestion-says-what-it-does.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-tool-call-written-as-text.test.ts		waiting		
 apps/desktop/src/renderer/src/a-trimmed-live-turn-says-so-on-screen.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-tune-can-give-a-claude-teammate-a-skill.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-tune-is-measured-on-screen.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-tune-names-its-setups.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-tune-can-give-a-claude-teammate-a-skill.test.tsx	tune	carried	kept_tune_offers_skill_for_claude_or_codex_and_notes_replacement,a_tune_can_give_a_claude_or_codex_teammate_a_skill_and_stashes_across_toggle	`compare_view::tests::kept_tune_offers_skill_for_claude_or_codex_and_notes_replacement` + `tune_teammate::tests::a_tune_can_give_a_claude_or_codex_teammate_a_skill_and_stashes_across_toggle`
+apps/desktop/src/renderer/src/a-tune-is-measured-on-screen.test.tsx	tune	carried	a_tune_names_its_setups	`compare_view::tests::a_tune_names_its_setups`
+apps/desktop/src/renderer/src/a-tune-names-its-setups.test.tsx	tune	carried	a_tune_names_its_setups	`compare_view::tests::a_tune_names_its_setups`
+apps/desktop/src/renderer/src/a-tune-says-when-a-setup-repeats.test.tsx	tune	carried	a_tune_says_when_a_setup_repeats,drafts_parser_handles_plain_and_skill_variants_and_repeats	`tune_teammate::tests::a_tune_says_when_a_setup_repeats` + `tune::tests::drafts_parser_handles_plain_and_skill_variants_and_repeats`
 apps/desktop/src/renderer/src/a-turn-says-what-it-changed-apart-from-the-folder.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-turn-sent-back-to-fix-is-said-as-locusts.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-turn-that-answered-in-a-block-is-not-silent.test.ts		waiting		
@@ -914,7 +914,7 @@ apps/desktop/src/renderer/src/codex-buddy-moves-on-his-own-rig.test.ts		waiting
 apps/desktop/src/renderer/src/codex-buddy-wears-a-screen.test.tsx		waiting		
 apps/desktop/src/renderer/src/codex-buddys-face-changes-as-a-screen-does.test.ts		waiting		
 apps/desktop/src/renderer/src/combine-queued.test.ts		waiting		
-apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx		waiting		
+apps/desktop/src/renderer/src/combining-a-tunes-two-edits.test.tsx	tune	carried	noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered,tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed	`compare_view::tests::noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered` + `window_drive_tests::tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed`
 apps/desktop/src/renderer/src/command-output.test.tsx		waiting		
 apps/desktop/src/renderer/src/command-rows.test.ts		waiting		
 apps/desktop/src/renderer/src/commands-and-paths-share-one-left-edge.test.tsx		waiting		
@@ -977,7 +977,7 @@ apps/desktop/src/renderer/src/mode-says-one-thing.test.ts		waiting
 apps/desktop/src/renderer/src/nested-lists.test.ts		waiting		
 apps/desktop/src/renderer/src/nobodys-conversation-can-be-a-routine.test.tsx	p11	waiting		`renderer/src/nobodys-conversation-can-be-a-routine.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/renderer/src/notes-on-a-diff-go-as-one-message.test.tsx	DIFF-NOTES	partial	core/src/diff_notes_tests.rs, window test a_note_on_a_changed_line	Partial: the pure cases carried; the outcome chips under the bubble wait for per-turn diffs
-apps/desktop/src/renderer/src/noting-what-a-tune-showed-is-explicit.test.tsx		waiting		
+apps/desktop/src/renderer/src/noting-what-a-tune-showed-is-explicit.test.tsx	tune	carried	noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered,tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it	`compare_view::tests::noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered` + `window_drive_tests::tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it`
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx		waiting		
 apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts		waiting		
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts		waiting		
@@ -1103,7 +1103,7 @@ apps/desktop/src/renderer/src/thought-folds-to-one-line.test.ts		waiting
 apps/desktop/src/renderer/src/three-judges-vote.test.tsx	compare	carried		`compare_score::tests::weighted_points_and_three_judges_vote` + `compare_window_tests::three_judges_score_the_answers_and_their_pick_is_marked`
 apps/desktop/src/renderer/src/tool-vocabulary.test.ts		waiting		
 apps/desktop/src/renderer/src/transcriptView.test.ts		waiting		
-apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx		waiting		
+apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.tsx	tune	carried	tuning_never_applies_instructions_by_itself,slash_tune_opens_drafts_two_setups_and_saves_nothing,drafts_parser_handles_plain_and_skill_variants_and_repeats	`tune_teammate::tests::tuning_never_applies_instructions_by_itself` + `window_drive_tests::slash_tune_opens_drafts_two_setups_and_saves_nothing` + `tune::tests::drafts_parser_handles_plain_and_skill_variants_and_repeats`
 apps/desktop/src/renderer/src/two-files-with-one-name-stay-two.test.ts		waiting		
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts		waiting		
 apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx		waiting		

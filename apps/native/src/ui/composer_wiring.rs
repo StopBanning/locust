@@ -198,7 +198,7 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
                 running: turn_running(s),
                 can_swarm: false,
                 issues: false,
-                tune: false,
+                tune: !s.teammates.is_empty(),
                 setup: true,
                 runtime_commands: &[],
             }),
@@ -212,7 +212,7 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
         running: turn_running(s),
         can_swarm: false,
         issues: crate::issue_list::offered(s),
-        tune: false,
+        tune: !s.teammates.is_empty(),
         setup: true,
         runtime_commands: &[],
     });
@@ -312,9 +312,12 @@ pub(super) fn run_slash_command(s: &mut State, command: &composer::SlashCommand)
             s.draft.clear();
             crate::issue_list::open_list(s);
         }
+        composer::SlashAction::Tune => {
+            s.draft.clear();
+            crate::tune_teammate::open_from_composer(s);
+        }
         composer::SlashAction::Route
-        | composer::SlashAction::Swarm
-        | composer::SlashAction::Tune => {
+        | composer::SlashAction::Swarm => {
             s.draft.clear();
             s.composer_note = Some(format!(
                 "/{name} — {detail}",
@@ -489,6 +492,18 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
     if typed.eq_ignore_ascii_case("/setup") {
         s.draft.clear();
         crate::setup_card::open_from_composer(s);
+        return;
+    }
+    let lower = typed.to_ascii_lowercase();
+    if lower == "/tune" || lower.starts_with("/tune ") {
+        let seed = typed.get(5..).map(str::trim).unwrap_or("").to_owned();
+        s.draft.clear();
+        crate::tune_teammate::open_from_composer(s);
+        if !seed.is_empty()
+            && let Some(card) = s.tune_card.as_mut()
+        {
+            card.ask.replace_text(seed);
+        }
         return;
     }
     if typed.is_empty() && s.attached.is_empty() {

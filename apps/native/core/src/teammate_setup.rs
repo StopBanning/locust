@@ -728,7 +728,7 @@ pub fn setup_sections(setup: &TeammateSetup, name: &str, runtime: &str) -> Vec<S
 /// High-level fresh reader for a teammate's setup from the native store and Electron's shared folders.
 pub fn read_teammate_setup(
     store: &Store,
-    electron_root: Option<&Path>,
+    _electron_root: Option<&Path>,
     home_dir: &Path,
     project_path: &Path,
     teammate_id: &str,
@@ -782,28 +782,14 @@ pub fn read_teammate_setup(
             .unwrap_or(0)
     };
 
-    let sources_skills = electron_root.map(|e| skills::sources_for(e, teammate_id));
-    let own_skills = sources_skills
-        .as_ref()
-        .map(|s| s.teammate_skills.clone())
-        .unwrap_or_default();
+    let sources_skills = skills::sources_for_store(store, teammate_id);
+    let own_skills = sources_skills.teammate_skills.clone();
     let library_folder = sources_skills
-        .as_ref()
-        .and_then(|s| s.library.clone())
+        .library
+        .clone()
         .unwrap_or_else(|| store.root().join("skill-library").join("skills"));
 
-    let lessons_path = store.root().join("tune-lessons.json");
-    let lessons = std::fs::read_to_string(&lessons_path)
-        .ok()
-        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-        .and_then(|v| {
-            v["lessons"].as_array().map(|arr| {
-                arr.iter()
-                    .filter(|l| l["teammateId"] == teammate_id)
-                    .count()
-            })
-        })
-        .unwrap_or(0);
+    let lessons = crate::tune_lesson_store::list(store, Some(teammate_id)).len();
 
     Ok(gather_teammate_setup(&SetupSources {
         teammate_id,
