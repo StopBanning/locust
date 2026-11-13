@@ -105,6 +105,7 @@ pub const LEFT_OUT: &[(&str, &str)] = &[
     ("claude-skills", "skills copied for runs in progress, made again for each run"),
     ("run-skills", "skills copied for Codex and OpenCode runs in progress, made again for each run"),
     ("checkpoints", "copies of your folders from before each turn, for Undo: they belong to the folders on this machine, and can hold files like .env"),
+    ("routine-copies", "the copies routines work in, and what their last runs changed there: they belong to the folders on this machine, and can hold files like .env (Electron keeps them outside its profile)"),
     ("queued-messages.json", "messages waiting to send from here: a restore never sends anything"),
     ("away.json", "what happened while this machine was away"),
     ("seen-version.json", "which version this machine last showed"),

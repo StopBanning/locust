@@ -216,6 +216,12 @@ fn messages(events: &[Value]) -> Vec<(String, String, bool, usize)> {
 
 pub use crate::protocol_tags::unwrap_protocol_tags;
 
+/// The turn's last FINAL assistant message, as written (the transcript tracker's `latestFinal`): what a routine's
+/// next teammate is handed, a checker's verdict is read from, and a decision block is looked for in.
+pub fn latest_final(turn: &Turn) -> Option<String> {
+    messages(&turn.events).into_iter().rev().find(|m| m.2).map(|m| m.1)
+}
+
 /// answerOf: a finished turn's answer, with warnings Locust gave after it, or Locust's words for why there is none.
 pub fn answer_of(turn: &Turn) -> ToolResult {
     match turn.phase() {

@@ -161,12 +161,12 @@ Native status evidence: each cell names its module or round notes; the engine is
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| Routine editor, schedules/days/one-off, pause and run history | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/RoutineDialog.tsx`, `main/routine-runner.ts`, `main/routine-store.ts` | **partial** — native-owned seeded shelf/editor, clock schedule validation/calculation, pause/resume and retained history; single-step native dispatch held for review; automatic scheduler, completion accounting, full history/recovery UI and remaining TS tests are not ported (p11-NOTES.md) | yes | no | yes |
-| Arriving-file routine trigger | `main/routine-file-watch.ts` | **missing** | - | no | yes |
+| Routine editor, schedules/days/one-off, pause and run history | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/RoutineDialog.tsx`, `main/routine-runner.ts`, `main/routine-store.ts` | **partial** — native-owned seeded shelf/editor, clock schedule validation/calculation, pause/resume and retained history; scheduler, completion accounting and recovery cards by the runner (ROUTINES-NOTES.md); input forms and remaining TS tests are not ported (p11-NOTES.md) | yes | no | yes |
+| Arriving-file routine trigger | `main/routine-file-watch.ts` | **done** — settled batches start one run, six an hour, a teammate's own files let go from Undo's records; window test (ROUTINES-NOTES.md) | yes | no | yes |
 | Private routine link hook | `main/routine-hooks.ts`, `shared/routine-hook.ts` | **missing** | - | no | yes |
 | Routine input forms, Markdown import/export and starter templates | `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineTemplates.tsx`, `main/routine-file.ts`, `main/routine-templates.ts` | **missing** | - | no | yes |
-| Routine copy-mode changes awaiting keep/discard | `renderer/src/components/RoutineChanges.tsx`, `main/routine-copy.ts` | **missing** | - | no | yes |
-| Routine retry-until-check, handoff steps and wait-for-OK gates | `renderer/src/components/RoutineRecovery.tsx`, `main/routine-recovery-ipc.ts`, `main/routine-runner.ts` | **missing** | - | no | yes |
+| Routine copy-mode changes awaiting keep/discard | `renderer/src/components/RoutineChanges.tsx`, `main/routine-copy.ts` | **done** — each run in a fresh copy in the native data folder; Keep refuses over the person's edits, Discard asks first; window test (ROUTINES-NOTES.md) | yes | no | yes |
+| Routine retry-until-check, handoff steps and wait-for-OK gates | `renderer/src/components/RoutineRecovery.tsx`, `main/routine-recovery-ipc.ts`, `main/routine-runner.ts` | **partial** — runner ported: checks, checker verdicts, busy and wait-for-OK holds, recovery cards; no OS or phone alert when a step waits for OK (ROUTINES-NOTES.md) | yes | no | yes |
 | Compare/Blind side-by-side answers and isolated changes | `renderer/src/components/CompareView.tsx`, `main/compare-store.ts`, `main/compare-copies.ts` | **missing** | - | no | yes |
 | Weighted/drafted rubric points and one/three blind judges | `renderer/src/components/CompareView.tsx`, `main/compare-judge.ts`, `shared/compare-score.ts` | **missing** | - | no | yes |
 | Per-column rerun, build/merge answers, keep copies and preview pages | `renderer/src/components/CompareView.tsx`, `main/compare-reruns.ts`, `main/compare-copies.ts` | **missing** | - | no | yes |
@@ -286,14 +286,14 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 5 | 5 | 13 | 8 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
-| 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 | 1 | 0 |
+| 9 | Routines, Compare & Benchmarks | 2 | 2 | 6 | 10 | 4 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 2 | 3 | 3 | 8 | 5 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **44** | **52** | **57** | **153** | **96** | **15** |
+| | **TOTAL** | **46** | **53** | **54** | **153** | **99** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

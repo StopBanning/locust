@@ -128,8 +128,7 @@ pub fn missed(
     }
 }
 /// A clock slot that passed while a run was still going (Electron `slotPassedDuring`).
-/// Kept under test until native completion reconciliation records it on run end.
-#[cfg(any(test, feature = "test-hooks"))]
+/// Recorded as missed when a run is counted (`routines::progress::record_run`).
 pub fn slot_passed_during(
     v: &Value,
     started: DateTime<Local>,
