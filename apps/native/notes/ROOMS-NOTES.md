@@ -63,3 +63,14 @@
 | Key invariant: no-bounce handoff guard | `TaskOp::Handoff` sender check | `bounce_cannot_hand_task_straight_back_to_sender`, `bounce_can_go_to_third_member_and_rule_follows_latest_hand`, `bounce_handed_by_persists_across_reread_from_disk` |
 | Key invariant: `recipients_of` normalized `to: None` | `recipients_of` (`asked.len() == teammate_ids.len()`) | `recipients_leaves_out_non_member_and_is_everyone_when_all_named` |
 | Key invariant: room cap agrees with live cap | `MAX_ROOM_TEAMMATES = native::MAX_LIVE_TURNS` | `room_limit_and_live_mission_cap_agree` |
+
+## Review (13 Nov)
+
+- Scripted review: mechanical checks pass (1482 tests, release build 0 warnings, window tests 3/3 three times).
+- The room screen keeps every `rooms.json`, transcript and post call in `Latest` jobs; a live room refreshes once a
+  second only while it is on screen. `room_notices` is an in-memory drain.
+- Four special cases had no test that failed when broken. Added one for each, and each now fails when its line is
+  broken: only the last four posts told (`tells_only_the_last_four_posts_of_the_room`), at most eight started per run
+  end (`queue_starts_no_more_than_eight_on_one_run_ending`), a member busy elsewhere is Busy not refused
+  (`a_member_busy_in_another_run_is_busy_not_refused`), and a removed teammate leaves its rooms
+  (`a_teammate_removed_from_the_team_leaves_its_rooms`).

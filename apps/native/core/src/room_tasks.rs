@@ -800,4 +800,16 @@ mod tests {
         assert_eq!(host.started.borrow().as_slice(), &["tm_booty"]);
         assert_eq!(host.ops_calls.borrow().len(), 1);
     }
+
+    /// Review (13 Nov): one run ending starts at most MAX_DRAIN_PER_RUN waiting members; the rest stay queued.
+    #[test]
+    fn queue_starts_no_more_than_eight_on_one_run_ending() {
+        let ids: Vec<String> = (0..10).map(|i| format!("tm_{i}")).collect();
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let room = make_room(&refs, vec![make_post("post_1", &[], &refs)]);
+        let host = FakeHost::new(vec![room]);
+        on_run_ended(&host, "m_outside");
+        assert_eq!(host.started.borrow().len(), MAX_DRAIN_PER_RUN);
+        assert_eq!(host.rooms.borrow()[0].posts[0].queued, vec!["tm_8", "tm_9"]);
+    }
 }

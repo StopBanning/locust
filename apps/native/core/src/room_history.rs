@@ -434,4 +434,19 @@ mod tests {
         assert!(!sec.contains("<locust-memory"));
         assert!(sec.contains("Done."));
     }
+
+    /// Review (13 Nov): only the last ROOM_HISTORY_POSTS posts are told, the oldest left out.
+    #[test]
+    fn tells_only_the_last_four_posts_of_the_room() {
+        let mut history = sample_history();
+        let one = history.posts[0].clone();
+        history.posts = (1..=6)
+            .map(|i| RoomHistoryPost { text: format!("Post number {i}."), ..one.clone() })
+            .collect();
+        let said = room_history_section(&history, "tm_wren", ROOM_HISTORY_BUDGET).unwrap();
+        assert!(!said.contains("Post number 1.") && !said.contains("Post number 2."), "{said}");
+        for i in 3..=6 {
+            assert!(said.contains(&format!("Post number {i}.")), "{said}");
+        }
+    }
 }

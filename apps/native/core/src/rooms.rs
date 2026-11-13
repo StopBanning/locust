@@ -485,3 +485,16 @@ pub fn on_run_ended(store: &Store, mission_id: &str) {
     let host = NativeRoomHost { store };
     room_tasks::on_run_ended(&host, mission_id);
 }
+
+#[cfg(test)]
+mod review_tests {
+    use super::*;
+
+    /// Review (13 Nov): a member already busy in another run is Busy (asked again later), not a refusal said in the room.
+    #[test]
+    fn a_member_busy_in_another_run_is_busy_not_refused() {
+        assert!(matches!(classify_send_error("Wren is already active in another run."), StartMemberOutcome::Busy));
+        assert!(matches!(classify_send_error("A turn is already running in this conversation."), StartMemberOutcome::Busy));
+        assert!(matches!(classify_send_error("Something else went wrong."), StartMemberOutcome::Refused { .. }));
+    }
+}

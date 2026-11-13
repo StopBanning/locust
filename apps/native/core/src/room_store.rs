@@ -2008,4 +2008,13 @@ mod tests {
     fn room_limit_and_live_mission_cap_agree() {
         assert!(MAX_ROOM_TEAMMATES <= crate::native::MAX_LIVE_TURNS);
     }
+
+    /// Review (13 Nov): removing a teammate from the team takes it out of its rooms too.
+    #[test]
+    fn a_teammate_removed_from_the_team_leaves_its_rooms() {
+        let t = TempStore::new("c-people");
+        let room = create(&t.store, "Both", &["tm_wren".into(), "tm_booty".into()]).unwrap();
+        crate::people::remove_teammate(&t.store, "tm_wren").unwrap();
+        assert_eq!(get(&t.store, &room.room_id).unwrap().unwrap().teammate_ids, vec!["tm_booty"]);
+    }
 }
