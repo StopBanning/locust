@@ -34,6 +34,8 @@ const RENDERER = fileURLToPath(new URL('../renderer/src/', import.meta.url))
  * parent. Each one was checked against the stylesheet when it was added here.
  */
 const REACHED_NOT_STYLED: ReadonlySet<string> = new Set([
+  // The app-started plug (0.874): drawn as every `lc-conv__routine` is, marked so a test can tell it from a routine's.
+  'lc-conv__app',
   // A drive's selector for the Automations screen body.
   'lc-automations',
   // A Board card that answers a request in place (0.835): drawn as every `lc-boardwait` is, marked so

@@ -357,3 +357,47 @@ export function ruleRefusalFor(request: Parameters<typeof ruledActionOf>[0]): st
   const reach = reachOfRequest(request)
   return reach === undefined ? undefined : `Not saved as a rule: this command ${reach.short}. ${reach.said} Locust asks each time.`
 }
+
+/**
+ * WHAT WOULD HAPPEN IF (0.874; the 13 Nov rival scan: CopilotKit's what-if page, where a refusal names its rule).
+ * A command a person types in Settings, tried against the saved rules, once for every place they speak to: any
+ * teammate anywhere, and each teammate and folder a rule is scoped to. It runs nothing; it is `decideByRules` asked
+ * the same question in each place, so what it says is what a card would do.
+ */
+export interface WhatIfLine {
+  readonly teammateId?: string
+  readonly folder?: string
+  readonly verdict: RuleVerdict
+}
+
+export function whatIf(command: string, rules: readonly ApprovalRule[]): readonly WhatIfLine[] {
+  const text = command.trim()
+  if (text.length === 0) return []
+  const places = new Map<string, RuleContext>([['', {}]])
+  for (const rule of rules) {
+    if (rule.kind !== 'command') continue
+    // A rule for any teammate anywhere speaks to the first place, already there.
+    if (rule.teammateId === undefined && rule.folder === undefined) continue
+    places.set(`${rule.teammateId ?? ''}\u0000${rule.folder ?? ''}`, {
+      ...(rule.teammateId === undefined ? {} : { teammateId: rule.teammateId }),
+      ...(rule.folder === undefined ? {} : { folder: rule.folder })
+    })
+  }
+  return [...places.values()].map((place) => ({
+    ...(place.teammateId === undefined ? {} : { teammateId: place.teammateId }),
+    ...(place.folder === undefined ? {} : { folder: place.folder }),
+    verdict: decideByRules({ kind: 'command', command: text }, rules, place)
+  }))
+}
+
+/** One place's answer, as a person reads it: who and where, what would happen, and the rule that decides. */
+export function whatIfSentence(line: WhatIfLine, teammateName?: string): string {
+  const who = line.teammateId === undefined ? 'Any teammate' : teammateName ?? 'This teammate'
+  const where = line.folder === undefined ? (line.teammateId === undefined ? ', anywhere' : '') : ` in ${slashes(line.folder).split('/').pop() ?? line.folder}`
+  const verdict = line.verdict
+  if (verdict.decision !== 'ask') {
+    const what = verdict.decision === 'allow' ? 'it runs without asking' : 'it is refused'
+    return `${who}${where}: ${what}, because of the rule “${ruleSentence(verdict.rule, teammateName)}”`
+  }
+  return `${who}${where}: it asks you first. ${verdict.why ?? 'No saved rule speaks to it.'}`
+}
