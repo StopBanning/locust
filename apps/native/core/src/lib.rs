@@ -17,6 +17,7 @@ pub mod command_guard;
 pub mod command_plain;
 pub mod command_reach;
 pub mod commit_draft;
+pub mod connector_reader;
 pub mod connectors_off;
 pub mod context_usage;
 pub mod door;

@@ -133,6 +133,7 @@ fn reload(s: &mut State) {
     }
     crate::agents_section::request(s);
     crate::github_section::request(s);
+    crate::connectors_section::request(s, false);
     crate::backup_section::reload(s);
     let folder = active_project_folder(s);
     crate::own_copies::reload(s, folder);
@@ -642,6 +643,8 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == "GitHub" {
                     body = body.child(crate::github_section::section(s, p));
+                } else if heading == "Connectors" {
+                    body = body.child(crate::connectors_section::section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }

@@ -45,6 +45,11 @@ fn account() -> Arc<Account> {
     ACCOUNT.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(|| Arc::new(Account::new(Arc::new(RealGh)))).clone()
 }
 
+/// Tests never run the real gh: without a fake of their own, the card asks nothing.
+fn may_ask() -> bool {
+    !cfg!(test) || ACCOUNT.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+}
+
 /// Tests answer for gh, brew and winget themselves.
 #[cfg(test)]
 pub(super) fn use_gh(gh: Arc<dyn locust_core::github_account::Gh>) {
@@ -53,7 +58,7 @@ pub(super) fn use_gh(gh: Arc<dyn locust_core::github_account::Gh>) {
 
 /// Ask the GitHub CLI who is signed in, and which version it is, off the window's thread.
 pub(super) fn request(s: &mut State) {
-    if s.github_job.is_pending() {
+    if s.github_job.is_pending() || !may_ask() {
         return;
     }
     s.github_job.request((), |()| {

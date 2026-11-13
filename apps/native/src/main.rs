@@ -153,6 +153,8 @@ mod changelog;
 mod changes_panel;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
+#[path = "ui/connectors_section.rs"]
+mod connectors_section;
 #[path = "ui/github_section.rs"]
 mod github_section;
 #[path = "ui/review_changes.rs"]
@@ -640,6 +642,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.changes_job.set_waker(waker.clone());
     s.review_job.set_waker(waker.clone());
     s.github_job.set_waker(waker.clone());
+    s.connectors_job.set_waker(waker.clone());
     s.commit_read_job.set_waker(waker.clone());
     s.commit_job.set_waker(waker.clone());
     s.commit_draft_job.set_waker(waker.clone());
@@ -1709,6 +1712,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= reference_chips::poll(s);
     changed |= agents_section::poll(s);
     changed |= github_section::poll(s);
+    changed |= connectors_section::poll(s);
     changed |= attention_watch::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);

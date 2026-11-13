@@ -3031,3 +3031,27 @@ fn quitting_asks_about_a_turn_started_outside_the_window() {
     assert_eq!(rt.state.quit_guard.message, "Codec is still working.");
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+/// ConnectorHealth (W8): Settings › Connectors lists what the person's Claude Code reaches, each state in words with
+/// what to do, and Copy report says so. The reader is the test's own: no Claude Code runs.
+#[test]
+fn connectors_list_their_states_in_words_and_copy_a_report() {
+    use locust_core::connector_reader::{Read, Reader};
+    crate::connectors_section::use_reader(std::sync::Arc::new(Reader::new(
+        Box::new(|_| Some(Read::Text("claude.ai Robinhood: https://agent.robinhood.com/mcp/trading - ✔ Connected\nclaude.ai Notion: https://mcp.notion.com/mcp - ! Needs authentication".into()))),
+        Box::new(|| chrono::Utc::now().timestamp_millis()),
+    )));
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("connectors");
+    });
+    pump(&mut rt, "the connectors read", |s| s.connectors.connectors.is_some());
+    settle(&mut rt);
+    let list = text_in(&rt, "connectors-health").join(" | ");
+    assert!(list.contains("CONNECTED") && list.contains("claude.ai Robinhood") && list.contains("agent.robinhood.com"), "{list}");
+    assert!(list.contains("NEEDS SIGN-IN") && list.contains("Run /mcp in Claude Code and sign in to claude.ai Notion."), "{list}");
+    assert!(!list.contains("/mcp/trading"), "a path leaked into the list: {list}");
+    click(&mut rt, "connectors-copy-report");
+    assert_eq!(rt.state.connectors.notice.as_deref(), Some("Report copied: names, states, timings and hosts only."));
+}

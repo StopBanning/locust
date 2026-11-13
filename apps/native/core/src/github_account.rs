@@ -462,7 +462,7 @@ fn real_gh_command() -> String {
     gh_command(RealGh.platform(), &path, std::env::var("ProgramFiles").ok().as_deref(), std::env::var("LOCALAPPDATA").ok().as_deref(), &|p| Path::new(p).exists())
 }
 
-fn run_bounded(command: &mut std::process::Command, limit: Duration) -> GhAnswer {
+pub(crate) fn run_bounded(command: &mut std::process::Command, limit: Duration) -> GhAnswer {
     use std::process::Stdio;
     let child = command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
     let mut child = match child {

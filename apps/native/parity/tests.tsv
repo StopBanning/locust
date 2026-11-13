@@ -49,7 +49,7 @@ apps/desktop/src/main/a-comparison-is-remembered.test.ts		waiting
 apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts		waiting		
 apps/desktop/src/main/a-comparison-runs-again.test.ts		waiting		
 apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts		waiting		
-apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts		waiting		
+apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	CONNECTORS	carried	core/src/connector_reader_tests.rs	carried (13 Nov)
 apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts		waiting		
 apps/desktop/src/main/a-connector-listing-takes-its-tree-with-it.test.ts		waiting		
 apps/desktop/src/main/a-control-icon-and-the-rail-footer-keep-their-size.test.ts		waiting		
@@ -121,7 +121,7 @@ apps/desktop/src/main/a-linux-terminal-is-the-one-the-desktop-has.test.ts	P9	doe
 apps/desktop/src/main/a-live-step-stays-in-its-column.test.ts		waiting		
 apps/desktop/src/main/a-locked-file-is-not-a-permission-problem.test.ts		waiting		
 apps/desktop/src/main/a-locust-comment-is-read-within-a-minute.test.ts		waiting		
-apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	settings	done	core/src/login_item.rs	packaged-only, Windows --background query, Mac no-query + requires-approval
+apps/desktop/src/main/a-login-item-registers-only-the-packaged-app.test.ts	settings	carried	core/src/login_item.rs	packaged-only, Windows --background query, Mac no-query + requires-approval
 apps/desktop/src/main/a-long-answer-is-not-too-much-to-record.test.ts		waiting		
 apps/desktop/src/main/a-long-antigravity-answer-comes-back-whole.test.ts		waiting		
 apps/desktop/src/main/a-long-command-does-not-stop-the-run.test.ts		waiting		
@@ -169,7 +169,7 @@ apps/desktop/src/main/a-phone-shows-an-answer-as-the-window-does.test.ts		waitin
 apps/desktop/src/main/a-plain-folder-is-watched-too.test.ts		waiting		
 apps/desktop/src/main/a-plan-that-runs-out-is-carried-on.test.ts		waiting		
 apps/desktop/src/main/a-planted-git-is-never-run.test.ts		waiting		
-apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts	settings	done	core/src/keep_awake.rs	standing AC-power hold + awake.json persistence
+apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts	settings	carried	core/src/keep_awake.rs	standing AC-power hold + awake.json persistence
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts		waiting		
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts		waiting		
@@ -196,7 +196,7 @@ apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts		waiting
 apps/desktop/src/main/a-reply-lines-up-with-the-box.test.ts		waiting		
 apps/desktop/src/main/a-reply-outside-an-exchange-lands-in-the-hub.test.ts		waiting		
 apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts		waiting		
-apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	settings	done	core/src/report_problem.rs	support mailto limit/fallback + uncut file report + secret scrubbing
+apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	settings	carried	core/src/report_problem.rs	support mailto limit/fallback + uncut file report + secret scrubbing
 apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts		waiting		
 apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts		waiting		
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts		waiting		
@@ -257,12 +257,12 @@ apps/desktop/src/main/a-teammate-suggests-a-line-for-about-you.test.ts	P6	does-n
 apps/desktop/src/main/a-teammates-key-reaches-only-its-runs.test.ts		waiting		
 apps/desktop/src/main/a-teammates-keys-are-kept-for-it-alone.test.ts		waiting		
 apps/desktop/src/main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts	P6	does-not-apply		`main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts` | Only the **scope/enabled/kept filtering subset** is covered, not relevance scoring.
-apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts	SETUP	done	teammate_setup::tests	`main/a-teammates-setup-is-read-fresh.test.ts` | Ported `last_turn_of`, `claude_code_setup_reads_each_layer_fresh`, `other_runtimes_and_codex_opencode_skills_match_electron`, `card_words_match_electron_in_order`, `skill_census_follows_symlinks_ignores_broken_and_stops_cycles` (group=None in high-level reader)
+apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts	SETUP	carried	teammate_setup::tests	`main/a-teammates-setup-is-read-fresh.test.ts` | Ported `last_turn_of`, `claude_code_setup_reads_each_layer_fresh`, `other_runtimes_and_codex_opencode_skills_match_electron`, `card_words_match_electron_in_order`, `skill_census_follows_symlinks_ignores_broken_and_stops_cycles` (group=None in high-level reader)
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	P9	partial		main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts | Partial: PTY printf output/ANSI/resize/exit; process-tree disposal implemented but fake lifecycle, policy, backpressure, unknown-worktree and late-spawn assertions remain
 apps/desktop/src/main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts	P9	does-not-apply		main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts | Electron IPC ownership/payload shape does not apply to in-process native handlers. Native path/refusal tests remain incomplete.
 apps/desktop/src/main/a-text-box-shows-the-lines-it-asks-for.test.ts		waiting		
 apps/desktop/src/main/a-text-box-takes-the-soft-focus.test.ts		waiting		
-apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	settings	done	core/src/workspace_settings.rs	saved theme, Linux new-profile system default, resolved theme, window ground, CLI args
+apps/desktop/src/main/a-theme-is-the-persons-choice.test.ts	settings	carried	core/src/workspace_settings.rs	saved theme, Linux new-profile system default, resolved theme, window ground, CLI args
 apps/desktop/src/main/a-tidy-pass-only-suggests.test.ts		waiting		
 apps/desktop/src/main/a-tune-can-give-a-claude-teammate-a-skill.test.ts		waiting		
 apps/desktop/src/main/a-tune-is-measured-before-one-is-kept.test.ts		waiting		
@@ -365,7 +365,7 @@ apps/desktop/src/main/command-length.test.ts		waiting
 apps/desktop/src/main/command-record.test.ts		waiting		
 apps/desktop/src/main/composer-chords.test.ts		waiting		
 apps/desktop/src/main/composer-keys.test.ts		waiting		
-apps/desktop/src/main/connector-reader.test.ts		waiting		
+apps/desktop/src/main/connector-reader.test.ts	CONNECTORS	carried	core/src/connector_reader_tests.rs	carried (13 Nov)
 apps/desktop/src/main/conversation-chain.test.ts		waiting		
 apps/desktop/src/main/css-tokens-exist.test.ts		waiting		
 apps/desktop/src/main/cursor-connector-allow.test.ts		waiting		
@@ -396,7 +396,7 @@ apps/desktop/src/main/home-spacing-matches-its-measure.test.ts		waiting
 apps/desktop/src/main/install-node-is-not-said-to-a-person-with-npm.test.ts		waiting		
 apps/desktop/src/main/installed-editors.test.ts		waiting		
 apps/desktop/src/main/judges-see-the-check.test.ts		waiting		
-apps/desktop/src/main/keep-awake.test.ts	settings	done	core/src/keep_awake.rs	single hold for live runs, dispose release, retry on failure
+apps/desktop/src/main/keep-awake.test.ts	settings	carried	core/src/keep_awake.rs	single hold for live runs, dispose release, retry on failure
 apps/desktop/src/main/leads-settled-2026-09-24.test.ts		waiting		
 apps/desktop/src/main/locust-counts-its-cloud-hours.test.ts		waiting		
 apps/desktop/src/main/locust-goes-into-the-claude-app-in-one-press.test.ts		waiting		
@@ -440,11 +440,11 @@ apps/desktop/src/main/qa-0365-concurrency.test.ts		waiting
 apps/desktop/src/main/qa-0365-fresh.test.ts		waiting		
 apps/desktop/src/main/qa-0365-rooms.test.ts		waiting		
 apps/desktop/src/main/question-answers.test.ts		waiting		
-apps/desktop/src/main/quit-guard.test.ts	settings	done	core/src/quit_guard.rs	should_ask_before_closing, hide_to_tray_on_close, close_question, CLOSE_BUTTONS, tray_line
+apps/desktop/src/main/quit-guard.test.ts	settings	carried	core/src/quit_guard.rs	should_ask_before_closing, hide_to_tray_on_close, close_question, CLOSE_BUTTONS, tray_line
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts		waiting		
 apps/desktop/src/main/relay-note-is-writable.test.ts		waiting		
 apps/desktop/src/main/relay.test.ts		waiting		
-apps/desktop/src/main/report-problem.test.ts	settings	done	core/src/report_problem.rs	GitHub URL, end-trimming, systemName/windowsName, secret scrubbing
+apps/desktop/src/main/report-problem.test.ts	settings	carried	core/src/report_problem.rs	GitHub URL, end-trimming, systemName/windowsName, secret scrubbing
 apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts		waiting		
 apps/desktop/src/main/retention.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/reveal-file.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
@@ -654,7 +654,7 @@ apps/desktop/src/renderer/src/a-comparison-starts-on-two-models.test.ts		waiting
 apps/desktop/src/renderer/src/a-comparison-that-edits-says-what-each-changed.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-connector-call-is-known-to-be-one.test.ts		waiting		
 apps/desktop/src/renderer/src/a-connector-can-be-added-to-every-agent.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts		waiting		
+apps/desktop/src/renderer/src/a-connector-says-what-to-do.test.ts	CONNECTORS	carried	core/src/connector_reader_tests.rs	carried (13 Nov)
 apps/desktop/src/renderer/src/a-context-menu-stays-in-the-window.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-control-says-it-works-on-the-computer.test.tsx	P9	does-not-apply		renderer/src/the-window-in-a-browser-says-what-stays.test.tsx, renderer/src/a-control-says-it-works-on-the-computer.test.tsx | Browser-host refusal/remote controls not applicable to native in-process window. Native policy presentation remai
 apps/desktop/src/renderer/src/a-conversation-can-be-pinned.test.tsx	P4	partial	a_conversation_can_be_pinned_order	`a-conversation-can-be-pinned.test.tsx` | `conversation_list::a_conversation_can_be_pinned_order` | Pinned newest-first, Recents rest, no sections when empty.
@@ -677,8 +677,8 @@ apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.
 apps/desktop/src/renderer/src/a-disabled-create-says-why.test.ts		waiting		
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts		waiting		
 apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	P7	waiting		`renderer/src/a-document-change-reads-as-words.test.ts` | All three tests remain unported: passages, whole-word cuts, Markdown-as-read handling. Document passage mode is not claimed.
-apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	SETUP	done	connectors_off::tests;window_drive_tests::a_send_with_the_connectors_off_says_so_first	`renderer/src/a-draft-naming-an-off-connector-says-so.test.ts` | Ported `connector_mentioned`, `connectors_off_hint`, and headless window test
-apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx	SETUP	done	connectors_off::tests::dropped_free_model_matches_electron_rules;window_drive_tests::a_dropped_free_model_is_said_before_the_send	`renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx` | Ported `dropped_free_model`, `free_start_model`, `opencode_model_display_name`, amber Home/Team card routes, and headless window test
+apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	SETUP	carried	connectors_off::tests;window_drive_tests::a_send_with_the_connectors_off_says_so_first	`renderer/src/a-draft-naming-an-off-connector-says-so.test.ts` | Ported `connector_mentioned`, `connectors_off_hint`, and headless window test
+apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx	SETUP	carried	connectors_off::tests::dropped_free_model_matches_electron_rules;window_drive_tests::a_dropped_free_model_is_said_before_the_send	`renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx` | Ported `dropped_free_model`, `free_start_model`, `opencode_model_display_name`, amber Home/Team card routes, and headless window test
 apps/desktop/src/renderer/src/a-face-at-rest-answers-you.test.ts		waiting		
 apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts		waiting		
 apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx		waiting		
@@ -737,7 +737,7 @@ apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	P7	waiting		`
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts		waiting		
 apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	TEAM-FILES	carried	core/src/routine_templates.rs, src/ui/routines_panel.rs	templates_line, template_meta, and empty shelf starter template list in Automations
-apps/desktop/src/renderer/src/a-new-teammate-interviews-you.test.tsx	SETUP	done	interview::tests;window_drive_tests::creating_a_teammate_runs_the_interview	`renderer/src/a-new-teammate-interviews-you.test.tsx` | Ported `interview_prompt`, `is_interview`, `instructions_block`, `instructions_refusal`, `defang_protocol_blocks`, and headless window test
+apps/desktop/src/renderer/src/a-new-teammate-interviews-you.test.tsx	SETUP	carried	interview::tests;window_drive_tests::creating_a_teammate_runs_the_interview	`renderer/src/a-new-teammate-interviews-you.test.tsx` | Ported `interview_prompt`, `is_interview`, `instructions_block`, `instructions_refusal`, `defang_protocol_blocks`, and headless window test
 apps/desktop/src/renderer/src/a-new-teammate-suggests-a-free-name.test.ts		waiting		
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-newer-away-look-is-offered-in-settings.test.tsx		waiting		
@@ -839,7 +839,7 @@ apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts		waiting		
 apps/desktop/src/renderer/src/a-teammates-eyes-say-what-it-is-doing.test.ts		waiting		
 apps/desktop/src/renderer/src/a-teammates-month-and-limit.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-teammates-setup-is-one-command-away.test.tsx	SETUP	done	teammate_setup::tests::card_words_match_electron_in_order;window_drive_tests::a_teammates_setup_opens_from_its_card	`renderer/src/a-teammates-setup-is-one-command-away.test.tsx` | Ported `setup_sections`, `/setup` command, teammate card Setup button, and headless window test
+apps/desktop/src/renderer/src/a-teammates-setup-is-one-command-away.test.tsx	SETUP	carried	teammate_setup::tests::card_words_match_electron_in_order;window_drive_tests::a_teammates_setup_opens_from_its_card	`renderer/src/a-teammates-setup-is-one-command-away.test.tsx` | Ported `setup_sections`, `/setup` command, teammate card Setup button, and headless window test
 apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts		waiting		
 apps/desktop/src/renderer/src/a-thought-line-opens-onto-its-words.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx		waiting		
@@ -939,7 +939,7 @@ apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx		waiting
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
 apps/desktop/src/renderer/src/exchange.test.ts		waiting		
 apps/desktop/src/renderer/src/faceState.test.ts		waiting		
-apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx	settings	done	src/ui/window_drive_tests.rs	report_shows_what_it_sends_and_sends_nothing_until_pressed + core/src/report_problem.rs
+apps/desktop/src/renderer/src/feedback-says-what-it-sends.test.tsx	settings	carried	src/ui/window_drive_tests.rs	report_shows_what_it_sends_and_sends_nothing_until_pressed + core/src/report_problem.rs
 apps/desktop/src/renderer/src/finishedToast.test.ts		waiting		
 apps/desktop/src/renderer/src/fold-tool-runs.test.ts		waiting		
 apps/desktop/src/renderer/src/follow-bottom.test.ts		waiting		
@@ -1089,7 +1089,7 @@ apps/desktop/src/renderer/src/the-screens-say-less.test.ts		waiting
 apps/desktop/src/renderer/src/the-talk-button-sits-beside-the-microphone.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-terminal-opens-before-the-first-message.test.tsx	P9	partial		renderer/src/the-terminal-opens-before-the-first-message.test.tsx | Partial: toggle before ledger exists; shortcut, accessibility and IPC chunk-boundary tests remain (native bytes stream directly to parser).
 apps/desktop/src/renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx	P9	waiting		renderer/src/the-terminal-turns-are-drawn-as-yours.test.tsx | TerminalDivider/ownership rendering unported.
-apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	settings	done	src/ui/window_drive_tests.rs	choosing_a_theme_is_kept_after_restart + core/src/workspace_settings.rs ledes
+apps/desktop/src/renderer/src/the-theme-control-says-what-it-chose.test.tsx	settings	carried	src/ui/window_drive_tests.rs	choosing_a_theme_is_kept_after_restart + core/src/workspace_settings.rs ledes
 apps/desktop/src/renderer/src/the-thinking-dots-never-jump.test.ts		waiting		
 apps/desktop/src/renderer/src/the-title-bar-is-a-macs-on-a-mac.test.tsx		waiting		
 apps/desktop/src/renderer/src/the-title-bar-says-what-needs-you.test.tsx		waiting		
@@ -1274,7 +1274,7 @@ packages/runtime-adapters/test/codex-app-server-run.test.ts	M1	partial		`scripts
 packages/runtime-adapters/test/codex-events.test.ts	M4-REVIEW	partial		`test/codex-events.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
 packages/runtime-adapters/test/codex-long-answer-keeps-its-length.test.ts	M4-REVIEW	partial		`test/codex-long-answer-keeps-its-length.test.ts` — Outside this review: Codex/Claude/app-server adapter tests belong to M1–M3; not rerouted to an M4 suite.
 packages/runtime-adapters/test/connector-allow-rules.test.ts	M4-REVIEW	waiting		`test/connector-allow-rules.test.ts` — Deferred: connector allow-rule assembly is not implemented in native.
-packages/runtime-adapters/test/connectors.test.ts	M4-REVIEW	waiting		`test/connectors.test.ts` — Deferred: runtime connector discovery is not ported in this runtime round.
+packages/runtime-adapters/test/connectors.test.ts	CONNECTORS	partial	core/src/connector_reader_tests.rs	Partial: the parser cases carried; toolPrefixFor and the allow rules wait for the Claude Code allow rules
 packages/runtime-adapters/test/copilot-effort-levels.test.ts	M4-REVIEW	waiting		`test/copilot-effort-levels.test.ts` — Deferred: native passes explicit effort; TS dynamic help-choice parser tests belong to discovery, not reproduced by these driver tests.
 packages/runtime-adapters/test/copilot-events.test.ts	M4-REVIEW	partial		`test/copilot-events.test.ts` — Partial → runtime/copilot_tests.rs: captured answers, edits, refusal, policy stderr and argument/dispatch tests; not every TS record-shape assertion has a matching Rust case.
 packages/runtime-adapters/test/copilots-new-records-are-not-news.test.ts	M4-REVIEW	waiting		`test/copilots-new-records-are-not-news.test.ts` — Deferred: ignored-record code exists, but a direct assertion for each added record type is not ported.
