@@ -2504,7 +2504,8 @@ except Exception:
 "#,
     )
     .unwrap();
-    *crate::invariants::lock(&hooks::STATE) = (Some(store.clone()), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
+    // Through the guard: it holds the lock every test that points the engine at a store takes.
+    let _g = hooks::install(store.clone(), Some((PathBuf::from("python3"), vec![fake.to_string_lossy().into_owned()])));
     let mate = Teammate {
         id: "tm_claude".into(),
         name: "Claude".into(),
