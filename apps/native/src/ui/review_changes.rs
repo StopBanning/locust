@@ -106,7 +106,13 @@ fn toggle(s: &mut State, _tx: &mut Tx) {
 
 fn ask(s: &mut State, what: Ask) {
     let Some(r) = &mut s.review else { return };
-    if !matches!(what, Ask::Read | Ask::Turn(_)) {
+    let reading = matches!(what, Ask::Read | Ask::Turn(_));
+    // The job keeps only the newest request: a read sent while a landing or a resolve is in flight would take its
+    // answer's place, and the window would never say what the press did. That answer reads the branch again itself.
+    if reading && r.working {
+        return;
+    }
+    if !reading {
         r.working = true;
     }
     let (folder, id, name) = (r.folder.clone(), r.teammate_id.clone(), r.name.clone());
@@ -231,6 +237,10 @@ pub(super) fn poll(s: &mut State, tx: &mut Tx) -> bool {
 }
 
 fn reread(s: &mut State) {
+    // A landing or resolve in flight reads the branch again when it answers.
+    if s.review.as_ref().is_some_and(|r| r.working) {
+        return;
+    }
     if let Some(r) = &mut s.review {
         r.showing = None;
         r.turn_text = None;
@@ -610,5 +620,36 @@ mod tests {
         assert_eq!(block_sentence(Some(&LandBlock::Merging), false, "Wren", None).unwrap(), "Wren's merge with your branch is not finished.");
         assert_eq!(block_sentence(None, false, "Wren", Some("main")), None);
         assert_eq!(landed_sentence("Wren", "main", "8ec6c8c1234", 1, false), "Landed on main as 8ec6c8c: 1 file, one commit of yours.");
+    }
+}
+
+#[cfg(test)]
+mod race_tests {
+    use super::*;
+
+    /// The job keeps only the newest request: a turn ending while a landing is in flight must not send a read that
+    /// would take the landing's answer's place.
+    #[test]
+    fn no_read_is_sent_while_a_landing_is_in_flight() {
+        let mut s = State::default();
+        s.review = Some(Review {
+            teammate_id: "tm_codec".into(),
+            name: "Codec".into(),
+            folder: std::env::temp_dir(),
+            review: None,
+            preview: Some(LandPreview { branch: "locust/codec".into(), onto: Some("main".into()), files: vec![], draft: String::new(), block: None }),
+            problem: None,
+            showing: None,
+            turn_text: None,
+            note: None,
+            editing: true,
+            message: TextEdit::default(),
+            working: true,
+            was_running: true,
+        });
+        reread(&mut s);
+        ask(&mut s, Ask::Turn("abc".into()));
+        assert!(!s.review_job.is_pending(), "a read was sent while the landing was in flight");
+        assert!(s.review.as_ref().unwrap().preview.is_some(), "the card was cleared under the landing");
     }
 }

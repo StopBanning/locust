@@ -50,7 +50,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Prompt rail, jump to bottom and timeline markers | `renderer/src/components/PromptRail.tsx`, `renderer/src/components/JumpToBottom.tsx`, `renderer/src/components/TimeMarker.tsx` | **done** — `src/ui/prompt_rail.rs`, `src/ui/jump_to_bottom.rs`, `src/ui/time_marker.rs`, `core/src/time_marker.rs`: the rail (from four of your messages, Ctrl+Option+Up/Down), the way down with the working dots, time markers after a two-minute quiet; Electron's four rail, way-down and clock tests carried over, two headless window tests; no compare view yet (notes/THREAD-RAIL-NOTES.md) | yes | no | no |
 | Selection ask and copied read-only side chat | `renderer/src/components/SelectionAsk.tsx`, `renderer/src/components/SideChat.tsx` | **partial** — Hydrogen: `core/src/side_question.rs` forks the conversation read-only (Claude `--fork-session`, Codex `thread/fork`, OpenCode 1 `/session/:id/fork`; OpenCode 2 a fresh briefed session), in a slot of its own, never in memory, the sidebar or a teammate's branch; `src/ui/side_chat.rs`: Ask about this quotes a selected part of a reply into the message box, Ask on the side opens the panel with approve, deny and stop; Electron's side-question tests carried over, a headless window test; question cards in the panel, /tune and Compare callers remain (notes/SIDE-CHAT-NOTES.md) | yes | no | yes |
 | Published-link cards and pinned page/tracker status controls | `renderer/src/components/PublishedCards.tsx`, `renderer/src/components/StatusChip.tsx`, `renderer/src/pinnedPages.ts` | **missing** | - | no | yes |
-| Reply route/provenance and recovery inspector | `renderer/src/components/Inspector.tsx` | **missing** | - | no | no |
+| Reply route/provenance and recovery inspector | `renderer/src/components/Inspector.tsx` | **partial** — Hydrogen: `core/src/inspector.rs` (what it may do for every agent, sandbox and account words, checkpoints, receipts, cost) and `src/ui/inspector_panel.rs` (the Activity icon, About this reply with Activity, Details, Artifacts and Receipt, a switcher for each turn); Electron's permissions-panel tests carried, a headless window test; the per-file reveal button remains (notes/TRASH-INSPECTOR-NOTES.md) | yes | no | no |
 
 ### Area 2: Composer & Input
 
@@ -189,7 +189,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Categorized Settings and project settings | `renderer/src/components/Screens.tsx`, `renderer/src/settingsPages.ts`, `main/workspace.ts` | **partial** — P10: 13 pages / 5 groups / search words exact; theme, sidebar layout, swarm, auto mode, memory mode, relay, native data folder take effect (seed-once); other controls show with `runs in Locust for now` | yes | no | yes |
 | Usage/cost across agents/models/accounts, plan meters and budgets | `renderer/src/components/UsageDialog.tsx`, `renderer/src/components/UsageLine.tsx`, `renderer/src/components/UsageMeters.tsx`, `shared/usage.ts`, `shared/spend.ts` | **partial** — P10: Usage dialog from native+Electron ledgers (read-only Electron); activity/models/plan meters/spend words; Home UsageLine chip and live send-time budget refusal still missing | yes | no | yes |
 | OS keychain/safeStorage and unlock note | `main/keychain.ts`, `renderer/src/components/KeychainNote.tsx` | **done** — P10: amber note + ask-gating without storing secrets; never reads or copies keychain items | yes | no | yes |
-| Retention and manifest-verified local profile backup/restore | `main/retention.ts`, `main/profile-backup.ts` | **partial** — Hydrogen: `core/src/profile_backup.rs` (every native file classified, carried or left out; manifest written last with sizes and SHA-256; preview and restore by one reader; refused for a missing manifest, a bad hash, a newer Locust or a live run; applied at the next start, holding engine.lock, with what it replaces moved aside), `core/src/retention.rs` (cutoff from the host clock, running turns and their earlier turns kept, native conversations only, moved to .trash); Settings › Privacy & data; Electron's tests carried, two headless window tests; the Trash list and the after-restore notice remain (notes/BACKUP-NOTES.md) | yes | no | yes |
+| Retention and manifest-verified local profile backup/restore | `main/retention.ts`, `main/profile-backup.ts` | **done** — Hydrogen: `core/src/profile_backup.rs` (every native file classified, carried or left out; manifest written last with sizes and SHA-256; preview and restore by one reader; refused for a missing manifest, a bad hash, a newer Locust or a live run; applied at the next start, holding engine.lock, with what it replaces moved aside), `core/src/retention.rs` (cutoff from the host clock, running turns and their earlier turns kept, native conversations only, moved to .trash); Settings › Privacy & data; Electron's tests carried, two headless window tests; the Trash (list, put back, empty, owners dropped only on empty, every turn of a conversation) and the after-restore notice (Hydrogen, notes/TRASH-INSPECTOR-NOTES.md) (notes/BACKUP-NOTES.md) | yes | no | yes |
 | Connector inventory, health and add to supported agents | `renderer/src/components/ConnectorHealth.tsx`, `renderer/src/components/AddConnector.tsx`, `main/connector-reader.ts`, `main/connector-add.ts` | **missing** | - | no | yes |
 | Feedback and private report export/send controls | `renderer/src/components/FeedbackDialog.tsx`, `main/report-problem.ts` | **missing** | - | no | yes |
 | Keyboard shortcut reference | `renderer/src/components/KeyboardSheet.tsx`, `renderer/src/keyboardShortcuts.ts` | **done** — P10: Electron words; native-bound unmarked; lacking rows marked `runs in Locust for now`; Mac Cmd/Option remap | yes | no | no |
@@ -278,7 +278,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 12 | 10 | 3 | 25 | 22 | 3 |
+| 1 | Conversations & Thread Rendering | 12 | 11 | 2 | 25 | 23 | 3 |
 | 2 | Composer & Input | 10 | 2 | 2 | 14 | 12 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
@@ -288,12 +288,12 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 | 1 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
-| 11 | Settings, Usage, Privacy & Backup | 2 | 3 | 3 | 8 | 5 | 0 |
+| 11 | Settings, Usage, Privacy & Backup | 3 | 2 | 3 | 8 | 5 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **44** | **52** | **57** | **153** | **96** | **15** |
+| | **TOTAL** | **45** | **52** | **56** | **153** | **97** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

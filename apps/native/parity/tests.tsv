@@ -983,7 +983,7 @@ apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts		waiting
 apps/desktop/src/renderer/src/one-fact-one-surface.test.ts		waiting		
 apps/desktop/src/renderer/src/only-the-face-you-talk-to-hops.test.tsx		waiting		
 apps/desktop/src/renderer/src/other-app-access-is-an-explicit-setting.test.tsx		waiting		
-apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx		waiting		
+apps/desktop/src/renderer/src/permissions-panel-is-true.test.tsx	TRASH-INSPECTOR	carried	core/src/trash.rs, core/src/inspector.rs tests	carried (Hydrogen; reviewed 13 Nov)
 apps/desktop/src/renderer/src/picker-empty-states.test.tsx		waiting		
 apps/desktop/src/renderer/src/plan-answer.test.tsx		waiting		
 apps/desktop/src/renderer/src/popular-skills-wait-for-keep.test.tsx		waiting		
@@ -1203,7 +1203,7 @@ apps/relay/test/scouts-away-look-leaves-letters.test.ts		does-not-apply		the rel
 packages/cli/test/an-editor-can-talk-to-a-locust-teammate.test.ts		waiting		
 packages/cli/test/the-command-talks-only-to-locust.test.ts		waiting		
 packages/mission-store/src/a-busy-file-does-not-end-a-run.test.ts		waiting		
-packages/mission-store/src/deleting-is-reversible.test.ts		waiting		
+packages/mission-store/src/deleting-is-reversible.test.ts	TRASH-INSPECTOR	carried	core/src/trash.rs, core/src/inspector.rs tests	carried (Hydrogen; reviewed 13 Nov)
 packages/mission-store/src/unreadable-count.test.ts		waiting		
 packages/mission-store/test/a-card-answered-is-kept-with-its-turn.test.ts		waiting		
 packages/mission-store/test/a-check-result-is-kept-with-its-turn.test.ts		waiting		
