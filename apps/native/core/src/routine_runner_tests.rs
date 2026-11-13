@@ -1143,6 +1143,26 @@ mod works_in_a_copy {
         ok(r.recover(&decide("rt_inbox", &e["attemptId"], &e["step"], Decision::Abandon)));
         assert!(!host.copies.as_ref().unwrap().path("rt_inbox").unwrap().exists());
     }
+
+    /// routine-runner.ts 499 and 507: a run marked abandoned counts as no run at all, so the next one is a fresh
+    /// attempt, with its own id and its own start time, never the abandoned one's.
+    #[test]
+    fn a_run_after_an_abandoned_one_is_a_fresh_attempt() {
+        let Set { mem, host, _dirs, .. } = set_up(true);
+        let r = runner(&mem, &host);
+        ok(r.run("rt_inbox", None));
+        host.phase("mission_1", Phase::Failed);
+        r.on_run_ended("mission_1").unwrap();
+        let before = mem.execution("rt_inbox");
+        ok(r.recover(&decide("rt_inbox", &before["attemptId"], &before["step"], Decision::Abandon)));
+        assert_eq!(mem.execution("rt_inbox")["status"], "abandoned");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        ok(r.run("rt_inbox", None));
+        let after = mem.execution("rt_inbox");
+        assert_ne!(after["attemptId"], before["attemptId"], "the abandoned attempt was carried on");
+        assert_ne!(after["startedAt"], before["startedAt"], "the abandoned start time was carried on");
+        assert_ne!(after["status"], "abandoned");
+    }
 }
 
 mod file_arriving {

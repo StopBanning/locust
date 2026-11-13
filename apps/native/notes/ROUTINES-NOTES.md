@@ -123,3 +123,13 @@ Window tests (`src/ui/window_drive_tests.rs`, each also passes alone):
 - **Who takes a step's role line, and template chains,** with the templates row.
 - **Open the copy** opens Finder with `open`. No test presses it: it would open a window.
 - **Not checked:** a live session with a real agent. Everything here ran on the fake agents in `scripts/fixtures/`.
+
+## Review (13 Nov)
+
+- `scripts/review-branch.py` passed: 975 tests, a clean release build, and the three window tests alone and together.
+- Break checks:
+  - Firing a batch without clearing it fails `runs_at_most_six_times_an_hour...`.
+  - The "abandoned starts fresh" rule (`start_step`, from `routine-runner.ts` 499 and 507) could be removed with all
+    103 routine tests still passing. `a_run_after_an_abandoned_one_is_a_fresh_attempt` now pins it, and it fails
+    without the rule.
+
