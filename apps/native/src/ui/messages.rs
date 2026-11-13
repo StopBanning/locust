@@ -139,7 +139,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 if hit {
                     bubble = bubble.border(1.5, p.amber);
                 }
-                row()
+                let bubble_row = row()
                     .w_full()
                     .justify_end()
                     .on_layout_tx(move |s: &mut State, r, tx| {
@@ -148,7 +148,16 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                             tx.live_only();
                         }
                     })
-                    .child(row().w_frac(0.7).justify_end().child(bubble))
+                    .child(row().w_frac(0.7).justify_end().child(bubble));
+                if let Some(chips) = pull_request_chip::link_chips_for_text(s, body, p) {
+                    col()
+                        .w_full()
+                        .gap(4.0)
+                        .child(bubble_row)
+                        .child(row().w_full().justify_end().child(chips))
+                } else {
+                    bubble_row
+                }
             }
             ledger::Item::Assistant {
                 item_id,
@@ -187,6 +196,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     .child(text(name).font(type_::LABEL).color(p.muted));
                 if !shown.is_empty() {
                     msg = msg.child(reply_actions::reply(s, &shown, !*r#final, p));
+                    if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
+                        msg = msg.child(chips);
+                    }
                 }
                 if let Some(files_el) = handed_files::view(s, &files, &refused, &scope, p) {
                     msg = msg.child(files_el);

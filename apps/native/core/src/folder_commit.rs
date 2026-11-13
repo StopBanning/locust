@@ -7,8 +7,9 @@
 //! never stops to ask in a terminal nobody can see.
 
 use std::{
+    collections::HashMap,
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::Mutex,
     time::{Duration, Instant},
@@ -383,10 +384,18 @@ fn same_files(left: &[String], right: &[String]) -> bool {
     a == b
 }
 
+struct CachedPullRequest {
+    at: Instant,
+    branch: String,
+    found: Option<crate::pull_requests::FolderPullRequest>,
+}
+
 pub struct FolderCommits {
     network: Box<dyn Network>,
     /// `gh auth status` for five minutes at a time: it reaches GitHub, and the panel asks often.
     signed_in: Mutex<Option<(Instant, bool)>>,
+    /// The last look at each folder's pull request, for a minute.
+    pull_requests: Mutex<HashMap<PathBuf, CachedPullRequest>>,
 }
 
 impl Default for FolderCommits {
@@ -397,7 +406,53 @@ impl Default for FolderCommits {
 
 impl FolderCommits {
     pub fn new(network: Box<dyn Network>) -> Self {
-        Self { network, signed_in: Mutex::new(None) }
+        Self {
+            network,
+            signed_in: Mutex::new(None),
+            pull_requests: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// The pull request for the branch the folder is on (`pull_requests.rs`), or `None`:
+    /// not a GitHub folder, `gh` not signed in, on the default branch, or no pull request for this branch.
+    pub fn pull_request(&self, folder: &Path) -> Option<crate::pull_requests::FolderPullRequest> {
+        let branch = git(folder, &["symbolic-ref", "--short", "-q", "HEAD"]).ok()?.trim().to_owned();
+        if branch.is_empty() || !safe_branch(&branch) {
+            return None;
+        }
+        {
+            let kept = crate::invariants::lock(&self.pull_requests);
+            if let Some(entry) = kept.get(folder)
+                && entry.branch == branch
+                && entry.at.elapsed() < Duration::from_millis(crate::pull_requests::PULL_REQUEST_CACHE_MS)
+            {
+                return entry.found.clone();
+            }
+        }
+        let remote = self.remote_of(folder, &branch);
+        let found = if remote.as_ref().is_some_and(|r| r.pull_requests && branch != r.default_branch) {
+            self.network
+                .run("gh", &strs(&["pr", "view", "--json", crate::pull_requests::PULL_REQUEST_FIELDS]), folder)
+                .ok()
+                .and_then(|json| crate::pull_requests::pull_request_of(&json))
+        } else {
+            None
+        };
+        crate::invariants::lock(&self.pull_requests).insert(
+            folder.to_path_buf(),
+            CachedPullRequest {
+                at: Instant::now(),
+                branch,
+                found: found.clone(),
+            },
+        );
+        found
+    }
+
+    /// After a sign-in in Settings, the next look asks `gh` again rather than its answer from before.
+    pub fn forget_sign_in(&self) {
+        *crate::invariants::lock(&self.signed_in) = None;
+        crate::invariants::lock(&self.pull_requests).clear();
     }
 
     fn gh_signed_in(&self, folder: &Path) -> bool {
@@ -642,6 +697,7 @@ impl FolderCommits {
             Ok(said) => {
                 // Electron: /https:\/\/\S+\/pull\/\d+/
                 let url = pull_request_url_of(&said);
+                crate::invariants::lock(&self.pull_requests).remove(folder);
                 done(Some(true), url, None)
             }
             Err(error) => done(Some(true), None, Some(format!("GitHub did not open the pull request: {}", or_no_reason(&error)))),

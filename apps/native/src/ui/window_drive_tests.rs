@@ -1263,3 +1263,114 @@ fn a_failing_check_shows_its_card_and_sends_back_to_fix() {
     assert!(msg_text.contains("Fixed notes.txt."), "{msg_text}");
     assert!(msg_text.contains("passed after fix 1."), "{msg_text}");
 }
+
+#[test]
+fn a_branch_pull_request_shows_its_chip_watches_and_shows_the_news_banner() {
+    use locust_core::folder_commit::{FolderCommits, Network};
+    use locust_core::pull_requests::PullLinkReader;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    struct FakeGh(AtomicUsize);
+    impl Network for FakeGh {
+        fn run(&self, program: &str, args: &[String], _cwd: &Path) -> Result<String, String> {
+            if program != "gh" {
+                return Err("unexpected program".into());
+            }
+            if args.first().map(String::as_str) == Some("auth") {
+                return Ok("Logged in".into());
+            }
+            if args.first().map(String::as_str) == Some("pr")
+                && args.get(1).map(String::as_str) == Some("view")
+            {
+                let call = self.0.fetch_add(1, Ordering::SeqCst);
+                let check = if call == 0 {
+                    json!({ "__typename": "CheckRun", "conclusion": "", "status": "IN_PROGRESS", "name": "CI" })
+                } else {
+                    json!({ "__typename": "CheckRun", "conclusion": "FAILURE", "status": "COMPLETED", "name": "CI" })
+                };
+                return Ok(json!({
+                    "isDraft": false,
+                    "number": 17,
+                    "reviewDecision": "",
+                    "state": "OPEN",
+                    "statusCheckRollup": [check],
+                    "title": "Fix the cart total",
+                    "url": "https://github.com/someone/pebble/pull/17"
+                })
+                .to_string());
+            }
+            Err("unexpected gh call".into())
+        }
+    }
+
+    let (dirs, _store, mut rt) = window();
+    let work = dirs.0.join("work");
+    let run_git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .current_dir(&work)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {:?} failed", args);
+    };
+    run_git(&["init", "-q", "-b", "main"]);
+    run_git(&["config", "user.email", "you@example.test"]);
+    run_git(&["config", "user.name", "You"]);
+    std::fs::write(work.join("cart.py"), "def total(): return 0\n").unwrap();
+    run_git(&["add", "."]);
+    run_git(&["commit", "-q", "-m", "first"]);
+    run_git(&["remote", "add", "origin", "https://github.com/someone/pebble.git"]);
+    run_git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    run_git(&["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+    run_git(&["checkout", "-q", "-b", "locust/fix-the-cart-total"]);
+
+    let fake_gh = Arc::new(FakeGh(AtomicUsize::new(0)));
+    rt.update(|s, _| {
+        s.pr.commits = Arc::new(FolderCommits::new(Box::new(FakeGh(AtomicUsize::new(0)))));
+        s.pr.link_reader = Arc::new(PullLinkReader::new(fake_gh.clone()));
+        s.pr.folder = None;
+        s.pr.record_opened_urls = true;
+    });
+
+    pump(&mut rt, "pull request chip in header", |s| {
+        s.pr.current.as_ref().is_some_and(|(_, pr)| pr.is_some())
+    });
+    settle(&mut rt);
+
+    assert!(rt.find("pr-chip").is_some(), "expected pr-chip in header");
+    let chip_words = text_in(&rt, "pr-chip").join(" ");
+    assert!(chip_words.contains("#17") && chip_words.contains("Open"), "{chip_words}");
+
+    click(&mut rt, "pr-watch-toggle");
+    assert!(text_in(&rt, "pr-watch-toggle").join(" ").contains("Watching"));
+
+    rt.update(|s, _| crate::pull_request_chip::watch_look_now(s));
+    pump(&mut rt, "pull request news banner", |s| s.pr.news.is_some());
+    settle(&mut rt);
+
+    assert!(rt.find("pr-news-banner").is_some(), "expected pr-news-banner");
+    let banner_words = text_in(&rt, "pr-news-banner").join(" ");
+    assert!(
+        banner_words.contains("Pull request #17: 1 of 1 checks did not pass."),
+        "{banner_words}"
+    );
+    assert!(banner_words.contains("Ask Codec to fix it"), "{banner_words}");
+
+    click(&mut rt, "pr-news-ask");
+    assert_eq!(
+        rt.state.draft.text,
+        "Pull request #17 (https://github.com/someone/pebble/pull/17): 1 of 1 checks did not pass. Look at what is wrong, fix it on this branch, and push the fix."
+    );
+
+    click(&mut rt, "pr-news-open");
+    assert_eq!(
+        rt.state.pr.opened_urls,
+        vec!["https://github.com/someone/pebble/pull/17"]
+    );
+
+    click(&mut rt, "pr-news-dismiss");
+    assert!(rt.find("pr-news-banner").is_none());
+}
