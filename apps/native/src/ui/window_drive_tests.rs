@@ -993,12 +993,13 @@ fn a_reply_suggests_tasks_as_cards_and_acts_on_do_it_here() {
     let msg_texts = text_in(&rt, "messages").join("\n");
     assert!(!msg_texts.contains("locust-next"), "{msg_texts}");
     assert!(msg_texts.contains("2 suggested tasks"), "{msg_texts}");
-    assert!(msg_texts.contains("Start all"), "{msg_texts}");
+    // No Start all: it would put tasks away that this window cannot start together (next_steps.rs).
+    assert!(!msg_texts.contains("Start all"), "{msg_texts}");
     assert!(msg_texts.contains("Clean the Linux cache too"), "{msg_texts}");
     assert!(msg_texts.contains("Tell people in What's new"), "{msg_texts}");
     assert!(msg_texts.contains("Do it here"), "{msg_texts}");
 
-    // Put away the second task: count drops to 1 and Start all disappears.
+    // Put away the second task: the count drops to 1.
     let away_key = rt
         .elements()
         .into_iter()
@@ -1007,7 +1008,6 @@ fn a_reply_suggests_tasks_as_cards_and_acts_on_do_it_here() {
     click(&mut rt, &away_key);
     let after_away = text_in(&rt, "messages").join("\n");
     assert!(after_away.contains("1 suggested task"), "{after_away}");
-    assert!(!after_away.contains("Start all"), "{after_away}");
 
     // Press "Do it here" on the remaining task and verify the next turn runs with its prompt.
     let here_key = rt

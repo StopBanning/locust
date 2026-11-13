@@ -1,5 +1,6 @@
 //! Suggested tasks under a reply (`NextSteps.tsx`).
-//! Drawn only once the message is finished, with Put away (×), Do it here, Start, and Start all.
+//! Drawn only once the message is finished, with Put away (×), Do it here and Start. Electron's Start all is left out
+//! until this window can start several turns at once.
 
 use super::*;
 use locust_core::protocol_tags::{self, NextStep};
@@ -30,7 +31,7 @@ pub(super) fn view(
         format!("{} suggested tasks", shown.len())
     };
 
-    let mut head = row()
+    let head = row()
         .w_full()
         .center_y()
         .gap(8.0)
@@ -40,30 +41,9 @@ pub(super) fn view(
                 .color(l.c("text-muted"))
                 .grow(1.0),
         );
-    if shown.len() > 1 {
-        let all_keys: Vec<String> = steps.iter().map(|st| gone_key(scope, st)).collect();
-        let first_step = shown[0].clone();
-        head = head.child(
-            text("Start all")
-                .font(l.ty.label)
-                .color(l.c("text-secondary"))
-                .hover(l.c("hover-surface"))
-                .px(6.0)
-                .py(2.0)
-                .radius(4.0)
-                .role("button")
-                .on_press_tx(move |s: &mut State, tx: &mut Tx| {
-                    for k in &all_keys {
-                        s.next_steps_gone.insert(k.clone());
-                    }
-                    fresh_conversation(s);
-                    s.draft
-                        .replace_text(protocol_tags::next_step_prompt(&first_step));
-                    submit_composer(s, tx, false);
-                }),
-        );
-    }
-
+    // No "Start all" yet: Electron starts each task in a conversation of its own at once, and this window runs one
+    // turn of its own at a time. Starting only the first while putting the rest away would lose them unstarted, so
+    // each task keeps its own Start until the window can start several.
     let mut box_col = col()
         .key(format!("next-steps-{scope}"))
         .w_full()

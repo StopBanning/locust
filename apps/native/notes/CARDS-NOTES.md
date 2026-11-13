@@ -24,7 +24,7 @@ A teammate's reply can carry `<locust-ask>`, `<locust-next>`, and `<locust-file>
 ## Judgement calls
 
 - **Decision focus handoff**: When a turn finishes with an active decision card and the composer draft is empty, `ledger_tick` clears `s.draft.focused` so pressing `1`..`4` immediately answers the decision (matching Electron's `DecisionCard.tsx` focus behaviour). Clicking the composer re-focuses `s.draft`, so digits typed into the composer go to the text box.
-- **`Start all` on suggested tasks**: Because the native window tracks one foreground `s.flight` / `s.sending` job at a time, pressing `"Start all"` marks all shown tasks as put away and starts the first task in a fresh conversation rather than launching multiple concurrent foreground flights.
+- **`Start all` on suggested tasks (changed in review)**: the native window runs one turn of its own at a time. The first version put every task away and started only the first, which would lose the rest unstarted. Start all is now left out; each task keeps its own Start until the window can start several turns at once.
 - **Handed-file copy/save-as buttons**: Electron's `HandedFiles` pill also includes a clipboard copy button and a "Save a copy…" download button alongside reveal. Native renders the reveal pill (and refusal status) and omits the secondary copy/save-as buttons for now.
 - **Standing check for "work already done is kept"**: `decision_standing` checks whether any `ledger::Item::Tool` in the latest turn has an edit/write/patch/fileChange tool name, rather than inspecting raw event payloads.
 
