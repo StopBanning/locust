@@ -695,7 +695,7 @@ apps/desktop/src/renderer/src/a-free-model-that-answered-comes-first.test.ts		wa
 apps/desktop/src/renderer/src/a-free-model-that-is-down-is-passed-over.test.ts		waiting		
 apps/desktop/src/renderer/src/a-free-model-that-is-down-offers-the-next.test.ts		waiting		
 apps/desktop/src/renderer/src/a-free-model-that-says-nothing-is-offered-another.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	P10	partial	core/src/compact_now_tests.rs; src/ui/window_drive_tests.rs compact_now_from_the_ring_sends_compact_and_keeps_the_box	offer rules, its words, the menu under the reading, the ring a button only where it can compact; not yet: a turn still starting, and the reading reset after a compaction
+apps/desktop/src/renderer/src/a-full-context-is-compacted-from-the-ring.test.tsx	P10	partial	core/src/compact_now_tests.rs; core/src/context_usage.rs; src/ui/window_drive_tests.rs compact_now_from_the_ring_sends_compact_and_keeps_the_box	offer rules, its words, the menu under the reading, the ring a button only where it can compact; after a compaction the reading is dropped and read again from the next turn that reports (context_usage::tests::compaction_is_a_line_and_invalidates_context); not yet: the ring while a turn is still starting, before it has a route of its own
 apps/desktop/src/renderer/src/a-growing-group-shows-its-rows.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts		waiting		
