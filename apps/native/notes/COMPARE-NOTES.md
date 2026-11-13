@@ -46,3 +46,13 @@ Port of Electron's Compare/Blind side-by-side answers, isolated changes, weighte
 - Build/merge answers and keep copies
 - Comparison page previews
 - Reusable benchmarks (`CompareBenchmark.tsx`, `BenchmarksScreen.tsx`)
+
+## Review (13 Nov)
+
+- `scripts/review-branch.py` passed: 1,118 tests and a clean release build. The three Compare window tests (in
+  `compare_window_tests.rs`, which the script does not pick up) pass alone and together three times.
+- **No compare run is sealed.** The brief said a blind column is sealed; that was the reviewer's mistake, not
+  Hydrogen's. Electron gives a column a slot with its folder, instructions and skill, and runs a judge and the rubric
+  draft in Ask with a slot of their own, none of them sealed (`index.ts` 7974, 8274, 8420). Only Scout's runs are
+  sealed. The engine keeps `SlotOrigin.sealed` for Scout, with what it leaves out so far written beside it.
+- The break check of "Auto carries over only when the column may change files" fails as the notes say.

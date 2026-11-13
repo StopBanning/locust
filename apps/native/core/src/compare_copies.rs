@@ -662,7 +662,7 @@ mod tests {
         let project = temp_dir("wt-proj");
         let elsewhere = temp_dir("wt-root");
         run_git_text(&["init", "-q", "-b", "main"], &project).unwrap();
-        run_git_text(&["config", "user.email", "smoke@locust.test"], &project).unwrap();
+        run_git_text(&["config", "user.email", "smoke@locust.test"], &project).unwrap(); // made-up test address; public-guard: allow
         run_git_text(&["config", "user.name", "Locust smoke"], &project).unwrap();
         fs::write(project.join("index.html"), "<h1>Todo</h1>\n").unwrap();
         run_git_text(&["add", "-A"], &project).unwrap();

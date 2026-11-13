@@ -482,7 +482,8 @@ pub(super) fn start_comparison(s: &mut State) {
                     key: slot_key,
                     cwd,
                     instructions: col.route.instructions.clone(),
-                    sealed: current.blind,
+                    // Electron gives a column a slot of its own and never seals it (index.ts 7974): a blind column still works.
+                    sealed: false,
                 }),
                 ..Default::default()
             },
@@ -730,7 +731,8 @@ pub(super) fn ask_judge(s: &mut State) {
                     key,
                     cwd: folder.clone(),
                     instructions: None,
-                    sealed: true,
+                    // Electron runs a judge and the rubric draft in Ask with a slot of their own, unsealed (index.ts 8274, 8420).
+                    sealed: false,
                 }),
                 ..Default::default()
             },
@@ -800,7 +802,8 @@ pub(super) fn draft_points(s: &mut State) {
                 key: format!("draft:{}", cmp.compare_id),
                 cwd: folder,
                 instructions: None,
-                sealed: true,
+                // Electron runs a judge and the rubric draft in Ask with a slot of their own, unsealed (index.ts 8274, 8420).
+                    sealed: false,
             }),
             ..Default::default()
         },

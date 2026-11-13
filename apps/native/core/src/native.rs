@@ -1177,6 +1177,9 @@ pub struct SlotOrigin {
     pub key: String,
     pub cwd: Option<PathBuf>,
     pub instructions: Option<String>,
+    /// Electron seals only Scout's runs (index.ts 8681, 10103): no brief, no skills, no browser here. Its full seal also
+    /// refuses every OpenCode tool and starts Codex with none (codexSealedThreadConfig); that part is not ported yet,
+    /// and nothing sets this until Scout is.
     pub sealed: bool,
 }
 
