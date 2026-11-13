@@ -95,6 +95,7 @@ pub struct CompareRoute {
     pub mode: Option<String>,
     pub instructions: Option<String>,
     pub why: Option<String>,
+    pub skill: Option<crate::tune::TuneSkill>,
 }
 
 impl CompareRoute {
@@ -108,6 +109,7 @@ impl CompareRoute {
             mode: None,
             instructions: None,
             why: None,
+            skill: None,
         }
     }
 
@@ -132,6 +134,9 @@ impl CompareRoute {
         }
         if let Some(v) = &self.why {
             obj.insert("why".into(), json!(v));
+        }
+        if let Some(sk) = &self.skill {
+            obj.insert("skill".into(), sk.to_json());
         }
         Value::Object(obj)
     }
@@ -164,6 +169,10 @@ impl CompareRoute {
             }
         };
         let why = text_field(obj.get("why"), 400);
+        let skill = obj
+            .get("skill")
+            .filter(|s| !s.is_null())
+            .and_then(crate::tune::tune_skill_of);
         Some(Self {
             runtime,
             model,
@@ -173,6 +182,7 @@ impl CompareRoute {
             mode,
             instructions,
             why,
+            skill,
         })
     }
 }
@@ -575,6 +585,70 @@ pub fn has_column_instructions(compare: &Compare) -> bool {
     compare.slots.iter().any(|s| s.route.instructions.is_some())
 }
 
+/// Resolves the instructions a comparison column uses for a turn (`compare-instructions.ts:columnInstructions`).
+/// `None` keeps the teammate's own standing instructions; `Some("")` removes them; `Some(text)` replaces them.
+pub fn column_instructions(own: Option<&str>, slot: Option<&str>) -> String {
+    match slot {
+        None => own.unwrap_or("").trim().to_owned(),
+        Some(s) => s.trim().to_owned(),
+    }
+}
+
+pub fn setup_name(slot: &CompareSlot) -> String {
+    slot.route
+        .label
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("Column {}", slot.slot.upper()))
+}
+
+pub fn compare_instructions_refusal(
+    teammate_id: Option<&str>,
+    routes: &[CompareRoute],
+) -> Option<String> {
+    let any_inst = routes.iter().any(|r| r.instructions.is_some());
+    if !any_inst {
+        return None;
+    }
+    if teammate_id.is_none() {
+        return Some("Choose a teammate and valid column instructions. Nothing was started.".into());
+    }
+    for route in routes {
+        if let Some(inst) = &route.instructions
+            && (inst.contains('\0') || inst.trim().chars().count() > 4_000)
+        {
+            return Some("Choose a teammate and valid column instructions. Nothing was started.".into());
+        }
+    }
+    None
+}
+
+pub fn compare_skill_refusal(routes: &[CompareRoute]) -> Option<String> {
+    for route in routes {
+        let Some(sk) = &route.skill else { continue };
+        if !crate::skill_runtimes::takes_skills(Some(&route.runtime)) {
+            return Some(format!(
+                "A skill reaches only a {} teammate for now. Nothing was started.",
+                crate::skill_runtimes::SKILL_RUNTIME_NAMES
+            ));
+        }
+        if route.instructions.is_none() {
+            return Some(
+                "A skill goes with a tune’s column, beside its instructions. Nothing was started."
+                    .into(),
+            );
+        }
+        if crate::tune::validate_tune_skill(sk).is_none() {
+            return Some(
+                "A skill goes with a tune’s column, whole and valid. Nothing was started.".into(),
+            );
+        }
+    }
+    None
+}
+
 pub const RERUN_TIMES: [usize; 2] = [1, 3];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -821,12 +895,11 @@ impl CompareStore {
 
     pub fn create(&self, input: CreateCompareInput) -> Result<Compare, String> {
         let prompt = input.prompt.trim().to_owned();
-        for route in &input.routes {
-            if let Some(inst) = &route.instructions
-                && (input.teammate_id.is_none() || inst.contains('\0') || inst.trim().chars().count() > 4_000)
-            {
-                return Err("Choose a teammate and valid column instructions. Nothing was started.".into());
-            }
+        if let Some(msg) = compare_instructions_refusal(input.teammate_id.as_deref(), &input.routes) {
+            return Err(msg);
+        }
+        if let Some(msg) = compare_skill_refusal(&input.routes) {
+            return Err(msg);
         }
         if prompt.is_empty() || prompt.len() > MAX_PROMPT {
             return Err("There is nothing to compare.".into());
@@ -1007,6 +1080,7 @@ impl CompareStore {
                 mode: None,
                 instructions: None,
                 why: None,
+                skill: None,
             };
             let members: Vec<JudgePanelMember> = panel
                 .into_iter()
@@ -1461,5 +1535,150 @@ mod tests {
             }]
         });
         assert!(parsed_compare_file(&bad.to_string()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn column_instructions_and_skill_validation_rules() {
+        // column_instructions: Some(text) replaces, Some("") leaves empty, None falls back to teammate's own.
+        assert_eq!(column_instructions(Some("Always reply concisely."), Some("Be thorough.")), "Be thorough.");
+        assert_eq!(column_instructions(Some("Always reply concisely."), Some("")), "");
+        assert_eq!(column_instructions(Some("  Always reply concisely. "), None), "Always reply concisely.");
+
+        let dir = temp_dir("inst-skill-valid");
+        let store = CompareStore::new(dir.clone(), None).unwrap();
+
+        // Over 4000 chars refused.
+        let mut r_long = CompareRoute::new("codex", "m");
+        r_long.instructions = Some("x".repeat(4001));
+        assert!(store.create(CreateCompareInput {
+            teammate_id: Some("tm_1".into()),
+            prompt: "Review".into(),
+            routes: vec![r_long, CompareRoute::new("codex", "m")],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        }).is_err());
+
+        // Compare without instructions works without a teammate.
+        assert!(store.create(CreateCompareInput {
+            teammate_id: None,
+            prompt: "Compare models".into(),
+            routes: vec![CompareRoute::new("codex", "m1"), CompareRoute::new("claude", "m2")],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        }).is_ok());
+
+        // Non-skill runtime carrying a skill is refused.
+        let sk = crate::tune::TuneSkill {
+            name: "concise-review".into(),
+            description: "When reviewing".into(),
+            body: "Check tests.".into(),
+        };
+        let mut bad_rt = CompareRoute::new("unknown-rt", "m");
+        bad_rt.instructions = Some("Base".into());
+        bad_rt.skill = Some(sk.clone());
+        let err_rt = store.create(CreateCompareInput {
+            teammate_id: Some("tm_1".into()),
+            prompt: "Review".into(),
+            routes: vec![bad_rt, { let mut r = CompareRoute::new("claude", "m"); r.instructions = Some("Base".into()); r }],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        }).unwrap_err();
+        assert!(err_rt.contains("teammate for now. Nothing was started."));
+
+        // Skill without instructions refused.
+        let mut no_inst = CompareRoute::new("claude", "m");
+        no_inst.skill = Some(sk.clone());
+        let err_inst = store.create(CreateCompareInput {
+            teammate_id: Some("tm_1".into()),
+            prompt: "Review".into(),
+            routes: vec![no_inst, CompareRoute::new("claude", "m")],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        }).unwrap_err();
+        assert!(err_inst.contains("beside its instructions. Nothing was started."));
+
+        // Invalid skill refused.
+        let mut bad_sk = CompareRoute::new("claude", "m");
+        bad_sk.instructions = Some("Base".into());
+        bad_sk.skill = Some(crate::tune::TuneSkill {
+            name: "Invalid Name".into(),
+            description: "When".into(),
+            body: "Body".into(),
+        });
+        let err_valid = store.create(CreateCompareInput {
+            teammate_id: Some("tm_1".into()),
+            prompt: "Review".into(),
+            routes: vec![bad_sk, { let mut r = CompareRoute::new("claude", "m"); r.instructions = Some("Base".into()); r }],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        }).unwrap_err();
+        assert!(err_valid.contains("whole and valid. Nothing was started."));
+
+        // Valid skill round-trips on create and reload.
+        let mut good_sk = CompareRoute::new("codex", "m");
+        good_sk.instructions = Some("Base".into());
+        good_sk.skill = Some(sk);
+        good_sk.label = Some("What it knows".into());
+        let created = store.create(CreateCompareInput {
+            teammate_id: Some("tm_1".into()),
+            prompt: "Review".into(),
+            routes: vec![good_sk, { let mut r = CompareRoute::new("codex", "m"); r.instructions = Some("Base".into()); r }],
+            changes: false,
+            changes_in: None,
+            blind: true,
+            base: None,
+            rerun_of: None,
+        }).unwrap();
+        let reloaded = CompareStore::new(dir.clone(), None).unwrap().get(&created.compare_id).unwrap().unwrap();
+        assert_eq!(reloaded.slots[0].route.skill.as_ref().unwrap().name, "concise-review");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn retry_clears_refusal_rejects_unknown_slot_and_compares_gone_with_checks_all_runs() {
+        let dir = temp_dir("retry-rules");
+        let store = CompareStore::new(dir.clone(), None).unwrap();
+        let cmp = store
+            .create(CreateCompareInput {
+                teammate_id: None,
+                prompt: "Ask".into(),
+                routes: vec![CompareRoute::new("codex", "m1"), CompareRoute::new("claude", "m2")],
+                changes: false,
+                changes_in: None,
+                blind: false,
+                base: None,
+                rerun_of: None,
+            })
+            .unwrap();
+        store.add_turn(&cmp.compare_id, CompareSlotId::A, "m_a").unwrap();
+        store.refuse(&cmp.compare_id, CompareSlotId::B, "rate limited").unwrap();
+        let retried = store.retry(&cmp.compare_id, CompareSlotId::B, "m_b").unwrap();
+        assert_eq!(retried.slots[1].refused, None);
+        assert_eq!(retried.slots[1].mission_ids, vec!["m_b"]);
+
+        let err = store.retry(&cmp.compare_id, CompareSlotId::C, "m_c").unwrap_err();
+        assert_eq!(err, "That comparison has no such column.");
+
+        // Deleting only one column's mission does NOT remove the comparison; deleting all removes it.
+        let one_gone: HashSet<String> = ["m_a".to_owned()].into_iter().collect();
+        assert!(compares_gone_with(std::slice::from_ref(&retried), &one_gone).is_empty());
+        let both_gone: HashSet<String> = ["m_a".to_owned(), "m_b".to_owned()].into_iter().collect();
+        assert_eq!(compares_gone_with(&[retried], &both_gone).len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

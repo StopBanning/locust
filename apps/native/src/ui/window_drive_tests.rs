@@ -3370,3 +3370,270 @@ fn another_account_is_added_signed_in_renamed_and_removed_from_settings() {
     assert!(!root.join("agent-accounts").join(&account.id).exists());
     let _ = std::fs::remove_dir_all(&root);
 }
+
+fn write_fake_tune_app_server(dir: &Path, prompt_log: &Path) -> Option<(PathBuf, Vec<String>)> {
+    let script = dir.join("fake-tune-app-server.py");
+    let py = r#"#!/usr/bin/env python3
+import json, os, sys
+log_path = sys.argv[1]
+def send(v):
+    print(json.dumps(dict(jsonrpc='2.0', **v)), flush=True)
+def notify(method, **params):
+    send(dict(method=method, params=dict(threadId='thread_fake', **params)))
+for line in sys.stdin:
+    msg = json.loads(line)
+    method = msg.get('method')
+    p = msg.get('params', {})
+    if method == 'initialize':
+        send(dict(id=msg['id'], result={}))
+    elif method == 'initialized':
+        pass
+    elif method == 'config/read':
+        send(dict(id=msg['id'], result={'config': {}}))
+    elif method == 'skills/extraRoots/set':
+        send(dict(id=msg['id'], result={}))
+    elif method == 'thread/start':
+        send(dict(id=msg['id'], result={'thread': {'id': 'thread_fake'}}))
+        notify('thread/started', thread={'id': 'thread_fake'})
+    elif method == 'turn/start':
+        prompt = p['input'][0]['text']
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'prompt': prompt}) + '\n')
+        send(dict(id=msg['id'], result={'turn': {'id': 'turn_fake'}}))
+        notify('turn/started', turn={'id': 'turn_fake'})
+        if 'helping tune a teammate' in prompt:
+            reply = json.dumps({
+                'summary': 'Tried workflow and knowledge edits.',
+                'work': {'instructions': 'Check tests first.', 'why': 'Catches regressions early.'},
+                'know': {'instructions': 'Quote file paths.', 'why': 'Helps verify edits.'}
+            })
+        elif 'Combine the kept tune edit' in prompt:
+            reply = json.dumps({
+                'instructions': 'Check tests first and quote file paths.',
+                'note': 'Merged workflow and knowledge.'
+            })
+        elif 'evaluating a side-by-side tune' in prompt:
+            import re
+            m = re.search(r'### Column ([ABC]) \(How it works\)', prompt)
+            kept_col = m.group(1) if m else 'A'
+            reply = json.dumps({
+                'confidence': 'certain',
+                'summary': 'Checking tests early helped.',
+                'kept': kept_col,
+                'outcomes': [
+                    {'column': kept_col, 'kind': 'instructions', 'label': 'How it works', 'verdict': 'helped', 'reason': 'Caught missing edge case'}
+                ],
+                'lesson': 'When editing core modules, check tests before replying.'
+            })
+        else:
+            reply = 'Done.'
+        notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
+        notify('item/completed', item={'id': 'answer', 'type': 'agentMessage', 'text': reply})
+        notify('turn/completed', turn={'id': 'turn_fake', 'status': 'completed'})
+"#;
+    std::fs::write(&script, py).unwrap();
+    Some((
+        PathBuf::from("python3"),
+        vec![
+            script.to_string_lossy().into(),
+            prompt_log.to_string_lossy().into(),
+        ],
+    ))
+}
+
+fn setup_tune_window() -> (Dirs, Store, Runtime<State>, PathBuf, native::hooks::Guard) {
+    let (dirs, store, mut rt) = window();
+    let work = dirs.0.join("work");
+    let log_path = dirs.0.join("prompts.jsonl");
+    let guard = native::hooks::install(
+        store.clone(),
+        write_fake_tune_app_server(&dirs.0, &log_path),
+    );
+    store
+        .save_json(
+            "teammates.json",
+            &serde_json::json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_codec",
+                    "name": "Codec",
+                    "hue": "blue",
+                    "role": "Code & Migrations",
+                    "folder": work.to_string_lossy(),
+                    "instructions": "Original saved instructions.",
+                    "createdAt": "2026-11-12T00:00:00.000Z",
+                    "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}
+                }],
+                "missionOwners": {},
+                "settings": {"folder": work.to_string_lossy()}
+            }),
+        )
+        .unwrap();
+    rt.update(|s, _| {
+        s.home.home_open = false;
+        s.home.folder_path = Some(work.to_string_lossy().into_owned());
+        s.selected = 0;
+        let team = native::parse_roster(&people::team(&store).unwrap().to_string()).unwrap();
+        apply_team(s, team);
+    });
+    settle(&mut rt);
+    (dirs, store, rt, log_path, guard)
+}
+
+fn run_tune_and_keep_how_it_works(rt: &mut Runtime<State>, store: &Store, ask: &str) {
+    type_and_send(rt, &format!("/tune {ask}"));
+    pump(rt, "tune drafts ready", |s| {
+        s.tune_card.as_ref().is_some_and(|c| !c.drafting)
+    });
+    click(rt, "tune-run-all");
+    let st_clone = store.clone();
+    pump(rt, "all 3 tune columns done", |s| {
+        let Some(ref cid) = s.compare.active_id else { return false };
+        let Ok(cs) = locust_core::compare::CompareStore::from_store(&st_clone) else { return false };
+        let Ok(Some(cmp)) = cs.get(cid) else { return false };
+        cmp.slots.len() == 3
+            && cmp.slots.iter().all(|slot| {
+                slot.mission_ids
+                    .last()
+                    .and_then(|mid| s.compare.snapshots.get(mid))
+                    .is_some_and(|snap| !snap.running)
+            })
+    });
+    let cid = rt.state.compare.active_id.clone().unwrap();
+    let cmp = locust_core::compare::CompareStore::from_store(store)
+        .unwrap()
+        .get(&cid)
+        .unwrap()
+        .unwrap();
+    let how_slot = cmp
+        .slots
+        .iter()
+        .find(|sl| sl.route.label.as_deref() == Some("How it works"))
+        .expect("How it works column")
+        .slot;
+    click(rt, &format!("compare-keep-{}", how_slot.as_str()));
+    pump(rt, "kept tune strip visible", |s| {
+        s.compare.compares.iter().any(|c| c.compare_id == cid && c.kept.is_some())
+    });
+}
+
+fn saved_codec_instructions(store: &Store) -> String {
+    let raw = std::fs::read_to_string(store.root().join("teammates.json")).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    v["teammates"][0]["instructions"]
+        .as_str()
+        .unwrap_or("")
+        .to_owned()
+}
+
+#[test]
+fn slash_tune_opens_drafts_two_setups_and_saves_nothing() {
+    let (_dirs, store, mut rt, _log, _guard) = setup_tune_window();
+    type_and_send(&mut rt, "/tune Check parser invariants");
+    pump(&mut rt, "tune drafts finished", |s| {
+        s.tune_card.as_ref().is_some_and(|c| !c.drafting)
+    });
+
+    let modal = text_in(&rt, "tune-modal").join(" | ");
+    assert!(modal.contains("Current"), "{modal}");
+    assert!(modal.contains("How it works"), "{modal}");
+    assert!(modal.contains("What it knows"), "{modal}");
+    let card = rt.state.tune_card.as_ref().expect("tune modal open");
+    assert_eq!(card.current_instructions, "Original saved instructions.");
+    assert_eq!(card.work_inst.text, "Check tests first.");
+    assert_eq!(card.know_inst.text, "Quote file paths.");
+
+    // Neither Current nor teammates.json was modified.
+    assert_eq!(saved_codec_instructions(&store), "Original saved instructions.");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed() {
+    let (_dirs, store, mut rt, _log, _guard) = setup_tune_window();
+    run_tune_and_keep_how_it_works(&mut rt, &store, "Check parser invariants");
+
+    // Keeping a column must not apply its instructions automatically.
+    assert_eq!(saved_codec_instructions(&store), "Original saved instructions.");
+
+    click(&mut rt, "tune-combine-edits");
+    pump(&mut rt, "combine turn finished", |s| {
+        s.compare.tune_combine_instructions.is_some()
+    });
+    assert_eq!(
+        rt.state.compare.tune_combine_instructions.as_deref(),
+        Some("Check tests first and quote file paths.")
+    );
+    let use_btn = text_in(&rt, "tune-use-instructions").join(" ");
+    assert!(use_btn.contains("Use the combined instructions for Codec"), "{use_btn}");
+
+    // Combined draft shown to review is still not saved until pressed.
+    assert_eq!(saved_codec_instructions(&store), "Original saved instructions.");
+
+    click(&mut rt, "tune-use-instructions");
+    settle(&mut rt);
+    assert_eq!(
+        saved_codec_instructions(&store),
+        "Check tests first and quote file paths."
+    );
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
+    let (_dirs, store, mut rt, log_path, _guard) = setup_tune_window();
+    run_tune_and_keep_how_it_works(&mut rt, &store, "Check parser invariants");
+
+    // While the kept run is still running, nothing is noted (review, 13 Nov).
+    rt.update(|s, _| {
+        let cmp = s.compare.compares.iter().find(|c| Some(&c.compare_id) == s.compare.active_id.as_ref()).cloned().unwrap();
+        let kept = cmp.kept.as_ref().unwrap().slot;
+        let tip = cmp.slots.iter().find(|c| c.slot == kept).and_then(|c| c.mission_ids.last()).cloned().unwrap();
+        s.compare.snapshots.get_mut(&tip).unwrap().running = true;
+        crate::compare_view::start_tune_note(s, &cmp);
+        assert_eq!(s.compare.tune_note_error.as_deref(), Some("Wait for the kept run to finish first. Nothing was started."));
+        s.compare.snapshots.get_mut(&tip).unwrap().running = false;
+        s.compare.tune_note_error = None;
+    });
+    assert!(locust_core::tune_lesson_store::list(&store, Some("tm_codec")).is_empty());
+
+    click(&mut rt, "tune-note-lesson");
+    pump(&mut rt, "tune lesson saved", |s| {
+        s.compare.tune_note_saved.is_some()
+    });
+
+    let lessons = locust_core::tune_lesson_store::list(&store, Some("tm_codec"));
+    assert_eq!(lessons.len(), 1);
+    assert_eq!(
+        lessons[0].lesson,
+        "When editing core modules, check tests before replying."
+    );
+    let saved_banner = text_in(&rt, "tune-saved-lesson").join(" ");
+    assert!(
+        saved_banner.contains("When editing core modules, check tests before replying."),
+        "{saved_banner}"
+    );
+
+    // Return to conversation: an ordinary turn never sees the tune lesson, while the next /tune draft prompt does.
+    click(&mut rt, "compare-back");
+    std::fs::write(&log_path, "").unwrap();
+    type_and_send(&mut rt, "Regular question");
+    pump(&mut rt, "ordinary turn done", |s| s.flight.is_none());
+    let ordinary_logged = std::fs::read_to_string(&log_path).unwrap();
+    assert!(
+        !ordinary_logged.contains("When editing core modules, check tests before replying."),
+        "ordinary turn must not receive tune lesson: {ordinary_logged}"
+    );
+
+    std::fs::write(&log_path, "").unwrap();
+    type_and_send(&mut rt, "/tune Tighten edge cases");
+    pump(&mut rt, "second tune draft done", |s| {
+        s.tune_card.as_ref().is_some_and(|c| !c.drafting)
+    });
+    let logged = std::fs::read_to_string(&log_path).unwrap();
+    assert!(
+        logged.contains("When editing core modules, check tests before replying."),
+        "next /tune draft prompt missing saved lesson: {logged}"
+    );
+    on_quit(&mut rt.state, &mut Tx::default());
+}

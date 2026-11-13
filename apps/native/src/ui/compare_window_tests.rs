@@ -274,6 +274,7 @@ fn three_judges_score_the_answers_and_their_pick_is_marked() {
         account: None,
         mode: None,
         why: None,
+        skill: None,
     };
     let panel = vec![
         locust_core::compare::JudgePanelMember {

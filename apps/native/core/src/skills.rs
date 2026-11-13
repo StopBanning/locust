@@ -152,6 +152,8 @@ pub struct Sources {
     pub teammate_folder: Option<PathBuf>,
     /// The names the teammate's record keeps; a folder's other skills are not its.
     pub teammate_skills: Vec<String>,
+    /// Optional candidate skill handed only to this run (e.g., a `/tune` column).
+    pub candidate: Option<crate::tune::TuneSkill>,
 }
 
 /// prepareClaudeSkills: the plugins a Claude Code run gets, in Electron's order. Empty when there are none.
@@ -173,7 +175,31 @@ pub fn prepare_claude(scratch: &Path, workspace: &Path, own_skills: bool, home: 
     {
         plugins.push(p);
     }
-    if let Some(folder) = &sources.teammate_folder
+    let valid_candidate = sources.candidate.as_ref().and_then(crate::tune::validate_tune_skill);
+    if let Some(cand) = valid_candidate {
+        let staged = base.join(".teammate-staged");
+        if std::fs::create_dir_all(&staged).is_ok() {
+            if let Some(folder) = &sources.teammate_folder {
+                for name in &sources.teammate_skills {
+                    if name == &cand.name {
+                        continue;
+                    }
+                    let src = folder.join(name);
+                    if src.is_dir() {
+                        let _ = copy_dir(&src, &staged.join(name));
+                    }
+                }
+            }
+            let cand_dir = staged.join(&cand.name);
+            if std::fs::create_dir_all(&cand_dir).is_ok() {
+                let _ = std::fs::write(cand_dir.join(SKILL_FILE), crate::tune::skill_markdown(&cand));
+            }
+            if let Some(p) = build_plugin(&base, "teammate", Some(&staged), None) {
+                plugins.push(p);
+            }
+            let _ = std::fs::remove_dir_all(&staged);
+        }
+    } else if let Some(folder) = &sources.teammate_folder
         && let Some(p) = build_plugin(&base, "teammate", Some(folder), Some(&sources.teammate_skills))
     {
         plugins.push(p);
@@ -192,9 +218,9 @@ pub struct RunSkills {
     pub skills: Vec<String>,
 }
 
-/// prepareRunSkills: the teammate's own skills, then the library's, a name already taken (by folder or by the name its
-/// front matter gives) dropped; with the manifests Copilot and Cursor read and the copy Antigravity reads. None when
-/// there are none.
+/// prepareRunSkills: candidate skill (when tuning), then the teammate's own skills, then the library's, a name already
+/// taken (by folder or by the name its front matter gives) dropped; with the manifests Copilot and Cursor read and the
+/// copy Antigravity reads. None when there are none.
 pub fn prepare_run(scratch: &Path, sources: &Sources) -> Option<RunSkills> {
     let dir = fresh(scratch);
     let skills_dir = dir.join("skills");
@@ -205,6 +231,16 @@ pub fn prepare_run(scratch: &Path, sources: &Sources) -> Option<RunSkills> {
     let mut taken: Vec<String> = Vec::new();
     let mut names: HashSet<String> = HashSet::new();
     let mut destinations: HashSet<String> = HashSet::new();
+    if let Some(cand) = sources.candidate.as_ref().and_then(crate::tune::validate_tune_skill) {
+        let dst = skills_dir.join(&cand.name);
+        if std::fs::create_dir_all(&dst).is_ok()
+            && std::fs::write(dst.join(SKILL_FILE), crate::tune::skill_markdown(&cand)).is_ok()
+        {
+            taken.push(cand.name.clone());
+            destinations.insert(key(&cand.name));
+            names.insert(key(&cand.name));
+        }
+    }
     let mut copy = |from: Option<&Path>, only: Option<&[String]>| {
         let Some(from) = from else { return };
         for name in skill_folders_in(from) {
@@ -260,6 +296,32 @@ pub fn sources_for(electron: &Path, teammate: &str) -> Sources {
         library: library.is_dir().then_some(library),
         teammate_folder: (!names.is_empty()).then(|| root.join(teammate)),
         teammate_skills: names,
+        candidate: None,
+    }
+}
+
+/// Native-first skill sources for a teammate: reads native `teammate-skills` before Electron's read-only store.
+pub fn sources_for_store(store: &crate::store::Store, teammate: &str) -> Sources {
+    let names = crate::teammate_skills::skill_names_for(store, teammate);
+    let teammate_folder = if names.is_empty() {
+        None
+    } else {
+        crate::teammate_skills::folder_of(store, teammate)
+    };
+    let native_lib = store.root().join("skill-library").join("skills");
+    let electron_lib = store.electron().join("skill-library").join("skills");
+    let library = if native_lib.is_dir() {
+        Some(native_lib)
+    } else if electron_lib.is_dir() {
+        Some(electron_lib)
+    } else {
+        None
+    };
+    Sources {
+        library,
+        teammate_folder,
+        teammate_skills: names,
+        candidate: None,
     }
 }
 
@@ -305,12 +367,47 @@ mod tests {
         skill(&library, "deploy", "deploy");
         skill(&library, "renamed", "deploy");
         std::fs::create_dir_all(library.join("not-a-skill")).unwrap();
-        let sources = Sources { library: Some(library), teammate_folder: Some(mate), teammate_skills: vec!["review".into()] };
+        let sources = Sources { library: Some(library), teammate_folder: Some(mate), teammate_skills: vec!["review".into()], candidate: None };
         let run = prepare_run(&d.join("scratch"), &sources).unwrap();
         assert_eq!(run.skills, ["review", "deploy"], "the teammate's listed skill first, the library's after, a repeat name dropped");
         assert!(run.dir.join(".plugin/plugin.json").is_file() && run.dir.join(".cursor-plugin/plugin.json").is_file());
         assert!(run.dir.join(".agents/skills/deploy/SKILL.md").is_file());
         assert_eq!(prepare_run(&d.join("scratch"), &Sources::default()), None);
+    }
+
+    #[test]
+    fn tune_candidate_skill_is_handed_to_run_and_claude_and_wins_name_collision() {
+        let d = temp();
+        let mate = d.join("mate");
+        skill(&mate, "review", "review");
+        let cand = crate::tune::TuneSkill {
+            name: "review".into(),
+            description: "Candidate review rule".into(),
+            body: "Check candidate rule first.".into(),
+        };
+        let sources = Sources {
+            library: None,
+            teammate_folder: Some(mate.clone()),
+            teammate_skills: vec!["review".into()],
+            candidate: Some(cand.clone()),
+        };
+
+        let run = prepare_run(&d.join("scratch"), &sources).unwrap();
+        assert_eq!(run.skills, ["review"]);
+        let run_md = std::fs::read_to_string(run.skills_dir.join("review/SKILL.md")).unwrap();
+        assert!(run_md.contains("Check candidate rule first."));
+
+        let claude = prepare_claude(&d.join("cscratch"), &d.join("work"), false, None, false, &sources);
+        assert_eq!(claude.len(), 1);
+        assert_eq!(claude[0].name, "teammate");
+        assert_eq!(claude[0].skills, ["teammate:review"]);
+        let claude_md = std::fs::read_to_string(claude[0].dir.join("skills/review/SKILL.md")).unwrap();
+        assert!(claude_md.contains("Check candidate rule first."));
+
+        // Candidate alone without teammate folder still produces both run dir and Claude teammate plugin.
+        let alone = Sources { candidate: Some(cand), ..Sources::default() };
+        assert_eq!(prepare_run(&d.join("scratch2"), &alone).unwrap().skills, ["review"]);
+        assert_eq!(prepare_claude(&d.join("cscratch2"), &d.join("work"), false, None, false, &alone)[0].skills, ["teammate:review"]);
     }
 
     #[test]

@@ -1065,4 +1065,61 @@ mod worktree_keep_tests {
         assert_eq!(tree_changes_of("3\t1\tcart.py\n-\t-\tlogo.png\n1\t0\tnotes.md\n"), (3, 4, 1));
         assert_eq!(tree_changes_of(""), (0, 0, 0));
     }
+
+    #[test]
+    fn refuses_bring_in_copy_over_own_edits_or_same_name_file_and_checks_lines_and_upfront_limit() {
+        let mk = |name: &str| {
+            let d = std::env::temp_dir().join(format!(
+                "locust-cmp-more-{name}-{}-{}",
+                std::process::id(),
+                crate::invariants::unique_nanos()
+            ));
+            fs::create_dir_all(&d).unwrap();
+            d
+        };
+        // 1) Refusal over the person's own edits in plain copy
+        let folder = mk("own-edits-src");
+        let root = mk("own-edits-root");
+        fs::write(folder.join("page.html"), "<h1>before</h1>\n").unwrap();
+        let copy = make_compare_copy(&folder, "cmp_own1", CompareSlotId::A, &root, None).unwrap();
+        fs::write(copy.join("page.html"), "<h1>from-copy</h1>\n").unwrap();
+        fs::write(folder.join("page.html"), "<h1>person-edited</h1>\n").unwrap();
+        assert_eq!(
+            bring_in_copy(&folder, "cmp_own1", CompareSlotId::A, &root).unwrap(),
+            BringIn::YourChanges(vec!["page.html".into()])
+        );
+        assert_eq!(fs::read_to_string(folder.join("page.html")).unwrap(), "<h1>person-edited</h1>\n");
+
+        // 2) Refusal when a same-name file was created in source meanwhile
+        fs::write(copy.join("added.txt"), "copy added\n").unwrap();
+        fs::write(folder.join("added.txt"), "person added meanwhile\n").unwrap();
+        assert_eq!(
+            bring_in_copy(&folder, "cmp_own1", CompareSlotId::A, &root).unwrap(),
+            BringIn::YourChanges(vec!["added.txt".into(), "page.html".into()])
+        );
+
+        // 3) Git line counting via copy_line_changes
+        let line_src = mk("line-src");
+        let line_root = mk("line-root");
+        fs::write(line_src.join("notes.txt"), "one\ntwo\n").unwrap();
+        let line_copy = make_compare_copy(&line_src, "cmp_lines1", CompareSlotId::A, &line_root, None).unwrap();
+        fs::write(line_copy.join("notes.txt"), "one\ntwo\nthree\n").unwrap();
+        fs::write(line_copy.join("brand_new.txt"), "alpha\nbeta\n").unwrap();
+        let (files, added, removed) = copy_line_changes(&line_src, "cmp_lines1", CompareSlotId::A, &line_root).unwrap();
+        assert_eq!(files, 2);
+        assert_eq!(added, Some(3));
+        assert_eq!(removed, Some(0));
+
+        // 4) Up-front refusal when source exceeds copy limit
+        let tight = Limits { files: 1, bytes: 1_000_000 };
+        assert_eq!(copy_refusal(&line_src, Some(tight)), None);
+        fs::write(line_src.join("second.txt"), "more\n").unwrap();
+        let refusal = copy_refusal(&line_src, Some(tight));
+        assert!(refusal.as_deref().is_some_and(|s| s.contains("too big to give each model its own copy")));
+
+        let _ = fs::remove_dir_all(&folder);
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&line_src);
+        let _ = fs::remove_dir_all(&line_root);
+    }
 }

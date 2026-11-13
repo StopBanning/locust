@@ -86,14 +86,18 @@ pub mod secrets;
 pub mod session_import;
 pub mod shell_path;
 pub mod side_question;
+pub mod skill_runtimes;
 pub mod skills;
 pub mod spend;
 pub mod store;
 pub mod team_card;
 pub mod teammate_setup;
+pub mod teammate_skills;
 pub mod terminal;
 pub mod time_marker;
 pub mod trash;
+pub mod tune;
+pub mod tune_lesson_store;
 #[cfg(any(test, feature = "test-hooks"))]
 pub mod test_isolation;
 pub mod usage;

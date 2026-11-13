@@ -5,7 +5,7 @@ pub(super) fn color(value: &str) -> Color {
     rune::color::hex(value).expect("valid Locust colour")
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum StatusTone {
     Muted,
     Green,
@@ -327,6 +327,7 @@ pub(super) struct State {
     pub(super) dropped_problem: Option<(String, String)>,
     pub(super) setup_card: Option<crate::setup_card::SetupCard>,
     pub(super) instructions_card: crate::instructions_card::InstructionsCardState,
+    pub(super) tune_card: Option<crate::tune_teammate::TuneCardState>,
     pub(super) compare: crate::compare_view::CompareState,
     pub(super) benchmarks_open: bool,
 }
@@ -512,6 +513,7 @@ impl Default for State {
             dropped_problem: None,
             setup_card: None,
             instructions_card: crate::instructions_card::InstructionsCardState::default(),
+            tune_card: None,
             compare: crate::compare_view::CompareState::default(),
             benchmarks_open: false,
         }

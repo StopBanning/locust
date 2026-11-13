@@ -94,6 +94,21 @@ pub(super) struct CompareState {
     /// Each column's "+12 -3 in 2 files", counted when the comparison loads and when a column's turn ends, never
     /// while drawing (it asks git).
     pub(super) changes_lines: HashMap<(String, CompareSlotId), String>,
+    pub(super) tune_note_mission_id: Option<String>,
+    pub(super) tune_note_compare_id: Option<String>,
+    pub(super) tune_note_draft: Option<locust_core::tune::TuneLessonDraft>,
+    pub(super) tune_note_saved: Option<locust_core::tune::PublicTuneLesson>,
+    pub(super) tune_note_status: Option<String>,
+    pub(super) tune_note_error: Option<String>,
+    pub(super) tune_combine_mission_id: Option<String>,
+    pub(super) tune_combine_compare_id: Option<String>,
+    pub(super) tune_combine_instructions: Option<String>,
+    pub(super) tune_combine_note: Option<String>,
+    pub(super) tune_combine_error: Option<String>,
+    pub(super) tune_review_instructions: bool,
+    pub(super) tune_review_skill: bool,
+    pub(super) tune_dismissed_id: Option<String>,
+    pub(super) tune_saved_feedback: Option<String>,
 }
 
 pub(super) fn runtime_display_name(runtime: &str) -> &'static str {
@@ -366,6 +381,7 @@ pub(super) fn start_comparison(s: &mut State) {
             },
             instructions: None,
             why: None,
+            skill: None,
         })
         .collect();
 
@@ -377,6 +393,40 @@ pub(super) fn start_comparison(s: &mut State) {
         });
     }
 
+    let teammate_id = selected_conversation(s).map(|(t, _)| t.id.clone());
+    s.draft.clear();
+    if let Err(e) = launch_compare(s, teammate_id, prompt, routes, changes, blind) {
+        s.compare.problem = Some(e);
+    }
+}
+
+pub(super) fn start_tune_comparison(
+    s: &mut State,
+    teammate_id: &str,
+    ask: &str,
+    routes: Vec<CompareRoute>,
+) -> Result<(), String> {
+    launch_compare(
+        s,
+        Some(teammate_id.to_owned()),
+        ask.to_owned(),
+        routes,
+        true,
+        true,
+    )
+}
+
+fn launch_compare(
+    s: &mut State,
+    teammate_id: Option<String>,
+    prompt: String,
+    routes: Vec<CompareRoute>,
+    changes: bool,
+    blind: bool,
+) -> Result<(), String> {
+    let Some(store) = s.data.clone() else {
+        return Err("Could not open comparisons store.".into());
+    };
     let folder = active_folder(s);
     let (changes_in, base) = if changes {
         if let Some(ref f) = folder {
@@ -394,13 +444,10 @@ pub(super) fn start_comparison(s: &mut State) {
         (None, None)
     };
 
-    let teammate_id = selected_conversation(s).map(|(t, _)| t.id.clone());
-    let Ok(cmp_store) = locust_core::compare::CompareStore::from_store(&store) else {
-        s.compare.problem = Some("Could not open comparisons store.".into());
-        return;
-    };
-    let created = match cmp_store.create(CreateCompareInput {
-        teammate_id: teammate_id.clone(),
+    let cmp_store = locust_core::compare::CompareStore::from_store(&store)
+        .map_err(|_| "Could not open comparisons store.".to_owned())?;
+    let created = cmp_store.create(CreateCompareInput {
+        teammate_id,
         prompt: prompt.clone(),
         routes,
         changes,
@@ -408,17 +455,15 @@ pub(super) fn start_comparison(s: &mut State) {
         blind,
         base,
         rerun_of: None,
-    }) {
-        Ok(c) => c,
-        Err(e) => {
-            s.compare.problem = Some(e);
-            return;
-        }
-    };
+    })?;
 
-    s.draft.clear();
     s.compare.problem = None;
     let copy_root = compare_root(&store);
+    let auto_on = s
+        .data
+        .as_ref()
+        .and_then(|st| locust_core::workspace_settings::load(st).ok())
+        .is_some_and(|w| w.auto_mode);
     let mut current = created;
 
     for col in current.slots.clone() {
@@ -499,6 +544,7 @@ pub(super) fn start_comparison(s: &mut State) {
                     key: slot_key,
                     cwd,
                     instructions: col.route.instructions.clone(),
+                    skill: col.route.skill.clone(),
                     // Electron gives a column a slot of its own and never seals it (index.ts 7974): a blind column still works.
                     sealed: false,
                 }),
@@ -522,6 +568,7 @@ pub(super) fn start_comparison(s: &mut State) {
     s.compare.active_id = Some(current.compare_id.clone());
     s.compare.loaded = false;
     reload_compares(s);
+    Ok(())
 }
 
 pub(super) fn keep_column(s: &mut State, slot: CompareSlotId) {
@@ -628,6 +675,7 @@ pub(super) fn ask_judge(s: &mut State) {
             mode: None,
             instructions: None,
             why: None,
+            skill: None,
         })
         .collect();
     if judge_routes.is_empty() {
@@ -751,6 +799,7 @@ pub(super) fn ask_judge(s: &mut State) {
                     instructions: None,
                     // Electron runs a judge and the rubric draft in Ask with a slot of their own, unsealed (index.ts 8274, 8420).
                     sealed: false,
+                    skill: None,
                 }),
                 ..Default::default()
             },
@@ -820,8 +869,9 @@ pub(super) fn draft_points(s: &mut State) {
                 key: format!("draft:{}", cmp.compare_id),
                 cwd: folder,
                 instructions: None,
+                skill: None,
                 // Electron runs a judge and the rubric draft in Ask with a slot of their own, unsealed (index.ts 8274, 8420).
-                    sealed: false,
+                sealed: false,
             }),
             ..Default::default()
         },
@@ -909,6 +959,7 @@ fn slot_origin_for(
             key: slot_key,
             cwd: slot_cwd.clone(),
             instructions: col.route.instructions.clone(),
+            skill: col.route.skill.clone(),
             sealed: false,
         }),
         ..Default::default()
@@ -1055,6 +1106,7 @@ pub(super) fn add_compare_column(s: &mut State, choice: ModelChoice) {
         mode: None,
         instructions: None,
         why: None,
+        skill: None,
     };
     let added = match cmp_store.add_column(&cmp.compare_id, route) {
         Ok(c) => c,
@@ -1074,6 +1126,7 @@ pub(super) fn add_compare_column(s: &mut State, choice: ModelChoice) {
                 key: compare_slot_key(added.teammate_id.as_deref(), &added.compare_id, col.slot),
                 cwd: folder,
                 instructions: col.route.instructions.clone(),
+                skill: col.route.skill.clone(),
                 sealed: false,
             }),
             ..Default::default()
@@ -1296,6 +1349,7 @@ impl CompareRerunsHost for NativeRerunsHost {
                     key,
                     cwd: None,
                     instructions: None,
+                    skill: None,
                     sealed: false,
                 }),
                 ..Default::default()
@@ -1487,6 +1541,121 @@ pub(super) fn poll(s: &mut State) -> bool {
         }
         s.compare.drafting = false;
         s.compare.draft_mission_id = None;
+        changed = true;
+    }
+    if let Some(comb_mid) = s.compare.tune_combine_mission_id.clone()
+        && let Some(snap) = load_mission(&comb_mid)
+        && !snap.running
+    {
+        s.compare.tune_combine_mission_id = None;
+        let cmp_opt = s
+            .compare
+            .tune_combine_compare_id
+            .as_deref()
+            .and_then(|cid| s.compare.compares.iter().find(|c| c.compare_id == cid))
+            .cloned();
+        let baseline = cmp_opt
+            .as_ref()
+            .and_then(|c| locust_core::tune::combine_setups(c))
+            .map(|setups| setups.kept)
+            .unwrap_or_default();
+        if snap.failed {
+            s.compare.tune_combine_error = Some(locust_core::tune::TUNE_COMBINE_FALLBACK.to_owned());
+        } else {
+            let text = snapshot_final_text(&snap);
+            if let Some((inst, note)) = locust_core::tune::parse_tune_combine(&text, &baseline) {
+                s.compare.tune_combine_instructions = Some(inst);
+                s.compare.tune_combine_note = (!note.is_empty()).then_some(note);
+                s.compare.tune_combine_error = None;
+            } else {
+                let same_as_kept = serde_json::from_str::<serde_json::Value>(text.trim())
+                    .ok()
+                    .and_then(|v| v.get("instructions").and_then(|s| s.as_str()).map(str::to_owned))
+                    .is_some_and(|s| s.trim() == baseline.trim());
+                let msg = if same_as_kept {
+                    locust_core::tune::TUNE_COMBINE_SAME
+                } else {
+                    locust_core::tune::TUNE_COMBINE_FALLBACK
+                };
+                s.compare.tune_combine_error = Some(msg.to_owned());
+            }
+        }
+        changed = true;
+    }
+    if let Some(note_mid) = s.compare.tune_note_mission_id.clone()
+        && let Some(snap) = load_mission(&note_mid)
+        && !snap.running
+    {
+        s.compare.tune_note_mission_id = None;
+        s.compare.tune_note_error = None;
+        let cmp_opt = s
+            .compare
+            .tune_note_compare_id
+            .as_deref()
+            .and_then(|cid| s.compare.compares.iter().find(|c| c.compare_id == cid))
+            .cloned();
+        let valid_cols: Vec<String> = cmp_opt
+            .as_ref()
+            .map(|c| c.slots.iter().map(|s| s.slot.upper().to_owned()).collect())
+            .unwrap_or_else(|| vec!["A".to_owned(), "B".to_owned(), "C".to_owned()]);
+        if snap.failed {
+            s.compare.tune_note_draft = None;
+            s.compare.tune_note_saved = None;
+            s.compare.tune_note_status = Some(locust_core::tune::TUNE_LESSON_FALLBACK.to_owned());
+        } else {
+            let text = snapshot_final_text(&snap);
+            match locust_core::tune::parse_tune_lesson(&text, &valid_cols) {
+                locust_core::tune::ParsedTuneLesson::Ok(draft) => {
+                    s.compare.tune_note_draft = Some(draft.clone());
+                    let saved = if let Some(lesson) = draft.lesson.as_deref()
+                        && let Some(ref cmp) = cmp_opt
+                        && let Some(ref store) = s.data
+                        && let Some(tm_id) = cmp.teammate_id.as_deref()
+                    {
+                        let verdict = draft
+                            .outcomes
+                            .iter()
+                            .find(|o| o.column == draft.kept)
+                            .map(|o| o.verdict.as_str())
+                            .unwrap_or_else(|| draft.confidence.as_str());
+                        locust_core::tune_lesson_store::add(
+                            store,
+                            locust_core::tune_lesson_store::NewTuneLesson {
+                                teammate_id: tm_id,
+                                compare_id: &cmp.compare_id,
+                                verdict,
+                                lesson,
+                                ask: &cmp.prompt,
+                            },
+                        )
+                        .ok()
+                    } else {
+                        None
+                    };
+                    s.compare.tune_note_saved = saved;
+                    s.compare.tune_note_status = if s.compare.tune_note_saved.is_none() {
+                        Some(if draft.summary.is_empty() {
+                            locust_core::tune::TUNE_LESSON_NONE.to_owned()
+                        } else {
+                            draft.summary
+                        })
+                    } else {
+                        None
+                    };
+                }
+                locust_core::tune::ParsedTuneLesson::CannotTell { summary } => {
+                    s.compare.tune_note_draft = None;
+                    s.compare.tune_note_saved = None;
+                    s.compare.tune_note_status =
+                        Some(summary.unwrap_or_else(|| locust_core::tune::TUNE_LESSON_CANNOT_TELL.to_owned()));
+                }
+                locust_core::tune::ParsedTuneLesson::Invalid => {
+                    s.compare.tune_note_draft = None;
+                    s.compare.tune_note_saved = None;
+                    s.compare.tune_note_status = Some(locust_core::tune::TUNE_LESSON_FALLBACK.to_owned());
+                }
+            }
+        }
         changed = true;
     }
 
@@ -1984,6 +2153,10 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     );
     root_col = root_col.child(bar);
 
+    if locust_core::tune::is_kept_tune(cmp) && s.compare.tune_dismissed_id.as_deref() != Some(&cmp.compare_id) {
+        root_col = root_col.child(render_kept_tune_strip(s, cmp, p, &l));
+    }
+
     // Scrollable body: columns + judge
     let mut scroll_body = col().w_full().gap(16.0).padding(20.0);
     scroll_body = scroll_body.child(
@@ -2199,10 +2372,11 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             jbox = jbox.child(text("Starting the judge…").font(l.ty.body).color(p.muted));
         }
 
+        let subject = if setups { "setup" } else { "model" };
         let note = if is_single {
-            "It read the answers as Answer A, Answer B and so on, not by model. Its view, not a decision: you keep the answer."
+            format!("It read the answers as Answer A, Answer B and so on, not by {subject}. Its view, not a decision: you keep the answer.")
         } else {
-            "They read the answers as Answer A, Answer B and so on, not by model. Their view, not a decision: you keep the answer."
+            format!("They read the answers as Answer A, Answer B and so on, not by {subject}. Their view, not a decision: you keep the answer.")
         };
         jbox = jbox.child(text(note).font(l.ty.label).color(p.muted).wrap());
         scroll_body = scroll_body.child(jbox);
@@ -2721,7 +2895,7 @@ fn render_benchmark_section(
         tr = tr
             .child(text(time_txt).font(l.ty.body).color(p.text).grow(1.0))
             .child(text(cost_txt).font(l.ty.body).color(p.text).grow(1.0));
-        if let Some(t) = tm {
+        if !setups && let Some(t) = tm {
             if tm_key.as_deref() == Some(r.key.as_str()) {
                 tr = tr.child(
                     text(format!("{}'s model", t.name))
@@ -2810,4 +2984,672 @@ fn render_benchmark_section(
         );
     }
     box_col.child(chips)
+}
+
+// ---- Kept tune strip (KeptInstructions.tsx) -------------------------------------------------------------------------
+
+pub(super) fn kept_tune_banner(cmp: &Compare) -> Option<String> {
+    if !locust_core::tune::is_kept_tune(cmp) {
+        return None;
+    }
+    let kept = cmp.kept.as_ref()?.slot;
+    let slot = cmp.slots.iter().find(|s| s.slot == kept)?;
+    let setup = locust_core::compare::setup_name(slot);
+    let model = slot
+        .route
+        .label
+        .as_deref()
+        .filter(|_| false)
+        .unwrap_or(&slot.route.model);
+    let noun = if cmp.slots.len() == 1 {
+        "setup"
+    } else {
+        "setups"
+    };
+    Some(format!(
+        "You tried {} {noun} on {model} and kept {setup}.",
+        cmp.slots.len()
+    ))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct KeptTuneOffer {
+    pub(super) use_instructions_label: Option<String>,
+    pub(super) combine_label: Option<String>,
+    pub(super) skill: Option<(String, locust_core::tune::TuneSkill, bool)>,
+    pub(super) skill_replaces: bool,
+    pub(super) note_label: String,
+    pub(super) note_cost: &'static str,
+}
+
+pub(super) fn kept_tune_offer(
+    cmp: &Compare,
+    teammate_name: &str,
+    teammate_runtime: Option<&str>,
+    has_combined: bool,
+    saved_skill_body_for_name: Option<&str>,
+) -> Option<KeptTuneOffer> {
+    let kept = cmp.kept.as_ref()?.slot;
+    if !locust_core::compare::has_column_instructions(cmp) {
+        return None;
+    }
+    let kept_slot = cmp.slots.iter().find(|s| s.slot == kept)?;
+    let kept_is_current = kept_slot.route.label.as_deref() == Some("Current");
+    let use_instructions_label = if has_combined {
+        Some(format!("Use the combined instructions for {teammate_name}"))
+    } else if !kept_is_current && kept_slot.route.skill.is_none() {
+        Some(format!("Use these instructions for {teammate_name}"))
+    } else {
+        None
+    };
+
+    let combine_label = (!has_combined && locust_core::tune::combine_setups(cmp).is_some())
+        .then(|| "Combine both edits".to_owned());
+
+    let can_skill = locust_core::skill_runtimes::takes_skills(teammate_runtime);
+    let skill_pair = locust_core::tune::kept_skill(cmp)
+        .map(|sk| (locust_core::compare::setup_name(kept_slot), sk, true))
+        .or_else(|| {
+            locust_core::tune::other_skill(cmp).map(|(lbl, sk)| (lbl, sk, false))
+        });
+
+    let (skill, skill_replaces) = match (can_skill, skill_pair) {
+        (true, Some((lbl, sk, from_kept))) => {
+            let candidate_md = locust_core::tune::skill_markdown(&sk);
+            let same_as_saved = saved_skill_body_for_name
+                .is_some_and(|saved| saved.trim() == candidate_md.trim());
+            let replaces = saved_skill_body_for_name.is_some() && !same_as_saved;
+            if same_as_saved {
+                (None, false)
+            } else {
+                (Some((lbl, sk, from_kept)), replaces)
+            }
+        }
+        _ => (None, false),
+    };
+
+    Some(KeptTuneOffer {
+        use_instructions_label,
+        combine_label,
+        skill,
+        skill_replaces,
+        note_label: "Note what this tune showed".to_owned(),
+        note_cost: locust_core::tune::TUNE_LESSON_COST,
+    })
+}
+
+fn check_teammate_route_matches_tune(
+    store: &locust_core::store::Store,
+    cmp: &Compare,
+    teammate_id: &str,
+) -> Result<(), String> {
+    let (_, _, cur_rt, cur_mdl, cur_acc, _, _) =
+        crate::tune_teammate::read_teammate_saved(store, teammate_id)
+            .ok_or_else(|| "This teammate could not be read. Nothing was started.".to_owned())?;
+    let slot = cmp
+        .kept
+        .as_ref()
+        .and_then(|k| cmp.slots.iter().find(|s| s.slot == k.slot))
+        .or_else(|| cmp.slots.first())
+        .ok_or_else(|| "No column found on this tune. Nothing was started.".to_owned())?;
+    if slot.route.runtime != cur_rt
+        || slot.route.model != cur_mdl
+        || slot.route.account != cur_acc
+    {
+        return Err(
+            "This teammate’s model or account changed since the tune. Nothing was started.".into(),
+        );
+    }
+    Ok(())
+}
+
+pub(super) fn use_tune_instructions(s: &mut State, teammate_id: &str, instructions: &str) {
+    let Some(store) = s.data.clone() else { return };
+    let Ok(team) = locust_core::people::team(&store) else { return };
+    let Some(mut entry) = team["teammates"]
+        .as_array()
+        .and_then(|arr| arr.iter().find(|r| r["teammateId"] == teammate_id))
+        .cloned()
+    else {
+        return;
+    };
+    let tm_name = entry["name"].as_str().unwrap_or("teammate").to_owned();
+    entry["instructions"] = serde_json::json!(instructions.trim());
+    match locust_core::people::save_teammate_id(&store, entry) {
+        Ok(_) => s.compare.tune_saved_feedback = Some(format!("Saved for {tm_name}.")),
+        Err(e) => s.compare.problem = Some(e),
+    }
+}
+
+pub(super) fn use_tune_skill(
+    s: &mut State,
+    teammate_id: &str,
+    compare_id: &str,
+    skill: &locust_core::tune::TuneSkill,
+) {
+    let Some(store) = s.data.clone() else { return };
+    let Some((tm_name, _, cur_rt, _, _, _, _)) =
+        crate::tune_teammate::read_teammate_saved(&store, teammate_id)
+    else {
+        return;
+    };
+    if !locust_core::skill_runtimes::takes_skills(Some(&cur_rt)) {
+        s.compare.problem = Some(format!(
+            "{tm_name} no longer runs on an agent that takes skills, so a skill would not reach it. The teammate is unchanged."
+        ));
+        return;
+    }
+    match locust_core::teammate_skills::add(&store, teammate_id, skill, Some(compare_id)) {
+        Ok(_) => {
+            s.compare.tune_saved_feedback = Some(format!("Saved {} for {tm_name}.", skill.name));
+        }
+        Err(e) => s.compare.problem = Some(e),
+    }
+}
+
+pub(super) fn start_tune_combine(s: &mut State, cmp: &Compare) {
+    let Some(store) = s.data.clone() else { return };
+    let Some(tm_id) = cmp.teammate_id.as_deref() else { return };
+    let Some(setups) = locust_core::tune::combine_setups(cmp) else {
+        s.compare.tune_combine_error = Some("No two edits are available to combine.".into());
+        return;
+    };
+    if let Err(why) = check_teammate_route_matches_tune(&store, cmp, tm_id) {
+        s.compare.tune_combine_error = Some(why);
+        return;
+    }
+    let Some(kept_slot) = cmp.kept.as_ref().and_then(|k| cmp.slots.iter().find(|s| s.slot == k.slot)) else {
+        return;
+    };
+    let prompt = locust_core::tune::tune_combine_prompt(&cmp.prompt, &setups);
+    let tm = synthetic_teammate(s, Some(tm_id), &kept_slot.route);
+    let folder = active_folder(s);
+    let model_opt = (kept_slot.route.model != "account-default").then(|| kept_slot.route.model.clone());
+    match locust_core::engine_api::api().send(
+        native::Send {
+            teammate: tm,
+            conversation: None,
+            prompt,
+            model: model_opt,
+            effort: kept_slot.route.effort.clone(),
+        },
+        Origin {
+            mode: Some(locust_core::approval::Mode::Ask),
+            folder,
+            runtime: Some(kept_slot.route.runtime.clone()),
+            slot: Some(SlotOrigin {
+                key: format!("tune-combine:{}", cmp.compare_id),
+                cwd: None,
+                instructions: None,
+                skill: None,
+                sealed: true,
+            }),
+            ..Default::default()
+        },
+    ) {
+        Ok(started) => {
+            s.compare.tune_combine_mission_id = Some(started.conversation_id);
+            s.compare.tune_combine_compare_id = Some(cmp.compare_id.clone());
+            s.compare.tune_combine_error = None;
+        }
+        Err(e) => s.compare.tune_combine_error = Some(e),
+    }
+}
+
+pub(super) fn start_tune_note(s: &mut State, cmp: &Compare) {
+    let Some(store) = s.data.clone() else { return };
+    let Some(tm_id) = cmp.teammate_id.as_deref() else { return };
+    let Some(kept) = cmp.kept.as_ref().map(|k| k.slot) else { return };
+    // The lesson reads the kept run's answer: never one still being written (Electron's handler).
+    let kept_done = cmp
+        .slots
+        .iter()
+        .find(|slot| slot.slot == kept)
+        .and_then(|slot| slot.mission_ids.last())
+        .and_then(|id| s.compare.snapshots.get(id))
+        .is_some_and(|snap| !snap.running);
+    if !kept_done {
+        s.compare.tune_note_error = Some("Wait for the kept run to finish first. Nothing was started.".into());
+        return;
+    }
+    if let Err(why) = check_teammate_route_matches_tune(&store, cmp, tm_id) {
+        s.compare.tune_note_error = Some(why);
+        return;
+    }
+    let entries: Vec<locust_core::tune::TuneLessonColumnEntry> = cmp
+        .slots
+        .iter()
+        .map(|slot| {
+            let ans = slot
+                .mission_ids
+                .last()
+                .and_then(|id| s.compare.snapshots.get(id))
+                .map(snapshot_final_text)
+                .unwrap_or_default();
+            let ch = s
+                .compare
+                .changes_lines
+                .get(&(cmp.compare_id.clone(), slot.slot))
+                .cloned();
+            locust_core::tune::TuneLessonColumnEntry {
+                slot: slot.slot,
+                label: locust_core::compare::setup_name(slot),
+                instructions: slot.route.instructions.clone(),
+                why: slot.route.why.clone(),
+                skill: slot.route.skill.clone(),
+                answer: ans,
+                changes: ch,
+            }
+        })
+        .collect();
+    let runs_input = benchmark_runs_for(s, cmp);
+    let measured = if runs_input.len() > 1 {
+        let rows = benchmark_rows(&runs_input);
+        locust_core::tune::tune_measured_of(cmp, &rows, runs_input.len())
+    } else {
+        Vec::new()
+    };
+    let prompt = locust_core::tune::tune_lesson_prompt(&cmp.prompt, kept, &entries, &measured);
+    let kept_slot = cmp
+        .slots
+        .iter()
+        .find(|c| c.slot == kept)
+        .unwrap_or(&cmp.slots[0]);
+    let tm = synthetic_teammate(s, Some(tm_id), &kept_slot.route);
+    let folder = active_folder(s);
+    let model_opt = (kept_slot.route.model != "account-default").then(|| kept_slot.route.model.clone());
+    match locust_core::engine_api::api().send(
+        native::Send {
+            teammate: tm,
+            conversation: None,
+            prompt,
+            model: model_opt,
+            effort: kept_slot.route.effort.clone(),
+        },
+        Origin {
+            mode: Some(locust_core::approval::Mode::Ask),
+            folder,
+            runtime: Some(kept_slot.route.runtime.clone()),
+            slot: Some(SlotOrigin {
+                key: format!("tune-note:{}", cmp.compare_id),
+                cwd: None,
+                instructions: None,
+                skill: None,
+                sealed: true,
+            }),
+            ..Default::default()
+        },
+    ) {
+        Ok(started) => {
+            s.compare.tune_note_mission_id = Some(started.conversation_id);
+            s.compare.tune_note_compare_id = Some(cmp.compare_id.clone());
+            s.compare.tune_note_error = None;
+        }
+        Err(e) => s.compare.tune_note_error = Some(e),
+    }
+}
+
+fn render_kept_tune_strip(
+    s: &State,
+    cmp: &Compare,
+    p: &Palette,
+    l: &crate::look::controls::Look,
+) -> El {
+    let banner = kept_tune_banner(cmp).unwrap_or_default();
+    let tm_id = cmp.teammate_id.as_deref().unwrap_or("");
+    let tm_saved = s
+        .data
+        .as_ref()
+        .and_then(|st| crate::tune_teammate::read_teammate_saved(st, tm_id));
+    let tm_name = tm_saved
+        .as_ref()
+        .map(|t| t.0.as_str())
+        .or_else(|| {
+            s.teammates
+                .iter()
+                .find(|t| t.id == tm_id)
+                .map(|t| t.name.as_str())
+        })
+        .unwrap_or("teammate");
+    let tm_rt = tm_saved.as_ref().map(|t| t.2.as_str()).or_else(|| {
+        s.teammates
+            .iter()
+            .find(|t| t.id == tm_id)
+            .and_then(|t| t.runtime.as_deref())
+    });
+
+    let combined_ready = s.compare.tune_combine_compare_id.as_deref() == Some(&cmp.compare_id)
+        && s.compare.tune_combine_instructions.is_some();
+    let candidate_skill_name = locust_core::tune::kept_skill(cmp)
+        .or_else(|| locust_core::tune::other_skill(cmp).map(|(_, s)| s))
+        .map(|sk| sk.name);
+    let saved_skill_md = s.data.as_ref().and_then(|st| {
+        let name = candidate_skill_name.as_deref()?;
+        locust_core::teammate_skills::kept_skill_text(st, tm_id, name)
+    });
+
+    let Some(offer) = kept_tune_offer(
+        cmp,
+        tm_name,
+        tm_rt,
+        combined_ready,
+        saved_skill_md.as_deref(),
+    ) else {
+        return col();
+    };
+
+    let kept_slot = cmp
+        .kept
+        .as_ref()
+        .and_then(|k| cmp.slots.iter().find(|c| c.slot == k.slot));
+    let kept_inst_to_save = if combined_ready {
+        s.compare.tune_combine_instructions.clone().unwrap_or_default()
+    } else {
+        kept_slot
+            .and_then(|c| c.route.instructions.clone())
+            .unwrap_or_default()
+    };
+
+    let mut strip = col()
+        .key("compare-kept-tune")
+        .w_full()
+        .px(20.0)
+        .py(12.0)
+        .gap(8.0)
+        .fill(p.raised)
+        .border_sides([0.0, 0.0, 1.0, 0.0], p.hairline)
+        .child(text(banner).font(l.ty.body).color(p.text).wrap());
+
+    if let Some(fb) = &s.compare.tune_saved_feedback {
+        strip = strip.child(text(fb.clone()).key("tune-saved-feedback").font(l.ty.label).color(p.green));
+    }
+
+    let mut btns = row().w_full().gap(8.0).wrap();
+    if let Some(lbl) = offer.use_instructions_label {
+        let tid = tm_id.to_owned();
+        let inst = kept_inst_to_save.clone();
+        btns = btns.child(
+            crate::look::controls::button(l, &lbl, crate::look::controls::Tone::Active, false)
+                .key("tune-use-instructions")
+                .on_press(move |s: &mut State| use_tune_instructions(s, &tid, &inst)),
+        );
+    }
+    if let Some(lbl) = offer.combine_label {
+        let cmp_c = cmp.clone();
+        let busy = s.compare.tune_combine_mission_id.is_some();
+        btns = btns.child(
+            crate::look::controls::button(l, &lbl, crate::look::controls::Tone::Neutral, busy)
+                .key("tune-combine-edits")
+                .on_press(move |s: &mut State| start_tune_combine(s, &cmp_c)),
+        );
+    }
+    if let Some((_from_label, sk, _)) = offer.skill.clone() {
+        let tid = tm_id.to_owned();
+        let cid = cmp.compare_id.clone();
+        let sk_c = sk.clone();
+        btns = btns.child(
+            crate::look::controls::button(
+                l,
+                &format!("Use this skill for {tm_name}"),
+                crate::look::controls::Tone::Active,
+                false,
+            )
+            .key("tune-use-skill")
+            .on_press(move |s: &mut State| use_tune_skill(s, &tid, &cid, &sk_c)),
+        );
+        btns = btns.child(
+            crate::look::controls::button(
+                l,
+                "Review the skill",
+                crate::look::controls::Tone::Neutral,
+                false,
+            )
+            .key("tune-review-skill")
+            .on_press(|s: &mut State| {
+                s.compare.tune_review_skill = !s.compare.tune_review_skill;
+            }),
+        );
+    }
+    if !kept_inst_to_save.trim().is_empty() {
+        btns = btns.child(
+            crate::look::controls::button(
+                l,
+                "Review the instructions",
+                crate::look::controls::Tone::Neutral,
+                false,
+            )
+            .key("tune-review-instructions")
+            .on_press(|s: &mut State| {
+                s.compare.tune_review_instructions = !s.compare.tune_review_instructions;
+            }),
+        );
+    }
+    {
+        let cmp_c = cmp.clone();
+        let busy = s.compare.tune_note_mission_id.is_some();
+        btns = btns.child(
+            crate::look::controls::button(l, &offer.note_label, crate::look::controls::Tone::Neutral, busy)
+                .key("tune-note-lesson")
+                .on_press(move |s: &mut State| start_tune_note(s, &cmp_c)),
+        );
+    }
+    {
+        let cid = cmp.compare_id.clone();
+        btns = btns.child(
+            crate::look::controls::button(l, "Not now", crate::look::controls::Tone::Neutral, false)
+                .key("tune-not-now")
+                .on_press(move |s: &mut State| {
+                    s.compare.tune_dismissed_id = Some(cid.clone());
+                }),
+        );
+    }
+    strip = strip.child(btns);
+    strip = strip.child(text(offer.note_cost).font(l.ty.label).color(p.muted));
+
+    if offer.skill_replaces
+        && let Some((_, sk, _)) = &offer.skill
+    {
+        strip = strip.child(
+            text(format!("This replaces {tm_name}'s existing {} skill.", sk.name))
+                .font(l.ty.label)
+                .color(p.amber),
+        );
+    }
+
+    if s.compare.tune_review_instructions {
+        strip = strip.child(
+            text(kept_inst_to_save)
+                .key("tune-instructions-preview")
+                .font(l.ty.body)
+                .color(p.secondary)
+                .wrap(),
+        );
+    }
+    if s.compare.tune_review_skill
+        && let Some((_, sk, _)) = &offer.skill
+    {
+        strip = strip.child(
+            text(locust_core::tune::skill_review(sk))
+                .key("tune-skill-preview")
+                .font(l.ty.body)
+                .color(p.secondary)
+                .wrap(),
+        );
+    }
+
+    if s.compare.tune_combine_compare_id.as_deref() == Some(&cmp.compare_id) {
+        if let Some(note) = &s.compare.tune_combine_note {
+            strip = strip.child(text(note.clone()).key("tune-combine-note").font(l.ty.label).color(p.secondary).wrap());
+        }
+        if let Some(err) = &s.compare.tune_combine_error {
+            strip = strip.child(text(err.clone()).key("tune-combine-error").font(l.ty.label).color(p.red).wrap());
+        }
+    }
+
+    if s.compare.tune_note_compare_id.as_deref() == Some(&cmp.compare_id) {
+        if let Some(err) = &s.compare.tune_note_error {
+            strip = strip.child(text(err.clone()).key("tune-note-error").font(l.ty.label).color(p.red).wrap());
+        }
+        if let Some(status) = &s.compare.tune_note_status {
+            strip = strip.child(text(status.clone()).key("tune-note-status").font(l.ty.label).color(p.secondary).wrap());
+        }
+        if let Some(draft) = &s.compare.tune_note_draft {
+            for o in &draft.outcomes {
+                let lbl = o.label.as_deref().unwrap_or(&o.column);
+                strip = strip.child(
+                    text(format!("{lbl}: {} — {}", o.verdict.as_str(), o.reason))
+                        .font(l.ty.label)
+                        .color(p.muted)
+                        .wrap(),
+                );
+            }
+        }
+        if let Some(saved) = &s.compare.tune_note_saved {
+            let lid = saved.lesson_id.clone();
+            strip = strip.child(
+                row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .child(
+                        text(format!("Lesson kept: {}", saved.lesson))
+                            .key("tune-saved-lesson")
+                            .font(l.ty.label)
+                            .color(p.green)
+                            .grow(1.0)
+                            .wrap(),
+                    )
+                    .child(
+                        crate::look::controls::button(
+                            l,
+                            "Remove",
+                            crate::look::controls::Tone::Neutral,
+                            false,
+                        )
+                        .key("tune-lesson-remove")
+                        .on_press(move |s: &mut State| {
+                            if let Some(st) = s.data.as_ref() {
+                                let _ = locust_core::tune_lesson_store::remove(st, &lid);
+                            }
+                            s.compare.tune_note_saved = None;
+                        }),
+                    ),
+            );
+        }
+    }
+
+    strip
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use locust_core::compare::{CompareKept, CompareSlot};
+    use locust_core::tune::TuneSkill;
+
+    fn sample_tune_compare(
+        kept_slot: CompareSlotId,
+        work_skill: Option<TuneSkill>,
+        know_skill: Option<TuneSkill>,
+    ) -> Compare {
+        let mk = |slot, label: &str, inst: &str, why: Option<&str>, skill: Option<TuneSkill>| CompareSlot {
+            slot,
+            route: CompareRoute {
+                runtime: "claude".into(),
+                model: "claude-sonnet-4".into(),
+                account: None,
+                effort: None,
+                label: Some(label.into()),
+                mode: None,
+                instructions: Some(inst.into()),
+                why: why.map(str::to_owned),
+                skill,
+            },
+            mission_ids: vec![],
+            refused: None,
+            retried: vec![],
+            folder: None,
+        };
+        Compare {
+            compare_id: "cmp_tune".into(),
+            teammate_id: Some("tm_1".into()),
+            prompt: "Review this PR".into(),
+            created_at: "2026-01-01T00:00:00Z".into(),
+            slots: vec![
+                mk(CompareSlotId::A, "Current", "Be concise.", None, work_skill),
+                mk(CompareSlotId::B, "How it works", "Check tests first.", Some("workflow"), None),
+                mk(CompareSlotId::C, "What it knows", "Cite edge cases.", Some("coverage"), know_skill),
+            ],
+            changes: true,
+            changes_in: None,
+            blind: true,
+            kept: Some(CompareKept {
+                slot: kept_slot,
+                at: "2026-01-01T00:01:00Z".into(),
+                brought: None,
+            }),
+            judge: None,
+            base: None,
+            rerun_of: None,
+            reruns: vec![],
+            settled: false,
+            point_drafts: vec![],
+        }
+    }
+
+    #[test]
+    fn a_tune_names_its_setups() {
+        let cmp = sample_tune_compare(CompareSlotId::B, None, None);
+        assert_eq!(blind_name(CompareSlotId::A, true), "Setup A");
+        assert_eq!(blind_name(CompareSlotId::B, false), "Model B");
+        let banner = kept_tune_banner(&cmp).unwrap();
+        assert!(banner.contains("3 setups"));
+        assert!(banner.contains("How it works"));
+
+        let kept_cur = sample_tune_compare(CompareSlotId::A, None, None);
+        assert!(kept_tune_banner(&kept_cur).unwrap().contains("Current"));
+    }
+
+    #[test]
+    fn noting_what_a_tune_showed_is_explicit_and_combines_edits_only_when_offered() {
+        let cmp = sample_tune_compare(CompareSlotId::B, None, None);
+        let offer = kept_tune_offer(&cmp, "Codec", Some("claude"), false, None).unwrap();
+        assert_eq!(offer.use_instructions_label.as_deref(), Some("Use these instructions for Codec"));
+        assert_eq!(offer.combine_label.as_deref(), Some("Combine both edits"));
+        assert_eq!(offer.note_label, "Note what this tune showed");
+        assert_eq!(offer.note_cost, locust_core::tune::TUNE_LESSON_COST);
+
+        let combined_offer = kept_tune_offer(&cmp, "Codec", Some("claude"), true, None).unwrap();
+        assert_eq!(combined_offer.use_instructions_label.as_deref(), Some("Use the combined instructions for Codec"));
+        assert_eq!(combined_offer.combine_label, None);
+
+        // When Current was kept, Use instructions is not shown.
+        let cur_cmp = sample_tune_compare(CompareSlotId::A, None, None);
+        let cur_offer = kept_tune_offer(&cur_cmp, "Codec", Some("claude"), false, None).unwrap();
+        assert_eq!(cur_offer.use_instructions_label, None);
+        assert_eq!(cur_offer.combine_label, None);
+    }
+
+    #[test]
+    fn kept_tune_offers_skill_for_claude_or_codex_and_notes_replacement() {
+        let sk = TuneSkill {
+            name: "concise-review".into(),
+            description: "When reviewing".into(),
+            body: "Use three bullets.".into(),
+        };
+        let cmp = sample_tune_compare(CompareSlotId::C, None, Some(sk.clone()));
+        let offer_codex = kept_tune_offer(&cmp, "Codec", Some("codex"), false, None).unwrap();
+        assert!(offer_codex.skill.is_some());
+        assert!(!offer_codex.skill_replaces);
+
+        let same_md = locust_core::tune::skill_markdown(&sk);
+        let offer_same = kept_tune_offer(&cmp, "Codec", Some("claude"), false, Some(&same_md)).unwrap();
+        assert!(offer_same.skill.is_none(), "already saved identical skill should not be offered again");
+
+        let offer_replaces = kept_tune_offer(&cmp, "Codec", Some("claude"), false, Some("old text")).unwrap();
+        assert!(offer_replaces.skill_replaces);
+
+        let offer_unsupported = kept_tune_offer(&cmp, "Codec", Some("kilo"), false, None).unwrap();
+        assert!(offer_unsupported.skill.is_none());
+    }
 }

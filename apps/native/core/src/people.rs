@@ -283,15 +283,20 @@ pub fn unassign_missions(store: &Store, missions: &[String]) -> Result<(), Strin
 }
 
 pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
-    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
-    let mut file = team(store)?;
-    if let Some(rows) = file["teammates"].as_array_mut() {
-        rows.retain(|r| r["teammateId"] != who);
+    {
+        let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+        let mut file = team(store)?;
+        if let Some(rows) = file["teammates"].as_array_mut() {
+            rows.retain(|r| r["teammateId"] != who);
+        }
+        if let Some(owners) = file["missionOwners"].as_object_mut() {
+            owners.retain(|_, v| v != who);
+        }
+        store.save_json("teammates.json", &file)?;
     }
-    if let Some(owners) = file["missionOwners"].as_object_mut() {
-        owners.retain(|_, v| v != who);
-    }
-    store.save_json("teammates.json", &file)
+    let _ = crate::tune_lesson_store::remove_for_teammate(store, who);
+    let _ = crate::teammate_skills::remove_for_teammate(store, who);
+    Ok(())
 }
 pub fn settings(store: &Store, note: &str, suggestions: Option<Vec<Value>>) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
@@ -717,6 +722,16 @@ fn memory_section(
     format!("{heading}\n{listed}\n\n{}", rules.join("\n"))
 }
 pub fn brief(store: &Store, who: &str, folder: &Path, prompt: &str) -> Result<String, String> {
+    brief_with_instructions(store, who, folder, prompt, None)
+}
+
+pub fn brief_with_instructions(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    prompt: &str,
+    instructions_override: Option<&str>,
+) -> Result<String, String> {
     let file = team(store)?;
     let teammate = file["teammates"]
         .as_array()
@@ -728,11 +743,14 @@ pub fn brief(store: &Store, who: &str, folder: &Path, prompt: &str) -> Result<St
     let memory_off = file["settings"]["memoryMode"] == "off";
     let mut sections = vec![where_section(folder)];
     if let Some(t) = teammate {
-        let instructions = t["instructions"].as_str().unwrap_or("").trim();
+        let instructions = crate::compare::column_instructions(
+            t["instructions"].as_str(),
+            instructions_override,
+        );
         if !instructions.is_empty() {
             sections.push(teammate_section(
                 t["name"].as_str().unwrap_or("a teammate"),
-                instructions,
+                &instructions,
             ));
         }
     }
@@ -1553,5 +1571,58 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err, "Teammate starters are invalid");
+    }
+
+    #[test]
+    fn brief_overrides_instructions_ignores_tune_lessons_and_remove_cleans_tune_stores() {
+        let (t, store) = fixture();
+        let id = save_teammate_id(
+            &store,
+            json!({
+                "name": "Codec",
+                "role": "Code & Migrations",
+                "instructions": "Saved standing rule.",
+                "route": {"runtime": "claude", "model": "sonnet", "mode": "ask"}
+            }),
+        )
+        .unwrap();
+        crate::tune_lesson_store::add(
+            &store,
+            crate::tune_lesson_store::NewTuneLesson {
+                teammate_id: &id,
+                compare_id: "cmp_1",
+                verdict: "helped",
+                lesson: "When auditing diffs, verify edge cases.",
+                ask: "Check diff",
+            },
+        )
+        .unwrap();
+        crate::teammate_skills::add(
+            &store,
+            &id,
+            &crate::tune::TuneSkill {
+                name: "audit-skill".into(),
+                description: "When auditing".into(),
+                body: "Check bounds.".into(),
+            },
+            Some("cmp_1"),
+        )
+        .unwrap();
+
+        let ordinary = brief(&store, &id, &t.0, "Look over this module").unwrap();
+        assert!(ordinary.contains("Saved standing rule."));
+        assert!(!ordinary.contains("When auditing diffs, verify edge cases."));
+
+        let replaced = brief_with_instructions(&store, &id, &t.0, "Look", Some("Column B rule.")).unwrap();
+        assert!(replaced.contains("Column B rule."));
+        assert!(!replaced.contains("Saved standing rule."));
+
+        let empty_override = brief_with_instructions(&store, &id, &t.0, "Look", Some("")).unwrap();
+        assert!(!empty_override.contains("Saved standing rule."));
+        assert!(!empty_override.contains("Standing instructions for you"));
+
+        remove_teammate(&store, &id).unwrap();
+        assert!(crate::tune_lesson_store::list(&store, Some(&id)).is_empty());
+        assert!(crate::teammate_skills::list(&store, Some(&id)).is_empty());
     }
 }

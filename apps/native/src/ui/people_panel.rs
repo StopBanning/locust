@@ -543,6 +543,95 @@ fn edit_form(s: &State, p: &Palette) -> El {
             .child(button(&interview_label, p).key("team-interview").on_press_tx(save_and_interview))
             .child(text(interview_note).font(type_::LABEL).color(p.secondary).wrap()),
     );
+    if !creating
+        && let Some(tm_id) = panel.entry["teammateId"].as_str().filter(|s| !s.is_empty())
+        && let Some(store) = s.data.as_ref()
+    {
+        let lessons = locust_core::tune_lesson_store::list(store, Some(tm_id));
+        if !lessons.is_empty() {
+            let mut lcol = col()
+                .key("team-tune-lessons")
+                .w_full()
+                .gap(4.0)
+                .pt(4.0)
+                .child(text("Tune lessons").font(type_::LABEL).color(p.text));
+            for lesson in lessons {
+                let lid = lesson.lesson_id.clone();
+                lcol = lcol.child(
+                    row()
+                        .w_full()
+                        .gap(8.0)
+                        .center_y()
+                        .child(
+                            text(format!("[{}] {}", lesson.verdict, lesson.lesson))
+                                .font(type_::LABEL)
+                                .color(p.secondary)
+                                .grow(1.0)
+                                .wrap(),
+                        )
+                        .child(
+                            button("Remove", p)
+                                .key(format!("team-lesson-remove-{}", lesson.lesson_id))
+                                .on_press(move |s: &mut State| {
+                                    if let Some(st) = s.data.as_ref() {
+                                        let _ = locust_core::tune_lesson_store::remove(st, &lid);
+                                    }
+                                    reload(s);
+                                }),
+                        ),
+                );
+            }
+            form = form.child(lcol);
+        }
+        let skills = locust_core::teammate_skills::list(store, Some(tm_id));
+        if !skills.is_empty() {
+            let rt = panel.fields.get(3).map(|f| f.text.trim().to_owned()).or_else(|| {
+                panel.entry["route"]["runtime"].as_str().map(str::to_owned)
+            });
+            let skill_note = if locust_core::skill_runtimes::takes_skills(rt.as_deref()) {
+                "Kept from tunes. A run loads one only when the work matches when to use it.".to_owned()
+            } else {
+                format!(
+                    "Only {} run is handed these",
+                    locust_core::skill_runtimes::SKILL_RUNTIME_ANY
+                )
+            };
+            let mut scol = col()
+                .key("team-tune-skills")
+                .w_full()
+                .gap(4.0)
+                .pt(4.0)
+                .child(text("Skills").font(type_::LABEL).color(p.text))
+                .child(text(skill_note).font(type_::LABEL).color(p.muted).wrap());
+            for sk in skills {
+                let sid = sk.skill_id.clone();
+                scol = scol.child(
+                    row()
+                        .w_full()
+                        .gap(8.0)
+                        .center_y()
+                        .child(
+                            text(format!("{} — {}", sk.name, sk.description))
+                                .font(type_::LABEL)
+                                .color(p.secondary)
+                                .grow(1.0)
+                                .wrap(),
+                        )
+                        .child(
+                            button("Remove", p)
+                                .key(format!("team-skill-remove-{}", sk.skill_id))
+                                .on_press(move |s: &mut State| {
+                                    if let Some(st) = s.data.as_ref() {
+                                        let _ = locust_core::teammate_skills::remove(st, &sid);
+                                    }
+                                    reload(s);
+                                }),
+                        ),
+                );
+            }
+            form = form.child(scol);
+        }
+    }
     form.child(
         row()
             .gap(8.0)

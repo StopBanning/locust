@@ -1708,6 +1708,7 @@ fn slot_busy_check_refuses_second_turn_in_same_slot() {
                 key: "slot:cmp_1:a".into(),
                 cwd: None,
                 instructions: None,
+                skill: None,
                 sealed: false,
             }),
             ..Default::default()
@@ -1721,6 +1722,7 @@ fn slot_busy_check_refuses_second_turn_in_same_slot() {
                 key: "slot:cmp_1:a".into(),
                 cwd: None,
                 instructions: None,
+                skill: None,
                 sealed: false,
             }),
             ..Default::default()
@@ -1751,6 +1753,7 @@ fn slot_cwd_bypasses_own_branch_folder() {
                 key: "slot:cmp_2:a".into(),
                 cwd: Some(alt_dir),
                 instructions: None,
+                skill: None,
                 sealed: false,
             }),
             ..Default::default()
@@ -1783,6 +1786,7 @@ fn sealed_slot_omits_teammate_brief_and_skills() {
                 key: "slot:cmp_3:a".into(),
                 cwd: None,
                 instructions: None,
+                skill: None,
                 sealed: true,
             }),
             ..Default::default()
@@ -1840,4 +1844,59 @@ fn a_managed_turn_is_refused_before_an_agent_starts() {
     crate::org_policy::use_policy(None);
     let started = send(job(&t, None, "Work")).expect("starts");
     wait("the turn to end", || !owns(&started.conversation_id));
+}
+
+#[test]
+fn slot_instructions_override_brief_and_sealed_omits_candidate_skill() {
+    let t = Temp::new();
+    let store = t.store();
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [{"teammateId": "tm_codec", "name": "Codec", "instructions": "SAVED_INST_MARKER"}],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    let _hook = hooks::install(store.clone(), fake("success"));
+    // 1) Brief respects slot instructions override (saved replaced vs removed).
+    let overridden = crate::people::brief_with_instructions(
+        &store,
+        "tm_codec",
+        &t.0.join("work"),
+        "Synthetic prompt",
+        Some("COLUMN_INST_MARKER"),
+    )
+    .unwrap();
+    assert!(overridden.contains("COLUMN_INST_MARKER"));
+    assert!(!overridden.contains("SAVED_INST_MARKER"));
+
+    // 2) Sealed turn never emits candidate or saved skill roots (m1-app-server succeeds without skills/extraRoots/set).
+    let started = send_from(
+        job(&t, None, "Synthetic prompt"),
+        Origin {
+            slot: Some(SlotOrigin {
+                key: "slot:cmp_tune:b".into(),
+                cwd: None,
+                instructions: Some("COLUMN_INST_MARKER".into()),
+                skill: Some(crate::tune::TuneSkill {
+                    name: "col-skill".into(),
+                    description: "When checking".into(),
+                    body: "Check candidate".into(),
+                }),
+                sealed: true,
+            }),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    wait("sealed tune slot turn", || !owns(&started.conversation_id));
+    assert!(crate::skills::roots(&started.conversation_id).is_empty());
+    let ledger = ledgers(&t).into_iter().next().unwrap();
+    let raw = std::fs::read_to_string(ledger).unwrap();
+    assert!(!raw.contains("SAVED_INST_MARKER"));
+    assert!(!raw.contains("COLUMN_INST_MARKER"));
 }

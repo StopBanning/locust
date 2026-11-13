@@ -88,7 +88,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **partial** — native About-you editor and suggestion approval/dismissal, included in native runtime prompts; full secret refusal vocabulary, change notices and TS test coverage remain (P6-NOTES.md) | yes | no | yes |
 | Team image import/export with routines | `renderer/src/components/TeamCard.tsx`, `main/team-card-routines.ts`, `shared/team-card.ts` | **done** — Hydrogen: `core/src/png_text.rs`, `core/src/team_card.rs`, `src/ui/people_panel.rs`, `src/ui/home_panel.rs` (PNG tEXt team card export/import with routines, stripping secrets/ids/folders/own models and downgrading Auto to accept-edits; TEAM-FILES-NOTES.md) | yes | no | yes |
 | New teammate interview and setup inspection | `renderer/src/components/TeammateSetup.tsx`, `main/teammate-setup.ts`, `shared/interview.ts` | **done** — Hydrogen: `core/src/interview.rs`, `core/src/teammate_setup.rs`, `src/ui/instructions_card.rs`, `src/ui/setup_card.rs`, `src/ui/people_panel.rs`, `src/ui/composer_wiring.rs` (new/edit teammate interview in Ask mode + save card with secret refusal; fresh `/setup` inspection modal from composer and teammate card; notes/SETUP-NOTES.md) | yes | no | yes |
-| Tune teammate, combine alternatives and keep measured lessons/skills | `renderer/src/components/TuneTeammate.tsx`, `renderer/src/components/KeptInstructions.tsx`, `main/tune-lessons.ts`, `main/tune-combine.ts`, `main/tune-drafts.ts` | **missing** | - | no | yes |
+| Tune teammate, combine alternatives and keep measured lessons/skills | `renderer/src/components/TuneTeammate.tsx`, `renderer/src/components/KeptInstructions.tsx`, `main/tune-lessons.ts`, `main/tune-combine.ts`, `main/tune-drafts.ts` | **done** — Hydrogen: `core/src/{tune,tune_lesson_store,teammate_skills,skill_runtimes}.rs`, `core/src/{compare,skills,people,native}.rs`, `src/ui/{tune_teammate,compare_view,people_panel,composer_wiring}.rs` (`/tune` two-angle drafts + optional `TuneSkill` beside Current, blind shuffled 3-column comparison, explicit `Use` / `Combine both edits` / `Note what this tune showed` with measured benchmarks, lessons reaching only next `/tune` draft, 3 headless window tests; notes/TUNE-NOTES.md) | yes | no | yes |
 
 ### Area 4: Runtimes, Routing & Fallback
 
@@ -280,7 +280,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 12 | 11 | 2 | 25 | 23 | 3 |
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
-| 3 | Teammates, Rooms, Memory & Skills | 5 | 4 | 5 | 14 | 9 | 0 |
+| 3 | Teammates, Rooms, Memory & Skills | 6 | 4 | 4 | 14 | 10 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 7 | 1 | 11 | 10 | 5 |
 | 5 | Approvals & Permissions | 1 | 8 | 0 | 9 | 9 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 7 | 3 | 13 | 10 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 5 | 1 | 13 | 12 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **61** | **61** | **31** | **153** | **122** | **15** |
+| | **TOTAL** | **62** | **61** | **30** | **153** | **123** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

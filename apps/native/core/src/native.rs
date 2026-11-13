@@ -1199,6 +1199,8 @@ pub struct SlotOrigin {
     pub key: String,
     pub cwd: Option<PathBuf>,
     pub instructions: Option<String>,
+    /// Candidate skill for a tune column, handed only to that column's run.
+    pub skill: Option<crate::tune::TuneSkill>,
     /// Electron seals only Scout's runs (index.ts 8681, 10103): no brief, no skills, no browser here. Its full seal also
     /// refuses every OpenCode tool and starts Codex with none (codexSealedThreadConfig); that part is not ported yet,
     /// and nothing sets this until Scout is.
@@ -1451,9 +1453,10 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             format!("{}\n\n{refs}", job.prompt)
         }
     } else {
+        let slot_inst = origin.slot.as_ref().and_then(|s| s.instructions.as_deref());
         format!(
             "{}\n\n{}",
-            crate::people::brief(&store, &job.teammate.id, &folder, &job.prompt)?,
+            crate::people::brief_with_instructions(&store, &job.teammate.id, &folder, &job.prompt, slot_inst)?,
             crate::references::section(&references)
         )
     };
@@ -1471,7 +1474,8 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     let (claude_plugins, run_skills): (Vec<crate::skills::Plugin>, _) = if sealed {
         (Vec::new(), None)
     } else {
-        let skill_sources = crate::skills::sources_for(store.electron(), &job.teammate.id);
+        let mut skill_sources = crate::skills::sources_for_store(&store, &job.teammate.id);
+        skill_sources.candidate = origin.slot.as_ref().and_then(|s| s.skill.clone());
         let own_skills = saved["settings"]["claudeOwnSkills"] == true;
         let cp = if runtime_name == "claude" {
             crate::skills::prepare_claude(&store.root().join("claude-skills"), &folder, own_skills, home.as_deref(), mode == Mode::Auto, &skill_sources)
