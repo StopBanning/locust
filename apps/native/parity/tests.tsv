@@ -1107,7 +1107,7 @@ apps/desktop/src/renderer/src/tuning-never-applies-instructions-by-itself.test.t
 apps/desktop/src/renderer/src/two-files-with-one-name-stay-two.test.ts		waiting		
 apps/desktop/src/renderer/src/two-teammates-look-at-each-other.test.ts		waiting		
 apps/desktop/src/renderer/src/unreadable-ledger-is-said.test.tsx		waiting		
-apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	USAGE	does-not-apply		TypeScript test accounting: `main/usage-is-counted.test.ts`, `shared/spend.test.ts`, `renderer/src/usage-is-drawn.test.tsx`, `settings-search-knows-the-words.test.ts`, `every-limit-says-what-is-left.test.tsx`, `keyboardShortcuts.test.ts`, `; the bars (usage::tests::a_bar_a_day_the_busiest_full_height_a_quiet_day_flat_today_marked) and Home's line (window test home_shows_the_months_usage_once_there_is_something_to_count)
+apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	USAGE	partial		TypeScript test accounting: `main/usage-is-counted.test.ts`, `shared/spend.test.ts`, `renderer/src/usage-is-drawn.test.tsx`, `settings-search-knows-the-words.test.ts`, `every-limit-says-what-is-left.test.tsx`, `keyboardShortcuts.test.ts`, `; the bars (usage::tests::a_bar_a_day_the_busiest_full_height_a_quiet_day_flat_today_marked) and Home's line (window test home_shows_the_months_usage_once_there_is_something_to_count)
 apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts		waiting		
 apps/desktop/src/renderer/src/voice-typing-in-a-browser-says-where-its-setup-is.test.tsx		waiting		
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx		waiting		
