@@ -58,6 +58,8 @@ mod keyboard_sheet;
 mod save_record;
 #[path = "ui/agents_section.rs"]
 mod agents_section;
+#[path = "ui/backup_section.rs"]
+mod backup_section;
 #[path = "ui/own_copies.rs"]
 mod own_copies;
 #[path = "ui/import_dialog.rs"]
@@ -2526,6 +2528,14 @@ fn main() {
     // once the window knows its engine (open_door): served by the shared engine, else by this window.
     let headless = args.iter().any(|a| matches!(a.as_str(), "--snap" | "--video" | "--out" | "--script" | "--strip" | "--scene" | "--list-scenes"));
     HEADLESS.store(headless, std::sync::atomic::Ordering::Relaxed);
+
+    if !headless && let Some(store) = locust_core::native::store() {
+        let _ = locust_core::profile_backup::apply_pending_restore(
+            store.root(),
+            env!("CARGO_PKG_VERSION"),
+            chrono::Local::now(),
+        );
+    }
 
     App::new(AppSpec {
         min_size: Some((720.0, 480.0)),

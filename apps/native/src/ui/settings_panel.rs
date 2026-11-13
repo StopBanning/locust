@@ -30,6 +30,8 @@ pub(super) struct Panel {
     /// "OWN COPIES": the project folder's teammate copies, and what a Remove came back with.
     pub own_copies: Option<crate::own_copies::OwnCopies>,
     pub check_command: TextEdit,
+    /// "Privacy & data": storage report, retention, and backup/restore state.
+    pub privacy: crate::backup_section::PrivacyPanelState,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -101,6 +103,7 @@ fn reload(s: &mut State) {
         }
     }
     crate::agents_section::request(s);
+    crate::backup_section::reload(s);
     let folder = active_project_folder(s);
     crate::own_copies::reload(s, folder);
 }
@@ -471,6 +474,21 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     body = body.child(door_section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
+                }
+            }
+        }
+        SettingsPageId::Privacy => {
+            for heading in headings {
+                match heading {
+                    "Privacy & local data" => {
+                        body = body.child(crate::backup_section::storage_and_retention_section(s, p));
+                    }
+                    "Back up and restore" => {
+                        body = body.child(crate::backup_section::backup_section(s, p));
+                    }
+                    _ => {
+                        body = body.child(deferred(heading, p));
+                    }
                 }
             }
         }

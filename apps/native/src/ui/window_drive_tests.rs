@@ -1498,3 +1498,165 @@ fn selecting_text_in_a_reply_asks_on_the_side_and_keeps_main_ledger_unchanged() 
     let recent = native::list_recent(20, true).unwrap();
     assert!(recent.summaries.iter().all(|m| m.mission_id != side_id));
 }
+
+#[test]
+fn privacy_page_backs_up_previews_and_applies_restore_at_next_start() {
+    let (dirs, store, mut rt) = window();
+    let backup_parent = dirs.0.join("backups");
+    std::fs::create_dir_all(&backup_parent).unwrap();
+
+    // Seed native profile data.
+    std::fs::write(
+        store.root().join("teammates.json"),
+        serde_json::json!({"schemaVersion": 15, "teammates": [{"name": "Wren"}, {"name": "Atlas"}]}).to_string(),
+    )
+    .unwrap();
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+    std::fs::write(
+        ledger.join("mission_a.jsonl"),
+        "{\"schemaVersion\":27,\"recordType\":\"mission.created\",\"ledgerSequence\":1,\"occurredAt\":\"2026-08-01T12:00:00.000Z\",\"metadata\":{\"missionId\":\"mission_a\"}}\n",
+    )
+    .unwrap();
+
+    // Open Settings -> Privacy & data.
+    rt.update(|s, _| {
+        s.settings_panel.open = true;
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::Privacy);
+        crate::backup_section::reload(s);
+    });
+    settle(&mut rt);
+
+    // 1. Back up via the folder dialog.
+    click(&mut rt, "backup-choose");
+    let (kind, _opts) = rt.file_dialog().expect("backup folder picker");
+    assert_eq!(kind, rune::FileDialogKind::Folder);
+    rt.resolve_file_dialog(Some(backup_parent.clone())).unwrap();
+    settle(&mut rt);
+    let done_text = text_in(&rt, "backup-done").join(" ");
+    assert!(done_text.contains("Backed up 2 teammates and 1 conversation"), "{done_text}");
+
+    let backup_folder = std::fs::read_dir(&backup_parent)
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| p.is_dir())
+        .expect("backup folder created");
+
+    // Mutate current profile after backup.
+    std::fs::write(
+        store.root().join("teammates.json"),
+        serde_json::json!({"schemaVersion": 15, "teammates": [{"name": "Juno"}]}).to_string(),
+    )
+    .unwrap();
+
+    // 2. Preview restore via the folder dialog.
+    click(&mut rt, "backup-restore-choose");
+    let (kind, _opts) = rt.file_dialog().expect("restore folder picker");
+    assert_eq!(kind, rune::FileDialogKind::Folder);
+    rt.resolve_file_dialog(Some(backup_folder)).unwrap();
+    settle(&mut rt);
+    let preview_text = text_in(&rt, "backup-preview").join(" ");
+    assert!(preview_text.contains("2 teammates and 1 conversation"), "{preview_text}");
+    assert!(preview_text.contains("1 teammate and 1 conversation, here now"), "{preview_text}");
+
+    // 3. Ask for restore; check pending-restore.json is written (and test does not exit/relaunch).
+    click(&mut rt, "backup-restore-confirm");
+    settle(&mut rt);
+    assert!(store.root().join(locust_core::profile_backup::PENDING_RESTORE_FILE).exists());
+    assert!(rt.find("backup-restarting").is_some());
+
+    // 4. Apply pending restore as the next start would.
+    let outcome = locust_core::profile_backup::apply_pending_restore(
+        store.root(),
+        env!("CARGO_PKG_VERSION"),
+        chrono::Local::now(),
+    )
+    .expect("pending restore outcome");
+    assert!(outcome.ok, "{outcome:?}");
+
+    let restored_tms: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(store.root().join("teammates.json")).unwrap())
+            .unwrap();
+    assert_eq!(restored_tms["teammates"], serde_json::json!([{"name": "Wren"}, {"name": "Atlas"}]));
+    let aside = std::path::PathBuf::from(outcome.aside.expect("aside path"));
+    let old_tms: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(aside.join("teammates.json")).unwrap())
+            .unwrap();
+    assert_eq!(old_tms["teammates"], serde_json::json!([{"name": "Juno"}]));
+}
+
+#[test]
+fn privacy_page_previews_and_confirms_retention_keeping_running_and_electron() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+
+    // Start a live running turn.
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the turn running", |s| can_stop(s));
+    let running_ids = locust_core::engine_api::api().running();
+    assert_eq!(running_ids.len(), 1);
+    let running_id = running_ids[0].clone();
+
+    let native_ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&native_ledger).unwrap();
+    let electron_ledger = dirs.0.join("electron/mission-ledger");
+    std::fs::create_dir_all(&electron_ledger).unwrap();
+
+    let old_ts = (chrono::Utc::now() - chrono::Duration::days(45))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let old_line = serde_json::json!({
+        "schemaVersion": 27,
+        "recordType": "mission.created",
+        "ledgerSequence": 1,
+        "occurredAt": old_ts,
+        "metadata": {"missionId": "mission_old_native", "createdAt": old_ts}
+    });
+    std::fs::write(native_ledger.join("mission_old_native.jsonl"), format!("{old_line}\n")).unwrap();
+
+    let electron_line = serde_json::json!({
+        "schemaVersion": 27,
+        "recordType": "mission.created",
+        "ledgerSequence": 1,
+        "occurredAt": old_ts,
+        "metadata": {"missionId": "mission_old_electron", "createdAt": old_ts}
+    });
+    std::fs::write(electron_ledger.join("mission_old_electron.jsonl"), format!("{electron_line}\n")).unwrap();
+
+    // Backdate the running turn's header so only engine protection keeps it if considered old.
+    let running_path = native_ledger.join(format!("{running_id}.jsonl"));
+    if let Ok(raw) = std::fs::read_to_string(&running_path) {
+        let mut lines: Vec<String> = raw.lines().map(str::to_owned).collect();
+        if let Some(first) = lines.first_mut()
+            && let Ok(mut v) = serde_json::from_str::<serde_json::Value>(first)
+        {
+            v["occurredAt"] = serde_json::json!(old_ts);
+            *first = v.to_string();
+            std::fs::write(&running_path, format!("{}\n", lines.join("\n"))).unwrap();
+        }
+    }
+
+    rt.update(|s, _| {
+        s.settings_panel.open = true;
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::Privacy);
+        crate::backup_section::reload(s);
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "retention-days-30");
+    click(&mut rt, "retention-review");
+    settle(&mut rt);
+
+    let plan_text = text_in(&rt, "retention-plan").join(" ");
+    assert!(plan_text.contains("Delete 1 turn for good"), "{plan_text}");
+    assert!(plan_text.contains("1 turn kept because they are running"), "{plan_text}");
+
+    click(&mut rt, "retention-confirm");
+    settle(&mut rt);
+
+    assert!(!native_ledger.join("mission_old_native.jsonl").exists(), "old native conversation deleted");
+    assert!(native_ledger.join(format!("{running_id}.jsonl")).exists(), "running conversation stayed");
+    assert!(electron_ledger.join("mission_old_electron.jsonl").exists(), "Electron conversation stayed");
+
+    on_quit(&mut rt.state, &mut Tx::default());
+}
