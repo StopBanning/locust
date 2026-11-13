@@ -4902,3 +4902,280 @@ fn compact_now_from_the_ring_sends_compact_and_keeps_the_box() {
     on_quit(&mut rt.state, &mut Tx::default());
 }
 
+// ---- project groups, standing instructions, Project settings, and thread join/leaving lines
+
+fn write_prompt_capture_wrapper(
+    dir: &Path,
+    prompt_log: &Path,
+    scenario_name: &str,
+) -> Option<(PathBuf, Vec<String>)> {
+    let script = dir.join("prompt_capture_wrapper.py");
+    let fixture = format!("{}/scripts/fixtures/m1-app-server.py", env!("CARGO_MANIFEST_DIR"));
+    let py = r#"import json, subprocess, sys
+log_path, fixture_path, scenario = sys.argv[1:4]
+proc = subprocess.Popen(
+    [sys.executable, fixture_path, scenario] + sys.argv[4:],
+    stdin=subprocess.PIPE,
+    stdout=sys.stdout,
+    stderr=sys.stderr,
+    text=True,
+    bufsize=1,
+)
+for line in sys.stdin:
+    try:
+        msg = json.loads(line)
+        if msg.get('method') == 'turn/start':
+            txt = (msg.get('params', {}).get('input') or [{}])[0].get('text', '')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(txt) + '\n')
+    except Exception:
+        pass
+    proc.stdin.write(line)
+    proc.stdin.flush()
+proc.stdin.close()
+sys.exit(proc.wait())
+"#;
+    std::fs::write(&script, py).unwrap();
+    Some((
+        PathBuf::from("python3"),
+        vec![
+            script.to_string_lossy().into_owned(),
+            prompt_log.to_string_lossy().into_owned(),
+            fixture,
+            scenario_name.to_owned(),
+        ],
+    ))
+}
+
+fn read_captured_prompts(prompt_log: &Path) -> Vec<String> {
+    std::fs::read_to_string(prompt_log)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str::<String>(l).ok())
+        .collect()
+}
+
+#[test]
+fn group_standing_instructions_brief_turns_after_folder_and_render_join_note_in_window() {
+    let (dirs, store, mut rt) = window();
+    let work = dirs.0.join("work");
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_codec",
+                    "name": "Codec",
+                    "hue": "lime",
+                    "role": "Code & Migrations",
+                    "createdAt": "2026-11-01T00:00:00.000Z",
+                    "instructions": "Teammate rule: keep diffs minimal.",
+                    "folder": work.to_string_lossy(),
+                }],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+
+    let prompt_log = dirs.0.join("captured_prompts.jsonl");
+    let guard = native::hooks::install(
+        store.clone(),
+        write_prompt_capture_wrapper(&dirs.0, &prompt_log, "success"),
+    );
+
+    // Turn 1 runs before the conversation belongs to a group.
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "turn 1 answer", answered);
+    let mid = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
+    let mid_wait = mid.clone();
+    pump(&mut rt, "the recent row", move |s| {
+        s.recent.iter().any(|r| r.id == mid_wait)
+    });
+    settle(&mut rt);
+    std::thread::sleep(Duration::from_millis(10));
+
+    // Create a project group and assign this conversation to it.
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        let gid = crate::org::create_group(&store, &mut s.org, "Trading").unwrap();
+        crate::sidebar::apply_org_action(s, &mid, &format!("group:{gid}"));
+    });
+    let gid = rt.state.org.groups.last().unwrap().group_id.clone();
+    settle(&mut rt);
+
+    // Open Project settings from the sidebar group menu and save standing instructions.
+    let menu_key = format!("group-menu-{gid}");
+    let settings_key = format!("group-settings-{gid}");
+    rt.update(move |_, tx| tx.scroll_key_to(&menu_key, 0.0));
+    settle(&mut rt);
+    click(&mut rt, &format!("group-menu-{gid}"));
+    rt.update(move |_, tx| tx.scroll_key_to(&settings_key, 0.0));
+    settle(&mut rt);
+    click(&mut rt, &format!("group-settings-{gid}"));
+    assert!(rt.state.group_settings.open, "Project settings dialog opened");
+    click(&mut rt, "group-settings-instructions");
+    rt.paste("Check risk limits before placing an order.");
+    rt.frame(0.016);
+    click(&mut rt, "group-settings-save");
+    assert!(!rt.state.group_settings.open, "dialog closes on Save");
+    settle(&mut rt);
+
+    // Follow-up turn runs with the group's standing instructions injected after folder, before teammate.
+    let _guard = {
+        drop(guard);
+        native::hooks::install(
+            store.clone(),
+            write_prompt_capture_wrapper(&dirs.0, &prompt_log, "resume"),
+        )
+    };
+    type_and_send(&mut rt, "Synthetic follow-up");
+    pump(&mut rt, "turn 2 answer", |s| {
+        s.flight.is_none()
+            && s.ledger
+                .as_ref()
+                .is_some_and(|p| !p.loading && !p.snapshot.running && p.snapshot.turn_metas.len() == 2)
+    });
+    settle(&mut rt);
+
+    let prompts = read_captured_prompts(&prompt_log);
+    assert_eq!(prompts.len(), 2, "captured prompts: {prompts:?}");
+    assert!(!prompts[0].contains("Check risk limits before placing an order."));
+    let folder_at = prompts[1].find("You are working in the folder").expect("folder section");
+    let group_at = prompts[1]
+        .find("Standing instructions for the group \"Trading\", which this conversation is in. Every turn of it is given these:\nCheck risk limits before placing an order.")
+        .expect("group section in follow-up prompt");
+    let teammate_at = prompts[1]
+        .find("Standing instructions for you, Codec, from the person.")
+        .expect("teammate section");
+    assert!(folder_at < group_at && group_at < teammate_at, "section order broken: {folder_at} < {group_at} < {teammate_at}");
+
+    let join_line = rt
+        .elements()
+        .into_iter()
+        .filter_map(|e| e.text)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        join_line.contains("Trading's instructions brief every turn from here"),
+        "expected join boundary in thread:\n{join_line}"
+    );
+    assert!(!join_line.contains("Check risk limits before placing an order."), "join note starts collapsed");
+
+    click(&mut rt, "group-join-toggle-0");
+    let expanded = rt
+        .elements()
+        .into_iter()
+        .filter_map(|e| e.text)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(expanded.contains("Check risk limits before placing an order."), "{expanded}");
+    assert!(expanded.contains("edit in Project settings"), "{expanded}");
+}
+
+#[test]
+fn leaving_a_group_keeps_join_note_shows_leaving_note_and_stops_briefing_future_turns() {
+    let (dirs, store, mut rt) = window();
+    let prompt_log = dirs.0.join("captured_prompts.jsonl");
+    let guard = native::hooks::install(
+        store.clone(),
+        write_prompt_capture_wrapper(&dirs.0, &prompt_log, "success"),
+    );
+
+    // Turn 1 ungrouped.
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "turn 1 answer", answered);
+    settle(&mut rt);
+    let mid = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
+    std::thread::sleep(Duration::from_millis(10));
+
+    // Join Trading with standing instructions.
+    rt.update(|s, _| {
+        let gid = crate::org::create_group(&store, &mut s.org, "Trading").unwrap();
+        crate::org::set_group_instructions(&store, &mut s.org, &gid, "Require stop-loss.").unwrap();
+        crate::sidebar::apply_org_action(s, &mid, &format!("group:{gid}"));
+    });
+    let gid = rt.state.org.groups.last().unwrap().group_id.clone();
+    assert!(!gid.is_empty());
+    std::thread::sleep(Duration::from_millis(10));
+
+    // Turn 2 while in the group.
+    let guard = {
+        drop(guard);
+        native::hooks::install(
+            store.clone(),
+            write_prompt_capture_wrapper(&dirs.0, &prompt_log, "resume"),
+        )
+    };
+    type_and_send(&mut rt, "Synthetic follow-up");
+    pump(&mut rt, "turn 2 answer", |s| {
+        s.flight.is_none()
+            && s.ledger
+                .as_ref()
+                .is_some_and(|p| !p.loading && !p.snapshot.running && p.snapshot.turn_metas.len() == 2)
+    });
+    settle(&mut rt);
+    std::thread::sleep(Duration::from_millis(10));
+
+    // Leave the group (move to Ungrouped).
+    rt.update(|s, _| {
+        crate::sidebar::apply_org_action(s, &mid, "group:");
+    });
+    settle(&mut rt);
+    std::thread::sleep(Duration::from_millis(10));
+
+    let thread_before_t3 = rt
+        .elements()
+        .into_iter()
+        .filter_map(|e| e.text)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        thread_before_t3.contains("Trading's instructions brief every turn from here"),
+        "join note must survive leaving:\n{thread_before_t3}"
+    );
+    assert!(
+        thread_before_t3.contains("Trading's instructions no longer apply from here"),
+        "leaving note missing:\n{thread_before_t3}"
+    );
+
+    // Turn 3 after leaving must not include Trading's instructions.
+    let _guard = {
+        drop(guard);
+        native::hooks::install(
+            store.clone(),
+            write_prompt_capture_wrapper(&dirs.0, &prompt_log, "resume"),
+        )
+    };
+    type_and_send(&mut rt, "Synthetic follow-up");
+    pump(&mut rt, "turn 3 answer", |s| {
+        s.flight.is_none()
+            && s.ledger
+                .as_ref()
+                .is_some_and(|p| !p.loading && !p.snapshot.running && p.snapshot.turn_metas.len() == 3)
+    });
+    settle(&mut rt);
+
+    let prompts = read_captured_prompts(&prompt_log);
+    assert_eq!(prompts.len(), 3, "captured prompts: {prompts:?}");
+    assert!(!prompts[0].contains("Require stop-loss."));
+    assert!(prompts[1].contains("Require stop-loss."));
+    assert!(!prompts[2].contains("Require stop-loss."));
+
+    let thread_after_t3 = rt
+        .elements()
+        .into_iter()
+        .filter_map(|e| e.text)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let first_at = thread_after_t3.find("Synthetic prompt").unwrap();
+    let join_at = thread_after_t3
+        .find("Trading's instructions brief every turn from here")
+        .unwrap();
+    let second_at = thread_after_t3.find("Synthetic follow-up").unwrap();
+    let leave_at = thread_after_t3
+        .find("Trading's instructions no longer apply from here")
+        .unwrap();
+    assert!(first_at < join_at && join_at < second_at && second_at < leave_at);
+}

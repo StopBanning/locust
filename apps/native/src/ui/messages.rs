@@ -7,6 +7,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         .as_ref()
         .map(|pane| locust_core::time_marker::thread_markers(&pane.snapshot.timings))
         .unwrap_or_default();
+    let (group_joins, group_leavings, active_group_id) = thread_group_lines(s);
     let mut user_index = 0usize;
     let self_teammate_id = selected_conversation(s).map(|(t, _)| t.id.as_str()).unwrap_or("");
     let emit_turn_peers = |messages: El, turn_idx: usize| -> El {
@@ -166,6 +167,15 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 {
                     messages = messages.child(note);
                 }
+                messages = emit_group_lines_at(
+                    messages,
+                    &group_joins,
+                    &group_leavings,
+                    active_group_id.as_deref(),
+                    |bt| bt == ui,
+                    p,
+                    s,
+                );
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
@@ -362,6 +372,15 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if user_index > 0 {
         messages = emit_turn_peers(messages, user_index - 1);
     }
+    messages = emit_group_lines_at(
+        messages,
+        &group_joins,
+        &group_leavings,
+        active_group_id.as_deref(),
+        |bt| bt >= user_index,
+        p,
+        s,
+    );
     messages = messages.children(peer_thread::live_relay_rows(s, p));
     if let Some(pane) = &s.ledger
         && !pane.snapshot.tip.is_empty()
@@ -396,4 +415,325 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 tx.live_only();
             }
         })
+}
+
+fn thread_group_lines(
+    s: &State,
+) -> (
+    Vec<locust_core::groups::GroupBoundary>,
+    Vec<locust_core::groups::GroupLeaving>,
+    Option<String>,
+) {
+    let mut conv_keys = Vec::new();
+    let mut push_key = |k: &str| {
+        if !k.is_empty() && !conv_keys.iter().any(|x| x == k) {
+            conv_keys.push(k.to_owned());
+        }
+    };
+    if let Some(pane) = &s.ledger {
+        if let Some(id) = pane.conversation.conversation_id.as_deref() {
+            push_key(id);
+        }
+        push_key(&pane.snapshot.tip);
+        for meta in &pane.snapshot.turn_metas {
+            push_key(&meta.mission_id);
+        }
+    } else if let Some((_, conv)) = selected_conversation(s)
+        && let Some(id) = conv.conversation_id.as_deref()
+    {
+        push_key(id);
+    }
+    let matched = recent_as_missions(s).into_iter().find(|m| {
+        conversation_list::conversation_keys(m)
+            .iter()
+            .any(|k| conv_keys.contains(k))
+    });
+    if let Some(row) = matched {
+        for k in conversation_list::conversation_keys(&row) {
+            if !k.is_empty() && !conv_keys.iter().any(|x| x == &k) {
+                conv_keys.push(k);
+            }
+        }
+    }
+    if conv_keys.is_empty() {
+        return (Vec::new(), Vec::new(), None);
+    }
+
+    let turn_count = s
+        .ledger
+        .as_ref()
+        .map(|pane| {
+            pane.snapshot
+                .turn_metas
+                .len()
+                .max(pane.snapshot.timings.len())
+        })
+        .unwrap_or(0);
+    let starts: Vec<Option<&str>> = (0..turn_count)
+        .map(|i| {
+            let pane = s.ledger.as_ref()?;
+            pane.snapshot
+                .turn_metas
+                .get(i)
+                .map(|m| m.created_at.as_str())
+                .filter(|c| !c.is_empty())
+                .or_else(|| {
+                    pane.snapshot
+                        .timings
+                        .get(i)
+                        .and_then(|t| t.first_at.as_deref())
+                })
+        })
+        .collect();
+
+    let membership = conv_keys.iter().find_map(|k| s.org.members.get(k));
+    let group = membership.and_then(|m| s.org.groups.iter().find(|g| g.group_id == m.group_id));
+    let active_group_id = group.map(|g| g.group_id.clone());
+    let current_boundary = group.and_then(|g| {
+        locust_core::groups::group_boundary(
+            &starts,
+            membership.and_then(|m| m.at.as_deref()),
+            &g.name,
+            &g.instructions,
+        )
+    });
+    let left: &[org::LeftMembership] = conv_keys
+        .iter()
+        .find_map(|k| s.org.left.get(k))
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let mut joins = locust_core::groups::group_joins(&starts, left);
+    if let Some(b) = current_boundary {
+        joins.push(b);
+    }
+    let leavings = locust_core::groups::group_leavings(&starts, left);
+    (joins, leavings, active_group_id)
+}
+
+fn emit_group_lines_at(
+    mut messages: El,
+    joins: &[locust_core::groups::GroupBoundary],
+    leavings: &[locust_core::groups::GroupLeaving],
+    active_group_id: Option<&str>,
+    pred: impl Fn(usize) -> bool,
+    p: &Palette,
+    s: &State,
+) -> El {
+    for (idx, leaving) in leavings.iter().enumerate().filter(|(_, l)| pred(l.before_turn)) {
+        messages = messages.child(
+            text(format!(
+                "{}'s instructions no longer apply from here",
+                leaving.group_name
+            ))
+            .key(format!("group-leaving-{idx}"))
+            .font(type_::LABEL)
+            .color(p.muted)
+            .w_full()
+            .wrap(),
+        );
+    }
+    for (idx, join) in joins.iter().enumerate().filter(|(_, j)| pred(j.before_turn)) {
+        let toggle_key = format!("group-join:{idx}:{}", join.group_name);
+        let open = s.activity_open.get(&toggle_key).copied().unwrap_or(false);
+        let toggle_id = toggle_key.clone();
+        let mut block = col().w_full().gap(6.0).child(
+            row()
+                .w_full()
+                .center_y()
+                .gap(4.0)
+                .child(
+                    text(format!(
+                        "{}'s instructions brief every turn from here",
+                        join.group_name
+                    ))
+                    .key(format!("group-join-line-{idx}"))
+                    .font(type_::LABEL)
+                    .color(p.muted),
+                )
+                .child(text("·").font(type_::LABEL).color(p.muted))
+                .child(
+                    text(if open { "hide" } else { "view" })
+                        .key(format!("group-join-toggle-{idx}"))
+                        .font(type_::LABEL)
+                        .color(p.secondary)
+                        .role("button")
+                        .on_press(move |s: &mut State| {
+                            let cur = s.activity_open.get(&toggle_id).copied().unwrap_or(false);
+                            s.activity_open.insert(toggle_id.clone(), !cur);
+                        }),
+                ),
+        );
+        if open {
+            let mut quote = col()
+                .w_full()
+                .pl(12.0)
+                .gap(4.0)
+                .border_sides([0.0, 0.0, 0.0, 2.0], p.hairline)
+                .child(
+                    text(join.instructions.clone())
+                        .font(type_::BODY)
+                        .color(p.secondary)
+                        .wrap(),
+                );
+            if let Some(gid) = active_group_id {
+                let edit_gid = gid.to_owned();
+                quote = quote.child(
+                    text("edit in Project settings")
+                        .key(format!("group-join-edit-{idx}"))
+                        .font(type_::LABEL)
+                        .color(p.muted)
+                        .role("button")
+                        .on_press(move |s: &mut State| {
+                            crate::group_settings_dialog::open(s, &edit_gid);
+                        }),
+                );
+            }
+            block = block.child(quote);
+        }
+        messages = messages.child(block);
+    }
+    messages
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn thread_text(items: &[ledger::Item], s: &mut State) -> String {
+        let taken = std::mem::take(s);
+        let mut rt = rune::Runtime::new(
+            (taken, items.to_vec()),
+            |(s, items), _| message_column(items, "Codec", &Palette::new(true), s),
+            (800.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let out = rt
+            .elements()
+            .into_iter()
+            .filter_map(|e| e.text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        *s = rt.state.0;
+        out
+    }
+
+    #[test]
+    fn thread_renders_group_join_expandable_instructions_and_leaving_line() {
+        let mut s = State::default();
+        let gid = "grp_trading".to_owned();
+        s.org.groups.push(org::Group::new(
+            gid.clone(),
+            "Trading".into(),
+            "2026-09-16T08:00:00.000Z".into(),
+            "Ask before executing.".into(),
+            None,
+        ));
+        s.org.left.insert(
+            "m_1".into(),
+            vec![org::LeftMembership {
+                group_id: gid.clone(),
+                name: "Trading".into(),
+                instructions: "Ask before executing.".into(),
+                at: Some("2026-09-16T11:00:00.000Z".into()),
+                until: "2026-09-16T13:00:00.000Z".into(),
+            }],
+        );
+        let items = vec![
+            ledger::Item::User("First turn".into()),
+            ledger::Item::User("Second turn".into()),
+            ledger::Item::User("Third turn".into()),
+        ];
+        let header = Teammate {
+            id: "tm_codec".into(),
+            name: "Codec".into(),
+            role: "Engineer".into(),
+            runtime: None,
+            model: None,
+            account: None,
+            busy: false,
+            runs_in: "local".into(),
+            folder: None,
+        };
+        let pane = LedgerPane {
+            header: header.clone(),
+            conversation: Conversation {
+                conversation_id: Some("m_1".into()),
+                turns: Vec::new(),
+            },
+            items: items.clone(),
+            dir: std::path::PathBuf::new(),
+            worker: None,
+            snapshot: ledger::Snapshot {
+                items: items.clone(),
+                turn_metas: vec![
+                    ledger::Metadata {
+                        mission_id: "m_1".into(),
+                        created_at: "2026-09-16T10:00:00.000Z".into(),
+                        ..Default::default()
+                    },
+                    ledger::Metadata {
+                        mission_id: "m_2".into(),
+                        created_at: "2026-09-16T12:00:00.000Z".into(),
+                        ..Default::default()
+                    },
+                    ledger::Metadata {
+                        mission_id: "m_3".into(),
+                        created_at: "2026-09-16T14:00:00.000Z".into(),
+                        ..Default::default()
+                    },
+                ],
+                tip: "m_3".into(),
+                ..Default::default()
+            },
+            due: 0.0,
+            loading: false,
+            after_tip: None,
+            after_tip_deadline: None,
+            backoff: 0.0,
+        };
+        s.ledger = Some(pane);
+
+        let collapsed = thread_text(&items, &mut s);
+        let first_at = collapsed.find("First turn").unwrap();
+        let join_at = collapsed
+            .find("Trading's instructions brief every turn from here")
+            .unwrap();
+        let second_at = collapsed.find("Second turn").unwrap();
+        let leaving_at = collapsed
+            .find("Trading's instructions no longer apply from here")
+            .unwrap();
+        let third_at = collapsed.find("Third turn").unwrap();
+        assert!(first_at < join_at && join_at < second_at);
+        assert!(second_at < leaving_at && leaving_at < third_at);
+        assert!(collapsed.contains("view"));
+        assert!(!collapsed.contains("Ask before executing."));
+
+        // Opening the join note reveals the instructions that applied.
+        s.activity_open
+            .insert("group-join:0:Trading".into(), true);
+        let expanded = thread_text(&items, &mut s);
+        assert!(expanded.contains("hide"));
+        assert!(expanded.contains("Ask before executing."));
+
+        // If still a member, edit in Project settings is also shown.
+        s.org.members.insert(
+            "m_1".into(),
+            org::GroupMembership {
+                group_id: gid,
+                at: Some("2026-09-16T15:00:00.000Z".into()),
+            },
+        );
+        if let Some(pane) = s.ledger.as_mut() {
+            pane.snapshot.turn_metas.push(ledger::Metadata {
+                mission_id: "m_4".into(),
+                created_at: "2026-09-16T16:00:00.000Z".into(),
+                ..Default::default()
+            });
+        }
+        s.activity_open
+            .insert("group-join:1:Trading".into(), true);
+        let active = thread_text(&items, &mut s);
+        assert!(active.contains("edit in Project settings"));
+    }
 }

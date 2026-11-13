@@ -733,13 +733,20 @@ fn org_base(s: &mut State, light: bool) {
             until: None,
         },
     );
-    s.org.groups = vec![org::Group {
-        group_id: "grp_locust".into(),
-        name: "Locust".into(),
-        created_at: "2026-11-01T00:00:00.000Z".into(),
-        instructions: String::new(),
-    }];
-    s.org.members.insert("sample-3".into(), "grp_locust".into());
+    s.org.groups = vec![org::Group::new(
+        "grp_locust".into(),
+        "Locust".into(),
+        "2026-11-01T00:00:00.000Z".into(),
+        String::new(),
+        None,
+    )];
+    s.org.members.insert(
+        "sample-3".into(),
+        org::GroupMembership {
+            group_id: "grp_locust".into(),
+            at: None,
+        },
+    );
 }
 
 pub(super) fn org_sidebar_scene(s: &mut State) {

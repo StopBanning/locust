@@ -7,6 +7,7 @@
 
 use crate::settled::SettledEntry;
 use crate::store::Store;
+pub use locust_core::groups::{Group, GroupMembership, GroupRoute, LeftMembership};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io::{self, Read};
@@ -17,11 +18,7 @@ pub const MAX_MISSION_PINS: usize = 50;
 pub const MAX_MISSION_TITLES: usize = 1_000;
 pub const MAX_MISSION_TITLE_LENGTH: usize = 120;
 pub const MAX_MISSION_SETTLED: usize = 1_000;
-pub const MAX_GROUPS: usize = 64;
-pub const MAX_GROUP_NAME_LENGTH: usize = 60;
-pub const MAX_GROUP_MEMBERS: usize = 5_000;
 const MAX_FILE_BYTES: u64 = 1_000_000;
-const MAX_GROUPS_FILE_BYTES: u64 = 4 * 1024 * 1024;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct OrgState {
@@ -29,17 +26,10 @@ pub struct OrgState {
     pub pins: Vec<String>,
     pub settled: HashMap<String, SettledEntry>,
     pub groups: Vec<Group>,
-    pub members: HashMap<String, String>,
+    pub members: HashMap<String, GroupMembership>,
+    pub left: HashMap<String, Vec<LeftMembership>>,
     pub groups_unreadable: bool,
     pub teammates_org_unreadable: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Group {
-    pub group_id: String,
-    pub name: String,
-    pub created_at: String,
-    pub instructions: String,
 }
 
 fn safe_id(s: &str) -> bool {
@@ -74,13 +64,6 @@ fn utf16_prefix(value: &str, max: usize) -> String {
             count <= max
         })
         .collect()
-}
-
-fn clean_group_name(value: &str) -> String {
-    utf16_prefix(
-        &value.split_whitespace().collect::<Vec<_>>().join(" "),
-        MAX_GROUP_NAME_LENGTH,
-    )
 }
 
 fn parse_titles(record: &Value) -> HashMap<String, String> {
@@ -175,79 +158,6 @@ fn parse_teammates_org(text: &str) -> Result<TeammatesOrg, String> {
     Ok((parse_titles(&file), parse_pins(&file), parse_settled(&file)))
 }
 
-fn parse_groups_file(text: &str) -> Result<(Vec<Group>, HashMap<String, String>), String> {
-    let file: Value = serde_json::from_str(text).map_err(|_| "unreadable".to_string())?;
-    if !file.is_object() || file.get("schemaVersion") != Some(&json!(1)) {
-        return Err("unreadable".into());
-    }
-    let mut groups = Vec::new();
-    for entry in file
-        .get("groups")
-        .and_then(|v| v.as_array())
-        .into_iter()
-        .flatten()
-        .take(MAX_GROUPS)
-    {
-        let Some(group_id) = entry
-            .get("groupId")
-            .and_then(|v| v.as_str())
-            .filter(|s| safe_id(s))
-        else {
-            continue;
-        };
-        let Some(name) = entry.get("name").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let name = clean_group_name(name);
-        let n = name.encode_utf16().count();
-        if n == 0 || n > MAX_GROUP_NAME_LENGTH {
-            continue;
-        }
-        let created_at = entry
-            .get("createdAt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_owned();
-        let instructions = entry
-            .get("instructions")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_owned();
-        if groups.iter().any(|g: &Group| g.group_id == group_id) {
-            continue;
-        }
-        groups.push(Group {
-            group_id: group_id.into(),
-            name: name.clone(),
-            created_at,
-            instructions,
-        });
-    }
-    let mut members = HashMap::new();
-    if let Some(obj) = file.get("members").and_then(|v| v.as_object()) {
-        for (mission_id, membership) in obj {
-            if members.len() >= MAX_GROUP_MEMBERS {
-                break;
-            }
-            if !safe_id(mission_id) {
-                continue;
-            }
-            let group_id = if let Some(s) = membership.as_str() {
-                s
-            } else {
-                membership
-                    .get("groupId")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-            };
-            if safe_id(group_id) && groups.iter().any(|g| g.group_id == group_id) {
-                members.insert(mission_id.clone(), group_id.to_owned());
-            }
-        }
-    }
-    Ok((groups, members))
-}
-
 /// Load organization state: Electron (read-only) as base, native overlay on top.
 pub fn load_org(store: &Store) -> OrgState {
     let mut state = OrgState::default();
@@ -266,31 +176,10 @@ pub fn load_org(store: &Store) -> OrgState {
         Err(_) => state.teammates_org_unreadable = true,
     }
 
-    match read_capped(&electron.join("groups.json"), MAX_GROUPS_FILE_BYTES) {
-        Ok(Some(text)) => match parse_groups_file(&text) {
-            Ok((groups, members)) => {
-                state.groups = groups;
-                state.members = members;
-            }
-            Err(_) => state.groups_unreadable = true,
-        },
-        Ok(None) => {}
-        Err(_) => state.groups_unreadable = true,
-    }
-
-    for (name, max) in [
-        ("teammates.json", MAX_FILE_BYTES),
-        ("groups.json", MAX_GROUPS_FILE_BYTES),
-    ] {
-        let path = if name == "teammates.json" {
-            store.teammates_json_path()
-        } else {
-            store.groups_json_path()
-        };
-        let Ok(path) = path else { continue };
-        match read_capped(&path, max) {
+    if let Ok(path) = store.teammates_json_path() {
+        match read_capped(&path, MAX_FILE_BYTES) {
             Ok(None) => {}
-            Ok(Some(text)) if name == "teammates.json" => match parse_teammates_org(&text) {
+            Ok(Some(text)) => match parse_teammates_org(&text) {
                 Ok((titles, pins, settled)) => {
                     state.titles = titles;
                     state.pins = pins;
@@ -299,17 +188,17 @@ pub fn load_org(store: &Store) -> OrgState {
                 }
                 Err(_) => state.teammates_org_unreadable = true,
             },
-            Ok(Some(text)) => match parse_groups_file(&text) {
-                Ok((groups, members)) => {
-                    state.groups = groups;
-                    state.members = members;
-                    state.groups_unreadable = false;
-                }
-                Err(_) => state.groups_unreadable = true,
-            },
-            Err(_) if name == "teammates.json" => state.teammates_org_unreadable = true,
-            Err(_) => state.groups_unreadable = true,
+            Err(_) => state.teammates_org_unreadable = true,
         }
+    }
+
+    match locust_core::groups::load_groups(store) {
+        Ok(listed) => {
+            state.groups = listed.groups;
+            state.members = listed.members;
+            state.left = listed.left;
+        }
+        Err(_) => state.groups_unreadable = true,
     }
     state
 }
@@ -398,36 +287,6 @@ fn teammates_body(state: &OrgState) -> String {
         + "\n"
 }
 
-fn groups_body(state: &OrgState) -> String {
-    let groups: Vec<Value> = state
-        .groups
-        .iter()
-        .map(|g| {
-            json!({
-                "groupId": g.group_id,
-                "name": g.name,
-                "createdAt": g.created_at,
-                "instructions": g.instructions,
-            })
-        })
-        .collect();
-    let members = Value::Object(
-        state
-            .members
-            .iter()
-            .map(|(k, group_id)| (k.clone(), json!({"groupId": group_id, "at": now_iso()})))
-            .collect(),
-    );
-    serde_json::to_string_pretty(&json!({
-        "schemaVersion": 1,
-        "groups": groups,
-        "members": members,
-        "left": {}
-    }))
-    .unwrap_or_else(|_| "{\"schemaVersion\":1,\"groups\":[],\"members\":{},\"left\":{}}\n".into())
-        + "\n"
-}
-
 fn source_file(store: &Store, path: &Path, name: &str, max: u64) -> Result<Value, String> {
     let text = match read_capped(path, max)? {
         Some(text) => Some(text),
@@ -454,66 +313,6 @@ fn persist_teammates(store: &Store, state: &OrgState) -> Result<(), String> {
     let org: Value = serde_json::from_str(&teammates_body(state)).map_err(|e| e.to_string())?;
     for key in ["missionTitles", "missionPins", "missionSettled"] {
         body[key] = org[key].clone();
-    }
-    let text = serde_json::to_string_pretty(&body).map_err(|e| e.to_string())?;
-    write_atomic(store, &path, &text).map_err(|e| e.to_string())
-}
-
-fn persist_groups(store: &Store, state: &OrgState) -> Result<(), String> {
-    if state.groups_unreadable {
-        return Err("Projects could not be read".into());
-    }
-    let path = store.groups_json_path().map_err(|e| e.to_string())?;
-    let mut body = source_file(store, &path, "groups.json", MAX_GROUPS_FILE_BYTES)?;
-    let org: Value = serde_json::from_str(&groups_body(state)).map_err(|e| e.to_string())?;
-    // Carry route and other group fields, and retain the original membership moment.
-    let old_groups = body["groups"].as_array().cloned().unwrap_or_default();
-    let mut groups = org["groups"].clone();
-    if let Some(groups) = groups.as_array_mut() {
-        for group in groups {
-            if let Some(old) = old_groups.iter().find(|g| g["groupId"] == group["groupId"]) {
-                let mut merged = old.clone();
-                for key in ["groupId", "name", "createdAt", "instructions"] {
-                    merged[key] = group[key].clone();
-                }
-                *group = merged;
-            }
-        }
-    }
-    let mut members = org["members"].clone();
-    for (id, gid) in &state.members {
-        let old = &body["members"][id];
-        if old.as_str() == Some(gid) || old["groupId"].as_str() == Some(gid) {
-            members[id] = old.clone();
-        }
-    }
-    let old_members = body["members"].as_object().cloned().unwrap_or_default();
-    if !body["left"].is_object() {
-        body["left"] = json!({});
-    }
-    for (id, old) in old_members {
-        let gid = old.as_str().or_else(|| old["groupId"].as_str());
-        if gid == state.members.get(&id).map(String::as_str) {
-            continue;
-        }
-        let Some(group) = old_groups.iter().find(|g| g["groupId"].as_str() == gid) else {
-            continue;
-        };
-        let mut entry = json!({"groupId": group["groupId"], "name": group["name"], "instructions": group["instructions"].as_str().unwrap_or(""), "until": now_iso()});
-        if let Some(at) = old.get("at") {
-            entry["at"] = at.clone();
-        }
-        let mut history = body["left"][&id].as_array().cloned().unwrap_or_default();
-        history.push(entry);
-        if history.len() > 8 {
-            history.drain(..history.len() - 8);
-        }
-        body["left"][&id] = json!(history);
-    }
-    body["groups"] = groups;
-    body["members"] = members;
-    if body.get("left").is_none() {
-        body["left"] = json!({});
     }
     let text = serde_json::to_string_pretty(&body).map_err(|e| e.to_string())?;
     write_atomic(store, &path, &text).map_err(|e| e.to_string())
@@ -636,75 +435,13 @@ fn clear_org_for_deleted_inner(
     persist_teammates(store, state)
 }
 
-fn assign_to_group_inner(
-    store: &Store,
-    state: &mut OrgState,
-    mission_id: &str,
-    group_id: Option<&str>,
-) -> Result<(), String> {
-    if !safe_id(mission_id) {
-        return Err("Mission id is invalid".into());
-    }
-    match group_id {
-        None => {
-            state.members.remove(mission_id);
-        }
-        Some(gid) => {
-            if !safe_id(gid) || !state.groups.iter().any(|g| g.group_id == gid) {
-                return Err("That group does not exist".into());
-            }
-            if state.members.len() >= MAX_GROUP_MEMBERS && !state.members.contains_key(mission_id) {
-                return Err("Too many conversations in groups".into());
-            }
-            state.members.insert(mission_id.to_owned(), gid.to_owned());
-        }
-    }
-    persist_groups(store, state)
-}
-
-fn create_group_inner(store: &Store, state: &mut OrgState, name: &str) -> Result<String, String> {
-    let name = clean_group_name(name);
-    let n = name.encode_utf16().count();
-    if n == 0 || n > MAX_GROUP_NAME_LENGTH {
-        return Err("A group needs a name".into());
-    }
-    if state.groups.len() >= MAX_GROUPS {
-        return Err("Too many groups".into());
-    }
-    let group_id = format!(
-        "grp_{}",
-        crate::invariants::unique_nanos()
-    );
-    state.groups.push(Group {
-        group_id: group_id.clone(),
-        name: name.clone(),
-        created_at: now_iso(),
-        instructions: String::new(),
-    });
-    persist_groups(store, state)?;
-    Ok(group_id)
-}
-
-#[cfg(test)]
-fn rename_group_inner(
-    store: &Store,
-    state: &mut OrgState,
-    group_id: &str,
-    name: &str,
-) -> Result<(), String> {
-    if !safe_id(group_id) {
-        return Err("Project id is invalid".into());
-    }
-    let name = clean_group_name(name);
-    let n = name.encode_utf16().count();
-    if n == 0 || n > MAX_GROUP_NAME_LENGTH {
-        return Err("A group needs a name".into());
-    }
-    let Some(group) = state.groups.iter_mut().find(|g| g.group_id == group_id) else {
-        return Err("That group does not exist".into());
-    };
-    group.name = name;
-    persist_groups(store, state)
+fn refresh_groups(store: &Store, state: &mut OrgState) -> Result<(), String> {
+    let listed = locust_core::groups::load_groups(store)?;
+    state.groups = listed.groups;
+    state.members = listed.members;
+    state.left = listed.left;
+    state.groups_unreadable = false;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -896,30 +633,67 @@ pub fn assign_to_group(
     mission_id: &str,
     group_id: Option<&str>,
 ) -> Result<(), String> {
-    let mut next = state.clone();
-    assign_to_group_inner(store, &mut next, mission_id, group_id)?;
-    *state = next;
-    Ok(())
+    if state.groups_unreadable {
+        return Err("Projects could not be read".into());
+    }
+    locust_core::groups::assign_to_group(store, mission_id, group_id)?;
+    refresh_groups(store, state)
 }
 
 pub fn create_group(store: &Store, state: &mut OrgState, name: &str) -> Result<String, String> {
-    let mut next = state.clone();
-    let result = create_group_inner(store, &mut next, name)?;
-    *state = next;
-    Ok(result)
+    if state.groups_unreadable {
+        return Err("Projects could not be read".into());
+    }
+    let group = locust_core::groups::create_group(store, name)?;
+    refresh_groups(store, state)?;
+    Ok(group.group_id)
 }
 
-#[cfg(test)]
 pub fn rename_group(
     store: &Store,
     state: &mut OrgState,
     group_id: &str,
     name: &str,
 ) -> Result<(), String> {
-    let mut next = state.clone();
-    rename_group_inner(store, &mut next, group_id, name)?;
-    *state = next;
-    Ok(())
+    if state.groups_unreadable {
+        return Err("Projects could not be read".into());
+    }
+    locust_core::groups::rename_group(store, group_id, name)?;
+    refresh_groups(store, state)
+}
+
+pub fn remove_group(store: &Store, state: &mut OrgState, group_id: &str) -> Result<(), String> {
+    if state.groups_unreadable {
+        return Err("Projects could not be read".into());
+    }
+    locust_core::groups::remove_group(store, group_id)?;
+    refresh_groups(store, state)
+}
+
+pub fn set_group_instructions(
+    store: &Store,
+    state: &mut OrgState,
+    group_id: &str,
+    instructions: &str,
+) -> Result<(), String> {
+    if state.groups_unreadable {
+        return Err("Projects could not be read".into());
+    }
+    locust_core::groups::set_group_instructions(store, group_id, instructions)?;
+    refresh_groups(store, state)
+}
+
+pub fn set_group_route(
+    store: &Store,
+    state: &mut OrgState,
+    group_id: &str,
+    route: Option<GroupRoute>,
+) -> Result<(), String> {
+    if state.groups_unreadable {
+        return Err("Projects could not be read".into());
+    }
+    locust_core::groups::set_group_route(store, group_id, route)?;
+    refresh_groups(store, state)
 }
 
 #[cfg(test)]
@@ -1025,9 +799,9 @@ mod review_tests {
             pin_mission(&store, &mut state, "extra", true).unwrap_err(),
             "At most 50 conversations can be pinned"
         );
-        let (_, members) =
-            parse_groups_file(r#"{"schemaVersion":1,"groups":[],"members":{"m":"gone"}}"#).unwrap();
-        assert!(members.is_empty());
+        let listed =
+            locust_core::groups::parse_groups_str(r#"{"schemaVersion":1,"groups":[],"members":{"m":"gone"}}"#).unwrap();
+        assert!(listed.members.is_empty());
     }
 }
 
@@ -1107,15 +881,11 @@ pub fn assign_conversation(
     keys: &[String],
     group: Option<&str>,
 ) -> Result<(), String> {
-    let mut next = state.clone();
-    for key in keys {
-        if key != root {
-            next.members.remove(key);
-        }
+    if state.groups_unreadable {
+        return Err("Projects could not be read".into());
     }
-    assign_to_group(store, &mut next, root, group)?;
-    *state = next;
-    Ok(())
+    locust_core::groups::assign_conversation(store, root, keys, group)?;
+    refresh_groups(store, state)
 }
 
 #[cfg(test)]

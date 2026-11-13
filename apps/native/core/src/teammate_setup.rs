@@ -734,6 +734,25 @@ pub fn read_teammate_setup(
     teammate_id: &str,
     last_turn_events: &[Value],
 ) -> Result<TeammateSetup, String> {
+    read_teammate_setup_with_group(
+        store,
+        None,
+        home_dir,
+        project_path,
+        teammate_id,
+        last_turn_events,
+    )
+}
+
+/// High-level fresh reader for a teammate's setup, including any group instructions active for the conversation.
+pub fn read_teammate_setup_with_group(
+    store: &Store,
+    group: Option<(String, String)>,
+    home_dir: &Path,
+    project_path: &Path,
+    teammate_id: &str,
+    last_turn_events: &[Value],
+) -> Result<TeammateSetup, String> {
     let team_json = people::team(store)?;
     let entry = team_json["teammates"]
         .as_array()
@@ -800,7 +819,7 @@ pub fn read_teammate_setup(
         worktree,
         connectors,
         project_path,
-        group: None,
+        group,
         about_you,
         memory_mode,
         claude_own_skills,

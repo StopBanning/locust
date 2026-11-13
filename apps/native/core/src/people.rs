@@ -820,7 +820,7 @@ pub fn brief_with_instructions(
     prompt: &str,
     instructions_override: Option<&str>,
 ) -> Result<String, String> {
-    let mut sections = workspace_sections(store, who, folder, instructions_override, None)?;
+    let mut sections = workspace_sections(store, who, folder, instructions_override, None, None)?;
     sections.push(prompt.to_owned());
     Ok(sections.join("\n\n"))
 }
@@ -863,6 +863,33 @@ pub fn turn_brief_with_room(
     remaining: usize,
     room_history: Option<&crate::room_history::RoomHistory>,
 ) -> Result<(String, Vec<crate::workroom::Message>), String> {
+    turn_brief_with_group_and_room(
+        store,
+        who,
+        folder,
+        prompt,
+        instructions_override,
+        None,
+        runtime,
+        inbound,
+        remaining,
+        room_history,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn turn_brief_with_group_and_room(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    prompt: &str,
+    instructions_override: Option<&str>,
+    group: Option<(&str, &str)>,
+    runtime: Option<&str>,
+    inbound: &[crate::workroom::Message],
+    remaining: usize,
+    room_history: Option<&crate::room_history::RoomHistory>,
+) -> Result<(String, Vec<crate::workroom::Message>), String> {
     let file = team(store)?;
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let mut standing = Vec::new();
@@ -872,7 +899,7 @@ pub fn turn_brief_with_room(
             standing.push(crate::briefing::roster_section(me, &others));
         }
     }
-    standing.extend(workspace_sections(store, who, folder, instructions_override, runtime)?);
+    standing.extend(workspace_sections(store, who, folder, instructions_override, group, runtime)?);
     standing.extend(crate::briefing::standing_formats(runtime));
     let (composed, kept) = crate::briefing::assemble_with_room_history(
         &standing,
@@ -933,6 +960,7 @@ fn workspace_sections(
     who: &str,
     folder: &Path,
     instructions_override: Option<&str>,
+    group: Option<(&str, &str)>,
     runtime: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let file = team(store)?;
@@ -945,6 +973,11 @@ fn workspace_sections(
         .filter(|s| !s.is_empty());
     let memory_off = file["settings"]["memoryMode"] == "off";
     let mut sections = vec![where_section(folder)];
+    if let Some((group_name, group_instructions)) = group
+        && let Some(section) = crate::groups::group_section(group_name, group_instructions)
+    {
+        sections.push(section);
+    }
     if let Some(t) = teammate {
         let instructions = crate::compare::column_instructions(
             t["instructions"].as_str(),
@@ -1833,5 +1866,61 @@ mod tests {
         remove_teammate(&store, &id).unwrap();
         assert!(crate::tune_lesson_store::list(&store, Some(&id)).is_empty());
         assert!(crate::teammate_skills::list(&store, Some(&id)).is_empty());
+    }
+
+    #[test]
+    fn turn_brief_places_group_instructions_after_folder_and_before_teammate() {
+        let (t, store) = fixture();
+        let id = save_teammate_id(
+            &store,
+            json!({
+                "name": "Codec",
+                "role": "Code & Migrations",
+                "instructions": "Teammate rule.",
+                "route": {"runtime": "codex", "model": "gpt-5", "mode": "ask"}
+            }),
+        )
+        .unwrap();
+        let group = crate::groups::create_group(&store, "Trading").unwrap();
+        crate::groups::set_group_instructions(&store, &group.group_id, "Group rule.").unwrap();
+        let ledger = store.ledger_dir().unwrap();
+        std::fs::create_dir_all(&ledger).unwrap();
+        std::fs::write(ledger.join("m_root.jsonl"), json!({"missionId": "m_root"}).to_string() + "\n").unwrap();
+        std::fs::write(
+            ledger.join("m_turn2.jsonl"),
+            json!({"missionId": "m_turn2", "continuesFrom": {"missionId": "m_root"}}).to_string() + "\n",
+        )
+        .unwrap();
+        crate::groups::assign_to_group(&store, "m_root", Some(&group.group_id)).unwrap();
+
+        let gb = crate::groups::group_brief_for_tip(&store, Some("m_turn2")).unwrap();
+        let (brief, _) = turn_brief_with_group_and_room(
+            &store,
+            &id,
+            &t.0,
+            "Fix bug",
+            None,
+            Some((&gb.group_name, &gb.instructions)),
+            Some("codex"),
+            &[],
+            0,
+            None,
+        )
+        .unwrap();
+
+        let folder_at = brief.find("You are working in ").unwrap();
+        let group_at = brief.find("Standing instructions for the group \"Trading\"").unwrap();
+        let teammate_at = brief.find("Standing instructions for you").unwrap();
+        assert!(folder_at < group_at && group_at < teammate_at, "{brief}");
+        assert!(brief.contains("Group rule."));
+        assert!(brief.contains("Teammate rule."));
+
+        // Leaving stops subsequent briefs from carrying group instructions.
+        crate::groups::assign_to_group(&store, "m_root", None).unwrap();
+        assert!(crate::groups::group_brief_for_tip(&store, Some("m_turn2")).is_none());
+
+        // An unreadable groups.json does not block or brief.
+        std::fs::write(store.groups_json_path().unwrap(), "{broken").unwrap();
+        assert!(crate::groups::group_brief_for_tip(&store, Some("m_turn2")).is_none());
     }
 }

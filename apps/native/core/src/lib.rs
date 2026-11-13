@@ -57,6 +57,7 @@ pub mod diff_notes;
 pub mod folders;
 pub mod github_account;
 pub mod github_issues;
+pub mod groups;
 pub mod hand_off;
 pub mod inspector;
 pub mod interview;
