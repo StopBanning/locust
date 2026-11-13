@@ -34,6 +34,7 @@ pub mod folder_commit;
 pub mod diff_notes;
 pub mod folders;
 pub mod github_account;
+pub mod github_issues;
 pub mod hand_off;
 pub mod inspector;
 pub mod interview;

@@ -153,6 +153,8 @@ mod changelog;
 mod changes_panel;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
+#[path = "ui/issue_list.rs"]
+mod issue_list;
 #[path = "ui/diff_notes_ui.rs"]
 mod diff_notes_ui;
 #[path = "ui/connectors_section.rs"]
@@ -647,6 +649,7 @@ fn setup(s: &mut State, waker: Waker) {
     s.review_job.set_waker(waker.clone());
     s.github_job.set_waker(waker.clone());
     s.connectors_job.set_waker(waker.clone());
+    s.issues_job.set_waker(waker.clone());
     s.commit_read_job.set_waker(waker.clone());
     s.commit_job.set_waker(waker.clone());
     s.commit_draft_job.set_waker(waker.clone());
@@ -1344,6 +1347,10 @@ fn fresh_conversation(s: &mut State) {
 }
 
 fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
+    // The issue list, while open, takes arrows, Enter and Escape.
+    if issue_list::key(s, event) {
+        return true;
+    }
     if s.changes.open && event.mods.shift && !event.mods.alt && event.is_command('y') {
         s.changes.files = !s.changes.files;
         return true;
@@ -1732,6 +1739,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= agents_section::poll(s);
     changed |= github_section::poll(s);
     changed |= connectors_section::poll(s);
+    changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
     changed |= rail::poll(s);
     changed |= open_pressed_notification(s, tx);

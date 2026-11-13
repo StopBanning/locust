@@ -280,7 +280,7 @@ apps/desktop/src/main/a-web-search-asks-in-its-own-words.test.ts		waiting
 apps/desktop/src/main/a-windows-11-window-can-be-liquid-glass.test.ts		waiting		
 apps/desktop/src/main/a-workbook-is-read-for-its-cells.test.ts	p14	partial		`main/an-office-file-is-read-for-its-words.test.ts`, `an-office-file-reads-in-any-mode.test.ts`, `a-workbook-is-read-for-its-cells.test.ts`, `renderer/.../a-spreadsheet-opens-as-a-grid.test.tsx` | Partial: `document_words`, docx zip+XML, xl
 apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts		waiting		
-apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts		waiting		
+apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	ISSUES	carried	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	carried (13 Nov)
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts		waiting		
 apps/desktop/src/main/about-you-is-read-by-every-teammate.test.ts	P6	does-not-apply		`main/a-teammate-has-its-own-instructions.test.ts`, `main/about-you-is-read-by-every-teammate.test.ts` | Saved instructions and About you reach the native brief; About you survives memory off; protocol tags in the note are disarmed.
 apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts		waiting		
@@ -309,9 +309,9 @@ apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conver
 apps/desktop/src/main/an-fyi-need-not-page-a-model.test.ts		waiting		
 apps/desktop/src/main/an-image-preview-stays-in-its-folder.test.ts		waiting		
 apps/desktop/src/main/an-input-method-keeps-its-keys.test.ts		waiting		
-apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts		waiting		
+apps/desktop/src/main/an-issue-image-comes-only-from-github.test.ts	ISSUES	partial	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	Partial: the list and its choice are carried; picture fetching and Home’s Start from an issue wait
 apps/desktop/src/main/an-issue-link-wears-its-state.test.ts		waiting		
-apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts		waiting		
+apps/desktop/src/main/an-issue-list-is-only-a-github-folder.test.ts	ISSUES	carried	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	carried (13 Nov)
 apps/desktop/src/main/an-office-file-is-read-for-its-words.test.ts	p14	partial		`main/an-office-file-is-read-for-its-words.test.ts`, `an-office-file-reads-in-any-mode.test.ts`, `a-workbook-is-read-for-its-cells.test.ts`, `renderer/.../a-spreadsheet-opens-as-a-grid.test.tsx` | Partial: `document_words`, docx zip+XML, xl
 apps/desktop/src/main/an-office-file-reads-in-any-mode.test.ts	p14	partial		`main/an-office-file-is-read-for-its-words.test.ts`, `an-office-file-reads-in-any-mode.test.ts`, `a-workbook-is-read-for-its-cells.test.ts`, `renderer/.../a-spreadsheet-opens-as-a-grid.test.tsx` | Partial: `document_words`, docx zip+XML, xl
 apps/desktop/src/main/an-offline-update-check-is-not-an-error.test.ts		waiting		
@@ -905,7 +905,7 @@ apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts		waiting
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		waiting		
 apps/desktop/src/renderer/src/backupWords.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx		waiting		
-apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx		waiting		
+apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx	ISSUES	partial	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	Partial: the list and its choice are carried; picture fetching and Home’s Start from an issue wait
 apps/desktop/src/renderer/src/claude-thinking-appears-in-the-thinking-row.test.tsx		waiting		
 apps/desktop/src/renderer/src/claudes-cloud-says-what-it-works-on.test.tsx		waiting		
 apps/desktop/src/renderer/src/code-in-a-reply-is-coloured.test.tsx	P5	waiting	code_preserves_unicode_and_has_bounded_colouring	`code-in-a-reply-is-coloured.test.tsx` | `reply_actions::tests::code_preserves_unicode_and_has_bounded_colouring` checks real Rune highlighting, valid UTF-8 boundaries and unknown-language fallback. The streaming/60k guards are implemented.
@@ -1147,7 +1147,7 @@ apps/desktop/src/shared/a-voice-call-switches-every-add-on-off.test.ts		waiting
 apps/desktop/src/shared/an-answer-reads-right-in-discord.test.ts		waiting		
 apps/desktop/src/shared/an-answer-reads-right-in-slack.test.ts		waiting		
 apps/desktop/src/shared/an-answer-reads-right-in-telegram.test.ts		waiting		
-apps/desktop/src/shared/an-issue-becomes-a-brief.test.ts		waiting		
+apps/desktop/src/shared/an-issue-becomes-a-brief.test.ts	ISSUES	carried	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	carried (13 Nov)
 apps/desktop/src/shared/approval-data.test.ts		waiting		
 apps/desktop/src/shared/approval-rules.test.ts	P8	partial		`shared/approval-rules.test.ts` | Exact/prefix allow; compound never allowed; deny wins; outside paths ask; secret candidate refused
 apps/desktop/src/shared/attachments.test.ts		waiting		

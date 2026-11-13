@@ -211,7 +211,7 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
         modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
         running: turn_running(s),
         can_swarm: false,
-        issues: false,
+        issues: crate::issue_list::offered(s),
         tune: false,
         setup: true,
         runtime_commands: &[],
@@ -307,9 +307,13 @@ pub(super) fn run_slash_command(s: &mut State, command: &composer::SlashCommand)
             s.draft.clear();
             crate::setup_card::open_from_composer(s);
         }
+        // The issue list. Choosing one fills the box. Nothing is sent.
+        composer::SlashAction::Issues => {
+            s.draft.clear();
+            crate::issue_list::open_list(s);
+        }
         composer::SlashAction::Route
         | composer::SlashAction::Swarm
-        | composer::SlashAction::Issues
         | composer::SlashAction::Tune => {
             s.draft.clear();
             s.composer_note = Some(format!(

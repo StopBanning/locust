@@ -3102,3 +3102,32 @@ fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubbl
     assert!(notes.contains("app.ts:1") && notes.contains("Read it from PORT."), "{notes}");
     assert!(rt.elements().into_iter().filter_map(|e| e.text).any(|t| t == "Nearly there."), "the bubble shows the person's own words alone");
 }
+
+/// choosing-an-issue-sends-nothing, in the window: /issue lists the folder's open issues through gh (a fake here),
+/// Enter on one fills the message box with its brief, and nothing is sent.
+#[test]
+fn issues_lists_the_folders_issues_and_choosing_one_fills_the_box_and_sends_nothing() {
+    let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let seen = asked.clone();
+    crate::issue_list::use_gh(std::sync::Arc::new(move |args: &[&str], _cwd: &Path| {
+        seen.lock().unwrap().push(args.join(" "));
+        match args[0] {
+            "repo" => Ok(r#"{"nameWithOwner":"acme/hearth"}"#.to_owned()),
+            "issue" if args[1] == "list" => Ok(serde_json::json!([{"number": 5, "title": "Crashes on start", "url": "https://github.com/acme/hearth/issues/5", "author": {"login": "dana"}, "createdAt": "2026-10-12T09:00:00Z", "labels": [{"name": "bug"}]}]).to_string()),
+            "issue" => Ok(serde_json::json!({"title": "Crashes on start", "url": "https://github.com/acme/hearth/issues/5", "body": "It dies before the window is up.", "labels": [], "comments": []}).to_string()),
+            _ => Err("no".to_owned()),
+        }
+    }));
+    let (_dirs, _store, mut rt) = window();
+    pump(&mut rt, "the folder found to be a GitHub one", |s| crate::issue_list::offered(s));
+    type_and_send(&mut rt, "/issue");
+    pump(&mut rt, "the issue list", |s| s.issues.open && !s.issues.issues.is_empty());
+    settle(&mut rt);
+    let list = text_in(&rt, "issue-list").join(" | ");
+    assert!(list.contains("#5") && list.contains("Crashes on start") && list.contains("dana") && list.contains("bug"), "{list}");
+    rt.key(Key::Enter.into());
+    pump(&mut rt, "the box filled with the brief", |s| s.draft.text.starts_with("Fix #5: Crashes on start"));
+    assert!(rt.state.draft.text.contains("https://github.com/acme/hearth/issues/5") && rt.state.draft.text.contains("It dies before the window is up."));
+    assert!(rt.state.flight.is_none() && !rt.state.issues.open, "choosing an issue sent something");
+    assert_eq!(rt.state.issues.pending.as_ref().map(|i| i.number), Some(5));
+}
