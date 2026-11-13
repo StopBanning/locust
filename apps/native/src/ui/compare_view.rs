@@ -55,6 +55,7 @@ impl CompareComposerMode {
 pub(super) struct ComparePick {
     pub(super) runtime: String,
     pub(super) model: String,
+    pub(super) account: Option<String>,
     pub(super) effort: Option<String>,
     pub(super) label: Option<String>,
 }
@@ -64,6 +65,7 @@ pub(super) struct ModelChoice {
     pub(super) key: String,
     pub(super) runtime: String,
     pub(super) model: String,
+    pub(super) account: Option<String>,
     pub(super) label: String,
     pub(super) is_free: bool,
 }
@@ -217,7 +219,7 @@ pub(super) fn effort_aria_label(
 }
 
 fn available_choices(s: &State) -> Vec<ModelChoice> {
-    let mut out = Vec::new();
+    let mut base = Vec::new();
     let mut seen = HashSet::new();
     for agent in s.models.values().flatten() {
         for m in &agent.models {
@@ -229,29 +231,47 @@ fn available_choices(s: &State) -> Vec<ModelChoice> {
                     m.name.clone()
                 };
                 let is_free = m.id.ends_with("-free") || label.to_lowercase().contains("free");
-                out.push(ModelChoice {
+                base.push(ModelChoice {
                     key,
                     runtime: agent.runtime.clone(),
                     model: m.id.clone(),
+                    account: None,
                     label,
                     is_free,
                 });
             }
         }
     }
-    if out.is_empty() {
+    if base.is_empty() {
         // Fallback to teammates' routes
         for t in &s.teammates {
             let rt = t.runtime.as_deref().unwrap_or("codex");
             let model = t.model.as_deref().unwrap_or("account-default");
             let key = format!("{rt}:{model}");
             if seen.insert(key.clone()) {
-                out.push(ModelChoice {
+                base.push(ModelChoice {
                     key,
                     runtime: rt.to_owned(),
                     model: model.to_owned(),
+                    account: None,
                     label: format!("{} ({})", runtime_display_name(rt), model),
                     is_free: false,
+                });
+            }
+        }
+    }
+    let mut out = base.clone();
+    let policy = locust_core::org_policy::current();
+    if locust_core::org_policy::feature_refusal(Some(&policy), "accounts").is_none() {
+        for acc in &s.agent_accounts.accounts {
+            for c in base.iter().filter(|c| c.runtime == acc.agent.as_str()) {
+                out.push(ModelChoice {
+                    key: format!("{}:{}:{}", acc.agent.as_str(), c.model, acc.id),
+                    runtime: c.runtime.clone(),
+                    model: c.model.clone(),
+                    account: Some(acc.id.clone()),
+                    label: format!("{} · {}", c.label, acc.name),
+                    is_free: c.is_free,
                 });
             }
         }
@@ -272,11 +292,12 @@ pub(super) fn ensure_default_picks(s: &mut State) {
             .compare
             .picks
             .iter()
-            .any(|p| p.runtime == c.runtime && p.model == c.model)
+            .any(|p| p.runtime == c.runtime && p.model == c.model && p.account == c.account)
         {
             s.compare.picks.push(ComparePick {
                 runtime: c.runtime,
                 model: c.model,
+                account: c.account,
                 effort: None,
                 label: Some(c.label),
             });
@@ -299,6 +320,7 @@ pub(super) fn ensure_default_picks(s: &mut State) {
         s.compare.picks.push(ComparePick {
             runtime: rt_pick,
             model,
+            account: None,
             effort: None,
             label: None,
         });
@@ -323,6 +345,7 @@ fn synthetic_teammate(s: &State, teammate_id: Option<&str>, route: &CompareRoute
             role: t.role.clone(),
             runtime: Some(route.runtime.clone()),
             model: Some(route.model.clone()),
+            account: route.account.clone(),
             busy: false,
             runs_in: t.runs_in.clone(),
             folder: t.folder.clone(),
@@ -334,6 +357,7 @@ fn synthetic_teammate(s: &State, teammate_id: Option<&str>, route: &CompareRoute
         role: String::new(),
         runtime: Some(route.runtime.clone()),
         model: Some(route.model.clone()),
+        account: route.account.clone(),
         busy: false,
         runs_in: "ask".into(),
         folder: active_folder(s).map(|p| p.to_string_lossy().into_owned()),
@@ -371,7 +395,7 @@ pub(super) fn start_comparison(s: &mut State) {
         .map(|p| CompareRoute {
             runtime: p.runtime.clone(),
             model: p.model.clone(),
-            account: None,
+            account: p.account.clone(),
             effort: p.effort.clone(),
             label: p.label.clone(),
             mode: if changes && mode_auto {
@@ -540,6 +564,7 @@ fn launch_compare(
                 mode: Some(mode),
                 folder: cwd.clone(),
                 runtime: Some(col.route.runtime.clone()),
+                account: Some(col.route.account.clone()),
                 slot: Some(SlotOrigin {
                     key: slot_key,
                     cwd,
@@ -669,7 +694,7 @@ pub(super) fn ask_judge(s: &mut State) {
         .map(|c| CompareRoute {
             runtime: c.runtime.clone(),
             model: c.model.clone(),
-            account: None,
+            account: c.account.clone(),
             effort: None,
             label: Some(c.label.clone()),
             mode: None,
@@ -793,6 +818,7 @@ pub(super) fn ask_judge(s: &mut State) {
                 mode: Some(locust_core::approval::Mode::Ask),
                 folder: folder.clone(),
                 runtime: Some(route.runtime.clone()),
+                account: Some(route.account.clone()),
                 slot: Some(SlotOrigin {
                     key,
                     cwd: folder.clone(),
@@ -849,7 +875,8 @@ pub(super) fn draft_points(s: &mut State) {
     let Some(choice) = key.and_then(|k| choices.into_iter().find(|c| c.key == k)) else {
         return;
     };
-    let route = CompareRoute::new(choice.runtime, choice.model);
+    let mut route = CompareRoute::new(choice.runtime, choice.model);
+    route.account = choice.account;
     let tm = synthetic_teammate(s, None, &route);
     let prompt = points_draft_request(&cmp.prompt);
     let folder = active_folder(s);
@@ -865,6 +892,7 @@ pub(super) fn draft_points(s: &mut State) {
             mode: Some(locust_core::approval::Mode::Ask),
             folder: folder.clone(),
             runtime: Some(route.runtime.clone()),
+            account: Some(route.account.clone()),
             slot: Some(SlotOrigin {
                 key: format!("draft:{}", cmp.compare_id),
                 cwd: folder,
@@ -955,6 +983,7 @@ fn slot_origin_for(
         mode: Some(mode),
         folder: slot_cwd.clone(),
         runtime: Some(col.route.runtime.clone()),
+        account: Some(col.route.account.clone()),
         slot: Some(SlotOrigin {
             key: slot_key,
             cwd: slot_cwd.clone(),
@@ -1100,7 +1129,7 @@ pub(super) fn add_compare_column(s: &mut State, choice: ModelChoice) {
     let route = CompareRoute {
         runtime: choice.runtime,
         model: choice.model,
-        account: None,
+        account: choice.account,
         effort: None,
         label: Some(choice.label),
         mode: None,
@@ -1122,6 +1151,7 @@ pub(super) fn add_compare_column(s: &mut State, choice: ModelChoice) {
             mode: Some(locust_core::approval::Mode::Ask),
             folder: folder.clone(),
             runtime: Some(col.route.runtime.clone()),
+            account: Some(col.route.account.clone()),
             slot: Some(SlotOrigin {
                 key: compare_slot_key(added.teammate_id.as_deref(), &added.compare_id, col.slot),
                 cwd: folder,
@@ -1248,6 +1278,7 @@ impl CompareRerunsHost for NativeRerunsHost {
                     role: String::new(),
                     runtime: Some(col.route.runtime.clone()),
                     model: Some(col.route.model.clone()),
+                    account: col.route.account.clone(),
                     busy: false,
                     runs_in: "ask".into(),
                     folder: self.folder.as_ref().map(|p| p.to_string_lossy().into_owned()),
@@ -1336,6 +1367,7 @@ impl CompareRerunsHost for NativeRerunsHost {
                 role: String::new(),
                 runtime: Some(r.runtime.clone()),
                 model: Some(r.model.clone()),
+                account: r.account.clone(),
                 busy: false,
                 runs_in: "ask".into(),
                 folder: self.folder.as_ref().map(|p| p.to_string_lossy().into_owned()),
@@ -1345,6 +1377,7 @@ impl CompareRerunsHost for NativeRerunsHost {
                 mode: Some(locust_core::approval::Mode::Ask),
                 folder: self.folder.clone(),
                 runtime: Some(r.runtime.clone()),
+                account: Some(r.account.clone()),
                 slot: Some(SlotOrigin {
                     key,
                     cwd: None,
@@ -1416,6 +1449,7 @@ impl CompareRerunsHost for NativeRerunsHost {
             role: String::new(),
             runtime: Some(col.route.runtime.clone()),
             model: Some(col.route.model.clone()),
+            account: col.route.account.clone(),
             busy: false,
             runs_in: "ask".into(),
             folder: self.folder.as_ref().map(|p| p.to_string_lossy().into_owned()),
@@ -1878,6 +1912,7 @@ pub(super) fn composer_mode_chip(s: &State, l: &crate::look::controls::Look) -> 
             s.compare.mode_menu = !s.compare.mode_menu;
             s.mode_menu = false;
             s.reference_menu = false;
+            agent_accounts_card::reload(s);
         })
 }
 
@@ -1950,6 +1985,7 @@ pub(super) fn composer_picks_row(s: &State, l: &crate::look::controls::Look) -> 
                     s.compare.model_menu = if s.compare.model_menu == Some(idx) {
                         None
                     } else {
+                        agent_accounts_card::reload(s);
                         Some(idx)
                     };
                 }),
@@ -1979,6 +2015,28 @@ pub(super) fn composer_picks_row(s: &State, l: &crate::look::controls::Look) -> 
             .role("button")
             .on_press(|s: &mut State| s.compare.changes = !s.compare.changes),
     );
+    if let Some(slot_idx) = s.compare.model_menu {
+        let mut menu = row().key("compare-slot-model-menu").w_full().gap(6.0).px(6.0).wrap();
+        for ch in available_choices(s) {
+            let label = ch.label.clone();
+            let key = format!("compare-slot-choice-{}", ch.key);
+            menu = menu.child(
+                crate::look::controls::button(l, &label, crate::look::controls::Tone::Neutral, false)
+                    .key(key)
+                    .on_press(move |s: &mut State| {
+                        if let Some(pick) = s.compare.picks.get_mut(slot_idx) {
+                            pick.runtime = ch.runtime.clone();
+                            pick.model = ch.model.clone();
+                            pick.account = ch.account.clone();
+                            pick.effort = None;
+                            pick.label = Some(ch.label.clone());
+                        }
+                        s.compare.model_menu = None;
+                    }),
+            );
+        }
+        return Some(col().w_full().gap(6.0).child(r).child(menu));
+    }
     Some(r)
 }
 
@@ -2477,7 +2535,13 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
             if cmp.slots.iter().all(|c| c.mission_ids.len() <= 1) {
                 let choices: Vec<ModelChoice> = available_choices(s)
                     .into_iter()
-                    .filter(|c| !cmp.slots.iter().any(|sl| sl.route.runtime == c.runtime && sl.route.model == c.model))
+                    .filter(|c| {
+                        !cmp.slots.iter().any(|sl| {
+                            sl.route.runtime == c.runtime
+                                && sl.route.model == c.model
+                                && sl.route.account == c.account
+                        })
+                    })
                     .collect();
                 if !choices.is_empty() {
                     follow_box = follow_box.child(
@@ -3177,6 +3241,7 @@ pub(super) fn start_tune_combine(s: &mut State, cmp: &Compare) {
             mode: Some(locust_core::approval::Mode::Ask),
             folder,
             runtime: Some(kept_slot.route.runtime.clone()),
+            account: Some(kept_slot.route.account.clone()),
             slot: Some(SlotOrigin {
                 key: format!("tune-combine:{}", cmp.compare_id),
                 cwd: None,
@@ -3270,6 +3335,7 @@ pub(super) fn start_tune_note(s: &mut State, cmp: &Compare) {
             mode: Some(locust_core::approval::Mode::Ask),
             folder,
             runtime: Some(kept_slot.route.runtime.clone()),
+            account: Some(kept_slot.route.account.clone()),
             slot: Some(SlotOrigin {
                 key: format!("tune-note:{}", cmp.compare_id),
                 cwd: None,

@@ -304,14 +304,26 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             }
         });
         let model_name = model_chip_name(model, current);
+        let active_account = match picked.and_then(|p| p.account.as_ref()) {
+            Some(explicit) => explicit.as_deref(),
+            None => teammate.account.as_deref(),
+        };
+        let account_name = active_account
+            .and_then(|acc| s.agent_accounts.accounts.iter().find(|a| a.id == acc))
+            .map(|a| a.name.as_str());
         let label = format!(
-            "{}{}{}",
+            "{}{}{}{}",
             model_name,
+            account_name.map(|n| format!(" · {n}")).unwrap_or_default(),
             effort.map(|e| format!(" · {e}")).unwrap_or_default(),
             if picked.is_some() { ", this turn" } else { "" }
         );
         let chip_id = id.clone();
-        let runtime = teammate.runtime.as_deref().or(current.map(|a| a.runtime.as_str())).unwrap_or("codex");
+        let runtime = picked
+            .and_then(|p| p.runtime.as_deref())
+            .or(teammate.runtime.as_deref())
+            .or(current.map(|a| a.runtime.as_str()))
+            .unwrap_or("codex");
         let mark = crate::look::controls::agent_mark(&l, runtime, 13.0, l.c("text-secondary"));
         let chip = crate::look::controls::composer_chip(&l, mark, &label, true)
             .key("model-chip")
@@ -707,6 +719,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                                             runtime: Some("opencode".into()),
                                             model: next_model.clone(),
                                             effort: None,
+                                            account: None,
                                         },
                                     );
                                     return;
@@ -998,33 +1011,84 @@ fn model_picker(
             s.model_menu = None;
         }));
     }
+    let policy = locust_core::org_policy::current();
+    let active_runtime = picked
+        .and_then(|p| p.runtime.as_deref())
+        .or(teammate.runtime.as_deref())
+        .unwrap_or("codex");
+    let active_account: Option<&str> = match picked.and_then(|p| p.account.as_ref()) {
+        Some(explicit) => explicit.as_deref(),
+        None => teammate.account.as_deref(),
+    };
+    let mut groups: Vec<(&engine::Models, Option<&locust_core::agent_accounts::Account>)> = agents
+        .iter()
+        .filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+        .map(|a| (a, None))
+        .collect();
+    if locust_core::org_policy::feature_refusal(Some(&policy), "accounts").is_none() {
+        for acc in &s.agent_accounts.accounts {
+            if let Some(agent) = agents
+                .iter()
+                .filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str()))
+                .find(|a| a.runtime == acc.agent.as_str())
+            {
+                groups.push((agent, Some(acc)));
+            }
+        }
+    }
     let mut any = false;
-    for agent in agents.iter().filter(|a| id != LEDGER_TARGET || teammate.runtime.as_deref() == Some(a.runtime.as_str())) {
-        let group_name = locust_core::carry_on::display_name(&agent.runtime).to_owned();
-        let matched: Vec<&engine::Model> =
-            agent.models.iter().filter(|m| !searching || route_search_text(&format!("{group_name} {}", m.name)).contains(&needle)).collect();
+    for (agent, acc) in groups {
+        let base_name = locust_core::carry_on::display_name(&agent.runtime);
+        let group_name = match acc {
+            Some(a) => format!("{base_name} · {}", a.name),
+            None => base_name.to_owned(),
+        };
+        let matched: Vec<&engine::Model> = agent
+            .models
+            .iter()
+            .filter(|m| locust_core::org_policy::model_allowed(Some(&policy), &agent.runtime, Some(&m.id)))
+            .filter(|m| !searching || route_search_text(&format!("{group_name} {}", m.name)).contains(&needle))
+            .collect();
         if matched.is_empty() {
             continue;
         }
         any = true;
-        let active_at = matched.iter().position(|m| picked.is_some() && m.id == model);
+        let acc_id = acc.map(|a| a.id.as_str());
+        let is_active_group = active_runtime == agent.runtime && active_account == acc_id;
+        let active_at = matched.iter().position(|m| is_active_group && (picked.is_some() || active_account.is_some()) && m.id == model);
         let (shown, hidden) = cap_rows(matched.len(), active_at, if searching { ROUTE_GROUP_LIMIT * 2 } else { ROUTE_GROUP_LIMIT });
         let mut group = row().gap(6.0).px(9.0).pt(12.0).pb(4.0).center_y();
         if let Some(mark) = crate::look::controls::agent_mark(l, &agent.runtime, 12.0, l.c("text-muted")) {
             group = group.child(mark);
         }
         list = list.child(group.child(text(group_name).font(l.ty.body).color(l.c("text-muted"))));
+        let usage_key = locust_core::agent_accounts::usage_key(&agent.runtime, acc_id);
+        let at_limit = s.limited_runtimes.contains_key(&usage_key);
+        let needs_sign_in = acc.is_some_and(|a| a.state != locust_core::agent_accounts::AccountState::Ready);
         for m in shown.into_iter().map(|i| matched[i]) {
-            let active = picked.is_some() && m.id == model;
-            let detail = if m.efforts.is_empty() { String::new() } else { m.efforts.join(" · ") };
+            let active = is_active_group && (picked.is_some() || active_account.is_some()) && m.id == model;
+            let detail = if needs_sign_in {
+                "SIGN IN".to_owned()
+            } else if at_limit {
+                "AT LIMIT".to_owned()
+            } else if m.efforts.is_empty() {
+                String::new()
+            } else {
+                m.efforts.join(" · ")
+            };
             let (key, choice, levels) = (id.to_owned(), m.id.clone(), m.efforts.clone());
             let keep = effort.map(str::to_owned);
             // A model of another agent than the teammate's own moves this reply there.
             let runtime = (teammate.runtime.as_deref() != Some(agent.runtime.as_str())).then(|| agent.runtime.clone());
-            list = list.child(row_of(m.name.clone(), detail, active).key(format!("model-{}-{}", agent.runtime, m.id)).on_press(move |s: &mut State| {
+            let account_pick = Some(acc.map(|a| a.id.clone()));
+            let (row_label, row_key) = match acc {
+                Some(a) => (format!("{} · {}", m.name, a.name), format!("model-{}-{}:{}", agent.runtime, m.id, a.id)),
+                None => (m.name.clone(), format!("model-{}-{}", agent.runtime, m.id)),
+            };
+            list = list.child(row_of(row_label, detail, active).key(row_key).on_press(move |s: &mut State| {
                 // The level stays with the turn when the new model takes it.
                 let effort = keep.clone().filter(|e| levels.contains(e));
-                s.picks.insert(key.clone(), TurnPick { model: choice.clone(), effort, runtime: runtime.clone() });
+                s.picks.insert(key.clone(), TurnPick { model: choice.clone(), effort, runtime: runtime.clone(), account: account_pick.clone() });
                 s.model_menu = None;
             }));
         }
@@ -1056,8 +1120,9 @@ fn model_picker(
             let on = effort == Some(level.as_str());
             let (key, choice, pick_model) = (id.to_owned(), level.clone(), model.to_owned());
             let pick_runtime = s.picks.get(id).and_then(|p| p.runtime.clone());
+            let pick_account = s.picks.get(id).and_then(|p| p.account.clone());
             foot = foot.child(crate::look::controls::chip(l, &level, on).on_press(move |s: &mut State| {
-                s.picks.insert(key.clone(), TurnPick { model: pick_model.clone(), effort: Some(choice.clone()), runtime: pick_runtime.clone() });
+                s.picks.insert(key.clone(), TurnPick { model: pick_model.clone(), effort: Some(choice.clone()), runtime: pick_runtime.clone(), account: pick_account.clone() });
             }));
         }
     }

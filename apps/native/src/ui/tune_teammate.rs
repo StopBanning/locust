@@ -247,6 +247,7 @@ pub(super) fn open_from_composer(s: &mut State) {
             role: mate.role.clone(),
             runtime: Some(rt.clone()),
             model: req_model.clone(),
+            account: None,
             busy: false,
             runs_in: "ask".into(),
             folder: folder.as_ref().map(|p| p.to_string_lossy().into_owned()),

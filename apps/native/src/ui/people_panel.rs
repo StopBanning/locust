@@ -22,6 +22,8 @@ pub(super) struct Panel {
     pub removing: Option<String>,
     /// How memory is kept (`memoryMode`: auto, ask, off), read with the team.
     pub memory_mode: String,
+    /// The saved account id for Claude Code / Codex teammates (`None` = this computer's sign-in).
+    pub account: Option<String>,
     /// Whether the Share your team card modal is open.
     pub share_card_open: bool,
     /// Routines snapshot for the Share your team card preview.
@@ -68,6 +70,7 @@ fn reload(s: &mut State) {
             s.people_panel.team = team;
             s.people_panel.memories = memories;
             s.people_panel.rules = rules;
+            agent_accounts_card::reload(s);
         }
         Err(e) => s.people_panel.error = e,
     }
@@ -89,6 +92,10 @@ fn edit(s: &mut State, id: Option<&str>) {
     .into_iter()
     .map(field)
     .collect();
+    s.people_panel.account = entry["route"]["account"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
     s.people_panel.entry = entry;
     s.people_panel.form_open = true;
 }
@@ -143,6 +150,14 @@ fn build_entry_from_form(s: &State) -> Option<Value> {
     }
     if !fields[5].text.trim().is_empty() {
         entry["route"]["effort"] = json!(fields[5].text.trim());
+    }
+    if matches!(fields[3].text.trim(), "claude" | "codex") {
+        entry["route"]["account"] = match &s.people_panel.account {
+            Some(acc) => json!(acc),
+            None => Value::Null,
+        };
+    } else {
+        entry["route"]["account"] = Value::Null;
     }
     Some(entry)
 }
@@ -498,6 +513,56 @@ fn edit_form(s: &State, p: &Palette) -> El {
                     .color(p.text)
                     .on_edit(move |s: &mut State| &mut s.people_panel.fields[i]),
             );
+        }
+    }
+    let runtime_now = panel.fields.get(3).map(|f| f.text.trim()).unwrap_or("");
+    if let Some(agent) = locust_core::agent_accounts::Agent::parse(runtime_now) {
+        let policy = locust_core::org_policy::current();
+        let allowed = locust_core::org_policy::feature_refusal(Some(&policy), "accounts").is_none();
+        let matches: Vec<&locust_core::agent_accounts::Account> = if allowed {
+            s.agent_accounts.accounts.iter().filter(|a| a.agent == agent).collect()
+        } else {
+            Vec::new()
+        };
+        if !matches.is_empty() || panel.account.is_some() {
+            let mut choices = row().w_full().gap(6.0).center_y();
+            let pick_btn = |title: String, key: String, selected: bool, p: &Palette| {
+                row()
+                    .child(
+                        text(title)
+                            .font(type_::LABEL)
+                            .color(if selected { p.text } else { p.secondary }),
+                    )
+                    .padding(6.0)
+                    .fill(if selected { p.selected } else { p.field })
+                    .radius(6.0)
+                    .key(key)
+            };
+            choices = choices.child(
+                pick_btn(
+                    "This computer's sign-in".to_owned(),
+                    "team-account-default".to_owned(),
+                    panel.account.is_none(),
+                    p,
+                )
+                .on_press(|s: &mut State| s.people_panel.account = None),
+            );
+            for acc in matches {
+                let acc_id = acc.id.clone();
+                let selected = panel.account.as_deref() == Some(acc.id.as_str());
+                let label = if acc.state == locust_core::agent_accounts::AccountState::Ready {
+                    acc.name.clone()
+                } else {
+                    format!("{} (sign in)", acc.name)
+                };
+                choices = choices.child(
+                    pick_btn(label, format!("team-account-{}", acc.id), selected, p)
+                        .on_press(move |s: &mut State| s.people_panel.account = Some(acc_id.clone())),
+                );
+            }
+            form = form
+                .child(text("Account").font(type_::LABEL).color(p.secondary))
+                .child(choices);
         }
     }
     // Own copy (Electron NewTeammateDialog): the teammate's turns run in its own worktree of the folder, on its branch.

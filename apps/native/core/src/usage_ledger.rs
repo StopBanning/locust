@@ -149,34 +149,6 @@ fn usage_turn_of(mission_id: &str, records: &[Value]) -> Option<TurnRead> {
     })
 }
 
-fn collect_dir(dir: &Path) -> Result<Vec<TurnRead>, String> {
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let entries = fs::read_dir(dir).map_err(|_| USAGE_READ_FAIL.to_owned())?;
-    let mut out = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(|_| USAGE_READ_FAIL.to_owned())?;
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
-            continue;
-        }
-        let Some(id) = path.file_stem().and_then(|s| s.to_str()) else {
-            continue;
-        };
-        if !safe_id(id) {
-            continue;
-        }
-        let Some(records) = read_jsonl(&path) else {
-            continue;
-        };
-        if let Some(turn) = usage_turn_of(id, &records) {
-            out.push(turn);
-        }
-    }
-    Ok(out)
-}
-
 fn resolve_conversations(reads: Vec<TurnRead>) -> Vec<UsageTurn> {
     let continues: HashMap<String, Option<String>> = reads
         .iter()
@@ -210,27 +182,201 @@ fn electron_ledger(store: &Store) -> PathBuf {
 
 /// Turns from native ledger + Electron ledger. Missing dirs are empty; unreadable → error words.
 pub fn usage_turns(store: &Store) -> Result<Vec<UsageTurn>, String> {
-    let native_dir = store.root().join("mission-ledger");
-    let native_reads = collect_dir(&native_dir)?;
     let mut reads = Vec::new();
-    // Electron folder is read-only; do not create it.
-    let electron = electron_ledger(store);
-    if electron.exists() {
-        reads.extend(collect_dir(&electron)?);
+    for (id, records) in collect_missions(store)? {
+        if let Some(turn) = usage_turn_of(&id, &records) {
+            reads.push(turn);
+        }
     }
-    let mut unique: HashMap<String, TurnRead> = reads
-        .into_iter()
-        .map(|r| (r.mission_id.clone(), r))
-        .collect();
-    for read in native_reads {
-        unique.insert(read.mission_id.clone(), read);
-    }
-    Ok(resolve_conversations(unique.into_values().collect()))
+    Ok(resolve_conversations(reads))
 }
 
-/// Remembered plan meter readings file (Electron usage-readings.json), read-only from both folders.
+fn collect_dir_records(dir: &Path) -> Result<Vec<(String, Vec<Value>)>, String> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(dir).map_err(|_| USAGE_READ_FAIL.to_owned())?;
+    let mut out = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|_| USAGE_READ_FAIL.to_owned())?;
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let Some(id) = path.file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        if !safe_id(id) {
+            continue;
+        }
+        let Some(records) = read_jsonl(&path) else {
+            continue;
+        };
+        out.push((id.to_owned(), records));
+    }
+    Ok(out)
+}
+
+fn collect_missions(store: &Store) -> Result<Vec<(String, Vec<Value>)>, String> {
+    let native_dir = store.root().join("mission-ledger");
+    let native_reads = collect_dir_records(&native_dir)?;
+    let mut unique: HashMap<String, Vec<Value>> = HashMap::new();
+    let electron = electron_ledger(store);
+    if electron.exists() {
+        for (id, records) in collect_dir_records(&electron)? {
+            unique.insert(id, records);
+        }
+    }
+    for (id, records) in native_reads {
+        unique.insert(id, records);
+    }
+    Ok(unique.into_iter().collect())
+}
+
+fn event_usage_key(metadata: &Value, event: &Value) -> Option<String> {
+    let adapter = event
+        .get("sourceAdapter")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .or_else(|| metadata.get("runtime").and_then(Value::as_str).filter(|s| !s.is_empty()))?;
+    let account = metadata
+        .get("resolvedRouteId")
+        .and_then(Value::as_str)
+        .and_then(crate::agent_accounts::account_from_route);
+    Some(crate::agent_accounts::usage_key(adapter, account))
+}
+
+/// Port of mission-history.ts `readingOfWarning`.
+pub fn reading_of_warning(message: &str) -> Option<String> {
+    let rest = message.strip_prefix("You've used ")?;
+    let (pct, rest) = rest.split_once("% of your ")?;
+    if pct.is_empty() || pct.len() > 3 || !pct.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let (window, reset) = match rest.split_once(" window · resets ") {
+        Some((w, r)) if !r.is_empty() && !r.bytes().any(|b| b.is_ascii_whitespace()) => (w, Some(r)),
+        _ => (rest.strip_suffix(" window")?, None),
+    };
+    if window.is_empty() {
+        return None;
+    }
+    Some(match reset {
+        Some(r) => format!("{window} window {pct}% used · resets {r}"),
+        None => format!("{window} window {pct}% used"),
+    })
+}
+
+/// Port of mission-history.ts `limitedRuntimesFrom`, keyed by `agent_accounts::usage_key`.
+pub fn limited_runtimes_from(missions: &[Vec<Value>]) -> HashMap<String, String> {
+    let mut latest: HashMap<String, (String, Option<String>)> = HashMap::new();
+    for records in missions {
+        let Some(metadata) = records.iter().find_map(|r| {
+            (r.get("recordType").and_then(Value::as_str) == Some("mission.created"))
+                .then(|| r.get("metadata"))
+                .flatten()
+        }) else {
+            continue;
+        };
+        for event in records.iter().filter_map(|r| r.get("event")) {
+            let kind = event.get("type").and_then(Value::as_str).unwrap_or("");
+            let payload = &event["payload"];
+            let (relevant, said) = if kind == "route.limit_detected"
+                && payload.get("kind").and_then(Value::as_str) == Some("quota-exhausted")
+            {
+                (true, payload.get("message").and_then(Value::as_str).map(str::to_owned))
+            } else if kind == "run.completed" {
+                (true, None)
+            } else {
+                (false, None)
+            };
+            if !relevant {
+                continue;
+            }
+            let Some(at) = event.get("occurredAt").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(key) = event_usage_key(metadata, event) else {
+                continue;
+            };
+            let replace = latest.get(&key).is_none_or(|(prev, _)| at > prev.as_str());
+            if replace {
+                latest.insert(key, (at.to_owned(), said));
+            }
+        }
+    }
+    latest
+        .into_iter()
+        .filter_map(|(k, (_, said))| said.map(|s| (k, s)))
+        .collect()
+}
+
+pub fn limited_runtimes(store: &Store) -> HashMap<String, String> {
+    let Ok(missions) = collect_missions(store) else {
+        return HashMap::new();
+    };
+    let records: Vec<Vec<Value>> = missions.into_iter().map(|(_, r)| r).collect();
+    limited_runtimes_from(&records)
+}
+
+/// Port of mission-history.ts `usageWindowsFrom`, keyed by `agent_accounts::usage_key`.
+pub fn usage_windows_from(missions: &[Vec<Value>]) -> HashMap<String, String> {
+    let mut latest: HashMap<String, (String, String)> = HashMap::new();
+    for records in missions {
+        let Some(metadata) = records.iter().find_map(|r| {
+            (r.get("recordType").and_then(Value::as_str) == Some("mission.created"))
+                .then(|| r.get("metadata"))
+                .flatten()
+        }) else {
+            continue;
+        };
+        for event in records.iter().filter_map(|r| r.get("event")) {
+            let kind = event.get("type").and_then(Value::as_str).unwrap_or("");
+            let payload = &event["payload"];
+            let said = if kind == "adapter.diagnostic"
+                && payload.get("code").and_then(Value::as_str).is_some_and(|c| c.ends_with(".usage_window"))
+            {
+                payload.get("message").and_then(Value::as_str).map(str::to_owned)
+            } else if kind == "route.limit_detected"
+                && payload.get("kind").and_then(Value::as_str) == Some("temporary-rate-limit")
+            {
+                payload.get("message").and_then(Value::as_str).and_then(reading_of_warning)
+            } else {
+                None
+            };
+            let Some(said) = said else {
+                continue;
+            };
+            let Some(at) = event.get("occurredAt").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(key) = event_usage_key(metadata, event) else {
+                continue;
+            };
+            let replace = latest.get(&key).is_none_or(|(prev, _)| at > prev.as_str());
+            if replace {
+                latest.insert(key, (at.to_owned(), said));
+            }
+        }
+    }
+    latest
+        .into_iter()
+        .map(|(k, (at, said))| (k, format!("{said} · from a run at {at}")))
+        .collect()
+}
+
+fn reading_at(said: &str) -> &str {
+    said.rsplit_once(" · from a run at ")
+        .map(|(_, at)| at)
+        .unwrap_or("")
+}
+
+/// Remembered plan meter readings merged with mission ledgers (Electron `rememberedUsageWindows`).
 pub fn usage_windows(store: &Store) -> HashMap<String, String> {
     let mut out = HashMap::new();
+    if let Ok(missions) = collect_missions(store) {
+        let records: Vec<Vec<Value>> = missions.into_iter().map(|(_, r)| r).collect();
+        out.extend(usage_windows_from(&records));
+    }
     for root in [store.root(), store.electron()] {
         let path = root.join("usage-readings.json");
         let Ok(text) = fs::read_to_string(&path) else {
@@ -247,19 +393,12 @@ pub fn usage_windows(store: &Store) -> HashMap<String, String> {
             continue;
         };
         for (key, reading) in map {
-            if let Some(text) = reading.as_str() {
-                let reading_at = |said: &str| {
-                    said.rsplit_once(" · from a run at ")
-                        .map(|(_, at)| at)
-                        .unwrap_or("")
-                        .to_owned()
-                };
-                if out
+            if let Some(text) = reading.as_str()
+                && out
                     .get(key)
-                    .is_none_or(|before: &String| reading_at(text) >= reading_at(before))
-                {
-                    out.insert(key.clone(), text.to_owned());
-                }
+                    .is_none_or(|before| reading_at(text) >= reading_at(before))
+            {
+                out.insert(key.clone(), text.to_owned());
             }
         }
     }
@@ -350,5 +489,48 @@ mod tests {
         assert!(root_turn.plan);
         assert_eq!(root_turn.model, "gpt-6");
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn keeps_usage_and_exhausted_limits_separate_for_each_account() {
+        let acc = "account_11111111111111111111111111111111";
+        let missions = vec![
+            vec![
+                json!({
+                    "recordType": "mission.created",
+                    "metadata": {"missionId": "m_work", "runtime": "codex", "resolvedRouteId": format!("codex:gpt-5-account:{acc}")}
+                }),
+                json!({
+                    "recordType": "mission.event",
+                    "event": {"type": "route.limit_detected", "occurredAt": "2026-11-10T10:00:00Z", "sourceAdapter": "codex", "payload": {"kind": "quota-exhausted", "message": "Quota reached"}}
+                }),
+                json!({
+                    "recordType": "mission.event",
+                    "event": {"type": "adapter.diagnostic", "occurredAt": "2026-11-10T09:00:00Z", "sourceAdapter": "codex", "payload": {"code": "codex.usage_window", "message": "5-hour window 90% used"}}
+                }),
+            ],
+            vec![
+                json!({
+                    "recordType": "mission.created",
+                    "metadata": {"missionId": "m_default", "runtime": "codex", "resolvedRouteId": "codex:gpt-5-account:default"}
+                }),
+                json!({
+                    "recordType": "mission.event",
+                    "event": {"type": "run.completed", "occurredAt": "2026-11-10T11:00:00Z", "sourceAdapter": "codex", "payload": {}}
+                }),
+                json!({
+                    "recordType": "mission.event",
+                    "event": {"type": "route.limit_detected", "occurredAt": "2026-11-10T10:30:00Z", "sourceAdapter": "codex", "payload": {"kind": "temporary-rate-limit", "message": "You've used 15% of your 5-hour window"}}
+                }),
+            ],
+        ];
+        let work_key = crate::agent_accounts::usage_key("codex", Some(acc));
+        let limited = limited_runtimes_from(&missions);
+        assert_eq!(limited.get(&work_key).map(String::as_str), Some("Quota reached"));
+        assert!(!limited.contains_key("codex"));
+
+        let windows = usage_windows_from(&missions);
+        assert_eq!(windows.get(&work_key).map(String::as_str), Some("5-hour window 90% used · from a run at 2026-11-10T09:00:00Z"));
+        assert_eq!(windows.get("codex").map(String::as_str), Some("5-hour window 15% used · from a run at 2026-11-10T10:30:00Z"));
     }
 }

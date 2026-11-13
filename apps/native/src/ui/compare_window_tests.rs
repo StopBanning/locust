@@ -21,6 +21,7 @@ fn teammate(root: &Path) -> Teammate {
         role: "Code & Migrations".into(),
         runtime: Some("codex".into()),
         model: Some("synthetic-model".into()),
+        account: None,
         busy: false,
         runs_in: "ask".into(),
         folder: Some(root.join("work").to_string_lossy().into()),
@@ -49,12 +50,14 @@ fn window() -> (Dirs, Store, Runtime<State>) {
         crate::compare_view::ComparePick {
             runtime: "codex".into(),
             model: "synthetic-model".into(),
+            account: None,
             effort: None,
             label: Some("model-alpha".into()),
         },
         crate::compare_view::ComparePick {
             runtime: "codex".into(),
             model: "synthetic-model".into(),
+            account: None,
             effort: None,
             label: Some("model-beta".into()),
         },
@@ -569,4 +572,74 @@ fn a_columns_page_is_the_one_a_tool_made_not_one_it_mentions() {
     assert_eq!(crate::compare_view::column_html_pages(&snap), vec!["site/page.html".to_owned()]);
     let patch = Snapshot { items: vec![said, tool("apply_patch", "*** Begin Patch\n*** Add File: web/app.htm\n+<p>hi</p>\n*** End Patch")], ..Default::default() };
     assert_eq!(crate::compare_view::column_html_pages(&patch), vec!["web/app.htm".to_owned()]);
+}
+
+#[test]
+fn compares_the_same_agent_and_model_on_two_distinct_accounts_and_keeps_both_across_reload() {
+    use locust_core::agent_accounts::Accounts;
+    use locust_core::compare::CompareStore;
+    let _clear = crate::agent_accounts_card::test_guard();
+
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let accounts = Accounts::new(
+        store.root(),
+        std::sync::Arc::new(|_, _, _, _| Ok(Box::new(|| {}))),
+        Box::new(|| None),
+        Box::new(native::account_in_use),
+    );
+    let work = accounts.add("codex", "Work").unwrap();
+    let personal = accounts.add("codex", "Personal").unwrap();
+    crate::agent_accounts_card::use_accounts(accounts);
+
+    rt.update(|s, _| {
+        s.models.insert(
+            "tm_codec".into(),
+            vec![locust_core::engine::Models {
+                teammate: Some("tm_codec".into()),
+                runtime: "codex".into(),
+                model: Some("synthetic-model".into()),
+                effort: None,
+                models: vec![locust_core::engine::Model {
+                    id: "synthetic-model".into(),
+                    name: "Synthetic".into(),
+                    efforts: vec![],
+                }],
+            }],
+        );
+        crate::agent_accounts_card::reload(s);
+        s.compare.composer_mode = crate::compare_view::CompareComposerMode::Compare;
+    });
+    settle(&mut rt);
+
+    // Pick Work on slot 0 and Personal on slot 1 via the UI picker menu.
+    click(&mut rt, "compare-pick-0");
+    click(&mut rt, &format!("compare-slot-choice-codex:synthetic-model:{}", work.id));
+    click(&mut rt, "compare-pick-1");
+    click(&mut rt, &format!("compare-slot-choice-codex:synthetic-model:{}", personal.id));
+
+    assert_eq!(rt.state.compare.picks[0].account.as_deref(), Some(work.id.as_str()));
+    assert_eq!(rt.state.compare.picks[1].account.as_deref(), Some(personal.id.as_str()));
+
+    // Send prompt to launch comparison across the two accounts.
+    click(&mut rt, "composer");
+    rt.paste("Compare on two accounts");
+    rt.frame(0.016);
+    rt.key(Key::Enter.into());
+    pump(&mut rt, "compare created", |s| !s.compare.compares.is_empty());
+
+    let cmp_id = rt.state.compare.compares[0].compare_id.clone();
+    let restored = CompareStore::from_store(&store).unwrap().get(&cmp_id).unwrap().unwrap();
+    let restored_accounts: Vec<Option<String>> = restored.slots.iter().map(|s| s.route.account.clone()).collect();
+    assert_eq!(restored_accounts, vec![Some(work.id.clone()), Some(personal.id.clone())]);
+
+    // Adding a duplicate (same agent, model, account) is refused.
+    let dup = CompareStore::from_store(&store).unwrap().add_column(
+        &cmp_id,
+        locust_core::compare::CompareRoute {
+            account: Some(work.id.clone()),
+            ..locust_core::compare::CompareRoute::new("codex", "synthetic-model")
+        },
+    );
+    assert!(dup.unwrap_err().contains("already"));
 }

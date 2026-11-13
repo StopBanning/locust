@@ -50,6 +50,11 @@ pub trait EngineApi: std::marker::Send + Sync {
     fn shut_down(&self);
     /// Wait until the endings asked for by [`EngineApi::shut_down`] are written.
     fn wait_for_shutdown(&self);
+    /// Whether an added account currently has a live turn running in this engine.
+    fn account_in_use(&self, agent: crate::agent_accounts::Agent, account_id: &str) -> bool {
+        let _ = (agent, account_id);
+        false
+    }
     /// Something the window should say about the engine itself, once: that it had stopped and was started again (E5).
     fn notice(&self) -> Option<String> {
         None
@@ -108,6 +113,9 @@ impl EngineApi for InProcess {
     }
     fn wait_for_shutdown(&self) {
         native::wait_for_shutdown();
+    }
+    fn account_in_use(&self, agent: crate::agent_accounts::Agent, account_id: &str) -> bool {
+        native::account_in_use(agent, account_id)
     }
 }
 

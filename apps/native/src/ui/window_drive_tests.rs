@@ -24,6 +24,7 @@ fn teammate(root: &Path, mode: &str) -> Teammate {
         role: "Code & Migrations".into(),
         runtime: Some("codex".into()),
         model: Some("synthetic-model".into()),
+        account: None,
         busy: false,
         runs_in: mode.into(),
         folder: Some(root.join("work").to_string_lossy().into()),
@@ -3321,6 +3322,7 @@ fn the_remote_control_switch_runs_the_server_and_shows_claudes_own_words() {
 fn another_account_is_added_signed_in_renamed_and_removed_from_settings() {
     use locust_core::agent_accounts::{Accounts, Agent, Cancel};
     use std::sync::{Arc, Mutex};
+    let _reset = crate::agent_accounts_card::test_guard();
     let root = std::env::temp_dir().join(format!("locust-accounts-card-{}-{}", std::process::id(), locust_core::invariants::unique_nanos()));
     std::fs::create_dir_all(&root).unwrap();
     let dones: Arc<Mutex<Vec<Box<dyn FnOnce(bool) + Send>>>> = Arc::default();
@@ -3368,6 +3370,7 @@ fn another_account_is_added_signed_in_renamed_and_removed_from_settings() {
     click(&mut rt, "account-delete");
     assert!(rt.state.agent_accounts.accounts.is_empty());
     assert!(!root.join("agent-accounts").join(&account.id).exists());
+    crate::agent_accounts_card::clear_accounts();
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -3635,5 +3638,193 @@ fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
         logged.contains("When editing core modules, check tests before replying."),
         "next /tune draft prompt missing saved lesson: {logged}"
     );
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+fn write_account_env_wrapper(
+    dir: &Path,
+    env_log: &Path,
+    gate: Option<&Path>,
+) -> Option<(PathBuf, Vec<String>)> {
+    let script = dir.join("account_env_wrapper.py");
+    let fixture = format!("{}/scripts/fixtures/m1-app-server.py", env!("CARGO_MANIFEST_DIR"));
+    let gate_arg = gate.map(|g| g.to_string_lossy().into_owned()).unwrap_or_default();
+    let py = r#"import json, os, sys, time
+log_path, fixture_path, gate = sys.argv[1:4]
+keys = ['CODEX_HOME', 'CODEX_SQLITE_HOME', 'OPENAI_API_KEY', 'CODEX_API_KEY']
+with open(log_path, 'a', encoding='utf-8') as f:
+    f.write(json.dumps({k: os.environ.get(k) for k in keys}) + '\n')
+if gate:
+    while not os.path.exists(gate):
+        time.sleep(0.02)
+os.execv(sys.executable, [sys.executable, fixture_path, 'success'] + sys.argv[4:])
+"#;
+    std::fs::write(&script, py).unwrap();
+    Some((
+        PathBuf::from("python3"),
+        vec![
+            script.to_string_lossy().into_owned(),
+            env_log.to_string_lossy().into_owned(),
+            fixture,
+            gate_arg,
+        ],
+    ))
+}
+
+#[test]
+fn teammate_on_added_account_runs_with_that_accounts_home_in_window() {
+    use locust_core::agent_accounts::Accounts;
+    let _reset = crate::agent_accounts_card::test_guard();
+    let (dirs, store, mut rt) = window();
+    let accounts = Accounts::new(
+        store.root(),
+        std::sync::Arc::new(|_, _, _, _| Ok(Box::new(|| {}))),
+        Box::new(|| None),
+        Box::new(|agent, id| locust_core::engine_api::api().account_in_use(agent, id)),
+    );
+    let work = accounts.add("codex", "Work").unwrap();
+    let work_home = accounts.home_for(&work.id).to_string_lossy().into_owned();
+    crate::agent_accounts_card::use_accounts(accounts);
+
+    let env_log = dirs.0.join("env_log.jsonl");
+    let _hook = native::hooks::install(store.clone(), write_account_env_wrapper(&dirs.0, &env_log, None));
+
+    rt.update(|s, _| {
+        s.teammates[0].account = Some(work.id.clone());
+    });
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "Work account answer", |s| answered(s) && s.flight.is_none());
+
+    let logged: Vec<serde_json::Value> = std::fs::read_to_string(&env_log)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(logged.len(), 1);
+    assert_eq!(logged[0]["CODEX_HOME"].as_str(), Some(work_home.as_str()));
+    assert_eq!(logged[0]["CODEX_SQLITE_HOME"].as_str(), Some(work_home.as_str()));
+    assert_eq!(logged[0]["OPENAI_API_KEY"].as_str(), Some(""));
+    assert_eq!(logged[0]["CODEX_API_KEY"].as_str(), Some(""));
+
+    let mid = rt.state.conversations["tm_codec"].conversation_id.as_deref().unwrap();
+    let ledger = std::fs::read_to_string(store.ledger_dir().unwrap().join(format!("{mid}.jsonl"))).unwrap();
+    let first: serde_json::Value = serde_json::from_str(ledger.lines().next().unwrap()).unwrap();
+    assert_eq!(
+        first["metadata"]["resolvedRouteId"].as_str(),
+        Some(format!("codex:synthetic-model-account:{}", work.id).as_str())
+    );
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn edit_teammate_picks_and_keeps_account_in_window() {
+    use locust_core::agent_accounts::Accounts;
+    let _reset = crate::agent_accounts_card::test_guard();
+    let (dirs, store, mut rt) = window();
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_codec",
+                    "name": "Codec",
+                    "hue": "lime",
+                    "role": "Code & Migrations",
+                    "createdAt": "2026-11-01T00:00:00.000Z",
+                    "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"},
+                    "folder": dirs.0.join("work").to_string_lossy()
+                }],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    let accounts = Accounts::new(
+        store.root(),
+        std::sync::Arc::new(|_, _, _, _| Ok(Box::new(|| {}))),
+        Box::new(|| None),
+        Box::new(|agent, id| locust_core::engine_api::api().account_in_use(agent, id)),
+    );
+    let work = accounts.add("codex", "Work").unwrap();
+    crate::agent_accounts_card::use_accounts(accounts);
+
+    rt.update(|s, _| crate::people_panel::open(s));
+    settle(&mut rt);
+    click(&mut rt, "team-edit-tm_codec");
+
+    let work_key = format!("team-account-{}", work.id);
+    rt.update(|_, tx| tx.scroll_key_to(&work_key, 0.0));
+    click(&mut rt, &work_key);
+    rt.update(|_, tx| tx.scroll_key_to("team-save", 0.0));
+    click(&mut rt, "team-save");
+    assert!(rt.state.people_panel.error.is_empty() && !rt.state.people_panel.form_open, "{}", rt.state.people_panel.error);
+    assert_eq!(rt.state.teammates[0].account.as_deref(), Some(work.id.as_str()));
+    let saved = people::team(&store).unwrap();
+    assert_eq!(saved["teammates"][0]["route"]["account"].as_str(), Some(work.id.as_str()));
+
+    // Reopen Edit and confirm the account choice stayed selected, then reset to machine sign-in.
+    click(&mut rt, "team-edit-tm_codec");
+    assert_eq!(rt.state.people_panel.account.as_deref(), Some(work.id.as_str()));
+
+    rt.update(|_, tx| tx.scroll_key_to("team-account-default", 0.0));
+    click(&mut rt, "team-account-default");
+    rt.update(|_, tx| tx.scroll_key_to("team-save", 0.0));
+    click(&mut rt, "team-save");
+    assert!(rt.state.people_panel.error.is_empty() && !rt.state.people_panel.form_open, "{}", rt.state.people_panel.error);
+    assert_eq!(rt.state.teammates[0].account, None);
+    let cleared = people::team(&store).unwrap();
+    assert!(cleared["teammates"][0]["route"]["account"].is_null());
+}
+
+#[test]
+fn removing_account_while_teammate_turn_runs_is_refused() {
+    use locust_core::agent_accounts::{Accounts, Agent, BUSY_REMOVE};
+    let _reset = crate::agent_accounts_card::test_guard();
+    let (dirs, store, mut rt) = window();
+    let accounts = Accounts::new(
+        store.root(),
+        std::sync::Arc::new(|_, _, _, _| Ok(Box::new(|| {}))),
+        Box::new(|| None),
+        Box::new(|agent, id| locust_core::engine_api::api().account_in_use(agent, id)),
+    );
+    let work = accounts.add("codex", "Work").unwrap();
+    let short = work.id[8..16].to_owned();
+    crate::agent_accounts_card::use_accounts(accounts);
+
+    let env_log = dirs.0.join("slow_env.jsonl");
+    let gate = dirs.0.join("slow.gate");
+    let _hook = native::hooks::install(
+        store.clone(),
+        write_account_env_wrapper(&dirs.0, &env_log, Some(&gate)),
+    );
+
+    rt.update(|s, _| {
+        s.teammates[0].account = Some(work.id.clone());
+    });
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "account busy", |_| {
+        locust_core::engine_api::api().account_in_use(Agent::Codex, &work.id)
+    });
+
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
+    });
+    settle(&mut rt);
+
+    click(&mut rt, &format!("account-remove-{short}"));
+    click(&mut rt, "account-delete");
+    assert_eq!(rt.state.agent_accounts.message.as_deref(), Some(BUSY_REMOVE));
+    assert_eq!(rt.state.agent_accounts.accounts.len(), 1);
+
+    std::fs::write(&gate, "go").unwrap();
+    pump(&mut rt, "turn ended", |s| {
+        s.flight.is_none() && !locust_core::engine_api::api().account_in_use(Agent::Codex, &work.id)
+    });
+
+    click(&mut rt, &format!("account-remove-{short}"));
+    click(&mut rt, "account-delete");
+    assert!(rt.state.agent_accounts.accounts.is_empty(), "{:?}", rt.state.agent_accounts.message);
     on_quit(&mut rt.state, &mut Tx::default());
 }

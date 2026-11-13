@@ -79,11 +79,13 @@ pub fn door_unreachable(words: &str) -> bool {
         || words.starts_with("Locust's data folder could not be found")
 }
 
-/// Can native run this teammate this milestone? Not on an account of its own (that needs its own login home, which
-/// native does not touch), and not through one of the person's own API routes: Electron writes OpenCode a provider
-/// entry for those (own-models.ts), which the port does not yet, so such a teammate says it runs in Locust for now.
+/// Can native run this teammate? Named Codex and Claude Code accounts run natively with their own login home;
+/// the person's own OpenCode API routes still say they run in Locust for now (own-models.ts).
 pub fn supported(t: &Teammate) -> bool {
     if t.runtime.as_deref() == Some("opencode") && t.model.as_deref().is_some_and(|m| crate::spend::is_own_model("opencode", m)) {
+        return false;
+    }
+    if t.account.is_some() && !matches!(t.runtime.as_deref(), Some("codex" | "claude")) {
         return false;
     }
     matches!(
@@ -274,7 +276,7 @@ struct Route {
     runtime: String,
     model: String,
     mode: String,
-    account: bool,
+    account: Option<String>,
 }
 /// teammate-store.ts: isTeammateRoute. A malformed route reads as no route.
 fn route_of(v: &Value) -> Option<Route> {
@@ -284,15 +286,12 @@ fn route_of(v: &Value) -> Option<Route> {
         .filter(|m| !m.is_empty() && m.encode_utf16().count() <= 200)?;
     let mode = v["mode"].as_str().filter(|m| MODES.contains(m))?;
     let account = match &v["account"] {
-        Value::Null => false,
+        Value::Null => None,
         Value::String(a) => {
-            let ok = a.strip_prefix("account_").is_some_and(|h| {
-                h.len() == 32 && h.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
-            });
-            if !ok {
+            if !matches!(runtime, "codex" | "claude") || !crate::agent_accounts::is_account_id(a) {
                 return None;
             }
-            true
+            Some(a.clone())
         }
         _ => return None,
     };
@@ -347,7 +346,7 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
             None
         };
         let route = route_of(&entry["route"]);
-        let (runtime, model, runs_in) = match &route {
+        let (runtime, model, runs_in, account) = match &route {
             Some(r)
                 if matches!(
                     r.runtime.as_str(),
@@ -360,20 +359,22 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
                         | "copilot"
                         | "antigravity"
                         | "muse"
-                ) && !r.account =>
+                ) =>
             {
                 (
                     Some(r.runtime.clone()),
                     Some(r.model.clone()),
                     r.mode.clone(),
+                    r.account.clone(),
                 )
             }
             Some(r) => (
                 Some(r.runtime.clone()),
                 Some(r.model.clone()),
                 IN_LOCUST.to_string(),
+                None,
             ),
-            None => (None, None, IN_LOCUST.to_string()),
+            None => (None, None, IN_LOCUST.to_string(), None),
         };
         out.push(Teammate {
             id: id.into(),
@@ -381,6 +382,7 @@ pub fn parse_roster(text: &str) -> Result<Vec<Teammate>, String> {
             role: title.unwrap_or_else(|| role.to_string()),
             runtime,
             model: model.filter(|m| m != "account-default"),
+            account,
             busy: false,
             runs_in,
             folder: teammate_folder(&entry["folder"]),
@@ -642,6 +644,7 @@ pub fn real_tip(conversation: &str) -> Result<String, String> {
 
 pub struct Prior {
     pub runtime: String,
+    pub account: Option<String>,
     /// Its newest turn is still running (written to within the last 15 minutes, no terminal record).
     pub running: bool,
     /// The stored `runtimeThreadId`, when the session is still resumable.
@@ -659,6 +662,10 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
         .map(|r| &r["metadata"])
         .ok_or("The conversation's ledger could not be read.")?;
     let runtime = meta["runtime"].as_str().unwrap_or_default().to_owned();
+    let account = meta["resolvedRouteId"]
+        .as_str()
+        .and_then(crate::agent_accounts::account_from_route)
+        .map(str::to_owned);
     let mut held: Option<String> = None;
     let mut ended = false;
     let mut moved = false;
@@ -698,6 +705,7 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
         .is_none_or(|age| age < ledger::ACTIVE_WINDOW);
     Ok(Prior {
         runtime,
+        account,
         running: transcript.running && fresh,
         thread,
     })
@@ -705,16 +713,63 @@ pub fn prior_of(tip: &str) -> Result<Prior, String> {
 
 // ---- running turns, stop ------------------------------------------------------------------------------------------
 static RUNNING: Mutex<Option<HashMap<String, Arc<AtomicBool>>>> = Mutex::new(None);
+static RUNNING_ACCOUNTS: Mutex<Option<HashMap<String, (crate::agent_accounts::Agent, String)>>> =
+    Mutex::new(None);
 
 fn with_running<T>(f: impl FnOnce(&mut HashMap<String, Arc<AtomicBool>>) -> T) -> T {
     let mut guard = RUNNING.lock().unwrap_or_else(|e| e.into_inner());
     f(guard.get_or_insert_with(HashMap::new))
 }
 
-struct Registered(Vec<String>);
+fn with_running_accounts<T>(
+    f: impl FnOnce(&mut HashMap<String, (crate::agent_accounts::Agent, String)>) -> T,
+) -> T {
+    let mut guard = RUNNING_ACCOUNTS.lock().unwrap_or_else(|e| e.into_inner());
+    f(guard.get_or_insert_with(HashMap::new))
+}
+
+pub fn account_in_use(agent: crate::agent_accounts::Agent, account_id: &str) -> bool {
+    with_running_accounts(|m| m.values().any(|(a, id)| *a == agent && id == account_id))
+}
+
+pub fn accounts_for(store: &Store) -> Arc<crate::agent_accounts::Accounts> {
+    let login = Arc::new(
+        |agent: crate::agent_accounts::Agent,
+         home: &Path,
+         env: &[(&'static str, String)],
+         done: Box<dyn FnOnce(bool) + std::marker::Send>| {
+            crate::agent_accounts::start_login(Path::new(agent.as_str()), agent, home, env, done)
+        },
+    );
+    crate::agent_accounts::shared(
+        store.root(),
+        login,
+        Box::new(|| crate::org_policy::feature_refusal(Some(&crate::org_policy::current()), "accounts")),
+        Box::new(account_in_use),
+    )
+}
+
+pub fn account_launch_env(
+    store: &Store,
+    runtime: &str,
+    account: Option<&str>,
+) -> Result<Vec<(&'static str, String)>, String> {
+    let Some(account) = account else {
+        return Ok(Vec::new());
+    };
+    if crate::agent_accounts::Agent::parse(runtime).is_none() {
+        return Err(crate::agent_accounts::NOT_SUPPORTED.into());
+    }
+    accounts_for(store).launch_env(runtime, Some(account))
+}
+
+struct Registered(Vec<String>, Option<String>);
 impl Drop for Registered {
     fn drop(&mut self) {
         with_running(|m| self.0.iter().for_each(|k| drop(m.remove(k))));
+        if let Some(id) = &self.1 {
+            with_running_accounts(|m| drop(m.remove(id)));
+        }
     }
 }
 
@@ -1095,6 +1150,7 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
     }
     crate::invariants::lock(&CARRIED).push(mission.to_owned());
     teammate.model = model.map(str::to_owned);
+    teammate.account = None;
     let mut started_by = json!({"kind": "carry-on", "from": from});
     if let Some(f) = &folder {
         started_by["folder"] = json!(f.to_string_lossy());
@@ -1106,7 +1162,14 @@ pub fn carry(mission: &str, runtime: &str, model: Option<&str>) -> Result<(Strin
         model: model.map(str::to_owned),
         effort: None,
     };
-    let origin = Origin { mode: Mode::parse(&mode), folder: folder.clone(), started_by: Some(started_by), runtime: Some(runtime.to_owned()), ..Default::default() };
+    let origin = Origin {
+        mode: Mode::parse(&mode),
+        folder: folder.clone(),
+        started_by: Some(started_by),
+        runtime: Some(runtime.to_owned()),
+        account: Some(None),
+        ..Default::default()
+    };
     let started = send_from(job, origin).and_then(|s| real_tip(&s.conversation_id));
     match started {
         Ok(id) => Ok((id, folder.map(|f| f.to_string_lossy().into_owned()), mode)),
@@ -1216,6 +1279,8 @@ pub struct Origin {
     pub started_by: Option<Value>,
     /// A follow-up's runtime and model, kept from the conversation rather than the teammate's saved route.
     pub runtime: Option<String>,
+    /// An explicit account pick (`Some(None)` = machine sign-in, `Some(Some(id))` = named account, `None` = follow teammate/default).
+    pub account: Option<Option<String>>,
     /// The references the composer names for this turn (ids in `references.rs`); None keeps the conversation's.
     pub reference_ids: Option<Vec<String>>,
     /// A comparison column or judge slot.
@@ -1265,6 +1330,11 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if !supported(&job.teammate) {
         return Err(format!("{} runs in Locust for now.", job.teammate.name));
     }
+    let effective_account = match &origin.account {
+        Some(explicit) => explicit.clone(),
+        None if own_agent => job.teammate.account.clone(),
+        None => None,
+    };
     // organization-policy.ts: every turn crosses the organization's policy before anything is discovered, started or
     // recorded. A broken policy file refuses every turn.
     let policy = crate::org_policy::current();
@@ -1272,7 +1342,14 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         let runtime = job.teammate.runtime.as_deref().unwrap_or("codex");
         let mode = origin.mode.unwrap_or_else(|| Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask));
         let model = job.model.as_deref().or(job.teammate.model.as_deref());
-        if let Some(why) = crate::org_policy::turn_refusal(Some(&policy), runtime, model, mode.as_str(), false, false) {
+        if let Some(why) = crate::org_policy::turn_refusal(
+            Some(&policy),
+            runtime,
+            model,
+            mode.as_str(),
+            false,
+            effective_account.is_some(),
+        ) {
             return Err(why);
         }
     }
@@ -1307,9 +1384,10 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if mode == Mode::Auto && !crate::workspace_settings::load(&store).map(|s| s.auto_mode).unwrap_or(false) {
         return Err(AUTO_OFF_REFUSAL.into());
     }
+    let launch_env = account_launch_env(&store, runtime_name, effective_account.as_deref())?;
     let electron = store.electron().to_path_buf();
-    // A reply on ANOTHER agent (codex-mission.ts, the route switch): the conversation is reconciled, and a brief of
-    // what was done starts the new agent cold, with the reply as the latest word.
+    // A reply on ANOTHER agent or account (codex-mission.ts, the route switch): the conversation is reconciled, and a
+    // brief of what was done starts the new agent/account cold, with the reply as the latest word.
     let mut switched: Option<RouteSwitch> = None;
     let mut side_prompt: Option<String> = None;
     let (continues, resume) = if let Some(side) = &side_req {
@@ -1335,7 +1413,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                         .into(),
                 );
             }
-            if prior.runtime != runtime_name {
+            if prior.runtime != runtime_name || prior.account != effective_account {
                 switched = Some(route_switch(&store, tip, &job.prompt)?);
                 (None, None)
             } else if runtime_name == "claude" {
@@ -1520,6 +1598,13 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     )
     .map_err(|e| e.to_string())?;
     command.current_dir(&folder);
+    for (key, value) in &launch_env {
+        command.env(key, value);
+    }
+    let codex_home = launch_env
+        .iter()
+        .find(|(k, _)| *k == "CODEX_HOME")
+        .map(|(_, v)| PathBuf::from(v));
     // A side question on OpenCode 2 (ACP, no fork) gets a fresh session told the conversation so far: resuming would
     // add to the conversation's own session.
     let (resume, runtime_prompt) = match &side_req {
@@ -1571,7 +1656,16 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         }
         m.insert(id.clone(), flag.clone());
         keys.push(id.clone());
-        Ok(Registered(keys))
+        let account_key = if let (Some(agent), Some(acc)) = (
+            crate::agent_accounts::Agent::parse(runtime_name),
+            effective_account.as_deref(),
+        ) {
+            with_running_accounts(|am| am.insert(id.clone(), (agent, acc.to_owned())));
+            Some(id.clone())
+        } else {
+            None
+        };
+        Ok(Registered(keys, account_key))
     })?;
     let channel = approvals_channel();
     // Claude Code asks through the bridge in every mode but Auto, as Electron's host has it: a connector, a web fetch
@@ -1618,12 +1712,21 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         .collect();
     // The mode and sandbox the turn really runs in, where it stands, and who started it, as Electron records them.
     let turn_workspace_id = crate::workspace_settings::workspace_id_for(&folder);
+    let resolved_route_id = format!(
+        "{runtime_name}:{}-account:{}",
+        model.as_deref().unwrap_or("account-default"),
+        effective_account.as_deref().unwrap_or("default")
+    );
     let mut extra = json!({
         "mode": mode.as_str(),
         "sandbox": mode.sandbox(),
         "cwd": folder.to_string_lossy(),
         "workspaceId": turn_workspace_id,
+        "resolvedRouteId": resolved_route_id,
     });
+    if let Some(acc) = &effective_account {
+        extra["account"] = json!(acc);
+    }
     if let Some(by) = &origin.started_by {
         extra["startedBy"] = by.clone();
     }
@@ -1710,12 +1813,13 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 command,
                 turn,
                 flag,
-                Registered(Vec::new()),
+                Registered(Vec::new(), None),
                 runtime_owned,
                 channel,
                 bridge,
                 store,
                 is_side,
+                codex_home,
             );
             // The run's skill copies go with it.
             for copy in &skill_copies {
@@ -1891,6 +1995,7 @@ fn run_check_fix(
                 folder: Some(folder.to_path_buf()),
                 started_by: Some(req.started_by.to_json()),
                 runtime: Some(runtime.to_owned()),
+                account: None,
                 reference_ids: None,
                 slot: None,
             };
@@ -1932,11 +2037,19 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
     let store = store().ok_or("Native data folder could not be determined.")?;
     let panel = Store::new(store.root().join("panel-runs"), store.electron().to_path_buf()).map_err(|e| e.to_string())?;
     let runtime_name = teammate.runtime.as_deref().unwrap_or("codex");
+    let launch_env = account_launch_env(&store, runtime_name, teammate.account.as_deref())?;
     let model = teammate.model.clone().filter(|m| !m.is_empty() && m != "account-default");
     let session = if runtime_name == "copilot" { Some(uuid_v4().map_err(|e| e.to_string())?) } else { None };
     let mut command = command_for_turn(runtime_name, folder, model.as_deref(), Mode::Ask, None, prompt, None, session.as_deref(), &[], None)
         .map_err(|e| e.to_string())?;
     command.current_dir(folder);
+    for (key, value) in &launch_env {
+        command.env(key, value);
+    }
+    let codex_home = launch_env
+        .iter()
+        .find(|(k, _)| *k == "CODEX_HOME")
+        .map(|(_, v)| PathBuf::from(v));
     let id = new_id();
     let args: Vec<String> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
     let writer = LedgerWriter::create_runtime(
@@ -1976,7 +2089,19 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
             }
         });
     }
-    run_turn(writer, command, turn, flag.clone(), Registered(Vec::new()), runtime_name.to_owned(), approvals_channel(), None, panel.clone(), false);
+    run_turn(
+        writer,
+        command,
+        turn,
+        flag.clone(),
+        Registered(Vec::new(), None),
+        runtime_name.to_owned(),
+        approvals_channel(),
+        None,
+        panel.clone(),
+        false,
+        codex_home,
+    );
     done.store(true, Ordering::Relaxed);
     if flag.load(Ordering::Relaxed) {
         return Err("It took too long to write.".into());
@@ -2021,6 +2146,7 @@ fn run_turn(
     _bridge: Option<crate::runtime::permission_bridge::Bridge>,
     store: Store,
     fork: bool,
+    codex_home: Option<PathBuf>,
 ) {
     let mut registered = Some(registered);
     let mission_id = turn.mission_id.clone();
@@ -2244,7 +2370,7 @@ fn run_turn(
         return;
     }
     // No teammate ends the person's browser, Codex too (0.720): the guard as a hook in this thread's config.
-    let guard = crate::command_guard::codex_config_for(&turn.folder);
+    let guard = crate::command_guard::codex_config_for_home(&turn.folder, codex_home.as_deref());
     let mut runtime = match Codex::spawn(&mut command) {
         Ok(r) => r.with_cancel(flag.clone()).with_thread_config(guard).with_fork(fork),
         Err(e) => {

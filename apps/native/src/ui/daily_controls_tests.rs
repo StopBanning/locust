@@ -11,6 +11,7 @@ fn model_pick_is_consumed_for_one_send_only_and_does_not_leak() {
         model: "sample-model".into(),
         effort: Some("high".into()),
         runtime: None,
+        account: None,
     };
     s.picks.insert("codec".into(), pick.clone());
     assert_eq!(

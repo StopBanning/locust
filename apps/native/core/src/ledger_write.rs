@@ -110,6 +110,7 @@ pub struct LedgerWriter {
     pub mission: String,
     pub run: String,
     pub route: String,
+    pub resolved_route: String,
     runtime: String,
     /// Next `event.sequence` (1-based). Approvals do not consume this.
     sequence: u64,
@@ -218,12 +219,18 @@ impl LedgerWriter {
         // ancestor race closes: no file is ever created through a swapped component.
         let file = open_checked(store, &path)?;
         let route = format!("{runtime}:{model}");
+        let resolved_route = extra
+            .get("resolvedRouteId")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("{route}-account:default"));
         let mut writer = Self {
             file,
             path,
             mission: id.into(),
             run: format!("run_{id}"),
             route,
+            resolved_route,
             runtime: runtime.into(),
             sequence: 0,
             ledger_seq: 2,
@@ -241,7 +248,7 @@ impl LedgerWriter {
         });
         let mut record = json!({"schemaVersion":27,"recordType":"mission.created","ledgerSequence":1,"occurredAt":at,"metadata":{
             "missionId":id,"runId":writer.run,"prompt":prompt,"runtime":runtime,"model":model,
-            "requestedRouteId":writer.route,"resolvedRouteId":writer.route,"cliVersion":null,"workspaceId":"native",
+            "requestedRouteId":writer.route,"resolvedRouteId":writer.resolved_route,"cliVersion":null,"workspaceId":"native",
             "sandbox":"read-only","mode":"ask","executionPolicyVersion":1,"createdAt":at,
             "command":{"executablePath":executable,"args":args}
         }});
@@ -307,7 +314,7 @@ impl LedgerWriter {
         let ledger = self.ledger_seq;
         let at = now();
         let mut event = json!({"id":format!("{}:app:{seq}",self.run),"runId":self.run,"missionId":self.mission,
-            "sequence":seq,"occurredAt":at,"sourceAdapter":self.runtime,"requestedRouteId":self.route,"resolvedRouteId":self.route});
+            "sequence":seq,"occurredAt":at,"sourceAdapter":self.runtime,"requestedRouteId":self.route,"resolvedRouteId":self.resolved_route});
         if let Some(thread) = thread {
             event["runtimeThreadId"] = json!(thread);
         }

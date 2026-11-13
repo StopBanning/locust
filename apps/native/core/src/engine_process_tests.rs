@@ -41,6 +41,7 @@ fn codec(t: &Temp, mode: &str) -> Teammate {
         role: "Code & Migrations".into(),
         runtime: Some("codex".into()),
         model: Some("synthetic-model".into()),
+        account: None,
         busy: false,
         runs_in: mode.into(),
         folder: Some(t.0.join("work").to_string_lossy().into()),
@@ -83,12 +84,13 @@ fn the_wire_carries_a_send_an_origin_and_a_card_whole() {
         folder: Some(t.0.join("work")),
         started_by: Some(json!({"kind": "mcp"})),
         runtime: Some("claude".into()),
+        account: Some(Some("account_0123456789abcdef0123456789abcdef".into())),
         reference_ids: Some(vec!["ref_1".into()]),
         slot: None,
     };
     let o = origin_from(&origin_json(&origin)).unwrap();
     assert_eq!(o.mode.map(Mode::as_str), Some("plan"));
-    assert_eq!((o.folder, o.started_by, o.runtime, o.reference_ids), (origin.folder, origin.started_by, origin.runtime, origin.reference_ids));
+    assert_eq!((o.folder, o.started_by, o.runtime, o.account, o.reference_ids), (origin.folder, origin.started_by, origin.runtime, origin.account, origin.reference_ids));
     // Left out stays left out: a window's plain send must not arrive as a door's.
     let plain = origin_from(&origin_json(&Origin::default())).unwrap();
     assert!(plain.mode.is_none() && plain.started_by.is_none() && plain.reference_ids.is_none());

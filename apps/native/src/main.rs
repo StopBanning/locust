@@ -828,6 +828,7 @@ fn send(s: &mut State, _: &mut Tx) {
             let model = pick.as_ref().map(|p| p.model.as_str());
             let effort = pick.as_ref().and_then(|p| p.effort.as_deref());
             let runtime = pick.as_ref().and_then(|p| p.runtime.clone());
+            let account = pick.as_ref().and_then(|p| p.account.clone());
             if let Some(teammate) = native_job {
                 let teammate = teammate
                     .ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
@@ -839,7 +840,7 @@ fn send(s: &mut State, _: &mut Tx) {
                         model: model.map(str::to_owned),
                         effort: effort.map(str::to_owned),
                     },
-                    native::Origin { reference_ids: Some(references), runtime, mode, ..Default::default() },
+                    native::Origin { reference_ids: Some(references), runtime, account, mode, ..Default::default() },
                 );
             }
             let engine = Engine::local()?;
@@ -884,6 +885,10 @@ fn open_models(s: &mut State, id: String) {
     }
     if s.models.get(&id).is_some_and(Vec::is_empty) {
         s.models.remove(&id);
+    }
+    agent_accounts_card::reload(s);
+    if let Some(store) = &s.data {
+        s.limited_runtimes = locust_core::usage_ledger::limited_runtimes(store);
     }
     s.model_menu = Some(id.clone());
     s.model_query = TextEdit::default();
@@ -1277,6 +1282,7 @@ fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
                 role: "Conversation".into(),
                 runtime,
                 model,
+                account: None,
                 busy: summary.running,
                 runs_in: String::new(),
                 folder: None,

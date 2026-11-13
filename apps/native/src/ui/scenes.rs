@@ -36,6 +36,7 @@ pub(super) fn team_scene(s: &mut State) {
         role: role.into(),
         runtime: Some(runtime.into()),
         model: Some(model.into()),
+        account: None,
         busy,
         runs_in: "ask".into(),
         folder: None,
@@ -284,7 +285,7 @@ pub(super) fn models_scene(s: &mut State) {
         {"id":"gpt-6.1-terra","name":"GPT-6.1 Terra","efforts":["low","medium","high","xhigh"]}]}"#;
     s.models.insert("codec".into(), engine::parse_models(listed).unwrap_or_default());
     s.model_menu = Some("codec".into());
-    s.picks.insert("codec".into(), TurnPick { model: "gpt-6.1-sol".into(), effort: Some("high".into()), runtime: None });
+    s.picks.insert("codec".into(), TurnPick { model: "gpt-6.1-sol".into(), effort: Some("high".into()), runtime: None, account: None });
 }
 
 pub(super) fn models_light_scene(s: &mut State) {

@@ -291,6 +291,7 @@ mod tests {
             role: String::new(),
             runtime: Some("opencode".into()),
             model: None,
+            account: None,
             busy: false,
             runs_in: "ask".into(),
             folder: Some(work.to_string_lossy().into()),

@@ -216,6 +216,7 @@ pub(super) fn send(s: &mut State) {
             "question": question_num,
         })),
         runtime: Some(side.runtime.clone()),
+        account: None,
         reference_ids: None,
         slot: None,
     };
@@ -683,6 +684,7 @@ mod tests {
                 role: "Code".into(),
                 runtime: Some("claude".into()),
                 model: None,
+                account: None,
                 busy: false,
                 runs_in: "ask".into(),
                 folder: None,
