@@ -265,6 +265,60 @@ pub fn run_git(args: &[&str], cwd: &Path, limit: Duration) -> Result<String, Git
     }
 }
 
+// ---- landing (Electron's LandBlock, LandPreview, LandResult) ------------------------------------------------------
+
+/// What stands in the way of landing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LandBlock {
+    Nothing,
+    Detached,
+    OldGit(Option<String>),
+    Unsaved(Vec<String>),
+    Markers(Vec<String>),
+    MarkersUnchecked,
+    YourChanges(Vec<String>),
+    Conflicts(Vec<String>),
+    Merging,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LandPreview {
+    pub branch: String,
+    pub onto: Option<String>,
+    pub files: Vec<String>,
+    pub draft: String,
+    pub block: Option<LandBlock>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LandResult {
+    Landed { sha: String, onto: String, files: Vec<String>, branch_reset: bool },
+    Blocked(LandBlock),
+    Refused(String),
+}
+
+/// Landing checks for conflicts with `git merge-tree --write-tree`, which needs git 2.38.
+pub fn git_version_can_land(version: &str) -> bool {
+    let mut parts = version.split('.').map(|p| p.parse::<u64>().unwrap_or(0));
+    let (major, minor) = (parts.next().unwrap_or(0), parts.next().unwrap_or(0));
+    major > 2 || (major == 2 && minor >= 38)
+}
+
+/// landingDraft: one ask plainly, several as a list, with the teammate and each route as trailers.
+pub fn landing_draft(name: &str, subjects: &[String], routes: &[String]) -> String {
+    let first = subjects.first().cloned().unwrap_or_else(|| format!("{name}'s work"));
+    let body = if subjects.len() <= 1 { String::new() } else { format!("\n\n{}", subjects.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n")) };
+    let mut seen: Vec<String> = Vec::new();
+    for route in routes.iter().map(|r| r.trim()).filter(|r| !r.is_empty()) {
+        if !seen.iter().any(|s| s == route) {
+            seen.push(route.to_string());
+        }
+    }
+    let mut trailers = vec![format!("Locust-Teammate: {name}")];
+    trailers.extend(seen.into_iter().map(|r| format!("Locust-Route: {r}")));
+    format!("{first}{body}\n\n{}", trailers.join("\n"))
+}
+
 // ---- the manager ------------------------------------------------------------------------------------------------------
 
 /// Whether own copies can be made in this folder, and why not.
@@ -292,7 +346,16 @@ pub enum Checkpoint {
     Clean,
     /// Every change was a file too big to keep.
     Skipped { skipped: Vec<(String, u64)> },
-    Committed { sha: String, branch: String, files: Vec<String>, skipped: Vec<(String, u64)> },
+    Committed {
+        sha: String,
+        branch: String,
+        files: Vec<String>,
+        skipped: Vec<(String, u64)>,
+        /// The turn finished a merge begun to resolve a conflict (`start_resolving`).
+        merge_finished: bool,
+        /// After a merge: the files still carrying conflict markers; None when they could not be checked.
+        still_marked: Option<Vec<String>>,
+    },
 }
 
 /// A teammate's branch against where it left the person's branch.
@@ -484,6 +547,143 @@ impl Manager {
         Ok(changed_paths_of(&self.git(&["status", "--porcelain", "--untracked-files=all"], &path)?))
     }
 
+    /// filesWithMarkers: which of `files` at `reference` still carry conflict markers; None when git could not say.
+    fn files_with_markers(&self, cwd: &Path, reference: &str, files: &[String]) -> Option<Vec<String>> {
+        if files.is_empty() {
+            return Some(Vec::new());
+        }
+        let mut args: Vec<&str> = vec!["grep", "-l", "-E", "-e", "^(<<<<<<<|>>>>>>>)( |$)", reference, "--"];
+        args.extend(files.iter().map(String::as_str));
+        let prefix = format!("{reference}:");
+        match run_git(&args, cwd, GIT_TIMEOUT) {
+            Ok(said) => Some(
+                said.lines()
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty())
+                    .map(|l| l.strip_prefix(&prefix).unwrap_or(l).to_string())
+                    .collect(),
+            ),
+            // grep's "found nothing" is exit 1 with nothing printed.
+            Err(e) if e.exit == Some(1) && e.stdout.trim().is_empty() => Some(Vec::new()),
+            Err(_) => None,
+        }
+    }
+
+    /// What landing the branch would do, and what stands in its way, before anything is touched.
+    pub fn land_preview(&self, teammate_id: &str, name: &str) -> Result<LandPreview, String> {
+        self.gather_landing(teammate_id, name).map(|(preview, _)| preview)
+    }
+
+    fn gather_landing(&self, teammate_id: &str, name: &str) -> Result<(LandPreview, PathBuf), String> {
+        let path = self.made_tree(teammate_id)?;
+        let branch = self.git(&["symbolic-ref", "--short", "-q", "HEAD"], &path)?.trim().to_string();
+        let onto_name = self.git(&["symbolic-ref", "--short", "-q", "HEAD"], &self.root).unwrap_or_default().trim().to_string();
+        let onto = (!onto_name.is_empty()).then_some(onto_name);
+        let base = self.git(&["merge-base", "HEAD", &branch], &self.root)?.trim().to_string();
+        let files: Vec<String> =
+            self.git(&["diff", "--name-only", "-z", &base, &branch], &self.root)?.split('\0').filter(|f| !f.is_empty()).map(str::to_owned).collect();
+        let range = format!("{base}..{branch}");
+        let mut subjects: Vec<String> = branch_turns_of(&self.git(&["log", "--name-only", TURN_LOG_FORMAT, &range], &self.root)?)
+            .into_iter()
+            .filter(|t| !t.merge)
+            .map(|t| t.subject)
+            .collect();
+        subjects.reverse();
+        let routes: Vec<String> = self
+            .git(&["log", "--format=%(trailers:key=Locust-Route,valueonly,separator=%x0a)", &range], &self.root)
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        let draft = landing_draft(name, &subjects, &routes);
+        let preview = |block: Option<LandBlock>| LandPreview { branch: branch.clone(), onto: onto.clone(), files: files.clone(), draft: draft.clone(), block };
+        let version = parse_git_version(&self.git(&["--version"], &self.root).unwrap_or_default());
+        if !version.as_deref().is_some_and(git_version_can_land) {
+            return Ok((preview(Some(LandBlock::OldGit(version))), path));
+        }
+        if onto.is_none() {
+            return Ok((preview(Some(LandBlock::Detached)), path));
+        }
+        if self.git(&["rev-parse", "-q", "--verify", "MERGE_HEAD"], &path).is_ok() {
+            return Ok((preview(Some(LandBlock::Merging)), path));
+        }
+        let unsaved: Vec<String> = status_entries_of(&self.git(&["status", "--porcelain", "-z", "--untracked-files=all"], &path)?).into_iter().map(|(_, p)| p).collect();
+        if !unsaved.is_empty() {
+            return Ok((preview(Some(LandBlock::Unsaved(unsaved))), path));
+        }
+        if files.is_empty() {
+            return Ok((preview(Some(LandBlock::Nothing)), path));
+        }
+        match self.files_with_markers(&self.root, &branch, &files) {
+            None => return Ok((preview(Some(LandBlock::MarkersUnchecked)), path)),
+            Some(marked) if !marked.is_empty() => return Ok((preview(Some(LandBlock::Markers(marked))), path)),
+            Some(_) => {}
+        }
+        let yours: Vec<String> = status_entries_of(&self.git(&["status", "--porcelain", "-z", "--untracked-files=all"], &self.root)?)
+            .into_iter()
+            .map(|(_, p)| p)
+            .filter(|p| files.contains(p))
+            .collect();
+        if !yours.is_empty() {
+            return Ok((preview(Some(LandBlock::YourChanges(yours))), path));
+        }
+        // git merge-tree checks the merge without touching the checkout (git 2.38).
+        let conflicts: Vec<String> = match run_git(&["merge-tree", "--write-tree", "--name-only", "--no-messages", "HEAD", &branch], &self.root, GIT_TIMEOUT) {
+            Ok(_) => Vec::new(),
+            Err(e) => {
+                let mut named: Vec<String> = e.stdout.lines().skip(1).map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned).collect();
+                named.dedup();
+                if named.is_empty() { vec!["(git could not check for conflicts)".into()] } else { named }
+            }
+        };
+        if !conflicts.is_empty() {
+            return Ok((preview(Some(LandBlock::Conflicts(conflicts))), path));
+        }
+        Ok((preview(None), path))
+    }
+
+    /// Land the branch on the person's branch as one commit of theirs (their name, their hooks), then start the
+    /// teammate's branch from it. Anything in the way is said and nothing is touched; a refused commit puts the
+    /// checkout back exactly.
+    pub fn land(&self, teammate_id: &str, name: &str, message: &str) -> Result<LandResult, String> {
+        let (preview, path) = self.gather_landing(teammate_id, name)?;
+        let onto = match (&preview.block, &preview.onto) {
+            (None, Some(onto)) => onto.clone(),
+            (block, _) => return Ok(LandResult::Blocked(block.clone().unwrap_or(LandBlock::Detached))),
+        };
+        let text = if message.trim().is_empty() { preview.draft.clone() } else { message.trim().to_string() };
+        let put_back = || {
+            let _ = run_git(&["reset", "-q", "--merge", "HEAD"], &self.root, GIT_TIMEOUT);
+            let _ = std::fs::remove_file(self.root.join(".git").join("SQUASH_MSG"));
+        };
+        if let Err(e) = run_git(&["merge", "--squash", &preview.branch], &self.root, CHECKOUT_TIMEOUT) {
+            put_back();
+            return Ok(LandResult::Refused(format!("git could not stage the landing: {}", e.message)));
+        }
+        if let Err(e) = run_git(&["commit", "-q", "-m", &text], &self.root, CHECKOUT_TIMEOUT) {
+            put_back();
+            let said = e.message.clone();
+            let lower = said.to_lowercase();
+            return Ok(LandResult::Refused(if lower.contains("tell me who you are") || lower.contains("user.email") || lower.contains("user.name") {
+                "git does not know your name and email yet, so it cannot make the commit as you. Set them with git config user.name and user.email, then land again.".into()
+            } else {
+                format!("Your commit hooks refused the landing commit: {}", said.trim_start_matches("git commit: "))
+            }));
+        }
+        let sha = self.git(&["rev-parse", "HEAD"], &self.root)?.trim().to_string();
+        let branch_reset = self.git(&["reset", "-q", "--keep", &sha], &path).is_ok();
+        Ok(LandResult::Landed { sha, onto, files: preview.files, branch_reset })
+    }
+
+    /// Hand a conflict back to the teammate: merge the person's branch into its copy, uncommitted, so its next turn
+    /// resolves it there. Returns the files left in conflict.
+    pub fn start_resolving(&self, teammate_id: &str) -> Result<Vec<String>, String> {
+        let path = self.made_tree(teammate_id)?;
+        let onto = self.git(&["symbolic-ref", "--short", "-q", "HEAD"], &self.root)?.trim().to_string();
+        let _ = run_git(&["merge", "--no-ff", "--no-commit", &onto], &path, CHECKOUT_TIMEOUT);
+        Ok(self.git(&["diff", "--name-only", "-z", "--diff-filter=U"], &path)?.split('\0').filter(|f| !f.is_empty()).map(str::to_owned).collect())
+    }
+
     /// The tree, only when it is whole: a half-made one is never committed or read.
     fn made_tree(&self, teammate_id: &str) -> Result<PathBuf, String> {
         let path = self.tree_path(teammate_id)?;
@@ -542,7 +742,8 @@ impl Manager {
         run_git(&args, &path, CHECKOUT_TIMEOUT).map_err(|e| e.message)?;
         let sha = self.git(&["rev-parse", "HEAD"], &path)?.trim().to_string();
         let branch = self.git(&["symbolic-ref", "--short", "-q", "HEAD"], &path).unwrap_or_default().trim().to_string();
-        Ok(Checkpoint::Committed { sha, branch, files, skipped })
+        let still_marked = if merging { self.files_with_markers(&path, "HEAD", &files) } else { Some(Vec::new()) };
+        Ok(Checkpoint::Committed { sha, branch, files, skipped, merge_finished: merging, still_marked })
     }
 
     /// The branch against where it left the person's branch: whole, and turn by turn, oldest first.
@@ -701,7 +902,27 @@ pub fn checkpoint_sentence(result: &Result<Checkpoint, String>) -> Option<String
         Ok(Checkpoint::Clean) => None,
         Err(message) => Some(format!("This turn's changes could not be saved on the teammate's branch: {message} They are still in its folder.")),
         Ok(Checkpoint::Skipped { skipped }) => Some(format!("Nothing from this turn was saved on the branch.{}", left(skipped))),
-        Ok(Checkpoint::Committed { sha, branch, files, skipped }) => {
+        Ok(Checkpoint::Committed { sha, branch, skipped, merge_finished: true, still_marked, .. }) => {
+            let short = &sha[..sha.len().min(12)];
+            Some(match still_marked {
+                Some(marked) if !marked.is_empty() => {
+                    let many = marked.len() > 1;
+                    format!(
+                        "Saved this turn on {branch} as {short}, but {} still {} conflict markers, so it cannot land until {} resolved.{}",
+                        file_list(marked),
+                        if many { "have" } else { "has" },
+                        if many { "they are" } else { "it is" },
+                        left(skipped)
+                    )
+                }
+                None => format!(
+                    "Saved this turn on {branch} as {short}. Locust could not check it for conflict markers, so it does not say it can land; Land checks again first.{}",
+                    left(skipped)
+                ),
+                Some(_) => format!("Saved this turn on {branch} as {short}: the merge is finished, so it can land now.{}", left(skipped)),
+            })
+        }
+        Ok(Checkpoint::Committed { sha, branch, files, skipped, .. }) => {
             let n = files.len();
             Some(format!(
                 "Saved this turn on {branch} as {}: {n} {} ({}).{}",

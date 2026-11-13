@@ -329,10 +329,192 @@ fn names_what_was_left_out_for_being_too_big_and_says_nothing_for_a_clean_turn()
     let sha = "a".repeat(40);
     let files: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|s| s.to_string()).collect();
     assert_eq!(
-        checkpoint_sentence(&Ok(Checkpoint::Committed { sha: sha.clone(), branch: "locust/wren".into(), files, skipped: vec![] })).as_deref(),
+        checkpoint_sentence(&Ok(Checkpoint::Committed { sha: sha.clone(), branch: "locust/wren".into(), files, skipped: vec![], merge_finished: false, still_marked: Some(vec![]) })).as_deref(),
         Some(format!("Saved this turn on locust/wren as {}: 5 files (a, b, c and 2 more).", &sha[..12]).as_str())
     );
     assert_eq!(checkpoint_sentence(&Ok(Checkpoint::Clean)), None);
     let failed = checkpoint_sentence(&Err("git commit: index.lock exists.".into())).unwrap();
     assert!(failed.contains("index.lock exists. They are still in its folder."), "{failed}");
+}
+
+// ---- landing (Electron a-branch-lands-as-one-commit.test.ts) -------------------------------------------------------
+
+fn turn(subject: &str) -> CheckpointMessage {
+    CheckpointMessage {
+        subject: subject.into(),
+        body: None,
+        trailers: vec![("Locust-Route".into(), "opencode / nemotron".into())],
+        author_name: "Wren".into(),
+        author_email: "tm_wren@teammates.locust".into(), // made-up teammate author; public-guard: allow
+    }
+}
+
+/// A repository, Wren's copy on it, and her two turns: cart.py changed, notes.md added.
+fn two_turns() -> (Temp, PathBuf, Manager) {
+    let root = temp("locust-land");
+    git(&["init", "-q", "-b", "main"], &root.0);
+    git(&["config", "user.email", "person@locust.test"], &root.0); // made-up person; public-guard: allow
+    git(&["config", "user.name", "The person"], &root.0);
+    std::fs::write(root.0.join("cart.py"), "def total(items):\n    return 0\n").unwrap();
+    std::fs::write(root.0.join("README.md"), "mine\n").unwrap();
+    git(&["add", "."], &root.0);
+    git(&["commit", "-q", "-m", "first"], &root.0);
+    let manager = Manager::new(&root.0);
+    let tree = manager.ensure("tm_wren", "Wren", None).unwrap();
+    std::fs::write(tree.join("cart.py"), "def total(items):\n    return sum(items)\n").unwrap();
+    manager.checkpoint("tm_wren", &turn("Fix the cart total")).unwrap();
+    std::fs::write(tree.join("notes.md"), "summed items\n").unwrap();
+    manager.checkpoint("tm_wren", &turn("Write down why")).unwrap();
+    (root, tree, manager)
+}
+
+fn read(path: &Path) -> String {
+    std::fs::read_to_string(path).unwrap().replace("\r\n", "\n")
+}
+
+#[test]
+fn lands_both_turns_as_one_commit_of_the_persons_and_the_teammates_branch_starts_from_it() {
+    let (root, _tree, manager) = two_turns();
+    let preview = manager.land_preview("tm_wren", "Wren").unwrap();
+    assert_eq!(preview.block, None);
+    assert_eq!(preview.onto.as_deref(), Some("main"));
+    let mut files = preview.files.clone();
+    files.sort();
+    assert_eq!(files, vec!["cart.py", "notes.md"]);
+    assert_eq!(preview.draft, "Fix the cart total\n\n- Fix the cart total\n- Write down why\n\nLocust-Teammate: Wren\nLocust-Route: opencode / nemotron");
+    let LandResult::Landed { branch_reset, .. } = manager.land("tm_wren", "Wren", &preview.draft).unwrap() else { panic!("landed") };
+    assert!(branch_reset);
+    assert_eq!(git(&["rev-list", "--count", "main"], &root.0).trim(), "2");
+    assert_eq!(git(&["log", "-1", "--format=%an|%s", "main"], &root.0).trim(), "The person|Fix the cart total");
+    assert_eq!(read(&root.0.join("cart.py")), "def total(items):\n    return sum(items)\n");
+    assert_eq!(read(&root.0.join("notes.md")), "summed items\n");
+    assert_eq!(git(&["status", "--porcelain"], &root.0).trim(), "");
+    assert!(manager.review("tm_wren").unwrap().turns.is_empty());
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::Nothing));
+}
+
+#[test]
+fn refuses_when_the_person_has_changed_a_file_it_would_write_and_touches_nothing() {
+    let (root, _tree, manager) = two_turns();
+    std::fs::write(root.0.join("cart.py"), "def total(items):\n    return 42  # mine, unsaved\n").unwrap();
+    let head = git(&["rev-parse", "HEAD"], &root.0);
+    assert_eq!(manager.land("tm_wren", "Wren", "").unwrap(), LandResult::Blocked(LandBlock::YourChanges(vec!["cart.py".into()])));
+    assert_eq!(read(&root.0.join("cart.py")), "def total(items):\n    return 42  # mine, unsaved\n");
+    assert_eq!(git(&["rev-parse", "HEAD"], &root.0), head);
+}
+
+#[test]
+fn lands_around_the_persons_unsaved_edits_to_other_files_and_keeps_them() {
+    let (root, _tree, manager) = two_turns();
+    std::fs::write(root.0.join("README.md"), "mine, still being written\n").unwrap();
+    assert!(matches!(manager.land("tm_wren", "Wren", "").unwrap(), LandResult::Landed { .. }));
+    assert_eq!(read(&root.0.join("README.md")), "mine, still being written\n");
+    let mut changed: Vec<String> = git(&["diff", "--name-only", "HEAD~1", "HEAD"], &root.0).lines().map(str::to_owned).collect();
+    changed.sort();
+    assert_eq!(changed, vec!["cart.py", "notes.md"]);
+}
+
+#[test]
+fn names_a_conflict_before_touching_anything_the_teammate_resolves_it_on_its_branch_and_then_it_lands() {
+    let (root, tree, manager) = two_turns();
+    std::fs::write(root.0.join("cart.py"), "def total(items):\n    return len(items)\n").unwrap();
+    git(&["commit", "-q", "-am", "mine"], &root.0);
+    let head = git(&["rev-parse", "HEAD"], &root.0);
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::Conflicts(vec!["cart.py".into()])));
+    assert!(matches!(manager.land("tm_wren", "Wren", "").unwrap(), LandResult::Blocked(_)));
+    assert_eq!(git(&["rev-parse", "HEAD"], &root.0), head);
+    assert_eq!(git(&["status", "--porcelain"], &root.0).trim(), "");
+
+    assert_eq!(manager.start_resolving("tm_wren").unwrap(), vec!["cart.py"]);
+    assert!(read(&tree.join("cart.py")).contains("<<<<<<<"));
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::Merging));
+    std::fs::write(tree.join("cart.py"), "def total(items):\n    return sum(items) if items else len(items)\n").unwrap();
+    assert!(matches!(manager.checkpoint("tm_wren", &turn("Resolve the conflict with main")).unwrap(), Checkpoint::Committed { .. }));
+    let review = manager.review("tm_wren").unwrap();
+    assert!(review.turns.iter().find(|t| t.subject == "Resolve the conflict with main").is_some_and(|t| t.merge));
+    assert!(review.diff.unwrap().contains("+    return sum(items) if items else len(items)"));
+    let ready = manager.land_preview("tm_wren", "Wren").unwrap();
+    assert_eq!(ready.block, None);
+    assert!(!ready.draft.contains("Resolve the conflict"));
+    assert!(matches!(manager.land("tm_wren", "Wren", "").unwrap(), LandResult::Landed { .. }));
+    assert_eq!(read(&root.0.join("cart.py")), "def total(items):\n    return sum(items) if items else len(items)\n");
+}
+
+#[test]
+fn finishes_the_merge_even_when_the_teammate_resolved_it_by_keeping_its_own_side_which_changes_nothing() {
+    let (root, tree, manager) = two_turns();
+    std::fs::write(root.0.join("cart.py"), "def total(items):\n    return len(items)\n").unwrap();
+    git(&["commit", "-q", "-am", "mine"], &root.0);
+    manager.start_resolving("tm_wren").unwrap();
+    std::fs::write(tree.join("cart.py"), "def total(items):\n    return sum(items)\n").unwrap();
+    let Checkpoint::Committed { merge_finished, .. } = manager.checkpoint("tm_wren", &turn("Keep mine")).unwrap() else { panic!("committed") };
+    assert!(merge_finished);
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, None);
+}
+
+#[test]
+fn a_turn_that_asked_instead_of_resolving_does_not_say_the_merge_can_land() {
+    let (root, _tree, manager) = two_turns();
+    std::fs::write(root.0.join("cart.py"), "def total(items):\n    return len(items)\n").unwrap();
+    git(&["commit", "-q", "-am", "mine"], &root.0);
+    manager.start_resolving("tm_wren").unwrap();
+    let saved = manager.checkpoint("tm_wren", &turn("Which side?"));
+    let Ok(Checkpoint::Committed { merge_finished, still_marked, .. }) = &saved else { panic!("committed") };
+    assert!(*merge_finished);
+    assert_eq!(still_marked.as_deref(), Some(&["cart.py".to_string()][..]));
+    let said = checkpoint_sentence(&saved).unwrap();
+    assert!(!said.contains("can land now"), "{said}");
+    assert!(said.contains("cart.py still has conflict markers, so it cannot land until it is resolved"), "{said}");
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::Markers(vec!["cart.py".into()])));
+}
+
+#[test]
+fn refuses_a_branch_that_still_carries_conflict_markers() {
+    let (_root, tree, manager) = two_turns();
+    std::fs::write(tree.join("notes.md"), "<<<<<<< HEAD\na\n=======\nb\n>>>>>>> main\n").unwrap();
+    manager.checkpoint("tm_wren", &turn("Half a merge")).unwrap();
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::Markers(vec!["notes.md".into()])));
+}
+
+#[test]
+fn puts_the_checkout_back_exactly_when_the_persons_hook_refuses_the_commit() {
+    let (root, _tree, manager) = two_turns();
+    let hook = root.0.join(".git/hooks/pre-commit");
+    std::fs::write(&hook, "#!/bin/sh\necho \"lint failed\" >&2\nexit 1\n").unwrap();
+    std::fs::set_permissions(&hook, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    std::fs::write(root.0.join("README.md"), "mine, unsaved\n").unwrap();
+    let head = git(&["rev-parse", "HEAD"], &root.0);
+    let LandResult::Refused(message) = manager.land("tm_wren", "Wren", "").unwrap() else { panic!("refused") };
+    assert!(message.contains("lint failed"), "{message}");
+    assert_eq!(git(&["rev-parse", "HEAD"], &root.0), head);
+    assert_eq!(read(&root.0.join("cart.py")), "def total(items):\n    return 0\n");
+    assert!(!root.0.join("notes.md").exists());
+    assert_eq!(read(&root.0.join("README.md")), "mine, unsaved\n");
+    assert_eq!(git(&["status", "--porcelain"], &root.0).trim(), "M README.md");
+    assert!(!root.0.join(".git/SQUASH_MSG").exists());
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, None);
+}
+
+#[test]
+fn refuses_work_no_turn_saved_and_a_checkout_on_no_branch() {
+    let (root, tree, manager) = two_turns();
+    std::fs::write(tree.join("scratch.txt"), "by hand\n").unwrap();
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::Unsaved(vec!["scratch.txt".into()])));
+    std::fs::remove_file(tree.join("scratch.txt")).unwrap();
+    git(&["checkout", "-q", "--detach"], &root.0);
+    assert_eq!(manager.land_preview("tm_wren", "Wren").unwrap().block, Some(LandBlock::Detached));
+}
+
+#[test]
+fn needs_git_2_38_to_check_conflicts_without_touching_anything() {
+    assert!(git_version_can_land("2.54.0"));
+    assert!(git_version_can_land("2.38.0"));
+    assert!(!git_version_can_land("2.37.9"));
+}
+
+#[test]
+fn drafts_one_ask_plainly_and_several_as_a_list() {
+    let routes: Vec<String> = ["codex / luna", "codex / luna", ""].iter().map(|s| s.to_string()).collect();
+    assert_eq!(landing_draft("Wren", &["Fix it".to_string()], &routes), "Fix it\n\nLocust-Teammate: Wren\nLocust-Route: codex / luna");
+    assert_eq!(landing_draft("Wren", &[], &[]), "Wren's work\n\nLocust-Teammate: Wren");
 }
