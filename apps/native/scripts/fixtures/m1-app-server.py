@@ -102,6 +102,14 @@ for line in sys.stdin:
                     reply = 'Cleaned the Linux cache.'
                 else:
                     reply = "Done.\n\n<locust-next>\nClean the Linux cache too :: Do the same for the AppImage cache.\nTell people in What's new :: Add a line to the changelog.\n</locust-next>"
+            elif scenario == 'cards-share':
+                # The brief as the teammate got it, for the test to read; then a share, or the reply to one.
+                with open('last-prompt.txt', 'w') as f:
+                    f.write(text)
+                if 'Messages from teammates, delivered before you started.' in text:
+                    reply = 'Got the note about the port.'
+                else:
+                    reply = 'Checked the server.\n\n<locust-share to="Pip">The dev server listens on port 3001, set in vite.config.ts.</locust-share>'
             elif scenario == 'cards-file':
                 reply = 'Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup you asked for\n\\\\server\\share\\bad.md\n</locust-file>'
             elif scenario == 'cards-streaming':

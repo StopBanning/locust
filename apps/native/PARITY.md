@@ -40,7 +40,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Sidebar search by title, ID, teammate and user messages across turns | `renderer/src/components/Sidebar.tsx`, `renderer/src/status.ts` | **done** — `missionsMatching` port; Search conversations field and narrowing line | yes | no | no |
 | Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **partial** — reply Copy submits Markdown to the native clipboard; edit/restore and confirmed copy feedback remain | yes | no | yes |
 | Subagent/helper activity and transcript details | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **partial** — nested parent-ID calls, reports, type/counts and background/end states implemented; Electron helper row formatting and full group summaries remain | yes | no | no |
-| Peer handoff cards and exchange budget/stop controls | `renderer/src/components/PeerThread.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `main/peer-exchange.ts` | **missing** | - | no | yes |
+| Peer handoff cards and exchange budget/stop controls | `renderer/src/components/PeerThread.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `main/peer-exchange.ts` | **partial** — Shares reach the workroom and the recipient's next brief (row 46's foundation); the peer card in the thread, the exchange strip, its hop budget and Stop remain | yes | no | yes |
 | Decision options, handed-over files and suggested task cards | `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/Thread.tsx`, `shared/protocolTags.ts` | **partial** — `core/src/protocol_tags.rs` (one parser for the door and the window: ask, next and file blocks, code-quoted and torn tags, half-written tags never shown), `src/ui/decision_card.rs` (answered by press or number), `src/ui/next_steps.rs`, `src/ui/handed_files.rs` (reveal only); Electron's 11 tag and card tests carried over, three headless window tests; Start all and the files' copy and save-a-copy buttons remain (notes/CARDS-NOTES.md) | yes | no | yes |
 | Reasoning duration and folded traces | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **done** — normalized public messages only, scrubbed/bounded, timed and folded; raw/legacy reasoning excluded; synthetic tests and headless scenes | yes | no | no |
 | Context breakdown/compact now and per-reply usage/cost | `renderer/src/components/ContextRing.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/compactNow.ts`, `renderer/src/cost.ts` | **partial** — runtime-measured context pie and exact reading; compaction diagnostic line and invalidation; category menu, Compact now execution and cost remain | yes | no | yes |
@@ -80,7 +80,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Create/edit/delete teammate, instructions, runtime/model/effort and budget | `renderer/src/components/NewTeammateDialog.tsx`, `renderer/src/components/InstructionsCard.tsx`, `main/teammate-store.ts` | **partial** — native-owned roster seeds once; create/edit/remove, instructions, route/mode/folder editor; Electron pickers, full validation/test coverage and budget controls remain (P6-NOTES.md); a teammate's monthly limit is enforced at send in Electron's words | yes | no | yes |
 | Starter teams and reusable routine chains | `renderer/src/components/TeamTemplates.tsx`, `shared/team-templates.ts` | **done** — Hydrogen: `src/starters.rs`, `src/ui/home_panel.rs`, `core/src/routine_templates.rs`, `core/src/people.rs` (starter team templates with hue/starters/freshStarters; shipped reusable routine chains with hand-off role proposals; TEAM-FILES-NOTES.md) | yes | no | yes |
 | Rooms, targeted mentions and project standing instructions | `renderer/src/components/RoomScreen.tsx`, `renderer/src/components/GroupSettingsDialog.tsx`, `main/room-store.ts`, `main/group-store.ts` | **missing** | - | no | yes |
-| Automatic peer exchanges and optional handoff omissions | `main/peer-exchange.ts`, `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **missing** | - | no | yes |
+| Automatic peer exchanges and optional handoff omissions | `main/peer-exchange.ts`, `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **partial** — The exchange's foundation: `core/src/workroom.rs` (Electron's workroom store, every record checked, a torn tail repaired), `core/src/peer_share.rs` (share blocks), `core/src/peer_exchange.rs` (recipient by name or role, each share posted once, what could not be sent said), and `core/src/briefing.rs` with `people::turn_brief`: every native turn is now briefed with the team and the share form, Electron's ask, file, next-step and answer sections, the todo or narrate ask by runtime, and what teammates left it, quoted as claims and shed from the newest end only when that helps; marked delivered once the run is live. A share waits for the recipient's next run: starting that run at once (the relay, its hop budget and stop) and the handoff omissions remain | yes | no | yes |
 | Memory store, named replacements, recently forgotten and tidy suggestions | `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/MemoryCard.tsx`, `main/memory-store.ts`, `shared/memory.ts` | **partial** — native-owned Electron-shaped memory, named rewrites/proposals, edit/toggle/remove/restore and gated tidy application; full validation, recall, tidy UI and turn-card receipts remain (P6-NOTES.md) | yes | no | yes |
 | Workspace/runtime skills and GitHub popular/recent skill packs | `renderer/src/components/SkillsFromGitHub.tsx`, `renderer/src/components/CliArtifacts.tsx`, `main/skill-discovery.ts`, `main/skill-library.ts` | **partial** — run skills for every agent (Electron's kept skills, read only); no GitHub skill packs or native skill store | yes | no | yes |
 | Teammate secret environment keys and scoped run injection | `renderer/src/components/KeyCard.tsx`, `main/teammate-keys.ts` | **missing** | - | no | yes |
@@ -278,9 +278,9 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 12 | 12 | 1 | 25 | 24 | 3 |
+| 1 | Conversations & Thread Rendering | 12 | 13 | 0 | 25 | 25 | 3 |
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
-| 3 | Teammates, Rooms, Memory & Skills | 6 | 4 | 4 | 14 | 10 | 0 |
+| 3 | Teammates, Rooms, Memory & Skills | 6 | 5 | 3 | 14 | 11 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 7 | 1 | 11 | 10 | 5 |
 | 5 | Approvals & Permissions | 1 | 8 | 0 | 9 | 9 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 7 | 3 | 13 | 10 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 5 | 1 | 13 | 12 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **62** | **62** | **29** | **153** | **124** | **15** |
+| | **TOTAL** | **62** | **64** | **27** | **153** | **126** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

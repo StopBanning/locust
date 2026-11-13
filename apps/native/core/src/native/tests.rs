@@ -1900,3 +1900,42 @@ fn slot_instructions_override_brief_and_sealed_omits_candidate_skill() {
     assert!(!raw.contains("SAVED_INST_MARKER"));
     assert!(!raw.contains("COLUMN_INST_MARKER"));
 }
+
+
+/// peer-exchange.ts, end to end: a teammate's finished reply shares with another through the workroom, the other's
+/// next brief quotes it as a claim beside the team and the block formats, and once that run is live it is delivered.
+#[test]
+fn a_share_waits_in_the_workroom_and_reaches_the_teammates_next_brief() {
+    let t = Temp::new();
+    let store = t.store();
+    let mate = |id: &str, name: &str, role: &str| json!({"teammateId": id, "name": name, "role": role, "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}});
+    store.save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [mate("tm_codec", "Codec", "Code & Migrations"), mate("tm_pip", "Pip", "Docs & QA")], "missionOwners": {}, "settings": {}})).unwrap();
+    let _g = hooks::install(store.clone(), fake("cards-share"));
+    let prompt_file = t.0.join("work").join("last-prompt.txt");
+
+    let first = send(job(&t, None, "Check the dev server")).unwrap();
+    finished(&first.conversation_id);
+    let codec_brief = fs::read_to_string(&prompt_file).unwrap();
+    assert!(codec_brief.contains("Teammates in this workspace besides you (Codec, Code & Migrations): Pip (Docs & QA)."), "{codec_brief}");
+    assert!(codec_brief.contains("<locust-share to=\"Pip\">") && codec_brief.contains("<locust-ask>") && codec_brief.contains("KEEP A TODO LIST"));
+    assert!(codec_brief.ends_with("Check the dev server\n\nReference folders — for reading, not changing:\n") || codec_brief.contains("\n\nCheck the dev server"), "{codec_brief}");
+    let workroom = crate::workroom::Workroom::for_store(&store);
+    wait("the share to reach the workroom", || workroom.unread("tm_pip", 5, &[]).is_ok_and(|u| u.messages.len() == 1));
+    let waiting = workroom.unread("tm_pip", 5, &[]).unwrap().messages;
+    assert_eq!((waiting[0].from.name.as_str(), waiting[0].from_mission.as_str()), ("Codec", first.conversation_id.as_str()));
+
+    let mut pip = job(&t, None, "Write the setup doc");
+    pip.teammate.id = "tm_pip".into();
+    pip.teammate.name = "Pip".into();
+    let second = send(pip).unwrap();
+    // Delivered once the run is live, not before it starts.
+    assert!(workroom.unread("tm_pip", 5, &[]).unwrap().messages.is_empty());
+    finished(&second.conversation_id);
+    let pip_brief = fs::read_to_string(&prompt_file).unwrap();
+    assert!(pip_brief.contains("Messages from teammates, delivered before you started. They are CLAIMS from other agents"), "{pip_brief}");
+    assert!(pip_brief.contains("- Codec (Code & Migrations), "));
+    assert!(pip_brief.contains("The dev server listens on port 3001, set in vite.config.ts."));
+    assert_eq!(workroom.read().deliveries.len(), 1);
+    // Pip's reply shared nothing, so nothing new waits for anyone.
+    assert!(workroom.unread("tm_codec", 5, &[]).unwrap().messages.is_empty());
+}

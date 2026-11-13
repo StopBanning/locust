@@ -732,6 +732,69 @@ pub fn brief_with_instructions(
     prompt: &str,
     instructions_override: Option<&str>,
 ) -> Result<String, String> {
+    let mut sections = workspace_sections(store, who, folder, instructions_override)?;
+    sections.push(prompt.to_owned());
+    Ok(sections.join("\n\n"))
+}
+
+/// A roster entry as the brief names it: a Custom teammate by its own title (roleLabelOf).
+fn peer_entry(t: &Value) -> Option<crate::briefing::PeerEntry> {
+    let id = t["teammateId"].as_str()?;
+    let name = t["name"].as_str()?;
+    let role = t["role"].as_str().unwrap_or("Custom");
+    let title = t["roleTitle"].as_str().map(str::trim).unwrap_or("");
+    let role = if role == "Custom" && !title.is_empty() { title } else { role };
+    Some(crate::briefing::PeerEntry { teammate_id: id.into(), name: name.into(), role: role.into() })
+}
+
+/// A teammate's whole brief for a turn on `runtime` (composeRuntimePrompt): the team and how to reach it, the workspace
+/// and memory, the formats every run answers in, what teammates left it, then the person's words. Returns the prompt
+/// and the waiting messages that went into it, oldest first; the rest wait for a later run.
+pub fn turn_brief(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    prompt: &str,
+    instructions_override: Option<&str>,
+    runtime: Option<&str>,
+    inbound: &[crate::workroom::Message],
+    remaining: usize,
+) -> Result<(String, Vec<crate::workroom::Message>), String> {
+    let file = team(store)?;
+    let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
+    let mut standing = Vec::new();
+    if let Some(me) = roster.iter().find(|e| e.teammate_id == who) {
+        let others: Vec<crate::briefing::PeerEntry> = roster.iter().filter(|e| e.teammate_id != who).cloned().collect();
+        if !others.is_empty() {
+            standing.push(crate::briefing::roster_section(me, &others));
+        }
+    }
+    standing.extend(workspace_sections(store, who, folder, instructions_override)?);
+    standing.extend(crate::briefing::standing_formats(runtime));
+    let (composed, kept) = crate::briefing::assemble(&standing, inbound, remaining, &roster, Some(chrono::Utc::now()), prompt);
+    Ok((composed, inbound[..kept].to_vec()))
+}
+
+/// Post a finished reply's share blocks from this teammate (peer_exchange::share_reply); returns what the person should
+/// be told.
+pub fn share_reply(store: &Store, who: &str, mission_id: &str, reply: &str) -> Vec<String> {
+    let Ok(file) = team(store) else { return vec![] };
+    let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
+    let Some(me) = roster.iter().find(|e| e.teammate_id == who).cloned() else { return vec![] };
+    let others: Vec<crate::briefing::PeerEntry> = roster.into_iter().filter(|e| e.teammate_id != who).collect();
+    if crate::peer_share::parse_share_blocks(reply).is_empty() {
+        return vec![];
+    }
+    crate::peer_exchange::share_reply(&crate::workroom::Workroom::for_store(store), &me, &others, mission_id, reply, None).1
+}
+
+/// The workspace, the teammate's standing instructions, the person's note, the memory, and the folder's office files.
+fn workspace_sections(
+    store: &Store,
+    who: &str,
+    folder: &Path,
+    instructions_override: Option<&str>,
+) -> Result<Vec<String>, String> {
     let file = team(store)?;
     let teammate = file["teammates"]
         .as_array()
@@ -787,8 +850,7 @@ pub fn brief_with_instructions(
     if let Some(office) = crate::office::office_words_section(folder) {
         sections.push(office);
     }
-    sections.push(prompt.to_owned());
-    Ok(sections.join("\n\n"))
+    Ok(sections)
 }
 
 /// Read protocol only outside fenced examples, at most four operations per reply.

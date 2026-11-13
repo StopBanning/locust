@@ -1438,6 +1438,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         .map(|item| item.path.clone())
         .collect();
     let references: Vec<&str> = shared.iter().map(String::as_str).collect();
+    let mut delivered: Vec<crate::workroom::Message> = Vec::new();
     let runtime_prompt = if let Some(side_text) = side_prompt {
         let refs = crate::references::section(&references);
         if refs.is_empty() {
@@ -1454,11 +1455,15 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         }
     } else {
         let slot_inst = origin.slot.as_ref().and_then(|s| s.instructions.as_deref());
-        format!(
-            "{}\n\n{}",
-            crate::people::brief_with_instructions(&store, &job.teammate.id, &folder, &job.prompt, slot_inst)?,
-            crate::references::section(&references)
-        )
+        // What teammates left for this one, quoted into its brief (peer-exchange.ts prepare). A workroom that cannot be
+        // read is left out: the run goes on without it, and the messages wait.
+        let (waiting, remaining) = crate::workroom::Workroom::for_store(&store)
+            .unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &[])
+            .map(|u| (u.messages, u.remaining))
+            .unwrap_or_default();
+        let (brief, quoted) = crate::people::turn_brief(&store, &job.teammate.id, &folder, &job.prompt, slot_inst, Some(runtime_name), &waiting, remaining)?;
+        delivered = quoted;
+        format!("{brief}\n\n{}", crate::references::section(&references))
     };
     let id = new_id();
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
@@ -1673,6 +1678,8 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     // turn Locust carried on itself, so one empty plan cannot start a chain of them.
     let person_sent = origin.started_by.is_none();
     let memory_store = store.clone();
+    let memory_delivery_store = store.clone();
+    let delivery_mission = id.clone();
     let memory_who = job.teammate.id.clone();
     let memory_folder = turn.folder.clone();
     let memory_id = id.clone();
@@ -1756,6 +1763,10 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                         &reply,
                     ) {
                         eprintln!("Memory was not recorded: {error}");
+                    }
+                    // What the reply shares with a teammate goes to the workroom, to wait for that teammate's next run.
+                    for said in crate::people::share_reply(&memory_store, &memory_who, &memory_id, &reply) {
+                        eprintln!("{said}");
                     }
                 }
             }
@@ -1842,6 +1853,13 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             }
         })
         .map_err(|e| format!("Could not start the turn: {e}"))?;
+    // The run is live: what its brief quoted is delivered (never before, so a start that fails consumes nothing).
+    if !delivered.is_empty() {
+        let ids: Vec<String> = delivered.iter().map(|m| m.message_id.clone()).collect();
+        if let Err(error) = crate::workroom::Workroom::for_store(&memory_delivery_store).mark_delivered(&ids, &delivery_mission) {
+            eprintln!("The teammate messages were not marked delivered, so they will be shown again: {error}");
+        }
+    }
     Ok(Started {
         conversation_id: anchor,
         mode: mode.as_str().into(),

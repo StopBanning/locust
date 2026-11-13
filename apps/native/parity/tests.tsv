@@ -586,7 +586,7 @@ apps/desktop/src/main/whats-new-is-the-whole-changelog.test.ts	p12	partial		`mai
 apps/desktop/src/main/window-bounds.test.ts		waiting		
 apps/desktop/src/main/window-size.test.ts		waiting		
 apps/desktop/src/main/windows-can-start-it.test.ts		waiting		
-apps/desktop/src/main/workroom-briefing.test.ts		waiting		
+apps/desktop/src/main/workroom-briefing.test.ts	WORKROOM	carried	core/src/briefing_tests.rs	all 9 cases, plus the inbound section (claims, age, what the host saw, defanged blocks), shedding from the newest end, todo and narrate by runtime, and a teammate named like an agent
 apps/desktop/src/main/workspace-brief.test.ts		waiting		
 apps/desktop/src/main/workspace-files.test.ts		waiting		
 apps/desktop/src/main/workspace.test.ts		waiting		

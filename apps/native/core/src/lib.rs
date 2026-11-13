@@ -20,6 +20,8 @@ pub mod agent_accounts;
 pub mod published_links;
 pub mod workroom;
 pub mod peer_share;
+pub mod briefing;
+pub mod peer_exchange;
 pub mod changes;
 pub mod checkpoints;
 pub mod command_guard;
