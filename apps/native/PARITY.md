@@ -45,7 +45,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Reasoning duration and folded traces | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **done** — normalized public messages only, scrubbed/bounded, timed and folded; raw/legacy reasoning excluded; synthetic tests and headless scenes | yes | no | no |
 | Context breakdown/compact now and per-reply usage/cost | `renderer/src/components/ContextRing.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/compactNow.ts`, `renderer/src/cost.ts` | **partial** — runtime-measured context pie and exact reading; compaction diagnostic line and invalidation; category menu, Compact now execution and cost remain | yes | no | yes |
 | Save Markdown record and raw JSON | `renderer/src/components/SaveRecordDialog.tsx`, `main/mission-export.ts` | **done** — `core/src/mission_export.rs` (record, raw JSON, chain walk, ledger recovery; 41 Electron tests incl. the golden byte for byte) and `src/ui/save_record.rs` (the dialog in Electron's words, in each conversation's … menu and ⌘K); headless window tests for save and cancel; `.jsonl.gz` archives not read yet (notes/EXPORT-NOTES.md, notes/SAVE-RECORD-NOTES.md) | yes | no | yes |
-| Import Claude Code, Codex, OpenCode and Cursor conversations | `renderer/src/components/ImportDialog.tsx`, `main/session-import.ts`, `main/agent-session-import.ts` | **missing** | - | no | yes |
+| Import Claude Code, Codex, OpenCode and Cursor conversations | `renderer/src/components/ImportDialog.tsx`, `main/session-import.ts`, `main/agent-session-import.ts` | **done** — `core/src/session_import.rs` (Claude Code and Codex .jsonl heads and tails, Cursor's store.db through sqlite3 -readonly, OpenCode's session list and export; Locust's own runs left out; imported as resumable turns in the native folder only, duplicates refused) and `src/ui/import_dialog.rs` (Electron's words; the sidebar + menu and ⌘K); Electron's 7 import tests carried over, a headless window test; named-account homes not scanned, as accounts are not ported (notes/IMPORT-NOTES.md) | yes | no | yes |
 | Resume interrupted run from checkpoint | `renderer/src/components/ResumeCard.tsx`, `renderer/src/resume.ts` | **partial** — newest-checkpoint recovery decision and card, including named uncertain actions and refusal; reconciled resume execution remains unavailable | yes | no | yes |
 | Prompt rail, jump to bottom and timeline markers | `renderer/src/components/PromptRail.tsx`, `renderer/src/components/JumpToBottom.tsx`, `renderer/src/components/TimeMarker.tsx` | **done** — `src/ui/prompt_rail.rs`, `src/ui/jump_to_bottom.rs`, `src/ui/time_marker.rs`, `core/src/time_marker.rs`: the rail (from four of your messages, Ctrl+Option+Up/Down), the way down with the working dots, time markers after a two-minute quiet; Electron's four rail, way-down and clock tests carried over, two headless window tests; no compare view yet (notes/THREAD-RAIL-NOTES.md) | yes | no | no |
 | Selection ask and copied read-only side chat | `renderer/src/components/SelectionAsk.tsx`, `renderer/src/components/SideChat.tsx` | **missing** | - | no | yes |
@@ -278,7 +278,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 11 | 9 | 5 | 25 | 20 | 3 |
+| 1 | Conversations & Thread Rendering | 12 | 9 | 4 | 25 | 21 | 3 |
 | 2 | Composer & Input | 10 | 2 | 2 | 14 | 12 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 5 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **41** | **47** | **65** | **153** | **88** | **15** |
+| | **TOTAL** | **42** | **47** | **64** | **153** | **89** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
