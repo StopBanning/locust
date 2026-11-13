@@ -11,6 +11,22 @@ Settings shows this file as What's new. An entry may group its changes under
 about when they arrive on it carries `<!-- big -->` on the line under its
 heading: the home screen then shows it once, as a splash.
 
+## 0.874.0 - 2026-11-13
+
+### New
+
+- **What would happen if.** Settings › Saved approvals has a box where you type a command and see what the saved
+  rules would do with it: for any teammate, and for each teammate and folder a rule is limited to, whether it runs
+  without asking, is refused, or asks, and which rule decides. It asks the same question an approval card does, and
+  nothing runs.
+
+### Improved
+
+- **A conversation started by another app wears a plug before its title.** The sidebar and the rail card said
+  "via app" after nearly every title, which cut the titles short and told you little. A small plug now sits before
+  the title, as a routine's conversation wears its clock; hover it, or listen with a screen reader, for "Started by
+  another app through Locust". The filter by where a conversation came from stays.
+
 ## 0.873.0 - 2026-11-12
 
 ### Fixed
