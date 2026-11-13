@@ -4422,3 +4422,191 @@ fn undo_puts_a_turns_files_back_off_the_windows_thread_and_says_so() {
     on_quit(&mut rt.state, &mut Tx::default());
 }
 
+
+// ---- edit an earlier message, optionally putting files back (an-earlier-message-can-be-edited, a-project-is-never-half-put-back)
+
+/// Another scenario for the fake agent: the guard is dropped and taken again, never the hook's state set by hand.
+fn scenario(store: &Store, guard: native::hooks::Guard, name: &str) -> native::hooks::Guard {
+    drop(guard);
+    native::hooks::install(store.clone(), fake("m1-app-server.py", name))
+}
+
+/// A conversation of two turns in the window ("Synthetic prompt", then "Synthetic follow-up"), the turn ids oldest first.
+fn two_turns() -> (Dirs, Store, Runtime<State>, native::hooks::Guard, String, String) {
+    let (dirs, store, mut rt) = window();
+    let guard = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the first answer", answered);
+    let guard = scenario(&store, guard, "resume");
+    type_and_send(&mut rt, "Synthetic follow-up");
+    pump(&mut rt, "the second turn", |s| s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running && p.snapshot.turn_metas.len() == 2));
+    settle(&mut rt);
+    let ids: Vec<String> = rt.state.ledger.as_ref().unwrap().snapshot.turn_metas.iter().map(|m| m.mission_id.clone()).collect();
+    (dirs, store, rt, guard, ids[0].clone(), ids[1].clone())
+}
+
+fn edit_buttons(rt: &Runtime<State>, turns: &[&str]) -> usize {
+    turns.iter().filter(|t| rt.find(&format!("edit-message-{t}")).is_some()).count()
+}
+
+/// Enter in the box, as a person sends what is in it.
+fn press_send(rt: &mut Runtime<State>) {
+    click(rt, "composer");
+    rt.key(Key::Enter.into());
+    rt.frame(0.016);
+}
+
+#[test]
+fn a_sent_message_offers_edit_on_each_turn_the_person_typed_and_nothing_while_a_turn_runs_or_on_one_they_did_not_type() {
+    let (_dirs, _store, mut rt, _g, first, second) = two_turns();
+    assert_eq!(edit_buttons(&rt, &[&first, &second]), 2, "Edit on every message the person typed");
+    // Not while a turn runs (the window does not offer one then).
+    rt.update(|s, _| {
+        s.flight = Some(Flight { teammate_id: "tm_codec".into(), conversation_id: None, header: None, after_tip: None, message: None });
+    });
+    settle(&mut rt);
+    assert_eq!(edit_buttons(&rt, &[&first, &second]), 0, "a turn is running");
+    rt.update(|s, _| s.flight = None);
+    // Not on a turn an app or the host started: the words are not the person's.
+    let app_started = first.clone();
+    rt.update(move |s, _| {
+        let pane = s.ledger.as_mut().unwrap();
+        pane.snapshot.turn_metas.iter_mut().find(|m| m.mission_id == app_started).unwrap().started_by_kind = Some("mcp".into());
+    });
+    settle(&mut rt);
+    assert_eq!(edit_buttons(&rt, &[&first, &second]), 1, "only the turn the person typed");
+    assert!(rt.find(&format!("edit-message-{first}")).is_none());
+}
+
+#[test]
+fn editing_puts_the_words_in_the_box_under_a_line_that_says_what_sending_does_and_cancel_lets_go() {
+    let (_dirs, _store, mut rt, _g, _first, second) = two_turns();
+    assert!(rt.find("edit-line").is_none(), "nothing of the kind otherwise");
+    click(&mut rt, &format!("edit-message-{second}"));
+    assert_eq!(rt.state.draft.text, "Synthetic follow-up", "its words go back in the box");
+    pump(&mut rt, "the folder's records read", |s| !s.edit.offer_job.is_pending());
+    settle(&mut rt);
+    let said = text_in(&rt, "edit-line").join(" ");
+    assert!(said.contains("Editing an earlier message"), "{said}");
+    assert!(said.contains("Files stay as they are."), "{said}");
+    assert!(rt.find("edit-put-back").is_none(), "no file changed, so nothing to tick");
+    click(&mut rt, "edit-cancel");
+    assert!(rt.find("edit-line").is_none(), "Cancel lets the edit go");
+    assert!(rt.state.draft.text.is_empty(), "and empties the box");
+    assert!(rt.state.edit.editing.is_none());
+}
+
+#[test]
+fn sending_an_edit_starts_again_from_the_turn_before_says_so_above_it_and_both_versions_stay_reachable() {
+    let (_dirs, store, mut rt, g, first, second) = two_turns();
+    click(&mut rt, &format!("edit-message-{second}"));
+    pump(&mut rt, "the records read", |s| !s.edit.offer_job.is_pending());
+    let _g = scenario(&store, g, "rewind");
+    press_send(&mut rt);
+    let old = second.clone();
+    pump(&mut rt, "the edited turn's answer", move |s| {
+        s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running && !p.snapshot.tip.is_empty() && p.snapshot.tip != old && p.snapshot.turn_metas.len() == 2)
+    });
+    settle(&mut rt);
+    let new = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
+    // The record: the edit continues the turn before the edited one, and says it is an edit.
+    let meta = first_records(&store).into_iter().find(|r| r["metadata"]["missionId"] == json!(new)).unwrap()["metadata"].clone();
+    assert_eq!(meta["continuesFrom"]["missionId"], json!(first));
+    assert_eq!(meta["continuesFrom"]["edited"], json!(true));
+    assert!(rt.state.edit.editing.is_none(), "the edit is done");
+    // Above the new turn: it started again, not that a fresh session began.
+    let said = text_in(&rt, &format!("edit-note-{new}")).join(" ");
+    assert!(said.contains("Started again from an edited message."), "{said}");
+    assert!(!said.contains("A fresh session"), "{said}");
+    // The earlier version stays reachable, from the recent list.
+    pump(&mut rt, "the versions found", |s| s.edit.versions.get(&new).is_some_and(|v| v.before.as_deref() == Some(second.as_str())));
+    settle(&mut rt);
+    click(&mut rt, &format!("version-before-{new}"));
+    let want = second.clone();
+    pump(&mut rt, "the version before open", move |s| s.ledger.as_ref().is_some_and(|p| !p.loading && p.snapshot.tip == want && p.snapshot.turn_metas.len() == 2));
+    pump(&mut rt, "the other way found", |s| s.edit.versions.get(&second).is_some_and(|v| v.after.as_deref() == Some(new.as_str())));
+    settle(&mut rt);
+    let said = text_in(&rt, &format!("edit-note-{second}")).join(" ");
+    assert!(said.contains("This message was edited later."), "{said}");
+    assert!(rt.find(&format!("version-after-{second}")).is_some(), "and the way to the edited version");
+}
+
+/// The folder as the set-aside reply left it: it made these files, recorded as that turn's own change.
+fn reply_made_files(store: &Store, dirs: &Dirs, turn: &str, names: &[&str]) -> PathBuf {
+    let folder = dirs.0.join("work");
+    let record = locust_core::checkpoints::Turn::begin(store, &folder);
+    for name in names {
+        std::fs::write(folder.join(name), "made by the reply\n").unwrap();
+    }
+    record.finish(store, turn).unwrap();
+    folder
+}
+fn reply_made_a_file(store: &Store, dirs: &Dirs, turn: &str) -> PathBuf {
+    reply_made_files(store, dirs, turn, &["made.txt"])
+}
+
+#[test]
+fn the_tick_puts_the_replies_files_back_before_the_edit_starts_and_the_note_says_how_many() {
+    let (dirs, store, mut rt, g, _first, second) = two_turns();
+    let folder = reply_made_a_file(&store, &dirs, &second);
+    click(&mut rt, &format!("edit-message-{second}"));
+    pump(&mut rt, "the records read", |s| s.edit.editing.as_ref().is_some_and(|e| e.offer.is_some()));
+    settle(&mut rt);
+    let said = text_in(&rt, "edit-line").join(" ");
+    assert!(said.contains("Also put back the 1 file the replies after it changed"), "{said}");
+    assert!(!said.contains("Files stay as they are"), "{said}");
+    // Off unless ticked: sending without the tick leaves the file where the reply left it.
+    assert!(!rt.state.edit.editing.as_ref().unwrap().put_back);
+    click(&mut rt, "edit-put-back");
+    assert!(rt.state.edit.editing.as_ref().unwrap().put_back);
+    let _g = scenario(&store, g, "rewind");
+    press_send(&mut rt);
+    let old = second.clone();
+    pump(&mut rt, "the edited turn", move |s| s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running && p.snapshot.tip != old && p.snapshot.turn_metas.len() == 2));
+    settle(&mut rt);
+    assert!(!folder.join("made.txt").exists(), "the file the set-aside reply made is gone, put back as it was");
+    let new = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
+    let said = text_in(&rt, &format!("edit-note-{new}")).join(" ");
+    assert!(said.contains("and 1 file they changed was put back."), "{said}");
+}
+
+#[test]
+fn nothing_is_offered_to_tick_when_a_file_cannot_go_back_and_an_edit_leaves_files_as_they_are() {
+    let (dirs, store, mut rt, g, _first, second) = two_turns();
+    let folder = reply_made_a_file(&store, &dirs, &second);
+    // The person changed it by hand since the reply.
+    std::fs::write(folder.join("made.txt"), "the person wrote this\n").unwrap();
+    click(&mut rt, &format!("edit-message-{second}"));
+    pump(&mut rt, "the records read", |s| s.edit.editing.as_ref().is_some_and(|e| e.offer.is_some()));
+    settle(&mut rt);
+    let said = text_in(&rt, "edit-line").join(" ");
+    assert!(said.contains("Files stay as they are: 1 of the 1 files the replies changed cannot be put back exactly"), "{said}");
+    assert!(rt.find("edit-put-back").is_none(), "no tick: putting back only the others could leave the project half changed");
+    let _g = scenario(&store, g, "rewind");
+    press_send(&mut rt);
+    let old = second.clone();
+    pump(&mut rt, "the edited turn", move |s| s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running && p.snapshot.tip != old && p.snapshot.turn_metas.len() == 2));
+    assert_eq!(std::fs::read_to_string(folder.join("made.txt")).unwrap(), "the person wrote this\n", "left exactly as it is");
+}
+
+#[test]
+fn a_file_changed_after_the_box_offered_it_holds_everything_back_and_the_edit_still_starts() {
+    let (dirs, store, mut rt, g, _first, second) = two_turns();
+    let folder = reply_made_files(&store, &dirs, &second, &["made.txt", "other.txt"]);
+    click(&mut rt, &format!("edit-message-{second}"));
+    pump(&mut rt, "the records read", |s| s.edit.editing.as_ref().is_some_and(|e| e.offer.is_some()));
+    settle(&mut rt);
+    click(&mut rt, "edit-put-back");
+    // Changed between the offer and the send: the host checks again, and puts nothing back.
+    std::fs::write(folder.join("made.txt"), "the person wrote this\n").unwrap();
+    let _g = scenario(&store, g, "rewind");
+    press_send(&mut rt);
+    let old = second.clone();
+    pump(&mut rt, "the edited turn", move |s| s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.loading && !p.snapshot.running && p.snapshot.tip != old && p.snapshot.turn_metas.len() == 2));
+    settle(&mut rt);
+    assert_eq!(std::fs::read_to_string(folder.join("made.txt")).unwrap(), "the person wrote this\n");
+    assert!(folder.join("other.txt").exists(), "the file that could have gone back was held: all of them or none");
+    let new = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
+    let said = text_in(&rt, &format!("edit-note-{new}")).join(" ");
+    assert!(said.contains("Nothing was put back: made.txt (changed since the replies) could not be, and putting back only the other 1 could leave the project half changed."), "{said}");
+}

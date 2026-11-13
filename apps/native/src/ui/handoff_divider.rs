@@ -235,6 +235,7 @@ mod tests {
             sandbox: "read-only".into(),
             mode: Some("ask".into()),
             continues_reason: None,
+            edited: false,
             started_by_kind: None,
             started_by_hop: None,
             relay: None,
