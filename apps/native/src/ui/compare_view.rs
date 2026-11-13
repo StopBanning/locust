@@ -3200,6 +3200,18 @@ pub(super) fn start_tune_note(s: &mut State, cmp: &Compare) {
     let Some(store) = s.data.clone() else { return };
     let Some(tm_id) = cmp.teammate_id.as_deref() else { return };
     let Some(kept) = cmp.kept.as_ref().map(|k| k.slot) else { return };
+    // The lesson reads the kept run's answer: never one still being written (Electron's handler).
+    let kept_done = cmp
+        .slots
+        .iter()
+        .find(|slot| slot.slot == kept)
+        .and_then(|slot| slot.mission_ids.last())
+        .and_then(|id| s.compare.snapshots.get(id))
+        .is_some_and(|snap| !snap.running);
+    if !kept_done {
+        s.compare.tune_note_error = Some("Wait for the kept run to finish first. Nothing was started.".into());
+        return;
+    }
     if let Err(why) = check_teammate_route_matches_tune(&store, cmp, tm_id) {
         s.compare.tune_note_error = Some(why);
         return;

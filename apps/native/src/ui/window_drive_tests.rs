@@ -3442,6 +3442,19 @@ fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
     let (_dirs, store, mut rt, log_path, _guard) = setup_tune_window();
     run_tune_and_keep_how_it_works(&mut rt, &store, "Check parser invariants");
 
+    // While the kept run is still running, nothing is noted (review, 13 Nov).
+    rt.update(|s, _| {
+        let cmp = s.compare.compares.iter().find(|c| Some(&c.compare_id) == s.compare.active_id.as_ref()).cloned().unwrap();
+        let kept = cmp.kept.as_ref().unwrap().slot;
+        let tip = cmp.slots.iter().find(|c| c.slot == kept).and_then(|c| c.mission_ids.last()).cloned().unwrap();
+        s.compare.snapshots.get_mut(&tip).unwrap().running = true;
+        crate::compare_view::start_tune_note(s, &cmp);
+        assert_eq!(s.compare.tune_note_error.as_deref(), Some("Wait for the kept run to finish first. Nothing was started."));
+        s.compare.snapshots.get_mut(&tip).unwrap().running = false;
+        s.compare.tune_note_error = None;
+    });
+    assert!(locust_core::tune_lesson_store::list(&store, Some("tm_codec")).is_empty());
+
     click(&mut rt, "tune-note-lesson");
     pump(&mut rt, "tune lesson saved", |s| {
         s.compare.tune_note_saved.is_some()

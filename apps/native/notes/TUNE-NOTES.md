@@ -51,3 +51,20 @@ Each guard was temporarily broken, verified to fail its pinning test, and restor
 - `slash_tune_opens_drafts_two_setups_and_saves_nothing`
 - `tune_combine_edits_shows_combined_instructions_and_saves_only_when_pressed`
 - `tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it`
+
+## Review (13 Nov)
+
+The scripted review passed: 1,245 tests, no warnings, and the three window tests alone and together three times.
+Checked by hand:
+- nothing is applied by itself (drafting, keeping and combining save nothing until pressed);
+- earlier lessons reach only `/tune`, never an ordinary brief;
+- the model-or-account refusal uses Electron's words;
+- the prompts quote data as JSON and cut at 4,000 and 400 characters.
+
+Found and fixed:
+- **Noting a lesson did not wait for the kept run to finish.** It could hand the lesson turn a half-written answer.
+  `start_tune_note` now refuses with Electron's words, "Wait for the kept run to finish first. Nothing was started.",
+  and `tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it` checks it before noting.
+- **Two files were marked carried on one test each.** `a-tune-is-measured-before-one-is-kept` (7 cases, 5
+  assertions) and `a-tune-is-measured-on-screen` (4 cases, sharing a test with `a-tune-names-its-setups`) are now
+  partial.
