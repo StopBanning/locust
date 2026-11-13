@@ -207,6 +207,11 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
     let Some(query) = composer::slash_query(&s.draft.text) else {
         return Vec::new();
     };
+    // Writing a runtime command's arguments: the menu stays shut, so Enter sends it.
+    if crate::runtime_commands_ui::writing_arguments(s) {
+        return Vec::new();
+    }
+    let theirs = crate::runtime_commands_ui::menu_rows(s);
     let available = composer::available_commands(composer::AvailableInput {
         modes: &["ask", "plan", "accept-edits", "approve-each", "auto"],
         running: turn_running(s),
@@ -214,7 +219,7 @@ pub(super) fn slash_choices_now(s: &State) -> Vec<composer::SlashCommand> {
         issues: crate::issue_list::offered(s),
         tune: !s.teammates.is_empty(),
         setup: true,
-        runtime_commands: &[],
+        runtime_commands: &theirs,
     });
     composer::matching_commands(&query, &available)
 }
@@ -315,6 +320,10 @@ pub(super) fn run_slash_command(s: &mut State, command: &composer::SlashCommand)
         composer::SlashAction::Tune => {
             s.draft.clear();
             crate::tune_teammate::open_from_composer(s);
+        }
+        // The runtime's own command: `/name ` in the box, where its arguments go; sending it sends the command.
+        composer::SlashAction::Runtime => {
+            s.draft.replace_text(format!("/{} ", command.name));
         }
         composer::SlashAction::Route
         | composer::SlashAction::Swarm => {

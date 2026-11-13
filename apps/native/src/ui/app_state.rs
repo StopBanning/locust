@@ -171,6 +171,9 @@ pub(super) struct State {
     /// Teammates' key names, the key card's boxes, and the change in flight (teammate_keys).
     pub(super) keys: crate::key_card::Keys,
     pub(super) keys_job: Latest<crate::key_card::Answer>,
+    /// Each runtime's own slash commands, as the engine kept them, and the context ring's menu.
+    pub(super) runtime_commands: crate::runtime_commands_ui::Commands,
+    pub(super) runtime_commands_job: Latest<std::collections::BTreeMap<String, Vec<locust_core::runtime_commands::CommandInfo>>>,
     /// Codex and Copilot kept current: what the service says, and the job that asks it (agents_section.rs).
     pub(super) agent_updates: crate::agents_section::Keeping,
     pub(super) agent_updates_job: Latest<crate::agents_section::UpdatesAnswer>,
@@ -436,6 +439,8 @@ impl Default for State {
             agents_install_job: Latest::default(),
             keys: Default::default(),
             keys_job: Latest::default(),
+            runtime_commands: Default::default(),
+            runtime_commands_job: Latest::default(),
             agent_updates: Default::default(),
             agent_updates_job: Latest::default(),
             diff_notes: Default::default(),

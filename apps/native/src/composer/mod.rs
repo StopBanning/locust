@@ -23,7 +23,7 @@ pub use queue::{
 pub use queue_store::{new_queue_id, read_queue, write_queue};
 pub use send_blocked::{SEND_LIVE_TITLE, SendBlocked, send_blocked_reason};
 pub use slash::{
-    AvailableInput, SlashAction, SlashCommand, available_commands, matching_commands, slash_query,
+    AvailableInput, SlashAction, SlashCommand, available_commands, matching_commands, runtime_slash_commands, slash_query,
 };
 
 /// Electron composer textarea max height (shell.css `.lc-composer textarea`).
