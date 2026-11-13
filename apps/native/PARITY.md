@@ -169,8 +169,8 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Routine retry-until-check, handoff steps and wait-for-OK gates | `renderer/src/components/RoutineRecovery.tsx`, `main/routine-recovery-ipc.ts`, `main/routine-runner.ts` | **partial** — runner ported: checks, checker verdicts, busy and wait-for-OK holds, recovery cards; no OS or phone alert when a step waits for OK (ROUTINES-NOTES.md) | yes | no | yes |
 | Compare/Blind side-by-side answers and isolated changes | `renderer/src/components/CompareView.tsx`, `main/compare-store.ts`, `main/compare-copies.ts` | **done** — `core/src/{compare,compare_copies}.rs` + `src/ui/compare_view.rs` + `SlotOrigin` + `empty_trash` cleanup; unit + headless window tests pass (notes/COMPARE-NOTES.md) | yes | no | yes |
 | Weighted/drafted rubric points and one/three blind judges | `renderer/src/components/CompareView.tsx`, `main/compare-judge.ts`, `shared/compare-score.ts` | **done** — `core/src/{compare_judge,compare_score}.rs` + `src/ui/compare_view.rs`; 1/3 blind judges, drafted/weighted points, panel vote & scorecard pass unit + headless window tests (notes/COMPARE-NOTES.md) | yes | no | yes |
-| Per-column rerun, build/merge answers, keep copies and preview pages | `renderer/src/components/CompareView.tsx`, `main/compare-reruns.ts`, `main/compare-copies.ts` | **missing** | - | no | yes |
-| Reusable benchmarks, record tables and across-benchmark analysis | `renderer/src/components/CompareBenchmark.tsx`, `renderer/src/components/BenchmarksScreen.tsx`, `renderer/src/benchmark.ts`, `renderer/src/compareRecord.ts` | **missing** | - | no | yes |
+| Per-column rerun, build/merge answers, keep copies and preview pages | `renderer/src/components/CompareView.tsx`, `main/compare-reruns.ts`, `main/compare-copies.ts` | **done** — `core/src/{compare,compare_copies,compare_reruns}.rs` + `src/ui/compare_view.rs`; per-column retry/follow-up/add-model, copy/worktree Keep, branch cleanup, HTML page preview & post-keep refusal pass unit + headless window tests (notes/COMPARE-MORE-NOTES.md) | yes | no | yes |
+| Reusable benchmarks, record tables and across-benchmark analysis | `renderer/src/components/CompareBenchmark.tsx`, `renderer/src/components/BenchmarksScreen.tsx`, `renderer/src/benchmark.ts`, `renderer/src/compareRecord.ts` | **done** — `core/src/{benchmark,compare_reruns}.rs` + `src/ui/{compare_view,benchmarks_panel}.rs`; sequential reruns, benchmark/record tables, unit-separated charts, and Benchmarks screen pass unit + headless window tests (notes/COMPARE-MORE-NOTES.md) | yes | no | yes |
 
 ### Area 10: Calls & Voice Typing
 
@@ -286,14 +286,14 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 7 | 3 | 13 | 10 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
-| 9 | Routines, Compare & Benchmarks | 5 | 2 | 3 | 10 | 7 | 0 |
+| 9 | Routines, Compare & Benchmarks | 7 | 2 | 1 | 10 | 9 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 7 | 5 | 1 | 13 | 12 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **59** | **58** | **36** | **153** | **117** | **15** |
+| | **TOTAL** | **61** | **58** | **34** | **153** | **119** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

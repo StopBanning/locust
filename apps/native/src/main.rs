@@ -173,6 +173,8 @@ mod inspector_panel;
 mod instructions_card;
 #[path = "ui/setup_card.rs"]
 mod setup_card;
+#[path = "ui/benchmarks_panel.rs"]
+mod benchmarks_panel;
 #[path = "ui/compare_view.rs"]
 mod compare_view;
 #[path = "ui/trash_section.rs"]
@@ -2183,6 +2185,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         settings_panel::view(s, &p)
     } else if s.people_panel.open {
         people_panel::view(s, &p)
+    } else if s.benchmarks_open {
+        benchmarks_panel::view(s, &p)
     } else if s.compare.active_id.is_some() {
         compare_view::view(s, &p)
     } else {

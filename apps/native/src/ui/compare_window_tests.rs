@@ -311,3 +311,261 @@ fn three_judges_score_the_answers_and_their_pick_is_marked() {
         "expected judge reason in judge section: {judge_box}"
     );
 }
+
+#[test]
+fn keep_this_one_brings_column_change_into_folder_and_other_copies_go() {
+    let (dirs, store, mut rt) = window();
+    let workspace = dirs.0.join("work");
+    std::fs::write(workspace.join("notes.txt"), "before\n").unwrap();
+
+    let copy_root = locust_core::compare_copies::compare_root(&store);
+    let cmp_store = locust_core::compare::CompareStore::from_store(&store).unwrap();
+    let cmp = cmp_store
+        .create(locust_core::compare::CreateCompareInput {
+            teammate_id: None,
+            prompt: "Update notes.txt".into(),
+            routes: vec![
+                locust_core::compare::CompareRoute::new("codex", "gpt-6"),
+                locust_core::compare::CompareRoute::new("codex", "sonnet"),
+            ],
+            changes: true,
+            changes_in: Some(locust_core::compare::ChangesIn::Copy),
+            blind: false,
+            base: None,
+            rerun_of: None,
+        })
+        .unwrap();
+
+    let copy_a = locust_core::compare_copies::make_compare_copy(
+        &workspace,
+        &cmp.compare_id,
+        locust_core::compare::CompareSlotId::A,
+        &copy_root,
+        None,
+    )
+    .unwrap();
+    let copy_b = locust_core::compare_copies::make_compare_copy(
+        &workspace,
+        &cmp.compare_id,
+        locust_core::compare::CompareSlotId::B,
+        &copy_root,
+        None,
+    )
+    .unwrap();
+    std::fs::write(copy_a.join("notes.txt"), "kept from A\n").unwrap();
+    std::fs::write(copy_b.join("notes.txt"), "discarded from B\n").unwrap();
+
+    let ledger_dir = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+    for (slot, mid, text) in [
+        (locust_core::compare::CompareSlotId::A, "m_keep_a", "Updated notes from A."),
+        (locust_core::compare::CompareSlotId::B, "m_keep_b", "Updated notes from B."),
+    ] {
+        let l1 = json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":mid,"teammateId":"nobody","runtime":"codex","model":"gpt-6","prompt":"Update notes.txt","createdAt":"2026-11-13T00:00:00.000Z"}});
+        let l2 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-11-13T00:00:01.000Z","type":"message.delta","payload":{"itemId":"m1","text":text,"operation":"replace","final":true}}});
+        let l3 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"occurredAt":"2026-11-13T00:00:02.000Z","type":"run.completed","payload":{}}});
+        std::fs::write(ledger_dir.join(format!("{mid}.jsonl")), format!("{l1}\n{l2}\n{l3}\n")).unwrap();
+        cmp_store.add_turn(&cmp.compare_id, slot, mid).unwrap();
+    }
+
+    rt.update(|s, tx| {
+        s.home.folder_path = Some(workspace.to_string_lossy().into());
+        s.compare.active_id = Some(cmp.compare_id.clone());
+        crate::compare_view::reload_compares(s);
+        poll(s, 1.0, tx);
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "compare-keep-a");
+    settle(&mut rt);
+
+    assert_eq!(std::fs::read_to_string(workspace.join("notes.txt")).unwrap(), "kept from A\n");
+    assert!(!copy_a.exists(), "copy A should be removed after Keep");
+    assert!(!copy_b.exists(), "copy B should be removed after Keep");
+    assert_eq!(
+        cmp_store.get(&cmp.compare_id).unwrap().unwrap().kept.unwrap().slot,
+        locust_core::compare::CompareSlotId::A
+    );
+}
+
+#[test]
+fn a_column_run_again_answers_again() {
+    let (_dirs, store, mut rt) = window();
+    let ledger_dir = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+
+    let cmp_store = locust_core::compare::CompareStore::from_store(&store).unwrap();
+    let cmp = cmp_store
+        .create(locust_core::compare::CreateCompareInput {
+            teammate_id: Some("tm_codec".into()),
+            prompt: "Synthetic prompt".into(),
+            routes: vec![
+                locust_core::compare::CompareRoute::new("codex", "synthetic-model"),
+                locust_core::compare::CompareRoute::new("codex", "synthetic-model"),
+            ],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        })
+        .unwrap();
+
+    // Column A completed; Column B failed.
+    let write_turn = |mid: &str, text: &str, failed: bool| {
+        let l1 = json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":mid,"teammateId":"nobody","runtime":"codex","model":"synthetic-model","prompt":"Explain worktrees","createdAt":"2026-11-13T00:00:00.000Z"}});
+        let l2 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-11-13T00:00:01.000Z","type":"message.delta","payload":{"itemId":"m1","text":text,"operation":"replace","final":true}}});
+        let end_type = if failed { "run.failed" } else { "run.completed" };
+        let l3 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"occurredAt":"2026-11-13T00:00:02.000Z","type":end_type,"payload":{}}});
+        std::fs::write(ledger_dir.join(format!("{mid}.jsonl")), format!("{l1}\n{l2}\n{l3}\n")).unwrap();
+    };
+    write_turn("m_ok_a", "Worktrees isolate checkouts.", false);
+    write_turn("m_fail_b", "", true);
+    cmp_store.add_turn(&cmp.compare_id, locust_core::compare::CompareSlotId::A, "m_ok_a").unwrap();
+    cmp_store.add_turn(&cmp.compare_id, locust_core::compare::CompareSlotId::B, "m_fail_b").unwrap();
+
+    let _g = native::hooks::install(store, fake("m1-app-server.py", "success"));
+
+    rt.update(|s, tx| {
+        s.compare.active_id = Some(cmp.compare_id.clone());
+        crate::compare_view::reload_compares(s);
+        poll(s, 1.0, tx);
+    });
+    settle(&mut rt);
+
+    // Failed column shows Try again
+    let col_b = text_in(&rt, "compare-col-b").join(" ");
+    assert!(col_b.contains("failed"), "expected failed state in column B: {col_b}");
+    assert!(col_b.contains("Try again"), "expected Try again button on failed column B: {col_b}");
+
+    click(&mut rt, "compare-retry-b");
+    let after_click_b = rt.state.compare.compares.iter().find(|c| c.compare_id == cmp.compare_id).unwrap().slots[1].clone();
+    assert!(
+        after_click_b.mission_ids.last().map(String::as_str) != Some("m_fail_b"),
+        "retry did not replace m_fail_b: problem={:?}, slot_b={:?}",
+        rt.state.compare.problem,
+        after_click_b
+    );
+    pump(&mut rt, "retried column B answer", |s| {
+        s.compare
+            .compares
+            .iter()
+            .find(|c| c.compare_id == cmp.compare_id)
+            .and_then(|c| c.slots.get(1))
+            .is_some_and(|slot| {
+                slot.mission_ids.last().is_some_and(|mid| {
+                    mid != "m_fail_b"
+                        && s.compare.snapshots.get(mid).is_some_and(|snap| {
+                            !snap.running
+                                && snap.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if !text.trim().is_empty()))
+                        })
+                })
+            })
+    });
+
+    let col_b_after = text_in(&rt, "compare-col-b").join(" ");
+    assert!(col_b_after.contains("Hello world"), "retried column B should have fixture answer: {col_b_after}");
+    assert!(!col_b_after.contains("Try again"), "retried column B should no longer be failed: {col_b_after}");
+}
+
+#[test]
+fn a_benchmark_of_two_runs_reads_as_one_table() {
+    let (_dirs, store, mut rt) = window();
+    let ledger_dir = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+
+    let cmp_store = locust_core::compare::CompareStore::from_store(&store).unwrap();
+    let r_a = locust_core::compare::CompareRoute::new("codex", "gpt-6");
+    let r_b = locust_core::compare::CompareRoute::new("claude", "sonnet");
+    let j_r = locust_core::compare::CompareRoute::new("codex", "judge-model");
+
+    let origin = cmp_store
+        .create(locust_core::compare::CreateCompareInput {
+            teammate_id: None,
+            prompt: "Fix the date parser".into(),
+            routes: vec![r_a.clone(), r_b.clone()],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: None,
+        })
+        .unwrap();
+    let rerun = cmp_store
+        .create(locust_core::compare::CreateCompareInput {
+            teammate_id: None,
+            prompt: "Fix the date parser".into(),
+            routes: vec![r_a, r_b],
+            changes: false,
+            changes_in: None,
+            blind: false,
+            base: None,
+            rerun_of: Some(origin.compare_id.clone()),
+        })
+        .unwrap();
+    cmp_store.add_rerun(&origin.compare_id, &rerun.compare_id).unwrap();
+    cmp_store.settle(&rerun.compare_id).unwrap();
+
+    let write_mission = |mid: &str, text: &str| {
+        let l1 = json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":mid,"teammateId":"nobody","runtime":"codex","model":"gpt-6","prompt":"Fix the date parser","createdAt":"2026-11-13T00:00:00.000Z"}});
+        let l2 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":1,"occurredAt":"2026-11-13T00:00:01.000Z","type":"message.delta","payload":{"itemId":"m1","text":text,"operation":"replace","final":true}}});
+        let l3 = json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":2,"occurredAt":"2026-11-13T00:00:02.000Z","type":"run.completed","payload":{}}});
+        std::fs::write(ledger_dir.join(format!("{mid}.jsonl")), format!("{l1}\n{l2}\n{l3}\n")).unwrap();
+    };
+
+    for (cid, suffix, j_body) in [
+        (&origin.compare_id, "1", "I would keep Answer A.\n\nSCORE A 1: met.\nSCORE B 1: no."),
+        (&rerun.compare_id, "2", "I would keep Answer A.\n\nSCORE A 1: met.\nSCORE B 1: met."),
+    ] {
+        let ma = format!("m_a_{suffix}");
+        let mb = format!("m_b_{suffix}");
+        let mj = format!("m_j_{suffix}");
+        write_mission(&ma, "Answer A fix");
+        write_mission(&mb, "Answer B fix");
+        write_mission(&mj, j_body);
+        cmp_store.add_turn(cid, locust_core::compare::CompareSlotId::A, &ma).unwrap();
+        cmp_store.add_turn(cid, locust_core::compare::CompareSlotId::B, &mb).unwrap();
+        cmp_store.judge(cid, j_r.clone(), &mj, Some("Handles leap years".into()), Vec::new()).unwrap();
+    }
+
+    rt.update(|s, tx| {
+        s.compare.active_id = Some(origin.compare_id.clone());
+        crate::compare_view::reload_compares(s);
+        poll(s, 1.0, tx);
+    });
+    settle(&mut rt);
+
+    let bench_text = text_in(&rt, "compare-benchmark").join(" ");
+    assert!(
+        bench_text.contains("YOUR BENCHMARK · 2 RUNS"),
+        "expected benchmark header: {bench_text}"
+    );
+    assert!(bench_text.contains("100"), "expected 100 score for gpt-6: {bench_text}");
+    assert!(bench_text.contains("50"), "expected 50 score for sonnet: {bench_text}");
+    assert!(bench_text.contains("Run 1 · this one"), "expected Run 1 chip: {bench_text}");
+    assert!(bench_text.contains("Run 2"), "expected Run 2 chip: {bench_text}");
+
+    // Open Benchmarks screen and verify it lists the benchmark
+    rt.update(|s, _tx| {
+        crate::benchmarks_panel::open(s);
+    });
+    settle(&mut rt);
+    let screen_text = text_in(&rt, "benchmarks-screen").join(" ");
+    assert!(screen_text.contains("1 benchmark · 2 runs"), "expected benchmark summary: {screen_text}");
+    assert!(screen_text.contains("Fix the date parser"), "expected benchmark question: {screen_text}");
+}
+
+/// builtPageOf: a column's page is the first `.html` a tool wrote or added, never one its answer only mentions.
+#[test]
+fn a_columns_page_is_the_one_a_tool_made_not_one_it_mentions() {
+    use locust_core::ledger::{Item, Snapshot, Status, ToolDetail};
+    let tool = |name: &str, arguments: &str| Item::Tool { name: name.into(), status: Status::Done, summary: String::new(), detail: Box::new(ToolDetail { arguments: arguments.into(), ..Default::default() }) };
+    let said = Item::Assistant { item_id: "a1".into(), text: "Open docs/index.html to see it.".into(), r#final: true };
+    let mut snap = Snapshot { items: vec![said.clone(), tool("Read", r#"{"file_path":"other.html"}"#.replace("file_path", "pattern").as_str())], ..Default::default() };
+    assert!(crate::compare_view::column_html_pages(&snap).is_empty(), "a page only mentioned, or only searched for, is not one it made");
+    snap.items.push(tool("Write", r#"{"file_path":"site/page.html","content":"<a href=\"x.html\">"}"#));
+    snap.items.push(tool("Write", r#"{"file_path":"second.html","content":""}"#));
+    assert_eq!(crate::compare_view::column_html_pages(&snap), vec!["site/page.html".to_owned()]);
+    let patch = Snapshot { items: vec![said, tool("apply_patch", "*** Begin Patch\n*** Add File: web/app.htm\n+<p>hi</p>\n*** End Patch")], ..Default::default() };
+    assert_eq!(crate::compare_view::column_html_pages(&patch), vec!["web/app.htm".to_owned()]);
+}
