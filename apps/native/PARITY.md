@@ -38,7 +38,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Pin, rename, settle/snooze, delete and project grouping | `renderer/src/components/Sidebar.tsx`, `renderer/src/App.tsx`, `renderer/src/conversationList.ts`, `main/mission-history.ts` | **partial** — pin/rename/settle/snooze/project membership persist via native `teammates.json`/`groups.json` (Electron read-only merge); Delete-for-good and Project settings dialog remain | yes | no | yes |
 | Find within conversation | `renderer/src/components/ThreadFind.tsx`, `renderer/src/threadFind.ts` | **done** — find bar with Electron words; hit count/step; no CSS Highlight glyph paint | yes | no | no |
 | Sidebar search by title, ID, teammate and user messages across turns | `renderer/src/components/Sidebar.tsx`, `renderer/src/status.ts` | **done** — `missionsMatching` port; Search conversations field and narrowing line | yes | no | no |
-| Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **partial** — reply Copy submits Markdown to the native clipboard; edit/restore and confirmed copy feedback remain | yes | no | yes |
+| Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **done** — reply Copy with its "Copied" feedback; Edit on each message the person typed puts its words back under a line saying what sending does, with Cancel; sending starts again from the turn before it (the later turns set aside, the earlier version one link away), optionally putting the files they changed back, all or none, and never delivering what they sent unread. Put-back needs Locust's own record of each turn (a turn run in Electron holds it back) | yes | no | yes |
 | Subagent/helper activity and transcript details | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **partial** — nested parent-ID calls, reports, type/counts and background/end states implemented; Electron helper row formatting and full group summaries remain | yes | no | no |
 | Peer handoff cards and exchange budget/stop controls | `renderer/src/components/PeerThread.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `main/peer-exchange.ts` | **done** — Peer handoff cards (`ui/peer_thread.rs`), exchange strip with budget, cost, hops and Stop (`ui/exchange_strip.rs`), Relay settings (`ui/settings_panel.rs`), and 1-level nested origin sidebar (`ui/sidebar.rs`) are built and window-drive tested | yes | no | yes |
 | Decision options, handed-over files and suggested task cards | `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/Thread.tsx`, `shared/protocolTags.ts` | **partial** — `core/src/protocol_tags.rs` (one parser for the door and the window: ask, next and file blocks, code-quoted and torn tags, half-written tags never shown), `src/ui/decision_card.rs` (answered by press or number), `src/ui/next_steps.rs`, `src/ui/handed_files.rs` (reveal only); Electron's 11 tag and card tests carried over, three headless window tests; each handed file has Copy (text files only, in Electron's words) and Save a copy (the system's save dialog), both held to the conversation's folders as Reveal is; Start all remains, left out on purpose (this window cannot start tasks together) (notes/CARDS-NOTES.md) | yes | no | yes |
@@ -278,7 +278,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 13 | 12 | 0 | 25 | 25 | 3 |
+| 1 | Conversations & Thread Rendering | 14 | 11 | 0 | 25 | 25 | 3 |
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 8 | 4 | 2 | 14 | 12 | 0 |
 | 4 | Runtimes, Routing & Fallback | 5 | 6 | 0 | 11 | 11 | 5 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **67** | **62** | **24** | **153** | **129** | **15** |
+| | **TOTAL** | **68** | **61** | **24** | **153** | **129** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

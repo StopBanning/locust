@@ -4480,10 +4480,13 @@ fn a_sent_message_offers_edit_on_each_turn_the_person_typed_and_nothing_while_a_
 
 #[test]
 fn editing_puts_the_words_in_the_box_under_a_line_that_says_what_sending_does_and_cancel_lets_go() {
-    let (_dirs, _store, mut rt, _g, _first, second) = two_turns();
+    let (_dirs, _store, mut rt, _g, first, second) = two_turns();
     assert!(rt.find("edit-line").is_none(), "nothing of the kind otherwise");
     click(&mut rt, &format!("edit-message-{second}"));
     assert_eq!(rt.state.draft.text, "Synthetic follow-up", "its words go back in the box");
+    // The window names the turn before the edited one, the newest turn it replaces and the turns it sets aside.
+    let editing = rt.state.edit.editing.as_ref().unwrap();
+    assert_eq!((editing.before.as_deref(), editing.tip.as_str(), editing.set_aside.as_slice()), (Some(first.as_str()), second.as_str(), [second.clone()].as_slice()));
     pump(&mut rt, "the folder's records read", |s| !s.edit.offer_job.is_pending());
     settle(&mut rt);
     let said = text_in(&rt, "edit-line").join(" ");

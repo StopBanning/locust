@@ -172,7 +172,7 @@ apps/desktop/src/main/a-planted-git-is-never-run.test.ts		waiting
 apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts	settings	carried	core/src/keep_awake.rs	standing AC-power hold + awake.json persistence
 apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts		waiting		
-apps/desktop/src/main/a-project-is-never-half-put-back.test.ts		waiting		
+apps/desktop/src/main/a-project-is-never-half-put-back.test.ts	edit	carried	core/src/edit_earlier_tests.rs (put back); src/ui/window_drive_tests.rs nothing_is_offered_to_tick_when_a_file_cannot_go_back_and_an_edit_leaves_files_as_they_are, a_file_changed_after_the_box_offered_it_holds_everything_back_and_the_edit_still_starts	all 3 tests: nothing written when any file cannot go back (checked before the first write), a write that fails puts the written files back, the box offers no tick and says why. Put-back reads Locust's own per-turn checkpoints (exact hashes), not the diffs Electron reverses
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts		waiting		
 apps/desktop/src/main/a-pull-request-can-be-watched.test.ts		waiting		
 apps/desktop/src/main/a-pull-request-link-wears-its-state.test.ts		waiting		
@@ -230,7 +230,7 @@ apps/desktop/src/main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts	P8	does
 apps/desktop/src/main/a-second-edit-to-a-changed-file-is-seen.test.ts		waiting		
 apps/desktop/src/main/a-secret-is-never-remembered.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
 apps/desktop/src/main/a-session-that-ended-is-not-resumed.test.ts		waiting		
-apps/desktop/src/main/a-set-aside-turn-sends-nothing.test.ts		waiting		
+apps/desktop/src/main/a-set-aside-turn-sends-nothing.test.ts	edit	carried	core/src/edit_earlier_tests.rs (retire); core/src/native/tests.rs an_edit_retires_what_set_aside_turns_sent_only_when_it_is_partway_through	all 4 tests: unread messages of set-aside turns are never delivered (recorded as delivered to the turn that sent them), a delivered one is left, the engine retires only on an edit partway through, a list that is not one retires none; the window names the turns the edit sets aside
 apps/desktop/src/main/a-setting-line-keeps-its-control-whole.test.ts		waiting		
 apps/desktop/src/main/a-shell-gets-one-line.test.ts		waiting		
 apps/desktop/src/main/a-side-question-forks-its-conversation.test.ts	SIDE-CHAT	carried	core/src/side_question.rs tests	all 7 tests carried (Hydrogen), plus OpenCode 2 fresh-session run test
@@ -879,7 +879,7 @@ apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx
 apps/desktop/src/renderer/src/an-app-started-conversation-says-so-in-the-sidebar.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts		waiting		
 apps/desktop/src/renderer/src/an-approval-names-whose-change-it-is.test.tsx		waiting		
-apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx	edit	carried	core/src/edit_earlier_tests.rs; src/ui/window_drive_tests.rs a_sent_message_offers_edit_on_each_turn_the_person_typed_and_nothing_while_a_turn_runs_or_on_one_they_did_not_type, editing_puts_the_words_in_the_box_under_a_line_that_says_what_sending_does_and_cancel_lets_go, sending_an_edit_starts_again_from_the_turn_before_says_so_above_it_and_both_versions_stay_reachable	all 10 tests: Edit on every typed turn (not while a turn runs, not on a turn an app or the host started), the started-again note, the box line and Cancel (and nothing of the kind otherwise), and the four version-before cases. Edit sits left of the bubble rather than inside it; "where editing is not offered" is the native-engine gate.
 apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts		waiting		
 apps/desktop/src/renderer/src/an-empty-home-offers-a-team.test.tsx	p12	partial		Existing starter tests map to the Rust tests listed earlier. `renderer/src/an-empty-home-offers-a-team.test.tsx`, `home-leads-with-the-team.test.tsx`, `home-names-the-model-it-runs.test.tsx` and `home-free-model-keeps-its-tag.test.tsx` are 
