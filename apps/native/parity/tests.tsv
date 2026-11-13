@@ -39,15 +39,15 @@ apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts		waiting
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts		waiting		
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts		waiting		
 apps/desktop/src/main/a-column-answers-in-a-copy.test.ts		waiting		
-apps/desktop/src/main/a-column-can-be-tried-again.test.ts		waiting		
+apps/desktop/src/main/a-column-can-be-tried-again.test.ts	compare-more	carried		`compare_window_tests::a_column_run_again_answers_again` + `compare::tests::keeps_column_instructions_through_restart_followup_and_retry`
 apps/desktop/src/main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts	P8	does-not-apply		`main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts` | No candidate; store refusal words; disk holds only ordinary rules
 apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts		waiting		
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts		waiting		
 apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	compare	carried		`compare_copies::tests::a_compare_column_works_outside_the_folder`
 apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts	compare	carried		`compare_copies::tests::a_compare_root_follows_the_environment`
 apps/desktop/src/main/a-comparison-is-remembered.test.ts		waiting		
-apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts		waiting		
-apps/desktop/src/main/a-comparison-runs-again.test.ts		waiting		
+apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	compare-more	carried		`compare_reruns::tests::keeps_each_columns_instructions_when_whole_comparison_runs_again` + `compare::tests::keeps_column_instructions_through_restart_followup_and_retry`
+apps/desktop/src/main/a-comparison-runs-again.test.ts	compare-more	carried		`compare_reruns::tests::*` (11 unit tests) + `compare::tests::rerun_refusal_messages_match_electron`
 apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts		waiting		
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	CONNECTORS	carried	core/src/connector_reader_tests.rs	carried (13 Nov)
 apps/desktop/src/main/a-connector-goes-to-every-agent.test.ts		waiting		
@@ -63,7 +63,7 @@ apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	P9	partia
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts		waiting		
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts		waiting		
 apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts		waiting		
-apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts		waiting		
+apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	compare-more	carried		`compare_copies::tests::a_compare_column_works_outside_the_folder` + `compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go`
 apps/desktop/src/main/a-credential-file-is-never-shown.test.ts		waiting		
 apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts		waiting		
 apps/desktop/src/main/a-cursor-mission-gives-its-connector-rules-back-when-it-ends.test.ts		waiting		
@@ -103,9 +103,9 @@ apps/desktop/src/main/a-held-reply-that-cannot-start-tells-every-thread.test.ts	
 apps/desktop/src/main/a-history-read-names-the-processes-still-owned.test.ts		waiting		
 apps/desktop/src/main/a-judge-reads-each-columns-work.test.ts	compare	carried		`compare_judge::tests::a_judge_reads_each_columns_work`
 apps/desktop/src/main/a-judge-reads-the-answers-blind.test.ts	compare	carried		`compare_judge::tests::a_judge_reads_the_answers_blind`
-apps/desktop/src/main/a-kept-column-brings-its-changes-in.test.ts		waiting		
-apps/desktop/src/main/a-kept-comparison-leaves-no-branches.test.ts		waiting		
-apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts		waiting		
+apps/desktop/src/main/a-kept-column-brings-its-changes-in.test.ts	compare-more	carried		`compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go`
+apps/desktop/src/main/a-kept-comparison-leaves-no-branches.test.ts	compare-more	carried		`compare_copies::tests::kept_comparison_leaves_no_branches_even_if_folder_removed_first`
+apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	compare-more	carried		`compare_copies::tests::a_kept_page_forgets_its_removed_copy`
 apps/desktop/src/main/a-kept-record-is-not-sent-twice.test.ts		waiting		
 apps/desktop/src/main/a-kept-setup-is-not-proof-its-edit-helped.test.ts		waiting		
 apps/desktop/src/main/a-key-is-never-about-you.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
@@ -605,7 +605,7 @@ apps/desktop/src/renderer/src/959-minutes-is-not-a-duration.test.ts		waiting
 apps/desktop/src/renderer/src/a-background-command-says-what-became-of-it.test.tsx	P9	partial	helper_background_end_updates_original_row	renderer/src/a-background-command-says-what-became-of-it.test.tsx | Agent activity, not own commands; existing helper_background_end_updates_original_row and activity tests retained. Full static-render parity remains.
 apps/desktop/src/renderer/src/a-background-helper-says-it-is-still-working.test.ts		waiting		
 apps/desktop/src/renderer/src/a-bang-in-the-box-is-command-mode.test.tsx	P9	partial		renderer/src/a-bang-in-the-box-is-command-mode.test.tsx | Partial: Escape strips mark; mode note, result/Stop draw; accessibility/static markup assertions remain. Project template prompt outside typed scope.
-apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-benchmark-reads-every-run.test.tsx	compare-more	carried		`benchmark::tests::benchmark_reads_every_run_and_averages_points` + `benchmark::tests::charts_cost_or_time_and_handles_two_free_models` + `compare_window_tests::a_benchmark_of_two_runs_reads_as_one_table`
 apps/desktop/src/renderer/src/a-blank-line-does-not-end-a-list.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-blind-comparison-hides-the-names.test.tsx	compare	carried		`compare_window_tests::blind_comparison_hides_names_until_a_pick_then_shows_them`
 apps/desktop/src/renderer/src/a-board-of-conversations.test.tsx	p12	partial	board_and_away_match_electron_on_the_same_synthetic_rows	`renderer/src/conversations-as-a-board.test.ts`, `renderer/src/a-board-of-conversations.test.tsx`, `shared/since-you-were-away.test.ts`: existing pure reducer tests plus `board_and_away_match_electron_on_the_same_synthetic_rows`. `scripts/p
@@ -682,7 +682,7 @@ apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.
 apps/desktop/src/renderer/src/a-face-at-rest-answers-you.test.ts		waiting		
 apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts		waiting		
 apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-failed-column-cannot-be-kept.test.tsx	compare-more	carried		`compare_window_tests::a_column_run_again_answers_again` (failed column shows Try again and Keep is disabled)
 apps/desktop/src/renderer/src/a-file-git-shows-without-lines-is-listed.test.ts	P7	partial	binary_empty_rename_mode_and_unicode_paths_stay_listed	`renderer/src/a-file-git-shows-without-lines-is-listed.test.ts` | `binary_empty_rename_mode_and_unicode_paths_stay_listed` covers binary/empty/rename/mode-only header records; mixed text files exercised by folder tests. Exact original fixtu
 apps/desktop/src/renderer/src/a-file-opens-on-itself.test.ts	P5	does-not-apply		`a-file-opens-on-itself.test.ts` | The native reader replaces its entire target/result when opening a file and has no selected historical version. Version/diff fold reset assertions do not apply until history is implemented; no equivalent s
 apps/desktop/src/renderer/src/a-file-row-says-a-word.test.ts		waiting		
@@ -865,7 +865,7 @@ apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx		waiting
 apps/desktop/src/renderer/src/a-window-that-cannot-draw-says-so.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts		waiting		
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts		waiting		
-apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx		waiting		
+apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx	compare-more	carried		`benchmark::tests::across_your_benchmarks_averages_and_excludes_setups` + `benchmark::tests::keeps_each_runtime_in_its_own_unit`
 apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts		waiting		
 apps/desktop/src/renderer/src/agentText.test.ts		waiting		
 apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		waiting		
@@ -926,7 +926,7 @@ apps/desktop/src/renderer/src/each-compared-model-has-its-own-effort.test.tsx		w
 apps/desktop/src/renderer/src/each-thin-part-is-its-own-solid.test.ts		waiting		
 apps/desktop/src/renderer/src/effortLevels.test.ts		waiting		
 apps/desktop/src/renderer/src/effortScale.test.ts		waiting		
-apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-benchmark-is-listed-in-one-place.test.tsx	compare-more	carried		`benchmark::tests::every_benchmark_is_listed_in_one_place` + `compare_window_tests::a_benchmark_of_two_runs_reads_as_one_table`
 apps/desktop/src/renderer/src/every-bot-is-drawn-by-the-rig.test.ts		waiting		
 apps/desktop/src/renderer/src/every-call-a-browser-is-refused-is-decided.test.ts		waiting		
 apps/desktop/src/renderer/src/every-colour-has-a-light-one.test.ts		waiting		

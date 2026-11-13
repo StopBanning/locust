@@ -522,6 +522,9 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     };
     rows = rows.child(nav(&crate::look::icons::USERS, "Teammates & Memory").pt(14.0).on_press(crate::people_panel::open));
     rows = rows.child(nav(&crate::look::icons::CLOCK, "Automations").on_press(crate::routines_panel::open));
+    if s.compare.compares.iter().any(|c| !c.reruns.is_empty()) {
+        rows = rows.child(nav(&crate::look::icons::TARGET, "Benchmarks").on_press(crate::benchmarks_panel::open));
+    }
     if !s.compare.compares.is_empty() {
         let mut cmp_col = col()
             .w_full()
@@ -566,6 +569,7 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                     )
                     .on_press(move |s: &mut State| {
                         s.compare.active_id = Some(cid.clone());
+                        s.benchmarks_open = false;
                         s.home.home_open = false;
                         s.home.board_open = false;
                         s.home.boot_open = false;

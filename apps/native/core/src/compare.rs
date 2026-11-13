@@ -152,12 +152,17 @@ impl CompareRoute {
             Some("auto") => Some("auto".to_owned()),
             _ => None,
         };
-        let instructions = obj
-            .get("instructions")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty() && s.len() <= 8_000)
-            .map(str::to_owned);
+        let instructions = match obj.get("instructions") {
+            None => None,
+            Some(v) => {
+                let s = v.as_str()?;
+                let trimmed = s.trim();
+                if trimmed.contains('\0') || trimmed.chars().count() > 4_000 {
+                    return None;
+                }
+                Some(trimmed.to_owned())
+            }
+        };
         let why = text_field(obj.get("why"), 400);
         Some(Self {
             runtime,
@@ -570,6 +575,56 @@ pub fn has_column_instructions(compare: &Compare) -> bool {
     compare.slots.iter().any(|s| s.route.instructions.is_some())
 }
 
+pub const RERUN_TIMES: [usize; 2] = [1, 3];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RerunStep {
+    Answering,
+    Checking,
+    Judging,
+}
+
+impl RerunStep {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Answering => "answering",
+            Self::Checking => "checking",
+            Self::Judging => "judging",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RerunProgress {
+    pub origin_id: String,
+    pub run: usize,
+    pub of: usize,
+    pub step: RerunStep,
+    pub compare_id: Option<String>,
+}
+
+/// Why a comparison cannot be run again as it is, or `None` when it can (`shared/compare.ts:163`).
+pub fn rerun_refusal_of(compare: &Compare) -> Option<&'static str> {
+    if compare.rerun_of.is_some() {
+        return Some("This is a run of another comparison. Run that one again instead.");
+    }
+    if compare.judge.is_none() {
+        return Some("Ask a judge first: each run again is scored by the same judge, on the same points.");
+    }
+    if compare.blind && compare.kept.is_none() && !has_column_instructions(compare) {
+        return Some("Keep one first: the names stay hidden until you do, and a benchmark shows them.");
+    }
+    if compare.slots.iter().any(|c| c.mission_ids.len() > 1) {
+        return Some(
+            "This comparison went on past its first question, so it cannot be run again as one task. Start a new comparison with the question you want to measure.",
+        );
+    }
+    if compare.changes && compare.base.is_none() {
+        return Some("A comparison that changes files can be run again only in a git project, from the commit it started on.");
+    }
+    None
+}
+
 pub fn blind_name(slot: CompareSlotId, setups: bool) -> String {
     format!("{} {}", if setups { "Setup" } else { "Model" }, slot.upper())
 }
@@ -651,6 +706,7 @@ pub struct CreateCompareInput {
     pub rerun_of: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct CompareStore {
     root_dir: PathBuf,
     copy_root: Option<PathBuf>,
@@ -767,7 +823,7 @@ impl CompareStore {
         let prompt = input.prompt.trim().to_owned();
         for route in &input.routes {
             if let Some(inst) = &route.instructions
-                && (input.teammate_id.is_none() || inst.trim().is_empty())
+                && (input.teammate_id.is_none() || inst.contains('\0') || inst.trim().chars().count() > 4_000)
             {
                 return Err("Choose a teammate and valid column instructions. Nothing was started.".into());
             }
@@ -997,6 +1053,25 @@ impl CompareStore {
             if c.point_drafts.len() > MAX_JUDGES {
                 c.point_drafts.drain(0..c.point_drafts.len() - MAX_JUDGES);
             }
+            Ok(c)
+        })
+    }
+
+    pub fn add_rerun(&self, origin_id: &str, rerun_id: &str) -> Result<Compare, String> {
+        self.change(origin_id, |mut c| {
+            if !c.reruns.iter().any(|id| id == rerun_id) {
+                c.reruns.push(rerun_id.to_owned());
+                if c.reruns.len() > MAX_RERUNS {
+                    c.reruns.drain(0..c.reruns.len() - MAX_RERUNS);
+                }
+            }
+            Ok(c)
+        })
+    }
+
+    pub fn settle(&self, compare_id: &str) -> Result<Compare, String> {
+        self.change(compare_id, |mut c| {
+            c.settled = true;
             Ok(c)
         })
     }
@@ -1268,5 +1343,123 @@ mod tests {
         let rec = compare_record(&[c1, c2, c3]);
         assert_eq!(rec.get("claude:sonnet"), Some(&(1, 2)));
         assert_eq!(rec.get("opencode:opencode/mimo-v2.6-flash-free"), Some(&(1, 2)));
+    }
+
+    #[test]
+    fn rerun_refusal_messages_match_electron() {
+        let dir = temp_dir("rerun-refusal");
+        let store = CompareStore::new(dir.clone(), None).unwrap();
+        let routes = vec![
+            CompareRoute::new("opencode", "opencode/space-bunny-free"),
+            CompareRoute::new("opencode", "opencode/ling-3.1-flash-free"),
+        ];
+        let unjudged = store
+            .create(CreateCompareInput {
+                teammate_id: Some("tm_wren".into()),
+                prompt: "Which is faster?".into(),
+                routes: routes.clone(),
+                changes: false,
+                changes_in: None,
+                blind: false,
+                base: None,
+                rerun_of: None,
+            })
+            .unwrap();
+        assert!(rerun_refusal_of(&unjudged).unwrap().contains("Ask a judge first"));
+
+        let mut judged = unjudged.clone();
+        judged.judge = Some(CompareJudge {
+            route: CompareRoute::new("opencode", "judge"),
+            mission_ids: vec!["m_j".into()],
+            criteria: None,
+            panel: Vec::new(),
+            panel_mission_ids: Vec::new(),
+        });
+        assert_eq!(rerun_refusal_of(&judged), None);
+
+        let mut blind = judged.clone();
+        blind.blind = true;
+        assert!(rerun_refusal_of(&blind).unwrap().contains("Keep one first"));
+
+        let mut changes_no_base = judged.clone();
+        changes_no_base.changes = true;
+        assert!(rerun_refusal_of(&changes_no_base).unwrap().contains("only in a git project"));
+
+        let mut multi_turn = judged.clone();
+        multi_turn.slots[0].mission_ids = vec!["m1".into(), "m2".into()];
+        assert!(rerun_refusal_of(&multi_turn).unwrap().contains("went on past its first question"));
+
+        let mut is_rerun = judged;
+        is_rerun.rerun_of = Some("cmp_other".into());
+        assert!(rerun_refusal_of(&is_rerun).unwrap().contains("a run of another comparison"));
+    }
+
+    #[test]
+    fn keeps_column_instructions_through_restart_followup_and_retry() {
+        let dir = temp_dir("col-instructions");
+        let store = CompareStore::new(dir.clone(), None).unwrap();
+        let mut r0 = CompareRoute::new("codex", "same");
+        r0.instructions = Some("Saved.".into());
+        let mut r1 = CompareRoute::new("codex", "same");
+        r1.instructions = Some(String::new());
+        let mut r2 = CompareRoute::new("codex", "same");
+        r2.instructions = Some("Check twice.".into());
+        let routes = vec![r0, r1, r2];
+
+        let made = store
+            .create(CreateCompareInput {
+                teammate_id: Some("tm_wren".into()),
+                prompt: "Explain the cause.".into(),
+                routes: routes.clone(),
+                changes: false,
+                changes_in: None,
+                blind: false,
+                base: None,
+                rerun_of: None,
+            })
+            .unwrap();
+        store.add_turn(&made.compare_id, CompareSlotId::B, "m_followup").unwrap();
+        store.retry(&made.compare_id, CompareSlotId::B, "m_retry").unwrap();
+
+        let read = CompareStore::new(dir.clone(), None)
+            .unwrap()
+            .get(&made.compare_id)
+            .unwrap()
+            .unwrap();
+        let got: Vec<Option<&str>> = read.slots.iter().map(|s| s.route.instructions.as_deref()).collect();
+        assert_eq!(got, vec![Some("Saved."), Some(""), Some("Check twice.")]);
+        assert_eq!(read.slots[1].mission_ids, vec!["m_retry"]);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(read.slots[1].retried, vec!["m_followup"]);
+
+        // Requires a teammate when instructions are present
+        assert!(store
+            .create(CreateCompareInput {
+                teammate_id: None,
+                prompt: "Explain the cause.".into(),
+                routes,
+                changes: false,
+                changes_in: None,
+                blind: false,
+                base: None,
+                rerun_of: None,
+            })
+            .is_err());
+
+        // Rejects NUL byte in instructions when parsing JSON
+        let bad = json!({
+            "schemaVersion": 1,
+            "compares": [{
+                "compareId": "cmp_bad",
+                "teammateId": "tm_wren",
+                "prompt": "Hi",
+                "createdAt": "2026-10-20T12:00:00.000Z",
+                "slots": [
+                    { "slot": "a", "route": { "runtime": "codex", "model": "same", "instructions": "a\0b" }, "missionIds": [] },
+                    { "slot": "b", "route": { "runtime": "codex", "model": "same", "instructions": "ok" }, "missionIds": [] }
+                ]
+            }]
+        });
+        assert!(parsed_compare_file(&bad.to_string()).unwrap().is_empty());
     }
 }

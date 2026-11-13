@@ -534,14 +534,80 @@ pub fn discard_compare_worktrees(
     slots: &[CompareSlotId],
     root: &Path,
 ) {
+    // Special case (a-kept-comparison-leaves-no-branches): read git's worktree record before pruning/removing
+    // so the `locust/compare-*` branch is still deleted even if the worktree folder was already removed.
+    let porcelain = run_git_text(&["worktree", "list", "--porcelain"], folder).unwrap_or_default();
+    let mut branches = Vec::new();
     for &slot in slots {
         if let Ok(name) = safe_name(compare_id, slot) {
-            let target = root.join(name);
+            let target = root.join(&name);
+            let recorded = crate::worktrees::recorded_branch_of(&porcelain, &target);
+            if !recorded.is_empty() {
+                branches.push(recorded);
+            } else {
+                branches.push(format!("locust/{name}"));
+            }
             let target_str = target.to_string_lossy().into_owned();
             let _ = run_git_text(&["worktree", "remove", "--force", &target_str], folder);
         }
     }
     let _ = run_git_text(&["worktree", "prune"], folder);
+    for branch in branches {
+        if branch.starts_with("locust/") {
+            let _ = run_git_text(&["branch", "-D", &branch], folder);
+        }
+    }
+}
+
+/// The page name that can be read in this column's copy, then in the folder after Keep (`compare-page-path.ts`).
+pub fn compare_page_path(requested: &str, copy: &Path) -> Option<String> {
+    let req_path = Path::new(requested);
+    if !req_path.is_absolute() {
+        return Some(requested.to_owned());
+    }
+    let rel = req_path.strip_prefix(copy).ok()?;
+    if rel.as_os_str().is_empty() {
+        return None;
+    }
+    if rel.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        return None;
+    }
+    Some(rel.to_string_lossy().into_owned())
+}
+
+/// Resolves a column's HTML page for preview: checks its copy first, refuses non-kept columns after Keep,
+/// and falls back to the workspace folder for the kept column alone (`main/index.ts:6948`).
+pub fn resolve_compare_page_path(
+    requested: &str,
+    folder: &Path,
+    compare: &crate::compare::Compare,
+    slot: CompareSlotId,
+    copy_root: &Path,
+) -> Result<PathBuf, String> {
+    let name = safe_name(&compare.compare_id, slot)?;
+    let modern_copy = copy_root.join(&name);
+    let legacy_copy = folder.join(".locust").join("compare").join(&name);
+    let copy = if compare.changes_in == Some(crate::compare::ChangesIn::Copy) || modern_copy.exists() {
+        modern_copy.clone()
+    } else {
+        legacy_copy
+    };
+    let Some(column_path) = compare_page_path(requested, &modern_copy)
+        .or_else(|| compare_page_path(requested, &copy))
+    else {
+        return Ok(PathBuf::from(requested));
+    };
+    let in_copy = copy.join(&column_path);
+    if in_copy.is_file() {
+        return Ok(in_copy);
+    }
+    if compare.kept.as_ref().is_some_and(|k| k.slot != slot) {
+        return Err(
+            "Its copy was removed when you kept another model, so this page is no longer on this computer."
+                .into(),
+        );
+    }
+    Ok(folder.join(column_path))
 }
 
 pub fn bring_in_compare_worktree(
@@ -716,6 +782,130 @@ mod tests {
         assert!(err.contains("source changed"));
 
         let _ = fs::remove_dir_all(&folder);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn kept_comparison_leaves_no_branches_even_if_folder_removed_first() {
+        let folder = temp_dir("kept-branches-repo");
+        let root = temp_dir("kept-branches-root");
+        let git = |args: &[&str]| {
+            let status = Command::new("git")
+                .args(args)
+                .current_dir(&folder)
+                .status()
+                .unwrap();
+            assert!(status.success(), "git {args:?} failed");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "smoke@locust.test"]);
+        git(&["config", "user.name", "Locust smoke"]);
+        fs::write(folder.join("NOTES.md"), "# notes\n").unwrap();
+        git(&["add", "NOTES.md"]);
+        git(&["commit", "-q", "-m", "first"]);
+
+        let base = git_head(&folder).unwrap();
+        let wt_a = ensure_compare_worktree(&folder, "cmp_x", CompareSlotId::A, &root, Some(&base)).unwrap();
+        let wt_b = ensure_compare_worktree(&folder, "cmp_x", CompareSlotId::B, &root, Some(&base)).unwrap();
+        run_git_text(&["checkout", "-q", "-b", "locust/cmp_x-a"], &wt_a).unwrap();
+        run_git_text(&["checkout", "-q", "-b", "locust/cmp_x-b"], &wt_b).unwrap();
+        let branches_before = run_git_text(&["branch", "--format=%(refname:short)"], &folder).unwrap();
+        assert!(branches_before.lines().any(|b| b.starts_with("locust/cmp_x-")));
+
+        // Simulate folder removed before discard
+        fs::remove_dir_all(&wt_a).unwrap();
+        discard_compare_worktrees(&folder, "cmp_x", &[CompareSlotId::A, CompareSlotId::B], &root);
+        let branches_after = run_git_text(&["branch", "--format=%(refname:short)"], &folder).unwrap();
+        assert_eq!(branches_after.lines().collect::<Vec<_>>(), vec!["main"]);
+
+        let _ = fs::remove_dir_all(&folder);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_kept_page_forgets_its_removed_copy() {
+        let root = temp_dir("kept-page");
+        let folder = root.join("folder");
+        let copy = root.join("copy-a");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("index.html"), "<h1>kept</h1>").unwrap();
+
+        assert_eq!(compare_page_path("site/index.html", &copy), Some("site/index.html".into()));
+        assert_eq!(
+            compare_page_path(&copy.join("site").join("index.html").to_string_lossy(), &copy),
+            Some("site/index.html".into())
+        );
+        assert_eq!(compare_page_path(&root.join("index.html").to_string_lossy(), &copy), None);
+        assert_eq!(
+            compare_page_path(&root.join("copy-a-other").join("index.html").to_string_lossy(), &copy),
+            None
+        );
+        assert_eq!(
+            compare_page_path(&copy.join("..notes.html").to_string_lossy(), &copy),
+            Some("..notes.html".into())
+        );
+
+        let cmp = crate::compare::Compare {
+            compare_id: "cmp_page1".into(),
+            teammate_id: None,
+            prompt: "Build a page".into(),
+            created_at: "2026-11-13T00:00:00.000Z".into(),
+            slots: vec![
+                crate::compare::CompareSlot {
+                    slot: CompareSlotId::A,
+                    route: crate::compare::CompareRoute::new("codex", "m1"),
+                    mission_ids: vec!["m_a".into()],
+                    refused: None,
+                    retried: Vec::new(),
+                    folder: None,
+                },
+                crate::compare::CompareSlot {
+                    slot: CompareSlotId::B,
+                    route: crate::compare::CompareRoute::new("claude", "m2"),
+                    mission_ids: vec!["m_b".into()],
+                    refused: None,
+                    retried: Vec::new(),
+                    folder: None,
+                },
+            ],
+            changes: true,
+            changes_in: Some(crate::compare::ChangesIn::Copy),
+            blind: false,
+            kept: Some(crate::compare::CompareKept {
+                slot: CompareSlotId::A,
+                at: "2026-11-13T00:01:00.000Z".into(),
+                brought: Some(vec!["index.html".into()]),
+            }),
+            judge: None,
+            base: None,
+            rerun_of: None,
+            reruns: Vec::new(),
+            settled: false,
+            point_drafts: Vec::new(),
+        };
+        let copy_root = root.join("copies");
+        let requested_a = copy_root.join("cmp_page1-a").join("index.html");
+        let resolved_a = resolve_compare_page_path(
+            &requested_a.to_string_lossy(),
+            &folder,
+            &cmp,
+            CompareSlotId::A,
+            &copy_root,
+        )
+        .unwrap();
+        assert_eq!(resolved_a, folder.join("index.html"));
+
+        let requested_b = copy_root.join("cmp_page1-b").join("index.html");
+        let err_b = resolve_compare_page_path(
+            &requested_b.to_string_lossy(),
+            &folder,
+            &cmp,
+            CompareSlotId::B,
+            &copy_root,
+        )
+        .unwrap_err();
+        assert!(err_b.contains("removed when you kept another model"));
+
         let _ = fs::remove_dir_all(&root);
     }
 }
