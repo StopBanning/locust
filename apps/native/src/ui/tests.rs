@@ -659,3 +659,140 @@ fn idle_ledger_stops_polling_errors_back_off_without_rebuilding_and_after_tip_ti
         now += expected;
     }
 }
+
+#[test]
+fn an_added_account_is_named_in_the_picker_and_respects_policy_and_limits() {
+    use locust_core::agent_accounts::{Accounts, AccountState};
+    struct Cleanup(PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            locust_core::org_policy::use_policy(None);
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let _guard = crate::agent_accounts_card::test_guard();
+    locust_core::org_policy::use_policy(None);
+    let root = std::env::temp_dir().join(format!(
+        "locust-picker-accounts-{}-{}",
+        std::process::id(),
+        locust_core::invariants::unique_nanos()
+    ));
+    let _cleanup = Cleanup(root.clone());
+    let store = locust_core::store::Store::new(root.join("native"), root.join("electron")).unwrap();
+    let accounts = Accounts::new(
+        store.root(),
+        std::sync::Arc::new(|_, _, _, _| Ok(Box::new(|| {}))),
+        Box::new(|| locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "accounts")),
+        Box::new(|_, _| false),
+    );
+    let work = accounts.add("codex", "Work").unwrap();
+    let personal = accounts.add("codex", "Personal").unwrap();
+    // Mark Personal ready; leave Work in New state so it renders "SIGN IN".
+    std::fs::write(
+        accounts.root().join("accounts.json"),
+        serde_json::to_vec_pretty(&json!([
+            {"id": work.id, "runtime": "codex", "name": "Work", "state": "new"},
+            {"id": personal.id, "runtime": "codex", "name": "Personal", "state": "ready"}
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+    crate::agent_accounts_card::use_accounts(accounts);
+
+    let mut s = sample();
+    s.data = Some(store.clone());
+    s.models.insert(
+        "codec".into(),
+        vec![engine::Models {
+            teammate: Some("codec".into()),
+            runtime: "codex".into(),
+            model: Some("gpt-6.1-sol".into()),
+            effort: None,
+            models: vec![engine::Model {
+                id: "gpt-6.1-sol".into(),
+                name: "GPT-6.1 Sol".into(),
+                efforts: vec!["high".into()],
+            }],
+        }],
+    );
+    s.model_menu = Some("codec".into());
+    crate::agent_accounts_card::reload(&mut s);
+    s.limited_runtimes.insert(
+        locust_core::agent_accounts::usage_key("codex", Some(&personal.id)),
+        "Quota exhausted".into(),
+    );
+
+    let text_in = |rt: &rune::Runtime<State>, key: &str| -> Vec<String> {
+        let ([x, y, w, h], _) = rt.presented(key).unwrap_or_else(|| panic!("no element {key} on screen"));
+        rt.elements()
+            .into_iter()
+            .filter_map(|e| {
+                let (cx, cy) = (e.rect[0] + e.rect[2] / 2.0, e.rect[1] + e.rect[3] / 2.0);
+                (cx >= x && cx <= x + w && cy >= y && cy <= y + h).then_some(e.text?)
+            })
+            .collect()
+    };
+
+    let mut rt = rune::Runtime::new(s, view, (1100.0, 780.0), rune::Env::new(true, 1.0));
+    rt.frame(0.0);
+    let menu_text = text_in(&rt, "model-menu").join(" | ");
+    assert!(menu_text.contains("GPT-6.1 Sol · Work") && menu_text.contains("SIGN IN"), "{menu_text}");
+    assert!(menu_text.contains("GPT-6.1 Sol · Personal") && menu_text.contains("AT LIMIT"), "{menu_text}");
+    assert!(!rt.find("model-codex-gpt-6.1-sol").is_none());
+
+    // Clicking an added account sets explicit account override; clicking machine sign-in sets Some(None).
+    let work_key = format!("model-codex-gpt-6.1-sol:{}", work.id);
+    let (x, y) = rt.find(&work_key).expect("Work model row");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.05);
+    assert_eq!(rt.state.picks.get("codec").and_then(|p| p.account.clone()), Some(Some(work.id.clone())));
+
+    rt.update(|s, _| s.model_menu = Some("codec".into()));
+    rt.frame(0.05);
+    let (x, y) = rt.find("model-codex-gpt-6.1-sol").expect("machine sign-in model row");
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    rt.frame(0.05);
+    assert_eq!(rt.state.picks.get("codec").and_then(|p| p.account.clone()), Some(None));
+
+    // Spec 2 & 3: org policy hides added account rows in picker and hides Add in Settings without auto-login.
+    let mut policy = locust_core::org_policy::PolicyState {
+        path: String::new(),
+        present: true,
+        policy: Default::default(),
+        error: None,
+    };
+    policy.policy.insert("accounts".into(), json!(false));
+    locust_core::org_policy::use_policy(Some(policy));
+    rt.update(|s, _| {
+        s.model_menu = Some("codec".into());
+    });
+    for _ in 0..40 {
+        rt.frame(0.05);
+    }
+    let menu_text = text_in(&rt, "model-menu").join(" | ");
+    assert!(
+        !menu_text.contains("Work") && !menu_text.contains("Personal"),
+        "policy should hide added accounts (refusal={:?}): {menu_text}",
+        locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "accounts")
+    );
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
+    });
+    for _ in 0..40 {
+        rt.frame(0.05);
+    }
+    assert!(rt.find("account-add-another-codex").is_none(), "policy must hide Add account");
+    let accounts_text = text_in(&rt, "accounts-codex").join(" | ");
+    assert!(accounts_text.contains("This computer's sign-in") && accounts_text.contains("Work"), "{accounts_text}");
+    let short_work = &work.id[8..16];
+    let (sx, sy) = rt.find(&format!("account-sign-in-{short_work}")).expect("Sign in button");
+    rt.pointer_down(sx, sy);
+    rt.pointer_up(sx, sy);
+    for _ in 0..10 {
+        rt.frame(0.05);
+    }
+    assert_eq!(rt.state.agent_accounts.accounts.iter().find(|a| a.id == work.id).unwrap().state, AccountState::New);
+}

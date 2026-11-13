@@ -49,7 +49,7 @@ fn needed(v: &Value, key: &str) -> Result<String, String> {
 }
 
 fn teammate_json(t: &Teammate) -> Value {
-    json!({"id": t.id, "name": t.name, "role": t.role, "runtime": t.runtime, "model": t.model, "busy": t.busy,
+    json!({"id": t.id, "name": t.name, "role": t.role, "runtime": t.runtime, "model": t.model, "account": t.account, "busy": t.busy,
         "runsIn": t.runs_in, "folder": t.folder})
 }
 
@@ -60,6 +60,7 @@ fn teammate_from(v: &Value) -> Result<Teammate, String> {
         role: text(v, "role").unwrap_or_default(),
         runtime: text(v, "runtime"),
         model: text(v, "model"),
+        account: text(v, "account"),
         busy: v["busy"].as_bool().unwrap_or(false),
         runs_in: text(v, "runsIn").unwrap_or_default(),
         folder: text(v, "folder"),
@@ -82,8 +83,12 @@ fn send_from(v: &Value) -> Result<Send, String> {
 }
 
 fn origin_json(o: &Origin) -> Value {
-    json!({"mode": o.mode.map(Mode::as_str), "folder": o.folder.as_ref().map(|f| f.to_string_lossy()),
-        "startedBy": o.started_by, "runtime": o.runtime, "referenceIds": o.reference_ids})
+    let mut obj = json!({"mode": o.mode.map(Mode::as_str), "folder": o.folder.as_ref().map(|f| f.to_string_lossy()),
+        "startedBy": o.started_by, "runtime": o.runtime, "referenceIds": o.reference_ids});
+    if let Some(acc) = &o.account {
+        obj["accountOverride"] = json!(acc);
+    }
+    obj
 }
 
 fn origin_from(v: &Value) -> Result<Origin, String> {
@@ -91,11 +96,13 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         None => None,
         Some(m) => Some(Mode::parse(&m).ok_or_else(|| format!("The engine does not know the mode {m}."))?),
     };
+    let account = v.get("accountOverride").map(|a| a.as_str().map(str::to_owned));
     Ok(Origin {
         mode,
         folder: text(v, "folder").map(PathBuf::from),
         started_by: Some(v["startedBy"].clone()).filter(|b| !b.is_null()),
         runtime: text(v, "runtime"),
+        account,
         reference_ids: v["referenceIds"]
             .as_array()
             .map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect()),

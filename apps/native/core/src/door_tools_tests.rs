@@ -23,6 +23,7 @@ fn mate(id: &str, name: &str, mode: &str) -> Teammate {
         role: "Builder".into(),
         runtime: Some("codex".into()),
         model: Some("gpt-5.5".into()),
+        account: None,
         busy: false,
         runs_in: mode.into(),
         folder: None,

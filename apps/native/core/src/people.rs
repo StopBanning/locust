@@ -175,7 +175,9 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
     if let Some(route) = entry.get("route").filter(|r| !r.is_null())
         && (parsed[0].runtime.as_deref() != route["runtime"].as_str()
             || !["ask", "accept-edits", "approve-each", "plan", "auto"]
-                .contains(&route["mode"].as_str().unwrap_or("")))
+                .contains(&route["mode"].as_str().unwrap_or(""))
+            || (route.get("account").is_some_and(|a| !a.is_null())
+                && parsed[0].account.is_none()))
     {
         return Err("Teammate route is invalid".into());
     }

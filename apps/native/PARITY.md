@@ -102,7 +102,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Custom Agent Client Protocol agents by command | `renderer/src/components/AcpAgentsSettings.tsx`, `main/acp-agents.ts`, `packages/runtime-adapters/src/acp-run.ts` | **partial** — M4A: saved agents run over native stdio ACP, with continuation, model config, approvals and Stop; no native agent settings/Test/save/remove or capability display | yes | no | yes |
 | Own OpenAI-compatible API/local models, pricing and chat-only capability | `renderer/src/components/OwnModels.tsx`, `main/own-models.ts`, `main/listed-prices.ts` | **missing** | - | no | yes |
 | Automatic carry-on policy | `main/carry-on.ts`, `shared/carry-on.ts` | **done** | yes | no | yes |
-| Named Codex/Claude accounts and explicit account selection | `renderer/src/components/AgentAccountsSettings.tsx`, `main/agent-accounts.ts` | **partial** — `core/src/agent_accounts.rs` (Electron's agent-accounts.ts: names and opaque ids only, a 0700 home per account under the data folder, the agent's own sign-in hidden with that home and only whether it worked reported, waiting, done, cancelled and interrupted sign-ins, removal only of the home Locust made and never through a link, the accounts policy over adding, signing in and launching but never removal, a launch environment with the account's home and none of the person's keys, usage keyed per account) and `src/ui/agent_accounts_card.rs` in Settings › AI agents. Choosing an account for a teammate and running on it remain: native still sets aside a teammate whose route names an account | yes | no | yes |
+| Named Codex/Claude accounts and explicit account selection | `renderer/src/components/AgentAccountsSettings.tsx`, `main/agent-accounts.ts` | **done** — `core/src/agent_accounts.rs` (registry + home/env isolation), `core/src/route_at_start.rs`, `core/src/native.rs` (Codex/Claude named-account launch env, `CODEX_HOME`/`CLAUDE_CONFIG_DIR`, `codex_config_for_home`, cold `route-switch`, `resolvedRouteId`), `core/src/people.rs` (`route.account`), `core/src/usage_ledger.rs` (per-account usage windows & exhausted limits), `core/src/runtime_terminal.rs` (Open in Terminal env exports), `src/ui/agent_accounts_card.rs`, `src/ui/people_panel.rs`, `src/ui/thread_view.rs`, `src/ui/compare_view.rs`; `claude-background` awaits row 128 (`ACCOUNTS-NOTES.md`) | yes | no | yes |
 | Agent discovery (including Gemini), install, sign-in, updates and capability reporting | `renderer/src/components/SignInButton.tsx`, `main/runtime-discovery.ts`, `main/runtime-installer.ts`, `main/runtime-setup.ts`, `main/runtime-sign-in.ts`, `main/runtime-updates.ts`, `shared/runtimes.ts` | **partial** — `core/src/agents.rs`: discovery of nine agents (version, help features, sign-in check, credentials file presence, Antigravity through agy), each check bounded at 10 s, held to 72 Electron discovery decisions over real help texts; the AI agents screen's tags and words held to 396 Electron answers; `src/ui/agents_section.rs` lists them usable first with the install or sign-in line and Copy (`--agents` prints the same). Install, Sign in and Update buttons, and capability reporting, remain (notes/AGENTS-NOTES.md) | yes | no | yes |
 | Cross-runtime handoff briefing and omission choices | `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **partial** — Electron's brief and checkpoint, matched on generated cases; no omission UI | yes | no | yes |
 
@@ -281,7 +281,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 1 | Conversations & Thread Rendering | 12 | 13 | 0 | 25 | 25 | 3 |
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 6 | 5 | 3 | 14 | 11 | 0 |
-| 4 | Runtimes, Routing & Fallback | 3 | 7 | 1 | 11 | 10 | 5 |
+| 4 | Runtimes, Routing & Fallback | 4 | 6 | 1 | 11 | 10 | 5 |
 | 5 | Approvals & Permissions | 1 | 8 | 0 | 9 | 9 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 7 | 3 | 13 | 10 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 6 | 0 | 13 | 13 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **62** | **65** | **26** | **153** | **127** | **15** |
+| | **TOTAL** | **63** | **64** | **26** | **153** | **127** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

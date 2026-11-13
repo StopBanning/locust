@@ -113,6 +113,8 @@ pub(super) struct TurnPick {
     /// Another agent than the teammate's own, picked for this turn: the reply runs there (a route switch, with the
     /// hand-over brief), as Electron's RoutePicker offers every installed agent.
     pub(super) runtime: Option<String>,
+    /// Explicit account pick (`Some(None)` = this computer's sign-in, `Some(Some(id))` = added account).
+    pub(super) account: Option<Option<String>>,
 }
 
 pub(super) struct OwnTurn {
@@ -182,6 +184,7 @@ pub(super) struct State {
     pub(super) draft: TextEdit,
     pub(super) picks: HashMap<String, TurnPick>,
     pub(super) models: HashMap<String, Vec<engine::Models>>,
+    pub(super) limited_runtimes: HashMap<String, String>,
     pub(super) model_menu: Option<String>,
     /// What the person typed in the model picker's search.
     pub(super) model_query: TextEdit,
@@ -401,6 +404,7 @@ impl Default for State {
             draft: TextEdit::new(""),
             picks: HashMap::new(),
             models: HashMap::new(),
+            limited_runtimes: HashMap::new(),
             model_menu: None,
             model_query: TextEdit::default(),
             reference_items: Vec::new(),

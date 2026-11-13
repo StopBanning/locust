@@ -58,6 +58,7 @@ fn codex(t: &Temp) -> Teammate {
         role: "Code & Migrations".into(),
         runtime: Some("codex".into()),
         model: Some("synthetic-model".into()),
+        account: None,
         busy: false,
         runs_in: "ask".into(),
         folder: Some(t.0.join("work").to_string_lossy().into()),
@@ -189,8 +190,12 @@ fn roster_reads_electrons_shape_and_marks_what_native_cannot_run() {
     );
     assert!(supported(&team[1]), "Antigravity is native in M4C");
     assert!(
-        !supported(&team[2]),
-        "a Codex account of its own needs its own login home: not touched"
+        supported(&team[2]),
+        "a Codex named account now runs natively with its own login home"
+    );
+    assert_eq!(
+        team[2].account.as_deref(),
+        Some("account_0123456789abcdef0123456789abcdef")
     );
     assert!(
         !supported(&team[3]),
@@ -278,6 +283,7 @@ fn team() -> Vec<Teammate> {
         role: String::new(),
         runtime: None,
         model: None,
+        account: None,
         busy: false,
         runs_in: "ask".into(),
         folder: None,
@@ -1060,6 +1066,7 @@ fn real_continue(runtime: &str) {
         role: String::new(),
         runtime: Some(runtime.into()),
         model: None,
+        account: None,
         busy: false,
         runs_in: "ask".into(),
         folder: Some(t.0.join("work").to_string_lossy().into()),
@@ -1192,6 +1199,7 @@ fn guard_refuses_a_push_from_a_fix_copy(runtime: &str) {
         role: String::new(),
         runtime: Some(runtime.into()),
         model: (runtime == "claude").then(|| "haiku".into()),
+        account: None,
         busy: false,
         runs_in: "auto".into(),
         folder: Some(folder.to_string_lossy().into()),
@@ -1233,6 +1241,7 @@ fn real_codex_accept_edits_writes_in_its_folder() {
         role: String::new(),
         runtime: Some("codex".into()),
         model: None,
+        account: None,
         busy: false,
         runs_in: "accept-edits".into(),
         folder: Some(folder.to_string_lossy().into()),
@@ -1941,4 +1950,180 @@ fn a_share_waits_in_the_workroom_and_reaches_the_teammates_next_brief() {
     assert!(!pip_brief.contains("Locust saw their run change"));
     // Pip's reply shared nothing, so nothing new waits for anyone.
     assert!(workroom.unread("tm_codec", 5, &[]).unwrap().messages.is_empty());
+}
+
+fn write_env_wrapper(
+    dir: &Path,
+    name: &str,
+    env_log: &Path,
+    fixture: &str,
+    scenario: &str,
+    gate: Option<&Path>,
+) -> Option<(PathBuf, Vec<String>)> {
+    let script = dir.join(name);
+    let gate_str = gate.map(|g| g.to_string_lossy().into_owned()).unwrap_or_default();
+    let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("scripts/fixtures")
+        .join(fixture);
+    let py = r#"import json, os, sys, time
+log_path, fixture_path, scenario, gate = sys.argv[1:5]
+keys = ['CODEX_HOME', 'CODEX_SQLITE_HOME', 'OPENAI_API_KEY', 'CODEX_API_KEY', 'OPENAI_ACCESS_TOKEN', 'CODEX_ACCESS_TOKEN', 'CLAUDE_CONFIG_DIR', 'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN']
+with open(log_path, 'a', encoding='utf-8') as f:
+    f.write(json.dumps({k: os.environ.get(k) for k in keys}) + '\n')
+if gate:
+    while not os.path.exists(gate):
+        time.sleep(0.02)
+os.execv(sys.executable, [sys.executable, fixture_path, scenario] + sys.argv[5:])
+"#;
+    fs::write(&script, py).unwrap();
+    Some((
+        PathBuf::from("python3"),
+        vec![
+            script.to_string_lossy().into_owned(),
+            env_log.to_string_lossy().into_owned(),
+            fixture_path.to_string_lossy().into_owned(),
+            scenario.to_owned(),
+            gate_str,
+        ],
+    ))
+}
+
+#[test]
+fn named_codex_and_claude_accounts_launch_with_own_home_and_fail_cleanly() {
+    let t = Temp::new();
+    let store = t.store();
+    let env_log = t.0.join("env.jsonl");
+    let _hook = hooks::install(
+        store.clone(),
+        write_env_wrapper(&t.0, "wrap_codex.py", &env_log, "m1-app-server.py", "success", None),
+    );
+    struct ClearPolicy;
+    impl Drop for ClearPolicy {
+        fn drop(&mut self) {
+            crate::org_policy::use_policy(None);
+        }
+    }
+    let _clear = ClearPolicy;
+    crate::org_policy::use_policy(None);
+
+    let accounts = crate::agent_accounts::Accounts::new(
+        store.root(),
+        Arc::new(|_, _, _, _| Ok(Box::new(|| {}))),
+        Box::new(|| crate::org_policy::feature_refusal(Some(&crate::org_policy::current()), "accounts")),
+        Box::new(account_in_use),
+    );
+    let codex_work = accounts.add("codex", "Work").unwrap();
+    let codex_personal = accounts.add("codex", "Personal").unwrap();
+    let claude_work = accounts.add("claude", "Claude Work").unwrap();
+    let _ = crate::agent_accounts::register(Arc::new(accounts));
+    let accounts = accounts_for(&store);
+
+    {
+        // 1) Codex teammate with saved Work account runs with its own CODEX_HOME and blank keys.
+        let mut mate = codex(&t);
+        mate.account = Some(codex_work.id.clone());
+        let first = send(Send { teammate: mate.clone(), ..job(&t, None, "First") }).unwrap();
+        wait("codex Work turn", || !owns(&first.conversation_id));
+
+        // 2) Explicit machine default override runs without CODEX_HOME override & triggers route_switch.
+        let second = send_from(
+            Send { teammate: mate.clone(), ..job(&t, Some(&first.conversation_id), "On machine") },
+            Origin { account: Some(None), ..Default::default() },
+        )
+        .unwrap();
+        wait("codex default switch", || !owns(&second.conversation_id));
+        let m2_id = super::real_tip(&first.conversation_id).unwrap();
+        assert_ne!(m2_id, first.conversation_id);
+
+        // 3) Switching to Personal account starts cold without resuming Work's thread.
+        let third = send_from(
+            Send { teammate: mate.clone(), ..job(&t, Some(&first.conversation_id), "Switch account") },
+            Origin { account: Some(Some(codex_personal.id.clone())), ..Default::default() },
+        )
+        .unwrap();
+        wait("codex Personal switch", || !owns(&third.conversation_id));
+        let m3_id = super::real_tip(&first.conversation_id).unwrap();
+        assert_ne!(m3_id, m2_id);
+
+        let logged: Vec<Value> = fs::read_to_string(&env_log)
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(logged.len(), 3);
+        let work_home = accounts.home_for(&codex_work.id).to_string_lossy().into_owned();
+        assert_eq!(logged[0]["CODEX_HOME"].as_str(), Some(work_home.as_str()));
+        assert_eq!(logged[0]["CODEX_SQLITE_HOME"].as_str(), Some(work_home.as_str()));
+        assert_eq!(logged[0]["OPENAI_API_KEY"].as_str(), Some(""));
+        assert_eq!(logged[0]["CODEX_API_KEY"].as_str(), Some(""));
+        assert_ne!(logged[1]["CODEX_HOME"].as_str(), Some(work_home.as_str()));
+        assert_eq!(logged[2]["CODEX_HOME"].as_str(), Some(accounts.home_for(&codex_personal.id).to_string_lossy().as_ref()));
+
+        // Check resolvedRouteId & continuesFrom on ledgers.
+        let m1_created: Value = serde_json::from_str(fs::read_to_string(path_of(&t, &first.conversation_id)).unwrap().lines().next().unwrap()).unwrap();
+        assert_eq!(m1_created["metadata"]["resolvedRouteId"], format!("codex:synthetic-model-account:{}", codex_work.id));
+        let m2_raw = fs::read_to_string(path_of(&t, &m2_id)).unwrap();
+        let m2_created: Value = serde_json::from_str(m2_raw.lines().next().unwrap()).unwrap();
+        assert_eq!(m2_created["metadata"]["resolvedRouteId"], "codex:synthetic-model-account:default");
+        assert!(m2_created["metadata"]["continuesFrom"].is_object());
+        assert!(!m2_created["metadata"]["continuesFrom"]["runtimeThreadId"].is_string());
+
+        // Refusals: wrong agent, unsupported agent, removed account, and policy off.
+        let wrong = send_from(job(&t, None, "Wrong agent"), Origin { account: Some(Some(claude_work.id.clone())), ..Default::default() });
+        assert_eq!(wrong.unwrap_err(), crate::agent_accounts::OTHER_AGENT);
+
+        let unsup = send_from(job(&t, None, "Cursor"), Origin { runtime: Some("cursor".into()), account: Some(Some(codex_work.id.clone())), ..Default::default() });
+        assert_eq!(unsup.unwrap_err(), crate::agent_accounts::NOT_SUPPORTED);
+
+        accounts.remove(&codex_personal.id).unwrap();
+        let gone = send_from(job(&t, None, "Removed"), Origin { account: Some(Some(codex_personal.id.clone())), ..Default::default() });
+        assert_eq!(gone.unwrap_err(), crate::agent_accounts::REMOVED);
+
+        let mut policy = crate::org_policy::PolicyState {
+            path: String::new(),
+            present: true,
+            policy: Default::default(),
+            error: None,
+        };
+        policy.policy.insert("accounts".into(), json!(false));
+        crate::org_policy::use_policy(Some(policy));
+        let blocked = send_from(job(&t, None, "Policy off"), Origin { account: Some(Some(codex_work.id.clone())), ..Default::default() });
+        assert!(blocked.unwrap_err().contains("organization"), "accounts:false must refuse named account");
+        crate::org_policy::use_policy(None);
+    }
+
+    // 4) Live account_in_use refuses removal while turn runs, then releases cleanly; and Claude uses CLAUDE_CONFIG_DIR.
+    let claude_log = t.0.join("claude_env.jsonl");
+    let gate = t.0.join("claude.gate");
+    *crate::invariants::lock(&hooks::STATE) = (
+        Some(store.clone()),
+        write_env_wrapper(&t.0, "wrap_claude.py", &claude_log, "m3-claude.py", "success", Some(&gate)),
+    );
+    let claude_mate = Teammate {
+        id: "tm_claude".into(),
+        name: "Claude".into(),
+        role: "Code & Migrations".into(),
+        runtime: Some("claude".into()),
+        model: Some("sonnet".into()),
+        account: Some(claude_work.id.clone()),
+        busy: false,
+        runs_in: "ask".into(),
+        folder: Some(t.0.join("work").to_string_lossy().into()),
+    };
+    let claude_run = send(Send { teammate: claude_mate, ..job(&t, None, "Claude turn") }).unwrap();
+    wait("claude account busy", || account_in_use(crate::agent_accounts::Agent::Claude, &claude_work.id));
+    assert_eq!(accounts.remove(&claude_work.id).unwrap_err(), crate::agent_accounts::BUSY_REMOVE);
+    fs::write(&gate, "go").unwrap();
+    wait("claude turn finish", || !owns(&claude_run.conversation_id));
+    assert!(!account_in_use(crate::agent_accounts::Agent::Claude, &claude_work.id));
+    accounts.remove(&claude_work.id).unwrap();
+
+    let claude_logged: Value = serde_json::from_str(fs::read_to_string(&claude_log).unwrap().lines().next().unwrap()).unwrap();
+    let claude_home = accounts.home_for(&claude_work.id).to_string_lossy().into_owned();
+    assert_eq!(claude_logged["CLAUDE_CONFIG_DIR"].as_str(), Some(claude_home.as_str()));
+    assert_eq!(claude_logged["ANTHROPIC_API_KEY"].as_str(), Some(""));
+    assert_eq!(claude_logged["ANTHROPIC_AUTH_TOKEN"].as_str(), Some(""));
+    assert_eq!(claude_logged["CLAUDE_CODE_OAUTH_TOKEN"].as_str(), Some(""));
 }

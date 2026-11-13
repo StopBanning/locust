@@ -34,24 +34,62 @@ fn accounts(s: &State) -> Option<Arc<Accounts>> {
             let program = crate::runtime::find_executable(agent.as_str()).map_err(|e| e.to_string())?;
             locust_core::agent_accounts::start_login(&program, agent, home, env, done)
         });
-        *held = Some(Arc::new(Accounts::new(
+        let shared = locust_core::agent_accounts::shared(
             store.root(),
             login,
             Box::new(|| locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "accounts")),
-            // No run uses an added account in this window yet, so none is ever busy.
-            Box::new(|_, _| false),
-        )));
+            Box::new(|agent, id| locust_core::engine_api::api().account_in_use(agent, id)),
+        );
+        *held = Some(shared);
     }
     held.clone()
 }
 
 #[cfg(test)]
+pub(super) struct AccountsTestGuard(#[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
+
+#[cfg(test)]
+impl Drop for AccountsTestGuard {
+    fn drop(&mut self) {
+        clear_accounts();
+    }
+}
+
+#[cfg(test)]
+pub(super) fn test_guard() -> AccountsTestGuard {
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+    AccountsTestGuard(TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
+#[cfg(test)]
 pub(super) fn use_accounts(accounts: Accounts) {
-    *ACCOUNTS.lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::new(accounts));
+    let arc = locust_core::agent_accounts::register(Arc::new(accounts));
+    *ACCOUNTS.lock().unwrap_or_else(|e| e.into_inner()) = Some(arc);
+}
+
+#[cfg(test)]
+pub(super) fn clear_accounts() {
+    *ACCOUNTS.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 pub(super) fn reload(s: &mut State) {
-    let Some(accounts) = accounts(s) else { return };
+    let accounts = accounts(s).or_else(|| {
+        let store = s.data.as_ref().filter(|store| {
+            store.root().join(locust_core::agent_accounts::FOLDER).join("accounts.json").exists()
+        })?;
+        let login: Arc<locust_core::agent_accounts::Login> =
+            Arc::new(|_, _, _, _| Err(locust_core::agent_accounts::NO_SIGN_IN.into()));
+        Some(Arc::new(Accounts::new(
+            store.root(),
+            login,
+            Box::new(|| locust_core::org_policy::feature_refusal(Some(&locust_core::org_policy::current()), "accounts")),
+            Box::new(|agent, id| locust_core::engine_api::api().account_in_use(agent, id)),
+        )))
+    });
+    let Some(accounts) = accounts else {
+        s.agent_accounts.accounts.clear();
+        return;
+    };
     match accounts.list() {
         Ok(list) => s.agent_accounts.accounts = list,
         Err(why) => s.agent_accounts.message = Some(why),

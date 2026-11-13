@@ -135,7 +135,7 @@ apps/desktop/src/main/a-mac-app-sees-the-terminals-path.test.ts	P9	does-not-appl
 apps/desktop/src/main/a-mac-asks-only-for-what-locust-uses.test.ts		waiting		
 apps/desktop/src/main/a-mac-discards-installed-update-images.test.ts		waiting		
 apps/desktop/src/main/a-mac-menu-says-locust.test.ts		waiting		
-apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	P9	does-not-apply	resume_tokens_and_mac_shell_quoting	main/a-mac-opens-its-own-terminal.test.ts | resume_tokens_and_mac_shell_quoting covers script folder, self-removal, quoting, exec; environment/account variants unported.
+apps/desktop/src/main/a-mac-opens-its-own-terminal.test.ts	P9	partial	resume_tokens_and_mac_shell_quoting, runtime_terminal::import_tests::opens_an_existing_conversation_in_a_terminal_with_the_recorded_account_home	main/a-mac-opens-its-own-terminal.test.ts | resume_tokens_and_mac_shell_quoting covers script folder, self-removal, quoting, exec; opens_an_existing_conversation_in_a_terminal_with_the_recorded_account_home covers CODEX_HOME/API-key env exports from resolvedRouteId. Remaining host/non-account variants remain.
 apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts		waiting		
 apps/desktop/src/main/a-mac-updates-itself.test.ts		waiting		
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts		waiting		
@@ -284,7 +284,7 @@ apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	ISSUES	
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts		waiting		
 apps/desktop/src/main/about-you-is-read-by-every-teammate.test.ts	P6	does-not-apply		`main/a-teammate-has-its-own-instructions.test.ts`, `main/about-you-is-read-by-every-teammate.test.ts` | Saved instructions and About you reach the native brief; About you survives memory off; protocol tags in the note are disarmed.
 apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	ACCOUNTS	carried	core/src/agent_accounts_tests.rs	both cases, with a stand-in program: each documented login, hidden, with its home, output discarded, told once
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	ACCOUNTS	partial	core/src/agent_accounts_tests.rs	7 of 13: the unchanged launch, separate homes, no credential read, removal and links, sign-in states, the policy, removal while in use, usage keys (backups already leave agent-accounts out); picking an account for runs, Compare on two accounts, the mission service, background work and terminals remain
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	ACCOUNTS	partial	core/src/agent_accounts_tests.rs, core/src/route_at_start.rs, core/src/native/tests.rs, core/src/usage_ledger.rs, core/src/runtime_terminal.rs, src/ui/compare_window_tests.rs, src/ui/window_drive_tests.rs	12 of 13: store/home/removal/policy/busy/usage-keys (`agent_accounts_tests.rs`), route_at_start, launch env + route-switch + wrong/unsupported/removed/policy refusals (`named_codex_and_claude_accounts_launch_with_own_home_and_fail_cleanly`), separate account usage windows & limits (`keeps_usage_and_exhausted_limits_separate_for_each_account`), terminal env (`opens_an_existing_conversation_in_a_terminal_with_the_recorded_account_home`), Compare (`compares_the_same_agent_and_model_on_two_distinct_accounts_and_keeps_both_across_reload`), and window teammate/edit/busy-remove flows. Background work (`claude-background`, row 128) remains.
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts		waiting		
 apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts		waiting		
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts		waiting		
@@ -871,7 +871,7 @@ apps/desktop/src/renderer/src/agentText.test.ts		waiting
 apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		waiting		
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-acp-agent-says-what-it-can-do.test.ts		waiting		
-apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-added-account-is-named-in-the-picker.test.tsx	ACCOUNTS	carried	src/ui/tests.rs (an_added_account_is_named_in_the_picker_and_respects_policy_and_limits)	both picker account naming/SIGN IN/AT LIMIT/override cases, org-policy picker/settings hiding, and no auto-login under policy
 apps/desktop/src/renderer/src/an-antigravity-model-limit-is-its-own-bar.test.ts		waiting		
 apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx		waiting		

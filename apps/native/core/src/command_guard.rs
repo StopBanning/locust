@@ -720,16 +720,23 @@ pub fn other_codex_hooks(codex_home: &std::path::Path, folder: &std::path::Path)
     found
 }
 
-/// The guard for a Codex turn in `folder`, or `None` when Codex would load another hook too (the run then goes
-/// without it, as Electron's does) or this binary cannot be found.
-pub fn codex_config_for(folder: &std::path::Path) -> Option<serde_json::Value> {
-    let home = std::env::var_os("CODEX_HOME")
-        .map(std::path::PathBuf::from)
+/// The guard for a Codex turn in `folder` using `codex_home` (or `CODEX_HOME` / `~/.codex` when None),
+/// or `None` when Codex would load another hook too (the run then goes without it) or this binary cannot be found.
+pub fn codex_config_for_home(folder: &std::path::Path, codex_home: Option<&std::path::Path>) -> Option<serde_json::Value> {
+    let home = codex_home
+        .map(std::path::Path::to_path_buf)
+        .or_else(|| std::env::var_os("CODEX_HOME").map(std::path::PathBuf::from))
         .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".codex")))?;
     if !other_codex_hooks(&home, folder).is_empty() {
         return None;
     }
     crate::runtime::permission_bridge::bridge_executable().ok().map(|exe| codex_config(&exe))
+}
+
+/// The guard for a Codex turn in `folder`, or `None` when Codex would load another hook too (the run then goes
+/// without it, as Electron's does) or this binary cannot be found.
+pub fn codex_config_for(folder: &std::path::Path) -> Option<serde_json::Value> {
+    codex_config_for_home(folder, None)
 }
 
 /// command-guard.ts copilotCommandGuardHooks. Unlike Claude Code and Codex, Copilot refuses the command when a hook

@@ -75,6 +75,7 @@ pub mod recovery;
 pub mod references;
 pub mod report_problem;
 pub mod retention;
+pub mod route_at_start;
 pub mod routine_copy;
 pub mod routine_file;
 pub mod routine_files;

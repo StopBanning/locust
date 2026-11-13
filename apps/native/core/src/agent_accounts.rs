@@ -175,6 +175,10 @@ impl Accounts {
         Self { root: data.join(FOLDER), login, refusal, in_use, live: Arc::default(), serial: Arc::default() }
     }
 
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
     pub fn home_for(&self, id: &str) -> PathBuf {
         self.root.join(id)
     }
@@ -397,6 +401,35 @@ impl Accounts {
             cancel();
         }
     }
+}
+
+static SHARED: Mutex<Option<HashMap<PathBuf, Arc<Accounts>>>> = Mutex::new(None);
+
+/// Shares one live `Accounts` handle per data folder so runs and Settings see the same pending sign-ins and removals.
+pub fn register(accounts: Arc<Accounts>) -> Arc<Accounts> {
+    if let Some(data) = accounts.root().parent() {
+        let mut guard = SHARED.lock().unwrap_or_else(|e| e.into_inner());
+        guard.get_or_insert_with(HashMap::new).insert(data.to_path_buf(), accounts.clone());
+    }
+    accounts
+}
+
+pub fn registered(data: &Path) -> Option<Arc<Accounts>> {
+    let guard = SHARED.lock().unwrap_or_else(|e| e.into_inner());
+    guard.as_ref().and_then(|m| m.get(data).cloned())
+}
+
+pub fn shared(
+    data: &Path,
+    login: Arc<Login>,
+    refusal: Box<dyn Fn() -> Option<String> + Send + Sync>,
+    in_use: Box<dyn Fn(Agent, &str) -> bool + Send + Sync>,
+) -> Arc<Accounts> {
+    let mut guard = SHARED.lock().unwrap_or_else(|e| e.into_inner());
+    let map = guard.get_or_insert_with(HashMap::new);
+    map.entry(data.to_path_buf())
+        .or_insert_with(|| Arc::new(Accounts::new(data, login, refusal, in_use)))
+        .clone()
 }
 
 /// The agent's own sign-in, run for real: hidden, with its home, every line of its output discarded, and only whether

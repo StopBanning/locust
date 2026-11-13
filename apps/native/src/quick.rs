@@ -1156,6 +1156,7 @@ fn sample(s: &mut State) {
         role: "Quick Ask".into(),
         runtime: Some(runtime.into()),
         model: Some(model.into()),
+        account: None,
         busy: false,
         runs_in: "ask".into(),
         folder: None,

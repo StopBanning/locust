@@ -23,10 +23,31 @@ pub fn resume_args(runtime: &str, id: &str) -> Option<Vec<String>> {
 fn quote(v: &str) -> String {
     format!("'{}'", v.replace('\'', "'\"'\"'"))
 }
+fn valid_env_name(name: &str) -> bool {
+    let b = name.as_bytes();
+    !b.is_empty()
+        && (b[0].is_ascii_alphabetic() || b[0] == b'_')
+        && b.iter().all(|c| c.is_ascii_alphanumeric() || *c == b'_')
+}
 pub fn mac_script(file: &Path, args: &[String], folder: &Path) -> String {
+    mac_script_with_env(file, args, folder, &[])
+}
+pub fn mac_script_with_env(
+    file: &Path,
+    args: &[String],
+    folder: &Path,
+    env: &[(&str, &str)],
+) -> String {
+    let mut exports = String::new();
+    for (name, value) in env {
+        if valid_env_name(name) {
+            exports.push_str(&format!("export {}={}\n", name, quote(value)));
+        }
+    }
     format!(
-        "#!/bin/zsh -l\nrm -f -- \"$0\"\ncd {} || exit 1\nexec {}\n",
+        "#!/bin/zsh -l\nrm -f -- \"$0\"\ncd {} || exit 1\n{}exec {}\n",
         quote(&folder.to_string_lossy()),
+        exports,
         std::iter::once(file.to_string_lossy().into_owned())
             .chain(args.iter().cloned())
             .map(|s| quote(&s))
@@ -40,6 +61,16 @@ pub fn open(
     folder: &Path,
     script: &Path,
     store: &crate::store::Store,
+) -> Result<(), String> {
+    open_with_env(file, args, folder, script, store, &[])
+}
+pub fn open_with_env(
+    file: &Path,
+    args: &[String],
+    folder: &Path,
+    script: &Path,
+    store: &crate::store::Store,
+    env: &[(&str, &str)],
 ) -> Result<(), String> {
     crate::terminal::check_policy()?;
     if !cfg!(target_os = "macos") {
@@ -63,7 +94,7 @@ pub fn open(
         f.set_permissions(std::fs::Permissions::from_mode(0o700))
             .map_err(|e| e.to_string())?;
     }
-    f.write_all(mac_script(file, args, folder).as_bytes())
+    f.write_all(mac_script_with_env(file, args, folder, env).as_bytes())
         .map_err(|e| e.to_string())?;
     let mut cmd = std::process::Command::new("/usr/bin/open");
     cmd.args(["-a", "Terminal"]).arg(script);
@@ -586,5 +617,35 @@ mod import_tests {
         );
         assert_eq!(std::fs::read_dir(&electron).unwrap().count(), 1);
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn opens_an_existing_conversation_in_a_terminal_with_the_recorded_account_home() {
+        let root = std::env::temp_dir()
+            .join(format!("runtime-terminal-acc-{}", crate::native::uuid_v4().unwrap()));
+        let accounts = crate::agent_accounts::Accounts::new(
+            &root,
+            std::sync::Arc::new(|_, _, _, _| Ok(Box::new(|| {}))),
+            Box::new(|| None),
+            Box::new(|_, _| false),
+        );
+        let work = accounts.add("codex", "Work").unwrap();
+        let resolved = format!("codex:gpt-5-account:{}", work.id);
+        let acc = crate::agent_accounts::account_from_route(&resolved);
+        let env = accounts.launch_env("codex", acc).unwrap();
+        let mut pairs: Vec<(&str, &str)> = env.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        pairs.push(("BAD-NAME", "ignored"));
+        let script = mac_script_with_env(
+            Path::new("codex"),
+            &["resume".into(), "thr_work".into()],
+            &root,
+            &pairs,
+        );
+        let expected_home = format!("export CODEX_HOME='{}'", accounts.home_for(&work.id).display());
+        assert!(script.contains(&expected_home), "{script}");
+        assert!(script.contains("export OPENAI_API_KEY=''"), "{script}");
+        assert!(!script.contains("BAD-NAME"), "{script}");
+        assert!(script.contains("exec 'codex' 'resume' 'thr_work'"), "{script}");
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
