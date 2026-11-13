@@ -320,6 +320,7 @@ mod tests {
                 started_by: Some(json!({"kind": "side", "of": "mission_convo", "question": 1})),
                 runtime: Some("opencode".into()),
                 reference_ids: None,
+                slot: None,
             },
         )
         .unwrap();
@@ -455,6 +456,7 @@ mod tests {
                 started_by: Some(json!({"kind": "side", "of": "mission_convo", "question": 1})),
                 runtime: Some("codex".into()),
                 reference_ids: None,
+                slot: None,
             },
         )
         .unwrap();

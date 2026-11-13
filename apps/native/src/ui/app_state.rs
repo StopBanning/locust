@@ -318,6 +318,7 @@ pub(super) struct State {
     pub(super) dropped_problem: Option<(String, String)>,
     pub(super) setup_card: Option<crate::setup_card::SetupCard>,
     pub(super) instructions_card: crate::instructions_card::InstructionsCardState,
+    pub(super) compare: crate::compare_view::CompareState,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -494,6 +495,7 @@ impl Default for State {
             dropped_problem: None,
             setup_card: None,
             instructions_card: crate::instructions_card::InstructionsCardState::default(),
+            compare: crate::compare_view::CompareState::default(),
         }
     }
 }

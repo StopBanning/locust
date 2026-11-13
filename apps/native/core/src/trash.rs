@@ -195,12 +195,23 @@ pub fn empty_trash_dir(ledger_dir: &Path) -> Result<(usize, Vec<String>), String
     Ok((gone, ids))
 }
 
-/// Empty the native Trash for good, then drop owners from `teammates.json` and forget references.
+/// Empty the native Trash for good, then drop owners from `teammates.json`, forget references,
+/// and remove any comparisons whose every answer is gone along with their copies (`comparesGoneWith`).
 pub fn empty_trash(store: &Store) -> Result<usize, String> {
     let ledger_dir = store.ledger_dir().map_err(|_| ERR_EMPTY.to_string())?;
     let (gone, ids) = empty_trash_dir(&ledger_dir)?;
     let _ = crate::references::forget(store, &ids);
     let _ = crate::people::unassign_missions(store, &ids);
+    let trashed: std::collections::HashSet<String> = ids.into_iter().collect();
+    if let Ok(cmp_store) = crate::compare::CompareStore::from_store(store)
+        && let Ok(compares) = cmp_store.list()
+    {
+        let copy_root = crate::compare_copies::compare_root(store);
+        for compare in crate::compare::compares_gone_with(&compares, &trashed) {
+            let _ = cmp_store.remove(&compare.compare_id);
+            let _ = crate::compare_copies::remove_compare_copies(&compare.compare_id, &copy_root);
+        }
+    }
     Ok(gone)
 }
 
@@ -382,6 +393,64 @@ mod tests {
 
         assert_eq!(restore_mission(&ledger, "../escape").unwrap_err(), ERR_RESTORE);
         assert_eq!(restore_mission(&ledger, "").unwrap_err(), ERR_RESTORE);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn empty_trash_removes_compares_whose_answers_are_gone() {
+        let (root, store) = temp_store();
+        let ledger = store.ledger_dir().unwrap();
+        write_mission(&ledger, "m_gone_a", "2026-09-17T10:00:00.000Z", "a");
+        write_mission(&ledger, "m_gone_b", "2026-09-17T10:00:00.000Z", "b");
+        write_mission(&ledger, "m_kept_a", "2026-09-17T10:00:00.000Z", "c");
+        write_mission(&ledger, "m_kept_b", "2026-09-17T10:00:00.000Z", "d");
+
+        let cmp_store = crate::compare::CompareStore::from_store(&store).unwrap();
+        let r1 = crate::compare::CompareRoute::new("codex", "gpt-6");
+        let r2 = crate::compare::CompareRoute::new("claude", "sonnet");
+        let gone_cmp = cmp_store
+            .create(crate::compare::CreateCompareInput {
+                teammate_id: None,
+                prompt: "Gone".into(),
+                routes: vec![r1.clone(), r2.clone()],
+                changes: false,
+                changes_in: None,
+                blind: false,
+                base: None,
+                rerun_of: None,
+            })
+            .unwrap();
+        cmp_store.add_turn(&gone_cmp.compare_id, crate::compare::CompareSlotId::A, "m_gone_a").unwrap();
+        cmp_store.add_turn(&gone_cmp.compare_id, crate::compare::CompareSlotId::B, "m_gone_b").unwrap();
+
+        let kept_cmp = cmp_store
+            .create(crate::compare::CreateCompareInput {
+                teammate_id: None,
+                prompt: "Kept".into(),
+                routes: vec![r1, r2],
+                changes: false,
+                changes_in: None,
+                blind: false,
+                base: None,
+                rerun_of: None,
+            })
+            .unwrap();
+        cmp_store.add_turn(&kept_cmp.compare_id, crate::compare::CompareSlotId::A, "m_kept_a").unwrap();
+        cmp_store.add_turn(&kept_cmp.compare_id, crate::compare::CompareSlotId::B, "m_kept_b").unwrap();
+
+        // Create a dummy copy folder for `gone_cmp` in the store's compare root
+        let copy_dir = crate::compare_copies::compare_root(&store).join(format!("{}-a", gone_cmp.compare_id));
+        fs::create_dir_all(&copy_dir).unwrap();
+
+        delete_mission(&ledger, "m_gone_a", &[]).unwrap();
+        delete_mission(&ledger, "m_gone_b", &[]).unwrap();
+        delete_mission(&ledger, "m_kept_a", &[]).unwrap();
+
+        assert_eq!(empty_trash(&store).unwrap(), 3);
+        assert!(cmp_store.get(&gone_cmp.compare_id).unwrap().is_none());
+        assert!(!copy_dir.exists());
+        assert!(cmp_store.get(&kept_cmp.compare_id).unwrap().is_some());
+
         let _ = fs::remove_dir_all(root);
     }
 }

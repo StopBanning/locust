@@ -84,6 +84,7 @@ fn the_wire_carries_a_send_an_origin_and_a_card_whole() {
         started_by: Some(json!({"kind": "mcp"})),
         runtime: Some("claude".into()),
         reference_ids: Some(vec!["ref_1".into()]),
+        slot: None,
     };
     let o = origin_from(&origin_json(&origin)).unwrap();
     assert_eq!(o.mode.map(Mode::as_str), Some("plan"));

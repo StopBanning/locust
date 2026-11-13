@@ -1171,6 +1171,18 @@ fn spend_gate(store: &Store, owners: &Value, teammate: &Teammate, limit: f64) ->
 /// codex-mission.ts AUTO_OFF_REFUSAL.
 pub const AUTO_OFF_REFUSAL: &str = "Auto mode is switched off for this workspace. Turn it on in Settings to let a run work outside the workspace folder. Nothing was recorded.";
 
+/// A comparison column or judge slot (`codex-mission.ts`: `slot`), holding its own run slot, folder, and sealing.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SlotOrigin {
+    pub key: String,
+    pub cwd: Option<PathBuf>,
+    pub instructions: Option<String>,
+    /// Electron seals only Scout's runs (index.ts 8681, 10103): no brief, no skills, no browser here. Its full seal also
+    /// refuses every OpenCode tool and starts Codex with none (codexSealedThreadConfig); that part is not ported yet,
+    /// and nothing sets this until Scout is.
+    pub sealed: bool,
+}
+
 /// What started a turn, when it was not the person in the window: another app through the door. A mode and folder it
 /// named (already checked), and the `startedBy` the ledger records.
 #[derive(Default, Clone)]
@@ -1182,6 +1194,8 @@ pub struct Origin {
     pub runtime: Option<String>,
     /// The references the composer names for this turn (ids in `references.rs`); None keeps the conversation's.
     pub reference_ids: Option<Vec<String>>,
+    /// A comparison column or judge slot.
+    pub slot: Option<SlotOrigin>,
 }
 
 static EDIT_CHECK: std::sync::OnceLock<crate::edit_check::EditCheck> = std::sync::OnceLock::new();
@@ -1238,8 +1252,14 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     }
     let side_req = crate::side_question::parse_started_by(origin.started_by.as_ref());
     let is_side = side_req.is_some();
-    // One turn at a time per conversation: refused before anything is read or created.
-    if !is_side && job.conversation.as_deref().is_some_and(owns) {
+    let is_slot = origin.slot.is_some();
+    let sealed = origin.slot.as_ref().is_some_and(|s| s.sealed);
+    // One turn at a time per conversation (or slot): refused before anything is read or created.
+    if let Some(slot) = &origin.slot {
+        if owns(&slot.key) {
+            return Err("A turn is already running in this conversation.".into());
+        }
+    } else if !is_side && job.conversation.as_deref().is_some_and(owns) {
         return Err("A turn is already running in this conversation.".into());
     }
     // And no more than eight at once (checked again where the turn registers, so two sends cannot both slip in).
@@ -1335,13 +1355,18 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         }
     }
     };
-    let folder = match &origin.folder {
-        Some(named) => named.clone(),
-        None => folder_for(&job.teammate, &electron)?,
-    };
     // A teammate set to work on its own branch runs in its own copy of the project, and each of its turns is
     // committed there with a receipt (worktrees.rs; Electron's peer.repositoryRoot).
-    let (folder, repository_root) = own_branch_folder(&store, &job.teammate, runtime_name, folder)?;
+    // A comparison slot with its own `cwd` already has its own copy or worktree.
+    let (folder, repository_root) = if let Some(slot_cwd) = origin.slot.as_ref().and_then(|s| s.cwd.clone()) {
+        (slot_cwd, None)
+    } else {
+        let folder = match &origin.folder {
+            Some(named) => named.clone(),
+            None => folder_for(&job.teammate, &electron)?,
+        };
+        own_branch_folder(&store, &job.teammate, runtime_name, folder)?
+    };
     let checkpoint_prompt = job.prompt.clone();
     let model = job
         .model
@@ -1385,6 +1410,13 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         } else {
             format!("{side_text}\n\n{refs}")
         }
+    } else if sealed {
+        let refs = crate::references::section(&references);
+        if refs.is_empty() {
+            job.prompt.clone()
+        } else {
+            format!("{}\n\n{refs}", job.prompt)
+        }
     } else {
         format!(
             "{}\n\n{}",
@@ -1401,19 +1433,24 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         None
     };
     // The run's skills (claude-skills.ts, run-skills.ts): Claude Code's plugins, or one folder for the agents that
-    // read one. Copied for this run alone, and removed when it ends.
-    let skill_sources = crate::skills::sources_for(store.electron(), &job.teammate.id);
-    let own_skills = saved["settings"]["claudeOwnSkills"] == true;
+    // read one. Copied for this run alone, and removed when it ends. Sealed runs get no teammate skills.
     let home = std::env::var_os("HOME").map(PathBuf::from);
-    let claude_plugins: Vec<crate::skills::Plugin> = if runtime_name == "claude" {
-        crate::skills::prepare_claude(&store.root().join("claude-skills"), &folder, own_skills, home.as_deref(), mode == Mode::Auto, &skill_sources)
+    let (claude_plugins, run_skills): (Vec<crate::skills::Plugin>, _) = if sealed {
+        (Vec::new(), None)
     } else {
-        Vec::new()
-    };
-    let run_skills = if matches!(runtime_name, "codex" | "opencode" | "copilot" | "antigravity" | "cursor") {
-        crate::skills::prepare_run(&store.root().join("run-skills"), &skill_sources)
-    } else {
-        None
+        let skill_sources = crate::skills::sources_for(store.electron(), &job.teammate.id);
+        let own_skills = saved["settings"]["claudeOwnSkills"] == true;
+        let cp = if runtime_name == "claude" {
+            crate::skills::prepare_claude(&store.root().join("claude-skills"), &folder, own_skills, home.as_deref(), mode == Mode::Auto, &skill_sources)
+        } else {
+            Vec::new()
+        };
+        let rs = if matches!(runtime_name, "codex" | "opencode" | "copilot" | "antigravity" | "cursor") {
+            crate::skills::prepare_run(&store.root().join("run-skills"), &skill_sources)
+        } else {
+            None
+        };
+        (cp, rs)
     };
     let claude_skill_dirs: Vec<String> = claude_plugins.iter().map(|p| p.dir.to_string_lossy().into_owned()).collect();
     let claude_skills: Vec<&str> = claude_skill_dirs.iter().map(String::as_str).collect();
@@ -1461,17 +1498,22 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;
         command.args(["--plugin-dir", &plugin]);
     }
-    let anchor = if is_side {
+    let anchor = if is_side || is_slot {
         id.clone()
     } else {
         job.conversation.clone().unwrap_or_else(|| id.clone())
     };
     let side_slot = side_req.as_ref().map(|s| format!("side:{}", s.of));
+    let compare_slot = origin.slot.as_ref().map(|s| s.key.clone());
     let flag = Arc::new(AtomicBool::new(false));
     let registered = with_running(|m| {
         if let Some(slot) = &side_slot {
             if m.contains_key(slot) {
                 return Err("A side question is already running in this conversation.".to_owned());
+            }
+        } else if let Some(slot) = &compare_slot {
+            if m.contains_key(slot) {
+                return Err("A turn is already running in this conversation.".to_owned());
             }
         } else if m.contains_key(&anchor) {
             return Err("A turn is already running in this conversation.".to_owned());
@@ -1481,6 +1523,9 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         }
         let mut keys = Vec::new();
         if let Some(slot) = side_slot {
+            m.insert(slot.clone(), flag.clone());
+            keys.push(slot);
+        } else if let Some(slot) = compare_slot {
             m.insert(slot.clone(), flag.clone());
             keys.push(slot);
         } else {
@@ -1508,7 +1553,11 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     } else {
         None
     };
-    let browser_registration = crate::browser_tools::Registration::prepare(&mut command, runtime_name, &id, &job.teammate.id, &folder, channel.clone(), flag.clone())?;
+    let browser_registration = if sealed {
+        None
+    } else {
+        crate::browser_tools::Registration::prepare(&mut command, runtime_name, &id, &job.teammate.id, &folder, channel.clone(), flag.clone())?
+    };
     if runtime_name == "claude" {
         let guard = crate::runtime::permission_bridge::bridge_executable()
             .and_then(|exe| crate::command_guard::write_claude_settings(&store.root().join("guard"), &exe))
@@ -1806,6 +1855,7 @@ fn run_check_fix(
                 started_by: Some(req.started_by.to_json()),
                 runtime: Some(runtime.to_owned()),
                 reference_ids: None,
+                slot: None,
             };
             match crate::engine_api::api().send(job, origin) {
                 Ok(started) => {

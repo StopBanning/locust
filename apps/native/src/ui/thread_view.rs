@@ -853,6 +853,7 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 .role("button")
                 .on_press(|s: &mut State| s.reference_menu = !s.reference_menu),
             )
+            .child(crate::compare_view::composer_mode_chip(s, &l))
             .child(rune::spacer())
             .child(chip);
         if let Some(chips) = crate::reference_chips::view(s, &l, teammate) {
@@ -860,6 +861,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         }
         if let Some(tile) = crate::diff_notes_ui::tile(s, p) {
             composer_stack = composer_stack.child(row().w_full().child(tile));
+        }
+        if let Some(picks) = crate::compare_view::composer_picks_row(s, &l) {
+            composer_stack = composer_stack.child(picks);
         }
         composer_stack = composer_stack
             .child(crate::look::controls::composer_box(&l).child(plus_button(s, &l)).child(composer).child(button))
@@ -871,6 +875,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
         }
         if s.mode_menu {
             picker = picker.child(row().w_full().px(6.0).child(mode_menu(s, &l, teammate, &mode_now)));
+        }
+        if let Some(cmenu) = crate::compare_view::composer_mode_menu(s, &l) {
+            picker = picker.child(row().w_full().px(6.0).child(cmenu));
         }
         if s.plus_menu {
             picker = picker.child(row().w_full().px(6.0).child(plus_menu(s, &l, teammate)));

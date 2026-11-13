@@ -167,6 +167,8 @@ mod inspector_panel;
 mod instructions_card;
 #[path = "ui/setup_card.rs"]
 mod setup_card;
+#[path = "ui/compare_view.rs"]
+mod compare_view;
 #[path = "ui/trash_section.rs"]
 mod trash_section;
 #[path = "ui/side_chat.rs"]
@@ -698,6 +700,15 @@ fn selected_conversation(s: &State) -> Option<(&Teammate, &Conversation)> {
 }
 
 fn can_send(s: &State) -> bool {
+    if s.compare.composer_mode != compare_view::CompareComposerMode::Direct {
+        return !s.demo
+            && (s.load_error.is_none() || s.ledger.is_some())
+            && !s.team.is_pending()
+            && s.flight.is_none()
+            && s.data.is_some()
+            && !s.nothing_installed
+            && !s.draft.text.trim().is_empty();
+    }
     !s.demo
         && (s.load_error.is_none() || s.ledger.is_some())
         && !s.team.is_pending()
@@ -750,6 +761,10 @@ fn set_status(s: &mut State, id: &str, message: &str, ink: StatusTone) {
 
 fn send(s: &mut State, _: &mut Tx) {
     if !can_send(s) {
+        return;
+    }
+    if s.compare.composer_mode != compare_view::CompareComposerMode::Direct {
+        compare_view::start_comparison(s);
         return;
     }
     let Some((teammate, conversation)) = selected_conversation(s) else {
@@ -1728,6 +1743,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= terminal_panel::poll(s);
     changed |= side_chat::poll(s);
     changed |= review_changes::poll(s, tx);
+    changed |= compare_view::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -2153,6 +2169,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         settings_panel::view(s, &p)
     } else if s.people_panel.open {
         people_panel::view(s, &p)
+    } else if s.compare.active_id.is_some() {
+        compare_view::view(s, &p)
     } else {
         thread_view(s, &p)
     };
@@ -2817,6 +2835,9 @@ mod native_window_tests;
 #[cfg(test)]
 #[path = "ui/window_drive_tests.rs"]
 mod window_drive_tests;
+#[cfg(test)]
+#[path = "ui/compare_window_tests.rs"]
+mod compare_window_tests;
 
 #[cfg(test)]
 #[path = "ui/approval_review_tests.rs"]

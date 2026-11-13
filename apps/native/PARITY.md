@@ -67,7 +67,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Durable busy-turn queue, edit/discard and stop/send now | `renderer/src/components/Composer.tsx`, `renderer/src/useConversationQueue.ts`, `main/queued-message-store.ts` | **done** | yes | no | yes |
 | Up-arrow sent-message history | `renderer/src/components/Composer.tsx` | **done** | yes | no | no |
 | Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **partial** — folders on this computer; no GitHub repositories yet | yes | no | yes |
-| Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **partial** — the mode menu on the message box (`mode_facts`, Electron's words; agents' modes match all 385 grid cases; choosing Auto turns Auto on); folder chip shows where the turn runs; no own branch, Direct/Compare/Blind | yes | no | yes |
+| Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **partial** — the mode menu on the message box (`mode_facts`, Electron's words; agents' modes match all 385 grid cases; choosing Auto turns Auto on); folder chip shows where the turn runs; Direct/Compare/Blind mode chip & picks row added; own branch remains | yes | no | yes |
 | Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **missing** | - | no | yes |
 | Connector-off and unavailable-route pre-send warnings | `renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts` | **done** — Hydrogen: `core/src/connectors_off.rs`, `src/ui/thread_view.rs`, `src/ui/home_panel.rs`, `src/ui/people_panel.rs` (connector-off pre-send hint for Claude Code teammates, dropped OpenCode free model notice + one-click switch on composer and amber route on Home/Team cards, unavailable-route send refusal; notes/SETUP-NOTES.md) | yes | no | yes |
 
@@ -167,8 +167,8 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Routine input forms, Markdown import/export and starter templates | `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineTemplates.tsx`, `main/routine-file.ts`, `main/routine-templates.ts` | **done** — Hydrogen: `core/src/routine_inputs.rs`, `core/src/routine_file.rs`, `core/src/routine_templates.rs`, `core/src/routine_io.rs`, `assets/routines/*.locust-routine.json`, `src/ui/routines_panel.rs` (typed routine inputs, folder-picker validation, YAML-frontmatter Markdown/JSON import/export with absolute-path flagging, 16 shipped templates, W7 runner inputs; TEAM-FILES-NOTES.md) | yes | no | yes |
 | Routine copy-mode changes awaiting keep/discard | `renderer/src/components/RoutineChanges.tsx`, `main/routine-copy.ts` | **done** — each run in a fresh copy in the native data folder; Keep refuses over the person's edits, Discard asks first; window test (ROUTINES-NOTES.md) | yes | no | yes |
 | Routine retry-until-check, handoff steps and wait-for-OK gates | `renderer/src/components/RoutineRecovery.tsx`, `main/routine-recovery-ipc.ts`, `main/routine-runner.ts` | **partial** — runner ported: checks, checker verdicts, busy and wait-for-OK holds, recovery cards; no OS or phone alert when a step waits for OK (ROUTINES-NOTES.md) | yes | no | yes |
-| Compare/Blind side-by-side answers and isolated changes | `renderer/src/components/CompareView.tsx`, `main/compare-store.ts`, `main/compare-copies.ts` | **missing** | - | no | yes |
-| Weighted/drafted rubric points and one/three blind judges | `renderer/src/components/CompareView.tsx`, `main/compare-judge.ts`, `shared/compare-score.ts` | **missing** | - | no | yes |
+| Compare/Blind side-by-side answers and isolated changes | `renderer/src/components/CompareView.tsx`, `main/compare-store.ts`, `main/compare-copies.ts` | **done** — `core/src/{compare,compare_copies}.rs` + `src/ui/compare_view.rs` + `SlotOrigin` + `empty_trash` cleanup; unit + headless window tests pass (notes/COMPARE-NOTES.md) | yes | no | yes |
+| Weighted/drafted rubric points and one/three blind judges | `renderer/src/components/CompareView.tsx`, `main/compare-judge.ts`, `shared/compare-score.ts` | **done** — `core/src/{compare_judge,compare_score}.rs` + `src/ui/compare_view.rs`; 1/3 blind judges, drafted/weighted points, panel vote & scorecard pass unit + headless window tests (notes/COMPARE-NOTES.md) | yes | no | yes |
 | Per-column rerun, build/merge answers, keep copies and preview pages | `renderer/src/components/CompareView.tsx`, `main/compare-reruns.ts`, `main/compare-copies.ts` | **missing** | - | no | yes |
 | Reusable benchmarks, record tables and across-benchmark analysis | `renderer/src/components/CompareBenchmark.tsx`, `renderer/src/components/BenchmarksScreen.tsx`, `renderer/src/benchmark.ts`, `renderer/src/compareRecord.ts` | **missing** | - | no | yes |
 
@@ -286,14 +286,14 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 6 | 4 | 13 | 9 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
-| 9 | Routines, Compare & Benchmarks | 3 | 2 | 5 | 10 | 5 | 0 |
+| 9 | Routines, Compare & Benchmarks | 5 | 2 | 3 | 10 | 7 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 5 | 3 | 0 | 8 | 8 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 5 | 5 | 3 | 13 | 10 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **55** | **56** | **42** | **153** | **111** | **15** |
+| | **TOTAL** | **57** | **56** | **40** | **153** | **113** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

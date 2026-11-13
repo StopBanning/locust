@@ -6,10 +6,15 @@ use crate::conversation_search::missions_matching;
 use crate::settled::is_put_away;
 
 pub(super) fn recent_as_missions(s: &State) -> Vec<SidebarMission> {
+    let judges = locust_core::compare::judge_mission_ids(&s.compare.compares);
+    let reruns = locust_core::compare::rerun_mission_ids(&s.compare.compares);
     let mut rows = Vec::new();
     let by_id: HashMap<_, _> = s.recent.iter().map(|m| (m.id.as_str(), m)).collect();
     let mut groups: Vec<(String, Vec<&ConversationRow>)> = Vec::new();
     for item in &s.recent {
+        if judges.contains(&item.id) || reruns.contains(&item.id) {
+            continue;
+        }
         let mut root = item.id.as_str();
         let mut seen = std::collections::HashSet::from([root]);
         while let Some(parent) = s
@@ -517,6 +522,61 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
     };
     rows = rows.child(nav(&crate::look::icons::USERS, "Teammates & Memory").pt(14.0).on_press(crate::people_panel::open));
     rows = rows.child(nav(&crate::look::icons::CLOCK, "Automations").on_press(crate::routines_panel::open));
+    if !s.compare.compares.is_empty() {
+        let mut cmp_col = col()
+            .w_full()
+            .px(10.0)
+            .pt(10.0)
+            .gap(2.0)
+            .child(
+                row()
+                    .w_full()
+                    .pl(10.0)
+                    .pb(2.0)
+                    .child(crate::look::controls::label(&l, "Comparisons")),
+            );
+        for c in s.compare.compares.iter().take(12) {
+            let cid = c.compare_id.clone();
+            let picked = s.compare.active_id.as_deref() == Some(cid.as_str());
+            let title_text = if c.blind && c.kept.is_none() {
+                format!("Blind: {}", c.prompt)
+            } else {
+                let names: Vec<&str> = c
+                    .slots
+                    .iter()
+                    .map(|slot| slot.route.label.as_deref().unwrap_or(slot.route.model.as_str()))
+                    .collect();
+                format!("{}: {}", locust_core::compare::versus_label(&names), c.prompt)
+            };
+            cmp_col = cmp_col.child(
+                row()
+                    .key(format!("sidebar-compare-{cid}"))
+                    .w_full()
+                    .py(7.0)
+                    .px(10.0)
+                    .radius(8.0)
+                    .fill(if picked { l.c("bg-selected") } else { p.sidebar })
+                    .hover(l.c("hover-surface"))
+                    .child(
+                        text(title_text)
+                            .font(rune::TextStyle::new(12.5, 500.0).lh(16.0))
+                            .color(l.c("text-primary"))
+                            .w_full()
+                            .truncate(),
+                    )
+                    .on_press(move |s: &mut State| {
+                        s.compare.active_id = Some(cid.clone());
+                        s.home.home_open = false;
+                        s.home.board_open = false;
+                        s.home.boot_open = false;
+                        s.people_panel.open = false;
+                        s.settings_panel.open = false;
+                        s.routines.open = false;
+                    }),
+            );
+        }
+        rows = rows.child(cmp_col);
+    }
     let missions = sidebar_missions_now(s);
     let all_count = recent_as_missions(s).len();
     let (pinned, recent_rows) = pinned_and_recent(&missions, &s.org.pins);
