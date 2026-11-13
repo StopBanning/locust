@@ -58,3 +58,4 @@ pub mod test_isolation;
 pub mod usage;
 pub mod usage_ledger;
 pub mod workspace_settings;
+pub mod worktrees;
