@@ -393,7 +393,7 @@ apps/desktop/src/main/harness-backticks.test.ts		waiting
 apps/desktop/src/main/harness-selectors.test.ts		waiting		
 apps/desktop/src/main/harness-syntax.test.ts		waiting		
 apps/desktop/src/main/home-spacing-matches-its-measure.test.ts		waiting		
-apps/desktop/src/main/install-node-is-not-said-to-a-person-with-npm.test.ts		waiting		
+apps/desktop/src/main/install-node-is-not-said-to-a-person-with-npm.test.ts	P10	does-not-apply		Electron carries an npm of its own for a machine with none; this app carries no Node, so there is no bundled npm to offer
 apps/desktop/src/main/installed-editors.test.ts		waiting		
 apps/desktop/src/main/judges-see-the-check.test.ts	compare	carried		`compare_judge::tests::judges_see_the_check`
 apps/desktop/src/main/keep-awake.test.ts	settings	carried	core/src/keep_awake.rs	single hold for live runs, dispose release, retry on failure
@@ -464,7 +464,7 @@ apps/desktop/src/main/routine-store.test.ts	p11	partial		`main/routine-store.tes
 apps/desktop/src/main/runtime-artifacts.test.ts		waiting		
 apps/desktop/src/main/runtime-commands.test.ts		waiting		
 apps/desktop/src/main/runtime-discovery.test.ts		waiting		
-apps/desktop/src/main/runtime-installer.test.ts		waiting		
+apps/desktop/src/main/runtime-installer.test.ts	P10	carried	core/src/agent_install_tests.rs; src/ui/window_drive_tests.rs install_runs_the_rows_line_and_says_how_it_ended	every it() ported (25), plus an update's version check, the Windows lock case and the window's Install
 apps/desktop/src/main/runtime-setup.test.ts		waiting		
 apps/desktop/src/main/runtime-updates.test.ts		waiting		
 apps/desktop/src/main/says-what-is-still-true.test.ts		waiting		

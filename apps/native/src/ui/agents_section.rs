@@ -2,8 +2,8 @@
 //! has, its tag, its version, and what to do when it is not ready. The words come from `locust_core::agents`, held to
 //! Electron's own answers.
 //!
-//! Electron's rows also carry Install, Sign in and Update buttons that run on the computer. This window does not run
-//! those yet, so it does what Electron does when its Install cannot run: it shows the line, with Copy.
+//! A row npm installs carries Install, running the line it shows (runtime-installer.ts); a row to sign in carries Sign
+//! in. Each line stays on the row with Copy, to run by hand. Update remains (runtime-updates.ts).
 
 use super::*;
 use locust_core::agents::{self, Found, RowStatus};
@@ -25,15 +25,97 @@ pub(super) fn request(s: &mut State) {
     let _ = s;
 }
 
-/// The background check's answer, when it lands.
+/// The background check's answer, when it lands; and an install's latest line and its end.
 pub(super) fn poll(s: &mut State) -> bool {
-    match s.settings_panel.agents_job.take() {
+    let mut changed = match s.settings_panel.agents_job.take() {
         Some(found) => {
             s.settings_panel.agents = Some(found);
             true
         }
         None => false,
+    };
+    let latest = s.agents_install.line.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    if latest != s.agents_install.shown {
+        s.agents_install.shown = latest;
+        changed = true;
     }
+    if let Some((id, outcome)) = s.agents_install_job.take() {
+        let installed = outcome.is_ok();
+        s.agents_install.outcome = Some((id, outcome));
+        // Installed: discovery looks again, and the row moves on to Sign in or ready.
+        if installed {
+            request(s);
+        }
+        changed = true;
+    }
+    changed
+}
+
+/// The agent being installed from its row (Electron's InstallButton state).
+#[derive(Default)]
+pub(super) struct Installing {
+    pub id: Option<String>,
+    /// npm's latest line, written by the install's thread.
+    pub line: std::sync::Arc<std::sync::Mutex<String>>,
+    /// The line as last drawn.
+    pub shown: String,
+    pub outcome: Option<InstallAnswer>,
+}
+
+pub(super) type InstallAnswer = (String, locust_core::agent_install::Outcome);
+
+static STAND_IN: std::sync::Mutex<Option<&'static locust_core::agent_install::Installer>> = std::sync::Mutex::new(None);
+
+#[cfg(test)]
+pub(super) fn use_installer(installer: &'static locust_core::agent_install::Installer) {
+    *STAND_IN.lock().unwrap_or_else(|e| e.into_inner()) = Some(installer);
+}
+
+/// Install from the row (runtime-installer.ts): the row's own line, off the window's thread, one at a time. The window's
+/// tests never run npm: without a stand-in of their own, nothing is installed.
+fn install(s: &mut State, id: String, name: String) {
+    if s.agents_install_job.is_pending() {
+        return;
+    }
+    let stand_in = *STAND_IN.lock().unwrap_or_else(|e| e.into_inner());
+    let installer = match stand_in {
+        Some(i) => Some(i),
+        None if cfg!(test) => None,
+        None => Some(locust_core::agent_install::for_this_machine()),
+    };
+    let line = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    s.agents_install = Installing { id: Some(id.clone()), line: line.clone(), shown: String::new(), outcome: None };
+    s.agents_install_job.request((id, name, line, installer), |(id, name, line, installer)| {
+        let Some(installer) = installer else {
+            return (id, Err(locust_core::agent_install::Failure { what: "No install runs in a test.".into(), next: "Nothing was changed.".into(), restart: false, command: None }));
+        };
+        let outcome = installer.install(&id, &name, None, &mut |said| *line.lock().unwrap_or_else(|e| e.into_inner()) = said.to_owned());
+        (id, outcome)
+    });
+}
+
+/// What a NOT INSTALLED row npm installs offers: Install, npm's latest line while it runs, and how it ended.
+fn install_part(s: &State, l: &crate::look::controls::Look, f: &Found, command: String) -> El {
+    let mine = s.agents_install.id.as_deref() == Some(f.id.as_str());
+    let running = s.agents_install_job.is_pending();
+    let mut part = col().gap(6.0);
+    let (id, name) = (f.id.clone(), f.display_name.clone());
+    let label = if running && mine { "Installing\u{2026}" } else { "Install" };
+    part = part.child(crate::look::controls::button(l, label, crate::look::controls::Tone::Neutral, running).key(format!("agents-install-{}", f.id)).label(format!("Install {}", f.display_name)).self_start().on_press(move |s: &mut State| install(s, id.clone(), name.clone())));
+    if mine && running && !s.agents_install.shown.is_empty() {
+        part = part.child(text(s.agents_install.shown.clone()).font(l.ty.mono).color(l.c("text-muted")).wrap_anywhere().key(format!("agents-install-line-{}", f.id)));
+    }
+    let failed = match &s.agents_install.outcome {
+        Some((id, Err(failure))) if mine && id == &f.id && !running => Some(failure),
+        _ => None,
+    };
+    let shown_command = failed.and_then(|f| f.command.clone()).unwrap_or(command);
+    if let Some(failure) = failed {
+        part = part
+            .child(text(failure.what.clone()).font(l.ty.body).color(l.c("amber-text")).wrap().key(format!("agents-install-what-{}", f.id)))
+            .child(text(failure.next.clone()).font(l.ty.body).color(l.c("text-secondary")).wrap());
+    }
+    part.child(copy_line(l, format!("agents-copy-install-{}", f.id), shown_command))
 }
 
 /// RUNTIME_BAND, then the name: what can be used first, what is planned last (runtimeListOrder).
@@ -66,13 +148,8 @@ pub(super) fn ordered(found: &[Found]) -> Vec<(Found, RowStatus)> {
 
 /// The row's sentence. Electron's NOT INSTALLED sentence says "Press Install" because its row has an Install button
 /// that runs npm; this window shows the line instead, so it says to run it. Everything else is Electron's word for word.
-fn shown_detail(f: &Found, status: &RowStatus) -> String {
-    if status.tag == "NOT INSTALLED" && agents::install_command(&f.id).is_some() {
-        return status
-            .detail
-            .replace("Press Install, then Sign in.", "Run the line below, then sign in.")
-            .replace("Press Install.", "Run the line below.");
-    }
+fn shown_detail(_f: &Found, status: &RowStatus) -> String {
+    // Electron's own words: the row has Install now, so "Press Install" names a button that is there.
     status.detail.clone()
 }
 
@@ -153,7 +230,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         if status.tag == "NOT INSTALLED"
             && let Some(command) = agents::install_command(&f.id)
         {
-            words = words.child(copy_line(&l, format!("agents-copy-install-{}", f.id), command));
+            words = words.child(install_part(s, &l, &f, command));
         }
         if status.tag == "SIGN IN"
             && let Some(line) = agents::sign_in_command(&f.id, false)

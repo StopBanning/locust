@@ -207,6 +207,14 @@ pub fn install_command(id: &str) -> Option<String> {
     }
 }
 
+/// The npm package an agent installs from, for an agent npm installs.
+pub fn install_package(id: &str) -> Option<String> {
+    match facts(id)?.install {
+        Install::Npm(package) => Some(package.to_owned()),
+        Install::Vendor(_) => None,
+    }
+}
+
 /// installSentence: what a NOT INSTALLED row says, standing on its own (no terminal in it: the row's Install does it).
 pub fn install_sentence(id: &str, display_name: &str) -> String {
     let Some(facts) = facts(id) else {
@@ -450,6 +458,11 @@ fn readiness_from_version(id: &str) -> bool {
 /// The agents discovery looks for, in Electron's order.
 pub fn known() -> impl Iterator<Item = (&'static str, &'static str)> {
     DEFINITIONS.iter().map(|d| (d.id, d.name))
+}
+
+/// The command discovery looks for, for an agent it knows.
+pub fn command_of(id: &str) -> Option<&'static str> {
+    DEFINITIONS.iter().find(|d| d.id == id).map(|d| d.command)
 }
 
 /// One agent, found or not, as main's publicStatus says it.

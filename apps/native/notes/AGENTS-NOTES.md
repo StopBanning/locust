@@ -63,3 +63,14 @@ Plan Part 3, "Port next" #3, on `exec/native-engine`. Built in four parts.
 - Capability reporting for ACP agents.
 - The runtime setup line (connectors and hooks read from each agent's files).
 - Claude Code's remote-control switch.
+
+## Install (13 Nov)
+
+- `core/src/agent_install.rs` ports `main/runtime-installer.ts`: the row's own `npm install -g` line, split from the
+  string the row shows; one install at a time; six failures in words; a permission failure off Windows tried once into
+  `~/.npm-global` (already on the PATH Locust adopts at launch); a clean exit followed by looking for the command again.
+- npm is spawned with no shell (Electron needs one for `npm.cmd` on Windows); arguments are still checked for shell
+  syntax, so the guard holds for a future package name read from elsewhere.
+- No bundled npm: this app carries no Node. A machine without npm gets "npm could not be started" and the line to run.
+- The display name goes into the words ("OpenCode installed, but...") where Electron passes the id.
+- Update (runtime-updates.ts) is next: it reuses `Installer::install` with a version.

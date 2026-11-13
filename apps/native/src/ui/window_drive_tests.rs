@@ -1223,8 +1223,8 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
     click(&mut rt, "agents-sign-in-claude");
     assert_eq!(rt.state.agents_signed_in, vec!["claude".to_owned()]);
     assert!(words.contains("npm install -g opencode-ai") && rt.find("agents-copy-install-opencode").is_some(), "the install line, with Copy");
-    // No Install button here yet, so the sentence says to run the line, not to press a button that is not there.
-    assert!(words.contains("OpenCode was not found on this machine. Run the line below.") && !words.contains("Press Install"), "{words}");
+    // Install is on the row, so the sentence says to press it, as Electron's does.
+    assert!(words.contains("OpenCode was not found on this machine. Press Install.") && rt.find("agents-install-opencode").is_some(), "{words}");
     assert!(words.contains("Not built yet. Shown so the roadmap is visible, not because it works."), "{words}");
     for tag in ["READY", "SIGN IN", "NOT INSTALLED", "PLANNED"] {
         assert!(words.contains(tag), "{tag} missing:\n{words}");
@@ -4169,3 +4169,64 @@ fn relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run() {
     assert!(rt2.presented("exchange-stop").is_none(), "Stop button gone after stopping live run");
     on_quit(&mut rt2.state, &mut Tx::default());
 }
+
+/// runtime-installer.ts, in the window: Install runs the row's own line off the window's thread, shows npm's latest
+/// line, says a failure in words with the remedy's line, and once installed looks again.
+#[test]
+fn install_runs_the_rows_line_and_says_how_it_ended() {
+    use locust_core::agent_install::{Installer, Run};
+    use locust_core::agents::{Auth, Found, Probe};
+    struct Npm(std::sync::Mutex<Vec<(Option<i32>, String)>>, std::sync::Mutex<Vec<String>>);
+    impl Run for Npm {
+        fn run(&self, command: &str, args: &[String], on_line: &mut dyn FnMut(&str)) -> (Option<i32>, String) {
+            self.1.lock().unwrap().push(format!("{command} {}", args.join(" ")));
+            on_line("added 3 packages in 6s");
+            self.0.lock().unwrap().remove(0)
+        }
+    }
+    let npm: &'static Npm = Box::leak(Box::new(Npm(
+        std::sync::Mutex::new(vec![(Some(243), "npm ERR! code EACCES".into()), (Some(243), "npm ERR! code EACCES".into()), (Some(0), "added 3 packages".into())]),
+        std::sync::Mutex::new(vec![]),
+    )));
+    struct Shared(&'static Npm);
+    impl Run for Shared {
+        fn run(&self, command: &str, args: &[String], on_line: &mut dyn FnMut(&str)) -> (Option<i32>, String) {
+            self.0.run(command, args, on_line)
+        }
+    }
+    let installer: &'static Installer = Box::leak(Box::new(Installer::new(std::sync::Arc::new(Shared(npm)), Box::new(|_| true), Some("/Users/ian/.npm-global".into()), "macos")));
+    crate::agents_section::use_installer(installer);
+    let (_dirs, _store, mut rt) = window();
+    let missing = Found {
+        id: "opencode".into(),
+        display_name: "OpenCode".into(),
+        installed: false,
+        version: None,
+        auth: Auth::NotApplicable,
+        ready: false,
+        status: Probe::Missing,
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    };
+    rt.update(move |s, _| {
+        s.settings_panel.open = true;
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
+        s.settings_panel.agents = Some(vec![missing]);
+    });
+    settle(&mut rt);
+    click(&mut rt, "agents-install-opencode");
+    pump(&mut rt, "the first install ends", |s| !s.agents_install_job.is_pending() && s.agents_install.outcome.is_some());
+    settle(&mut rt);
+    // The system's global folder, twice: said in words, with the remedy's line in place of the one that failed.
+    assert_eq!(*npm.1.lock().unwrap(), vec!["npm install -g opencode-ai".to_owned(), "npm install -g opencode-ai --prefix /Users/ian/.npm-global".to_owned()]);
+    let words = text_in(&rt, "agents-section").join("\n");
+    assert!(words.contains("npm could not write to its global folder.") && words.contains("npm config set prefix"), "{words}");
+    // Pressed again, it installs; discovery is asked to look again.
+    click(&mut rt, "agents-install-opencode");
+    pump(&mut rt, "the second install ends", |s| !s.agents_install_job.is_pending() && s.agents_install.outcome.as_ref().is_some_and(|(_, o)| o.is_ok()));
+    assert!(rt.state.settings_panel.agents_job.is_pending() || rt.state.settings_panel.agents.is_some(), "looks again");
+    assert!(!text_in(&rt, "agents-section").join(" ").contains("could not write"), "the failure is gone");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+

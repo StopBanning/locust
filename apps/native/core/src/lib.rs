@@ -17,6 +17,7 @@ pub mod locust_link;
 pub mod reply_page;
 pub mod remote_control;
 pub mod agent_accounts;
+pub mod agent_install;
 pub mod published_links;
 pub mod workroom;
 pub mod peer_share;
