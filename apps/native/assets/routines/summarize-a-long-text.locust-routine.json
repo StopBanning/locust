@@ -1,0 +1,21 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Summarize a long text",
+  "steps": [
+    "Summarize the text below for someone who has two minutes. Give a three-sentence summary first, then the key points, any decisions or numbers that matter, and the questions it leaves open.\n\n{{text}}"
+  ],
+  "inputs": [
+    {
+      "key": "text",
+      "label": "The text to summarize",
+      "kind": "long-text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

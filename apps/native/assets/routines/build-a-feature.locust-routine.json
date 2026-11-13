@@ -1,0 +1,32 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Build a feature, then review it",
+  "steps": [
+    "Plan this addition to the project:\n\n{{feature}}\n\nRead the parts of the project it touches and write a plan: what changes and where, which existing behaviour could break, and how you will know it works. Keep it short enough to follow. Do not change any file.",
+    "Build this feature:\n\n{{feature}}\n\nBuild it as the plan above says. If you have to leave the plan, say where and why. Run the project's own checks if it has them, and say what you ran and what they showed.",
+    "Review the work against the plan. Say what the plan asked for that is missing, what goes beyond it, and what is risky or likely to break something else. Read the changed files yourself; do not take the builder's summary for the result."
+  ],
+  "inputs": [
+    {
+      "key": "feature",
+      "label": "What should it do?",
+      "kind": "long-text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {
+      "role": "Research & Briefs"
+    },
+    {
+      "role": "Code & Migrations"
+    },
+    {
+      "role": "Docs & QA",
+      "check": true
+    }
+  ],
+  "route": {},
+  "connectors": []
+}

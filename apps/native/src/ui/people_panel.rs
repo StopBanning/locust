@@ -22,6 +22,10 @@ pub(super) struct Panel {
     pub removing: Option<String>,
     /// How memory is kept (`memoryMode`: auto, ask, off), read with the team.
     pub memory_mode: String,
+    /// Whether the Share your team card modal is open.
+    pub share_card_open: bool,
+    /// Routines snapshot for the Share your team card preview.
+    pub share_card_routines: Value,
 }
 fn field(value: &str) -> TextEdit {
     let mut edit = TextEdit::default();
@@ -417,8 +421,22 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 .center_y()
                 .pt(6.0)
                 .child(text("Team").font(rune::TextStyle::new(20.0, 600.0)).color(p.text))
-                .child(text(format!("{count} {}", if count == 1 { "teammate" } else { "teammates" })).font(type_::LABEL).color(p.muted)),
+                .child(text(format!("{count} {}", if count == 1 { "teammate" } else { "teammates" })).font(type_::LABEL).color(p.muted).grow(1.0))
+                .child(button("Add team from image", p).key("team-import-image").on_press_tx(|_s: &mut State, tx: &mut Tx| {
+                    import_team_from_image(tx);
+                }))
+                .child(button("Share your team", p).key("team-share").on_press(|s: &mut State| {
+                    s.people_panel.share_card_routines = s
+                        .data
+                        .as_ref()
+                        .and_then(|store| locust_core::routines::list(store).ok())
+                        .unwrap_or_else(|| json!({"routines": []}));
+                    s.people_panel.share_card_open = true;
+                })),
         );
+        if panel.share_card_open {
+            body = body.child(share_card_view(s, p));
+        }
         if panel.form_open {
             body = body.child(edit_form(s, p));
         }
@@ -903,6 +921,160 @@ fn memory_screen(s: &State, p: &Palette) -> El {
         out = out.child(held_card);
     }
     out
+}
+
+fn current_workspace_id(s: &State) -> Option<String> {
+    s.home
+        .folder_path
+        .as_deref()
+        .map(std::path::Path::new)
+        .map(people::workspace_id)
+}
+
+fn share_card_view(s: &State, p: &Palette) -> El {
+    let ws = current_workspace_id(s);
+    let team_arr = s.people_panel.team["teammates"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let routines_arr = s.people_panel.share_card_routines["routines"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let card = locust_core::team_card::team_card_of(team_arr);
+    let card_mates = card["teammates"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let routines = locust_core::team_card::team_card_routines(
+        team_arr,
+        routines_arr,
+        ws.as_deref(),
+        &[],
+    );
+    let count = card_mates.len();
+    let routine_count = routines.len();
+    let mut box_el = col()
+        .w_full()
+        .padding(14.0)
+        .gap(8.0)
+        .fill(p.field)
+        .radius(10.0)
+        .child(
+            row()
+                .w_full()
+                .child(text("Share your team").font(type_::TITLE).color(p.text).grow(1.0))
+                .child(button("Close", p).key("team-card-close").on_press(|s: &mut State| {
+                    s.people_panel.share_card_open = false;
+                })),
+        )
+        .child(
+            text(format!(
+                "{count} {} · team card PNG (secrets and credentials are never included)",
+                if count == 1 { "teammate" } else { "teammates" }
+            ))
+            .font(type_::LABEL)
+            .color(p.muted)
+            .wrap(),
+        );
+    for mate in card_mates {
+        let name = mate["name"].as_str().unwrap_or("Teammate");
+        let role = mate["role"].as_str().unwrap_or("");
+        let mode = mate["route"]["mode"].as_str().unwrap_or("ask");
+        box_el = box_el.child(
+            text(format!("{name} — {role} ({mode})"))
+                .font(type_::LABEL)
+                .color(p.text),
+        );
+    }
+    if routine_count > 0 {
+        box_el = box_el.child(
+            text(format!(
+                "Also carries {routine_count} {}",
+                if routine_count == 1 { "routine" } else { "routines" }
+            ))
+            .font(type_::LABEL)
+            .color(p.secondary),
+        );
+    }
+    box_el.child(
+        row()
+            .gap(8.0)
+            .child(button("Save image", p).key("team-card-save").on_press_tx(|_s: &mut State, tx: &mut Tx| {
+                export_team_to_image(tx);
+            })),
+    )
+}
+
+pub(super) fn export_team_to_image(tx: &mut Tx) {
+    let options = rune::FileDialogOptions {
+        title: "Save team card".into(),
+        file_name: Some("locust-team.png".into()),
+        ..Default::default()
+    }
+    .filter("PNG image", &["png"]);
+    tx.save_file(options, |s: &mut State, answer, _tx| {
+        let Ok(Some(path)) = answer else { return };
+        let Some(store) = s.data.clone() else { return };
+        let ws = current_workspace_id(s);
+        match locust_core::team_card::export_team_card(&store, Some(&store), ws.as_deref(), &[])
+            .and_then(|bytes| std::fs::write(&path, bytes).map_err(|e| e.to_string()))
+        {
+            Ok(()) => {
+                s.people_panel.share_card_open = false;
+                s.people_panel.error.clear();
+                s.status = format!("Saved team card to {}.", path.display());
+                s.status_tone = StatusTone::Green;
+            }
+            Err(e) => {
+                s.people_panel.error = e.clone();
+                s.status = e;
+                s.status_tone = StatusTone::Amber;
+            }
+        }
+    });
+}
+
+pub(super) fn import_team_from_image(tx: &mut Tx) {
+    let options = rune::FileDialogOptions {
+        title: "Add team from image".into(),
+        ..Default::default()
+    }
+    .filter("PNG image", &["png"]);
+    tx.open_file(options, |s: &mut State, answer, _tx| {
+        let Ok(Some(path)) = answer else { return };
+        let Some(store) = s.data.clone() else { return };
+        let ws = current_workspace_id(s);
+        match locust_core::team_card::import_team_card_file(&store, &store, ws.as_deref(), &path) {
+            Ok(res) => {
+                reload(s);
+                s.team = Latest::default();
+                s.home.first_launch_done = true;
+                s.people_panel.error.clear();
+                if s.routines.open {
+                    if let Ok(list) = crate::routines::list(&store) {
+                        s.routines.file = list;
+                    }
+                }
+                let routines_note = if res.routines.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({} routines)", res.routines.len())
+                };
+                s.status = if res.added.is_empty() {
+                    format!("Team card imported{routines_note}.")
+                } else {
+                    format!("Added {}{routines_note}.", res.added.join(", "))
+                };
+                s.status_tone = StatusTone::Green;
+            }
+            Err(e) => {
+                s.people_panel.error = e.clone();
+                s.status = e;
+                s.status_tone = StatusTone::Amber;
+            }
+        }
+    });
 }
 
 /// An interview's first turn runs in Ask, as a review starts, so it changes nothing (Electron: `startMission(

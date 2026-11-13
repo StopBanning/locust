@@ -1,5 +1,34 @@
 use super::*;
 use serde_json::{Value, json};
+pub(super) struct InputDraft {
+    pub key: TextEdit,
+    pub label: TextEdit,
+    pub kind: String,
+    pub required: bool,
+    pub options: TextEdit,
+    pub default_val: TextEdit,
+}
+
+pub(super) struct RunDialogState {
+    pub routine_id: String,
+    pub routine_name: String,
+    pub routine: Value,
+    pub inputs: Vec<locust_core::routine_inputs::RoutineInput>,
+    pub values: Vec<TextEdit>,
+    pub error: String,
+}
+
+pub(super) struct ImportPreviewState {
+    pub preview: locust_core::routine_io::RoutineImportPreview,
+    pub teammate_id: String,
+    pub error: String,
+}
+
+pub(super) struct ExportDialogState {
+    pub routine: Value,
+    pub paths: Vec<String>,
+}
+
 pub(super) struct Panel {
     pub open: bool,
     pub initialized: bool,
@@ -23,6 +52,12 @@ pub(super) struct Panel {
     /// The routine whose Discard was pressed once and now asks "Discard for good?".
     pub armed: Option<String>,
     pub cadence: Cadence,
+    pub io: locust_core::routine_io::RoutineIO,
+    pub input_rows: Vec<InputDraft>,
+    pub run_dialog: Option<RunDialogState>,
+    pub import_preview: Option<ImportPreviewState>,
+    pub export_dialog: Option<ExportDialogState>,
+    pub templates_open: bool,
 }
 /// How often the window looks: the schedule (Electron: once a minute), the watched folders (`POLL_MS`), and the
 /// ends of the steps it follows. Tests set them to zero rather than waiting.
@@ -70,6 +105,12 @@ impl Default for Panel {
             said: String::new(),
             armed: None,
             cadence: Cadence::default(),
+            io: locust_core::routine_io::RoutineIO::new(),
+            input_rows: Vec::new(),
+            run_dialog: None,
+            import_preview: None,
+            export_dialog: None,
+            templates_open: false,
         }
     }
 }
@@ -107,6 +148,18 @@ fn edit(s: &mut State, r: Value) {
         .map(str::to_owned)
         .unwrap_or_else(|| r["schedule"]["hours"].as_u64().unwrap_or(4).to_string());
     s.routines.fields = vec![field(r["name"].as_str().unwrap_or("")), field(&parameter)];
+    s.routines.input_rows = locust_core::routine_inputs::parse_inputs_array(&r["inputs"])
+        .unwrap_or_default()
+        .into_iter()
+        .map(|inp| InputDraft {
+            key: field(&inp.key),
+            label: field(&inp.label),
+            kind: inp.kind.as_str().to_owned(),
+            required: inp.required,
+            options: field(&inp.choices.as_deref().unwrap_or(&[]).join(", ")),
+            default_val: field(inp.default.as_deref().unwrap_or("")),
+        })
+        .collect();
     s.routines.entry = r;
 }
 fn result(s: &mut State, r: Result<(), String>) {
@@ -142,10 +195,43 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 .child(button("Close", p).on_press(|s: &mut State| s.routines.open = false)),
         );
     let owner = s.teammates.get(s.selected).map(|t| t.id.clone());
+    let mut top_actions = row().gap(8.0);
     if let Some(owner) = owner {
-        body = body.child(button("New routine", p).on_press(move |s: &mut State| {
-            edit(s, json!({"name":"","steps":[""],"teammateId":owner}))
-        }));
+        top_actions = top_actions.child(
+            button("New routine", p)
+                .key("routine-new")
+                .on_press(move |s: &mut State| {
+                    edit(s, json!({"name":"","steps":[""],"teammateId":owner}))
+                }),
+        );
+    }
+    top_actions = top_actions
+        .child(
+            button("Start from a template", p)
+                .key("routine-templates-open")
+                .on_press(|s: &mut State| {
+                    s.routines.templates_open = !s.routines.templates_open;
+                }),
+        )
+        .child(
+            button("Open routine", p)
+                .key("routine-import-file")
+                .on_press_tx(|_s: &mut State, tx: &mut Tx| {
+                    open_routine_file(tx);
+                }),
+        );
+    body = body.child(top_actions);
+    if panel.templates_open {
+        body = body.child(templates_view(s, p));
+    }
+    if let Some(preview) = &panel.import_preview {
+        body = body.child(import_preview_view(s, preview, p));
+    }
+    if let Some(exp) = &panel.export_dialog {
+        body = body.child(export_dialog_view(exp, p));
+    }
+    if let Some(run_dlg) = &panel.run_dialog {
+        body = body.child(run_dialog_view(run_dlg, p));
     }
     if !panel.said.is_empty() {
         body = body.child(text(panel.said.clone()).font(type_::LABEL).color(p.secondary).wrap().key("routines-said"));
@@ -204,6 +290,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 button("Add a step", p).on_press(|s: &mut State| s.routines.steps.push(field(""))),
             );
         }
+        body = body.child(inputs_editor(s, p));
         body = body.child(where_and_goal(s, p));
         body = body.child(
             text("Runs on its own")
@@ -315,6 +402,14 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                     if entry.get("untilCheck").is_none() {
                         entry["untilCheck"] = Value::Null;
                     }
+                    let inputs_val = serialize_input_rows(&s.routines.input_rows);
+                    if let Some(obj) = entry.as_object_mut() {
+                        if inputs_val.is_empty() {
+                            obj.remove("inputs");
+                        } else {
+                            obj.insert("inputs".into(), Value::Array(inputs_val));
+                        }
+                    }
                     let r = s
                         .data
                         .as_ref()
@@ -332,6 +427,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     if let Some(rs) = panel.file["routines"].as_array() {
         if rs.is_empty() {
             body = body.child(text("No routines yet").font(type_::BODY).color(p.muted));
+            if !panel.templates_open {
+                body = body.child(templates_view(s, p));
+            }
         }
         for r in rs {
             let id = r["routineId"].as_str().unwrap_or("").to_owned();
@@ -369,6 +467,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 }
             }
             let entry = r.clone();
+            let export_entry = r.clone();
             let remove = id.clone();
             let pause = id.clone();
             let run = id.clone();
@@ -377,6 +476,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 row()
                     .gap(10.0)
                     .child(button("Edit", p).on_press(move |s: &mut State| edit(s, entry.clone())))
+                    .child(button("Save as file", p).key(format!("routine-export-{id}")).on_press_tx(move |s: &mut State, tx: &mut Tx| {
+                        begin_export_routine(s, export_entry.clone(), tx);
+                    }))
                     .child(button(if paused { "Resume" } else { "Pause" }, p).on_press(
                         move |s: &mut State| {
                             let at = chrono::Utc::now()
@@ -752,6 +854,38 @@ fn background(s: &mut State, work: impl FnOnce(&Engine) -> Answer + std::marker:
 }
 
 fn start_run(s: &mut State, id: &str) {
+    if let Some(routine) = s
+        .routines
+        .file
+        .get("routines")
+        .and_then(Value::as_array)
+        .and_then(|rs| rs.iter().find(|r| r["routineId"] == id))
+        .cloned()
+    {
+        let inputs = locust_core::routine_inputs::parse_inputs_array(&routine["inputs"]).unwrap_or_default();
+        if !inputs.is_empty() {
+            let values = inputs
+                .iter()
+                .map(|inp| {
+                    let initial = if inp.kind == locust_core::routine_inputs::RoutineInputKind::Folder {
+                        ""
+                    } else {
+                        inp.default.as_deref().unwrap_or("")
+                    };
+                    field(initial)
+                })
+                .collect();
+            s.routines.run_dialog = Some(RunDialogState {
+                routine_id: id.to_owned(),
+                routine_name: routine["name"].as_str().unwrap_or("Routine").to_owned(),
+                routine,
+                inputs,
+                values,
+                error: String::new(),
+            });
+            return;
+        }
+    }
     let id = id.to_owned();
     background(s, move |e| match e.runner.run(&id, None) {
         Ok(Ok(_)) => Answer::Said(String::new()),
@@ -871,4 +1005,582 @@ pub(super) fn poll(s: &mut State) -> bool {
         refresh_recent(s);
     }
     changed
+}
+
+fn serialize_input_rows(rows: &[InputDraft]) -> Vec<Value> {
+    rows.iter()
+        .filter(|r| !r.key.text.trim().is_empty() || !r.label.text.trim().is_empty())
+        .map(|r| {
+            let mut obj = serde_json::Map::new();
+            obj.insert("key".into(), json!(r.key.text.trim()));
+            obj.insert("label".into(), json!(r.label.text.trim()));
+            obj.insert("kind".into(), json!(r.kind));
+            obj.insert("required".into(), json!(r.required));
+            if r.kind == "choice" {
+                let opts: Vec<String> = r
+                    .options
+                    .text
+                    .split(',')
+                    .map(|s| s.trim().to_owned())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                obj.insert("choices".into(), json!(opts));
+            }
+            let def = r.default_val.text.trim();
+            if !def.is_empty() {
+                obj.insert("default".into(), json!(def));
+            }
+            Value::Object(obj)
+        })
+        .collect()
+}
+
+fn inputs_editor(s: &State, p: &Palette) -> El {
+    let mut box_el = col().w_full().gap(6.0);
+    box_el = box_el.child(text("Inputs").font(type_::LABEL).color(p.secondary));
+    for (i, row_draft) in s.routines.input_rows.iter().enumerate() {
+        let next_kind = match row_draft.kind.as_str() {
+            "text" => "long-text",
+            "long-text" => "choice",
+            "choice" => "folder",
+            _ => "text",
+        };
+        let mut item = col()
+            .w_full()
+            .padding(8.0)
+            .gap(6.0)
+            .fill(p.raised)
+            .radius(6.0)
+            .child(
+                row()
+                    .gap(6.0)
+                    .child(
+                        text_input(&row_draft.key, type_::LABEL)
+                            .key(format!("routine-input-key-{i}"))
+                            .label("Key")
+                            .grow(1.0)
+                            .padding(6.0)
+                            .fill(p.field)
+                            .color(p.text)
+                            .on_edit(move |s: &mut State| &mut s.routines.input_rows[i].key),
+                    )
+                    .child(
+                        text_input(&row_draft.label, type_::LABEL)
+                            .key(format!("routine-input-label-{i}"))
+                            .label("Label")
+                            .grow(1.0)
+                            .padding(6.0)
+                            .fill(p.field)
+                            .color(p.text)
+                            .on_edit(move |s: &mut State| &mut s.routines.input_rows[i].label),
+                    )
+                    .child(
+                        button(&format!("Kind: {}", row_draft.kind), p)
+                            .key(format!("routine-input-kind-{i}"))
+                            .on_press(move |s: &mut State| {
+                                s.routines.input_rows[i].kind = next_kind.to_owned();
+                            }),
+                    )
+                    .child(
+                        button(
+                            &tick_box(row_draft.required, "Required"),
+                            p,
+                        )
+                        .key(format!("routine-input-req-{i}"))
+                        .on_press(move |s: &mut State| {
+                            s.routines.input_rows[i].required = !s.routines.input_rows[i].required;
+                        }),
+                    )
+                    .child(
+                        button("Remove", p).on_press(move |s: &mut State| {
+                            s.routines.input_rows.remove(i);
+                        }),
+                    ),
+            )
+            .child(
+                text_input(&row_draft.default_val, type_::LABEL)
+                    .key(format!("routine-input-default-{i}"))
+                    .label("Default (optional)")
+                    .w_full()
+                    .padding(6.0)
+                    .fill(p.field)
+                    .color(p.text)
+                    .on_edit(move |s: &mut State| &mut s.routines.input_rows[i].default_val),
+            );
+        if row_draft.kind == "choice" {
+            item = item.child(
+                text_input(&row_draft.options, type_::LABEL)
+                    .key(format!("routine-input-options-{i}"))
+                    .label("Choices (comma-separated)")
+                    .w_full()
+                    .padding(6.0)
+                    .fill(p.field)
+                    .color(p.text)
+                    .on_edit(move |s: &mut State| &mut s.routines.input_rows[i].options),
+            );
+        }
+        box_el = box_el.child(item);
+    }
+    if s.routines.input_rows.len() < locust_core::routine_inputs::MAX_INPUTS {
+        box_el = box_el.child(
+            button("Add input", p)
+                .key("routine-add-input")
+                .on_press(|s: &mut State| {
+                    s.routines.input_rows.push(InputDraft {
+                        key: field(""),
+                        label: field(""),
+                        kind: "text".into(),
+                        required: true,
+                        options: field(""),
+                        default_val: field(""),
+                    });
+                }),
+        );
+    }
+    box_el
+}
+
+fn run_dialog_view(dlg: &RunDialogState, p: &Palette) -> El {
+    let mut box_el = col()
+        .w_full()
+        .padding(14.0)
+        .gap(8.0)
+        .fill(p.field)
+        .radius(10.0)
+        .child(
+            row()
+                .w_full()
+                .child(
+                    text(format!("Run \"{}\"", dlg.routine_name))
+                        .font(type_::TITLE)
+                        .color(p.text)
+                        .grow(1.0),
+                )
+                .child(button("Cancel", p).key("routine-run-cancel").on_press(|s: &mut State| {
+                    s.routines.run_dialog = None;
+                })),
+        );
+    if !dlg.error.is_empty() {
+        box_el = box_el.child(text(dlg.error.clone()).font(type_::LABEL).color(p.red).wrap());
+    }
+    for (i, inp) in dlg.inputs.iter().enumerate() {
+        let label = if inp.required {
+            format!("{} (required)", inp.label)
+        } else {
+            inp.label.clone()
+        };
+        box_el = box_el.child(text(label).font(type_::LABEL).color(p.secondary));
+        if inp.kind == locust_core::routine_inputs::RoutineInputKind::Folder {
+            let current = dlg.values.get(i).map(|v| v.text.as_str()).unwrap_or("");
+            let display = if current.is_empty() { "No folder chosen" } else { current };
+            box_el = box_el.child(
+                row()
+                    .gap(8.0)
+                    .child(text(display.to_owned()).font(type_::LABEL).color(p.text).grow(1.0))
+                    .child(button("Choose folder", p).key(format!("routine-run-folder-{i}")).on_press_tx(move |_s: &mut State, tx: &mut Tx| {
+                        let options = rune::FileDialogOptions { title: "Choose folder".into(), ..Default::default() };
+                        tx.open_folder(options, move |s: &mut State, answer, _tx| {
+                            let Ok(Some(path)) = answer else { return };
+                            let path_str = path.to_string_lossy().into_owned();
+                            s.routines.io.register_folder(&path_str);
+                            if let Some(d) = &mut s.routines.run_dialog
+                                && let Some(v) = d.values.get_mut(i)
+                            {
+                                *v = field(&path_str);
+                            }
+                        });
+                    })),
+            );
+        } else if inp.kind == locust_core::routine_inputs::RoutineInputKind::Choice {
+            let current = dlg.values.get(i).map(|v| v.text.as_str()).unwrap_or("");
+            let mut choices = row().gap(6.0);
+            for (j, opt) in inp.choices.as_deref().unwrap_or(&[]).iter().enumerate() {
+                let opt_val = opt.clone();
+                choices = choices.child(
+                    button(opt, p)
+                        .key(format!("routine-run-choice-{i}-{j}"))
+                        .fill(if current == opt { p.selected } else { p.raised })
+                        .on_press(move |s: &mut State| {
+                            if let Some(d) = &mut s.routines.run_dialog
+                                && let Some(v) = d.values.get_mut(i)
+                            {
+                                *v = field(&opt_val);
+                            }
+                        }),
+                );
+            }
+            box_el = box_el.child(choices);
+        } else if let Some(val_edit) = dlg.values.get(i) {
+            box_el = box_el.child(
+                text_input(val_edit, type_::BODY)
+                    .key(format!("routine-run-input-{i}"))
+                    .label(&inp.label)
+                    .w_full()
+                    .padding(8.0)
+                    .fill(p.raised)
+                    .color(p.text)
+                    .on_edit(move |s: &mut State| {
+                        &mut s.routines.run_dialog.as_mut().unwrap().values[i]
+                    }),
+            );
+        }
+    }
+    box_el.child(
+        row().gap(8.0).child(
+            button("Run now", p)
+                .key("routine-run-submit")
+                .on_press(|s: &mut State| {
+                    let Some(dlg) = s.routines.run_dialog.as_ref() else { return };
+                    let mut given = serde_json::Map::new();
+                    for (i, inp) in dlg.inputs.iter().enumerate() {
+                        if let Some(v) = dlg.values.get(i) {
+                            given.insert(inp.key.clone(), json!(v.text));
+                        }
+                    }
+                    let routine = dlg.routine.clone();
+                    let id = dlg.routine_id.clone();
+                    let given_val = Value::Object(given);
+                    match s
+                        .routines
+                        .io
+                        .validate_run_inputs(&routine, Some(&given_val))
+                    {
+                        Ok(_) => {
+                            let chosen = s.routines.io.chosen_folders();
+                            s.routines.run_dialog = None;
+                            background(s, move |e| {
+                                let check = |p: &str| chosen.contains(p);
+                                match e.runner.run_with_inputs(&id, None, Some(&given_val), Some(&check)) {
+                                    Ok(Ok(_)) => Answer::Said(String::new()),
+                                    Ok(Err(refused)) | Err(refused) => Answer::Refused(refused),
+                                }
+                            });
+                        }
+                        Err(err) => {
+                            if let Some(d) = &mut s.routines.run_dialog {
+                                d.error = err;
+                            }
+                        }
+                    }
+                }),
+        ),
+    )
+}
+
+fn templates_view(_s: &State, p: &Palette) -> El {
+    let list = locust_core::routine_templates::list_shipped_templates();
+    let mut box_el = col()
+        .w_full()
+        .padding(12.0)
+        .gap(8.0)
+        .fill(p.field)
+        .radius(10.0)
+        .child(
+            row()
+                .w_full()
+                .child(text("Starter templates").font(type_::TITLE).color(p.text).grow(1.0))
+                .child(
+                    text(locust_core::routine_templates::templates_line(&list))
+                        .font(type_::LABEL)
+                        .color(p.muted),
+                )
+                .child(button("Close", p).on_press(|s: &mut State| {
+                    s.routines.templates_open = false;
+                })),
+        );
+    for info in list {
+        let tid = info.id.clone();
+        let meta = locust_core::routine_templates::template_meta(&info);
+        box_el = box_el.child(
+            row()
+                .w_full()
+                .padding(8.0)
+                .gap(8.0)
+                .fill(p.raised)
+                .radius(6.0)
+                .child(
+                    col()
+                        .grow(1.0)
+                        .gap(2.0)
+                        .child(text(info.name.clone()).font(type_::BODY).color(p.text))
+                        .child(text(meta).font(type_::LABEL).color(p.muted)),
+                )
+                .child(
+                    button("Use template", p)
+                        .key(format!("routine-use-template-{}", info.id))
+                        .on_press(move |s: &mut State| {
+                            let ws = s
+                                .home
+                                .folder_path
+                                .as_deref()
+                                .map(std::path::Path::new)
+                                .map(locust_core::people::workspace_id);
+                            let teammate_id = s
+                                .teammates
+                                .get(s.selected)
+                                .or_else(|| s.teammates.first())
+                                .map(|t| t.id.clone())
+                                .unwrap_or_default();
+                            match s.routines.io.preview_template(&tid, ws.as_deref(), &[]) {
+                                Ok(preview) => {
+                                    s.routines.templates_open = false;
+                                    s.routines.import_preview = Some(ImportPreviewState {
+                                        preview,
+                                        teammate_id,
+                                        error: String::new(),
+                                    });
+                                }
+                                Err(e) => s.routines.error = e,
+                            }
+                        }),
+                ),
+        );
+    }
+    box_el
+}
+
+fn import_preview_view(s: &State, imp: &ImportPreviewState, p: &Palette) -> El {
+    let mut box_el = col()
+        .w_full()
+        .padding(14.0)
+        .gap(8.0)
+        .fill(p.field)
+        .radius(10.0)
+        .child(
+            row()
+                .w_full()
+                .child(
+                    text(format!("Import \"{}\"", imp.preview.name))
+                        .font(type_::TITLE)
+                        .color(p.text)
+                        .grow(1.0),
+                )
+                .child(button("Cancel", p).on_press(|s: &mut State| {
+                    s.routines.import_preview = None;
+                })),
+        )
+        .child(
+            text(format!(
+                "{} {} · arrives in Ask mode without a schedule",
+                imp.preview.steps.len(),
+                if imp.preview.steps.len() == 1 { "step" } else { "steps" }
+            ))
+            .font(type_::LABEL)
+            .color(p.muted),
+        );
+    let missing_connectors: Vec<&str> = imp
+        .preview
+        .connectors
+        .iter()
+        .filter(|c| !c.present)
+        .map(|c| c.name.as_str())
+        .collect();
+    if !missing_connectors.is_empty() {
+        box_el = box_el.child(
+            text(format!(
+                "Needs connectors on this computer: {}",
+                missing_connectors.join(", ")
+            ))
+            .font(type_::LABEL)
+            .color(p.amber)
+            .wrap(),
+        );
+    }
+    let roles: Vec<&str> = imp
+        .preview
+        .hand_off_roles
+        .iter()
+        .filter_map(|r| r.as_deref())
+        .collect();
+    if !roles.is_empty() {
+        box_el = box_el.child(
+            text(format!("Step roles: {}", roles.join(", ")))
+                .font(type_::LABEL)
+                .color(p.secondary)
+                .wrap(),
+        );
+    }
+    if !imp.error.is_empty() {
+        box_el = box_el.child(text(imp.error.clone()).font(type_::LABEL).color(p.red).wrap());
+    }
+    let owner_name = s
+        .teammates
+        .iter()
+        .find(|t| t.id == imp.teammate_id)
+        .map(|t| t.name.as_str())
+        .unwrap_or("Selected teammate");
+    box_el.child(
+        row()
+            .gap(8.0)
+            .child(text(format!("Owner: {owner_name}")).font(type_::LABEL).color(p.secondary))
+            .child(
+                button("Import routine", p)
+                    .key("routine-import-confirm")
+                    .on_press(|s: &mut State| {
+                        let Some(store) = s.data.clone() else { return };
+                        let Some(imp) = s.routines.import_preview.as_ref() else { return };
+                        let token = imp.preview.token.clone();
+                        let teammate_id = imp.teammate_id.clone();
+                        let ws = s
+                            .home
+                            .folder_path
+                            .as_deref()
+                            .map(std::path::Path::new)
+                            .map(locust_core::people::workspace_id);
+                        match s
+                            .routines
+                            .io
+                            .import_preview(&store, &token, &teammate_id, ws.as_deref())
+                        {
+                            Ok(saved) => {
+                                s.routines.import_preview = None;
+                                s.routines.error.clear();
+                                s.routines.said = format!(
+                                    "Imported \"{}\".",
+                                    saved["name"].as_str().unwrap_or("Routine")
+                                );
+                                reload(s);
+                            }
+                            Err(e) => {
+                                if let Some(cur) = &mut s.routines.import_preview {
+                                    cur.error = e;
+                                }
+                            }
+                        }
+                    }),
+            ),
+    )
+}
+
+fn export_dialog_view(exp: &ExportDialogState, p: &Palette) -> El {
+    col()
+        .w_full()
+        .padding(14.0)
+        .gap(8.0)
+        .fill(p.field)
+        .radius(10.0)
+        .child(
+            row()
+                .w_full()
+                .child(text("This routine names folders from this computer").font(type_::TITLE).color(p.text).grow(1.0))
+                .child(button("Cancel", p).on_press(|s: &mut State| {
+                    s.routines.export_dialog = None;
+                })),
+        )
+        .child(
+            text(format!("Found: {}", exp.paths.join(", ")))
+                .font(type_::LABEL)
+                .color(p.muted)
+                .wrap(),
+        )
+        .child(
+            row()
+                .gap(8.0)
+                .child(
+                    button("Turn paths into inputs", p)
+                        .key("routine-export-as-inputs")
+                        .on_press_tx(|s: &mut State, tx: &mut Tx| {
+                            if let Some(exp) = s.routines.export_dialog.take() {
+                                export_with_choice(s, &exp.routine, Some(locust_core::routine_io::ExportPaths::Input), tx);
+                            }
+                        }),
+                )
+                .child(
+                    button("Keep paths as written", p)
+                        .key("routine-export-keep-paths")
+                        .on_press_tx(|s: &mut State, tx: &mut Tx| {
+                            if let Some(exp) = s.routines.export_dialog.take() {
+                                export_with_choice(s, &exp.routine, Some(locust_core::routine_io::ExportPaths::Keep), tx);
+                            }
+                        }),
+                ),
+        )
+}
+
+fn open_routine_file(tx: &mut Tx) {
+    let options = rune::FileDialogOptions {
+        title: "Open routine file".into(),
+        ..Default::default()
+    }
+    .filter("Routine files", &["md", "markdown", "json"]);
+    tx.open_file(options, |s: &mut State, answer, _tx| {
+        let Ok(Some(path)) = answer else { return };
+        let ws = s
+            .home
+            .folder_path
+            .as_deref()
+            .map(std::path::Path::new)
+            .map(locust_core::people::workspace_id);
+        let teammate_id = s
+            .teammates
+            .get(s.selected)
+            .or_else(|| s.teammates.first())
+            .map(|t| t.id.clone())
+            .unwrap_or_default();
+        match s.routines.io.preview_file_path(&path, ws.as_deref(), &[]) {
+            Ok(preview) => {
+                s.routines.error.clear();
+                s.routines.import_preview = Some(ImportPreviewState {
+                    preview,
+                    teammate_id,
+                    error: String::new(),
+                });
+            }
+            Err(e) => s.routines.error = e,
+        }
+    });
+}
+
+fn begin_export_routine(s: &mut State, routine: Value, tx: &mut Tx) {
+    export_with_choice(s, &routine, None, tx);
+}
+
+fn export_with_choice(
+    s: &mut State,
+    routine: &Value,
+    paths: Option<locust_core::routine_io::ExportPaths>,
+    tx: &mut Tx,
+) {
+    let team_vals: Vec<Value> = s
+        .data
+        .as_ref()
+        .and_then(|store| locust_core::people::team(store).ok())
+        .and_then(|t| t["teammates"].as_array().cloned())
+        .unwrap_or_default();
+    match s.routines.io.prepare_export(routine, paths, &team_vals, &[]) {
+        Ok(locust_core::routine_io::ExportOutcome::AbsolutePaths(flagged)) => {
+            let path_strs: Vec<String> = flagged.into_iter().map(|f| f.path).collect();
+            s.routines.export_dialog = Some(ExportDialogState {
+                routine: routine.clone(),
+                paths: path_strs,
+            });
+        }
+        Ok(locust_core::routine_io::ExportOutcome::Ready {
+            text,
+            markdown: _,
+            file_name,
+        }) => {
+            save_routine_file_dialog(text, file_name, tx);
+        }
+        Err(e) => s.routines.error = e,
+    }
+}
+
+fn save_routine_file_dialog(content: String, suggested: String, tx: &mut Tx) {
+    let options = rune::FileDialogOptions {
+        title: "Save routine as file".into(),
+        file_name: Some(suggested),
+        ..Default::default()
+    }
+    .filter("Markdown or JSON", &["md", "json"]);
+    tx.save_file(options, move |s: &mut State, answer, _tx| {
+        let Ok(Some(path)) = answer else { return };
+        match std::fs::write(&path, &content) {
+            Ok(()) => {
+                s.routines.error.clear();
+                s.routines.said = format!("Saved routine to {}.", path.display());
+            }
+            Err(e) => s.routines.error = e.to_string(),
+        }
+    });
 }

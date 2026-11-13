@@ -122,11 +122,48 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
     {
         return Err("Teammate limit is invalid".into());
     }
+    if let Some(starters) = entry.get("starters").filter(|s| !s.is_null()) {
+        let Some(arr) = starters.as_array() else {
+            return Err("Teammate starters are invalid".into());
+        };
+        if arr.is_empty()
+            || arr.len() > 4
+            || arr.iter().any(|s| {
+                s.as_str().is_none_or(|s| {
+                    let t = s.trim();
+                    t.is_empty() || t.encode_utf16().count() > 300 || s.chars().any(char::is_control)
+                })
+            })
+        {
+            return Err("Teammate starters are invalid".into());
+        }
+    }
     entry["name"] = json!(name);
     if creating {
         entry["teammateId"] = json!(id("tm")?);
         entry["createdAt"] = json!(now());
-        entry["hue"] = json!("lime");
+        if entry["hue"].as_str().is_none_or(|h| h.is_empty()) {
+            entry["hue"] = json!("lime");
+        }
+    } else {
+        let prev = rows
+            .iter()
+            .find(|r| r["teammateId"] == entry["teammateId"])
+            .ok_or("Unknown teammate")?;
+        if entry["hue"].as_str().is_none_or(|h| h.is_empty()) {
+            entry["hue"] = prev
+                .get("hue")
+                .and_then(|v| v.as_str())
+                .filter(|h| !h.is_empty())
+                .map(|h| json!(h))
+                .unwrap_or_else(|| json!("lime"));
+        }
+        if entry["createdAt"].as_str().is_none_or(|c| c.is_empty()) {
+            entry["createdAt"] = prev
+                .get("createdAt")
+                .cloned()
+                .unwrap_or_else(|| json!(now()));
+        }
     }
     let parsed = crate::native::parse_roster(
         &json!({"schemaVersion":1,"teammates":[entry.clone()]}).to_string(),
@@ -135,10 +172,10 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
         return Err("Teammate role is invalid".into());
     }
     // An invalid route must be refused on write rather than silently losing the choice.
-    let route = &entry["route"];
-    if parsed[0].runtime.as_deref() != route["runtime"].as_str()
-        || !["ask", "accept-edits", "approve-each", "plan", "auto"]
-            .contains(&route["mode"].as_str().unwrap_or(""))
+    if let Some(route) = entry.get("route").filter(|r| !r.is_null())
+        && (parsed[0].runtime.as_deref() != route["runtime"].as_str()
+            || !["ask", "accept-edits", "approve-each", "plan", "auto"]
+                .contains(&route["mode"].as_str().unwrap_or("")))
     {
         return Err("Teammate route is invalid".into());
     }
@@ -150,6 +187,11 @@ pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, Strin
             .iter_mut()
             .find(|r| r["teammateId"] == entry["teammateId"])
             .ok_or("Unknown teammate")?;
+        if entry.get("starters").is_none()
+            && let Some(prev_starters) = held.get("starters").cloned()
+        {
+            entry["starters"] = prev_starters;
+        }
         *held = entry;
     }
     store.save_json("teammates.json", &file)?;
@@ -1464,4 +1506,52 @@ mod tests {
         assert!(team(&store).unwrap()["settings"].get("planRunsOut").is_none());
     }
 
+    #[test]
+    fn template_hue_and_starters_are_preserved_and_invalid_starters_rejected() {
+        let (_t, store) = fixture();
+        let id = save_teammate_id(
+            &store,
+            json!({
+                "name": "Codec",
+                "role": "Code & Migrations",
+                "hue": "teal",
+                "instructions": "Read first.",
+                "starters": ["First starter", "Second starter"],
+                "route": {"runtime": "codex", "model": "gpt-5", "mode": "ask"}
+            }),
+        )
+        .unwrap();
+        let saved = team(&store).unwrap()["teammates"][0].clone();
+        assert_eq!(saved["hue"], "teal");
+        assert_eq!(saved["starters"], json!(["First starter", "Second starter"]));
+
+        // Editing without passing starters preserves existing starters.
+        save_teammate_id(
+            &store,
+            json!({
+                "teammateId": id,
+                "name": "Codec",
+                "role": "Code & Migrations",
+                "instructions": "Updated.",
+                "route": {"runtime": "codex", "model": "gpt-5", "mode": "ask"}
+            }),
+        )
+        .unwrap();
+        let edited = team(&store).unwrap()["teammates"][0].clone();
+        assert_eq!(edited["hue"], "teal");
+        assert_eq!(edited["starters"], json!(["First starter", "Second starter"]));
+
+        // Invalid starters are refused.
+        let err = save_teammate_id(
+            &store,
+            json!({
+                "name": "Bad",
+                "role": "Code & Migrations",
+                "starters": ["a", "b", "c", "d", "e"],
+                "route": {"runtime": "codex", "model": "gpt-5", "mode": "ask"}
+            }),
+        )
+        .unwrap_err();
+        assert_eq!(err, "Teammate starters are invalid");
+    }
 }

@@ -1,0 +1,14 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Find what is unfinished",
+  "steps": [
+    "Search this project for work that was left unfinished: TODO, FIXME, HACK and XXX notes, empty functions, placeholder text and half-written sections. List each one with its file and line, group them by how much they matter, and say which three to do first and why. Do not change any file."
+  ],
+  "inputs": [],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

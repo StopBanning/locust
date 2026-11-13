@@ -1,0 +1,21 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Weekly report from notes",
+  "steps": [
+    "Turn these notes into a weekly report under four headings: Done, In progress, Blocked and Next week. Keep each item to one line, merge duplicates, and flag anything that needs a decision.\n\n{{notes}}"
+  ],
+  "inputs": [
+    {
+      "key": "notes",
+      "label": "This week's notes",
+      "kind": "long-text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

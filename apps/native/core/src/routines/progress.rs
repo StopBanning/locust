@@ -134,6 +134,9 @@ pub fn parsed(r: &Value) -> Option<Value> {
     if !safe_id(&r["routineId"]) || !safe_id(&r["teammateId"]) || !valid_steps(&r["steps"]) || !valid_route(&r["route"]) {
         return None;
     }
+    if r.get("inputs").is_some_and(|v| !v.is_null() && !crate::routine_inputs::valid_inputs(v)) {
+        return None;
+    }
     let mut out = r.clone();
     let o = out.as_object_mut()?;
     let steps = r["steps"].as_array().map_or(0, Vec::len);

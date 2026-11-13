@@ -1,0 +1,40 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Draft a reply",
+  "steps": [
+    "Draft a reply to the message below, in a {{tone}} tone. Answer every question it asks, keep it short, and promise nothing I have not said. What I want the reply to say: {{point}}.\n\nThe message:\n\n{{message}}"
+  ],
+  "inputs": [
+    {
+      "key": "message",
+      "label": "The message you are replying to",
+      "kind": "long-text",
+      "required": true
+    },
+    {
+      "key": "tone",
+      "label": "Tone",
+      "kind": "choice",
+      "required": true,
+      "default": "friendly",
+      "choices": [
+        "friendly",
+        "firm",
+        "formal"
+      ]
+    },
+    {
+      "key": "point",
+      "label": "What should your reply say? (optional)",
+      "kind": "text",
+      "required": false,
+      "default": "nothing beyond answering it"
+    }
+  ],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

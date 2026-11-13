@@ -1,0 +1,25 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Polish overnight: fix what the tests find",
+  "steps": [
+    "Run this project's tests, or its check command if it has one, and list every test or check that does not pass: its name, what it said, and the file and line it points at. Do not change any file. If everything passes, say so: the steps after this one then have nothing to do.",
+    "Fix each failure the step before listed, one at a time, with the smallest change that removes its cause, and run that test again after each fix. Do not refactor, rename or tidy anything else. Leave a failure whose cause you cannot see as it is, and say what you saw.",
+    "Check the fixes: run the tests again and say what passes now. Then write the morning report for the person: each failure, what was changed for it and how you know it is fixed, and what still fails and why. Say exactly what you ran, and what you did not or could not test."
+  ],
+  "inputs": [],
+  "handOffs": [
+    {
+      "role": "Docs & QA"
+    },
+    {
+      "role": "Code & Migrations"
+    },
+    {
+      "role": "Docs & QA",
+      "check": true
+    }
+  ],
+  "route": {},
+  "connectors": []
+}

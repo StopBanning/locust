@@ -1,0 +1,21 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Find the gaps in a document",
+  "steps": [
+    "Read {{file}} in this project and find its gaps: claims with nothing behind them, missing steps, terms that are never defined, numbers that do not add up, and places a reader would get stuck. Quote each place briefly and say what would fix it. Do not change the file."
+  ],
+  "inputs": [
+    {
+      "key": "file",
+      "label": "Which document? Its path inside this folder",
+      "kind": "text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

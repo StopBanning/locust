@@ -202,12 +202,12 @@ apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts		waiting
 apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts		waiting		
 apps/desktop/src/main/a-room-post-asks-who-was-named.test.ts		waiting		
 apps/desktop/src/main/a-room-task-is-never-bounced-back.test.ts		waiting		
-apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	p11	does-not-apply		`main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	TEAM-FILES	carried	core/src/routine_inputs.rs, core/src/routine_io.rs, src/ui/window_drive_tests.rs	folder-picker receipt refusal, typed inputs validation, absolute-path flagging on export, and headless window run with inputs
 apps/desktop/src/main/a-routine-at-the-monthly-limit-says-so.test.ts	p11	does-not-apply		`main/a-routine-at-the-monthly-limit-says-so.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	p11	partial		`main/a-routine-awaiting-review-is-not-removed.test.ts` | Partially ported: unsafe removal refused and abandonment permits removal; exhaustive imported execution-state cases remain.
 apps/desktop/src/main/a-routine-due-while-closed-is-missed.test.ts	p11	does-not-apply		`main/a-routine-due-while-closed-is-missed.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/main/a-routine-hands-off-to-the-next-teammate.test.ts	ROUTINES	carried	core/src/routine_runner_tests.rs, core/src/hand_off.rs, core/src/routines/tests.rs	all tests carried, store cases included (ROUTINES-NOTES.md)
-apps/desktop/src/main/a-routine-is-a-markdown-file.test.ts	p11	does-not-apply		`main/a-routine-is-a-markdown-file.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/a-routine-is-a-markdown-file.test.ts	TEAM-FILES	carried	core/src/routine_file.rs, src/ui/window_drive_tests.rs	Markdown frontmatter/body round-trip, JSON fallback when needed, when: hook trigger preservation/refusal, connectors/paths detection, and headless Markdown export/re-import
 apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	ROUTINES	carried	core/src/routine_runner_tests.rs, core/src/routine_runner_recovery_tests.rs	all 7 tests carried (ROUTINES-NOTES.md)
 apps/desktop/src/main/a-routine-runs-on-the-route-its-teammate-runs-on.test.ts	p11	does-not-apply		`main/a-routine-runs-on-the-route-its-teammate-runs-on.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	p11	partial		`main/a-routine-step-too-long-is-refused-before-it-starts.test.ts` | Partially ported: UTF-16 save budget and refusal; full stored legacy-step/continuation cases remain.
@@ -243,8 +243,8 @@ apps/desktop/src/main/a-sweep-that-cannot-learn-is-not-run.test.ts		waiting
 apps/desktop/src/main/a-switch-brief-says-what-was-done.test.ts		waiting		
 apps/desktop/src/main/a-switch-knob-stays-in-its-track.test.ts		waiting		
 apps/desktop/src/main/a-task-goes-to-claudes-cloud.test.ts		waiting		
-apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	p11	does-not-apply		`main/a-team-card-carries-its-routines.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
-apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	p12	does-not-apply		`main/a-team-template-makes-ordinary-teammates.test.ts` (titles) | TEAM_TEMPLATES + freshStartersFor
+apps/desktop/src/main/a-team-card-carries-its-routines.test.ts	TEAM-FILES	carried	core/src/team_card.rs, core/src/png_text.rs, src/ui/window_drive_tests.rs	PNG tEXt round-trip, routine carriage, secrets/ids/folders/own-models stripped, Auto downgraded to accept-edits, and headless team card export/import
+apps/desktop/src/main/a-team-template-makes-ordinary-teammates.test.ts	TEAM-FILES	carried	core/src/people.rs, src/starters.rs, src/ui/window_drive_tests.rs	starter template teammates created, hue and starters preserved on create/edit, invalid starters refused, and headless starter team creation
 apps/desktop/src/main/a-team-travels-as-a-picture.test.ts		waiting		
 apps/desktop/src/main/a-teammate-browses-and-asks-before-it-acts.test.ts	p13	does-not-apply		`main/a-teammate-browses-and-asks-before-it-acts.test.ts` (gates/ask) | `browser_actions` + `ask_browser` + tool recheck after deny/close
 apps/desktop/src/main/a-teammate-can-be-tagged-from-any-conversation.test.ts		waiting		
@@ -459,7 +459,7 @@ apps/desktop/src/main/rooms-are-reachable.test.ts		waiting
 apps/desktop/src/main/route-at-start.test.ts		waiting		
 apps/desktop/src/main/route-remembers-effort.test.ts		waiting		
 apps/desktop/src/main/routine-recovery.test.ts	ROUTINES	carried	core/src/routine_runner_recovery_tests.rs, core/src/routine_recovery.rs	all tests carried on the native store; the IPC sender check has no native counterpart (ROUTINES-NOTES.md)
-apps/desktop/src/main/routine-runner.test.ts	ROUTINES	partial	core/src/routine_runner_tests.rs	all but W7 carried; the three input cases wait for the input form (ROUTINES-NOTES.md)
+apps/desktop/src/main/routine-runner.test.ts	TEAM-FILES	carried	core/src/routine_runner_tests.rs	all routine runner cases including W7 input validation, automatic defaults/refusals, and persisted filled steps carried
 apps/desktop/src/main/routine-store.test.ts	p11	partial		`main/routine-store.test.ts` | Partially ported: basic validation/create/edit/remove/read-back; run completion, full schema filtering, route/provenance validation and advanced definitions remain.
 apps/desktop/src/main/runtime-artifacts.test.ts		waiting		
 apps/desktop/src/main/runtime-commands.test.ts		waiting		
@@ -511,7 +511,7 @@ apps/desktop/src/main/text-may-not-bleed.test.ts		waiting
 apps/desktop/src/main/the-app-says-when-a-teammate-is-done.test.ts		waiting		
 apps/desktop/src/main/the-boot-screen-css.test.ts		waiting		
 apps/desktop/src/main/the-box-shows-only-its-own-queue.test.ts		waiting		
-apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts		waiting		
+apps/desktop/src/main/the-chain-templates-hand-work-on.test.ts	TEAM-FILES	carried	core/src/routine_templates.rs	all 16 shipped templates parse, chain hand-off roles, and teammate proposal/matching carried
 apps/desktop/src/main/the-changes-panel-reads-every-change.test.ts	P7	waiting	large_new_files_listed_and_new_file_limit_disclosed,reads_master_merge_base_commits_untracked_unicode_and_excludes_locust	`main/the-changes-panel-reads-every-change.test.ts` | `reads_master_merge_base_commits_untracked_unicode_and_excludes_locust` and `large_new_files_listed_and_new_file_limit_disclosed` cover accented paths, local master base, committed/untra
 apps/desktop/src/main/the-chat-box-row-stays-one-line.test.ts		waiting		
 apps/desktop/src/main/the-compare-view-keeps-its-text-whole.test.ts		waiting		
@@ -549,7 +549,7 @@ apps/desktop/src/main/the-readme-names-this-weeks-packs.test.ts		waiting
 apps/desktop/src/main/the-renderer-draws-its-own-selects.test.ts		waiting		
 apps/desktop/src/main/the-reply-budget-is-counted-right.test.ts		waiting		
 apps/desktop/src/main/the-start-says-its-phase-on-every-route.test.ts		waiting		
-apps/desktop/src/main/the-starter-routines-are-routines.test.ts	p11	waiting		`main/the-starter-routines-are-routines.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/the-starter-routines-are-routines.test.ts	TEAM-FILES	carried	core/src/routine_templates.rs, core/src/routine_io.rs	shipped starter templates list/read/validate, workspace-required import in Ask mode, and one-use preview tokens carried
 apps/desktop/src/main/the-stop-button-is-round-and-centred.test.ts		waiting		
 apps/desktop/src/main/the-team-is-a-board.test.ts		waiting		
 apps/desktop/src/main/the-terminal-lists-wsl-by-distribution.test.ts	P9	does-not-apply		main/the-terminal-lists-wsl-by-distribution.test.ts | Windows registry/WSL not applicable to macOS pass.
@@ -736,7 +736,7 @@ apps/desktop/src/renderer/src/a-morning-row-says-what-the-run-came-to.test.tsx		
 apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	P7	waiting		`renderer/src/a-new-document-reads-as-one.test.tsx` | Document prose presentation is outside this unified-diff implementation and remains missing.
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts		waiting		
-apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	p11	waiting		`renderer/src/a-new-shelf-offers-starter-routines.test.tsx` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	TEAM-FILES	carried	core/src/routine_templates.rs, src/ui/routines_panel.rs	templates_line, template_meta, and empty shelf starter template list in Automations
 apps/desktop/src/renderer/src/a-new-teammate-interviews-you.test.tsx	SETUP	done	interview::tests;window_drive_tests::creating_a_teammate_runs_the_interview	`renderer/src/a-new-teammate-interviews-you.test.tsx` | Ported `interview_prompt`, `is_interview`, `instructions_block`, `instructions_refusal`, `defang_protocol_blocks`, and headless window test
 apps/desktop/src/renderer/src/a-new-teammate-suggests-a-free-name.test.ts		waiting		
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx		waiting		
@@ -826,8 +826,8 @@ apps/desktop/src/renderer/src/a-stopped-card-counts-the-plan-and-says-what-is-un
 apps/desktop/src/renderer/src/a-streamed-batch-keeps-the-whole-answer.test.ts		waiting		
 apps/desktop/src/renderer/src/a-tables-status-is-a-chip.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-tagged-conversation-shows-the-message.test.ts		waiting		
-apps/desktop/src/renderer/src/a-team-card-says-what-it-waits-on.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-team-without-a-coder-gets-its-own-starters.test.tsx	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
+apps/desktop/src/renderer/src/a-team-card-says-what-it-waits-on.test.tsx	TEAM-FILES	carried	core/src/team_card.rs, src/ui/people_panel.rs	Share your team card summary, carried routines count, and Save image / Add team from image UI
+apps/desktop/src/renderer/src/a-team-without-a-coder-gets-its-own-starters.test.tsx	TEAM-FILES	carried	src/starters.rs	starters_for_roles and teammate_for_starter role matching carried
 apps/desktop/src/renderer/src/a-teammate-at-work-goes-round-its-faces.test.ts		waiting		
 apps/desktop/src/renderer/src/a-teammate-can-be-a-pet.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-teammate-can-hand-you-a-file.test.ts		waiting		
