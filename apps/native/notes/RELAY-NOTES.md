@@ -80,3 +80,15 @@ Each case from `scripts/special-cases.py apps/desktop/src/main/relay.ts` was por
 | 19 | `onShared` defers on `busy` + takes urgent | `StartOutcome::Busy { pool } => { self.defer(...); if message.urgent { ... } }` | `busy_teammate_defers_steers_or_interrupts_and_tells_every_held_thread_on_refusal` |
 | 20 | `onShared` tracks started replies / meetings | `StartOutcome::Started { mission_id } => { started.push(...) }` | `silent_question_brings_answer_back_unless_cut_off_or_fyi`, `meeting_waits_for_all_recipients_and_closes_once`, `return_answer_and_close_meeting_preserve_relayed_to_release_budget_and_defer_when_busy` |
 | 21 | `Meeting.origin` preserves `relayedTo` | `relayed_to: earlier_relayed` | `return_answer_and_close_meeting_preserve_relayed_to_release_budget_and_defer_when_busy` |
+
+## Review (13 Nov)
+
+- Scripted review: mechanical checks pass (review=0).
+- The ledger batch's new reads (workroom messages, the team's mission owners, the relay hop cap) run inside
+  `refresh_recent`'s job, off the window's thread. No UI file reads the disk, runs git or spawns.
+- `relay_live_state` is read every poll: two in-memory locks and a filter, notices capped at 200. Cheap.
+- Known gap: in the two-process engine (E1), the client's `relay_live_state` is the trait default and returns nothing,
+  so a separate engine process shows no live relay notices until an engine op carries them. The two-process mode
+  merges after the 18th; add the op then.
+- The break table's cases 5-8, 12-13, 18-19 were checked against `relay.ts`; each names the test that fails.
+- recount --check: 358/385 grid, 37/37 streams, 94 carried test files.
