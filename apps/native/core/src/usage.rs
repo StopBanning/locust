@@ -783,7 +783,6 @@ mod tests {
         assert_eq!(paid_by(&week.models[0]), "your plan");
     }
 
-    #[test]
     // usage-is-drawn.test.tsx: a bar a day, the busiest full height, a quiet day flat, today marked.
     #[test]
     fn a_bar_a_day_the_busiest_full_height_a_quiet_day_flat_today_marked() {
@@ -794,6 +793,7 @@ mod tests {
         assert!(spark_bars(&[day("2026-11-13", 0)], "2026-11-13")[0].height == 0.0);
     }
 
+    #[test]
     fn heat_and_compact_words() {
         assert_eq!(heat_level(0, 10), 0);
         assert_eq!(heat_level(9, 10), 4);
