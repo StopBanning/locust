@@ -52,7 +52,7 @@ pub(super) fn controls(s: &State, p: &Palette) -> El {
     }
     out
 }
-fn open(s: &mut State) {
+pub(super) fn open(s: &mut State) {
     if let Some(folder) = root(s) {
         s.changes = Panel {
             open: true,
@@ -512,13 +512,15 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                     }));
                                 hidden = 0;
                             }
-                            file = file.child(code_row(
-                                r,
-                                &r.text,
-                                offset,
-                                if r.kind == '-' { &bh } else { &ah },
-                                p,
-                            ));
+                            let (add, under) = crate::diff_notes_ui::row_extras(s, &f.path, r, p);
+                            let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, p);
+                            file = file.child(match add {
+                                Some(add) => row().w_full().center_y().child(line.grow(1.0).shrink()).child(add),
+                                None => line,
+                            });
+                            if let Some(under) = under {
+                                file = file.child(under);
+                            }
                         }
                         if hidden > 0 {
                             let start = h.rows.len() - hidden;

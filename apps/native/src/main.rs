@@ -153,6 +153,8 @@ mod changelog;
 mod changes_panel;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
+#[path = "ui/diff_notes_ui.rs"]
+mod diff_notes_ui;
 #[path = "ui/connectors_section.rs"]
 mod connectors_section;
 #[path = "ui/github_section.rs"]
@@ -762,6 +764,8 @@ fn send(s: &mut State, _: &mut Tx) {
         .map(|p| p.snapshot.tip.clone())
         .filter(|v| !v.is_empty());
     let message = terminal_panel::carry(s, s.draft.text.clone());
+    // The notes on the changes go with this message, as one block after the person's words.
+    let message = diff_notes_ui::take_into(s, message);
     s.own_turn = None;
     // Keep the real teammate ID on ledger sends and capture this conversation's header and tip on the flight.
     s.flight = Some(Flight {

@@ -136,7 +136,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Scout watch/checks, findings, notes, morning brief and weekly tune-up | `renderer/src/components/ScoutCards.tsx`, `renderer/src/components/ScoutSetting.tsx`, `main/scout.ts`, `main/scout-folder.ts` | **missing** | - | no | yes |
 | Scout /locust comments, away GitHub workflow and phone cards | `main/scout-comments.ts`, `main/scout-away.ts`, `main/phone-scout-cards.ts` | **missing** | - | no | yes |
 | Scout prepares fixes in copies for review | `main/scout-fix.ts`, `renderer/src/components/ScoutCards.tsx` | **missing** | - | no | yes |
-| Diff annotations and walk me through changes | `renderer/src/components/DiffNotes.tsx`, `renderer/src/components/SentNotes.tsx`, `renderer/src/components/ChangesPanel.tsx`, `shared/walkthrough.ts` | **missing** | - | no | yes |
+| Diff annotations and walk me through changes | `renderer/src/components/DiffNotes.tsx`, `renderer/src/components/SentNotes.tsx`, `renderer/src/components/ChangesPanel.tsx`, `shared/walkthrough.ts` | **partial** — `core/src/diff_notes.rs` (Electron's diffNotes.ts: a note per line, one block in file then line order, read back out of a sent message, each held against the next turn's changes) and `src/ui/diff_notes_ui.rs` (a + on every Changes line, the note under its line, one tile above the message box, the next message carries them, the bubble shows the person's words with each note under it, relative to the folder); a headless window test. The outcome chips under sent notes (they need each turn's diff), notes in Review changes, and Walk me through remain | yes | no | yes |
 
 ### Area 7: Terminal & Own Commands
 
@@ -283,7 +283,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 3 | Teammates, Rooms, Memory & Skills | 5 | 4 | 5 | 14 | 9 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
-| 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 5 | 5 | 13 | 8 | 0 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 6 | 4 | 13 | 9 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 3 | 2 | 5 | 10 | 5 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 5 | 3 | 13 | 10 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **55** | **55** | **43** | **153** | **110** | **15** |
+| | **TOTAL** | **55** | **56** | **42** | **153** | **111** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

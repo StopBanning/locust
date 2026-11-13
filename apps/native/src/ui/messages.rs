@@ -126,7 +126,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let ui = user_index;
                 user_index += 1;
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
-                let mut bubble = text(body.clone())
+                // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
+                let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
+                let mut bubble = text(own_words)
                     .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
                     .color(p.text)
                     .shrink()
@@ -149,6 +151,16 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                         }
                     })
                     .child(row().w_frac(0.7).justify_end().child(bubble));
+                let bubble_row = if sent_notes.is_empty() {
+                    bubble_row
+                } else {
+                    let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
+                    col()
+                        .w_full()
+                        .gap(6.0)
+                        .child(bubble_row)
+                        .child(row().w_full().justify_end().child(row().w_frac(0.7).justify_end().child(crate::diff_notes_ui::sent_notes(&sent_notes, folder.as_deref(), p))))
+                };
                 if let Some(chips) = pull_request_chip::link_chips_for_text(s, body, p) {
                     col()
                         .w_full()

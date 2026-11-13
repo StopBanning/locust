@@ -673,7 +673,7 @@ apps/desktop/src/renderer/src/a-default-route-names-its-model.test.tsx		waiting
 apps/desktop/src/renderer/src/a-design-pass-holds.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-diagram-in-a-reply-shows-as-one.test.tsx	p14	partial		`shared/diagram.ts` behavior (via `main/a-diagram-in-a-reply-is-drawn.test.ts`, `renderer/.../a-diagram-in-a-reply-shows-as-one.test.tsx`) | Partial: `is_diagram`, kind words, undrawn reason/caption, mmd→mermaid, flowchart `can_draw`, kanba
 apps/desktop/src/renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts	P7	partial	a_diff_is_not_read_out_of_a_files_content,header_like_rows_and_next_file	`renderer/src/a-diff-is-not-read-out-of-a-files-content.test.ts` | `a_diff_is_not_read_out_of_a_files_content` and `header_like_rows_and_next_file` cover new-file diff-looking content, removed SQL comments, added ++ rows and two files. Appr
-apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.tsx	DIFF-NOTES	partial	core/src/diff_notes_tests.rs, window test a_note_on_a_changed_line	Partial: the pure cases carried; the outcome chips under the bubble wait for per-turn diffs
 apps/desktop/src/renderer/src/a-disabled-create-says-why.test.ts		waiting		
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts		waiting		
 apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	P7	waiting		`renderer/src/a-document-change-reads-as-words.test.ts` | All three tests remain unported: passages, whole-word cuts, Markdown-as-read handling. Document passage mode is not claimed.
@@ -976,7 +976,7 @@ apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	P4	partial		
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts		waiting		
 apps/desktop/src/renderer/src/nested-lists.test.ts		waiting		
 apps/desktop/src/renderer/src/nobodys-conversation-can-be-a-routine.test.tsx	p11	waiting		`renderer/src/nobodys-conversation-can-be-a-routine.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
-apps/desktop/src/renderer/src/notes-on-a-diff-go-as-one-message.test.tsx		waiting		
+apps/desktop/src/renderer/src/notes-on-a-diff-go-as-one-message.test.tsx	DIFF-NOTES	partial	core/src/diff_notes_tests.rs, window test a_note_on_a_changed_line	Partial: the pure cases carried; the outcome chips under the bubble wait for per-turn diffs
 apps/desktop/src/renderer/src/noting-what-a-tune-showed-is-explicit.test.tsx		waiting		
 apps/desktop/src/renderer/src/older-claude-versions-are-folded.test.tsx		waiting		
 apps/desktop/src/renderer/src/one-clock-for-a-run.test.ts		waiting		
@@ -998,7 +998,7 @@ apps/desktop/src/renderer/src/ran-on.test.ts		waiting
 apps/desktop/src/renderer/src/reasoning-is-kept.test.ts		waiting		
 apps/desktop/src/renderer/src/resume.test.ts	P5	waiting		`resume.test.ts` | Seven `recovery::tests` cover all decision cases: newest/absent checkpoint, safe record, named doubt, unsafe/integrity refusal, completed/failed/manual/no-checkpoint cancellation suppression, and shutdown cancellation. Se
 apps/desktop/src/renderer/src/review-brief.test.ts		waiting		
-apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx		waiting		
+apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	DIFF-NOTES	partial	core/src/diff_notes_tests.rs, window test a_note_on_a_changed_line	Partial: the pure cases carried; the outcome chips under the bubble wait for per-turn diffs
 apps/desktop/src/renderer/src/review-pair.test.ts		waiting		
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts		waiting		
 apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx		waiting		

@@ -3055,3 +3055,50 @@ fn connectors_list_their_states_in_words_and_copy_a_report() {
     click(&mut rt, "connectors-copy-report");
     assert_eq!(rt.state.connectors.notice.as_deref(), Some("Report copied: names, states, timings and hosts only."));
 }
+
+/// notes-on-a-diff-go-as-one-message, in the window: a "+" on a line of the Changes panel pins a note, the notes wait
+/// as one tile above the message box, the next message carries them all, and the sent bubble shows the person's
+/// words with each note under it.
+#[test]
+fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubble() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let work = dirs.0.join("work");
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git").args(args).current_dir(&work).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "person@locust.test"]); // made-up person; public-guard: allow
+    git(&["config", "user.name", "The person"]);
+    std::fs::write(work.join("app.ts"), "const port = 3000\nserve(port)\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+    std::fs::write(work.join("app.ts"), "const port = 3001\nserve(port)\n").unwrap();
+    // A conversation on screen, to send the notes in.
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the reply", answered);
+    rt.update(|s, _| crate::changes_panel::open(s));
+    pump(&mut rt, "the folder's changes", |s| s.changes.diff.is_some());
+    settle(&mut rt);
+    let key = "app.ts:add::1";
+    click(&mut rt, &format!("diff-note-add-{key}"));
+    assert!(rt.find("diff-note-input").is_some(), "the note box opens under the line");
+    rt.paste("Read it from PORT.");
+    rt.frame(0.016);
+    click(&mut rt, "diff-note-save");
+    assert!(text_in(&rt, &format!("diff-note-{key}")).join(" ").contains("Read it from PORT."));
+    rt.update(|s, _| s.changes.open = false);
+    settle(&mut rt);
+    assert_eq!(text_in(&rt, "diff-notes-tile").join(" ").replace(" ×", ""), "1 note on the changes");
+
+    type_and_send(&mut rt, "Nearly there.");
+    let sent = rt.state.flight.as_ref().and_then(|f| f.message.clone()).unwrap_or_default();
+    assert_eq!(sent, "Nearly there.\n\nNotes on your changes (1):\n- app.ts, line 1 `const port = 3001`: Read it from PORT.");
+    assert!(rt.state.diff_notes.waiting.is_empty() && rt.find("diff-notes-tile").is_none(), "the notes went with the message");
+    pump(&mut rt, "the second reply", answered);
+    settle(&mut rt);
+    let notes = text_in(&rt, "sent-notes").join(" | ");
+    assert!(notes.contains("app.ts:1") && notes.contains("Read it from PORT."), "{notes}");
+    assert!(rt.elements().into_iter().filter_map(|e| e.text).any(|t| t == "Nearly there."), "the bubble shows the person's own words alone");
+}
