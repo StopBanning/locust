@@ -2555,3 +2555,112 @@ fn a_follow_up_to_an_undone_turn_starts_with_what_undo_put_back() {
     assert_eq!(kinds(&newest).last().map(String::as_str), Some("run.completed"), "{:?}", records(&newest));
 }
 
+
+/// Two native turns of one conversation (the second resumes the first), their ledgers, and the turn ids.
+fn two_turns_started(t: &Temp) -> (String, String) {
+    let first = send(job(t, None, "Synthetic prompt")).unwrap();
+    finished(&first.conversation_id);
+    *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), fake("resume"));
+    let second = send(job(t, Some(&first.conversation_id), "Synthetic follow-up")).unwrap();
+    finished(&second.conversation_id);
+    let tip = real_tip(&first.conversation_id).unwrap();
+    assert_ne!(tip, first.conversation_id, "the second turn is a file of its own");
+    (first.conversation_id, tip)
+}
+
+fn ledger_of(t: &Temp, id: &str) -> Vec<Value> {
+    records(&path_of(t, id))
+}
+
+fn rewind_job(t: &Temp, conversation: &str, tip: &str, before: Option<&str>, set_aside: &[&str]) -> (Send, Origin) {
+    (
+        job(t, Some(conversation), "Synthetic follow-up"),
+        Origin {
+            rewind: Some(Rewind { tip: tip.into(), before: before.map(str::to_owned), set_aside: set_aside.iter().map(|s| (*s).to_owned()).collect() }),
+            ..Default::default()
+        },
+    )
+}
+
+/// an-earlier-message-can-be-edited: sending an edit starts the conversation again from the turn BEFORE the edited one
+/// (a cold start told what was said up to there: the fake fails the turn on a resume or without the brief), the new turn
+/// says in its record that it is an edit, keeps the person's words, and the set-aside turn is left exactly as it was.
+#[test]
+fn an_edit_starts_again_from_the_turn_before_it_and_leaves_the_set_aside_turn_as_it_was() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let (first, second) = two_turns_started(&t);
+    let aside = fingerprint(&t.store().ledger_dir().unwrap());
+    *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), fake("rewind"));
+    let (send_job, origin) = rewind_job(&t, &first, &second, Some(&first), &[&second]);
+    let edit = send_from(send_job, origin).unwrap();
+    finished(&edit.conversation_id);
+    assert_ne!(edit.conversation_id, first, "the new branch is a conversation of its own, whose newest turn is this one");
+    let records = ledger_of(&t, &edit.conversation_id);
+    assert_eq!(kinds(&path_of(&t, &edit.conversation_id)).last().map(String::as_str), Some("run.completed"), "{records:?}");
+    let meta = &records[0]["metadata"];
+    assert_eq!(meta["continuesFrom"], json!({"missionId": first, "checkpointEpoch": 1, "reason": "follow-up", "edited": true}), "no runtimeThreadId: nothing was resumed");
+    assert_eq!(meta["prompt"], "Synthetic follow-up", "the record keeps the person's words; the brief goes to the runtime only");
+    // Nothing deleted: the turns the edit set aside are as they were.
+    let after = fingerprint(&t.store().ledger_dir().unwrap());
+    for kept in &aside {
+        assert!(after.contains(kept), "{:?} changed or went", kept.0);
+    }
+    // The newest turn of the old version and the edit are told apart by the ledger alone.
+    let heads = crate::ledger::try_list_recent(&t.store().ledger_dir().unwrap(), 10).unwrap();
+    let link = |s: &crate::ledger::Summary| crate::edit_earlier::TurnLink {
+        mission_id: s.mission_id.clone(),
+        created_at: s.created_at.clone(),
+        parent: s.parent.clone(),
+        follow_up: s.continues_reason.as_deref() == Some("follow-up"),
+        edited: s.edited,
+    };
+    let links: Vec<_> = heads.iter().map(link).collect();
+    assert_eq!(crate::edit_earlier::turn_versions(&edit.conversation_id, &links).and_then(|v| v.before), Some(second.clone()));
+    assert_eq!(crate::edit_earlier::turn_versions(&second, &links).and_then(|v| v.after), Some(edit.conversation_id.clone()));
+}
+
+/// Editing the FIRST message has no turn before it: a new conversation, no link, and nothing of the old one retired.
+/// An edit partway through retires what the set-aside turns sent and nobody read (0.512).
+#[test]
+fn an_edit_retires_what_set_aside_turns_sent_only_when_it_is_partway_through() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("success"));
+    let (first, second) = two_turns_started(&t);
+    let room = crate::workroom::Workroom::for_store(&t.store());
+    let from = crate::workroom::Party { teammate_id: "tm_codec".into(), name: "Codec".into() };
+    let to = crate::workroom::Party { teammate_id: "tm_pip".into(), name: "Pip".into() };
+    let stale = room.post(&from, &second, &to, "Rewrite the README for JSON.", None).unwrap();
+    *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), fake("success"));
+    // The first message edited: its prompt starts a conversation of its own, and the message waits.
+    let (mut send_job, origin) = rewind_job(&t, &first, &second, None, &[&first, &second]);
+    send_job.prompt = "Synthetic prompt".into();
+    let again = send_from(send_job, origin).unwrap();
+    finished(&again.conversation_id);
+    assert!(ledger_of(&t, &again.conversation_id)[0]["metadata"].get("continuesFrom").is_none(), "no turn before it to continue");
+    assert_eq!(room.unread("tm_pip", 10, &[]).unwrap().messages.len(), 1, "editing the first message keeps the old conversation: nothing retired");
+    // An edit partway through: the message the set-aside turn sent is never delivered.
+    *crate::invariants::lock(&hooks::STATE) = (Some(t.store()), fake("rewind"));
+    let (send_job, origin) = rewind_job(&t, &first, &second, Some(&first), &[&second]);
+    let edit = send_from(send_job, origin).unwrap();
+    finished(&edit.conversation_id);
+    assert!(room.unread("tm_pip", 10, &[]).unwrap().messages.is_empty(), "retired");
+    let delivery = room.read().deliveries.into_iter().find(|d| d.message_id == stale.message_id).unwrap();
+    assert_eq!(delivery.mission_id, second, "recorded as back with the turn that sent it");
+}
+
+/// An edit replaces the conversation's newest turn, which must not be running; one that is refuses, and nothing is made.
+#[test]
+fn an_edit_is_refused_while_the_turn_it_replaces_is_running() {
+    let t = Temp::new();
+    let _g = hooks::install(t.store(), fake("interrupt"));
+    let running = send(job(&t, None, "Synthetic prompt")).unwrap();
+    wait("the turn to run", || owns(&running.conversation_id));
+    let made = ledgers(&t).len();
+    let (send_job, origin) = rewind_job(&t, "some_other_anchor", &running.conversation_id, Some("some_turn"), &[]);
+    let refused = send_from(send_job, origin).unwrap_err();
+    assert!(refused.contains("still running"), "{refused}");
+    assert_eq!(ledgers(&t).len(), made, "nothing was started");
+    stop(&running.conversation_id).unwrap();
+    finished(&running.conversation_id);
+}

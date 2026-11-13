@@ -43,6 +43,8 @@ pub struct Metadata {
     pub sandbox: String,
     pub mode: Option<String>,
     pub continues_reason: Option<String>,
+    /// An edit of an earlier message: an earlier version followed the same turn (`continuesFrom.edited`).
+    pub edited: bool,
     pub started_by_kind: Option<String>,
     pub started_by_hop: Option<usize>,
     pub relay: Option<crate::relay::RelayOrigin>,
@@ -68,6 +70,9 @@ pub struct Summary {
     pub relay: Option<crate::relay::RelayOrigin>,
     pub cost: Option<crate::benchmark::RunCost>,
     pub peer_links: Vec<PeerLink>,
+    /// How it continues its parent (`follow-up` or `route-switch`), and whether that is an edit of an earlier message.
+    pub continues_reason: Option<String>,
+    pub edited: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -376,6 +381,7 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
             .and_then(|v| v.get("reason"))
             .and_then(Value::as_str)
             .map(str::to_owned),
+        edited: m.get("continuesFrom").and_then(|v| v.get("edited")) == Some(&Value::Bool(true)),
         started_by_kind: m
             .get("startedBy")
             .and_then(|v| v.get("kind"))
@@ -1362,6 +1368,8 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
             relay: m.relay,
             cost,
             peer_links,
+            continues_reason: m.continues_reason,
+            edited: m.edited,
         });
     }
     Ok(summaries)

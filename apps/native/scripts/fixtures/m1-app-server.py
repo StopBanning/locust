@@ -17,12 +17,15 @@ approving = scenario.startswith('approve-')
 is_resumed_turn = False
 is_forked_turn = False
 base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
-if approving or scenario == 'resume-undone':
+# `rewind`: an edited earlier message starts again COLD from the turn before it (thread/start, never thread/resume),
+# told what was said up to there.
+rewinding = scenario == 'rewind'
+if approving or scenario == 'resume-undone' or rewinding:
     base = 'success'
 SANDBOX = 'workspace-write' if (approving or scenario == 'cards-edit-check') else 'read-only'
 POLICY = 'untrusted' if approving else 'never'
 APPROVE_DECISION = 'accept' if scenario == 'approve-allow' else ('reject' if scenario == 'approve-deny' else 'decline')
-PROMPT = 'Synthetic follow-up' if resuming else 'Synthetic prompt'
+PROMPT = 'Synthetic follow-up' if (resuming or rewinding) else 'Synthetic prompt'
 def send(v):
     print(json.dumps(dict(jsonrpc='2.0', **v)), flush=True)
 def notify(method, **params):
@@ -91,6 +94,8 @@ for line in sys.stdin:
             assert text.startswith('Before this message, the person pressed Undo on your previous turn in Locust.') and 'laptop-setup.md' in text, text
         elif resuming:
             assert 'pressed Undo' not in text, text
+        if rewinding:
+            assert 'The person went back to an earlier point in this conversation and changed their message there.' in text and 'Asked: "Synthetic prompt"' in text and 'Hello world' in text, text
         assert p['model'] == 'synthetic-model'
         send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
         notify('turn/started', turn={'id':'turn_fake'})

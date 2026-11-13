@@ -457,6 +457,156 @@ pub fn undo(store: &Store, workspace: &Path, id: &str) -> io::Result<Value> {
     )?;
     Ok(receipt)
 }
+
+/// What putting back the files some turns changed would do (Electron 0.502 `reverseChanges`, 0.512 all or none): the
+/// files that can go back exactly as they were before the first of those turns, and each that cannot, with why.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PutBackPlan {
+    /// Files that would go back, sorted.
+    pub files: Vec<String>,
+    /// Files (or turns with no record) that cannot, with why. Any one of them holds back the whole set.
+    pub cannot: Vec<(String, String)>,
+    steps: Vec<PutBackStep>,
+    /// The turns whose own changes the set holds, each with the files it changed that go back.
+    turns: Vec<(String, Vec<String>)>,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PutBackStep {
+    path: String,
+    /// The hash the file has now (the newest turn's after), which the write checks again.
+    expected: Option<String>,
+    /// The hash and bytes it goes back to; None: the file did not exist, so it goes.
+    target_hash: Option<String>,
+    target: Option<Vec<u8>>,
+    /// The bytes it has now, to write back if a later file in the set cannot be written.
+    now: Option<Vec<u8>>,
+}
+
+fn blob(dir: &Path, hash_wanted: &str) -> io::Result<Vec<u8>> {
+    let content = fs::read(dir.join("blobs").join(hash_wanted))?;
+    if hash(&content) != hash_wanted {
+        return Err(io::Error::other("kept bytes are damaged"));
+    }
+    Ok(content)
+}
+
+/// Read only. The turns are the ones an edit sets aside, oldest first. A turn already undone is skipped (its files are
+/// back); a turn with no record of what it changed, or one that shared its folder with another run, holds the set
+/// back; a file that changed since the newest turn left it, or whose turns' records do not follow one another, cannot
+/// go back exactly.
+pub fn plan_put_back(store: &Store, workspace: &Path, turns: &[String]) -> io::Result<PutBackPlan> {
+    let workspace = workspace.canonicalize()?;
+    let dir = base(store, &workspace)?;
+    let mut chains: BTreeMap<String, Vec<(String, Option<String>, Option<String>)>> = BTreeMap::new();
+    let mut plan = PutBackPlan::default();
+    for id in turns {
+        if valid_id(id).is_err() {
+            plan.cannot.push((id.clone(), "it is not a reply of this folder".into()));
+            continue;
+        }
+        if dir.join("receipts").join(format!("{id}.json")).exists() {
+            continue;
+        }
+        let Some(value) = fs::read(dir.join("turns").join(format!("{id}.json"))).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()) else {
+            plan.cannot.push((format!("a reply ({id})"), "no record of what it changed was kept".into()));
+            continue;
+        };
+        let paths = changed(&value);
+        if value["shared"] == true && !paths.is_empty() {
+            plan.cannot.extend(paths.into_iter().map(|p| (p, "the reply shared this folder with another run".into())));
+            continue;
+        }
+        let before: Files = serde_json::from_value(value["before"].clone()).unwrap_or_default();
+        let after: Files = serde_json::from_value(value["after"].clone()).unwrap_or_default();
+        for p in paths {
+            chains.entry(p.clone()).or_default().push((id.clone(), before.get(&p).cloned(), after.get(&p).cloned()));
+        }
+    }
+    'files: for (path, chain) in chains {
+        if chain.windows(2).any(|w| w[0].2 != w[1].1) {
+            plan.cannot.push((path, "the replies' recorded changes do not follow one another".into()));
+            continue;
+        }
+        let checked = (|| -> io::Result<Option<PutBackStep>> {
+            let full = safe(&workspace, &path)?;
+            store.check(&full)?;
+            let now = match bytes(&full) {
+                Ok(b) => Some(b),
+                Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+                Err(e) => return Err(e),
+            };
+            let (_, _, newest) = chain.last().expect("a chain has a turn");
+            let (_, oldest, _) = &chain[0];
+            let current = now.as_ref().map(|b| hash(b));
+            if current != *newest {
+                return Err(io::Error::other(if current.is_none() { "removed since the replies" } else { "changed since the replies" }));
+            }
+            if current == *oldest {
+                return Ok(None);
+            }
+            let target = oldest.as_ref().map(|h| blob(&dir, h)).transpose()?;
+            Ok(Some(PutBackStep { path: path.clone(), expected: current, target_hash: oldest.clone(), target, now }))
+        })();
+        match checked {
+            Ok(Some(step)) => plan.steps.push(step),
+            Ok(None) => continue 'files,
+            Err(e) => plan.cannot.push((path, e.to_string())),
+        }
+    }
+    plan.files = plan.steps.iter().map(|s| s.path.clone()).collect();
+    for id in turns {
+        let own: Vec<String> = plan.steps.iter().map(|s| s.path.clone()).filter(|p| changed_by(&dir, id, p)).collect();
+        if !own.is_empty() {
+            plan.turns.push((id.clone(), own));
+        }
+    }
+    Ok(plan)
+}
+
+/// Whether the turn's record lists this path as changed.
+fn changed_by(dir: &Path, id: &str, path: &str) -> bool {
+    fs::read(dir.join("turns").join(format!("{id}.json"))).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()).is_some_and(|v| changed(&v).iter().any(|p| p == path))
+}
+
+/// 0.502 and 0.512: put back what the set-aside turns changed, all of it or none. Nothing is written when any file
+/// cannot go back (the answer says which could have: `heldBack`); a write that fails puts back the ones already written.
+/// The turns whose files went back are then marked undone, as Undo marks one. Never while a turn runs in the folder.
+/// Answers `{"putBack": [...], "leftAlone": [{path, why}], "heldBack": [...]}`.
+pub fn put_back(store: &Store, workspace: &Path, turns: &[String]) -> io::Result<Value> {
+    let canonical = workspace.canonicalize()?;
+    let workspace = canonical.as_path();
+    let _lock = UNDO.lock().map_err(|_| io::Error::other("Undo unavailable"))?;
+    if ACTIVE.get_or_init(Mutex::default).lock().map_err(|_| io::Error::other("Undo unavailable"))?.contains_key(workspace) {
+        return Err(io::Error::other("A turn is still running in this folder."));
+    }
+    let plan = plan_put_back(store, workspace, turns)?;
+    let words = |held: &[(String, String)]| held.iter().map(|(path, why)| json!({"path": path, "why": why})).collect::<Vec<_>>();
+    if !plan.cannot.is_empty() {
+        return Ok(json!({"putBack": [], "leftAlone": words(&plan.cannot), "heldBack": plan.files}));
+    }
+    let mut done: Vec<&PutBackStep> = Vec::new();
+    for step in &plan.steps {
+        if let Err(error) = restore(workspace, &step.path, step.expected.as_ref(), step.target.as_deref()) {
+            // The ones already written go back to how they were, so the folder is never half put back.
+            for undo in done.iter().rev() {
+                let _ = restore(workspace, &undo.path, undo.target_hash.as_ref(), undo.now.as_deref());
+            }
+            let others: Vec<&String> = plan.files.iter().filter(|p| **p != step.path).collect();
+            return Ok(json!({"putBack": [], "leftAlone": [{"path": step.path, "why": format!("it could not be written ({error})")}], "heldBack": others}));
+        }
+        done.push(step);
+    }
+    // Each turn's files are back: Undo has nothing to do on it, and the panel shows it undone.
+    let dir = base(store, workspace)?;
+    for (id, own) in &plan.turns {
+        let receipt = json!({"restored": own, "leftAlone": [], "putBackByEdit": true});
+        if let Err(error) = save(store, &dir.join("receipts"), &format!("{id}.json"), receipt.to_string().as_bytes()) {
+            eprintln!("The put-back receipt for {id} was not kept: {error}");
+        }
+    }
+    Ok(json!({"putBack": plan.files, "leftAlone": [], "heldBack": []}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
