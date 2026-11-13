@@ -62,7 +62,17 @@ pub(super) fn load_composer_store(s: &mut State) {
             }
         }
         s.org = org::load_org(&store);
-        s.appearance = crate::workspace_settings::load_theme(&store).to_appearance();
+        let prefs = crate::workspace_settings::load_appearance(&store);
+        s.appearance = prefs.theme.to_appearance();
+        s.settings_panel.theme = prefs.theme;
+        s.settings_panel.look = prefs.look;
+        s.settings_panel.glass_ground = prefs.glass_ground;
+        s.settings_panel.keep_running = locust_core::keep_awake::read_keep_running(
+            &store.root().join(locust_core::keep_awake::BACKGROUND_FILE),
+        );
+        s.settings_panel.stay_awake = locust_core::keep_awake::read_stay_awake(
+            &store.root().join(locust_core::keep_awake::AWAKE_FILE),
+        );
         if let Ok(settings) = crate::workspace_settings::load(&store) {
             s.layout_pref = settings.layout;
         }

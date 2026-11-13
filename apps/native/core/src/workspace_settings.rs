@@ -349,6 +349,193 @@ pub fn theme_lede(theme: ThemeChoice, resolved_dark: Option<bool>) -> String {
     theme.lede(resolved_dark)
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LookChoice {
+    #[default]
+    Standard,
+    Liquid,
+}
+
+impl LookChoice {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Standard => "standard",
+            Self::Liquid => "liquid",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "liquid" => Self::Liquid,
+            _ => Self::Standard,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Standard => "Standard",
+            Self::Liquid => "Liquid glass",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GlassGround {
+    #[default]
+    Desktop,
+    Rainbow,
+}
+
+impl GlassGround {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Desktop => "desktop",
+            Self::Rainbow => "rainbow",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "rainbow" => Self::Rainbow,
+            _ => Self::Desktop,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Desktop => "Your desktop",
+            Self::Rainbow => "Rainbow",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AppearancePrefs {
+    pub theme: ThemeChoice,
+    pub look: LookChoice,
+    pub glass_ground: GlassGround,
+}
+
+/// The theme a new Linux install starts on (`appearance.ts:35`): the computer's.
+/// Windows and Mac keep Dark (returns None).
+pub fn first_theme(platform: &str, profile_is_new: bool) -> Option<ThemeChoice> {
+    if platform == "linux" && profile_is_new {
+        Some(ThemeChoice::System)
+    } else {
+        None
+    }
+}
+
+/// The theme a choice comes to now: the computer's (`system_is_dark`), for Match computer.
+pub fn resolved_theme(theme: ThemeChoice, system_is_dark: bool) -> bool {
+    match theme {
+        ThemeChoice::System => system_is_dark,
+        ThemeChoice::Dark => true,
+        ThemeChoice::Light => false,
+    }
+}
+
+/// The window's ground before the page paints: `--lc-bg-app` of each theme.
+pub fn window_ground(is_dark: bool) -> &'static str {
+    if is_dark { "#090a0c" } else { "#f3f2ee" }
+}
+
+pub const THEME_ARGUMENT: &str = "--locust-theme=";
+pub const LOOK_ARGUMENT: &str = "--locust-look=";
+
+/// The theme a window was started in, from its command line; dark (true) when unreadable.
+pub fn theme_from_arguments<S: AsRef<str>>(argv: &[S]) -> bool {
+    let given = argv
+        .iter()
+        .find_map(|arg| arg.as_ref().strip_prefix(THEME_ARGUMENT));
+    given != Some("light")
+}
+
+/// Whether a window started drawn in Liquid glass, from its command line.
+pub fn liquid_from_arguments<S: AsRef<str>>(argv: &[S]) -> bool {
+    argv.iter()
+        .find_map(|arg| arg.as_ref().strip_prefix(LOOK_ARGUMENT))
+        == Some("liquid")
+}
+
+pub fn look_lede(look: LookChoice, platform: &str) -> &'static str {
+    let windows = platform == "win32";
+    match look {
+        LookChoice::Liquid => {
+            if windows {
+                "The window on Windows’ glass, the sidebar on a floating panel. It shows your desktop through it, so it is brightest over a colourful one."
+            } else {
+                "The window on macOS’s glass, the sidebar on a floating panel. It shows your desktop through it, so it is brightest over a colourful one."
+            }
+        }
+        LookChoice::Standard => {
+            if windows {
+                "Locust as it is drawn everywhere."
+            } else {
+                "Locust as it is drawn everywhere, with the sidebar on the Mac’s glass."
+            }
+        }
+    }
+}
+
+pub fn ground_lede(ground: GlassGround) -> &'static str {
+    match ground {
+        GlassGround::Rainbow => {
+            "Locust’s own rainbow, under the glass inside the window, so it glows the same over any desktop."
+        }
+        GlassGround::Desktop => "Whatever is behind the window: brightest over a colourful desktop.",
+    }
+}
+
+pub fn read_theme_str(raw: Result<&str, ()>) -> ThemeChoice {
+    let Ok(text) = raw else {
+        return ThemeChoice::Dark;
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(text) else {
+        return ThemeChoice::Dark;
+    };
+    ThemeChoice::from_str(val["theme"].as_str().unwrap_or("dark"))
+}
+
+pub fn load_appearance(store: &Store) -> AppearancePrefs {
+    let empty = json!({"theme":"dark","look":"standard","glassGround":"desktop"});
+    match store.seeded_json("appearance.json", empty) {
+        Ok(file) => AppearancePrefs {
+            theme: ThemeChoice::from_str(file["theme"].as_str().unwrap_or("dark")),
+            look: LookChoice::from_str(file["look"].as_str().unwrap_or("standard")),
+            glass_ground: GlassGround::from_str(file["glassGround"].as_str().unwrap_or("desktop")),
+        },
+        Err(_) => AppearancePrefs::default(),
+    }
+}
+
+/// Load appearance for startup, applying `first_theme` when this is a brand-new Linux profile.
+pub fn load_appearance_for_platform(store: &Store, platform: &str) -> AppearancePrefs {
+    let has_appearance =
+        store.root().join("appearance.json").exists() || store.electron().join("appearance.json").exists();
+    let has_teammates =
+        store.root().join("teammates.json").exists() || store.electron().join("teammates.json").exists();
+    let profile_is_new = !has_appearance && !has_teammates;
+    if let Some(first) = first_theme(platform, profile_is_new) {
+        let mut prefs = load_appearance(store);
+        prefs.theme = first;
+        let _ = save_appearance(store, prefs);
+        return prefs;
+    }
+    load_appearance(store)
+}
+
+pub fn save_appearance(store: &Store, prefs: AppearancePrefs) -> Result<(), String> {
+    store.save_json(
+        "appearance.json",
+        &json!({
+            "theme": prefs.theme.as_str(),
+            "look": prefs.look.as_str(),
+            "glassGround": prefs.glass_ground.as_str(),
+        }),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -444,5 +631,88 @@ mod tests {
             "Dark. Locust as it was first drawn."
         );
         assert!(theme_lede(ThemeChoice::System, Some(false)).contains("light now"));
+    }
+
+    #[test]
+    fn saved_theme_defaults_and_reads_persons_choice() {
+        assert_eq!(read_theme_str(Err(())), ThemeChoice::Dark);
+        assert_eq!(read_theme_str(Ok("not json")), ThemeChoice::Dark);
+        assert_eq!(read_theme_str(Ok(r#"{"theme":"sepia"}"#)), ThemeChoice::Dark);
+        assert_eq!(read_theme_str(Ok(r#"{"theme":"light"}"#)), ThemeChoice::Light);
+        assert_eq!(read_theme_str(Ok(r#"{"theme":"system"}"#)), ThemeChoice::System);
+    }
+
+    #[test]
+    fn first_theme_starts_system_only_on_new_linux_profile() {
+        assert_eq!(first_theme("linux", true), Some(ThemeChoice::System));
+        assert_eq!(first_theme("linux", false), None);
+        assert_eq!(first_theme("win32", true), None);
+        assert_eq!(first_theme("darwin", true), None);
+
+        let (_dir, store) = temp_store();
+        let prefs = load_appearance_for_platform(&store, "linux");
+        assert_eq!(prefs.theme, ThemeChoice::System);
+    }
+
+    #[test]
+    fn theme_resolution_window_ground_and_cli_args() {
+        assert!(resolved_theme(ThemeChoice::System, true));
+        assert!(!resolved_theme(ThemeChoice::System, false));
+        assert!(!resolved_theme(ThemeChoice::Light, true));
+        assert!(resolved_theme(ThemeChoice::Dark, false));
+
+        assert_eq!(window_ground(true), "#090a0c");
+        assert_eq!(window_ground(false), "#f3f2ee");
+
+        assert!(!theme_from_arguments(&["locust", "--locust-theme=light"]));
+        assert!(theme_from_arguments(&["locust", "--locust-theme=dark"]));
+        assert!(theme_from_arguments(&["locust", "--locust-theme=chartreuse"]));
+        assert!(theme_from_arguments(&["locust"]));
+        assert!(liquid_from_arguments(&["locust", "--locust-look=liquid"]));
+        assert!(!liquid_from_arguments(&["locust", "--locust-look=standard"]));
+    }
+
+    #[test]
+    fn theme_and_look_ledes_match_electron() {
+        assert_eq!(
+            theme_lede(ThemeChoice::Dark, Some(true)),
+            "Dark. Locust as it was first drawn."
+        );
+        assert_eq!(
+            theme_lede(ThemeChoice::Light, Some(false)),
+            "Light. For a bright room, or a desktop that is light."
+        );
+        assert_eq!(
+            theme_lede(ThemeChoice::System, Some(false)),
+            "Matches your computer, and changes when it does. It is light now."
+        );
+        assert_eq!(
+            theme_lede(ThemeChoice::System, Some(true)),
+            "Matches your computer, and changes when it does. It is dark now."
+        );
+        assert_eq!(
+            theme_lede(ThemeChoice::System, None),
+            "Matches your computer, and changes when it does. It is dark now."
+        );
+
+        assert!(look_lede(LookChoice::Liquid, "darwin").contains("macOS’s glass"));
+        assert!(look_lede(LookChoice::Liquid, "win32").contains("Windows’ glass"));
+        assert!(look_lede(LookChoice::Liquid, "darwin").contains("desktop"));
+        assert!(look_lede(LookChoice::Standard, "darwin").contains("everywhere"));
+        assert!(!look_lede(LookChoice::Standard, "win32").contains("Mac"));
+        assert!(ground_lede(GlassGround::Rainbow).contains("rainbow"));
+        assert!(ground_lede(GlassGround::Desktop).contains("behind the window"));
+    }
+
+    #[test]
+    fn save_appearance_keeps_all_fields_together() {
+        let (_dir, store) = temp_store();
+        let prefs = AppearancePrefs {
+            theme: ThemeChoice::Light,
+            look: LookChoice::Liquid,
+            glass_ground: GlassGround::Rainbow,
+        };
+        save_appearance(&store, prefs).unwrap();
+        assert_eq!(load_appearance(&store), prefs);
     }
 }

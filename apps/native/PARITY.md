@@ -191,7 +191,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | OS keychain/safeStorage and unlock note | `main/keychain.ts`, `renderer/src/components/KeychainNote.tsx` | **done** — P10: amber note + ask-gating without storing secrets; never reads or copies keychain items | yes | no | yes |
 | Retention and manifest-verified local profile backup/restore | `main/retention.ts`, `main/profile-backup.ts` | **done** — Hydrogen: `core/src/profile_backup.rs` (every native file classified, carried or left out; manifest written last with sizes and SHA-256; preview and restore by one reader; refused for a missing manifest, a bad hash, a newer Locust or a live run; applied at the next start, holding engine.lock, with what it replaces moved aside), `core/src/retention.rs` (cutoff from the host clock, running turns and their earlier turns kept, native conversations only, moved to .trash); Settings › Privacy & data; Electron's tests carried, two headless window tests; the Trash (list, put back, empty, owners dropped only on empty, every turn of a conversation) and the after-restore notice (Hydrogen, notes/TRASH-INSPECTOR-NOTES.md) (notes/BACKUP-NOTES.md) | yes | no | yes |
 | Connector inventory, health and add to supported agents | `renderer/src/components/ConnectorHealth.tsx`, `renderer/src/components/AddConnector.tsx`, `main/connector-reader.ts`, `main/connector-add.ts` | **missing** | - | no | yes |
-| Feedback and private report export/send controls | `renderer/src/components/FeedbackDialog.tsx`, `main/report-problem.ts` | **missing** | - | no | yes |
+| Feedback and private report export/send controls | `renderer/src/components/FeedbackDialog.tsx`, `main/report-problem.ts` | **done** — `core/src/report_problem.rs` + `src/ui/feedback_dialog.rs`: GitHub issue, support email, and uncut file builders with `scrub_secrets`, Settings > General > Report a problem, and window test (SETTINGS-NOTES.md) | yes | no | no |
 | Keyboard shortcut reference | `renderer/src/components/KeyboardSheet.tsx`, `renderer/src/keyboardShortcuts.ts` | **done** — P10: Electron words; native-bound unmarked; lacking rows marked `runs in Locust for now`; Mac Cmd/Option remap | yes | no | no |
 | GitHub account and CLI readiness | `renderer/src/components/GitHubAccount.tsx`, `main/github-account.ts` | **missing** | - | no | yes |
 
@@ -225,14 +225,14 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Expose team as ACP agent to editors, with opt-in own-turn approval answers | `packages/cli/src/acp.ts`, `main/locust-cli-sessions.ts` | **missing** | - | no | yes |
 | One-click Claude desktop MCP connection and restart/remove | `main/claude-app-connection.ts`, `renderer/src/components/LocustMcpSettings.tsx` | **missing** | - | no | yes |
 | Deep links prefill message/project | `main/locust-links.ts`, `shared/locust-link.ts` | **missing** | - | no | yes |
-| Startup/login item, keep running/tray and keep awake | `main/login-item.ts`, `main/quit-guard.ts`, `main/keep-running.ts`, `main/keep-awake.ts`, `main/index.ts` | **missing** | - | no | yes |
+| Startup/login item, keep running/tray and keep awake | `main/login-item.ts`, `main/quit-guard.ts`, `main/keep-running.ts`, `main/keep-awake.ts`, `main/index.ts` | **partial** — `core/src/login_item.rs`, `core/src/keep_awake.rs`, `core/src/quit_guard.rs`, `src/ui/quit_guard_dialog.rs`: packaged-only login item logic behind `LoginItemHost` seam, `background.json`/`awake.json` stores, `KeepAwake` behind `PowerBlocker` seam, Quit Guard modal and Startup settings, and window test; OS `SMAppService`/`IOPMAssertion`/tray menu remain behind seams (SETTINGS-NOTES.md) | yes | no | yes |
 
 ### Area 14: Pets, Bots & Look / Window Chrome
 
 | Feature | Where in TS | Built | Alone | Live | Depends on engine |
 | :--- | :--- | :--- | :--- | :--- | :---: |
 | Dark/light palette following computer | `renderer/src/components/ThemeSetting.tsx`, `main/appearance.ts` | **done** — `look` reads every `--lc-*` token from `tokens.css` at build time for both themes and maps it onto rune-kit's `Kit`; the kit gallery (`--scene kit`, `kit-light`) draws every control in both; screens still use the older twelve-colour `Palette`, held to the CSS by a test, until C3 moves them onto the kit | yes | no | no |
-| Saved appearance choice and window look settings | `renderer/src/components/ThemeSetting.tsx`, `renderer/src/components/LookSetting.tsx`, `main/appearance.ts` | **missing** | - | no | yes |
+| Saved appearance choice and window look settings | `renderer/src/components/ThemeSetting.tsx`, `renderer/src/components/LookSetting.tsx`, `main/appearance.ts` | **done** — `core/src/workspace_settings.rs` + `src/ui/settings_panel.rs`: Theme (Dark/Light/Match computer), Linux new-profile `system` default, `Look` and `Behind the glass` gated on `liquid_offered`, persisted across restarts in `appearance.json`, and window test (SETTINGS-NOTES.md) | yes | no | no |
 | macOS/Windows liquid glass and rainbow backdrop | `main/mac-glass.ts`, `main/windows-glass.ts`, `renderer/src/components/LookSetting.tsx` | **missing** | - | no | yes |
 | Pet gallery, kept pets, sprites/puppets and bulk removal | `renderer/src/components/PetPicks.tsx`, `renderer/src/components/PetSprite.tsx`, `renderer/src/components/PetPuppet.tsx`, `main/pet-library.ts` | **missing** | - | no | yes |
 | Animated bots, plush/terminal eyes and agent mascots | `renderer/src/components/Bot.tsx`, `renderer/src/components/TeammateBot.tsx`, `renderer/src/buddyRig.ts`, `renderer/src/botLook.ts` | **missing** | - | no | no |
@@ -288,12 +288,12 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 3 | 2 | 5 | 10 | 5 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
-| 11 | Settings, Usage, Privacy & Backup | 3 | 2 | 3 | 8 | 5 | 0 |
+| 11 | Settings, Usage, Privacy & Backup | 4 | 2 | 2 | 8 | 6 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
-| 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
-| 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
+| 13 | Onboarding, Home, Updates & CLI | 5 | 5 | 3 | 13 | 10 | 2 |
+| 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **52** | **53** | **48** | **153** | **105** | **15** |
+| | **TOTAL** | **54** | **54** | **45** | **153** | **108** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

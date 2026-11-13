@@ -2811,3 +2811,110 @@ fn routine_with_inputs_asks_for_them_and_runs_with_them() {
     let turn_json = turns[0].to_string();
     assert!(turn_json.contains("Summarize Rust port"), "prompt should contain entered input: {turn_json}");
 }
+
+#[test]
+fn choosing_a_theme_is_kept_after_restart() {
+    let (_dirs, store, mut rt) = window();
+    rt.update(|s, _| crate::settings_panel::open(s));
+    settle(&mut rt);
+
+    click(&mut rt, "settings-theme-light");
+    assert_eq!(rt.state.appearance, Some(false));
+    assert_eq!(
+        rt.state.settings_panel.theme,
+        crate::workspace_settings::ThemeChoice::Light
+    );
+    drop(rt);
+
+    // Simulate a restart on the same Store: startup loads appearance.json.
+    let mut s2 = State::default();
+    s2.engine = Some(Kind::Native);
+    s2.data = Some(store.clone());
+    let prefs = crate::workspace_settings::load_appearance(&store);
+    s2.appearance = prefs.theme.to_appearance();
+    s2.settings_panel.theme = prefs.theme;
+    let mut rt2 = Runtime::new(s2, view, (1100.0, 780.0), Env::new(true, 1.0));
+    rt2.frame(0.0);
+    rt2.update(|s, _| crate::settings_panel::open(s));
+    settle(&mut rt2);
+
+    assert_eq!(rt2.state.appearance, Some(false));
+    assert_eq!(
+        rt2.state.settings_panel.theme,
+        crate::workspace_settings::ThemeChoice::Light
+    );
+    assert!(rt2.find("settings-theme-light").is_some());
+}
+
+#[test]
+fn quitting_with_a_turn_running_says_so_first() {
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, tx| {
+        s.teammates[0].busy = true;
+        crate::quit_guard_dialog::request_close(s, tx);
+    });
+    settle(&mut rt);
+
+    assert!(rt.state.quit_guard.open);
+    assert!(!rt.state.quit_guard.quit_requested);
+    assert_eq!(rt.state.quit_guard.message, "Codec is still working.");
+    assert!(rt.find("quit-guard-keep").is_some());
+    assert!(rt.find("quit-guard-quit").is_some());
+    assert!(rt.find("quit-guard-cancel").is_some());
+
+    click(&mut rt, "quit-guard-cancel");
+    assert!(!rt.state.quit_guard.open);
+    assert!(!rt.state.quit_guard.quit_requested);
+
+    rt.update(|s, tx| {
+        crate::quit_guard_dialog::request_close(s, tx);
+    });
+    settle(&mut rt);
+    click(&mut rt, "quit-guard-quit");
+    assert!(!rt.state.quit_guard.open);
+    assert!(rt.state.quit_guard.confirmed);
+    assert!(rt.state.quit_guard.quit_requested);
+}
+
+#[test]
+fn report_shows_what_it_sends_and_sends_nothing_until_pressed() {
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| {
+        s.feedback_dialog.suppress_os_open = true;
+        crate::settings_panel::open(s);
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+        s.settings_panel.search.replace_text("Report a problem");
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "settings-send-feedback");
+    assert!(rt.state.feedback_dialog.open);
+    assert!(rt.state.feedback_dialog.last_sent.is_none());
+    assert!(rt.find("feedback-send").is_some());
+    assert!(rt.find("feedback-email").is_some());
+    assert!(rt.find("feedback-save").is_some());
+
+    // Attach a conversation and verify it stays unticked and unsent until Send is pressed.
+    rt.update(|s, _| {
+        s.feedback_dialog.conversation = Some("You: hi\n\nCodec: hello".into());
+    });
+    settle(&mut rt);
+    assert!(rt.find("feedback-include-conversation").is_some());
+    assert!(!rt.state.feedback_dialog.include_conversation);
+    assert!(rt.state.feedback_dialog.last_sent.is_none());
+
+    let secret = ["sk", "ant", "api03-abcdefghijklmnopqrstuvwxyz0123456789"].join("-");
+    click(&mut rt, "feedback-description");
+    rt.paste(&format!("Problem with {secret}"));
+    rt.frame(0.016);
+    assert!(rt.state.feedback_dialog.last_sent.is_none());
+
+    click(&mut rt, "feedback-send");
+    match &rt.state.feedback_dialog.last_sent {
+        Some(crate::feedback_dialog::FeedbackSent::Issue(url)) => {
+            assert!(url.starts_with(locust_core::report_problem::REPORT_DESTINATION));
+            assert!(!url.contains(&secret), "secret must be scrubbed from report");
+        }
+        other => panic!("expected Issue sent after press, got {other:?}"),
+    }
+}

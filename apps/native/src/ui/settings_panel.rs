@@ -6,8 +6,8 @@ use crate::settings_pages::{
     SETTINGS_TITLE, SettingsGroup, SettingsPageId,
 };
 use crate::workspace_settings::{
-    self, DATA_FOLDER_HEADING, MEMORY_ASK, MEMORY_KEEP, MEMORY_OFF, MEMORY_WHEN,
-    PROJECT_FOLDER_LEDE, THEME_HEADING, ThemeChoice,
+    self, AppearancePrefs, DATA_FOLDER_HEADING, GlassGround, LookChoice, MEMORY_ASK, MEMORY_KEEP,
+    MEMORY_OFF, MEMORY_WHEN, PROJECT_FOLDER_LEDE, THEME_HEADING, ThemeChoice,
 };
 
 #[derive(Default)]
@@ -17,6 +17,12 @@ pub(super) struct Panel {
     pub search: TextEdit,
     pub settings: workspace_settings::WorkspaceSettings,
     pub theme: ThemeChoice,
+    pub look: LookChoice,
+    pub glass_ground: GlassGround,
+    pub liquid_offered: bool,
+    pub keep_running: bool,
+    pub stay_awake: bool,
+    pub login_item: locust_core::login_item::LoginItemState,
     pub data_folder: String,
     pub error: String,
     /// Locust's door, as its switches stand (None when this window has no door).
@@ -96,10 +102,33 @@ fn reload(s: &mut State) {
                 .ok()
                 .and_then(|team| locust_core::carry_on::parse_plan_runs_out(&team["settings"]["planRunsOut"]));
             s.settings_panel.carry_choices = locust_core::carry_on::installed_runtimes();
-            s.settings_panel.theme = workspace_settings::load_theme(store);
-            s.appearance = s.settings_panel.theme.to_appearance();
+            let prefs = workspace_settings::load_appearance(store);
+            s.settings_panel.theme = prefs.theme;
+            s.settings_panel.look = prefs.look;
+            s.settings_panel.glass_ground = prefs.glass_ground;
+            s.appearance = prefs.theme.to_appearance();
             // Round-trip keeps State.appearance and the stored theme aligned.
             s.settings_panel.theme = ThemeChoice::from_appearance(s.appearance);
+            s.settings_panel.keep_running = locust_core::keep_awake::read_keep_running(
+                &store.root().join(locust_core::keep_awake::BACKGROUND_FILE),
+            );
+            s.settings_panel.stay_awake = locust_core::keep_awake::read_stay_awake(
+                &store.root().join(locust_core::keep_awake::AWAKE_FILE),
+            );
+            let platform = match std::env::consts::OS {
+                "macos" => "darwin",
+                "windows" => "win32",
+                other => other,
+            };
+            let item = locust_core::login_item::LoginItem::new(
+                locust_core::login_item::UnwiredLoginItemHost::default(),
+                false,
+                std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_default(),
+                platform,
+            );
+            s.settings_panel.login_item = item.read();
         }
     }
     crate::agents_section::request(s);
@@ -125,8 +154,27 @@ fn persist(s: &mut State) {
 fn set_theme(s: &mut State, theme: ThemeChoice) {
     s.settings_panel.theme = theme;
     s.appearance = theme.to_appearance();
+    save_appearance_panel(s);
+}
+
+fn set_look(s: &mut State, look: LookChoice) {
+    s.settings_panel.look = look;
+    save_appearance_panel(s);
+}
+
+fn set_glass_ground(s: &mut State, ground: GlassGround) {
+    s.settings_panel.glass_ground = ground;
+    save_appearance_panel(s);
+}
+
+fn save_appearance_panel(s: &mut State) {
+    let prefs = AppearancePrefs {
+        theme: s.settings_panel.theme,
+        look: s.settings_panel.look,
+        glass_ground: s.settings_panel.glass_ground,
+    };
     if let Some(store) = &s.data
-        && let Err(e) = workspace_settings::save_theme(store, theme)
+        && let Err(e) = workspace_settings::save_appearance(store, prefs)
     {
         s.settings_panel.error = e;
     }
@@ -439,6 +487,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                         p,
                                         theme == ThemeChoice::Dark,
                                     )
+                                    .key("settings-theme-dark")
                                     .on_press(|s: &mut State| set_theme(s, ThemeChoice::Dark)),
                                 )
                                 .child(
@@ -447,6 +496,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                         p,
                                         theme == ThemeChoice::Light,
                                     )
+                                    .key("settings-theme-light")
                                     .on_press(|s: &mut State| set_theme(s, ThemeChoice::Light)),
                                 )
                                 .child(
@@ -455,10 +505,98 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                         p,
                                         theme == ThemeChoice::System,
                                     )
+                                    .key("settings-theme-system")
                                     .on_press(|s: &mut State| set_theme(s, ThemeChoice::System)),
                                 ),
                         ),
                 );
+            }
+            if s.settings_panel.liquid_offered
+                && (query.is_empty()
+                    || settings_pages::matches("look", &query)
+                    || settings_pages::matches("glass", &query))
+            {
+                let look = s.settings_panel.look;
+                let ground = s.settings_panel.glass_ground;
+                let platform = match std::env::consts::OS {
+                    "macos" => "darwin",
+                    "windows" => "win32",
+                    other => other,
+                };
+                let mut look_col = col()
+                    .w_full()
+                    .gap(6.0)
+                    .padding(10.0)
+                    .child(text("Look".to_owned()).font(type_::TITLE).color(p.text))
+                    .child(
+                        text(workspace_settings::look_lede(look, platform).to_owned())
+                            .font(type_::LABEL)
+                            .color(p.secondary)
+                            .wrap(),
+                    )
+                    .child(
+                        row()
+                            .gap(6.0)
+                            .child(
+                                active_button(
+                                    LookChoice::Standard.label(),
+                                    p,
+                                    look == LookChoice::Standard,
+                                )
+                                .key("settings-look-standard")
+                                .on_press(|s: &mut State| set_look(s, LookChoice::Standard)),
+                            )
+                            .child(
+                                active_button(
+                                    LookChoice::Liquid.label(),
+                                    p,
+                                    look == LookChoice::Liquid,
+                                )
+                                .key("settings-look-liquid")
+                                .on_press(|s: &mut State| set_look(s, LookChoice::Liquid)),
+                            ),
+                    );
+                if look == LookChoice::Liquid {
+                    look_col = look_col
+                        .child(
+                            text("Behind the glass".to_owned())
+                                .font(type_::LABEL)
+                                .color(p.text),
+                        )
+                        .child(
+                            text(workspace_settings::ground_lede(ground).to_owned())
+                                .font(type_::LABEL)
+                                .color(p.secondary)
+                                .wrap(),
+                        )
+                        .child(
+                            row()
+                                .gap(6.0)
+                                .child(
+                                    active_button(
+                                        GlassGround::Desktop.label(),
+                                        p,
+                                        ground == GlassGround::Desktop,
+                                    )
+                                    .key("settings-ground-desktop")
+                                    .on_press(|s: &mut State| {
+                                        set_glass_ground(s, GlassGround::Desktop)
+                                    }),
+                                )
+                                .child(
+                                    active_button(
+                                        GlassGround::Rainbow.label(),
+                                        p,
+                                        ground == GlassGround::Rainbow,
+                                    )
+                                    .key("settings-ground-rainbow")
+                                    .on_press(|s: &mut State| {
+                                        set_glass_ground(s, GlassGround::Rainbow)
+                                    }),
+                                ),
+                        );
+                }
+                body = body.child(look_col);
             }
             for heading in headings {
                 if heading == "Sidebar" {
@@ -472,6 +610,10 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             for heading in headings {
                 if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
+                } else if heading == "Startup" {
+                    body = body.child(crate::quit_guard_dialog::startup_section(s, p));
+                } else if heading == "Report a problem" {
+                    body = body.child(crate::feedback_dialog::settings_section(s, p));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
