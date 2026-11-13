@@ -509,8 +509,20 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
                 );
             }
         } else {
-            for item in items {
-                group = group.child(activity_item(item, p, s, scope));
+            // A run of plain tool calls folds into one quiet row that names what it covers (foldPlainToolRuns).
+            for folded_row in locust_core::tool_fold::fold_plain_tool_runs(items) {
+                group = match folded_row {
+                    locust_core::tool_fold::Row::One(i) => group.child(activity_item(&items[i], p, s, scope)),
+                    locust_core::tool_fold::Row::Folded { items: folded, names, verb } => group.child(
+                        row()
+                            .key(format!("{scope}/folded/{}", activity_id(&items[folded[0]])))
+                            .w_full()
+                            .gap(6.0)
+                            .padding(6.0)
+                            .child(text(locust_core::tool_fold::folded_tools_lead(names.len(), verb.as_deref())).font(type_::LABEL).color(p.secondary))
+                            .child(text(locust_core::tool_fold::folded_tools_names(&names)).font(type_::LABEL.mono()).color(p.muted).wrap_anywhere()),
+                    ),
+                };
             }
         }
     }
@@ -586,5 +598,23 @@ mod tests {
         let open_text = group_text(&items, &mut s);
         assert!(open_text.contains("Read Cargo.toml"));
         assert!(open_text.contains("cargo test"));
+    }
+
+    /// fold-tool-runs.test.ts, drawn: an opened group folds three reads into one row naming them, and keeps the
+    /// command between them on its own row.
+    #[test]
+    fn an_opened_group_folds_a_run_of_reads_into_one_row_and_keeps_the_command() {
+        let items = vec![
+            sample_tool("t1", "read_file", "a.ts", false),
+            sample_tool("t2", "read_file", "b.ts", false),
+            sample_tool("t3", "read_file", "c.ts", false),
+            sample_tool("t4", "exec_command", "cargo test", false),
+        ];
+        let mut s = State::default();
+        s.activity_open.insert("conv/group/t1".into(), true);
+        let said = group_text(&items, &mut s);
+        assert!(said.contains("Read 3 files") && said.contains("a.ts, b.ts, c.ts"), "{said}");
+        assert!(said.contains("cargo test"), "the command keeps its row: {said}");
+        assert!(!said.contains("a.ts · Read"), "the reads are not drawn one by one: {said}");
     }
 }

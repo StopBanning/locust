@@ -38,7 +38,7 @@ pub struct RecordSource<'a> {
 
 // ---- tool-kinds.ts helpers (not yet in another core module) ----
 
-fn is_shell_tool(name: &str, tool_kind: Option<&str>) -> bool {
+pub(crate) fn is_shell_tool(name: &str, tool_kind: Option<&str>) -> bool {
     static SHELL_RE: OnceLock<Regex> = OnceLock::new();
     let re = SHELL_RE.get_or_init(|| {
         invariants::regex(
@@ -85,7 +85,7 @@ fn is_edit_command(command: &str) -> bool {
     false
 }
 
-fn edit_tool_name(name: &str) -> bool {
+pub(crate) fn edit_tool_name(name: &str) -> bool {
     static NOT_EDIT: OnceLock<Regex> = OnceLock::new();
     static CAMEL_SPLIT: OnceLock<Regex> = OnceLock::new();
     static NON_ALPHA: OnceLock<Regex> = OnceLock::new();
