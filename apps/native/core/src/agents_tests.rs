@@ -66,3 +66,85 @@ fn install_and_sign_in_lines_are_electrons() {
         assert_eq!(sign_in_command(id, true).as_deref(), want["signInAgain"].as_str(), "{id} sign in again");
     }
 }
+
+fn answer_from(v: &Value) -> Answer {
+    Answer {
+        exit: v["exitCode"].as_i64().map(|c| c as i32),
+        stdout: v["stdout"].as_str().unwrap_or("").into(),
+        stderr: v["stderr"].as_str().unwrap_or("").into(),
+        timed_out: v["timedOut"] == true,
+    }
+}
+
+fn ok(stdout: &str) -> Answer {
+    Answer { exit: Some(0), stdout: stdout.into(), stderr: String::new(), timed_out: false }
+}
+
+fn probe_word(p: Probe) -> &'static str {
+    match p {
+        Probe::Ready => "ready",
+        Probe::AuthRequired => "auth-required",
+        Probe::Unsupported => "unsupported",
+        Probe::Offline => "offline",
+        Probe::ProbeFailed => "probe-failed",
+        Probe::Missing => "not-installed",
+        Probe::Unknown => "unknown",
+    }
+}
+
+fn auth_word(a: Auth) -> &'static str {
+    match a {
+        Auth::Authenticated => "authenticated",
+        Auth::Unauthenticated => "unauthenticated",
+        Auth::NotApplicable => "not-applicable",
+        Auth::Unknown => "unknown",
+    }
+}
+
+#[test]
+fn discovery_decides_what_electrons_discovery_decides() {
+    // parity/discovery.json: Electron's discoverInstalledRuntimes and publicStatus over made-up check answers, with
+    // the real help texts this Mac's agents printed. The fake runner here answers exactly as the script's did.
+    let g: Value = serde_json::from_str(include_str!("../../parity/discovery.json")).expect("parity/discovery.json");
+    let results = g["results"].as_array().unwrap();
+    assert!(results.len() >= 72, "the grid is whole");
+    let mut differ = Vec::new();
+    for r in results {
+        let (id, scenario) = (r["id"].as_str().unwrap(), r["scenario"].as_str().unwrap());
+        let (well, s) = (&g["well"][id], &g["scenarios"][scenario]);
+        let help = std::fs::read_to_string(format!("{}/../parity/agents/{id}-help.txt", env!("CARGO_MANIFEST_DIR"))).unwrap_or_default();
+        let command = well["command"].as_str().unwrap().to_owned();
+        let find = |c: &str| (s["found"] != false && c == command).then(|| std::path::PathBuf::from(format!("/usr/local/bin/{c}")));
+        let run = |_: &std::path::Path, args: &[&str]| -> Option<Answer> {
+            let joined = args.join(" ");
+            let readiness = s.get("readiness").map(answer_from);
+            Some(if joined == "--version" && s.get("version").is_some() {
+                answer_from(&s["version"])
+            } else if joined == "--version" && matches!(id, "copilot" | "muse" | "kilo") && readiness.is_some() {
+                readiness.unwrap()
+            } else if joined == "--version" {
+                ok(s["versionText"].as_str().unwrap_or_else(|| well["version"].as_str().unwrap()))
+            } else if joined.ends_with("--help") {
+                s.get("help").map(answer_from).unwrap_or_else(|| ok(&help))
+            } else if well.get("models").is_some() && (joined == "--list-models" || joined == "models --verbose") {
+                readiness.unwrap_or_else(|| ok(well["models"].as_str().unwrap()))
+            } else {
+                readiness.unwrap_or_else(|| ok(well["ready"].as_str().unwrap_or("")))
+            })
+        };
+        let exists = |_: &std::path::Path| s["credentials"] != false;
+        let seams = Seams { find: &find, run: &run, exists: &exists, home: Some("/home/someone".into()), xdg_config_home: None };
+        let got = discover_one(id, &seams).expect("a known agent");
+        let want = &r["status"];
+        let same = got.installed == (want["installed"] == true)
+            && got.version.as_deref() == want["version"].as_str()
+            && auth_word(got.auth) == want["auth"]
+            && probe_word(got.status) == want["status"]
+            && got.ready == (want["ready"] == true)
+            && got.unsupported_note.as_deref() == want["unsupportedNote"].as_str();
+        if !same {
+            differ.push(format!("{id}/{scenario}: got {got:?}\n   Electron {want}"));
+        }
+    }
+    assert!(differ.is_empty(), "{} of {} differ:\n{}", differ.len(), results.len(), differ.join("\n"));
+}

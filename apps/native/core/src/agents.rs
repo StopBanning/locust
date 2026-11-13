@@ -237,6 +237,328 @@ pub fn sign_in_command(id: &str, again: bool) -> Option<String> {
     })
 }
 
+// ---- discovery (runtime-adapters discovery.ts, main's publicStatus) ------------------------------------------------
+
+/// What one check answered. `None` from a runner means the program could not be started at all.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Answer {
+    pub exit: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub timed_out: bool,
+}
+
+impl Answer {
+    fn text(&self) -> String {
+        format!("{}\n{}", self.stdout, self.stderr)
+    }
+}
+
+/// succeeded: exit 0 and not cut off.
+fn succeeded(a: &Option<Answer>) -> bool {
+    a.as_ref().is_some_and(|a| a.exit == Some(0) && !a.timed_out)
+}
+
+/// What discovery may touch, passed in so a test never runs a real agent or reads a real home folder.
+pub struct Seams<'a> {
+    /// Where a command is, if it is installed.
+    pub find: &'a dyn Fn(&str) -> Option<std::path::PathBuf>,
+    /// Run it with these arguments (bounded by the caller).
+    pub run: &'a dyn Fn(&std::path::Path, &[&str]) -> Option<Answer>,
+    /// Whether a file exists. Only ever asked about a credentials file's presence, never its contents.
+    pub exists: &'a dyn Fn(&std::path::Path) -> bool,
+    pub home: Option<std::path::PathBuf>,
+    pub xdg_config_home: Option<String>,
+}
+
+/// One agent's discovery definition (IntegrationDefinition).
+struct Definition {
+    id: &'static str,
+    name: &'static str,
+    command: &'static str,
+    version: &'static [&'static str],
+    capability: &'static [&'static str],
+    readiness: &'static [&'static str],
+    models: Option<&'static [&'static str]>,
+    list_answers_readiness: bool,
+    ready_when: fn(&str) -> bool,
+    /// Where its credentials file is, under home and under XDG_CONFIG_HOME, for an agent with no free sign-in check.
+    credentials: Option<(&'static [&'static str], &'static [&'static str])>,
+    required: &'static [&'static str],
+    unsupported: fn(&crate::runtime::version::Version) -> Option<String>,
+}
+
+fn always(_: &str) -> bool {
+    true
+}
+
+fn never_unsupported(_: &crate::runtime::version::Version) -> Option<String> {
+    None
+}
+
+fn re(pattern: &'static str) -> regex::Regex {
+    crate::invariants::regex(pattern)
+}
+
+const DEFINITIONS: &[Definition] = &[
+    Definition {
+        id: "codex", name: "Codex CLI", command: "codex", version: &["--version"], capability: &["exec", "--help"],
+        readiness: &["login", "status"], models: None, list_answers_readiness: false, ready_when: always, credentials: None,
+        required: &["non-interactive", "jsonl-events", "stdin-prompt", "workspace-selection", "read-only-sandbox"],
+        unsupported: never_unsupported,
+    },
+    Definition {
+        id: "claude", name: "Claude Code", command: "claude", version: &["--version"], capability: &["--help"],
+        readiness: &["auth", "status"], models: None, list_answers_readiness: false, ready_when: always, credentials: None,
+        required: &["non-interactive", "jsonl-events", "stdin-prompt", "restricted-mode", "verbose-streaming", "partial-messages", "plan-permission-mode", "tool-allowlist", "tool-denylist"],
+        unsupported: never_unsupported,
+    },
+    Definition {
+        id: "cursor", name: "Cursor Agent", command: "cursor-agent", version: &["--version"], capability: &["--help"],
+        readiness: &["status"], models: Some(&["--list-models"]), list_answers_readiness: false,
+        ready_when: |t| !re(r"(?i)not logged in").is_match(t), credentials: None,
+        required: &["non-interactive", "jsonl-events", "partial-messages", "plan-permission-mode", "workspace-selection"],
+        unsupported: never_unsupported,
+    },
+    Definition {
+        id: "gemini", name: "Gemini CLI", command: "gemini", version: &["--version"], capability: &["--help"],
+        readiness: &["--list-sessions"], models: None, list_answers_readiness: false,
+        ready_when: |t| !re(r"(?i)error authenticating|please set an auth method").is_match(t), credentials: None,
+        required: &["non-interactive", "jsonl-events", "stdin-prompt", "plan-permission-mode"],
+        unsupported: never_unsupported,
+    },
+    Definition {
+        id: "opencode", name: "OpenCode", command: "opencode", version: &["--version"], capability: &["run", "--help"],
+        readiness: &["models"], models: Some(&["models", "--verbose"]), list_answers_readiness: true,
+        ready_when: |t| crate::models::parse_opencode_model_list(t).is_some(), credentials: None,
+        required: &["non-interactive", "jsonl-events"],
+        unsupported: |v| {
+            (v.major >= 3).then(|| {
+                format!(
+                    "OpenCode {} is installed; this Locust supports OpenCode 1 and OpenCode 2. Use a supported OpenCode 1 or OpenCode 2 release, or update Locust for this version.",
+                    v.version
+                )
+            })
+        },
+    },
+    Definition {
+        id: "copilot", name: "Copilot CLI", command: "copilot", version: &["--version"], capability: &["--help"],
+        readiness: &["--version"], models: None, list_answers_readiness: false,
+        ready_when: |t| re(r"(?i)copilot cli").is_match(t), credentials: None,
+        required: &["non-interactive", "jsonl-events", "tool-allowlist", "tool-denylist"],
+        unsupported: never_unsupported,
+    },
+    Definition {
+        id: "muse", name: "Muse Code", command: "muse", version: &["--version"], capability: &["exec", "--help"],
+        readiness: &["--version"], models: None, list_answers_readiness: false,
+        ready_when: |t| re(r"(?i)muse code\s+\d").is_match(t),
+        credentials: Some((&[".config", "muse", "auth.json"], &["muse", "auth.json"])),
+        required: &["non-interactive", "jsonl-events"],
+        unsupported: never_unsupported,
+    },
+    Definition {
+        id: "kilo", name: "Kilo", command: "kilo", version: &["--version"], capability: &["acp", "--help"],
+        readiness: &["--version"], models: None, list_answers_readiness: false,
+        ready_when: |t| re(r"\d+\.\d+\.\d+").is_match(t), credentials: None,
+        required: &["acp-stdio"],
+        unsupported: never_unsupported,
+    },
+];
+
+/// detectSupportedFeatures: what an agent's own help text says it can do, by the exact flags Locust passes.
+fn supported_features(id: &str, help: &str) -> Vec<&'static str> {
+    let lower = help.to_lowercase();
+    let scan = |token: &str| lower.contains(&token.to_lowercase());
+    let mut features = Vec::new();
+    let mut add = |feature: &'static str, ok: bool| {
+        if ok {
+            features.push(feature);
+        }
+    };
+    match id {
+        "codex" => {
+            add("non-interactive", true);
+            add("jsonl-events", scan("--json"));
+            add("stdin-prompt", scan("stdin"));
+            add("workspace-selection", scan("--cd") || scan("-C"));
+            add("read-only-sandbox", scan("--sandbox") && scan("read-only"));
+        }
+        "claude" => {
+            add("non-interactive", scan("--print") || scan("-p"));
+            add("jsonl-events", scan("--output-format") && scan("stream-json"));
+            add("stdin-prompt", scan("stdin"));
+            add("restricted-mode", scan("--restricted"));
+            add("verbose-streaming", scan("--verbose"));
+            add("partial-messages", scan("--include-partial-messages"));
+            add("plan-permission-mode", scan("--permission-mode"));
+            add("tool-allowlist", scan("--tools"));
+            add("tool-denylist", scan("--disallowedTools"));
+        }
+        "cursor" => {
+            add("non-interactive", scan("--print"));
+            add("jsonl-events", scan("--output-format") && scan("stream-json"));
+            add("partial-messages", scan("--stream-partial-output"));
+            add("plan-permission-mode", scan("--mode") && scan("plan"));
+            add("workspace-selection", scan("--workspace"));
+        }
+        "gemini" => {
+            add("non-interactive", scan("--prompt"));
+            add("jsonl-events", scan("--output-format") && scan("stream-json"));
+            add("stdin-prompt", scan("stdin"));
+            add("plan-permission-mode", scan("--approval-mode") && scan("plan"));
+        }
+        "opencode" => {
+            add("non-interactive", scan("run"));
+            add("jsonl-events", scan("--format") && scan("json"));
+        }
+        "copilot" => {
+            add("non-interactive", scan("--prompt") || scan("-p"));
+            add("jsonl-events", scan("--output-format") && scan("json"));
+            add("tool-allowlist", scan("--allow-all-tools"));
+            add("tool-denylist", scan("--deny-tool"));
+        }
+        "muse" => {
+            add("non-interactive", scan("exec"));
+            add("jsonl-events", scan("--json"));
+            add("workspace-selection", scan("--workspace"));
+            add("read-only-sandbox", scan("--disable-write") && scan("--disable-shell"));
+        }
+        "kilo" => add("acp-stdio", re(r"(?i)\bagent[\s-]*client[\s-]*protocol\b").is_match(help)),
+        _ => add("json-health-check", scan("--json")),
+    }
+    features
+}
+
+/// saysSignedOut: for the agents whose readiness command IS a sign-in check, its failing is the statement; for the
+/// rest, only the agent's own words about signing in. OpenCode has no account to be out of.
+fn says_signed_out(id: &str, answer: &Answer) -> bool {
+    if id == "opencode" {
+        return false;
+    }
+    if matches!(id, "codex" | "claude" | "cursor" | "gemini") {
+        return true;
+    }
+    re(r"(?i)sign(?:ed)?[ -]?(?:in|out)|log(?:ged)?[ -]?(?:in|out)|login|auth|credential|api[ _-]?key|unauthori[sz]ed|subscription|not entitled|account|ineligible")
+        .is_match(&answer.text())
+}
+
+/// Agents Locust cannot start a turn on are not asked past their version (readinessFromVersion: the planned ones).
+fn readiness_from_version(id: &str) -> bool {
+    integration_of(id) == Integration::Planned
+}
+
+/// The agents discovery looks for, in Electron's order.
+pub fn known() -> impl Iterator<Item = (&'static str, &'static str)> {
+    DEFINITIONS.iter().map(|d| (d.id, d.name))
+}
+
+/// One agent, found or not, as main's publicStatus says it.
+pub fn discover_one(id: &str, seams: &Seams) -> Option<Found> {
+    let d = DEFINITIONS.iter().find(|d| d.id == id)?;
+    let not_applicable = matches!(d.id, "opencode" | "kilo");
+    let Some(path) = (seams.find)(d.command) else {
+        return Some(Found {
+            id: d.id.into(),
+            display_name: d.name.into(),
+            installed: false,
+            version: None,
+            auth: if not_applicable { Auth::NotApplicable } else { Auth::Unknown },
+            ready: false,
+            status: Probe::Missing,
+            unsupported_note: None,
+            through_cli: false,
+            checking: false,
+        });
+    };
+    let run = |args: &[&str]| (seams.run)(&path, args);
+    let version_answer = run(d.version);
+    let capability_answer = run(d.capability);
+    let same_command = d.models == Some(d.readiness);
+    let listed = d.models.filter(|_| !same_command).map(run);
+    let readiness_is_version = readiness_from_version(d.id) || d.readiness == d.version;
+    let readiness_answer = if readiness_is_version {
+        version_answer.clone()
+    } else if d.list_answers_readiness && let Some(list) = &listed {
+        if succeeded(list) && list.as_ref().is_some_and(|a| (d.ready_when)(&a.text())) { list.clone() } else { run(d.readiness) }
+    } else {
+        run(d.readiness)
+    };
+    let version = succeeded(&version_answer)
+        .then(|| crate::runtime::version::parse(&version_answer.as_ref().map(Answer::text).unwrap_or_default()))
+        .flatten();
+    let features = if succeeded(&capability_answer) {
+        supported_features(d.id, &capability_answer.as_ref().map(Answer::text).unwrap_or_default())
+    } else {
+        Vec::new()
+    };
+    let missing = d.required.iter().any(|f| !features.contains(f));
+    let refused = version.as_ref().and_then(d.unsupported);
+
+    #[derive(PartialEq)]
+    enum Readiness {
+        Ready,
+        AuthRequired,
+        Unsupported,
+        Unhealthy,
+    }
+    let readiness = if missing || refused.is_some() {
+        Readiness::Unsupported
+    } else if missing_credentials(d, seams) {
+        Readiness::AuthRequired
+    } else if succeeded(&readiness_answer) && readiness_answer.as_ref().is_some_and(|a| (d.ready_when)(&a.text())) {
+        Readiness::Ready
+    } else if readiness_answer.as_ref().is_some_and(|a| !a.timed_out && says_signed_out(d.id, a)) {
+        Readiness::AuthRequired
+    } else {
+        Readiness::Unhealthy
+    };
+    let auth = if not_applicable {
+        Auth::NotApplicable
+    } else {
+        match readiness {
+            Readiness::Ready => Auth::Authenticated,
+            Readiness::AuthRequired => Auth::Unauthenticated,
+            _ => Auth::Unknown,
+        }
+    };
+    let status = if refused.is_some() {
+        Probe::Unsupported
+    } else {
+        match readiness {
+            Readiness::Ready => Probe::Ready,
+            Readiness::AuthRequired => Probe::AuthRequired,
+            Readiness::Unhealthy => Probe::Offline,
+            Readiness::Unsupported => Probe::ProbeFailed,
+        }
+    };
+    Some(Found {
+        id: d.id.into(),
+        display_name: d.name.into(),
+        installed: true,
+        version: version.map(|v| v.version),
+        auth,
+        ready: status == Probe::Ready,
+        status,
+        unsupported_note: refused,
+        through_cli: false,
+        checking: false,
+    })
+}
+
+/// missingCredentials: the credentials file of an agent with no free sign-in check is not there. Asked only whether
+/// the file exists.
+fn missing_credentials(d: &Definition, seams: &Seams) -> bool {
+    let Some((home_path, xdg_path)) = d.credentials else { return false };
+    let path = match seams.xdg_config_home.as_deref().map(str::trim).filter(|x| !x.is_empty()) {
+        Some(xdg) => xdg_path.iter().fold(std::path::PathBuf::from(xdg), |p, part| p.join(part)),
+        None => match &seams.home {
+            Some(home) => home_path.iter().fold(home.clone(), |p, part| p.join(part)),
+            None => return false,
+        },
+    };
+    !(seams.exists)(&path)
+}
+
 #[cfg(test)]
 #[path = "agents_tests.rs"]
 mod tests;
