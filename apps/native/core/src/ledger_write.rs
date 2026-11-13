@@ -50,7 +50,11 @@ pub fn append_note_with_level(path: &std::path::Path, level: &str, code: &str, m
     let ledger = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
     let at = now();
     let run = meta["runId"].as_str().unwrap_or_default();
-    let kind_tag = if code == "host.check_fix" { "check-fix" } else { "carry-on" };
+    let kind_tag = match code {
+        "host.check_fix" => "check-fix",
+        crate::worktrees::CHECKPOINT_CODE => "checkpoint",
+        _ => "carry-on",
+    };
     let mut event = json!({"id": format!("{run}:{kind_tag}:{sequence}"), "runId": run, "missionId": meta["missionId"], "sequence": sequence,
         "occurredAt": at, "sourceAdapter": last.and_then(|e| e["sourceAdapter"].as_str()).or(meta["runtime"].as_str()).unwrap_or_default()});
     for key in ["requestedRouteId", "resolvedRouteId"] {

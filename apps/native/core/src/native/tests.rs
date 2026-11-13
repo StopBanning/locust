@@ -1626,3 +1626,72 @@ fn a_turn_whose_process_is_gone_is_not_running() {
     assert!(!orphaned("mission_87e6bbdd-b609-4690-bf13-24c3c9fc03d7"));
     assert!(!orphaned("mission_native_x_1"));
 }
+
+#[test]
+fn a_teammate_on_its_own_branch_works_in_its_copy_and_each_turn_is_committed_there_with_a_receipt() {
+    // Electron 0.439 (a-turn-on-its-own-branch-leaves-a-receipt): the turn runs in .locust/worktrees/<id> on the
+    // teammate's branch, is committed there when it ends, and its stream says so. The person's checkout is untouched.
+    let t = Temp::new();
+    let store = t.store();
+    let work = t.0.join("work");
+    let git = |args: &[&str]| {
+        let out = Command::new("git").args(args).current_dir(&work).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "person@locust.test"]); // made-up person; public-guard: allow
+    git(&["config", "user.name", "The person"]);
+    fs::write(work.join("README.md"), "the project\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "worktree": true}], "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    let _hook = hooks::install(store.clone(), fake("cards-edit-check"));
+    let mate = Teammate { runs_in: "accept-edits".into(), ..codex(&t) };
+    let started = send(Send { teammate: mate, conversation: None, prompt: "Write the notes. Then stop.".into(), model: None, effort: None }).unwrap();
+    let path = path_of(&t, &started.conversation_id);
+    let receipt = |path: &Path| {
+        records(path).iter().find_map(|r| (r["event"]["payload"]["code"] == crate::worktrees::CHECKPOINT_CODE).then(|| r["event"]["payload"].clone()))
+    };
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while receipt(&path).is_none() {
+        assert!(Instant::now() < deadline, "no receipt: {:?}", kinds(&path));
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let tree = work.join(".locust/worktrees/tm_codec");
+    assert_eq!(fs::read_to_string(tree.join("notes.txt")).unwrap(), "BROKEN\n", "the turn ran in the teammate's copy");
+    assert!(!work.join("notes.txt").exists(), "the person's checkout is untouched");
+    assert_eq!(git(&["log", "-1", "--format=%s", "locust/codec"]).trim(), "Write the notes.");
+    let trailers = git(&["log", "-1", "--format=%B", "locust/codec"]);
+    assert!(trailers.contains("Locust-Teammate: Codec") && trailers.contains("Locust-Turn: completed"), "{trailers}");
+    assert_eq!(git(&["rev-list", "--count", "main"]).trim(), "1", "main is where the person left it");
+    let note = receipt(&path).unwrap();
+    assert_eq!(note["level"], "info");
+    assert!(note["message"].as_str().unwrap().starts_with("Saved this turn on locust/codec as "), "{note}");
+    // The thread shows the receipt.
+    assert!(ledger::read_transcript(path.clone()).items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text.starts_with("Saved this turn on locust/codec"))));
+    if let Ok(reader) = std::env::var("LOCUST_TEST_TS_READER") {
+        let out = Command::new("node")
+            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/check-m1-ledger.mjs"))
+            .args([reader.as_str(), path.parent().unwrap().to_str().unwrap(), started.conversation_id.as_str()])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "Electron's reader refused the ledger: {}", String::from_utf8_lossy(&out.stderr));
+    }
+}
+
+#[test]
+fn a_teammate_on_its_own_branch_in_a_folder_that_is_no_repository_is_refused_saying_why() {
+    // Electron's worktreeRefused: never run in the person's checkout instead.
+    let t = Temp::new();
+    let store = t.store();
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec", "worktree": true}], "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    let _hook = hooks::install(store.clone(), fake("success"));
+    let refused = send(job(&t, None, "Synthetic prompt")).unwrap_err();
+    assert_eq!(refused, "Codec is set to work on its own branch, but the project folder is not a git repository.");
+    assert!(ledgers(&t).is_empty(), "nothing was started");
+}

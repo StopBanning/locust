@@ -832,7 +832,7 @@ impl Transcript {
                             level: String::new(),
                             text: scrub(&string(p, "message")),
                         });
-                    } else if code == "host.check_fix" {
+                    } else if code == "host.check_fix" || code == crate::worktrees::CHECKPOINT_CODE {
                         items.push(Item::Note {
                             level: if level == "info" { String::new() } else { level },
                             text: scrub(&string(p, "message")),

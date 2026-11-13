@@ -579,6 +579,135 @@ impl Manager {
     }
 }
 
+// ---- a turn's commit and its receipt (Electron main/turn-checkpoint.ts) ---------------------------------------------
+
+/// The receipt's diagnostic code in the turn's stream.
+pub const CHECKPOINT_CODE: &str = "host.turn_checkpoint";
+const SUBJECT_MAX: usize = 72;
+const SUMMARY_MAX: usize = 200;
+/// A routine step's own words follow this (shared/hand-off.ts STEP_MARK).
+const STEP_MARK: &str = "Your step: ";
+/// A tagged turn's context starts here (shared/tagging.ts CONTEXT_MARK).
+const CONTEXT_MARK: &str = "\n\n(You were tagged in ";
+
+/// How a turn ended, for its commit's trailer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TurnOutcome {
+    Completed,
+    Failed,
+    Stopped,
+}
+
+impl TurnOutcome {
+    fn word(self) -> &'static str {
+        match self {
+            TurnOutcome::Completed => "completed",
+            TurnOutcome::Failed => "failed",
+            TurnOutcome::Stopped => "stopped",
+        }
+    }
+}
+
+/// The person's words, not the host text around them: a routine step's own words, and a tag's context cut off.
+fn persons_words(prompt: &str) -> &str {
+    let stepped = match prompt.rfind(&format!("\n\n{STEP_MARK}")) {
+        Some(at) => &prompt[at + 2 + STEP_MARK.len()..],
+        None => prompt,
+    };
+    match stepped.find(CONTEXT_MARK) {
+        Some(at) => &stepped[..at],
+        None => stepped,
+    }
+}
+
+/// firstLine: the first sentence when it fits, else the line when it fits, else cut at a word, never mid-word.
+fn first_line(text: &str, max: usize) -> String {
+    let line = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("");
+    let sentence = crate::invariants::regex(r"^.+?[.!?](?:\s|$)").find(line).map(|m| m.as_str().trim_end().to_string());
+    if let Some(sentence) = sentence.filter(|s| s.chars().count() <= max) {
+        return sentence;
+    }
+    if line.chars().count() <= max {
+        return line.to_string();
+    }
+    let cut: String = line.chars().take(max - 1).collect();
+    let kept = match cut.rfind(' ') {
+        Some(space) if space > max / 2 => &cut[..space],
+        _ => cut.as_str(),
+    };
+    format!("{}…", kept.trim_end())
+}
+
+/// routeLabel: the agent and its model, the agent named once.
+pub fn route_label(runtime: &str, model: Option<&str>) -> String {
+    match model {
+        None => runtime.to_string(),
+        Some(m) => format!("{runtime} / {}", m.strip_prefix(&format!("{runtime}/")).unwrap_or(m)),
+    }
+}
+
+/// checkpointMessage: the subject from what the person asked, the answer's first line as the body, and trailers that
+/// name the teammate, the conversation, the route and how the turn ended. The author is the teammate.
+#[allow(clippy::too_many_arguments)]
+pub fn checkpoint_message(
+    prompt: &str,
+    answer: Option<&str>,
+    teammate_id: &str,
+    teammate_name: &str,
+    mission_id: &str,
+    runtime: &str,
+    model: Option<&str>,
+    outcome: TurnOutcome,
+) -> CheckpointMessage {
+    let asked = first_line(persons_words(prompt), SUBJECT_MAX);
+    CheckpointMessage {
+        subject: if asked.is_empty() { format!("{teammate_name}'s turn") } else { asked },
+        body: answer.filter(|a| !a.trim().is_empty()).map(|a| first_line(a, SUMMARY_MAX)),
+        trailers: vec![
+            ("Locust-Teammate".into(), teammate_name.into()),
+            ("Locust-Mission".into(), mission_id.into()),
+            ("Locust-Route".into(), route_label(runtime, model)),
+            ("Locust-Turn".into(), outcome.word().into()),
+        ],
+        author_name: teammate_name.into(),
+        author_email: format!("{teammate_id}@teammates.locust"),
+    }
+}
+
+fn file_list(files: &[String]) -> String {
+    if files.len() <= 4 { files.join(", ") } else { format!("{} and {} more", files[..3].join(", "), files.len() - 3) }
+}
+
+fn megabytes(bytes: u64) -> String {
+    format!("{} MB", (bytes as f64 / (1024.0 * 1024.0)).round() as u64)
+}
+
+/// checkpointSentence: what the receipt says. Nothing when the turn changed nothing; a failure keeps the files.
+pub fn checkpoint_sentence(result: &Result<Checkpoint, String>) -> Option<String> {
+    let left = |skipped: &[(String, u64)]| {
+        if skipped.is_empty() {
+            String::new()
+        } else {
+            format!(" Left out, too big to commit: {}.", skipped.iter().map(|(p, b)| format!("{p} ({})", megabytes(*b))).collect::<Vec<_>>().join(", "))
+        }
+    };
+    match result {
+        Ok(Checkpoint::Clean) => None,
+        Err(message) => Some(format!("This turn's changes could not be saved on the teammate's branch: {message} They are still in its folder.")),
+        Ok(Checkpoint::Skipped { skipped }) => Some(format!("Nothing from this turn was saved on the branch.{}", left(skipped))),
+        Ok(Checkpoint::Committed { sha, branch, files, skipped }) => {
+            let n = files.len();
+            Some(format!(
+                "Saved this turn on {branch} as {}: {n} {} ({}).{}",
+                &sha[..sha.len().min(12)],
+                if n == 1 { "file" } else { "files" },
+                file_list(files),
+                left(skipped)
+            ))
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "worktrees_tests.rs"]
 mod tests;

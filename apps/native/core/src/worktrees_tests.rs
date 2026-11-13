@@ -289,3 +289,50 @@ fn a_half_made_tree_is_finished_keeping_what_is_in_it_rather_than_handed_out() {
     assert_eq!(std::fs::read_to_string(path.join("KEEP.md")).unwrap(), "made by the teammate\n", "what was in it is kept");
     assert!(!admin.join("locked").exists(), "and unlocked");
 }
+
+fn subject(prompt: &str, runtime: &str, model: &str, outcome: TurnOutcome) -> CheckpointMessage {
+    checkpoint_message(prompt, None, "tm_wren", "Wren", "m_1", runtime, Some(model), outcome)
+}
+
+#[test]
+fn takes_the_persons_words_from_a_routine_step_or_a_tag_not_the_host_text_around_them() {
+    let s = |p: &str| subject(p, "codex", "gpt-6-luna", TurnOutcome::Stopped).subject;
+    assert_eq!(s("Wren did the step before this one and answered:\n\nstuff\n\nYour step: Write the plan."), "Write the plan.");
+    assert_eq!(s("Check the rate.\n\n(You were tagged in Atlas's conversation.)"), "Check the rate.");
+    assert!(s(&"x".repeat(200)).chars().count() <= 72);
+    assert_eq!(s("   "), "Wren's turn");
+    assert!(subject("Go", "codex", "gpt-6-luna", TurnOutcome::Stopped).trailers.contains(&("Locust-Route".into(), "codex / gpt-6-luna".into())));
+}
+
+#[test]
+fn makes_a_subject_of_the_first_sentence_or_cuts_at_a_word_never_mid_word() {
+    let base = |p: &str| subject(p, "opencode", "opencode/nemotron-3-ultra-free", TurnOutcome::Completed);
+    assert_eq!(
+        base("In cart.py, change `return 0` to `return sum(items)`. Change nothing else and do not run anything.").subject,
+        "In cart.py, change `return 0` to `return sum(items)`."
+    );
+    let long = base("Rename every helper in the billing module so that each name says what it returns and not how").subject;
+    assert!(long.chars().count() <= 72 && !long.ends_with(" …"), "{long}");
+    assert!(crate::invariants::regex(r" [a-z]+…$").is_match(&long), "{long}");
+    let m = base("Go");
+    assert!(m.trailers.contains(&("Locust-Route".into(), "opencode / nemotron-3-ultra-free".into())));
+    assert!(m.trailers.contains(&("Locust-Turn".into(), "completed".into())));
+    assert_eq!(m.author_email, "tm_wren@teammates.locust"); // made-up teammate author; public-guard: allow
+}
+
+#[test]
+fn names_what_was_left_out_for_being_too_big_and_says_nothing_for_a_clean_turn() {
+    assert_eq!(
+        checkpoint_sentence(&Ok(Checkpoint::Skipped { skipped: vec![("data.bin".into(), 80 * 1024 * 1024)] })).as_deref(),
+        Some("Nothing from this turn was saved on the branch. Left out, too big to commit: data.bin (80 MB).")
+    );
+    let sha = "a".repeat(40);
+    let files: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|s| s.to_string()).collect();
+    assert_eq!(
+        checkpoint_sentence(&Ok(Checkpoint::Committed { sha: sha.clone(), branch: "locust/wren".into(), files, skipped: vec![] })).as_deref(),
+        Some(format!("Saved this turn on locust/wren as {}: 5 files (a, b, c and 2 more).", &sha[..12]).as_str())
+    );
+    assert_eq!(checkpoint_sentence(&Ok(Checkpoint::Clean)), None);
+    let failed = checkpoint_sentence(&Err("git commit: index.lock exists.".into())).unwrap();
+    assert!(failed.contains("index.lock exists. They are still in its folder."), "{failed}");
+}

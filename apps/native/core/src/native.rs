@@ -491,6 +491,55 @@ pub fn set_open_folder(store: &Store, path: &Path) -> Result<(), String> {
     store.save_json("workspace.json", &json!({"schemaVersion": 1, "path": path.to_string_lossy()}))
 }
 
+/// Where a turn of this teammate runs, and the project it belongs to when that is the teammate's own copy: a teammate
+/// set to `worktree` (Antigravity aside, as in Electron) works in `.locust/worktrees/<id>` on its own branch. When the
+/// copy cannot be made, the turn is refused, saying why.
+fn own_branch_folder(store: &Store, teammate: &Teammate, runtime: &str, folder: PathBuf) -> Result<(PathBuf, Option<PathBuf>), String> {
+    let wants = crate::people::team(store)
+        .ok()
+        .and_then(|team| team["teammates"].as_array().and_then(|all| all.iter().find(|t| t["teammateId"] == teammate.id.as_str()).map(|t| t["worktree"] == true)))
+        .unwrap_or(false);
+    if !wants || runtime == "antigravity" {
+        return Ok((folder, None));
+    }
+    match crate::worktrees::Manager::new(&folder).ensure(&teammate.id, &teammate.name, None) {
+        Ok(tree) => Ok((tree, Some(folder))),
+        Err(why) => {
+            let mut chars = why.chars();
+            let lowered = chars.next().map(|c| c.to_lowercase().collect::<String>() + chars.as_str()).unwrap_or_default();
+            Err(format!("{} is set to work on its own branch, but {lowered}", teammate.name))
+        }
+    }
+}
+
+/// Commit a turn in a teammate's own copy on its branch, and record the receipt in the turn's stream: what was saved,
+/// what was left out for being too big, or why nothing could be saved (the files then stay in the copy).
+fn checkpoint_turn(store: &Store, mission: &str, root: &Path, teammate: &Teammate, prompt: &str, runtime: &str, model: Option<&str>) {
+    use crate::worktrees::{CHECKPOINT_CODE, Manager, TurnOutcome, checkpoint_message, checkpoint_sentence};
+    let Ok(path) = store.write_path(mission) else { return };
+    let transcript = ledger::read_transcript(path.clone());
+    let stopped = transcript.items.iter().any(|i| matches!(i, ledger::Item::Note { text, .. } if text == "Stopped"));
+    let outcome = if stopped {
+        TurnOutcome::Stopped
+    } else if transcript.failed || transcript.running {
+        TurnOutcome::Failed
+    } else {
+        TurnOutcome::Completed
+    };
+    let answer = transcript.items.iter().filter_map(|i| match i {
+        ledger::Item::Assistant { text, .. } => Some(text.as_str()),
+        _ => None,
+    }).next_back();
+    let message = checkpoint_message(prompt, answer, &teammate.id, &teammate.name, mission, runtime, model, outcome);
+    let result = Manager::new(root).checkpoint(&teammate.id, &message);
+    if let Some(sentence) = checkpoint_sentence(&result) {
+        let level = if result.is_err() { "warning" } else { "info" };
+        if let Err(error) = crate::ledger_write::append_note_with_level(&path, level, CHECKPOINT_CODE, &sentence) {
+            eprintln!("The turn's receipt was not recorded: {error}");
+        }
+    }
+}
+
 /// Conversation cwd: teammate folder, else Electron's last workspace, else ~/Documents/Locust.
 /// Worktree paths (Electron `terminalFolder` when `worktree: true`) are not resolved here yet.
 pub fn folder_for(teammate: &Teammate, electron: &Path) -> Result<PathBuf, String> {
@@ -1241,6 +1290,10 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         Some(named) => named.clone(),
         None => folder_for(&job.teammate, &electron)?,
     };
+    // A teammate set to work on its own branch runs in its own copy of the project, and each of its turns is
+    // committed there with a receipt (worktrees.rs; Electron's peer.repositoryRoot).
+    let (folder, repository_root) = own_branch_folder(&store, &job.teammate, runtime_name, folder)?;
+    let checkpoint_prompt = job.prompt.clone();
     let model = job
         .model
         .clone()
@@ -1458,6 +1511,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     let check_runtime = runtime_owned.clone();
     let check_model = turn.model.clone();
     let check_effort = turn.effort.clone();
+    let checkpoint_root = repository_root;
     let check_started_by_kind = origin
         .started_by
         .as_ref()
@@ -1578,6 +1632,10 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             } else {
                 None
             };
+            // A turn in the teammate's own copy is committed to its branch, however it ended, with a receipt.
+            if let Some(root) = &checkpoint_root {
+                checkpoint_turn(&memory_store, &memory_id, root, &check_teammate, &checkpoint_prompt, &check_runtime, check_model.as_deref());
+            }
             // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation.
             drop(memory_completion);
             if person_sent {
