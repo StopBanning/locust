@@ -656,6 +656,18 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
         let mut grid = row().w_full().gap(10.0).flex_wrap();
         for mate in &s.teammates {
             let runtime = mate.runtime.as_deref().unwrap_or("codex");
+            let oc_models = s
+                .models
+                .get(&mate.id)
+                .or_else(|| s.models.get(CARRY_TARGET))
+                .and_then(|agents| agents.iter().find(|a| a.runtime == "opencode"))
+                .map(|a| a.models.as_slice())
+                .unwrap_or(&[]);
+            let dropped = locust_core::connectors_off::dropped_free_model(
+                runtime,
+                mate.model.as_deref(),
+                oc_models,
+            );
             let mut agent = row().gap(5.0).center_y();
             if let Some(mark) = crate::look::controls::agent_mark(&l, runtime, 11.0, l.c("text-muted")) {
                 agent = agent.child(mark);
@@ -663,7 +675,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             agent = agent.child(
                 text(mate.model.clone().filter(|m| !m.is_empty()).unwrap_or_else(|| "account default".into()))
                     .font(rune::TextStyle::new(11.5, 400.0))
-                    .color(l.c("text-muted"))
+                    .color(if dropped { p.amber } else { l.c("text-muted") })
                     .truncate()
                     .shrink(),
             );

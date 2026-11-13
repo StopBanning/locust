@@ -2350,3 +2350,283 @@ fn a_copy_runs_changes_are_kept_into_the_folder_or_discarded() {
     assert!(!copy.exists(), "no copy left behind");
     assert_eq!(routine_now(&store, &id)["runs"], 2);
 }
+
+#[test]
+fn creating_a_teammate_runs_the_interview() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    rt.update(|s, _| {
+        s.home.home_open = false;
+        crate::people_panel::open(s);
+        s.people_panel.form_open = true;
+        s.people_panel.fields[0].replace_text("Ada");
+        s.people_panel.fields[1].replace_text("Research & Briefs");
+    });
+    settle(&mut rt);
+    rt.update(|_, tx| tx.scroll_key_to("team-interview", 0.0));
+    settle(&mut rt);
+    click(&mut rt, "team-interview");
+    settle(&mut rt);
+
+    // Teammate created, interview conversation opened, and first turn started with interview_prompt.
+    let ada = rt
+        .state
+        .teammates
+        .iter()
+        .find(|t| t.name == "Ada")
+        .expect("Ada created")
+        .clone();
+    assert!(!rt.state.people_panel.open);
+    let prompt = rt
+        .state
+        .flight
+        .as_ref()
+        .and_then(|f| f.message.as_deref())
+        .expect("interview flight started")
+        .to_owned();
+    assert!(locust_core::interview::is_interview(Some(&prompt)), "{prompt}");
+
+    // Pump until the turn settles (no real binary runs because hook has None), then simulate the finished interview reply.
+    pump(&mut rt, "interview send settled", |s| !s.sending.is_pending());
+    rt.update(|s, _| {
+        s.flight = None;
+        let conv = s.conversations.entry(ada.id.clone()).or_default();
+        conv.turns = vec![
+            ("You".into(), prompt.clone()),
+            (
+                ada.name.clone(),
+                "Thanks, that is enough.\n\n<locust-instructions>\nYou are Ada. Answer in three bullet points at most.\n</locust-instructions>".into(),
+            ),
+        ];
+        crate::instructions_card::sync_state(s);
+    });
+    settle(&mut rt);
+
+    let card = text_in(&rt, "instructions-card").join(" ");
+    assert!(
+        card.contains("Ada wrote its own instructions from your answers."),
+        "{card}"
+    );
+    assert!(card.contains("Save as Ada’s instructions"), "{card}");
+
+    click(&mut rt, "instructions-card-save");
+    settle(&mut rt);
+    let saved_card = text_in(&rt, "instructions-card-saved").join(" ");
+    assert!(saved_card.contains("Saved as Ada’s instructions."), "{saved_card}");
+
+    let saved_team = people::team(&store).unwrap();
+    let ada_row = saved_team["teammates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["teammateId"] == ada.id)
+        .unwrap();
+    assert_eq!(
+        ada_row["instructions"].as_str(),
+        Some("You are Ada. Answer in three bullet points at most.")
+    );
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn a_teammates_setup_opens_from_its_card() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let work = dirs.0.join("project");
+    std::fs::create_dir_all(work.join(".claude/skills/review")).unwrap();
+    std::fs::write(work.join("LOCUST.md"), "Run cargo test.\n").unwrap();
+    std::fs::write(work.join("CLAUDE.md"), "Keep edits small.\n").unwrap();
+    std::fs::write(
+        work.join(".claude/skills/review/SKILL.md"),
+        "---\nname: review\ndescription: test\n---\nReview carefully.\n",
+    )
+    .unwrap();
+    store
+        .save_json(
+            "teammates.json",
+            &serde_json::json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_ada",
+                    "name": "Ada",
+                    "hue": "teal",
+                    "role": "Research & Briefs",
+                    "createdAt": "2026-11-12T00:00:00.000Z",
+                    "instructions": "Be brief.",
+                    "route": {"runtime": "claude", "model": "haiku", "mode": "accept-edits"}
+                }],
+                "missionOwners": {},
+                "settings": {"aboutYou": "I am Colin.", "memoryMode": "off"}
+            }),
+        )
+        .unwrap();
+    rt.update(|s, _| {
+        s.home.home_open = false;
+        s.home.folder_path = Some(work.to_string_lossy().into_owned());
+        let team = native::parse_roster(&people::team(&store).unwrap().to_string()).unwrap();
+        apply_team(s, team);
+        crate::people_panel::open(s);
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "team-setup-tm_ada");
+    settle(&mut rt);
+
+    let setup = text_in(&rt, "setup-card").join(" ");
+    assert!(setup.contains("Claude Code / haiku"), "{setup}");
+    assert!(setup.contains("Every turn"), "{setup}");
+    assert!(setup.contains("1 line, read by Claude Code itself"), "{setup}");
+    assert!(setup.contains("1 skill in .claude/skills"), "{setup}");
+    assert!(setup.contains("Only when you tune it"), "{setup}");
+    assert!(setup.contains("Edit teammate"), "{setup}");
+
+    click(&mut rt, "setup-close");
+    settle(&mut rt);
+    assert!(rt.find("setup-card").is_none());
+
+    // /setup from the composer also opens it.
+    rt.update(|s, _| s.people_panel.open = false);
+    settle(&mut rt);
+    type_and_send(&mut rt, "/setup");
+    settle(&mut rt);
+    assert!(rt.find("setup-card").is_some());
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn a_send_with_the_connectors_off_says_so_first() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    store
+        .save_json(
+            "teammates.json",
+            &serde_json::json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_wren",
+                    "name": "Wren",
+                    "hue": "lime",
+                    "role": "Code & Migrations",
+                    "createdAt": "2026-11-12T00:00:00.000Z",
+                    "route": {"runtime": "claude", "model": "haiku", "mode": "accept-edits"}
+                }],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    rt.update(|s, _| {
+        s.home.home_open = false;
+        let team = native::parse_roster(&people::team(&store).unwrap().to_string()).unwrap();
+        apply_team(s, team);
+        s.connector_names = vec!["claude.ai Gmail".into()];
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "composer");
+    rt.paste("can you check my gmail for the invoice");
+    settle(&mut rt);
+
+    let hint = text_in(&rt, "connectors-off-hint").join(" ");
+    assert_eq!(
+        hint,
+        "Wren's connectors are off, so Gmail won't be in this turn. Tick it in Wren's settings, under Connectors, to turn it on."
+    );
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn a_dropped_free_model_is_said_before_the_send() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    store
+        .save_json(
+            "teammates.json",
+            &serde_json::json!({
+                "schemaVersion": 1,
+                "teammates": [{
+                    "teammateId": "tm_pip",
+                    "name": "Pip",
+                    "hue": "violet",
+                    "role": "Docs & QA",
+                    "createdAt": "2026-11-12T00:00:00.000Z",
+                    "route": {"runtime": "opencode", "model": "opencode/longcat-2.5-preview-free", "mode": "accept-edits"}
+                }],
+                "missionOwners": {},
+                "settings": {}
+            }),
+        )
+        .unwrap();
+    rt.update(|s, _| {
+        s.home.home_open = false;
+        let team = native::parse_roster(&people::team(&store).unwrap().to_string()).unwrap();
+        apply_team(s, team);
+        s.models.insert(
+            "tm_pip".into(),
+            vec![engine::Models {
+                teammate: Some("Pip".into()),
+                runtime: "opencode".into(),
+                model: Some("opencode/longcat-2.5-preview-free".into()),
+                effort: None,
+                models: vec![engine::Model {
+                    id: "opencode/deepseek-v4.1-flash-free".into(),
+                    name: "DeepSeek V4.1 Flash Free".into(),
+                    efforts: vec![],
+                }],
+            }],
+        );
+    });
+    settle(&mut rt);
+
+    let offer = text_in(&rt, "model-dropped-offer").join(" ");
+    assert!(
+        offer.contains("OpenCode no longer offers Longcat 2.5 Preview Free."),
+        "{offer}"
+    );
+    assert!(
+        offer.contains("Switch Pip to Deepseek V4.1 Flash Free"),
+        "{offer}"
+    );
+
+    click(&mut rt, "model-dropped-switch");
+    settle(&mut rt);
+
+    assert!(rt.find("model-dropped-offer").is_none());
+    let pip = rt.state.teammates.iter().find(|t| t.id == "tm_pip").unwrap();
+    assert_eq!(
+        pip.model.as_deref(),
+        Some("opencode/deepseek-v4.1-flash-free")
+    );
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+/// a-new-teammate-interviews-you.test.tsx, "draws no card outside an interview, nor while the turn is still going":
+/// an instructions block in an ordinary conversation is only words, and an interview's card waits for its turn to end.
+#[test]
+fn no_instructions_card_outside_an_interview_nor_while_its_turn_runs() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let block = "Done.\n\n<locust-instructions>\nYou are Codec. Answer in three bullet points at most.\n</locust-instructions>";
+    let show = |rt: &mut Runtime<State>, first: &str, running: bool| {
+        let first = first.to_owned();
+        rt.update(move |s, _| {
+            let id = s.teammates[0].id.clone();
+            let name = s.teammates[0].name.clone();
+            s.flight = None;
+            let conv = s.conversations.entry(id.clone()).or_default();
+            conv.turns = vec![("You".into(), first.clone()), (name, block.into())];
+            if running {
+                s.flight = Some(Flight { teammate_id: id, conversation_id: None, header: None, after_tip: None, message: Some("next".into()) });
+            }
+            crate::instructions_card::sync_state(s);
+        });
+        settle(rt);
+    };
+    show(&mut rt, "Summarize the folder", false);
+    assert!(rt.find("instructions-card").is_none(), "a card under an ordinary conversation");
+    let interview = locust_core::interview::interview_prompt("Codec", "Code & Migrations");
+    show(&mut rt, &interview, true);
+    assert!(rt.find("instructions-card").is_none(), "a card while the interview's turn still runs");
+    show(&mut rt, &interview, false);
+    assert!(rt.find("instructions-card").is_some(), "no card under the finished interview");
+}

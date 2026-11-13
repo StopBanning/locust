@@ -74,7 +74,11 @@ fn memory_secret_refusal(kind: &str) -> String {
 fn instructions_secret_refusal(name: &str, kind: &str) -> String {
     crate::secrets::instructions_secret_refusal(name, kind)
 }
-pub fn save_teammate(store: &Store, mut entry: Value) -> Result<(), String> {
+pub fn save_teammate(store: &Store, entry: Value) -> Result<(), String> {
+    save_teammate_id(store, entry).map(|_| ())
+}
+
+pub fn save_teammate_id(store: &Store, mut entry: Value) -> Result<String, String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = team(store)?;
     let name = entry["name"].as_str().unwrap_or("").trim().to_owned();
@@ -138,6 +142,7 @@ pub fn save_teammate(store: &Store, mut entry: Value) -> Result<(), String> {
     {
         return Err("Teammate route is invalid".into());
     }
+    let teammate_id = entry["teammateId"].as_str().unwrap_or("").to_owned();
     if creating {
         rows.push(entry);
     } else {
@@ -147,7 +152,8 @@ pub fn save_teammate(store: &Store, mut entry: Value) -> Result<(), String> {
             .ok_or("Unknown teammate")?;
         *held = entry;
     }
-    store.save_json("teammates.json", &file)
+    store.save_json("teammates.json", &file)?;
+    Ok(teammate_id)
 }
 /// Settings' "When an agent cannot go on" (`planRunsOut`): who carries the work on, and whether without asking. None
 /// clears it ("First one ready").

@@ -305,6 +305,9 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     if let Some(card) = decision_card::card(s, p) {
         messages = messages.child(card);
     }
+    if let Some(card) = crate::instructions_card::card(s, p) {
+        messages = messages.child(card);
+    }
     messages
         .child(approval_card(s, p))
         .on_layout_tx(|s: &mut State, r, tx| {

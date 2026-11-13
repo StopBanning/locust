@@ -153,6 +153,10 @@ mod commit_panel;
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
 mod inspector_panel;
+#[path = "ui/instructions_card.rs"]
+mod instructions_card;
+#[path = "ui/setup_card.rs"]
+mod setup_card;
 #[path = "ui/trash_section.rs"]
 mod trash_section;
 #[path = "ui/side_chat.rs"]
@@ -651,6 +655,9 @@ fn setup(s: &mut State, waker: Waker) {
         s.import_dialog.opencode_enabled = true;
     }
     load_composer_store(s);
+    if !s.demo {
+        s.connector_names = read_claude_connector_names();
+    }
     if !s.demo && s.last_restore.is_none()
         && let Some(store) = &s.data
     {
@@ -1111,6 +1118,45 @@ fn request_reply(s: &mut State, teammate_id: &str, delay: Duration) {
     s.waiting.request(id, |id| Engine::local()?.reply(&id, 20));
 }
 
+fn read_claude_connector_names() -> Vec<String> {
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
+        return Vec::new();
+    };
+    let path = std::path::PathBuf::from(home).join(".claude.json");
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return Vec::new();
+    };
+    val["mcpServers"]
+        .as_object()
+        .map(|obj| obj.keys().cloned().collect())
+        .unwrap_or_default()
+}
+
+fn sync_teammate_connectors(s: &mut State) {
+    let Some(store) = &s.data else {
+        return;
+    };
+    let Ok(team) = people::team(store) else {
+        return;
+    };
+    let mut map = HashMap::new();
+    for entry in team["teammates"].as_array().into_iter().flatten() {
+        if let Some(id) = entry["teammateId"].as_str() {
+            let list: Vec<String> = entry["connectors"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect();
+            map.insert(id.to_owned(), list);
+        }
+    }
+    s.teammate_connectors = map;
+}
+
 fn apply_team(s: &mut State, team: Vec<Teammate>) {
     let selected = s.teammates.get(s.selected).map(|t| t.id.clone());
     for old in &s.teammates {
@@ -1127,6 +1173,7 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
         s.conversations.entry(t.id.clone()).or_default();
     }
     s.teammates = team;
+    sync_teammate_connectors(s);
     s.looks = native::load_looks();
     s.selected = selected
         .as_deref()
@@ -2107,6 +2154,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     if let Some(inspector) = inspector_panel::panel(s, &p) {
         right = right.child(inspector);
+    }
+    if let Some(setup) = setup_card::view(s, &p) {
+        right = right.child(setup);
     }
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);

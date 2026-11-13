@@ -606,6 +606,151 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                     .wrap(),
             );
         }
+        let effective_runtime = picked
+            .and_then(|p| p.runtime.as_deref())
+            .unwrap_or(runtime);
+        let effective_model = picked
+            .map(|p| p.model.as_str())
+            .or(teammate.model.as_deref())
+            .or_else(|| current.and_then(|a| a.model.as_deref()));
+        if effective_runtime == "claude"
+            && id != LEDGER_TARGET
+            && s.teammate_connectors.get(&id).is_none_or(Vec::is_empty)
+            && !s.connector_names.is_empty()
+            && !s.draft.text.trim().is_empty()
+            && let Some(named) =
+                locust_core::connectors_off::connector_mentioned(&s.draft.text, &s.connector_names)
+        {
+            composer_stack = composer_stack.child(
+                text(locust_core::connectors_off::connectors_off_hint(
+                    &teammate.name,
+                    &named,
+                ))
+                .key("connectors-off-hint")
+                .font(type_::LABEL)
+                .color(p.secondary)
+                .w_full()
+                .wrap(),
+            );
+        }
+        let oc_models = s
+            .models
+            .get(&id)
+            .or_else(|| s.models.get(CARRY_TARGET))
+            .and_then(|agents| agents.iter().find(|a| a.runtime == "opencode"))
+            .map(|a| a.models.as_slice())
+            .unwrap_or(&[]);
+        if let Some(dropped_id) = effective_model
+            && locust_core::connectors_off::dropped_free_model(
+                effective_runtime,
+                Some(dropped_id),
+                oc_models,
+            )
+            && let Some(next_id) = locust_core::connectors_off::free_start_model(
+                effective_runtime,
+                oc_models,
+                &[],
+                &std::collections::HashSet::new(),
+            )
+        {
+            let on_teammate = id != LEDGER_TARGET
+                && teammate.runtime.as_deref() == Some(effective_runtime)
+                && teammate.model.as_deref() == Some(dropped_id);
+            let next_display = locust_core::connectors_off::opencode_model_display_name(&next_id);
+            let banner_text = s
+                .dropped_problem
+                .as_ref()
+                .filter(|(m, _)| m == dropped_id)
+                .map(|(_, t)| t.clone())
+                .unwrap_or_else(|| {
+                    format!(
+                        "OpenCode no longer offers {}.",
+                        locust_core::connectors_off::opencode_model_display_name(dropped_id)
+                    )
+                });
+            let button_label = if on_teammate {
+                format!("Switch {} to {next_display}", teammate.name)
+            } else {
+                format!("Switch to {next_display}")
+            };
+            let switch_id = id.clone();
+            let dropped_key = dropped_id.to_owned();
+            let next_model = next_id;
+            composer_stack = composer_stack.child(
+                row()
+                    .key("model-dropped-offer")
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .child(
+                        text(banner_text)
+                            .font(type_::LABEL)
+                            .color(p.amber)
+                            .grow(1.0)
+                            .wrap(),
+                    )
+                    .child(
+                        text(button_label)
+                            .font(type_::LABEL)
+                            .color(p.text)
+                            .padding(6.0)
+                            .radius(6.0)
+                            .fill(p.raised)
+                            .border(1.0, p.hairline)
+                            .key("model-dropped-switch")
+                            .on_press(move |s: &mut State| {
+                                s.dropped_problem = None;
+                                if !on_teammate {
+                                    s.picks.insert(
+                                        switch_id.clone(),
+                                        TurnPick {
+                                            runtime: Some("opencode".into()),
+                                            model: next_model.clone(),
+                                            effort: None,
+                                        },
+                                    );
+                                    return;
+                                }
+                                let saved = s
+                                    .data
+                                    .as_ref()
+                                    .ok_or_else(|| {
+                                        "Native data folder could not be determined.".to_owned()
+                                    })
+                                    .and_then(|store| {
+                                        let team = people::team(store)?;
+                                        let mut entry = team["teammates"]
+                                            .as_array()
+                                            .and_then(|arr| {
+                                                arr.iter()
+                                                    .find(|t| t["teammateId"] == switch_id)
+                                                    .cloned()
+                                            })
+                                            .ok_or_else(|| {
+                                                "That teammate is not in Locust any more."
+                                                    .to_owned()
+                                            })?;
+                                        entry["route"]["model"] = serde_json::json!(next_model);
+                                        people::save_teammate(store, entry)?;
+                                        Ok(())
+                                    });
+                                match saved {
+                                    Ok(()) => {
+                                        s.picks.remove(&switch_id);
+                                        if let Some(mate) =
+                                            s.teammates.iter_mut().find(|t| t.id == switch_id)
+                                        {
+                                            mate.model = Some(next_model.clone());
+                                        }
+                                    }
+                                    Err(problem) => {
+                                        s.dropped_problem = Some((dropped_key.clone(), problem));
+                                    }
+                                }
+                            }),
+                    ),
+            );
+        }
         if blocked.is_some() && s.scene_popup == ComposerScenePopup::Blocked {
             composer_stack = composer_stack.child(
                 text(blocked.unwrap_or("").to_owned())

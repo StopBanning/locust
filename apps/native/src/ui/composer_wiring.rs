@@ -293,8 +293,11 @@ pub(super) fn run_slash_command(s: &mut State, command: &composer::SlashCommand)
             s.draft.clear();
             // stop() needs Tx; callers that can stop invoke it separately.
         }
-        composer::SlashAction::Setup
-        | composer::SlashAction::Route
+        composer::SlashAction::Setup => {
+            s.draft.clear();
+            crate::setup_card::open_from_composer(s);
+        }
+        composer::SlashAction::Route
         | composer::SlashAction::Swarm
         | composer::SlashAction::Issues
         | composer::SlashAction::Tune => {
@@ -469,6 +472,11 @@ pub(super) fn submit_composer(s: &mut State, tx: &mut Tx, send_now: bool) {
         return;
     }
     let typed = s.draft.text.trim().to_owned();
+    if typed.eq_ignore_ascii_case("/setup") {
+        s.draft.clear();
+        crate::setup_card::open_from_composer(s);
+        return;
+    }
     if typed.is_empty() && s.attached.is_empty() {
         if let Some(why) = send_blocked_now(s) {
             s.composer_note = Some(why.to_owned());
