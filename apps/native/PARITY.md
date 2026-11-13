@@ -130,7 +130,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Commit composer and generated commit message | `renderer/src/components/CommitChanges.tsx`, `main/folder-commit.ts` | **done** — commit, commit and push, open a pull request with Electron's safety rules and words; draft from the last five asks; "Write it from the changes" in a read-only panel run | yes | no | yes |
 | Own-branch turn commits and worktree lifecycle | `renderer/src/components/WorktreeRow.tsx`, `main/worktrees.ts`, `main/turn-checkpoint.ts` | **missing** | - | no | yes |
 | Review/land branch as one commit and return conflicts to teammate | `renderer/src/components/ReviewChanges.tsx`, `main/worktrees.ts` | **missing** | - | no | yes |
-| GitHub PR header/link state, checks and watched news | `renderer/src/components/PullRequestChip.tsx`, `renderer/src/components/PullRequestNewsBanner.tsx`, `main/pull-request-watch.ts`, `main/pull-link.ts` | **missing** | - | no | yes |
+| GitHub PR header/link state, checks and watched news | `renderer/src/components/PullRequestChip.tsx`, `renderer/src/components/PullRequestNewsBanner.tsx`, `main/pull-request-watch.ts`, `main/pull-link.ts` | **partial** — `core/src/pull_requests.rs` (a branch's pull request and a link's state through gh on the engine's one Network seam, read once, two at a time, cached a minute; watched every 3 minutes, unwatched on merge or close) and `src/ui/pull_request_chip.rs` (the header chip with state and checks, Watch, the news banner, link chips); Electron's 7 test files carried over, a headless window test with a fake gh; link chips sit under the message rather than inline, and no desktop notification for news (notes/PULL-REQUESTS-NOTES.md) | yes | no | yes |
 | Browse GitHub issues and start conversation/branch | `renderer/src/components/IssueList.tsx`, `main/github-issues.ts` | **missing** | - | no | yes |
 | Post-edit check and fix-until-check-passes | `renderer/src/components/EditCheckCard.tsx`, `renderer/src/components/CheckFixLine.tsx`, `main/edit-check.ts`, `main/check-fix.ts` | **done** — `core/src/edit_check.rs` (the check after a turn that changed files, 180 s cap, 256 KiB of output; fix turns through engine_api, 2 by default and 5 at most, stopping on a repeated failure; mission.edit_check records read by Electron's reader), `src/ui/edit_check_card.rs` and the folder's check settings; Electron's 4 edit-check test files carried over, a headless window test (notes/EDIT-CHECK-NOTES.md) | yes | no | yes |
 | Scout watch/checks, findings, notes, morning brief and weekly tune-up | `renderer/src/components/ScoutCards.tsx`, `renderer/src/components/ScoutSetting.tsx`, `main/scout.ts`, `main/scout-folder.ts` | **missing** | - | no | yes |
@@ -283,7 +283,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
-| 6 | Changes, Git, Worktrees, Issues & Scout | 2 | 3 | 8 | 13 | 5 | 0 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 2 | 4 | 7 | 13 | 6 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 | 1 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **43** | **48** | **62** | **153** | **91** | **15** |
+| | **TOTAL** | **43** | **49** | **61** | **153** | **92** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
