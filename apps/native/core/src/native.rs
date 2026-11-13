@@ -82,9 +82,6 @@ pub fn door_unreachable(words: &str) -> bool {
 /// Can native run this teammate? Named Codex and Claude Code accounts run natively with their own login home;
 /// the person's own OpenCode API routes still say they run in Locust for now (own-models.ts).
 pub fn supported(t: &Teammate) -> bool {
-    if t.runtime.as_deref() == Some("opencode") && t.model.as_deref().is_some_and(|m| crate::spend::is_own_model("opencode", m)) {
-        return false;
-    }
     if t.account.is_some() && !matches!(t.runtime.as_deref(), Some("codex" | "claude")) {
         return false;
     }
@@ -1611,6 +1608,12 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     for (key, value) in &launch_env {
         command.env(key, value);
     }
+    // A model of your own runs as an OpenCode provider declared in the run's environment (own-models.ts).
+    if runtime_name == "opencode"
+        && let Some(own) = model.as_deref().filter(|m| crate::own_models::is_own_route_model(m))
+    {
+        crate::own_models::add_provider_env(&mut command, &store, own)?;
+    }
     let codex_home = launch_env
         .iter()
         .find(|(k, _)| *k == "CODEX_HOME")
@@ -2070,6 +2073,11 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
     command.current_dir(folder);
     for (key, value) in &launch_env {
         command.env(key, value);
+    }
+    if runtime_name == "opencode"
+        && let Some(own) = model.as_deref().filter(|m| crate::own_models::is_own_route_model(m))
+    {
+        crate::own_models::add_provider_env(&mut command, &store, own)?;
     }
     let codex_home = launch_env
         .iter()

@@ -1613,13 +1613,17 @@ fn a_ninth_turn_at_once_is_refused_in_electrons_words() {
 }
 
 #[test]
-fn a_teammate_on_an_own_api_route_runs_in_locust_for_now() {
+fn a_teammate_on_an_own_api_route_runs_natively_through_its_opencode_provider() {
+    // Since own-models.rs: a model of your own runs as an OpenCode provider declared in the run's environment.
     let t = Temp::new();
     let mut sage = codex(&t);
     sage.runtime = Some("opencode".into());
     sage.model = Some("own-bf9f2516/claude-sonnet-5-5".into());
-    assert!(!supported(&sage));
+    assert!(supported(&sage));
     sage.model = Some("opencode/deepseek-v4.1-flash-free".into());
+    assert!(supported(&sage));
+    // On another agent, own- is not a route of your own and changes nothing.
+    sage.runtime = Some("codex".into());
     assert!(supported(&sage));
 }
 

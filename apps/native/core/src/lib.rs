@@ -24,6 +24,7 @@ pub mod briefing;
 pub mod peer_exchange;
 pub mod acp_agent;
 pub mod cancellation;
+pub mod own_models;
 pub mod changes;
 pub mod checkpoints;
 pub mod command_guard;

@@ -596,7 +596,7 @@ apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	GITHUB	carried
 apps/desktop/src/main/your-line-breaks-are-kept.test.ts	P7	does-not-apply		`main/your-line-breaks-are-kept.test.ts` | This is conversation/room bubble CSS, not checkpoint byte preservation. Its CSS assertions do not apply to this change. CRLF and binary restoration are instead tested directly.
 apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts		waiting		
 apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts		waiting		
-apps/desktop/src/main/your-own-model.test.ts		waiting		
+apps/desktop/src/main/your-own-model.test.ts	OWN-MODELS	partial	core/src/own_models_tests.rs	6 of 18: kept with its key sealed, a run's provider and none once removed, the list under OpenCode, chat only, no key without protection, refusals in words; the 12 cases of testing an endpoint need a network client
 apps/desktop/src/main/your-phone-buzzes-only-when-it-must.test.ts		waiting		
 apps/desktop/src/preload/routine-inputs.test.ts	p11	waiting		`preload/routine-inputs.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
 apps/desktop/src/preload/routine-recovery.test.ts	p11	waiting		`preload/routine-recovery.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
@@ -1307,4 +1307,4 @@ packages/runtime-adapters/test/stop-reaches-the-tree.test.ts	M4-REVIEW	partial		
 packages/runtime-adapters/test/the-browser-shares-one-flag-with-the-bridge.test.ts	M4-REVIEW	waiting		`test/the-browser-shares-one-flag-with-the-bridge.test.ts` — Deferred: native browser MCP launch integration is not implemented.
 packages/runtime-adapters/test/the-parent-git-is-reachable-on-every-platform.test.ts	M4-REVIEW	waiting		`test/the-parent-git-is-reachable-on-every-platform.test.ts` — Deferred: repository-root git allowances and cross-platform git fixture matrix are not fully ported.
 packages/runtime-adapters/test/the-steps-show-what-the-runtimes-show.test.ts	M4-REVIEW	partial		`test/the-steps-show-what-the-runtimes-show.test.ts` — Partial → per-adapter captured-stream tests; cross-runtime presentation matrix not exhaustively ported.
-packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	M4-REVIEW	waiting		`test/your-own-model-is-a-provider.test.ts` — Deferred: user-provider declaration integration is not implemented in native.
+packages/runtime-adapters/test/your-own-model-is-a-provider.test.ts	OWN-MODELS	partial	core/src/own_models_tests.rs	7 of 8: the provider beside the run's permissions, the key in the environment only, a placeholder key, chat only turns tools off, nothing without a model of your own, bad ids and addresses; the listed price is not declared yet

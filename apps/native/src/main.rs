@@ -179,6 +179,8 @@ mod question_card;
 mod usage_line;
 #[path = "ui/cancellation_card.rs"]
 mod cancellation_card;
+#[path = "ui/own_models_card.rs"]
+mod own_models_card;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]

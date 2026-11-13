@@ -135,6 +135,7 @@ fn reload(s: &mut State) {
     crate::github_section::request(s);
     crate::claude_app_card::request(s);
     crate::agent_accounts_card::reload(s);
+    crate::own_models_card::reload(s);
     crate::connectors_section::request(s, false);
     crate::backup_section::reload(s);
     let folder = active_project_folder(s);
@@ -928,6 +929,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             }
         }
 
+        SettingsPageId::Models => body = body.child(crate::own_models_card::section(s, p)),
         _ => {
             for heading in headings {
                 body = body.child(deferred(heading, p));

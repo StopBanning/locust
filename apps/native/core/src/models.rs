@@ -638,13 +638,19 @@ pub fn read_listed() -> Listed {
 pub fn local() -> Vec<Value> {
     use std::sync::Mutex;
     static CACHE: Mutex<Option<(Instant, Vec<Value>)>> = Mutex::new(None);
-    if let Some((at, models)) = crate::invariants::lock(&CACHE).as_ref()
-        && at.elapsed() < Duration::from_secs(600)
-    {
-        return models.clone();
+    let cached = crate::invariants::lock(&CACHE).as_ref().filter(|(at, _)| at.elapsed() < Duration::from_secs(600)).map(|(_, m)| m.clone());
+    let mut models = match cached {
+        Some(models) => models,
+        None => {
+            let models = catalog(&read_listed());
+            *crate::invariants::lock(&CACHE) = Some((Instant::now(), models.clone()));
+            models
+        }
+    };
+    // Your own models under OpenCode, by their own names, read fresh: one added a moment ago is offered at once.
+    if let Ok(store) = crate::store::Store::local() {
+        models.extend(crate::own_models::for_store(&store).catalog().unwrap_or_default());
     }
-    let models = catalog(&read_listed());
-    *crate::invariants::lock(&CACHE) = Some((Instant::now(), models.clone()));
     models
 }
 

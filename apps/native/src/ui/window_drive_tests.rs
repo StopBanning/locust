@@ -3926,3 +3926,46 @@ fn a_stopped_run_leaves_a_receipt_that_says_who_stopped_it_and_what_is_unknown()
     assert!(shown.iter().any(|t| t == "Stopped before it used any tools, so nothing is half-done."), "{shown:?}");
     assert!(!shown.iter().any(|t| t.starts_with("A command that had already started")), "no warning where nothing started");
 }
+
+/// OwnModels (0.357): Settings › Your own models adds a model with its key masked and kept by the system (a stand-in
+/// here), lists it without the key, switches it to chat only, and removes it.
+#[test]
+fn a_model_of_your_own_is_added_with_its_key_kept_out_of_sight_and_removed() {
+    use std::sync::{Arc, Mutex};
+    struct Sealed(Mutex<Vec<String>>);
+    impl locust_core::own_models::SecretBox for Sealed {
+        fn available(&self) -> bool { true }
+        fn seal(&self, text: &str) -> Result<String, String> { self.0.lock().unwrap().push(text.to_owned()); Ok("sealed:1".into()) }
+        fn open(&self, _: &str) -> Result<String, String> { Ok("unused".into()) }
+    }
+    let sealed = Arc::new(Sealed(Mutex::new(vec![])));
+    locust_core::own_models::use_secrets(sealed.clone());
+    let (_dirs, store, mut rt) = window();
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("models");
+    });
+    settle(&mut rt);
+    click(&mut rt, "own-model-name");
+    rt.paste("Acme Chat");
+    click(&mut rt, "own-model-model");
+    rt.paste("acme-70b");
+    click(&mut rt, "own-model-address");
+    rt.paste("https://llm.acme.example/v1/");
+    click(&mut rt, "own-model-key");
+    rt.paste("acme-made-up-key");
+    click(&mut rt, "own-model-add");
+    assert_eq!(rt.state.own_models.models.len(), 1, "{:?}", rt.state.own_models.said);
+    assert_eq!(sealed.0.lock().unwrap().clone(), vec!["acme-made-up-key".to_owned()]);
+    assert!(rt.state.own_models.key.text.is_empty(), "the key field is cleared once added");
+    let shown: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(!shown.iter().any(|t| t.contains("acme-made-up-key")), "the key is never on screen");
+    let id = rt.state.own_models.models[0].own_id.clone();
+    let row = text_in(&rt, &format!("own-model-{id}")).join(" | ");
+    assert!(row.contains("Acme Chat") && row.contains("acme-70b \u{b7} llm.acme.example \u{b7} key kept"), "{row}");
+    assert!(!std::fs::read_to_string(store.root().join("own-models.json")).unwrap().contains("acme-made-up-key"));
+    click(&mut rt, &format!("own-model-tools-{id}"));
+    assert!(rt.state.own_models.models[0].chat_only);
+    click(&mut rt, &format!("own-model-remove-{id}"));
+    assert!(rt.state.own_models.models.is_empty());
+}
