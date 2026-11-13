@@ -83,7 +83,7 @@ apps/desktop/src/main/a-driven-copy-never-updates-the-installed-app.test.ts		wai
 apps/desktop/src/main/a-dying-server-says-why.test.ts		waiting		
 apps/desktop/src/main/a-failed-connector-reading-is-not-kept.test.ts		waiting		
 apps/desktop/src/main/a-failing-check-goes-back-to-fix.test.ts		waiting		
-apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	p11	does-not-apply		`main/a-file-arriving-starts-its-routine.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
+apps/desktop/src/main/a-file-arriving-starts-its-routine.test.ts	ROUTINES	carried	core/src/routine_files.rs, core/src/routine_runner_tests.rs, core/src/routine_host.rs tests	all cases carried; the index.ts source pin is replaced by the native checkpoint-record test (ROUTINES-NOTES.md)
 apps/desktop/src/main/a-file-name-cannot-write-into-the-brief.test.ts		waiting		
 apps/desktop/src/main/a-file-written-elsewhere-opens.test.ts		waiting		
 apps/desktop/src/main/a-folder-cannot-make-locust-run-its-program.test.ts		waiting		
@@ -157,7 +157,7 @@ apps/desktop/src/main/a-page-boundary-never-renames-a-conversation.test.ts		wait
 apps/desktop/src/main/a-page-runs-in-its-own-frame.test.ts	p13	does-not-apply		`main/a-page-runs-in-its-own-frame.test.ts` / `main/page-preview.ts` (confinement) | `page_preview` roots, never_served, size/mime/index
 apps/desktop/src/main/a-part-of-a-page-can-be-pointed-at.test.ts	p13	does-not-apply		`main/a-part-of-the-browser-can-be-pointed-at.test.ts`, `main/a-part-of-a-page-can-be-pointed-at.test.ts` | **not ported** — point-at left missing this round
 apps/desktop/src/main/a-part-of-the-browser-can-be-pointed-at.test.ts	p13	does-not-apply		`main/a-part-of-the-browser-can-be-pointed-at.test.ts`, `main/a-part-of-a-page-can-be-pointed-at.test.ts` | **not ported** — point-at left missing this round
-apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	p11	partial		`main/a-paused-routine-waits-to-be-resumed.test.ts` | Partially ported: pause/resume persistence, clock base and no missed slot while paused; scheduled dispatch/tray behavior remains.
+apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	ROUTINES	partial	core/src/routine_runner_tests.rs, core/src/routines/tests.rs	runner cases and scheduleBase carried; the tray's next-routine line and setPaused with odd values do not apply (ROUTINES-NOTES.md)
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
 apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts		waiting		
@@ -206,14 +206,14 @@ apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	p1
 apps/desktop/src/main/a-routine-at-the-monthly-limit-says-so.test.ts	p11	does-not-apply		`main/a-routine-at-the-monthly-limit-says-so.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	p11	partial		`main/a-routine-awaiting-review-is-not-removed.test.ts` | Partially ported: unsafe removal refused and abandonment permits removal; exhaustive imported execution-state cases remain.
 apps/desktop/src/main/a-routine-due-while-closed-is-missed.test.ts	p11	does-not-apply		`main/a-routine-due-while-closed-is-missed.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
-apps/desktop/src/main/a-routine-hands-off-to-the-next-teammate.test.ts	p11	does-not-apply		`main/a-routine-hands-off-to-the-next-teammate.test.ts` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/main/a-routine-hands-off-to-the-next-teammate.test.ts	ROUTINES	carried	core/src/routine_runner_tests.rs, core/src/hand_off.rs, core/src/routines/tests.rs	all tests carried, store cases included (ROUTINES-NOTES.md)
 apps/desktop/src/main/a-routine-is-a-markdown-file.test.ts	p11	does-not-apply		`main/a-routine-is-a-markdown-file.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
-apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	p11	does-not-apply		`main/a-routine-keeps-going-until-its-check-passes.test.ts` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/main/a-routine-keeps-going-until-its-check-passes.test.ts	ROUTINES	carried	core/src/routine_runner_tests.rs, core/src/routine_runner_recovery_tests.rs	all 7 tests carried (ROUTINES-NOTES.md)
 apps/desktop/src/main/a-routine-runs-on-the-route-its-teammate-runs-on.test.ts	p11	does-not-apply		`main/a-routine-runs-on-the-route-its-teammate-runs-on.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/main/a-routine-step-too-long-is-refused-before-it-starts.test.ts	p11	partial		`main/a-routine-step-too-long-is-refused-before-it-starts.test.ts` | Partially ported: UTF-16 save budget and refusal; full stored legacy-step/continuation cases remain.
-apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	p11	does-not-apply		`main/a-routine-step-waits-for-your-ok.test.ts` | Unported and applicable: check retries, handoff and wait-for-OK execution/UI remains unavailable.
+apps/desktop/src/main/a-routine-step-waits-for-your-ok.test.ts	ROUTINES	partial	core/src/routine_runner_tests.rs, core/src/routines/tests.rs	runner and store cases carried; routine file Markdown, import/starter/team-card/MCP source pins and phone alert not (ROUTINES-NOTES.md)
 apps/desktop/src/main/a-routine-time-passed-while-it-ran-is-missed.test.ts	p11	does-not-apply		`main/a-routine-time-passed-while-it-ran-is-missed.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
-apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	p11	does-not-apply		`main/a-routine-works-in-a-copy.test.ts` | Unported and applicable: routine copy creation/review/keep/discard remains unavailable.
+apps/desktop/src/main/a-routine-works-in-a-copy.test.ts	ROUTINES	carried	core/src/routine_copy.rs, core/src/routine_runner_tests.rs, core/src/routine_runner_recovery_tests.rs	all 8 tests carried (ROUTINES-NOTES.md)
 apps/desktop/src/main/a-run-end-remembers-first-and-keeps-going.test.ts		waiting		
 apps/desktop/src/main/a-run-in-its-own-copy-is-not-told-the-project-folder.test.ts		waiting		
 apps/desktop/src/main/a-run-that-is-nobodys-still-knows-the-project.test.ts		waiting		
@@ -458,8 +458,8 @@ apps/desktop/src/main/room-tasks.test.ts		waiting
 apps/desktop/src/main/rooms-are-reachable.test.ts		waiting		
 apps/desktop/src/main/route-at-start.test.ts		waiting		
 apps/desktop/src/main/route-remembers-effort.test.ts		waiting		
-apps/desktop/src/main/routine-recovery.test.ts	p11	partial		`main/routine-recovery.test.ts` | Partially ported: pre-dispatch intent, stale acknowledgement and no replay; terminal reconciliation, completion accounting and continuation/recovery IPC remain.
-apps/desktop/src/main/routine-runner.test.ts	p11	partial		`main/routine-runner.test.ts` | Partially ported: one synthetic step uses native runtime; automatic advancement, scheduler, dynamic routes and question receipt matrix remain.
+apps/desktop/src/main/routine-recovery.test.ts	ROUTINES	carried	core/src/routine_runner_recovery_tests.rs, core/src/routine_recovery.rs	all tests carried on the native store; the IPC sender check has no native counterpart (ROUTINES-NOTES.md)
+apps/desktop/src/main/routine-runner.test.ts	ROUTINES	partial	core/src/routine_runner_tests.rs	all but W7 carried; the three input cases wait for the input form (ROUTINES-NOTES.md)
 apps/desktop/src/main/routine-store.test.ts	p11	partial		`main/routine-store.test.ts` | Partially ported: basic validation/create/edit/remove/read-back; run completion, full schema filtering, route/provenance validation and advanced definitions remain.
 apps/desktop/src/main/runtime-artifacts.test.ts		waiting		
 apps/desktop/src/main/runtime-commands.test.ts		waiting		

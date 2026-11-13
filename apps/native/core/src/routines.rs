@@ -2,6 +2,7 @@
 use crate::store::Store;
 use serde_json::{Value, json};
 use std::sync::Mutex;
+pub mod progress;
 pub mod schedule;
 static WRITES: Mutex<()> = Mutex::new(());
 pub const UNREADABLE: &str = "ROUTINES_UNREADABLE";
@@ -65,6 +66,23 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
     {
         return Err("The schedule is not one Locust can keep: every 1 to 168 hours, daily or on set days at HH:MM, once at a date and time, on a new file in a folder inside the project, or when a link is called.".into());
     }
+    // Who takes each step, whether it works in a copy, and its standing goal (routine-store.ts create/update).
+    let count = steps.len();
+    if let Some(h) = r.get("handOffs").filter(|h| !h.is_null())
+        && !progress::valid_hand_offs(h, count)
+    {
+        return Err("Who takes each step does not line up with the steps".into());
+    }
+    if let Some(g) = r.get("untilCheck").filter(|g| !g.is_null())
+        && !progress::valid_goal(g)
+    {
+        return Err("Routine goal is invalid".into());
+    }
+    if let Some(m) = r.get("mode")
+        && m.as_str().and_then(crate::approval::Mode::parse).is_none()
+    {
+        return Err("Routine route is invalid".into());
+    }
     let mut file = list(store)?;
     let rows = file["routines"].as_array_mut().ok_or(UNREADABLE)?;
     if let Some(at) = rows
@@ -79,6 +97,29 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
             } else {
                 rows[at][key] = r[key].clone();
             }
+        }
+        let owner = rows[at]["teammateId"].as_str().unwrap_or("").to_owned();
+        let held = rows[at].as_object_mut().ok_or(UNREADABLE)?;
+        // Hand-offs not named are kept only while they still line up with the steps.
+        let hand_offs = match r.get("handOffs") {
+            Some(h) if !h.is_null() => progress::kept_hand_offs(h, &owner),
+            Some(_) => None,
+            None => held.get("handOffs").filter(|h| h.as_array().is_some_and(|h| h.len() == count)).cloned(),
+        };
+        match hand_offs {
+            Some(h) => held.insert("handOffs".into(), h),
+            None => held.remove("handOffs"),
+        };
+        if let Some(c) = r.get("inCopy") {
+            if c == true { held.insert("inCopy".into(), json!(true)) } else { held.remove("inCopy") };
+        }
+        match r.get("untilCheck") {
+            Some(g) if !g.is_null() => { held.insert("untilCheck".into(), json!({"tries": g["tries"]})); }
+            Some(_) => { held.remove("untilCheck"); }
+            None => {}
+        }
+        if let Some(m) = r.get("mode") {
+            held.entry("route").or_insert_with(|| json!({}))["mode"] = m.clone();
         }
     } else {
         if rows.len() >= 64 {
@@ -105,6 +146,14 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
         r["createdAt"] = json!(now());
         r["runs"] = json!(0);
         r["learnedFrom"] = json!([]);
+        let o = r.as_object_mut().ok_or(UNREADABLE)?;
+        match o.remove("handOffs").filter(|h| !h.is_null()).and_then(|h| progress::kept_hand_offs(&h, teammate.id.as_str())) {
+            Some(h) => { o.insert("handOffs".into(), h); }
+            None => {}
+        }
+        if o.get("inCopy").is_some_and(|c| c != true) { o.remove("inCopy"); }
+        if o.get("untilCheck").is_some_and(Value::is_null) { o.remove("untilCheck"); }
+        if let Some(m) = o.remove("mode") { o.entry("route").or_insert_with(|| json!({}))["mode"] = m; }
         rows.push(r);
     }
     store.save_json("routines.json", &file)
@@ -162,87 +211,6 @@ fn mutate(
 }
 #[cfg(test)]
 mod tests;
-/// Persist intent before native runtime dispatch. An uncertain result is never replayed.
-pub fn run(store: &Store, id: &str) -> Result<(), String> {
-    let file = list(store)?;
-    let r = file["routines"]
-        .as_array()
-        .and_then(|rs| rs.iter().find(|r| r["routineId"] == id))
-        .ok_or("Routine not found")?;
-    if awaits_review(r) {
-        return Err("That routine is waiting for your review.".into());
-    }
-    // These paths must not silently run against the original folder or omit inputs/checks.
-    if r["inCopy"] == true
-        || r.get("untilCheck").is_some()
-        || r.get("inputs").is_some()
-        || r.get("handOffs").is_some()
-    {
-        return Err("This routine needs copy, input, check or handoff support that is not available in native yet.".into());
-    }
-    let team = crate::native::parse_roster(&crate::people::team(store)?.to_string())?;
-    let mut t = team
-        .into_iter()
-        .find(|t| r["teammateId"] == t.id)
-        .ok_or("Teammate id is invalid")?;
-    t.runs_in = r["route"]["mode"].as_str().unwrap_or("ask").into();
-    let folder = crate::native::folder_for(&t, store.electron())?;
-    let workspace = crate::people::workspace_id(&folder);
-    if r["workspaceId"].as_str().is_some_and(|w| w != workspace) {
-        return Err("This routine belongs to another folder.".into());
-    }
-    let steps = r["steps"].as_array().ok_or("Routine steps are invalid")?;
-    if steps.len() != 1 {
-        return Err("Automatic continuation of multi-step routines is not available in native yet.".into());
-    }
-    if steps.is_empty() || steps.len() > 12 {
-        return Err("Routine steps are invalid".into());
-    }
-    let prompt = steps[0]
-        .as_str()
-        .ok_or("Routine steps are invalid")?
-        .to_owned();
-    if prompt.encode_utf16().count() > 8000 {
-        return Err("Shorten step 1 before running this routine.".into());
-    }
-    let attempt = format!(
-        "ra_{}",
-        crate::native::uuid_v4()
-            .map_err(|e| e.to_string())?
-            .replace('-', "")
-    );
-    let execution = json!({"attemptId":attempt,"status":"dispatching","step":1,"of":steps.len(),"startedAt":now(),"updatedAt":now(),"steps":steps,"route":r["route"],"workspaceId":workspace,"canContinue":false});
-    mutate(store, id, |held| {
-        if awaits_review(held) {
-            return Err("Routine execution changed; reload before continuing.".into());
-        }
-        held["execution"] = execution;
-        Ok(())
-    })?;
-    let result = crate::engine_api::api().send(
-        crate::native::Send { model: t.model.clone(), effort: None, teammate: t, conversation: None, prompt },
-        crate::native::Origin::default(),
-    );
-    mutate(store, id, |held| {
-        if held["execution"]["attemptId"] != attempt {
-            return Err("Routine execution changed.".into());
-        }
-        held["execution"]["status"] = json!("held");
-        held["execution"]["updatedAt"] = json!(now());
-        match result {
-            Ok(started) => {
-                held["execution"]["missionId"] = json!(started.conversation_id);
-                held["execution"]["reason"] = json!(
-                    "Review this step's conversation before starting any further work. Native automatic continuation is not available yet."
-                );
-            }
-            Err(error) => {
-                held["execution"]["reason"] = json!(error);
-            }
-        }
-        Ok(())
-    })
-}
 /// Abandon a held attempt and remove its schedule. Never retries work.
 pub fn acknowledge(store: &Store, id: &str, attempt: &str) -> Result<(), String> {
     mutate(store, id, |r| {

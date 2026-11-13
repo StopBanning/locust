@@ -296,7 +296,7 @@ fn uncertain_progress_blocks_replay_removal_and_stale_acknowledgements() {
         Ok(())
     })
     .unwrap();
-    assert!(run(&store, &id).unwrap_err().contains("review"));
+    assert!(awaits_review(&list(&store).unwrap()["routines"][0]));
     assert!(remove(&store, &id).unwrap_err().contains("review"));
     assert!(acknowledge(&store, &id, "stale").is_err());
     let kept_at = "2026-10-07T16:00:00.000Z";
@@ -317,51 +317,6 @@ fn uncertain_progress_blocks_replay_removal_and_stale_acknowledgements() {
     );
     assert!(list(&store).unwrap()["routines"][0].get("schedule").is_none());
     remove(&store, &id).unwrap();
-    std::fs::remove_dir_all(root).unwrap();
-}
-#[test]
-fn single_step_uses_native_runtime_and_never_replays_uncertain_dispatch() {
-    let (root, store) = fixture();
-    let _guard = crate::native::hooks::install(
-        store.clone(),
-        Some((
-            "python3".into(),
-            vec![
-                concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/m1-app-server.py").into(),
-                "success".into(),
-            ],
-        )),
-    );
-    save(
-        &store,
-        json!({"name":"Synthetic routine","teammateId":"codec","steps":["Synthetic prompt"]}),
-    )
-    .unwrap();
-    let id = list(&store).unwrap()["routines"][0]["routineId"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    run(&store, &id).unwrap();
-    let r = list(&store).unwrap()["routines"][0].clone();
-    assert_eq!(r["execution"]["status"], "held");
-    assert_eq!(r["runs"], 0); // no completion claim without reconciliation
-    let mission = r["execution"]["missionId"].as_str().unwrap();
-    assert!(run(&store, &id).is_err());
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    while crate::native::owns(mission) {
-        assert!(std::time::Instant::now() < deadline);
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
-    let events = crate::ledger::Tail::new(
-        store
-            .ledger_dir()
-            .unwrap()
-            .join(format!("{mission}.jsonl")),
-        0,
-    )
-    .poll();
-    assert!(events.iter().any(|r| r["event"]["type"] == "run.completed"));
-    assert!(run(&store, &id).is_err());
     std::fs::remove_dir_all(root).unwrap();
 }
 #[test]
@@ -387,7 +342,7 @@ fn restart_holds_dispatch_and_paused_schedule_records_no_miss() {
     assert_eq!(r["execution"]["status"], "held");
     assert_eq!(r["execution"]["canContinue"], false);
     assert!(r["missedAt"].is_null());
-    assert!(run(&store, &id).is_err());
+    assert!(awaits_review(&r));
     acknowledge(&store, &id, "ra_old").unwrap();
     mutate(&store, &id, |r| {
         r["schedule"] = json!({"kind":"every","hours":1});
@@ -398,5 +353,81 @@ fn restart_holds_dispatch_and_paused_schedule_records_no_miss() {
     assert!(!record_misses(&store, Local::now()).unwrap());
     pause(&store, &id, false, &now()).unwrap();
     assert!(!record_misses(&store, Local::now()).unwrap());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+// a-routine-hands-off-to-the-next-teammate.test.ts, "who takes each step, as the store keeps it", and
+// a-routine-step-waits-for-your-ok.test.ts, "is kept by the store for one teammate too, from step 2 on".
+fn made(store: &Store, extra: Value) -> Result<Value, String> {
+    let mut entry = json!({"name": "Chain", "teammateId": "codec", "steps": ["One.", "Two.", "Three."]});
+    for (k, v) in extra.as_object().unwrap() {
+        entry[k] = v.clone();
+    }
+    save(store, entry)?;
+    Ok(list(store).unwrap()["routines"].as_array().unwrap().last().unwrap().clone())
+}
+#[test]
+fn keeps_hand_offs_that_line_up_with_the_steps_and_refuses_ones_that_do_not() {
+    let (root, store) = fixture();
+    let h = json!([{}, {"teammateId": "tm_atlas"}, {"teammateId": "tm_sable", "check": true}]);
+    let r = made(&store, json!({"handOffs": h})).unwrap();
+    assert_eq!(r["handOffs"], h);
+    assert!(made(&store, json!({"handOffs": [{}, {"teammateId": "tm_atlas"}]})).unwrap_err().contains("does not line up"));
+    assert!(made(&store, json!({"handOffs": [{}, {"teammateId": "../../x"}, {}]})).unwrap_err().contains("does not line up"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+#[test]
+fn stores_nothing_when_every_step_is_the_routines_own_teammates() {
+    let (root, store) = fixture();
+    assert!(made(&store, json!({"handOffs": [{}, {"teammateId": "codec"}, {}]})).unwrap().get("handOffs").is_none());
+    std::fs::remove_dir_all(root).unwrap();
+}
+#[test]
+fn keeps_hand_offs_across_an_edit_that_does_not_name_them_only_while_the_steps_still_line_up() {
+    let (root, store) = fixture();
+    let h = json!([{}, {"teammateId": "tm_atlas"}, {}]);
+    let r = made(&store, json!({"handOffs": h})).unwrap();
+    let id = r["routineId"].clone();
+    save(&store, json!({"routineId": id, "name": "Chain", "steps": ["One.", "Two!", "Three."]})).unwrap();
+    assert_eq!(list(&store).unwrap()["routines"][0]["handOffs"], h);
+    save(&store, json!({"routineId": id, "name": "Chain", "steps": ["One.", "Two."]})).unwrap();
+    assert!(list(&store).unwrap()["routines"][0].get("handOffs").is_none());
+    std::fs::remove_dir_all(root).unwrap();
+}
+#[test]
+fn changes_what_a_run_may_do_on_an_edit_and_refuses_a_mode_that_is_not_one() {
+    let (root, store) = fixture();
+    let r = made(&store, json!({"mode": "accept-edits"})).unwrap();
+    assert_eq!(r["route"]["mode"], "accept-edits");
+    let id = r["routineId"].clone();
+    save(&store, json!({"routineId": id, "name": "Chain", "steps": ["One.", "Two.", "Three."], "mode": "ask"})).unwrap();
+    assert_eq!(list(&store).unwrap()["routines"][0]["route"]["mode"], "ask");
+    // Not given: kept.
+    save(&store, json!({"routineId": id, "name": "Chain", "steps": ["One.", "Two.", "Three."]})).unwrap();
+    assert_eq!(list(&store).unwrap()["routines"][0]["route"]["mode"], "ask");
+    assert!(save(&store, json!({"routineId": id, "name": "Chain", "steps": ["One."], "mode": "root"})).unwrap_err().contains("route is invalid"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+#[test]
+fn a_wait_for_ok_is_kept_from_step_2_on_and_step_1_never_waits() {
+    let (root, store) = fixture();
+    let r = made(&store, json!({"handOffs": [{"askFirst": true}, {}, {"askFirst": true}]})).unwrap();
+    assert_eq!(r["handOffs"], json!([{}, {}, {"askFirst": true}]));
+    // Turned off again: nothing left to keep.
+    save(&store, json!({"routineId": r["routineId"], "name": "Chain", "steps": ["One.", "Two.", "Three."], "handOffs": [{}, {}, {}]})).unwrap();
+    assert!(list(&store).unwrap()["routines"][0].get("handOffs").is_none());
+    let odd = save(&store, json!({"name": "Odd", "teammateId": "codec", "steps": ["One.", "Two."], "handOffs": [{}, {"askFirst": "yes"}]}));
+    assert_eq!(odd.unwrap_err(), "Who takes each step does not line up with the steps");
+    std::fs::remove_dir_all(root).unwrap();
+}
+#[test]
+fn a_copy_and_a_goal_are_kept_and_a_goal_that_does_not_read_is_refused() {
+    let (root, store) = fixture();
+    let r = made(&store, json!({"inCopy": true, "untilCheck": {"tries": 3}})).unwrap();
+    assert_eq!((&r["inCopy"], &r["untilCheck"]), (&json!(true), &json!({"tries": 3})));
+    assert_eq!(made(&store, json!({"untilCheck": {"tries": 99}})).unwrap_err(), "Routine goal is invalid");
+    save(&store, json!({"routineId": r["routineId"], "name": "Chain", "steps": ["One."], "inCopy": false, "untilCheck": null})).unwrap();
+    let after = list(&store).unwrap()["routines"][0].clone();
+    assert!(after.get("inCopy").is_none() && after.get("untilCheck").is_none());
     std::fs::remove_dir_all(root).unwrap();
 }

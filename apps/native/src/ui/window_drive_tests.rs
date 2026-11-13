@@ -2183,3 +2183,170 @@ fn deleting_a_conversation_moves_every_turn_to_the_trash_and_an_electron_one_say
     assert_eq!(rt.state.status, locust_core::trash::ELECTRON_ONLY);
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+// --- Routines: a file arriving, a step that waits for OK, a copy run kept or discarded (ROUTINES-NOTES.md) ---
+
+/// The team as the app writes it, so the routine runner can find Codec's route and folder.
+fn seed_routine_team(store: &Store, work: &Path, mode: &str) {
+    store
+        .save_json("teammates.json", &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec",
+            "hue": "lime", "role": "Code & Migrations", "createdAt": "2026-11-01T00:00:00.000Z",
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": mode}, "folder": work.to_string_lossy()}],
+            "missionOwners": {}, "settings": {}}))
+        .unwrap();
+}
+
+fn seed_routine(store: &Store, fields: Value) -> String {
+    let mut routine = json!({"name": "Routine", "teammateId": "tm_codec", "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"},
+        "learnedFrom": [], "createdAt": "2026-11-01T00:00:00.000Z", "runs": 0});
+    for (k, v) in fields.as_object().unwrap() {
+        routine[k] = v.clone();
+    }
+    store.save_json("routines.json", &json!({"schemaVersion": 1, "routines": [routine.clone()]})).unwrap();
+    routine["routineId"].as_str().unwrap().to_owned()
+}
+
+/// The routine as the store holds it now.
+fn routine_now(store: &Store, id: &str) -> Value {
+    locust_core::routines::progress::get(store, id).unwrap().unwrap()
+}
+
+/// Automations open, looking at its routines on every poll rather than once a minute.
+fn open_routines(rt: &mut Runtime<State>) {
+    rt.state.routines.cadence = crate::routines_panel::Cadence { tick: Duration::ZERO, watch: Duration::ZERO, ended: Duration::ZERO };
+    rt.update(|s, _| crate::routines_panel::open(s));
+    settle(rt);
+}
+
+/// The window's own poll, for a while.
+fn poll_for(rt: &mut Runtime<State>, how_long: Duration) {
+    let until = std::time::Instant::now() + how_long;
+    while std::time::Instant::now() < until {
+        rt.update(|s, tx| {
+            poll(s, 0.0, tx);
+        });
+        rt.frame(0.05);
+        std::thread::sleep(Duration::from_millis(15));
+    }
+}
+
+/// Every ledger's first record that a routine started.
+fn routine_turns(store: &Store) -> Vec<Value> {
+    if !store.ledger_dir().unwrap().exists() {
+        return Vec::new();
+    }
+    first_records(store).into_iter().filter(|r| r["metadata"]["startedBy"]["kind"] == "routine").collect()
+}
+
+#[test]
+fn a_file_arriving_in_a_watched_folder_runs_its_routine_once() {
+    let (dirs, store, mut rt) = window();
+    let work = dirs.0.join("work").canonicalize().unwrap();
+    std::fs::create_dir_all(work.join("inbox")).unwrap();
+    seed_routine_team(&store, &work, "ask");
+    let id = seed_routine(&store, json!({"routineId": "rt_inbox", "name": "Read new invoices", "steps": ["Synthetic prompt"],
+        "schedule": {"kind": "files", "folder": "inbox"}}));
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    open_routines(&mut rt);
+    // The first look is the baseline; then a file lands, and is seen while it may still be changing.
+    poll_for(&mut rt, Duration::from_millis(600));
+    std::fs::write(work.join("inbox/invoice-1043.pdf"), "an invoice\n").unwrap();
+    poll_for(&mut rt, Duration::from_millis(600));
+    assert!(routine_turns(&store).is_empty(), "nothing runs for a file that may still be changing");
+    // It stops changing: twenty seconds on the watcher's clock, without sleeping through them.
+    rt.state.routines.engine.as_ref().unwrap().host.skew(locust_core::routine_files::SETTLE_MS + 1);
+    pump(&mut rt, "the routine's run to finish", |s| {
+        s.routines.file["routines"][0]["runs"] == 1 && s.routines.file["routines"][0].get("execution").is_none()
+    });
+    let turns = routine_turns(&store);
+    assert_eq!(turns.len(), 1, "one run for the file");
+    let meta = &turns[0]["metadata"];
+    assert_eq!(meta["startedBy"], json!({"kind": "routine", "routineId": id, "step": 1}));
+    assert_eq!(meta["prompt"], "A new file just arrived: inbox/invoice-1043.pdf. This run is for it.\n\nSynthetic prompt");
+    settle(&mut rt);
+    let card = text_in(&rt, &format!("routine-{id}")).join("\n");
+    assert!(card.contains("Routine \"Read new invoices\" finished: 1 step completed."), "{card}");
+    // Later looks: the same file never starts it again.
+    rt.state.routines.engine.as_ref().unwrap().host.skew(locust_core::routine_files::SETTLE_MS + 1);
+    poll_for(&mut rt, Duration::from_millis(800));
+    assert_eq!(routine_turns(&store).len(), 1, "the file started its routine once");
+    assert_eq!(routine_now(&store, &id)["runs"], 1);
+}
+
+#[test]
+fn a_step_that_waits_for_your_ok_shows_its_card_and_go_ahead_runs_the_next_step() {
+    let (dirs, store, mut rt) = window();
+    let work = dirs.0.join("work").canonicalize().unwrap();
+    seed_routine_team(&store, &work, "ask");
+    let id = seed_routine(&store, json!({"routineId": "rt_ship", "name": "Ship the fix", "steps": ["Read the notes.", "Write the summary."],
+        "handOffs": [{}, {"askFirst": true}]}));
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-routine"));
+    open_routines(&mut rt);
+    click(&mut rt, &format!("routine-run-{id}"));
+    pump(&mut rt, "the wait for an OK", |s| s.routines.file["routines"][0]["execution"]["waitsForOk"] == true);
+    settle(&mut rt);
+    let card = text_in(&rt, &format!("routine-{id}")).join("\n");
+    for said in [
+        "Waiting for your OK · Step 2 of 2 · Run started",
+        "Step 2 waits for your OK. Read what step 1 did, then go ahead or stop here.",
+        "Step 2: Write the summary.",
+        "Stop here ends this run after step 1; the routine runs again from step 1 when you press Run.",
+        "Go ahead with step 2",
+        "Stop here",
+        "Routine \"Ship the fix\" is waiting for your OK after step 1 of 2. Go ahead with step 2 under Routines.",
+    ] {
+        assert!(card.contains(said), "{said}\n---\n{card}");
+    }
+    assert_eq!(routine_turns(&store).len(), 1, "step 2 waits");
+    click(&mut rt, &format!("routine-go-ahead-{id}"));
+    pump(&mut rt, "the run to finish", |s| s.routines.file["routines"][0]["runs"] == 1);
+    let turns = routine_turns(&store);
+    assert_eq!(turns.len(), 2);
+    let steps: Vec<u64> = turns.iter().map(|t| t["metadata"]["startedBy"]["step"].as_u64().unwrap()).collect();
+    assert!(steps.contains(&1) && steps.contains(&2), "{steps:?}");
+    let first = turns.iter().find(|t| t["metadata"]["startedBy"]["step"] == 1).unwrap()["metadata"]["missionId"].as_str().unwrap().to_owned();
+    let second = turns.iter().find(|t| t["metadata"]["startedBy"]["step"] == 2).unwrap()["metadata"]["missionId"].as_str().unwrap().to_owned();
+    assert_eq!(native::real_tip(&first).unwrap(), second, "step 2 continues step 1's conversation");
+    assert!(routine_now(&store, &id).get("execution").is_none());
+}
+
+#[test]
+fn a_copy_runs_changes_are_kept_into_the_folder_or_discarded() {
+    let (dirs, store, mut rt) = window_in("accept-edits");
+    let work = dirs.0.join("work").canonicalize().unwrap();
+    seed_routine_team(&store, &work, "accept-edits");
+    let id = seed_routine(&store, json!({"routineId": "rt_notes", "name": "Notes", "steps": ["Write notes.txt."], "inCopy": true,
+        "route": {"runtime": "codex", "model": "synthetic-model", "mode": "accept-edits"}}));
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-edit-check"));
+    let copy = store.root().join("routine-copies").join(&id);
+    open_routines(&mut rt);
+
+    // Kept: the copy's change is written into the folder.
+    click(&mut rt, &format!("routine-run-{id}"));
+    pump(&mut rt, "its changes to wait", |s| s.routines.file["routines"][0].get("staged").is_some());
+    settle(&mut rt);
+    assert!(!work.join("notes.txt").exists(), "nothing reaches the folder before Keep");
+    assert_eq!(std::fs::read_to_string(copy.join("notes.txt")).unwrap(), "BROKEN\n", "the step ran in the copy");
+    let waiting = text_in(&rt, &format!("routine-changes-{id}")).join("\n");
+    assert!(waiting.contains("Waiting for you · its last run changed 1 file in its copy"), "{waiting}");
+    assert!(waiting.contains("notes.txt") && waiting.contains("Keep writes it into the folder; Discard throws it away."), "{waiting}");
+    click(&mut rt, &format!("routine-keep-{id}"));
+    pump(&mut rt, "Keep", |s| s.routines.file["routines"][0].get("staged").is_none() && !s.routines.said.is_empty());
+    assert_eq!(rt.state.routines.said, "Kept: 1 file written into the folder.");
+    assert_eq!(std::fs::read_to_string(work.join("notes.txt")).unwrap(), "BROKEN\n");
+    assert!(!copy.exists(), "the copy goes once kept");
+
+    // Discarded: the person's own file stays as they left it.
+    std::fs::write(work.join("notes.txt"), "mine\n").unwrap();
+    click(&mut rt, &format!("routine-run-{id}"));
+    pump(&mut rt, "its changes to wait again", |s| s.routines.file["routines"][0].get("staged").is_some());
+    click(&mut rt, &format!("routine-discard-{id}"));
+    assert!(text_in(&rt, &format!("routine-changes-{id}")).join("\n").contains("Discard for good?"), "Discard asks first");
+    assert!(rt.state.routines.file["routines"][0].get("staged").is_some(), "one press discards nothing");
+    click(&mut rt, &format!("routine-discard-{id}"));
+    pump(&mut rt, "Discard", |s| s.routines.file["routines"][0].get("staged").is_none() && s.routines.said.starts_with("Discarded"));
+    assert_eq!(rt.state.routines.said, "Discarded. Nothing from that run of \"Notes\" reached the folder.");
+    assert_eq!(std::fs::read_to_string(work.join("notes.txt")).unwrap(), "mine\n");
+    assert!(!copy.exists(), "no copy left behind");
+    assert_eq!(routine_now(&store, &id)["runs"], 2);
+}
