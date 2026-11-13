@@ -70,6 +70,8 @@ pub trait Runtime {
 #[cfg(test)]
 mod antigravity_tests;
 #[cfg(test)]
+mod compaction_tests;
+#[cfg(test)]
 mod copilot_tests;
 #[cfg(test)]
 mod cursor_tests;
