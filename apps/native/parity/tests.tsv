@@ -524,8 +524,8 @@ apps/desktop/src/main/the-first-screen-line-is-centred.test.ts		waiting
 apps/desktop/src/main/the-flat-sidebar-is-written-down.test.ts		waiting		
 apps/desktop/src/main/the-folder-commits-as-you.test.ts		waiting		
 apps/desktop/src/main/the-folders-changes-are-read.test.ts		waiting		
-apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts		waiting		
-apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts		waiting		
+apps/desktop/src/main/the-github-cli-installs-from-the-card.test.ts	GITHUB	carried	core/src/github_account_tests.rs, src/ui/github_section.rs tests	carried (13 Nov)
+apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	GITHUB	carried	core/src/github_account_tests.rs, src/ui/github_section.rs tests	carried (13 Nov)
 apps/desktop/src/main/the-history-reads-only-what-changed.test.ts		waiting		
 apps/desktop/src/main/the-home-keyframes-only-transform-and-fade.test.ts		waiting		
 apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	P8	partial		`main/the-host-refuses-always-for-a-reaching-command.test.ts` | Existing host downgrade/refusal tests retained; card saving uses the host's pending request.
@@ -592,7 +592,7 @@ apps/desktop/src/main/workspace-files.test.ts		waiting
 apps/desktop/src/main/workspace.test.ts		waiting		
 apps/desktop/src/main/worktrees.test.ts		waiting		
 apps/desktop/src/main/your-account-keeps-a-sealed-copy.test.ts		waiting		
-apps/desktop/src/main/your-github-is-connected-through-gh.test.ts		waiting		
+apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	GITHUB	carried	core/src/github_account_tests.rs, src/ui/github_section.rs tests	carried (13 Nov)
 apps/desktop/src/main/your-line-breaks-are-kept.test.ts	P7	does-not-apply		`main/your-line-breaks-are-kept.test.ts` | This is conversation/room bubble CSS, not checkpoint byte preservation. Its CSS assertions do not apply to this change. CRLF and binary restoration are instead tested directly.
 apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts		waiting		
 apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts		waiting		
@@ -1117,7 +1117,7 @@ apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-sai
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx		waiting		
 apps/desktop/src/renderer/src/with-nothing-installed-install-comes-first.test.tsx		waiting		
 apps/desktop/src/renderer/src/your-account-card-says-where-the-copy-stands.test.tsx		waiting		
-apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx		waiting		
+apps/desktop/src/renderer/src/your-github-shows-on-connectors.test.tsx	GITHUB	carried	core/src/github_account_tests.rs, src/ui/github_section.rs tests	carried (13 Nov)
 apps/desktop/src/renderer/src/your-own-model-is-named-as-yours.test.tsx		waiting		
 apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts		waiting		
 apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx		waiting		

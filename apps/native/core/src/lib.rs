@@ -27,6 +27,7 @@ pub mod engine_api;
 pub mod engine_process;
 pub mod folder_commit;
 pub mod folders;
+pub mod github_account;
 pub mod hand_off;
 pub mod inspector;
 pub mod interview;

@@ -193,7 +193,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Connector inventory, health and add to supported agents | `renderer/src/components/ConnectorHealth.tsx`, `renderer/src/components/AddConnector.tsx`, `main/connector-reader.ts`, `main/connector-add.ts` | **missing** | - | no | yes |
 | Feedback and private report export/send controls | `renderer/src/components/FeedbackDialog.tsx`, `main/report-problem.ts` | **missing** | - | no | yes |
 | Keyboard shortcut reference | `renderer/src/components/KeyboardSheet.tsx`, `renderer/src/keyboardShortcuts.ts` | **done** — P10: Electron words; native-bound unmarked; lacking rows marked `runs in Locust for now`; Mac Cmd/Option remap | yes | no | no |
-| GitHub account and CLI readiness | `renderer/src/components/GitHubAccount.tsx`, `main/github-account.ts` | **missing** | - | no | yes |
+| GitHub account and CLI readiness | `renderer/src/components/GitHubAccount.tsx`, `main/github-account.ts` | **done** — `core/src/github_account.rs` (who gh is signed in as, the one-time-code sign-in through `gh auth login --web`, one at a time with Stop and the 15-minute limit, install and update with Homebrew or winget, the version check; Locust keeps no token) and `src/ui/github_section.rs` (Settings › Connectors › GitHub, Electron's words and GitHub's mark; opens only GitHub's own pages); Electron's three test files and the card test carried, a headless window test of the whole sign-in | yes | no | yes |
 
 ### Area 12: Cloud, Remote, Phone & Chat Apps
 
@@ -288,12 +288,12 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 3 | 2 | 5 | 10 | 5 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
-| 11 | Settings, Usage, Privacy & Backup | 3 | 2 | 3 | 8 | 5 | 0 |
+| 11 | Settings, Usage, Privacy & Backup | 4 | 2 | 2 | 8 | 6 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **52** | **53** | **48** | **153** | **105** | **15** |
+| | **TOTAL** | **53** | **53** | **47** | **153** | **106** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

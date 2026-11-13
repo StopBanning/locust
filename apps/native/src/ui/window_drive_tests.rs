@@ -2811,3 +2811,80 @@ fn routine_with_inputs_asks_for_them_and_runs_with_them() {
     let turn_json = turns[0].to_string();
     assert!(turn_json.contains("Summarize Rust port"), "prompt should contain entered input: {turn_json}");
 }
+
+/// your-github-is-connected-through-gh, end to end in the window: Settings › Connectors asks the GitHub CLI, signs in
+/// with the one-time code it prints, opens GitHub's own device page, and shows who signed in. gh is a fake: no
+/// program runs.
+#[test]
+fn github_signs_in_from_the_connectors_card_with_the_code_gh_prints() {
+    use locust_core::github_account::{Exit, Gh, GhAnswer, Login, LoginEvent};
+    use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+    struct FakeLogin { said: bool, approved: Arc<AtomicBool> }
+    impl Login for FakeLogin {
+        fn next(&mut self, wait: Duration) -> LoginEvent {
+            if !self.said {
+                self.said = true;
+                return LoginEvent::Text("! One-time code (AB12-CD34) copied to clipboard\nOpen this URL to continue in your web browser: https://github.com/login/device\n".into());
+            }
+            if self.approved.load(Ordering::SeqCst) {
+                return LoginEvent::Ended(Exit::Code(0));
+            }
+            std::thread::sleep(wait.min(Duration::from_millis(10)));
+            LoginEvent::Nothing
+        }
+        fn stop(&mut self) {}
+    }
+    struct FakeGh { signed_in: Arc<AtomicBool>, approved: Arc<AtomicBool>, asked: Mutex<Vec<String>> }
+    impl Gh for FakeGh {
+        fn run_gh(&self, args: &[&str]) -> GhAnswer {
+            self.asked.lock().unwrap().push(args.join(" "));
+            match args.first() {
+                Some(&"--version") => GhAnswer::code(0, "gh version 2.102.0 (2026-10-01)\n"),
+                Some(&"api") => GhAnswer::code(0, "v2.102.0\n"),
+                _ if self.signed_in.load(Ordering::SeqCst) => GhAnswer::code(0, r#"{"hosts":{"github.com":[{"state":"success","active":true,"login":"octo-cat","scopes":"repo"}]}}"#),
+                _ => GhAnswer::code(0, r#"{"hosts":{}}"#),
+            }
+        }
+        fn start_login(&self, _args: &[&str]) -> Box<dyn Login> {
+            Box::new(FakeLogin { said: false, approved: self.approved.clone() })
+        }
+        fn run_installer(&self, _command: &str, _args: &[&str]) -> GhAnswer {
+            panic!("no installer runs in this test")
+        }
+        fn exists(&self, _path: &str) -> bool {
+            false
+        }
+        fn platform(&self) -> &'static str {
+            "darwin"
+        }
+    }
+    let (signed_in, approved) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false)));
+    crate::github_section::use_gh(Arc::new(FakeGh { signed_in: signed_in.clone(), approved: approved.clone(), asked: Mutex::new(vec![]) }));
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("connectors");
+    });
+    pump(&mut rt, "the GitHub CLI asked", |s| s.github.account.is_some());
+    settle(&mut rt);
+    let card = text_in(&rt, "github-card").join(" | ");
+    assert!(card.contains("Not signed in. Sign in so teammates can push and open pull requests as you."), "{card}");
+
+    click(&mut rt, "github-sign-in");
+    pump(&mut rt, "the one-time code", |s| s.github.code.is_some());
+    settle(&mut rt);
+    let waiting = text_in(&rt, "github-card").join(" | ");
+    assert!(waiting.contains("AB12-CD34") && waiting.contains("Copy code and open GitHub") && waiting.contains("Stop"), "{waiting}");
+    click(&mut rt, "github-copy-code");
+    assert_eq!(rt.state.github.opened, vec!["https://github.com/login/device".to_owned()]);
+    assert!(text_in(&rt, "github-card").join(" ").contains("Copied. Open GitHub again"));
+
+    // GitHub says yes: gh's account is read again and named on the card.
+    signed_in.store(true, Ordering::SeqCst);
+    approved.store(true, Ordering::SeqCst);
+    pump(&mut rt, "the sign-in ending", |s| !s.github.signing_in);
+    settle(&mut rt);
+    let done = text_in(&rt, "github-card").join(" | ");
+    assert!(done.contains("octo-cat") && done.contains("Signed in to GitHub.") && done.contains("Open on GitHub"), "{done}");
+    assert!(!done.contains("Sign in with GitHub"), "{done}");
+}
