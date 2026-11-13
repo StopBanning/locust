@@ -461,10 +461,8 @@ impl Launcher for RealLauncher {
         if !cfg!(target_os = "macos") {
             return Err("Open Claude Code in a terminal in this folder to complete setup, then enable this switch again.".into());
         }
-        let script = store.root().join("terminal").join(format!("remote-control-setup-{}.command", crate::invariants::unique_nanos()));
-        if let Some(dir) = script.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        }
+        // Beside the other terminal scripts (terminal_panel's), which remove themselves as they run.
+        let script = store.attachments_dir().map_err(|e| e.to_string())?.join(format!("remote-control-setup-{}.command", crate::invariants::unique_nanos()));
         crate::runtime_terminal::open(program, &[], cwd, &script, store)
     }
 }

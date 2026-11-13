@@ -84,6 +84,7 @@ pub const LEFT_OUT: &[(&str, &str)] = &[
     ("voice-call-mcp", "a voice call's own token for handing work to teammates: minted again for every call (0.739)"),
     ("voice-call.json", "the voice Talk speaks in, and the keys that start it from any app: preferences, picked again in a moment after a restore (0.745, 0.755)"),
     ("voice-previews", "the greeting each voice gave the first time it was played: made again by playing it (0.751)"),
+    ("reply-pages", "pages from replies, written from the reply again whenever it is opened"),
     ("claude-app.json", "when Locust last changed the Claude app's settings on this machine, to say whether Claude needs a restart (0.741)"),
     ("own-models.json", "your own model keys: this computer locks them to your account, so add them again after a restore"),
     ("voice-settings.json", "your voice API key and consent: this computer locks the key to your account, so choose voice typing again after a restore"),
