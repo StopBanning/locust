@@ -903,6 +903,11 @@ pub fn waiting_approvals_for(mission_id: &str) -> Vec<ApprovalRequest> {
 }
 
 /// Answer a card from the window. Refused after the turn ended.
+/// A question card's answers, to the channel that holds it.
+pub fn answer_approval(approval_id: &str, answers: Vec<(String, Vec<String>)>) -> Result<(), String> {
+    approvals_channel().decide(Answer::Answers { approval_id: approval_id.into(), answers }).map(|_| ())
+}
+
 pub fn decide_approval(
     approval_id: &str,
     decision: Decision,

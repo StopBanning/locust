@@ -198,6 +198,8 @@ impl Codex {
                 "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" => {
                     self.answer_approval(&method_owned, &params, wire_id.clone())?
                 }
+                // A question is answered, in any mode: it authorizes nothing (question-answers.test.ts).
+                "item/tool/requestUserInput" => self.answer_question(&method_owned, &params, wire_id.clone())?,
                 "execCommandApproval" | "applyPatchApproval" => json!({"decision":"denied"}),
                 _ => {
                     self.send(json!({"jsonrpc":"2.0","id":wire_id,"error":{"code":-32601,"message":"Native does not support this interactive request"}}))?;
@@ -214,6 +216,34 @@ impl Codex {
         }
         Ok(())
     }
+    fn answer_question(&mut self, method: &str, params: &Value, wire_id: Value) -> io::Result<Value> {
+        // Another thread's question, or no card to put it on: answered with nothing, said in the thread.
+        let unanswered = |questions: &[crate::approval::Question]| {
+            let mut map = serde_json::Map::new();
+            for q in questions {
+                map.insert(q.id.clone(), json!({"answers": []}));
+            }
+            json!({"answers": map})
+        };
+        let questions = crate::approval::questions_of(params);
+        if super::events::thread_id(params).is_some_and(|id| self.normal.thread.as_ref() != Some(&id)) {
+            return Ok(unanswered(&questions));
+        }
+        let Some(channel) = self.approvals.clone() else {
+            self.queued.push_back(self.normal.diagnostic(method, "Codex asked a question, and there was nowhere to show it."));
+            return Ok(unanswered(&questions));
+        };
+        let (mission, run, cancel) = (self.mission_id.clone(), self.run_id.clone(), self.cancel.clone());
+        let is_cancelled = move || crate::run_cli::interrupted() || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed));
+        match channel.ask_codex(&run, &mission, method, params, wire_id, &is_cancelled) {
+            Ok(result) => Ok(result),
+            Err(message) => {
+                self.queued.push_back(self.normal.diagnostic(method, &message));
+                Ok(unanswered(&questions))
+            }
+        }
+    }
+
     fn answer_approval(
         &mut self,
         method: &str,

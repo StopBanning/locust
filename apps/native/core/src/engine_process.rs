@@ -153,7 +153,8 @@ fn card_json(c: &Request) -> Value {
     json!({"approvalId": c.approval_id, "missionId": c.mission_id, "runtime": c.runtime, "kind": c.kind.as_str(),
         "summary": c.summary, "detail": c.detail, "cwd": c.cwd, "requestedAt": c.requested_at,
         "alwaysCovers": c.always_covers, "alwaysKey": c.always_key, "dataSentSays": c.data_sent_says,
-        "reversibleSays": c.reversible_says, "claudeInput": c.claude_input})
+        "reversibleSays": c.reversible_says, "claudeInput": c.claude_input,
+        "questions": crate::approval::questions_json(&c.questions)})
 }
 
 fn card_from(v: &Value) -> Result<Request, String> {
@@ -171,6 +172,7 @@ fn card_from(v: &Value) -> Result<Request, String> {
         data_sent_says: text(v, "dataSentSays"),
         reversible_says: text(v, "reversibleSays"),
         claude_input: Some(v["claudeInput"].clone()).filter(|i| !i.is_null()),
+        questions: crate::approval::questions_of(&json!({"questions": v["questions"]})),
     })
 }
 
@@ -260,6 +262,20 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
         "decide" => engine
             .decide(&needed(request, "approvalId")?, decision_from(&needed(request, "decision")?)?, text(request, "reason"))
             .map(|()| Value::Null),
+        "answer" => {
+            // Bounded as Electron bounds them: words a person typed, not a file.
+            let answers: Vec<(String, Vec<String>)> = request["answers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|pair| {
+                    let id = pair[0].as_str()?.to_owned();
+                    let given = pair[1].as_array()?.iter().take(64).map(|g| g.as_str().map(|s| s.chars().take(4_000).collect::<String>())).collect::<Option<Vec<_>>>()?;
+                    Some((id, given))
+                })
+                .collect();
+            engine.answer(&needed(request, "approvalId")?, answers).map(|()| Value::Null)
+        }
         "save-rule-and-decide" => engine
             .save_rule_and_decide(&card_from(&request["card"])?, effect_from(&needed(request, "effect")?)?)
             .map(|()| Value::Null),
@@ -510,6 +526,10 @@ impl EngineApi for Client {
     fn decide(&self, approval_id: &str, decision: Decision, reason: Option<String>) -> Result<(), String> {
         self.call(json!({"op": "decide", "approvalId": approval_id, "decision": decision_word(&decision), "reason": reason}))
             .map(|_| ())
+    }
+    fn answer(&self, approval_id: &str, answers: Vec<(String, Vec<String>)>) -> Result<(), String> {
+        let answers: Vec<Value> = answers.into_iter().map(|(id, given)| json!([id, given])).collect();
+        self.call(json!({"op": "answer", "approvalId": approval_id, "answers": answers})).map(|_| ())
     }
     fn save_rule_and_decide(&self, card: &Request, effect: RuleEffect) -> Result<(), String> {
         self.call(json!({"op": "save-rule-and-decide", "card": card_json(card), "effect": effect_word(&effect)}))

@@ -124,6 +124,79 @@ pub enum Decision {
 
 impl Decision {}
 
+/// One option of a question the runtime asked; its label is its identity (the protocol gives it no id or index).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct QuestionOption {
+    pub label: String,
+    pub description: Option<String>,
+}
+
+/// One question of a Codex `item/tool/requestUserInput` (approval-channel.ts MissionQuestion).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Question {
+    pub id: String,
+    pub header: Option<String>,
+    pub question: String,
+    pub options: Vec<QuestionOption>,
+    /// The person may write their own answer.
+    pub is_other: bool,
+    pub is_secret: bool,
+}
+
+/// How many questions one request may carry, and how many options each may offer.
+const MAX_QUESTIONS: usize = 12;
+const MAX_OPTIONS: usize = 24;
+
+/// The `questions` array, defensively: a malformed entry is dropped, not guessed at (questionsOf). A question with no
+/// id has nowhere for its answer to go, and an option with no label cannot be chosen, so neither is offered.
+pub fn questions_of(params: &Value) -> Vec<Question> {
+    let bounded = |v: &Value| v.as_str().map(whole_detail).unwrap_or_default();
+    params["questions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(MAX_QUESTIONS)
+        .filter_map(|entry| {
+            let id = entry["id"].as_str().filter(|id| !id.is_empty())?;
+            let question = bounded(&entry["question"]);
+            if question.is_empty() {
+                return None;
+            }
+            let options = entry["options"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .take(MAX_OPTIONS)
+                .filter_map(|o| {
+                    let label = bounded(&o["label"]);
+                    (!label.is_empty()).then(|| QuestionOption { label, description: o["description"].as_str().map(whole_detail) })
+                })
+                .collect();
+            Some(Question {
+                id: id.into(),
+                header: entry["header"].as_str().map(whole_detail),
+                question,
+                options,
+                is_other: entry["isOther"] == true,
+                is_secret: entry["isSecret"] == true,
+            })
+        })
+        .collect()
+}
+
+/// Questions as the wire spells them, so a card crosses into the engine process whole (read back by `questions_of`).
+pub fn questions_json(questions: &[Question]) -> Value {
+    Value::Array(
+        questions
+            .iter()
+            .map(|q| {
+                json!({"id": q.id, "header": q.header, "question": q.question, "isOther": q.is_other, "isSecret": q.is_secret,
+                    "options": q.options.iter().map(|o| json!({"label": o.label, "description": o.description})).collect::<Vec<_>>()})
+            })
+            .collect(),
+    )
+}
+
 #[derive(Clone, Debug)]
 pub struct Request {
     pub approval_id: String,
@@ -144,6 +217,8 @@ pub struct Request {
 
     /// Claude `can_use_tool` input, kept so allow can return updatedInput.
     pub claude_input: Option<Value>,
+    /// What a question card asks, each answered by id (empty for an authorization).
+    pub questions: Vec<Question>,
 }
 
 #[derive(Clone, Debug)]
@@ -153,12 +228,18 @@ pub enum Answer {
         decision: Decision,
         reason: Option<String>,
     },
+    /// A question's answers, by question id; a chosen option by its literal label. An empty list is a question the
+    /// person left alone, kept present rather than absent.
+    Answers {
+        approval_id: String,
+        answers: Vec<(String, Vec<String>)>,
+    },
 }
 
 impl Answer {
     pub fn approval_id(&self) -> &str {
         match self {
-            Self::Decision { approval_id, .. } => approval_id,
+            Self::Decision { approval_id, .. } | Self::Answers { approval_id, .. } => approval_id,
         }
     }
 }
@@ -250,14 +331,14 @@ pub fn describe_codex(
             Some((kind, summary, detail, cwd))
         }
         Kind::Question => {
-            let detail = whole_detail(
-                params["question"]
-                    .as_str()
-                    .or_else(|| params["prompt"].as_str())
-                    .or_else(|| params["message"].as_str())
-                    .unwrap_or(""),
-            );
-            Some((kind, "Answer a question".into(), detail, cwd))
+            // The questions array first; the singular keys still read, last, so a question is never unshown again.
+            let questions = questions_of(params);
+            let detail = match questions.first() {
+                Some(first) => first.question.clone(),
+                None => whole_detail(params["question"].as_str().or_else(|| params["prompt"].as_str()).or_else(|| params["message"].as_str()).unwrap_or("")),
+            };
+            let summary = if questions.len() > 1 { format!("Answer {} questions", questions.len()) } else { "Answer a question".into() };
+            Some((kind, summary, detail, cwd))
         }
         Kind::Connector => None,
     }
@@ -429,6 +510,13 @@ pub fn protocol_decision_for(decision: &Decision) -> &'static str {
 /// Codex JSON-RPC result for one answer.
 pub fn protocol_answer_for(answer: &Answer) -> Value {
     match answer {
+        Answer::Answers { answers, .. } => {
+            let mut map = serde_json::Map::new();
+            for (id, given) in answers {
+                map.insert(id.clone(), json!({"answers": given}));
+            }
+            json!({"answers": map})
+        }
         Answer::Decision {
             decision, reason, ..
         } => {
@@ -460,6 +548,8 @@ pub fn claude_behavior_for(answer: &Answer, input: Option<&Value>) -> Value {
         Answer::Decision { .. } => {
             json!({"behavior":"allow","updatedInput": input.cloned().unwrap_or(json!({}))})
         }
+        // A Claude card is an authorization: answers never reach one (the channel checks the pairing first).
+        Answer::Answers { .. } => json!({"behavior":"deny","message":"The person declined this in Locust."}),
     }
 }
 
@@ -572,6 +662,7 @@ impl Channel {
         let Some((kind, summary, detail, cwd)) = describe_codex(method, params) else {
             return Ok(json!({"decision":"reject"}));
         };
+        let questions = if kind == Kind::Question { questions_of(params) } else { Vec::new() };
         let request = Request {
             approval_id: new_id(),
 
@@ -588,6 +679,7 @@ impl Channel {
             reversible_says: None,
 
             claude_input: None,
+            questions,
         };
         self.ask(request, cancel)
             .map(|answer| protocol_answer_for(&answer))
@@ -627,6 +719,8 @@ impl Channel {
             reversible_says: reversible,
 
             claude_input: Some(input.clone()),
+
+            questions: Vec::new(),
         };
         let input_kept = request.claude_input.clone();
         self.ask(request, cancel)
@@ -722,6 +816,8 @@ impl Channel {
             reversible_says: None,
 
             claude_input: None,
+
+            questions: Vec::new(),
         };
         self.ask(request, cancel).map(|a| {
             matches!(
@@ -736,7 +832,7 @@ impl Channel {
 
     /// Browser actions never inherit a command allow rule or Auto-mode bypass.
     pub fn ask_browser(&self, mission: &str, title: &str, detail: &str, cancel: &dyn Fn() -> bool) -> Result<bool, String> {
-        let request = Request { approval_id: new_id(), mission_id: mission.into(), runtime: "browser".into(), kind: Kind::Connector, summary: whole_detail(title), detail: whole_detail(detail), cwd: None, requested_at: now_iso(), always_covers: None, always_key: None, data_sent_says: None, reversible_says: None, claude_input: None };
+        let request = Request { approval_id: new_id(), mission_id: mission.into(), runtime: "browser".into(), kind: Kind::Connector, summary: whole_detail(title), detail: whole_detail(detail), cwd: None, requested_at: now_iso(), always_covers: None, always_key: None, data_sent_says: None, reversible_says: None, claude_input: None, questions: Vec::new() };
         self.ask(request, cancel).map(|a| matches!(a, Answer::Decision { decision: Decision::ApproveOnce | Decision::ApproveAlways, .. }))
     }
 
@@ -834,6 +930,18 @@ impl Channel {
                 "That approval is no longer waiting. An answer after the turn ended is refused."
                     .into(),
             );
+        }
+        // A question is answered and an action authorized: neither reaches the other's request, since the runtime
+        // would read the wrong shape as an empty answer. Refused, and the runtime told no.
+        let answering = matches!(answer, Answer::Answers { .. });
+        if answering != (pending.request.kind == Kind::Question) {
+            let _ = pending.tx.try_send(Answer::Decision { approval_id: pending.request.approval_id.clone(), decision: Decision::Deny, reason: None });
+            return Err(if answering {
+                "Locust did not send that answer: it belongs to a question, and the runtime was waiting on an authorization."
+            } else {
+                "Locust did not send that decision: the runtime asked a question, which is answered rather than approved."
+            }
+            .into());
         }
         let answer = match &answer {
             Answer::Decision {
@@ -974,6 +1082,10 @@ fn record_of(request: &Request, answer: &Answer) -> Recorded {
             ..
         } => ("allowed-always", None),
         Answer::Decision { .. } => ("allowed", None),
+        Answer::Answers { answers, .. } => {
+            let said: Vec<String> = answers.iter().filter(|(_, given)| !given.is_empty()).map(|(_, given)| given.join(", ")).collect();
+            ("answered", (!said.is_empty()).then(|| said.join("; ")))
+        }
     };
     Recorded {
         mission_id: request.mission_id.clone(),
@@ -1168,6 +1280,73 @@ pub fn needs_you_status(count: usize) -> String {
 }
 
 #[cfg(test)]
+mod question_tests {
+    //! Electron's main/question-answers.test.ts.
+    use super::*;
+
+    #[test]
+    fn reads_the_array_with_ids_options_and_flags() {
+        let params = json!({"questions": [{"id": "database", "header": "Storage", "question": "Which database should the fixture use?", "isOther": true, "isSecret": false,
+            "options": [{"label": "SQLite", "description": "No server to run"}, {"label": "Postgres", "description": null}]}]});
+        let (kind, summary, detail, _) = describe_codex("item/tool/requestUserInput", &params).unwrap();
+        assert_eq!((kind, summary.as_str(), detail.as_str()), (Kind::Question, "Answer a question", "Which database should the fixture use?"));
+        let q = &questions_of(&params)[0];
+        assert_eq!((q.id.as_str(), q.header.as_deref(), q.is_other), ("database", Some("Storage"), true));
+        assert_eq!(q.options.iter().map(|o| o.label.as_str()).collect::<Vec<_>>(), vec!["SQLite", "Postgres"]);
+        assert_eq!(q.options[1].description, None);
+    }
+
+    #[test]
+    fn says_how_many_when_a_request_carries_several_and_still_reads_a_singular_question() {
+        let several = json!({"questions": [{"id": "a", "question": "First?", "options": []}, {"id": "b", "question": "Second?", "options": []}]});
+        assert_eq!(describe_codex("item/tool/requestUserInput", &several).unwrap().1, "Answer 2 questions");
+        assert_eq!(questions_of(&several).len(), 2);
+        assert_eq!(describe_codex("item/tool/requestUserInput", &json!({"question": "Ready?"})).unwrap().2, "Ready?");
+    }
+
+    #[test]
+    fn drops_a_question_with_no_id_and_an_option_with_no_label_and_survives_malformed_requests() {
+        let ids = questions_of(&json!({"questions": [{"question": "no id here", "options": []}, {"id": "good", "question": "this one is answerable", "options": []}]}));
+        assert_eq!(ids.iter().map(|q| q.id.as_str()).collect::<Vec<_>>(), vec!["good"]);
+        let labels = questions_of(&json!({"questions": [{"id": "q", "question": "Pick", "options": [{"description": "nameless"}, {"label": "Real"}]}]}));
+        assert_eq!(labels[0].options.iter().map(|o| o.label.as_str()).collect::<Vec<_>>(), vec!["Real"]);
+        assert!(questions_of(&json!({})).is_empty());
+        assert!(questions_of(&json!({"questions": "not an array"})).is_empty());
+        assert!(questions_of(&json!({"questions": [null, 7, "x"]})).is_empty());
+    }
+
+    #[test]
+    fn sends_answers_keyed_by_question_id_an_option_by_its_label_and_an_unanswered_one_present_and_empty() {
+        let answer = |answers: Vec<(&str, Vec<&str>)>| Answer::Answers {
+            approval_id: "ap_1".into(),
+            answers: answers.into_iter().map(|(id, given)| (id.to_owned(), given.into_iter().map(str::to_owned).collect())).collect(),
+        };
+        assert_eq!(
+            protocol_answer_for(&answer(vec![("database", vec!["SQLite"]), ("notes", vec!["Keep the existing migration names."])])),
+            json!({"answers": {"database": {"answers": ["SQLite"]}, "notes": {"answers": ["Keep the existing migration names."]}}})
+        );
+        let sent = protocol_answer_for(&answer(vec![("q", vec!["Postgres"])]));
+        assert_eq!(sent["answers"]["q"]["answers"], json!(["Postgres"]));
+        assert_eq!(protocol_answer_for(&answer(vec![("q", vec![])])), json!({"answers": {"q": {"answers": []}}}));
+    }
+
+    #[test]
+    fn still_sends_a_decision_for_an_authorization() {
+        let decision = |d| Answer::Decision { approval_id: "ap_1".into(), decision: d, reason: None };
+        assert_eq!(protocol_answer_for(&decision(Decision::ApproveOnce)), json!({"decision": "accept"}));
+        assert_eq!(protocol_answer_for(&decision(Decision::ApproveAlways)), json!({"decision": "acceptForSession"}));
+        assert_eq!(protocol_answer_for(&decision(Decision::Deny)), json!({"decision": "reject"}));
+    }
+
+    #[test]
+    fn questions_cross_into_the_engine_process_whole() {
+        let params = json!({"questions": [{"id": "d", "header": "H", "question": "Q?", "isOther": true, "isSecret": true, "options": [{"label": "A", "description": "a"}]}]});
+        let questions = questions_of(&params);
+        assert_eq!(questions_of(&json!({"questions": questions_json(&questions)})), questions);
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -1315,6 +1494,8 @@ mod tests {
             reversible_says: None,
 
             claude_input: None,
+
+            questions: Vec::new(),
         };
         let answer = Answer::Decision {
             approval_id: "a".into(),

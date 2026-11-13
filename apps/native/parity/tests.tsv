@@ -439,7 +439,7 @@ apps/desktop/src/main/prose-face-is-bundled.test.ts		waiting
 apps/desktop/src/main/qa-0365-concurrency.test.ts		waiting		
 apps/desktop/src/main/qa-0365-fresh.test.ts		waiting		
 apps/desktop/src/main/qa-0365-rooms.test.ts		waiting		
-apps/desktop/src/main/question-answers.test.ts		waiting		
+apps/desktop/src/main/question-answers.test.ts	QUESTIONS	carried	core/src/approval.rs question_tests	all 10 cases, and the window test a_codex_question_is_answered_by_id_and_label_not_approved
 apps/desktop/src/main/quit-guard.test.ts	settings	carried	core/src/quit_guard.rs	should_ask_before_closing, hide_to_tray_on_close, close_question, CLOSE_BUTTONS, tray_line
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts		waiting		
 apps/desktop/src/main/relay-note-is-writable.test.ts		waiting		

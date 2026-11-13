@@ -23,6 +23,7 @@ pub(super) fn sync_approvals(s: &mut State) -> bool {
         s.approval_shown = std::time::Instant::now();
         s.approval_denying = false;
         s.approval_reason.clear();
+        s.question_answers = crate::question_card::Answers::default();
         if s.pending_approval.is_some() {
             let id = selected_conversation(s)
                 .map(|(t, _)| t.id.clone())
@@ -82,6 +83,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     } else {
         card.detail.clone()
     };
+    let asking = card.kind == approval::Kind::Question && !card.questions.is_empty();
     let mut body = col()
         .key(format!("approval-{}", card.approval_id))
         .w_full()
@@ -91,7 +93,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
         .fill(p.raised)
         .border(1.0, p.amber)
         .child(
-            text("Approval required — exact action")
+            text(if asking { "A question for you" } else { "Approval required — exact action" })
                 .font(type_::TITLE)
                 .color(p.text)
                 .w_full()
@@ -171,6 +173,14 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
         );
     }
     let l = crate::look::controls::Look::new(p.dark);
+    // A question is answered, never approved: its choices take the buttons' place.
+    if card.kind == approval::Kind::Question && !card.questions.is_empty() {
+        body = body.child(crate::question_card::questions(s, card, p));
+        if let Some(notice) = &s.approval_notice {
+            body = body.child(text(notice.clone()).font(type_::LABEL).color(p.amber).w_full().wrap());
+        }
+        return body;
+    }
     if !s.approval_denying {
         body = body.child(
             row()

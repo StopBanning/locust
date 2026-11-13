@@ -452,6 +452,8 @@ pub(super) fn approval_scene(s: &mut State, light: bool) {
         reversible_says: None,
 
         claude_input: None,
+
+        questions: Vec::new(),
     });
     s.status = "Needs you".into();
     s.status_tone = StatusTone::Amber;

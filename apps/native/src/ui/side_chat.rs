@@ -745,6 +745,7 @@ mod tests {
             data_sent_says: None,
             reversible_says: None,
             claude_input: None,
+            questions: Vec::new(),
         };
         let (texts, _) = render_texts_and_labels(sample_side("running", vec![approval]));
         assert!(texts.iter().any(|t| t == "Use create_issue on github"));

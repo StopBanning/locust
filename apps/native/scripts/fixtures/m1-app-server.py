@@ -102,6 +102,13 @@ for line in sys.stdin:
                     reply = 'Cleaned the Linux cache.'
                 else:
                     reply = "Done.\n\n<locust-next>\nClean the Linux cache too :: Do the same for the AppImage cache.\nTell people in What's new :: Add a line to the changelog.\n</locust-next>"
+            elif scenario == 'cards-question':
+                # Codex's requestUserInput: a questions array; answered by id, an option by its label.
+                send(dict(id='question', method='item/tool/requestUserInput', params={'threadId':'thread_fake','turnId':'turn_fake','itemId':'q1','questions':[
+                    {'id':'database','header':'Storage','question':'Which database should the fixture use?','isOther':False,'isSecret':False,
+                     'options':[{'label':'SQLite','description':'No server to run'},{'label':'Postgres','description':None}]},
+                    {'id':'notes','header':None,'question':'Anything to keep?','isOther':False,'isSecret':False,'options':None}]}))
+                continue
             elif scenario == 'cards-share':
                 # The brief as the teammate got it, for the test to read; then a share, or the reply to one.
                 with open('last-prompt.txt', 'w') as f:
@@ -154,6 +161,12 @@ for line in sys.stdin:
             item(True, id=kind, type=kind, status='completed', **fields)
         item(True, id='answer', type='agentMessage', text='Hello world')
         send(dict(id='approval', method='item/commandExecution/requestApproval',params={'command':'touch forbidden','cwd':'/tmp'}))
+    elif msg.get('id') == 'question':
+        assert msg.get('result') == {'answers': {'database': {'answers': ['SQLite']}, 'notes': {'answers': ['Keep the migration names.']}}}, msg
+        reply = 'Using SQLite, keeping the migration names.'
+        notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
+        item(True, id='answer', type='agentMessage', text=reply)
+        notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
     elif msg.get('id') == 'approval':
         assert msg['result']['decision'] == APPROVE_DECISION, msg
         notify('warning', message='Synthetic warning')

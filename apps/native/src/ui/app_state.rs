@@ -150,6 +150,8 @@ pub(super) struct State {
     pub(super) link_refusal: Option<(String, String)>,
     /// Web links a test pressed, kept instead of opened.
     pub(super) opened_links: Vec<String>,
+    /// What the person has chosen and typed on a question card.
+    pub(super) question_answers: crate::question_card::Answers,
     pub(super) diff_notes: crate::diff_notes_ui::Notes,
     pub(super) issues: crate::issue_list::Picker,
     pub(super) issues_job: Latest<crate::issue_list::Answer>,
@@ -389,6 +391,7 @@ impl Default for State {
             agent_accounts: Default::default(),
             link_refusal: None,
             opened_links: Vec::new(),
+            question_answers: Default::default(),
             diff_notes: Default::default(),
             issues: Default::default(),
             issues_job: Latest::default(),

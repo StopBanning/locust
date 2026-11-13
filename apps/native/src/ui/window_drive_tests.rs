@@ -3855,3 +3855,31 @@ fn removing_account_while_teammate_turn_runs_is_refused() {
     assert!(rt.state.agent_accounts.accounts.is_empty(), "{:?}", rt.state.agent_accounts.message);
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+/// question-answers.test.ts, in the window: Codex asks two questions, the card offers the first's options and a field
+/// for the second, Send waits until both have an answer, and the answers reach Codex keyed by id, the option by label.
+#[test]
+fn a_codex_question_is_answered_by_id_and_label_not_approved() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-question"));
+    type_and_send(&mut rt, "Set up the fixture");
+    pump(&mut rt, "the question card", |s| s.pending_approval.as_ref().is_some_and(|c| c.questions.len() == 2));
+    settle(&mut rt);
+    let card = text_in(&rt, "questions").join(" | ");
+    assert!(card.contains("Which database should the fixture use?") && card.contains("SQLite") && card.contains("No server to run") && card.contains("Postgres"), "{card}");
+    assert!(card.contains("Anything to keep?") && card.contains("Send answers") && card.contains("Stop the run below if you would rather not answer."), "{card}");
+    assert!(rt.find("approve-once").is_none() && rt.find("approve-always").is_none(), "a question has no Approve or Always");
+    assert!(text_in(&rt, &format!("approval-{}", rt.state.pending_approval.as_ref().unwrap().approval_id)).join(" ").contains("A question for you"));
+
+    // Only one answered: Send does nothing yet.
+    click(&mut rt, "question-database-option-0");
+    click(&mut rt, "send-answers");
+    assert!(rt.state.pending_approval.is_some(), "sent before every question had an answer");
+    click(&mut rt, "question-notes-free");
+    rt.paste("Keep the migration names.");
+    settle(&mut rt);
+    click(&mut rt, "send-answers");
+    pump(&mut rt, "Codex's reply to the answers", |s| {
+        s.flight.is_none() && s.ledger.as_ref().is_some_and(|p| !p.snapshot.running && p.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if text == "Using SQLite, keeping the migration names.")))
+    });
+}

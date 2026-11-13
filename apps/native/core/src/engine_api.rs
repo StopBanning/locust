@@ -42,6 +42,8 @@ pub trait EngineApi: std::marker::Send + Sync {
     }
     /// Answer a card once.
     fn decide(&self, approval_id: &str, decision: Decision, reason: Option<String>) -> Result<(), String>;
+    /// Answer a question card: each question's answers by its id, a chosen option by its label.
+    fn answer(&self, approval_id: &str, answers: Vec<(String, Vec<String>)>) -> Result<(), String>;
     /// Save an allow or deny rule from the card, then answer it once.
     fn save_rule_and_decide(&self, card: &Request, effect: RuleEffect) -> Result<(), String>;
     /// Carry a stopped turn on with another agent: the new conversation, its folder and the mode it runs in.
@@ -101,6 +103,9 @@ impl EngineApi for InProcess {
     }
     fn decide(&self, approval_id: &str, decision: Decision, reason: Option<String>) -> Result<(), String> {
         native::decide_approval(approval_id, decision, reason)
+    }
+    fn answer(&self, approval_id: &str, answers: Vec<(String, Vec<String>)>) -> Result<(), String> {
+        native::answer_approval(approval_id, answers)
     }
     fn save_rule_and_decide(&self, card: &Request, effect: RuleEffect) -> Result<(), String> {
         crate::approval::save_rule_and_decide(card, effect)
