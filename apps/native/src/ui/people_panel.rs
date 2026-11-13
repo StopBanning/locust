@@ -96,6 +96,17 @@ fn done(s: &mut State, result: Result<(), String>) {
         Err(e) => s.people_panel.error = e,
     }
 }
+/// Own copy on or off. Only "on" is written, as Electron writes it.
+fn toggle_own_copy(s: &mut State) {
+    if s.people_panel.entry["worktree"] == true {
+        if let Some(entry) = s.people_panel.entry.as_object_mut() {
+            entry.remove("worktree");
+        }
+    } else {
+        s.people_panel.entry["worktree"] = json!(true);
+    }
+}
+
 fn save(s: &mut State) {
     let mut entry = s.people_panel.entry.clone();
     let fields = &s.people_panel.fields;
@@ -397,6 +408,31 @@ fn edit_form(s: &State, p: &Palette) -> El {
             );
         }
     }
+    // Own copy (Electron NewTeammateDialog): the teammate's turns run in its own worktree of the folder, on its branch.
+    let own_copy = panel.entry["worktree"] == true;
+    let name_now = panel.fields.first().map(|f| f.text.trim().to_owned()).unwrap_or_default();
+    let branch = locust_core::worktrees::branch_name_for(if name_now.is_empty() { "teammate" } else { &name_now }, None);
+    form = form.child(
+        row()
+            .gap(10.0)
+            .center_y()
+            .child(crate::look::controls::switch(&l, own_copy, "Own copy", false).key("team-own-copy").on_press(toggle_own_copy))
+            .child(
+                col()
+                    .gap(2.0)
+                    .grow(1.0)
+                    .shrink()
+                    .child(text("Own copy").font(type_::LABEL).color(p.text))
+                    .child(
+                        text(format!(
+                            "Works in its own copy of the folder, on branch {branch}. Needs the folder to be a git repository. Merging back is yours to do."
+                        ))
+                        .font(type_::LABEL)
+                        .color(p.secondary)
+                        .wrap(),
+                    ),
+            ),
+    );
     form.child(
         row()
             .gap(8.0)

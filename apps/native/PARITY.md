@@ -128,7 +128,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Coloured unified diffs, expandable hunks and copy change/file | `renderer/src/components/DiffView.tsx`, `renderer/src/diff.ts`, `renderer/src/diffColours.ts` | **partial** — native syntax-coloured unified rows, hunk/context expansion and both copy controls; word marks, document passages and complete TS coverage remain (P7-NOTES.md) | yes | no | no |
 | Undo turn, including non-Git folder changes | `renderer/src/components/TurnUndo.tsx`, `main/checkpoints.ts`, `main/checkpoints-plain.ts` | **partial** — native before/after byte checkpoints, confirmed guarded restore and receipts; Electron storage/retention, turn-foot/card integration and runtime notice remain (P7-NOTES.md) | yes | no | yes |
 | Commit composer and generated commit message | `renderer/src/components/CommitChanges.tsx`, `main/folder-commit.ts` | **done** — commit, commit and push, open a pull request with Electron's safety rules and words; draft from the last five asks; "Write it from the changes" in a read-only panel run | yes | no | yes |
-| Own-branch turn commits and worktree lifecycle | `renderer/src/components/WorktreeRow.tsx`, `main/worktrees.ts`, `main/turn-checkpoint.ts` | **missing** | - | no | yes |
+| Own-branch turn commits and worktree lifecycle | `renderer/src/components/WorktreeRow.tsx`, `main/worktrees.ts`, `main/turn-checkpoint.ts` | **done** — `core/src/worktrees.rs` (a teammate's copy under .locust/worktrees on locust/<name>, finished not trusted when half-made, removed only when clean or for the changes agreed to; each turn committed on its branch with Electron's message and a receipt), `native::own_branch_folder`/`checkpoint_turn`, the Own copy switch and OWN COPIES in the window; 22 tests from Electron's worktree and receipt tests on real git, an end-to-end turn read by Electron's reader, a window test (notes/WORKTREES-NOTES.md) | yes | no | yes |
 | Review/land branch as one commit and return conflicts to teammate | `renderer/src/components/ReviewChanges.tsx`, `main/worktrees.ts` | **missing** | - | no | yes |
 | GitHub PR header/link state, checks and watched news | `renderer/src/components/PullRequestChip.tsx`, `renderer/src/components/PullRequestNewsBanner.tsx`, `main/pull-request-watch.ts`, `main/pull-link.ts` | **partial** — `core/src/pull_requests.rs` (a branch's pull request and a link's state through gh on the engine's one Network seam, read once, two at a time, cached a minute; watched every 3 minutes, unwatched on merge or close) and `src/ui/pull_request_chip.rs` (the header chip with state and checks, Watch, the news banner, link chips); Electron's 7 test files carried over, a headless window test with a fake gh; link chips sit under the message rather than inline, and no desktop notification for news (notes/PULL-REQUESTS-NOTES.md) | yes | no | yes |
 | Browse GitHub issues and start conversation/branch | `renderer/src/components/IssueList.tsx`, `main/github-issues.ts` | **missing** | - | no | yes |
@@ -283,7 +283,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
-| 6 | Changes, Git, Worktrees, Issues & Scout | 2 | 4 | 7 | 13 | 6 | 0 |
+| 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 4 | 6 | 13 | 7 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
 | 9 | Routines, Compare & Benchmarks | 0 | 1 | 9 | 10 | 1 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **43** | **49** | **61** | **153** | **92** | **15** |
+| | **TOTAL** | **44** | **49** | **60** | **153** | **93** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

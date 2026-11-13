@@ -27,6 +27,8 @@ pub(super) struct Panel {
     /// "AI agents & accounts": what discovery found (None until the first check lands), and the check itself.
     pub agents: Option<Vec<locust_core::agents::Found>>,
     pub agents_job: Latest<Vec<locust_core::agents::Found>>,
+    /// "OWN COPIES": the project folder's teammate copies, and what a Remove came back with.
+    pub own_copies: Option<crate::own_copies::OwnCopies>,
     pub check_command: TextEdit,
 }
 
@@ -99,6 +101,8 @@ fn reload(s: &mut State) {
         }
     }
     crate::agents_section::request(s);
+    let folder = active_project_folder(s);
+    crate::own_copies::reload(s, folder);
 }
 
 fn persist(s: &mut State) {
@@ -719,6 +723,7 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                 check_col = check_col.child(fail_row);
                 body = body.child(check_col);
             }
+            body = body.child(crate::own_copies::section(s, p));
         }
         SettingsPageId::WhatsNew => {
             if s.home.changelog.is_empty() {

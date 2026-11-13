@@ -478,6 +478,12 @@ impl Manager {
         self.git(&["worktree", "remove", "--force", &path_text], &self.root).map(|_| ())
     }
 
+    /// The uncommitted changes in a teammate's copy, as git status names them: what removing it would delete.
+    pub fn uncommitted(&self, teammate_id: &str) -> Result<Vec<String>, String> {
+        let path = self.tree_path(teammate_id)?;
+        Ok(changed_paths_of(&self.git(&["status", "--porcelain", "--untracked-files=all"], &path)?))
+    }
+
     /// The tree, only when it is whole: a half-made one is never committed or read.
     fn made_tree(&self, teammate_id: &str) -> Result<PathBuf, String> {
         let path = self.tree_path(teammate_id)?;

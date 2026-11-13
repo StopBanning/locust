@@ -1374,3 +1374,61 @@ fn a_branch_pull_request_shows_its_chip_watches_and_shows_the_news_banner() {
     click(&mut rt, "pr-news-dismiss");
     assert!(rt.find("pr-news-banner").is_none());
 }
+
+#[test]
+fn own_copy_is_turned_on_in_the_card_and_a_copy_is_removed_only_after_its_changes_are_named() {
+    let (dirs, store, mut rt) = window();
+    let work = dirs.0.join("work");
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git").args(args).current_dir(&work).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "person@locust.test"]); // made-up person; public-guard: allow
+    git(&["config", "user.name", "The person"]);
+    std::fs::write(work.join("README.md"), "the project\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "first"]);
+
+    // A whole teammate record, as the app writes one (the shared window() seeds only an id and a name).
+    store
+        .save_json("teammates.json", &serde_json::json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_codec", "name": "Codec",
+            "hue": "lime", "role": "Code & Migrations", "createdAt": "2026-11-01T00:00:00.000Z", "route": {"runtime": "codex", "mode": "ask"},
+            "folder": work.to_string_lossy()}],
+            "missionOwners": {}, "settings": {}}))
+        .unwrap();
+    // The card's switch says the branch, and saving writes worktree: true.
+    rt.update(|s, _| crate::people_panel::open(s));
+    settle(&mut rt);
+    click(&mut rt, "team-edit-tm_codec");
+    let form = text_in(&rt, "team-form").join(" ");
+    assert!(form.contains("Works in its own copy of the folder, on branch locust/codec."), "{form}");
+    click(&mut rt, "team-own-copy");
+    // The form runs past the window's height: scroll to Save, as a person would.
+    rt.update(|_, tx| tx.scroll_key_to("team-save", 0.0));
+    click(&mut rt, "team-save");
+    assert!(rt.state.people_panel.error.is_empty() && !rt.state.people_panel.form_open, "{}", rt.state.people_panel.error);
+    let team = locust_core::people::team(&store).unwrap();
+    assert_eq!(team["teammates"][0]["worktree"], true, "{team}");
+
+    // A copy with uncommitted work: Remove names the changes; only then can it go, branch kept.
+    let tree = locust_core::worktrees::Manager::new(&work).ensure("tm_codec", "Codec", None).unwrap();
+    std::fs::write(tree.join("draft.md"), "not committed\n").unwrap();
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("workspace");
+    });
+    settle(&mut rt);
+    let row = text_in(&rt, "own-copies").join(" ");
+    assert!(row.contains("OWN COPIES") && row.contains("Codec") && row.contains("locust/codec") && row.contains("Removing one keeps its branch"), "{row}");
+    click(&mut rt, "own-copy-remove-tm_codec");
+    let named = text_in(&rt, "own-copies").join(" ");
+    assert!(named.contains("Codec's copy has 1 uncommitted change that is not on locust/codec: draft.md. Removing it deletes it for good."), "{named}");
+    assert!(tree.join("draft.md").exists(), "nothing deleted on the first press");
+    click(&mut rt, "own-copy-delete-tm_codec");
+    let after = text_in(&rt, "own-copies").join(" ");
+    assert!(after.contains("None yet. Turn Own copy on in a teammate's card and its next run makes one."), "{after}");
+    assert!(!tree.exists(), "the copy is gone");
+    let branches = std::process::Command::new("git").args(["branch", "--list", "locust/codec"]).current_dir(&work).output().unwrap();
+    assert!(String::from_utf8_lossy(&branches.stdout).contains("locust/codec"), "its branch stays");
+}

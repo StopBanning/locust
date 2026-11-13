@@ -58,6 +58,8 @@ mod keyboard_sheet;
 mod save_record;
 #[path = "ui/agents_section.rs"]
 mod agents_section;
+#[path = "ui/own_copies.rs"]
+mod own_copies;
 #[path = "ui/import_dialog.rs"]
 mod import_dialog;
 mod keyboard_shortcuts;
