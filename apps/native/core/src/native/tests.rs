@@ -2664,3 +2664,71 @@ fn an_edit_is_refused_while_the_turn_it_replaces_is_running() {
     stop(&running.conversation_id).unwrap();
     finished(&running.conversation_id);
 }
+
+#[test]
+fn follow_up_turn_in_grouped_conversation_receives_group_instructions() {
+    let t = Temp::new();
+    let store = t.store();
+    let prompt_log = t.0.join("group_prompts.jsonl");
+    let wrapper = t.0.join("group_prompt_wrapper.py");
+    let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../scripts/fixtures/m1-app-server.py");
+    let py = r#"import json, subprocess, sys
+log_path, fixture_path, scenario = sys.argv[1:4]
+proc = subprocess.Popen(
+    [sys.executable, fixture_path, scenario] + sys.argv[4:],
+    stdin=subprocess.PIPE,
+    stdout=sys.stdout,
+    stderr=sys.stderr,
+    text=True,
+    bufsize=1,
+)
+for line in sys.stdin:
+    try:
+        msg = json.loads(line)
+        if msg.get('method') == 'turn/start':
+            txt = (msg.get('params', {}).get('input') or [{}])[0].get('text', '')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(txt) + '\n')
+    except Exception:
+        pass
+    proc.stdin.write(line)
+    proc.stdin.flush()
+proc.stdin.close()
+sys.exit(proc.wait())
+"#;
+    fs::write(&wrapper, py).unwrap();
+    let wrap = |scenario: &str| {
+        Some((
+            PathBuf::from("python3"),
+            vec![
+                wrapper.to_string_lossy().into_owned(),
+                prompt_log.to_string_lossy().into_owned(),
+                fixture.into(),
+                scenario.into(),
+            ],
+        ))
+    };
+
+    let _g = hooks::install(store.clone(), wrap("success"));
+    let first = send(job(&t, None, "Synthetic prompt")).unwrap();
+    finished(&first.conversation_id);
+
+    let grp = crate::groups::create_group(&store, "Trading").unwrap();
+    crate::groups::set_group_instructions(&store, &grp.group_id, "Never bypass stops.")
+        .unwrap();
+    crate::groups::assign_to_group(&store, &first.conversation_id, Some(&grp.group_id)).unwrap();
+
+    *crate::invariants::lock(&hooks::STATE) = (Some(store), wrap("resume"));
+    let second = send(job(&t, Some(&first.conversation_id), "Synthetic follow-up")).unwrap();
+    finished(&second.conversation_id);
+
+    let captured: Vec<String> = fs::read_to_string(&prompt_log)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str::<String>(l).unwrap())
+        .collect();
+    assert_eq!(captured.len(), 2);
+    assert!(!captured[0].contains("Never bypass stops."));
+    assert!(captured[1].contains("Trading"));
+    assert!(captured[1].contains("Never bypass stops."));
+}

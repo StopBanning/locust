@@ -1008,13 +1008,13 @@ mod tests {
         assert_eq!(create_group(&store, "   \n\t ").unwrap_err(), "A group needs a name");
         let long = "a".repeat(80);
         let created = create_group(&store, &long).unwrap();
-        assert_eq!(created.name.encode_utf16().count(), MAX_GROUP_NAME_LENGTH);
+        assert_eq!(created.name.encode_utf16().count(), 60);
     }
 
     #[test]
     fn refuses_creating_more_than_max_groups() {
         let (_d, store) = temp_store();
-        for i in 0..MAX_GROUPS {
+        for i in 0..64 {
             create_group(&store, &format!("Group {i}")).unwrap();
         }
         assert_eq!(create_group(&store, "One Too Many").unwrap_err(), "Too many groups");
@@ -1068,9 +1068,9 @@ mod tests {
         let (_d, store) = temp_store();
         let a = create_group(&store, "Alpha").unwrap();
         let b = create_group(&store, "Beta").unwrap();
-        // Seed MAX_GROUP_MEMBERS directly for fast test setup
+        // Seed 5000 members directly for fast test setup
         let mut members = Map::new();
-        for i in 0..MAX_GROUP_MEMBERS {
+        for i in 0..5000 {
             members.insert(format!("m_{i}"), json!({"groupId": a.group_id}));
         }
         let path = store.groups_json_path().unwrap();
@@ -1230,9 +1230,9 @@ mod tests {
         assert_eq!(saved.instructions, "Run tests first.");
         assert_eq!(load_groups(&store).unwrap().groups[0].instructions, "Run tests first.");
 
-        let long = "x".repeat(MAX_GROUP_INSTRUCTIONS_LENGTH + 500);
+        let long = "x".repeat(4500);
         let capped = set_group_instructions(&store, &g.group_id, &long).unwrap();
-        assert_eq!(capped.instructions.encode_utf16().count(), MAX_GROUP_INSTRUCTIONS_LENGTH);
+        assert_eq!(capped.instructions.encode_utf16().count(), 4000);
 
         let secret = format!("Use {}-ant-api03-1234567890abcdefghijklmnop on CI", "sk");
         let err = set_group_instructions(&store, &g.group_id, &secret).unwrap_err();
@@ -1240,7 +1240,7 @@ mod tests {
         // Previous instructions stayed intact after refused write
         assert_eq!(
             load_groups(&store).unwrap().groups[0].instructions.encode_utf16().count(),
-            MAX_GROUP_INSTRUCTIONS_LENGTH
+            4000
         );
 
         let cleared = set_group_instructions(&store, &g.group_id, "   ").unwrap();
@@ -1421,7 +1421,7 @@ mod tests {
             std::fs::write(ledger.join(format!("hop_{i}.jsonl")), line.to_string() + "\n").unwrap();
         }
         let keys = keys_before(&store, Some("hop_69"));
-        assert_eq!(keys.len(), MAX_CHAIN_HOPS);
+        assert_eq!(keys.len(), 64);
         assert_eq!(keys[0], "hop_69");
     }
 
