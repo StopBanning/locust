@@ -1216,7 +1216,7 @@ packages/mission-store/test/retention.test.ts	BACKUP	carried	core/src/profile_ba
 packages/mission-store/test/schema-compat.test.ts		waiting		
 packages/mission-store/test/the-home-list-bounds-its-reads.test.ts		waiting		
 packages/mission-store/test/the-storage-report-reads-only-what-changed.test.ts		waiting		
-packages/mission-store/test/workroom.test.ts		waiting		
+packages/mission-store/test/workroom.test.ts	WORKROOM	carried	core/src/workroom_tests.rs	all 15 cases, and a link in the file's place is never followed; a file changed by another writer mid-append is checked by size but not staged in a test
 packages/runtime-adapters/src/a-binary-that-did-not-change-is-not-asked-twice.test.ts	M4-REVIEW	waiting		`src/a-binary-that-did-not-change-is-not-asked-twice.test.ts` — Deferred: Electron binary consent/cache lifecycle is not implemented by these drivers.
 packages/runtime-adapters/src/a-refusal-is-not-a-crash.test.ts	M4-REVIEW	waiting		`src/a-refusal-is-not-a-crash.test.ts` — Deferred: Electron probe consent refusal lifecycle is not implemented by these drivers.
 packages/runtime-adapters/src/one-runtimes-probes-run-at-once.test.ts	M4-REVIEW	waiting		`src/one-runtimes-probes-run-at-once.test.ts` — Deferred: Electron asynchronous runtime probe scheduler is not implemented by these drivers.
