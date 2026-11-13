@@ -1,0 +1,20 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Council review: three AIs check a change",
+  "steps": [
+    "Review the changes in this folder that are not committed yet, staged or not, and read the code around each one. List what is wrong or risky, each with its file and line, how sure you are, and what would fix it, in words. If you find nothing, say so plainly. Do not change any file.",
+    "Another reviewer's findings are above. First review the same changes yourself, reading the files rather than their summary. Then go through their findings one by one: agree, or disagree and say why. Add what they missed, each with its file and line. Do not change any file.",
+    "Two reviews of the same changes are above. Read the changed files yourself, then settle each finding: keep it if at least two of the three of you would stand behind it, and drop it if not, saying why. List what must change before these changes are kept, the most serious first. Approve only if nothing must change. Do not change any file."
+  ],
+  "inputs": [],
+  "handOffs": [
+    {},
+    {},
+    {
+      "check": true
+    }
+  ],
+  "route": {},
+  "connectors": []
+}

@@ -404,7 +404,6 @@ fn apply_template(s: &mut State, template_id: &str) {
             "role": mate.role,
             "instructions": "",
             "hue": mate.hue,
-            "route": { "runtime": "codex", "model": "", "mode": "ask" },
             "starters": mate.starters,
         });
         if let Some(title) = mate.role_title {
@@ -613,9 +612,8 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
             .child(
                 row()
                     .gap(8.0)
-                    .child(button(TEAM_FROM_IMAGE, p).on_press(|s: &mut State| {
-                        s.status = format!("{} — runs in Locust for now", TEAM_FROM_IMAGE);
-                        s.status_tone = StatusTone::Muted;
+                    .child(button(TEAM_FROM_IMAGE, p).key("home-team-from-image").on_press_tx(|_s: &mut State, tx: &mut Tx| {
+                        crate::people_panel::import_team_from_image(tx);
                     }))
                     .child(button(NEW_TEAMMATE, p).on_press(|s: &mut State| {
                         crate::people_panel::open(s);
@@ -642,6 +640,7 @@ pub(super) fn home_view(s: &State, p: &Palette) -> El {
                     )
                     .child(
                         primary("Add this team", p)
+                            .key(format!("home-template-{id}"))
                             .on_press(move |s: &mut State| apply_template(s, id)),
                     ),
             );

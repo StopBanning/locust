@@ -293,13 +293,59 @@ pub fn goal_fix_prompt(check: &GoalCheck, fix: u64, of: u64) -> String {
     )
 }
 
-/// `fillInputs`. A routine that declares inputs is refused here: native has no input form yet (the input-forms row),
-/// so no value -- and no folder value that must come from the folder picker -- can reach a run.
-pub fn fill_inputs(routine: &Value) -> Result<Value, String> {
-    if routine["inputs"].as_array().is_some_and(|i| !i.is_empty()) {
-        return Err("This routine asks for values before it runs, and native cannot ask for them yet. Nothing was started.".into());
+/// `fillInputs`: resolve inputs, enforce folder-picker selection, substitute into steps, and check step length.
+pub fn fill_inputs_with(
+    routine: &Value,
+    given: Option<&Value>,
+    folder_was_chosen: Option<&dyn Fn(&str) -> bool>,
+) -> Result<Value, String> {
+    let Some(raw_inputs) = routine.get("inputs").and_then(Value::as_array) else {
+        return Ok(routine.clone());
+    };
+    if raw_inputs.is_empty() {
+        return Ok(routine.clone());
     }
-    Ok(routine.clone())
+    let inputs = crate::routine_inputs::parse_inputs_array(&Value::Array(raw_inputs.clone()))
+        .ok_or_else(|| "The inputs for this routine could not be read.".to_string())?;
+    let settled = crate::routine_inputs::resolve_values(&inputs, given)?;
+    for input in &inputs {
+        if input.kind == crate::routine_inputs::RoutineInputKind::Folder
+            && let Some(path) = settled.get(&input.key)
+            && !path.is_empty()
+            && !folder_was_chosen.is_some_and(|check| check(path))
+        {
+            return Err(format!(
+                "Choose \"{}\" with the folder picker before running.",
+                input.label
+            ));
+        }
+    }
+    let steps: Vec<String> = routine["steps"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    let filled = crate::routine_inputs::substitute_steps(&steps, &settled);
+    for (i, step) in filled.iter().enumerate() {
+        if step.encode_utf16().count() > 8000 {
+            return Err(format!(
+                "Step {} is too long once its inputs are filled in; shorten an answer or the step.",
+                i + 1
+            ));
+        }
+    }
+    let mut out = routine.clone();
+    out["steps"] = json!(filled);
+    Ok(out)
+}
+
+/// `fillInputs` with no entered values (used by scheduled/automatic runs).
+pub fn fill_inputs(routine: &Value) -> Result<Value, String> {
+    fill_inputs_with(routine, None, None)
 }
 
 /// "2 files changed in its copy, waiting for you under Routines ..." (`waitingWords`).
@@ -381,7 +427,19 @@ impl RoutineRunner {
 
     /// `arrived`: the new files a watching routine runs for, named to step 1.
     pub fn run(&self, routine_id: &str, arrived: Option<&Arrival>) -> Answer<Begun> {
-        self.lock().run(routine_id, arrived)
+        self.lock().run_with_inputs(routine_id, arrived, None, None)
+    }
+
+    /// Run a routine with entered input values and optional folder-picker check.
+    pub fn run_with_inputs(
+        &self,
+        routine_id: &str,
+        arrived: Option<&Arrival>,
+        given: Option<&Value>,
+        folder_was_chosen: Option<&dyn Fn(&str) -> bool>,
+    ) -> Answer<Begun> {
+        self.lock()
+            .run_with_inputs(routine_id, arrived, given, folder_was_chosen)
     }
 
     /// Any turn ending, however it ended. Only a routine's own current step moves it.
@@ -790,11 +848,21 @@ impl Inner {
     }
 
     fn run(&mut self, routine_id: &str, arrived: Option<&Arrival>) -> Answer<Begun> {
+        self.run_with_inputs(routine_id, arrived, None, None)
+    }
+
+    fn run_with_inputs(
+        &mut self,
+        routine_id: &str,
+        arrived: Option<&Arrival>,
+        given: Option<&Value>,
+        folder_was_chosen: Option<&dyn Fn(&str) -> bool>,
+    ) -> Answer<Begun> {
         self.reconcile()?;
         let Some(stored) = self.routines.get(routine_id)? else {
             return Ok(Err("That routine no longer exists.".into()));
         };
-        let routine = match fill_inputs(&stored) {
+        let routine = match fill_inputs_with(&stored, given, folder_was_chosen) {
             Ok(r) => r,
             Err(message) => return Ok(Err(message)),
         };

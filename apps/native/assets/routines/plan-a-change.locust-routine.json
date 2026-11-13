@@ -1,0 +1,23 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Plan a change before making it",
+  "steps": [
+    "Here is a change I want to make in this project:\n\n{{change}}\n\nRead the parts of the project it touches and write a step-by-step plan: which files change and how, what could break, and how to check that it worked. Do not change any file.",
+    "Now read your plan back as a skeptical reviewer would. Say what it missed, what is riskier than it says, and what should be done first, then give the corrected plan."
+  ],
+  "inputs": [
+    {
+      "key": "change",
+      "label": "What do you want to change?",
+      "kind": "long-text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {},
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

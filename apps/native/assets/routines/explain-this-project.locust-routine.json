@@ -1,0 +1,14 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Explain this project",
+  "steps": [
+    "Read this project folder and explain it to someone new to it: what it is for, how it is laid out (the folders and the few files that matter most), how to run or use it, and anything that looks unfinished or risky. Do not change any file. End with the three questions you would ask its owner."
+  ],
+  "inputs": [],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

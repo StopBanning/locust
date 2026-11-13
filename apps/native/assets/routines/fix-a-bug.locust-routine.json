@@ -1,0 +1,32 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Fix a bug, then check the fix",
+  "steps": [
+    "Find the cause of this problem in the project:\n\n{{bug}}\n\nFind the cause. Reproduce the problem first if you can, then rule out explanations one at a time until only one is left that the evidence supports. Say what the cause is, where it is (file and line) and how you know. If you could not reproduce it, say so. Do not change any file.",
+    "Fix the cause of this problem:\n\n{{bug}}\n\nFix the cause the step before found, with the smallest change that removes it. Do not refactor, rename or tidy anything else. If that cause looks wrong once you are in the code, say so and stop. Say what you changed and why.",
+    "Check the fix on the same surface the problem showed up on, not only in a test written for it. Confirm the case that failed now works and that a case close to it still does. Say exactly what you ran and what it showed, and say what you did not or could not test."
+  ],
+  "inputs": [
+    {
+      "key": "bug",
+      "label": "What is going wrong?",
+      "kind": "long-text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {
+      "role": "Research & Briefs"
+    },
+    {
+      "role": "Code & Migrations"
+    },
+    {
+      "role": "Docs & QA",
+      "check": true
+    }
+  ],
+  "route": {},
+  "connectors": []
+}

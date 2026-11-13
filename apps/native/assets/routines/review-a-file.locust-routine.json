@@ -1,0 +1,21 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Review a file",
+  "steps": [
+    "Review {{file}} in this project as a careful senior reviewer would. Point out bugs, unclear names, missing error handling and anything that would surprise the next person to read it, each with the line it is on and a suggested fix in words. Do not change the file."
+  ],
+  "inputs": [
+    {
+      "key": "file",
+      "label": "Which file? Its path inside this folder",
+      "kind": "text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

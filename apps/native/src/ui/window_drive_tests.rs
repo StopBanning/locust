@@ -2630,3 +2630,184 @@ fn no_instructions_card_outside_an_interview_nor_while_its_turn_runs() {
     show(&mut rt, &interview, false);
     assert!(rt.find("instructions-card").is_some(), "no card under the finished interview");
 }
+
+#[test]
+fn starter_team_makes_its_teammates() {
+    let root = std::env::temp_dir().join(format!(
+        "locust-drive-starter-{}-{}",
+        std::process::id(),
+        TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    std::fs::create_dir_all(root.join("electron")).unwrap();
+    std::fs::create_dir_all(root.join("work")).unwrap();
+    let _dirs = Dirs(root.clone());
+    let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+    native::set_open_folder(&store, &root.join("work")).unwrap();
+    let mut s = State::default();
+    s.engine = Some(Kind::Native);
+    s.data = Some(store.clone());
+    s.home.home_open = true;
+    s.home.folder_path = Some(root.join("work").to_string_lossy().into());
+    let mut rt = Runtime::new(s, view, (1100.0, 780.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+
+    click(&mut rt, "home-template-software");
+    let team_file = people::team(&store).unwrap();
+    let mates = team_file["teammates"].as_array().unwrap();
+    assert_eq!(mates.len(), 3, "software starter team should create 3 teammates");
+    assert!(mates.iter().any(|m| m["name"] == "Wren"));
+    assert!(mates.iter().any(|m| m["name"] == "Juno"));
+    assert!(mates.iter().any(|m| m["name"] == "Atlas"));
+}
+
+#[test]
+fn team_card_exported_and_imported_brings_routines_and_auto_arrives_in_edit() {
+    let (dirs, store, mut rt) = window_in("auto");
+    let work = dirs.0.join("work").canonicalize().unwrap();
+    native::set_open_folder(&store, &work).unwrap();
+    seed_routine_team(&store, &work, "auto");
+    let ws = people::workspace_id(&work);
+    seed_routine(
+        &store,
+        json!({
+            "routineId": "rt_card",
+            "name": "Check build",
+            "steps": ["Run tests."],
+            "workspaceId": ws,
+            "route": {"runtime": "codex", "model": "synthetic-model", "mode": "auto"}
+        }),
+    );
+
+    rt.update(|s, _| {
+        s.home.folder_path = Some(work.to_string_lossy().into());
+        crate::people_panel::open(s);
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "team-share");
+    click(&mut rt, "team-card-save");
+    let (_kind, _opts) = rt.file_dialog().expect("team card save dialog");
+    let card_path = dirs.0.join("team-card.png");
+    rt.resolve_file_dialog(Some(card_path.clone())).unwrap();
+    settle(&mut rt);
+    assert!(card_path.is_file(), "team card PNG should be written");
+
+    // Import into a fresh window and store.
+    let dst_root = dirs.0.join("dst");
+    std::fs::create_dir_all(dst_root.join("electron")).unwrap();
+    std::fs::create_dir_all(dst_root.join("work")).unwrap();
+    std::fs::write(
+        dst_root.join("electron/workspace.json"),
+        serde_json::to_vec(&json!({"schemaVersion": 1, "path": dst_root.join("work").to_string_lossy()})).unwrap(),
+    )
+    .unwrap();
+    let dst_store = Store::new(dst_root.join("native"), dst_root.join("electron")).unwrap();
+    native::set_open_folder(&dst_store, &dst_root.join("work")).unwrap();
+    let mut dst_state = State::default();
+    dst_state.engine = Some(Kind::Native);
+    dst_state.data = Some(dst_store.clone());
+    dst_state.home.home_open = true;
+    dst_state.home.folder_path = Some(dst_root.join("work").to_string_lossy().into());
+    let mut dst_rt = Runtime::new(dst_state, view, (1100.0, 780.0), Env::new(true, 1.0));
+    dst_rt.frame(0.0);
+
+    click(&mut dst_rt, "home-team-from-image");
+    let (_kind, _opts) = dst_rt.file_dialog().expect("team card open dialog");
+    dst_rt.resolve_file_dialog(Some(card_path)).unwrap();
+    settle(&mut dst_rt);
+
+    let imported_team = people::team(&dst_store).unwrap();
+    let imported_mate = &imported_team["teammates"][0];
+    assert_eq!(imported_mate["name"], "Codec");
+    assert_eq!(imported_mate["route"]["mode"], "accept-edits", "Auto must arrive in Edit (accept-edits)");
+    let imported_routines = locust_core::routines::list(&dst_store).unwrap();
+    assert_eq!(imported_routines["routines"].as_array().unwrap().len(), 1);
+    assert_eq!(imported_routines["routines"][0]["name"], "Check build");
+}
+
+#[test]
+fn routine_saved_as_markdown_and_opened_again_is_the_same_routine() {
+    let (dirs, store, mut rt) = window();
+    let work = dirs.0.join("work").canonicalize().unwrap();
+    seed_routine_team(&store, &work, "ask");
+    let id = seed_routine(
+        &store,
+        json!({
+            "routineId": "rt_md",
+            "name": "Weekly notes",
+            "steps": ["Read {{topic}}", "Summarize {{topic}}"],
+            "inputs": [{"key": "topic", "label": "Topic", "kind": "text", "required": true, "default": "release"}],
+            "handOffs": [{}, {"askFirst": true}]
+        }),
+    );
+    rt.update(|s, _| {
+        s.home.folder_path = Some(work.to_string_lossy().into());
+    });
+    open_routines(&mut rt);
+
+    click(&mut rt, &format!("routine-export-{id}"));
+    let (_kind, _opts) = rt.file_dialog().expect("routine save dialog");
+    let md_path = dirs.0.join("weekly-notes.routine.md");
+    rt.resolve_file_dialog(Some(md_path.clone())).unwrap();
+    settle(&mut rt);
+    let md_text = std::fs::read_to_string(&md_path).unwrap();
+    assert!(md_text.contains("Weekly notes"), "{md_text}");
+
+    // Remove the original routine and re-open the Markdown file.
+    locust_core::routines::remove(&store, &id).unwrap();
+    rt.update(|s, _| {
+        crate::routines_panel::open(s);
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "routine-import-file");
+    let (_kind, _opts) = rt.file_dialog().expect("routine open dialog");
+    rt.resolve_file_dialog(Some(md_path)).unwrap();
+    settle(&mut rt);
+
+    click(&mut rt, "routine-import-confirm");
+    settle(&mut rt);
+
+    let list = locust_core::routines::list(&store).unwrap();
+    let routines = list["routines"].as_array().unwrap();
+    assert_eq!(routines.len(), 1);
+    assert_eq!(routines[0]["name"], "Weekly notes");
+    assert_eq!(routines[0]["steps"], json!(["Read {{topic}}", "Summarize {{topic}}"]));
+    assert_eq!(routines[0]["inputs"][0]["key"], "topic");
+    assert_eq!(routines[0]["inputs"][0]["default"], "release");
+    assert_eq!(routines[0]["handOffs"][1]["askFirst"], true);
+}
+
+#[test]
+fn routine_with_inputs_asks_for_them_and_runs_with_them() {
+    let (dirs, store, mut rt) = window();
+    let work = dirs.0.join("work").canonicalize().unwrap();
+    seed_routine_team(&store, &work, "ask");
+    let id = seed_routine(
+        &store,
+        json!({
+            "routineId": "rt_inp",
+            "name": "Topic summary",
+            "steps": ["Summarize {{topic}}"],
+            "inputs": [{"key": "topic", "label": "Topic", "kind": "text", "required": true}]
+        }),
+    );
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-routine"));
+    open_routines(&mut rt);
+
+    click(&mut rt, &format!("routine-run-{id}"));
+    assert!(rt.state.routines.run_dialog.is_some(), "run dialog should ask for inputs");
+
+    click(&mut rt, "routine-run-input-0");
+    rt.paste("Rust port");
+    rt.frame(0.016);
+    click(&mut rt, "routine-run-submit");
+
+    pump(&mut rt, "routine with inputs to finish", |s| {
+        s.routines.file["routines"][0]["runs"] == 1
+    });
+    let turns = routine_turns(&store);
+    assert_eq!(turns.len(), 1);
+    let turn_json = turns[0].to_string();
+    assert!(turn_json.contains("Summarize Rust port"), "prompt should contain entered input: {turn_json}");
+}

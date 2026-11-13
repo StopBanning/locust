@@ -1,0 +1,35 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Challenge an idea before building it",
+  "steps": [
+    "You are a cynical principal architect. You have watched many projects fail, and you neither over-engineer nor over-simplify. Here is an idea:\n\n{{idea}}\n\nBefore anything is built, list what has to be true for it to work, the considerations it is missing, its risks, and the questions you cannot answer without its owner. Read this project folder where it is relevant. Do not change any file.",
+    "Answer each of those open questions yourself with the most reasonable assumption, and mark the assumptions the owner must confirm before anything is built.",
+    "Write the plan as one document in your answer: a short brief (who it is for, what it does and what it does not do), then a step-by-step build plan that says how each step will be checked.",
+    "Now act as a strict checker who did not write this plan. Check it against the idea and the risks above, list what must change before building, and say plainly whether it is ready."
+  ],
+  "inputs": [
+    {
+      "key": "idea",
+      "label": "The idea",
+      "kind": "long-text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {
+      "role": "Architect"
+    },
+    {
+      "role": "Architect"
+    },
+    {
+      "role": "Architect"
+    },
+    {
+      "role": "Checker"
+    }
+  ],
+  "route": {},
+  "connectors": []
+}

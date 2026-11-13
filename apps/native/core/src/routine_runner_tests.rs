@@ -471,10 +471,54 @@ mod routine_runner_ts {
     }
 
     #[test]
-    fn a_routine_that_asks_for_inputs_is_refused_before_anything_starts() {
-        // W7's input cases need the input form (its own PARITY row); until then nothing with inputs runs.
+    fn a_routine_that_asks_for_inputs_without_defaults_is_refused_on_automatic_run() {
         let (mem, host) = harness(vec![routine(json!({"steps": ["Read {{topic}}"], "inputs": [{"key": "topic", "label": "Topic", "kind": "text", "required": true}]}))]);
-        assert!(refused(runner(&mem, &host).run("rt_1", None)).contains("Nothing was started"));
+        assert!(refused(runner(&mem, &host).run("rt_1", None)).contains("cannot start on its own"));
+        assert!(host.starts().is_empty());
+        assert!(mem.execution("rt_1").is_null());
+    }
+
+    #[test]
+    fn w7_sends_entered_value_persists_filled_steps_and_recovers_after_edit() {
+        let input = json!({"key": "topic", "label": "Topic", "kind": "text", "required": true, "default": "default topic"});
+        let (mem, host) = harness(vec![routine(json!({"steps": ["Read {{topic}}", "Report {{topic}}"], "inputs": [input]}))]);
+        let r = runner(&mem, &host);
+        assert!(r.run_with_inputs("rt_1", None, Some(&json!({"topic": "entered $& {{topic}}"})), None).unwrap().is_ok());
+        assert_eq!(host.starts()[0].prompt, "Read entered $& {{topic}}");
+        assert_eq!(
+            mem.execution("rt_1")["steps"],
+            json!(["Read entered $& {{topic}}", "Report entered $& {{topic}}"])
+        );
+        // Edit the routine's steps and default while step 1 is running: step 2 uses the persisted filled step.
+        mem.edit("rt_1", |stored| {
+            stored["steps"] = json!(["changed", "changed"]);
+            stored["inputs"][0]["default"] = json!("changed");
+        });
+        host.phase("mission_1", Phase::Completed);
+        r.on_run_ended("mission_1").unwrap();
+        assert_eq!(host.starts()[1].prompt, "Report entered $& {{topic}}");
+    }
+
+    #[test]
+    fn w7_automatic_run_sends_defaults_and_missing_required_emits_blocked() {
+        let input = json!({"key": "topic", "label": "Topic", "kind": "text", "required": true, "default": "default topic"});
+        let (mem, host) = harness(vec![routine(json!({"schedule": {"kind": "every", "hours": 1}, "steps": ["Read {{topic}}"], "inputs": [input]}))]);
+        assert_eq!(runner(&mem, &host).tick(at(NOON)).unwrap(), vec!["rt_1"]);
+        assert_eq!(host.starts()[0].prompt, "Read default topic");
+
+        let (mem2, host2) = harness(vec![routine(json!({"schedule": {"kind": "every", "hours": 1}, "steps": ["Read {{topic}}"], "inputs": [{"key": "topic", "label": "Topic", "kind": "text", "required": true}]}))]);
+        assert!(runner(&mem2, &host2).tick(at(NOON)).unwrap().is_empty());
+        assert!(host2.starts().is_empty());
+        assert!(host2.blocked().iter().any(|b| matches!(b, Update::Blocked { message, .. } if message.contains("cannot start on its own"))));
+    }
+
+    #[test]
+    fn w7_invalid_or_overlong_values_do_not_dispatch_or_create_execution() {
+        let input = json!({"key": "topic", "label": "Topic", "kind": "text", "required": true, "default": "default topic"});
+        let (mem, host) = harness(vec![routine(json!({"steps": ["Read {{topic}}"], "inputs": [input]}))]);
+        let r = runner(&mem, &host);
+        assert!(r.run_with_inputs("rt_1", None, Some(&json!({"topic": "a".repeat(4001)})), None).unwrap().is_err());
+        assert!(r.run_with_inputs("rt_1", None, Some(&json!({"topic": "two\nlines"})), None).unwrap().is_err());
         assert!(host.starts().is_empty());
         assert!(mem.execution("rt_1").is_null());
     }

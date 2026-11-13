@@ -1,0 +1,21 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Check a spreadsheet",
+  "steps": [
+    "Read {{file}} in this project and check it the way a careful accountant would. Count its rows and columns, then list missing values, duplicate rows, numbers stored as text, dates in mixed formats, and values far outside the rest of their column, each with its row. End by saying whether the file can be trusted as it is. Do not change the file."
+  ],
+  "inputs": [
+    {
+      "key": "file",
+      "label": "Which CSV file? Its path inside this folder",
+      "kind": "text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {}
+  ],
+  "route": {},
+  "connectors": []
+}

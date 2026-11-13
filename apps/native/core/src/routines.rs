@@ -57,8 +57,16 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
             ));
         }
     }
-    if r.get("inputs").is_none() && steps.iter().filter_map(Value::as_str).any(|step|regex::Regex::new(r"\{\{[^{}]*\}\}").is_ok_and(|re|re.is_match(step))) {
-        return Err("Routine input forms are not available in native yet. Declare inputs in Electron before importing this routine.".into());
+    let step_strings: Vec<String> = steps
+        .iter()
+        .filter_map(Value::as_str)
+        .map(ToOwned::to_owned)
+        .collect();
+    if let Some(inputs_val) = r.get("inputs") {
+        let check_val = if inputs_val.is_null() { json!([]) } else { inputs_val.clone() };
+        if let Some(refusal) = crate::routine_inputs::inputs_refusal(&check_val, Some(&step_strings)) {
+            return Err(refusal);
+        }
     }
     if let Some(s) = r.get("schedule")
         && !s.is_null()
@@ -100,6 +108,27 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
         }
         let owner = rows[at]["teammateId"].as_str().unwrap_or("").to_owned();
         let held = rows[at].as_object_mut().ok_or(UNREADABLE)?;
+        match r.get("inputs") {
+            Some(v) if v.is_null() => {
+                held.remove("inputs");
+            }
+            Some(v) => {
+                let parsed = crate::routine_inputs::parse_inputs_array(v)
+                    .ok_or_else(|| "Routine inputs are invalid".to_string())?;
+                held.insert(
+                    "inputs".into(),
+                    crate::routine_inputs::kept_inputs_value(&parsed),
+                );
+            }
+            None => {
+                if let Some(existing) = held.get("inputs")
+                    && let Some(refusal) =
+                        crate::routine_inputs::inputs_refusal(existing, Some(&step_strings))
+                {
+                    return Err(refusal);
+                }
+            }
+        }
         // Hand-offs not named are kept only while they still line up with the steps.
         let hand_offs = match r.get("handOffs") {
             Some(h) if !h.is_null() => progress::kept_hand_offs(h, &owner),
@@ -124,6 +153,19 @@ pub fn save(store: &Store, mut r: Value) -> Result<(), String> {
     } else {
         if rows.len() >= 64 {
             return Err("Too many routines".into());
+        }
+        if r.get("inputs").is_none()
+            && let Some(refusal) =
+                crate::routine_inputs::inputs_refusal(&json!([]), Some(&step_strings))
+        {
+            return Err(refusal);
+        }
+        if let Some(inputs_val) = r.get("inputs").filter(|v| !v.is_null()) {
+            let parsed = crate::routine_inputs::parse_inputs_array(inputs_val)
+                .ok_or_else(|| "Routine inputs are invalid".to_string())?;
+            r["inputs"] = crate::routine_inputs::kept_inputs_value(&parsed);
+        } else if let Some(o) = r.as_object_mut() {
+            o.remove("inputs");
         }
         let team = crate::people::team(store)?;
         let owner = team["teammates"]

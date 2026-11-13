@@ -78,7 +78,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Teammate list with initial, role, runtime/model and busy dot | `renderer/src/components/Sidebar.tsx`, `main/teammate-store.ts` | **done** | yes | no | yes |
 | Select teammate and start fresh conversation by click/keyboard | `renderer/src/App.tsx`, `renderer/src/components/Sidebar.tsx` | **done** | yes | no | yes |
 | Create/edit/delete teammate, instructions, runtime/model/effort and budget | `renderer/src/components/NewTeammateDialog.tsx`, `renderer/src/components/InstructionsCard.tsx`, `main/teammate-store.ts` | **partial** — native-owned roster seeds once; create/edit/remove, instructions, route/mode/folder editor; Electron pickers, full validation/test coverage and budget controls remain (P6-NOTES.md); a teammate's monthly limit is enforced at send in Electron's words | yes | no | yes |
-| Starter teams and reusable routine chains | `renderer/src/components/TeamTemplates.tsx`, `shared/team-templates.ts` | **missing** | - | no | yes |
+| Starter teams and reusable routine chains | `renderer/src/components/TeamTemplates.tsx`, `shared/team-templates.ts` | **done** — Hydrogen: `src/starters.rs`, `src/ui/home_panel.rs`, `core/src/routine_templates.rs`, `core/src/people.rs` (starter team templates with hue/starters/freshStarters; shipped reusable routine chains with hand-off role proposals; TEAM-FILES-NOTES.md) | yes | no | yes |
 | Rooms, targeted mentions and project standing instructions | `renderer/src/components/RoomScreen.tsx`, `renderer/src/components/GroupSettingsDialog.tsx`, `main/room-store.ts`, `main/group-store.ts` | **missing** | - | no | yes |
 | Automatic peer exchanges and optional handoff omissions | `main/peer-exchange.ts`, `main/handoff.ts`, `renderer/src/components/HandoffDivider.tsx` | **missing** | - | no | yes |
 | Memory store, named replacements, recently forgotten and tidy suggestions | `renderer/src/components/MemoryScreen.tsx`, `renderer/src/components/MemoryCard.tsx`, `main/memory-store.ts`, `shared/memory.ts` | **partial** — native-owned Electron-shaped memory, named rewrites/proposals, edit/toggle/remove/restore and gated tidy application; full validation, recall, tidy UI and turn-card receipts remain (P6-NOTES.md) | yes | no | yes |
@@ -86,7 +86,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Teammate secret environment keys and scoped run injection | `renderer/src/components/KeyCard.tsx`, `main/teammate-keys.ts` | **missing** | - | no | yes |
 | Custom faces, colours, bot/mascot and status legend | `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/FaceLegend.tsx`, `renderer/src/components/PixelFace.tsx`, `renderer/src/components/AgentMark.tsx` | **missing** | - | no | no |
 | About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **partial** — native About-you editor and suggestion approval/dismissal, included in native runtime prompts; full secret refusal vocabulary, change notices and TS test coverage remain (P6-NOTES.md) | yes | no | yes |
-| Team image import/export with routines | `renderer/src/components/TeamCard.tsx`, `main/team-card-routines.ts`, `shared/team-card.ts` | **missing** | - | no | yes |
+| Team image import/export with routines | `renderer/src/components/TeamCard.tsx`, `main/team-card-routines.ts`, `shared/team-card.ts` | **done** — Hydrogen: `core/src/png_text.rs`, `core/src/team_card.rs`, `src/ui/people_panel.rs`, `src/ui/home_panel.rs` (PNG tEXt team card export/import with routines, stripping secrets/ids/folders/own models and downgrading Auto to accept-edits; TEAM-FILES-NOTES.md) | yes | no | yes |
 | New teammate interview and setup inspection | `renderer/src/components/TeammateSetup.tsx`, `main/teammate-setup.ts`, `shared/interview.ts` | **done** — Hydrogen: `core/src/interview.rs`, `core/src/teammate_setup.rs`, `src/ui/instructions_card.rs`, `src/ui/setup_card.rs`, `src/ui/people_panel.rs`, `src/ui/composer_wiring.rs` (new/edit teammate interview in Ask mode + save card with secret refusal; fresh `/setup` inspection modal from composer and teammate card; notes/SETUP-NOTES.md) | yes | no | yes |
 | Tune teammate, combine alternatives and keep measured lessons/skills | `renderer/src/components/TuneTeammate.tsx`, `renderer/src/components/KeptInstructions.tsx`, `main/tune-lessons.ts`, `main/tune-combine.ts`, `main/tune-drafts.ts` | **missing** | - | no | yes |
 
@@ -164,7 +164,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Routine editor, schedules/days/one-off, pause and run history | `renderer/src/components/AutomationsScreen.tsx`, `renderer/src/components/RoutineDialog.tsx`, `main/routine-runner.ts`, `main/routine-store.ts` | **partial** — native-owned seeded shelf/editor, clock schedule validation/calculation, pause/resume and retained history; scheduler, completion accounting and recovery cards by the runner (ROUTINES-NOTES.md); input forms and remaining TS tests are not ported (p11-NOTES.md) | yes | no | yes |
 | Arriving-file routine trigger | `main/routine-file-watch.ts` | **done** — settled batches start one run, six an hour, a teammate's own files let go from Undo's records; window test (ROUTINES-NOTES.md) | yes | no | yes |
 | Private routine link hook | `main/routine-hooks.ts`, `shared/routine-hook.ts` | **missing** | - | no | yes |
-| Routine input forms, Markdown import/export and starter templates | `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineTemplates.tsx`, `main/routine-file.ts`, `main/routine-templates.ts` | **missing** | - | no | yes |
+| Routine input forms, Markdown import/export and starter templates | `renderer/src/components/RoutineInputs.tsx`, `renderer/src/components/RoutineFileDialog.tsx`, `renderer/src/components/RoutineTemplates.tsx`, `main/routine-file.ts`, `main/routine-templates.ts` | **done** — Hydrogen: `core/src/routine_inputs.rs`, `core/src/routine_file.rs`, `core/src/routine_templates.rs`, `core/src/routine_io.rs`, `assets/routines/*.locust-routine.json`, `src/ui/routines_panel.rs` (typed routine inputs, folder-picker validation, YAML-frontmatter Markdown/JSON import/export with absolute-path flagging, 16 shipped templates, W7 runner inputs; TEAM-FILES-NOTES.md) | yes | no | yes |
 | Routine copy-mode changes awaiting keep/discard | `renderer/src/components/RoutineChanges.tsx`, `main/routine-copy.ts` | **done** — each run in a fresh copy in the native data folder; Keep refuses over the person's edits, Discard asks first; window test (ROUTINES-NOTES.md) | yes | no | yes |
 | Routine retry-until-check, handoff steps and wait-for-OK gates | `renderer/src/components/RoutineRecovery.tsx`, `main/routine-recovery-ipc.ts`, `main/routine-runner.ts` | **partial** — runner ported: checks, checker verdicts, busy and wait-for-OK holds, recovery cards; no OS or phone alert when a step waits for OK (ROUTINES-NOTES.md) | yes | no | yes |
 | Compare/Blind side-by-side answers and isolated changes | `renderer/src/components/CompareView.tsx`, `main/compare-store.ts`, `main/compare-copies.ts` | **missing** | - | no | yes |
@@ -280,20 +280,20 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 12 | 11 | 2 | 25 | 23 | 3 |
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
-| 3 | Teammates, Rooms, Memory & Skills | 3 | 4 | 7 | 14 | 7 | 0 |
+| 3 | Teammates, Rooms, Memory & Skills | 5 | 4 | 5 | 14 | 9 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 5 | 5 | 13 | 8 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
-| 9 | Routines, Compare & Benchmarks | 2 | 2 | 6 | 10 | 4 | 0 |
+| 9 | Routines, Compare & Benchmarks | 3 | 2 | 5 | 10 | 5 | 0 |
 | 10 | Calls & Voice Typing | 0 | 0 | 5 | 5 | 0 | 0 |
 | 11 | Settings, Usage, Privacy & Backup | 3 | 2 | 3 | 8 | 5 | 0 |
 | 12 | Cloud, Remote, Phone & Chat Apps | 0 | 0 | 9 | 9 | 0 | 0 |
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **49** | **53** | **51** | **153** | **102** | **15** |
+| | **TOTAL** | **52** | **53** | **48** | **153** | **105** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

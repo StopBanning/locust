@@ -1,0 +1,32 @@
+{
+  "format": "locust-routine",
+  "version": 1,
+  "name": "Make it faster, then measure again",
+  "steps": [
+    "Measure what is slow, before changing anything:\n\n{{slow}}\n\nMeasure it before changing anything. Say how you measured, run it more than once, and give the numbers: where the time goes, part by part. Name the slowest part. Do not change any file.",
+    "Speed up the slowest part of this:\n\n{{slow}}\n\nChange the slowest part the measurement above found, and only that part. The result it gives must stay the same. Say what you changed.",
+    "Measure it again exactly the way it was measured before, and give the before and after side by side. Say whether the result is still the same, and what you did not measure."
+  ],
+  "inputs": [
+    {
+      "key": "slow",
+      "label": "What is slow, and where do you notice it?",
+      "kind": "long-text",
+      "required": true
+    }
+  ],
+  "handOffs": [
+    {
+      "role": "Data & Reporting"
+    },
+    {
+      "role": "Code & Migrations"
+    },
+    {
+      "role": "Data & Reporting",
+      "check": true
+    }
+  ],
+  "route": {},
+  "connectors": []
+}
