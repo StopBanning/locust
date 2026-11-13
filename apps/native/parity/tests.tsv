@@ -140,7 +140,7 @@ apps/desktop/src/main/a-mac-says-when-a-new-locust-is-out.test.ts		waiting
 apps/desktop/src/main/a-mac-updates-itself.test.ts		waiting		
 apps/desktop/src/main/a-mac-window-has-its-own-traffic-lights.test.ts		waiting		
 apps/desktop/src/main/a-macs-sidebar-is-glass.test.ts		waiting		
-apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts		waiting		
+apps/desktop/src/main/a-managed-turn-is-refused-before-an-agent-starts.test.ts	ORG-POLICY	partial	core/src/org_policy_tests.rs, native::tests::a_managed_turn_is_refused_before_an_agent_starts	Partial: reading, validating, the turn gate and the effective limit carried; the store overlays, Windows known folder and voice and door gates wait
 apps/desktop/src/main/a-memory-nobody-is-given-says-so.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
 apps/desktop/src/main/a-memory-whose-file-changed-may-be-out-of-date.test.ts		waiting		
 apps/desktop/src/main/a-message-is-delivered-once.test.ts		waiting		
@@ -161,7 +161,7 @@ apps/desktop/src/main/a-paused-routine-waits-to-be-resumed.test.ts	ROUTINES	part
 apps/desktop/src/main/a-pdf-arrives-readable.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
 apps/desktop/src/main/a-pdf-shows-its-pages.test.ts	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
 apps/desktop/src/main/a-person-can-leave-out-part-of-a-brief.test.ts		waiting		
-apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts		waiting		
+apps/desktop/src/main/a-person-cannot-lift-the-organizations-spend-limit.test.ts	ORG-POLICY	partial	core/src/org_policy_tests.rs, native::tests::a_managed_turn_is_refused_before_an_agent_starts	Partial: reading, validating, the turn gate and the effective limit carried; the store overlays, Windows known folder and voice and door gates wait
 apps/desktop/src/main/a-pet-sheet-is-checked-before-it-is-kept.test.ts		waiting		
 apps/desktop/src/main/a-phone-is-paired-by-its-code.test.ts		waiting		
 apps/desktop/src/main/a-phone-pairs-and-asks-through-the-relay.test.ts		waiting		
@@ -323,7 +323,7 @@ apps/desktop/src/main/an-opencode-2-teammate-keeps-the-command-guard.test.ts		wa
 apps/desktop/src/main/an-opencode-permission-is-a-card.test.ts		waiting		
 apps/desktop/src/main/an-opencode-run-keeps-the-persons-skill-paths.test.ts		waiting		
 apps/desktop/src/main/an-opencode-teammate-is-guarded-too.test.ts		waiting		
-apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts		waiting		
+apps/desktop/src/main/an-organization-policy-is-read-before-work-starts.test.ts	ORG-POLICY	partial	core/src/org_policy_tests.rs, native::tests::a_managed_turn_is_refused_before_an_agent_starts	Partial: reading, validating, the turn gate and the effective limit carried; the store overlays, Windows known folder and voice and door gates wait
 apps/desktop/src/main/an-other-app-origin-survives-a-restart.test.ts		waiting		
 apps/desktop/src/main/an-unsupported-opencode-version-reaches-the-window.test.ts		waiting		
 apps/desktop/src/main/an-unwritten-card-answer-is-said-in-the-record.test.ts		waiting		

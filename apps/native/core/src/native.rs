@@ -1168,6 +1168,28 @@ fn spend_gate(store: &Store, owners: &Value, teammate: &Teammate, limit: f64) ->
     Ok(())
 }
 
+/// createSpendRefusal under an organization's cap: the effective limit is the cap or a lower personal amount; an
+/// owned turn counts its teammate's receipts, an unowned one the whole month's; and a record that cannot be read
+/// closes the gate.
+fn org_spend_gate(store: &Store, policy: &crate::org_policy::PolicyState, owners: &Value, teammate: &Teammate, owned: bool, personal: Option<f64>) -> Result<(), String> {
+    let Some(limit) = crate::org_policy::monthly_limit(Some(policy), personal) else { return Ok(()) };
+    let unreadable = || crate::org_policy::policy_refusal(policy, "monthlyLimitUsd", "The monthly spending limit could not be checked. Ask your administrator to restore access to the spending record.");
+    let now = chrono::Local::now();
+    let month = crate::spend::month_of(&now.to_rfc3339()).ok_or_else(unreadable)?;
+    let turns = crate::usage_ledger::usage_turns(store).map_err(|_| unreadable())?;
+    let spent = if owned {
+        crate::spend::spent_by(&turns, &month, |conversation| owners[conversation] == teammate.id.as_str())
+    } else {
+        // Unowned work uses the whole month's receipts: dropping an owner cannot escape the cap.
+        crate::spend::spent_by(&turns, &month, |_| true)
+    };
+    if crate::spend::limit_reached(Some(&spent), limit) {
+        let who = if owned { teammate.name.as_str() } else { "Locust" };
+        return Err(crate::org_policy::policy_refusal(policy, "monthlyLimitUsd", &format!("{who} has reached this month's effective limit of {limit:.2} USD. It starts again next month.")));
+    }
+    Ok(())
+}
+
 /// codex-mission.ts AUTO_OFF_REFUSAL.
 pub const AUTO_OFF_REFUSAL: &str = "Auto mode is switched off for this workspace. Turn it on in Settings to let a run work outside the workspace folder. Nothing was recorded.";
 
@@ -1241,13 +1263,24 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if !supported(&job.teammate) {
         return Err(format!("{} runs in Locust for now.", job.teammate.name));
     }
-    // organization-spend.ts: a teammate with a monthly limit that this month's spending has reached does not start.
-    let limit = saved["teammates"]
-        .as_array()
-        .and_then(|rows| rows.iter().find(|r| r["teammateId"] == job.teammate.id))
-        .and_then(|entry| entry["monthlyLimitUsd"].as_f64())
-        .filter(|l| crate::spend::is_monthly_limit(*l));
-    if let Some(limit) = limit {
+    // organization-policy.ts: every turn crosses the organization's policy before anything is discovered, started or
+    // recorded. A broken policy file refuses every turn.
+    let policy = crate::org_policy::current();
+    {
+        let runtime = job.teammate.runtime.as_deref().unwrap_or("codex");
+        let mode = origin.mode.unwrap_or_else(|| Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask));
+        let model = job.model.as_deref().or(job.teammate.model.as_deref());
+        if let Some(why) = crate::org_policy::turn_refusal(Some(&policy), runtime, model, mode.as_str(), false, false) {
+            return Err(why);
+        }
+    }
+    // organization-spend.ts: a teammate with a monthly limit that this month's spending has reached does not start, and
+    // the organization's cap holds over any personal amount, for a turn with no teammate in the roster too.
+    let in_roster = saved["teammates"].as_array().and_then(|rows| rows.iter().find(|r| r["teammateId"] == job.teammate.id));
+    let personal = in_roster.and_then(|entry| entry["monthlyLimitUsd"].as_f64()).filter(|l| crate::spend::is_monthly_limit(*l));
+    if policy.policy.contains_key("monthlyLimitUsd") {
+        org_spend_gate(&store, &policy, &saved["missionOwners"], &job.teammate, in_roster.is_some(), personal)?;
+    } else if let Some(limit) = personal {
         spend_gate(&store, &saved["missionOwners"], &job.teammate, limit)?;
     }
     let side_req = crate::side_question::parse_started_by(origin.started_by.as_ref());

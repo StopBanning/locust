@@ -118,7 +118,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Ask/Plan/Auto/Approve each action and runtime-specific guarantees | `main/mission-mode.ts`, `main/permission-host.ts`, `renderer/src/components/WhatLocustCanStop.tsx` | **partial** — Claude Code and Codex follow Electron's mapping: Ask and Plan read only, Accept edits and Approve each in the folder, Auto as the person; Claude with the permission bridge in every mode but Auto, Codex through `codexAppServerPolicy` with Approve each interactive; Ask auto-declines; the other agents' mode matrix and the "what Locust can stop" view remain | yes | 2026-11-09 — real-agent tests `real_claude_approval_deny_then_allow`, `real_codex_approval_deny_then_allow`, `real_codex_accept_edits_writes_in_its_folder`, and the three guard tests in Auto | yes |
 | Scoped secret detection/redaction in memories, records and sharing | `shared/secrets.ts`, `main/mission-export.ts`, `main/memory-store.ts` | **partial** — one `secrets` module (`secret_in`/`scrub_secrets`/`redact_secrets`); people/ledger/events call it; Save-record export UI remains (P8-NOTES.md) | yes | no | yes |
 | Approval alerts on Board/sidebar/taskbar/phone/chat | `renderer/src/components/BoardScreen.tsx`, `renderer/src/components/Sidebar.tsx`, `main/raised-approvals.ts`, `main/taskbar-attention.ts` | **partial** — system notifications while the window is elsewhere (cards, limits, long turns you started), from the app bundle; no Board, taskbar, phone or chat alerts | yes | no | yes |
-| Organization machine policy and spend limits | `main/organization-policy.ts`, `main/organization-spend.ts`, `shared/organization-policy.ts` | **missing** | - | no | yes |
+| Organization machine policy and spend limits | `main/organization-policy.ts`, `main/organization-spend.ts`, `shared/organization-policy.ts` | **partial** — `core/src/org_policy.rs` (Electron's organization-policy.ts: the machine-wide policy.json read once and never written, every key validated, a broken file a closed gate, agents, models with * patterns, highest mode, features, the effective monthly limit, settings in words) and every turn crossing it in `native::send_from` before anything starts or is recorded, with the organization's cap over personal limits and unowned turns (organization-spend.ts); Electron's policy tests carried, an engine test. The teammate store's overlays, Settings' managed controls and the voice and door gates remain | yes | no | yes |
 
 ### Area 6: Changes, Git, Worktrees, Issues & Scout
 
@@ -282,7 +282,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 5 | 4 | 5 | 14 | 9 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
-| 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
+| 5 | Approvals & Permissions | 1 | 8 | 0 | 9 | 9 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 7 | 3 | 13 | 10 | 0 |
 | 7 | Terminal & Own Commands | 0 | 3 | 0 | 3 | 3 | 0 |
 | 8 | Built-in Browser & Page Previews | 4 | 1 | 1 | 6 | 5 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 5 | 3 | 13 | 10 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **57** | **57** | **39** | **153** | **114** | **15** |
+| | **TOTAL** | **57** | **58** | **38** | **153** | **115** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

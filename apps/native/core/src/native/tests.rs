@@ -1794,3 +1794,50 @@ fn sealed_slot_omits_teammate_brief_and_skills() {
     let raw = std::fs::read_to_string(path).unwrap();
     assert!(!raw.contains("SECRET_ROLE_MARKER"), "sealed slot leaked teammate brief: {raw}");
 }
+
+/// a-managed-turn-is-refused-before-an-agent-starts: an organization's policy refuses an agent, a mode or a broken file
+/// before anything is started or recorded, in its own words.
+#[test]
+fn a_managed_turn_is_refused_before_an_agent_starts() {
+    let t = Temp::new();
+    let store = t.store();
+    let _hooks = hooks::install(store.clone(), fake("success"));
+    // Whatever happens below, the next test starts with an open policy.
+    struct Reopen;
+    impl Drop for Reopen {
+        fn drop(&mut self) {
+            crate::org_policy::use_policy(None);
+        }
+    }
+    let _reopen = Reopen;
+    let restrict = |policy: Value| {
+        let mut skipped = Vec::new();
+        crate::org_policy::use_policy(Some(crate::org_policy::PolicyState {
+            path: "/admin/policy.json".into(),
+            present: true,
+            policy: crate::org_policy::parse_policy(&policy, &mut |k| skipped.push(k.to_owned())).unwrap(),
+            error: None,
+        }));
+    };
+    let ledgers = || std::fs::read_dir(store.ledger_dir().unwrap()).map(|d| d.count()).unwrap_or(0);
+    restrict(json!({"allowedAgents": ["claude"]}));
+    let refused = send(job(&t, None, "Work")).err().expect("refused");
+    assert!(refused.contains("is not an allowed AI agent.") && refused.contains("(allowedAgents in /admin/policy.json)"), "{refused}");
+    restrict(json!({"highestMode": "ask"}));
+    let mut auto = job(&t, None, "Work");
+    auto.teammate.runs_in = "accept-edits".into();
+    let refused = send(auto).err().expect("refused");
+    assert!(refused.contains("Accept edits exceeds the highest allowed mode, Ask."), "{refused}");
+    crate::org_policy::use_policy(Some(crate::org_policy::PolicyState {
+        path: "/admin/policy.json".into(),
+        present: true,
+        policy: serde_json::Map::new(),
+        error: Some("Locust cannot use the organization policy at /admin/policy.json. The file is not valid JSON.".into()),
+    }));
+    assert!(send(job(&t, None, "Work")).err().expect("refused").contains("cannot use the organization policy"));
+    assert_eq!(ledgers(), 0, "a refused turn recorded something");
+    // An open policy lets the same turn start.
+    crate::org_policy::use_policy(None);
+    let started = send(job(&t, None, "Work")).expect("starts");
+    wait("the turn to end", || !owns(&started.conversation_id));
+}
