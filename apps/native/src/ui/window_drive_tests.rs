@@ -3637,3 +3637,30 @@ fn tune_note_lesson_stores_lesson_and_next_tune_draft_prompt_includes_it() {
     );
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+/// PublishedCards (0.727): a reply that names a Google Doc ends with a card for it, its own words for a name, and Open
+/// opens it in the browser; an address Locust does not know is no card.
+#[test]
+fn what_a_teammate_published_is_a_card_that_opens_in_the_browser() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the answer", answered);
+    rt.update(|s, _| {
+        if let Some(pane) = &mut s.ledger {
+            pane.items.push(ledger::Item::Assistant {
+                item_id: "pub-1".into(),
+                text: "The plan is up: [Q3 plan](https://docs.google.com/document/d/1plan/edit). Help: https://example.com/help".into(),
+                r#final: true,
+            });
+        }
+    });
+    settle(&mut rt);
+    let card = text_in(&rt, "published-0").join(" | ");
+    assert!(card.contains("Q3 plan") && card.contains("Google Doc \u{b7} docs.google.com") && card.contains("Open"), "{card}");
+    assert!(rt.find("published-1").is_none(), "an unknown address is no card");
+    click(&mut rt, "published-0");
+    assert_eq!(rt.state.opened_links, vec!["https://docs.google.com/document/d/1plan/edit".to_owned()]);
+    rt.update(|s, _| crate::published_cards::open_web_link(s, "file:///etc/passwd"));
+    assert_eq!(rt.state.link_refusal.as_ref().map(|(_, why)| why.as_str()), Some("Locust does not open that address."));
+}

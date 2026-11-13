@@ -49,7 +49,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Resume interrupted run from checkpoint | `renderer/src/components/ResumeCard.tsx`, `renderer/src/resume.ts` | **partial** — newest-checkpoint recovery decision and card, including named uncertain actions and refusal; reconciled resume execution remains unavailable | yes | no | yes |
 | Prompt rail, jump to bottom and timeline markers | `renderer/src/components/PromptRail.tsx`, `renderer/src/components/JumpToBottom.tsx`, `renderer/src/components/TimeMarker.tsx` | **done** — `src/ui/prompt_rail.rs`, `src/ui/jump_to_bottom.rs`, `src/ui/time_marker.rs`, `core/src/time_marker.rs`: the rail (from four of your messages, Ctrl+Option+Up/Down), the way down with the working dots, time markers after a two-minute quiet; Electron's four rail, way-down and clock tests carried over, two headless window tests; no compare view yet (notes/THREAD-RAIL-NOTES.md) | yes | no | no |
 | Selection ask and copied read-only side chat | `renderer/src/components/SelectionAsk.tsx`, `renderer/src/components/SideChat.tsx` | **partial** — Hydrogen: `core/src/side_question.rs` forks the conversation read-only (Claude `--fork-session`, Codex `thread/fork`, OpenCode 1 `/session/:id/fork`; OpenCode 2 a fresh briefed session), in a slot of its own, never in memory, the sidebar or a teammate's branch; `src/ui/side_chat.rs`: Ask about this quotes a selected part of a reply into the message box, Ask on the side opens the panel with approve, deny and stop; Electron's side-question tests carried over, a headless window test; question cards in the panel, /tune and Compare callers remain (notes/SIDE-CHAT-NOTES.md) | yes | no | yes |
-| Published-link cards and pinned page/tracker status controls | `renderer/src/components/PublishedCards.tsx`, `renderer/src/components/StatusChip.tsx`, `renderer/src/pinnedPages.ts` | **missing** | - | no | yes |
+| Published-link cards and pinned page/tracker status controls | `renderer/src/components/PublishedCards.tsx`, `renderer/src/components/StatusChip.tsx`, `renderer/src/pinnedPages.ts` | **partial** — `core/src/published_links.rs` (Electron's publishedLinks.ts: Claude artifacts and docs, Google Docs, Sheets and Slides, Notion, Figma and gists by https host and path, the reply's own words for a name, each once, in order, none inside code, a stray % kept as written; and isWebLink) and `src/ui/published_cards.rs`: a card for each under the reply, Open in the person's browser, a refusal said beside it. Web links in a reply now open too. The tracker's status chips (StatusChip) and pinned pages remain | yes | no | yes |
 | Reply route/provenance and recovery inspector | `renderer/src/components/Inspector.tsx` | **partial** — Hydrogen: `core/src/inspector.rs` (what it may do for every agent, sandbox and account words, checkpoints, receipts, cost) and `src/ui/inspector_panel.rs` (the Activity icon, About this reply with Activity, Details, Artifacts and Receipt, a switcher for each turn); Electron's permissions-panel tests carried, a headless window test; the per-file reveal button remains (notes/TRASH-INSPECTOR-NOTES.md) | yes | no | no |
 
 ### Area 2: Composer & Input
@@ -278,7 +278,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 12 | 11 | 2 | 25 | 23 | 3 |
+| 1 | Conversations & Thread Rendering | 12 | 12 | 1 | 25 | 24 | 3 |
 | 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 6 | 4 | 4 | 14 | 10 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 7 | 1 | 11 | 10 | 5 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 7 | 5 | 1 | 13 | 12 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 2 | 1 | 3 | 6 | 3 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 6 | 0 | 7 | 7 | 0 |
-| | **TOTAL** | **62** | **61** | **30** | **153** | **123** | **15** |
+| | **TOTAL** | **62** | **62** | **29** | **153** | **124** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

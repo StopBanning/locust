@@ -242,6 +242,9 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
             .on_link(|s: &mut State, url| {
                 if let Some(target) = file_target(url) {
                     open_file(s, target);
+                } else {
+                    // A web address opens in the person's browser; any other scheme is refused, and says so.
+                    crate::published_cards::open_web_link(s, url);
                 }
             })
             .images(move |src| {
@@ -383,6 +386,9 @@ pub(super) fn reply(s: &State, body: &str, live: bool, p: &Palette) -> El {
             })
             .render(&markdown_style(p)),
     );
+    if let Some(cards) = crate::published_cards::cards(s, body, p) {
+        out = out.child(cards);
+    }
     // Inline file spans are also available as explicit file controls.
     let paths = crate::invariants::regex(r"`([^`\n]+)`");
     let mut seen = std::collections::HashSet::new();

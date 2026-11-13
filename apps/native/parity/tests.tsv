@@ -1111,7 +1111,7 @@ apps/desktop/src/renderer/src/usage-is-drawn.test.tsx	P10	does-not-apply		TypeSc
 apps/desktop/src/renderer/src/voice-capture-closes-every-track.test.ts		waiting		
 apps/desktop/src/renderer/src/voice-typing-in-a-browser-says-where-its-setup-is.test.tsx		waiting		
 apps/desktop/src/renderer/src/voice-typing-is-editable-and-cancellable.test.tsx		waiting		
-apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx		waiting		
+apps/desktop/src/renderer/src/what-a-teammate-published-is-a-card.test.tsx	PUBLISHED	carried	core/src/published_links.rs	all 5 cases; the card drawn and opened in the window test what_a_teammate_published_is_a_card_that_opens_in_the_browser
 apps/desktop/src/renderer/src/what-waits-on-you-is-in-one-place.test.ts		waiting		
 apps/desktop/src/renderer/src/what-was-said-while-working-stays-where-it-was-said.test.ts		waiting		
 apps/desktop/src/renderer/src/whats-new-reads-like-claude-codes.test.tsx		waiting		

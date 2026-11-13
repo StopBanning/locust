@@ -171,6 +171,8 @@ mod reply_page_ui;
 mod remote_control_card;
 #[path = "ui/agent_accounts_card.rs"]
 mod agent_accounts_card;
+#[path = "ui/published_cards.rs"]
+mod published_cards;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
