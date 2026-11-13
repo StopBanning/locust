@@ -1,7 +1,7 @@
 //! Quit guard modal and Startup settings (`main/quit-guard.ts`, `main/login-item.ts`, `main/keep-running.ts`).
 
 use locust_core::keep_awake;
-use locust_core::login_item::{LoginItem, UnwiredLoginItemHost};
+use locust_core::login_item::LoginItem;
 use locust_core::quit_guard::{self, CLOSE_BUTTONS, CloseMoment};
 use rune::{El, Tx, col, el, row, text};
 
@@ -161,8 +161,8 @@ pub(super) fn startup_section(s: &State, p: &Palette) -> El {
                             }
                             let next = !s.settings_panel.login_item.open_at_login;
                             let mut item = LoginItem::new(
-                                UnwiredLoginItemHost::default(),
-                                false,
+                                crate::os_hosts::login_item(),
+                                crate::os_hosts::packaged(),
                                 std::env::current_exe()
                                     .map(|p| p.display().to_string())
                                     .unwrap_or_default(),

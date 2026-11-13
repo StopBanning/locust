@@ -24,6 +24,15 @@ pub trait LoginItemHost {
     fn get_login_item_settings(&self, query: Option<&LoginItemQuery>) -> HostLoginItemSettings;
 }
 
+impl LoginItemHost for Box<dyn LoginItemHost> {
+    fn set_login_item_settings(&mut self, open_at_login: bool, query: Option<&LoginItemQuery>) {
+        (**self).set_login_item_settings(open_at_login, query);
+    }
+    fn get_login_item_settings(&self, query: Option<&LoginItemQuery>) -> HostLoginItemSettings {
+        (**self).get_login_item_settings(query)
+    }
+}
+
 /// Runtime stub when OS login-item integration (`SMAppService` / Windows registry) is not wired yet.
 #[derive(Default)]
 pub struct UnwiredLoginItemHost {

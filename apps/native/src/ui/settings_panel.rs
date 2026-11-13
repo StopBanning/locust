@@ -121,8 +121,8 @@ fn reload(s: &mut State) {
                 other => other,
             };
             let item = locust_core::login_item::LoginItem::new(
-                locust_core::login_item::UnwiredLoginItemHost::default(),
-                false,
+                crate::os_hosts::login_item(),
+                crate::os_hosts::packaged(),
                 std::env::current_exe()
                     .map(|p| p.display().to_string())
                     .unwrap_or_default(),

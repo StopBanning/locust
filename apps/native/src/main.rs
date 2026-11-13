@@ -181,6 +181,7 @@ mod usage_line;
 mod cancellation_card;
 #[path = "ui/own_models_card.rs"]
 mod own_models_card;
+mod os_hosts;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -1776,6 +1777,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
     changed |= own_models_card::poll(s);
+    // The Mac stays awake while a turn runs, or always when the person asked it to (powerSaveBlocker).
+    os_hosts::keep_awake(locust_core::engine_api::api().running().len(), s.settings_panel.stay_awake);
     changed |= connectors_section::poll(s);
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
@@ -2104,6 +2107,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 /// gets to wait. So the turns are asked to stop and their cancelled records waited for here, bounded, or a quit leaves
 /// ledgers with no ending that read as running.
 fn on_quit(_: &mut State, _: &mut Tx) {
+    os_hosts::release_awake();
     // Claude Code's Remote Control server ends with Locust, waited for.
     remote_control_card::dispose();
     locust_core::engine_api::api().shut_down();
