@@ -1163,7 +1163,7 @@ apps/desktop/src/shared/kilo-installs-in-one-click.test.ts		waiting
 apps/desktop/src/shared/kilo-models.test.ts		waiting		
 apps/desktop/src/shared/memory.test.ts	P6	partial		`shared/memory.test.ts` | Fenced examples ignored; four-operation cap; named parser form.
 apps/desktop/src/shared/messageFragments.test.ts		waiting		
-apps/desktop/src/shared/peer-share.test.ts		waiting		
+apps/desktop/src/shared/peer-share.test.ts	WORKROOM	carried	core/src/peer_share.rs	all 9 cases
 apps/desktop/src/shared/points-are-drafted.test.ts		waiting		
 apps/desktop/src/shared/protocol-tags.test.ts		waiting		
 apps/desktop/src/shared/room-task.test.ts		waiting		

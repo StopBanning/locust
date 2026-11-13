@@ -19,6 +19,7 @@ pub mod remote_control;
 pub mod agent_accounts;
 pub mod published_links;
 pub mod workroom;
+pub mod peer_share;
 pub mod changes;
 pub mod checkpoints;
 pub mod command_guard;
