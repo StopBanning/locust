@@ -662,6 +662,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     body = body.child(plan_runs_out_section(s, p));
                 } else if heading == crate::agents_section::HEADING {
                     body = body.child(crate::agents_section::section(s, p));
+                    if let Some(remote) = crate::remote_control_card::section(s, p) {
+                        body = body.child(remote);
+                    }
                 } else {
                     body = body.child(deferred(heading, p));
                 }

@@ -3256,3 +3256,59 @@ fn a_whole_page_in_a_reply_opens_in_the_browser_panel_and_a_fragment_stays_code(
     assert_eq!(std::fs::read_to_string(&written).unwrap(), page);
     assert!(crate::invariants::lock(&rt.state.browser.host).open, "status {:?}", rt.state.status);
 }
+
+/// RemoteControlSetting: the switch under AI agents starts the server (a stand-in here), says where it stands, shows
+/// what Claude Code printed as it printed it, and a trust question leaves it off, asking the person to finish setup.
+#[test]
+fn the_remote_control_switch_runs_the_server_and_shows_claudes_own_words() {
+    use locust_core::remote_control::{Events, Launcher, Owned, RemoteControl, Stream};
+    use std::sync::{Arc, Mutex};
+    struct Child(Arc<Mutex<Option<Events>>>);
+    impl Owned for Child {
+        fn pid(&self) -> u32 { 1 }
+        fn kill_tree(&self) {
+            let events = self.0.lock().unwrap().clone();
+            std::thread::spawn(move || if let Some(e) = events { e.closed(None) });
+        }
+    }
+    struct Fake { events: Arc<Mutex<Option<Events>>>, setups: Arc<Mutex<u32>> }
+    impl Launcher for Fake {
+        fn discover(&self) -> Result<Option<PathBuf>, String> { Ok(Some(PathBuf::from("/fake/claude"))) }
+        fn spawn(&self, _: &Path, _: &[&str], _: &Path, events: Events) -> Result<Box<dyn Owned>, String> {
+            *self.events.lock().unwrap() = Some(events.clone());
+            // From another thread, as a process reports.
+            std::thread::spawn(move || events.spawned());
+            Ok(Box::new(Child(self.events.clone())))
+        }
+        fn open_setup(&self, _: &Path, _: &Path) -> Result<(), String> { *self.setups.lock().unwrap() += 1; Ok(()) }
+    }
+    let (events, setups) = (Arc::new(Mutex::new(None)), Arc::new(Mutex::new(0)));
+    crate::remote_control_card::use_service(RemoteControl::new(Arc::new(Fake { events: events.clone(), setups: setups.clone() }), Box::new(|| PathBuf::from("/project"))));
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
+    });
+    pump(&mut rt, "the switch read", |s| s.remote_control.is_some());
+    settle(&mut rt);
+    let off = text_in(&rt, "remote-control").join(" | ");
+    assert!(off.contains("Let me start sessions on this computer from claude.ai") && off.contains("Off. When on, you can start Claude Code sessions") && off.contains("It needs your claude.ai sign-in; API keys do not work."), "{off}");
+    assert!(rt.find("remote-control-output").is_none());
+
+    click(&mut rt, "remote-control-switch");
+    pump(&mut rt, "the server running", |s| s.remote_control.as_ref().is_some_and(|r| r.phase == locust_core::remote_control::Phase::Running));
+    let running_events = events.lock().unwrap().clone().unwrap();
+    running_events.output(Stream::Stdout, b"  https://claude.ai/code/session_fake\r\n");
+    pump(&mut rt, "the output read", |s| s.remote_control.as_ref().is_some_and(|r| !r.stdout.is_empty()));
+    settle(&mut rt);
+    let on = text_in(&rt, "remote-control").join(" | ");
+    assert!(on.contains("On. Start a session in this folder") && on.contains("Claude Code output") && on.contains("  https://claude.ai/code/session_fake\r\n"), "{on}");
+
+    // A trust question: the server ends, nothing answers it, and the person finishes setup themselves.
+    running_events.output(Stream::Stderr, b"Workspace not trusted");
+    pump(&mut rt, "the setup terminal", |s| s.remote_control.as_ref().is_some_and(|r| r.phase == locust_core::remote_control::Phase::NeedsPerson) && *setups.lock().unwrap() == 1);
+    settle(&mut rt);
+    let asked = text_in(&rt, "remote-control").join(" | ");
+    assert!(asked.contains("Complete setup in the Claude Code terminal, then enable this switch again.") && asked.contains("Claude Code errors"), "{asked}");
+    assert!(!rt.state.remote_control.as_ref().unwrap().enabled);
+}

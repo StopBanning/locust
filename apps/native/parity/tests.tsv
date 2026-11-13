@@ -188,9 +188,9 @@ apps/desktop/src/main/a-refusal-in-ask-says-the-mode.test.ts		waiting
 apps/desktop/src/main/a-refusal-keeps-the-reason-it-was-refused-for.test.ts		waiting		
 apps/desktop/src/main/a-refused-link-says-so.test.ts		waiting		
 apps/desktop/src/main/a-relayed-conversation-sits-under-its-origin.test.ts		waiting		
-apps/desktop/src/main/a-remote-control-server-lives-only-while-enabled.test.ts		waiting		
-apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts		waiting		
-apps/desktop/src/main/a-remote-control-switch-accepts-only-its-own-window.test.ts		waiting		
+apps/desktop/src/main/a-remote-control-server-lives-only-while-enabled.test.ts	REMOTE-CONTROL	carried	core/src/remote_control_tests.rs	every case but the two Windows launch shapes (a cmd shim's quoting; detached is a process group here): lifetime, one server, off and quit wait for close, cancelled starts, verbatim errors and output, trust questions, bounded output, the stop deadline, earlier off, repeated trust; plus an ended process reporting nothing into a later one
+apps/desktop/src/main/a-remote-control-setup-question-belongs-to-the-person.test.ts	REMOTE-CONTROL	partial	core/src/remote_control_tests.rs	the setup terminal opens only after the server closed, never answering for the person; the per-platform terminal launch cases are the terminal module's
+apps/desktop/src/main/a-remote-control-switch-accepts-only-its-own-window.test.ts	REMOTE-CONTROL	does-not-apply		one window, no IPC to accept from another
 apps/desktop/src/main/a-reopened-conversation-keeps-its-check.test.ts		waiting		
 apps/desktop/src/main/a-reply-is-shown-the-message-it-answers.test.ts		waiting		
 apps/desktop/src/main/a-reply-lines-up-with-the-box.test.ts		waiting		
@@ -774,7 +774,7 @@ apps/desktop/src/renderer/src/a-read-row-names-the-file.test.ts		waiting
 apps/desktop/src/renderer/src/a-refusal-offers-the-mode-that-works.test.ts		waiting		
 apps/desktop/src/renderer/src/a-refused-command-never-ran.test.ts		waiting		
 apps/desktop/src/renderer/src/a-reload-keeps-every-comparison-column-live.test.ts	P5	waiting		`a-reload-keeps-every-comparison-column-live.test.ts` | All six tests deferred. Native does not have Electron's renderer reload, host-owned comparison columns, or pending React IPC update map. Native retains process handles and tails ledger
-apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-remote-control-switch-shows-claudes-own-words.test.tsx	REMOTE-CONTROL	partial	core/src/remote_control_tests.rs	the line for each phase (the_switch_says_where_it_stands_first) and the window test the_remote_control_switch_runs_the_server_and_shows_claudes_own_words; the disabled switch while ending is not pinned
 apps/desktop/src/renderer/src/a-removed-teammate-is-not-replaced.test.ts		waiting		
 apps/desktop/src/renderer/src/a-replaced-select-still-shows-its-value.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-reply-suggests-tasks-as-cards.test.tsx		waiting		

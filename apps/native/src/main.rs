@@ -167,6 +167,8 @@ mod claude_app_card;
 mod link_open;
 #[path = "ui/reply_page_ui.rs"]
 mod reply_page_ui;
+#[path = "ui/remote_control_card.rs"]
+mod remote_control_card;
 #[path = "ui/review_changes.rs"]
 mod review_changes;
 #[path = "ui/inspector_panel.rs"]
@@ -1748,6 +1750,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= github_section::poll(s);
     changed |= claude_app_card::poll(s);
     changed |= link_open::poll(s);
+    changed |= remote_control_card::poll(s);
     changed |= connectors_section::poll(s);
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);
@@ -2075,6 +2078,8 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 /// gets to wait. So the turns are asked to stop and their cancelled records waited for here, bounded, or a quit leaves
 /// ledgers with no ending that read as running.
 fn on_quit(_: &mut State, _: &mut Tx) {
+    // Claude Code's Remote Control server ends with Locust, waited for.
+    remote_control_card::dispose();
     locust_core::engine_api::api().shut_down();
     locust_core::engine_api::api().wait_for_shutdown();
 }
