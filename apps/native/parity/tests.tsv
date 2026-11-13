@@ -466,7 +466,7 @@ apps/desktop/src/main/runtime-commands.test.ts		waiting
 apps/desktop/src/main/runtime-discovery.test.ts		waiting		
 apps/desktop/src/main/runtime-installer.test.ts	P10	carried	core/src/agent_install_tests.rs; src/ui/window_drive_tests.rs install_runs_the_rows_line_and_says_how_it_ended	every it() ported (25), plus an update's version check, the Windows lock case and the window's Install
 apps/desktop/src/main/runtime-setup.test.ts		waiting		
-apps/desktop/src/main/runtime-updates.test.ts		waiting		
+apps/desktop/src/main/runtime-updates.test.ts	UPDATES	carried	core/src/agent_updates_tests.rs	every it() ported (26). The two Windows-layout npm_package_dir cases (skipIf not win32 in Electron) are #[cfg(windows)] tests that exist only in a Windows build, and a Mac-path twin of the shim-in-prefix case runs here; the end-to-end cases run on the Mac layout (a link in <prefix>/bin). Plus: held versions kept across a look that cannot reach the check, a past update said again, the switch kept as a choice, a peek while updating, the real effects refusing in a test
 apps/desktop/src/main/says-what-is-still-true.test.ts		waiting		
 apps/desktop/src/main/scout-away-comes-in-by-a-pull-request.test.ts		waiting		
 apps/desktop/src/main/scout-brings-a-morning-brief.test.ts		waiting		
@@ -529,7 +529,7 @@ apps/desktop/src/main/the-github-cli-updates-from-the-card.test.ts	GITHUB	carrie
 apps/desktop/src/main/the-history-reads-only-what-changed.test.ts		waiting		
 apps/desktop/src/main/the-home-keyframes-only-transform-and-fade.test.ts		waiting		
 apps/desktop/src/main/the-host-refuses-always-for-a-reaching-command.test.ts	P8	partial		`main/the-host-refuses-always-for-a-reaching-command.test.ts` | Existing host downgrade/refusal tests retained; card saving uses the host's pending request.
-apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts		waiting		
+apps/desktop/src/main/the-in-use-check-reads-any-path.test.ts	UPDATES	carried	core/src/agent_updates_tests.rs the_in_use_check_finds_a_process_whose_path_has_a_non_ascii_letter	the one it() is Windows-only (PowerShell read in the OEM code page); not applicable as written. Its promise is ported to the Mac: a real sh process with a non-ASCII folder on its command line is found in the real `ps -eo command` bytes by the same case-insensitive substring, and a Windows powershell/cmd path is not built (no Windows process table here)
 apps/desktop/src/main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts	P10	partial		`main/the-keychain-is-asked-only-for-a-key-and-said-first.test.ts` (quiet paths) | no note without key; note words exact; no keychain IO
 apps/desktop/src/main/the-live-word-is-visibly-live.test.ts		waiting		
 apps/desktop/src/main/the-lock-is-the-same-on-both-sides.test.ts		waiting		
@@ -866,7 +866,7 @@ apps/desktop/src/renderer/src/a-window-that-cannot-draw-says-so.test.tsx		waitin
 apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts		waiting		
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts		waiting		
 apps/desktop/src/renderer/src/across-your-benchmarks.test.tsx	compare-more	carried		`benchmark::tests::across_your_benchmarks_averages_and_excludes_setups` + `benchmark::tests::keeps_each_runtime_in_its_own_unit`
-apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts		waiting		
+apps/desktop/src/renderer/src/agent-updates-say-what-happened.test.ts	UPDATES	carried	core/src/agent_updates_tests.rs (the row words); src/ui/window_drive_tests.rs update_installs_the_newer_version_and_the_row_says_updated	every it() ported (6): nothing when current, what a newer one waits for, who is offered Update, under way / landed / failed with the time, the switch sentences, a held version. The time is en-US style (11:05 AM, Sep 22), not the computer's locale
 apps/desktop/src/renderer/src/agentText.test.ts		waiting		
 apps/desktop/src/renderer/src/alt-and-an-arrow-moves-between-conversations.test.ts		waiting		
 apps/desktop/src/renderer/src/an-account-shows-how-full-it-is.test.tsx		waiting		

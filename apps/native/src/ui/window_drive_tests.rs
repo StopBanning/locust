@@ -4296,3 +4296,93 @@ fn a_key_asked_for_is_kept_from_its_card_and_listed_in_the_teammates_form() {
     on_quit(&mut rt.state, &mut Tx::default());
 }
 
+/// runtime-updates.ts, in the window: a newer Codex is said on its row with Update (the switch off, so the download is
+/// the person's to start); pressing Update installs that version through the service's installer, off the window's
+/// thread, and the row then says it was updated. Everything the service touches is a stand-in; nothing is installed.
+#[test]
+fn update_installs_the_newer_version_and_the_row_says_updated() {
+    use locust_core::agent_updates as updates;
+    use locust_core::agents::{Auth, Found, Probe};
+    use std::sync::{Arc, Mutex};
+    struct Fake(Arc<Mutex<Vec<String>>>, Mutex<Option<updates::Saved>>);
+    impl updates::Effects for Fake {
+        fn discover(&self) -> Vec<updates::Discovered> {
+            vec![updates::Discovered {
+                id: "codex".into(),
+                version: Some("0.153.0".into()),
+                executable: Some(updates::Executable {
+                    discovered_path: "/opt/homebrew/bin/codex".into(),
+                    executable_path: "/opt/homebrew/bin/node".into(),
+                    prefix_args: vec!["/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js".into()],
+                }),
+            }]
+        }
+        fn npm_root(&self) -> Option<String> {
+            Some("/opt/homebrew/lib/node_modules".into())
+        }
+        fn real_path(&self, _: &str) -> Option<String> {
+            None
+        }
+        fn latest(&self, _: &str) -> Option<updates::Release> {
+            Some(updates::Release { version: "0.156.1".into(), published_at: Some("2026-09-01T00:00:00.000Z".into()) })
+        }
+        fn held_versions(&self) -> Option<std::collections::BTreeMap<String, Vec<String>>> {
+            None
+        }
+        fn in_use(&self, _: &str) -> Result<bool, String> {
+            Ok(false)
+        }
+        fn install(&self, runtime: &str, version: &str) -> Result<(), String> {
+            self.0.lock().unwrap().push(format!("{runtime}@{version}"));
+            Ok(())
+        }
+        fn load(&self) -> Option<updates::Saved> {
+            self.1.lock().unwrap().clone()
+        }
+        fn save(&self, saved: &updates::Saved) {
+            *self.1.lock().unwrap() = Some(saved.clone());
+        }
+        fn updated(&self, _: &str) {}
+        fn changed(&self) {}
+        fn now(&self) -> i64 {
+            chrono::Utc::now().timestamp_millis()
+        }
+    }
+    let installs = Arc::new(Mutex::new(vec![]));
+    // The person turned updating on its own off: the newer version waits for Update.
+    let asks = updates::Saved { automatic: false, chosen: true, ..updates::nothing_saved() };
+    crate::agents_section::use_updates(Arc::new(updates::Updates::new(Box::new(Fake(installs.clone(), Mutex::new(Some(asks)))))));
+    let (_dirs, _store, mut rt) = window();
+    let codex = Found {
+        id: "codex".into(),
+        display_name: "Codex CLI".into(),
+        installed: true,
+        version: Some("0.153.0".into()),
+        auth: Auth::Authenticated,
+        ready: true,
+        status: Probe::Ready,
+        unsupported_note: None,
+        through_cli: false,
+        checking: false,
+    };
+    rt.update(move |s, _| {
+        s.settings_panel.open = true;
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
+        s.settings_panel.agents = Some(vec![codex]);
+    });
+    settle(&mut rt);
+    pump(&mut rt, "the look finds 0.156.1", |s| s.agent_updates.lines.contains_key("codex") && !s.agent_updates_job.is_pending());
+    settle(&mut rt);
+    let words = text_in(&rt, "agents-section").join("\n");
+    assert!(words.contains("0.156.1 is out."), "{words}");
+    assert!(words.contains("Updating when you press Update."), "the switch says it is off: {words}");
+    assert!(installs.lock().unwrap().is_empty(), "nothing downloaded until asked");
+    click(&mut rt, "agents-update-codex");
+    pump(&mut rt, "the update ends", |s| s.agent_updates.lines.get("codex").is_some_and(|l| l.starts_with("Updated from")) && !s.agent_updates_job.is_pending());
+    settle(&mut rt);
+    assert_eq!(*installs.lock().unwrap(), vec!["codex@0.156.1".to_owned()]);
+    let words = text_in(&rt, "agents-section").join("\n");
+    assert!(words.contains("Updated from 0.153.0 to 0.156.1"), "{words}");
+    assert!(rt.find("agents-update-codex").is_none(), "Update is gone once it has landed");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
