@@ -1072,3 +1072,99 @@ fn a_reply_hands_over_files_and_half_written_tags_never_show_while_streaming() {
     settle(&mut rt2);
     assert!(rt2.find("decision-card").is_some(), "decision card should appear once finished");
 }
+
+#[test]
+fn import_dialog_lists_synthetic_session_imports_it_and_opens_the_conversation() {
+    let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), None);
+
+    let shop = dirs.0.join("shop");
+    std::fs::create_dir_all(&shop).unwrap();
+    let shop_s = shop.to_string_lossy().into_owned();
+
+    let claude_home = dirs.0.join("synthetic-claude");
+    let codex_home = dirs.0.join("synthetic-codex");
+    let session_id = "aaaaaaaa-0000-4000-8000-000000000001";
+    let session_file = claude_home
+        .join("projects")
+        .join("C--work-shop")
+        .join(format!("{session_id}.jsonl"));
+    std::fs::create_dir_all(session_file.parent().unwrap()).unwrap();
+    let now = chrono::Utc::now();
+    let t1 = (now - chrono::Duration::minutes(10))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let t2 = (now - chrono::Duration::minutes(9))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let t3 = (now - chrono::Duration::minutes(8))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let t4 = (now - chrono::Duration::minutes(7))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let lines = [
+        json!({ "type": "user", "entrypoint": "cli", "sessionId": session_id, "cwd": shop_s, "timestamp": t1, "message": { "role": "user", "content": "Plan the sales dashboard" } }),
+        json!({ "type": "assistant", "sessionId": session_id, "cwd": shop_s, "timestamp": t2, "message": { "role": "assistant", "model": "claude-opus-5-5", "stop_reason": "end_turn", "content": [{ "type": "text", "text": "Here is the plan." }] } }),
+        json!({ "type": "user", "entrypoint": "cli", "sessionId": session_id, "cwd": shop_s, "timestamp": t3, "message": { "role": "user", "content": "Now add a chart" } }),
+        json!({ "type": "assistant", "sessionId": session_id, "cwd": shop_s, "timestamp": t4, "message": { "role": "assistant", "stop_reason": "end_turn", "content": [{ "type": "text", "text": "Chart added." }] } }),
+        json!({ "type": "ai-title", "sessionId": session_id, "aiTitle": "Sales dashboard plan" }),
+    ];
+    let body = lines
+        .iter()
+        .map(Value::to_string)
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    std::fs::write(&session_file, body).unwrap();
+
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        s.session_places = Some(locust_core::session_import::SessionPlaces {
+            claude_home,
+            codex_home,
+            cursor_home: None,
+        });
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "sidebar-add-button");
+    click(&mut rt, "add-menu-import-conversation");
+    assert!(rt.state.import_dialog.open);
+
+    pump(&mut rt, "import list loaded", |s| {
+        s.import_dialog.sessions.is_some()
+    });
+    settle(&mut rt);
+
+    let dialog_text = text_in(&rt, "import-dialog").join("\n");
+    assert!(dialog_text.contains("Sales dashboard plan"), "{dialog_text}");
+    assert!(dialog_text.contains("Claude Code · shop"), "{dialog_text}");
+
+    click(&mut rt, &format!("import-session-{session_id}"));
+    pump(&mut rt, "imported conversation opens", |s| {
+        !s.import_dialog.open
+            && s.ledger
+                .as_ref()
+                .is_some_and(|p| !p.loading && !p.items.is_empty())
+    });
+    settle(&mut rt);
+
+    let pane = rt.state.ledger.as_ref().expect("imported conversation open");
+    assert_eq!(pane.header.runtime.as_deref(), Some("claude"));
+    let msg_text = text_in(&rt, "messages").join("\n");
+    assert!(msg_text.contains("Plan the sales dashboard"), "{msg_text}");
+    assert!(msg_text.contains("Now add a chart"), "{msg_text}");
+    assert!(msg_text.contains("Chart added."), "{msg_text}");
+
+    let tip = pane
+        .conversation
+        .conversation_id
+        .as_deref()
+        .expect("tip mission id");
+    let prior = native::prior_of(tip).expect("resume point");
+    assert_eq!(prior.thread.as_deref(), Some(session_id));
+
+    assert_eq!(
+        locust_core::folders::path_of(&store, &locust_core::people::workspace_id(&shop))
+            .unwrap()
+            .as_deref(),
+        Some(shop_s.as_str())
+    );
+}

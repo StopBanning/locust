@@ -45,6 +45,7 @@ pub mod run_cli;
 pub mod runtime;
 pub mod runtime_terminal;
 pub mod secrets;
+pub mod session_import;
 pub mod shell_path;
 pub mod skills;
 pub mod spend;
