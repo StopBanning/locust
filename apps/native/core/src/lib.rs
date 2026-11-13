@@ -1,6 +1,7 @@
 //! Locust's engine: everything the app does that is not drawing. It must never depend on the UI toolkit;
 //! `cargo tree -p locust-core` shows no Rune.
 
+pub mod agents;
 pub mod approval;
 pub mod mode_facts;
 pub mod approval_rule_store;

@@ -1,0 +1,5302 @@
+{
+ "electronCommit": "1a750816",
+ "generatedBy": "scripts/agents-goldens.mjs",
+ "states": {
+  "not-installed": {
+   "installed": false,
+   "version": null,
+   "auth": "unknown",
+   "ready": false,
+   "status": "missing"
+  },
+  "signed-out": {
+   "installed": true,
+   "version": "1.0.0",
+   "auth": "unauthenticated",
+   "ready": false,
+   "status": "auth-required"
+  },
+  "unsupported": {
+   "installed": true,
+   "version": "2.0.0",
+   "auth": "unknown",
+   "ready": false,
+   "status": "unsupported",
+   "unsupportedNote": "Version 2 is not supported yet. Keep version 1 for now."
+  },
+  "unsupported-no-note": {
+   "installed": true,
+   "version": "2.0.0",
+   "auth": "unknown",
+   "ready": false,
+   "status": "unsupported"
+  },
+  "checking": {
+   "installed": true,
+   "version": "1.0.0",
+   "auth": "unknown",
+   "ready": false,
+   "status": "unknown",
+   "checking": true
+  },
+  "offline": {
+   "installed": true,
+   "version": "1.0.0",
+   "auth": "unknown",
+   "ready": false,
+   "status": "offline"
+  },
+  "probe-failed": {
+   "installed": true,
+   "version": null,
+   "auth": "unknown",
+   "ready": false,
+   "status": "probe-failed"
+  },
+  "not-ready": {
+   "installed": true,
+   "version": "1.0.0",
+   "auth": "unknown",
+   "ready": false,
+   "status": "unknown"
+  },
+  "ready-signed-in": {
+   "installed": true,
+   "version": "1.0.0",
+   "auth": "authenticated",
+   "ready": true,
+   "status": "ready"
+  },
+  "ready-no-account": {
+   "installed": true,
+   "version": "1.0.0",
+   "auth": "not-applicable",
+   "ready": true,
+   "status": "ready"
+  },
+  "ready-through-cli": {
+   "installed": true,
+   "version": "1.0.0",
+   "auth": "authenticated",
+   "ready": true,
+   "status": "ready",
+   "throughCli": true
+  }
+ },
+ "limit": "You have reached your usage limit. It resets at 4pm.",
+ "install": {
+  "codex": {
+   "integration": "live",
+   "command": "npm install -g @openai/codex",
+   "sentence": "Codex CLI was not found on this machine. Press Install, then Sign in. It needs a ChatGPT account.",
+   "signIn": "run codex",
+   "signInAgain": "run codex login"
+  },
+  "claude": {
+   "integration": "live",
+   "command": "npm install -g @anthropic-ai/claude-code",
+   "sentence": "Claude Code was not found on this machine. Press Install, then Sign in. It needs an Anthropic account.",
+   "signIn": "run claude",
+   "signInAgain": "run claude auth login"
+  },
+  "cursor": {
+   "integration": "live",
+   "command": null,
+   "sentence": "Cursor Agent was not found on this machine. It installs from https://cursor.com/cli.",
+   "signIn": "run cursor-agent login",
+   "signInAgain": "run cursor-agent login"
+  },
+  "copilot": {
+   "integration": "live",
+   "command": "npm install -g @github/copilot",
+   "sentence": "Copilot CLI was not found on this machine. Press Install, then Sign in. It needs a GitHub Copilot subscription.",
+   "signIn": "run copilot",
+   "signInAgain": "run copilot"
+  },
+  "antigravity": {
+   "integration": "experimental",
+   "command": null,
+   "sentence": "Antigravity was not found on this machine. It installs from https://antigravity.google/product/antigravity-cli/.",
+   "signIn": "run agy",
+   "signInAgain": "run agy, then type /logout, then /login, and choose the account"
+  },
+  "muse": {
+   "integration": "live",
+   "command": null,
+   "sentence": "Muse Code was not found on this machine. It installs from https://dev.meta.ai.",
+   "signIn": "run muse login",
+   "signInAgain": "run muse login"
+  },
+  "opencode": {
+   "integration": "live",
+   "command": "npm install -g opencode-ai",
+   "sentence": "OpenCode was not found on this machine. Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there.",
+   "signIn": null,
+   "signInAgain": null
+  },
+  "kilo": {
+   "integration": "preview",
+   "command": "npm install -g @kilocode/cli",
+   "sentence": "Kilo was not found on this machine. Press Install. Its free model needs no account; run kilo auth login only for a paid model.",
+   "signIn": "run kilo auth login",
+   "signInAgain": "run kilo auth login"
+  },
+  "gemini": {
+   "integration": "planned",
+   "command": null,
+   "sentence": "Gemini CLI was not found on this machine.",
+   "signIn": null,
+   "signInAgain": null
+  }
+ },
+ "rows": [
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Codex CLI was not found on this machine. Press Install, then Sign in. It needs a ChatGPT account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Codex CLI was not found on this machine. Press Install, then Sign in. It needs a ChatGPT account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Codex CLI was not found on this machine. Press Install, then Sign in. It needs a ChatGPT account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Codex CLI was not found on this machine. Press Install, then Sign in. It needs a ChatGPT account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Codex CLI is not signed in."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Codex CLI is not signed in."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Codex CLI is not signed in."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Codex CLI is not signed in."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Codex CLI is not supported yet."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Codex CLI is not supported yet."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Codex CLI is not supported yet."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Codex CLI is not supported yet."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Codex CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "codex",
+   "displayName": "Codex CLI",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Claude Code was not found on this machine. Press Install, then Sign in. It needs an Anthropic account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Claude Code was not found on this machine. Press Install, then Sign in. It needs an Anthropic account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Claude Code was not found on this machine. Press Install, then Sign in. It needs an Anthropic account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Claude Code was not found on this machine. Press Install, then Sign in. It needs an Anthropic account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Claude Code is not signed in."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Claude Code is not signed in."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Claude Code is not signed in."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Claude Code is not signed in."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Claude Code is not supported yet."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Claude Code is not supported yet."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Claude Code is not supported yet."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Claude Code is not supported yet."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Claude Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "claude",
+   "displayName": "Claude Code",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Cursor Agent was not found on this machine. It installs from https://cursor.com/cli."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Cursor Agent was not found on this machine. It installs from https://cursor.com/cli."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Cursor Agent was not found on this machine. It installs from https://cursor.com/cli."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Cursor Agent was not found on this machine. It installs from https://cursor.com/cli."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Cursor Agent is not signed in."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Cursor Agent is not signed in."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Cursor Agent is not signed in."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Cursor Agent is not signed in."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Cursor Agent is not supported yet."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Cursor Agent is not supported yet."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Cursor Agent is not supported yet."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Cursor Agent is not supported yet."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Cursor Agent is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "cursor",
+   "displayName": "Cursor Agent",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Copilot CLI was not found on this machine. Press Install, then Sign in. It needs a GitHub Copilot subscription."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Copilot CLI was not found on this machine. Press Install, then Sign in. It needs a GitHub Copilot subscription."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Copilot CLI was not found on this machine. Press Install, then Sign in. It needs a GitHub Copilot subscription."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Copilot CLI was not found on this machine. Press Install, then Sign in. It needs a GitHub Copilot subscription."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Copilot CLI is not signed in."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Copilot CLI is not signed in."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Copilot CLI is not signed in."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Copilot CLI is not signed in."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Copilot CLI is not supported yet."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Copilot CLI is not supported yet."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Copilot CLI is not supported yet."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Copilot CLI is not supported yet."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Copilot CLI is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "copilot",
+   "displayName": "Copilot CLI",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Antigravity was not found on this machine. It installs from https://antigravity.google/product/antigravity-cli/."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Antigravity was not found on this machine. It installs from https://antigravity.google/product/antigravity-cli/."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Antigravity was not found on this machine. It installs from https://antigravity.google/product/antigravity-cli/."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Antigravity was not found on this machine. It installs from https://antigravity.google/product/antigravity-cli/."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Antigravity is not signed in."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Antigravity is not signed in."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Antigravity is not signed in."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Antigravity is not signed in."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Antigravity is not supported yet."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Antigravity is not supported yet."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Antigravity is not supported yet."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Antigravity is not supported yet."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Antigravity is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "EXPERIMENTAL",
+    "selectable": true,
+    "detail": "Antigravity is driven through an unpublished interface of the running app. It works today and may break with an update."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "EXPERIMENTAL",
+    "selectable": true,
+    "detail": "Antigravity is driven through an unpublished interface of the running app. It works today and may break with an update."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "EXPERIMENTAL",
+    "selectable": true,
+    "detail": "Antigravity is driven through an unpublished interface of the running app. It works today and may break with an update."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "EXPERIMENTAL",
+    "selectable": true,
+    "detail": "Antigravity is driven through an unpublished interface of the running app. It works today and may break with an update."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "experimental",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "antigravity",
+   "displayName": "Antigravity",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "experimental",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Muse Code was not found on this machine. It installs from https://dev.meta.ai."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Muse Code was not found on this machine. It installs from https://dev.meta.ai."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Muse Code was not found on this machine. It installs from https://dev.meta.ai."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Muse Code was not found on this machine. It installs from https://dev.meta.ai."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Muse Code is not signed in."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Muse Code is not signed in."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Muse Code is not signed in."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Muse Code is not signed in."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Muse Code is not supported yet."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Muse Code is not supported yet."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Muse Code is not supported yet."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Muse Code is not supported yet."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Muse Code is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "muse",
+   "displayName": "Muse Code",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "OpenCode was not found on this machine. Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "OpenCode was not found on this machine. Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "OpenCode was not found on this machine. Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "OpenCode was not found on this machine. Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but OpenCode is not signed in."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but OpenCode is not signed in."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but OpenCode is not signed in."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but OpenCode is not signed in."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of OpenCode is not supported yet."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of OpenCode is not supported yet."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of OpenCode is not supported yet."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of OpenCode is not supported yet."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "OpenCode is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Ready. Its free model needs no account."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "READY",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "live",
+   "status": {
+    "tag": "ACTIVE",
+    "selectable": true,
+    "detail": "Signed in on this machine, using your own account."
+   }
+  },
+  {
+   "id": "opencode",
+   "displayName": "OpenCode",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "live",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Kilo was not found on this machine. Press Install. Its free model needs no account; run kilo auth login only for a paid model."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Kilo was not found on this machine. Press Install. Its free model needs no account; run kilo auth login only for a paid model."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Kilo was not found on this machine. Press Install. Its free model needs no account; run kilo auth login only for a paid model."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "NOT INSTALLED",
+    "selectable": false,
+    "detail": "Kilo was not found on this machine. Press Install. Its free model needs no account; run kilo auth login only for a paid model."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Kilo is not signed in."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Kilo is not signed in."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Kilo is not signed in."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "SIGN IN",
+    "selectable": false,
+    "detail": "Installed, but Kilo is not signed in."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "Version 2 is not supported yet. Keep version 1 for now."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Kilo is not supported yet."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Kilo is not supported yet."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Kilo is not supported yet."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "UNAVAILABLE",
+    "selectable": false,
+    "detail": "This version of Kilo is not supported yet."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is still being checked. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo could not be reached. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo did not answer its version probe in time. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "CHECKING",
+    "selectable": false,
+    "detail": "Kilo is not ready. Locust asks again shortly."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "PREVIEW",
+    "selectable": true,
+    "detail": "Preview. Auto Free needs no account. A turn through Kilo did not finish, and paid models and sign-in have not been measured."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "PREVIEW",
+    "selectable": true,
+    "detail": "Preview. Auto Free needs no account. A turn through Kilo did not finish, and paid models and sign-in have not been measured."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "PREVIEW",
+    "selectable": true,
+    "detail": "Preview. Auto Free needs no account. A turn through Kilo did not finish, and paid models and sign-in have not been measured."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "PREVIEW",
+    "selectable": true,
+    "detail": "Preview. Auto Free needs no account. A turn through Kilo did not finish, and paid models and sign-in have not been measured."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "PREVIEW",
+    "selectable": true,
+    "detail": "Preview. Auto Free needs no account. A turn through Kilo did not finish, and paid models and sign-in have not been measured."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "preview",
+   "status": {
+    "tag": "PREVIEW",
+    "selectable": true,
+    "detail": "Preview. Auto Free needs no account. A turn through Kilo did not finish, and paid models and sign-in have not been measured."
+   }
+  },
+  {
+   "id": "kilo",
+   "displayName": "Kilo",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "preview",
+   "status": {
+    "tag": "AT LIMIT",
+    "selectable": true,
+    "detail": "Signed in, but the last run on it ended on your account's usage limit: You have reached your usage limit. It resets at 4pm."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-installed",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-installed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-installed",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-installed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "signed-out",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "signed-out",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "signed-out",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "signed-out",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported-no-note",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "unsupported-no-note",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "checking",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "checking",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "checking",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "checking",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "offline",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "offline",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "offline",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "offline",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "probe-failed",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "probe-failed",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "probe-failed",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "probe-failed",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-ready",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-ready",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-ready",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "not-ready",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-signed-in",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-signed-in",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-no-account",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-no-account",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-through-cli",
+   "active": false,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": null,
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  },
+  {
+   "id": "gemini",
+   "displayName": "Gemini CLI",
+   "state": "ready-through-cli",
+   "active": true,
+   "limited": "You have reached your usage limit. It resets at 4pm.",
+   "integration": "planned",
+   "status": {
+    "tag": "PLANNED",
+    "selectable": false,
+    "detail": "Not built yet. Shown so the roadmap is visible, not because it works."
+   }
+  }
+ ]
+}
