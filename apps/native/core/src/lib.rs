@@ -102,6 +102,7 @@ pub mod routine_templates;
 pub mod routines;
 pub mod run_cli;
 pub mod runtime;
+pub mod runtime_commands;
 pub mod runtime_terminal;
 pub mod secrets;
 pub mod session_import;

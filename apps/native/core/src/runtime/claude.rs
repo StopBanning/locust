@@ -530,6 +530,9 @@ impl Claude {
 }
 
 impl Runtime for Claude {
+    fn learned_commands(&mut self) -> Option<Vec<crate::runtime_commands::CommandInfo>> {
+        self.normal.take_commands()
+    }
     fn start(&mut self, turn: &Turn) -> io::Result<()> {
         if turn.prompt.trim().is_empty() {
             return Err(err("Prompt must be nonempty"));

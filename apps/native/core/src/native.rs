@@ -1998,12 +1998,39 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         .collect();
     let references: Vec<&str> = shared.iter().map(String::as_str).collect();
     let mut delivered: Vec<crate::workroom::Message> = Vec::new();
+    // A command the person typed goes to the runtime bare (0.426): a CLI reads a slash command only at the very start of
+    // what it is given, and a brief before it made `/compact` just words. Only the person's own message counts: never
+    // words an app, a routine, a relay, a room or a comparison started, and never a reply on another agent (a brief of
+    // the earlier turns starts that one cold, and there is no session of its own to act on).
+    let typed_command = !is_side
+        && switched.is_none()
+        && origin.started_by.is_none()
+        && origin.relay.is_none()
+        && origin.slot.is_none()
+        && crate::runtime_commands::for_store(&store).is_command(Some(runtime_name), &job.prompt);
+    let command_name = if typed_command { crate::runtime_commands::command_named(&job.prompt) } else { None };
     let runtime_prompt = if let Some(side_text) = side_prompt {
         let refs = crate::references::section(&references);
         if refs.is_empty() {
             side_text
         } else {
             format!("{side_text}\n\n{refs}")
+        }
+    } else if typed_command {
+        // Claude Code is sent the command itself. OpenCode takes it by name and only what follows as its message; Codex's
+        // `review` and `compact` go as requests of their own (the name and message are not a turn), and `init` is a turn
+        // carrying Locust's words for it.
+        let named = command_name.as_deref().filter(|_| matches!(runtime_name, "opencode" | "codex"));
+        match named {
+            None => job.prompt.trim().to_owned(),
+            Some(name) => {
+                let after = crate::runtime_commands::after_name(&job.prompt, name);
+                if runtime_name == "codex" && name == "init" {
+                    [crate::runtime_commands::CODEX_INIT_PROMPT, after.as_str()].iter().filter(|p| !p.is_empty()).copied().collect::<Vec<_>>().join("\n\n")
+                } else {
+                    after
+                }
+            }
         }
     } else if sealed {
         let refs = crate::references::section(&references);
@@ -2041,7 +2068,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     };
     // A follow-up to a turn the person undid starts with what Undo put back (undone-note.ts, 0.784): the session it
     // resumes still remembers writing those files. Not a side question, and not a sealed run.
-    let runtime_prompt = match continues.as_ref().filter(|_| !is_side && !sealed).and_then(|c| crate::checkpoints::undone(&store, &folder, &c.mission_id)).and_then(|r| crate::undone_note::undone_note(&r)) {
+    let runtime_prompt = match continues.as_ref().filter(|_| !is_side && !sealed && !typed_command).and_then(|c| crate::checkpoints::undone(&store, &folder, &c.mission_id)).and_then(|r| crate::undone_note::undone_note(&r)) {
         Some(told) => format!("{told}\n\n{runtime_prompt}"),
         None => runtime_prompt,
     };
@@ -2321,6 +2348,12 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         run_id: format!("run_{id}"),
     };
     let runtime_owned = runtime_name.to_owned();
+    // Codex's `review` and `compact` and every OpenCode command go to the runtime as the command itself.
+    let slash_command = command_name.clone().filter(|name| match runtime_name {
+        "opencode" => true,
+        "codex" => matches!(name.as_str(), "review" | "compact"),
+        _ => false,
+    });
     // Only a turn the person sent from the chat box is carried on without a press: never one an app started, nor a
     // turn Locust carried on itself, so one empty plan cannot start a chain of them.
     let person_sent = origin.started_by.is_none();
@@ -2377,6 +2410,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 store,
                 is_side,
                 codex_home,
+                slash_command,
             );
             // The run's skill copies go with it.
             for copy in &skill_copies {
@@ -2724,6 +2758,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
         panel.clone(),
         false,
         codex_home,
+        None,
     );
     done.store(true, Ordering::Relaxed);
     if flag.load(Ordering::Relaxed) {
@@ -2770,6 +2805,7 @@ fn run_turn(
     store: Store,
     fork: bool,
     codex_home: Option<PathBuf>,
+    slash: Option<String>,
 ) {
     let mut registered = Some(registered);
     let mission_id = turn.mission_id.clone();
@@ -2805,7 +2841,7 @@ fn run_turn(
     }
     if runtime_name == "opencode" {
         let mut runtime = match OpenCode::spawn(&mut command) {
-            Ok(r) => r.with_cancel(flag.clone()).with_fork(fork),
+            Ok(r) => r.with_cancel(flag.clone()).with_fork(fork).with_command(slash.clone()),
             Err(e) => {
                 record_failure(&mut writer, false, &e);
                 return finish(&mut writer, &mut registered, &channel, &mission_id);
@@ -2995,7 +3031,7 @@ fn run_turn(
     // No teammate ends the person's browser, Codex too (0.720): the guard as a hook in this thread's config.
     let guard = crate::command_guard::codex_config_for_home(&turn.folder, codex_home.as_deref());
     let mut runtime = match Codex::spawn(&mut command) {
-        Ok(r) => r.with_cancel(flag.clone()).with_thread_config(guard).with_fork(fork),
+        Ok(r) => r.with_cancel(flag.clone()).with_thread_config(guard).with_fork(fork).with_command(slash.clone()),
         Err(e) => {
             record_failure(&mut writer, false, &e);
             return finish(&mut writer, &mut registered, &channel, &mission_id);
@@ -3057,7 +3093,12 @@ fn drive_runtime(
                 }
             }
         }
-        match runtime.next_event() {
+        let event = runtime.next_event();
+        // Claude Code's own commands, announced at the start of the run, kept once outside the mission's record.
+        if let Some(listed) = runtime.learned_commands() {
+            crate::runtime_commands::keep_learned("claude", &listed);
+        }
+        match event {
             Ok(Some(event)) => {
                 let done = terminal(&event.kind);
                 if writer
