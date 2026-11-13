@@ -306,6 +306,11 @@ pub(super) struct State {
     pub(super) inspector_open: bool,
     pub(super) inspector_tab: crate::inspector_panel::Tab,
     pub(super) inspector_turn: Option<usize>,
+    pub(super) connector_names: Vec<String>,
+    pub(super) teammate_connectors: HashMap<String, Vec<String>>,
+    pub(super) dropped_problem: Option<(String, String)>,
+    pub(super) setup_card: Option<crate::setup_card::SetupCard>,
+    pub(super) instructions_card: crate::instructions_card::InstructionsCardState,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -470,6 +475,11 @@ impl Default for State {
             inspector_open: false,
             inspector_tab: crate::inspector_panel::Tab::Activity,
             inspector_turn: None,
+            connector_names: Vec::new(),
+            teammate_connectors: HashMap::new(),
+            dropped_problem: None,
+            setup_card: None,
+            instructions_card: crate::instructions_card::InstructionsCardState::default(),
         }
     }
 }

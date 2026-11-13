@@ -69,7 +69,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Reference folders retained with conversation | `renderer/src/components/ReferenceChips.tsx`, `main/conversation-references.ts` | **partial** — folders on this computer; no GitHub repositories yet | yes | no | yes |
 | Permission mode, folder/own branch, Direct/Compare/Blind controls | `renderer/src/components/Composer.tsx`, `renderer/src/components/RoutePicker.tsx`, `shared/may-do.ts` | **partial** — the mode menu on the message box (`mode_facts`, Electron's words; agents' modes match all 385 grid cases; choosing Auto turns Auto on); folder chip shows where the turn runs; no own branch, Direct/Compare/Blind | yes | no | yes |
 | Review notes and browser page points attached to next message | `renderer/src/components/SentNotes.tsx`, `renderer/src/components/PagePointChips.tsx` | **missing** | - | no | yes |
-| Connector-off and unavailable-route pre-send warnings | `renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts` | **missing** | - | no | yes |
+| Connector-off and unavailable-route pre-send warnings | `renderer/src/components/Composer.tsx`, `renderer/src/connectorsOff.ts` | **done** — Hydrogen: `core/src/connectors_off.rs`, `src/ui/thread_view.rs`, `src/ui/home_panel.rs`, `src/ui/people_panel.rs` (connector-off pre-send hint for Claude Code teammates, dropped OpenCode free model notice + one-click switch on composer and amber route on Home/Team cards, unavailable-route send refusal; notes/SETUP-NOTES.md) | yes | no | yes |
 
 ### Area 3: Teammates, Rooms, Memory & Skills
 
@@ -87,7 +87,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Custom faces, colours, bot/mascot and status legend | `renderer/src/components/TeammateBot.tsx`, `renderer/src/components/FaceLegend.tsx`, `renderer/src/components/PixelFace.tsx`, `renderer/src/components/AgentMark.tsx` | **missing** | - | no | no |
 | About you and suggested personal instructions | `renderer/src/App.tsx`, `shared/teammate-instructions.ts` | **partial** — native About-you editor and suggestion approval/dismissal, included in native runtime prompts; full secret refusal vocabulary, change notices and TS test coverage remain (P6-NOTES.md) | yes | no | yes |
 | Team image import/export with routines | `renderer/src/components/TeamCard.tsx`, `main/team-card-routines.ts`, `shared/team-card.ts` | **missing** | - | no | yes |
-| New teammate interview and setup inspection | `renderer/src/components/TeammateSetup.tsx`, `main/teammate-setup.ts`, `shared/interview.ts` | **missing** | - | no | yes |
+| New teammate interview and setup inspection | `renderer/src/components/TeammateSetup.tsx`, `main/teammate-setup.ts`, `shared/interview.ts` | **done** — Hydrogen: `core/src/interview.rs`, `core/src/teammate_setup.rs`, `src/ui/instructions_card.rs`, `src/ui/setup_card.rs`, `src/ui/people_panel.rs`, `src/ui/composer_wiring.rs` (new/edit teammate interview in Ask mode + save card with secret refusal; fresh `/setup` inspection modal from composer and teammate card; notes/SETUP-NOTES.md) | yes | no | yes |
 | Tune teammate, combine alternatives and keep measured lessons/skills | `renderer/src/components/TuneTeammate.tsx`, `renderer/src/components/KeptInstructions.tsx`, `main/tune-lessons.ts`, `main/tune-combine.ts`, `main/tune-drafts.ts` | **missing** | - | no | yes |
 
 ### Area 4: Runtimes, Routing & Fallback
@@ -279,8 +279,8 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | Conversations & Thread Rendering | 12 | 11 | 2 | 25 | 23 | 3 |
-| 2 | Composer & Input | 10 | 2 | 2 | 14 | 12 | 2 |
-| 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
+| 2 | Composer & Input | 11 | 2 | 1 | 14 | 13 | 2 |
+| 3 | Teammates, Rooms, Memory & Skills | 3 | 4 | 7 | 14 | 7 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 6 | 2 | 11 | 9 | 5 |
 | 5 | Approvals & Permissions | 1 | 7 | 1 | 9 | 8 | 2 |
 | 6 | Changes, Git, Worktrees, Issues & Scout | 3 | 5 | 5 | 13 | 8 | 0 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **45** | **52** | **56** | **153** | **97** | **15** |
+| | **TOTAL** | **47** | **52** | **54** | **153** | **99** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 

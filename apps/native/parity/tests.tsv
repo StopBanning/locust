@@ -257,7 +257,7 @@ apps/desktop/src/main/a-teammate-suggests-a-line-for-about-you.test.ts	P6	does-n
 apps/desktop/src/main/a-teammates-key-reaches-only-its-runs.test.ts		waiting		
 apps/desktop/src/main/a-teammates-keys-are-kept-for-it-alone.test.ts		waiting		
 apps/desktop/src/main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts	P6	does-not-apply		`main/a-teammates-memory-is-chosen-by-what-was-asked.test.ts` | Only the **scope/enabled/kept filtering subset** is covered, not relevance scoring.
-apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts		waiting		
+apps/desktop/src/main/a-teammates-setup-is-read-fresh.test.ts	SETUP	done	teammate_setup::tests	`main/a-teammates-setup-is-read-fresh.test.ts` | Ported `last_turn_of`, `claude_code_setup_reads_each_layer_fresh`, `other_runtimes_and_codex_opencode_skills_match_electron`, `card_words_match_electron_in_order`, `skill_census_follows_symlinks_ignores_broken_and_stops_cycles` (group=None in high-level reader)
 apps/desktop/src/main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts	P9	partial		main/a-terminal-belongs-to-the-person-and-ends-with-the-app.test.ts | Partial: PTY printf output/ANSI/resize/exit; process-tree disposal implemented but fake lifecycle, policy, backpressure, unknown-worktree and late-spawn assertions remain
 apps/desktop/src/main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts	P9	does-not-apply		main/a-terminal-refuses-paths-and-requests-from-other-windows.test.ts | Electron IPC ownership/payload shape does not apply to in-process native handlers. Native path/refusal tests remain incomplete.
 apps/desktop/src/main/a-text-box-shows-the-lines-it-asks-for.test.ts		waiting		
@@ -677,8 +677,8 @@ apps/desktop/src/renderer/src/a-diff-notes-place-is-relative-to-its-folder.test.
 apps/desktop/src/renderer/src/a-disabled-create-says-why.test.ts		waiting		
 apps/desktop/src/renderer/src/a-disabled-send-says-why.test.ts		waiting		
 apps/desktop/src/renderer/src/a-document-change-reads-as-words.test.ts	P7	waiting		`renderer/src/a-document-change-reads-as-words.test.ts` | All three tests remain unported: passages, whole-word cuts, Markdown-as-read handling. Document passage mode is not claimed.
-apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts		waiting		
-apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-draft-naming-an-off-connector-says-so.test.ts	SETUP	done	connectors_off::tests;window_drive_tests::a_send_with_the_connectors_off_says_so_first	`renderer/src/a-draft-naming-an-off-connector-says-so.test.ts` | Ported `connector_mentioned`, `connectors_off_hint`, and headless window test
+apps/desktop/src/renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx	SETUP	done	connectors_off::tests::dropped_free_model_matches_electron_rules;window_drive_tests::a_dropped_free_model_is_said_before_the_send	`renderer/src/a-dropped-free-model-is-said-before-the-send.test.tsx` | Ported `dropped_free_model`, `free_start_model`, `opencode_model_display_name`, amber Home/Team card routes, and headless window test
 apps/desktop/src/renderer/src/a-face-at-rest-answers-you.test.ts		waiting		
 apps/desktop/src/renderer/src/a-face-rests-behind-other-windows.test.ts		waiting		
 apps/desktop/src/renderer/src/a-face-says-its-state-in-words.test.tsx		waiting		
@@ -737,7 +737,7 @@ apps/desktop/src/renderer/src/a-new-document-reads-as-one.test.tsx	P7	waiting		`
 apps/desktop/src/renderer/src/a-new-person-is-met-where-they-are.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-new-person-starts-on-the-steadiest-free-model.test.ts		waiting		
 apps/desktop/src/renderer/src/a-new-shelf-offers-starter-routines.test.tsx	p11	waiting		`renderer/src/a-new-shelf-offers-starter-routines.test.tsx` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
-apps/desktop/src/renderer/src/a-new-teammate-interviews-you.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-new-teammate-interviews-you.test.tsx	SETUP	done	interview::tests;window_drive_tests::creating_a_teammate_runs_the_interview	`renderer/src/a-new-teammate-interviews-you.test.tsx` | Ported `interview_prompt`, `is_interview`, `instructions_block`, `instructions_refusal`, `defang_protocol_blocks`, and headless window test
 apps/desktop/src/renderer/src/a-new-teammate-suggests-a-free-name.test.ts		waiting		
 apps/desktop/src/renderer/src/a-new-teammate-wears-a-new-colour.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-newer-away-look-is-offered-in-settings.test.tsx		waiting		
@@ -839,7 +839,7 @@ apps/desktop/src/renderer/src/a-teammate-who-just-finished-last-worked-just-now.
 apps/desktop/src/renderer/src/a-teammates-eyes-are-drawn-not-typed.test.ts		waiting		
 apps/desktop/src/renderer/src/a-teammates-eyes-say-what-it-is-doing.test.ts		waiting		
 apps/desktop/src/renderer/src/a-teammates-month-and-limit.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-teammates-setup-is-one-command-away.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-teammates-setup-is-one-command-away.test.tsx	SETUP	done	teammate_setup::tests::card_words_match_electron_in_order;window_drive_tests::a_teammates_setup_opens_from_its_card	`renderer/src/a-teammates-setup-is-one-command-away.test.tsx` | Ported `setup_sections`, `/setup` command, teammate card Setup button, and headless window test
 apps/desktop/src/renderer/src/a-thinking-face-looks-with-its-head.test.ts		waiting		
 apps/desktop/src/renderer/src/a-thought-line-opens-onto-its-words.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-thread-shows-local-pictures.test.tsx		waiting		

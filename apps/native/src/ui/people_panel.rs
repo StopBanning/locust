@@ -35,6 +35,16 @@ pub(super) fn open(s: &mut State) {
     s.people_panel.form_open = false;
     s.people_panel.removing = None;
 }
+pub(super) fn open_edit(s: &mut State, id: &str) {
+    s.home.home_open = false;
+    s.home.board_open = false;
+    s.settings_panel.open = false;
+    s.routines.open = false;
+    s.people_panel.open = true;
+    reload(s);
+    edit(s, Some(id));
+    s.people_panel.removing = None;
+}
 fn reload(s: &mut State) {
     let result = s
         .data
@@ -107,11 +117,11 @@ fn toggle_own_copy(s: &mut State) {
     }
 }
 
-fn save(s: &mut State) {
+fn build_entry_from_form(s: &State) -> Option<Value> {
     let mut entry = s.people_panel.entry.clone();
     let fields = &s.people_panel.fields;
     if fields.len() != 8 {
-        return;
+        return None;
     }
     for (i, key) in [(0, "name"), (1, "role"), (2, "instructions"), (7, "folder")] {
         entry[key] = json!(fields[i].text.trim());
@@ -130,6 +140,13 @@ fn save(s: &mut State) {
     if !fields[5].text.trim().is_empty() {
         entry["route"]["effort"] = json!(fields[5].text.trim());
     }
+    Some(entry)
+}
+
+fn save(s: &mut State) {
+    let Some(entry) = build_entry_from_form(s) else {
+        return;
+    };
     let result = s
         .data
         .as_ref()
@@ -139,6 +156,66 @@ fn save(s: &mut State) {
     if s.people_panel.error.is_empty() {
         s.people_panel.form_open = false;
     }
+}
+
+fn save_and_interview(s: &mut State, tx: &mut Tx) {
+    let Some(entry) = build_entry_from_form(s) else {
+        return;
+    };
+    let saved = s
+        .data
+        .as_ref()
+        .ok_or("Native data folder could not be determined.".into())
+        .and_then(|store| people::save_teammate_id(store, entry));
+    let teammate_id = match saved {
+        Ok(id) => {
+            done(s, Ok(()));
+            id
+        }
+        Err(e) => {
+            done(s, Err(e));
+            return;
+        }
+    };
+    if !s.people_panel.error.is_empty() {
+        return;
+    }
+    s.people_panel.form_open = false;
+    s.people_panel.open = false;
+    s.conversations.remove(&teammate_id);
+    select_teammate(s, &teammate_id, tx);
+    let Some(mate) = s.teammates.iter().find(|t| t.id == teammate_id).cloned() else {
+        return;
+    };
+    let prompt = locust_core::interview::interview_prompt(&mate.name, &mate.role);
+    let native_job = flight_teammate(s, &teammate_id);
+    s.own_turn = None;
+    s.flight = Some(Flight {
+        teammate_id: teammate_id.clone(),
+        conversation_id: None,
+        header: Some(mate),
+        after_tip: None,
+        message: Some(prompt.clone()),
+    });
+    set_status(s, &teammate_id, "Sending…", StatusTone::Muted);
+    s.sending
+        .request((teammate_id, prompt, native_job), move |(_id, message, native_job)| {
+            let teammate = native_job
+                .ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
+            locust_core::engine_api::api().send(
+                native::Send {
+                    teammate,
+                    conversation: None,
+                    prompt: message,
+                    model: None,
+                    effort: None,
+                },
+                native::Origin {
+                    mode: Some(locust_core::approval::Mode::Ask),
+                    ..Default::default()
+                },
+            )
+        });
 }
 fn action(s: &mut State, id: &str, action: &str) {
     let result = s
@@ -433,6 +510,24 @@ fn edit_form(s: &State, p: &Palette) -> El {
                     ),
             ),
     );
+    let who = if name_now.is_empty() { "this teammate" } else { &name_now };
+    let who_pronoun = if name_now.is_empty() { "it" } else { &name_now };
+    let interview_label = if creating {
+        format!("Let {who} interview you instead")
+    } else {
+        format!("Let {who} interview you again")
+    };
+    let interview_note = format!(
+        "{} {who}, then opens a conversation where {who_pronoun} asks you a few short questions and writes its instructions for you to keep. The interview only asks: nothing is changed in the folder.",
+        if creating { "Creates" } else { "Saves" }
+    );
+    form = form.child(
+        col()
+            .gap(4.0)
+            .pt(4.0)
+            .child(button(&interview_label, p).key("team-interview").on_press_tx(save_and_interview))
+            .child(text(interview_note).font(type_::LABEL).color(p.secondary).wrap()),
+    );
     form.child(
         row()
             .gap(8.0)
@@ -488,7 +583,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
                     .child(button("Keep", p).on_press(|s: &mut State| s.people_panel.removing = None)),
             );
         } else {
-            let (message, edit_id, remove_id) = (id.clone(), id.clone(), id.clone());
+            let (message, setup_id, edit_id, remove_id) = (id.clone(), id.clone(), id.clone(), id.clone());
             let small = |icon: &'static rune::Icon, label: String, help: &str| {
                 crate::look::controls::head_icon(icon, &label, help).control_size(rune_kit::ControlSize::Small)
             };
@@ -497,10 +592,25 @@ fn team_grid(s: &State, p: &Palette) -> El {
                     s.people_panel.open = false;
                     select_teammate(s, &message, tx);
                 }).build(l.k).key(format!("team-message-{id}")))
+                .child(button("Setup", p).key(format!("team-setup-{id}")).on_press(move |s: &mut State| {
+                    crate::setup_card::open_for_teammate(s, &setup_id);
+                }))
                 .child(small(&crate::look::icons::PENCIL, format!("Edit {name}"), "Edit teammate").on_press(move |s: &mut State| edit(s, Some(&edit_id))).build(l.k).key(format!("team-edit-{id}")))
                 .child(small(&crate::look::icons::CLOSE, format!("Remove {name}"), "Remove teammate").on_press(move |s: &mut State| s.people_panel.removing = Some(remove_id.clone())).build(l.k).key(format!("team-remove-{id}")));
         }
 
+        let oc_models = s
+            .models
+            .get(&id)
+            .or_else(|| s.models.get(CARRY_TARGET))
+            .and_then(|agents| agents.iter().find(|a| a.runtime == "opencode"))
+            .map(|a| a.models.as_slice())
+            .unwrap_or(&[]);
+        let dropped = locust_core::connectors_off::dropped_free_model(
+            &runtime,
+            (!model.is_empty()).then_some(model.as_str()),
+            oc_models,
+        );
         let mut route = row().w_full().gap(6.0).center_y();
         if !runtime.is_empty() {
             if let Some(mark) = crate::look::controls::agent_mark(&l, &runtime, 12.0, l.c("text-secondary")) {
@@ -509,7 +619,7 @@ fn team_grid(s: &State, p: &Palette) -> El {
             route = route.child(
                 text(format!("{} / {}", locust_core::carry_on::display_name(&runtime), model))
                     .font(mono(11.5))
-                    .color(l.c("text-secondary"))
+                    .color(if dropped { p.amber } else { l.c("text-secondary") })
                     .grow(1.0)
                     .shrink()
                     .truncate(),
