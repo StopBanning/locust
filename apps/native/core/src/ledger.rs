@@ -29,6 +29,7 @@ pub struct Metadata {
     pub created_at: String,
     pub parent: Option<String>,
     pub check_fix: Option<crate::edit_check::CheckFixStarter>,
+    pub side: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -334,6 +335,11 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
         check_fix: m
             .get("startedBy")
             .and_then(crate::edit_check::CheckFixStarter::from_json),
+        side: m
+            .get("startedBy")
+            .and_then(|v| v.get("kind"))
+            .and_then(Value::as_str)
+            == Some("side"),
     })
 }
 
@@ -1142,6 +1148,9 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
         let Some(m) = records.iter().find_map(metadata) else {
             continue;
         };
+        if m.side {
+            continue;
+        }
         // Fix 4: at most HEAD + TAIL bytes; skip end_after entirely when head_with_offset already read the whole file.
         if read_bytes < len
             && let Ok(tail) = end_after(&path, read_bytes, lines)

@@ -195,7 +195,26 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     .gap(8.0)
                     .child(text(name).font(type_::LABEL).color(p.muted));
                 if !shown.is_empty() {
-                    msg = msg.child(reply_actions::reply(s, &shown, !*r#final, p));
+                    let ask_scope = scope.clone();
+                    let reply_box = col()
+                        .w_full()
+                        .selection_group(true)
+                        .on_selection_change(move |s: &mut State, change, _tx| {
+                            if change.cleared() || change.dragging() {
+                                if s.selection_ask.as_ref().is_some_and(|a| a.scope == ask_scope) {
+                                    s.selection_ask = None;
+                                }
+                            } else if let Some(sel) = change.selection() {
+                                if !sel.text().trim().is_empty() {
+                                    s.selection_ask = Some(crate::side_chat::SelectionAskState {
+                                        scope: ask_scope.clone(),
+                                        text: sel.text().to_owned(),
+                                    });
+                                }
+                            }
+                        })
+                        .child(reply_actions::reply(s, &shown, !*r#final, p));
+                    msg = msg.child(reply_box);
                     if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
                         msg = msg.child(chips);
                     }

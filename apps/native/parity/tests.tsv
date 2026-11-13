@@ -6,7 +6,7 @@ apps/desktop/src/main/a-bare-machine-drive-sees-a-bare-machine.test.ts		waiting
 apps/desktop/src/main/a-beta-can-report-itself.test.ts		waiting		
 apps/desktop/src/main/a-big-folder-compares-in-place.test.ts		waiting		
 apps/desktop/src/main/a-big-folder-does-not-invent-changes.test.ts		waiting		
-apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts		waiting		
+apps/desktop/src/main/a-branch-lands-as-one-commit.test.ts	WORKTREES	carried	core/src/worktrees_tests.rs (landing)	all 11 tests carried: one commit, branch reset, draft, your changes, unsaved edits kept, conflicts resolved on the branch, keep-own-side and asked-instead merges, markers, hook refusal put back, detached, git 2.38, draft format
 apps/desktop/src/main/a-brief-between-teammates-arrives-whole.test.ts		waiting		
 apps/desktop/src/main/a-browser-changes-only-what-grants-nothing.test.ts	P8	does-not-apply		`main/a-browser-changes-only-what-grants-nothing.test.ts` (subset) | `settings_change_kept` strips Auto/reach/swarm
 apps/desktop/src/main/a-browser-opens-locust-without-a-code-to-carry.test.ts		waiting		
@@ -233,7 +233,7 @@ apps/desktop/src/main/a-session-that-ended-is-not-resumed.test.ts		waiting
 apps/desktop/src/main/a-set-aside-turn-sends-nothing.test.ts		waiting		
 apps/desktop/src/main/a-setting-line-keeps-its-control-whole.test.ts		waiting		
 apps/desktop/src/main/a-shell-gets-one-line.test.ts		waiting		
-apps/desktop/src/main/a-side-question-forks-its-conversation.test.ts		waiting		
+apps/desktop/src/main/a-side-question-forks-its-conversation.test.ts	SIDE-CHAT	carried	core/src/side_question.rs tests	all 7 tests carried (Hydrogen), plus OpenCode 2 fresh-session run test
 apps/desktop/src/main/a-slow-agent-holds-nothing-up.test.ts		waiting		
 apps/desktop/src/main/a-slow-antigravity-holds-nothing-up.test.ts		waiting		
 apps/desktop/src/main/a-staged-update-left-behind-is-replaced.test.ts		waiting		
@@ -746,7 +746,7 @@ apps/desktop/src/renderer/src/a-note-can-be-left-in-the-changes-panel.test.ts		w
 apps/desktop/src/renderer/src/a-notice-is-said-once.test.ts		waiting		
 apps/desktop/src/renderer/src/a-page-a-teammate-made-runs-in-its-turn.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-page-opens-running.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-part-of-a-reply-can-be-asked-about.test.tsx	SIDE-CHAT	partial	src/ui/side_chat.rs tests, window_drive_tests selecting_text_in_a_reply	Partial: quote line by line and capped; selection inside one reply in the window test; chip placement beside the selection not carried (pinned to the thread corner)
 apps/desktop/src/renderer/src/a-path-only-message-is-titled-by-its-file.test.ts		waiting		
 apps/desktop/src/renderer/src/a-paused-routine-says-so.test.ts	p11	waiting		`renderer/src/a-paused-routine-says-so.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/renderer/src/a-pdf-is-a-card.test.tsx	p14	partial		`main/a-pdf-arrives-readable.test.ts`, `main/a-pdf-shows-its-pages.test.ts`, `renderer/.../a-pdf-is-a-card.test.tsx`, `a-pdf-page-reads-in-order.test.ts` | Partial: reading text/BOM, picture names, note wording, path refusal, macOS PDFKit t
@@ -811,7 +811,7 @@ apps/desktop/src/renderer/src/a-screen-switches-on-and-its-dots-blink.test.ts		w
 apps/desktop/src/renderer/src/a-screens-eyes-have-weight.test.ts		waiting		
 apps/desktop/src/renderer/src/a-select-moves-and-chooses-by-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-shorter-window-keeps-the-newest-reply.test.ts		waiting		
-apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-side-question-can-be-approved-and-stopped.test.tsx	SIDE-CHAT	carried	src/ui/side_chat.rs tests	both tests carried (Hydrogen)
 apps/desktop/src/renderer/src/a-signed-out-teammate-is-not-idle.test.ts		waiting		
 apps/desktop/src/renderer/src/a-skill-row-names-its-skill.test.ts		waiting		
 apps/desktop/src/renderer/src/a-slow-agent-row-says-it-is-being-checked.test.ts		waiting		

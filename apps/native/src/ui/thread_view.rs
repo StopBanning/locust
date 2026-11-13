@@ -130,9 +130,12 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
                 transcript_box = transcript_box.child(jump);
             }
         }
+        if let Some(ask_chip) = side_chat::selection_ask_chip(s, p) {
+            transcript_box = transcript_box.child(ask_chip);
+        }
 
         // The conversation's actions sit in its header, on the right, as Electron's thread header draws them.
-        let actions = row()
+        let mut actions = row()
             .gap(4.0)
             .center_y()
             .child(pull_request_chip::control(s, p))
@@ -141,6 +144,9 @@ pub(super) fn thread_view(s: &State, p: &Palette) -> El {
             .child(terminal_panel::runtime_controls(s, p))
             .child(terminal_panel::toggle(p))
             .child(browser_panel::toggle(p));
+        if let Some(btn) = side_chat::header_button(s, p) {
+            actions = actions.child(btn);
+        }
         let mut status = row().w_full().center_y().gap(8.0).px(28.0).py(8.0);
         if s.flight.is_some() || s.opening_teammate.is_some() {
             status = status.child(

@@ -914,6 +914,33 @@ pub fn claude_args(
     references: &[&str],
     skills: &[&str],
 ) -> Result<Vec<String>, String> {
+    claude_args_with_fork(
+        mode,
+        bridge,
+        browser,
+        guard_settings,
+        model,
+        effort,
+        resume,
+        false,
+        references,
+        skills,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn claude_args_with_fork(
+    mode: Mode,
+    bridge: Option<&str>,
+    browser: Option<&str>,
+    guard_settings: &str,
+    model: Option<&str>,
+    effort: Option<&str>,
+    resume: Option<&str>,
+    fork: bool,
+    references: &[&str],
+    skills: &[&str],
+) -> Result<Vec<String>, String> {
     crate::runtime::claude::print_args(&crate::runtime::claude::PrintOptions {
         mode,
         bridge: if mode == Mode::Auto { None } else { bridge },
@@ -922,6 +949,7 @@ pub fn claude_args(
         model,
         effort,
         resume,
+        fork,
         references,
         skills,
         ..Default::default()
@@ -960,6 +988,18 @@ pub fn turn_records(mission: &str) -> Option<TurnRecords> {
 }
 
 /// earlierTurnsOf: the turns before this one, oldest first, up to four.
+/// A conversation up to and including this turn, oldest first, as a cold brief quotes it (Electron
+/// `[...earlierTurnsOf(prior), { asked, answered: latestFinal }]`).
+pub fn turns_through(mission: &str) -> Vec<crate::carry_on::EarlierTurn> {
+    let Some(turn) = turn_records(mission) else { return Vec::new() };
+    let mut turns = earlier_turns(&turn.metadata);
+    turns.push(crate::carry_on::EarlierTurn {
+        asked: turn.metadata["prompt"].as_str().unwrap_or_default().to_owned(),
+        answered: crate::carry_on::latest_final(&turn.events),
+    });
+    turns
+}
+
 fn earlier_turns(metadata: &Value) -> Vec<crate::carry_on::EarlierTurn> {
     let mut turns = Vec::new();
     let mut from = metadata["continuesFrom"]["missionId"].as_str().map(str::to_owned);
@@ -1196,8 +1236,10 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if let Some(limit) = limit {
         spend_gate(&store, &saved["missionOwners"], &job.teammate, limit)?;
     }
+    let side_req = crate::side_question::parse_started_by(origin.started_by.as_ref());
+    let is_side = side_req.is_some();
     // One turn at a time per conversation: refused before anything is read or created.
-    if job.conversation.as_deref().is_some_and(owns) {
+    if !is_side && job.conversation.as_deref().is_some_and(owns) {
         return Err("A turn is already running in this conversation.".into());
     }
     // And no more than eight at once (checked again where the turn registers, so two sends cannot both slip in).
@@ -1214,7 +1256,13 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     // A reply on ANOTHER agent (codex-mission.ts, the route switch): the conversation is reconciled, and a brief of
     // what was done starts the new agent cold, with the reply as the latest word.
     let mut switched: Option<RouteSwitch> = None;
-    let (continues, resume) = match job.conversation.as_deref() {
+    let mut side_prompt: Option<String> = None;
+    let (continues, resume) = if let Some(side) = &side_req {
+        let prepared = crate::side_question::prepare(&side.of, runtime_name, mode, &job.prompt)?;
+        side_prompt = Some(prepared.runtime_prompt);
+        (None, Some(prepared.resume_thread))
+    } else {
+        match job.conversation.as_deref() {
         None => (None, None),
         Some(conversation) => {
             let tip = real_tip(conversation)?;
@@ -1285,6 +1333,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 )
             }
         }
+    }
     };
     let folder = match &origin.folder {
         Some(named) => named.clone(),
@@ -1329,11 +1378,20 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         .map(|item| item.path.clone())
         .collect();
     let references: Vec<&str> = shared.iter().map(String::as_str).collect();
-    let runtime_prompt = format!(
-        "{}\n\n{}",
-        crate::people::brief(&store, &job.teammate.id, &folder, &job.prompt)?,
-        crate::references::section(&references)
-    );
+    let runtime_prompt = if let Some(side_text) = side_prompt {
+        let refs = crate::references::section(&references);
+        if refs.is_empty() {
+            side_text
+        } else {
+            format!("{side_text}\n\n{refs}")
+        }
+    } else {
+        format!(
+            "{}\n\n{}",
+            crate::people::brief(&store, &job.teammate.id, &folder, &job.prompt)?,
+            crate::references::section(&references)
+        )
+    };
     let id = new_id();
     // Copilot needs a host session id on first turn so a failure before `result` can still resume.
     let session_id = if runtime_name == "copilot" && resume.is_none() {
@@ -1388,6 +1446,14 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     )
     .map_err(|e| e.to_string())?;
     command.current_dir(&folder);
+    // A side question on OpenCode 2 (ACP, no fork) gets a fresh session told the conversation so far: resuming would
+    // add to the conversation's own session.
+    let (resume, runtime_prompt) = match &side_req {
+        Some(side) if runtime_name == "opencode" && crate::runtime::opencode::uses_acp(&command) => {
+            (None, crate::side_question::fresh_session_prompt(&side.of, &runtime_prompt))
+        }
+        _ => (resume, runtime_prompt),
+    };
     // No teammate ends the person's browser, Copilot too (0.721): the guard as a plugin, before the browser's config.
     if runtime_name == "copilot" {
         let plugin = crate::runtime::permission_bridge::bridge_executable()
@@ -1395,18 +1461,35 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;
         command.args(["--plugin-dir", &plugin]);
     }
-    let anchor = job.conversation.clone().unwrap_or_else(|| id.clone());
+    let anchor = if is_side {
+        id.clone()
+    } else {
+        job.conversation.clone().unwrap_or_else(|| id.clone())
+    };
+    let side_slot = side_req.as_ref().map(|s| format!("side:{}", s.of));
     let flag = Arc::new(AtomicBool::new(false));
     let registered = with_running(|m| {
-        if m.contains_key(&anchor) {
+        if let Some(slot) = &side_slot {
+            if m.contains_key(slot) {
+                return Err("A side question is already running in this conversation.".to_owned());
+            }
+        } else if m.contains_key(&anchor) {
             return Err("A turn is already running in this conversation.".to_owned());
         }
         if live_turns(m) >= MAX_LIVE_TURNS {
             return Err(too_many_live());
         }
-        m.insert(anchor.clone(), flag.clone());
+        let mut keys = Vec::new();
+        if let Some(slot) = side_slot {
+            m.insert(slot.clone(), flag.clone());
+            keys.push(slot);
+        } else {
+            m.insert(anchor.clone(), flag.clone());
+            keys.push(anchor.clone());
+        }
         m.insert(id.clone(), flag.clone());
-        Ok(Registered(vec![anchor.clone(), id.clone()]))
+        keys.push(id.clone());
+        Ok(Registered(keys))
     })?;
     let channel = approvals_channel();
     // Claude Code asks through the bridge in every mode but Auto, as Electron's host has it: a connector, a web fetch
@@ -1430,7 +1513,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         let guard = crate::runtime::permission_bridge::bridge_executable()
             .and_then(|exe| crate::command_guard::write_claude_settings(&store.root().join("guard"), &exe))
             .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;
-        command.args(claude_args(
+        command.args(claude_args_with_fork(
             mode,
             bridge.as_ref().map(|b| b.config()),
             browser_registration.as_ref().and_then(|r| r.claude_config()),
@@ -1438,6 +1521,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             model.as_deref(),
             job.effort.as_deref(),
             resume.as_deref(),
+            is_side,
             &references,
             &claude_skills,
         )?);
@@ -1545,6 +1629,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 channel,
                 bridge,
                 store,
+                is_side,
             );
             // The run's skill copies go with it.
             for copy in &skill_copies {
@@ -1566,7 +1651,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                     && !transcript.items.iter().any(
                         |item| matches!(item, ledger::Item::Note { text, .. } if text == "Stopped"),
                     );
-                if completed
+                if completed && !is_side
                 {
                     let reply = transcript
                         .items
@@ -1633,7 +1718,8 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 None
             };
             // A turn in the teammate's own copy is committed to its branch, however it ended, with a receipt.
-            if let Some(root) = &checkpoint_root {
+            // A side question never commits to a teammate's branch.
+            if !is_side && let Some(root) = &checkpoint_root {
                 checkpoint_turn(&memory_store, &memory_id, root, &check_teammate, &checkpoint_prompt, &check_runtime, check_model.as_deref());
             }
             // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation.
@@ -1803,7 +1889,7 @@ pub fn run_once(teammate: &Teammate, folder: &Path, prompt: &str) -> Result<Stri
             }
         });
     }
-    run_turn(writer, command, turn, flag.clone(), Registered(Vec::new()), runtime_name.to_owned(), approvals_channel(), None, panel.clone());
+    run_turn(writer, command, turn, flag.clone(), Registered(Vec::new()), runtime_name.to_owned(), approvals_channel(), None, panel.clone(), false);
     done.store(true, Ordering::Relaxed);
     if flag.load(Ordering::Relaxed) {
         return Err("It took too long to write.".into());
@@ -1836,6 +1922,7 @@ fn flush_approvals(writer: &mut LedgerWriter, channel: &Channel, mission_id: &st
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_turn(
     mut writer: LedgerWriter,
     mut command: Command,
@@ -1846,6 +1933,7 @@ fn run_turn(
     channel: std::sync::Arc<Channel>,
     _bridge: Option<crate::runtime::permission_bridge::Bridge>,
     store: Store,
+    fork: bool,
 ) {
     let mut registered = Some(registered);
     let mission_id = turn.mission_id.clone();
@@ -1881,7 +1969,7 @@ fn run_turn(
     }
     if runtime_name == "opencode" {
         let mut runtime = match OpenCode::spawn(&mut command) {
-            Ok(r) => r.with_cancel(flag.clone()),
+            Ok(r) => r.with_cancel(flag.clone()).with_fork(fork),
             Err(e) => {
                 record_failure(&mut writer, false, &e);
                 return finish(&mut writer, &mut registered, &channel, &mission_id);
@@ -2071,7 +2159,7 @@ fn run_turn(
     // No teammate ends the person's browser, Codex too (0.720): the guard as a hook in this thread's config.
     let guard = crate::command_guard::codex_config_for(&turn.folder);
     let mut runtime = match Codex::spawn(&mut command) {
-        Ok(r) => r.with_cancel(flag.clone()).with_thread_config(guard),
+        Ok(r) => r.with_cancel(flag.clone()).with_thread_config(guard).with_fork(fork),
         Err(e) => {
             record_failure(&mut writer, false, &e);
             return finish(&mut writer, &mut registered, &channel, &mission_id);

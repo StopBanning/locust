@@ -380,6 +380,36 @@ fn bullets(lines: &[String]) -> String {
     lines.iter().map(|l| format!("- {l}")).collect::<Vec<_>>().join("\n")
 }
 
+/// handoff.ts `composeColdFollowUp`: a turn whose runtime could not resume the conversation is told what was said,
+/// oldest first, newest kept when it does not all fit. `edited` is a rewind (0.498).
+pub fn compose_cold_follow_up(earlier: &[EarlierTurn], next: &str, edited: bool) -> String {
+    // A turn with no words of its own on record is not quoted as if it had some.
+    let mut lines: Vec<String> = earlier
+        .iter()
+        .filter(|t| !t.asked.trim().is_empty())
+        .map(|t| {
+            let asked = clipped(&t.asked, ASKED_CHARS);
+            match t.answered.as_deref().filter(|a| !a.trim().is_empty()) {
+                None => format!("Asked: \"{asked}\" -- no reply was recorded."),
+                Some(a) => format!("Asked: \"{asked}\" -- answered: \"{}\"", clipped(a, ANSWERED_CHARS)),
+            }
+        })
+        .collect();
+    let room = MAX_HANDOFF_PROMPT_LENGTH.saturating_sub(next.chars().count() + 400);
+    while !lines.is_empty() && lines.join("\n").chars().count() > room {
+        lines.remove(0);
+    }
+    if lines.is_empty() {
+        return next.to_owned();
+    }
+    let opening = if edited {
+        "The person went back to an earlier point in this conversation and changed their message there. What was said before that point, oldest first:"
+    } else {
+        "This conversation has earlier turns, but not in your session: it could not be resumed. What was said, oldest first:"
+    };
+    format!("{opening}\n\n{}\n\nThe person now asks:\n\n{next}", bullets(&lines))
+}
+
 struct Section {
     name: &'static str,
     text: String,

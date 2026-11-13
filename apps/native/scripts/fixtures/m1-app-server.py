@@ -14,6 +14,7 @@ resuming = scenario.startswith('resume')
 cards_mode = scenario.startswith('cards-')
 approving = scenario.startswith('approve-')
 is_resumed_turn = False
+is_forked_turn = False
 base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
 if approving:
     base = 'success'
@@ -57,6 +58,9 @@ for line in sys.stdin:
             send(dict(id=msg['id'], error={'code': -32600, 'message': 'no rollout found for thread id thread_fake'}))
         else:
             send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
+    elif method == 'thread/fork':
+        is_forked_turn = True
+        send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'thread/start':
         assert not resuming, 'a follow-up must resume, not start a new thread'
         assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY, p
@@ -70,6 +74,15 @@ for line in sys.stdin:
         text = p['input'][0].get('text') or ''
         # Every turn ends with the reference-folders line, after the person's words (codex-mission.ts referencesSection).
         words = text.split('\n\nReference folders — for reading, not changing:')[0]
+        if is_forked_turn:
+            assert 'This is a side question from the person, asked on a copy of this conversation' in text, text
+            send(dict(id=msg['id'], result={'turn':{'id':'turn_fake'}}))
+            notify('turn/started', turn={'id':'turn_fake'})
+            reply = 'Side answer from copy.'
+            notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
+            item(True, id='answer', type='agentMessage', text=reply)
+            notify('turn/completed', turn={'id':'turn_fake','status':'completed'})
+            continue
         if not cards_mode:
             assert words == PROMPT or words.endswith('\n\n' + PROMPT), text
         assert p['model'] == 'synthetic-model'

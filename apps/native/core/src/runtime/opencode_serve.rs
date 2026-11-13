@@ -145,6 +145,7 @@ pub struct Serve {
     emitted: HashSet<String>,
     prompt_id: Option<String>,
     resumed: bool,
+    fork: bool,
     prompted: bool,
     begun: bool,
     errored: bool,
@@ -176,6 +177,7 @@ impl Serve {
             emitted: HashSet::new(),
             prompt_id: None,
             resumed: false,
+            fork: false,
             prompted: false,
             begun: false,
             errored: false,
@@ -186,6 +188,10 @@ impl Serve {
             stopping: None,
             overflow: Arc::new(AtomicBool::new(false)),
         }
+    }
+    pub fn with_fork(mut self, fork: bool) -> Self {
+        self.fork = fork;
+        self
     }
     fn cancelled(&self) -> bool {
         self.cancel.load(Ordering::Relaxed) || crate::run_cli::interrupted()
@@ -401,7 +407,15 @@ impl Serve {
             gone.store(true, Ordering::Relaxed);
         });
         self.session = if let Some(id) = &t.resume {
-            id.clone()
+            if self.fork {
+                api.request(&format!("/session/{id}/fork"), Some(&json!({})))?["id"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .ok_or_else(|| err("OpenCode's server would not fork the session."))?
+                    .into()
+            } else {
+                id.clone()
+            }
         } else {
             api.request("/session", Some(&json!({"title":"Locust"})))?["id"]
                 .as_str()
