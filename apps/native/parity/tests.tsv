@@ -170,7 +170,7 @@ apps/desktop/src/main/a-plain-folder-is-watched-too.test.ts		waiting
 apps/desktop/src/main/a-plan-that-runs-out-is-carried-on.test.ts		waiting		
 apps/desktop/src/main/a-planted-git-is-never-run.test.ts		waiting		
 apps/desktop/src/main/a-plugged-in-computer-stays-awake-for-what-is-scheduled.test.ts		waiting		
-apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts		waiting		
+apps/desktop/src/main/a-profile-backs-up-and-restores.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/a-profile-copy-is-sealed-before-it-leaves.test.ts		waiting		
 apps/desktop/src/main/a-project-is-never-half-put-back.test.ts		waiting		
 apps/desktop/src/main/a-provider-that-fails-first-is-carried-on.test.ts		waiting		
@@ -446,7 +446,7 @@ apps/desktop/src/main/relay-note-is-writable.test.ts		waiting
 apps/desktop/src/main/relay.test.ts		waiting		
 apps/desktop/src/main/report-problem.test.ts		waiting		
 apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts		waiting		
-apps/desktop/src/main/retention.test.ts		waiting		
+apps/desktop/src/main/retention.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/reveal-file.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
 apps/desktop/src/main/role-brief.test.ts		waiting		
 apps/desktop/src/main/room-and-mission-caps-agree.test.ts		waiting		
@@ -903,7 +903,7 @@ apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx		wai
 apps/desktop/src/renderer/src/approval-patch.test.ts		waiting		
 apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts		waiting		
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		waiting		
-apps/desktop/src/renderer/src/backupWords.test.ts		waiting		
+apps/desktop/src/renderer/src/backupWords.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/renderer/src/chat-apps-say-each-step-in-settings.test.tsx		waiting		
 apps/desktop/src/renderer/src/choosing-an-issue-sends-nothing.test.tsx		waiting		
 apps/desktop/src/renderer/src/claude-thinking-appears-in-the-thinking-row.test.tsx		waiting		
@@ -1212,7 +1212,7 @@ packages/mission-store/test/a-long-field-is-kept-shortened.test.ts		waiting
 packages/mission-store/test/checkpoint.test.ts		waiting		
 packages/mission-store/test/every-runtime-can-be-written-down.test.ts		waiting		
 packages/mission-store/test/mission-store.test.ts		waiting		
-packages/mission-store/test/retention.test.ts		waiting		
+packages/mission-store/test/retention.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 packages/mission-store/test/schema-compat.test.ts		waiting		
 packages/mission-store/test/the-home-list-bounds-its-reads.test.ts		waiting		
 packages/mission-store/test/the-storage-report-reads-only-what-changed.test.ts		waiting		

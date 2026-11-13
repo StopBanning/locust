@@ -336,6 +336,9 @@ impl Server {
         if taken != 0 {
             return Err("Another Locust engine is already running.".into());
         }
+        // A restore asked for at the last Restore and restart is applied here, holding the lock, before the engine reads
+        // any store (profile-backup.ts: applied at the next start, before any store is read).
+        let _ = crate::profile_backup::apply_pending_restore(dir, env!("CARGO_PKG_VERSION"), chrono::Local::now());
         let socket = dir.join(SOCKET);
         // Holding the lock, any socket file left here is a crashed engine's.
         let _ = std::fs::remove_file(&socket);
