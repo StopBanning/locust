@@ -1014,13 +1014,22 @@ export function Sidebar({
                       </span>
                     )}
                     {mission.compareId !== undefined && <span className="lc-conv__vs lc-mono" aria-label="A comparison">vs</span>}
+                    {/*
+                      * An app-started conversation (0.872) wears a plug before its title, as a routine wears its clock.
+                      * It said "via app" after the title: when nearly every conversation came in through the door, every
+                      * row said it, and the words took the title's room (Colin, 12 Nov 2026: "There's a lot going on").
+                      */}
+                    {mission.appStarted && (
+                      <span className="lc-conv__routine lc-conv__app" role="img" aria-label="Started by another app through Locust" title="Started by another app through Locust">
+                        <Icon name="plug" size={11} />
+                      </span>
+                    )}
                     <span className={`lc-conv__title${mission.phase === 'running' ? ' is-working' : ''}`}>{mission.title}</span>
                     {/*
                       * A routine's conversation says which step it is on
                       * while one runs, where its age would be -- the clock
                       * before the title already says it is a routine.
                       */}
-                    {mission.appStarted && <span className="lc-conv__age" role="img" aria-label="Started by another app through Locust">via app</span>}
                     {mission.needsYou ? <span className="lc-conv__age lc-tone-amber">needs you</span> : (mission.memberIds ?? [mission.missionId]).some((id) => onCall.has(id)) ? (
                       <span className="lc-conv__age lc-mono lc-conv__oncall"><Icon name="waveform" size={11} />on a call</span>
                     ) : delegating ? (

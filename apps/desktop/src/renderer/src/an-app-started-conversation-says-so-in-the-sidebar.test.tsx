@@ -29,8 +29,11 @@ function sidebar(missions: readonly SidebarMission[]): string {
 describe('an app-started conversation in the sidebar', () => {
   it('has a quiet accessible origin mark and offers the source filter', () => {
     const html = sidebar([row('from_app', { appStarted: true }), row('from_person')])
-    expect(html).toContain('class="lc-conv__age" role="img" aria-label="Started by another app through Locust">via app</span>')
-    expect(html.match(/>via app<\/span>/g)).toHaveLength(1)
+    // A plug before the title, said to a screen reader and on hover; no words after the title (12 Nov 2026: when
+    // nearly every row was app-started, "via app" on each one said nothing and took the title's room).
+    expect(html).toContain('class="lc-conv__routine lc-conv__app" role="img" aria-label="Started by another app through Locust" title="Started by another app through Locust"')
+    expect(html.match(/lc-conv__app"/g)).toHaveLength(1)
+    expect(html).not.toContain('via app')
     expect(html).toContain('aria-label="Conversation source"')
     expect(html).toContain('All conversations')
     expect(html).toContain('aria-haspopup="listbox"')
@@ -38,7 +41,7 @@ describe('an app-started conversation in the sidebar', () => {
 
   it('leaves ordinary rows quiet and offers no unnecessary filter', () => {
     const html = sidebar([row('person')])
-    expect(html).not.toContain('via app')
+    expect(html).not.toContain('Started by another app')
     expect(html).not.toContain('Conversation source')
   })
 
