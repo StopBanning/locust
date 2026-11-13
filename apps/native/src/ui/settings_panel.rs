@@ -57,6 +57,7 @@ fn active_button(label: impl Into<String>, p: &Palette, on: bool) -> El {
 }
 
 pub(super) fn open(s: &mut State) {
+    crate::room_screen::close(s);
     s.settings_panel.open = true;
     s.settings_panel.page = SettingsPageId::from_str("appearance");
     reload(s);

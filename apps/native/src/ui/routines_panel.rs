@@ -131,6 +131,7 @@ fn reload(s: &mut State) {
     }
 }
 pub(super) fn open(s: &mut State) {
+    crate::room_screen::close(s);
     s.routines.open = true;
     let _ = engine(s);
     reload(s);

@@ -249,6 +249,10 @@ impl Store {
     pub fn groups_json_path(&self) -> io::Result<PathBuf> {
         self.check(&self.root.join("groups.json"))
     }
+    /// Rooms — Electron shape (`rooms.json`), native folder only.
+    pub fn rooms_json_path(&self) -> io::Result<PathBuf> {
+        self.check(&self.root.join("rooms.json"))
+    }
     pub fn write_path(&self, id: &str) -> io::Result<PathBuf> {
         if id.is_empty()
             || id.len() > 128

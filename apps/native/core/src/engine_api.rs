@@ -72,6 +72,8 @@ pub trait EngineApi: std::marker::Send + Sync {
         let _ = mission_ids;
         native::RelayLiveState::default()
     }
+    /// Pending room notices (drained room queue wakeups, completion notices, board moves).
+    fn room_notices(&self) -> Vec<crate::room_tasks::RoomNotice>;
 }
 
 /// What a window asks of the door for other apps (plan E4): read it, open it as saved, or flip one of its switches.
@@ -129,6 +131,9 @@ impl EngineApi for InProcess {
     }
     fn relay_live_state(&self, mission_ids: &[String]) -> native::RelayLiveState {
         native::relay_live_state(mission_ids)
+    }
+    fn room_notices(&self) -> Vec<crate::room_tasks::RoomNotice> {
+        native::take_room_notices()
     }
 }
 

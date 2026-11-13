@@ -7,6 +7,7 @@ use locust_core::compare::RerunStep;
 use locust_core::ledger::duration_text;
 
 pub(super) fn open(s: &mut State) {
+    crate::room_screen::close(s);
     s.benchmarks_open = true;
     s.compare.active_id = None;
     s.home.home_open = false;

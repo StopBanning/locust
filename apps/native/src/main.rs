@@ -206,6 +206,8 @@ mod compare_view;
 mod trash_section;
 #[path = "ui/side_chat.rs"]
 mod side_chat;
+#[path = "ui/room_screen.rs"]
+mod room_screen;
 mod diagram;
 mod math_tex;
 mod file_menu;
@@ -380,6 +382,7 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     s.composer_mode = None;
     s.mode_menu = false;
     // Choosing a teammate opens their conversation, whatever screen was open (Electron's onSelectTeammate).
+    room_screen::close(s);
     s.home.board_open = false;
     s.home.home_open = false;
     s.settings_panel.open = false;
@@ -711,7 +714,9 @@ fn setup(s: &mut State, waker: Waker) {
     s.import_dialog.list_job.set_waker(waker.clone());
     s.import_dialog.import_job.set_waker(waker.clone());
     s.image_cache = Some(Arc::new(ImageCache::new(waker.clone())));
-    s.ledger_job.set_waker(waker);
+    s.ledger_job.set_waker(waker.clone());
+    s.rooms.load_job.set_waker(waker.clone());
+    s.rooms.action_job.set_waker(waker);
     if !HEADLESS.load(std::sync::atomic::Ordering::Relaxed) && !s.demo && s.session_places.is_none() {
         s.session_places = locust_core::session_import::SessionPlaces::from_env();
         s.import_dialog.opencode_enabled = true;
@@ -1081,6 +1086,7 @@ fn refresh_recent(s: &mut State) {
     if s.demo {
         return;
     }
+    room_screen::refresh(s);
     let on_native = s.engine == Some(Kind::Native);
     s.recents.request((), move |()| {
         // Electron's folder (read-only) and native's own, merged newest first; native rows are marked.
@@ -1329,6 +1335,7 @@ fn apply_team(s: &mut State, team: Vec<Teammate>) {
 }
 
 fn open_recent(s: &mut State, mut row: ConversationRow, tx: &mut Tx) {
+    room_screen::close(s);
     home_panel::opened(s, &row.id);
     if let Some(title) =
         crate::conversation_list::conversation_title_for(&recent_as_missions(s), Some(&row.id))
@@ -1508,6 +1515,9 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         }
         if s.people_panel.open {
             s.people_panel.open = false;
+            return true;
+        }
+        if room_screen::handle_escape(s) {
             return true;
         }
         if s.palette_open {
@@ -1857,6 +1867,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= review_changes::poll(s, tx);
     changed |= compare_view::poll(s);
     changed |= tune_teammate::poll(s);
+    changed |= room_screen::poll(s, tx);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -1879,6 +1890,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         s.seen_live = live;
         refresh_recent(s);
         wake_ledger_pane(s, now, tx);
+        room_screen::refresh(s);
         changed = true;
     }
     let mut watched_ids: Vec<String> = s.seen_live.clone();
@@ -2315,6 +2327,8 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
         benchmarks_panel::view(s, &p)
     } else if s.compare.active_id.is_some() {
         compare_view::view(s, &p)
+    } else if s.rooms.active != room_screen::RoomView::None {
+        room_screen::view(s, &p)
     } else {
         thread_view(s, &p)
     };

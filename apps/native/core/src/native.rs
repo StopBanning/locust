@@ -1309,6 +1309,8 @@ pub struct Origin {
     pub relay: Option<Value>,
     /// Handoff sections the person opted to omit when switching runtimes.
     pub left_out_by_you: Vec<String>,
+    /// Earlier posts and finished answers in a room, for a turn posted to a room.
+    pub room_history: Option<crate::room_history::RoomHistory>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1337,9 +1339,26 @@ static STEER_CAPABLE: Mutex<Option<std::collections::HashSet<String>>> = Mutex::
 static STEER_QUEUES: Mutex<Option<HashMap<String, Vec<String>>>> = Mutex::new(None);
 static RELAY_NOTICES: Mutex<Vec<RelayNotice>> = Mutex::new(Vec::new());
 static RELAY_STARTING: Mutex<Vec<RelayStarting>> = Mutex::new(Vec::new());
+static ROOM_NOTICES: Mutex<Vec<crate::room_tasks::RoomNotice>> = Mutex::new(Vec::new());
 static RELAY: Mutex<Option<Arc<crate::relay::Relay<NativeRelayHost>>>> = Mutex::new(None);
 static EDIT_CHECK: std::sync::OnceLock<crate::edit_check::EditCheck> = std::sync::OnceLock::new();
 static CHECK_FIX: std::sync::OnceLock<crate::edit_check::CheckFix> = std::sync::OnceLock::new();
+
+pub(crate) fn push_room_notice(notice: crate::room_tasks::RoomNotice) {
+    let mut list = crate::invariants::lock(&ROOM_NOTICES);
+    if list.len() >= 128 {
+        list.remove(0);
+    }
+    list.push(notice);
+}
+
+pub fn take_room_notices() -> Vec<crate::room_tasks::RoomNotice> {
+    std::mem::take(&mut *crate::invariants::lock(&ROOM_NOTICES))
+}
+
+pub(crate) fn is_room_teammate_busy_error(msg: &str) -> bool {
+    msg.ends_with(" is already active in another run.")
+}
 
 #[cfg(any(test, feature = "test-hooks"))]
 pub(crate) fn reset_relay_state() {
@@ -1349,6 +1368,7 @@ pub(crate) fn reset_relay_state() {
     *crate::invariants::lock(&STEER_QUEUES) = None;
     crate::invariants::lock(&RELAY_NOTICES).clear();
     crate::invariants::lock(&RELAY_STARTING).clear();
+    crate::invariants::lock(&ROOM_NOTICES).clear();
 }
 
 fn push_relay_notice(mission_id: &str, message: &str, level: &str) {
@@ -1413,6 +1433,12 @@ impl crate::relay::RelayHost for NativeRelayHost {
     fn enabled(&self) -> bool {
         let Some(store) = store() else { return true };
         crate::workspace_settings::load(&store).map(|s| s.relay).unwrap_or(true)
+    }
+
+    fn exchange_of(&self, mission_id: &str) -> Option<String> {
+        let store = store()?;
+        let rooms = crate::room_store::list(&store).ok()?;
+        crate::room_store::exchange_of_room_post(&rooms, mission_id)
     }
 
     fn hop_cap(&self) -> usize {
@@ -1783,6 +1809,18 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if with_running(|m| live_turns(m)) >= MAX_LIVE_TURNS {
         return Err(too_many_live());
     }
+    let is_room = origin
+        .started_by
+        .as_ref()
+        .and_then(|v| v["kind"].as_str())
+        == Some("room");
+    if is_room
+        && crate::invariants::lock(&ACTIVE_TEAMMATES)
+            .iter()
+            .any(|(t, _, _)| t == &job.teammate.id)
+    {
+        return Err(format!("{} is already active in another run.", job.teammate.name));
+    }
     let runtime_name = job.teammate.runtime.as_deref().unwrap_or("codex");
     let mode = origin.mode.unwrap_or_else(|| Mode::parse(&job.teammate.runs_in).unwrap_or(Mode::Ask));
     // codex-mission.ts AUTO_OFF_REFUSAL: Auto runs only where the person turned it on in Settings.
@@ -1944,7 +1982,17 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             .unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &origin.include_messages)
             .map(|u| (u.messages, u.remaining))
             .unwrap_or_default();
-        let (brief, quoted) = crate::people::turn_brief(&store, &job.teammate.id, &folder, &job.prompt, slot_inst, Some(runtime_name), &waiting, remaining)?;
+        let (brief, quoted) = crate::people::turn_brief_with_room(
+            &store,
+            &job.teammate.id,
+            &folder,
+            &job.prompt,
+            slot_inst,
+            Some(runtime_name),
+            &waiting,
+            remaining,
+            origin.room_history.as_ref(),
+        )?;
         delivered = quoted;
         format!("{brief}\n\n{}", crate::references::section(&references))
     };
@@ -2409,6 +2457,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                     peer: relay_teammate,
                     relay: relay_origin,
                 });
+                crate::rooms::on_run_ended(&memory_store, &memory_id);
             }
             if person_sent {
                 carry_on_without_asking(&memory_store, &memory_id);

@@ -13,7 +13,7 @@ pub(super) struct PeerMsgView {
     pub posted_at: String,
 }
 
-fn open_mission_by_id(s: &mut State, mission_id: String, tx: &mut Tx) {
+pub(super) fn open_mission_by_id(s: &mut State, mission_id: String, tx: &mut Tx) {
     if let Some(item) = s.recent.iter().find(|r| r.id == mission_id).cloned() {
         open_recent(s, item, tx);
         return;

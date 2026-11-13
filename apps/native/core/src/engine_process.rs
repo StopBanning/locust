@@ -97,7 +97,57 @@ fn origin_json(o: &Origin) -> Value {
     if !o.left_out_by_you.is_empty() {
         obj["leftOutByYou"] = json!(o.left_out_by_you);
     }
+    if let Some(hist) = &o.room_history {
+        obj["roomHistory"] = json!({
+            "roomName": hist.room_name,
+            "posts": hist.posts.iter().map(|p| json!({
+                "text": p.text,
+                "to": p.to.iter().map(|r| json!({"teammateId": r.teammate_id, "name": r.name})).collect::<Vec<_>>(),
+                "answers": p.answers.iter().map(|a| json!({"teammateId": a.teammate_id, "name": a.name, "text": a.text})).collect::<Vec<_>>(),
+            })).collect::<Vec<_>>(),
+        });
+    }
     obj
+}
+
+fn room_history_from(v: &Value) -> Option<crate::room_history::RoomHistory> {
+    let obj = v.as_object()?;
+    let room_name = obj.get("roomName")?.as_str()?.to_owned();
+    let posts = obj
+        .get("posts")?
+        .as_array()?
+        .iter()
+        .filter_map(|p| {
+            let text = p.get("text")?.as_str()?.to_owned();
+            let to = p
+                .get("to")
+                .and_then(|t| t.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|r| {
+                    Some(crate::room_history::RoomHistoryRecipient {
+                        teammate_id: r.get("teammateId")?.as_str()?.to_owned(),
+                        name: r.get("name")?.as_str()?.to_owned(),
+                    })
+                })
+                .collect();
+            let answers = p
+                .get("answers")
+                .and_then(|a| a.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|a| {
+                    Some(crate::room_history::RoomHistoryAnswer {
+                        teammate_id: a.get("teammateId")?.as_str()?.to_owned(),
+                        name: a.get("name")?.as_str()?.to_owned(),
+                        text: a.get("text")?.as_str()?.to_owned(),
+                    })
+                })
+                .collect();
+            Some(crate::room_history::RoomHistoryPost { text, to, answers })
+        })
+        .collect();
+    Some(crate::room_history::RoomHistory { room_name, posts })
 }
 
 fn origin_from(v: &Value) -> Result<Origin, String> {
@@ -127,6 +177,7 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         include_messages,
         relay: v.get("relay").cloned().filter(|r| !r.is_null()),
         left_out_by_you,
+        room_history: v.get("roomHistory").and_then(room_history_from),
     })
 }
 
@@ -317,6 +368,14 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
             Ok(Value::Null)
         }
         "door" => change_door(door_change_from(&request["door"])?).map(|state| door_state_json(&state)),
+        "room-notices" => {
+            let list: Vec<Value> = engine
+                .room_notices()
+                .into_iter()
+                .map(|n| json!({"roomId": n.room_id, "roomName": n.room_name, "message": n.message}))
+                .collect();
+            Ok(Value::Array(list))
+        }
         "ping" => Ok(Value::from("engine")),
         other => Err(format!("The engine does not know the request {other}.")),
     })();
@@ -583,6 +642,23 @@ impl EngineApi for Client {
         self.restarted.swap(false, Ordering::Relaxed).then(|| {
             "Locust's engine had stopped, so it was started again. A turn it was running shows where it stopped.".to_string()
         })
+    }
+    fn room_notices(&self) -> Vec<crate::room_tasks::RoomNotice> {
+        self.call(json!({"op": "room-notices"}))
+            .map(|v| {
+                v.as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|n| {
+                        Some(crate::room_tasks::RoomNotice {
+                            room_id: n.get("roomId")?.as_str()?.to_owned(),
+                            room_name: n.get("roomName")?.as_str()?.to_owned(),
+                            message: n.get("message")?.as_str()?.to_owned(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 

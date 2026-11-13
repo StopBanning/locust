@@ -199,9 +199,9 @@ apps/desktop/src/main/a-reply-waits-for-a-plan-that-is-out.test.ts		waiting
 apps/desktop/src/main/a-report-can-reach-support-by-email-or-file.test.ts	settings	carried	core/src/report_problem.rs	support mailto limit/fallback + uncut file report + secret scrubbing
 apps/desktop/src/main/a-resumed-session-is-told-only-what-changed.test.ts		waiting		
 apps/desktop/src/main/a-rewrite-is-credited-to-its-writer.test.ts		waiting		
-apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts		waiting		
-apps/desktop/src/main/a-room-post-asks-who-was-named.test.ts		waiting		
-apps/desktop/src/main/a-room-task-is-never-bounced-back.test.ts		waiting		
+apps/desktop/src/main/a-room-member-is-told-the-room-so-far.test.ts	ROOMS	carried	core/src/room_history.rs	room history placement under budget with latest waiting peer messages preserved (4 tests)
+apps/desktop/src/main/a-room-post-asks-who-was-named.test.ts	ROOMS	carried	core/src/room_store.rs, core/src/room_history.rs	recipients_of filtering/normalization and room history To attributions
+apps/desktop/src/main/a-room-task-is-never-bounced-back.test.ts	ROOMS	carried	core/src/room_task.rs, core/src/room_store.rs	no-bounce handoff guard, handedWithoutNote warnings, and persistence across disk reloads
 apps/desktop/src/main/a-routine-asks-for-inputs-and-travels-as-a-file.test.ts	TEAM-FILES	carried	core/src/routine_inputs.rs, core/src/routine_io.rs, src/ui/window_drive_tests.rs	folder-picker receipt refusal, typed inputs validation, absolute-path flagging on export, and headless window run with inputs
 apps/desktop/src/main/a-routine-at-the-monthly-limit-says-so.test.ts	p11	does-not-apply		`main/a-routine-at-the-monthly-limit-says-so.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/main/a-routine-awaiting-review-is-not-removed.test.ts	p11	partial		`main/a-routine-awaiting-review-is-not-removed.test.ts` | Partially ported: unsafe removal refused and abandonment permits removal; exhaustive imported execution-state cases remain.
@@ -438,7 +438,7 @@ apps/desktop/src/main/popular-skill-packs-fit-and-agent-copies-are-chosen.test.t
 apps/desktop/src/main/prose-face-is-bundled.test.ts		waiting		
 apps/desktop/src/main/qa-0365-concurrency.test.ts		waiting		
 apps/desktop/src/main/qa-0365-fresh.test.ts		waiting		
-apps/desktop/src/main/qa-0365-rooms.test.ts		waiting		
+apps/desktop/src/main/qa-0365-rooms.test.ts	ROOMS	carried	core/src/room_task.rs	4 qa_0365 placeholder/real-op tests carried
 apps/desktop/src/main/question-answers.test.ts	QUESTIONS	carried	core/src/approval.rs question_tests	all 10 cases, and the window test a_codex_question_is_answered_by_id_and_label_not_approved
 apps/desktop/src/main/quit-guard.test.ts	settings	carried	core/src/quit_guard.rs	should_ask_before_closing, hide_to_tray_on_close, close_question, CLOSE_BUTTONS, tray_line
 apps/desktop/src/main/ready-means-this-version-is-on-disk.test.ts		waiting		
@@ -449,13 +449,13 @@ apps/desktop/src/main/restored-folders-can-be-found-on-another-computer.test.ts	
 apps/desktop/src/main/retention.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
 apps/desktop/src/main/reveal-file.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
 apps/desktop/src/main/role-brief.test.ts		waiting		
-apps/desktop/src/main/room-and-mission-caps-agree.test.ts		waiting		
-apps/desktop/src/main/room-answer-is-whole.test.ts		waiting		
-apps/desktop/src/main/room-answers-side-by-side.test.ts		waiting		
-apps/desktop/src/main/room-queue-drains.test.ts		waiting		
-apps/desktop/src/main/room-store.test.ts		waiting		
-apps/desktop/src/main/room-tasks.test.ts		waiting		
-apps/desktop/src/main/rooms-are-reachable.test.ts		waiting		
+apps/desktop/src/main/room-and-mission-caps-agree.test.ts	ROOMS	carried	core/src/room_store.rs	MAX_ROOM_TEAMMATES == native::MAX_LIVE_TURNS (8) cap checks
+apps/desktop/src/main/room-answer-is-whole.test.ts	ROOMS	carried	src/ui/room_screen.rs	no fold clamp, max-height, or newline splitting on rendered room answers
+apps/desktop/src/main/room-answers-side-by-side.test.ts	ROOMS	carried	src/ui/room_screen.rs	side-by-side horizontal row columns keep reading width (>=320px) and shared row top
+apps/desktop/src/main/room-queue-drains.test.ts	ROOMS	carried	core/src/room_tasks.rs, src/ui/window_drive_tests.rs	8 on_run_ended queue-drain & task-board tests + headless window test
+apps/desktop/src/main/room-store.test.ts	ROOMS	carried	core/src/room_store.rs	12 store/queue/task-ops/unreadable/fail-closed/teammate-removal tests
+apps/desktop/src/main/room-tasks.test.ts	ROOMS	carried	core/src/room_tasks.rs	6 mission-end task-op application and claim-at-start tests
+apps/desktop/src/main/rooms-are-reachable.test.ts	ROOMS	carried	src/ui/room_screen.rs, src/ui/sidebar.rs	Rooms section and New room button always rendered regardless of room count
 apps/desktop/src/main/route-at-start.test.ts		waiting		
 apps/desktop/src/main/route-remembers-effort.test.ts		waiting		
 apps/desktop/src/main/routine-recovery.test.ts	ROUTINES	carried	core/src/routine_runner_recovery_tests.rs, core/src/routine_recovery.rs	all tests carried on the native store; the IPC sender check has no native counterpart (ROUTINES-NOTES.md)
@@ -785,8 +785,8 @@ apps/desktop/src/renderer/src/a-resumed-file-card-matches-the-folder.test.tsx		w
 apps/desktop/src/renderer/src/a-retired-free-model-is-not-offered.test.ts		waiting		
 apps/desktop/src/renderer/src/a-review-brief-fits-and-asks-for-a-verdict.test.ts		waiting		
 apps/desktop/src/renderer/src/a-rewrite-shows-its-writer.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts		waiting		
+apps/desktop/src/renderer/src/a-room-names-who-it-asked.test.tsx	ROOMS	carried	src/ui/room_screen.rs	targeted post Reply buttons, To <names> head label, dimmed not-asked faces, and unscoped absent check
+apps/desktop/src/renderer/src/a-room-post-can-ask-one-teammate.test.ts	ROOMS	carried	src/ui/room_screen.rs	mention_at, mention_choices, without_mention, mention_completed, and names_said
 apps/desktop/src/renderer/src/a-room-stays-in-the-sidebar.test.ts	P4	waiting		`a-room-stays-in-the-sidebar.test.ts` | `withRoomsFolded` / `roomLastAt` and empty-room placement are not implemented.
 apps/desktop/src/renderer/src/a-routine-keeps-what-you-keep.test.tsx	p11	waiting		`renderer/src/a-routine-keeps-what-you-keep.test.tsx` | Unported and applicable: routine copy creation/review/keep/discard remains unavailable.
 apps/desktop/src/renderer/src/a-routine-names-its-folder.test.tsx	p11	waiting		`renderer/src/a-routine-names-its-folder.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
@@ -1001,11 +1001,11 @@ apps/desktop/src/renderer/src/review-brief.test.ts		waiting
 apps/desktop/src/renderer/src/review-notes-survive-a-revision.test.tsx	DIFF-NOTES	partial	core/src/diff_notes_tests.rs, window test a_note_on_a_changed_line	Partial: the pure cases carried; the outcome chips under the bubble wait for per-turn diffs
 apps/desktop/src/renderer/src/review-pair.test.ts		waiting		
 apps/desktop/src/renderer/src/review-sees-the-conversation.test.ts		waiting		
-apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx		waiting		
-apps/desktop/src/renderer/src/room-card-names-who.test.tsx		waiting		
+apps/desktop/src/renderer/src/room-absent-is-a-line.test.tsx	ROOMS	carried	src/ui/room_screen.rs	absent_line grouping, refusal_notice dedup, 6-answer grid/list switch, whole answer, and task step Actions control
+apps/desktop/src/renderer/src/room-card-names-who.test.tsx	ROOMS	carried	src/ui/room_screen.rs	room_card_meta member naming, post counts, and relative timestamps
 apps/desktop/src/renderer/src/room-exchange.test.ts		waiting		
-apps/desktop/src/renderer/src/room-round-two.test.tsx		waiting		
-apps/desktop/src/renderer/src/room-too-big-to-make.test.tsx		waiting		
+apps/desktop/src/renderer/src/room-round-two.test.tsx	ROOMS	carried	src/ui/room_screen.rs	Build on and Merge action buttons and non-auto-sending draft helpers
+apps/desktop/src/renderer/src/room-too-big-to-make.test.tsx	ROOMS	carried	src/ui/room_screen.rs	room_full_note live warning past 8 teammates and silence at or under 8
 apps/desktop/src/renderer/src/routeChipReading.test.ts		waiting		
 apps/desktop/src/renderer/src/routeName.test.ts		waiting		
 apps/desktop/src/renderer/src/routine-dialog-names-the-model.test.tsx	p11	waiting		`renderer/src/routine-dialog-names-the-model.test.tsx` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
@@ -1132,12 +1132,12 @@ apps/desktop/src/shared/a-first-run-names-no-terminal.test.ts		waiting
 apps/desktop/src/shared/a-half-written-tag-is-never-shown-to-a-person.test.ts		waiting		
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	compare	carried		`compare_score::tests::a_judge_scores_each_answer`
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts		waiting		
-apps/desktop/src/shared/a-long-room-post-still-starts.test.ts		waiting		
+apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	ROOMS	partial	core/src/room_task.rs	fitted_task_section_sheds_done_then_trailing_rows_to_fit_budget carried; tiny-budget fallback strings left without dedicated unit assertions
 apps/desktop/src/shared/a-point-can-count-twice.test.ts		waiting		
 apps/desktop/src/shared/a-question-that-is-not-a-card-stays-in-the-reply.test.ts		waiting		
 apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	REPLY-PAGE	carried	core/src/reply_page.rs	all 4 cases; and the window test a_whole_page_in_a_reply_opens_in_the_browser_panel_and_a_fragment_stays_code
 apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
-apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts		waiting		
+apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	ROOMS	partial	core/src/room_history.rs	older-first format, protocol block defanging, and task-only strip carried; full budget truncation sweep left partial
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts		waiting		
 apps/desktop/src/shared/a-tag-quoted-in-code-swallows-nothing.test.ts		waiting		
 apps/desktop/src/shared/a-teammate-is-named-the-way-a-person-writes.test.ts		waiting		
@@ -1166,7 +1166,7 @@ apps/desktop/src/shared/messageFragments.test.ts		waiting
 apps/desktop/src/shared/peer-share.test.ts	WORKROOM	carried	core/src/peer_share.rs	all 9 cases
 apps/desktop/src/shared/points-are-drafted.test.ts		waiting		
 apps/desktop/src/shared/protocol-tags.test.ts		waiting		
-apps/desktop/src/shared/room-task.test.ts		waiting		
+apps/desktop/src/shared/room-task.test.ts	ROOMS	partial	core/src/room_task.rs	task block parsing, defanging, task_key normalization, and board section formatting carried; exhaustive edge cases partial
 apps/desktop/src/shared/routine-schedule.test.ts	p11	partial		`shared/routine-schedule.test.ts` | Partially ported: validation, next-run and label cases match; full schedule helper inventory and DST oracle cases remain.
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	p11	waiting		`shared/routines-and-rooms-from-a-browser.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/shared/runtime-install.test.ts		waiting		

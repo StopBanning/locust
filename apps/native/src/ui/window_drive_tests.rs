@@ -4169,3 +4169,228 @@ fn relay_stops_at_hop_cap_and_exchange_strip_stop_ends_live_run() {
     assert!(rt2.presented("exchange-stop").is_none(), "Stop button gone after stopping live run");
     on_quit(&mut rt2.state, &mut Tx::default());
 }
+
+fn create_two_member_room(rt: &mut Runtime<State>, store: &Store, name: &str) {
+    rt.update(|s, _| s.layout_pref = "wide".into());
+    settle(rt);
+    click(rt, "sidebar-new-room");
+    click(rt, "room-create-name");
+    rt.paste(name);
+    rt.frame(0.016);
+    click(rt, "room-create-pick-tm_codec");
+    click(rt, "room-create-pick-tm_pip");
+    click(rt, "room-create-submit");
+    pump(rt, "created room opens", |s| {
+        matches!(&s.rooms.active, crate::room_screen::RoomView::Room(_))
+            && locust_core::room_store::list(store).is_ok_and(|list| list.len() == 1)
+    });
+    settle(rt);
+}
+
+#[test]
+fn making_a_room_and_posting_starts_one_run_per_member_and_shows_answers() {
+    let (dirs, store, mut rt) = two_teammate_window(6);
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "room-answers"));
+
+    create_two_member_room(&mut rt, &store, "Release");
+
+    click(&mut rt, "room-composer");
+    rt.paste("Give a status word.");
+    rt.frame(0.016);
+    click(&mut rt, "room-send");
+
+    pump(&mut rt, "both room members finish and their answers render", |s| {
+        let rooms = locust_core::room_store::list(&store).unwrap_or_default();
+        let done_missions = rooms
+            .first()
+            .and_then(|r| r.posts.first())
+            .is_some_and(|p| p.missions.len() == 2 && p.queued.is_empty());
+        done_missions
+            && locust_core::engine_api::api().running().is_empty()
+            && s.rooms.transcripts.values().filter(|t| t.phase == "completed" && !t.answer_text.is_empty()).count() == 2
+    });
+    settle(&mut rt);
+
+    let prompt_log = std::fs::read_to_string(dirs.0.join("work").join("room-prompts.jsonl")).unwrap();
+    assert_eq!(prompt_log.lines().count(), 2, "one run started per member");
+    let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(texts.iter().any(|t| t.contains("Codec room answer.")), "Codec answer shown: {texts:?}");
+    assert!(texts.iter().any(|t| t.contains("Pip room answer.")), "Pip answer shown: {texts:?}");
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn posting_with_target_mention_in_a_room_asks_only_that_member() {
+    let (dirs, store, mut rt) = two_teammate_window(6);
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "room-targeted"));
+
+    create_two_member_room(&mut rt, &store, "Pair");
+
+    click(&mut rt, "room-composer");
+    rt.paste("@Cod");
+    rt.frame(0.016);
+    click(&mut rt, "room-mention-choice-tm_codec");
+    assert_eq!(rt.state.rooms.ask_to, vec!["tm_codec".to_owned()]);
+    click(&mut rt, "room-composer");
+    rt.paste("check migration");
+    rt.frame(0.016);
+    click(&mut rt, "room-send");
+
+    pump(&mut rt, "targeted room member completes", |s| {
+        let rooms = locust_core::room_store::list(&store).unwrap_or_default();
+        let started_one = rooms
+            .first()
+            .and_then(|r| r.posts.first())
+            .is_some_and(|p| p.missions.len() == 1 && p.missions.contains_key("tm_codec") && p.to == vec!["tm_codec".to_owned()]);
+        started_one
+            && locust_core::engine_api::api().running().is_empty()
+            && s.rooms.transcripts.values().any(|t| t.phase == "completed" && t.answer_text.contains("Codec room answer."))
+    });
+    settle(&mut rt);
+
+    let prompt_log = std::fs::read_to_string(dirs.0.join("work").join("room-prompts.jsonl")).unwrap();
+    assert_eq!(prompt_log.lines().count(), 1, "only the named member started");
+    let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(texts.iter().any(|t| t.contains("Codec room answer.")));
+    assert!(!texts.iter().any(|t| t.contains("Pip room answer.")));
+    assert!(!texts.iter().any(|t| t.contains("not asked")));
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn posting_past_running_cap_queues_and_drains_as_runs_end() {
+    let root = std::env::temp_dir().join(format!(
+        "locust-drive-room-queue-{}-{}",
+        std::process::id(),
+        TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let _dirs = Dirs(root.clone());
+    std::fs::create_dir_all(root.join("electron/mission-ledger")).unwrap();
+    let work = root.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    let store = Store::new(root.join("native"), root.join("electron")).unwrap();
+
+    let filler_count = locust_core::native::MAX_LIVE_TURNS - 1;
+    let mut team_json = vec![
+        json!({"teammateId": "tm_codec", "name": "Codec", "role": "Code", "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}, "folder": work.to_string_lossy()}),
+        json!({"teammateId": "tm_pip", "name": "Pip", "role": "QA", "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}, "folder": work.to_string_lossy()}),
+    ];
+    let mut team_vec = vec![
+        teammate(&root, "ask"),
+        Teammate {
+            id: "tm_pip".into(),
+            name: "Pip".into(),
+            role: "QA".into(),
+            runtime: Some("codex".into()),
+            model: Some("synthetic-model".into()),
+            account: None,
+            busy: false,
+            runs_in: "ask".into(),
+            folder: Some(work.to_string_lossy().into()),
+        },
+    ];
+    for i in 0..filler_count {
+        let id = format!("tm_fill_{i}");
+        let name = format!("Fill{i}");
+        team_json.push(json!({"teammateId": id, "name": name, "role": "Worker", "route": {"runtime": "codex", "model": "synthetic-model", "mode": "ask"}, "folder": work.to_string_lossy()}));
+        team_vec.push(Teammate {
+            id,
+            name,
+            role: "Worker".into(),
+            runtime: Some("codex".into()),
+            model: Some("synthetic-model".into()),
+            account: None,
+            busy: false,
+            runs_in: "ask".into(),
+            folder: Some(work.to_string_lossy().into()),
+        });
+    }
+    store
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": team_json, "missionOwners": {}, "settings": {}}),
+        )
+        .unwrap();
+
+    let mut s = State::default();
+    s.engine = Some(Kind::Native);
+    s.data = Some(store.clone());
+    apply_team(&mut s, team_vec.clone());
+    let mut rt = Runtime::new(s, view, (1280.0, 1200.0), Env::new(true, 1.0));
+    rt.frame(0.0);
+
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "room-queue"));
+    let hold_gate = work.join("slot-hold.gate");
+    let release_gate = work.join("slot-release.gate");
+    std::fs::write(&hold_gate, "hold").unwrap();
+
+    // Occupy MAX_LIVE_TURNS - 1 slots so only one room member can start immediately.
+    for filler in team_vec.iter().skip(2) {
+        locust_core::engine_api::api()
+            .send(
+                native::Send {
+                    teammate: filler.clone(),
+                    conversation: None,
+                    prompt: "Hold slot".into(),
+                    model: None,
+                    effort: None,
+                },
+                native::Origin::default(),
+            )
+            .unwrap();
+    }
+    pump(&mut rt, "background filler runs occupy cap - 1 slots", |_| {
+        locust_core::engine_api::api().running().len() == filler_count
+    });
+
+    create_two_member_room(&mut rt, &store, "QueueRoom");
+
+    click(&mut rt, "room-composer");
+    rt.paste("Check queue drain.");
+    rt.frame(0.016);
+    click(&mut rt, "room-send");
+
+    pump(&mut rt, "Codec takes last slot and Pip queues visibly", |s| {
+        let on_disk = locust_core::room_store::list(&store)
+            .unwrap_or_default()
+            .first()
+            .and_then(|r| r.posts.first())
+            .is_some_and(|p| {
+                p.missions.contains_key("tm_codec") && p.queued == vec!["tm_pip".to_owned()]
+            });
+        let in_state = s
+            .rooms
+            .rooms
+            .first()
+            .and_then(|r| r.posts.first())
+            .is_some_and(|p| {
+                p.missions.contains_key("tm_codec") && p.queued == vec!["tm_pip".to_owned()]
+            });
+        on_disk && in_state
+    });
+    settle(&mut rt);
+    let waiting_texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(
+        waiting_texts.iter().any(|t| t.contains("Waiting for a slot") && t.contains("Pip")),
+        "queued member shown while at cap: {waiting_texts:?}"
+    );
+
+    // Free the held runs so on_run_ended drains Pip's queued run.
+    std::fs::write(&release_gate, "go").unwrap();
+    pump(&mut rt, "queued member drains and finishes", |s| {
+        let rooms = locust_core::room_store::list(&store).unwrap_or_default();
+        let both_done = rooms.first().and_then(|r| r.posts.first()).is_some_and(|p| {
+            p.missions.len() == 2 && p.queued.is_empty()
+        });
+        both_done
+            && locust_core::engine_api::api().running().is_empty()
+            && s.rooms.transcripts.values().filter(|t| t.phase == "completed" && !t.answer_text.is_empty()).count() == 2
+    });
+    settle(&mut rt);
+
+    let final_texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+    assert!(final_texts.iter().any(|t| t.contains("Codec room answer.")));
+    assert!(final_texts.iter().any(|t| t.contains("Pip room answer.")));
+    assert!(!final_texts.iter().any(|t| t.contains("Waiting for a slot")));
+    on_quit(&mut rt.state, &mut Tx::default());
+}
