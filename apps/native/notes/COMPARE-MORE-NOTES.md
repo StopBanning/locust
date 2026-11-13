@@ -43,3 +43,29 @@ All three new headless window tests were run individually via `python3 scripts/g
 - `keep_this_one_brings_column_change_into_folder_and_other_copies_go`
 - `a_column_run_again_answers_again`
 - `a_benchmark_of_two_runs_reads_as_one_table`
+
+## Review (13 Nov)
+
+The scripted review passed apart from one window test that is not part of this job
+(`review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`); it passes alone.
+
+Found and fixed:
+- **Keep for a worktree column copied whole files into the folder.** When the person had committed a change to a
+  file since the comparison began, Keep wrote the column's version over it. Electron diffs the column from where it
+  was cut and runs `git apply --check` first, refusing when it no longer applies. `bring_in_compare_worktree` now does
+  the same: it stages the column, diffs from the base, refuses over the person's edits, writes a patch in the git
+  folder, checks it, then applies it, uncommitted.
+- **Tool output was counted and brought in** (`__pycache__`, `*.pyc`, the test caches, `node_modules`). Now excluded,
+  as Electron's `NOT_BYPRODUCTS`. `compare_worktree_changes` counts with it, and a binary file counts as a file with
+  no lines (`tree_changes_of`).
+- **The column footer asked git on every frame** (a `git diff --no-index` per changed file). The count is now made
+  when the comparison loads and when a column's turn ends, and drawn from `CompareState::changes_lines`.
+- **A column's page was any `.html` mentioned anywhere**, the answer's words included. It is now the first `.html` a
+  tool wrote or added (Electron's `builtPageOf`). Test: `a_columns_page_is_the_one_a_tool_made_not_one_it_mentions`.
+- **Four test files were marked carried on one or two tests.** `a-copy-column-brings-its-changes-in`,
+  `a-comparison-keeps-each-columns-instructions` and `a-column-can-be-tried-again` are now partial, and
+  `a-kept-column-brings-its-changes-in` is carried by eight new real-git tests in
+  `compare_copies::worktree_keep_tests`.
+
+Break checks: without the tool-output rules, the cache test fails; without the refusal, the own-edits test fails;
+without staging, three tests fail. The old copy-the-files keep fails the "folder moved on" test.

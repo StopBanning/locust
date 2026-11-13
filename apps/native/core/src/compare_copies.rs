@@ -610,70 +610,96 @@ pub fn resolve_compare_page_path(
     Ok(folder.join(column_path))
 }
 
-pub fn bring_in_compare_worktree(
-    folder: &Path,
-    compare_id: &str,
-    slot: CompareSlotId,
-    root: &Path,
-    base: Option<&str>,
-) -> Result<BringIn, String> {
-    let name = safe_name(compare_id, slot)?;
-    let target = root.join(name);
-    let base_ref = base.ok_or_else(|| "The comparison's starting point is missing.".to_string())?;
-    if !is_commit_sha(base_ref) {
-        return Err("The comparison's starting point is missing.".into());
-    }
-    let flags = ["--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--no-relative"];
-    let mut changed_args = vec!["diff"];
-    changed_args.extend_from_slice(&flags);
-    changed_args.extend_from_slice(&["--name-only", "-z", base_ref, "--"]);
-    let (_, out, _) = run_git_output(&changed_args, &target)?;
-    let mut touched: Vec<String> = out
-        .split(|&b| b == 0)
-        .filter(|s| !s.is_empty())
-        .map(|s| String::from_utf8_lossy(s).into_owned())
-        .collect();
-    let (_, untracked, _) = run_git_output(&["ls-files", "--others", "--exclude-standard", "-z"], &target)?;
-    for entry in untracked.split(|&b| b == 0).filter(|s| !s.is_empty()) {
-        let p = String::from_utf8_lossy(entry).into_owned();
-        if !touched.contains(&p) {
-            touched.push(p);
+/// What a comparison's copy counts and brings in: everything but what a tool made (Electron's NOT_BYPRODUCTS, 0.451).
+/// In Auto a column runs its code, and a one-line fix counted a second file, its `__pycache__`, which Keep would have
+/// put in the person's folder. Narrow on purpose: `dist/` or `build/` can be real source.
+pub const NOT_BYPRODUCTS: [&str; 7] = [
+    ".",
+    ":(exclude,glob)**/__pycache__/**",
+    ":(exclude,glob)**/*.pyc",
+    ":(exclude,glob)**/.pytest_cache/**",
+    ":(exclude,glob)**/.mypy_cache/**",
+    ":(exclude,glob)**/.ruff_cache/**",
+    ":(exclude,glob)**/node_modules/**",
+];
+
+/// Never runs a program the repository's config names to draw a diff.
+const PLAIN_DIFF: [&str; 3] = ["--no-color", "--no-ext-diff", "--no-textconv"];
+
+/// "+12 -3 in 2 files" from `git diff --numstat`; a binary file ("-") counts as a file with no lines (treeChangesOf).
+pub fn tree_changes_of(numstat: &str) -> (usize, usize, usize) {
+    let (mut files, mut added, mut removed) = (0, 0, 0);
+    for line in numstat.lines() {
+        let mut parts = line.split('\t');
+        let (plus, minus, path) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""), parts.next());
+        if path.is_none_or(str::is_empty) {
+            continue;
         }
+        files += 1;
+        added += plus.parse::<usize>().unwrap_or(0);
+        removed += minus.parse::<usize>().unwrap_or(0);
     }
-    if touched.is_empty() {
+    (files, added, removed)
+}
+
+/// Where a worktree column was cut from: the comparison's recorded base, a commit.
+fn worktree_base(base: Option<&str>) -> Result<&str, String> {
+    base.filter(|b| is_commit_sha(b)).ok_or_else(|| "The comparison's starting point is missing.".to_string())
+}
+
+/// What a worktree column changed, saved or not, new files included, and nothing a tool made (Electron's
+/// `changes`). Staging everything in the column's own index is what lets new files count.
+pub fn compare_worktree_changes(compare_id: &str, slot: CompareSlotId, root: &Path, base: Option<&str>) -> Result<(usize, usize, usize), String> {
+    let target = root.join(safe_name(compare_id, slot)?);
+    let base = worktree_base(base)?;
+    run_git_text(&["add", "-A"], &target)?;
+    let mut args = vec!["diff"];
+    args.extend_from_slice(&PLAIN_DIFF);
+    args.extend_from_slice(&["--cached", "--numstat", base, "--"]);
+    args.extend_from_slice(&NOT_BYPRODUCTS);
+    Ok(tree_changes_of(&run_git_text(&args, &target)?))
+}
+
+/// Keep this one, for a column that worked in a git worktree (Electron's `bringIn`): its changes from where it was cut
+/// go into the folder uncommitted, as a teammate editing the folder leaves them. It refuses, touching nothing, when the
+/// person has changed a file it changes (`YourChanges`), or when the folder has moved on so the change no longer
+/// applies (an error carrying git's reason). Never a file copied over the person's own: `git apply --check` first.
+pub fn bring_in_compare_worktree(folder: &Path, compare_id: &str, slot: CompareSlotId, root: &Path, base: Option<&str>) -> Result<BringIn, String> {
+    let name = safe_name(compare_id, slot)?;
+    let target = root.join(&name);
+    let base = worktree_base(base)?;
+    run_git_text(&["add", "-A"], &target)?;
+    let mut changed = vec!["diff", "--cached", "--name-only", "-z", base, "--"];
+    changed.extend_from_slice(&NOT_BYPRODUCTS);
+    let (_, out, _) = run_git_output(&changed, &target)?;
+    let files: Vec<String> = out.split(|&b| b == 0).filter(|s| !s.is_empty()).map(|s| String::from_utf8_lossy(s).into_owned()).collect();
+    if files.is_empty() {
         return Ok(BringIn::Nothing);
     }
-
-    // Check if the person has local uncommitted changes in `folder` touching any of `touched`.
-    let (_, dirty_out, _) = run_git_output(&["status", "--porcelain", "-z"], folder)?;
-    let dirty: Vec<String> = dirty_out
-        .split(|&b| b == 0)
-        .filter(|s| s.len() > 3)
-        .map(|s| String::from_utf8_lossy(&s[3..]).into_owned())
-        .collect();
-    let conflicts: Vec<String> = touched
-        .iter()
-        .filter(|p| dirty.contains(p))
-        .cloned()
-        .collect();
-    if !conflicts.is_empty() {
-        return Ok(BringIn::YourChanges(conflicts));
+    let status = run_git_text(&["status", "--porcelain", "-z", "--untracked-files=all"], folder)?;
+    let yours: Vec<String> = crate::worktrees::status_entries_of(&status).into_iter().map(|(_, path)| path).filter(|p| files.contains(p)).collect();
+    if !yours.is_empty() {
+        return Ok(BringIn::YourChanges(yours));
     }
-
-    for path in &touched {
-        let src = local_file(&target, path)?;
-        let dst = in_folder(folder, path)?;
-        if src.exists() {
-            if let Some(parent) = dst.parent() {
-                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            }
-            fs::copy(&src, &dst).map_err(|e| e.to_string())?;
-        } else {
-            let _ = fs::remove_file(&dst);
+    // A patch file, not a pipe: a big change must not meet a buffer limit.
+    let git_dir = PathBuf::from(run_git_text(&["rev-parse", "--absolute-git-dir"], folder)?.trim());
+    let patch = git_dir.join(format!("locust-bring-in-{name}.patch"));
+    let patch_str = patch.to_string_lossy().into_owned();
+    let output = format!("--output={patch_str}");
+    let result = (|| {
+        let mut diff = vec!["diff"];
+        diff.extend_from_slice(&PLAIN_DIFF);
+        diff.extend_from_slice(&["--cached", "--binary", output.as_str(), base, "--"]);
+        diff.extend_from_slice(&NOT_BYPRODUCTS);
+        run_git_text(&diff, &target)?;
+        if let Err(why) = run_git_text(&["apply", "--check", &patch_str], folder) {
+            return Err(why.trim_start_matches("git apply:").trim().to_owned());
         }
-    }
-    touched.sort();
-    Ok(BringIn::Brought(touched))
+        run_git_text(&["apply", &patch_str], folder).map(|_| ())
+    })();
+    let _ = fs::remove_file(&patch);
+    result?;
+    Ok(BringIn::Brought(files))
 }
 
 #[cfg(test)]
@@ -907,5 +933,136 @@ mod tests {
         assert!(err_b.contains("removed when you kept another model"));
 
         let _ = fs::remove_dir_all(&root);
+    }
+}
+
+/// Electron's a-kept-column-brings-its-changes-in.test.ts, against real git: a comparison that edits gives each column
+/// its own worktree, cut from the person's last commit, and Keep this one puts the kept column's changes into the
+/// folder uncommitted.
+#[cfg(test)]
+mod worktree_keep_tests {
+    use super::*;
+
+    struct Two {
+        root: PathBuf,
+        folder: PathBuf,
+        copies: PathBuf,
+        base: String,
+        a: PathBuf,
+    }
+    impl Drop for Two {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn git(args: &[&str], cwd: &Path) -> String {
+        let out = std::process::Command::new("git").args(args).current_dir(cwd).output().unwrap();
+        assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    }
+
+    /// A repository and two columns' copies: A fixed cart.py and added notes.md; B rewrote README.md.
+    fn two_columns() -> Two {
+        let root = std::env::temp_dir().join(format!("locust-bring-in-{}-{}", std::process::id(), crate::invariants::unique_nanos()));
+        let (folder, copies) = (root.join("project"), root.join("compare"));
+        fs::create_dir_all(&folder).unwrap();
+        git(&["init", "-q", "-b", "main"], &folder);
+        git(&["config", "user.email", "person@locust.test"], &folder); // public-guard: allow
+        git(&["config", "user.name", "The person"], &folder);
+        fs::write(folder.join("cart.py"), "def total(items):\n    return 0\n").unwrap();
+        fs::write(folder.join("README.md"), "mine\n").unwrap();
+        git(&["add", "."], &folder);
+        git(&["commit", "-q", "-m", "first"], &folder);
+        let base = git(&["rev-parse", "HEAD"], &folder).trim().to_owned();
+        let a = ensure_compare_worktree(&folder, "cmp_1", CompareSlotId::A, &copies, Some(&base)).unwrap();
+        let b = ensure_compare_worktree(&folder, "cmp_1", CompareSlotId::B, &copies, Some(&base)).unwrap();
+        fs::write(a.join("cart.py"), "def total(items):\n    return sum(items)\n").unwrap();
+        fs::write(a.join("notes.md"), "summed items\n").unwrap();
+        fs::write(b.join("README.md"), "rewritten\n").unwrap();
+        Two { root, folder, copies, base, a }
+    }
+
+    fn status(folder: &Path) -> Vec<String> {
+        let mut lines: Vec<String> = git(&["status", "--porcelain"], folder).lines().map(str::to_owned).collect();
+        lines.sort();
+        lines
+    }
+
+    #[test]
+    fn counts_what_each_copy_changed_saved_or_not_new_files_included() {
+        let t = two_columns();
+        assert_eq!(compare_worktree_changes("cmp_1", CompareSlotId::A, &t.copies, Some(&t.base)).unwrap(), (2, 2, 1));
+        assert_eq!(compare_worktree_changes("cmp_1", CompareSlotId::B, &t.copies, Some(&t.base)).unwrap(), (1, 1, 1));
+    }
+
+    #[test]
+    fn puts_the_kept_copys_changes_into_the_folder_uncommitted_and_nothing_of_the_others() {
+        let t = two_columns();
+        let head = git(&["rev-parse", "HEAD"], &t.folder);
+        assert_eq!(bring_in_compare_worktree(&t.folder, "cmp_1", CompareSlotId::A, &t.copies, Some(&t.base)).unwrap(), BringIn::Brought(vec!["cart.py".into(), "notes.md".into()]));
+        assert_eq!(fs::read_to_string(t.folder.join("cart.py")).unwrap(), "def total(items):\n    return sum(items)\n");
+        assert_eq!(fs::read_to_string(t.folder.join("notes.md")).unwrap(), "summed items\n");
+        assert_eq!(fs::read_to_string(t.folder.join("README.md")).unwrap(), "mine\n");
+        // Nothing committed, nothing staged: as a teammate editing the folder leaves it.
+        assert_eq!(git(&["rev-parse", "HEAD"], &t.folder), head);
+        assert_eq!(git(&["diff", "--cached", "--name-only"], &t.folder).trim(), "");
+        assert_eq!(status(&t.folder), vec![" M cart.py".to_owned(), "?? notes.md".to_owned()]);
+    }
+
+    #[test]
+    fn refuses_touching_nothing_when_the_person_has_changed_a_file_it_changes() {
+        let t = two_columns();
+        fs::write(t.folder.join("README.md"), "my own edit\n").unwrap();
+        assert_eq!(bring_in_compare_worktree(&t.folder, "cmp_1", CompareSlotId::B, &t.copies, Some(&t.base)).unwrap(), BringIn::YourChanges(vec!["README.md".into()]));
+        assert_eq!(fs::read_to_string(t.folder.join("README.md")).unwrap(), "my own edit\n");
+    }
+
+    #[test]
+    fn refuses_touching_nothing_when_the_folder_moved_on_and_it_no_longer_applies() {
+        let t = two_columns();
+        fs::write(t.folder.join("cart.py"), "def total(items):\n    return len(items)\n").unwrap();
+        git(&["commit", "-q", "-am", "mine moved on"], &t.folder);
+        assert!(bring_in_compare_worktree(&t.folder, "cmp_1", CompareSlotId::A, &t.copies, Some(&t.base)).is_err());
+        assert_eq!(fs::read_to_string(t.folder.join("cart.py")).unwrap(), "def total(items):\n    return len(items)\n");
+        assert!(!t.folder.join("notes.md").exists());
+        assert!(status(&t.folder).is_empty());
+    }
+
+    #[test]
+    fn neither_counts_nor_brings_in_what_a_tool_made_like_a_python_cache() {
+        let t = two_columns();
+        fs::create_dir_all(t.a.join("__pycache__")).unwrap();
+        fs::write(t.a.join("__pycache__").join("cart.cpython-314.pyc"), "bytes").unwrap();
+        fs::create_dir_all(t.a.join("node_modules").join("left-pad")).unwrap();
+        fs::write(t.a.join("node_modules").join("left-pad").join("index.js"), "x").unwrap();
+        assert_eq!(compare_worktree_changes("cmp_1", CompareSlotId::A, &t.copies, Some(&t.base)).unwrap(), (2, 2, 1));
+        assert_eq!(bring_in_compare_worktree(&t.folder, "cmp_1", CompareSlotId::A, &t.copies, Some(&t.base)).unwrap(), BringIn::Brought(vec!["cart.py".into(), "notes.md".into()]));
+        assert!(!t.folder.join("__pycache__").exists());
+        assert!(!t.folder.join("node_modules").exists());
+    }
+
+    #[test]
+    fn says_so_when_a_copy_changed_nothing() {
+        let t = two_columns();
+        ensure_compare_worktree(&t.folder, "cmp_1", CompareSlotId::C, &t.copies, Some(&t.base)).unwrap();
+        assert_eq!(bring_in_compare_worktree(&t.folder, "cmp_1", CompareSlotId::C, &t.copies, Some(&t.base)).unwrap(), BringIn::Nothing);
+        assert!(status(&t.folder).is_empty());
+    }
+
+    #[test]
+    fn discards_a_copy_whatever_is_in_it_and_leaves_the_others() {
+        let t = two_columns();
+        discard_compare_worktrees(&t.folder, "cmp_1", &[CompareSlotId::A], &t.copies);
+        assert!(!t.a.exists());
+        assert!(t.copies.join(safe_name("cmp_1", CompareSlotId::B).unwrap()).exists());
+        // Discarding what is already gone is not an error.
+        discard_compare_worktrees(&t.folder, "cmp_1", &[CompareSlotId::A], &t.copies);
+    }
+
+    #[test]
+    fn reads_numstat_a_binary_file_counting_as_a_file_with_no_lines() {
+        assert_eq!(tree_changes_of("3\t1\tcart.py\n-\t-\tlogo.png\n1\t0\tnotes.md\n"), (3, 4, 1));
+        assert_eq!(tree_changes_of(""), (0, 0, 0));
     }
 }

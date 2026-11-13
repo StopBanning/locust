@@ -554,3 +554,18 @@ fn a_benchmark_of_two_runs_reads_as_one_table() {
     assert!(screen_text.contains("1 benchmark · 2 runs"), "expected benchmark summary: {screen_text}");
     assert!(screen_text.contains("Fix the date parser"), "expected benchmark question: {screen_text}");
 }
+
+/// builtPageOf: a column's page is the first `.html` a tool wrote or added, never one its answer only mentions.
+#[test]
+fn a_columns_page_is_the_one_a_tool_made_not_one_it_mentions() {
+    use locust_core::ledger::{Item, Snapshot, Status, ToolDetail};
+    let tool = |name: &str, arguments: &str| Item::Tool { name: name.into(), status: Status::Done, summary: String::new(), detail: Box::new(ToolDetail { arguments: arguments.into(), ..Default::default() }) };
+    let said = Item::Assistant { item_id: "a1".into(), text: "Open docs/index.html to see it.".into(), r#final: true };
+    let mut snap = Snapshot { items: vec![said.clone(), tool("Read", r#"{"file_path":"other.html"}"#.replace("file_path", "pattern").as_str())], ..Default::default() };
+    assert!(crate::compare_view::column_html_pages(&snap).is_empty(), "a page only mentioned, or only searched for, is not one it made");
+    snap.items.push(tool("Write", r#"{"file_path":"site/page.html","content":"<a href=\"x.html\">"}"#));
+    snap.items.push(tool("Write", r#"{"file_path":"second.html","content":""}"#));
+    assert_eq!(crate::compare_view::column_html_pages(&snap), vec!["site/page.html".to_owned()]);
+    let patch = Snapshot { items: vec![said, tool("apply_patch", "*** Begin Patch\n*** Add File: web/app.htm\n+<p>hi</p>\n*** End Patch")], ..Default::default() };
+    assert_eq!(crate::compare_view::column_html_pages(&patch), vec!["web/app.htm".to_owned()]);
+}

@@ -12,7 +12,7 @@ use locust_core::compare::{
     newest_judge_mission_ids, rerun_refusal_of, shuffled_columns,
 };
 use locust_core::compare_copies::{
-    bring_in_compare_worktree, bring_in_copy, compare_root, copy_diff, copy_line_changes,
+    bring_in_compare_worktree, bring_in_copy, compare_root, compare_worktree_changes, copy_diff, copy_line_changes,
     copy_refusal, discard_compare_worktrees, ensure_compare_worktree, git_head, is_git_repo,
     make_compare_copy, remove_compare_copies, resolve_compare_page_path,
 };
@@ -91,6 +91,9 @@ pub(super) struct CompareState {
     pub(super) rerun_progress: Arc<Mutex<Vec<RerunProgress>>>,
     pub(super) rerun_dirty: Arc<AtomicBool>,
     pub(super) add_model_menu: bool,
+    /// Each column's "+12 -3 in 2 files", counted when the comparison loads and when a column's turn ends, never
+    /// while drawing (it asks git).
+    pub(super) changes_lines: HashMap<(String, CompareSlotId), String>,
 }
 
 pub(super) fn runtime_display_name(runtime: &str) -> &'static str {
@@ -552,8 +555,9 @@ pub(super) fn keep_column(s: &mut State, slot: CompareSlotId) {
             Ok(BringIn::Brought(files)) => brought = Some(files),
             Ok(BringIn::Nothing) => brought = Some(Vec::new()),
             Err(e) => {
+                let said: String = e.chars().take(200).collect();
                 s.compare.problem = Some(format!(
-                    "Its changes no longer fit your folder, which has changed since the comparison began, so nothing was put in. ({e})"
+                    "Its changes no longer fit your folder, which has changed since the comparison began, so nothing was put in. ({said})"
                 ));
                 return;
             }
@@ -836,6 +840,34 @@ pub(super) fn reload_compares(s: &mut State) {
         s.compare.compares = list;
         s.compare.loaded = true;
     }
+    count_changes(s);
+}
+
+/// Count what each column of the comparison on screen changed (Electron asks once per column as its turn ends).
+fn count_changes(s: &mut State) {
+    let Some(store) = s.data.clone() else { return };
+    let Some(cmp) = s.compare.active_id.as_deref().and_then(|id| s.compare.compares.iter().find(|c| c.compare_id == id)).cloned() else { return };
+    if !cmp.changes || cmp.changes_in == Some(ChangesIn::Folder) {
+        return;
+    }
+    let Some(folder) = active_folder(s) else { return };
+    let copy_root = compare_root(&store);
+    for col in &cmp.slots {
+        let counted = if cmp.changes_in == Some(ChangesIn::Copy) {
+            copy_line_changes(&folder, &cmp.compare_id, col.slot, &copy_root).ok()
+        } else {
+            compare_worktree_changes(&cmp.compare_id, col.slot, &copy_root, cmp.base.as_deref()).ok().map(|(f, a, r)| (f, Some(a), Some(r)))
+        };
+        let key = (cmp.compare_id.clone(), col.slot);
+        match counted {
+            Some((files, added, removed)) => {
+                s.compare.changes_lines.insert(key, changes_line(files, added, removed));
+            }
+            None => {
+                s.compare.changes_lines.remove(&key);
+            }
+        }
+    }
 }
 
 fn slot_origin_for(
@@ -1060,32 +1092,28 @@ pub(super) fn add_compare_column(s: &mut State, choice: ModelChoice) {
     reload_compares(s);
 }
 
-fn column_html_pages(snap: &ledger::Snapshot) -> Vec<String> {
-    let mut out = Vec::new();
-    let re = locust_core::invariants::regex(r#"(?i)([^\s"'`<>]+\.html?)\b"#);
+/// The web page a column's turn created, if it made one (Electron's `builtPageOf`, 0.450): the first `.html` file a
+/// tool wrote or added, never a page the answer only mentions.
+pub(super) fn column_html_pages(snap: &ledger::Snapshot) -> Vec<String> {
+    let html = |p: &str| {
+        let lower = p.to_ascii_lowercase();
+        lower.ends_with(".html") || lower.ends_with(".htm")
+    };
+    let added = locust_core::invariants::regex(r"(?m)^\*\*\* Add File: (.+?)\s*$");
     for item in &snap.items {
-        let mut texts = Vec::new();
-        match item {
-            ledger::Item::Assistant { text, .. } => texts.push(text.as_str()),
-            ledger::Item::Tool { summary, detail, .. } => {
-                texts.push(summary.as_str());
-                texts.push(detail.arguments.as_str());
-                texts.push(detail.output.as_str());
-            }
-            _ => continue,
-        }
-        for text_src in texts {
-            for cap in re.captures_iter(text_src) {
-                if let Some(m) = cap.get(1) {
-                    let p = m.as_str().to_owned();
-                    if !out.contains(&p) {
-                        out.push(p);
-                    }
+        let ledger::Item::Tool { detail, .. } = item else { continue };
+        if let Ok(args) = serde_json::from_str::<serde_json::Value>(&detail.arguments) {
+            for key in ["file_path", "filePath", "path"] {
+                if let Some(p) = args[key].as_str().filter(|p| html(p)) {
+                    return vec![p.to_owned()];
                 }
             }
         }
+        if let Some(p) = added.captures_iter(&detail.arguments).filter_map(|c| c.get(1)).map(|m| m.as_str()).find(|p| html(p)) {
+            return vec![p.to_owned()];
+        }
     }
-    out
+    Vec::new()
 }
 
 pub(super) fn preview_column_page(s: &mut State, slot: CompareSlotId, requested: &str) {
@@ -1481,13 +1509,18 @@ pub(super) fn poll(s: &mut State) -> bool {
             collect_cmp(rc);
         }
     }
+    let mut ended = false;
     for id in ids {
         if let Some(snap) = load_mission(&id)
             && s.compare.snapshots.get(&id) != Some(&snap)
         {
+            ended |= !snap.running && s.compare.snapshots.get(&id).is_none_or(|was| was.running);
             s.compare.snapshots.insert(id, snap);
             changed = true;
         }
+    }
+    if ended {
+        count_changes(s);
     }
     changed
 }
@@ -1794,8 +1827,6 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
     let veiled = cmp.blind && cmp.kept.is_none();
     let setups = has_column_instructions(cmp);
     let kept_slot = cmp.kept.as_ref().map(|k| k.slot);
-    let folder = active_folder(s);
-    let copy_root = s.data.as_ref().map(compare_root);
 
     let mut col_names: Vec<String> = Vec::new();
     let mut col_answers: Vec<String> = Vec::new();
@@ -2076,10 +2107,9 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         // Footer with line changes, span, cost (hidden when veiled), and Keep / Try again buttons
         let mut parts: Vec<String> = Vec::new();
         if cmp.changes && cmp.changes_in != Some(ChangesIn::Folder)
-            && let (Some(f), Some(cr)) = (&folder, &copy_root)
-            && let Ok((files, added, removed)) = copy_line_changes(f, &cmp.compare_id, slot.slot, cr)
+            && let Some(line) = s.compare.changes_lines.get(&(cmp.compare_id.clone(), slot.slot))
         {
-            parts.push(changes_line(files, added, removed));
+            parts.push(line.clone());
         }
         if let Some(sp) = span {
             parts.push(sp.to_owned());

@@ -39,14 +39,14 @@ apps/desktop/src/main/a-cloud-turn-runs-on-the-cloud-computer.test.ts		waiting
 apps/desktop/src/main/a-codex-teammate-is-guarded-too.test.ts		waiting		
 apps/desktop/src/main/a-codex-turn-on-its-branch-is-completed.test.ts		waiting		
 apps/desktop/src/main/a-column-answers-in-a-copy.test.ts		waiting		
-apps/desktop/src/main/a-column-can-be-tried-again.test.ts	compare-more	carried		`compare_window_tests::a_column_run_again_answers_again` + `compare::tests::keeps_column_instructions_through_restart_followup_and_retry`
+apps/desktop/src/main/a-column-can-be-tried-again.test.ts	compare-more	partial		the new answer in the failed column: `compare_window_tests::a_column_run_again_answers_again`; a column that could not start, the going-for-good rule and an unknown column are not pinned yet
 apps/desktop/src/main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts	P8	does-not-apply		`main/a-command-with-a-key-is-never-saved-as-a-rule.test.ts` | No candidate; store refusal words; disk holds only ordinary rules
 apps/desktop/src/main/a-commit-message-is-written-from-the-changes.test.ts		waiting		
 apps/desktop/src/main/a-compaction-summary-is-not-the-reply.test.ts		waiting		
 apps/desktop/src/main/a-compare-column-works-outside-the-folder.test.ts	compare	carried		`compare_copies::tests::a_compare_column_works_outside_the_folder`
 apps/desktop/src/main/a-compare-root-follows-the-environment.test.ts	compare	carried		`compare_copies::tests::a_compare_root_follows_the_environment`
 apps/desktop/src/main/a-comparison-is-remembered.test.ts		waiting		
-apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	compare-more	carried		`compare_reruns::tests::keeps_each_columns_instructions_when_whole_comparison_runs_again` + `compare::tests::keeps_column_instructions_through_restart_followup_and_retry`
+apps/desktop/src/main/a-comparison-keeps-each-columns-instructions.test.ts	compare-more	partial		2 of 10: `compare::tests::keeps_column_instructions_through_restart_followup_and_retry`, `compare_reruns::tests::keeps_each_columns_instructions_when_whole_comparison_runs_again`; the instruction-trial drafting and validation cases come with Tune (row 54)
 apps/desktop/src/main/a-comparison-runs-again.test.ts	compare-more	carried		`compare_reruns::tests::*` (11 unit tests) + `compare::tests::rerun_refusal_messages_match_electron`
 apps/desktop/src/main/a-comparison-runs-one-teammate-on-two-models.test.ts		waiting		
 apps/desktop/src/main/a-connector-check-says-how-it-went.test.ts	CONNECTORS	carried	core/src/connector_reader_tests.rs	carried (13 Nov)
@@ -63,7 +63,7 @@ apps/desktop/src/main/a-conversation-opens-in-its-own-terminal.test.ts	P9	partia
 apps/desktop/src/main/a-conversation-runs-in-its-own-folder.test.ts		waiting		
 apps/desktop/src/main/a-copilot-permission-is-a-card.test.ts		waiting		
 apps/desktop/src/main/a-copilot-teammate-is-guarded-too.test.ts		waiting		
-apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	compare-more	carried		`compare_copies::tests::a_compare_column_works_outside_the_folder` + `compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go`
+apps/desktop/src/main/a-copy-column-brings-its-changes-in.test.ts	compare-more	partial		keep writes and the folder outside the copy: `compare_copies::tests::a_compare_column_works_outside_the_folder`, `copy_diff_reads_git_and_plain_copies` and the window test; the refusals (own edits, a same-name file made meanwhile), git's line counting and the up-front refusal are not pinned here yet
 apps/desktop/src/main/a-credential-file-is-never-shown.test.ts		waiting		
 apps/desktop/src/main/a-cursor-level-becomes-its-id-at-the-start.test.ts		waiting		
 apps/desktop/src/main/a-cursor-mission-gives-its-connector-rules-back-when-it-ends.test.ts		waiting		
@@ -103,7 +103,7 @@ apps/desktop/src/main/a-held-reply-that-cannot-start-tells-every-thread.test.ts	
 apps/desktop/src/main/a-history-read-names-the-processes-still-owned.test.ts		waiting		
 apps/desktop/src/main/a-judge-reads-each-columns-work.test.ts	compare	carried		`compare_judge::tests::a_judge_reads_each_columns_work`
 apps/desktop/src/main/a-judge-reads-the-answers-blind.test.ts	compare	carried		`compare_judge::tests::a_judge_reads_the_answers_blind`
-apps/desktop/src/main/a-kept-column-brings-its-changes-in.test.ts	compare-more	carried		`compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go`
+apps/desktop/src/main/a-kept-column-brings-its-changes-in.test.ts	compare-more	carried		`compare_copies::worktree_keep_tests` (review, 13 Nov): 8 of 9 cases, real git: counts saved and new files, uncommitted keep, refusal over the person's edits, refusal when the folder moved on, no tool output counted or brought in, nothing changed, discard, numstat. The teammates' worktree list case does not apply: Rust's copies live outside the folder. Window: `compare_window_tests::keep_this_one_brings_column_change_into_folder_and_other_copies_go`
 apps/desktop/src/main/a-kept-comparison-leaves-no-branches.test.ts	compare-more	carried		`compare_copies::tests::kept_comparison_leaves_no_branches_even_if_folder_removed_first`
 apps/desktop/src/main/a-kept-page-forgets-its-removed-copy.test.ts	compare-more	carried		`compare_copies::tests::a_kept_page_forgets_its_removed_copy`
 apps/desktop/src/main/a-kept-record-is-not-sent-twice.test.ts		waiting		
