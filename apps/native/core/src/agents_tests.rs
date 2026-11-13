@@ -148,3 +148,39 @@ fn discovery_decides_what_electrons_discovery_decides() {
     }
     assert!(differ.is_empty(), "{} of {} differ:\n{}", differ.len(), results.len(), differ.join("\n"));
 }
+
+#[test]
+fn a_check_that_does_not_answer_in_time_is_ended_and_said_so() {
+    // A real process: `sleep 5` with a limit of 0.2 s is cut off and reads as timed out, not as a failure with words.
+    let sleep = crate::runtime::discovery::find_named("sleep").expect("sleep on PATH");
+    let start = std::time::Instant::now();
+    let a = run_bounded(&sleep, &["5"], std::time::Duration::from_millis(200)).unwrap();
+    assert!(a.timed_out && a.exit.is_none(), "{a:?}");
+    assert!(start.elapsed() < std::time::Duration::from_secs(3), "it was ended, not waited out");
+    // And one that answers gives its exit code and output.
+    let echo = crate::runtime::discovery::find_named("echo").expect("echo on PATH");
+    let b = run_bounded(&echo, &["codex-cli", "0.153.0"], PROBE_TIMEOUT).unwrap();
+    assert_eq!((b.exit, b.stdout.trim()), (Some(0), "codex-cli 0.153.0"));
+}
+
+#[test]
+fn antigravity_is_ready_with_a_model_list_signed_out_without_one_and_unconfirmed_when_silent() {
+    // antigravity-host.ts: a list is ready, an answer with no list is signed out, no answer is not confirmed.
+    let check = |models: Option<Answer>| {
+        let find = |c: &str| (c == "agy").then(|| std::path::PathBuf::from("/usr/local/bin/agy"));
+        let run = |_: &std::path::Path, a: &[&str]| -> Option<Answer> {
+            if a == ["--version"] { Some(ok("1.2.14")) } else { models.clone() }
+        };
+        let exists = |_: &std::path::Path| true;
+        discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home: None, xdg_config_home: None })
+    };
+    let ready = check(Some(ok("Fetching available models...\ngemini-4-argon-high\tGemini 4 Argon (High)\n")));
+    assert_eq!((ready.status, ready.auth, ready.through_cli, ready.version.as_deref()), (Probe::Ready, Auth::Authenticated, true, Some("1.2.14")));
+    // Ready through its own CLI reads READY, not EXPERIMENTAL.
+    assert_eq!(row_status(&ready, integration_of("antigravity"), false, None).tag, "READY");
+    let out = check(Some(Answer { exit: Some(1), stdout: "Please sign in".into(), stderr: String::new(), timed_out: false }));
+    assert_eq!((out.status, out.auth), (Probe::AuthRequired, Auth::Unauthenticated));
+    let silent = check(Some(Answer { exit: None, stdout: String::new(), stderr: String::new(), timed_out: true }));
+    assert_eq!((silent.status, silent.auth), (Probe::ProbeFailed, Auth::Unknown));
+    assert_eq!(row_status(&silent, integration_of("antigravity"), false, None).tag, "CHECKING");
+}

@@ -559,6 +559,99 @@ fn missing_credentials(d: &Definition, seams: &Seams) -> bool {
     !(seams.exists)(&path)
 }
 
+/// Antigravity, found apart from the others as Electron's antigravity-host does: `agy --version` and `agy models`,
+/// each on its own ten-second clock. A model list is "ready"; an answer with no list is "signed out"; no answer in
+/// time is "not confirmed", never "signed out". It runs through its own CLI, a published route.
+pub fn discover_antigravity(seams: &Seams) -> Found {
+    let base = |installed, version, auth, status| Found {
+        id: "antigravity".into(),
+        display_name: "Antigravity".into(),
+        installed,
+        version,
+        auth,
+        ready: status == Probe::Ready,
+        status,
+        unsupported_note: None,
+        through_cli: installed,
+        checking: false,
+    };
+    let Some(path) = (seams.find)("agy") else { return base(false, None, Auth::Unknown, Probe::Missing) };
+    let version = (seams.run)(&path, &["--version"])
+        .filter(|a| a.exit == Some(0) && !a.timed_out)
+        .and_then(|a| a.stdout.trim().lines().next().and_then(|l| crate::runtime::version::parse(l)).map(|v| v.version));
+    match (seams.run)(&path, &["models"]) {
+        None => base(true, version, Auth::Unknown, Probe::ProbeFailed),
+        Some(a) if a.timed_out => base(true, version, Auth::Unknown, Probe::ProbeFailed),
+        Some(a) if crate::models::parse_agy_model_list(&a.stdout).is_some() => base(true, version, Auth::Authenticated, Probe::Ready),
+        Some(_) => base(true, version, Auth::Unauthenticated, Probe::AuthRequired),
+    }
+}
+
+/// How long one check may take before it counts as not answering (PROBE_TIMEOUT_MS).
+pub const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Run a check, bounded: its output, or a timed-out answer once `limit` passes (the check is then ended).
+fn run_bounded(path: &std::path::Path, args: &[&str], limit: std::time::Duration) -> Option<Answer> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new(path).args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().ok()?;
+    let (mut out, mut err) = (child.stdout.take()?, child.stderr.take()?);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let (mut o, mut e) = (String::new(), String::new());
+        let _ = out.read_to_string(&mut o);
+        let _ = err.read_to_string(&mut e);
+        let _ = tx.send((o, e));
+    });
+    match rx.recv_timeout(limit) {
+        Ok((stdout, stderr)) => {
+            let exit = child.wait().ok().and_then(|s| s.code());
+            Some(Answer { exit, stdout, stderr, timed_out: false })
+        }
+        Err(_) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Some(Answer { exit: None, stdout: String::new(), stderr: String::new(), timed_out: true })
+        }
+    }
+}
+
+/// Every agent, checked for real and all at once: each one found on PATH (the window adopts the terminal's PATH at
+/// launch) is asked its version, its help and its sign-in check, ten seconds each. Reads no file but the presence of
+/// a credentials file; sends nothing anywhere.
+pub fn discover() -> Vec<Found> {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    let xdg = std::env::var("XDG_CONFIG_HOME").ok();
+    let checks: Vec<_> = DEFINITIONS
+        .iter()
+        .map(|d| {
+            let (home, xdg) = (home.clone(), xdg.clone());
+            std::thread::spawn(move || {
+                let find = |c: &str| crate::runtime::discovery::find_named(c).ok();
+                let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
+                let exists = |p: &std::path::Path| p.exists();
+                discover_one(d.id, &Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
+            })
+        })
+        .collect();
+    let agy = {
+        let (home, xdg) = (home.clone(), xdg.clone());
+        std::thread::spawn(move || {
+            let find = |c: &str| crate::runtime::discovery::find_named(c).ok();
+            let run = |p: &std::path::Path, a: &[&str]| run_bounded(p, a, PROBE_TIMEOUT);
+            let exists = |p: &std::path::Path| p.exists();
+            discover_antigravity(&Seams { find: &find, run: &run, exists: &exists, home, xdg_config_home: xdg })
+        })
+    };
+    let mut found: Vec<Found> = checks.into_iter().filter_map(|c| c.join().ok().flatten()).collect();
+    // Electron lists Antigravity after Copilot.
+    if let Ok(a) = agy.join() {
+        let at = found.iter().position(|f| f.id == "copilot").map_or(found.len(), |i| i + 1);
+        found.insert(at, a);
+    }
+    found
+}
+
 #[cfg(test)]
 #[path = "agents_tests.rs"]
 mod tests;

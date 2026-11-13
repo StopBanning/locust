@@ -2360,6 +2360,20 @@ fn main() {
         println!("{}", serde_json::Value::Array(locust_core::models::local()));
         std::process::exit(0);
     }
+    // What discovery finds on this computer, as JSON: each agent's state and the row the AI agents screen shows.
+    if std::env::args().nth(1).as_deref() == Some("--agents") {
+        use locust_core::agents;
+        let rows: Vec<serde_json::Value> = agents::discover()
+            .iter()
+            .map(|f| {
+                let row = agents::row_status(f, agents::integration_of(&f.id), false, None);
+                serde_json::json!({"id": f.id, "installed": f.installed, "version": f.version, "auth": format!("{:?}", f.auth),
+                    "status": format!("{:?}", f.status), "tag": row.tag, "detail": row.detail})
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&rows).unwrap_or_default());
+        std::process::exit(0);
+    }
     // The door with no window, for scripted checks: open until stdin closes.
     if std::env::args().nth(1).as_deref() == Some("--serve-door") {
         let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
