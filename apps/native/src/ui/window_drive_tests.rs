@@ -1797,3 +1797,389 @@ fn privacy_page_previews_and_confirms_retention_keeping_running_and_electron() {
 
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+#[test]
+fn privacy_page_trash_lists_restores_and_keeps_owner() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+
+    let created = serde_json::json!({
+        "schemaVersion": 1,
+        "recordType": "mission.created",
+        "occurredAt": "2026-11-12T10:00:00.000Z",
+        "metadata": {
+            "missionId": "mission_del_1",
+            "runId": "run_del_1",
+            "prompt": "Check the trash restore",
+            "runtime": "codex",
+            "model": "gpt-6-astra",
+            "requestedRouteId": "codex:account-default",
+            "resolvedRouteId": "codex:gpt-6-astra",
+            "workspaceId": "ws_test",
+            "sandbox": "read-only",
+            "executionPolicyVersion": 1,
+            "createdAt": "2026-11-12T10:00:00.000Z"
+        }
+    });
+    std::fs::write(ledger.join("mission_del_1.jsonl"), format!("{created}\n")).unwrap();
+    locust_core::people::record_owner(&store, "mission_del_1", "tm_wren").unwrap();
+
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(&mut rt, "mission_del_1 listed in sidebar", |s| {
+        s.recent.iter().any(|r| r.id == "mission_del_1")
+    });
+
+    rt.update(|s, _| {
+        s.org_menu_id = Some("mission_del_1".into());
+    });
+    settle(&mut rt);
+    click(&mut rt, "org-delete-mission_del_1");
+    settle(&mut rt);
+
+    assert!(!ledger.join("mission_del_1.jsonl").exists());
+    assert!(ledger.join(".trash/mission_del_1.jsonl").exists());
+    assert_eq!(
+        locust_core::people::owner_of(&store, "mission_del_1").as_deref(),
+        Some("tm_wren")
+    );
+
+    rt.update(|s, _| {
+        s.settings_panel.open = true;
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::Privacy);
+        crate::backup_section::reload(s);
+    });
+    settle(&mut rt);
+
+    let trash_text = text_in(&rt, "trash-section").join(" ");
+    assert!(trash_text.contains("1 deleted conversation, kept until you empty this."), "{trash_text}");
+    assert!(trash_text.contains("Check the trash restore"), "{trash_text}");
+
+    click(&mut rt, "trash-restore-mission_del_1");
+    settle(&mut rt);
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(&mut rt, "mission_del_1 listed again after restore", |s| {
+        s.recent.iter().any(|r| r.id == "mission_del_1")
+    });
+
+    assert!(ledger.join("mission_del_1.jsonl").exists());
+    assert!(!ledger.join(".trash/mission_del_1.jsonl").exists());
+    assert_eq!(text_in(&rt, "trash-message").join(" "), "Put back.");
+    assert_eq!(
+        locust_core::people::owner_of(&store, "mission_del_1").as_deref(),
+        Some("tm_wren")
+    );
+
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn privacy_page_empties_trash_and_drops_owner_from_teammates_json() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+
+    let created = serde_json::json!({
+        "schemaVersion": 1,
+        "recordType": "mission.created",
+        "occurredAt": "2026-11-12T10:00:00.000Z",
+        "metadata": {
+            "missionId": "mission_empty_1",
+            "runId": "run_empty_1",
+            "prompt": "Empty me for good",
+            "runtime": "codex",
+            "model": "gpt-6-astra",
+            "requestedRouteId": "codex:account-default",
+            "resolvedRouteId": "codex:gpt-6-astra",
+            "workspaceId": "ws_test",
+            "sandbox": "read-only",
+            "executionPolicyVersion": 1,
+            "createdAt": "2026-11-12T10:00:00.000Z"
+        }
+    });
+    std::fs::write(ledger.join("mission_empty_1.jsonl"), format!("{created}\n")).unwrap();
+    locust_core::people::record_owner(&store, "mission_empty_1", "tm_wren").unwrap();
+    assert!(locust_core::trash::delete_mission(&ledger, "mission_empty_1", &[]).unwrap());
+
+    rt.update(|s, _| {
+        s.settings_panel.open = true;
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::Privacy);
+        crate::backup_section::reload(s);
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "trash-empty");
+    settle(&mut rt);
+    assert_eq!(text_in(&rt, "trash-empty-confirm").join(" "), "Delete 1 for good?");
+
+    click(&mut rt, "trash-empty-confirm");
+    settle(&mut rt);
+
+    assert_eq!(text_in(&rt, "trash-message").join(" "), "Deleted 1 for good.");
+    assert!(!ledger.join(".trash/mission_empty_1.jsonl").exists());
+    assert_eq!(locust_core::people::owner_of(&store, "mission_empty_1"), None);
+
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn after_restore_notice_shows_once_and_dismisses() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let outcome = locust_core::profile_backup::RestoreOutcome {
+        ok: true,
+        folder: "/tmp/Locust backup 2026-11-12 1000".into(),
+        at: "2026-11-12T10:00:00.000Z".into(),
+        aside: Some("/tmp/before-restore-20261112-100000".into()),
+        counts: Some(locust_core::profile_backup::BackupCounts {
+            teammates: 2,
+            ..Default::default()
+        }),
+        reason: None,
+    };
+    std::fs::write(
+        store.root().join("last-restore.json"),
+        serde_json::to_string(&outcome.to_json()).unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| {
+        s.last_restore = locust_core::profile_backup::take_last_restore(store.root());
+    });
+    settle(&mut rt);
+
+    let banner = text_in(&rt, "restore-notice").join(" ");
+    assert!(banner.contains("Restored 2 teammates"), "{banner}");
+    assert!(locust_core::profile_backup::take_last_restore(store.root()).is_none());
+
+    click(&mut rt, "restore-notice-ok");
+    settle(&mut rt);
+    assert!(rt.presented("restore-notice").is_none());
+
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn inspector_opens_on_two_turn_conversation_and_shows_route_provenance_and_recovery() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+
+    let t1_lines = [
+        serde_json::json!({
+            "schemaVersion": 24,
+            "recordType": "mission.created",
+            "occurredAt": "2026-11-12T10:00:00.000Z",
+            "metadata": {
+                "missionId": "mission_t1",
+                "runId": "run_t1",
+                "prompt": "First turn",
+                "runtime": "codex",
+                "model": "gpt-6-astra",
+                "cliVersion": "0.153.0",
+                "requestedRouteId": "codex:account-default",
+                "resolvedRouteId": "codex-account:default",
+                "workspaceId": "ws_test",
+                "sandbox": "read-only",
+                "mode": "ask",
+                "executionPolicyVersion": 1,
+                "createdAt": "2026-11-12T10:00:00.000Z"
+            }
+        }),
+        serde_json::json!({
+            "schemaVersion": 24,
+            "recordType": "mission.event",
+            "occurredAt": "2026-11-12T10:00:01.000Z",
+            "event": {
+                "id": "e1",
+                "sequence": 1,
+                "type": "run.started",
+                "sourceAdapter": "codex",
+                "occurredAt": "2026-11-12T10:00:01.000Z",
+                "payload": {}
+            }
+        }),
+        serde_json::json!({
+            "schemaVersion": 24,
+            "recordType": "mission.event",
+            "occurredAt": "2026-11-12T10:00:05.000Z",
+            "event": {
+                "id": "e2",
+                "sequence": 2,
+                "type": "run.failed",
+                "sourceAdapter": "codex",
+                "occurredAt": "2026-11-12T10:00:05.000Z",
+                "payload": { "message": "Quota reached" }
+            }
+        }),
+    ];
+    std::fs::write(
+        ledger.join("mission_t1.jsonl"),
+        format!(
+            "{}\n",
+            t1_lines
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+    )
+    .unwrap();
+
+    let t2_lines = [
+        serde_json::json!({
+            "schemaVersion": 24,
+            "recordType": "mission.created",
+            "occurredAt": "2026-11-12T10:01:00.000Z",
+            "metadata": {
+                "missionId": "mission_t2",
+                "runId": "run_t2",
+                "prompt": "Carry on",
+                "runtime": "claude",
+                "model": "claude-sonnet-4-6",
+                "requestedRouteId": "claude:account-default",
+                "resolvedRouteId": "claude-account:default",
+                "workspaceId": "ws_test",
+                "sandbox": "workspace-write",
+                "mode": "accept-edits",
+                "continuesFrom": { "missionId": "mission_t1", "reason": "route-switch" },
+                "startedBy": { "kind": "carry-on", "from": "codex" },
+                "executionPolicyVersion": 1,
+                "createdAt": "2026-11-12T10:01:00.000Z"
+            }
+        }),
+        serde_json::json!({
+            "schemaVersion": 24,
+            "recordType": "mission.event",
+            "occurredAt": "2026-11-12T10:01:01.000Z",
+            "event": {
+                "id": "e3",
+                "sequence": 1,
+                "type": "run.started",
+                "sourceAdapter": "claude",
+                "occurredAt": "2026-11-12T10:01:01.000Z",
+                "payload": {}
+            }
+        }),
+        serde_json::json!({
+            "schemaVersion": 24,
+            "recordType": "mission.event",
+            "occurredAt": "2026-11-12T10:01:10.000Z",
+            "event": {
+                "id": "e4",
+                "sequence": 2,
+                "type": "run.completed",
+                "sourceAdapter": "claude",
+                "occurredAt": "2026-11-12T10:01:10.000Z",
+                "payload": { "text": "Done", "usage": { "costUsd": 0.0125 } }
+            }
+        }),
+    ];
+    std::fs::write(
+        ledger.join("mission_t2.jsonl"),
+        format!(
+            "{}\n",
+            t2_lines
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+    )
+    .unwrap();
+
+    rt.update(|s, tx| {
+        let mate = s.teammates[0].clone();
+        begin_ledger(s, "mission_t2".into(), "First turn".into(), mate, None, tx);
+        if let Some(pane) = &mut s.ledger
+            && let Some(worker) = &mut pane.worker
+        {
+            pane.snapshot = worker.poll().unwrap();
+            pane.items = pane.snapshot.items.clone();
+        }
+    });
+    settle(&mut rt);
+
+    click(&mut rt, "inspector-open");
+    settle(&mut rt);
+
+    let panel_text = text_in(&rt, "inspector-panel").join(" ");
+    assert!(panel_text.contains("About this reply"), "{panel_text}");
+    assert!(!panel_text.to_lowercase().contains("inspector"), "{panel_text}");
+    assert!(panel_text.contains("Turn 1 · Codex"), "{panel_text}");
+    assert!(panel_text.contains("Turn 2 · Claude Code"), "{panel_text}");
+
+    click(&mut rt, "inspector-turn-0");
+    settle(&mut rt);
+    let rec = text_in(&rt, "inspector-recovery").join(" ");
+    assert!(rec.contains("Carried on to Claude Code"), "{rec}");
+
+    click(&mut rt, "inspector-tab-details");
+    settle(&mut rt);
+    let details = text_in(&rt, "inspector-panel").join(" ");
+    assert!(details.contains("Codex 0.153.0"), "{details}");
+
+    click(&mut rt, "inspector-turn-1");
+    settle(&mut rt);
+    let details_t2 = text_in(&rt, "inspector-panel").join(" ");
+    assert!(details_t2.contains("Claude Code"), "{details_t2}");
+    assert!(details_t2.contains("$0.0125"), "{details_t2}");
+
+    on_quit(&mut rt.state, &mut Tx::default());
+}
+
+#[test]
+fn deleting_a_conversation_moves_every_turn_to_the_trash_and_an_electron_one_says_why_not() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let ledger = store.ledger_dir().unwrap();
+    std::fs::create_dir_all(&ledger).unwrap();
+    let turn = |id: &str, at: &str, prompt: &str, parent: Option<&str>| {
+        let mut metadata = serde_json::json!({"missionId": id, "runId": format!("run_{id}"), "prompt": prompt, "runtime": "codex",
+            "model": "account-default", "workspaceId": "ws_test", "sandbox": "read-only", "executionPolicyVersion": 1, "createdAt": at});
+        if let Some(parent) = parent {
+            metadata["continuesFrom"] = serde_json::json!({"missionId": parent, "checkpointEpoch": 1, "reason": "follow-up"});
+        }
+        serde_json::json!({"schemaVersion": 1, "recordType": "mission.created", "occurredAt": at, "metadata": metadata}).to_string() + "\n"
+    };
+    std::fs::write(ledger.join("mission_first.jsonl"), turn("mission_first", "2026-11-12T10:00:00.000Z", "Fix the cart", None)).unwrap();
+    std::fs::write(ledger.join("mission_second.jsonl"), turn("mission_second", "2026-11-12T10:05:00.000Z", "And the tax", Some("mission_first"))).unwrap();
+    let electron = dirs.0.join("electron/mission-ledger");
+    std::fs::write(electron.join("mission_theirs.jsonl"), turn("mission_theirs", "2026-11-12T09:00:00.000Z", "Electron's own", None)).unwrap();
+    rt.update(|s, _| {
+        s.layout_pref = "wide".into();
+        refresh_recent(s);
+    });
+    pump(&mut rt, "both conversations listed", |s| {
+        s.recent.iter().any(|r| r.id == "mission_second" || r.id == "mission_first") && s.recent.iter().any(|r| r.id == "mission_theirs")
+    });
+    let row_id = rt.state.recent.iter().find(|r| r.id == "mission_second" || r.id == "mission_first").unwrap().id.clone();
+
+    // The two-turn conversation: both turns go, so it does not come back as its first turn.
+    rt.update(|s, _| s.org_menu_id = Some(row_id.clone()));
+    settle(&mut rt);
+    click(&mut rt, &format!("org-delete-{row_id}"));
+    for id in ["mission_first", "mission_second"] {
+        assert!(!ledger.join(format!("{id}.jsonl")).exists(), "{id} still live");
+        assert!(ledger.join(format!(".trash/{id}.jsonl")).exists(), "{id} not in the trash");
+    }
+    rt.update(|s, _| refresh_recent(s));
+    pump(&mut rt, "the conversation gone from the list", |s| !s.recent.iter().any(|r| r.id == "mission_first" || r.id == "mission_second"));
+
+    // Electron's conversation: read here, never changed, and the window says so.
+    rt.update(|s, _| s.org_menu_id = Some("mission_theirs".into()));
+    settle(&mut rt);
+    click(&mut rt, "org-delete-mission_theirs");
+    assert!(electron.join("mission_theirs.jsonl").exists());
+    assert_eq!(rt.state.status, locust_core::trash::ELECTRON_ONLY);
+    on_quit(&mut rt.state, &mut Tx::default());
+}

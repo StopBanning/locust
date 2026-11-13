@@ -220,6 +220,20 @@ pub fn owner_names(store: &Store) -> std::collections::HashMap<String, String> {
     out
 }
 
+pub fn unassign_missions(store: &Store, missions: &[String]) -> Result<(), String> {
+    if missions.is_empty() {
+        return Ok(());
+    }
+    let _lock = WRITES.lock().map_err(|e| e.to_string())?;
+    let mut file = team(store)?;
+    if let Some(owners) = file["missionOwners"].as_object_mut() {
+        for id in missions {
+            owners.remove(id);
+        }
+    }
+    store.save_json("teammates.json", &file)
+}
+
 pub fn remove_teammate(store: &Store, who: &str) -> Result<(), String> {
     let _lock = WRITES.lock().map_err(|e| e.to_string())?;
     let mut file = team(store)?;

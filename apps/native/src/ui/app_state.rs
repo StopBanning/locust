@@ -302,6 +302,10 @@ pub(super) struct State {
     pub(super) running_checks: HashMap<String, String>,
     /// Expanded "What Locust sent" disclosures on `CheckFixLine` items.
     pub(super) open_check_fix_prompts: std::collections::HashSet<String>,
+    pub(super) last_restore: Option<locust_core::profile_backup::RestoreOutcome>,
+    pub(super) inspector_open: bool,
+    pub(super) inspector_tab: crate::inspector_panel::Tab,
+    pub(super) inspector_turn: Option<usize>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -462,6 +466,10 @@ impl Default for State {
             handed_file_refusal: None,
             running_checks: HashMap::new(),
             open_check_fix_prompts: std::collections::HashSet::new(),
+            last_restore: None,
+            inspector_open: false,
+            inspector_tab: crate::inspector_panel::Tab::Activity,
+            inspector_turn: None,
         }
     }
 }

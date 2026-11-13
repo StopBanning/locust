@@ -226,6 +226,41 @@ pub fn set(store: &Store, mission: &str, ids: &[String]) -> Result<(), String> {
     store.save_json(FILE, &s)
 }
 
+/// forget: drop references for deleted-for-good missions and collect unused items.
+pub fn forget(store: &Store, missions: &[String]) -> Result<(), String> {
+    if missions.is_empty() {
+        return Ok(());
+    }
+    let _w = crate::invariants::lock(&WRITES);
+    let mut s = load(store)?;
+    let before: Vec<String> = s["conversations"]
+        .as_object()
+        .into_iter()
+        .flat_map(|m| m.values())
+        .flat_map(|v| v.as_array().into_iter().flatten())
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .collect();
+    for id in missions {
+        if let Some(turns) = s["turns"].as_object_mut() {
+            turns.remove(id);
+        }
+        if let Some(folders) = s["folders"].as_object_mut() {
+            folders.remove(id);
+        }
+    }
+    let kept_roots: std::collections::HashSet<String> = s["turns"]
+        .as_object()
+        .into_iter()
+        .flat_map(|m| m.values())
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .collect();
+    if let Some(convs) = s["conversations"].as_object_mut() {
+        convs.retain(|root, _| kept_roots.contains(root));
+    }
+    collect(&mut s, &before);
+    store.save_json(FILE, &s)
+}
+
 /// discard: a reference added but not kept on any conversation.
 pub fn discard(store: &Store, id: &str) -> Result<(), String> {
     let _w = crate::invariants::lock(&WRITES);

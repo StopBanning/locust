@@ -26,6 +26,7 @@ pub mod engine_api;
 pub mod engine_process;
 pub mod folder_commit;
 pub mod folders;
+pub mod inspector;
 pub mod invariants;
 pub mod ledger;
 pub mod ledger_write;
@@ -57,6 +58,7 @@ pub mod spend;
 pub mod store;
 pub mod terminal;
 pub mod time_marker;
+pub mod trash;
 #[cfg(any(test, feature = "test-hooks"))]
 pub mod test_isolation;
 pub mod usage;
