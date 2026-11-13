@@ -1502,6 +1502,9 @@ fn selecting_text_in_a_reply_asks_on_the_side_and_keeps_main_ledger_unchanged() 
 #[test]
 fn privacy_page_backs_up_previews_and_applies_restore_at_next_start() {
     let (dirs, store, mut rt) = window();
+    // The engine's running list is shared by every test in this process: holding the hooks keeps another test's live
+    // turn from making this restore refuse ("A run is going").
+    let _hook = native::hooks::install(store.clone(), None);
     let backup_parent = dirs.0.join("backups");
     std::fs::create_dir_all(&backup_parent).unwrap();
 
@@ -1623,18 +1626,36 @@ fn privacy_page_previews_and_confirms_retention_keeping_running_and_electron() {
     });
     std::fs::write(electron_ledger.join("mission_old_electron.jsonl"), format!("{electron_line}\n")).unwrap();
 
-    // Backdate the running turn's header so only engine protection keeps it if considered old.
+    // Backdate every record of the running turn (age is its latest record, as in Electron), so only the engine's
+    // running list keeps it.
     let running_path = native_ledger.join(format!("{running_id}.jsonl"));
-    if let Ok(raw) = std::fs::read_to_string(&running_path) {
-        let mut lines: Vec<String> = raw.lines().map(str::to_owned).collect();
-        if let Some(first) = lines.first_mut()
-            && let Ok(mut v) = serde_json::from_str::<serde_json::Value>(first)
-        {
-            v["occurredAt"] = serde_json::json!(old_ts);
-            *first = v.to_string();
-            std::fs::write(&running_path, format!("{}\n", lines.join("\n"))).unwrap();
+    // The live turn writes as it starts: wait until its ledger has held still for half a second, then backdate it.
+    let size = || std::fs::metadata(&running_path).map(|m| m.len()).unwrap_or(0);
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let mut last = (size(), std::time::Instant::now());
+    while last.1.elapsed() < Duration::from_millis(500) {
+        assert!(std::time::Instant::now() < deadline, "the running turn kept writing");
+        std::thread::sleep(Duration::from_millis(50));
+        let now = size();
+        if now != last.0 {
+            last = (now, std::time::Instant::now());
         }
     }
+    let raw = std::fs::read_to_string(&running_path).expect("the running turn's ledger");
+    let lines: Vec<String> = raw
+        .lines()
+        .map(|line| match serde_json::from_str::<serde_json::Value>(line) {
+            Ok(mut v) => {
+                v["occurredAt"] = serde_json::json!(old_ts);
+                if v["metadata"].is_object() {
+                    v["metadata"]["createdAt"] = serde_json::json!(old_ts);
+                }
+                v.to_string()
+            }
+            Err(_) => line.to_owned(),
+        })
+        .collect();
+    std::fs::write(&running_path, format!("{}\n", lines.join("\n"))).unwrap();
 
     rt.update(|s, _| {
         s.settings_panel.open = true;

@@ -234,6 +234,11 @@ pub(crate) fn preview_restore(s: &mut State, folder: &std::path::Path) {
 fn relaunch_for_restore() {
     #[cfg(not(test))]
     if !crate::HEADLESS.load(std::sync::atomic::Ordering::Relaxed) {
+        // The engine has the stores in memory: it writes every turn's ending and goes, so the restore is applied by the
+        // next start with nothing holding the old state.
+        let engine = locust_core::engine_api::api();
+        engine.shut_down();
+        engine.wait_for_shutdown();
         if let Ok(exe) = std::env::current_exe() {
             let _ = std::process::Command::new(exe).spawn();
         }

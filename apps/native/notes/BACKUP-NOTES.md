@@ -61,6 +61,26 @@ Notes on porting PARITY row 115 ("Retention and manifest-verified local profile 
   - `privacy_page_backs_up_previews_and_applies_restore_at_next_start`
   - `privacy_page_previews_and_confirms_retention_keeping_running_and_electron`
 
+## Review (12 Nov)
+
+- **A restore never runs under a live engine.** On this branch the engine can be its own process, holding the stores
+  in memory and `engine.lock` for as long as it runs, and it outlives a window's restart. Applying the restore from the
+  new window would have put the files back under it: the failure profile-backup.ts says would look like success. Now:
+  - the engine applies a pending restore itself, holding the lock, before it reads any store (`Server::start_with`);
+  - a window or Quick Ask applies one only if it can take the lock (`apply_pending_restore_alone`), waiting up to
+    five seconds for an engine still exiting, and otherwise leaves it pending;
+  - Restore and restart shuts the engine down (every ending written) before relaunching.
+
+  `a_restore_waits_while_an_engine_holds_the_stores_and_the_engine_applies_it_as_it_starts` pins all three; with
+  either the engine's apply or the lock check taken out, it fails.
+- **The two window tests did not pass as reported.** Run together, the retention test's live turn made the backup
+  test's restore refuse ("A run is going"); the backup test now holds the shared hooks lock. Alone, the retention test
+  failed too: age is a conversation's latest record (Electron's `lastUpdatedAt`), and only the first record of the
+  running turn had been backdated, so it never counted as old. It now waits for the live ledger to hold still and
+  backdates every record. Five runs clean; with the running protection taken out, it fails.
+- A backup carries the native app's own conversations only. Electron's conversations, which the window also lists,
+  are in Electron's own backup.
+
 ## What was left out
 
 - **Trash UI (`TrashControl`)**: The `"Trash"` section on `SettingsPageId::Privacy` remains `deferred("Trash", p)`, as Trash listing/restoring/emptying is a separate parity item.

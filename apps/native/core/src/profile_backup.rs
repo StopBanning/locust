@@ -621,6 +621,44 @@ fn remove_any(path: &Path) {
 /// AT THE NEXT START, before any store is read: the restore written down, read
 /// again (the folder may have changed since), what it replaces moved aside, the
 /// backup's files copied in. Anything that fails puts back what was moved.
+/// A pending restore, applied only while no engine has the stores in memory. The engine holds `engine.lock` for as long
+/// as it runs, and a store writing its old state back over the restored file is the failure that would look like
+/// success (profile-backup.ts). So a window or Quick Ask applies it only if it can take the lock, waiting up to `wait`
+/// for an engine that is still exiting; the engine itself applies it as it starts (`engine_process::Server`). Left
+/// pending when the lock stays taken.
+pub fn apply_pending_restore_alone(
+    profile: &Path,
+    app_version: &str,
+    now: DateTime<Local>,
+    wait: std::time::Duration,
+) -> Option<RestoreOutcome> {
+    if !profile.join(PENDING_RESTORE_FILE).is_file() {
+        return None;
+    }
+    let lock = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(profile.join(crate::engine_process::LOCK))
+        .ok()?;
+    let end = std::time::Instant::now() + wait;
+    loop {
+        // SAFETY: flock on a descriptor this function owns; it only reads the descriptor.
+        let taken = unsafe { libc::flock(std::os::fd::AsRawFd::as_raw_fd(&lock), libc::LOCK_EX | libc::LOCK_NB) };
+        if taken == 0 {
+            break;
+        }
+        if std::time::Instant::now() >= end {
+            return None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    // The lock is let go when `lock` closes, after the restore.
+    let outcome = apply_pending_restore(profile, app_version, now);
+    drop(lock);
+    outcome
+}
+
 pub fn apply_pending_restore(
     profile: &Path,
     app_version: &str,
@@ -1115,6 +1153,43 @@ mod tests {
         let _ = fs::remove_dir_all(&source);
         let _ = fs::remove_dir_all(&here);
         let _ = fs::remove_dir_all(folder.parent().unwrap());
+    }
+
+    #[test]
+    fn a_restore_waits_while_an_engine_holds_the_stores_and_the_engine_applies_it_as_it_starts() {
+        let source = make_profile(&["Wren", "Atlas"]);
+        let this = env!("CARGO_PKG_VERSION");
+        let backup = |root: &Path| write_backup(root, &temp_dir("locust-backup-to"), this, at()).unwrap().folder;
+        let folder = backup(&source);
+        // The engine's socket path must stay short (a Unix socket name has a small limit).
+        let here = std::env::temp_dir().join(format!("lb-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&here);
+        fs::rename(make_profile(&["Juno"]), &here).unwrap();
+        assert!(request_restore(&folder, &here, this, 0, Utc::now()).is_ok());
+        let teammates = || fs::read_to_string(here.join("teammates.json")).unwrap();
+
+        // An engine runs here: a window's start leaves the restore pending rather than restoring under it.
+        let engine = crate::engine_process::Server::start(&here).unwrap();
+        assert!(teammates().contains("Wren"), "the engine applied the pending restore as it took the lock");
+        drop(engine);
+
+        // Asked again with the engine gone and nothing pending: nothing happens.
+        assert!(apply_pending_restore_alone(&here, this, at(), std::time::Duration::ZERO).is_none());
+
+        // A second restore, requested while an engine holds the lock: the window does not apply it.
+        let other = make_profile(&["Mira"]);
+        let second = backup(&other);
+        let engine = crate::engine_process::Server::start(&here).unwrap();
+        assert!(request_restore(&second, &here, this, 0, Utc::now()).is_ok());
+        assert!(apply_pending_restore_alone(&here, this, at(), std::time::Duration::from_millis(200)).is_none());
+        assert!(here.join(PENDING_RESTORE_FILE).is_file(), "left pending");
+        assert!(!teammates().contains("Mira"), "nothing restored under a running engine");
+        drop(engine);
+        // With the lock free, the next start applies it.
+        let outcome = apply_pending_restore_alone(&here, this, at(), std::time::Duration::ZERO).unwrap();
+        assert!(outcome.ok);
+        assert!(teammates().contains("Mira"));
+        let _ = fs::remove_dir_all(&here);
     }
 
     #[test]

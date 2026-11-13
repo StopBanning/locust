@@ -2530,10 +2530,12 @@ fn main() {
     HEADLESS.store(headless, std::sync::atomic::Ordering::Relaxed);
 
     if !headless && let Some(store) = locust_core::native::store() {
-        let _ = locust_core::profile_backup::apply_pending_restore(
+        // Only while no engine has the stores; an engine still exiting from the last Restore and restart gets a moment.
+        let _ = locust_core::profile_backup::apply_pending_restore_alone(
             store.root(),
             env!("CARGO_PKG_VERSION"),
             chrono::Local::now(),
+            std::time::Duration::from_secs(5),
         );
     }
 
