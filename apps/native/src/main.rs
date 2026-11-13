@@ -145,6 +145,8 @@ mod changelog;
 mod changes_panel;
 #[path = "ui/commit_panel.rs"]
 mod commit_panel;
+#[path = "ui/side_chat.rs"]
+mod side_chat;
 mod diagram;
 mod math_tex;
 mod file_menu;
@@ -1019,6 +1021,8 @@ fn refresh_recent(s: &mut State) {
 // Detaching stops local observation, not a turn already running in Locust.
 fn detach(s: &mut State) {
     close_find(s);
+    side_chat::close(s);
+    s.selection_ask = None;
     s.find_show_earlier = false;
     s.find_pieces.clear();
     s.sending.cancel();
@@ -1324,6 +1328,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
             s.sidebar_query.clear();
             return true;
         }
+        if s.side_chat.is_some() {
+            side_chat::close(s);
+            return true;
+        }
         if s.beside.is_some() {
             s.beside = None;
             return true;
@@ -1627,6 +1635,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= commit_panel::poll(s);
     changed |= pull_request_chip::poll(s, tx);
     changed |= terminal_panel::poll(s);
+    changed |= side_chat::poll(s);
     if let Some(feedback) = &s.copy_feedback {
         let remain = feedback
             .until
@@ -2072,6 +2081,9 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
     }
     if let Some(beside) = beside_panel(s, &p) {
         right = right.child(beside);
+    }
+    if let Some(side) = side_chat::panel(s, &p) {
+        right = right.child(side);
     }
     if let Some(viewer) = reply_actions::viewer(s, &p) {
         right = right.child(viewer);

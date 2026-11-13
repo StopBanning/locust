@@ -49,6 +49,7 @@ pub mod runtime_terminal;
 pub mod secrets;
 pub mod session_import;
 pub mod shell_path;
+pub mod side_question;
 pub mod skills;
 pub mod spend;
 pub mod store;

@@ -75,6 +75,7 @@ pub struct OpenCode {
     cancel: Arc<AtomicBool>,
     v2: bool,
     started: bool,
+    fork: bool,
 }
 impl OpenCode {
     pub fn spawn(c: &mut Command) -> io::Result<Self> {
@@ -92,7 +93,12 @@ impl OpenCode {
             cancel: Arc::new(AtomicBool::new(false)),
             v2,
             started: false,
+            fork: false,
         })
+    }
+    pub fn with_fork(mut self, fork: bool) -> Self {
+        self.fork = fork;
+        self
     }
     pub fn with_cancel(mut self, cancel: Arc<AtomicBool>) -> Self {
         self.cancel = cancel;
@@ -126,7 +132,8 @@ impl Runtime for OpenCode {
         }
         if !self.v2 {
             let mut serve =
-                super::opencode_serve::Serve::new(copy_command(&self.command), self.cancel.clone());
+                super::opencode_serve::Serve::new(copy_command(&self.command), self.cancel.clone())
+                    .with_fork(self.fork);
             serve.start(t)?;
             self.driver = Some(Driver::Serve(Box::new(serve)));
             return Ok(());

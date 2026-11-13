@@ -1374,3 +1374,75 @@ fn a_branch_pull_request_shows_its_chip_watches_and_shows_the_news_banner() {
     click(&mut rt, "pr-news-dismiss");
     assert!(rt.find("pr-news-banner").is_none());
 }
+
+#[test]
+fn selecting_text_in_a_reply_asks_on_the_side_and_keeps_main_ledger_unchanged() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "main reply", answered);
+    settle(&mut rt);
+
+    let main_id = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
+    let main_ledger_path = store.write_path(&main_id).unwrap();
+    let main_bytes_before = std::fs::read(&main_ledger_path).unwrap();
+
+    let reply_elem = rt
+        .elements()
+        .into_iter()
+        .find(|e| e.text.as_deref() == Some("Hello world"))
+        .expect("Hello world reply element");
+    let [rx, ry, rw, rh] = reply_elem.rect;
+    let y = ry + rh / 2.0;
+    rt.pointer_down(rx + 2.0, y);
+    rt.pointer_move(rx + rw - 2.0, y);
+    rt.pointer_up(rx + rw - 2.0, y);
+    settle(&mut rt);
+
+    assert!(rt.find("selection-ask").is_some(), "expected Ask about this chip");
+    click(&mut rt, "selection-ask");
+
+    assert!(rt.find("side-chat-panel").is_some(), "expected side chat panel");
+    assert!(
+        rt.state
+            .side_chat
+            .as_ref()
+            .unwrap()
+            .draft
+            .text
+            .starts_with("> Hello world"),
+        "{:?}",
+        rt.state.side_chat.as_ref().map(|c| &c.draft.text)
+    );
+
+    click(&mut rt, "side-chat-input");
+    rt.paste("Why?");
+    rt.frame(0.016);
+    rt.key(Key::Enter.into());
+    rt.frame(0.016);
+
+    pump(&mut rt, "side answer", |s| {
+        s.side_chat.as_ref().is_some_and(|c| {
+            c.turns.iter().any(|t| {
+                t.phase == "completed"
+                    && t.items.iter().any(|i| {
+                        matches!(i, ledger::Item::Assistant { text, .. } if text == "Side answer from copy.")
+                    })
+            })
+        })
+    });
+    settle(&mut rt);
+
+    let side_words = text_in(&rt, "side-chat-panel").join(" ");
+    assert!(side_words.contains("Side answer from copy."), "{side_words}");
+
+    let main_bytes_after = std::fs::read(&main_ledger_path).unwrap();
+    assert_eq!(
+        main_bytes_before, main_bytes_after,
+        "main conversation ledger must be unchanged"
+    );
+
+    let side_id = rt.state.side_chat.as_ref().unwrap().turns[0].mission_id.clone();
+    let recent = native::list_recent(20, true).unwrap();
+    assert!(recent.summaries.iter().all(|m| m.mission_id != side_id));
+}

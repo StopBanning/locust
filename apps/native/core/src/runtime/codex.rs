@@ -36,6 +36,8 @@ pub struct Codex {
     /// Config for this thread only, laid over the person's own (codex-app-server-run.ts `threadConfig`): Locust's
     /// command guard. Nothing is written to their config.toml.
     thread_config: Option<Value>,
+    /// Fork the resumed thread (`thread/fork`) instead of resuming it (`thread/resume`), for a side question.
+    fork: bool,
 }
 
 fn err(message: impl ToString) -> io::Error {
@@ -133,10 +135,15 @@ impl Codex {
             mode: Mode::Ask,
             approval_lifecycle,
             thread_config: None,
+            fork: false,
         })
     }
     pub fn with_thread_config(mut self, config: Option<Value>) -> Self {
         self.thread_config = config;
+        self
+    }
+    pub fn with_fork(mut self, fork: bool) -> Self {
+        self.fork = fork;
         self
     }
     pub fn with_cancel(mut self, flag: Arc<AtomicBool>) -> Self {
@@ -351,7 +358,8 @@ impl Runtime for Codex {
                 if let Some(model) = turn.model.as_deref().filter(|m| !m.trim().is_empty()) {
                     params["model"] = json!(model);
                 }
-                self.request("thread/resume", params)?
+                let method = if self.fork { "thread/fork" } else { "thread/resume" };
+                self.request(method, params)?
             }
         };
         let thread = result["thread"]["id"]
