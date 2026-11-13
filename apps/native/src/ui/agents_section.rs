@@ -3,9 +3,15 @@
 //! Electron's own answers.
 //!
 //! A row npm installs carries Install, running the line it shows (runtime-installer.ts); a row to sign in carries Sign
-//! in. Each line stays on the row with Copy, to run by hand. Update remains (runtime-updates.ts).
+//! in. Each line stays on the row with Copy, to run by hand.
+//!
+//! Codex and Copilot, which npm installs and never updates, are kept current (runtime-updates.ts, core
+//! `agent_updates`): the row says a newer version is out and what it waits for, offers Update, and says how an update
+//! ended; a switch below the rows turns updating on its own on or off. All of it runs in jobs off the window's thread:
+//! drawing reads memory only.
 
 use super::*;
+use locust_core::agent_updates as updates;
 use locust_core::agents::{self, Found, RowStatus};
 
 pub(super) const HEADING: &str = "AI agents & accounts";
@@ -39,6 +45,7 @@ pub(super) fn poll(s: &mut State) -> bool {
         s.agents_install.shown = latest;
         changed = true;
     }
+    changed |= poll_updates(s);
     if let Some((id, outcome)) = s.agents_install_job.take() {
         let installed = outcome.is_ok();
         s.agents_install.outcome = Some((id, outcome));
@@ -49,6 +56,180 @@ pub(super) fn poll(s: &mut State) -> bool {
         changed = true;
     }
     changed
+}
+
+/// What the keeping-current service is doing, as the window last saw it.
+pub(super) struct Keeping {
+    /// The service: None in a copy that never updates the machine's agents, and before the first poll decides.
+    service: Option<std::sync::Arc<updates::Updates>>,
+    /// Decided once: whether this launch may change the machine's agents (Electron's `heldHere`).
+    decided: bool,
+    pub held_here: bool,
+    /// The saved file has been read: before that the switch does not know which way it is.
+    read: bool,
+    pub state: updates::State,
+    /// Each kept agent's one line, worded when the state changed, so drawing never asks the clock.
+    pub lines: std::collections::BTreeMap<String, String>,
+    launched: std::time::Instant,
+    last_tick: Option<std::time::Instant>,
+}
+
+impl Default for Keeping {
+    fn default() -> Self {
+        Keeping { service: None, decided: false, held_here: false, read: false, state: updates::State::default(), lines: Default::default(), launched: std::time::Instant::now(), last_tick: None }
+    }
+}
+
+/// The service's answer to a job.
+pub(super) type UpdatesAnswer = updates::State;
+
+#[derive(Clone)]
+enum Job {
+    /// Read the saved file.
+    Read,
+    /// Look if a look is due, then update what is behind and not in use.
+    Tick,
+    /// The person pressed Update on this agent's row.
+    Press(String),
+    /// The person turned the switch.
+    Automatic(bool),
+}
+
+#[cfg(test)]
+thread_local! {
+    static UPDATES_STAND_IN: std::cell::RefCell<Option<std::sync::Arc<updates::Updates>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// A window test's own service, on fakes, for this test's thread only: no other window test sees it, and with none the
+/// window has no service at all and no process or network is touched.
+#[cfg(test)]
+pub(super) fn use_updates(service: std::sync::Arc<updates::Updates>) {
+    UPDATES_STAND_IN.with(|c| *c.borrow_mut() = Some(service));
+}
+
+#[cfg(test)]
+fn make_service(_s: &State) -> Option<std::sync::Arc<updates::Updates>> {
+    UPDATES_STAND_IN.with(|c| c.borrow().clone())
+}
+
+#[cfg(not(test))]
+fn make_service(s: &State) -> Option<std::sync::Arc<updates::Updates>> {
+    let root = s.data.as_ref()?.root().to_path_buf();
+    Some(std::sync::Arc::new(updates::Updates::new(Box::new(updates::Machine::new(&root)))))
+}
+
+/// Whether this launch may change the machine's agents (mayUpdateAgents): the installed app only, never a scripted
+/// launch. In a test, only with a stand-in service.
+fn may_update() -> bool {
+    if cfg!(test) {
+        return true;
+    }
+    let args: Vec<String> = std::env::args().collect();
+    updates::may_update_agents(&args, &|k| std::env::var(k).ok(), crate::os_hosts::packaged())
+}
+
+/// The first look waits until the app has been up a while, never on the way up.
+fn first_look_after() -> std::time::Duration {
+    if cfg!(test) { std::time::Duration::ZERO } else { std::time::Duration::from_millis(updates::FIRST_LOOK_AFTER_MS) }
+}
+
+fn word_lines(k: &mut Keeping) {
+    let now = chrono::Local::now();
+    k.lines = k.state.agents.iter().filter_map(|v| updates::update_line(Some(v), now).map(|line| (v.runtime.clone(), line))).collect();
+}
+
+fn start(s: &mut State, job: Job) {
+    let Some(service) = s.agent_updates.service.clone() else { return };
+    if s.agent_updates_job.is_pending() {
+        return;
+    }
+    s.agent_updates_job.request((service, job), |(service, job)| match job {
+        Job::Read => service.state(),
+        Job::Tick => {
+            service.tick();
+            service.state()
+        }
+        Job::Press(id) => service.update_now(&id),
+        Job::Automatic(on) => service.set_automatic(on),
+    });
+}
+
+/// The service's answers and its clock: the first look 45 s after launch, then each hour (a look goes to the network only
+/// when six hours have passed). Memory only; every read, process and install is in a job.
+fn poll_updates(s: &mut State) -> bool {
+    if !s.agent_updates.decided {
+        s.agent_updates.decided = true;
+        if may_update() {
+            s.agent_updates.service = make_service(s);
+        }
+        s.agent_updates.held_here = s.agent_updates.service.is_none();
+    }
+    let Some(service) = s.agent_updates.service.clone() else { return false };
+    let mut changed = false;
+    if let Some(state) = s.agent_updates_job.take() {
+        s.agent_updates.read = true;
+        s.agent_updates.state = state;
+        word_lines(&mut s.agent_updates);
+        // An agent was updated: the machine is asked again, so the row's version and the models move on.
+        if service.take_updated() {
+            request(s);
+        }
+        changed = true;
+    } else if s.agent_updates_job.is_pending() {
+        // What the service shows meanwhile ("Updating to ..."), from its memory.
+        let seen = service.peek();
+        if seen != s.agent_updates.state {
+            s.agent_updates.state = seen;
+            word_lines(&mut s.agent_updates);
+            changed = true;
+        }
+    }
+    if !s.agent_updates_job.is_pending() {
+        let k = &s.agent_updates;
+        let due = match k.last_tick {
+            None => k.launched.elapsed() >= first_look_after(),
+            Some(t) => t.elapsed().as_millis() as u64 >= updates::TICK_EVERY_MS,
+        };
+        if !k.read {
+            start(s, Job::Read);
+        } else if due {
+            s.agent_updates.last_tick = Some(std::time::Instant::now());
+            start(s, Job::Tick);
+        }
+    }
+    changed
+}
+
+fn press_update(s: &mut State, id: String) {
+    start(s, Job::Press(id));
+}
+
+fn turn_automatic(s: &mut State) {
+    let on = !s.agent_updates.state.automatic;
+    start(s, Job::Automatic(on));
+}
+
+/// Below the rows: the switch with its sentence, or -- in a copy that is not the installed Locust -- why there is none.
+fn keep_current(s: &State, l: &crate::look::controls::Look) -> Option<El> {
+    let k = &s.agent_updates;
+    if !k.decided {
+        return None;
+    }
+    if k.held_here {
+        return Some(text(updates::HELD_HERE_NOTE.to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap().key("agents-held-here"));
+    }
+    if !k.read {
+        return None;
+    }
+    let on = k.state.automatic;
+    Some(
+        row()
+            .w_full()
+            .gap(12.0)
+            .center_y()
+            .child(text(updates::keep_current_note(on).to_owned()).font(l.ty.body).color(l.c("text-secondary")).wrap().grow(1.0).shrink().key("agents-keep-current-note"))
+            .child(crate::look::controls::switch(l, on, "Update Codex CLI and Copilot CLI on their own", s.agent_updates_job.is_pending()).key("agents-keep-current").on_press(turn_automatic)),
+    )
 }
 
 /// The agent being installed from its row (Electron's InstallButton state).
@@ -227,6 +408,15 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
         if status.tag != "READY" {
             words = words.child(text(shown_detail(&f, &status)).font(l.ty.body).color(l.c("text-secondary")).wrap());
         }
+        // Kept current (runtime-updates.ts): a newer version, an update under way, one that landed.
+        if let Some(line) = s.agent_updates.lines.get(&f.id) {
+            words = words.child(text(line.clone()).font(l.ty.body).color(l.c("text-secondary")).wrap().key(format!("agents-update-line-{}", f.id)));
+        }
+        // A newer version is out: the download is the person's to start (0.303).
+        if updates::offers_update(s.agent_updates.state.view(&f.id)) {
+            let id = f.id.clone();
+            words = words.child(crate::look::controls::button(&l, "Update", crate::look::controls::Tone::Neutral, s.agent_updates_job.is_pending()).key(format!("agents-update-{}", f.id)).label(format!("Update {}", f.display_name)).self_start().on_press(move |s: &mut State| press_update(s, id.clone())));
+        }
         if status.tag == "NOT INSTALLED"
             && let Some(command) = agents::install_command(&f.id)
         {
@@ -263,7 +453,11 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
     if let Some(said) = &s.agents_sign_in_said {
         body = body.child(text(said.clone()).font(l.ty.body).color(l.c("amber-text")).wrap());
     }
-    body.child(list).child(
+    body = body.child(list);
+    if let Some(keep) = keep_current(s, &l) {
+        body = body.child(keep);
+    }
+    body.child(
         text("Check again")
             .font(l.ty.label)
             .color(l.c("text-secondary"))

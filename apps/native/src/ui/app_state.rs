@@ -166,6 +166,9 @@ pub(super) struct State {
     /// The agent being installed from its row, npm's latest line, and how the last install ended.
     pub(super) agents_install: crate::agents_section::Installing,
     pub(super) agents_install_job: Latest<crate::agents_section::InstallAnswer>,
+    /// Codex and Copilot kept current: what the service says, and the job that asks it (agents_section.rs).
+    pub(super) agent_updates: crate::agents_section::Keeping,
+    pub(super) agent_updates_job: Latest<crate::agents_section::UpdatesAnswer>,
     pub(super) diff_notes: crate::diff_notes_ui::Notes,
     pub(super) issues: crate::issue_list::Picker,
     pub(super) issues_job: Latest<crate::issue_list::Answer>,
@@ -423,6 +426,8 @@ impl Default for State {
             agents_signed_in: Vec::new(),
             agents_install: Default::default(),
             agents_install_job: Latest::default(),
+            agent_updates: Default::default(),
+            agent_updates_job: Latest::default(),
             diff_notes: Default::default(),
             issues: Default::default(),
             issues_job: Latest::default(),
