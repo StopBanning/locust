@@ -54,6 +54,8 @@ mod notify;
 mod keyboard_sheet;
 #[path = "ui/save_record.rs"]
 mod save_record;
+#[path = "ui/import_dialog.rs"]
+mod import_dialog;
 mod keyboard_shortcuts;
 mod keychain_note;
 #[path = "ui/home_panel.rs"]
@@ -581,8 +583,14 @@ fn setup(s: &mut State, waker: Waker) {
     s.model_job.set_waker(waker.clone());
     s.files_job.set_waker(waker.clone());
     s.stopping.set_waker(waker.clone());
+    s.import_dialog.list_job.set_waker(waker.clone());
+    s.import_dialog.import_job.set_waker(waker.clone());
     s.image_cache = Some(Arc::new(ImageCache::new(waker.clone())));
     s.ledger_job.set_waker(waker);
+    if !HEADLESS.load(std::sync::atomic::Ordering::Relaxed) && !s.demo && s.session_places.is_none() {
+        s.session_places = locust_core::session_import::SessionPlaces::from_env();
+        s.import_dialog.opencode_enabled = true;
+    }
     load_composer_store(s);
     load_team(s);
     sync_draft_key(s);
@@ -1241,6 +1249,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
             s.save_record.open = false;
             return true;
         }
+        if s.import_dialog.open {
+            crate::import_dialog::close(s);
+            return true;
+        }
         if s.people_panel.open {
             s.people_panel.open = false;
             return true;
@@ -1808,6 +1820,10 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         }
     }
 
+    if import_dialog::poll(s) {
+        changed = true;
+    }
+
     if let Some(result) = s.recents.take() {
         changed = true;
         match result {
@@ -1817,6 +1833,11 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 s.ledger_summaries = batch.summaries;
                 s.ledger_available = batch.local;
                 s.recent_error = None;
+                if let Some(id) = s.import_dialog.open_after_import.take()
+                    && let Some(row) = s.recent.iter().find(|r| r.id == id).cloned()
+                {
+                    open_recent(s, row, tx);
+                }
             }
             Err(words) => {
                 s.ledger_available = false;
@@ -2105,6 +2126,19 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .child(
                     save_record::view(s, &p)
                         .modal(true, |s: &mut State| s.save_record.open = false),
+                ),
+        );
+    }
+    if s.import_dialog.open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(
+                    import_dialog::view(s, &p)
+                        .modal(true, crate::import_dialog::close),
                 ),
         );
     }

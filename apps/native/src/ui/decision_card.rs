@@ -130,6 +130,7 @@ pub(super) fn handle_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         || s.usage_panel.open
         || s.keyboard_sheet.open
         || s.save_record.open
+        || s.import_dialog.open
         || s.home.splash_open
         || s.home.boot_open
         || s.home.board_open

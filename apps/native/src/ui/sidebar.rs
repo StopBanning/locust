@@ -769,11 +769,15 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                                 .on_press(crate::rail::go_home),
                         )
                         .child(
-                            crate::look::controls::head_icon(&crate::look::icons::PLUS, "New conversation", "New conversation (⌘ N)")
-                                .on_press(crate::rail::new_conversation)
-                                .build(l.k),
+                            crate::look::controls::head_icon(&crate::look::icons::PLUS, "New conversation", "Add or import a conversation")
+                                .on_press(|s: &mut State| {
+                                    s.add_menu_open = !s.add_menu_open;
+                                })
+                                .build(l.k)
+                                .key("sidebar-add-button"),
                         ),
-                ),
+                )
+                .children(s.add_menu_open.then(|| add_menu(p))),
         )
         .child(
             col()
@@ -787,6 +791,36 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
                 .child(col().w_full().child(rows).child(recent)),
         )
         .child(footer(&l))
+}
+
+fn add_menu(p: &Palette) -> El {
+    col()
+        .key("sidebar-add-menu")
+        .w_full()
+        .gap(4.0)
+        .pt(8.0)
+        .px(10.0)
+        .pb(8.0)
+        .fill(p.raised)
+        .border(1.0, p.hairline)
+        .radius(8.0)
+        .child(
+            text("New conversation")
+                .key("add-menu-new-conversation")
+                .font(type_::LABEL)
+                .color(p.secondary)
+                .on_press(|s: &mut State| {
+                    s.add_menu_open = false;
+                    crate::rail::new_conversation(s);
+                }),
+        )
+        .child(
+            text("Import a conversation…")
+                .key("add-menu-import-conversation")
+                .font(type_::LABEL)
+                .color(p.secondary)
+                .on_press(crate::import_dialog::open),
+        )
 }
 
 /// `.lc-sidebar__footer`: Settings and Board in equal cells under a hairline, as Electron's wide sidebar ends.

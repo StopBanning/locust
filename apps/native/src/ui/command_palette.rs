@@ -83,6 +83,13 @@ pub fn default_palette_actions(
         });
     }
     actions.push(PaletteAction {
+        id: "import-conversation".into(),
+        group: "Go to".into(),
+        label: "Import a conversation…".into(),
+        keywords: Some("claude codex opencode cursor session".into()),
+        when_typed: false,
+    });
+    actions.push(PaletteAction {
         id: "home".into(),
         group: "Go to".into(),
         label: "Home".into(),
@@ -234,6 +241,7 @@ pub(super) fn run_palette_action(s: &mut State, id: &str, tx: &mut Tx) {
                 crate::save_record::open(s, mission_id);
             }
         }
+        "import-conversation" => crate::import_dialog::open(s),
         "stop" => stop(s),
         "home" => crate::home_panel::open_home(s),
         "board" => crate::home_panel::open_board(s),
