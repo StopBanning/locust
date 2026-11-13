@@ -1936,6 +1936,9 @@ fn a_share_waits_in_the_workroom_and_reaches_the_teammates_next_brief() {
     assert!(pip_brief.contains("- Codec (Code & Migrations), "));
     assert!(pip_brief.contains("The dev server listens on port 3001, set in vite.config.ts."));
     assert_eq!(workroom.read().deliveries.len(), 1);
+    // Codec ran read only, so the host makes no claim about what it changed.
+    assert_eq!(waiting[0].observed, None);
+    assert!(!pip_brief.contains("Locust saw their run change"));
     // Pip's reply shared nothing, so nothing new waits for anyone.
     assert!(workroom.unread("tm_codec", 5, &[]).unwrap().messages.is_empty());
 }

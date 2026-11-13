@@ -275,6 +275,12 @@ impl Turn {
         self.finish_reporting_edits(store, id).map(|_| ())
     }
     pub fn finish_reporting_edits(self, store: &Store, id: &str) -> io::Result<bool> {
+        self.finish_reporting_changes(store, id).map(|(edited, _)| edited)
+    }
+
+    /// As `finish_reporting_edits`, with the paths the host itself saw change (A2.17): None when another run shared
+    /// the folder, since then the host cannot say whose change a path was.
+    pub fn finish_reporting_changes(self, store: &Store, id: &str) -> io::Result<(bool, Option<Vec<String>>)> {
         let after = take(store, &self.workspace);
         let before = self
             .before
@@ -293,7 +299,8 @@ impl Turn {
             &format!("{}.json", valid_id(id)?),
             value.to_string().as_bytes(),
         )?;
-        Ok(edited)
+        let seen = (!self.shared.load(Ordering::SeqCst)).then(|| changed(&value));
+        Ok((edited, seen))
     }
 }
 impl Drop for Turn {

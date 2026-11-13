@@ -777,7 +777,7 @@ pub fn turn_brief(
 
 /// Post a finished reply's share blocks from this teammate (peer_exchange::share_reply); returns what the person should
 /// be told.
-pub fn share_reply(store: &Store, who: &str, mission_id: &str, reply: &str) -> Vec<String> {
+pub fn share_reply(store: &Store, who: &str, mission_id: &str, reply: &str, observed: Option<&[String]>) -> Vec<String> {
     let Ok(file) = team(store) else { return vec![] };
     let roster: Vec<crate::briefing::PeerEntry> = file["teammates"].as_array().into_iter().flatten().filter_map(peer_entry).collect();
     let Some(me) = roster.iter().find(|e| e.teammate_id == who).cloned() else { return vec![] };
@@ -785,7 +785,7 @@ pub fn share_reply(store: &Store, who: &str, mission_id: &str, reply: &str) -> V
     if crate::peer_share::parse_share_blocks(reply).is_empty() {
         return vec![];
     }
-    crate::peer_exchange::share_reply(&crate::workroom::Workroom::for_store(store), &me, &others, mission_id, reply, None).1
+    crate::peer_exchange::share_reply(&crate::workroom::Workroom::for_store(store), &me, &others, mission_id, reply, observed).1
 }
 
 /// The workspace, the teammate's standing instructions, the person's note, the memory, and the folder's office files.

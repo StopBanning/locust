@@ -1729,13 +1729,15 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 let _ = std::fs::remove_dir_all(copy);
             }
             crate::skills::forget_roots(&memory_id);
-            let edited = match checkpoint.finish_reporting_edits(&memory_store, &memory_id) {
-                Ok(edited) => Some(edited),
+            let (edited, seen_changes) = match checkpoint.finish_reporting_changes(&memory_store, &memory_id) {
+                Ok((edited, seen)) => (Some(edited), seen),
                 Err(error) => {
                     eprintln!("Undo checkpoint was not kept: {error}");
-                    None
+                    (None, None)
                 }
             };
+            // What a share carries as seen by the host: nothing for a read-only run, which cannot have changed files.
+            let observed = if check_mode.sandbox() == "read-only" { None } else { seen_changes };
             let mut completed = false;
             if let Ok(path) = memory_store.write_path(&memory_id) {
                 let transcript = ledger::read_transcript(path);
@@ -1765,7 +1767,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                         eprintln!("Memory was not recorded: {error}");
                     }
                     // What the reply shares with a teammate goes to the workroom, to wait for that teammate's next run.
-                    for said in crate::people::share_reply(&memory_store, &memory_who, &memory_id, &reply) {
+                    for said in crate::people::share_reply(&memory_store, &memory_who, &memory_id, &reply, observed.as_deref()) {
                         eprintln!("{said}");
                     }
                 }
