@@ -1219,3 +1219,47 @@ fn the_ai_agents_page_lists_each_agent_usable_first_with_what_to_do() {
     settle(&mut rt);
     assert!(text_in(&rt, "agents-section").join(" ").contains("Checking each AI agent on this Mac"));
 }
+
+#[test]
+fn a_failing_check_shows_its_card_and_sends_back_to_fix() {
+    let (dirs, store, mut rt) = window_in("accept-edits");
+    let work = dirs.0.join("work");
+    let ws_id = locust_core::workspace_settings::workspace_id_for(&work);
+    let mut settings = locust_core::workspace_settings::WorkspaceSettings::default();
+    let check_cmd = "grep -q FIXED notes.txt || (echo FAIL notes.txt is broken && exit 1)";
+    settings.check_commands.insert(ws_id.clone(), check_cmd.into());
+    settings.check_fixes.insert(ws_id, 2);
+    locust_core::workspace_settings::save(&store, &settings).unwrap();
+
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-edit-check"));
+    type_and_send(&mut rt, "Write notes.txt.");
+
+    pump(&mut rt, "failing check and fix turn", |s| {
+        s.ledger.as_ref().is_some_and(|p| {
+            !p.loading
+                && !p.snapshot.running
+                && p.after_tip.is_none()
+                && s.running_checks.is_empty()
+                && p.items.iter().any(|i| {
+                    matches!(
+                        i,
+                        ledger::Item::EditCheck {
+                            outcome: locust_core::edit_check::EditCheckOutcome::Passed,
+                            fix: Some(1),
+                            ..
+                        }
+                    )
+                })
+        })
+    });
+    settle(&mut rt);
+
+    let msg_text = text_in(&rt, "messages").join("\n");
+    assert!(msg_text.contains("Wrote notes.txt."), "{msg_text}");
+    assert!(msg_text.contains("failed after this turn:"), "{msg_text}");
+    assert!(msg_text.contains("FAIL notes.txt is broken"), "{msg_text}");
+    assert!(msg_text.contains("failed, so Locust sent it back to Codec"), "{msg_text}");
+    assert!(msg_text.contains("fix 1 of 2"), "{msg_text}");
+    assert!(msg_text.contains("Fixed notes.txt."), "{msg_text}");
+    assert!(msg_text.contains("passed after fix 1."), "{msg_text}");
+}

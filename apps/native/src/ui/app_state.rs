@@ -293,6 +293,10 @@ pub(super) struct State {
     pub(super) next_steps_gone: std::collections::HashSet<String>,
     /// Last handed-file reveal refusal, keyed by message scope.
     pub(super) handed_file_refusal: Option<(String, String)>,
+    /// Post-edit checks currently running on the engine: `mission_id -> command`.
+    pub(super) running_checks: HashMap<String, String>,
+    /// Expanded "What Locust sent" disclosures on `CheckFixLine` items.
+    pub(super) open_check_fix_prompts: std::collections::HashSet<String>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -446,6 +450,8 @@ impl Default for State {
             image_cache: None,
             next_steps_gone: std::collections::HashSet::new(),
             handed_file_refusal: None,
+            running_checks: HashMap::new(),
+            open_check_fix_prompts: std::collections::HashSet::new(),
         }
     }
 }

@@ -272,12 +272,16 @@ impl Turn {
         }
     }
     pub fn finish(self, store: &Store, id: &str) -> io::Result<()> {
+        self.finish_reporting_edits(store, id).map(|_| ())
+    }
+    pub fn finish_reporting_edits(self, store: &Store, id: &str) -> io::Result<bool> {
         let after = take(store, &self.workspace);
         let before = self
             .before
             .as_ref()
             .map_err(|e| io::Error::other(e.to_string()))?;
         let after = after?;
+        let edited = before.files != after.files;
         let mut not = before.not_kept.clone();
         not.extend(after.not_kept);
         not.sort();
@@ -288,7 +292,8 @@ impl Turn {
             &base(store, &self.workspace)?.join("turns"),
             &format!("{}.json", valid_id(id)?),
             value.to_string().as_bytes(),
-        )
+        )?;
+        Ok(edited)
     }
 }
 impl Drop for Turn {

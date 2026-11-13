@@ -20,6 +20,7 @@ pub mod commit_draft;
 pub mod context_usage;
 pub mod door;
 pub mod door_tools;
+pub mod edit_check;
 pub mod engine;
 pub mod engine_api;
 pub mod engine_process;

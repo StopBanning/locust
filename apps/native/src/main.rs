@@ -90,6 +90,8 @@ mod approval_card;
 use approval_card::*;
 #[path = "ui/decision_card.rs"]
 mod decision_card;
+#[path = "ui/edit_check_card.rs"]
+mod edit_check_card;
 #[path = "ui/handed_files.rs"]
 mod handed_files;
 #[path = "ui/next_steps.rs"]
@@ -417,8 +419,14 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                     let pane = s.ledger.as_mut().expect("the pane being updated");
                     pane.loading = false;
                     pane.backoff = 0.0;
-                    // Stop scheduling wakeups once a conversation is finished and no longer waiting on after_tip.
-                    pane.due = if active { now + 0.25 } else { f64::INFINITY };
+                    let check_running = !snapshot.tip.is_empty()
+                        && s.running_checks.contains_key(&snapshot.tip);
+                    // Stop scheduling wakeups once a conversation is finished and no longer waiting on after_tip or a check.
+                    pane.due = if active || check_running {
+                        now + 0.25
+                    } else {
+                        f64::INFINITY
+                    };
                     pane.worker = Some(worker);
                     pane.snapshot = snapshot;
 
@@ -498,14 +506,47 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
         }
     }
 
+    let checks: HashMap<String, String> = locust_core::engine_api::api()
+        .running_checks()
+        .into_iter()
+        .collect();
+    let check_just_finished = s.ledger.as_ref().is_some_and(|pane| {
+        !pane.snapshot.tip.is_empty()
+            && s.running_checks.contains_key(&pane.snapshot.tip)
+            && !checks.contains_key(&pane.snapshot.tip)
+    });
+    if s.running_checks != checks {
+        s.running_checks = checks;
+        changed = true;
+    }
+
     if !s.sending.is_pending()
         && let Some(pane) = s.ledger.as_mut()
     {
+        if check_just_finished {
+            pane.due = now;
+        }
         if pane.after_tip.is_some() && pane.after_tip_deadline.is_none() {
             pane.after_tip_deadline = Some(now + 30.0);
         }
-        let pollable =
-            pane.loading || pane.snapshot.running || pane.after_tip.is_some() || pane.backoff > 0.0;
+        let check_running = !pane.snapshot.tip.is_empty()
+            && s.running_checks.contains_key(&pane.snapshot.tip);
+        let engine_owns = s.engine == Some(Kind::Native)
+            && pane
+                .conversation
+                .conversation_id
+                .as_deref()
+                .is_some_and(|id| locust_core::engine_api::api().owns(id));
+        if engine_owns && pane.due == f64::INFINITY {
+            pane.due = now;
+        }
+        let pollable = pane.loading
+            || pane.snapshot.running
+            || pane.after_tip.is_some()
+            || pane.backoff > 0.0
+            || check_running
+            || check_just_finished
+            || engine_owns;
         if pollable {
             if now >= pane.due {
                 if let Some(mut worker) = pane.worker.take() {
