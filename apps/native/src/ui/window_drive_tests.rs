@@ -89,7 +89,8 @@ fn type_and_send(rt: &mut Runtime<State>, text: &str) {
 
 /// The window's own poll and a frame, until `done`, or fail.
 fn pump(rt: &mut Runtime<State>, what: &str, mut done: impl FnMut(&State) -> bool) {
-    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    // Generous: on a loaded machine (two other agents building) a window test waited past 20 s.
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
     let mut now = 0.0;
     while !done(&rt.state) {
         assert!(std::time::Instant::now() < deadline, "timed out waiting for {what}: status {:?}", rt.state.status);
@@ -1457,24 +1458,30 @@ fn selecting_text_in_a_reply_asks_on_the_side_and_keeps_main_ledger_unchanged() 
     settle(&mut rt);
 
     let main_id = rt.state.ledger.as_ref().unwrap().snapshot.tip.clone();
-    // The answer shows before the turn's thread has written its last records; under load, reading the bytes then made
-    // "unchanged" fail. The engine owns the conversation until that last write.
+    // The engine owns the conversation until the turn's last write; read the bytes after it.
     let owner = main_id.clone();
     pump(&mut rt, "the main turn's last write", move |_| !locust_core::engine_api::api().owns(&owner));
     let main_ledger_path = store.write_path(&main_id).unwrap();
     let main_bytes_before = std::fs::read(&main_ledger_path).unwrap();
 
-    let reply_elem = rt
-        .elements()
-        .into_iter()
-        .find(|e| e.text.as_deref() == Some("Hello world"))
-        .expect("Hello world reply element");
-    let [rx, ry, rw, rh] = reply_elem.rect;
-    let y = ry + rh / 2.0;
-    rt.pointer_down(rx + 2.0, y);
-    rt.pointer_move(rx + rw - 2.0, y);
-    rt.pointer_up(rx + rw - 2.0, y);
-    settle(&mut rt);
+    // Drag across the reply; tried again on a fresh layout if a ledger reload lands mid-drag and clears it.
+    for _ in 0..3 {
+        // The reply in the thread: another element (a title, a row) can read "Hello world" too and come first.
+        let reply_elem = rt
+            .elements()
+            .into_iter()
+            .find(|e| e.text.as_deref() == Some("Hello world") && e.path.contains("/messages/"))
+            .expect("Hello world reply element in the thread");
+        let [rx, ry, rw, rh] = reply_elem.rect;
+        let y = ry + rh / 2.0;
+        rt.pointer_down(rx + 2.0, y);
+        rt.pointer_move(rx + rw - 2.0, y);
+        rt.pointer_up(rx + rw - 2.0, y);
+        settle(&mut rt);
+        if rt.find("selection-ask").is_some() {
+            break;
+        }
+    }
 
     assert!(rt.find("selection-ask").is_some(), "expected Ask about this chip");
     click(&mut rt, "selection-ask");
