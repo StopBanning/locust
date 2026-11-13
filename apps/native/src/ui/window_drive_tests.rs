@@ -3964,8 +3964,25 @@ fn a_model_of_your_own_is_added_with_its_key_kept_out_of_sight_and_removed() {
     let row = text_in(&rt, &format!("own-model-{id}")).join(" | ");
     assert!(row.contains("Acme Chat") && row.contains("acme-70b \u{b7} llm.acme.example \u{b7} key kept"), "{row}");
     assert!(!std::fs::read_to_string(store.root().join("own-models.json")).unwrap().contains("acme-made-up-key"));
+    // Test asks the endpoint (a stand-in): it serves the model and refuses tools, so the model is set to chat only.
+    struct Endpoint(Mutex<Vec<String>>);
+    impl locust_core::endpoint_test::Fetch for Endpoint {
+        fn request(&self, _: &str, url: &str, headers: &[(&str, String)], _: Option<&str>, _: std::time::Duration) -> locust_core::endpoint_test::Outcome {
+            self.0.lock().unwrap().push(format!("{url} {}", headers.iter().find(|(n, _)| *n == "authorization").map(|(_, v)| v.as_str()).unwrap_or("")));
+            let body = if url.ends_with("/models") { r#"{"data":[{"id":"acme-70b"}]}"# } else { r#"{"error":{"message":"this model does not support tools"}}"# };
+            locust_core::endpoint_test::Outcome::Answered { status: if url.ends_with("/models") { 200 } else { 400 }, status_text: String::new(), body: body.into() }
+        }
+    }
+    let endpoint = Arc::new(Endpoint(Mutex::new(vec![])));
+    crate::own_models_card::use_fetch(endpoint.clone());
+    click(&mut rt, &format!("own-model-test-{id}"));
+    pump(&mut rt, "Test's answer", |s| s.own_models.tested.get(&s.own_models.models[0].own_id).is_some_and(|(said, _)| !said.starts_with("Testing")));
+    settle(&mut rt);
+    assert!(rt.state.own_models.models[0].chat_only, "a model that refuses tools is set to chat only");
+    assert!(text_in(&rt, &format!("own-model-{id}")).join(" ").contains("It answered, and serves acme-70b. It cannot use tools, so it is set to chat only."));
+    assert_eq!(endpoint.0.lock().unwrap()[0], "https://llm.acme.example/v1/models Bearer unused", "the kept key, opened by the box, goes as a bearer token");
     click(&mut rt, &format!("own-model-tools-{id}"));
-    assert!(rt.state.own_models.models[0].chat_only);
+    assert!(!rt.state.own_models.models[0].chat_only);
     click(&mut rt, &format!("own-model-remove-{id}"));
     assert!(rt.state.own_models.models.is_empty());
 }

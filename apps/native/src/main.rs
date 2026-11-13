@@ -1775,6 +1775,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     changed |= remote_control_card::poll(s);
     changed |= agent_accounts_card::poll(s);
     changed |= usage_line::poll(s);
+    changed |= own_models_card::poll(s);
     changed |= connectors_section::poll(s);
     changed |= issue_list::poll(s);
     changed |= attention_watch::poll(s);

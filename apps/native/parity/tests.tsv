@@ -596,7 +596,7 @@ apps/desktop/src/main/your-github-is-connected-through-gh.test.ts	GITHUB	carried
 apps/desktop/src/main/your-line-breaks-are-kept.test.ts	P7	does-not-apply		`main/your-line-breaks-are-kept.test.ts` | This is conversation/room bubble CSS, not checkpoint byte preservation. Its CSS assertions do not apply to this change. CRLF and binary restoration are instead tested directly.
 apps/desktop/src/main/your-locust-ask-reaches-your-phone-while-the-pc-is-off.test.ts		waiting		
 apps/desktop/src/main/your-locust-is-kept-current-at-the-relay.test.ts		waiting		
-apps/desktop/src/main/your-own-model.test.ts	OWN-MODELS	partial	core/src/own_models_tests.rs	6 of 18: kept with its key sealed, a run's provider and none once removed, the list under OpenCode, chat only, no key without protection, refusals in words; the 12 cases of testing an endpoint need a network client
+apps/desktop/src/main/your-own-model.test.ts	OWN-MODELS	carried	core/src/own_models_tests.rs, core/src/endpoint_test_tests.rs	all 18: the store's 6 and testing an endpoint's 12; the window test a_model_of_your_own_is_added_with_its_key_kept_out_of_sight_and_removed adds, tests, switches and removes one
 apps/desktop/src/main/your-phone-buzzes-only-when-it-must.test.ts		waiting		
 apps/desktop/src/preload/routine-inputs.test.ts	p11	waiting		`preload/routine-inputs.test.ts` | Unported and applicable: routine input/file/template or trigger behavior remains outside the implemented subset.
 apps/desktop/src/preload/routine-recovery.test.ts	p11	waiting		`preload/routine-recovery.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.

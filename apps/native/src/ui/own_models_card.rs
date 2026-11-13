@@ -16,6 +16,51 @@ pub(super) struct Card {
     pub chat_only: bool,
     /// What the last change said, and whether it went well.
     pub said: Option<(String, bool)>,
+    /// What Test said for each kept model, and whether it went well.
+    pub tested: std::collections::HashMap<String, (String, bool)>,
+}
+
+/// Test's answer for one kept model.
+pub(super) type TestAnswer = (String, locust_core::endpoint_test::Tested);
+
+static FETCH: std::sync::Mutex<Option<std::sync::Arc<dyn locust_core::endpoint_test::Fetch>>> = std::sync::Mutex::new(None);
+
+fn fetch() -> std::sync::Arc<dyn locust_core::endpoint_test::Fetch> {
+    FETCH.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_else(|| std::sync::Arc::new(locust_core::endpoint_test::Curl))
+}
+
+#[cfg(test)]
+pub(super) fn use_fetch(f: std::sync::Arc<dyn locust_core::endpoint_test::Fetch>) {
+    *FETCH.lock().unwrap_or_else(|e| e.into_inner()) = Some(f);
+}
+
+/// Ask the endpoint what it serves and whether it takes tools, off the window's thread.
+fn test(s: &mut State, own_id: String) {
+    let Some(models) = store(s) else { return };
+    let Some(kept) = s.own_models.models.iter().find(|m| m.own_id == own_id).cloned() else { return };
+    s.own_models.tested.insert(own_id.clone(), (locust_core::endpoint_test::TESTING.into(), true));
+    let fetch = fetch();
+    s.own_models_job.request((models, kept, own_id, fetch), |(models, kept, own_id, fetch)| {
+        let route = locust_core::own_models::own_route_model(&kept.own_id, &kept.model);
+        let key = match models.provider_for(&route) {
+            Ok(Some((_, provider))) => provider.api_key,
+            Ok(None) => None,
+            Err(why) => return (own_id, locust_core::endpoint_test::Tested { ok: false, said: why, tools: None }),
+        };
+        let tested = locust_core::endpoint_test::test_own_endpoint(&kept.base_url, &kept.model, key.as_deref(), fetch.as_ref());
+        (own_id, tested)
+    });
+}
+
+/// Test's answer: said beside the model, and a model found to take tools or not set to match.
+pub(super) fn poll(s: &mut State) -> bool {
+    let Some((own_id, tested)) = s.own_models_job.take() else { return false };
+    if let (Some(tools), Some(models)) = (tested.tools, store(s)) {
+        let _ = models.set_chat_only(&own_id, !tools);
+    }
+    s.own_models.tested.insert(own_id, (tested.said, tested.ok));
+    reload(s);
+    true
 }
 
 fn store(s: &State) -> Option<locust_core::own_models::OwnModels> {
@@ -86,6 +131,7 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
     for kept in &card.models {
         let (id, id2, name) = (kept.own_id.clone(), kept.own_id.clone(), kept.name.clone());
         let meta = format!("{} \u{b7} {} \u{b7} {}{}", kept.model, host_of(&kept.base_url), if kept.has_key { "key kept" } else { "no key" }, if kept.chat_only { " \u{b7} chat only" } else { "" });
+        let tested = card.tested.get(&kept.own_id).cloned();
         let chat_only = kept.chat_only;
         out = out.child(
             row()
@@ -93,7 +139,13 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
                 .gap(12.0)
                 .center_y()
                 .key(format!("own-model-{}", kept.own_id))
-                .child(col().grow(1.0).gap(2.0).child(text(kept.name.clone()).font(l.ty.control).color(l.c("text-primary"))).child(text(meta).font(type_::LABEL.mono()).color(l.c("text-secondary")).wrap_anywhere()))
+                .child({
+                    let mut words = col().grow(1.0).gap(2.0).child(text(kept.name.clone()).font(l.ty.control).color(l.c("text-primary"))).child(text(meta).font(type_::LABEL.mono()).color(l.c("text-secondary")).wrap_anywhere());
+                    if let Some((said, good)) = tested {
+                        words = words.child(text(said).font(type_::LABEL).color(if good { l.c("text-secondary") } else { l.c("amber-text") }).wrap().key(format!("own-model-said-{}", kept.own_id)));
+                    }
+                    words
+                })
                 .child(crate::look::controls::switch(&l, !kept.chat_only, if kept.chat_only { "Chat only: its runs get no tools" } else { "Uses tools: it may read and change files" }, false).key(format!("own-model-tools-{}", kept.own_id)).on_press(move |s: &mut State| {
                     if let Some(models) = store(s)
                         && let Err(why) = models.set_chat_only(&id, !chat_only)
@@ -102,6 +154,15 @@ pub(super) fn section(s: &State, p: &Palette) -> El {
                     }
                     reload(s);
                 }))
+                .child({
+                    let id = kept.own_id.clone();
+                    let busy = card.tested.get(&kept.own_id).is_some_and(|(said, _)| said == locust_core::endpoint_test::TESTING);
+                    crate::look::controls::button(&l, "Test", crate::look::controls::Tone::Neutral, busy).key(format!("own-model-test-{}", kept.own_id)).on_press(move |s: &mut State| {
+                        if !s.own_models_job.is_pending() {
+                            test(s, id.clone());
+                        }
+                    })
+                })
                 .child(crate::look::controls::button(&l, "Remove", crate::look::controls::Tone::Neutral, false).key(format!("own-model-remove-{}", kept.own_id)).label(format!("Remove {name}")).on_press(move |s: &mut State| {
                     if let Some(models) = store(s)
                         && let Err(why) = models.remove(&id2)
