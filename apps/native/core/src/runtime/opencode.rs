@@ -77,14 +77,18 @@ pub struct OpenCode {
     started: bool,
     fork: bool,
 }
+/// Whether this OpenCode command runs OpenCode 2 over ACP (its `acp` argument, or the tests' protocol switch).
+pub fn uses_acp(c: &Command) -> bool {
+    c.get_envs()
+        .find(|(k, _)| *k == "LOCUST_NATIVE_OPENCODE_PROTOCOL")
+        .and_then(|(_, v)| v)
+        .map(|s| s == "acp")
+        .unwrap_or_else(|| c.get_args().any(|a| a == "acp"))
+}
+
 impl OpenCode {
     pub fn spawn(c: &mut Command) -> io::Result<Self> {
-        let v2 = c
-            .get_envs()
-            .find(|(k, _)| *k == "LOCUST_NATIVE_OPENCODE_PROTOCOL")
-            .and_then(|(_, v)| v)
-            .map(|s| s == "acp")
-            .unwrap_or_else(|| c.get_args().any(|a| a == "acp"));
+        let v2 = uses_acp(c);
         c.env_remove("LOCUST_NATIVE_OPENCODE_PROTOCOL");
         Ok(Self {
             command: copy_command(c),

@@ -189,6 +189,12 @@ pub fn prepare(of: &str, runtime: &str, mode: Mode, prompt: &str) -> Result<Prep
     })
 }
 
+/// OpenCode 2 runs over ACP, which cannot copy a session (Electron `codex-mission.ts`, `opencodeAcp`): its side
+/// question starts a fresh session told what the conversation said, so it can never add to the conversation's own.
+pub fn fresh_session_prompt(of: &str, side_prompt: &str) -> String {
+    crate::carry_on::compose_cold_follow_up(&crate::native::turns_through(of), side_prompt, false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,6 +269,77 @@ mod tests {
         }
         let path = store.write_path(id).unwrap();
         std::fs::write(path, format!("{}\n", lines.join("\n"))).unwrap();
+    }
+
+    #[test]
+    fn on_opencode_2_it_is_a_fresh_session_told_the_conversation_never_the_conversations_own() {
+        let (_dir, store) = setup_store("acp");
+        write_mission(&store, "mission_convo", "opencode", Some("ses_main"), None);
+        let path = store.write_path("mission_convo").unwrap();
+        let mut lines = std::fs::read_to_string(&path).unwrap();
+        lines.push_str(&format!("{}\n", json!({"schemaVersion": 27, "recordType": "mission.event", "ledgerSequence": 3, "occurredAt": "2026-09-29T15:00:02.000Z", "event": {"sequence": 2, "type": "message.delta", "payload": {"itemId": "m1", "text": "Added rename, with two tests.", "final": true}}})));
+        std::fs::write(&path, lines).unwrap();
+        let _hook = native::hooks::install(store, None);
+        let side = build_side_prompt("Why two tests?", None);
+        let prompt = fresh_session_prompt("mission_convo", &side);
+        assert!(prompt.starts_with("This conversation has earlier turns, but not in your session: it could not be resumed. What was said, oldest first:\n\n- Asked: \"Add a rename command, with tests.\" -- answered: \"Added rename, with two tests.\"\n\nThe person now asks:"), "{prompt}");
+        assert!(prompt.ends_with(&format!("\n\nThe person now asks:\n\n{side}")), "{prompt}");
+        let mut acp = std::process::Command::new("opencode");
+        acp.arg("acp");
+        assert!(crate::runtime::opencode::uses_acp(&acp));
+        let mut serve = std::process::Command::new("opencode");
+        serve.args(["serve", "--port", "0"]);
+        assert!(!crate::runtime::opencode::uses_acp(&serve));
+    }
+
+    #[test]
+    fn a_side_question_on_opencode_2_opens_a_new_session_and_never_loads_the_conversations() {
+        let (dir, store) = setup_store("acp-run");
+        write_mission(&store, "mission_convo", "opencode", Some("ses_main"), None);
+        let work = dir.0.join("work");
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("scripts/fixtures/m4-opencode-acp.py");
+        let _hook = native::hooks::install(
+            store.clone(),
+            Some((PathBuf::from("python3"), vec![fixture.to_string_lossy().into(), "acp".into(), "logged".into()])),
+        );
+        let teammate = Teammate {
+            id: "tm_1".into(),
+            name: "Codec".into(),
+            role: "Code".into(),
+            runtime: Some("opencode".into()),
+            model: Some("opencode/beam-free".into()),
+            busy: false,
+            runs_in: "accept-edits".into(),
+            folder: Some(work.to_string_lossy().into()),
+        };
+        let started = native::send_from(
+            Send { teammate, conversation: None, prompt: "Why two tests?".into(), model: None, effort: None },
+            Origin {
+                mode: Some(Mode::Ask),
+                folder: None,
+                started_by: Some(json!({"kind": "side", "of": "mission_convo", "question": 1})),
+                runtime: Some("opencode".into()),
+                reference_ids: None,
+            },
+        )
+        .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while native::owns(&started.conversation_id) {
+            for card in native::waiting_approvals_for(&started.conversation_id) {
+                let _ = native::decide_approval(&card.approval_id, crate::approval::Decision::Deny, None);
+            }
+            assert!(std::time::Instant::now() < deadline, "the side question never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let log = std::fs::read_to_string(work.join("acp-methods.log")).unwrap();
+        let methods: Vec<Value> = log.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+        assert!(methods.iter().any(|m| m["method"] == "session/new"), "{log}");
+        assert!(!methods.iter().any(|m| m["method"] == "session/load"), "{log}");
+        assert!(!log.contains("ses_main"), "{log}");
+        let asked = methods.iter().find(|m| m["method"] == "session/prompt").expect("prompted").to_string();
+        assert!(asked.contains("This conversation has earlier turns, but not in your session"), "{asked}");
+        assert!(asked.contains("Add a rename command, with tests."), "{asked}");
+        assert!(asked.contains("Why two tests?"), "{asked}");
     }
 
     #[test]

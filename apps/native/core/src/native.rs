@@ -988,6 +988,18 @@ pub fn turn_records(mission: &str) -> Option<TurnRecords> {
 }
 
 /// earlierTurnsOf: the turns before this one, oldest first, up to four.
+/// A conversation up to and including this turn, oldest first, as a cold brief quotes it (Electron
+/// `[...earlierTurnsOf(prior), { asked, answered: latestFinal }]`).
+pub fn turns_through(mission: &str) -> Vec<crate::carry_on::EarlierTurn> {
+    let Some(turn) = turn_records(mission) else { return Vec::new() };
+    let mut turns = earlier_turns(&turn.metadata);
+    turns.push(crate::carry_on::EarlierTurn {
+        asked: turn.metadata["prompt"].as_str().unwrap_or_default().to_owned(),
+        answered: crate::carry_on::latest_final(&turn.events),
+    });
+    turns
+}
+
 fn earlier_turns(metadata: &Value) -> Vec<crate::carry_on::EarlierTurn> {
     let mut turns = Vec::new();
     let mut from = metadata["continuesFrom"]["missionId"].as_str().map(str::to_owned);
@@ -1434,6 +1446,14 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     )
     .map_err(|e| e.to_string())?;
     command.current_dir(&folder);
+    // A side question on OpenCode 2 (ACP, no fork) gets a fresh session told the conversation so far: resuming would
+    // add to the conversation's own session.
+    let (resume, runtime_prompt) = match &side_req {
+        Some(side) if runtime_name == "opencode" && crate::runtime::opencode::uses_acp(&command) => {
+            (None, crate::side_question::fresh_session_prompt(&side.of, &runtime_prompt))
+        }
+        _ => (resume, runtime_prompt),
+    };
     // No teammate ends the person's browser, Copilot too (0.721): the guard as a plugin, before the browser's config.
     if runtime_name == "copilot" {
         let plugin = crate::runtime::permission_bridge::bridge_executable()

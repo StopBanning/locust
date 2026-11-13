@@ -17,6 +17,9 @@ options = [
 for line in sys.stdin:
     v = json.loads(line)
     method = v.get('method')
+    if scenario == 'logged' and method:
+        with open('acp-methods.log', 'a') as log:
+            log.write(json.dumps(dict(method=method, params=v.get('params'))) + '\n')
     if method == 'initialize':
         flag = __import__('os').environ.get('LOCUST_OPENCODE_CRASH_FLAG', '')
         if scenario == 'crash-once' and flag and not __import__('os').path.exists(flag):

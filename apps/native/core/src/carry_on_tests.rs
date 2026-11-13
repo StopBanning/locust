@@ -83,3 +83,19 @@ fn the_card_offers_the_persons_pick_when_it_can_run_else_the_first_ready_in_elec
     assert_eq!(parse_plan_runs_out(&json!({"runtime": "gemini"})), None);
     assert_eq!(parse_plan_runs_out(&json!({"runtime": "claude", "model": "account-default", "automatic": true})), Some(away));
 }
+
+#[test]
+fn a_cold_follow_up_quotes_the_conversation_oldest_first_and_alone_says_nothing_extra() {
+    use crate::carry_on::{compose_cold_follow_up, EarlierTurn};
+    let turns = vec![
+        EarlierTurn { asked: "Fix the cart".into(), answered: Some("Fixed it.".into()) },
+        EarlierTurn { asked: "   ".into(), answered: Some("unquoted".into()) },
+        EarlierTurn { asked: "And the tax?".into(), answered: None },
+    ];
+    assert_eq!(
+        compose_cold_follow_up(&turns, "Why?", false),
+        "This conversation has earlier turns, but not in your session: it could not be resumed. What was said, oldest first:\n\n- Asked: \"Fix the cart\" -- answered: \"Fixed it.\"\n- Asked: \"And the tax?\" -- no reply was recorded.\n\nThe person now asks:\n\nWhy?"
+    );
+    assert!(compose_cold_follow_up(&turns, "Why?", true).starts_with("The person went back to an earlier point in this conversation and changed their message there."));
+    assert_eq!(compose_cold_follow_up(&[], "Why?", false), "Why?");
+}
