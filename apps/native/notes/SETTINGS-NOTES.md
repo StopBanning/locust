@@ -57,3 +57,16 @@ Three PARITY rows on `exec/native-settings` (from `exec/native-engine`):
 - **macOS `IOPMAssertion` / `caffeinate`:** real OS power assertion is behind the `PowerBlocker` trait (`UnwiredPowerBlocker` at runtime) and is never called in tests.
 - **macOS Liquid glass rendering:** `liquid_offered` defaults to `false` because Rune does not yet expose macOS 26 glass/vibrancy; the `Look` and `Behind the glass` UI and persistence are wired behind `liquid_offered`.
 - **OS window close button & system tray menu:** Rune's `WindowEvent::CloseRequested` unconditionally closes the window; `quit_guard_dialog::request_close` provides the guarded close/quit path, and the system tray menu is not wired in Rune yet.
+
+## Review (13 Nov)
+
+- The first scripted review passed: 1,069 tests, and the three window tests alone and together.
+- **The quit guard counted running turns by the teammates' busy marks.** A turn the door, Quick Ask or a routine
+  starts runs in the engine and can carry no busy mark yet, so quitting would not have asked. It now counts
+  `engine_api::api().running()` and names each turn by its owner.
+  - `quitting_asks_about_a_turn_started_outside_the_window` fails with the busy-mark count.
+  - `quitting_with_a_turn_running_says_so_first` now runs a real turn, and first checks that nothing running quits
+    without asking.
+- **Not wired yet,** as the row says: the macOS login item (`SMAppService`) and the power assertion that keeps the Mac
+  awake. Both have their decisions ported behind seams. The quit guard answers Cmd+Q and Cmd+W in the window; the menu
+  bar's Quit and the window's close button do not go through it yet.

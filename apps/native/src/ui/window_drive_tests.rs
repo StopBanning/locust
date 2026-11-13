@@ -2848,11 +2848,15 @@ fn choosing_a_theme_is_kept_after_restart() {
 
 #[test]
 fn quitting_with_a_turn_running_says_so_first() {
-    let (_dirs, _store, mut rt) = window();
-    rt.update(|s, tx| {
-        s.teammates[0].busy = true;
-        crate::quit_guard_dialog::request_close(s, tx);
-    });
+    let (_dirs, store, mut rt) = window();
+    // A real turn, running in the engine: the guard asks the engine, not a teammate's busy mark.
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    rt.update(|s, tx| crate::quit_guard_dialog::request_close(s, tx));
+    assert!(!rt.state.quit_guard.open && rt.state.quit_guard.quit_requested, "nothing running: it quits without asking");
+    rt.update(|s, _| s.quit_guard = Default::default());
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "the turn running", |s| can_stop(s));
+    rt.update(|s, tx| crate::quit_guard_dialog::request_close(s, tx));
     settle(&mut rt);
 
     assert!(rt.state.quit_guard.open);
@@ -2874,6 +2878,7 @@ fn quitting_with_a_turn_running_says_so_first() {
     assert!(!rt.state.quit_guard.open);
     assert!(rt.state.quit_guard.confirmed);
     assert!(rt.state.quit_guard.quit_requested);
+    on_quit(&mut rt.state, &mut Tx::default());
 }
 
 #[test]
@@ -2917,4 +2922,35 @@ fn report_shows_what_it_sends_and_sends_nothing_until_pressed() {
         }
         other => panic!("expected Issue sent after press, got {other:?}"),
     }
+}
+
+/// A turn the door or Quick Ask started runs in the engine with no busy mark on the window's teammate yet: the quit
+/// guard still asks, because it counts what the engine runs.
+#[test]
+fn quitting_asks_about_a_turn_started_outside_the_window() {
+    let (dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "interrupt"));
+    let started = locust_core::engine_api::api()
+        .send(
+            native::Send { teammate: teammate(&dirs.0, "ask"), conversation: None, prompt: "Started through the door".into(), model: None, effort: None },
+            native::Origin::default(),
+        )
+        .expect("a turn through the engine");
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while !locust_core::engine_api::api().running().contains(&started.conversation_id) {
+        assert!(std::time::Instant::now() < deadline, "the turn never ran");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    rt.update(|s, tx| {
+        s.flight = None;
+        for t in &mut s.teammates {
+            t.busy = false;
+        }
+        crate::quit_guard_dialog::request_close(s, tx);
+    });
+    settle(&mut rt);
+    assert!(rt.state.quit_guard.open, "quit without asking while a turn ran");
+    assert!(!rt.state.quit_guard.quit_requested);
+    assert_eq!(rt.state.quit_guard.message, "Codec is still working.");
+    on_quit(&mut rt.state, &mut Tx::default());
 }

@@ -18,23 +18,26 @@ pub(super) struct Panel {
     pub quit_requested: bool,
 }
 
+/// The turns running now, from the engine itself: a turn the door, Quick Ask or a routine started runs there too,
+/// and a teammate's busy mark can lag. Each is named by its owner, as Electron's question names them.
 fn live_runs_and_names(s: &State) -> (usize, Vec<String>) {
-    let mut names: Vec<String> = s
-        .teammates
-        .iter()
-        .filter(|t| t.busy)
-        .map(|t| t.name.clone())
-        .collect();
-    if names.is_empty() && s.flight.is_some() {
-        names.push(
-            s.teammates
-                .get(s.selected)
-                .map(|t| t.name.clone())
-                .unwrap_or_else(|| "A teammate".into()),
-        );
+    let running = locust_core::engine_api::api().running();
+    let mut names: Vec<String> = Vec::new();
+    for mission in &running {
+        let owner = s.data.as_ref().and_then(|store| locust_core::people::owner_of(store, mission));
+        let name = owner
+            .and_then(|id| s.teammates.iter().find(|t| t.id == id).map(|t| t.name.clone()))
+            .unwrap_or_else(|| "A teammate".into());
+        if !names.contains(&name) {
+            names.push(name);
+        }
     }
-    let count = names.len();
-    (count, names)
+    // A send still on its way has no turn in the engine yet.
+    if running.is_empty() && s.flight.is_some() {
+        names.push(s.teammates.get(s.selected).map(|t| t.name.clone()).unwrap_or_else(|| "A teammate".into()));
+        return (1, names);
+    }
+    (running.len(), names)
 }
 
 pub(super) fn request_close(s: &mut State, tx: &mut Tx) {
