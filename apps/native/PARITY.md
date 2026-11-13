@@ -41,7 +41,7 @@ Native status evidence: each cell names its module or round notes; the engine is
 | Copy reply and edit earlier message, optionally restoring files | `renderer/src/components/Thread.tsx`, `renderer/src/components/CopyButton.tsx`, `main/codex-mission.ts` | **partial** — reply Copy submits Markdown to the native clipboard; edit/restore and confirmed copy feedback remain | yes | no | yes |
 | Subagent/helper activity and transcript details | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **partial** — nested parent-ID calls, reports, type/counts and background/end states implemented; Electron helper row formatting and full group summaries remain | yes | no | no |
 | Peer handoff cards and exchange budget/stop controls | `renderer/src/components/PeerThread.tsx`, `renderer/src/components/ExchangeStrip.tsx`, `main/peer-exchange.ts` | **missing** | - | no | yes |
-| Decision options, handed-over files and suggested task cards | `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/Thread.tsx`, `shared/protocolTags.ts` | **missing** | - | no | yes |
+| Decision options, handed-over files and suggested task cards | `renderer/src/components/DecisionCard.tsx`, `renderer/src/components/NextSteps.tsx`, `renderer/src/components/Thread.tsx`, `shared/protocolTags.ts` | **partial** — `core/src/protocol_tags.rs` (one parser for the door and the window: ask, next and file blocks, code-quoted and torn tags, half-written tags never shown), `src/ui/decision_card.rs` (answered by press or number), `src/ui/next_steps.rs`, `src/ui/handed_files.rs` (reveal only); Electron's 11 tag and card tests carried over, three headless window tests; Start all and the files' copy and save-a-copy buttons remain (notes/CARDS-NOTES.md) | yes | no | yes |
 | Reasoning duration and folded traces | `renderer/src/components/ActivityCard.tsx`, `renderer/src/missionView.ts` | **done** — normalized public messages only, scrubbed/bounded, timed and folded; raw/legacy reasoning excluded; synthetic tests and headless scenes | yes | no | no |
 | Context breakdown/compact now and per-reply usage/cost | `renderer/src/components/ContextRing.tsx`, `renderer/src/components/Inspector.tsx`, `renderer/src/compactNow.ts`, `renderer/src/cost.ts` | **partial** — runtime-measured context pie and exact reading; compaction diagnostic line and invalidation; category menu, Compact now execution and cost remain | yes | no | yes |
 | Save Markdown record and raw JSON | `renderer/src/components/SaveRecordDialog.tsx`, `main/mission-export.ts` | **done** — `core/src/mission_export.rs` (record, raw JSON, chain walk, ledger recovery; 41 Electron tests incl. the golden byte for byte) and `src/ui/save_record.rs` (the dialog in Electron's words, in each conversation's … menu and ⌘K); headless window tests for save and cancel; `.jsonl.gz` archives not read yet (notes/EXPORT-NOTES.md, notes/SAVE-RECORD-NOTES.md) | yes | no | yes |
@@ -278,7 +278,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 
 | # | Area | Done | Partial | Missing | Total | Alone | Live |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | Conversations & Thread Rendering | 11 | 8 | 6 | 25 | 19 | 3 |
+| 1 | Conversations & Thread Rendering | 11 | 9 | 5 | 25 | 20 | 3 |
 | 2 | Composer & Input | 10 | 2 | 2 | 14 | 12 | 2 |
 | 3 | Teammates, Rooms, Memory & Skills | 2 | 4 | 8 | 14 | 6 | 0 |
 | 4 | Runtimes, Routing & Fallback | 3 | 5 | 3 | 11 | 8 | 5 |
@@ -293,7 +293,7 @@ Computed from Section 1 only; removed claims, engine inventory and native-only u
 | 13 | Onboarding, Home, Updates & CLI | 5 | 4 | 4 | 13 | 9 | 2 |
 | 14 | Pets, Bots & Look / Window Chrome | 1 | 1 | 4 | 6 | 2 | 1 |
 | 15 | Documents, Diagrams & File Viewer | 1 | 5 | 1 | 7 | 6 | 0 |
-| | **TOTAL** | **41** | **46** | **66** | **153** | **87** | **15** |
+| | **TOTAL** | **41** | **47** | **65** | **153** | **88** | **15** |
 
 Source-size context: physical lines including blanks/comments; TypeScript excludes test/spec/declaration files. Rust production lines stop before each trailing cfg(test) module. Files serve multiple areas, so the draft's exact per-area allocations and additive engine counts have been withdrawn.
 
