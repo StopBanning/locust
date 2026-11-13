@@ -2595,6 +2595,16 @@ fn main() {
         locust_core::door::bridge_main(std::path::Path::new(&connection));
         std::process::exit(0);
     }
+    // An editor's Agent Client Protocol connection (acp.ts): `--acp [teammate]` talks to a teammate through the door
+    // of the Locust window that is open on this computer.
+    if std::env::args().nth(1).as_deref() == Some("--acp") {
+        let Some(connection) = locust_core::door::Door::native_connection() else {
+            eprintln!("Locust's data folder could not be found, so no editor can reach its teammates.");
+            std::process::exit(1);
+        };
+        locust_core::acp_agent::acp_main(&connection, std::env::args().nth(2));
+        std::process::exit(0);
+    }
     // First, before any thread: the PATH a terminal has, or an app opened from Finder finds no agent (shell_path.rs).
     shell_path::adopt_terminal_path();
     // The model list this computer's agents give, as JSON: a scripted check of what the picker and the door offer.
