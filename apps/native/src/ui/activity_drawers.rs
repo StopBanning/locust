@@ -516,3 +516,75 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     }
     group
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_tool(id: &str, name: &str, summary: &str, running: bool) -> ledger::Item {
+        ledger::Item::Tool {
+            name: name.into(),
+            summary: summary.into(),
+            detail: Box::new(ledger::ToolDetail {
+                id: id.into(),
+                parent: String::new(),
+                arguments: String::new(),
+                output: String::new(),
+                output_reported: false,
+                runtime_status: String::new(),
+                duration_ms: None,
+                exit_code: if running { None } else { Some(0) },
+                helper: false,
+                helper_type: String::new(),
+                background: false,
+                finished: !running,
+                progress: String::new(),
+                background_ended: String::new(),
+                children: Vec::new(),
+            }),
+            status: if running {
+                ledger::Status::Running
+            } else {
+                ledger::Status::Done
+            },
+        }
+    }
+
+    fn group_text(items: &[ledger::Item], s: &mut State) -> String {
+        let taken = std::mem::take(s);
+        let mut rt = rune::Runtime::new(
+            (taken, items.to_vec()),
+            |(s, items), _| activity_group(items, &Palette::new(true), s, "conv"),
+            (600.0, 400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let out = rt
+            .elements()
+            .into_iter()
+            .filter_map(|e| e.text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        *s = rt.state.0;
+        out
+    }
+
+    // Ported from renderer/src/the-newest-group-stays-folded.test.tsx & a-growing-group-shows-its-rows.test.tsx
+    #[test]
+    fn activity_group_stays_folded_until_opened_and_then_shows_every_row() {
+        let items = vec![
+            sample_tool("t1", "read_file", "Read Cargo.toml", false),
+            sample_tool("t2", "exec_command", "cargo test", true),
+        ];
+        let mut s = State::default();
+        let folded_text = group_text(&items, &mut s);
+        assert!(folded_text.contains("Ran 1 command, 1 other tool call"));
+        assert!(!folded_text.contains("Read Cargo.toml"));
+        assert!(!folded_text.contains("cargo test"));
+
+        s.activity_open.insert("conv/group/t1".into(), true);
+        let open_text = group_text(&items, &mut s);
+        assert!(open_text.contains("Read Cargo.toml"));
+        assert!(open_text.contains("cargo test"));
+    }
+}

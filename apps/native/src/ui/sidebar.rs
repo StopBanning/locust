@@ -439,19 +439,37 @@ pub(super) fn apply_org_action(s: &mut State, mission_id: &str, action: &str) {
             mission_id,
             Some(Some(action[7..].into())),
         ),
-        action if action.starts_with("group:") => org::assign_conversation(
-            &store,
-            &mut s.org,
-            mission_id,
-            &row.as_ref()
+        action if action.starts_with("group:") => {
+            let gid = (action.len() > 6).then_some(&action[6..]);
+            let keys = row
+                .as_ref()
                 .map(conversation_keys)
-                .unwrap_or_else(|| vec![mission_id.into()]),
-            if action.len() == 6 {
-                None
-            } else {
-                Some(&action[6..])
-            },
-        ),
+                .unwrap_or_else(|| vec![mission_id.into()]);
+            let res = org::assign_conversation(&store, &mut s.org, mission_id, &keys, gid);
+            if res.is_ok()
+                && let Some(gid) = gid
+                && let Some(route) = s
+                    .org
+                    .groups
+                    .iter()
+                    .find(|g| g.group_id == gid)
+                    .and_then(|g| g.route.as_ref())
+                    .cloned()
+            {
+                let shown = selected_conversation(s)
+                    .and_then(|(_, c)| c.conversation_id.as_deref())
+                    .or_else(|| {
+                        s.ledger
+                            .as_ref()
+                            .filter(|pane| !pane.snapshot.tip.is_empty())
+                            .map(|pane| pane.snapshot.tip.as_str())
+                    });
+                if shown.is_none_or(|id| keys.iter().any(|k| k == id)) {
+                    crate::group_settings_dialog::seed_route_from_group(s, &route);
+                }
+            }
+            res
+        }
         _ => Ok(()),
     };
     if let Err(words) = result {
@@ -861,15 +879,216 @@ pub(super) fn sidebar(s: &State, p: &Palette) -> El {
         // Project groups
         if groups_shown {
             for group in &s.org.groups {
-                recent = recent.child(section_label(p, &group.name));
+                let gid = group.group_id.clone();
+                let gname = group.name.clone();
+                let rename_key = format!("@rename-group:{gid}");
+                let renaming_here = s.rename_id.as_deref() == Some(rename_key.as_str());
+                let folded = s.folded_groups.contains(&gid);
+                if renaming_here {
+                    let save_gid = gid.clone();
+                    recent = recent.child(
+                        col()
+                            .w_full()
+                            .px(10.0)
+                            .pt(12.0)
+                            .pb(4.0)
+                            .gap(6.0)
+                            .child(
+                                text_input(&s.rename_draft, type_::BODY)
+                                    .key(format!("group-rename-input-{gid}"))
+                                    .w_full()
+                                    .single_line()
+                                    .color(p.text)
+                                    .placeholder("Project name", p.muted)
+                                    .padding(6.0)
+                                    .fill(p.field)
+                                    .on_edit(|s: &mut State| &mut s.rename_draft),
+                            )
+                            .child(
+                                row()
+                                    .gap(8.0)
+                                    .child(
+                                        text("Save")
+                                            .key(format!("group-rename-save-{gid}"))
+                                            .font(type_::LABEL)
+                                            .color(p.secondary)
+                                            .on_press(move |s: &mut State| {
+                                                if let Some(store) = s.data.clone() {
+                                                    let title = s.rename_draft.text.clone();
+                                                    if !title.trim().is_empty()
+                                                        && let Err(words) = org::rename_group(
+                                                            &store,
+                                                            &mut s.org,
+                                                            &save_gid,
+                                                            &title,
+                                                        )
+                                                    {
+                                                        s.status = words;
+                                                        s.status_tone = StatusTone::Amber;
+                                                    }
+                                                }
+                                                s.rename_id = None;
+                                                s.rename_draft.clear();
+                                            }),
+                                    )
+                                    .child(
+                                        text("Cancel")
+                                            .font(type_::LABEL)
+                                            .color(p.muted)
+                                            .on_press(|s: &mut State| {
+                                                s.rename_id = None;
+                                                s.rename_draft.clear();
+                                            }),
+                                    ),
+                            ),
+                    );
+                } else {
+                    let fold_gid = gid.clone();
+                    let menu_gid = gid.clone();
+                    let chevron = if folded {
+                        &crate::look::icons::CHEVRON_RIGHT
+                    } else {
+                        &crate::look::icons::CHEVRON_DOWN
+                    };
+                    recent = recent.child(
+                        row()
+                            .w_full()
+                            .center_y()
+                            .px(10.0)
+                            .pt(14.0)
+                            .pb(4.0)
+                            .gap(6.0)
+                            .child(
+                                row()
+                                    .key(format!("group-head-{gid}"))
+                                    .grow(1.0)
+                                    .center_y()
+                                    .gap(6.0)
+                                    .role("button")
+                                    .on_press(move |s: &mut State| {
+                                        if !s.folded_groups.remove(&fold_gid) {
+                                            s.folded_groups.insert(fold_gid.clone());
+                                        }
+                                    })
+                                    .child(crate::look::controls::glyph(
+                                        &l,
+                                        chevron,
+                                        11.0,
+                                        Some(l.c("text-muted")),
+                                    ))
+                                    .child(crate::look::controls::label(&l, &gname).grow(1.0)),
+                            )
+                            .child(
+                                text("…")
+                                    .key(format!("group-menu-{gid}"))
+                                    .font(type_::LABEL)
+                                    .color(p.muted)
+                                    .px(6.0)
+                                    .py(2.0)
+                                    .radius(4.0)
+                                    .hover(l.c("hover-surface"))
+                                    .role("button")
+                                    .on_press(move |s: &mut State| {
+                                        s.group_remove_confirm = false;
+                                        s.group_menu_id =
+                                            if s.group_menu_id.as_deref() == Some(menu_gid.as_str())
+                                            {
+                                                None
+                                            } else {
+                                                Some(menu_gid.clone())
+                                            };
+                                    }),
+                            ),
+                    );
+                }
+                if s.group_menu_id.as_deref() == Some(gid.as_str()) {
+                    let settings_gid = gid.clone();
+                    let ren_gid = gid.clone();
+                    let ren_name = gname.clone();
+                    let rem_gid = gid.clone();
+                    let remove_label = if s.group_remove_confirm {
+                        "Remove for good?"
+                    } else {
+                        "Remove project"
+                    };
+                    recent = recent.child(
+                        col()
+                            .key(format!("group-menu-panel-{gid}"))
+                            .w_full()
+                            .mx(10.0)
+                            .padding(8.0)
+                            .gap(6.0)
+                            .radius(8.0)
+                            .fill(p.raised)
+                            .border(1.0, p.hairline)
+                            .child(
+                                text("Project settings…")
+                                    .key(format!("group-settings-{gid}"))
+                                    .font(type_::LABEL)
+                                    .color(p.secondary)
+                                    .on_press(move |s: &mut State| {
+                                        s.group_menu_id = None;
+                                        s.group_remove_confirm = false;
+                                        crate::group_settings_dialog::open(s, &settings_gid);
+                                    }),
+                            )
+                            .child(
+                                text("Rename")
+                                    .key(format!("group-rename-{gid}"))
+                                    .font(type_::LABEL)
+                                    .color(p.secondary)
+                                    .on_press(move |s: &mut State| {
+                                        s.group_menu_id = None;
+                                        s.group_remove_confirm = false;
+                                        s.rename_id = Some(format!("@rename-group:{ren_gid}"));
+                                        s.rename_draft.replace_text(&ren_name);
+                                        s.rename_draft.focused = true;
+                                    }),
+                            )
+                            .child(
+                                text(remove_label)
+                                    .key(format!("group-remove-{gid}"))
+                                    .font(type_::LABEL)
+                                    .color(p.red)
+                                    .on_press(move |s: &mut State| {
+                                        if !s.group_remove_confirm {
+                                            s.group_remove_confirm = true;
+                                            return;
+                                        }
+                                        if let Some(store) = s.data.clone()
+                                            && let Err(words) =
+                                                org::remove_group(&store, &mut s.org, &rem_gid)
+                                        {
+                                            s.status = words;
+                                            s.status_tone = StatusTone::Amber;
+                                        }
+                                        s.group_menu_id = None;
+                                        s.group_remove_confirm = false;
+                                    }),
+                            ),
+                    );
+                }
                 let in_group: Vec<SidebarMission> = recent_rows
                     .iter()
                     .filter(|m| {
-                        held_for(m, &s.org.members).is_some_and(|gid| gid == &group.group_id)
+                        held_for(m, &s.org.members).is_some_and(|mem| mem.group_id == group.group_id)
                     })
                     .cloned()
                     .collect();
-                recent = append_rows(recent, &in_group);
+                if !folded {
+                    if in_group.is_empty() {
+                        recent = recent.child(
+                            text("Nothing in here yet.")
+                                .font(type_::LABEL)
+                                .color(p.muted)
+                                .w_full()
+                                .px(14.0)
+                                .py(4.0),
+                        );
+                    } else {
+                        recent = append_rows(recent, &in_group);
+                    }
+                }
             }
         }
         let rest = if groups_shown {
@@ -1119,7 +1338,13 @@ mod review_tests {
     fn real_sidebar_rows_collapse_turns_keep_names_groups_and_search_every_prompt() {
         let mut s = chain();
         s.org.titles.insert("signup".into(), "Chosen name".into());
-        s.org.members.insert("root".into(), "project".into());
+        s.org.members.insert(
+            "root".into(),
+            org::GroupMembership {
+                group_id: "project".into(),
+                at: None,
+            },
+        );
         let rows = recent_as_missions(&s);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].mission_id, "ship");
@@ -1127,7 +1352,7 @@ mod review_tests {
         assert_eq!(rows[0].member_ids, ["root", "signup", "ship"]);
         assert_eq!(rows[0].title, "Chosen name");
         assert_eq!(
-            held_for(&rows[0], &s.org.members).map(String::as_str),
+            held_for(&rows[0], &s.org.members).map(|m| m.group_id.as_str()),
             Some("project")
         );
         s.sidebar_query.replace_text("signup");
@@ -1250,5 +1475,145 @@ mod review_tests {
         assert_eq!(orig.nested_under, None);
         assert_eq!(rel.nested_under.as_deref(), Some("origin"));
         assert_eq!(lone.nested_under, None);
+    }
+
+    // Ported from renderer/src/groups-unreadable-is-a-line.test.tsx (4 it cases)
+    fn sidebar_text(s: &mut State) -> String {
+        let taken = std::mem::take(s);
+        let mut rt = rune::Runtime::new(
+            taken,
+            |s, _| sidebar(s, &Palette::new(true)),
+            (280.0, 800.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let out = rt
+            .elements()
+            .into_iter()
+            .filter_map(|e| e.text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        *s = rt.state;
+        out
+    }
+
+    #[test]
+    fn groups_unreadable_shows_warning_hides_groups_and_recovers_on_reload() {
+        let temp = std::env::temp_dir().join(format!("locust-sb-unreadable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp);
+        let electron = temp.join("electron");
+        let native = temp.join("native");
+        std::fs::create_dir_all(&electron).unwrap();
+        std::fs::create_dir_all(&native).unwrap();
+        let store = crate::store::Store::new(native, electron).unwrap();
+        let gpath = store.groups_json_path().unwrap();
+        std::fs::write(&gpath, "{broken").unwrap();
+
+        let mut s = State::default();
+        s.org = org::load_org(&store);
+        s.data = Some(store.clone());
+        s.recent.push(ConversationRow {
+            id: "m_1".into(),
+            title: "First chat".into(),
+            teammate: "Codec".into(),
+            started_by: "native".into(),
+            state: "completed".into(),
+            updated: "2026-10-01T10:00:00Z".into(),
+        });
+        assert!(s.org.groups_unreadable);
+
+        let text = sidebar_text(&mut s);
+        assert!(text.contains("Groups could not be read — everything is listed ungrouped."));
+        assert!(text.contains("Nothing is saved over the file until it reads again."));
+        assert!(text.contains("First chat"));
+
+        // Writes are refused and broken file stays untouched
+        assert!(org::create_group(&store, &mut s.org, "Recovered").is_err());
+        assert_eq!(std::fs::read_to_string(&gpath).unwrap(), "{broken");
+
+        // Recovering once file is valid clears the line
+        std::fs::write(
+            &gpath,
+            serde_json::json!({
+                "schemaVersion": 1,
+                "groups": [{"groupId": "grp_ok", "name": "Recovered", "createdAt": "2026-10-01T10:00:00Z"}],
+                "members": {"m_1": {"groupId": "grp_ok", "at": "2026-10-01T10:00:00Z"}}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        s.org = org::load_org(&store);
+        assert!(!s.org.groups_unreadable);
+        let recovered_text = sidebar_text(&mut s);
+        assert!(!recovered_text.contains("Groups could not be read"));
+        assert!(recovered_text.to_lowercase().contains("recovered"));
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn sidebar_folds_project_groups_and_seeds_composer_route_on_assign() {
+        let temp = std::env::temp_dir().join(format!("locust-sb-fold-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp);
+        let electron = temp.join("electron");
+        let native = temp.join("native");
+        std::fs::create_dir_all(&electron).unwrap();
+        std::fs::create_dir_all(&native).unwrap();
+        let store = crate::store::Store::new(native, electron).unwrap();
+
+        let mut s = State::default();
+        s.data = Some(store.clone());
+        s.teammates.push(Teammate {
+            id: "tm_codec".into(),
+            name: "Codec".into(),
+            role: "Custom".into(),
+            model: Some("gpt-5".into()),
+            runtime: Some("codex".into()),
+            folder: None,
+            runs_in: "ask".into(),
+            account: None,
+            busy: false,
+        });
+        s.conversations.insert(
+            "tm_codec".into(),
+            Conversation {
+                conversation_id: Some("m_active".into()),
+                turns: Vec::new(),
+            },
+        );
+        s.recent.push(ConversationRow {
+            id: "m_active".into(),
+            title: "Build groups".into(),
+            teammate: "Codec".into(),
+            started_by: "native".into(),
+            state: "completed".into(),
+            updated: "2026-10-01T10:00:00Z".into(),
+        });
+
+        let gid = org::create_group(&store, &mut s.org, "Locust").unwrap();
+        org::set_group_route(
+            &store,
+            &mut s.org,
+            &gid,
+            Some(org::GroupRoute {
+                runtime: "claude".into(),
+                model: "claude-sonnet".into(),
+                mode: "plan".into(),
+                account: None,
+                effort: None,
+            }),
+        )
+        .unwrap();
+
+        apply_org_action(&mut s, "m_active", &format!("group:{gid}"));
+        assert_eq!(s.picks.get("tm_codec").unwrap().model, "claude-sonnet");
+        assert_eq!(s.composer_mode.as_deref(), Some("plan"));
+
+        let open_text = sidebar_text(&mut s);
+        assert!(open_text.contains("Build groups"));
+
+        s.folded_groups.insert(gid.clone());
+        let folded_text = sidebar_text(&mut s);
+        assert!(!folded_text.contains("Build groups"));
+        let _ = std::fs::remove_dir_all(&temp);
     }
 }

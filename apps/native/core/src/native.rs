@@ -2025,12 +2025,17 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             Some(earlier) => crate::carry_on::compose_cold_follow_up(earlier, &job.prompt, true),
             None => job.prompt.clone(),
         };
-        let (brief, quoted) = crate::people::turn_brief_with_room(
+        // A conversation's group briefs every turn after the folder's own and before the teammate's.
+        let group_brief = crate::groups::group_brief_for_tip(&store, previous.as_deref());
+        let (brief, quoted) = crate::people::turn_brief_with_group_and_room(
             &store,
             &job.teammate.id,
             &folder,
             &words,
             slot_inst,
+            group_brief
+                .as_ref()
+                .map(|g| (g.group_name.as_str(), g.instructions.as_str())),
             Some(runtime_name),
             &waiting,
             remaining,

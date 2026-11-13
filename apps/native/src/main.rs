@@ -66,6 +66,8 @@ mod own_copies;
 mod import_dialog;
 #[path = "ui/feedback_dialog.rs"]
 mod feedback_dialog;
+#[path = "ui/group_settings_dialog.rs"]
+mod group_settings_dialog;
 #[path = "ui/quit_guard_dialog.rs"]
 mod quit_guard_dialog;
 mod keyboard_shortcuts;
@@ -1532,6 +1534,10 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
             crate::feedback_dialog::close(s);
             return true;
         }
+        if s.group_settings.open {
+            crate::group_settings_dialog::close(s);
+            return true;
+        }
         if s.import_dialog.open {
             crate::import_dialog::close(s);
             return true;
@@ -1553,6 +1559,11 @@ fn on_key(s: &mut State, event: &KeyEvent, tx: &mut Tx) -> bool {
         }
         if s.org_menu_id.is_some() {
             s.org_menu_id = None;
+            return true;
+        }
+        if s.group_menu_id.is_some() {
+            s.group_menu_id = None;
+            s.group_remove_confirm = false;
             return true;
         }
         if s.rename_id.is_some() {
@@ -2519,6 +2530,19 @@ fn view(s: &State, cx: &mut Cx<State>) -> El {
                 .child(
                     feedback_dialog::view(s, &p)
                         .modal(true, crate::feedback_dialog::close),
+                ),
+        );
+    }
+    if s.group_settings.open {
+        app = app.child(
+            el().absolute(0.0, 0.0)
+                .w_full()
+                .h_full()
+                .fill(Color::BLACK.alpha(0.55))
+                .center()
+                .child(
+                    group_settings_dialog::view(s, &p)
+                        .modal(true, crate::group_settings_dialog::close),
                 ),
         );
     }

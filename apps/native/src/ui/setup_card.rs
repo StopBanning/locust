@@ -5,8 +5,9 @@
 //! one press away.
 
 use super::*;
+use locust_core::store::Store;
 use locust_core::teammate_setup::{
-    TeammateSetup, read_teammate_setup, setup_sections,
+    TeammateSetup, read_teammate_setup_with_group, setup_sections,
 };
 use serde_json::Value;
 
@@ -73,6 +74,38 @@ fn last_turn_events(s: &State, teammate_id: &str) -> Vec<Value> {
         .collect()
 }
 
+fn active_group_brief(s: &State, store: &Store, teammate_id: &str) -> Option<(String, String)> {
+    let listed = locust_core::groups::load_groups(store).ok()?;
+    let tip = s
+        .ledger
+        .as_ref()
+        .filter(|_| s.teammates.get(s.selected).is_some_and(|t| t.id == teammate_id))
+        .and_then(|pane| {
+            (!pane.snapshot.tip.is_empty())
+                .then_some(pane.snapshot.tip.as_str())
+                .or(pane.conversation.conversation_id.as_deref())
+        })
+        .or_else(|| {
+            s.conversations
+                .get(teammate_id)
+                .and_then(|c| c.conversation_id.as_deref())
+        });
+    let mut keys = locust_core::groups::keys_before(store, tip);
+    if let Some(tip_id) = tip
+        && let Some(row) = crate::sidebar::recent_as_missions(s)
+            .into_iter()
+            .find(|m| conversation_list::conversation_keys(m).iter().any(|k| k == tip_id))
+    {
+        for k in conversation_list::conversation_keys(&row) {
+            if !keys.contains(&k) {
+                keys.push(k);
+            }
+        }
+    }
+    locust_core::groups::group_brief_for(&keys, &listed)
+        .map(|g| (g.group_name, g.instructions))
+}
+
 pub(super) fn open_for_teammate(s: &mut State, teammate_id: &str) {
     let Some(mate) = s.teammates.iter().find(|t| t.id == teammate_id) else {
         s.composer_note = Some("Open a teammate’s conversation to see its setup.".into());
@@ -95,9 +128,10 @@ pub(super) fn open_for_teammate(s: &mut State, teammate_id: &str) {
         .ok_or_else(|| "This teammate’s setup could not be read. Nothing was changed.".to_owned())
         .and_then(|store| {
             let events = last_turn_events(s, teammate_id);
-            read_teammate_setup(
+            let group = active_group_brief(s, store, teammate_id);
+            read_teammate_setup_with_group(
                 store,
-                None,
+                group,
                 &home_dir(),
                 &project_dir(s),
                 teammate_id,
