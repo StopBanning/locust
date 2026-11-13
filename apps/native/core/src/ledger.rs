@@ -1213,6 +1213,11 @@ fn head(path: &Path) -> io::Result<Vec<Record>> {
     head_with_offset(path).map(|(records, _, _)| records)
 }
 
+/// Read just the mission's creation metadata from the ledger head without scanning all events.
+pub fn read_metadata(path: &Path) -> Option<Metadata> {
+    head(path).ok()?.iter().find_map(metadata)
+}
+
 // Fix 4: start reading tail bytes after `after` so a file already read in full by head() is never re-read.
 fn end_after(path: &Path, after: u64, mut lines: Lines) -> io::Result<Vec<Record>> {
     let mut file = OpenOptions::new().read(true).open(path)?;
@@ -1282,7 +1287,7 @@ pub fn try_list_recent(dir: &Path, limit: usize) -> io::Result<Vec<Summary>> {
         let Some(m) = records.iter().find_map(metadata) else {
             continue;
         };
-        if m.side {
+        if m.side || m.started_by_kind.as_deref() == Some("scout") {
             continue;
         }
         // Fix 4: at most HEAD + TAIL bytes; skip end_after entirely when head_with_offset already read the whole file.

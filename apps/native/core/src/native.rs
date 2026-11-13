@@ -2442,7 +2442,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                     && !transcript.items.iter().any(
                         |item| matches!(item, ledger::Item::Note { text, .. } if text == "Stopped"),
                     );
-                if completed && !is_side {
+                if completed && !is_side && !sealed {
                     let reply = transcript
                         .items
                         .iter()
@@ -2568,6 +2568,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 });
                 crate::rooms::on_run_ended(&memory_store, &memory_id);
             }
+            crate::scout::host::on_run_ended(&memory_store, &memory_id);
             if person_sent {
                 carry_on_without_asking(&memory_store, &memory_id);
             }
@@ -2845,6 +2846,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -2867,6 +2869,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -2889,6 +2892,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -2915,6 +2919,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -2941,6 +2946,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -2967,6 +2973,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -2993,6 +3000,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -3034,6 +3042,7 @@ fn run_turn(
             &mut registered,
             &channel,
             &mission_id,
+            &store,
         );
         return;
     }
@@ -3066,6 +3075,7 @@ fn run_turn(
         &mut registered,
         &channel,
         &mission_id,
+        &store,
     );
 }
 
@@ -3076,6 +3086,7 @@ fn drive_runtime(
     registered: &mut Option<Registered>,
     channel: &Channel,
     mission_id: &str,
+    store: &Store,
 ) {
     if runtime.can_steer() {
         crate::invariants::lock(&STEER_CAPABLE)
@@ -3114,6 +3125,9 @@ fn drive_runtime(
         }
         match event {
             Ok(Some(event)) => {
+                if event.kind == "adapter.diagnostic" {
+                    crate::scout::host::on_diagnostic(store, mission_id, &event.payload);
+                }
                 let done = terminal(&event.kind);
                 if writer
                     .append(&event.kind, event.payload, event.thread.as_deref())

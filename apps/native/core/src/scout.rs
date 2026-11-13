@@ -5,6 +5,7 @@
 
 pub mod folder;
 pub mod github;
+pub mod host;
 pub mod log;
 pub mod scheduler;
 pub mod store;
@@ -14,6 +15,10 @@ pub mod types;
 mod unit_tests;
 #[cfg(test)]
 mod runner_tests;
+#[cfg(test)]
+mod brief_tests;
+#[cfg(test)]
+mod host_tests;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
