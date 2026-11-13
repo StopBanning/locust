@@ -30,6 +30,11 @@ pub(super) fn use_service(service: RemoteControl) {
 
 /// Locust is quitting: the server ends with it, waited for.
 pub(super) fn dispose() {
+    // Window tests share one process and quit their own windows; a stand-in one test installed is not another
+    // test's to end. Quitting is the core's to test (remote_control_tests).
+    if cfg!(test) {
+        return;
+    }
     let held = SERVICE.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if let Some(service) = held {
         service.dispose();
