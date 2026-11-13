@@ -107,6 +107,9 @@ fn origin_json(o: &Origin) -> Value {
             })).collect::<Vec<_>>(),
         });
     }
+    if let Some(rewind) = &o.rewind {
+        obj["rewind"] = json!({"tip": rewind.tip, "before": rewind.before, "setAside": rewind.set_aside});
+    }
     obj
 }
 
@@ -164,6 +167,11 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         .as_array()
         .map(|arr| arr.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect())
         .unwrap_or_default();
+    let rewind = v.get("rewind").filter(|r| r.is_object()).map(|r| crate::native::Rewind {
+        tip: r["tip"].as_str().unwrap_or_default().to_owned(),
+        before: r["before"].as_str().map(str::to_owned),
+        set_aside: r["setAside"].as_array().map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect()).unwrap_or_default(),
+    });
     Ok(Origin {
         mode,
         folder: text(v, "folder").map(PathBuf::from),
@@ -178,6 +186,7 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         relay: v.get("relay").cloned().filter(|r| !r.is_null()),
         left_out_by_you,
         room_history: v.get("roomHistory").and_then(room_history_from),
+        rewind,
     })
 }
 

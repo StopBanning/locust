@@ -20,6 +20,7 @@ pub mod agent_accounts;
 pub mod agent_install;
 pub mod teammate_keys;
 pub mod undone_note;
+pub mod edit_earlier;
 pub mod agent_updates;
 pub mod published_links;
 pub mod workroom;

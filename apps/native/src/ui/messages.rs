@@ -159,9 +159,17 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                         messages = messages.child(div.key(format!("{key}-handoff")));
                     }
                 }
+                // An edit this turn began, or one that touched it, says so above it (0.498).
+                if let Some(pane) = s.ledger.as_ref()
+                    && let Some(meta) = pane.snapshot.turn_metas.iter().filter(|m| m.check_fix.is_none()).nth(ui)
+                    && let Some(note) = crate::edit_message::note_above(s, meta, p)
+                {
+                    messages = messages.child(note);
+                }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
+                let edit = crate::edit_message::edit_control(s, ui, &own_words, !sent_notes.is_empty(), p);
                 let mut bubble = text(own_words)
                     .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
                     .color(p.text)
@@ -184,6 +192,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                             tx.live_only();
                         }
                     })
+                    .children(edit)
                     .child(row().w_frac(0.7).justify_end().child(bubble));
                 let bubble_row = if sent_notes.is_empty() {
                     bubble_row

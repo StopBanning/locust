@@ -1288,6 +1288,18 @@ pub struct SlotOrigin {
     pub sealed: bool,
 }
 
+/// Started again from an edited earlier message (0.498): the new turn continues the turn BEFORE the edited one, cold (its
+/// session also holds every turn after it, which are being set aside), and says it is an edit in its `continuesFrom`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Rewind {
+    /// The conversation's newest turn, which the new branch replaces as the current one. It must not be running.
+    pub tip: String,
+    /// The turn before the edited one; None when the first message was edited, which starts a new conversation.
+    pub before: Option<String>,
+    /// The turns the edit sets aside (0.512): what they sent and nobody read is never delivered.
+    pub set_aside: Vec<String>,
+}
+
 /// What started a turn, when it was not the person in the window: another app through the door. A mode and folder it
 /// named (already checked), and the `startedBy` the ledger records.
 #[derive(Default, Clone)]
@@ -1311,6 +1323,8 @@ pub struct Origin {
     pub left_out_by_you: Vec<String>,
     /// Earlier posts and finished answers in a room, for a turn posted to a room.
     pub room_history: Option<crate::room_history::RoomHistory>,
+    /// The turn is an edited earlier message, started again from the turn before it.
+    pub rewind: Option<Rewind>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1805,6 +1819,12 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     } else if !is_side && job.conversation.as_deref().is_some_and(owns) {
         return Err("A turn is already running in this conversation.".into());
     }
+    // An edit replaces the conversation's newest turn: that one must not be running either.
+    if let Some(rewind) = &origin.rewind
+        && owns(&rewind.tip)
+    {
+        return Err("A turn is still running in that conversation. Wait for it or stop it first.".into());
+    }
     // And no more than eight at once (checked again where the turn registers, so two sends cannot both slip in).
     if with_running(|m| live_turns(m)) >= MAX_LIVE_TURNS {
         return Err(too_many_live());
@@ -1833,10 +1853,24 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     // brief of what was done starts the new agent/account cold, with the reply as the latest word.
     let mut switched: Option<RouteSwitch> = None;
     let mut side_prompt: Option<String> = None;
+    // An edit started again from the turn before it: what was said up to there (told to a cold start), and the link.
+    let mut rewound: Option<Vec<crate::carry_on::EarlierTurn>> = None;
+    let mut rewind_link: Option<Value> = None;
     let (continues, resume) = if let Some(side) = &side_req {
         let prepared = crate::side_question::prepare(&side.of, runtime_name, mode, &job.prompt)?;
         side_prompt = Some(prepared.runtime_prompt);
         (None, Some(prepared.resume_thread))
+    } else if let Some(rewind) = &origin.rewind {
+        // Cold, on whichever agent is chosen: resuming the session of the turn before would hand the model the very
+        // turns being set aside. The first message edited has nothing before it: a new conversation.
+        if let Some(before) = rewind.before.as_deref() {
+            if owns(before) || turn_records(before).is_none() {
+                return Err("That conversation cannot be continued: its earlier mission is not in the ledger.".into());
+            }
+            rewound = Some(turns_through(before));
+            rewind_link = Some(json!({"missionId": before, "checkpointEpoch": 1, "reason": "follow-up", "edited": true}));
+        }
+        (None, None)
     } else {
         match job.conversation.as_deref() {
         None => (None, None),
@@ -1951,7 +1985,11 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     // to the agents that take a folder.
     let folder_text = folder.to_string_lossy().into_owned();
     // The conversation it continues: the prior turn, or (for a switch) the turn it was briefed from.
-    let previous: Option<String> = continues.as_ref().map(|c| c.mission_id.clone()).or_else(|| switched.as_ref().and_then(|s| s.link["missionId"].as_str().map(str::to_owned)));
+    let previous: Option<String> = continues
+        .as_ref()
+        .map(|c| c.mission_id.clone())
+        .or_else(|| switched.as_ref().and_then(|s| s.link["missionId"].as_str().map(str::to_owned)))
+        .or_else(|| rewind_link.as_ref().and_then(|l| l["missionId"].as_str().map(str::to_owned)));
     let attached = crate::references::select(&store, previous.as_deref(), origin.reference_ids.as_deref())?;
     let shared: Vec<String> = attached
         .iter()
@@ -1982,11 +2020,16 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             .unread(&job.teammate.id, crate::briefing::MAX_INBOUND_MESSAGES, &origin.include_messages)
             .map(|u| (u.messages, u.remaining))
             .unwrap_or_default();
+        // An edit tells the cold start what was said before the point it went back to.
+        let words = match &rewound {
+            Some(earlier) => crate::carry_on::compose_cold_follow_up(earlier, &job.prompt, true),
+            None => job.prompt.clone(),
+        };
         let (brief, quoted) = crate::people::turn_brief_with_room(
             &store,
             &job.teammate.id,
             &folder,
-            &job.prompt,
+            &words,
             slot_inst,
             Some(runtime_name),
             &waiting,
@@ -2096,7 +2139,7 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
             .map_err(|e| format!("Locust's command guard could not be set up: {e}"))?;
         command.args(["--plugin-dir", &plugin]);
     }
-    let anchor = if is_side || is_slot {
+    let anchor = if is_side || is_slot || origin.rewind.is_some() {
         id.clone()
     } else {
         job.conversation.clone().unwrap_or_else(|| id.clone())
@@ -2220,6 +2263,9 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     if let Some(relay_val) = &origin.relay {
         extra["relay"] = relay_val.clone();
     }
+    if let Some(link) = &rewind_link {
+        extra["continuesFrom"] = link.clone();
+    }
     if let Some(switch) = &switched {
         extra["continuesFrom"] = switch.link.clone();
         // The stopped turn's checkpoint, written into its own ledger when that ledger is the native engine's;
@@ -2243,6 +2289,14 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     .map_err(|e| e.to_string())?;
     // Whatever the run says or does that holds a key's value has it taken out before it is written.
     writer.take_out(run_keys);
+    // An edit partway through sets turns aside: what they posted to a teammate and nobody read is never delivered
+    // (0.512). Editing the first message keeps the old conversation as it was, so nothing of it is retired.
+    if let Some(rewind) = origin.rewind.as_ref().filter(|r| r.before.is_some())
+        && let Err(error) = crate::edit_earlier::retire_set_aside_messages(&crate::workroom::Workroom::for_store(&store), &rewind.set_aside)
+    {
+        // Left waiting on a failure: a stale message delivered is recoverable, a workroom broken is not.
+        eprintln!("The messages the set-aside turns sent were not retired: {error}");
+    }
     for msg in &delivered {
         let _ = writer.write_peer_link("received", &msg.message_id, &msg.from.teammate_id, &msg.posted_at);
     }

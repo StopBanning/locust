@@ -114,6 +114,8 @@ mod messages;
 use messages::*;
 #[path = "ui/handoff_divider.rs"]
 mod handoff_divider;
+#[path = "ui/edit_message.rs"]
+mod edit_message;
 #[path = "ui/peer_thread.rs"]
 mod peer_thread;
 #[path = "ui/exchange_strip.rs"]
@@ -861,6 +863,15 @@ fn send(s: &mut State, _: &mut Tx) {
     let mode = s.composer_mode.as_deref().and_then(locust_core::approval::Mode::parse);
     let references = reference_chips::ids(s);
     let left_out_by_you = std::mem::take(&mut s.left_out_by_you);
+    // An earlier message being edited: the turn starts again from the one before it, after the files the person asked to
+    // have put back are (off the window's thread, in this same job).
+    let edit = edit_message::for_send(s);
+    let (rewind, put_back) = match edit {
+        Some(edit_message::ForSend { rewind, put_back }) => (Some(rewind), put_back),
+        None => (None, None),
+    };
+    let receipt = s.edit.receipt.clone();
+    *invariants::lock(&receipt) = None;
     s.sending.request(
         (teammate_id, conversation_id, message, pick, native_job),
         move |(id, conversation, message, pick, native_job)| {
@@ -871,6 +882,15 @@ fn send(s: &mut State, _: &mut Tx) {
             if let Some(teammate) = native_job {
                 let teammate = teammate
                     .ok_or_else(|| "That teammate is no longer in the team.".to_string())?;
+                // Files first, so the teammate starts on the folder as it was (0.502). All of them or none; a refusal
+                // is still an edit, and the note above the new turn says nothing was put back (0.512).
+                if let Some((folder, turns)) = &put_back {
+                    let store = native::store().ok_or("Native data folder could not be determined.")?;
+                    let answer = checkpoints::put_back(&store, folder, turns).map_err(|e| {
+                        format!("Not sent: the files could not be put back, so nothing was changed. Untick it to send the edit on its own. ({e})")
+                    })?;
+                    *invariants::lock(&receipt) = Some(edit_message::note_of(&answer));
+                }
                 return locust_core::engine_api::api().send(
                     native::Send {
                         teammate,
@@ -885,6 +905,7 @@ fn send(s: &mut State, _: &mut Tx) {
                         account,
                         mode,
                         left_out_by_you,
+                        rewind,
                         ..Default::default()
                     },
                 );
@@ -1863,6 +1884,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
     bench_opened(s);
     changed |= browser_panel::poll(s, tx);
     changed |= changes_panel::poll(s);
+    changed |= edit_message::poll(s);
     changed |= commit_panel::poll(s);
     changed |= pull_request_chip::poll(s, tx);
     changed |= terminal_panel::poll(s);
@@ -2036,6 +2058,7 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
             let after = s.flight.as_ref().and_then(|f| f.after_tip.clone());
             match result {
                 Ok(started) => {
+                    edit_message::sent(s, &started.conversation_id);
                     if let Some(from) = queue_key_now(s) {
                         s.queue_rows = composer::queue::requeued_rows(
                             &s.queue_rows,
