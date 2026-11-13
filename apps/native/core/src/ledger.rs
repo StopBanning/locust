@@ -28,6 +28,7 @@ pub struct Metadata {
     pub model: String,
     pub created_at: String,
     pub parent: Option<String>,
+    pub check_fix: Option<crate::edit_check::CheckFixStarter>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -84,6 +85,21 @@ pub enum Item {
     Note {
         level: String,
         text: String,
+    },
+    CheckFix {
+        command: String,
+        fix: u32,
+        of: u32,
+        prompt: String,
+    },
+    EditCheck {
+        mission_id: String,
+        command: String,
+        outcome: crate::edit_check::EditCheckOutcome,
+        new_lines: Vec<String>,
+        unchanged: bool,
+        first: bool,
+        fix: Option<u32>,
     },
 }
 
@@ -315,6 +331,9 @@ pub fn metadata(record: &Record) -> Option<Metadata> {
             .get("continuesFrom")
             .map(|v| string(v, "missionId"))
             .filter(|id| safe_id(id)),
+        check_fix: m
+            .get("startedBy")
+            .and_then(crate::edit_check::CheckFixStarter::from_json),
     })
 }
 
@@ -365,6 +384,21 @@ fn decode(line: &[u8]) -> Option<Record> {
                 payload.remove("reasoning_content");
                 payload.remove("item");
             }
+        }
+        "mission.edit_check" => {
+            if version < 17 {
+                return None;
+            }
+            let check = value.get("check")?;
+            let command = check.get("command")?.as_str()?;
+            if command.is_empty() || command.len() > 500 {
+                return None;
+            }
+            crate::edit_check::EditCheckOutcome::parse(check.get("outcome")?.as_str()?)?;
+            check.get("newLines")?.as_array()?;
+            check.get("unchanged")?.as_bool()?;
+            check.get("first")?.as_bool()?;
+            check.get("occurredAt")?.as_str()?;
         }
         _ => return None,
     }
@@ -530,6 +564,7 @@ pub struct Transcript {
     // Sequence keys make out-of-order batches and duplicate records replay correctly.
     events: BTreeMap<u64, Value>,
     checkpoints: Vec<Value>,
+    pub edit_check: Option<Value>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
 }
@@ -548,6 +583,8 @@ impl Transcript {
                 if self.checkpoints.len() > MAX_EVENTS {
                     self.checkpoints.remove(0);
                 }
+            } else if record["recordType"] == "mission.edit_check" {
+                self.edit_check = Some(record["check"].clone());
             } else if let Some(m) = metadata(&record) {
                 self.metadata = Some(m);
             } else if let Some(event) = record.get("event")
@@ -562,7 +599,16 @@ impl Transcript {
 
         let mut items = Vec::new();
         if let Some(m) = &self.metadata {
-            items.push(Item::User(scrub(&m.prompt)));
+            if let Some(cf) = &m.check_fix {
+                items.push(Item::CheckFix {
+                    command: cf.command.clone(),
+                    fix: cf.fix,
+                    of: cf.of,
+                    prompt: scrub(&m.prompt),
+                });
+            } else {
+                items.push(Item::User(scrub(&m.prompt)));
+            }
         }
         // Fix 8: store (item_index, utf16_units) so streaming deltas count UTF-16 units incrementally.
         let mut messages = HashMap::<String, (usize, usize)>::new();
@@ -779,14 +825,20 @@ impl Transcript {
                 }
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
-                    if string(p, "code").ends_with(".context_compacted") {
+                    let code = string(p, "code");
+                    if code.ends_with(".context_compacted") {
                         self.context = None;
                         items.push(Item::Note {
                             level: String::new(),
                             text: scrub(&string(p, "message")),
                         });
+                    } else if code == "host.check_fix" {
+                        items.push(Item::Note {
+                            level: if level == "info" { String::new() } else { level },
+                            text: scrub(&string(p, "message")),
+                        });
                     } else if (level == "warning" || level == "error")
-                        && (work_began || run_trouble(&string(p, "code")))
+                        && (work_began || run_trouble(&code))
                     {
                         items.push(Item::Note {
                             level,
@@ -941,6 +993,35 @@ impl Transcript {
         } else {
             "completed"
         };
+        if let Some(ec) = &self.edit_check
+            && let Some(outcome) = ec
+                .get("outcome")
+                .and_then(Value::as_str)
+                .and_then(crate::edit_check::EditCheckOutcome::parse)
+        {
+            let new_lines = ec
+                .get("newLines")
+                .and_then(Value::as_array)
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect()
+                })
+                .unwrap_or_default();
+            items.push(Item::EditCheck {
+                mission_id: mission.to_owned(),
+                command: string(ec, "command"),
+                outcome,
+                new_lines,
+                unchanged: ec.get("unchanged").and_then(Value::as_bool).unwrap_or(false),
+                first: ec.get("first").and_then(Value::as_bool).unwrap_or(false),
+                fix: self
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.check_fix.as_ref().map(|cf| cf.fix)),
+            });
+        }
         self.recovery =
             crate::recovery::offer(phase, &self.checkpoints, usize::from(self.error.is_some()));
         self.items = items;
@@ -2414,7 +2495,7 @@ mod tests {
                     Item::Plan { .. } => plans += 1,
                     Item::Thought { .. } => notes += 1,
                     Item::Note { .. } => notes += 1,
-                    Item::CarryOn { .. } => {}
+                    Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
                 }
             }
         }

@@ -30,6 +30,10 @@ pub trait EngineApi: std::marker::Send + Sync {
     }
     /// The conversations with a running turn.
     fn running(&self) -> Vec<String>;
+    /// Post-edit checks currently running: `(mission_id, command)`.
+    fn running_checks(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
     /// Cards waiting on the person.
     fn waiting(&self) -> Vec<Request>;
     /// Cards waiting for one turn: the door says that turn waits on the person.
@@ -83,6 +87,9 @@ impl EngineApi for InProcess {
     }
     fn running(&self) -> Vec<String> {
         native::running_ids()
+    }
+    fn running_checks(&self) -> Vec<(String, String)> {
+        native::running_checks()
     }
     fn waiting(&self) -> Vec<Request> {
         native::waiting_approvals()

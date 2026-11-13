@@ -24,6 +24,7 @@ pub(super) struct Panel {
     /// "When an agent cannot go on": the person's pick, and the agents that can carry work on here.
     pub plan_runs_out: Option<locust_core::carry_on::PlanRunsOut>,
     pub carry_choices: Vec<String>,
+    pub check_command: TextEdit,
 }
 
 fn button(label: impl Into<String>, p: &Palette) -> El {
@@ -53,7 +54,17 @@ pub(super) fn open(s: &mut State) {
     }
 }
 
+fn active_project_folder(s: &State) -> Option<String> {
+    s.teammates
+        .get(s.selected)
+        .and_then(|t| t.folder.clone())
+        .or_else(|| s.home.folder_path.clone())
+        .filter(|p| !p.trim().is_empty())
+}
+
 fn reload(s: &mut State) {
+    let active_ws = active_project_folder(s)
+        .map(|p| workspace_settings::workspace_id_for(std::path::Path::new(&p)));
     match &s.data {
         None => {
             s.settings_panel.error = "Native data folder could not be determined.".into();
@@ -62,6 +73,12 @@ fn reload(s: &mut State) {
             s.settings_panel.data_folder = store.root().display().to_string();
             match workspace_settings::load(store) {
                 Ok(settings) => {
+                    let saved_cmd = active_ws
+                        .as_deref()
+                        .and_then(|ws| settings.check_commands.get(ws))
+                        .cloned()
+                        .unwrap_or_default();
+                    s.settings_panel.check_command.replace_text(saved_cmd);
                     s.settings_panel.settings = settings;
                     s.settings_panel.error.clear();
                 }
@@ -533,6 +550,22 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             }
         }
         SettingsPageId::Workspace => {
+            let folder = active_project_folder(s);
+            let ws_id = folder
+                .as_deref()
+                .map(|f| workspace_settings::workspace_id_for(std::path::Path::new(f)));
+            let saved_cmd = ws_id
+                .as_deref()
+                .and_then(|ws| s.settings_panel.settings.check_commands.get(ws))
+                .cloned()
+                .unwrap_or_default();
+            let draft_trimmed = s.settings_panel.check_command.text.trim().to_owned();
+            let changed = draft_trimmed != saved_cmd;
+            let has_check = !saved_cmd.is_empty();
+            let fix_tries = ws_id
+                .as_deref()
+                .and_then(|ws| s.settings_panel.settings.check_fixes.get(ws).copied());
+
             body = body
                 .child(
                     text(PROJECT_FOLDER_LEDE.to_owned())
@@ -579,8 +612,106 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                                 .wrap(),
                         ),
                 );
-            for heading in headings {
-                body = body.child(deferred(heading, p));
+            if let Some(ws) = ws_id {
+                let save_label = if draft_trimmed.is_empty() && has_check {
+                    "Turn off"
+                } else {
+                    "Save"
+                };
+                let ws_save = ws.clone();
+                let mut check_col = col()
+                    .w_full()
+                    .gap(8.0)
+                    .padding(10.0)
+                    .child(text("CHECK AFTER EDITS").font(type_::TITLE).color(p.text))
+                    .child(
+                        text("A command Locust runs in a teammate's folder after a turn that changed files, such as npm test. Only failures that were not there at the last check count. Set here only: a project never chooses its own.")
+                            .font(type_::LABEL)
+                            .color(p.secondary)
+                            .wrap(),
+                    )
+                    .child(
+                        row()
+                            .w_full()
+                            .gap(8.0)
+                            .center_y()
+                            .child(
+                                text_input(&s.settings_panel.check_command, type_::BODY)
+                                    .key("settings-check-command")
+                                    .grow(1.0)
+                                    .padding(8.0)
+                                    .radius(6.0)
+                                    .fill(p.field)
+                                    .color(p.text)
+                                    .placeholder("npm test", p.muted)
+                                    .on_edit(|s: &mut State| &mut s.settings_panel.check_command),
+                            )
+                            .child(
+                                active_button(save_label, p, changed)
+                                    .key("settings-check-save")
+                                    .on_press(move |s: &mut State| {
+                                        let trimmed = s.settings_panel.check_command.text.trim().to_owned();
+                                        if trimmed.is_empty() {
+                                            s.settings_panel.settings.check_commands.remove(&ws_save);
+                                            s.settings_panel.check_command.replace_text(String::new());
+                                            persist(s);
+                                        } else if let Some(cmd) = locust_core::edit_check::parsed_check_command(&trimmed) {
+                                            s.settings_panel.settings.check_commands.insert(ws_save.clone(), cmd.clone());
+                                            s.settings_panel.check_command.replace_text(cmd);
+                                            persist(s);
+                                        }
+                                    }),
+                            ),
+                    );
+                let ws_off = ws.clone();
+                let ws_on = ws.clone();
+                let mut fail_row = row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .child(text("When it fails").font(type_::LABEL).color(p.secondary))
+                    .child(
+                        active_button("Show me", p, fix_tries.is_none())
+                            .key("settings-check-fix-off")
+                            .on_press(move |s: &mut State| {
+                                s.settings_panel.settings.check_fixes.remove(&ws_off);
+                                persist(s);
+                            }),
+                    )
+                    .child(
+                        active_button("Send it back to fix", p, fix_tries.is_some())
+                            .key("settings-check-fix-on")
+                            .on_press(move |s: &mut State| {
+                                let has = s.settings_panel.settings.check_commands.contains_key(&ws_on);
+                                let current = s.settings_panel.settings.check_fixes.get(&ws_on).copied();
+                                if has || current.is_some() {
+                                    let next = current.unwrap_or(locust_core::edit_check::DEFAULT_CHECK_FIXES);
+                                    s.settings_panel.settings.check_fixes.insert(ws_on.clone(), next);
+                                    persist(s);
+                                }
+                            }),
+                    );
+                if let Some(tries) = fix_tries {
+                    fail_row = fail_row.child(text("at most").font(type_::LABEL).color(p.secondary));
+                    for most in 1..=locust_core::edit_check::MAX_CHECK_FIXES {
+                        let ws_m = ws.clone();
+                        fail_row = fail_row.child(
+                            active_button(most.to_string(), p, tries == most)
+                                .key(format!("settings-check-fix-{most}"))
+                                .on_press(move |s: &mut State| {
+                                    s.settings_panel.settings.check_fixes.insert(ws_m.clone(), most);
+                                    persist(s);
+                                }),
+                        );
+                    }
+                    fail_row = fail_row.child(
+                        text(if tries == 1 { "fix" } else { "fixes" })
+                            .font(type_::LABEL)
+                            .color(p.secondary),
+                    );
+                }
+                check_col = check_col.child(fail_row);
+                body = body.child(check_col);
             }
         }
         SettingsPageId::WhatsNew => {

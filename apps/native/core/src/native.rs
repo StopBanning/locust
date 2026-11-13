@@ -1095,6 +1095,21 @@ pub struct Origin {
     pub reference_ids: Option<Vec<String>>,
 }
 
+static EDIT_CHECK: std::sync::OnceLock<crate::edit_check::EditCheck> = std::sync::OnceLock::new();
+static CHECK_FIX: std::sync::OnceLock<crate::edit_check::CheckFix> = std::sync::OnceLock::new();
+
+fn edit_check() -> &'static crate::edit_check::EditCheck {
+    EDIT_CHECK.get_or_init(crate::edit_check::EditCheck::new)
+}
+
+fn check_fix() -> &'static crate::edit_check::CheckFix {
+    CHECK_FIX.get_or_init(crate::edit_check::CheckFix::new)
+}
+
+pub fn running_checks() -> Vec<(String, String)> {
+    edit_check().running_checks()
+}
+
 /// Start (or continue) a turn the person asked for in the window.
 pub fn send(job: Send) -> Result<Started, String> {
     send_from(job, Origin::default())
@@ -1379,7 +1394,13 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
     // The mode and sandbox the turn really runs in, where it stands, and who started it, as Electron records them.
-    let mut extra = json!({"mode": mode.as_str(), "sandbox": mode.sandbox(), "cwd": folder.to_string_lossy()});
+    let turn_workspace_id = crate::workspace_settings::workspace_id_for(&folder);
+    let mut extra = json!({
+        "mode": mode.as_str(),
+        "sandbox": mode.sandbox(),
+        "cwd": folder.to_string_lossy(),
+        "workspaceId": turn_workspace_id,
+    });
     if let Some(by) = &origin.started_by {
         extra["startedBy"] = by.clone();
     }
@@ -1432,6 +1453,27 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
     let memory_who = job.teammate.id.clone();
     let memory_folder = turn.folder.clone();
     let memory_id = id.clone();
+    let check_teammate = job.teammate.clone();
+    let check_mode = mode;
+    let check_runtime = runtime_owned.clone();
+    let check_model = turn.model.clone();
+    let check_effort = turn.effort.clone();
+    let check_started_by_kind = origin
+        .started_by
+        .as_ref()
+        .and_then(|v| v.get("kind"))
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let check_started_by_fix = origin
+        .started_by
+        .as_ref()
+        .and_then(|v| v.get("fix"))
+        .and_then(Value::as_u64)
+        .map(|n| n as u32);
+    let check_apart = matches!(
+        check_started_by_kind.as_deref(),
+        Some("relay" | "side" | "compare" | "judge")
+    );
     std::thread::Builder::new()
         .name("native-turn".into())
         .spawn(move || {
@@ -1455,16 +1497,22 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                 let _ = std::fs::remove_dir_all(copy);
             }
             crate::skills::forget_roots(&memory_id);
-            if let Err(error) = checkpoint.finish(&memory_store, &memory_id) {
-                eprintln!("Undo checkpoint was not kept: {error}");
-            }
+            let edited = match checkpoint.finish_reporting_edits(&memory_store, &memory_id) {
+                Ok(edited) => Some(edited),
+                Err(error) => {
+                    eprintln!("Undo checkpoint was not kept: {error}");
+                    None
+                }
+            };
+            let mut completed = false;
             if let Ok(path) = memory_store.write_path(&memory_id) {
                 let transcript = ledger::read_transcript(path);
-                if !transcript.failed
+                completed = !transcript.failed
                     && !transcript.running
                     && !transcript.items.iter().any(
                         |item| matches!(item, ledger::Item::Note { text, .. } if text == "Stopped"),
-                    )
+                    );
+                if completed
                 {
                     let reply = transcript
                         .items
@@ -1486,10 +1534,81 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
                     }
                 }
             }
-            // The turn is no longer this window's: a carry-on may now continue its conversation.
+            // Run the post-edit check and record its result before releasing the turn slot, so a reader
+            // waiting on the slot sees the check, then release the slot so a fix turn can start.
+            let checked_turn = crate::edit_check::CheckedTurn {
+                mission_id: memory_id.clone(),
+                workspace_id: Some(turn_workspace_id.clone()),
+                teammate_id: Some(check_teammate.id.clone()),
+                completed,
+                apart: check_apart,
+                started_by_kind: check_started_by_kind.clone(),
+                started_by_fix: check_started_by_fix,
+                sent_by_person: person_sent,
+            };
+            let check_result = if edited == Some(true) && check_mode.sandbox() != "read-only" {
+                edit_check()
+                    .after(
+                        &memory_folder,
+                        Some(&memory_id),
+                        Some(&turn_workspace_id),
+                        |ws| crate::edit_check::check_command_for(&memory_store, ws),
+                        |_| {},
+                        |cmd, cwd| {
+                            crate::edit_check::run_check_command(
+                                cmd,
+                                cwd,
+                                crate::edit_check::CHECK_TIMEOUT_MS,
+                            )
+                        },
+                    )
+                    .map(|result| {
+                        if let Ok(path) = memory_store.write_path(&memory_id) {
+                            let rec = crate::edit_check::edit_check_record_json(
+                                &result,
+                                &crate::ledger_write::now(),
+                            );
+                            if let Err(error) = crate::ledger_write::append_edit_check(&path, &rec)
+                            {
+                                eprintln!("Edit check was not recorded: {error}");
+                            }
+                        }
+                        result
+                    })
+            } else {
+                None
+            };
+            // The turn is no longer this window's: a carry-on or check-fix may now continue its conversation.
             drop(memory_completion);
             if person_sent {
                 carry_on_without_asking(&memory_store, &memory_id);
+            }
+            if let Some(result) = check_result {
+                run_check_fix(
+                    &memory_store,
+                    &checked_turn,
+                    crate::edit_check::CheckFixResultOrNoEdits::Result(result),
+                    &check_teammate,
+                    &memory_folder,
+                    check_mode,
+                    &check_runtime,
+                    check_model.as_deref(),
+                    check_effort.as_deref(),
+                );
+            } else if check_started_by_kind.as_deref() == Some("check-fix")
+                && edited == Some(false)
+            {
+                run_check_fix(
+                    &memory_store,
+                    &checked_turn,
+                    crate::edit_check::CheckFixResultOrNoEdits::NoEdits,
+                    &check_teammate,
+                    &memory_folder,
+                    check_mode,
+                    &check_runtime,
+                    check_model.as_deref(),
+                    check_effort.as_deref(),
+                );
             }
         })
         .map_err(|e| format!("Could not start the turn: {e}"))?;
@@ -1497,6 +1616,79 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         conversation_id: anchor,
         mode: mode.as_str().into(),
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_check_fix(
+    store: &Store,
+    turn: &crate::edit_check::CheckedTurn,
+    result: crate::edit_check::CheckFixResultOrNoEdits,
+    teammate: &Teammate,
+    folder: &Path,
+    mode: Mode,
+    runtime: &str,
+    model: Option<&str>,
+    effort: Option<&str>,
+) {
+    check_fix().on_checked(
+        turn,
+        result,
+        |ws| crate::edit_check::most_fixes_for(store, ws),
+        |t| {
+            owns(&t.mission_id)
+                || real_tip(&t.mission_id).ok().as_deref() != Some(t.mission_id.as_str())
+        },
+        |_| {
+            if teammate.name.trim().is_empty() {
+                "the teammate".into()
+            } else {
+                teammate.name.clone()
+            }
+        },
+        |req| {
+            let mut tm = teammate.clone();
+            tm.runtime = Some(runtime.to_owned());
+            tm.model = model.map(str::to_owned);
+            let job = Send {
+                teammate: tm,
+                prompt: req.prompt,
+                conversation: Some(req.follow_up_of),
+                model: model.map(str::to_owned),
+                effort: effort.map(str::to_owned),
+            };
+            let origin = Origin {
+                mode: Some(mode),
+                folder: Some(folder.to_path_buf()),
+                started_by: Some(req.started_by.to_json()),
+                runtime: Some(runtime.to_owned()),
+                reference_ids: None,
+            };
+            match crate::engine_api::api().send(job, origin) {
+                Ok(started) => {
+                    let tip = real_tip(&started.conversation_id)
+                        .unwrap_or(started.conversation_id);
+                    crate::edit_check::FixStartOutcome::Ok { mission_id: tip }
+                }
+                Err(message) => {
+                    if message.contains("already running") {
+                        crate::edit_check::FixStartOutcome::Busy
+                    } else {
+                        crate::edit_check::FixStartOutcome::Error { message }
+                    }
+                }
+            }
+        },
+        |mission_id, message, level| {
+            if let Ok(path) = store.write_path(mission_id) {
+                let _ = crate::ledger_write::append_note_with_level(
+                    &path,
+                    level,
+                    "host.check_fix",
+                    message,
+                );
+            }
+        },
+    );
 }
 
 /// One short read-only run for a panel ("Write it from the changes"), as Electron's panel runs are: the teammate's own

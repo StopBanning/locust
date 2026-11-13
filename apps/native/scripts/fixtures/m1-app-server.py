@@ -17,7 +17,7 @@ is_resumed_turn = False
 base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('success' if scenario == 'resume' else scenario)
 if approving:
     base = 'success'
-SANDBOX = 'workspace-write' if approving else 'read-only'
+SANDBOX = 'workspace-write' if (approving or scenario == 'cards-edit-check') else 'read-only'
 POLICY = 'untrusted' if approving else 'never'
 APPROVE_DECISION = 'accept' if scenario == 'approve-allow' else ('reject' if scenario == 'approve-deny' else 'decline')
 PROMPT = 'Synthetic follow-up' if resuming else 'Synthetic prompt'
@@ -95,6 +95,16 @@ for line in sys.stdin:
                 notify('item/agentMessage/delta', itemId='answer', delta='Thinking...\n<locust-ask>\nWhich?\n- A :: one\n<locu')
                 time.sleep(0.35)
                 reply = 'Thinking...\n<locust-ask>\nWhich?\n- A :: one\n- B :: two\n</locust-ask>'
+            elif scenario == 'cards-edit-check':
+                if is_resumed_turn:
+                    assert 'fix 1 of 2' in words, words
+                    with open('notes.txt', 'w') as f:
+                        f.write('FIXED\n')
+                    reply = 'Fixed notes.txt.'
+                else:
+                    with open('notes.txt', 'w') as f:
+                        f.write('BROKEN\n')
+                    reply = 'Wrote notes.txt.'
             else:
                 reply = 'Unknown cards scenario'
             notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)

@@ -247,6 +247,7 @@ fn answer(engine: &dyn EngineApi, request: &Value) -> Value {
         "stop" => engine.stop(&needed(request, "conversation")?).map(Value::from),
         "owns" => Ok(Value::from(engine.owns(&needed(request, "conversation")?))),
         "running" => Ok(json!(engine.running())),
+        "running_checks" => Ok(json!(engine.running_checks())),
         "waiting" => Ok(Value::Array(engine.waiting().iter().map(card_json).collect())),
         "decide" => engine
             .decide(&needed(request, "approvalId")?, decision_from(&needed(request, "decision")?)?, text(request, "reason"))
@@ -474,6 +475,21 @@ impl EngineApi for Client {
     }
     fn running(&self) -> Vec<String> {
         self.call(json!({"op": "running"})).map(|v| strings(&v)).unwrap_or_default()
+    }
+    fn running_checks(&self) -> Vec<(String, String)> {
+        self.call(json!({"op": "running_checks"}))
+            .ok()
+            .and_then(|v| {
+                v.as_array().map(|arr| {
+                    arr.iter()
+                        .filter_map(|pair| {
+                            let a = pair.as_array()?;
+                            Some((a.first()?.as_str()?.to_owned(), a.get(1)?.as_str()?.to_owned()))
+                        })
+                        .collect()
+                })
+            })
+            .unwrap_or_default()
     }
     fn waiting(&self) -> Vec<Request> {
         self.call(json!({"op": "waiting"}))

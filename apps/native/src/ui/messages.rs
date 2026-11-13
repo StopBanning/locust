@@ -213,8 +213,60 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             .w_full()
             .wrap_anywhere()
             .selectable(true),
+            ledger::Item::CheckFix {
+                command,
+                fix,
+                of,
+                prompt,
+            } => {
+                let teammate_name = (!name.trim().is_empty() && name != "Locust").then_some(name);
+                edit_check_card::check_fix_line(
+                    command,
+                    *fix,
+                    *of,
+                    prompt,
+                    teammate_name,
+                    p,
+                    s,
+                    &key,
+                )
+            }
+            ledger::Item::EditCheck {
+                mission_id,
+                command,
+                outcome,
+                new_lines,
+                unchanged,
+                first,
+                fix,
+            } => {
+                let is_tip = s
+                    .ledger
+                    .as_ref()
+                    .is_some_and(|pane| pane.snapshot.tip == *mission_id);
+                let teammate_name = (!name.trim().is_empty() && name != "Locust").then_some(name);
+                edit_check_card::card(
+                    mission_id,
+                    command,
+                    *outcome,
+                    new_lines,
+                    *unchanged,
+                    *first,
+                    *fix,
+                    is_tip,
+                    teammate_name,
+                    p,
+                    s,
+                )
+            }
         };
         messages = messages.child(content.key(key));
+    }
+    if let Some(pane) = &s.ledger
+        && !pane.snapshot.tip.is_empty()
+        && let Some(command) = s.running_checks.get(&pane.snapshot.tip)
+    {
+        messages = messages.child(edit_check_card::running_card(command, p));
     }
     if let Some(card) = recovery_card::card(s, p) {
         messages = messages.child(card);

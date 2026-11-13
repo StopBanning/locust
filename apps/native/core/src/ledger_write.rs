@@ -30,9 +30,13 @@ pub fn append_checkpoint(path: &std::path::Path, checkpoint: &Value) -> io::Resu
     file.sync_all()
 }
 
-/// A line Locust adds to a turn that has ended (index.ts noteCarryOn): an `adapter.diagnostic` warning with
-/// `host.carry_on`, the next event and ledger sequence, appended to the turn's own native ledger.
+/// A line Locust adds to a turn that has ended (`index.ts` noteCarryOn / noteCheckFix): an `adapter.diagnostic` with
+/// the next event and ledger sequence, appended to the turn's own native ledger.
 pub fn append_note(path: &std::path::Path, code: &str, message: &str) -> io::Result<()> {
+    append_note_with_level(path, "warning", code, message)
+}
+
+pub fn append_note_with_level(path: &std::path::Path, level: &str, code: &str, message: &str) -> io::Result<()> {
     use std::io::Write;
     let text = std::fs::read_to_string(path)?;
     if !text.is_empty() && !text.ends_with('\n') {
@@ -46,7 +50,8 @@ pub fn append_note(path: &std::path::Path, code: &str, message: &str) -> io::Res
     let ledger = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
     let at = now();
     let run = meta["runId"].as_str().unwrap_or_default();
-    let mut event = json!({"id": format!("{run}:carry-on:{sequence}"), "runId": run, "missionId": meta["missionId"], "sequence": sequence,
+    let kind_tag = if code == "host.check_fix" { "check-fix" } else { "carry-on" };
+    let mut event = json!({"id": format!("{run}:{kind_tag}:{sequence}"), "runId": run, "missionId": meta["missionId"], "sequence": sequence,
         "occurredAt": at, "sourceAdapter": last.and_then(|e| e["sourceAdapter"].as_str()).or(meta["runtime"].as_str()).unwrap_or_default()});
     for key in ["requestedRouteId", "resolvedRouteId"] {
         if let Some(route) = last.and_then(|e| e.get(key)) {
@@ -54,8 +59,36 @@ pub fn append_note(path: &std::path::Path, code: &str, message: &str) -> io::Res
         }
     }
     event["type"] = json!("adapter.diagnostic");
-    event["payload"] = json!({"level": "warning", "code": code, "message": message, "terminal": false, "evidence": {"redacted": true}});
+    event["payload"] = json!({"level": level, "code": code, "message": message, "terminal": false, "evidence": {"redacted": true}});
     let record = json!({"schemaVersion": first["schemaVersion"], "recordType": "mission.event", "ledgerSequence": ledger, "occurredAt": at, "event": event});
+    let mut line = serde_json::to_vec(&record)?;
+    line.push(b'\n');
+    let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
+    file.write_all(&line)?;
+    file.sync_all()
+}
+
+/// A post-edit check result, appended to its turn's native ledger as `mission-store`'s `appendEditCheck` appends it.
+pub fn append_edit_check(path: &std::path::Path, check: &Value) -> io::Result<()> {
+    use std::io::Write;
+    let text = std::fs::read_to_string(path)?;
+    if !text.is_empty() && !text.ends_with('\n') {
+        return Err(io::Error::other("Ledger does not end on a whole record"));
+    }
+    let records: Vec<Value> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let first = records.first().ok_or_else(|| io::Error::other("Ledger has no first record"))?;
+    let schema = first["schemaVersion"].as_u64().ok_or_else(|| io::Error::other("Ledger has no schemaVersion"))?;
+    if schema < 17 {
+        return Err(io::Error::other("Mission ledger version cannot hold check results"));
+    }
+    let next = records.iter().filter_map(|r| r["ledgerSequence"].as_u64()).max().unwrap_or(0) + 1;
+    let record = json!({
+        "schemaVersion": schema,
+        "recordType": "mission.edit_check",
+        "ledgerSequence": next,
+        "occurredAt": check["occurredAt"],
+        "check": check,
+    });
     let mut line = serde_json::to_vec(&record)?;
     line.push(b'\n');
     let mut file = std::fs::OpenOptions::new().append(true).open(path)?;
