@@ -221,6 +221,33 @@ pub struct Request {
     pub questions: Vec<Question>,
 }
 
+static TOOL_USES: std::sync::Mutex<Vec<(String, String)>> = std::sync::Mutex::new(Vec::new());
+
+fn remember_tool_use(approval_id: &str, tool_use_id: &str) {
+    let mut kept = crate::invariants::lock(&TOOL_USES);
+    kept.push((approval_id.to_owned(), tool_use_id.to_owned()));
+    // Bounded: only cards still being answered need it.
+    let extra = kept.len().saturating_sub(64);
+    kept.drain(..extra);
+}
+
+/// The tool call a card was raised for, when the runtime said (Claude Code's `tool_use_id`).
+pub fn tool_use_of(approval_id: &str) -> Option<String> {
+    crate::invariants::lock(&TOOL_USES).iter().rev().find(|(a, _)| a == approval_id).map(|(_, t)| t.clone())
+}
+
+/// Who asked, when a helper raised the card (`helperAskedBy`): "the Explore helper of Wren", "a helper of this
+/// teammate" when its type is not known; None when the teammate asked itself or the call is not known.
+pub fn helper_asked_by(tool_use_id: Option<&str>, items: &[crate::ledger::Item], teammate: Option<&str>) -> Option<String> {
+    let id = tool_use_id?;
+    let helper = items.iter().find_map(|item| match item {
+        crate::ledger::Item::Tool { detail, .. } if detail.helper && detail.children.iter().any(|c| matches!(c, crate::ledger::Item::Tool { detail, .. } if detail.id == id)) => Some(detail),
+        _ => None,
+    })?;
+    let whose = teammate.map(str::trim).filter(|t| !t.is_empty()).unwrap_or("this teammate");
+    Some(if helper.helper_type.is_empty() { format!("a helper of {whose}") } else { format!("the {} helper of {whose}", helper.helper_type) })
+}
+
 #[derive(Clone, Debug)]
 pub enum Answer {
     Decision {
@@ -722,6 +749,10 @@ impl Channel {
 
             questions: Vec::new(),
         };
+        // The tool call this card is about, so the window can say when a helper raised it (helperAskedBy).
+        if !_request_id.is_empty() && _request_id != "permission" {
+            remember_tool_use(&request.approval_id, _request_id);
+        }
         let input_kept = request.claude_input.clone();
         self.ask(request, cancel)
             .map(|answer| claude_behavior_for(&answer, input_kept.as_ref()))

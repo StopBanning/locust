@@ -138,6 +138,12 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .w_full()
                 .wrap_anywhere(),
         );
+    // A card a helper raised says whose it is (helperAskedBy).
+    if let Some(pane) = &s.ledger
+        && let Some(asked_by) = approval::helper_asked_by(approval::tool_use_of(&card.approval_id).as_deref(), &pane.items, Some(pane.header.name.as_str()))
+    {
+        body = body.child(text(format!("Asked by {asked_by}")).font(type_::LABEL).color(p.secondary).w_full().wrap().key("approval-asked-by"));
+    }
     if let Some(plain) = approval::plain_action(card) {
         body = body.child(
             text(format!("In short: {plain}"))

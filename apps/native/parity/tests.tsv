@@ -701,7 +701,7 @@ apps/desktop/src/renderer/src/a-handed-file-is-a-control.test.tsx		waiting
 apps/desktop/src/renderer/src/a-handoff-keeps-the-route-handed-to.test.ts		waiting		
 apps/desktop/src/renderer/src/a-handoff-names-the-models-either-side.test.tsx	RELAY	carried	src/ui/handoff_divider.rs	handoff_divider_renders_models_carried_reason_and_omissions covers all cases
 apps/desktop/src/renderer/src/a-handoff-says-what-it-carries.test.ts		waiting		
-apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-helpers-calls-fold-under-its-row.test.tsx	P10	carried	core/src/helper_calls_tests.rs; src/ui/activity_drawers.rs a_helpers_calls_count_on_its_row_and_open_onto_each_call	all 7 cases, on Electron's recorded helper run read by Rust's Claude reader; the card's 'Asked by' words are tested in core and drawn from them
 apps/desktop/src/renderer/src/a-helpers-summary-reads-as-words.test.ts		waiting		
 apps/desktop/src/renderer/src/a-home-starter-starts-with-a-teammate-or-compares.test.ts	p12	partial		`a-home-starter-starts-with-a-teammate-or-compares.test.ts`, `a-team-without-a-coder-gets-its-own-starters.test.tsx`, `a-build-starter-makes-one-page.test.ts` | STARTERS / role starters / page prompt
 apps/desktop/src/renderer/src/a-host-started-run-is-not-retried-as-your-message.test.tsx		waiting		
@@ -968,7 +968,7 @@ apps/desktop/src/renderer/src/links-go-somewhere.test.ts		waiting
 apps/desktop/src/renderer/src/locust-bots-keep-their-eyes-on-their-heads.test.ts		waiting		
 apps/desktop/src/renderer/src/managed-controls-say-who-set-them.test.tsx		waiting		
 apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	p14	partial		`renderer/src/math-in-a-reply-is-drawn.test.tsx` (+ agentText dollar rules) | Covered for delimiters, fence skip, money-as-prose, display/inline PNG path; KaTeX DOM/CSS and every agentText edge not claimed
-apps/desktop/src/renderer/src/mcp-tool-rows.test.ts		waiting		
+apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	P10	carried	core/src/mcp_names.rs tests; src/ui/activity_drawers.rs a_connector_call_reads_as_its_tool_and_its_server	all 5 cases, plus a connector tool with no prefix and a bare connector tool
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts		waiting		
 apps/desktop/src/renderer/src/menuDigit.test.ts		waiting		
 apps/desktop/src/renderer/src/missionView.test.ts		waiting		

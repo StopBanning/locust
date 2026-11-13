@@ -123,8 +123,12 @@ pub(super) fn tool_row_label(
     finished: bool,
 ) -> String {
     let result = tool_result(status, d, finished);
+    // A connector call names the server as its tool and the tool as its name (mcpToolParts).
+    let mcp = locust_core::mcp_names::mcp_tool_parts(name);
     let title = if !summary.is_empty() {
         summary
+    } else if let Some(parts) = &mcp {
+        &parts.tool
     } else if !d.arguments.is_empty() {
         &d.arguments
     } else {
@@ -153,7 +157,11 @@ pub(super) fn tool_row_label(
         row.push_str(&format!(" · {result}"));
         row
     } else {
-        let tool_word = match name.to_lowercase().as_str() {
+        let tool_word = if let Some(parts) = &mcp {
+            parts.server.as_str()
+        } else if locust_core::mcp_names::is_bare_connector_tool(name) {
+            "a connector"
+        } else { match name.to_lowercase().as_str() {
             "read" | "read_file" | "readfile" | "view_file" | "cat" => "Read",
             "write" | "write_file" | "writefile" => "Write",
             "edit" | "edit_file" | "editfile" | "apply_patch" => "Edit",
@@ -161,7 +169,7 @@ pub(super) fn tool_row_label(
             "glob" | "list_dir" | "list_directory" | "ls" => "Glob",
             "bash" | "shell" | "exec_command" | "commandexecution" => "",
             _ => name,
-        };
+        } };
         if tool_word.is_empty() {
             format!("{title} · {result}")
         } else {
@@ -383,6 +391,10 @@ pub(super) fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: 
                         body=body.child(disclosure(all_key,format!("{} more lines",lines.len()-16),false,p));
                         body=body.child(text(lines[lines.len()-8..].join("\n")).font(code).color(l.c("text-muted")).w_full().shrink().wrap_anywhere().selectable(true));
                     } else { body=body.child(text(output).font(code).color(l.c("text-muted")).w_full().shrink().wrap_anywhere().selectable(true)); }
+                }
+                // A helper's own calls, one step in, each saying how it ended (HelperCalls).
+                if !d.children.is_empty() {
+                    body = body.child(text("What the helper did").font(type_::LABEL).color(p.muted).key(format!("{key}/helper-calls")));
                 }
                 for child in &d.children { body=body.child(activity_item(child,p,s,&key)); }
             }
@@ -616,5 +628,41 @@ mod tests {
         assert!(said.contains("Read 3 files") && said.contains("a.ts, b.ts, c.ts"), "{said}");
         assert!(said.contains("cargo test"), "the command keeps its row: {said}");
         assert!(!said.contains("a.ts · Read"), "the reads are not drawn one by one: {said}");
+    }
+
+    /// mcp-tool-rows.test.ts, on the row: a connector call reads as its tool and its server, not one machine name.
+    #[test]
+    fn a_connector_call_reads_as_its_tool_and_its_server() {
+        let ledger::Item::Tool { status, detail, .. } = sample_tool("m1", "x", "", false) else { unreachable!() };
+        let label = tool_row_label("mcp__claude_ai_Robinhood__get_watchlists", status, "", &detail, true);
+        assert!(label.starts_with("get_watchlists · Robinhood · "), "{label}");
+        assert!(!label.contains("mcp__"), "{label}");
+    }
+
+    /// a-helpers-calls-fold-under-its-row.test.tsx, drawn: the helper row counts its calls and stays folded until
+    /// pressed; opened, it shows what the helper did, each call saying how it ended.
+    #[test]
+    fn a_helpers_calls_count_on_its_row_and_open_onto_each_call() {
+        let mut helper = sample_tool("h1", "Agent", "Count the files", false);
+        if let ledger::Item::Tool { detail, .. } = &mut helper {
+            detail.helper = true;
+            detail.helper_type = "Explore".into();
+            // A Glob has no exit code: it says how it ended in words.
+            let mut glob = sample_tool("g1", "Glob", "**/*", false);
+            if let ledger::Item::Tool { detail, .. } = &mut glob {
+                detail.exit_code = None;
+            }
+            detail.children = vec![glob];
+        }
+        let items = vec![helper];
+        let mut s = State::default();
+        s.activity_open.insert("conv/group/h1".into(), true);
+        let shut = group_text(&items, &mut s);
+        assert!(shut.contains("1 call"), "{shut}");
+        assert!(!shut.contains("What the helper did"), "folded until pressed: {shut}");
+        let key = activity_drawer_key("conv", &items[0]);
+        s.activity_open.insert(key, true);
+        let open = group_text(&items, &mut s);
+        assert!(open.contains("What the helper did") && open.contains("**/*") && open.contains("done"), "{open}");
     }
 }

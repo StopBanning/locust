@@ -21,6 +21,7 @@ pub mod agent_install;
 pub mod teammate_keys;
 pub mod undone_note;
 pub mod tool_fold;
+pub mod mcp_names;
 pub mod edit_earlier;
 pub mod agent_updates;
 pub mod published_links;
@@ -129,3 +130,7 @@ pub mod usage;
 pub mod usage_ledger;
 pub mod workspace_settings;
 pub mod worktrees;
+
+#[cfg(test)]
+#[path = "helper_calls_tests.rs"]
+mod helper_calls_tests;
