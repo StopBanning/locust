@@ -3312,3 +3312,59 @@ fn the_remote_control_switch_runs_the_server_and_shows_claudes_own_words() {
     assert!(asked.contains("Complete setup in the Claude Code terminal, then enable this switch again.") && asked.contains("Claude Code errors"), "{asked}");
     assert!(!rt.state.remote_control.as_ref().unwrap().enabled);
 }
+
+/// AgentAccountsSettings: an added Codex account gets a home of its own, signs in through the agent's own sign-in (a
+/// stand-in here), is renamed in place, and is removed only after Delete this account.
+#[test]
+fn another_account_is_added_signed_in_renamed_and_removed_from_settings() {
+    use locust_core::agent_accounts::{Accounts, Agent, Cancel};
+    use std::sync::{Arc, Mutex};
+    let root = std::env::temp_dir().join(format!("locust-accounts-card-{}-{}", std::process::id(), locust_core::invariants::unique_nanos()));
+    std::fs::create_dir_all(&root).unwrap();
+    let dones: Arc<Mutex<Vec<Box<dyn FnOnce(bool) + Send>>>> = Arc::default();
+    let held = dones.clone();
+    let login: Arc<locust_core::agent_accounts::Login> = Arc::new(move |_: Agent, _: &Path, _: &[(&'static str, String)], done: Box<dyn FnOnce(bool) + Send>| {
+        held.lock().unwrap().push(done);
+        Ok(Box::new(|| {}) as Cancel)
+    });
+    crate::agent_accounts_card::use_accounts(Accounts::new(&root, login, Box::new(|| None), Box::new(|_, _| false)));
+    let (_dirs, _store, mut rt) = window();
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = crate::settings_pages::SettingsPageId::from_str("runtimes");
+    });
+    settle(&mut rt);
+    let codex = text_in(&rt, "accounts-codex").join(" | ");
+    assert!(codex.contains("Codex accounts") && codex.contains("This computer's sign-in") && codex.contains("Used when a teammate has no account picked.") && codex.contains("Add another account"), "{codex}");
+
+    click(&mut rt, "account-add-another-codex");
+    rt.paste("Work");
+    click(&mut rt, "account-add");
+    assert_eq!(rt.state.agent_accounts.accounts.len(), 1, "{:?}", rt.state.agent_accounts.message);
+    let account = rt.state.agent_accounts.accounts[0].clone();
+    let short = account.id[8..16].to_owned();
+    assert!(root.join("agent-accounts").join(&account.id).is_dir());
+    assert!(text_in(&rt, &format!("account-{short}")).join(" ").contains("Ready to sign in."));
+
+    click(&mut rt, &format!("account-sign-in-{short}"));
+    assert!(text_in(&rt, &format!("account-{short}")).join(" ").contains("Finish signing in in your browser."));
+    (dones.lock().unwrap().remove(0))(true);
+    rt.update(|s, _| crate::agent_accounts_card::reload(s));
+    settle(&mut rt);
+    let signed = text_in(&rt, &format!("account-{short}")).join(" ");
+    assert!(signed.contains("Signed in.") && signed.contains("Sign in again"), "{signed}");
+
+    click(&mut rt, &format!("account-rename-{short}"));
+    rt.update(|s, _| s.agent_accounts.name.replace_text("Client"));
+    click(&mut rt, "account-save-name");
+    assert_eq!(rt.state.agent_accounts.accounts[0].name, "Client");
+
+    click(&mut rt, &format!("account-remove-{short}"));
+    let asked = text_in(&rt, "account-remove-confirm").join(" ");
+    assert!(asked.contains("Remove Client?") && asked.contains("This deletes only Client's agent home that Locust created"), "{asked}");
+    assert!(root.join("agent-accounts").join(&account.id).is_dir(), "nothing goes before the person says so");
+    click(&mut rt, "account-delete");
+    assert!(rt.state.agent_accounts.accounts.is_empty());
+    assert!(!root.join("agent-accounts").join(&account.id).exists());
+    let _ = std::fs::remove_dir_all(&root);
+}

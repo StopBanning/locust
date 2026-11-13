@@ -283,8 +283,8 @@ apps/desktop/src/main/a-working-row-shimmers-like-claude-codes.test.ts		waiting
 apps/desktop/src/main/a-worktree-branch-is-named-after-the-issue.test.ts	ISSUES	carried	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	carried (13 Nov)
 apps/desktop/src/main/a-worktree-survives-only-a-finished-checkout.test.ts		waiting		
 apps/desktop/src/main/about-you-is-read-by-every-teammate.test.ts	P6	does-not-apply		`main/a-teammate-has-its-own-instructions.test.ts`, `main/about-you-is-read-by-every-teammate.test.ts` | Saved instructions and About you reach the native brief; About you survives memory off; protocol tags in the note are disarmed.
-apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts		waiting		
-apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	P9	does-not-apply		main/an-added-account-has-only-its-own-home.test.ts | Account management outside scope; recorded-account terminal launch assertion remains a gap here.
+apps/desktop/src/main/an-account-sign-in-belongs-to-its-agent.test.ts	ACCOUNTS	carried	core/src/agent_accounts_tests.rs	both cases, with a stand-in program: each documented login, hidden, with its home, output discarded, told once
+apps/desktop/src/main/an-added-account-has-only-its-own-home.test.ts	ACCOUNTS	partial	core/src/agent_accounts_tests.rs	7 of 13: the unchanged launch, separate homes, no credential read, removal and links, sign-in states, the policy, removal while in use, usage keys (backups already leave agent-accounts out); picking an account for runs, Compare on two accounts, the mission service, background work and terminals remain
 apps/desktop/src/main/an-agent-of-your-own-is-added-by-its-command.test.ts		waiting		
 apps/desktop/src/main/an-alert-is-locked-for-its-phone-alone.test.ts		waiting		
 apps/desktop/src/main/an-answer-not-written-back-is-brought-back.test.ts		waiting		

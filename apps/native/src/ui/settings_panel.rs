@@ -134,6 +134,7 @@ fn reload(s: &mut State) {
     crate::agents_section::request(s);
     crate::github_section::request(s);
     crate::claude_app_card::request(s);
+    crate::agent_accounts_card::reload(s);
     crate::connectors_section::request(s, false);
     crate::backup_section::reload(s);
     let folder = active_project_folder(s);
@@ -662,6 +663,9 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     body = body.child(plan_runs_out_section(s, p));
                 } else if heading == crate::agents_section::HEADING {
                     body = body.child(crate::agents_section::section(s, p));
+                    if let Some(accounts) = crate::agent_accounts_card::section(s, p) {
+                        body = body.child(accounts);
+                    }
                     if let Some(remote) = crate::remote_control_card::section(s, p) {
                         body = body.child(remote);
                     }

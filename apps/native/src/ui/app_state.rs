@@ -143,6 +143,7 @@ pub(super) struct State {
     pub(super) from_link: bool,
     /// Claude Code's Remote Control server, as last read while Settings was open.
     pub(super) remote_control: Option<locust_core::remote_control::RemoteControlState>,
+    pub(super) agent_accounts: crate::agent_accounts_card::Card,
     pub(super) diff_notes: crate::diff_notes_ui::Notes,
     pub(super) issues: crate::issue_list::Picker,
     pub(super) issues_job: Latest<crate::issue_list::Answer>,
@@ -377,6 +378,7 @@ impl Default for State {
             claude_app: Default::default(),
             from_link: false,
             remote_control: None,
+            agent_accounts: Default::default(),
             diff_notes: Default::default(),
             issues: Default::default(),
             issues_job: Latest::default(),
