@@ -20,6 +20,15 @@ pub(super) struct SetupCard {
     pub(super) problem: Option<String>,
 }
 
+/// Tests never read the person's real home folder (its skill folders): they get an empty one of their own.
+#[cfg(test)]
+fn home_dir() -> std::path::PathBuf {
+    let home = std::env::temp_dir().join(format!("locust-test-home-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&home);
+    home
+}
+
+#[cfg(not(test))]
 fn home_dir() -> std::path::PathBuf {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))

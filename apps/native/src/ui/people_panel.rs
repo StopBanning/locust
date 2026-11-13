@@ -210,10 +210,7 @@ fn save_and_interview(s: &mut State, tx: &mut Tx) {
                     model: None,
                     effort: None,
                 },
-                native::Origin {
-                    mode: Some(locust_core::approval::Mode::Ask),
-                    ..Default::default()
-                },
+                interview_origin(),
             )
         });
 }
@@ -906,4 +903,19 @@ fn memory_screen(s: &State, p: &Palette) -> El {
         out = out.child(held_card);
     }
     out
+}
+
+/// An interview's first turn runs in Ask, as a review starts, so it changes nothing (Electron: `startMission(
+/// interviewPrompt(...), { as: asReviewer(...) })`, pinned by a-new-teammate-interviews-you.test.tsx).
+pub(super) fn interview_origin() -> native::Origin {
+    native::Origin { mode: Some(locust_core::approval::Mode::Ask), ..Default::default() }
+}
+
+#[cfg(test)]
+mod interview_tests {
+    #[test]
+    fn an_interview_starts_in_ask_so_it_changes_nothing() {
+        assert_eq!(super::interview_origin().mode, Some(locust_core::approval::Mode::Ask));
+        assert_eq!(super::interview_origin().started_by, None);
+    }
 }

@@ -2432,3 +2432,34 @@ fn a_dropped_free_model_is_said_before_the_send() {
     );
     on_quit(&mut rt.state, &mut Tx::default());
 }
+
+/// a-new-teammate-interviews-you.test.tsx, "draws no card outside an interview, nor while the turn is still going":
+/// an instructions block in an ordinary conversation is only words, and an interview's card waits for its turn to end.
+#[test]
+fn no_instructions_card_outside_an_interview_nor_while_its_turn_runs() {
+    let (_dirs, store, mut rt) = window();
+    let _hook = native::hooks::install(store.clone(), None);
+    let block = "Done.\n\n<locust-instructions>\nYou are Codec. Answer in three bullet points at most.\n</locust-instructions>";
+    let show = |rt: &mut Runtime<State>, first: &str, running: bool| {
+        let first = first.to_owned();
+        rt.update(move |s, _| {
+            let id = s.teammates[0].id.clone();
+            let name = s.teammates[0].name.clone();
+            s.flight = None;
+            let conv = s.conversations.entry(id.clone()).or_default();
+            conv.turns = vec![("You".into(), first.clone()), (name, block.into())];
+            if running {
+                s.flight = Some(Flight { teammate_id: id, conversation_id: None, header: None, after_tip: None, message: Some("next".into()) });
+            }
+            crate::instructions_card::sync_state(s);
+        });
+        settle(rt);
+    };
+    show(&mut rt, "Summarize the folder", false);
+    assert!(rt.find("instructions-card").is_none(), "a card under an ordinary conversation");
+    let interview = locust_core::interview::interview_prompt("Codec", "Code & Migrations");
+    show(&mut rt, &interview, true);
+    assert!(rt.find("instructions-card").is_none(), "a card while the interview's turn still runs");
+    show(&mut rt, &interview, false);
+    assert!(rt.find("instructions-card").is_some(), "no card under the finished interview");
+}

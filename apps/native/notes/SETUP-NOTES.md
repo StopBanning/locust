@@ -44,3 +44,14 @@ Notes on porting:
 - **Group instructions in `read_teammate_setup`**: Rust does not have conversation groups (`group-store`) yet, so `read_teammate_setup` passes `group: None` (while `gather_teammate_setup` and `setup_sections` support `group`).
 - **Live `claude mcp list` subprocess for connectors**: `main.rs` reads `~/.claude.json` `mcpServers` keys locally without spawning `claude mcp list` (which can take several seconds).
 - **`/tune` lessons UI**: `read_teammate_setup` counts matching `teammateId` entries in `tune-lessons.json` if present, though `/tune` itself is a separate parity row.
+
+## Review (13 Nov)
+
+- `scripts/review-branch.py` passed: 915 tests, a clean release build, and the four window tests alone and together.
+- It flagged the setup card reading the real home folder. Under test, the card now reads an empty folder of the
+  test's own (`setup_card::home_dir`).
+- Break checks found two behaviours no test held:
+  - **The interview's first turn runs in Ask.** It now goes through `people_panel::interview_origin`, and
+    `an_interview_starts_in_ask_so_it_changes_nothing` pins it.
+  - **No card outside an interview, nor while its turn runs** (Electron's own test, not carried before).
+    `no_instructions_card_outside_an_interview_nor_while_its_turn_runs` fails without the guard.
