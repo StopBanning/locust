@@ -1170,7 +1170,7 @@ apps/desktop/src/shared/room-task.test.ts	ROOMS	partial	core/src/room_task.rs	ta
 apps/desktop/src/shared/routine-schedule.test.ts	p11	partial		`shared/routine-schedule.test.ts` | Partially ported: validation, next-run and label cases match; full schedule helper inventory and DST oracle cases remain.
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	p11	waiting		`shared/routines-and-rooms-from-a-browser.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/shared/runtime-install.test.ts		waiting		
-apps/desktop/src/shared/scout-notices-what-is-new.test.ts	scout-1	partial	core/src/scout/{unit_tests,brief_tests,runner_tests}.rs	the 15 cases are folded into fewer paraphrased tests (core/src/scout/unit_tests.rs) that do not pin Electron's keys and sentences; pullRequestsOf has no test and issuesOf only part of its case. Redo as one test per case (review, 13 Nov).
+apps/desktop/src/shared/scout-notices-what-is-new.test.ts	scout-1	carried	core/src/scout/unit_tests.rs	all 15 cases carried 1:1 with Electron's exact keys, values, and sentences (PRs, issues, reviews, branch runs, waiting, failed turns, scout_prompt, scout_answers, cards, settings) plus new_issues overflow test
 apps/desktop/src/shared/settings-from-a-browser.test.ts		waiting		
 apps/desktop/src/shared/since-you-were-away.test.ts	p12	partial		`shared/since-you-were-away.test.ts` | ran/failed/missed/waiting; awayLine; wasAway 20m; attention mark
 apps/desktop/src/shared/spend.test.ts	P10	partial		`shared/spend.test.ts` (subset) | moneyOfUsage, dollars, month/limit refusal

@@ -754,3 +754,164 @@ fn codex_sealed_config_turns_off_shell_web_apps_and_connectors() {
     assert_eq!(sealed["mcp_servers.local.enabled"], false);
     assert_eq!(sealed["mcp_servers.remote.enabled"], false);
 }
+
+#[test]
+fn codex_sealed_skips_skills_extra_roots_even_when_registered() {
+    let temp = Temp::new();
+    let mission_id = format!("sealed_skills_{}", crate::invariants::unique_nanos());
+    crate::skills::set_roots(&mission_id, vec![temp.0.to_string_lossy().into_owned()]);
+    struct Forget<'a>(&'a str);
+    impl Drop for Forget<'_> {
+        fn drop(&mut self) {
+            crate::skills::forget_roots(self.0);
+        }
+    }
+    let _forget = Forget(&mission_id);
+
+    let script = temp.0.join("refuse_skills.py");
+    std::fs::write(
+        &script,
+        r#"import json, sys
+def send(v):
+    sys.stdout.write(json.dumps(dict(jsonrpc="2.0", **v)) + "\n")
+    sys.stdout.flush()
+def notify(method, **params):
+    send(dict(method=method, params=dict(threadId="th_1", **params)))
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    msg = json.loads(line)
+    m = msg.get("method")
+    rid = msg.get("id")
+    if m == "initialize":
+        send(dict(id=rid, result={}))
+    elif m == "skills/extraRoots/set":
+        send(dict(id=rid, error={"code": -32600, "message": "sealed must not request skills/extraRoots/set"}))
+        sys.exit(1)
+    elif m == "config/read":
+        send(dict(id=rid, result={"config": {}}))
+    elif m == "thread/start":
+        send(dict(id=rid, result={"thread": {"id": "th_1"}}))
+    elif m == "turn/start":
+        send(dict(id=rid, result={"turn": {"id": "tu_1"}}))
+        notify("turn/started", turn={"id": "tu_1"})
+        notify("item/completed", item={"id": "it_1", "type": "agentMessage", "text": "ok"})
+        notify("turn/completed", turn={"id": "tu_1", "status": "completed", "usage": {"input_tokens": 1, "output_tokens": 1}})
+"#,
+    )
+    .unwrap();
+
+    let mut command = Command::new("python3");
+    command.arg(&script);
+    let mut runtime = Codex::spawn(&mut command).unwrap().with_sealed(true);
+    runtime
+        .start(&Turn {
+            prompt: "Hello".into(),
+            folder: temp.0.clone(),
+            model: None,
+            effort: None,
+            resume: None,
+            mode: crate::approval::Mode::Ask,
+            approvals: None,
+            mission_id: mission_id.clone(),
+            run_id: "run_sealed_skills".into(),
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        assert!(Instant::now() < deadline, "sealed codex timed out");
+        if let Some(e) = runtime.next_event().unwrap()
+            && ["run.completed", "run.failed", "run.cancelled"].contains(&e.kind.as_str())
+        {
+            assert_eq!(e.kind, "run.completed");
+            break;
+        }
+    }
+}
+
+#[test]
+fn codex_sealed_omits_locust_browser_even_when_registered() {
+    let temp = Temp::new();
+    let mission_id = format!("sealed_browser_{}", crate::invariants::unique_nanos());
+    crate::browser_tools::set_test_config(
+        &mission_id,
+        Some(json!({"command": "locust-test", "args": ["--browser-bridge", "/tmp/sock"]})),
+    );
+    struct ClearBrowser<'a>(&'a str);
+    impl Drop for ClearBrowser<'_> {
+        fn drop(&mut self) {
+            crate::browser_tools::set_test_config(self.0, None);
+        }
+    }
+    let _clear = ClearBrowser(&mission_id);
+
+    let log_path = temp.0.join("thread_start.json");
+    let script = temp.0.join("capture_thread_config.py");
+    std::fs::write(
+        &script,
+        r#"import json, sys
+log_path = sys.argv[1]
+def send(v):
+    sys.stdout.write(json.dumps(dict(jsonrpc="2.0", **v)) + "\n")
+    sys.stdout.flush()
+def notify(method, **params):
+    send(dict(method=method, params=dict(threadId="th_1", **params)))
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    msg = json.loads(line)
+    m = msg.get("method")
+    rid = msg.get("id")
+    if m == "initialize":
+        send(dict(id=rid, result={}))
+    elif m == "config/read":
+        send(dict(id=rid, result={"config": {}}))
+    elif m == "thread/start":
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump(msg.get("params"), f)
+        send(dict(id=rid, result={"thread": {"id": "th_1"}}))
+    elif m == "turn/start":
+        send(dict(id=rid, result={"turn": {"id": "tu_1"}}))
+        notify("turn/started", turn={"id": "tu_1"})
+        notify("item/completed", item={"id": "it_1", "type": "agentMessage", "text": "ok"})
+        notify("turn/completed", turn={"id": "tu_1", "status": "completed", "usage": {"input_tokens": 1, "output_tokens": 1}})
+"#,
+    )
+    .unwrap();
+
+    let mut command = Command::new("python3");
+    command.arg(&script).arg(&log_path);
+    let mut runtime = Codex::spawn(&mut command).unwrap().with_sealed(true);
+    runtime
+        .start(&Turn {
+            prompt: "Hello".into(),
+            folder: temp.0.clone(),
+            model: None,
+            effort: None,
+            resume: None,
+            mode: crate::approval::Mode::Ask,
+            approvals: None,
+            mission_id: mission_id.clone(),
+            run_id: "run_sealed_browser".into(),
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        assert!(Instant::now() < deadline, "sealed codex timed out");
+        if let Some(e) = runtime.next_event().unwrap()
+            && ["run.completed", "run.failed", "run.cancelled"].contains(&e.kind.as_str())
+        {
+            assert_eq!(e.kind, "run.completed");
+            break;
+        }
+    }
+    let started: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&log_path).unwrap()).unwrap();
+    let cfg = started["config"].as_object().unwrap();
+    assert!(!cfg.contains_key("mcp_servers.locust_browser"));
+    assert!(!cfg.contains_key("mcp_servers.locust_browser.enabled"));
+}

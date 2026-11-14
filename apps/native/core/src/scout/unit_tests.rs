@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, FixedOffset};
 use serde_json::json;
 
-use crate::pull_requests::{FolderPullRequest, PullRequestChecks, PullRequestReview, PullRequestState};
+use crate::pull_requests::{FolderPullRequest, PullRequestChecks, PullRequestReview, PullRequestState, pull_requests_of};
 use crate::store::Store;
 
 use super::folder::folder_mark_of;
@@ -40,202 +40,617 @@ fn dt(rfc3339: &str) -> DateTime<FixedOffset> {
     DateTime::parse_from_rfc3339(rfc3339).unwrap()
 }
 
-fn open_pr(
-    number: u64,
-    checks: PullRequestChecks,
-    check_count: usize,
-    not_passed: usize,
-    review: Option<PullRequestReview>,
-    conflicts: bool,
-    updated_at: Option<&str>,
-) -> FolderPullRequest {
+const PR_URL: &str = "https://github.com/acme/app/pull/212";
+
+fn sample_pr() -> FolderPullRequest {
     FolderPullRequest {
-        number,
-        title: "Keep SSE open".to_owned(),
-        url: format!("https://github.com/acme/repo/pull/{number}"),
+        number: 212,
+        title: "Talk starts from any app".to_owned(),
+        url: PR_URL.to_owned(),
         state: PullRequestState::Open,
-        checks,
-        check_count,
-        not_passed,
-        review,
-        conflicts,
-        updated_at: updated_at.map(str::to_owned),
+        checks: PullRequestChecks::Passing,
+        check_count: 9,
+        not_passed: 0,
+        review: None,
+        conflicts: false,
+        updated_at: None,
     }
 }
 
-// ---- shared/scout-notices-what-is-new.test.ts (16 cases) ----
+// ---- shared/scout-notices-what-is-new.test.ts (15 cases, 1:1) ----
 
 #[test]
-fn only_tells_pull_requests_that_need_work_first_time_and_changes_afterwards() {
-    let clean = open_pr(14, PullRequestChecks::Passing, 2, 0, None, false, None);
-    let broken = open_pr(15, PullRequestChecks::Failing, 3, 1, None, false, None);
-    let now = dt("2026-10-12T10:00:00Z");
+fn pull_requests_seen_for_the_first_time_are_news_only_for_what_needs_work_now_keyed_by_their_state() {
+    let now = dt("2026-10-12T15:00:00.000Z");
+    assert!(pull_request_facts(&HashMap::new(), &[sample_pr()], "look1", now).is_empty());
 
-    let first = pull_request_facts(&HashMap::new(), &[clean.clone(), broken.clone()], "look-1", now);
-    assert_eq!(first.len(), 1);
-    assert_eq!(first[0].urgency, ScoutUrgency::Now);
-    assert!(first[0].said.contains("#15"));
-    assert!(first[0].said.contains("1 of 3 checks did not pass"));
-
-    let mut before = HashMap::new();
-    before.insert(clean.url.clone(), clean.clone());
-    before.insert(broken.url.clone(), broken);
-
-    let same = pull_request_facts(&before, &[clean.clone()], "look-2", now);
-    assert!(same.is_empty());
-
-    let approved = FolderPullRequest {
-        review: Some(PullRequestReview::Approved),
-        ..clean
+    let failing_pr = FolderPullRequest {
+        checks: PullRequestChecks::Failing,
+        not_passed: 2,
+        ..sample_pr()
     };
-    let next = pull_request_facts(&before, &[approved], "look-3", now);
-    assert_eq!(next.len(), 1);
-    assert_eq!(next[0].urgency, ScoutUrgency::Later);
-    assert!(next[0].said.contains("it was approved"));
+    let failing = pull_request_facts(&HashMap::new(), &[failing_pr], "look1", now);
+    assert_eq!(failing.len(), 1);
+    assert_eq!(failing[0].urgency, ScoutUrgency::Now);
+    assert_eq!(
+        failing[0].said,
+        "Your pull request #212, Talk starts from any app: 2 of 9 checks did not pass."
+    );
+    assert_eq!(
+        failing[0].open,
+        Some(ScoutOpen::Url {
+            url: PR_URL.to_owned(),
+            label: "Open the pull request".to_owned(),
+        })
+    );
+    assert_eq!(failing[0].key, format!("pr:{PR_URL}:failing::"));
+
+    let changes_and_conflicts = FolderPullRequest {
+        review: Some(PullRequestReview::ChangesRequested),
+        conflicts: true,
+        ..sample_pr()
+    };
+    let soon = pull_request_facts(&HashMap::new(), &[changes_and_conflicts], "look1", now);
+    assert_eq!(soon.len(), 1);
+    assert_eq!(soon[0].urgency, ScoutUrgency::Soon);
+    assert!(
+        soon[0]
+            .said
+            .contains("changes were asked for, and it conflicts with its base branch")
+    );
 }
 
 #[test]
-fn notices_pull_request_passing_checks_waiting_ready_waiting_days_then_only_once() {
-    let pr = open_pr(
-        2,
-        PullRequestChecks::Passing,
-        1,
-        0,
-        None,
-        false,
-        Some("2026-10-08T00:00:00Z"),
-    );
-    let now = dt("2026-10-12T12:00:00Z");
-    let first = pull_request_facts(&HashMap::new(), &[pr.clone()], "look-1", now);
-    assert_eq!(first.len(), 1);
-    assert_eq!(first[0].key, format!("pr:{}:ready", pr.url));
-    assert_eq!(first[0].urgency, ScoutUrgency::Later);
-    assert!(first[0].said.contains("#2"));
-    assert!(first[0].said.contains("waited 4 days"));
-
-    // Three days after the first look, same key means it stays told once.
+fn pull_requests_tell_what_changed_since_the_last_look_keyed_by_the_look_so_the_same_state_coming_back_is_news_again() {
+    let now = dt("2026-10-12T15:00:00.000Z");
     let mut before = HashMap::new();
-    before.insert(
-        pr.url.clone(),
+    before.insert(PR_URL.to_owned(), sample_pr());
+
+    let failing_1 = FolderPullRequest {
+        checks: PullRequestChecks::Failing,
+        not_passed: 1,
+        ..sample_pr()
+    };
+    let news = pull_request_facts(&before, &[failing_1.clone()], "look7", now);
+    assert_eq!(news.len(), 1);
+    assert_eq!(news[0].key, format!("pr:{PR_URL}:look7"));
+    assert_eq!(news[0].urgency, ScoutUrgency::Now);
+    assert_eq!(
+        news[0].said,
+        "Your pull request #212, Talk starts from any app: 1 of 9 checks did not pass."
+    );
+
+    let mut before_failing = HashMap::new();
+    before_failing.insert(PR_URL.to_owned(), failing_1);
+    let passed = pull_request_facts(&before_failing, &[sample_pr()], "look8", now);
+    assert_eq!(passed.len(), 1);
+    assert_eq!(passed[0].key, format!("pr:{PR_URL}:look8"));
+    assert_eq!(passed[0].urgency, ScoutUrgency::Later);
+    assert!(passed[0].said.contains("all 9 checks passed"));
+
+    assert!(pull_request_facts(&before, &[sample_pr()], "look9", now).is_empty());
+}
+
+#[test]
+fn pull_requests_ready_and_waiting_passing_mergeable_nothing_asked_untouched_three_days_are_said_once_for_later() {
+    let at = dt("2026-10-12T15:00:00.000Z");
+    let waited = FolderPullRequest {
+        updated_at: Some("2026-08-28T05:03:26Z".to_owned()),
+        ..sample_pr()
+    };
+    let ready = pull_request_facts(&HashMap::new(), &[waited.clone()], "look1", at);
+    assert_eq!(ready.len(), 1);
+    assert_eq!(ready[0].key, format!("pr:{PR_URL}:ready"));
+    assert_eq!(ready[0].urgency, ScoutUrgency::Later);
+    assert_eq!(
+        ready[0].said,
+        "Your pull request #212, Talk starts from any app, passes its checks and has waited 45 days. It can be merged, or closed."
+    );
+    assert_eq!(
+        ready[0].open,
+        Some(ScoutOpen::Url {
+            url: PR_URL.to_owned(),
+            label: "Open the pull request".to_owned(),
+        })
+    );
+
+    let mut known_waited = HashMap::new();
+    known_waited.insert(PR_URL.to_owned(), waited.clone());
+    let keys: Vec<String> = pull_request_facts(&known_waited, &[waited.clone()], "look2", at)
+        .into_iter()
+        .map(|f| f.key)
+        .collect();
+    assert_eq!(keys, vec![format!("pr:{PR_URL}:ready")]);
+
+    let two_days = FolderPullRequest {
+        updated_at: Some("2026-10-10T16:00:00Z".to_owned()),
+        ..sample_pr()
+    };
+    assert!(pull_request_facts(&HashMap::new(), &[two_days], "look1", at).is_empty());
+
+    let draft = FolderPullRequest {
+        updated_at: waited.updated_at.clone(),
+        state: PullRequestState::Draft,
+        ..sample_pr()
+    };
+    assert!(pull_request_facts(&HashMap::new(), &[draft], "look1", at).is_empty());
+
+    let conflicted = FolderPullRequest {
+        updated_at: waited.updated_at.clone(),
+        conflicts: true,
+        ..sample_pr()
+    };
+    let mut known_conflicted = HashMap::new();
+    known_conflicted.insert(PR_URL.to_owned(), conflicted.clone());
+    assert!(pull_request_facts(&known_conflicted, &[conflicted], "look2", at).is_empty());
+
+    let mut before_failing = HashMap::new();
+    before_failing.insert(
+        PR_URL.to_owned(),
         FolderPullRequest {
-            updated_at: Some("2026-10-09T12:00:00Z".to_owned()),
-            ..pr.clone()
+            checks: PullRequestChecks::Failing,
+            not_passed: 1,
+            ..sample_pr()
         },
     );
-    let younger = FolderPullRequest {
-        updated_at: Some("2026-10-09T12:00:00Z".to_owned()),
-        ..pr
-    };
-    let at_two_days = pull_request_facts(&before, &[younger.clone()], "look-2", dt("2026-10-11T12:00:00Z"));
-    assert!(at_two_days.is_empty());
-    let at_three_days = pull_request_facts(&before, &[younger], "look-3", dt("2026-10-12T13:00:00Z"));
-    assert_eq!(at_three_days.len(), 1);
-    assert_eq!(at_three_days[0].key, first[0].key);
-    assert!(at_three_days[0].said.contains(&format!("waited {READY_WAITING_DAYS} days")));
+    let passed_again: Vec<String> = pull_request_facts(&before_failing, &[waited], "look3", at)
+        .into_iter()
+        .map(|f| f.key)
+        .collect();
+    assert_eq!(passed_again, vec![format!("pr:{PR_URL}:look3")]);
 }
 
 #[test]
-fn notices_new_issues_within_a_week_newest_first_capped_at_three_and_more_overflow() {
-    let raw = serde_json::to_string(&json!([
-        {"number":1,"title":"Too old","url":"https://github.com/acme/repo/issues/1","createdAt":"2026-10-01T00:00:00Z","author":{"login":"a"}},
-        {"number":2,"title":"Two","url":"https://github.com/acme/repo/issues/2","createdAt":"2026-10-10T00:00:00Z","author":{"login":"b"}},
-        {"number":3,"title":"Three","url":"https://github.com/acme/repo/issues/3","createdAt":"2026-10-11T00:00:00Z","author":{"login":"c"}},
-        {"number":4,"title":"Four","url":"https://github.com/acme/repo/issues/4","createdAt":"2026-10-12T00:00:00Z","author":{"login":"d"}},
-        {"number":5,"title":"Five","url":"https://github.com/acme/repo/issues/5","createdAt":"2026-10-12T09:00:00Z","author":{"login":"e"}}
-    ]))
-    .unwrap();
-    let parsed = issues_of(&raw);
-    assert_eq!(parsed.len(), 5);
-    let now = dt("2026-10-12T10:00:00Z");
-
-    let split = new_issues(&parsed, now, &HashSet::new());
-    assert_eq!(split.facts.len(), 3);
-    assert_eq!(split.facts.iter().map(|f| f.key.as_str()).collect::<Vec<_>>(), vec![
-        "issue:https://github.com/acme/repo/issues/5",
-        "issue:https://github.com/acme/repo/issues/4",
-        "issue:https://github.com/acme/repo/issues/3",
-    ]);
-    assert_eq!(split.more.len(), 1);
-    assert_eq!(split.more[0].key, "issue:https://github.com/acme/repo/issues/2");
-
-    // Next look picks up #2 once #3-#5 are in told.
-    let mut told = HashSet::new();
-    for f in &split.facts {
-        told.insert(f.key.clone());
-    }
-    let next = new_issues(&parsed, now, &told);
-    assert_eq!(next.facts.len(), 4);
-    assert!(next.more.is_empty());
-    assert!(next.facts.iter().any(|f| f.key == "issue:https://github.com/acme/repo/issues/2"));
-}
-
-#[test]
-fn review_requests_and_failed_branch_runs_produce_expected_facts() {
-    let reviews = reviews_asked_of(&json!([
-        {"number":21,"title":"Fix auth","url":"https://github.com/acme/repo/pull/21","author":{"login":"maya"}},
-        {"number":0,"title":"Invalid","url":"https://github.com/acme/repo/pull/0"}
-    ]).to_string());
-    assert_eq!(reviews.len(), 1);
-    let rfacts = review_facts(&reviews);
-    assert_eq!(rfacts[0].key, "review:https://github.com/acme/repo/pull/21");
-    assert_eq!(rfacts[0].said, "maya asked you to review pull request #21, Fix auth.");
-
-    let runs = branch_runs_of(&json!([
-        {"databaseId":101,"status":"completed","conclusion":"failure","workflowName":"CI","url":"https://github.com/acme/repo/actions/runs/101"},
-        {"databaseId":100,"status":"completed","conclusion":"success","workflowName":"CI","url":"https://github.com/acme/repo/actions/runs/100"},
-        {"databaseId":102,"status":"in_progress","conclusion":"","workflowName":"Lint","url":"https://github.com/acme/repo/actions/runs/102"},
-        {"databaseId":103,"status":"completed","conclusion":"timed_out","workflowName":"Nightly","url":"https://github.com/acme/repo/actions/runs/103"}
-    ]).to_string());
-    assert_eq!(runs.len(), 2);
-    let bfacts = branch_facts("main", &runs);
-    assert_eq!(bfacts.len(), 2);
-    assert_eq!(bfacts[0].key, "branch:101");
-    assert_eq!(bfacts[0].said, "CI failed on main.");
-    assert_eq!(bfacts[1].said, "Nightly failed on main.");
-}
-
-#[test]
-fn waiting_cards_only_notify_after_threshold_and_keep_command_in_quote_not_detail() {
-    let now = dt("2026-10-12T10:15:00Z");
-    let cards = vec![
-        WaitingCard {
-            approval_id: "ap_new".into(),
-            mission_id: "m_1".into(),
-            teammate_id: Some("tm_wren".into()),
-            name: Some("Wren".into()),
-            summary: "TOKEN=secret rm -rf foo".into(),
-            requested_at: "2026-10-12T10:10:00Z".into(),
+fn pull_requests_are_read_from_gh_pr_list_and_anything_that_is_not_one_is_left_out() {
+    let raw = json!([
+        {
+            "number": 1,
+            "title": "One",
+            "url": "https://github.com/acme/app/pull/1",
+            "state": "OPEN",
+            "isDraft": false,
+            "statusCheckRollup": [{ "status": "COMPLETED", "conclusion": "FAILURE" }],
+            "reviewDecision": "",
+            "mergeable": "MERGEABLE"
         },
-        WaitingCard {
-            approval_id: "ap_old".into(),
-            mission_id: "m_2".into(),
-            teammate_id: Some("tm_wren".into()),
-            name: Some("Wren".into()),
-            summary: "npm publish".into(),
-            requested_at: "2026-10-12T10:00:00Z".into(),
+        { "number": "two", "url": "https://github.com/acme/app/pull/2" },
+        "nothing"
+    ])
+    .to_string();
+    let mapped: Vec<(u64, PullRequestChecks)> = pull_requests_of(&raw)
+        .into_iter()
+        .map(|one| (one.number, one.checks))
+        .collect();
+    assert_eq!(mapped, vec![(1, PullRequestChecks::Failing)]);
+    assert!(pull_requests_of("not json").is_empty());
+    assert!(pull_requests_of(r#"{"number":1}"#).is_empty());
+}
+
+fn sample_issue(number: u64, created_at: &str) -> IssueOpened {
+    IssueOpened {
+        number,
+        title: format!("Issue {number}"),
+        url: format!("https://github.com/acme/app/issues/{number}"),
+        created_at: created_at.to_owned(),
+        author: Some("dana".to_owned()),
+    }
+}
+
+#[test]
+fn issues_opened_this_week_are_news_newest_first_three_a_look_each_said_once_by_its_address() {
+    let at = dt("2026-10-12T15:00:00.000Z");
+    let issues = [
+        sample_issue(1, "2026-10-01T00:00:00Z"),
+        sample_issue(2, "2026-10-11T00:00:00Z"),
+        sample_issue(3, "2026-10-12T10:00:00Z"),
+        sample_issue(4, "2026-10-10T00:00:00Z"),
+        sample_issue(5, "2026-10-09T00:00:00Z"),
+    ];
+    let facts = issue_facts(&issues, at, &HashSet::new());
+    let keys: Vec<&str> = facts.iter().map(|f| f.key.as_str()).collect();
+    assert_eq!(
+        keys,
+        vec![
+            "issue:https://github.com/acme/app/issues/3",
+            "issue:https://github.com/acme/app/issues/2",
+            "issue:https://github.com/acme/app/issues/4",
+        ]
+    );
+    assert_eq!(facts[0].urgency, ScoutUrgency::Soon);
+    assert_eq!(facts[0].said, "dana opened issue #3: Issue 3.");
+    assert_eq!(
+        facts[0].open,
+        Some(ScoutOpen::Url {
+            url: "https://github.com/acme/app/issues/3".to_owned(),
+            label: "Open the issue".to_owned(),
+        })
+    );
+}
+
+#[test]
+fn issues_are_read_from_gh_issue_list_and_anything_that_is_not_one_is_left_out() {
+    let raw = json!([
+        {
+            "number": 7,
+            "title": "It  crashes\\non start",
+            "url": "https://github.com/acme/app/issues/7",
+            "createdAt": "2026-10-12T00:00:00Z",
+            "author": { "login": "dana" }
+        },
+        {
+            "number": 8,
+            "title": "A pull request",
+            "url": "https://github.com/acme/app/pull/8",
+            "createdAt": "2026-10-12T00:00:00Z"
+        },
+        {
+            "number": 9,
+            "title": "No date",
+            "url": "https://github.com/acme/app/issues/9"
+        },
+        "nothing"
+    ])
+    .to_string();
+    assert_eq!(
+        issues_of(&raw),
+        vec![IssueOpened {
+            number: 7,
+            title: "It crashes\\non start".to_owned(),
+            url: "https://github.com/acme/app/issues/7".to_owned(),
+            created_at: "2026-10-12T00:00:00Z".to_owned(),
+            author: Some("dana".to_owned()),
+        }]
+    );
+    assert!(issues_of("not json").is_empty());
+}
+
+#[test]
+fn a_review_asked_of_the_person_names_who_asked() {
+    let asked = reviews_asked_of(
+        &json!([
+            {
+                "number": 214,
+                "title": "Rename the call log",
+                "url": "https://github.com/acme/app/pull/214",
+                "author": { "login": "ada" }
+            },
+            {
+                "number": 5,
+                "url": "https://evil.example/pull/5"
+            }
+        ])
+        .to_string(),
+    );
+    assert_eq!(
+        asked,
+        vec![ReviewAsked {
+            number: 214,
+            title: "Rename the call log".to_owned(),
+            url: "https://github.com/acme/app/pull/214".to_owned(),
+            author: Some("ada".to_owned()),
+        }]
+    );
+    let facts = review_facts(&asked);
+    assert_eq!(facts[0].key, "review:https://github.com/acme/app/pull/214");
+    assert_eq!(facts[0].urgency, ScoutUrgency::Soon);
+    assert_eq!(
+        facts[0].said,
+        "ada asked you to review pull request #214, Rename the call log."
+    );
+}
+
+#[test]
+fn the_newest_finished_run_of_each_workflow_says_how_the_branch_stands_only_a_failed_one_is_news() {
+    let runs = branch_runs_of(
+        &json!([
+            {
+                "databaseId": 9,
+                "status": "in_progress",
+                "conclusion": "",
+                "workflowName": "ci",
+                "url": "https://github.com/acme/app/actions/runs/9"
+            },
+            {
+                "databaseId": 8,
+                "status": "completed",
+                "conclusion": "failure",
+                "workflowName": "ci",
+                "url": "https://github.com/acme/app/actions/runs/8"
+            },
+            {
+                "databaseId": 7,
+                "status": "completed",
+                "conclusion": "success",
+                "workflowName": "ci",
+                "url": "https://github.com/acme/app/actions/runs/7"
+            },
+            {
+                "databaseId": 6,
+                "status": "completed",
+                "conclusion": "success",
+                "workflowName": "docs",
+                "url": "https://github.com/acme/app/actions/runs/6"
+            }
+        ])
+        .to_string(),
+    );
+    let summary: Vec<(&str, u64, bool)> = runs
+        .iter()
+        .map(|run| (run.workflow.as_str(), run.id, run.failed))
+        .collect();
+    assert_eq!(summary, vec![("ci", 8, true), ("docs", 6, false)]);
+    let facts = branch_facts("main", &runs);
+    assert_eq!(facts.len(), 1);
+    assert_eq!(facts[0].key, "branch:8");
+    assert_eq!(facts[0].said, "ci failed on main.");
+}
+
+#[test]
+fn teammates_waiting_on_the_person_is_news_after_ten_minutes_and_needs_them_now() {
+    let card = WaitingCard {
+        approval_id: "ap_1".to_owned(),
+        mission_id: "mis_1".to_owned(),
+        teammate_id: Some("tm_atlas".to_owned()),
+        name: Some("Atlas".to_owned()),
+        summary: "Run pnpm test".to_owned(),
+        requested_at: "2026-10-12T05:00:00.000Z".to_owned(),
+    };
+    assert!(
+        waiting_facts(
+            std::slice::from_ref(&card),
+            dt("2026-10-12T05:09:00.000Z"),
+            SCOUT_WAITING_MS
+        )
+        .is_empty()
+    );
+    let waiting = waiting_facts(
+        &[card],
+        dt("2026-10-12T05:25:00.000Z"),
+        SCOUT_WAITING_MS,
+    );
+    assert_eq!(waiting.len(), 1);
+    assert_eq!(waiting[0].key, "waiting:ap_1");
+    assert_eq!(waiting[0].urgency, ScoutUrgency::Now);
+    assert_eq!(waiting[0].said, "Atlas has waited 25 minutes for your OK.");
+    assert_eq!(
+        waiting[0].open,
+        Some(ScoutOpen::Conversation {
+            mission_id: "mis_1".to_owned(),
+            label: "Open it".to_owned(),
+        })
+    );
+    // What it waits to do can be a command with a secret in it: the person sees it, Scout's model never does.
+    assert_eq!(waiting[0].quote.as_deref(), Some("Run pnpm test"));
+    assert!(!scout_prompt(&waiting, &[], None, &[]).contains("pnpm test"));
+}
+
+#[test]
+fn a_turn_that_failed_says_whose_and_why_in_the_runtimes_own_words_with_what_was_asked_for_the_model() {
+    let f1 = failed_facts(&[FailedTurn {
+        mission_id: "mis_9".to_owned(),
+        teammate_id: Some("tm_wren".to_owned()),
+        name: Some("Wren".to_owned()),
+        asked: "Fix the save".to_owned(),
+        why: Some("Model not found: opencode/no-such-model-free.".to_owned()),
+    }]);
+    assert_eq!(f1[0].key, "failed:mis_9");
+    assert_eq!(
+        f1[0].said,
+        "Wren's turn failed: Model not found: opencode/no-such-model-free."
+    );
+    assert_eq!(f1[0].detail.as_deref(), Some("It was asked: Fix the save"));
+    assert_eq!(f1[0].teammate_id.as_deref(), Some("tm_wren"));
+
+    let f2 = failed_facts(&[FailedTurn {
+        mission_id: "mis_8".to_owned(),
+        teammate_id: None,
+        name: None,
+        asked: "Fix the save".to_owned(),
+        why: None,
+    }]);
+    assert_eq!(f2[0].said, "A teammate's turn failed.");
+}
+
+#[test]
+fn scouts_model_is_asked_about_the_new_facts_and_the_team_read_only_in_one_form() {
+    let facts = failed_facts(&[FailedTurn {
+        mission_id: "mis_9".to_owned(),
+        teammate_id: None,
+        name: Some("Wren".to_owned()),
+        asked: "Fix the save".to_owned(),
+        why: Some("Overloaded.".to_owned()),
+    }]);
+    let prompt = scout_prompt(
+        &facts,
+        &[PromptTeammate {
+            name: "Atlas",
+            role: "Reviews",
+        }],
+        None,
+        &[],
+    );
+    assert!(prompt.contains(
+        "Use only what is below: do not use any tools, open files, run commands or change anything."
+    ));
+    assert!(prompt.contains("1. Wren's turn failed: Overloaded.\n   It was asked: Fix the save"));
+    assert!(prompt.contains("- Atlas, Reviews"));
+    assert!(prompt.contains("ITEM <its number>"));
+    assert!(prompt.contains("Say nothing that is not in what is above."));
+}
+
+#[test]
+fn scouts_model_is_read_loosely_bold_labels_a_colon_after_the_number_a_draft_over_several_lines() {
+    let team = [
+        AnswerTeammate {
+            teammate_id: "tm_wren",
+            name: "Wren",
+        },
+        AnswerTeammate {
+            teammate_id: "tm_atlas",
+            name: "Atlas",
         },
     ];
-    let facts = waiting_facts(&cards, now, SCOUT_WAITING_MS);
-    assert_eq!(facts.len(), 1);
-    assert_eq!(facts[0].key, "waiting:ap_old");
-    assert_eq!(facts[0].urgency, ScoutUrgency::Now);
-    assert_eq!(facts[0].said, "Wren has waited 15 minutes for your OK.");
-    assert_eq!(facts[0].quote.as_deref(), Some("npm publish"));
-    assert_eq!(facts[0].detail, None);
+    let answer = scout_answers(
+        &[
+            "Here is what I think.",
+            "",
+            "**ITEM 1:**",
+            "**TAKE:** The timeout is new since this morning.",
+            "HAND TO: Wren.",
+            "DRAFT: Find why the save waits on Mac.",
+            "Run the test three times.",
+            "",
+            "ITEM 2",
+            "TAKE: Approved and clean.",
+            "HAND TO: none",
+        ]
+        .join("\n"),
+        2,
+        &team,
+    );
+    assert_eq!(
+        answer.get(&1),
+        Some(&ScoutAnswer {
+            take: Some("The timeout is new since this morning.".to_owned()),
+            draft: Some(ScoutDraft {
+                teammate_id: "tm_wren".to_owned(),
+                name: "Wren".to_owned(),
+                message: "Find why the save waits on Mac.\nRun the test three times.".to_owned(),
+            }),
+        })
+    );
+    assert_eq!(
+        answer.get(&2),
+        Some(&ScoutAnswer {
+            take: Some("Approved and clean.".to_owned()),
+            draft: None,
+        })
+    );
 }
 
 #[test]
-fn failed_turn_facts_lead_with_why_and_include_prompt_in_detail() {
-    let facts = failed_facts(&[FailedTurn {
-        mission_id: "m_fail".into(),
-        teammate_id: Some("tm_ada".into()),
-        name: Some("Ada".into()),
-        asked: "Check why deploy stalled".into(),
-        why: Some("model not found".into()),
-    }]);
-    assert_eq!(facts.len(), 1);
-    assert_eq!(facts[0].said, "Ada's turn failed: model not found");
-    assert_eq!(facts[0].detail.as_deref(), Some("It was asked: Check why deploy stalled"));
+fn scouts_model_is_kept_strictly_no_item_that_was_not_asked_no_teammate_who_is_not_on_the_team_no_draft_with_nobody_to_send_it_to() {
+    let team = [
+        AnswerTeammate {
+            teammate_id: "tm_wren",
+            name: "Wren",
+        },
+        AnswerTeammate {
+            teammate_id: "tm_atlas",
+            name: "Atlas",
+        },
+    ];
+    let answer = scout_answers(
+        &[
+            "ITEM 3",
+            "TAKE: Out of range.",
+            "ITEM 1",
+            "HAND TO: Mallory",
+            "DRAFT: Delete everything.",
+            "ITEM 2",
+            "TAKE: Kept.",
+            "HAND TO: Mallory",
+            "DRAFT: Send nothing.",
+        ]
+        .join("\n"),
+        2,
+        &team,
+    );
+    assert!(!answer.contains_key(&3));
+    assert!(!answer.contains_key(&1));
+    assert_eq!(
+        answer.get(&2),
+        Some(&ScoutAnswer {
+            take: Some("Kept.".to_owned()),
+            draft: None,
+        })
+    );
+    assert!(scout_answers("nothing in the form", 2, &team).is_empty());
+}
+
+#[test]
+fn cards_keep_the_newest_at_most_max_scout_cards() {
+    let fact = failed_facts(&[FailedTurn {
+        mission_id: "mis_1".to_owned(),
+        teammate_id: None,
+        name: None,
+        asked: "x".to_owned(),
+        why: None,
+    }])
+    .into_iter()
+    .next()
+    .unwrap();
+    let many: Vec<ScoutCard> = (0..MAX_SCOUT_CARDS)
+        .map(|index| card_of(fact.clone(), format!("card_{index}"), dt("1970-01-01T00:00:00.000Z"), false))
+        .collect();
+    let added = card_of(fact, "card_new", dt("1970-01-01T00:00:00.001Z"), true);
+    let kept = with_new_cards(&many, &[added]);
+    assert_eq!(kept.len(), MAX_SCOUT_CARDS);
+    assert_eq!(kept[0].card_id, "card_new");
+    assert!(kept[0].reading);
+    assert_eq!(
+        kept[MAX_SCOUT_CARDS - 1].card_id,
+        format!("card_{}", MAX_SCOUT_CARDS - 2)
+    );
+}
+
+#[test]
+fn settings_take_only_what_a_person_could_have_set() {
+    let defaults = ScoutSettings::default();
+    assert_eq!(scout_settings_from(&serde_json::Value::Null, &defaults), defaults);
+    assert_eq!(
+        scout_settings_from(
+            &json!({
+                "on": true,
+                "everyMinutes": 30,
+                "watches": { "github": false },
+                "notify": false,
+                "teammateId": "tm_scout"
+            }),
+            &defaults,
+        ),
+        ScoutSettings {
+            on: true,
+            teammate_id: Some("tm_scout".to_owned()),
+            every_minutes: 30,
+            watches: ScoutWatches {
+                github: false,
+                teammates: true,
+                check: false,
+                comments: true,
+            },
+            notify: false,
+            wait_while_working: true,
+            ..defaults.clone()
+        }
+    );
+    assert_eq!(
+        scout_settings_from(
+            &json!({ "everyMinutes": 1, "teammateId": "../x", "on": "yes" }),
+            &defaults,
+        ),
+        defaults
+    );
+}
+
+#[test]
+fn new_issues_overflow_holds_fourth_issue_until_earlier_three_are_told() {
+    let at = dt("2026-10-12T15:00:00.000Z");
+    let issues = [
+        sample_issue(1, "2026-10-01T00:00:00Z"),
+        sample_issue(2, "2026-10-11T00:00:00Z"),
+        sample_issue(3, "2026-10-12T10:00:00Z"),
+        sample_issue(4, "2026-10-10T00:00:00Z"),
+        sample_issue(5, "2026-10-09T00:00:00Z"),
+    ];
+    let split = new_issues(&issues, at, &HashSet::new());
+    assert_eq!(split.facts.len(), 3);
+    assert_eq!(split.more.len(), 1);
+    assert_eq!(split.more[0].key, "issue:https://github.com/acme/app/issues/5");
+    let told: HashSet<String> = split.facts.iter().map(|f| f.key.clone()).collect();
+    let next = new_issues(&issues, at, &told);
+    assert_eq!(next.facts.len(), 4);
+    assert!(next.more.is_empty());
 }
 
 #[test]
@@ -285,55 +700,6 @@ fn quiet_hours_and_hour_words_handle_overnight_and_daytime_ranges() {
     assert_eq!(hour_words(12), "noon");
     assert_eq!(hour_words(7), "7 AM");
     assert_eq!(hour_words(22), "10 PM");
-}
-
-#[test]
-fn scout_prompt_and_answers_and_note_parsing_match_electron() {
-    let facts = vec![
-        ScoutFact {
-            detail: Some("It was asked: fix tests".into()),
-            ..ScoutFact::simple("failed:m1", ScoutUrgency::Soon, "Ada's turn failed")
-        },
-        ScoutFact::simple("check:1:fails", ScoutUrgency::Now, "The check npm test fails"),
-    ];
-    let prompt = scout_prompt(
-        &facts,
-        &[PromptTeammate {
-            name: "Wren",
-            role: "Code",
-        }],
-        Some("Prioritize CI"),
-        &["2026-10-11: Ignore docs PRs".into()],
-    );
-    assert!(prompt.contains("keep watch for this: Prioritize CI"));
-    assert!(prompt.contains("Your notes from earlier looks"));
-    assert!(prompt.contains("- Wren, Code"));
-
-    let raw = r#"
-**ITEM 1:**
-**TAKE**: Ada hit a flaky test in CI.
-**HAND TO**: Wren.
-DRAFT: Re-run the suite on Ada's branch and fix any flake.
-
-ITEM 99:
-TAKE: Ignored out-of-range item.
-
-NOTE: Keep an eye on flaky CI tests.
-"#;
-    let team = [AnswerTeammate {
-        teammate_id: "tm_wren",
-        name: "Wren",
-    }];
-    let answers = scout_answers(raw, facts.len(), &team);
-    assert_eq!(answers.len(), 1);
-    let a1 = answers.get(&1).unwrap();
-    assert_eq!(a1.take.as_deref(), Some("Ada hit a flaky test in CI."));
-    let draft = a1.draft.as_ref().unwrap();
-    assert_eq!(draft.teammate_id, "tm_wren");
-    assert_eq!(draft.message, "Re-run the suite on Ada's branch and fix any flake.");
-    assert!(!draft.message.contains("NOTE:"));
-    assert_eq!(scout_note_of(raw).as_deref(), Some("Keep an eye on flaky CI tests."));
-    assert_eq!(scout_note_of("NOTE: none.").as_deref(), None);
 }
 
 #[test]
@@ -680,47 +1046,6 @@ fn scout_log_merges_quiet_looks_prunes_old_and_renders_brief() {
     assert!(pruned[0].skipped_quiet_hours);
 
     let _ = SystemTime::now().duration_since(UNIX_EPOCH);
-}
-
-#[test]
-fn with_new_cards_caps_at_max_scout_cards_keeping_newest_first_and_filters_bad_issues() {
-    assert!(issues_of("not json").is_empty());
-    let partial_issues = issues_of(
-        &json!([
-            {"number": "nope", "title": "bad"},
-            {"number": 9, "title": "Good", "url": "https://github.com/acme/repo/issues/9", "createdAt": "2026-10-12T00:00:00Z"}
-        ])
-        .to_string(),
-    );
-    assert_eq!(partial_issues.len(), 1);
-    assert_eq!(partial_issues[0].number, 9);
-
-    let existing: Vec<ScoutCard> = (0..MAX_SCOUT_CARDS)
-        .map(|i| ScoutCard {
-            card_id: format!("old_{i}"),
-            at: "2026-10-12T00:00:00.000Z".into(),
-            reading: false,
-            take: None,
-            raw_fix: None,
-            fact: ScoutFact::simple(
-                format!("old:{i}"),
-                ScoutUrgency::Later,
-                format!("old {i}"),
-            ),
-        })
-        .collect();
-    let newest = ScoutCard {
-        card_id: "new_1".into(),
-        at: "2026-10-12T01:00:00.000Z".into(),
-        reading: false,
-        take: None,
-        raw_fix: None,
-        fact: ScoutFact::simple("new:1", ScoutUrgency::Now, "brand new"),
-    };
-    let kept = with_new_cards(&existing, &[newest]);
-    assert_eq!(kept.len(), MAX_SCOUT_CARDS);
-    assert_eq!(kept[0].card_id, "new_1");
-    assert_eq!(kept[MAX_SCOUT_CARDS - 1].card_id, format!("old_{}", MAX_SCOUT_CARDS - 2));
 }
 
 // Review (13 Nov): the two breaks no test caught.
