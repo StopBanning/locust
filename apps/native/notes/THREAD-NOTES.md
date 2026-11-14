@@ -204,8 +204,9 @@ That incomplete attempt is **not** counted as control evidence. The retry waited
 1,164 seconds, then completed: **1,651 passed, one intended failure, 20 ignored**.
 `peer-open` failed `leaves_a_long_back_and_forth_collapsed` and restored; the other
 twelve controls are pending. The next control, `peer-empty`, is queued behind
-another checkout's full native release suite. The assistant-text section has a
-prepared, unregistered test file; it is not counted as carried or compiled.
+another checkout's full native release suite. No later section is claimed carried.
+The prepared assistant-text file was removed without registering it; the next
+section remains `assistant text` (three cases), then the other sections in file order.
 
 The second control (`peer-empty`) timed out at 1,800 seconds after waiting 1,469
 seconds and compiling for the remainder, without running tests. Its `finally`
