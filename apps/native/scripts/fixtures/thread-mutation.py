@@ -24,6 +24,12 @@ controls = {
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
 controls.update({
+    'trace-duration': ('core/src/activity_trace.rs', 'crate::ledger::duration_text(ms)', 'crate::ledger::duration_text(0)', 'leads_with_the_duration_and_ends_with_the_exceptions_a_zero_segment_is_absent'),
+    'trace-thought': ('core/src/activity_trace.rs', 'if thought>=1000', 'if thought>7000', 'does_not_count_thinking_as_a_tool_call_on_the_line_a_person_reads'),
+    'trace-running': ('core/src/activity_trace.rs', 'if outcome=="running" && *shells[0].1==Status::Running', 'if false && *shells[0].1==Status::Running', 'says_the_one_command_is_running_while_it_has_no_result_not_that_it_ran_0_378'),
+    'trace-helper': ('core/src/activity_trace.rs', 'if outcome=="running"{0}', 'if true{0}', 'says_a_subagent_did_not_report_in_amber_only_once_the_turn_is_over'),
+    'trace-source': ('core/src/activity_trace.rs', 'source:e["sourceAdapter"]', 'source:e["missingSource"]', 'carries_the_notices_it_used_to_only_count_as_sentences_on_the_fold'),
+
     'live-connector': ('core/src/thread_view.rs', 'crate::mcp_names::mcp_tool_parts(s("name"))', 'crate::mcp_names::mcp_tool_parts("")', 'reads_a_connector_name_that_carries_no_mcp_prefix'),
     'live-detail': ('core/src/thread_view.rs', 'mcp.map(|m| m.server)', 'mcp.map(|_| String::new())', 'names_a_connector_as_a_connector_because_it_reaches_off_this_machine'),
     'exit-result': ('core/src/ledger.rs', 'if code != 0 { *status = Status::Failed; }', 'if code > 1 { *status = Status::Failed; }', 'carries_a_command_row_with_its_exit_result'),

@@ -84,6 +84,7 @@ pub enum Status {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Item {
+    Trace(crate::activity_trace::Trace),
     User(String),
     CarryOn {
         conversation_id: String,
@@ -1189,6 +1190,11 @@ impl Transcript {
         self.cost = crate::relay::mission_cost_from_events(&event_vec);
         self.live = crate::thread_view::live_line(&event_vec, self.running,
             self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
+        if items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
+            let mut trace = crate::activity_trace::activity_trace(&items, &event_vec, crate::activity_trace::outcome(&event_vec, self.running));
+            trace.notices.retain(|n| !items.iter().any(|i| matches!(i, Item::Note { text, .. } if crate::failure_words::same_sentence(text, &n.message))));
+            items.push(Item::Trace(trace));
+        }
         self.items = items;
     }
 }
@@ -1964,7 +1970,8 @@ mod tests {
                 json!({"itemId":"h","name":"Agent","output":"Synthetic report"}),
             ),
         ]);
-        assert_eq!(t.items.len(), 2);
+        assert_eq!(t.items.iter().filter(|i| !matches!(i, Item::Trace(_))).count(), 2);
+        assert!(matches!(t.items.last(), Some(Item::Trace(_))));
         let Item::Tool { detail: h, .. } = &t.items[0] else {
             panic!("helper");
         };
@@ -2027,7 +2034,8 @@ mod tests {
                 json!({"itemId":"h","stepKind":"item","itemType":"background","status":"completed","message":"Synthetic final report"}),
             ),
         ]);
-        assert_eq!(t.items.len(), 1);
+        assert_eq!(t.items.iter().filter(|i| !matches!(i, Item::Trace(_))).count(), 1);
+        assert!(matches!(t.items.last(), Some(Item::Trace(_))));
         let Item::Tool { detail, .. } = &t.items[0] else {
             panic!("helper");
         };
@@ -2131,7 +2139,7 @@ mod tests {
             matches!(&t.items[3], Item::Assistant { text, .. } if text.contains("[redacted]") && !text.contains("AIzaSyAabcdefghijklmnopqrstuvwxyz012345"))
         );
         assert!(
-            matches!(t.items.last(), Some(Item::Note { text, .. }) if text.contains("password=[redacted]"))
+            matches!(t.items.iter().rev().find(|i| !matches!(i, Item::Trace(_))), Some(Item::Note { text, .. }) if text.contains("password=[redacted]"))
         );
     }
 
@@ -2178,7 +2186,8 @@ mod tests {
                 json!({"itemId":"orphan","parentItemId":"missing-helper","name":"Read","output":"should not show"}),
             ),
         ]);
-        assert_eq!(t.items.len(), 1);
+        assert_eq!(t.items.iter().filter(|i| !matches!(i, Item::Trace(_))).count(), 1);
+        assert!(matches!(t.items.last(), Some(Item::Trace(_))));
         assert!(
             matches!(&t.items[0], Item::Tool { detail, .. } if detail.id == "own" && detail.children.is_empty())
         );
@@ -2788,7 +2797,7 @@ mod tests {
                     Item::Plan { .. } => plans += 1,
                     Item::Thought { .. } => notes += 1,
                     Item::Note { .. } | Item::Limit { .. } => notes += 1,
-                    Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
+                    Item::Trace(_) | Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
                 }
             }
         }

@@ -148,3 +148,4 @@ pub mod command_outcomes;
 pub mod activity_summary;
 
 pub mod activity_entries;
+pub mod activity_trace;

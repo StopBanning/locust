@@ -81,3 +81,16 @@ ordinary tool, tool-close and initial registers match the Electron assertions un
 `live-connector` and `live-detail` each failed their named assertion across the whole core suite
 and restored. Focused thread suite: 28 passed. Restored whole core: **1,590 passed, 20 ignored**,
 no warnings. No does-not-apply cases. Register changes still share the turn clock.
+
+
+`the trace line for a finished turn (SURFACES-0.22)`: 9 individual ports in
+`activity_trace_tests.rs`. Each ledger turn now carries its own trace footer, with duration,
+reasoning time, command names/outcomes, other calls, helper outcomes and readable runtime notices.
+Notices already said in a thread note are not repeated. Thinking is not a call; an open command
+is running, and a silent helper is not unreported until the turn ends. Whole core: **1,599 passed,
+20 ignored**, no warnings. Five whole-core controls (`trace-duration`, `trace-thought`,
+`trace-running`, `trace-helper`, `trace-source`) failed their named assertions and restored.
+Four ledger assertions now account for the new trace footer while retaining their original helper
+and secret-scrubbing assertions. A new headless test checks the ledger-to-trace path and disclosure;
+its run is deferred to the required final workspace suite. The redundant activity-only release
+check was canceled while waiting for the shared lock. No does-not-apply cases.

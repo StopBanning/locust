@@ -58,6 +58,21 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             continue;
         }
         let content = match item {
+            ledger::Item::Trace(trace) => {
+                let mut line = row().w_full().gap(5.0);
+                for (i, segment) in trace.segments.iter().enumerate() {
+                    if i > 0 { line = line.child(text("·").font(type_::LABEL).color(p.muted)); }
+                    line = line.child(text(segment.text.clone()).font(type_::LABEL).color(if segment.tone.as_deref() == Some("amber") {p.amber} else {p.muted}));
+                }
+                let mut body = col().w_full().gap(4.0).child(line);
+                if !trace.notices.is_empty() {
+                    let key = format!("{conversation}/trace/{index}/notices");
+                    let open = s.activity_open.get(&key).copied().unwrap_or(false);
+                    body = body.child(disclosure(key, "Runtime notices".into(), open, p));
+                    if open { for n in &trace.notices { body = body.child(text(format!("{} · {}", n.source, n.message)).font(type_::LABEL).color(p.muted).w_full().wrap()); } }
+                }
+                body
+            }
             ledger::Item::CarryOn { conversation_id, from, why } => {
                 if s.flight.is_some()
                     || s.sending.is_pending()
@@ -633,6 +648,24 @@ mod tests {
             .join("\n");
         *s = rt.state.0;
         out
+    }
+
+    #[test]
+    fn the_trace_and_its_folded_notices_reach_the_headless_thread() {
+        let events = vec![serde_json::json!({"sequence":1,"type":"run.started","occurredAt":"2026-11-01T00:00:00Z","payload":{}}),
+            serde_json::json!({"sequence":2,"sourceAdapter":"claude","type":"adapter.diagnostic","occurredAt":"2026-11-01T00:00:01Z","payload":{"code":"codex.setup","level":"info","message":"Skill descriptions were shortened."}}),
+            serde_json::json!({"sequence":3,"type":"tool.completed","occurredAt":"2026-11-01T00:00:02Z","payload":{"itemId":"a","name":"shell","command":"ls","exitCode":0}}),
+            serde_json::json!({"sequence":4,"type":"run.completed","occurredAt":"2026-11-01T00:00:04Z","payload":{}})];
+        let mut t = ledger::Transcript::default();
+        t.apply(events.into_iter().map(|event| serde_json::json!({"recordType":"mission.event","event":event})).collect());
+        let index = t.items.iter().position(|i| matches!(i, ledger::Item::Trace(_))).expect("ledger trace");
+        let mut s = State::default();
+        let folded = thread_text(&t.items, &mut s);
+        assert!(folded.contains("4s") && folded.contains("ran ls"), "{folded}");
+        assert!(!folded.contains("Skill descriptions were shortened."), "{folded}");
+        s.activity_open.insert(format!("preview/trace/{index}/notices"), true);
+        let opened = thread_text(&t.items, &mut s);
+        assert!(opened.contains("claude · Skill descriptions were shortened."), "{opened}");
     }
 
     fn composition_state(kind: Option<&str>, running: bool) -> State {
