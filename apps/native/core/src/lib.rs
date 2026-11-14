@@ -157,3 +157,6 @@ pub mod signal_rail;
 
 #[cfg(test)]
 mod assistant_text_tests;
+
+#[cfg(test)]
+mod changed_file_tests;
