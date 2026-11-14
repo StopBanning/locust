@@ -1177,7 +1177,7 @@ apps/desktop/src/shared/spend.test.ts	P10	partial		`shared/spend.test.ts` (subse
 apps/desktop/src/shared/step-budget.test.ts		waiting		
 apps/desktop/src/shared/text-files.test.ts		waiting		
 apps/desktop/src/shared/the-about-you-line-is-taught-once.test.ts		waiting		
-apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts		waiting		
+apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts	approvals	carried	core/src/desk.rs	5 of 7 cases carried (desk::tests: cases 2-5 and 7); cases 1 (desktop-api.ts ipcRenderer static coverage) and 6 (structured-clone Uint8Array/undefined IPC serialization) marked does-not-apply as Electron-only IPC plumbing
 apps/desktop/src/shared/the-example-file-is-never-a-file.test.ts		waiting		
 apps/desktop/src/shared/the-judges-pick-is-marked.test.ts	compare	carried		`compare::tests::the_judges_pick_is_marked`
 apps/desktop/src/shared/the-memories-that-bear-on-the-ask-come-first.test.ts	approvals	carried	core/src/people.rs	all 7 tests + brief() prompt recall wiring; briefed_memories/memories_for_brief/MEMORY_BRIEF_LINES_WITH_FILE/MEMORY_BRIEF_BUDGET_WITH_FILE

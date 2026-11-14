@@ -51,6 +51,7 @@ pub mod compact_now;
 pub mod connector_reader;
 pub mod connectors_off;
 pub mod context_usage;
+pub mod desk;
 pub mod door;
 pub mod door_tools;
 pub mod edit_check;
