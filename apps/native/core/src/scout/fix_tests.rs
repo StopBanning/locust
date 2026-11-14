@@ -936,3 +936,29 @@ fn recovers_preparing_fix_cards_when_scout_starts_after_restart() {
     );
     scout.dispose();
 }
+
+// Review (14 Nov): the engine's own one-at-a-time rule and its stop, which the card test reaches only through a mock.
+#[test]
+fn one_fix_at_a_time_and_a_stop_ends_the_one_under_way_with_its_reason() {
+    let (_top, folder, root) = project();
+    let (deps, sched, fixes) = fixes_with(&root, Arc::new(|_, _| WorkAction::Hang));
+    let input = |folder: &Path| FixPrepareInput { fix_id: new_fix_id(), teammate_id: "tm_wren".into(), name: "Wren".into(), command: "npm test".into(), folder: folder.to_path_buf() };
+    let first = input(&folder);
+    let fixes_bg = fixes.clone();
+    let handle = std::thread::spawn(move || fixes_bg.prepare(&first));
+    for _ in 0..400 {
+        if !deps.started.lock().unwrap().is_empty() && sched.pending_count() > 0 {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(fixes.busy());
+    assert_eq!(fixes.prepare(&input(&folder)), ScoutFixOutcome::Unfixed { why: "Scout is preparing another fix.".into(), mission_id: None });
+    assert_eq!(deps.started.lock().unwrap().len(), 1, "the second fix started nothing");
+    fixes.stop("Scout was turned off, so the fix stopped.");
+    assert_eq!(handle.join().unwrap(), ScoutFixOutcome::Unfixed { why: "Scout was turned off, so the fix stopped.".into(), mission_id: Some("mission_1".into()) });
+    // stop() stops the run and the wait it wakes stops it again, as scout-fix.ts does (lines 165 and 216).
+    let stopped = deps.stopped.lock().unwrap().clone();
+    assert!(!stopped.is_empty() && stopped.iter().all(|r| r == "run_1"), "{stopped:?}");
+    assert!(!fixes.busy());
+}

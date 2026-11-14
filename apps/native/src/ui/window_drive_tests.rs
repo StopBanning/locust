@@ -5588,7 +5588,7 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
     std::fs::write(folder.join("notes.md"), "mine\n").unwrap();
     locust_core::scout::fix::default_fix_git(&["init", "-q"], &folder).unwrap();
     locust_core::scout::fix::default_fix_git(
-        &["config", "user.email", "test@example.com"],
+        &["config", "user.email", "scout-test"],
         &folder,
     )
     .unwrap();

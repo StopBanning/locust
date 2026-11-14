@@ -1563,3 +1563,28 @@ fn host_reads_comments_posts_via_gh_input_hook_and_reads_last_teammate_and_comme
     .unwrap();
     assert_eq!(deps.comment_answer("m-run"), None);
 }
+
+// Review (14 Nov): an attempt also freezes the text.
+fn answered_post(deps: &Arc<MockCommentDeps>, scout: &Arc<Scout>) -> String {
+    deps.comment_queue.lock().unwrap().push(vec![ok_gh_comment(23, "colin", "/locust ada go", 212, "2026-09-16T10:00:10Z")]);
+    let ask_id = scout.look().cards[0].card_id.clone();
+    scout.sent_comment(&ask_id, "m-23", "ada");
+    deps.comment_answers.lock().unwrap().insert("m-23".to_owned(), CommentAnswer::Text("Reply".to_owned()));
+    scout.on_run_ended("m-23");
+    scout.state().cards[0].card_id.clone()
+}
+
+#[test]
+fn a_tried_comment_cannot_have_its_text_changed() {
+    let tmp = TempDir::new();
+    let deps = MockCommentDeps::new(tmp.path(), "2026-09-16T10:00:00Z");
+    deps.seed_on(None);
+    *deps.post_handler.lock().unwrap() = Box::new(|_, _, _| Err("GitHub returned 500".to_owned()));
+    let sched = FakeScheduler::new(ts("2026-09-16T10:00:00Z").timestamp_millis());
+    let scout = Scout::with_scheduler(deps.clone(), sched.clone());
+    let post_id = answered_post(&deps, &scout);
+    assert!(scout.post(&post_id).is_err());
+    let err = scout.edit_post(&post_id, "Different words").unwrap_err();
+    assert!(err.contains("cannot be changed"), "{err}");
+    assert_eq!(scout.state().cards[0].fact.post.clone().unwrap().message, "Reply\n\nWritten by Ada, a Locust teammate.");
+}
