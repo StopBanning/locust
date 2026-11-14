@@ -340,6 +340,75 @@ fn opencode_serve_streams_authenticated_sse() {
 }
 
 #[test]
+fn opencode_serve_permission_asked_raises_card_with_always_key_and_reply() {
+    let temp = Temp::new();
+    let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();
+    std::fs::create_dir_all(store.electron()).unwrap();
+    let mut command = Command::new("python3");
+    command
+        .arg(fixture("m4-opencode-serve.py"))
+        .arg("serve")
+        .arg("approve")
+        .current_dir(&temp.0)
+        .env("LOCUST_NATIVE_OPENCODE_PROTOCOL", "serve");
+    let mut rt = OpenCode::spawn(&mut command).unwrap();
+    let channel = Channel::new();
+    let turn = Turn {
+        prompt: "Approve me".into(),
+        folder: temp.0.clone(),
+        model: Some("opencode/beam-free".into()),
+        effort: None,
+        resume: None,
+        mode: Mode::ApproveEach,
+        approvals: Some(channel.clone()),
+        mission_id: "opencode_serve_approve".into(),
+        run_id: "run_opencode_serve_approve".into(),
+    };
+    let mut writer = LedgerWriter::create_runtime(
+        &store,
+        "opencode_serve_approve",
+        &turn.prompt,
+        "opencode/beam-free",
+        "fake-opencode",
+        "opencode",
+        &[],
+        None,
+    )
+    .unwrap();
+    rt.start(&turn).unwrap();
+    let ch = channel.clone();
+    let decider = std::thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if let Some(card) = ch.waiting().first() {
+                let runtime = card.runtime.clone();
+                let always_key = card.always_key.clone();
+                let detail = card.detail.clone();
+                ch.decide(Answer::Decision {
+                    approval_id: card.approval_id.clone(),
+                    decision: Decision::ApproveOnce,
+                    reason: None,
+                })
+                .unwrap();
+                return Some((runtime, always_key, detail));
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        None
+    });
+    let events = drive(&mut rt, &mut writer, &channel, "opencode_serve_approve");
+    let seen = decider.join().unwrap().expect("OpenCode Serve should raise an approval card");
+    assert_eq!(seen.0, "opencode");
+    assert_eq!(seen.1.as_deref(), Some("opencode:bash:echo hi"));
+    assert_eq!(seen.2, "echo hi");
+    assert_eq!(events.last().unwrap().kind, "run.completed");
+    assert!(events.iter().any(|e| {
+        e.kind == "message.delta"
+            && e.payload["text"].as_str().unwrap_or("").contains("Allowed.")
+    }));
+}
+
+#[test]
 fn opencode_serve_busy_restarts_then_runs() {
     let temp = Temp::new();
     let store = Store::new(temp.0.join("native"), temp.0.join("electron")).unwrap();

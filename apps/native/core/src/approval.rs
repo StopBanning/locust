@@ -2243,4 +2243,70 @@ mod tests {
         ch.release("m_2");
         let _ = handle.join().unwrap();
     }
+
+    #[test]
+    fn diff_patch_from_and_opencode_edit_cover_outside_folder_and_replies() {
+        let raw = "Index: C:/work/src/a.ts\n===================================================================\n--- C:/work/src/a.ts\n+++ C:/work/src/a.ts\n@@ -1 +1 @@\n-old\n+new\n";
+        let patch = diff_patch_from(raw, "C:/work").expect("valid unified diff");
+        assert!(!patch.text.contains("Index: "));
+        assert!(!patch.text.contains("==="));
+        assert!(patch.text.contains("--- src/a.ts"));
+        assert!(patch.text.contains("+++ src/a.ts"));
+        assert_eq!((patch.added, patch.removed), (1, 1));
+        assert!(diff_patch_from("--- a.ts\n+++ a.ts\nno hunks", "C:/work").is_none());
+
+        let outside = open_code_permission_request(
+            &json!({
+                "permission": "edit",
+                "patterns": ["/etc/hosts"],
+                "always": ["*"],
+                "metadata": {"filepath": "/etc/hosts", "diff": raw},
+            }),
+            "/work",
+        );
+        assert_eq!(
+            outside["params"]["locustCard"]["summary"],
+            "Change 1 file outside your project folder"
+        );
+        assert!(outside["params"]["locustCard"]["reversibleSays"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("Not from here"));
+        assert_eq!(
+            outside["params"]["locustCard"]["alwaysCovers"],
+            "every file change it asks for"
+        );
+        assert_eq!(outside["params"]["unifiedDiff"], raw);
+
+        assert_eq!(open_code_reply_for(&json!({"decision": "accept"})), json!("once"));
+        assert_eq!(open_code_reply_for(&json!({"decision": "reject"})), json!("reject"));
+        assert_eq!(
+            open_code_reply_for(&json!({"decision": "reject", "reason": "not now"})),
+            json!({"reply": "reject", "message": "The person declined this, and said: not now"})
+        );
+
+        let codex_card = Request {
+            approval_id: "ap_p".into(),
+            mission_id: "m_p".into(),
+            runtime: "codex".into(),
+            kind: Kind::FileChange,
+            summary: "Change 1 file".into(),
+            detail: String::new(),
+            cwd: Some("C:/work".into()),
+            requested_at: now_iso(),
+            always_covers: None,
+            always_key: None,
+            data_sent_says: None,
+            reversible_says: None,
+            patch: Some(patch),
+            claude_input: None,
+            questions: Vec::new(),
+        };
+        assert_eq!(
+            crate::approval_rules::ruled_action_of(request_view(&codex_card)),
+            crate::approval_rules::RuledAction::Edit {
+                paths: vec!["src/a.ts".into()]
+            }
+        );
+    }
 }

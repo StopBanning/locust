@@ -676,4 +676,48 @@ mod tests {
         );
         assert_eq!(runtime.next_event().unwrap().unwrap().kind, "run.failed");
     }
+    #[test]
+    fn file_change_approval_attaches_patch_from_item_started() {
+        let mut command = Command::new("python3");
+        command.args([
+            "-c",
+            "import json, sys\nprint(json.dumps({'method':'item/started','params':{'threadId':'t1','item':{'id':'i1','type':'fileChange','changes':[{'path':'approved.txt','kind':{'type':'add'},'diff':'hello\\n'}]}}}), flush=True)\nprint(json.dumps({'id':9,'method':'item/fileChange/requestApproval','params':{'threadId':'t1','itemId':'i1'}}), flush=True)\nsys.stdin.readline()",
+        ]);
+        let mut runtime = Codex::spawn(&mut command).unwrap();
+        let channel = Channel::new();
+        runtime.normal.thread = Some("t1".into());
+        runtime.mode = Mode::ApproveEach;
+        runtime.approvals = Some(channel.clone());
+        let ch = channel.clone();
+        let decider = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            while Instant::now() < deadline {
+                let waiting = ch.waiting();
+                if let Some(card) = waiting.first() {
+                    let has_patch = card.patch.as_ref().is_some_and(|p| p.text.contains("+hello"));
+                    ch.decide(crate::approval::Answer::Decision {
+                        approval_id: card.approval_id.clone(),
+                        decision: crate::approval::Decision::ApproveOnce,
+                        reason: None,
+                    })
+                    .unwrap();
+                    return has_patch;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            false
+        });
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < deadline {
+            if let Some(ev) = runtime.next_event().unwrap()
+                && matches!(ev.kind.as_str(), "run.completed" | "run.failed" | "run.cancelled")
+            {
+                break;
+            }
+            if decider.is_finished() {
+                break;
+            }
+        }
+        assert!(decider.join().unwrap(), "Codex fileChange approval should carry patch from item/started");
+    }
 }
