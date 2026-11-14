@@ -935,7 +935,7 @@ apps/desktop/src/renderer/src/every-face-measures-before-any-face-writes.test.ts
 apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	P10	partial		`renderer/src/every-limit-says-what-is-left.test.tsx` | plan windows say `% left`
 apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/every-runtime-keeps-its-output.test.tsx		waiting		
-apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	approvals	carried	src/ui/people_panel.rs	all 2 Rune tests; confirming_remove_all flow in Saved approvals tab (Remove all rules, singular/plural confirmation copy, Remove all, Keep them)
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
 apps/desktop/src/renderer/src/exchange.test.ts	RELAY	partial	src/ui/exchange_strip.rs	exchange_of_and_exchange_across_walk_component_and_sum_cost_and_hops; empty-roots/Nobody edge cases omitted
 apps/desktop/src/renderer/src/faceState.test.ts		waiting		

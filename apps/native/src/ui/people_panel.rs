@@ -1251,3 +1251,68 @@ mod interview_tests {
         assert_eq!(super::interview_origin().started_by, None);
     }
 }
+
+#[cfg(test)]
+mod saved_rules_tests {
+    use super::*;
+    use locust_core::approval_rules::{ApprovalRule, RuleEffect, RuleKind};
+    use rune::{Env, Runtime};
+
+    fn sample_rules(count: usize) -> Vec<ApprovalRule> {
+        (0..count)
+            .map(|i| ApprovalRule {
+                rule_id: format!("rule_{i}"),
+                effect: RuleEffect::Allow,
+                kind: RuleKind::Command,
+                pattern: format!("echo {i}"),
+                teammate_id: None,
+                folder: None,
+                created_at: "2026-09-29T12:00:00.000Z".into(),
+                uses: None,
+                last_used_at: None,
+            })
+            .collect()
+    }
+
+    fn draw(confirming: bool, count: usize) -> Vec<String> {
+        let mut s = State::default();
+        s.people_panel.open = true;
+        s.people_panel.tab = 2;
+        s.people_panel.rules = sample_rules(count);
+        s.people_panel.confirming_remove_all = confirming;
+        let mut rt = Runtime::new(
+            s,
+            |s, _| view(s, &Palette::new(true)),
+            (800.0, 900.0),
+            Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.elements().into_iter().filter_map(|e| e.text).collect()
+    }
+
+    // every-saved-rule-can-go-at-once.test.tsx
+    #[test]
+    fn offers_to_start_over_and_nothing_more_until_pressed() {
+        let texts = draw(false, 3);
+        let joined = texts.join("\n");
+        assert!(texts.iter().any(|t| t == "Remove all rules"), "{joined}");
+        assert!(!joined.contains("Every card asks again"), "{joined}");
+        assert!(!joined.contains("Keep them"), "{joined}");
+    }
+
+    // every-saved-rule-can-go-at-once.test.tsx
+    #[test]
+    fn then_says_how_many_go_and_that_every_card_asks_again_with_a_way_back() {
+        let texts = draw(true, 3);
+        let joined = texts.join("\n");
+        assert!(
+            joined.contains("Remove all 3 saved rules? Every card asks again afterwards."),
+            "{joined}"
+        );
+        assert!(texts.iter().any(|t| t == "Remove all"), "{joined}");
+        assert!(texts.iter().any(|t| t == "Keep them"), "{joined}");
+
+        let one = draw(true, 1).join("\n");
+        assert!(one.contains("Remove the 1 saved rule?"), "{one}");
+    }
+}
