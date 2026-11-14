@@ -329,3 +329,40 @@ fn the_ledger_caches_the_live_projection_when_events_change() {
     let stopped = fold(vec![event("run.started", json!({})), event("run.completed", json!({"process":{}}))]);
     assert!(stopped.live.is_none());
 }
+
+// missionView.test.ts: which register a live line is (one case per test).
+#[test] fn is_thinking_for_a_reasoning_step_whatever_the_runtime_called_it() {
+    assert_eq!(live(&[event("step.started",json!({"stepKind":"reasoning","message":"Writing the answer"}))],true,false).unwrap().register,"thinking");
+}
+#[test] fn is_working_for_a_turn() {
+    assert_eq!(live(&[event("step.started",json!({"stepKind":"turn"}))],true,false).unwrap().register,"working");
+}
+#[test] fn is_writing_for_a_message_item_the_model_producing_prose_not_using_anything() {
+    assert_eq!(live(&[event("step.started",json!({"stepKind":"item","itemType":"assistantMessage"}))],true,false).unwrap().register,"writing");
+}
+#[test] fn is_tool_for_any_other_item_and_drops_the_runtimes_word_for_the_kind() {
+    let l=live(&[event("step.started",json!({"stepKind":"item","itemType":"mcpToolCall"}))],true,false).unwrap(); assert_eq!(l.register,"tool"); assert_eq!(l.detail,None);
+}
+fn opened(name:&str) -> Value {event("tool.started",json!({"itemId":"t1","toolKind":"tool_use","name":name,"phase":"started"}))}
+#[test] fn is_the_open_tool_not_the_turn_around_it_while_one_is_running() {
+    let l=live(&[event("step.started",json!({"stepKind":"turn"})),event("tool.started",json!({"itemId":"t1","toolKind":"tool_use","name":"Read","command":"README.md","phase":"started"}))],true,false).unwrap(); assert_eq!((l.register.as_str(),l.label.as_str()),("tool","README.md"));
+}
+#[test] fn reads_a_connector_name_that_carries_no_mcp_prefix() {
+    let l=live(&[opened("Google_Drive__create_file")],true,false).unwrap(); assert_eq!((l.register.as_str(),l.label.as_str(),l.detail.as_deref()),("connector","create_file",Some("Google Drive")));
+}
+#[test] fn does_not_mistake_an_ordinary_tool_for_a_connector() {
+    for name in ["Read","Write","Bash","Grep","Task","WebFetch","shell","apply_patch"] {assert_eq!(live(&[opened(name)],true,false).unwrap().register,"tool","{name}");}
+}
+#[test] fn keeps_a_tool_name_that_contains_a_double_underscore_with_the_server() {
+    let l=live(&[opened("mcp__claude_ai_Zapier__run__action")],true,false).unwrap(); assert_eq!((l.register.as_str(),l.label.as_str(),l.detail.as_deref()),("connector","run__action",Some("Zapier")));
+}
+#[test] fn names_a_connector_as_a_connector_because_it_reaches_off_this_machine() {
+    let l=live(&[opened("mcp__claude_ai_Robinhood__get_accounts")],true,false).unwrap(); assert_eq!((l.register.as_str(),l.label.as_str(),l.detail.as_deref()),("connector","get_accounts",Some("Robinhood")));
+}
+#[test] fn goes_back_to_the_turn_once_the_tool_closes() {
+    let l=live(&[event("step.started",json!({"stepKind":"turn"})),event("tool.started",json!({"itemId":"t1","toolKind":"tool_use","name":"Read","command":"README.md","phase":"started"})),event("tool.completed",json!({"itemId":"t1"}))],true,false).unwrap(); assert_eq!(l.register,"working");
+}
+#[test] fn is_starting_before_the_first_event_and_working_after_it() {
+    assert_eq!(live(&[],true,false).unwrap().register,"starting");
+    assert_eq!(live(&[event("step.started",json!({"stepKind":"turn"})),event("step.completed",json!({}))],true,false).unwrap().register,"working");
+}

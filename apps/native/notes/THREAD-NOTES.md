@@ -72,3 +72,12 @@ run passed 11 tests with no warnings. Restored baseline and final release result
 
 Restored section baseline: **1,579 core passed, 20 ignored**; release headless activity check:
 **6 passed** (including the new patch-row check). Both compiled without warnings.
+
+
+`which register a live line is`: 11 individual cases in `thread_view_tests.rs`.
+The cached live line now carries a connector's split tool name and server detail, and the
+window names the tool/connector register and detail. The existing reasoning, turn, message,
+ordinary tool, tool-close and initial registers match the Electron assertions unchanged.
+`live-connector` and `live-detail` each failed their named assertion across the whole core suite
+and restored. Focused thread suite: 28 passed. Restored whole core: **1,590 passed, 20 ignored**,
+no warnings. No does-not-apply cases. Register changes still share the turn clock.

@@ -408,7 +408,13 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     {
         let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
             .map(|at| (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).max(0) as u64);
-        let label = elapsed.map_or_else(|| live.label.clone(), |ms| format!("{} · {}", live.label, ledger::duration_text(ms)));
+        let words = match live.register.as_str() {
+            "connector" => format!("Using a connector · {}", live.label),
+            "tool" => format!("Using a tool · {}", live.label),
+            _ => live.label.clone(),
+        };
+        let words = live.detail.as_ref().map_or_else(|| words.clone(), |d| format!("{words} · {d}"));
+        let label = elapsed.map_or_else(|| words.clone(), |ms| format!("{words} · {}", ledger::duration_text(ms)));
         messages = messages.child(text(label).font(type_::LABEL).color(p.muted).w_full());
     }
     messages

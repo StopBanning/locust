@@ -5,6 +5,7 @@ use serde_json::Value;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LiveLine {
     pub label: String,
+    pub detail: Option<String>,
     pub register: String,
     pub waiting: bool,
     pub started_at: String,
@@ -35,7 +36,7 @@ pub fn live_line(
     };
     let mut step: Option<(String, String)> = None;
     let mut before_writing = None;
-    let mut open: Vec<(String, String)> = Vec::new();
+    let mut open: Vec<(String, String, Option<String>, bool)> = Vec::new();
     let mut messages = std::collections::HashMap::new();
     for e in events {
         let p = &e["payload"];
@@ -71,10 +72,14 @@ pub fn live_line(
                     .or(p["command"].as_str())
                     .or(p["name"].as_str())
                     .unwrap_or("");
-                open.retain(|(id, _)| id != s("itemId"));
-                open.push((s("itemId").into(), label.into()));
+                open.retain(|(id, ..)| id != s("itemId"));
+                let mcp = crate::mcp_names::mcp_tool_parts(s("name"));
+                let connector = mcp.is_some() || crate::mcp_names::is_bare_connector_tool(s("name"));
+                let shown = p["title"].as_str().filter(|t| !t.is_empty()).map(str::to_owned)
+                    .or_else(|| mcp.as_ref().map(|m| m.tool.clone())).unwrap_or_else(|| label.into());
+                open.push((s("itemId").into(), shown, mcp.map(|m| m.server), connector));
             }
-            "tool.completed" | "tool.failed" => open.retain(|(id, _)| id != s("itemId")),
+            "tool.completed" | "tool.failed" => open.retain(|(id, ..)| id != s("itemId")),
             "message.delta" => {
                 let final_ = p["final"] == true;
                 messages.insert(s("itemId").to_owned(), final_);
@@ -106,8 +111,9 @@ pub fn live_line(
             _ => {}
         }
     }
-    let (label, register, waiting) = if let Some((_, label)) = open.last() {
-        (label.clone(), "tool".into(), false)
+    let detail = open.last().and_then(|(_, _, detail, _)| detail.clone());
+    let (label, register, waiting) = if let Some((_, label, _, connector)) = open.last() {
+        (label.clone(), if *connector { "connector" } else { "tool" }.into(), false)
     } else if let Some((label, register)) = step {
         let waiting = register == "thinking";
         (label, register, waiting)
@@ -128,6 +134,7 @@ pub fn live_line(
     };
     Some(LiveLine {
         label: crate::ledger::scrub(&label),
+        detail: detail.map(|d| crate::ledger::scrub(&d)),
         register,
         waiting,
         started_at: at.into(),

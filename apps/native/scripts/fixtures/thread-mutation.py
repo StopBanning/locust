@@ -24,6 +24,8 @@ controls = {
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
 controls.update({
+    'live-connector': ('core/src/thread_view.rs', 'crate::mcp_names::mcp_tool_parts(s("name"))', 'crate::mcp_names::mcp_tool_parts("")', 'reads_a_connector_name_that_carries_no_mcp_prefix'),
+    'live-detail': ('core/src/thread_view.rs', 'mcp.map(|m| m.server)', 'mcp.map(|_| String::new())', 'names_a_connector_as_a_connector_because_it_reaches_off_this_machine'),
     'exit-result': ('core/src/ledger.rs', 'if code != 0 { *status = Status::Failed; }', 'if code > 1 { *status = Status::Failed; }', 'carries_a_command_row_with_its_exit_result'),
     'patch-rows': ('core/src/activity_entries.rs', 'changes::parse(&patch.text)', 'changes::parse("")', 'turns_one_patch_into_a_row_per_file_it_touched'),
     'patch-counts': ('core/src/activity_entries.rs', 'let counts = file.counts();', 'let counts = (patch.added, patch.removed);', 'sums_the_card_total_from_the_rows_it_will_actually_draw'),
