@@ -1129,7 +1129,7 @@ apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	P8	pa
 apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	P8	partial		`shared/a-command-that-reaches-other-programs-is-named.test.ts` | REACHES / DOES_NOT tables + said sentences
 apps/desktop/src/shared/a-fenced-tidy-block-still-counts.test.ts		waiting		
 apps/desktop/src/shared/a-first-run-names-no-terminal.test.ts		waiting		
-apps/desktop/src/shared/a-half-written-tag-is-never-shown-to-a-person.test.ts		waiting		
+apps/desktop/src/shared/a-half-written-tag-is-never-shown-to-a-person.test.ts		carried	core/src/protocol_tags.rs	all 11 cases, one test each (protocol_tags.rs tests)
 apps/desktop/src/shared/a-judge-scores-each-answer.test.ts	compare	carried		`compare_score::tests::a_judge_scores_each_answer`
 apps/desktop/src/shared/a-lesson-reads-as-one-sentence.test.ts		waiting		
 apps/desktop/src/shared/a-long-room-post-still-starts.test.ts	ROOMS	partial	core/src/room_task.rs	fitted_task_section_sheds_done_then_trailing_rows_to_fit_budget carried; tiny-budget fallback strings left without dedicated unit assertions
@@ -1139,7 +1139,7 @@ apps/desktop/src/shared/a-reply-page-is-a-whole-page.test.ts	REPLY-PAGE	carried	
 apps/desktop/src/shared/a-rewritten-memory-is-new.test.ts	P6	partial		3. **Memory store/parser**: parsed-memory field validation/deduplication, complete Unicode normalization and significant-word containment forget matching, complete ask-mode proposal deduplication/settling, expiry boundary/cap/duplicate rest
 apps/desktop/src/shared/a-room-remembers-what-was-said.test.ts	ROOMS	partial	core/src/room_history.rs	older-first format, protocol block defanging, and task-only strip carried; full budget truncation sweep left partial
 apps/desktop/src/shared/a-run-started-for-a-teammate-is-theirs.test.ts		waiting		
-apps/desktop/src/shared/a-tag-quoted-in-code-swallows-nothing.test.ts		waiting		
+apps/desktop/src/shared/a-tag-quoted-in-code-swallows-nothing.test.ts		carried	core/src/protocol_tags.rs	all 5 cases, one test each (protocol_tags.rs tests)
 apps/desktop/src/shared/a-teammate-is-named-the-way-a-person-writes.test.ts		waiting		
 apps/desktop/src/shared/a-tidy-block-is-read-exactly.test.ts		waiting		
 apps/desktop/src/shared/a-torn-tag-keeps-the-letters-before-it.test.ts		waiting		

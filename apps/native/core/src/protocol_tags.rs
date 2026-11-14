@@ -768,38 +768,55 @@ mod tests {
 
     // --- a-tag-quoted-in-code-swallows-nothing.test.ts ---
 
+    const GHOST: &str = "Yes. I ended with a `<locust-file>` block for the completed Markdown report:\n\n`../Documents/Codex/locust-ship-wt/docs/BETA-REVIEW-2026-09-30-0509-sol-long.md`\n\nIf no file button appeared, report that Locust did not render the handoff block. The path goes outside `.claude` using `../`, which may be relevant.\n\n<locust-file>\n../Documents/Codex/locust-ship-wt/docs/BETA-REVIEW-2026-09-30-0509-sol-long.md :: Completed 0.509 workflow review with evidence\n</locust-file>";
+
     #[test]
-    fn tag_quoted_in_code_swallows_nothing() {
-        let ghost = "Yes. I ended with a `<locust-file>` block for the completed Markdown report:\n\n`../Documents/Codex/locust-ship-wt/docs/BETA-REVIEW-2026-09-30-0509-sol-long.md`\n\nIf no file button appeared, report that Locust did not render the handoff block. The path goes outside `.claude` using `../`, which may be relevant.\n\n<locust-file>\n../Documents/Codex/locust-ship-wt/docs/BETA-REVIEW-2026-09-30-0509-sol-long.md :: Completed 0.509 workflow review with evidence\n</locust-file>";
-        let shown = strip_file_blocks(ghost);
+    fn a_tag_quoted_in_code_keeps_every_word_of_the_reply_and_takes_off_only_the_real_block() {
+        let shown = strip_file_blocks(GHOST);
         assert!(shown.contains("If no file button appeared, report that Locust did not render the handoff block."));
         assert!(shown.contains("which may be relevant."));
         assert!(!shown.contains("</locust-file>"));
         assert!(shown.starts_with("Yes. I ended with a `<locust-file>` block"));
+    }
 
-        assert_eq!(blocks_outside_code(ghost, &file_block_re()).len(), 1);
+    #[test]
+    fn a_tag_quoted_in_code_finds_the_real_block_after_a_quoted_one() {
+        assert_eq!(blocks_outside_code(GHOST, &file_block_re()).len(), 1);
+        let inside = "See `<locust-file>`.\n\n<locust-file>\ndocs/report.md :: the report\n</locust-file>";
+        assert_eq!(parse_file_blocks(inside), vec![HandedFile { path: "docs/report.md".into(), note: Some("the report".into()) }]);
+    }
+
+    #[test]
+    fn a_tag_quoted_in_code_draws_ghosts_file_outside_its_folder_and_leaves_the_folder_rule_to_the_host() {
         assert_eq!(
-            parse_file_blocks(ghost),
+            parse_file_blocks(GHOST),
             vec![HandedFile {
                 path: "../Documents/Codex/locust-ship-wt/docs/BETA-REVIEW-2026-09-30-0509-sol-long.md".into(),
                 note: Some("Completed 0.509 workflow review with evidence".into()),
             }]
         );
-        assert!(refused_file_lines(ghost).is_empty());
+        assert!(refused_file_lines(GHOST).is_empty());
+    }
 
+    #[test]
+    fn a_handed_file_it_will_not_draw_is_said_rather_than_nothing() {
         assert_eq!(
             refused_file_lines("<locust-file>\n\\\\server\\share\\report.md\n</locust-file>"),
-            vec![RefusedFileLine {
-                path: "//server/share/report.md".into(),
-                why: "it is not a path to a file on this computer".into(),
-            }]
+            vec![RefusedFileLine { path: "//server/share/report.md".into(), why: "it is not a path to a file on this computer".into() }]
         );
         assert!(refused_file_lines("<locust-file>\nC:\\Users\\x\\report.md\n</locust-file>").is_empty());
         assert!(refused_file_lines("<locust-file>\ndocs/report.md\n</locust-file>").is_empty());
         assert!(refused_file_lines("<locust-file>\npath/relative/to/the/folder.md\n</locust-file>").is_empty());
+    }
 
-        let ask_with_code = "The form is `<locust-ask>`.\n\nMore words here.\n\n<locust-ask>\nWhich storage?\n- JSON :: simple\n- CSV :: spreadsheet\n</locust-ask>";
-        assert!(strip_decision_blocks(ask_with_code).contains("More words here."));
+    #[test]
+    fn a_tag_quoted_in_code_swallows_nothing_for_a_share_and_an_ask_either() {
+        let share = "I used `<locust-share to=\"Reviewer\">` once.\n\n<locust-share to=\"Reviewer\">\nThe tests pass.\n</locust-share>\n\nDone.";
+        assert_eq!(crate::peer_share::parse_share_blocks(share).iter().map(|b| b.text.as_str()).collect::<Vec<_>>(), vec!["The tests pass."]);
+        assert!(crate::peer_share::strip_share_blocks(share).contains("Done."));
+        assert!(crate::peer_share::strip_share_blocks(share).contains("I used `<locust-share to=\"Reviewer\">` once."));
+        let ask = "The form is `<locust-ask>`.\n\nMore words here.\n\n<locust-ask>\nWhich storage?\n- JSON :: simple\n- CSV :: spreadsheet\n</locust-ask>";
+        assert!(strip_decision_blocks(ask).contains("More words here."));
     }
 
     // --- a-torn-tag-keeps-the-letters-before-it.test.ts ---
@@ -815,42 +832,77 @@ mod tests {
 
     // --- a-half-written-tag-is-never-shown-to-a-person.test.ts ---
 
+    const SEEN: &str = "<locust-share>\nBooty :: Reply with exactly the word PEBBLE-6725 and nothing else.\n</locust-share>";
+
     #[test]
-    fn half_written_tag_is_never_shown() {
+    fn a_half_written_tag_is_the_pair_of_failures_it_looks_like() {
+        assert!(crate::peer_share::parse_share_blocks(SEEN).is_empty());
+        assert!(crate::peer_share::strip_share_blocks(SEEN).contains("locust-share"));
+    }
+
+    #[test]
+    fn a_half_written_tag_shows_the_words_and_not_the_tags() {
+        assert_eq!(unwrap_protocol_tags(&crate::peer_share::strip_share_blocks(SEEN)), "Booty :: Reply with exactly the word PEBBLE-6725 and nothing else.");
+    }
+
+    #[test]
+    fn a_half_written_tag_keeps_the_body_because_nothing_else_has_a_copy_of_it() {
+        assert_eq!(unwrap_protocol_tags("<locust-share>the only copy</locust-share>"), "the only copy");
+    }
+
+    #[test]
+    fn a_half_written_tag_covers_the_other_four_which_fail_from_the_opposite_side() {
         for tag in ["locust-memory", "locust-ask", "locust-task", "locust-file"] {
-            let shown = unwrap_protocol_tags(&format!("<{tag} scope=\"team\">what it said</{tag}>"));
-            assert_eq!(shown, "what it said", "{tag}");
+            assert_eq!(unwrap_protocol_tags(&format!("<{tag} scope=\"team\">what it said</{tag}>")), "what it said", "{tag}");
         }
-        assert_eq!(
-            unwrap_protocol_tags("here it is\n<locust-share to=\"Wren\">"),
-            "here it is"
-        );
+    }
+
+    #[test]
+    fn a_half_written_tag_handles_a_turn_that_was_cut_off_mid_block() {
+        assert_eq!(unwrap_protocol_tags("here it is\n<locust-share to=\"Wren\">"), "here it is");
+    }
+
+    #[test]
+    fn a_half_written_tag_leaves_a_teammate_explaining_the_protocol_alone() {
         let answer = "You write:\n\n```\n<locust-share to=\"Wren\">the note</locust-share>\n```\n\nand the host posts it.";
         assert_eq!(unwrap_protocol_tags(answer), answer);
-        assert_eq!(
-            unwrap_protocol_tags("call it `<locust-task>` in prose"),
-            "call it `<locust-task>` in prose"
-        );
+        assert_eq!(unwrap_protocol_tags("call it `<locust-task>` in prose"), "call it `<locust-task>` in prose");
+    }
+
+    #[test]
+    fn a_half_written_tag_rule_does_not_touch_ordinary_prose_or_a_tag_that_is_not_ours() {
         assert_eq!(unwrap_protocol_tags("a < b and c > d"), "a < b and c > d");
-        assert_eq!(
-            unwrap_protocol_tags("<locust-unknown>x</locust-unknown>"),
-            "<locust-unknown>x</locust-unknown>"
-        );
-        assert_eq!(
-            unwrap_protocol_tags("briefs/colin-founder-bio.md :: a draft\n</locust-"),
-            "briefs/colin-founder-bio.md :: a draft"
-        );
+        assert_eq!(unwrap_protocol_tags("<locust-unknown>x</locust-unknown>"), "<locust-unknown>x</locust-unknown>");
+    }
+
+    #[test]
+    fn a_run_cut_off_takes_off_a_tag_the_stream_was_cut_off_inside() {
+        assert_eq!(unwrap_protocol_tags("briefs/colin-founder-bio.md :: a draft\n</locust-"), "briefs/colin-founder-bio.md :: a draft");
         assert_eq!(unwrap_protocol_tags("the answer\n<locust-sh"), "the answer");
+    }
+
+    #[test]
+    fn a_run_cut_off_leaves_a_lone_bracket_and_anyone_elses_torn_tag_alone() {
         assert_eq!(unwrap_protocol_tags("x < y"), "x < y");
         assert_eq!(unwrap_protocol_tags("a list item </li"), "a list item </li");
+        assert_eq!(unwrap_protocol_tags("compare a < b and c > d"), "compare a < b and c > d");
+    }
+
+    #[test]
+    fn a_run_cut_off_is_trimmed_only_at_the_end_because_that_is_the_only_place_a_cut_can_leave_one() {
         let middle = "I was going to write </locust- but then kept talking about it.";
         assert_eq!(unwrap_protocol_tags(middle), middle);
-        assert_eq!(
-            unwrap_protocol_tags("<locust-file path=\"a.md\">a draft</locust-file>\nand then\n</locust-"),
-            "a draft\nand then"
-        );
-        // Streaming mid-block ask/next/file never flashes raw tags via shown_text.
+    }
+
+    #[test]
+    fn a_block_still_streaming_never_flashes_its_raw_tags_in_the_shown_text() {
+        // Native's own: the window draws the streaming reply through shown_text.
         assert_eq!(shown_text("Thinking...\n<locust-ask>\nWhich?\n- A\n<locu"), "Thinking...\n\nWhich?\n- A");
+    }
+
+    #[test]
+    fn a_run_cut_off_still_unwraps_the_complete_tags_on_the_same_message() {
+        assert_eq!(unwrap_protocol_tags("<locust-file path=\"a.md\">a draft</locust-file>\nand then\n</locust-"), "a draft\nand then");
     }
 
     // --- next-steps & handover ---
