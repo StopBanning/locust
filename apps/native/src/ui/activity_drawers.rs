@@ -306,7 +306,14 @@ pub(super) fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: 
             status,
             summary,
             detail: d,
-        } => tool_row_label(name, *status, summary, d, finished),
+        } => {
+            // A file the call acted on reads relative to the conversation's folder, and Locust's own copies as the
+            // file they copy (displayPath); a command or a sentence is left as it is.
+            let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
+            let path_like = !summary.is_empty() && !summary.contains(char::is_whitespace) && (summary.contains('/') || summary.contains('\\'));
+            let shown = if path_like && !is_shell_tool(name) { locust_core::path_words::display_path(summary, folder.as_deref()) } else { summary.clone() };
+            tool_row_label(name, *status, &shown, d, finished)
+        }
         ledger::Item::Plan {
             steps,
             finished: ended,

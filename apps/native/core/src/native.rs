@@ -120,6 +120,13 @@ pub mod hooks {
     }
     impl Drop for Guard {
         fn drop(&mut self) {
+            // Tests that use the engine hold LOCK one at a time, so every turn still running is this test's: stop it
+            // and wait for its ending, so no turn outlives its test into the next one.
+            super::with_running(|m| m.values().for_each(|f| f.store(true, std::sync::atomic::Ordering::Relaxed)));
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+            while super::with_running(|m| !m.is_empty()) && std::time::Instant::now() < deadline {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
             super::reset_relay_state();
             *crate::invariants::lock(&STATE) = (None, None);
         }

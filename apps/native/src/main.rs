@@ -2247,12 +2247,32 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
 /// The app is quitting (⌘Q, the Dock, logout): macOS may end the process once the quit hooks return, before `main`
 /// gets to wait. So the turns are asked to stop and their cancelled records waited for here, bounded, or a quit leaves
 /// ledgers with no ending that read as running.
-fn on_quit(_: &mut State, _: &mut Tx) {
+fn on_quit(s: &mut State, _: &mut Tx) {
     os_hosts::release_awake();
     // Claude Code's Remote Control server ends with Locust, waited for.
     remote_control_card::dispose();
-    locust_core::engine_api::api().shut_down();
-    locust_core::engine_api::api().wait_for_shutdown();
+    // A test's window quitting must not stop the turns of the other tests running beside it in this process (a
+    // window test's on_quit stopped another's queued run seconds after it started); each test stops its own.
+    if cfg!(test) {
+        stop_this_windows_turns(s);
+    } else {
+        locust_core::engine_api::api().shut_down();
+        locust_core::engine_api::api().wait_for_shutdown();
+    }
+}
+
+/// In a test, what quitting stops: only the turn of the conversation this window has open, waited for, never another
+/// test's beside it (each test's engine guard stops what is left when it ends).
+fn stop_this_windows_turns(s: &State) {
+    let api = locust_core::engine_api::api();
+    let mine: Vec<String> = api.running().into_iter().filter(|id| api.owns(id) && s.ledger.as_ref().is_some_and(|p| p.snapshot.tip == *id || p.conversation.conversation_id.as_deref() == Some(id.as_str()))).collect();
+    for id in &mine {
+        let _ = api.stop(id);
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+    while mine.iter().any(|id| api.running().contains(id)) && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(25));
+    }
 }
 
 fn on_close(s: &mut State, _: &mut Tx) {
@@ -2273,8 +2293,13 @@ fn on_close(s: &mut State, _: &mut Tx) {
     #[cfg(target_os = "macos")]
     browser_mac::dispose();
     // Native turns live in this process: ask each to stop now and let a background thread watch them write their
-    // cancelled records. The UI thread does not wait; `main` waits after the window is gone.
-    locust_core::engine_api::api().shut_down();
+    // cancelled records. The UI thread does not wait; `main` waits after the window is gone. Not in a test: the turns
+    // of the other tests beside it in this process are not this window's to stop.
+    if cfg!(test) {
+        stop_this_windows_turns(s);
+    } else {
+        locust_core::engine_api::api().shut_down();
+    }
 }
 
 /// The agent line, plus what native cannot yet run: "runs in Locust for now".

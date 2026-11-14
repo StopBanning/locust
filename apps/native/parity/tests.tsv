@@ -971,7 +971,7 @@ apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	p14	partial		`re
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	P10	carried	core/src/mcp_names.rs tests; src/ui/activity_drawers.rs a_connector_call_reads_as_its_tool_and_its_server	all 5 cases, plus a connector tool with no prefix and a bare connector tool
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts		waiting		
 apps/desktop/src/renderer/src/menuDigit.test.ts		waiting		
-apps/desktop/src/renderer/src/missionView.test.ts		waiting		
+apps/desktop/src/renderer/src/missionView.test.ts	P10	partial	core/src/path_words.rs; core/src/usage_words.rs	of 264 cases, these sections are carried: 'how a path is written in a row' (11), 'a usage window, as a person reads it' (1), 'utilisation, in the words of the spec' (3); the rest wait (the thread's composition, the trace line, the signal rail, peers, failures, plans and more)
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	P4	partial		`missions-lists-conversations.test.tsx` | Chain grouping/root/leaf behavior is covered through native sidebar rows. A Missions screen, its count/age/turn metadata, and whole-chain deletion are not implemented in this round.
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts		waiting		
 apps/desktop/src/renderer/src/nested-lists.test.ts		waiting		

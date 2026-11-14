@@ -238,21 +238,7 @@ pub fn note_outcome_words(outcome: NoteOutcome) -> &'static str {
 /// inside it; an absolute path elsewhere as its last two parts behind an ellipsis; anything else as given. The
 /// message, the hover and the outcome keep the path the note was made with.
 pub fn shown_path(path: &str, folder: Option<&str>) -> String {
-    let full = path.replace('\\', "/");
-    if let Some(root) = folder.map(|f| f.replace('\\', "/").trim_end_matches('/').to_owned()).filter(|f| !f.is_empty()) {
-        let (lower_full, lower_root) = (full.to_lowercase(), root.to_lowercase());
-        if let Some(rest) = lower_full.strip_prefix(&format!("{lower_root}/")) {
-            if !rest.is_empty() {
-                return full[root.len() + 1..].to_owned();
-            }
-        }
-    }
-    let absolute = full.starts_with('/') || full.as_bytes().get(1) == Some(&b':') && full.as_bytes().first().is_some_and(u8::is_ascii_alphabetic);
-    if !absolute {
-        return path.into();
-    }
-    let parts: Vec<&str> = full.split('/').filter(|p| !p.is_empty()).collect();
-    if parts.len() <= 3 { path.into() } else { format!("…/{}", parts[parts.len() - 2..].join("/")) }
+    crate::path_words::display_path(path, folder)
 }
 
 #[cfg(test)]
