@@ -82,7 +82,7 @@ fn send_from(v: &Value) -> Result<Send, String> {
     })
 }
 
-fn origin_json(o: &Origin) -> Value {
+pub(crate) fn origin_json(o: &Origin) -> Value {
     let mut obj = json!({"mode": o.mode.map(Mode::as_str), "folder": o.folder.as_ref().map(|f| f.to_string_lossy()),
         "startedBy": o.started_by, "runtime": o.runtime, "referenceIds": o.reference_ids});
     if let Some(acc) = &o.account {
@@ -109,6 +109,14 @@ fn origin_json(o: &Origin) -> Value {
     }
     if let Some(rewind) = &o.rewind {
         obj["rewind"] = json!({"tip": rewind.tip, "before": rewind.before, "setAside": rewind.set_aside});
+    }
+    if let Some(slot) = &o.slot {
+        obj["slot"] = json!({
+            "key": slot.key,
+            "cwd": slot.cwd.as_ref().map(|p| p.to_string_lossy()),
+            "instructions": slot.instructions,
+            "sealed": slot.sealed,
+        });
     }
     obj
 }
@@ -153,7 +161,7 @@ fn room_history_from(v: &Value) -> Option<crate::room_history::RoomHistory> {
     Some(crate::room_history::RoomHistory { room_name, posts })
 }
 
-fn origin_from(v: &Value) -> Result<Origin, String> {
+pub(crate) fn origin_from(v: &Value) -> Result<Origin, String> {
     let mode = match text(v, "mode") {
         None => None,
         Some(m) => Some(Mode::parse(&m).ok_or_else(|| format!("The engine does not know the mode {m}."))?),
@@ -172,6 +180,15 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         before: r["before"].as_str().map(str::to_owned),
         set_aside: r["setAside"].as_array().map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect()).unwrap_or_default(),
     });
+    let slot = v.get("slot").filter(|s| s.is_object()).and_then(|s| {
+        Some(crate::native::SlotOrigin {
+            key: s.get("key")?.as_str()?.to_owned(),
+            cwd: text(s, "cwd").map(PathBuf::from),
+            instructions: text(s, "instructions"),
+            skill: None,
+            sealed: s.get("sealed").and_then(Value::as_bool) == Some(true),
+        })
+    });
     Ok(Origin {
         mode,
         folder: text(v, "folder").map(PathBuf::from),
@@ -181,7 +198,7 @@ fn origin_from(v: &Value) -> Result<Origin, String> {
         reference_ids: v["referenceIds"]
             .as_array()
             .map(|ids| ids.iter().filter_map(|i| i.as_str().map(str::to_owned)).collect()),
-        slot: None,
+        slot,
         include_messages,
         relay: v.get("relay").cloned().filter(|r| !r.is_null()),
         left_out_by_you,

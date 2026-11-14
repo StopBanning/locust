@@ -7,10 +7,21 @@ use std::{
     process::Command,
 };
 pub fn legacy_config(mode: Mode, plugin: Option<&str>) -> Value {
+    legacy_config_with_seal(mode, plugin, false)
+}
+
+/// OpenCode legacy config for Ask/Plan with every tool refused (`OPENCODE_SEALED_CONFIG`).
+pub fn legacy_sealed_config(plugin: Option<&str>) -> Value {
+    legacy_config_with_seal(Mode::Ask, plugin, true)
+}
+
+fn legacy_config_with_seal(mode: Mode, plugin: Option<&str>, sealed: bool) -> Value {
     let readonly = matches!(mode, Mode::Ask | Mode::Plan);
     let each = mode == Mode::ApproveEach;
     let mut p = json!({});
-    if readonly || each {
+    if sealed && readonly {
+        p = json!({"*": "ask", "external_directory": "deny"});
+    } else if readonly || each {
         p = json!({"*":"ask","read":{"*":"allow","*.env":if each{"ask"}else{"deny"},"*.env.*":if each{"ask"}else{"deny"},"*.env.example":"allow"},"glob":"allow","grep":"allow","list":"allow","lsp":"allow","task":"allow","todowrite":"allow","todoread":"allow","skill":"allow"});
         for k in ["webfetch", "websearch", "codesearch"] {
             p[k] = json!(if each && k == "webfetch" {
@@ -25,7 +36,9 @@ pub fn legacy_config(mode: Mode, plugin: Option<&str>) -> Value {
         }
         p["bash"] = json!("ask");
     }
-    p["external_directory"] = json!(if mode == Mode::Auto {
+    p["external_directory"] = json!(if sealed && readonly {
+        "deny"
+    } else if mode == Mode::Auto {
         "allow"
     } else if each {
         "ask"
@@ -36,7 +49,9 @@ pub fn legacy_config(mode: Mode, plugin: Option<&str>) -> Value {
     if readonly {
         config["experimental"] = json!({"continue_loop_on_deny":true});
     }
-    if let Some(plugin) = plugin {
+    if !(sealed && readonly)
+        && let Some(plugin) = plugin
+    {
         config["plugin"] = json!([plugin]);
     }
     config
@@ -104,9 +119,19 @@ pub fn with_skills(mut config: Value, dir: Option<&str>) -> Value {
 }
 
 pub fn acp_config(mode: Mode, plugin: &Path) -> Value {
-    let old = legacy_config(mode, None);
+    acp_config_with_seal(mode, plugin, false)
+}
+
+/// OpenCode 2 (ACP) config with every tool refused (`ask` for `*`, `deny` for question/subagent/integrations).
+pub fn acp_sealed_config(plugin: &Path) -> Value {
+    acp_config_with_seal(Mode::Ask, plugin, true)
+}
+
+fn acp_config_with_seal(mode: Mode, plugin: &Path, sealed: bool) -> Value {
+    let old = legacy_config_with_seal(mode, None, sealed);
+    let readonly = matches!(mode, Mode::Ask | Mode::Plan);
     let mut permissions = vec![
-        json!({"action":"*","resource":"*","effect":if mode==Mode::ApproveEach{"ask"}else{"allow"}}),
+        json!({"action":"*","resource":"*","effect":if mode == Mode::ApproveEach || (sealed && readonly) {"ask"} else {"allow"}}),
     ];
     for (k, v) in old["permission"]
         .as_object()
@@ -202,6 +227,16 @@ pub fn configure(
     store: &Store,
     v2: bool,
 ) -> io::Result<PathBuf> {
+    configure_with_seal(c, mode, store, v2, false)
+}
+
+pub fn configure_with_seal(
+    c: &mut Command,
+    mode: Mode,
+    store: &Store,
+    v2: bool,
+    sealed: bool,
+) -> io::Result<PathBuf> {
     let home = store
         .ledger_dir()?
         .parent()
@@ -227,7 +262,7 @@ pub fn configure(
     if v2 {
         c.env(
             "OPENCODE_CONFIG_CONTENT",
-            acp_config(mode, &plugin).to_string(),
+            acp_config_with_seal(mode, &plugin, sealed).to_string(),
         );
         if matches!(mode, Mode::Ask | Mode::Plan) {
             c.env("OPENCODE_CONFIG_PROJECT_DISABLE", "1")
@@ -238,7 +273,7 @@ pub fn configure(
     } else {
         c.env(
             "OPENCODE_CONFIG_CONTENT",
-            legacy_config(mode, Some(&file_url(&plugin))).to_string(),
+            legacy_config_with_seal(mode, Some(&file_url(&plugin)), sealed).to_string(),
         );
         if matches!(mode, Mode::Ask | Mode::Plan) {
             c.env("OPENCODE_PURE", "1");

@@ -36,6 +36,15 @@ pub fn version_uses_acp(version: &str) -> bool {
     version_major(version) == Some(2)
 }
 pub fn command(folder: &std::path::Path, mode: Mode, store: &Store) -> io::Result<Command> {
+    command_with_seal(folder, mode, store, false)
+}
+
+pub fn command_with_seal(
+    folder: &std::path::Path,
+    mode: Mode,
+    store: &Store,
+    sealed: bool,
+) -> io::Result<Command> {
     let path = super::discovery::find_named("opencode")?;
     let output = super::version::probe(&path, "OpenCode")?;
     let version = output.trim();
@@ -57,7 +66,7 @@ pub fn command(folder: &std::path::Path, mode: Mode, store: &Store) -> io::Resul
         c.args(["serve", "--port", "0", "--hostname", "127.0.0.1"]);
     }
     c.current_dir(folder);
-    super::opencode_config::configure(&mut c, mode, store, v2)?;
+    super::opencode_config::configure_with_seal(&mut c, mode, store, v2, sealed)?;
     c.env(
         "LOCUST_NATIVE_OPENCODE_PROTOCOL",
         if v2 { "acp" } else { "serve" },

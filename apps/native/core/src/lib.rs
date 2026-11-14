@@ -110,6 +110,7 @@ pub mod run_cli;
 pub mod runtime;
 pub mod runtime_commands;
 pub mod runtime_terminal;
+pub mod scout;
 pub mod secrets;
 pub mod session_import;
 pub mod shell_path;
