@@ -669,9 +669,125 @@ fn memory_age_owned(at: &str, now: chrono::DateTime<chrono::Utc>) -> Option<Stri
 }
 const BLOCK_PLACEMENT: &str = "put it at the end of your reply; if more than one of these blocks applies, put them one after another, in any order";
 const ABOUT_YOU_OP: &str = "about you :: one sentence for the person's own About-you note (how they like to work), which they decide whether to add";
-const MEMORY_BRIEF_LINES: usize = 24;
-const MEMORY_BRIEF_BUDGET: usize = 4000;
-/// Electron `memory.memorySection` for the native subset (no memory.md file, no semantic recall).
+pub const MEMORY_BRIEF_LINES: usize = 24;
+pub const MEMORY_BRIEF_BUDGET: usize = 4000;
+pub const MEMORY_BRIEF_LINES_WITH_FILE: usize = 8;
+pub const MEMORY_BRIEF_BUDGET_WITH_FILE: usize = 1500;
+
+const TOPICLESS: &[&str] = &[
+    "the", "and", "for", "this", "that", "with", "what", "which", "when", "where", "how", "why", "who",
+    "are", "was", "were", "have", "has", "had", "does", "did", "not", "you", "your", "our", "its",
+    "from", "into", "about", "please", "can", "could", "should", "would", "will", "just", "only",
+    "then", "than", "there", "here", "they", "them", "these", "those", "also", "any", "all", "one",
+    "myself", "ours", "ourselves", "yours", "yourself", "yourselves", "him", "his", "himself", "she", "her", "hers",
+    "herself", "itself", "their", "theirs", "themselves", "whom", "been", "being", "having", "doing", "but",
+    "because", "until", "while", "against", "between", "through", "during", "before", "after", "above", "below",
+    "down", "out", "off", "over", "under", "again", "further", "once", "both", "each", "few", "more", "most",
+    "other", "some", "such", "nor", "own", "same", "too", "very", "don", "now", "ain", "aren", "couldn",
+    "didn", "doesn", "hadn", "hasn", "haven", "isn", "mightn", "mustn", "needn", "shan", "shouldn", "wasn",
+    "weren", "won", "wouldn",
+];
+
+fn topic_words(text: &str) -> std::collections::HashSet<String> {
+    key(text)
+        .split(' ')
+        .filter(|word| word.encode_utf16().count() > 2 && !TOPICLESS.contains(word))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Electron `memory.memoriesForBrief`: folder-first, newest-first within each group,
+/// promoting memories with rare shared topic words when `query` is given.
+pub fn memories_for_brief<'a>(
+    rows: &'a [Value],
+    query: Option<&str>,
+    max_lines: usize,
+) -> Vec<&'a Value> {
+    let here: Vec<&Value> = rows.iter().filter(|m| m["scope"] != "global").collect();
+    let everywhere: Vec<&Value> = rows.iter().filter(|m| m["scope"] == "global").collect();
+    let mut by_date: Vec<&Value> = here.iter().rev().take(max_lines).copied().collect();
+    by_date.extend(everywhere.iter().rev().take(max_lines).copied());
+
+    let Some(wanted) = query.map(topic_words).filter(|w| !w.is_empty()) else {
+        return by_date;
+    };
+
+    let words: Vec<std::collections::HashSet<String>> = rows
+        .iter()
+        .map(|m| topic_words(m["text"].as_str().unwrap_or("")))
+        .collect();
+    let mut carriers: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for set in &words {
+        for word in set {
+            *carriers.entry(word.as_str()).or_insert(0) += 1;
+        }
+    }
+    let total = rows.len() as f64;
+    let weight = |word: &str| -> f64 {
+        let count = carriers.get(word).copied().unwrap_or(rows.len()) as f64;
+        (total / count).ln()
+    };
+
+    let mut relevant: Vec<(usize, &Value, f64)> = rows
+        .iter()
+        .enumerate()
+        .filter_map(|(index, memory)| {
+            let score: f64 = words[index]
+                .iter()
+                .filter(|word| wanted.contains(word.as_str()))
+                .map(|word| weight(word.as_str()))
+                .sum();
+            (score > 0.0).then_some((index, memory, score))
+        })
+        .collect();
+    relevant.sort_by(|left, right| {
+        right
+            .2
+            .total_cmp(&left.2)
+            .then_with(|| right.0.cmp(&left.0))
+    });
+
+    let relevant_rows: Vec<&Value> = relevant.into_iter().map(|(_, m, _)| m).collect();
+    let mut out = relevant_rows.clone();
+    for memory in by_date {
+        if !relevant_rows.iter().any(|r| std::ptr::eq(*r, memory)) {
+            out.push(memory);
+        }
+    }
+    out
+}
+
+/// Electron `memory.briefedMemories`: candidates sliced to `max_lines` and character budget.
+pub fn briefed_memories<'a>(
+    rows: &'a [Value],
+    query: Option<&str>,
+    file: Option<&str>,
+) -> Vec<&'a Value> {
+    let max_lines = if file.is_some() {
+        MEMORY_BRIEF_LINES_WITH_FILE
+    } else {
+        MEMORY_BRIEF_LINES
+    };
+    let budget = if file.is_some() {
+        MEMORY_BRIEF_BUDGET_WITH_FILE
+    } else {
+        MEMORY_BRIEF_BUDGET
+    };
+    let candidates = memories_for_brief(rows, query, max_lines);
+    let mut briefed = Vec::new();
+    let mut spent = 0usize;
+    for memory in candidates.into_iter().take(max_lines) {
+        let text = memory["text"].as_str().unwrap_or("");
+        spent += text.encode_utf16().count() + 40;
+        if spent > budget && !briefed.is_empty() {
+            break;
+        }
+        briefed.push(memory);
+    }
+    briefed
+}
+
+/// Electron `memory.memorySection` (with topic recall and optional workspace file disclosure).
 fn memory_section(
     self_name: Option<&str>,
     workspace_name: Option<&str>,
@@ -679,6 +795,8 @@ fn memory_section(
     ask_first: bool,
     about_you_given: bool,
     now: chrono::DateTime<chrono::Utc>,
+    file: Option<&str>,
+    query: Option<&str>,
 ) -> String {
     let heading = match workspace_name {
         None => {
@@ -689,36 +807,7 @@ fn memory_section(
             "Your team keeps a shared memory. What is remembered for the folder \"{name}\" and everywhere:"
         ),
     };
-    let candidates: Vec<&Value> = rows
-        .iter()
-        .rev()
-        .take(MEMORY_BRIEF_LINES)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-    // Folder-first (workspace before global), newest last within each — store order is creation order; take from end.
-    let mut workspace: Vec<&Value> = candidates
-        .iter()
-        .copied()
-        .filter(|m| m["scope"] == "workspace")
-        .collect();
-    let mut global: Vec<&Value> = candidates
-        .iter()
-        .copied()
-        .filter(|m| m["scope"] == "global")
-        .collect();
-    workspace.append(&mut global);
-    let mut briefed = Vec::new();
-    let mut spent = 0usize;
-    for memory in workspace.into_iter().take(MEMORY_BRIEF_LINES) {
-        let text = memory["text"].as_str().unwrap_or("");
-        spent += text.len() + 40;
-        if spent > MEMORY_BRIEF_BUDGET && !briefed.is_empty() {
-            break;
-        }
-        briefed.push(memory);
-    }
+    let briefed = briefed_memories(rows, query, file);
     let dropped = rows.len().saturating_sub(briefed.len());
     let listed = if rows.is_empty() {
         "Nothing is remembered yet.".to_owned()
@@ -760,9 +849,14 @@ fn memory_section(
             } else {
                 "memories are"
             };
-            lines.push(format!(
-                "({dropped} older {noun} kept but not in this brief. Ask the person if you need one.)"
-            ));
+            lines.push(match file {
+                None => format!(
+                    "({dropped} older {noun} kept but not in this brief. Ask the person if you need one.)"
+                ),
+                Some(file) => format!(
+                    "({dropped} older {noun} in {file}, with these, newest last. Read that file when the task touches something remembered; never edit it -- the block below is how memory changes.)"
+                ),
+            });
         }
         lines.join("\n")
     };
@@ -820,7 +914,15 @@ pub fn brief_with_instructions(
     prompt: &str,
     instructions_override: Option<&str>,
 ) -> Result<String, String> {
-    let mut sections = workspace_sections(store, who, folder, instructions_override, None, None)?;
+    let mut sections = workspace_sections(
+        store,
+        who,
+        folder,
+        instructions_override,
+        None,
+        None,
+        Some(prompt),
+    )?;
     sections.push(prompt.to_owned());
     Ok(sections.join("\n\n"))
 }
@@ -899,7 +1001,15 @@ pub fn turn_brief_with_group_and_room(
             standing.push(crate::briefing::roster_section(me, &others));
         }
     }
-    standing.extend(workspace_sections(store, who, folder, instructions_override, group, runtime)?);
+    standing.extend(workspace_sections(
+        store,
+        who,
+        folder,
+        instructions_override,
+        group,
+        runtime,
+        Some(prompt),
+    )?);
     standing.extend(crate::briefing::standing_formats(runtime));
     let (composed, kept) = crate::briefing::assemble_with_room_history(
         &standing,
@@ -962,6 +1072,7 @@ fn workspace_sections(
     instructions_override: Option<&str>,
     group: Option<(&str, &str)>,
     runtime: Option<&str>,
+    query: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let file = team(store)?;
     let teammate = file["teammates"]
@@ -1025,6 +1136,8 @@ fn workspace_sections(
             ask_first,
             about.is_some(),
             chrono::Utc::now(),
+            None,
+            query,
         ));
     }
     if let Some(office) = crate::office::office_words_section(folder) {
@@ -1668,6 +1781,8 @@ mod tests {
                 false,
                 true,
                 now,
+                None,
+                None,
             ),
             "run".to_owned(),
         ]
@@ -1714,6 +1829,8 @@ mod tests {
                 false,
                 true,
                 now,
+                None,
+                None,
             ),
             "run".to_owned(),
         ]
@@ -1919,5 +2036,200 @@ mod tests {
         // An unreadable groups.json does not block or brief.
         std::fs::write(store.groups_json_path().unwrap(), "{broken").unwrap();
         assert!(crate::groups::group_brief_for_tip(&store, Some("m_turn2")).is_none());
+    }
+
+    fn memory_line(text: &str, at: &str, scope: &str) -> Value {
+        json!({
+            "memoryId": format!("mem_{}", at),
+            "text": text,
+            "scope": scope,
+            "workspaceId": "ws_test",
+            "by": {"name": "you"},
+            "createdAt": at,
+            "status": "kept",
+            "enabled": true
+        })
+    }
+
+    fn twelve_memories() -> Vec<Value> {
+        let mut rows = vec![memory_line(
+            "The secret word for this project is PELICAN.",
+            "2026-09-01T05:00:00.000Z",
+            "workspace",
+        )];
+        let texts = [
+            "The build command is pnpm build.",
+            "Tests run with pnpm test, never npm.",
+            "The person prefers diffs to prose.",
+            "Docs live under docs/ and are Markdown.",
+            "The API listens on port 4000 in development.",
+            "Commits are written in the imperative.",
+            "The release script is _tools/ship.mjs.",
+            "CSS tokens are in shell.css and nowhere else.",
+            "The sidebar lists conversations newest first.",
+            "Rooms are for more than one teammate at once.",
+            "The changelog is written for people, not engineers.",
+        ];
+        for (index, text) in texts.iter().enumerate() {
+            rows.push(memory_line(
+                text,
+                &format!("2026-09-{:02}T05:00:00.000Z", 2 + index),
+                "workspace",
+            ));
+        }
+        rows
+    }
+
+    fn newest_eight(twelve: &[Value]) -> Vec<String> {
+        twelve[twelve.len() - 8..]
+            .iter()
+            .rev()
+            .map(|m| m["text"].as_str().unwrap().to_owned())
+            .collect()
+    }
+
+    #[test]
+    fn with_no_question_is_the_newest_eight_newest_first() {
+        let twelve = twelve_memories();
+        let chosen = memories_for_brief(&twelve, None, MEMORY_BRIEF_LINES_WITH_FILE);
+        assert_eq!(chosen.len(), 8);
+        assert_eq!(
+            chosen
+                .iter()
+                .map(|m| m["text"].as_str().unwrap().to_owned())
+                .collect::<Vec<_>>(),
+            newest_eight(&twelve)
+        );
+        assert!(!chosen
+            .iter()
+            .any(|m| m["text"].as_str().unwrap().contains("PELICAN")));
+    }
+
+    #[test]
+    fn moves_the_one_memory_that_answers_the_question_to_the_front_however_old() {
+        let twelve = twelve_memories();
+        let chosen = memories_for_brief(
+            &twelve,
+            Some("What is the secret word for this project?"),
+            MEMORY_BRIEF_LINES_WITH_FILE,
+        );
+        assert!(chosen[0]["text"].as_str().unwrap().contains("PELICAN"));
+    }
+
+    #[test]
+    fn a_question_that_matches_nothing_changes_nothing() {
+        let twelve = twelve_memories();
+        let chosen = memories_for_brief(
+            &twelve,
+            Some("Refactor the login page"),
+            MEMORY_BRIEF_LINES_WITH_FILE,
+        );
+        assert_eq!(
+            chosen
+                .iter()
+                .map(|m| m["text"].as_str().unwrap().to_owned())
+                .collect::<Vec<_>>(),
+            newest_eight(&twelve)
+        );
+    }
+
+    #[test]
+    fn scores_on_topic_words_not_on_the() {
+        let twelve = twelve_memories();
+        let chosen = memories_for_brief(
+            &twelve,
+            Some("the and for this"),
+            MEMORY_BRIEF_LINES_WITH_FILE,
+        );
+        assert_eq!(
+            chosen
+                .iter()
+                .map(|m| m["text"].as_str().unwrap().to_owned())
+                .collect::<Vec<_>>(),
+            newest_eight(&twelve)
+        );
+    }
+
+    #[test]
+    fn more_shared_words_outrank_fewer_and_among_equals_the_newer_wins() {
+        let memories = vec![
+            memory_line("The build is slow on Windows.", "2026-09-01T05:00:00.000Z", "workspace"),
+            memory_line("The build command is pnpm build, run from the root.", "2026-09-02T05:00:00.000Z", "workspace"),
+            memory_line("Lunch is at noon.", "2026-09-03T05:00:00.000Z", "workspace"),
+            memory_line("The build command changed to pnpm build --filter desktop.", "2026-09-04T05:00:00.000Z", "workspace"),
+        ];
+        let chosen = memories_for_brief(&memories, Some("What is the build command?"), 8);
+        assert!(chosen[0]["text"].as_str().unwrap().contains("--filter desktop"));
+        assert!(chosen[1]["text"].as_str().unwrap().contains("run from the root"));
+        assert!(chosen[2]["text"].as_str().unwrap().contains("slow on Windows"));
+        assert!(chosen[3]["text"].as_str().unwrap().contains("Lunch"));
+    }
+
+    #[test]
+    fn a_memory_from_everywhere_is_ranked_too_and_the_folder_still_comes_first_among_the_rest() {
+        let memories = vec![
+            memory_line("Colin wants diffs, not prose.", "2026-09-01T05:00:00.000Z", "global"),
+            memory_line("The API listens on port 4000.", "2026-09-02T05:00:00.000Z", "workspace"),
+            memory_line("Tests run with pnpm test.", "2026-09-03T05:00:00.000Z", "workspace"),
+        ];
+        let chosen = memories_for_brief(&memories, Some("Show me the diffs, not prose"), 8);
+        assert_eq!(chosen[0]["scope"], "global");
+        assert_eq!(
+            chosen[1..]
+                .iter()
+                .map(|m| m["text"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            vec!["Tests run with pnpm test.", "The API listens on port 4000."]
+        );
+    }
+
+    #[test]
+    fn the_brief_pastes_the_answer_when_asked_and_says_the_rest_are_in_the_file() {
+        let twelve = twelve_memories();
+        let now = chrono::DateTime::parse_from_rfc3339("2026-09-21T00:00:00.000Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let brief_text = memory_section(
+            None,
+            Some("scratch"),
+            &twelve,
+            false,
+            false,
+            now,
+            Some(".locust/memory.md"),
+            Some("What is the secret word for this project?"),
+        );
+        assert!(brief_text.contains("PELICAN"));
+        assert!(brief_text.contains("4 older memories are in .locust/memory.md"));
+        let without = memory_section(
+            None,
+            Some("scratch"),
+            &twelve,
+            false,
+            false,
+            now,
+            Some(".locust/memory.md"),
+            None,
+        );
+        assert!(!without.contains("PELICAN"));
+
+        // Verify workspace_sections wires the prompt into brief() as the recall query.
+        let (dir, store) = fixture();
+        let ws = workspace_id(&dir.0);
+        for i in 0..25usize {
+            let text = if i == 0 {
+                "The secret word for this project is PELICAN.".to_owned()
+            } else {
+                format!("Unrelated workspace note number {i} for padding.")
+            };
+            add_memory(&store, &text, None, "workspace", &ws, json!({"name": "you"}), "kept").unwrap();
+        }
+        save_teammate(&store, person("Codec")).unwrap();
+        let id = team(&store).unwrap()["teammates"][0]["teammateId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let prompted = brief(&store, &id, &dir.0, "What is the secret word for this project?").unwrap();
+        assert!(prompted.contains("PELICAN"), "{prompted}");
     }
 }
