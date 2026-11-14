@@ -184,3 +184,79 @@ fn antigravity_is_ready_with_a_model_list_signed_out_without_one_and_unconfirmed
     assert_eq!((silent.status, silent.auth), (Probe::ProbeFailed, Auth::Unknown));
     assert_eq!(row_status(&silent, integration_of("antigravity"), false, None).tag, "CHECKING");
 }
+
+#[test]
+fn names_the_exact_package_for_each_of_the_four_that_install_from_npm() {
+    assert_eq!(install_command("claude").as_deref(), Some("npm install -g @anthropic-ai/claude-code"));
+    assert_eq!(install_command("codex").as_deref(), Some("npm install -g @openai/codex"));
+    assert_eq!(install_command("copilot").as_deref(), Some("npm install -g @github/copilot"));
+    assert_eq!(install_command("opencode").as_deref(), Some("npm install -g opencode-ai"));
+}
+
+#[test]
+fn offers_no_command_for_the_ones_that_do_not_install_from_npm() {
+    assert_eq!(install_command("cursor"), None);
+    assert_eq!(install_package("cursor"), None);
+    assert_eq!(
+        runtime_install_facts("cursor").map(|f| f.install),
+        Some(RuntimeInstall::Vendor("https://cursor.com/cli")),
+    );
+    assert_eq!(install_command("antigravity"), None);
+    assert_eq!(install_package("antigravity"), None);
+}
+
+#[test]
+fn knows_the_one_runtime_that_needs_no_account_and_that_the_others_do() {
+    assert_eq!(FREE_START_RUNTIME, "opencode");
+    let opencode = runtime_install_facts("opencode").unwrap();
+    assert_eq!(opencode.sign_in, None);
+    assert_eq!(opencode.account, None);
+    for id in ["claude", "codex", "copilot", "cursor"] {
+        let f = runtime_install_facts(id).unwrap();
+        assert!(f.sign_in.is_some_and(|s| !s.is_empty()), "{id} sign_in");
+        assert!(f.account.is_some_and(|s| !s.is_empty()), "{id} account");
+    }
+}
+
+#[test]
+fn says_what_to_do_next_not_only_what_is_missing() {
+    assert_eq!(
+        install_sentence("opencode", "OpenCode"),
+        "OpenCode was not found on this machine. Press Install. It needs no account and no sign-in, and its free model runs as soon as it is there.",
+    );
+    assert_eq!(
+        install_sentence("claude", "Claude Code"),
+        "Claude Code was not found on this machine. Press Install, then Sign in. It needs an Anthropic account.",
+    );
+    assert_eq!(
+        install_sentence("copilot", "Copilot CLI"),
+        "Copilot CLI was not found on this machine. Press Install, then Sign in. It needs a GitHub Copilot subscription.",
+    );
+    assert_eq!(
+        install_sentence("kilo", "Kilo"),
+        "Kilo was not found on this machine. Press Install. Its free model needs no account; run kilo auth login only for a paid model.",
+    );
+    assert_eq!(
+        install_sentence("cursor", "Cursor Agent"),
+        "Cursor Agent was not found on this machine. It installs from https://cursor.com/cli.",
+    );
+}
+
+#[test]
+fn answers_nothing_for_an_id_that_names_no_installable_thing() {
+    assert_eq!(install_command("omniroute"), None);
+    assert_eq!(runtime_install_facts("omniroute"), None);
+    assert_eq!(install_sentence("omniroute", "Omniroute"), "Omniroute was not found on this machine.");
+    assert_eq!(runtime_install_facts("gemini"), None);
+}
+
+#[test]
+fn sign_in_opened_line_notes_in_window_account_switch_only_when_signing_in_again() {
+    assert_eq!(sign_in_opened_line("claude", false), "Finish in the window that opened.");
+    assert_eq!(sign_in_opened_line("claude", true), "Finish in the window that opened.");
+    assert_eq!(sign_in_opened_line("antigravity", false), "Finish in the window that opened.");
+    assert_eq!(
+        sign_in_opened_line("antigravity", true),
+        "In the window that opened, type /logout, then /login, and choose the account.",
+    );
+}

@@ -7,7 +7,7 @@ use crate::engine::Model;
 use regex::Regex;
 use std::collections::HashSet;
 
-pub const FREE_START_RUNTIME: &str = "opencode";
+pub use crate::agents::FREE_START_RUNTIME;
 
 /// OpenCode's free models that answered, steadiest first (`shared/free-models.ts`).
 pub const FREE_MODELS_BEST_FIRST: &[&str] = &[

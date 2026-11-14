@@ -152,24 +152,30 @@ fn base_row_status(found: &Found, integration: Integration, active: bool) -> Row
     row(if active { "ACTIVE" } else { "READY" }, true, detail.to_string())
 }
 
-/// How an agent is installed (RuntimeInstall).
-enum Install {
+/// The runtime a person can start using free with no account (`FREE_START_RUNTIME` in Electron).
+pub const FREE_START_RUNTIME: &str = "opencode";
+
+/// How an agent is installed (`RuntimeInstall` in Electron).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuntimeInstall {
     Npm(&'static str),
     Vendor(&'static str),
 }
 
-/// RuntimeInstallFacts: how to get it and sign in to it.
-struct Facts {
-    install: Install,
-    sign_in: Option<&'static str>,
-    sign_in_again: Option<&'static str>,
-    sign_in_again_note: Option<&'static str>,
-    account: Option<&'static str>,
-    sign_in_optional: bool,
+/// How to get an agent and sign in to it (`RuntimeInstallFacts` in Electron).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RuntimeInstallFacts {
+    pub install: RuntimeInstall,
+    pub sign_in: Option<&'static str>,
+    pub sign_in_again: Option<&'static str>,
+    pub sign_in_again_note: Option<&'static str>,
+    pub account: Option<&'static str>,
+    pub sign_in_optional: bool,
 }
 
-fn facts(id: &str) -> Option<Facts> {
-    let f = |install, sign_in: Option<&'static str>, again: Option<&'static str>, account: Option<&'static str>| Facts {
+/// Facts for installing and signing in to one runtime, or `None` when it names no installable agent.
+pub fn runtime_install_facts(id: &str) -> Option<RuntimeInstallFacts> {
+    let f = |install, sign_in: Option<&'static str>, again: Option<&'static str>, account: Option<&'static str>| RuntimeInstallFacts {
         install,
         sign_in,
         sign_in_again: again,
@@ -178,22 +184,22 @@ fn facts(id: &str) -> Option<Facts> {
         sign_in_optional: false,
     };
     Some(match id {
-        "opencode" => f(Install::Npm("opencode-ai"), None, None, None),
-        "claude" => f(Install::Npm("@anthropic-ai/claude-code"), Some("claude"), Some("claude auth login"), Some("an Anthropic account")),
-        "codex" => f(Install::Npm("@openai/codex"), Some("codex"), Some("codex login"), Some("a ChatGPT account")),
+        "opencode" => f(RuntimeInstall::Npm("opencode-ai"), None, None, None),
+        "claude" => f(RuntimeInstall::Npm("@anthropic-ai/claude-code"), Some("claude"), Some("claude auth login"), Some("an Anthropic account")),
+        "codex" => f(RuntimeInstall::Npm("@openai/codex"), Some("codex"), Some("codex login"), Some("a ChatGPT account")),
         // Its own /login, inside the window this opens.
-        "copilot" => f(Install::Npm("@github/copilot"), Some("copilot"), Some("copilot"), Some("a GitHub Copilot subscription")),
-        "cursor" => f(Install::Vendor("https://cursor.com/cli"), Some("cursor-agent login"), Some("cursor-agent login"), Some("a Cursor account")),
-        "muse" => f(Install::Vendor("https://dev.meta.ai"), Some("muse login"), Some("muse login"), Some("a Muse Code subscription")),
+        "copilot" => f(RuntimeInstall::Npm("@github/copilot"), Some("copilot"), Some("copilot"), Some("a GitHub Copilot subscription")),
+        "cursor" => f(RuntimeInstall::Vendor("https://cursor.com/cli"), Some("cursor-agent login"), Some("cursor-agent login"), Some("a Cursor account")),
+        "muse" => f(RuntimeInstall::Vendor("https://dev.meta.ai"), Some("muse login"), Some("muse login"), Some("a Muse Code subscription")),
         // Signed into inside `agy` itself: it has no login command; /logout then /login switches accounts.
-        "antigravity" => Facts {
+        "antigravity" => RuntimeInstallFacts {
             sign_in_again_note: Some("then type /logout, then /login, and choose the account"),
-            ..f(Install::Vendor("https://antigravity.google/product/antigravity-cli/"), Some("agy"), Some("agy"), Some("a Google account"))
+            ..f(RuntimeInstall::Vendor("https://antigravity.google/product/antigravity-cli/"), Some("agy"), Some("agy"), Some("a Google account"))
         },
         // Auto Free needs no account; `kilo auth login` is only for a paid model.
-        "kilo" => Facts {
+        "kilo" => RuntimeInstallFacts {
             sign_in_optional: true,
-            ..f(Install::Npm("@kilocode/cli"), Some("kilo auth login"), Some("kilo auth login"), Some("a Kilo account, only for a paid model"))
+            ..f(RuntimeInstall::Npm("@kilocode/cli"), Some("kilo auth login"), Some("kilo auth login"), Some("a Kilo account, only for a paid model"))
         },
         _ => return None,
     })
@@ -201,26 +207,26 @@ fn facts(id: &str) -> Option<Facts> {
 
 /// installCommand: the one npm line, for an agent npm installs.
 pub fn install_command(id: &str) -> Option<String> {
-    match facts(id)?.install {
-        Install::Npm(package) => Some(format!("npm install -g {package}")),
-        Install::Vendor(_) => None,
+    match runtime_install_facts(id)?.install {
+        RuntimeInstall::Npm(package) => Some(format!("npm install -g {package}")),
+        RuntimeInstall::Vendor(_) => None,
     }
 }
 
 /// The npm package an agent installs from, for an agent npm installs.
 pub fn install_package(id: &str) -> Option<String> {
-    match facts(id)?.install {
-        Install::Npm(package) => Some(package.to_owned()),
-        Install::Vendor(_) => None,
+    match runtime_install_facts(id)?.install {
+        RuntimeInstall::Npm(package) => Some(package.to_owned()),
+        RuntimeInstall::Vendor(_) => None,
     }
 }
 
 /// installSentence: what a NOT INSTALLED row says, standing on its own (no terminal in it: the row's Install does it).
 pub fn install_sentence(id: &str, display_name: &str) -> String {
-    let Some(facts) = facts(id) else {
+    let Some(facts) = runtime_install_facts(id) else {
         return format!("{display_name} was not found on this machine.");
     };
-    if let Install::Vendor(url) = facts.install {
+    if let RuntimeInstall::Vendor(url) = facts.install {
         let optional = match (facts.sign_in_optional, facts.sign_in) {
             (true, Some(sign_in)) => format!(" Auto Free needs no account; run {sign_in} only for a paid model."),
             _ => String::new(),
@@ -237,12 +243,28 @@ pub fn install_sentence(id: &str, display_name: &str) -> String {
 
 /// signInCommand: the line a person runs once to sign in, or to sign in again as this account or another.
 pub fn sign_in_command(id: &str, again: bool) -> Option<String> {
-    let facts = facts(id)?;
+    let facts = runtime_install_facts(id)?;
     let line = if again { facts.sign_in_again } else { facts.sign_in }?;
     Some(match (again, facts.sign_in_again_note) {
         (true, Some(note)) => format!("run {line}, {note}"),
         _ => format!("run {line}"),
     })
+}
+
+/// signInOpenedLine: what the UI shows after opening the sign-in command in a terminal.
+pub fn sign_in_opened_line(id: &str, again: bool) -> String {
+    let note = if again {
+        runtime_install_facts(id).and_then(|facts| facts.sign_in_again_note)
+    } else {
+        None
+    };
+    match note {
+        Some(note) => {
+            let trimmed = note.strip_prefix("then ").unwrap_or(note);
+            format!("In the window that opened, {trimmed}.")
+        }
+        None => "Finish in the window that opened.".to_owned(),
+    }
 }
 
 // ---- discovery (runtime-adapters discovery.ts, main's publicStatus) ------------------------------------------------

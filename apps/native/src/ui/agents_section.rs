@@ -322,7 +322,7 @@ pub(super) fn ordered(found: &[Found]) -> Vec<(Found, RowStatus)> {
         });
     } else {
         // Nothing installed: OpenCode, the free start, first.
-        rows.sort_by_key(|(f, _)| f.id != "opencode");
+        rows.sort_by_key(|(f, _)| f.id != agents::FREE_START_RUNTIME);
     }
     rows
 }
