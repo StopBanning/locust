@@ -359,7 +359,8 @@ answer = (
     "TAKE: Check failed with check fail 42.\n"
     "HAND TO: Wren\n"
     "DRAFT: Fix check fail 42.\n"
-    "NOTE: Check fail 42 appeared right after init."
+    "NOTE: Check fail 42 appeared right after init.\n"
+    "<locust-memory>\nremember :: sealed look must not write memory.\n</locust-memory>"
 )
 def send(v):
     sys.stdout.write(json.dumps(dict(jsonrpc="2.0", **v)) + "\n")
@@ -480,9 +481,11 @@ for line in sys.stdin:
         "disabled"
     );
 
-    // 2. Sealed look was written only to native store, never to electron/, and is hidden from list_recent.
+    assert_eq!(host.deps.answer_wait_ms(), 180_000);
+    // 2. Sealed look wrote only native Scout files, never memories.json or electron/, and is hidden from list_recent.
     assert!(t.store.root().join("scout.json").is_file());
     assert!(t.store.root().join("scout-looks.json").is_file());
+    assert!(!t.store.root().join("memories.json").exists());
     assert!(!t.store.electron().join("scout.json").exists());
     assert!(!t.store.electron().join("scout-looks.json").exists());
 

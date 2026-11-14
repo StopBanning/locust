@@ -681,3 +681,44 @@ fn scout_log_merges_quiet_looks_prunes_old_and_renders_brief() {
 
     let _ = SystemTime::now().duration_since(UNIX_EPOCH);
 }
+
+#[test]
+fn with_new_cards_caps_at_max_scout_cards_keeping_newest_first_and_filters_bad_issues() {
+    assert!(issues_of("not json").is_empty());
+    let partial_issues = issues_of(
+        &json!([
+            {"number": "nope", "title": "bad"},
+            {"number": 9, "title": "Good", "url": "https://github.com/acme/repo/issues/9", "createdAt": "2026-10-12T00:00:00Z"}
+        ])
+        .to_string(),
+    );
+    assert_eq!(partial_issues.len(), 1);
+    assert_eq!(partial_issues[0].number, 9);
+
+    let existing: Vec<ScoutCard> = (0..MAX_SCOUT_CARDS)
+        .map(|i| ScoutCard {
+            card_id: format!("old_{i}"),
+            at: "2026-10-12T00:00:00.000Z".into(),
+            reading: false,
+            take: None,
+            raw_fix: None,
+            fact: ScoutFact::simple(
+                format!("old:{i}"),
+                ScoutUrgency::Later,
+                format!("old {i}"),
+            ),
+        })
+        .collect();
+    let newest = ScoutCard {
+        card_id: "new_1".into(),
+        at: "2026-10-12T01:00:00.000Z".into(),
+        reading: false,
+        take: None,
+        raw_fix: None,
+        fact: ScoutFact::simple("new:1", ScoutUrgency::Now, "brand new"),
+    };
+    let kept = with_new_cards(&existing, &[newest]);
+    assert_eq!(kept.len(), MAX_SCOUT_CARDS);
+    assert_eq!(kept[0].card_id, "new_1");
+    assert_eq!(kept[MAX_SCOUT_CARDS - 1].card_id, format!("old_{}", MAX_SCOUT_CARDS - 2));
+}

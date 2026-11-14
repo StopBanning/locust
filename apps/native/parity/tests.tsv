@@ -224,7 +224,7 @@ apps/desktop/src/main/a-save-windows-holds-is-tried-again.test.ts		waiting
 apps/desktop/src/main/a-saved-record-keeps-keys-out.test.ts		waiting		
 apps/desktop/src/main/a-saved-record-keeps-output-as-recorded.test.ts		waiting		
 apps/desktop/src/main/a-saved-record-says-only-what-the-ledger-holds.test.ts	P4	does-not-apply		`main/a-saved-record-says-only-what-the-ledger-holds.test.ts` | Export/save-record behavior is not part of this port. The inert Save the record… palette entry was removed.
-apps/desktop/src/main/a-scout-file-it-cannot-read-is-never-overwritten.test.ts		waiting		
+apps/desktop/src/main/a-scout-file-it-cannot-read-is-never-overwritten.test.ts	scout-1	carried	core/src/scout/unit_tests.rs	all 3 tests carried (missing file, corrupt backup aside, unreadable retries -> memory-only)
 apps/desktop/src/main/a-scrolled-home-fades-its-top.test.ts		waiting		
 apps/desktop/src/main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts	P8	does-not-apply		`main/a-secret-is-never-remembered.test.ts`, `main/a-scrub-replaces-what-is-shaped-like-a-key.test.ts`, `main/a-key-is-never-about-you.test.ts` (subset) | `secret_in` / `scrub_secrets` / refusal words
 apps/desktop/src/main/a-second-edit-to-a-changed-file-is-seen.test.ts		waiting		
@@ -469,19 +469,19 @@ apps/desktop/src/main/runtime-setup.test.ts		waiting
 apps/desktop/src/main/runtime-updates.test.ts	UPDATES	carried	core/src/agent_updates_tests.rs	every it() ported (26). The two Windows-layout npm_package_dir cases (skipIf not win32 in Electron) are #[cfg(windows)] tests that exist only in a Windows build, and a Mac-path twin of the shim-in-prefix case runs here; the end-to-end cases run on the Mac layout (a link in <prefix>/bin). Plus: held versions kept across a look that cannot reach the check, a past update said again, the switch kept as a choice, a peek while updating, the real effects refusing in a test
 apps/desktop/src/main/says-what-is-still-true.test.ts		waiting		
 apps/desktop/src/main/scout-away-comes-in-by-a-pull-request.test.ts		waiting		
-apps/desktop/src/main/scout-brings-a-morning-brief.test.ts		waiting		
-apps/desktop/src/main/scout-brings-a-weekly-tune-up.test.ts		waiting		
-apps/desktop/src/main/scout-keeps-its-goal-hours-and-word.test.ts		waiting		
-apps/desktop/src/main/scout-keeps-notes-you-can-read.test.ts		waiting		
-apps/desktop/src/main/scout-keeps-watch.test.ts		waiting		
+apps/desktop/src/main/scout-brings-a-morning-brief.test.ts	scout-1	carried	core/src/scout/brief_tests.rs	all 8 tests carried (morning brief scheduling, span counting, 80-mission cap, quiet hours)
+apps/desktop/src/main/scout-brings-a-weekly-tune-up.test.ts	scout-1	carried	core/src/scout/brief_tests.rs	all 7 tests carried (weekly tally validation, tune suggestions & dismissal/apply, model isolation)
+apps/desktop/src/main/scout-keeps-its-goal-hours-and-word.test.ts	scout-1	carried	core/src/scout/runner_tests.rs	all 17 tests carried (goal cap/clearing, quiet hours, wait-while-working, restart persistence)
+apps/desktop/src/main/scout-keeps-notes-you-can-read.test.ts	scout-1	carried	core/src/scout/brief_tests.rs	all 5 tests carried (note parsing, deduping, prompt injection guard, persistence & clearing)
+apps/desktop/src/main/scout-keeps-watch.test.ts	scout-1	carried	core/src/scout/runner_tests.rs	all 16 tests carried (team joining, watch filtering, sealed model fills, free-model fallbacks, timeouts)
 apps/desktop/src/main/scout-prepares-the-fix.test.ts		waiting		
-apps/desktop/src/main/scout-reads-what-github-has.test.ts		waiting		
-apps/desktop/src/main/scout-runs-the-check-only-when-the-folder-moved.test.ts		waiting		
-apps/desktop/src/main/scout-says-what-it-saw.test.ts		waiting		
+apps/desktop/src/main/scout-reads-what-github-has.test.ts	scout-1	carried	core/src/scout/unit_tests.rs	both tests carried (updatedAt/issues gh queries and first-failure short-circuit)
+apps/desktop/src/main/scout-runs-the-check-only-when-the-folder-moved.test.ts	scout-1	carried	core/src/scout/runner_tests.rs	both tests carried (folder mark movement gating & concurrent turn discard)
+apps/desktop/src/main/scout-says-what-it-saw.test.ts	scout-1	carried	core/src/scout/brief_tests.rs	all 5 tests carried (look log merging, 14-day pruning, held phone reasons, whyBrief)
 apps/desktop/src/main/scout-turns-your-comments-into-asks.test.ts		waiting		
 apps/desktop/src/main/scouts-away-look-tells-only-what-is-new.test.ts		waiting		
 apps/desktop/src/main/scouts-cards-are-on-your-phone.test.ts		waiting		
-apps/desktop/src/main/scouts-look-is-sealed.test.ts		waiting		
+apps/desktop/src/main/scouts-look-is-sealed.test.ts	scout-1	carried	core/src/native/tests.rs, core/src/runtime/{tests,opencode_tests}.rs, core/src/scout/host_tests.rs	both tests carried (sealed slot config & Ask read-only mode, no tools/briefs/memory writes)
 apps/desktop/src/main/settings-controls-keep-off-the-scrollbar.test.ts		waiting		
 apps/desktop/src/main/settings-pages-are-real.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
 apps/desktop/src/main/settings-read-like-claudes.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
@@ -1170,7 +1170,7 @@ apps/desktop/src/shared/room-task.test.ts	ROOMS	partial	core/src/room_task.rs	ta
 apps/desktop/src/shared/routine-schedule.test.ts	p11	partial		`shared/routine-schedule.test.ts` | Partially ported: validation, next-run and label cases match; full schedule helper inventory and DST oracle cases remain.
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	p11	waiting		`shared/routines-and-rooms-from-a-browser.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/shared/runtime-install.test.ts		waiting		
-apps/desktop/src/shared/scout-notices-what-is-new.test.ts		waiting		
+apps/desktop/src/shared/scout-notices-what-is-new.test.ts	scout-1	carried	core/src/scout/{unit_tests,brief_tests,runner_tests}.rs	all 15 cases carried (PRs, issues, reviews, branch runs, waiting/failed turns, prompt/answers, card cap, settings validation)
 apps/desktop/src/shared/settings-from-a-browser.test.ts		waiting		
 apps/desktop/src/shared/since-you-were-away.test.ts	p12	partial		`shared/since-you-were-away.test.ts` | ran/failed/missed/waiting; awayLine; wasAway 20m; attention mark
 apps/desktop/src/shared/spend.test.ts	P10	partial		`shared/spend.test.ts` (subset) | moneyOfUsage, dollars, month/limit refusal

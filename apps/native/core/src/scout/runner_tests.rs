@@ -1109,17 +1109,18 @@ fn provider_refused_stops_run_and_asks_next_free_model_at_once() {
 #[test]
 fn does_not_wait_forever_on_a_model_that_never_ends_its_turn() {
     let h = Harness::new("answer-timeout", local_dt(2026, 10, 12, 6, 0, 0));
-    h.st.lock().unwrap().answer_wait_ms = 1_000;
     h.set_github(
         vec![],
         vec![review(214, "x", "https://github.com/acme/app/pull/214")],
     );
     h.scout.turn_on(Some(&route()));
-    h.tick(1_000);
+    h.tick(179_999);
+    assert!(h.stopped().is_empty());
+    h.tick(1);
     assert_eq!(h.stopped(), vec!["run_1"]);
-    h.tick(1_000);
+    h.tick(180_000);
     assert_eq!(h.stopped(), vec!["run_1", "run_2"]);
-    h.tick(1_000);
+    h.tick(180_000);
     assert_eq!(h.stopped(), vec!["run_1", "run_2", "run_3"]);
     let state = h.scout.state();
     assert!(!state.cards[0].reading);
