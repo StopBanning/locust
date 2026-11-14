@@ -220,3 +220,80 @@ identity/no-change claims (11), ended questions (6), both exchange halves (5),
 exchange reading (7), and signal rail (8). Total: **149 of 264 case ports**,
 **115 remaining**, with exchange/rail controls explicitly incomplete. No new
 Electron-only exemptions. Required release verification follows.
+
+
+## Thread-7 continuation — 14 Nov 2026 (section verification pending)
+
+Committed the inherited notes correction as `8633f4c9`; no handoff file is staged.
+Started exactly one background native release suite as requested, with the
+3,600-second outer timeout and 3,580-second Cargo timeout. `thread-7-native.log`
+records a 701-second shared-lock wait, a warning-free release compilation in
+7m 45s, and this final result:
+
+`test result: FAILED. 396 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 175.95s`
+
+The failure is
+`window_drive_tests::review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_commit`:
+`timed out waiting for the landing, read again: status "Ready"`.
+The test never reached its landing-result assertion. Its cause is not established;
+no review/landing source or test was changed. The new cached start-label renderer
+check passed in that run, but this does not verify the later clock-refresh edit.
+
+Prepared, **uncommitted and not counted as carried**:
+
+- Three individual `assistant text` cases in `core/src/assistant_text_tests.rs`,
+  registered in `lib.rs`, exercising the real ledger's existing append, replace,
+  final flag and per-item ordering with Electron's literals. No assistant fold
+  behavior change is needed. Three whole-core mutation controls are prepared,
+  not executed.
+- Four individual `when a mission says it began` cases in `time_marker.rs`, plus
+  a Session integration check and two headless window checks. A pure local start
+  label preserves today's bare time, older days' date and older years' year.
+  Session polling caches the original mission's timestamp and label even across
+  a handoff; drawing uses the cached string. A minute-clock refresh updates an
+  ended thread's date without reopening its ledger. This follows native's existing
+  24-hour clock and English short-date convention; it does not add locale selection.
+  The date section and later refresh are unverified; no mutation pass is claimed.
+
+The initial assistant-text filtered run, its two retries, and the start-label
+filtered run each exited **124** under `timeout 590` after waiting for the shared
+lock. All four logs contain only the wait message: no compilation or tests ran.
+The later assistant retries use the established opt-level-1/debug-symbols-off
+profile and four test threads, matching the control runner's existing profile.
+They did not get far enough to exercise it.
+
+The parity row remains **partial: 149/264, 115 remaining**. No new exemption.
+Exchange/rail controls remain incomplete at 1/13. Static whitespace and mutation
+original-expression checks pass; these are not Rust compilation evidence.
+Required final release build/workspace results are recorded below when complete.
+No real agent, network request, visible window, Scout edit, branch switch or push.
+
+`python3 scripts/recount.py` completed without changing the tables. The wrapper's
+optional TypeScript reader defaults to another checkout; future checks in this run
+explicitly use this workspace's `apps/native/dist/thread-7-ts-reader/index.js`.
+That ignored local reader was generated from this checkout's `index.ts`,
+`checkpoint.ts`, `fit.ts` and `workroom.ts` using Node 26's `stripTypeScriptTypes`,
+then successfully imported. Node reported its experimental type-stripper warning;
+no dependency install or source outside `apps/native/` was changed.
+
+The required final `build --release` attempt exited **124** after 590 seconds
+waiting for the shared lock (`thread-7-build.log`); it never compiled. No final-form
+release-build pass is claimed. The final static check found all **69** registered
+mutation originals present and no applied mutation; no new control was executed.
+
+The final `test --release --workspace` attempt also exited **124** after 590
+seconds waiting for the shared lock (`thread-7-workspace.log`), without compiling
+or running a test. It used the workspace-local TypeScript reader above, but never
+reached a reader check. There is **no final-form full-core or full-workspace pass**.
+All six bounded filtered/build/workspace attempts ended before Cargo started.
+
+No new section commit or coverage increase is claimed. The seven case ports and
+their supporting source remain uncommitted drafts in this worktree, including the
+clock refresh added after the completed native release run. The evidence notes
+are committed separately. Next: acquire a usable build slot, run the three
+assistant-text cases, check their three whole-core controls, and commit that
+section first; then verify the four start-label cases, the original-turn cache,
+both headless checks and their controls before committing that section. The
+inherited twelve pending exchange/rail controls and a final release workspace
+suite/build still need completion. Do not treat the initial 396/397 native result
+as validation of the later edits.
