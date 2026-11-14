@@ -1697,7 +1697,10 @@ impl Session {
                 reader.edits = None;
                 None
             } else {
-                if reader.edits.is_none() {
+                // Kept only once the turn's checkpoint is on disk: it is written just after the turn's last record, and
+                // a turn read as ended in between has no diff yet. Until then its notes wear no outcome, never a wrong one.
+                let recorded = self.checkpoints.as_ref().is_none_or(|(s, w)| crate::checkpoints::turn_recorded(s, w, &reader.id));
+                if reader.edits.is_none() && recorded {
                     let cp = self
                         .checkpoints
                         .as_ref()

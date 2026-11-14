@@ -3129,6 +3129,8 @@ fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubbl
                 !p.loading
                     && !p.snapshot.running
                     && p.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if text == "Updated app.ts to read PORT."))
+                    // and the turn's own diff, which its checkpoint gives just after the turn's last record
+                    && p.snapshot.turn_edits.get(&p.snapshot.tip).is_some_and(Option::is_some)
             })
     });
     settle(&mut rt);

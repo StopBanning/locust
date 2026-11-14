@@ -287,3 +287,100 @@ fn a_notes_place_keeps_a_relative_name_unchanged_and_does_not_treat_another_fold
     assert_eq!(shown_path("src/app.js", Some(folder)), "src/app.js");
     assert_eq!(shown_path("C:\\work\\other\\src\\app.js", Some(folder)), "…/src/app.js");
 }
+
+// --- Review (14 Nov): the breaks no test caught ---
+
+fn sent_note(path: &str, line: Option<usize>, removed: bool) -> SentDiffNote {
+    SentDiffNote { path: path.into(), line, removed, code: None, text: "x".into() }
+}
+
+#[test]
+fn a_note_on_a_line_the_earlier_change_removed_is_said_against_the_file_not_the_line() {
+    let edited = changes::parse("--- a/src/app.ts\n+++ b/src/app.ts\n@@ -11 +11 @@\n-old\n+new\n");
+    assert_eq!(note_outcome(&sent_note("src/app.ts", Some(11), false), &edited), NoteOutcome::Line);
+    assert_eq!(note_outcome(&sent_note("src/app.ts", Some(11), true), &edited), NoteOutcome::File);
+}
+
+#[test]
+fn only_a_removed_row_on_the_notes_line_is_the_line_changing_never_a_context_row() {
+    let edited = changes::parse("--- a/src/app.ts\n+++ b/src/app.ts\n@@ -10,3 +10,3 @@\n keep\n-old\n+new\n keep2\n");
+    assert_eq!(note_outcome(&sent_note("src/app.ts", Some(10), false), &edited), NoteOutcome::File, "line 10 is context");
+    assert_eq!(note_outcome(&sent_note("src/app.ts", Some(11), false), &edited), NoteOutcome::Line);
+}
+
+#[test]
+fn a_note_holds_at_most_electrons_thousand_characters() {
+    assert_eq!(MAX_DIFF_NOTE, 1_000);
+}
+
+#[test]
+fn notes_are_read_back_only_from_a_block_of_their_own_after_a_blank_line() {
+    let inline = "See Notes on your changes (1):\n- src/app.ts, line 1 `x`: y";
+    assert_eq!(split_diff_notes(inline).1, vec![]);
+    let own = "See above.\n\nNotes on your changes (1):\n- src/app.ts, line 1 `x`: y";
+    assert_eq!(split_diff_notes(own).1.len(), 1);
+}
+
+#[test]
+fn a_block_with_a_row_that_is_not_a_note_is_left_as_the_persons_words() {
+    let text = "Hi.\n\nNotes on your changes (1):\n- src/app.ts, line 1 `x`: y\nand then I said more";
+    assert_eq!(split_diff_notes(text), (text.to_owned(), vec![]));
+}
+
+#[test]
+fn edited_files_match_a_path_however_its_case_and_leading_dot_were_written() {
+    use serde_json::json;
+    let event = json!({"type":"tool.completed","payload":{"itemId":"t1","toolKind":"file_change","patch":{"text":"--- a/SRC/App.ts\n+++ b/SRC/App.ts\n@@ -1 +1 @@\n-a\n+b\n"}}});
+    let cp = changes::parse("--- a/./src/app.ts\n+++ b/./src/app.ts\n@@ -1 +1 @@\n-a\n+c\n");
+    let files = edited_files([&event], None, &cp);
+    assert_eq!(files.len(), 1, "one file, however spelled: {:?}", files.iter().map(|f| &f.path).collect::<Vec<_>>());
+}
+
+#[test]
+fn the_turns_own_checkpoint_outranks_a_tools_reported_patch_for_the_same_file() {
+    use serde_json::json;
+    let event = json!({"type":"tool.completed","payload":{"itemId":"t1","toolKind":"file_change","patch":{"text":"--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-a\n+tool\n"}}});
+    let cp = changes::parse("--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-a\n+disk\n");
+    let files = edited_files([&event], None, &cp);
+    assert_eq!(files.len(), 1);
+    assert!(files[0].hunks.iter().flat_map(|h| &h.rows).any(|r| r.text == "disk"), "the checkpoint's version is kept");
+}
+
+#[test]
+fn a_call_is_an_observed_edit_when_any_of_its_events_says_so() {
+    use serde_json::json;
+    // The start names the patch; the completion says the host observed it. The observed edit outranks a step diff.
+    let start = json!({"type":"tool.started","payload":{"itemId":"o1","toolKind":"file_change","patch":{"text":"--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-a\n+observed\n"}}});
+    let done = json!({"type":"tool.completed","payload":{"itemId":"o1","toolKind":"observed_edit"}});
+    let step = json!({"type":"tool.completed","payload":{"itemId":"s1","toolKind":"file_change","patch":{"text":"--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-a\n+step\n"}}});
+    let files = edited_files([&step, &start, &done], None, &[]);
+    assert_eq!(files.len(), 1);
+    assert!(files[0].hunks.iter().flat_map(|h| &h.rows).any(|r| r.text == "observed"));
+}
+
+#[test]
+fn a_turn_read_as_ended_before_its_checkpoint_is_written_wears_no_outcome_until_it_is() {
+    // The engine writes the turn's last ledger record, then finishes its checkpoint (native.rs send_from): a poll in
+    // between used to cache "nothing changed" for good.
+    use serde_json::json;
+    let root = std::env::temp_dir().join(format!("diff-notes-race-{}", crate::invariants::unique_nanos()));
+    let (ws, ledger_dir) = (root.join("ws"), root.join("ledger"));
+    std::fs::create_dir_all(&ws).unwrap();
+    std::fs::create_dir_all(&ledger_dir).unwrap();
+    std::fs::write(ws.join("app.ts"), "const port = 3000\n").unwrap();
+    let store = crate::store::Store::new(root.join("store"), root.join("electron")).unwrap();
+    let turn = crate::checkpoints::Turn::begin(&store, &ws);
+    std::fs::write(ws.join("app.ts"), "const port = 3001\n").unwrap();
+    let created = json!({"schemaVersion":27,"recordType":"mission.created","metadata":{"missionId":"m_race","prompt":"p","runtime":"codex","model":"m","createdAt":"2026-09-01T00:00:00Z"}});
+    let ev = |n: u64, t: &str| json!({"schemaVersion":27,"recordType":"mission.event","event":{"sequence":n,"occurredAt":"2026-09-01T00:00:01Z","type":t,"payload":{}}});
+    std::fs::write(ledger_dir.join("m_race.jsonl"), format!("{created}\n{}\n{}\n", ev(1, "run.started"), ev(2, "run.completed"))).unwrap();
+    let mut session = crate::ledger::Session::new(ledger_dir, "m_race".into()).with_folder(ws.to_str()).with_checkpoints(store.clone(), ws.clone());
+    let before = session.poll().unwrap();
+    assert!(!before.running);
+    assert_eq!(before.turn_edits.get("m_race"), Some(&None), "no checkpoint yet: no outcome, never \"nothing changed\"");
+    turn.finish(&store, "m_race").unwrap();
+    let after = session.poll().unwrap();
+    let files = after.turn_edits.get("m_race").cloned().flatten().unwrap_or_default();
+    assert_eq!(files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), vec!["app.ts"]);
+    let _ = std::fs::remove_dir_all(&root);
+}

@@ -350,6 +350,14 @@ pub fn records(store: &Store, workspace: &Path) -> io::Result<Vec<(String, Value
 }
 
 /// Read-only per-turn diffs reconstructed from checkpoint before/after blobs. Empty when shared or absent.
+/// Whether a turn's own checkpoint has been written. The engine finishes it after the turn's last ledger record, so a
+/// window that reads the turn as ended a moment earlier would find no diff and take "nothing changed" for an answer.
+pub fn turn_recorded(store: &Store, workspace: &Path, id: &str) -> bool {
+    let Ok(id) = valid_id(id) else { return false };
+    let workspace = workspace.canonicalize().unwrap_or_else(|_| workspace.to_path_buf());
+    base(store, &workspace).is_ok_and(|dir| dir.join("turns").join(format!("{id}.json")).exists())
+}
+
 pub fn turn_diffs(
     store: &Store,
     workspace: &Path,
