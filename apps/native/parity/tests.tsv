@@ -761,7 +761,7 @@ apps/desktop/src/renderer/src/a-plan-shows-what-happened-to-it.test.ts		waiting
 apps/desktop/src/renderer/src/a-plugged-in-computer-stays-awake-in-settings.test.ts		waiting		
 apps/desktop/src/renderer/src/a-pointed-part-sits-in-the-chat-box.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-proposed-change-says-what-it-changes.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-provider-error-is-readable-and-said-once.test.tsx		partial	core/src/failure_words.rs	its failureMessage cases are carried (failure_words_tests.rs); the thread cases (buildThread, errorAlreadyShown, the Thread component) wait
 apps/desktop/src/renderer/src/a-pull-link-is-read-once.test.ts		waiting		
 apps/desktop/src/renderer/src/a-pull-request-chip-says-its-state.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-pull-request-link-wears-its-state.test.tsx		waiting		
@@ -957,7 +957,7 @@ apps/desktop/src/renderer/src/home-names-the-model-it-runs.test.tsx	p12	partial	
 apps/desktop/src/renderer/src/homeCoverStatus.test.ts		waiting		
 apps/desktop/src/renderer/src/homeTeamState.test.ts		waiting		
 apps/desktop/src/renderer/src/install-buttons-say-why.test.tsx		waiting		
-apps/desktop/src/renderer/src/its-own-settings-file.test.ts		waiting		
+apps/desktop/src/renderer/src/its-own-settings-file.test.ts		carried	core/src/failure_words.rs	all 7 cases, in failure_words_tests.rs; the window draws it as the failed run's note (ledger.rs)
 apps/desktop/src/renderer/src/judges-see-the-check.test.tsx		waiting		
 apps/desktop/src/renderer/src/keep-carries-the-whole-choice.test.tsx		waiting		
 apps/desktop/src/renderer/src/keyboardShortcuts.test.ts	P10	partial		`renderer/src/keyboardShortcuts.test.ts`, `a-mac-says-cmd.test.tsx` | groups; keysOn Cmd/Option; controlOnMac keeps Ctrl
@@ -971,7 +971,7 @@ apps/desktop/src/renderer/src/math-in-a-reply-is-drawn.test.tsx	p14	partial		`re
 apps/desktop/src/renderer/src/mcp-tool-rows.test.ts	P10	carried	core/src/mcp_names.rs tests; src/ui/activity_drawers.rs a_connector_call_reads_as_its_tool_and_its_server	all 5 cases, plus a connector tool with no prefix and a bare connector tool
 apps/desktop/src/renderer/src/memory-card-survives-a-reply.test.ts		waiting		
 apps/desktop/src/renderer/src/menuDigit.test.ts		waiting		
-apps/desktop/src/renderer/src/missionView.test.ts	P10	partial	core/src/path_words.rs; core/src/usage_words.rs	of 264 cases, these sections are carried: 'how a path is written in a row' (11), 'a usage window, as a person reads it' (1), 'utilisation, in the words of the spec' (3); the rest wait (the thread's composition, the trace line, the signal rail, peers, failures, plans and more)
+apps/desktop/src/renderer/src/missionView.test.ts	P10	partial	core/src/path_words.rs; core/src/usage_words.rs; core/src/shell_words.rs; src/ui/activity_drawers.rs; core/src/failure_words.rs; core/src/ledger.rs	of 264 cases, these sections are carried: 'how a path is written in a row' (11), 'a usage window, as a person reads it' (1), 'utilisation, in the words of the spec' (3), 'which tool names mean a file was touched (0.35.2 QA)' (3), 'the command a shell row shows' (4), 'rail labels' (3), and 3 of the 4 in 'a Codex run, said as words' (the shell command ones; the image tool's words wait), 'what a failure card says' (6); the rest wait (the thread's composition, the trace line, the signal rail, peers, failures, plans and more)
 apps/desktop/src/renderer/src/missions-lists-conversations.test.tsx	P4	partial		`missions-lists-conversations.test.tsx` | Chain grouping/root/leaf behavior is covered through native sidebar rows. A Missions screen, its count/age/turn metadata, and whole-chain deletion are not implemented in this round.
 apps/desktop/src/renderer/src/mode-says-one-thing.test.ts		waiting		
 apps/desktop/src/renderer/src/nested-lists.test.ts		waiting		
@@ -1298,7 +1298,7 @@ packages/runtime-adapters/test/opencode-every-mode-through-its-server.test.ts	M4
 packages/runtime-adapters/test/opencode-serve-run.test.ts	M4-REVIEW	partial	opencode_serve_busy_restarts_then_runs,opencode_serve_streams_authenticated_sse	`test/opencode-serve-run.test.ts` — Partial → opencode_serve_streams_authenticated_sse and opencode_serve_busy_restarts_then_runs; Node HTTP/event timing matrix not exhaustively ported.
 packages/runtime-adapters/test/permission-bridge-argv.test.ts	M4-REVIEW	partial		`test/permission-bridge-argv.test.ts` — Partial → permission_bridge tests and Claude approval tests; exhaustive JS bridge argv cases are outside M4 transport changes.
 packages/runtime-adapters/test/process-runner.test.ts	M4-REVIEW	waiting		`test/process-runner.test.ts` — Deferred: Rust has per-runtime drivers, not the shared Node runner; exhaustive equivalent transport timing/stand-in/termination tests are still owed.
-packages/runtime-adapters/test/provider-error.test.ts	M4-REVIEW	partial		`test/provider-error.test.ts` — Partial → OpenCode error and Cursor provider sentences are exercised; complete provider-error corpus remains unported.
+packages/runtime-adapters/test/provider-error.test.ts	M4-REVIEW	partial	core/src/provider_error.rs	'provider error display sentences' carried whole (providerErrorSentence, provider_error_tests.rs); the normalizer sections wait: each runtime's Rust reader still says its own errors
 packages/runtime-adapters/test/qa-0365-opencode-worktree.test.ts	M4-REVIEW	waiting		`test/qa-0365-opencode-worktree.test.ts` — Deferred: repository-root/.git reference allowances are not exposed in native command construction.
 packages/runtime-adapters/test/references-never-widen-a-mode.test.ts	M4-REVIEW	waiting		`test/references-never-widen-a-mode.test.ts` — Deferred: reference-folder command options are not exposed by native Turn.
 packages/runtime-adapters/test/refusal-is-readable.test.ts	M4-REVIEW	partial		`test/refusal-is-readable.test.ts` — Partial → native tool-refusal fixtures; full cross-runtime TS corpus not ported.

@@ -174,6 +174,20 @@ fn tool_row_label_omits_zero_calls_background_dupes_and_non_shell_no_output() {
 }
 
 #[test]
+fn a_shell_row_shows_what_ran_on_one_line_never_the_windows_host() {
+    use ledger::{Status, ToolDetail};
+    let d = ToolDetail::default();
+    let wrapped = r#""C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "npm test""#;
+    for name in ["shell", "Bash", "powershell", "exec_command", "commandExecution"] {
+        let label = tool_row_label(name, Status::Done, wrapped, &d, true);
+        assert!(label.starts_with("npm test · "), "{name}: {label}");
+    }
+    assert!(tool_row_label("shell", Status::Done, "npm test\necho done", &d, true).starts_with("npm test · "));
+    // Anything else keeps its summary as it came.
+    assert!(tool_row_label("Read", Status::Done, wrapped, &d, true).starts_with(wrapped));
+}
+
+#[test]
 fn thought_headline_helpers_match_activity_card() {
     let text = "**Checking the fixture**\nCompare the synthetic input.";
     assert_eq!(thought_headline(text), Some("Checking the fixture"));

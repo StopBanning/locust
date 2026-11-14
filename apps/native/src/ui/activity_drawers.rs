@@ -134,6 +134,17 @@ pub(super) fn tool_row_label(
     } else {
         name
     };
+    // A shell row is one line: what ran, without the Windows host that ran it (shellCommandText).
+    let shell_title;
+    let title = if locust_core::mission_export::is_shell_tool(name, None)
+        || name.eq_ignore_ascii_case("exec_command")
+        || name.eq_ignore_ascii_case("commandexecution")
+    {
+        shell_title = locust_core::shell_words::shell_command_text(title).lines().next().unwrap_or("").trim().to_owned();
+        shell_title.as_str()
+    } else {
+        title
+    };
     let mut label = if d.helper {
         let mut row = format!(
             "{title} · {}subagent",

@@ -1002,11 +1002,14 @@ impl Transcript {
                     self.failed = true;
                     finished = false;
                     carry |= carry_on_failure(p);
-                    let text = scrub(&string(p, "message"));
-                    if !text.is_empty() {
+                    let message = string(p, "message");
+                    if !message.trim().is_empty() {
+                        // The failure card: the host's sentence and the runtime's own last word (failureMessage).
+                        let runtime = self.metadata.as_ref().map(|m| m.runtime.as_str()).filter(|r| !r.is_empty());
+                        let said = crate::failure_words::failure_message(&message, p["process"]["stderr"].as_str(), runtime);
                         items.push(Item::Note {
                             level: "error".into(),
-                            text,
+                            text: scrub(&said),
                         });
                     }
                 }
@@ -2646,6 +2649,32 @@ mod tests {
         let mut failed = Session::new(temp.0.clone(), "failed".into());
         assert!(failed.poll().unwrap().failed);
         assert!(failed.tip_ended());
+    }
+
+    #[test]
+    fn a_failed_run_says_the_runtimes_own_last_word_and_a_providers_error_as_a_sentence() {
+        let temp = Temp::new();
+        write(
+            &temp.path("shrug"),
+            &[
+                created("shrug", "Prompt"),
+                event(1, "run.failed", json!({"message":"Codex invocation did not complete successfully","process":{"stderr":"Not inside a trusted directory.\n"}})),
+            ],
+        );
+        let notes = |id: &str| -> Vec<String> {
+            let snapshot = Session::new(temp.0.clone(), id.into()).poll().unwrap();
+            snapshot.items.iter().filter_map(|i| match i { Item::Note { level, text } if level == "error" => Some(text.clone()), _ => None }).collect()
+        };
+        assert_eq!(notes("shrug"), vec!["Codex invocation did not complete successfully The runtime's own last word was: Not inside a trusted directory."]);
+        // The mission's runtime names the provider (created() is a Codex mission).
+        write(
+            &temp.path("provider"),
+            &[created("provider", "Prompt"), event(1, "run.failed", json!({"message":"{\"error\":{\"message\":\"Too many requests\"},\"status\":429}"}))],
+        );
+        assert_eq!(notes("provider"), vec!["OpenAI rate limited this request. Wait a while, or pick another model and send again."]);
+        // A failure with no words draws no card, whatever stderr said.
+        write(&temp.path("empty"), &[created("empty", "Prompt"), event(1, "run.failed", json!({"message":"  ","process":{"stderr":"boom"}}))]);
+        assert!(notes("empty").is_empty());
     }
 
     #[test]

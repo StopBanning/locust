@@ -38,7 +38,7 @@ pub struct RecordSource<'a> {
 
 // ---- tool-kinds.ts helpers (not yet in another core module) ----
 
-pub(crate) fn is_shell_tool(name: &str, tool_kind: Option<&str>) -> bool {
+pub fn is_shell_tool(name: &str, tool_kind: Option<&str>) -> bool {
     static SHELL_RE: OnceLock<Regex> = OnceLock::new();
     let re = SHELL_RE.get_or_init(|| {
         invariants::regex(
