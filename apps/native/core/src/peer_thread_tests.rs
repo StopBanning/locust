@@ -17,3 +17,21 @@ fn turns()->Vec<Vec<Message>> {vec![vec![message("posted","Wren","Write me a sol
 #[test] fn flattens_a_multi_line_message_to_one_line(){assert_eq!(snippet(Some("first line\n\n  second line"),72).as_deref(),Some("first line second line"));}
 #[test] fn cuts_a_long_message_rather_than_letting_the_card_wrap(){let s=snippet(Some(&"x".repeat(200)),20).unwrap();assert_eq!(s.chars().count(),20);assert!(s.ends_with('…'));}
 #[test] fn previews_nothing_for_a_message_the_workroom_no_longer_holds(){assert_eq!(snippet(None,72),None);assert_eq!(snippet(Some("   "),72),None);}
+
+// Review (14 Nov).
+#[test] fn an_exchange_reads_oldest_first_however_its_messages_arrived(){
+    let turn=vec![message("posted","Wren","second","2026-09-04T21:49:00.000Z"),message("posted","Wren","first","2026-09-04T21:47:00.000Z")];
+    assert_eq!(thread_peer_cards(&[turn])[0].messages.iter().map(|m|m.text.clone().unwrap()).collect::<Vec<_>>(),["first","second"]);
+}
+#[test] fn a_card_with_anything_it_was_handed_goes_before_the_work_even_when_it_also_sent(){
+    let turn=vec![message("posted","Wren","ask","2026-09-04T21:47:00.000Z"),message("received","Booty","answer","2026-09-04T21:48:00.000Z")];
+    let cards=thread_peer_cards(&[turn]);
+    assert_eq!(cards.len(),1);
+    assert!(cards[0].before_work);
+}
+#[test] fn two_peers_who_share_a_name_get_their_own_cards_by_id(){
+    let mut a=message("posted","Wren","to one","2026-09-04T21:47:00.000Z");
+    let mut b=message("posted","Wren","to the other","2026-09-04T21:48:00.000Z");
+    a.to_id="wren_1".into(); b.to_id="wren_2".into();
+    assert_eq!(thread_peer_cards(&[vec![a,b]]).len(),2);
+}

@@ -366,3 +366,13 @@ fn opened(name:&str) -> Value {event("tool.started",json!({"itemId":"t1","toolKi
     assert_eq!(live(&[],true,false).unwrap().register,"starting");
     assert_eq!(live(&[event("step.started",json!({"stepKind":"turn"})),event("step.completed",json!({}))],true,false).unwrap().register,"working");
 }
+
+// Review (14 Nov): only an error note already says the failure; a quieter note with the same words does not.
+#[test]
+fn a_note_that_is_not_an_error_does_not_count_as_the_failure_already_shown() {
+    let said = "Codex could not reach its server.";
+    let info = vec![Item::Note { level: "info".into(), text: said.into() }];
+    assert!(!error_already_shown(&info, said));
+    let error = vec![Item::Note { level: "error".into(), text: said.into() }];
+    assert!(error_already_shown(&error, said));
+}

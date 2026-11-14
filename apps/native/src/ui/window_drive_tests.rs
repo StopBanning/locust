@@ -1593,6 +1593,15 @@ fn review_changes_shows_a_teammates_branch_turn_by_turn_and_lands_it_as_one_comm
     let card = text_in(&rt, "review-land").join(" | ");
     assert!(card.contains("The commit on main") && card.contains("2 files, one commit made as you. Your commit hooks run; if one refuses, your checkout is left as it was."), "{card}");
     click(&mut rt, "review-land-it");
+    // Any outcome ends the wait (a landing, a refusal or a block), so a failure under load names its cause instead of
+    // timing out with nothing to read.
+    pump(&mut rt, "the landing's outcome", |s| {
+        s.review.as_ref().is_some_and(|r| !r.working && (r.note.is_some() || r.problem.is_some() || r.preview.as_ref().is_some_and(|p| p.block.is_some())))
+    });
+    {
+        let r = rt.state.review.as_ref().unwrap();
+        assert!(r.note.is_some(), "the landing did not land: problem {:?}, block {:?}", r.problem, r.preview.as_ref().and_then(|p| p.block.clone()));
+    }
     pump(&mut rt, "the landing, read again", |s| s.review.as_ref().is_some_and(|r| r.note.is_some() && r.preview.is_some()));
     let note = rt.state.review.as_ref().unwrap().note.clone().unwrap();
     assert!(note.starts_with("Landed on main as ") && note.ends_with(": 2 files, one commit of yours. Codec's branch now starts from there."), "{note}");

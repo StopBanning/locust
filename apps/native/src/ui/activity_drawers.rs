@@ -386,7 +386,8 @@ fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: 
         .copied()
         .unwrap_or(matches!(item, ledger::Item::Plan { .. }));
     let expandable = match item {
-        ledger::Item::Thought { text, .. } => !text.is_empty(),
+        // A thought that is only its headline already said everything on its row.
+        ledger::Item::Thought { text, .. } => !without_headline(text).trim().is_empty(),
         ledger::Item::Tool { detail, .. } => {
             !detail.arguments.is_empty() || !detail.output.is_empty() || !detail.children.is_empty()
         }
@@ -504,10 +505,13 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     if let Some(first) = label.chars().next() {
         label = format!("{}{}", first.to_uppercase(), &label[first.len_utf8()..]);
     }
-    let heading = if matches!(items,[ledger::Item::Thought {text,..}] if text.is_empty()) {
-        el().w_full()
-            .padding(8.0)
-            .child(text(label).font(type_::LABEL).color(p.muted))
+    // A thought that is only its headline has nothing to open onto (ActivityCard 0.875, Colin's frame of 13 Nov:
+    // "Waiting for script output" opened onto an empty quote bar). The headline is already the line, so such a
+    // thought draws nothing inside the step, and a step with nothing else inside is a line with no chevron.
+    let headline_only = |item: &ledger::Item| matches!(item, ledger::Item::Thought { text, .. } if without_headline(text).trim().is_empty());
+    let listed: Vec<&ledger::Item> = items.iter().filter(|item| !headline_only(item)).collect();
+    let heading = if listed.is_empty() {
+        el().w_full().py(4.0).px(2.0).child(text(label).font(type_::LABEL).color(p.muted).w_full().shrink().wrap_anywhere())
     } else {
         disclosure(key, label, open, p)
     };
@@ -515,22 +519,23 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     if let Some(outcome) = &outcome {
         group = group.child(text(&outcome.text).font(type_::LABEL).color(if outcome.amber { p.amber } else { p.muted }).w_full());
     }
+    if listed.is_empty() {
+        return group;
+    }
     if open {
-        if let [ledger::Item::Thought { text: words, .. }] = items {
-            // Single-thought groups already named the headline on the button (ActivityCard.tsx:535).
-            let body = without_headline(words);
-            if !body.is_empty() {
-                group = group.child(
-                    Markdown::new(body.to_owned())
-                        .selectable(true)
-                        .render(&markdown_style(p))
-                        .w_full(),
-                );
-            }
+        if let [ledger::Item::Thought { text: words, .. }] = listed.as_slice() {
+            // A single thought already named its headline on the line (ActivityCard.tsx:535).
+            group = group.child(
+                Markdown::new(without_headline(words).trim().to_owned())
+                    .selectable(true)
+                    .render(&markdown_style(p))
+                    .w_full(),
+            );
         } else {
             // A run of plain tool calls folds into one quiet row that names what it covers (foldPlainToolRuns).
             for folded_row in locust_core::tool_fold::fold_plain_tool_runs(items) {
                 group = match folded_row {
+                    locust_core::tool_fold::Row::One(i) if headline_only(&items[i]) => group,
                     locust_core::tool_fold::Row::One(i) => {
                         let paths = locust_core::activity_summary::unreported_paths(&items[i]);
                         if paths.is_empty() { group.child(activity_item_with_files(&items[i], p, s, scope, entries.iter().filter(|(at,_)| *at==i).map(|(_,f)|f.clone()).collect())) }
@@ -659,6 +664,75 @@ mod tests {
         assert!(said.contains("Read 3 files") && said.contains("a.ts, b.ts, c.ts"), "{said}");
         assert!(said.contains("cargo test"), "the command keeps its row: {said}");
         assert!(!said.contains("a.ts · Read"), "the reads are not drawn one by one: {said}");
+    }
+
+    fn thought(id: &str, words: &str) -> ledger::Item {
+        ledger::Item::Thought { id: id.into(), text: words.into(), duration_ms: Some(2_000) }
+    }
+
+    fn group_buttons(items: &[ledger::Item], s: &mut State) -> usize {
+        let taken = std::mem::take(s);
+        let mut rt = rune::Runtime::new(
+            (taken, items.to_vec()),
+            |(s, items), _| activity_group(items, &Palette::new(true), s, "conv"),
+            (600.0, 400.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        let n = rt.elements().into_iter().filter(|e| e.role == "button").count();
+        *s = rt.state.0;
+        n
+    }
+
+    /// a-step-with-nothing-inside-is-a-line.test.tsx: a step whose only thought is its headline is a line with no
+    /// chevron, since there is nothing to press for; it says the headline and nothing else.
+    #[test]
+    fn a_step_whose_thought_is_only_its_headline_is_a_line_with_nothing_to_press() {
+        let items = vec![thought("th1", "**Waiting for script output**")];
+        let mut s = State::default();
+        assert_eq!(group_buttons(&items, &mut s), 0, "no chevron to press");
+        // Even if it had been opened before, nothing opens under it.
+        s.activity_open.insert("conv/group/th1".into(), true);
+        assert_eq!(group_text(&items, &mut s), "Waiting for script output");
+        assert_eq!(group_buttons(&items, &mut s), 0);
+    }
+
+    /// a-step-with-nothing-inside-is-a-line.test.tsx: a thought with words under its headline still opens onto
+    /// them, without the headline said twice.
+    #[test]
+    fn a_step_whose_thought_has_words_under_its_headline_still_opens_onto_them() {
+        let items = vec![thought("th1", "**Clarifying control 18 source**\n\nThe grid reads row 18 from the fixture.")];
+        let mut s = State::default();
+        assert_eq!(group_buttons(&items, &mut s), 1);
+        s.activity_open.insert("conv/group/th1".into(), true);
+        let said = group_text(&items, &mut s);
+        assert!(said.contains("The grid reads row 18 from the fixture."), "{said}");
+        assert_eq!(said.matches("Clarifying control 18 source").count(), 1, "the headline once: {said}");
+    }
+
+    /// a-step-with-nothing-inside-is-a-line.test.tsx: in a step with tool calls, a thought that is only its headline
+    /// names the step and draws no row of its own inside it.
+    #[test]
+    fn a_headline_only_thought_names_the_step_and_draws_no_row_inside_it() {
+        let items = vec![thought("th1", "**Checking the build**"), sample_tool("t1", "exec_command", "cargo build", false)];
+        let mut s = State::default();
+        assert!(group_text(&items, &mut s).contains("Checking the build"));
+        s.activity_open.insert("conv/group/th1".into(), true);
+        let said = group_text(&items, &mut s);
+        assert!(said.contains("cargo build"), "{said}");
+        assert!(!said.contains("Thought for"), "no row for the headline-only thought: {said}");
+    }
+
+    /// A thought row elsewhere (a helper's calls) whose text is only its headline is not a button either.
+    #[test]
+    fn a_thought_row_that_is_only_its_headline_does_not_open() {
+        let item = thought("th9", "**Reading the fixture**");
+        let s = State::default();
+        let mut rt = rune::Runtime::new((s, item), |(s, item), _| activity_item(item, &Palette::new(true), s, "conv"), (600.0, 200.0), rune::Env::new(true, 1.0));
+        rt.frame(0.0);
+        let els = rt.elements();
+        assert!(els.iter().any(|e| e.text.as_deref().is_some_and(|t| t.contains("Reading the fixture"))));
+        assert!(!els.iter().any(|e| e.role == "button"), "nothing to open");
     }
 
     /// mcp-tool-rows.test.ts, on the row: a connector call reads as its tool and its server, not one machine name.

@@ -2269,7 +2269,8 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
     let _g = hooks::install(store.clone(), fake("relay-prose-return"));
 
     let first = send(job(&t, None, "Ask Pip about docs port")).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(6);
+    // 1.6 s alone; under four agents' builds it ran past 6 s (14 Nov).
+    let deadline = Instant::now() + Duration::from_secs(30);
     while Instant::now() < deadline {
         if crate::invariants::lock(&ACTIVE_TEAMMATES).is_empty()
             && crate::people::hub_of(&store, "tm_pip").is_some()
@@ -2283,13 +2284,16 @@ fn relay_prose_return_posts_unanswered_prose_back_to_asker() {
         && crate::people::hub_of(&store, "tm_pip").is_some()
         && real_tip(&first.conversation_id).ok().as_deref() != Some(first.conversation_id.as_str()) )
     {
+        // Read under each lock into a value first: a panic while a lock guard is alive poisons it for the engine.
+        let active = crate::invariants::lock(&ACTIVE_TEAMMATES).clone();
+        let notices = crate::invariants::lock(&RELAY_NOTICES).clone();
         panic!(
             "prose return stuck: owns={} active={:?} hub={:?} tip={:?} notices={:?} prompts={:?}",
             owns(&first.conversation_id),
-            *crate::invariants::lock(&ACTIVE_TEAMMATES),
+            active,
             crate::people::hub_of(&store, "tm_pip"),
             real_tip(&first.conversation_id),
-            *crate::invariants::lock(&RELAY_NOTICES),
+            notices,
             fs::read_to_string(t.0.join("work/relay-prompts.jsonl")),
         );
     }

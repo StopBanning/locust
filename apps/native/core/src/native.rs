@@ -114,6 +114,7 @@ pub mod hooks {
         let guard = Guard {
             _lock: LOCK.lock().unwrap_or_else(|e| e.into_inner()),
         };
+        clear_poison();
         super::reset_relay_state();
         *crate::invariants::lock(&STATE) = (Some(store), command);
         guard
@@ -127,9 +128,24 @@ pub mod hooks {
             while super::with_running(|m| !m.is_empty()) && std::time::Instant::now() < deadline {
                 std::thread::sleep(std::time::Duration::from_millis(20));
             }
+            clear_poison();
             super::reset_relay_state();
             *crate::invariants::lock(&STATE) = (None, None);
         }
+    }
+    /// A test that failed while holding one of the engine's locks leaves it poisoned. Outside tests that is a bug and
+    /// stops the program (`invariants::lock`); between tests it must not turn one failure into a second panic during
+    /// cleanup, which aborts the whole test binary and hides every other result (found 14 Nov: one stuck relay test
+    /// took the core suite down with it). The state is reset right after, so nothing half-written survives.
+    fn clear_poison() {
+        super::RELAY.clear_poison();
+        super::ACTIVE_TEAMMATES.clear_poison();
+        super::STEER_CAPABLE.clear_poison();
+        super::STEER_QUEUES.clear_poison();
+        super::RELAY_NOTICES.clear_poison();
+        super::RELAY_STARTING.clear_poison();
+        super::ROOM_NOTICES.clear_poison();
+        STATE.clear_poison();
     }
 }
 
