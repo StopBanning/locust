@@ -56,7 +56,7 @@ fn received_in_map(s: &State) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for sum in s.ledger_summaries.values() {
         for link in &sum.peer_links {
-            if link.direction == "received" {
+            if locust_core::thread_view::received_message(&link.message_id, std::slice::from_ref(link)).is_some() {
                 map.entry(link.message_id.clone())
                     .or_insert_with(|| sum.mission_id.clone());
             }

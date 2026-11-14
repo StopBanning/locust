@@ -176,6 +176,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                     p,
                     s,
                 );
+                if s.ledger.as_ref().and_then(|p| p.snapshot.turn_metas.get(ui))
+                    .is_some_and(|m| !locust_core::thread_view::person_prompt(m.started_by_kind.as_deref())) { continue; }
                 let hit = s.prompt_rail.hit_key.as_deref() == Some(key.as_str());
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
@@ -278,7 +280,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                                 }
                             }
                         })
-                        .child(reply_actions::reply(s, &shown, !*r#final, p));
+                        .child(reply_actions::reply(s, &shown, locust_core::thread_view::streaming(*r#final, running), p));
                     msg = msg.child(reply_box);
                     if let Some(chips) = pull_request_chip::link_chips_for_text(s, &shown, p) {
                         msg = msg.child(chips);
@@ -310,6 +312,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let by_person = last_stop && s.stopped_by_you.as_deref().is_some_and(|c| Some(c) == s.ledger.as_ref().and_then(|p| p.conversation.conversation_id.as_deref()));
                 crate::cancellation_card::card(&summary, by_person, p)
             }
+            ledger::Item::Limit { text: body, .. } => text(body).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere(),
             ledger::Item::Note { level, text: body } => text(if level.is_empty() {
                 body.clone()
             } else {
@@ -399,6 +402,14 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     }
     if let Some(card) = crate::key_card::card(s, p) {
         messages = messages.child(card);
+    }
+    if locust_core::thread_view::live_visible(turn_running(s), s.pending_approval.is_some())
+        && let Some(live) = s.ledger.as_ref().and_then(|pane| pane.snapshot.live.as_ref())
+    {
+        let elapsed = chrono::DateTime::parse_from_rfc3339(&live.started_at).ok()
+            .map(|at| (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).max(0) as u64);
+        let label = elapsed.map_or_else(|| live.label.clone(), |ms| format!("{} · {}", live.label, ledger::duration_text(ms)));
+        messages = messages.child(text(label).font(type_::LABEL).color(p.muted).w_full());
     }
     messages
         .child(approval_card(s, p))
@@ -616,6 +627,39 @@ mod tests {
             .join("\n");
         *s = rt.state.0;
         out
+    }
+
+    fn composition_state(kind: Option<&str>, running: bool) -> State {
+        let mut s = State::default();
+        s.ledger = Some(LedgerPane {
+            header: Teammate { id: "tm_codec".into(), name: "Codec".into(), role: "Engineer".into(), runtime: None, model: None, account: None, busy: false, runs_in: "local".into(), folder: None },
+            conversation: Conversation { conversation_id: Some("m_1".into()), turns: Vec::new() },
+            items: Vec::new(), dir: std::path::PathBuf::new(), worker: None,
+            snapshot: ledger::Snapshot {
+                running,
+                live: locust_core::thread_view::live_line(&[], running, "2026-09-04T21:47:00.000Z", false),
+                turn_metas: vec![ledger::Metadata { mission_id: "m_1".into(), started_by_kind: kind.map(str::to_owned), ..Default::default() }],
+                ..Default::default()
+            },
+            due: 0.0, loading: false, after_tip: None, after_tip_deadline: None, backoff: 0.0,
+        });
+        s
+    }
+    #[test]
+    fn the_cached_live_line_reaches_the_headless_thread() {
+        let items = [ledger::Item::User("read status.ts".into())];
+        let mut s = composition_state(None, true);
+        assert!(thread_text(&items, &mut s).contains("Starting"));
+        s.ledger.as_mut().unwrap().snapshot.running = false;
+        assert!(!thread_text(&items, &mut s).contains("Starting"));
+    }
+    #[test]
+    fn the_headless_thread_never_draws_the_hosts_relay_briefing_as_a_user_bubble() {
+        let items = [ledger::Item::User("end with one <locust-share to=\"Wren\"> block holding your reply.".into())];
+        let mut s = composition_state(Some("relay"), false);
+        assert!(!thread_text(&items, &mut s).contains("locust-share"));
+        s.ledger.as_mut().unwrap().snapshot.turn_metas[0].started_by_kind = None;
+        assert!(thread_text(&items, &mut s).contains("locust-share"));
     }
 
     #[test]

@@ -112,6 +112,7 @@ pub enum Item {
         text: String,
         duration_ms: Option<u64>,
     },
+    Limit { kind: String, text: String },
     Note {
         level: String,
         text: String,
@@ -165,7 +166,7 @@ fn scrub_secrets(text: &str) -> String {
     crate::secrets::redact_secrets(text)
 }
 
-fn scrub(text: &str) -> String {
+pub(crate) fn scrub(text: &str) -> String {
     let safe = scrub_secrets(text);
     let (bounded, _) = capped(&safe, MAX_ASSISTANT);
     if bounded.len() < safe.len() {
@@ -663,6 +664,7 @@ fn run_trouble(code: &str) -> bool {
 
 #[derive(Clone, Debug, Default)]
 pub struct Transcript {
+    pub live: Option<crate::thread_view::LiveLine>,
     pub metadata: Option<Metadata>,
     pub items: Vec<Item>,
     pub running: bool,
@@ -961,6 +963,9 @@ impl Transcript {
                 "adapter.diagnostic" => {
                     let level = string(p, "level");
                     let code = string(p, "code");
+                    if self.events.values().any(|e| e["type"] == "route.limit_detected"
+                        && e["payload"]["kind"] == "quota-exhausted"
+                        && crate::failure_words::same_sentence(&string(p, "message"), &string(&e["payload"], "message"))) { continue; }
                     if code.ends_with(".context_compacted") {
                         self.context = None;
                         items.push(Item::Note {
@@ -985,16 +990,13 @@ impl Transcript {
                     }
                 }
                 "route.limit_detected" => {
-                    if !finished {
+                    if !finished && p["kind"] != "temporary-rate-limit" {
                         carry = true;
                         self.running = false;
                     }
                     let text = scrub(&string(p, "message"));
                     if !text.is_empty() {
-                        items.push(Item::Note {
-                            level: "warning".into(),
-                            text,
-                        });
+                        items.push(Item::Limit { kind: string(p, "kind"), text });
                     }
                 }
                 "run.failed" => {
@@ -1007,10 +1009,9 @@ impl Transcript {
                         // The failure card: the host's sentence and the runtime's own last word (failureMessage).
                         let runtime = self.metadata.as_ref().map(|m| m.runtime.as_str()).filter(|r| !r.is_empty());
                         let said = crate::failure_words::failure_message(&message, p["process"]["stderr"].as_str(), runtime);
-                        items.push(Item::Note {
-                            level: "error".into(),
-                            text: scrub(&said),
-                        });
+                        if !crate::thread_view::error_already_shown(&items, &said) {
+                            items.push(Item::Note { level: "error".into(), text: scrub(&said) });
+                        }
                     }
                 }
                 // Fix 4: a later completion or restart clears an earlier completed/failed flag.
@@ -1134,6 +1135,13 @@ impl Transcript {
         } else {
             "completed"
         };
+        if !self.running && self.events.values().any(|e| e["type"] == "run.completed")
+            && !items.iter().any(|i| matches!(i, Item::Assistant { text, .. } if !text.trim().is_empty()) || matches!(i, Item::Tool { .. } | Item::Plan { .. } | Item::Thought { .. }))
+            && !self.peer_links.iter().any(|p| p.direction == "posted")
+            && !self.events.values().any(|e| string(&e["payload"], "code").ends_with(".context_compacted"))
+        {
+            items.push(Item::Note { level: "warning".into(), text: "This turn ended without a reply: the runtime finished and wrote nothing back. Nothing was changed. Sending it again usually works.".into() });
+        }
         if let Some(ec) = &self.edit_check
             && let Some(outcome) = ec
                 .get("outcome")
@@ -1167,6 +1175,8 @@ impl Transcript {
             crate::recovery::offer(phase, &self.checkpoints, usize::from(self.error.is_some()));
         let event_vec: Vec<Value> = self.events.values().cloned().collect();
         self.cost = crate::relay::mission_cost_from_events(&event_vec);
+        self.live = crate::thread_view::live_line(&event_vec, self.running,
+            self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
         self.items = items;
     }
 }
@@ -1392,6 +1402,7 @@ struct Reader {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Snapshot {
+    pub live: Option<crate::thread_view::LiveLine>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
     pub items: Vec<Item>,
@@ -1671,6 +1682,7 @@ impl Session {
             snapshot.running = reader.transcript.running
                 && fresh(reader.tail.modified, SystemTime::now())
                 && !crate::native::orphaned(&reader.id);
+            snapshot.live = if snapshot.running { reader.transcript.live.clone() } else { None };
             snapshot.failed = reader.transcript.failed;
             snapshot.recovery = if snapshot.running {
                 None
@@ -2763,7 +2775,7 @@ mod tests {
                     Item::Tool { .. } => tools += 1,
                     Item::Plan { .. } => plans += 1,
                     Item::Thought { .. } => notes += 1,
-                    Item::Note { .. } => notes += 1,
+                    Item::Note { .. } | Item::Limit { .. } => notes += 1,
                     Item::CarryOn { .. } | Item::CheckFix { .. } | Item::EditCheck { .. } => {}
                 }
             }

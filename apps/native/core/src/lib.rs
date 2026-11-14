@@ -140,3 +140,9 @@ pub mod worktrees;
 #[cfg(test)]
 #[path = "helper_calls_tests.rs"]
 mod helper_calls_tests;
+
+pub mod thread_view;
+
+pub mod command_outcomes;
+
+pub mod activity_summary;

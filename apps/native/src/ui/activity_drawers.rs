@@ -451,59 +451,18 @@ pub(super) fn activity_id(item: &ledger::Item) -> &str {
 pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, scope: &str) -> El {
     let key = format!("{scope}/group/{}", activity_id(&items[0]));
     let open = s.activity_open.get(&key).copied().unwrap_or(false);
-    let mut commands = 0;
-    let mut helpers = 0;
-    let mut tools = 0;
-    let mut thought_ms = 0;
-    let mut headline = None;
-    for item in items {
-        match item {
-            ledger::Item::Tool { name, detail, .. } => {
-                if detail.helper {
-                    helpers += 1;
-                } else if matches!(
-                    name.to_lowercase().as_str(),
-                    "bash" | "shell" | "exec_command" | "commandexecution"
-                ) {
-                    commands += 1;
-                } else {
-                    tools += 1;
-                }
-            }
-            ledger::Item::Thought {
-                text, duration_ms, ..
-            } => {
-                thought_ms += duration_ms.unwrap_or(0);
-                if let Some(h) = thought_headline(text) {
-                    headline = Some(h.to_owned());
-                }
-            }
-            _ => {}
-        }
-    }
+    let thought_ms: u64 = items.iter().filter_map(|i| if let ledger::Item::Thought { duration_ms, .. } = i { *duration_ms } else { None }).sum();
+    let headline = items.iter().rev().find_map(|i| if let ledger::Item::Thought { text, .. } = i { thought_headline(text).map(str::to_owned) } else { None });
+    let finished = items.iter().filter_map(|i| if let ledger::Item::Tool { detail, .. } = i { Some(detail.finished) } else { None }).all(|f| f);
+    let run = locust_core::command_outcomes::commands_run(items, finished);
+    let names = items.iter().filter_map(|i| if let ledger::Item::Tool { name, detail, summary, .. } = i {
+        (locust_core::command_outcomes::is_shell(name) && !matches!(detail.runtime_status.as_str(), "refused" | "declined"))
+            .then(|| if detail.arguments.is_empty() { summary.clone() } else { detail.arguments.clone() })
+    } else { None }).collect::<Vec<_>>();
+    let outcome = locust_core::command_outcomes::commands_run_text(run, &names);
     let mut words = Vec::new();
-    if commands > 0 {
-        words.push(format!(
-            "ran {commands} {}",
-            if commands == 1 { "command" } else { "commands" }
-        ));
-    }
-    if helpers > 0 {
-        words.push(format!(
-            "asked {helpers} {}",
-            if helpers == 1 {
-                "subagent"
-            } else {
-                "subagents"
-            }
-        ));
-    }
-    if tools > 0 {
-        words.push(format!(
-            "{tools} other tool {}",
-            if tools == 1 { "call" } else { "calls" }
-        ));
-    }
+    let summary = locust_core::activity_summary::activity_summary(items);
+    if summary != "No tool activity" { words.push(summary); }
     let mut label = headline.unwrap_or_else(|| {
         if words.is_empty() {
             if thought_ms >= 1000 {
@@ -526,6 +485,9 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
         disclosure(key, label, open, p)
     };
     let mut group = col().w_full().gap(4.0).child(heading);
+    if let Some(outcome) = &outcome {
+        group = group.child(text(&outcome.text).font(type_::LABEL).color(if outcome.amber { p.amber } else { p.muted }).w_full());
+    }
     if open {
         if let [ledger::Item::Thought { text: words, .. }] = items {
             // Single-thought groups already named the headline on the button (ActivityCard.tsx:535).
@@ -542,7 +504,15 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
             // A run of plain tool calls folds into one quiet row that names what it covers (foldPlainToolRuns).
             for folded_row in locust_core::tool_fold::fold_plain_tool_runs(items) {
                 group = match folded_row {
-                    locust_core::tool_fold::Row::One(i) => group.child(activity_item(&items[i], p, s, scope)),
+                    locust_core::tool_fold::Row::One(i) => {
+                        let paths = locust_core::activity_summary::unreported_paths(&items[i]);
+                        if paths.is_empty() { group.child(activity_item(&items[i], p, s, scope)) }
+                        else {
+                            let mut rows = col().w_full().gap(4.0);
+                            for path in paths { rows = rows.child(text(format!("{} · change not reported", locust_core::path_words::display_path(&path, selected_conversation(s).and_then(|(t, _)| t.folder.as_deref())))).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere()); }
+                            group.child(rows)
+                        }
+                    },
                     locust_core::tool_fold::Row::Folded { items: folded, names, verb } => group.child(
                         row()
                             .key(format!("{scope}/folded/{}", activity_id(&items[folded[0]])))
@@ -620,7 +590,8 @@ mod tests {
         ];
         let mut s = State::default();
         let folded_text = group_text(&items, &mut s);
-        assert!(folded_text.contains("Ran 1 command, 1 other tool call"));
+        assert!(folded_text.contains("Ran 1 command · 1 tool call"));
+        assert!(folded_text.contains("ran cargo"));
         assert!(!folded_text.contains("Read Cargo.toml"));
         assert!(!folded_text.contains("cargo test"));
 
@@ -628,6 +599,19 @@ mod tests {
         let open_text = group_text(&items, &mut s);
         assert!(open_text.contains("Read Cargo.toml"));
         assert!(open_text.contains("cargo test"));
+    }
+
+    #[test]
+    fn named_files_without_a_diff_reach_separate_headless_rows() {
+        let items = vec![sample_tool("t1", "file_change", "C:/w/README.md\nC:/w/src/prices.ts", false)];
+        let mut s = State::default();
+        s.activity_open.insert("conv/group/t1".into(), true);
+        let said = group_text(&items, &mut s);
+        assert!(said.contains("Edited 2 files"), "{said}");
+        assert!(said.contains("C:/w/README.md · change not reported"), "{said}");
+        assert!(said.contains("…/src/prices.ts · change not reported"), "{said}");
+        assert_eq!(said.matches("change not reported").count(), 2);
+        assert!(!said.contains("file_change"));
     }
 
     /// fold-tool-runs.test.ts, drawn: an opened group folds three reads into one row naming them, and keeps the
