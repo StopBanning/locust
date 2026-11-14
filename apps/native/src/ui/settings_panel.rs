@@ -141,6 +141,7 @@ fn reload(s: &mut State) {
     crate::backup_section::reload(s);
     let folder = active_project_folder(s);
     crate::own_copies::reload(s, folder);
+    crate::scout_cards::request_refresh_state(s);
 }
 
 fn persist(s: &mut State) {
@@ -618,6 +619,10 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
             }
         }
         SettingsPageId::App => {
+            let check_command = active_project_folder(s).and_then(|folder| {
+                let ws = workspace_settings::workspace_id_for(std::path::Path::new(&folder));
+                s.settings_panel.settings.check_commands.get(&ws).cloned()
+            });
             for heading in headings {
                 if heading == DOOR_HEADING {
                     body = body.child(door_section(s, p));
@@ -625,6 +630,12 @@ fn page_body(s: &State, p: &Palette, page: SettingsPageId) -> El {
                     body = body.child(crate::quit_guard_dialog::startup_section(s, p));
                 } else if heading == "Report a problem" {
                     body = body.child(crate::feedback_dialog::settings_section(s, p));
+                } else if heading == locust_core::scout::view::SCOUT_SETTING_HEADING {
+                    body = body.child(crate::scout_setting::section(
+                        s,
+                        p,
+                        check_command.as_deref(),
+                    ));
                 } else {
                     body = body.child(deferred(heading, p));
                 }
@@ -1106,7 +1117,7 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                 .map(|p| p.id)
         });
 
-    let mut content = col().grow(1.0).min_h(400.0).scroll(ScrollSpec {
+    let mut content = col().grow(1.0).min_h(0.0).min_w(0.0).scroll(ScrollSpec {
         stick_bottom: false,
     });
     if let Some(page) = page {
@@ -1167,6 +1178,8 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
         row()
             .w_full()
             .grow(1.0)
+            .shrink()
+            .min_h(0.0)
             .child(nav.fill(p.sidebar).h_full())
             .child(content.fill(p.bg).h_full()),
     )

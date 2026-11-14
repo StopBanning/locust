@@ -87,3 +87,75 @@ Additional native integration & helper tests in `core/src/scout/host_tests.rs` (
 - Away workflow sync & absorbed letters (`main/scout-away.ts`, `main/scouts-away-look-tells-only-what-is-new.test.ts`).
 - Phone alerts (`main/phone-scout-cards.ts`, `main/scouts-cards-are-on-your-phone.test.ts`).
 - Fixes prepared in isolated copies (`main/scout-fix.ts`, `main/scout-prepares-the-fix.test.ts`).
+
+---
+
+# Scout part 2a: Home cards, team card, Settings, Board wait cards & Asking Scout (13 Nov 2026)
+
+Ported the Part 2a window surfaces, engine host hooks, and headless window verification on `exec/native-scout-window` across Milestones 1–3, keeping rendering pure from `State` with all disk/process work off the frame thread via `Latest` jobs.
+
+## What was built
+
+1. **Pure presentation helpers & sealed Asking Scout hook** (`core/src/scout/view.rs`, `core/src/scout/host.rs`, `core/src/scout/log.rs`):
+   - `visible_cards` (`SCOUT_SHOWN_CARDS = 3`, urgent `now` cards ordered first, `focus_card_id` kept visible and cleared on dismiss/send/draft), `ago_text`, `card_kind_text`, `chip_label`, `setting_status_line`, `looks_today_label`, `morning_brief_lines`, `quiet_hour_options`, `brief_hour_options`, `quiet_label`, `brief_at_label`, `parse_quiet_value`, `preserve_custom_option`, and `SCOUT_SAW_PAGE = 30`.
+   - `ScoutHostDeps` change listeners (`subscribe_changes` / `notify_changes`) waking the native window via `EngineEvent`, plus `asking_scout_slot` returning `SlotOrigin` (`key: "scout-chat:<id>"`, `sealed: true`, `instructions: scout_log_brief(..., SCOUT_LOG_DAYS)`).
+2. **Home Scout cards, Watching bar, Team card & Meet Scout invite** (`src/ui/scout_cards.rs`, `src/ui/home_panel.rs`, `src/app_state.rs`, `src/main.rs`):
+   - `ScoutState` in `State`; async `Latest` jobs (`request_refresh_state`, `trigger_look_now`, `invite_turn_on`, `dismiss_card`, `send_draft`, `draft_into_box`, `tune_week_card`, `invite_dismiss`) polling into `State` without frame I/O.
+   - Home Scout cards (`ScoutCard`, `ScoutYourWeek`, `ScoutBrief` as one morning card), notice dimming when cleared (`HomeScoutBar` watching bar with `Look now` and `Turn Scout off` / `Settings`), `Scout` team card `Looked` status line + `Look now` eye button, and `Meet Scout` invite tile + dialog with ranked free OpenCode model selection.
+3. **Settings > App › Scout keeps watch & What Scout saw** (`src/ui/scout_setting.rs`, `src/ui/settings_panel.rs`):
+   - Goal textarea (`on_edit` synced via `goal_draft` / `goal_pending`), cadence (`10m` / `30m` / `1h`), quiet hours (including midnight-crossing windows like `10 PM to 7 AM`) + `Wait while you’re working`, morning brief hour, folder check toggle (offered only when folder check command is configured), dated notes list/edit/clear, and lazy-loaded `What Scout saw` modal (`request_load_saw`, paging `SCOUT_SAW_PAGE = 30` at a time, rendering raised / set aside / left out). Fixed Settings page scroll viewport constraints in `settings_panel.rs` (`min_h(0.0)` / `.shrink()`).
+4. **Board Scout wait cards & Asking Scout sealed routing** (`src/ui/scout_cards.rs`, `src/conversation_board.rs`, `src/ui/home_panel.rs`, `core/src/native.rs`):
+   - Urgent (`now`) Scout cards render inside `ConversationBoardKey::NeedsYou` above member wait cards (`board_needs_you_count`, amber theme tokens for dark and light modes, `Send to <name>` / `Change it first` / `Dismiss`, row press opening Home with `focus_card_id`). Added `conversation_board_with_extra` and `board_meta_with_extra`.
+   - `native::send_from` checks `crate::scout::host::asking_scout_slot(&store, &job.teammate.id)` before `org_policy::turn_refusal`, forcing `origin.mode = Some(Mode::Ask)` and `origin.slot = Some(slot)`, and injects `slot.instructions` (14-day `why_brief`) on sealed turns (`Mode::Ask` + `read-only` sandbox).
+
+## Judgement calls
+
+- **Controlled text draft state (`goal_pending` / `notes_pending`)**: Rune invokes `.on_edit(...)` across frame/focus updates, so `scout_cards::Panel` tracks pending edited buffers alongside `goal_draft` / `notes_draft` so saving clears dirty flags without snapping back to stale text mid-save.
+- **`SlotOrigin` assertion vs ledger schema**: `native::send_from` writes `"mode"` and `"sandbox"` (plus `"cwd"`, `"workspaceId"`, `"resolvedRouteId"`, optional `"account"`) to ledger metadata (`SlotOrigin` itself is intentionally runtime-ephemeral). Asking Scout tests verify `"mode": "ask"`, `"sandbox": "read-only"`, `asking_scout_slot(...).sealed == true`, and prompt injection through `m1-app-server.py "sealed"`.
+- **Omitted non-applicable controls**: Settings UI only offers cadence/hour choices accepted by `apply_settings_change`; folder check row is omitted when the folder has no check command.
+
+## Special cases audit (`scripts/special-cases.py`)
+
+Checked across `ScoutCards.tsx`, `ScoutSetting.tsx`, `scoutState.ts`, and `BoardScreen.tsx`:
+
+- `apps/desktop/src/renderer/src/components/ScoutCards.tsx`: **0** special cases.
+- `apps/desktop/src/renderer/src/components/ScoutSetting.tsx`: **0** special cases.
+- `apps/desktop/src/renderer/src/scoutState.ts`: **0** special cases.
+- `apps/desktop/src/renderer/src/components/BoardScreen.tsx`: **2** special cases:
+  - `:177` (`{ask.kind === 'question' ? 'Answer' : 'Review'}`): pre-existing approval card action label in `home_panel.rs`.
+  - `:207` (`if (entry.kind === 'scout')` in `waitCard`): handled in `board_wait_card` / `board_waiting_cards` (`src/ui/scout_cards.rs`); routine wait cards are not loaded on Board and remain out of scope for Part 2a.
+
+## Break checks
+
+Restoring each file cleanly after verification:
+
+| Mutation | Failed test(s) caught |
+| --- | --- |
+| `SCOUT_SHOWN_CARDS` (`3` -> `2`) in `core/src/scout/view.rs` | `scout_cards::tests::limits_to_three_cards_until_show_all_is_clicked_and_keeps_a_focused_card_in_sight` |
+| `SCOUT_SAW_PAGE` (`30` -> `20`) in `core/src/scout/view.rs` | `scout_setting::tests::opening_what_scout_saw_pages_by_thirty_and_filters_left_out` |
+| `asking_scout_slot` override commented out in `core/src/native.rs` (`send_from`) | `native::tests::asking_scout_forces_ask_mode_sealed_and_injects_why_brief_even_when_teammate_edits` (ran `workspace-write` / `accept-edits` instead of sealed `Ask`) |
+
+## Which TypeScript tests came over
+
+| TypeScript file | TS `it` count | Native parity status | Rust destination |
+| --- | --- | --- | --- |
+| `apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx` | 6 | `carried` (6/6) | `src/ui/scout_cards.rs`, `src/ui/window_drive_tests.rs` |
+| `apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx` | 2 | `carried` (2/2) | `src/ui/scout_cards.rs` |
+| `apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx` | 15 | `partial` (13/15; 2 Part-2b `FixLine` cases omitted) | `src/ui/scout_cards.rs`, `core/src/scout/view.rs` |
+| `apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx` | 8 | `partial` (7/8; 1 Part-2b `/locust` comment watch case omitted) | `src/ui/scout_setting.rs` |
+| `apps/desktop/src/renderer/src/scout-settings-show-what-it-saw.test.tsx` | 1 | `carried` (1/1) | `src/ui/scout_setting.rs` |
+
+Headless window verification (`src/ui/window_drive_tests.rs`, 6 tests) and core/engine integration (`core/src/scout/view.rs`, 4 tests; `core/src/native/tests.rs`, 1 test):
+- `scout_send_to_starts_teammates_fresh_conversation_and_dismisses_card`
+- `scout_change_it_first_puts_draft_into_box_and_dismisses_card`
+- `scout_invite_flow_adds_scout_to_team_and_shows_look_now_eye_button`
+- `scout_settings_saves_goal_hours_and_loads_log_only_on_press`
+- `scout_urgent_card_is_on_board_and_actions_match_home`
+- `asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_selected`
+- `asking_scout_forces_ask_mode_sealed_and_injects_why_brief_even_when_teammate_edits`
+
+## What remains (Part 2b)
+
+- `FixLine` / prepared-fix copy UI (`a-scout-fix-says-where-it-stands.test.tsx`, 2 `FixLine` cases in `scout-says-what-needs-you.test.tsx`).
+- `Your /locust comments` setting & GitHub comment watch UI (1 case in `scout-settings-say-its-goal-hours-and-day.test.tsx`).
+- Away workflow UI (`a-newer-away-look-is-offered-in-settings.test.tsx`), `AwayLine`, and phone Scout cards.

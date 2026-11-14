@@ -803,7 +803,7 @@ apps/desktop/src/renderer/src/a-runtime-declares-what-it-can-do.test.ts		waiting
 apps/desktop/src/renderer/src/a-runtime-gap-is-not-the-teammate.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-runtime-switch-shows-where-it-happened.test.tsx	RELAY	partial	src/ui/handoff_divider.rs	divider runtime names in handoff_divider.rs; routineDraft extraction omitted
 apps/desktop/src/renderer/src/a-saved-turn-is-said-after-its-work.test.ts		waiting		
-apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
+apps/desktop/src/renderer/src/a-scout-card-that-needs-you-is-on-the-board.test.tsx	scout-2a	carried	src/ui/scout_cards.rs, src/ui/window_drive_tests.rs	all 6 tests carried (urgent card above waiting conversation, sole card forms Needs you, Send/Change/Dismiss, no-draft Dismiss, dark/light tokens, click opens Home focused) + headless window test
 apps/desktop/src/renderer/src/a-scout-fix-says-where-it-stands.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-screen-holds-its-eyes.test.ts		waiting		
 apps/desktop/src/renderer/src/a-screen-keeps-its-face-to-you.test.ts		waiting		
@@ -861,7 +861,7 @@ apps/desktop/src/renderer/src/a-verbose-transcript-opens-every-step.test.tsx		wa
 apps/desktop/src/renderer/src/a-voice-call-closes-what-it-opened.test.ts		waiting		
 apps/desktop/src/renderer/src/a-voice-is-heard-before-it-is-chosen.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-waiting-conversation-is-first-in-the-sidebar.test.tsx		waiting		
-apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx		waiting		
+apps/desktop/src/renderer/src/a-week-with-scout-is-one-card.test.tsx	scout-2a	carried	src/ui/scout_cards.rs	both tests carried (weekly lines + Tune button, Tune press invokes tune action)
 apps/desktop/src/renderer/src/a-window-that-cannot-draw-says-so.test.tsx		waiting		
 apps/desktop/src/renderer/src/a-wordless-thought-does-not-start-a-line.test.ts		waiting		
 apps/desktop/src/renderer/src/a-wrapped-bullet-stays-one-bullet.test.ts		waiting		
@@ -1014,9 +1014,9 @@ apps/desktop/src/renderer/src/routines-shelf.test.tsx	p11	waiting		`renderer/src
 apps/desktop/src/renderer/src/routines.test.ts	p11	waiting		`renderer/src/routines.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/renderer/src/run-it-again-repeats-nothing.test.ts		waiting		
 apps/desktop/src/renderer/src/savable-conversations.test.ts		waiting		
-apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx		waiting		
-apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx		waiting		
-apps/desktop/src/renderer/src/scout-settings-show-what-it-saw.test.tsx		waiting		
+apps/desktop/src/renderer/src/scout-says-what-needs-you.test.tsx	scout-2a	partial	src/ui/scout_cards.rs, core/src/scout/view.rs, src/ui/window_drive_tests.rs	13 of 15 cases carried (Home cards, now-first cap & focus, watching bar, team card Looked + Look now eye, Meet Scout invite, failure banner, action callbacks, headless Send/Draft/Invite window tests); 2 Part-2b FixLine cases omitted
+apps/desktop/src/renderer/src/scout-settings-say-its-goal-hours-and-day.test.tsx	scout-2a	partial	src/ui/scout_setting.rs, src/ui/window_drive_tests.rs	7 of 8 cases carried (goal edits, cadence, quiet hours & Wait while working, morning brief hour, folder check visibility, dated notes, today's looks, headless Settings window test); 1 Part-2b /locust comment watch case omitted
+apps/desktop/src/renderer/src/scout-settings-show-what-it-saw.test.tsx	scout-2a	carried	src/ui/scout_setting.rs, src/ui/window_drive_tests.rs	1 of 1 carried (lazy What Scout saw toggle + load only on press) plus 30-item pagination/left-out filter test and headless window test
 apps/desktop/src/renderer/src/search-finds-every-turn.test.tsx	P4	partial	a_sidebar_search_finds_title_id_said_and_teammate	`search-finds-every-turn.test.tsx` (missionsMatching) | `conversation_search::a_sidebar_search_finds_title_id_said_and_teammate` | Title/id/said/teammate. Skipped: Escape/Ctrl-K DOM wiring (covered by native `on_key`).
 apps/desktop/src/renderer/src/settings-in-a-browser-say-what-stays.test.tsx		waiting		
 apps/desktop/src/renderer/src/settings-opens-locust-in-a-browser-without-a-code.test.tsx		waiting		
@@ -1024,7 +1024,7 @@ apps/desktop/src/renderer/src/settings-says-what-locust-can-stop.test.tsx		waiti
 apps/desktop/src/renderer/src/settings-search-knows-the-words.test.ts	P10	partial		`renderer/src/settings-pages-are-real.test.ts`, `settings-search-knows-the-words.test.ts`, `settings-read-like-claudes.test.ts` | page count/groups/ids; alsoKnownAs under real headings; memory/worktree/node/ledger search
 apps/desktop/src/renderer/src/settled-text.test.ts		waiting		
 apps/desktop/src/renderer/src/shift-tab-never-turns-auto-on.test.ts		waiting		
-apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	p12	partial		`a-scout-card-that-needs-you-is-on-the-board.test.tsx` and `a-routine-waiting-for-keep-is-on-the-board.test.tsx` remain outside the native feature set. Routine history is accepted by the pure away reducer but is not loaded into the Home rec
+apps/desktop/src/renderer/src/since-you-were-away-on-home.test.tsx	p12	partial		`a-routine-waiting-for-keep-is-on-the-board.test.tsx` remains outside the native feature set (`a-scout-card-that-needs-you-is-on-the-board.test.tsx` carried in `scout-2a`). Routine history is accepted by the pure away reducer but is not loaded into the Home rec
 apps/desktop/src/renderer/src/slashCommands.test.ts		waiting		
 apps/desktop/src/renderer/src/spawning-is-not-working.test.ts		waiting		
 apps/desktop/src/renderer/src/startPhase.test.ts		waiting		
@@ -1170,7 +1170,7 @@ apps/desktop/src/shared/room-task.test.ts	ROOMS	partial	core/src/room_task.rs	ta
 apps/desktop/src/shared/routine-schedule.test.ts	p11	partial		`shared/routine-schedule.test.ts` | Partially ported: validation, next-run and label cases match; full schedule helper inventory and DST oracle cases remain.
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	p11	waiting		`shared/routines-and-rooms-from-a-browser.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
 apps/desktop/src/shared/runtime-install.test.ts		waiting		
-apps/desktop/src/shared/scout-notices-what-is-new.test.ts	scout-1	partial	core/src/scout/{unit_tests,brief_tests,runner_tests}.rs	the 15 cases are folded into fewer paraphrased tests (core/src/scout/unit_tests.rs) that do not pin Electron's keys and sentences; pullRequestsOf has no test and issuesOf only part of its case. Redo as one test per case (review, 13 Nov).
+apps/desktop/src/shared/scout-notices-what-is-new.test.ts	scout-1	carried	core/src/scout/unit_tests.rs	all 15 cases carried 1:1 with Electron's exact keys, values, and sentences (PRs, issues, reviews, branch runs, waiting, failed turns, scout_prompt, scout_answers, cards, settings) plus new_issues overflow test
 apps/desktop/src/shared/settings-from-a-browser.test.ts		waiting		
 apps/desktop/src/shared/since-you-were-away.test.ts	p12	partial		`shared/since-you-were-away.test.ts` | ran/failed/missed/waiting; awayLine; wasAway 20m; attention mark
 apps/desktop/src/shared/spend.test.ts	P10	partial		`shared/spend.test.ts` (subset) | moneyOfUsage, dollars, month/limit refusal

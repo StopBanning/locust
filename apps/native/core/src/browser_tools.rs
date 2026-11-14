@@ -22,6 +22,18 @@ pub fn config(mission: &str) -> Option<Value> {
         .get(mission)
         .cloned()
 }
+#[cfg(test)]
+pub fn set_test_config(mission: &str, cfg: Option<Value>) {
+    let mut map = crate::invariants::lock(CONFIGS.get_or_init(Default::default));
+    match cfg {
+        Some(v) => {
+            map.insert(mission.into(), v);
+        }
+        None => {
+            map.remove(mission);
+        }
+    }
+}
 pub struct Registration {
     dir: PathBuf,
     /// Claude's browser MCP config, for its one `--mcp-config` (claude::print_args).

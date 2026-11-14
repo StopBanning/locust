@@ -1762,7 +1762,7 @@ pub fn send(job: Send) -> Result<Started, String> {
 /// Start (or continue) a Codex/Claude turn natively. Returns once the ledger exists and the turn is running on its own thread;
 /// the window follows the ledger file. Approvals raise cards answered through `decide_approval`.
 /// Never retried: a failure after the ledger exists is recorded in it, not tried again.
-pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
+pub fn send_from(mut job: Send, mut origin: Origin) -> Result<Started, String> {
     let own_agent = origin.runtime.is_none() || origin.runtime == job.teammate.runtime;
     if let Some(runtime) = &origin.runtime {
         job.teammate.runtime = Some(runtime.clone());
@@ -1787,6 +1787,14 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         None if own_agent => job.teammate.account.clone(),
         None => None,
     };
+    // Asking Scout always runs in Ask mode (read-only) and sealed against tools/connectors,
+    // with its 14-day look log brief passed via slot.instructions, before policy evaluation.
+    if origin.slot.is_none()
+        && let Some(slot) = crate::scout::host::asking_scout_slot(&store, &job.teammate.id)
+    {
+        origin.mode = Some(Mode::Ask);
+        origin.slot = Some(slot);
+    }
     // organization-policy.ts: every turn crosses the organization's policy before anything is discovered, started or
     // recorded. A broken policy file refuses every turn.
     let policy = crate::org_policy::current();
@@ -2041,11 +2049,20 @@ pub fn send_from(mut job: Send, origin: Origin) -> Result<Started, String> {
         }
     } else if sealed {
         let refs = crate::references::section(&references);
-        if refs.is_empty() {
-            job.prompt.clone()
-        } else {
-            format!("{}\n\n{refs}", job.prompt)
+        let mut out = match origin
+            .slot
+            .as_ref()
+            .and_then(|s| s.instructions.as_deref())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            Some(inst) => format!("{inst}\n\n{}", job.prompt),
+            None => job.prompt.clone(),
+        };
+        if !refs.is_empty() {
+            out = format!("{out}\n\n{refs}");
         }
+        out
     } else {
         let slot_inst = origin.slot.as_ref().and_then(|s| s.instructions.as_deref());
         // What teammates left for this one, quoted into its brief (peer-exchange.ts prepare). A workroom that cannot be

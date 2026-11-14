@@ -5179,3 +5179,399 @@ fn leaving_a_group_keeps_join_note_shows_leaving_note_and_stops_briefing_future_
         .unwrap();
     assert!(first_at < join_at && join_at < second_at && second_at < leave_at);
 }
+
+#[test]
+fn scout_send_to_starts_teammates_fresh_conversation_and_dismisses_card() {
+    let (_dirs, store, mut rt) = window();
+    let card = locust_core::scout::types::ScoutCard {
+        card_id: "c_send".into(),
+        at: "2026-04-12T10:00:00.000Z".into(),
+        reading: false,
+        take: None,
+        raw_fix: None,
+        fact: locust_core::scout::types::ScoutFact {
+            draft: Some(locust_core::scout::types::ScoutDraft {
+                teammate_id: "tm_codec".into(),
+                name: "Codec".into(),
+                message: "Check why the auth test flaked.\n\nSynthetic prompt".into(),
+            }),
+            ..locust_core::scout::types::ScoutFact::simple(
+                "c_send",
+                locust_core::scout::types::ScoutUrgency::Now,
+                "Codec finished with a question",
+            )
+        },
+    };
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true },
+            "cards": [card.to_json(true)],
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "first answer", answered);
+    let first_convo = rt.state.teammates[0].id.clone();
+    assert_eq!(first_convo, "tm_codec");
+
+    rt.update(|s, _| home_panel::open_home(s));
+    pump(&mut rt, "scout card loaded on Home", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.card_id == "c_send"))
+    });
+    settle(&mut rt);
+    assert!(rt.find("scout-send-c_send").is_some());
+
+    click(&mut rt, "scout-send-c_send");
+    pump(&mut rt, "drafted turn answered and card dismissed", |s| {
+        !s.home.home_open
+            && answered(s)
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.cards.is_empty())
+    });
+
+    let records = first_records(&store);
+    assert_eq!(
+        records.len(),
+        2,
+        "Send to starts a fresh second conversation: {records:?}"
+    );
+    assert!(
+        records.iter().any(|r| {
+            r["metadata"]["prompt"]
+                .as_str()
+                .is_some_and(|p| p.contains("Check why the auth test flaked."))
+        }),
+        "fresh turn must carry drafted words: {records:?}"
+    );
+}
+
+#[test]
+fn scout_change_it_first_puts_draft_into_box_and_dismisses_card() {
+    let (_dirs, store, mut rt) = window();
+    let card = locust_core::scout::types::ScoutCard {
+        card_id: "c_edit".into(),
+        at: "2026-04-12T10:00:00.000Z".into(),
+        reading: false,
+        take: None,
+        raw_fix: None,
+        fact: locust_core::scout::types::ScoutFact {
+            draft: Some(locust_core::scout::types::ScoutDraft {
+                teammate_id: "tm_codec".into(),
+                name: "Codec".into(),
+                message: "Editable scout draft".into(),
+            }),
+            ..locust_core::scout::types::ScoutFact::simple(
+                "c_edit",
+                locust_core::scout::types::ScoutUrgency::Soon,
+                "PR #9 failed lint",
+            )
+        },
+    };
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true },
+            "cards": [card.to_json(true)],
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| home_panel::open_home(s));
+    pump(&mut rt, "scout card loaded on Home", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.card_id == "c_edit"))
+    });
+    assert!(rt.find("scout-draft-c_edit").is_some());
+
+    click(&mut rt, "scout-draft-c_edit");
+    pump(&mut rt, "card dismissed into composer", |s| {
+        !s.home.home_open
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.cards.is_empty())
+    });
+    assert_eq!(rt.state.draft.text, "Editable scout draft");
+    assert!(rt.state.flight.is_none());
+}
+
+#[test]
+fn scout_invite_flow_adds_scout_to_team_and_shows_look_now_eye_button() {
+    let (dirs, _store, mut rt) = window();
+    let folder = dirs.0.join("work").display().to_string();
+    rt.update(|s, _| {
+        s.home.folder_path = Some(folder.clone());
+        s.models.insert(
+            "opencode".into(),
+            vec![engine::Models {
+                teammate: None,
+                runtime: "opencode".into(),
+                model: None,
+                effort: None,
+                models: vec![engine::Model {
+                    id: "opencode/qwen3-coder-free".into(),
+                    name: "Qwen 3 Coder Free".into(),
+                    efforts: vec![],
+                }],
+            }],
+        );
+        home_panel::open_home(s);
+    });
+    pump(&mut rt, "initial scout state loaded", |s| {
+        s.scout.state.is_some()
+    });
+    assert!(rt.find("scout-invite-card").is_some());
+    click(&mut rt, "scout-invite-card");
+    assert!(rt.find("scout-invite-dialog").is_some());
+
+    click(&mut rt, "scout-invite-turn-on");
+    pump(&mut rt, "scout turned on and added to team", |s| {
+        !s.scout.invite_busy
+            && !s.scout.invite_open
+            && s.scout.state.as_ref().is_some_and(|st| st.settings.on)
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.teammate_id.as_deref())
+                .is_some_and(|id| s.teammates.iter().any(|t| t.id == id))
+    });
+    settle(&mut rt);
+    assert!(rt.find("scout-invite-card").is_none());
+    assert!(rt.find("scout-look-now").is_some());
+}
+
+#[test]
+fn scout_settings_saves_goal_hours_and_loads_log_only_on_press() {
+    let (_dirs, store, mut rt) = window();
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        store.root().join(locust_core::scout::store::SCOUT_LOG_FILE),
+        serde_json::to_string_pretty(&serde_json::json!([
+            {
+                "at": "2026-10-22T12:00:00.000Z",
+                "looks": 1,
+                "raised": [{ "key": "pr:1", "said": "PR #1 failed CI" }],
+                "aside": [],
+                "off": []
+            }
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| {
+        crate::settings_panel::open(s);
+        s.settings_panel.page = Some(crate::settings_pages::SettingsPageId::App);
+    });
+    pump(&mut rt, "scout settings loaded", |s| {
+        s.scout.state.as_ref().is_some_and(|st| st.settings.on)
+    });
+    // Look log stays unread until "Show what Scout saw" is pressed.
+    assert!(rt.state.scout.log.is_none());
+    assert!(rt.find("scout-saw-open").is_some());
+
+    // Edit and save Scout's goal; verify persistence in scout.json.
+    rt.update(|s, _| {
+        s.scout.goal_draft = Some(rune::TextEdit::new("Keep main's tests passing."));
+    });
+    settle(&mut rt);
+    rt.update(|_, tx| tx.scroll_key_to("scout-goal-save", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-goal-save");
+    assert!(
+        rt.find("scout-goal-save").is_none(),
+        "Save button should hide once Save is pressed"
+    );
+    pump(&mut rt, "scout goal saved", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.goal.as_deref())
+                == Some("Keep main's tests passing.")
+    });
+
+    // Pick Quiet hours (index 1 -> first choice in SCOUT_QUIET_CHOICES) & Morning brief (7 AM).
+    rt.update(|_, tx| tx.scroll_key_to("scout-quiet-1", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-quiet-1");
+    pump(&mut rt, "quiet hours saved", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.quiet)
+                == Some(locust_core::scout::types::SCOUT_QUIET_CHOICES[0])
+    });
+    rt.update(|_, tx| tx.scroll_key_to("scout-brief-7", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-brief-7");
+    pump(&mut rt, "morning brief hour saved", |s| {
+        !s.scout.setting_busy
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.settings.brief_at)
+                == Some(7)
+    });
+
+    // Now press "Show what Scout saw" to load the look log.
+    rt.update(|_, tx| tx.scroll_key_to("scout-saw-open", 0.5));
+    settle(&mut rt);
+    click(&mut rt, "scout-saw-open");
+    pump(&mut rt, "look log loaded after press", |s| {
+        !s.scout.log_loading
+            && matches!(
+                s.scout.log,
+                Some(Ok(ref snap)) if snap.entries.len() == 1
+            )
+    });
+    assert!(rt.find("scout-saw-entry-0").is_some());
+
+    let raw = std::fs::read_to_string(store.root().join(locust_core::scout::store::SCOUT_FILE)).unwrap();
+    let val: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    let disk = locust_core::scout::store::Kept::from_json(&val);
+    assert_eq!(disk.settings.goal.as_deref(), Some("Keep main's tests passing."));
+    assert_eq!(
+        disk.settings.quiet,
+        Some(locust_core::scout::types::SCOUT_QUIET_CHOICES[0])
+    );
+    assert_eq!(disk.settings.brief_at, Some(7));
+}
+
+#[test]
+fn scout_urgent_card_is_on_board_and_actions_match_home() {
+    let (_dirs, store, mut rt) = window();
+    let now_card = locust_core::scout::types::ScoutCard {
+        card_id: "c_board".into(),
+        at: "2026-10-12T10:00:00.000Z".into(),
+        reading: false,
+        take: None,
+        raw_fix: None,
+        fact: locust_core::scout::types::ScoutFact {
+            draft: Some(locust_core::scout::types::ScoutDraft {
+                teammate_id: "tm_codec".into(),
+                name: "Codec".into(),
+                message: "Urgent draft from board".into(),
+            }),
+            ..locust_core::scout::types::ScoutFact::simple(
+                "c_board",
+                locust_core::scout::types::ScoutUrgency::Now,
+                "Codec has waited 20 min",
+            )
+        },
+    };
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true },
+            "cards": [now_card.to_json(true)],
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    rt.update(|s, _| {
+        crate::home_panel::open_board(s);
+        crate::scout_cards::request_refresh_state(s);
+    });
+    pump(&mut rt, "urgent scout card loaded on Board", |s| {
+        s.scout
+            .state
+            .as_ref()
+            .is_some_and(|st| st.cards.iter().any(|c| c.card_id == "c_board"))
+    });
+    settle(&mut rt);
+    assert!(rt.find("board-scout-c_board").is_some());
+    assert!(rt.find("board-scout-send-c_board").is_some());
+    assert!(rt.find("board-scout-change-c_board").is_some());
+    assert!(rt.find("board-scout-dismiss-c_board").is_some());
+
+    // Clicking "Change it first" closes Board, fills composer draft, and dismisses the card.
+    click(&mut rt, "board-scout-change-c_board");
+    pump(&mut rt, "board card drafted into composer and dismissed", |s| {
+        !s.home.board_open
+            && s.scout
+                .state
+                .as_ref()
+                .is_some_and(|st| st.cards.is_empty())
+    });
+    assert_eq!(rt.state.draft.text, "Urgent draft from board");
+    assert!(rt.state.flight.is_none());
+}
+
+#[test]
+fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_selected() {
+    let (_dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "sealed"));
+    std::fs::create_dir_all(store.root()).unwrap();
+    std::fs::write(
+        store.root().join("scout.json"),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "settings": { "on": true, "teammateId": "tm_scout" }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        store.root().join(locust_core::scout::store::SCOUT_LOG_FILE),
+        serde_json::to_string_pretty(&serde_json::json!([
+            {
+                "at": "2026-10-22T12:00:00.000Z",
+                "looks": 1,
+                "raised": [],
+                "aside": [{ "key": "pr:4", "said": "PR #4 minor", "why": "told" }],
+                "off": []
+            }
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+
+    store
+        .save_json(
+            "teammates.json",
+            &json!({"schemaVersion": 1, "teammates": [{"teammateId": "tm_scout", "name": "Scout"}], "missionOwners": {}, "settings": {}}),
+        )
+        .unwrap();
+    rt.update(|s, _| {
+        let mut scout = s.teammates[0].clone();
+        scout.id = "tm_scout".into();
+        scout.name = "Scout".into();
+        scout.runs_in = "accept_edits".into();
+        apply_team(s, vec![scout]);
+        s.composer_mode = Some("accept_edits".into());
+        s.mode = "accept_edits".into();
+    });
+    settle(&mut rt);
+    type_and_send(&mut rt, "Synthetic prompt");
+    pump(&mut rt, "asking scout answered under sealed ask mode", answered);
+
+    let recs = first_records(&store);
+    assert_eq!(recs[0]["metadata"]["mode"], "ask");
+    assert_eq!(recs[0]["metadata"]["sandbox"], "read-only");
+}

@@ -144,11 +144,22 @@ fn conversations_without_rooms(
         .collect()
 }
 
+#[cfg(test)]
 pub fn conversation_board(
     rows: &[SidebarMission],
     rooms: &[BoardRoom],
     trashed: &HashSet<String>,
     facts: &ConversationBoardFacts,
+) -> Option<Vec<ConversationBoardSection>> {
+    conversation_board_with_extra(rows, rooms, trashed, facts, 0)
+}
+
+pub fn conversation_board_with_extra(
+    rows: &[SidebarMission],
+    rooms: &[BoardRoom],
+    trashed: &HashSet<String>,
+    facts: &ConversationBoardFacts,
+    extra_needs: usize,
 ) -> Option<Vec<ConversationBoardSection>> {
     let kept: Vec<SidebarMission> = rows
         .iter()
@@ -172,25 +183,41 @@ pub fn conversation_board(
             }
         })
         .collect();
-    if sections
-        .iter()
-        .all(|section| section.key == ConversationBoardKey::Done || section.members.is_empty())
+    if extra_needs == 0
+        && sections
+            .iter()
+            .all(|section| section.key == ConversationBoardKey::Done || section.members.is_empty())
     {
         return None;
     }
-    sections.retain(|section| !section.members.is_empty());
+    sections.retain(|section| {
+        !section.members.is_empty()
+            || (extra_needs > 0 && section.key == ConversationBoardKey::NeedsYou)
+    });
     Some(sections)
 }
 
+#[cfg(test)]
 pub fn board_meta(sections: Option<&[ConversationBoardSection]>) -> String {
+    board_meta_with_extra(sections, 0)
+}
+
+pub fn board_meta_with_extra(
+    sections: Option<&[ConversationBoardSection]>,
+    extra_needs: usize,
+) -> String {
     let Some(sections) = sections else {
+        if extra_needs > 0 {
+            return format!("{extra_needs} waiting on you");
+        }
         return ALL_QUIET.into();
     };
     let needs = sections
         .iter()
         .find(|s| s.key == ConversationBoardKey::NeedsYou)
         .map(|s| s.members.len())
-        .unwrap_or(0);
+        .unwrap_or(0)
+        + extra_needs;
     let working = sections
         .iter()
         .find(|s| s.key == ConversationBoardKey::Working)

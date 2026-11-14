@@ -21,7 +21,7 @@ base = scenario[len('resume-'):] if scenario.startswith('resume-') else ('succes
 # `rewind`: an edited earlier message starts again COLD from the turn before it (thread/start, never thread/resume),
 # told what was said up to there.
 rewinding = scenario == 'rewind'
-sealed_mode = scenario == 'sealed'
+sealed_mode = scenario in ('sealed', 'sealed-asking')
 if approving or scenario == 'resume-undone' or rewinding or sealed_mode:
     base = 'success'
 SANDBOX = 'workspace-write' if (approving or scenario == 'cards-edit-check') else 'read-only'
@@ -101,6 +101,9 @@ for line in sys.stdin:
             assert text.startswith('Before this message, the person pressed Undo on your previous turn in Locust.') and 'laptop-setup.md' in text, text
         elif resuming:
             assert 'pressed Undo' not in text, text
+        # Asking Scout (0.828): What Scout saw is in front of the person's words, as the turn's instructions.
+        if scenario == 'sealed-asking':
+            assert 'PR #9 minor lint' in text and text.index('PR #9 minor lint') < text.index(PROMPT), text
         if rewinding:
             assert 'The person went back to an earlier point in this conversation and changed their message there.' in text and 'Asked: "Synthetic prompt"' in text and 'Hello world' in text, text
         assert p['model'] == 'synthetic-model'

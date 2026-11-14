@@ -13,7 +13,7 @@ use crate::people::{record_owner, save_teammate_id, team};
 use crate::store::Store;
 use crate::workspace_settings::{self, workspace_id_for};
 
-use super::host::{ScoutHost, ScoutHostDeps, is_free_route, on_diagnostic};
+use super::host::{ScoutHost, ScoutHostDeps, is_free_route};
 use super::scheduler::FakeScheduler;
 use super::{AnswerResult, ScoutDeps, ScoutRoute};
 
@@ -460,6 +460,14 @@ for line in sys.stdin:
         st.notes
     );
 
+    // Asking Scout while it runs: its slot carries What Scout saw from the running Scout (index.ts scout.whyBrief()).
+    let teammate = host.scout.teammate_id().expect("Scout is on the team");
+    let asking = super::host::asking_scout_slot(&t.store, &teammate).expect("a turn with Scout's teammate is asking Scout");
+    let brief = host.scout.why_brief();
+    assert!(!brief.trim().is_empty());
+    assert_eq!(asking.instructions.as_deref(), Some(brief.as_str()));
+    assert!(asking.sealed && asking.key == format!("scout-chat:{teammate}"));
+
     // 1. Sealed turn never wrote developerInstructions and applied sealed Codex thread config.
     let rpc_lines: Vec<Value> = fs::read_to_string(&inspect_log)
         .unwrap()
@@ -498,27 +506,221 @@ for line in sys.stdin:
 }
 
 #[test]
-fn on_diagnostic_triggers_provider_refused_only_for_matching_codes() {
+fn on_diagnostic_from_opencode_provider_busy_asks_next_free_model() {
     let t = HostTemp::new("diag_retry");
     t.seed_workspace();
+
+    let ws_id = workspace_id_for(&t.work);
+    let mut cmds = BTreeMap::new();
+    cmds.insert(
+        ws_id,
+        "python3 -c \"print('check fail busy'); import sys; sys.exit(1)\"".to_owned(),
+    );
+    let mut settings = workspace_settings::load(&t.store).unwrap();
+    settings.check_commands = cmds;
+    workspace_settings::save(&t.store, &settings).unwrap();
+
+    let git_init = std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&t.work)
+        .status()
+        .unwrap();
+    assert!(git_init.success());
+    fs::write(t.work.join("README.md"), "hello\n").unwrap();
+    assert!(
+        std::process::Command::new("git")
+            .args(["add", "README.md"])
+            .current_dir(&t.work)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(
+        std::process::Command::new("git")
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=scout-test",
+                "commit",
+                "-q",
+                "-m",
+                "init",
+            ])
+            .current_dir(&t.work)
+            .status()
+            .unwrap()
+            .success()
+    );
+
+    let req_log = t.root.join("opencode_models.jsonl");
+    let script = t.root.join("mock_opencode_busy.py");
+    let first_free = FREE_MODELS_BEST_FIRST[0];
+    let second_free = FREE_MODELS_BEST_FIRST[1];
+    let py = r#"import json, os, sys, threading, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+log_path = sys.argv[1]
+first_model = sys.argv[2]
+password = os.environ.get('OPENCODE_SERVER_PASSWORD', '')
+import base64
+auth = 'Basic ' + base64.b64encode(f'opencode:{password}'.encode()).decode()
+state = {'session': None, 'subscribers': [], 'lock': threading.Lock(), 'answer': 'Recovered'}
+
+def publish(event):
+    raw = f"data: {json.dumps(event)}\n\n"
+    with state['lock']:
+        for q in list(state['subscribers']):
+            q.append(raw)
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+    def log_message(self, *args):
+        pass
+    def _auth(self):
+        return self.headers.get('Authorization') == auth
+    def _read(self):
+        n = int(self.headers.get('Content-Length', '0'))
+        body = self.rfile.read(n) if n else b''
+        return json.loads(body) if body else None
+    def _json(self, code, body):
+        data = b'' if body is None else json.dumps(body).encode()
+        self.send_response(code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        if data:
+            self.wfile.write(data)
+    def do_GET(self):
+        if not self._auth():
+            return self._json(401, {'error': 'unauthorized'})
+        if self.path.startswith('/event'):
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            q = []
+            with state['lock']:
+                state['subscribers'].append(q)
+            try:
+                while True:
+                    while q:
+                        self.wfile.write(q.pop(0).encode())
+                        self.wfile.flush()
+                    time.sleep(0.02)
+            except Exception:
+                with state['lock']:
+                    if q in state['subscribers']:
+                        state['subscribers'].remove(q)
+            return
+        if self.path.startswith('/session/status'):
+            sid = state['session']
+            return self._json(200, {sid: {'type': 'idle'}} if sid else {})
+        if self.path.startswith('/session/') and self.path.endswith('/message'):
+            sid = self.path.split('/')[2]
+            return self._json(200, [{
+                'info': {'id': 'msg_a', 'role': 'assistant', 'sessionID': sid, 'parentID': 'msg_u', 'finish': 'stop', 'error': None, 'time': {'created': 1, 'completed': 2}},
+                'parts': [{'id': 'prt_2', 'type': 'text', 'text': state['answer'], 'messageID': 'msg_a', 'sessionID': sid, 'time': {'end': 1}}]
+            }])
+        return self._json(404, {'error': 'missing'})
+    def do_POST(self):
+        if not self._auth():
+            return self._json(401, {'error': 'unauthorized'})
+        body = self._read()
+        if self.path == '/session':
+            state['session'] = 'sess1'
+            return self._json(200, {'id': 'sess1'})
+        if '/prompt_async' in self.path:
+            m = (body or {}).get('model') or {}
+            model_name = f"{m.get('providerID', '')}/{m.get('modelID', '')}"
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({'model': model_name}) + '\n')
+            sid = 'sess1'
+            def work():
+                time.sleep(0.03)
+                publish({'type': 'message.updated', 'properties': {'sessionID': sid, 'info': {'id': 'msg_u', 'role': 'user', 'sessionID': sid}}})
+                publish({'type': 'message.updated', 'properties': {'sessionID': sid, 'info': {'id': 'msg_a', 'role': 'assistant', 'sessionID': sid, 'parentID': 'msg_u'}}})
+                if model_name == first_model:
+                    publish({'type': 'session.status', 'properties': {'sessionID': sid, 'status': {'type': 'retry', 'message': '429 busy', 'attempt': 1}}})
+                    return
+                answer = 'ITEM 1\nTAKE: Recovered on next free model.'
+                state['answer'] = answer
+                publish({'type': 'message.part.updated', 'properties': {'sessionID': sid, 'part': {'id': 'prt_1', 'type': 'step-start', 'messageID': 'msg_a', 'sessionID': sid}}})
+                publish({'type': 'message.part.updated', 'properties': {'sessionID': sid, 'part': {'id': 'prt_2', 'type': 'text', 'text': answer, 'messageID': 'msg_a', 'sessionID': sid, 'time': {'end': 1}}}})
+                publish({'type': 'message.part.updated', 'properties': {'sessionID': sid, 'part': {'id': 'prt_3', 'type': 'step-finish', 'messageID': 'msg_a', 'sessionID': sid, 'reason': 'stop', 'tokens': {'input': 3, 'output': 2, 'reasoning': 0, 'cache': {'read': 0, 'write': 0}}, 'cost': 0}}})
+                publish({'type': 'session.idle', 'properties': {'sessionID': sid}})
+            threading.Thread(target=work, daemon=True).start()
+            return self._json(200, None)
+        if self.path.endswith('/abort'):
+            publish({'type': 'session.idle', 'properties': {'sessionID': state['session'] or 'sess1'}})
+            return self._json(200, None)
+        return self._json(404, {'error': 'missing'})
+
+httpd = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+host, port = httpd.server_address
+print(f'listening on http://127.0.0.1:{port}', flush=True)
+httpd.serve_forever()
+"#;
+    fs::write(&script, py).unwrap();
+
+    let _g = hooks::install(
+        t.store.clone(),
+        Some((
+            PathBuf::from("python3"),
+            vec![
+                script.to_string_lossy().into_owned(),
+                req_log.to_string_lossy().into_owned(),
+                first_free.to_owned(),
+            ],
+        )),
+    );
+
     let sched = FakeScheduler::new(1_760_000_000_000);
     let host = ScoutHost::start_with_scheduler(t.store.clone(), sched);
+    host.deps
+        .set_gh_hook(Some(Arc::new(|_args, _cwd| Ok("[]".to_owned()))));
 
-    // Unrelated diagnostic code should do nothing cleanly without panicking.
-    on_diagnostic(
-        &t.store,
-        "look_x",
-        &json!({"code": "host.folder_moved", "message": "moved"}),
+    host.scout.set(&super::types::ScoutChange {
+        watches: Some(super::types::ScoutWatchesPatch {
+            check: Some(true),
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+    let outcome = host.scout.turn_on(Some(&ScoutRoute {
+        runtime: "opencode".into(),
+        model: first_free.to_owned(),
+        account: None,
+    }));
+    let super::TurnOnOutcome::Ok(_) = outcome else {
+        panic!("expected TurnOnOutcome::Ok, got {outcome:?}");
+    };
+
+    let deadline = Instant::now() + Duration::from_secs(6);
+    loop {
+        let st = host.scout.state();
+        if st.cards.iter().any(|c| c.take.is_some()) {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for provider_busy fallback; state={st:?}"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
+
+    let st = host.scout.state();
+    assert_eq!(st.cards.len(), 1);
+    assert_eq!(
+        st.cards[0].take.as_deref(),
+        Some("Recovered on next free model.")
     );
-    on_diagnostic(
-        &t.store,
-        "look_x",
-        &json!({"code": "opencode.runtime_error", "message": "429 busy"}),
-    );
-    on_diagnostic(
-        &t.store,
-        "look_x",
-        &json!({"code": "codex.provider_busy.runtime_error", "detail": "overloaded"}),
-    );
-    assert!(!host.scout.state().settings.on);
+
+    let models: Vec<String> = fs::read_to_string(&req_log)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap()["model"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(models, vec![first_free.to_owned(), second_free.to_owned()]);
 }
