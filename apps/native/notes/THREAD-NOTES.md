@@ -107,3 +107,40 @@ no warnings. Four whole-core controls (`conversation-walk`, `conversation-reply`
 `conversation-midrun`, `conversation-draw`) failed their named assertions and restored.
 No does-not-apply cases. Checkpoint counts beyond these fixtures remain the native divider's
 existing behavior; this small pure switch projection does not add checkpoint recovery.
+
+## Continued sections — 14 Nov 2026
+
+`cancellation summary`: five individual ports in `cancellation_summary_tests.rs`, committed as
+`882fd4b5`. A recorded planned count without reported plan states remains entirely never started;
+settled tools cannot advance it. `separates_tool_outcomes_and_never_substitutes_them_for_unreported_plan_states`
+fails without the fallback. Eleven cancellation-filtered tests passed. Both whole-core controls
+(`cancellation-planned`, `cancellation-dedup`) failed their named assertions and restored. The first
+attempt at the deduplication control failed to compile because removing insertion erased HashSet's
+inferred type; it was rejected, corrected to retain insertion while allowing duplicates, and rerun.
+No compile failure is counted as mutation evidence.
+
+The path identity and no-change sections have eleven ports in `path_claim_tests.rs`: five for one
+file spelled two ways, four for an edit-permitted run changing nothing, and two for the limits of
+that claim. Commit `5bb21d9f`. File row identity includes the path relative to the known workspace,
+status, and all hunks and rows; counts use those same deduplicated rows. Different hunks remain
+separate real edits. Traces count distinct paths, retain their raw paths so the window can apply
+the conversation's known folder, and derive edit permission from each turn's recorded sandbox,
+including earlier turns. Unknown permissions make no no-change claim. A `host.shared_workspace`
+notice withholds it, rather than turning lack of attribution into evidence that nothing changed.
+The no-change segment is plain, not amber. The window uses the deduplicated rows and totals;
+a new headless renderer check pins one row and one `+1 -0` total for two identical reports.
+
+The eleven focused cases passed. A whole-core baseline passed **1,624 tests, 20 ignored**, without
+compiler warnings (the log named `thread-cancellation-baseline.log` includes these new path cases;
+it is not claimed as a cancellation-only snapshot). All five whole-core controls (`path-workspace`,
+`path-restatement`, `path-hunks`, `no-change-permission`, `no-change-overlap`) failed their named
+assertions, restored, and passed the whitespace check. All 48 registered original expressions
+were checked present afterwards. The headless check is pending the final workspace run.
+
+`a question the run ended on`: six individual ports in `ended_question_tests.rs`.
+The decision renderer now calls the pure core projection for the newest ended turn's
+last provider-final message; tag stripping remains shared with the reply renderer.
+The six focused cases passed without compiler warnings. No does-not-apply cases.
+Both whole-core controls (`ended-question-gate`, `ended-question-last`) failed their named
+assertions and restored. The restored whole-core baseline passed 1,630 tests, 20 ignored,
+with no compiler warnings. Shared-lock waits preceded these completed runs.

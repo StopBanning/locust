@@ -175,3 +175,14 @@ pub fn error_already_shown(items: &[Item], error: &str) -> bool {
 #[cfg(test)]
 #[path = "thread_view_tests.rs"]
 mod tests;
+
+/// Only the newest ended turn offers the last provider-final question to answer.
+pub fn ended_question(items: &[Item], running: bool, latest_turn: bool) -> Option<crate::protocol_tags::DecisionRequest> {
+    if running || !latest_turn { return None; }
+    let last_final = items.iter().rev().find_map(|item| match item {
+        Item::Assistant { text, r#final: true, .. } => Some(text.as_str()),
+        _ => None,
+    })?;
+    crate::protocol_tags::parse_decision(last_final)
+}
+#[cfg(test)] #[path="ended_question_tests.rs"] mod ended_question_tests;
