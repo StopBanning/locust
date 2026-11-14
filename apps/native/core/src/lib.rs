@@ -65,6 +65,7 @@ pub mod github_account;
 pub mod github_issues;
 pub mod groups;
 pub mod hand_off;
+pub mod image_files;
 pub mod inspector;
 pub mod interview;
 pub mod invariants;
