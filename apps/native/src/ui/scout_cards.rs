@@ -1713,6 +1713,16 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn board_shows_no_scout_card_while_scout_is_off() {
+        // App.tsx: `scoutCards: scout?.settings.on === true ? scout.cards : []`.
+        let mut s = board_test_state(vec![board_wait_card_now(true)], true);
+        s.scout.state.as_mut().unwrap().settings.on = false;
+        let rt = render_state(s, draw_board_dark);
+        assert!(rt.find("board-scout-card_now").is_none());
+        assert!(collect_rt_text(&rt).contains("1 waiting on you"), "the conversation waiting still counts, Scout's card does not");
+    }
+
+    #[test]
     fn board_scout_card_uses_theme_tokens_in_both_dark_and_light_modes() {
         let dark_rt = render_state(
             board_test_state(vec![board_wait_card_now(true)], true),

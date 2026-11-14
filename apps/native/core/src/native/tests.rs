@@ -3059,7 +3059,7 @@ fn sealed_slot_sends_plain_prompt_without_tools_or_briefs_and_roundtrips_origin(
 #[test]
 fn asking_scout_forces_ask_mode_sealed_and_injects_why_brief_even_when_teammate_edits() {
     let t = Temp::new();
-    let _g = hooks::install(t.store(), fake("sealed"));
+    let _g = hooks::install(t.store(), fake("sealed-asking"));
     std::fs::create_dir_all(t.0.join("native")).unwrap();
     std::fs::write(
         t.0.join("native/scout.json"),

@@ -81,7 +81,8 @@ pub fn visible_cards<'a>(
         && let Some(focused) = ordered.iter().copied().find(|c| c.card_id == focus)
         && !shown.iter().any(|c| c.card_id == focus)
     {
-        shown.push(focused);
+        // ScoutCards.tsx: the card brought into view goes first, above the three (`[focused, ...shown]`).
+        shown.insert(0, focused);
     }
     (shown, total)
 }
@@ -302,8 +303,12 @@ mod tests {
                 .iter()
                 .map(|c| c.card_id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["c4", "c1", "c2", "c5"]
+            vec!["c5", "c4", "c1", "c2"],
+            "the card brought into view goes first, as ScoutCards.tsx draws it"
         );
+        // One already among the three stays where it is, once.
+        let (already, _) = visible_cards(&all, false, Some("c1"));
+        assert_eq!(already.iter().map(|c| c.card_id.as_str()).collect::<Vec<_>>(), vec!["c4", "c1", "c2"]);
     }
 
     #[test]
