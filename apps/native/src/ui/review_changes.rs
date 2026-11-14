@@ -403,7 +403,7 @@ fn land_card(s: &State, r: &Review, p: &Palette) -> Option<El> {
 }
 
 /// The diff of one file, as the Changes panel draws its rows (every hunk, every line: a review reads it all).
-fn file_diff(f: &changes::File, p: &Palette) -> El {
+pub(super) fn file_diff(f: &changes::File, p: &Palette) -> El {
     let (a, d) = f.counts();
     let mut head = row()
         .w_full()

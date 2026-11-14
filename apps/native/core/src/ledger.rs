@@ -136,6 +136,8 @@ pub enum Item {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ToolDetail {
+    pub patch: Option<crate::activity_entries::Patch>,
+    pub reported_by: String,
     pub id: String,
     pub parent: String,
     pub arguments: String,
@@ -875,6 +877,15 @@ impl Transcript {
                         detail,
                     }) = items.get_mut(at)
                     {
+                        if let Some(patch) = p.get("patch") {
+                            detail.patch = Some(crate::activity_entries::Patch {
+                                text: scrub(patch["text"].as_str().unwrap_or("")),
+                                added: patch["added"].as_u64().unwrap_or(0) as usize,
+                                removed: patch["removed"].as_u64().unwrap_or(0) as usize,
+                                truncated: patch["truncated"].as_bool().unwrap_or(false),
+                            });
+                        }
+                        if let Some(runtime) = event["sourceAdapter"].as_str() { detail.reported_by = runtime.into(); }
                         let candidate = string(p, "name");
                         if !candidate.is_empty() {
                             *name = scrub(&candidate);
@@ -907,6 +918,7 @@ impl Transcript {
                         }
                         if let Some(code) = p.get("exitCode").and_then(Value::as_i64) {
                             detail.exit_code = Some(code);
+                            if code != 0 { *status = Status::Failed; }
                         }
                         if let Some(v) = p.get("background").and_then(Value::as_bool) {
                             detail.background = v;

@@ -50,3 +50,25 @@ All **20 mutation controls** now have a completed whole-core run with the named 
 The shared-target development-profile baseline passed **1,568 tests, 20 ignored**, with no warnings. Controls retain opt-level 1, debug symbols off and four test threads. An early release-profile control was interrupted by its outer timeout; its exact one-line mutation was restored manually and the ledger diff checked empty. Its retry timed out inside the runner and restored through `finally`. Neither timeout counts as mutation evidence. The first development baseline also timed out after waiting for the shared lock and compiling dependencies; its complete retry is the green baseline reported above. Subsequent control invocations leave the timeout around Cargo inside the runner so restoration can finish.
 
 No further missionView section was ported in this pass: shared-lock waits and rebuilding consumed the optional-section budget. The parity row remains **partial, 68/264 carried, 196 remaining**, with no does-not-apply cases. The activity change card, live registers and finished trace are still next in the brief's order.
+
+
+## Next sections — 14 Nov 2026
+
+The activity change-card section has 11 individual ports in `core/src/activity_entries_tests.rs`.
+The projection now retains completion patches and their reporting runtime, parses one file row per
+file, counts the recorded hunks rather than the runtime header, preserves a truncated single-file
+header only beside that file, and opens the first small diff (new HTML pages open even when large).
+Edits with no diff say `change not reported`; results past the cap say `result too large to keep`.
+Ordinary row names suppress a repeated tool name. Nonzero command exits mark their row failed.
+The renderer uses these rows and counts and reuses the existing pure diff renderer. A headless test
+pins the displayed patch and counts. New HTML rows show their diff; native's existing page browser
+remains a separate surface rather than Electron's embedded running-page frame.
+
+Ten whole-core controls (`patch-rows`, `patch-counts`, `patch-reported`, `patch-large`, `patch-page`,
+`patch-missing`, `patch-too-large`, `tool-name`, `patch-ledger`, `exit-result`) each failed their
+named assertion and restored the original source. The runner now checks every original control at
+startup, refusing a stale or unrestored mutation left by an interrupted process. The first focused
+run passed 11 tests with no warnings. Restored baseline and final release results follow below.
+
+Restored section baseline: **1,579 core passed, 20 ignored**; release headless activity check:
+**6 passed** (including the new patch-row check). Both compiled without warnings.

@@ -146,3 +146,5 @@ pub mod thread_view;
 pub mod command_outcomes;
 
 pub mod activity_summary;
+
+pub mod activity_entries;

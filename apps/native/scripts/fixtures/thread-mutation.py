@@ -23,6 +23,21 @@ controls = {
     'command-head': ('core/src/command_outcomes.rs', '(?:cd|pushd|chdir|set-location|sl)', '(?:pushd|chdir|set-location|sl)', 'reads_past_claude_codes_cd_in_front_of_a_command'),
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
+controls.update({
+    'exit-result': ('core/src/ledger.rs', 'if code != 0 { *status = Status::Failed; }', 'if code > 1 { *status = Status::Failed; }', 'carries_a_command_row_with_its_exit_result'),
+    'patch-rows': ('core/src/activity_entries.rs', 'changes::parse(&patch.text)', 'changes::parse("")', 'turns_one_patch_into_a_row_per_file_it_touched'),
+    'patch-counts': ('core/src/activity_entries.rs', 'let counts = file.counts();', 'let counts = (patch.added, patch.removed);', 'sums_the_card_total_from_the_rows_it_will_actually_draw'),
+    'patch-reported': ('core/src/activity_entries.rs', 'patch.truncated && single', 'patch.truncated', 'keeps_the_runtime_total_beside_a_truncated_single_file_patch_and_withholds_it_across_several'),
+    'patch-large': ('core/src/activity_entries.rs', 'total.0 + total.1 > 200', 'total.0 + total.1 > 400', 'opens_the_first_file_unless_opening_it_would_bury_everything_after_it'),
+    'patch-page': ('core/src/activity_entries.rs', '!first.large || page', '!first.large && page', 'opens_a_new_web_page_however_long_it_is_because_it_is_shown_running_0_446'),
+    'patch-missing': ('core/src/activity_entries.rs', '&& files(item).is_empty()', '&& !files(item).is_empty()', 'keeps_an_edit_whose_runtime_reported_no_patch_as_a_row_that_says_so'),
+    'patch-too-large': ('core/src/activity_entries.rs', 'detail.runtime_status == "result too large to keep"', 'false', 'says_an_edit_whose_result_was_too_large_to_keep_rather_than_that_nobody_confirmed_it'),
+    'tool-name': ('core/src/activity_entries.rs', '(name != target)', '(name == target)', 'names_the_tool_on_a_row_whose_target_is_the_same_path_it_edited'),
+    'patch-ledger': ('core/src/ledger.rs', 'if let Some(patch) = p.get("patch") {', 'if let Some(patch) = p.get("no-patch") {', 'attaches_a_completion_patch_to_the_tool_that_opened_and_names_the_runtime_that_reported_it'),
+})
+# A killed process never reaches finally: refuse any inherited control before touching a file.
+for control, (file, old, new, test) in controls.items():
+    assert pathlib.Path(file).read_text().count(old) == 1, ('unrestored or stale control', control)
 name = sys.argv[1]
 file, old, new, test = controls[name]
 p = pathlib.Path(file)

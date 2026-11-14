@@ -181,7 +181,7 @@ pub(super) fn tool_row_label(
             "bash" | "shell" | "exec_command" | "commandexecution" => "",
             _ => name,
         } };
-        if tool_word.is_empty() {
+        if tool_word.is_empty() || locust_core::activity_entries::tool_name(name, title).is_none() {
             format!("{title} · {result}")
         } else {
             format!("{title} · {tool_word} · {result}")
@@ -310,6 +310,26 @@ pub(super) fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: 
         && !steps.is_empty()
     {
         return plan_card(steps, finished || *ended, p);
+    }
+    let files = locust_core::activity_entries::files(item);
+    if !files.is_empty() {
+        let default = locust_core::activity_entries::default_open(&files);
+        let mut rows = col().w_full().gap(4.0);
+        for entry in &files {
+            let key = format!("{scope}/{}", entry.key);
+            let open = s.activity_open.get(&key).copied().unwrap_or(default == Some(entry.key.as_str()));
+            let (a, d) = entry.counts;
+            let mut label = format!("{} {} +{a} -{d}", entry.file.path, entry.file.status);
+            if entry.large { label.push_str(" · LARGE"); }
+            if let Some((a,d)) = entry.reported { label.push_str(&format!(" · runtime reported +{a} -{d}")); }
+            let mut card = col().w_full().child(disclosure(key, label, open, p));
+            if open { card = card.child(super::review_changes::file_diff(&entry.file, p)); }
+            rows = rows.child(card);
+        }
+        return rows;
+    }
+    if let Some((name, _, too_large)) = locust_core::activity_entries::unreported(item) {
+        return text(format!("{name} · {}", if too_large { "result too large to keep" } else { "change not reported" })).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere();
     }
     let label = match item {
         ledger::Item::Tool {
@@ -462,6 +482,8 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     let outcome = locust_core::command_outcomes::commands_run_text(run, &names);
     let mut words = Vec::new();
     let summary = locust_core::activity_summary::activity_summary(items);
+    let (added, removed) = locust_core::activity_entries::counts(items);
+    if added + removed > 0 { words.push(format!("+{added} -{removed}")); }
     if summary != "No tool activity" { words.push(summary); }
     let mut label = headline.unwrap_or_else(|| {
         if words.is_empty() {
@@ -539,6 +561,8 @@ mod tests {
             summary: summary.into(),
             detail: Box::new(ledger::ToolDetail {
                 id: id.into(),
+                patch: None,
+                reported_by: String::new(),
                 parent: String::new(),
                 arguments: String::new(),
                 output: String::new(),
@@ -667,4 +691,21 @@ mod tests {
         let open = group_text(&items, &mut s);
         assert!(open.contains("What the helper did") && open.contains("**/*") && open.contains("done"), "{open}");
     }
+    #[test]
+    fn completion_patches_reach_the_headless_change_rows() {
+        let mut item = sample_tool("t1", "apply_patch", "apply_patch", false);
+        if let ledger::Item::Tool { detail, .. } = &mut item {
+            detail.patch = Some(locust_core::activity_entries::Patch {
+                text: "--- a/src/billing.ts\n+++ b/src/billing.ts\n@@ -1 +1 @@\n-old\n+new\n".into(),
+                added: 900, removed: 900, truncated: false,
+            });
+        }
+        let mut s = State::default();
+        s.activity_open.insert("conv/group/t1".into(), true);
+        let said = group_text(&[item], &mut s);
+        assert!(said.contains("src/billing.ts MODIFIED +1 -1"), "{said}");
+        assert!(said.contains("old") && said.contains("new"), "{said}");
+        assert!(!said.contains("900") && !said.contains("change not reported"), "{said}");
+    }
+
 }
