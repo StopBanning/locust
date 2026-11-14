@@ -24,7 +24,7 @@ rewinding = scenario == 'rewind'
 sealed_mode = scenario in ('sealed', 'sealed-asking')
 if approving or scenario == 'resume-undone' or rewinding or sealed_mode:
     base = 'success'
-SANDBOX = 'workspace-write' if (approving or scenario == 'cards-edit-check') else 'read-only'
+SANDBOX = 'workspace-write' if (approving or scenario in ('cards-edit-check', 'cards-review-notes')) else 'read-only'
 thread_sandbox = SANDBOX
 POLICY = 'untrusted' if approving else 'never'
 APPROVE_DECISION = 'accept' if scenario == 'approve-allow' else ('reject' if scenario == 'approve-deny' else 'decline')
@@ -188,6 +188,14 @@ for line in sys.stdin:
                     with open('answer.txt', 'w') as f:
                         f.write('42\n')
                     reply = 'Fixed answer.txt to 42.'
+            elif scenario == 'cards-review-notes':
+                if is_resumed_turn:
+                    assert 'Notes on your changes (1):' in words, words
+                    with open('app.ts', 'w') as f:
+                        f.write('const port = Number(process.env.PORT ?? 3001)\nserve(port)\n')
+                    reply = 'Updated app.ts to read PORT.'
+                else:
+                    reply = 'Hello world'
             else:
                 reply = 'Unknown cards scenario'
             notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)

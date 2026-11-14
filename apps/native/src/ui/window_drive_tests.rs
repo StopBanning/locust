@@ -3087,8 +3087,8 @@ fn connectors_list_their_states_in_words_and_copy_a_report() {
 /// words with each note under it.
 #[test]
 fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubble() {
-    let (dirs, store, mut rt) = window();
-    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "success"));
+    let (dirs, store, mut rt) = window_in("accept-edits");
+    let _hook = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-review-notes"));
     let work = dirs.0.join("work");
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git").args(args).current_dir(&work).output().unwrap();
@@ -3117,15 +3117,25 @@ fn a_note_on_a_changed_line_goes_with_the_next_message_and_shows_under_the_bubbl
     rt.update(|s, _| s.changes.open = false);
     settle(&mut rt);
     assert_eq!(text_in(&rt, "diff-notes-tile").join(" ").replace(" ×", ""), "1 note on the changes");
+    assert!(can_send(&rt.state), "notes alone should allow sending");
 
     type_and_send(&mut rt, "Nearly there.");
     let sent = rt.state.flight.as_ref().and_then(|f| f.message.clone()).unwrap_or_default();
     assert_eq!(sent, "Nearly there.\n\nNotes on your changes (1):\n- app.ts, line 1 `const port = 3001`: Read it from PORT.");
     assert!(rt.state.diff_notes.waiting.is_empty() && rt.find("diff-notes-tile").is_none(), "the notes went with the message");
-    pump(&mut rt, "the second reply", answered);
+    pump(&mut rt, "the second reply and revision outcome", |s| {
+        s.flight.is_none()
+            && s.ledger.as_ref().is_some_and(|p| {
+                !p.loading
+                    && !p.snapshot.running
+                    && p.items.iter().any(|i| matches!(i, ledger::Item::Assistant { text, .. } if text == "Updated app.ts to read PORT."))
+                    // and the turn's own diff, which its checkpoint gives just after the turn's last record
+                    && p.snapshot.turn_edits.get(&p.snapshot.tip).is_some_and(Option::is_some)
+            })
+    });
     settle(&mut rt);
     let notes = text_in(&rt, "sent-notes").join(" | ");
-    assert!(notes.contains("app.ts:1") && notes.contains("Read it from PORT."), "{notes}");
+    assert!(notes.contains("app.ts:1") && notes.contains("Read it from PORT.") && notes.contains("Line changed"), "{notes}");
     assert!(rt.elements().into_iter().filter_map(|e| e.text).any(|t| t == "Nearly there."), "the bubble shows the person's own words alone");
 }
 

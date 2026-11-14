@@ -1,20 +1,20 @@
 //! Read-only folder diffs. Commands and bounds ported from main/folder-commit.ts.
 use std::{path::Path, process::Command};
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Row {
     pub kind: char,
     pub old: Option<usize>,
     pub new: Option<usize>,
     pub text: String,
 }
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Hunk {
     pub old: usize,
     pub new: usize,
     pub heading: String,
     pub rows: Vec<Row>,
 }
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct File {
     pub path: String,
     pub status: String,

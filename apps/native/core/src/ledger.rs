@@ -1388,6 +1388,7 @@ struct Reader {
     tail: Tail,
     transcript: Transcript,
     drained: bool,
+    edits: Option<Vec<crate::changes::File>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -1398,6 +1399,7 @@ pub struct Snapshot {
     pub timings: Vec<crate::time_marker::TurnTiming>,
     pub peer_links: Vec<(String, PeerLink)>,
     pub turn_metas: Vec<Metadata>,
+    pub turn_edits: BTreeMap<String, Option<Vec<crate::changes::File>>>,
     pub cost: Option<crate::benchmark::RunCost>,
     pub tip: String,
     pub running: bool,
@@ -1410,6 +1412,8 @@ pub struct Session {
     /// Further read-only folders listed with `dir` (the native engine's own ledger folder): a continuation file may
     /// live in a different folder from the conversation it continues.
     extra: Vec<PathBuf>,
+    folder: Option<String>,
+    checkpoints: Option<(crate::store::Store, PathBuf)>,
     anchor: String,
     readers: Vec<Reader>,
     scanned: Option<Instant>,
@@ -1423,6 +1427,8 @@ impl Session {
         Self {
             dir,
             extra: Vec::new(),
+            folder: None,
+            checkpoints: None,
             anchor: mission_id,
             readers: Vec::new(),
             scanned: None,
@@ -1437,6 +1443,18 @@ impl Session {
         if dir != self.dir && !self.extra.contains(&dir) {
             self.extra.push(dir);
         }
+        self
+    }
+
+    /// The conversation's folder, for normalising tool-patch paths and finding host checkpoint diffs.
+    pub fn with_folder(mut self, folder: Option<&str>) -> Self {
+        self.folder = folder.filter(|f| !f.is_empty()).map(str::to_owned);
+        self
+    }
+
+    /// Checkpoint store + workspace used as fallback diffs when event patches alone are incomplete.
+    pub fn with_checkpoints(mut self, store: crate::store::Store, workspace: PathBuf) -> Self {
+        self.checkpoints = Some((store, workspace));
         self
     }
 
@@ -1566,6 +1584,7 @@ impl Session {
                     tail: Tail::new(path, 0),
                     transcript: Transcript::default(),
                     drained: false,
+                    edits: None,
                 }));
             }
             self.scanned = Some(Instant::now());
@@ -1593,6 +1612,9 @@ impl Session {
                     return Err(kind.into());
                 }
                 let empty_poll = records.is_empty();
+                if reader.tail.reset || !empty_poll {
+                    reader.edits = None;
+                }
                 reader.transcript.apply(records);
                 if !is_tip
                     && reader.tail.offset > 0
@@ -1671,6 +1693,29 @@ impl Session {
             snapshot.running = reader.transcript.running
                 && fresh(reader.tail.modified, SystemTime::now())
                 && !crate::native::orphaned(&reader.id);
+            let turn_edits = if is_tip && snapshot.running {
+                reader.edits = None;
+                None
+            } else {
+                // Kept only once the turn's checkpoint is on disk: it is written just after the turn's last record, and
+                // a turn read as ended in between has no diff yet. Until then its notes wear no outcome, never a wrong one.
+                let recorded = self.checkpoints.as_ref().is_none_or(|(s, w)| crate::checkpoints::turn_recorded(s, w, &reader.id));
+                if reader.edits.is_none() && recorded {
+                    let cp = self
+                        .checkpoints
+                        .as_ref()
+                        .and_then(|(s, w)| crate::checkpoints::turn_diffs(s, w, &reader.id).ok())
+                        .unwrap_or_default();
+                    let folder = self.folder.as_deref();
+                    reader.edits = Some(crate::diff_notes::edited_files(
+                        reader.transcript.events.values(),
+                        folder,
+                        &cp,
+                    ));
+                }
+                reader.edits.clone()
+            };
+            snapshot.turn_edits.insert(reader.id.clone(), turn_edits);
             snapshot.failed = reader.transcript.failed;
             snapshot.recovery = if snapshot.running {
                 None

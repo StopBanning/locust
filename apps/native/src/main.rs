@@ -316,18 +316,19 @@ fn begin_ledger(
         return;
     };
     s.ledger_job.cancel();
+    let folder = header.folder.clone();
     // Preserve existing Session and transcript items when continuing the same ledger conversation.
     let (mut items, worker, snapshot) = match s.ledger.take() {
         Some(mut prev) if prev.conversation.conversation_id.as_deref() == Some(id.as_str()) => {
             let worker = prev
                 .worker
                 .take()
-                .unwrap_or_else(|| native::session(dir.clone(), id.clone()));
+                .unwrap_or_else(|| native::session_for(dir.clone(), id.clone(), folder.as_deref()));
             (prev.items, worker, prev.snapshot)
         }
         _ => (
             Vec::new(),
-            native::session(dir.clone(), id.clone()),
+            native::session_for(dir.clone(), id.clone(), folder.as_deref()),
             ledger::Snapshot::default(),
         ),
     };
@@ -404,9 +405,10 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
     if s.selected != index || s.flight.is_some() || s.opening_teammate.is_some() {
         detach(s);
     }
-    // Restored unsent text belongs to the conversation we left (Electron drafts Map).
+    // Restored unsent text and waiting diff notes belong to the conversation we left.
     if let Some(key) = &previous_key {
         s.drafts.put(key, &s.draft.text);
+        s.diff_notes.put(key);
     }
     s.selected = index;
     let fill = s.drafts.switch(conversation_draft_key(s), "");
@@ -423,10 +425,12 @@ fn select_teammate(s: &mut State, id: &str, tx: &mut Tx) {
             begin_ledger(s, conversation, String::new(), header, None, tx);
             let fill = s.drafts.switch(conversation_draft_key(s), &s.draft.text);
             s.draft.replace_text(fill);
+            s.diff_notes.switch(conversation_draft_key(s));
             tx.scroll_to_bottom("messages");
             return;
         }
     }
+    s.diff_notes.switch(conversation_draft_key(s));
     // Reset status when switching from a ledger to a teammate without a ledger.
     set_status(s, id, "Ready", StatusTone::Muted);
     tx.scroll_to_bottom("messages");
@@ -440,6 +444,9 @@ fn ledger_tick(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                 // The ledger terminal event precedes native checkpoint/memory persistence.
                 if s.engine == Some(Kind::Native) && locust_core::engine_api::api().owns(worker.anchor()) {
                     snapshot.running = true;
+                    if !snapshot.tip.is_empty() {
+                        snapshot.turn_edits.insert(snapshot.tip.clone(), None);
+                    }
                 }
                 // Ignore a worker result if the open ledger changed while the job was running.
                 let mut focus_decision = false;
@@ -786,7 +793,7 @@ fn can_send(s: &State) -> bool {
         && s.selected_ready
         && s.route_can_run
         && !s.nothing_installed
-        && (!s.draft.text.trim().is_empty() || !s.attached.is_empty())
+        && (!s.draft.text.trim().is_empty() || !s.attached.is_empty() || !s.diff_notes.waiting.is_empty())
 }
 
 fn can_queue(s: &State) -> bool {
@@ -2201,7 +2208,11 @@ fn poll(s: &mut State, now: f64, tx: &mut Tx) -> bool {
                         if pane.worker.is_none()
                             && let Some(id) = &pane.conversation.conversation_id
                         {
-                            pane.worker = Some(native::session(pane.dir.clone(), id.clone()));
+                            pane.worker = Some(native::session_for(
+                                pane.dir.clone(),
+                                id.clone(),
+                                pane.header.folder.as_deref(),
+                            ));
                         }
                         pane.due = 0.0;
                         tx.wake_after(Duration::ZERO);

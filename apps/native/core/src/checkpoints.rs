@@ -348,6 +348,192 @@ pub fn records(store: &Store, workspace: &Path) -> io::Result<Vec<(String, Value
     out.sort_by(|a, b| b.0.cmp(&a.0));
     Ok(out)
 }
+
+/// Read-only per-turn diffs reconstructed from checkpoint before/after blobs. Empty when shared or absent.
+/// Whether a turn's own checkpoint has been written. The engine finishes it after the turn's last ledger record, so a
+/// window that reads the turn as ended a moment earlier would find no diff and take "nothing changed" for an answer.
+pub fn turn_recorded(store: &Store, workspace: &Path, id: &str) -> bool {
+    let Ok(id) = valid_id(id) else { return false };
+    let workspace = workspace.canonicalize().unwrap_or_else(|_| workspace.to_path_buf());
+    base(store, &workspace).is_ok_and(|dir| dir.join("turns").join(format!("{id}.json")).exists())
+}
+
+pub fn turn_diffs(
+    store: &Store,
+    workspace: &Path,
+    id: &str,
+) -> io::Result<Vec<crate::changes::File>> {
+    let id = valid_id(id)?;
+    let workspace = workspace.canonicalize().unwrap_or_else(|_| workspace.to_path_buf());
+    let dir = base(store, &workspace)?;
+    let turn_path = dir.join("turns").join(format!("{id}.json"));
+    if !turn_path.exists() {
+        return Ok(Vec::new());
+    }
+    let value: Value = serde_json::from_slice(&fs::read(turn_path)?)?;
+    if value["shared"] == true {
+        return Ok(Vec::new());
+    }
+    let before: Files = serde_json::from_value(value["before"].clone()).unwrap_or_default();
+    let after: Files = serde_json::from_value(value["after"].clone()).unwrap_or_default();
+    let mut out = Vec::new();
+    for path in changed(&value) {
+        let b_hash = before.get(&path);
+        let a_hash = after.get(&path);
+        if b_hash.is_none() && a_hash.is_none() {
+            continue;
+        }
+        let status = match (b_hash, a_hash) {
+            (None, Some(_)) => "ADDED",
+            (Some(_), None) => "DELETED",
+            _ => "MODIFIED",
+        };
+        let b_bytes = match b_hash {
+            Some(h) => blob(&dir, h).unwrap_or_default(),
+            None => Vec::new(),
+        };
+        let a_bytes = match a_hash {
+            Some(h) => blob(&dir, h).unwrap_or_default(),
+            None => Vec::new(),
+        };
+        let hunks = if b_bytes.contains(&0) || a_bytes.contains(&0) {
+            Vec::new()
+        } else if let (Ok(old), Ok(new)) = (std::str::from_utf8(&b_bytes), std::str::from_utf8(&a_bytes)) {
+            unified_hunks(old, new)
+        } else {
+            Vec::new()
+        };
+        out.push(crate::changes::File {
+            path,
+            status: status.into(),
+            hunks,
+        });
+    }
+    Ok(out)
+}
+
+fn split_diff_lines(s: &str) -> Vec<&str> {
+    if s.is_empty() {
+        return Vec::new();
+    }
+    let mut lines: Vec<&str> = s.split('\n').collect();
+    if lines.last() == Some(&"") {
+        lines.pop();
+    }
+    lines
+}
+
+/// Build unified-diff hunks (3-line context) between two text versions.
+pub(crate) fn unified_hunks(old: &str, new: &str) -> Vec<crate::changes::Hunk> {
+    use crate::changes::{Hunk, Row};
+    let a = split_diff_lines(old);
+    let b = split_diff_lines(new);
+    let mut prefix = 0usize;
+    while prefix < a.len() && prefix < b.len() && a[prefix] == b[prefix] {
+        prefix += 1;
+    }
+    let mut suffix = 0usize;
+    while prefix + suffix < a.len()
+        && prefix + suffix < b.len()
+        && a[a.len() - 1 - suffix] == b[b.len() - 1 - suffix]
+    {
+        suffix += 1;
+    }
+    let am = a.len() - prefix - suffix;
+    let bm = b.len() - prefix - suffix;
+    if am == 0 && bm == 0 {
+        return Vec::new();
+    }
+    let mut ops: Vec<(char, Option<usize>, Option<usize>, String)> = Vec::with_capacity(a.len() + b.len());
+    for i in 0..prefix {
+        ops.push((' ', Some(i + 1), Some(i + 1), a[i].to_owned()));
+    }
+    let a_mid = &a[prefix..prefix + am];
+    let b_mid = &b[prefix..prefix + bm];
+    if (am + 1).saturating_mul(bm + 1) <= 2_000_000 {
+        let cols = bm + 1;
+        let mut dp = vec![0u32; (am + 1) * cols];
+        for i in (0..am).rev() {
+            for j in (0..bm).rev() {
+                dp[i * cols + j] = if a_mid[i] == b_mid[j] {
+                    dp[(i + 1) * cols + (j + 1)] + 1
+                } else {
+                    dp[(i + 1) * cols + j].max(dp[i * cols + (j + 1)])
+                };
+            }
+        }
+        let (mut i, mut j) = (0usize, 0usize);
+        while i < am || j < bm {
+            if i < am && j < bm && a_mid[i] == b_mid[j] {
+                ops.push((' ', Some(prefix + i + 1), Some(prefix + j + 1), a_mid[i].to_owned()));
+                i += 1;
+                j += 1;
+            } else if i < am && (j == bm || dp[(i + 1) * cols + j] >= dp[i * cols + (j + 1)]) {
+                ops.push(('-', Some(prefix + i + 1), None, a_mid[i].to_owned()));
+                i += 1;
+            } else {
+                ops.push(('+', None, Some(prefix + j + 1), b_mid[j].to_owned()));
+                j += 1;
+            }
+        }
+    } else {
+        for (i, line) in a_mid.iter().enumerate() {
+            ops.push(('-', Some(prefix + i + 1), None, (*line).to_owned()));
+        }
+        for (j, line) in b_mid.iter().enumerate() {
+            ops.push(('+', None, Some(prefix + j + 1), (*line).to_owned()));
+        }
+    }
+    for k in 0..suffix {
+        ops.push((
+            ' ',
+            Some(a.len() - suffix + k + 1),
+            Some(b.len() - suffix + k + 1),
+            a[a.len() - suffix + k].to_owned(),
+        ));
+    }
+
+    const CTX: usize = 3;
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    for (idx, op) in ops.iter().enumerate() {
+        if op.0 == ' ' {
+            continue;
+        }
+        let start = idx.saturating_sub(CTX);
+        let end = (idx + CTX + 1).min(ops.len());
+        if let Some(last) = ranges.last_mut()
+            && start <= last.1
+        {
+            last.1 = last.1.max(end);
+        } else {
+            ranges.push((start, end));
+        }
+    }
+
+    ranges
+        .into_iter()
+        .map(|(start, end)| {
+            let slice = &ops[start..end];
+            let old_start = slice.iter().find_map(|o| o.1).unwrap_or(0);
+            let new_start = slice.iter().find_map(|o| o.2).unwrap_or(0);
+            let rows = slice
+                .iter()
+                .map(|(kind, old_no, new_no, text)| Row {
+                    kind: *kind,
+                    old: *old_no,
+                    new: *new_no,
+                    text: text.clone(),
+                })
+                .collect();
+            Hunk {
+                old: old_start,
+                new: new_start,
+                heading: String::new(),
+                rows,
+            }
+        })
+        .collect()
+}
 /// Undo's receipt for a turn, if it was undone: what was put back and what was left (read only; no lock is taken).
 pub fn undone(store: &Store, workspace: &Path, id: &str) -> Option<Value> {
     let workspace = workspace.canonicalize().ok()?;

@@ -700,4 +700,106 @@ mod tests {
         let kinds: Vec<&str> = seen.iter().map(TaskOp::kind_str).collect();
         assert_eq!(kinds, vec!["handoff", "new"]);
     }
+
+    fn open_candidate<'a>(task_id: &'a str, text: &'a str) -> ClaimCandidateTask<'a> {
+        ClaimCandidateTask {
+            task_id,
+            text,
+            state: "open",
+            owner_id: None,
+        }
+    }
+
+    #[test]
+    fn board_is_not_behind_claims_the_row_the_post_names() {
+        let tasks = [
+            open_candidate("t1", "Write the release notes"),
+            open_candidate("t2", "Sign the installer"),
+        ];
+        assert_eq!(
+            row_named_by_post("Wren: please start Write the release notes now.", &tasks),
+            Some("t1")
+        );
+    }
+
+    #[test]
+    fn board_is_not_behind_ignores_punctuation_and_case_the_way_a_person_types() {
+        let tasks = [open_candidate("t1", "Write the release notes")];
+        assert_eq!(
+            row_named_by_post(r#"start "write the release notes", then stop"#, &tasks),
+            Some("t1")
+        );
+    }
+
+    #[test]
+    fn board_is_not_behind_claims_a_row_whose_own_words_carry_punctuation_the_post_carries_too() {
+        assert_eq!(
+            row_named_by_post(
+                "Wren, start Fix the sign-in bug",
+                &[open_candidate("t1", "Fix the sign-in bug")]
+            ),
+            Some("t1")
+        );
+        assert_eq!(
+            row_named_by_post(
+                "start Update Colin's notes, please",
+                &[open_candidate("t1", "Update Colin's notes")]
+            ),
+            Some("t1")
+        );
+    }
+
+    #[test]
+    fn board_is_not_behind_claims_nothing_when_the_post_names_no_row_the_case_grok_drove() {
+        let tasks = [open_candidate("t1", "Write the release notes")];
+        assert_eq!(
+            row_named_by_post("Wren start that board task; Booty reply OK", &tasks),
+            None
+        );
+    }
+
+    #[test]
+    fn board_is_not_behind_claims_nothing_when_two_rows_would_answer_to_it() {
+        let tasks = [
+            open_candidate("t1", "Write the release notes"),
+            open_candidate("t2", "Write the release notes v2"),
+        ];
+        assert_eq!(
+            row_named_by_post(
+                "do Write the release notes and Write the release notes v2",
+                &tasks
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn board_is_not_behind_never_takes_a_row_that_is_already_somebody_elses_or_already_done() {
+        let taken = [
+            ClaimCandidateTask {
+                task_id: "t1",
+                text: "Write the release notes",
+                state: "open",
+                owner_id: Some("tm_booty"),
+            },
+            ClaimCandidateTask {
+                task_id: "t2",
+                text: "Write the release notes",
+                state: "done",
+                owner_id: None,
+            },
+        ];
+        assert_eq!(
+            row_named_by_post("please start Write the release notes", &taken),
+            None
+        );
+    }
+
+    #[test]
+    fn board_is_not_behind_does_not_let_a_short_row_match_an_ordinary_sentence() {
+        assert_eq!(
+            row_named_by_post("add some notes about this", &[open_candidate("t1", "notes")]),
+            None
+        );
+    }
 }
