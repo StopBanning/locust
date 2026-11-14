@@ -553,15 +553,17 @@ pub(super) fn view(s: &State, p: &Palette) -> El {
                                     }));
                                 hidden = 0;
                             }
-                            let (add, under) = crate::diff_notes_ui::row_extras(s, &f.path, r, p);
                             let line = code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, p);
-                            file = file.child(match add {
-                                Some(add) => row().w_full().center_y().child(line.grow(1.0).shrink()).child(add),
-                                None => line,
-                            });
-                            if let Some(under) = under {
-                                file = file.child(under);
-                            }
+                            file = crate::diff_notes_ui::append_noted_row(
+                                file,
+                                s,
+                                s.changes.folder.to_str(),
+                                crate::diff_notes_ui::may_note(s),
+                                &f.path,
+                                r,
+                                line,
+                                p,
+                            );
                         }
                         if hidden > 0 {
                             let start = h.rows.len() - hidden;

@@ -180,39 +180,65 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 // Notes on a diff came as one block after the person's words: the bubble shows the words, the notes go under it.
                 let (own_words, sent_notes) = locust_core::diff_notes::split_diff_notes(body);
                 let edit = crate::edit_message::edit_control(s, ui, &own_words, !sent_notes.is_empty(), p);
-                let mut bubble = text(own_words)
-                    .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
-                    .color(p.text)
-                    .shrink()
-                    .wrap_anywhere()
-                    .selectable(true)
-                    .py(12.0)
-                    .px(16.0)
-                    .radius(10.0)
-                    .fill(p.your_bubble);
-                if hit {
-                    bubble = bubble.border(1.5, p.amber);
-                }
-                let bubble_row = row()
-                    .w_full()
-                    .justify_end()
-                    .on_layout_tx(move |s: &mut State, r, tx| {
-                        let rel_top = r[1] - s.prompt_rail.column_rect[1];
-                        if !s.prompt_rail.set_top(ui, rel_top) {
-                            tx.live_only();
-                        }
-                    })
-                    .children(edit)
-                    .child(row().w_frac(0.7).justify_end().child(bubble));
+                let turn_edited: Option<&[locust_core::changes::File]> = s.ledger.as_ref().and_then(|pane| {
+                    let meta = pane
+                        .snapshot
+                        .turn_metas
+                        .iter()
+                        .filter(|m| m.check_fix.is_none())
+                        .nth(ui)?;
+                    pane.snapshot.turn_edits.get(&meta.mission_id)?.as_deref()
+                });
+                let layout_track = move |s: &mut State, r: [f32; 4], tx: &mut Tx| {
+                    let rel_top = r[1] - s.prompt_rail.column_rect[1];
+                    if !s.prompt_rail.set_top(ui, rel_top) {
+                        tx.live_only();
+                    }
+                };
+                let bubble_row = if own_words.trim().is_empty() && !sent_notes.is_empty() {
+                    None
+                } else {
+                    let mut bubble = text(own_words)
+                        .font(rune::TextStyle::new(14.5, 400.0).lh(21.0))
+                        .color(p.text)
+                        .shrink()
+                        .wrap_anywhere()
+                        .selectable(true)
+                        .py(12.0)
+                        .px(16.0)
+                        .radius(10.0)
+                        .fill(p.your_bubble);
+                    if hit {
+                        bubble = bubble.border(1.5, p.amber);
+                    }
+                    Some(
+                        row()
+                            .w_full()
+                            .justify_end()
+                            .on_layout_tx(layout_track)
+                            .children(edit)
+                            .child(row().w_frac(0.7).justify_end().child(bubble)),
+                    )
+                };
                 let bubble_row = if sent_notes.is_empty() {
-                    bubble_row
+                    bubble_row.expect("empty notes always have a bubble")
                 } else {
                     let folder = selected_conversation(s).and_then(|(t, _)| t.folder.clone());
-                    col()
-                        .w_full()
-                        .gap(6.0)
-                        .child(bubble_row)
-                        .child(row().w_full().justify_end().child(row().w_frac(0.7).justify_end().child(crate::diff_notes_ui::sent_notes(&sent_notes, folder.as_deref(), p))))
+                    let notes_row = row().w_full().justify_end().child(
+                        row()
+                            .w_frac(0.7)
+                            .justify_end()
+                            .child(crate::diff_notes_ui::sent_notes(
+                                &sent_notes,
+                                turn_edited,
+                                folder.as_deref(),
+                                p,
+                            )),
+                    );
+                    match bubble_row {
+                        Some(b) => col().w_full().gap(6.0).child(b).child(notes_row),
+                        None => col().w_full().on_layout_tx(layout_track).child(notes_row),
+                    }
                 };
                 if let Some(chips) = pull_request_chip::link_chips_for_text(s, body, p) {
                     col()

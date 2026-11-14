@@ -402,8 +402,15 @@ fn land_card(s: &State, r: &Review, p: &Palette) -> Option<El> {
     Some(card)
 }
 
-/// The diff of one file, as the Changes panel draws its rows (every hunk, every line: a review reads it all).
-fn file_diff(f: &changes::File, p: &Palette) -> El {
+/// The diff of one file, as the Changes panel draws its rows (every hunk, every line: a review reads it all),
+/// carrying review-note controls when `may_note` holds for the teammate on screen.
+fn file_diff(
+    s: &State,
+    folder: Option<&str>,
+    may_note: bool,
+    f: &changes::File,
+    p: &Palette,
+) -> El {
     let (a, d) = f.counts();
     let mut head = row()
         .w_full()
@@ -428,7 +435,17 @@ fn file_diff(f: &changes::File, p: &Palette) -> El {
             if r.kind != '-' {
                 offsets.1 += r.text.len() + 1;
             }
-            out = out.child(crate::changes_panel::code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, p));
+            let line = crate::changes_panel::code_row(r, &r.text, offset, if r.kind == '-' { &bh } else { &ah }, p);
+            out = crate::diff_notes_ui::append_noted_row(
+                out,
+                s,
+                folder,
+                may_note,
+                &f.path,
+                r,
+                line,
+                p,
+            );
         }
     }
     out
@@ -580,8 +597,10 @@ pub(super) fn panel(s: &State, p: &Palette) -> Option<El> {
                 body = body.child(note("No difference in text: the change is only to file modes or binary files.".into(), p.muted, p));
             }
         }
+        let may_note = crate::diff_notes_ui::may_note(s)
+            && selected_conversation(s).is_some_and(|(t, _)| t.id == r.teammate_id);
         for f in &files {
-            body = body.child(file_diff(f, p));
+            body = body.child(file_diff(s, r.folder.to_str(), may_note, f, p));
         }
     }
     Some(
