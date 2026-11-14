@@ -1150,15 +1150,15 @@ apps/desktop/src/shared/an-answer-reads-right-in-telegram.test.ts		waiting
 apps/desktop/src/shared/an-issue-becomes-a-brief.test.ts	ISSUES	carried	core/src/github_issues_tests.rs, window test issues_lists_the_folders_issues	carried (13 Nov)
 apps/desktop/src/shared/approval-data.test.ts		waiting		
 apps/desktop/src/shared/approval-rules.test.ts	P8	partial		`shared/approval-rules.test.ts` | Exact/prefix allow; compound never allowed; deny wins; outside paths ask; secret candidate refused
-apps/desktop/src/shared/attachments.test.ts		waiting		
+apps/desktop/src/shared/attachments.test.ts	FILES	carried	core/src/attachments_tests.rs	all 10 cases, one Rust test each, plus 7 beyond_electron_ tests; the words moved into core/src/attachments.rs and the composer re-exports them
 apps/desktop/src/shared/board-is-not-behind.test.ts		carried	core/src/room_task.rs	all 7 cases, exact inputs/words, in board_is_not_behind_* tests
 apps/desktop/src/shared/claim-what-you-start.test.ts		waiting		
 apps/desktop/src/shared/commit-and-land-from-a-browser.test.ts		waiting		
-apps/desktop/src/shared/cursorIgnore.test.ts		waiting		
+apps/desktop/src/shared/cursorIgnore.test.ts	FILES	carried	core/src/cursor_ignore_tests.rs	all 9 cases, one Rust test each, plus 11 beyond_electron_ tests (main/cursor-visibility.ts and codex-mission.ts explainADeniedRead included); a Cursor run is now wrapped so a refused read is explained once beside the failure
 apps/desktop/src/shared/decision.test.ts		carried	core/src/protocol_tags.rs	all 6 cases, assertion by assertion, in reads_dashed_numbered_and_asterisk_options and option_named_after_template_uses_note_and_keeps_real_names
 apps/desktop/src/shared/file-menu.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
 apps/desktop/src/shared/handover.test.ts	handover	carried	core/src/protocol_tags.rs	All 19 handover.test.ts cases carried 1:1 in protocol_tags::tests plus briefing/relay wiring
-apps/desktop/src/shared/image-files.test.ts		waiting		
+apps/desktop/src/shared/image-files.test.ts	FILES	carried	core/src/image_files_tests.rs	all 7 cases, one Rust test each, plus 4 beyond_electron_ tests
 apps/desktop/src/shared/kilo-installs-in-one-click.test.ts		waiting		
 apps/desktop/src/shared/kilo-models.test.ts	handover	carried	core/src/kilo_models.rs	All 5 kilo-models.test.ts cases carried 1:1 in kilo_models::tests
 apps/desktop/src/shared/memory.test.ts	P6	partial		`shared/memory.test.ts` | Fenced examples ignored; four-operation cap; named parser form.
@@ -1175,7 +1175,7 @@ apps/desktop/src/shared/settings-from-a-browser.test.ts		waiting
 apps/desktop/src/shared/since-you-were-away.test.ts	p12	partial		`shared/since-you-were-away.test.ts` | ran/failed/missed/waiting; awayLine; wasAway 20m; attention mark
 apps/desktop/src/shared/spend.test.ts	P10	partial		`shared/spend.test.ts` (subset) | moneyOfUsage, dollars, month/limit refusal
 apps/desktop/src/shared/step-budget.test.ts		waiting		
-apps/desktop/src/shared/text-files.test.ts		waiting		
+apps/desktop/src/shared/text-files.test.ts	FILES	carried	core/src/text_files_tests.rs	all 8 cases, one Rust test each, plus 7 beyond_electron_ tests; the viewer and a handed file's Copy read through core/src/text_files.rs as Electron's text channel does
 apps/desktop/src/shared/the-about-you-line-is-taught-once.test.ts		waiting		
 apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts	approvals	carried	core/src/desk.rs	5 of 7 cases carried (desk::tests: cases 2-5 and 7); cases 1 (desktop-api.ts ipcRenderer static coverage) and 6 (structured-clone Uint8Array/undefined IPC serialization) marked does-not-apply as Electron-only IPC plumbing
 apps/desktop/src/shared/the-example-file-is-never-a-file.test.ts		waiting		
