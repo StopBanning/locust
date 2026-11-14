@@ -21,13 +21,17 @@ use crate::ledger::{self, Item};
 use crate::native::{Origin, Send, SlotOrigin};
 use crate::store::Store;
 
+use super::fix::{
+    FixCheckResult, FixStartRequest, FixStarted, FixTurnEnd, FixTurnPhase, ScoutFixDeps,
+    ScoutFixOutcome, ScoutFixes, FixApplyResult, default_fix_git, scout_fix_root,
+};
 use super::folder::folder_mark_of;
 use super::github::{GhError, ScoutGithub, ScoutGithubUnread, read_scout_github};
 use super::log::scout_log_brief;
 use super::scheduler::ScoutScheduler;
 use super::store::{ScoutFiles, load_kept_with, load_log_with};
 use super::types::{FailedTurn, FolderCheckResult, ScoutCard, ScoutState, WaitingCard};
-use super::{AnswerResult, AskResult, BriefRuns, Scout, ScoutDeps, ScoutRoute, ScoutTeammate};
+use super::{AnswerResult, AskResult, BriefRuns, FixPrepareReq, Scout, ScoutDeps, ScoutRoute, ScoutTeammate};
 
 pub const NO_WORKSPACE_MESSAGE: &str = "Choose the folder your teammates work in first. Locust was opened from its own install folder, and no teammate should work in there.";
 const GH_TIMEOUT: Duration = Duration::from_secs(30);
@@ -260,10 +264,202 @@ fn default_git(args: &[&str], cwd: &Path) -> Result<String, String> {
     }
 }
 
+fn run_check_in(command: &str, cwd: &Path) -> (bool, Vec<String>) {
+    let run = crate::edit_check::run_check_command(
+        command,
+        cwd,
+        crate::edit_check::CHECK_TIMEOUT_MS,
+    );
+    let lines = if let Some(err) = &run.error {
+        vec![err.clone()]
+    } else if run.timed_out {
+        vec!["The check ran past its time limit and was stopped.".to_owned()]
+    } else {
+        let all = crate::edit_check::comparable_lines(&run.output);
+        let skip = all.len().saturating_sub(CHECK_TAIL_LINES);
+        all.into_iter()
+            .skip(skip)
+            .map(|line| clip_ellipsis(&line, CHECK_LINE_MAX_CHARS))
+            .collect()
+    };
+    let passed = run.error.is_none() && !run.timed_out && run.exit_code == Some(0);
+    (passed, lines)
+}
+
+struct HostFixDeps {
+    host: Weak<ScoutHostDeps>,
+}
+
+impl ScoutFixDeps for HostFixDeps {
+    fn root(&self) -> PathBuf {
+        if let Some(host) = self.host.upgrade()
+            && let Some(over) = host
+                .fix_root_override
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
+        {
+            return over;
+        }
+        scout_fix_root()
+    }
+
+    fn run_check(&self, command: &str, cwd: &Path) -> FixCheckResult {
+        let (passed, lines) = run_check_in(command, cwd);
+        FixCheckResult { passed, lines }
+    }
+
+    fn start(&self, input: FixStartRequest<'_>) -> Result<FixStarted, String> {
+        let Some(host) = self.host.upgrade() else {
+            return Err("Scout host is closed.".into());
+        };
+        let Some(folder) = host.workspace_folder() else {
+            return Err(NO_WORKSPACE_MESSAGE.into());
+        };
+        let mate_name = host
+            .teammate_name(input.teammate_id)
+            .unwrap_or_else(|| "That teammate".into());
+        let Some(entry) = host.teammate_entry(input.teammate_id) else {
+            return Err(format!("{mate_name} has no model yet. Pick one on the Team screen."));
+        };
+        let route = &entry["route"];
+        let Some(route_runtime) = route.get("runtime").and_then(Value::as_str) else {
+            return Err(format!("{mate_name} has no model yet. Pick one on the Team screen."));
+        };
+        let route_model = route.get("model").and_then(Value::as_str);
+        let route_account = route.get("account").and_then(Value::as_str).map(str::to_owned);
+        let route_effort = route.get("effort").and_then(Value::as_str).map(str::to_owned);
+        let model = route_model
+            .filter(|&m| m != "account-default")
+            .map(str::to_owned);
+        let roster = crate::native::roster_in(&host.store).unwrap_or_default();
+        let Some(mut teammate) = roster.into_iter().find(|m| m.id == input.teammate_id) else {
+            return Err(format!("{mate_name} has no model yet. Pick one on the Team screen."));
+        };
+        teammate.runtime = Some(route_runtime.to_owned());
+        teammate.model = model.clone();
+        teammate.account = route_account.clone();
+        let job = Send {
+            teammate,
+            conversation: input.follow_up_of.map(str::to_owned),
+            prompt: input.prompt.to_owned(),
+            model,
+            effort: route_effort,
+        };
+        let origin = Origin {
+            mode: Some(Mode::AcceptEdits),
+            folder: Some(folder),
+            started_by: Some(json!({ "kind": "scout" })),
+            runtime: Some(route_runtime.to_owned()),
+            account: Some(route_account),
+            slot: Some(SlotOrigin {
+                key: format!("scout-fix:{}", input.fix_id),
+                cwd: Some(input.cwd.to_path_buf()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let started = crate::engine_api::api().send(job, origin)?;
+        let _ = crate::people::record_owner(
+            &host.store,
+            &started.conversation_id,
+            input.teammate_id,
+        );
+        Ok(FixStarted {
+            mission_id: started.conversation_id.clone(),
+            run_id: started.conversation_id,
+        })
+    }
+
+    fn stop(&self, run_id: &str) {
+        let _ = crate::engine_api::api().stop(run_id);
+    }
+
+    fn end_of(&self, mission_id: &str) -> FixTurnEnd {
+        let Some(host) = self.host.upgrade() else {
+            return FixTurnEnd {
+                phase: FixTurnPhase::Other,
+                said: None,
+                failed: None,
+                asked: false,
+            };
+        };
+        let Some(path) = host.mission_path(mission_id) else {
+            return FixTurnEnd {
+                phase: FixTurnPhase::Other,
+                said: None,
+                failed: None,
+                asked: false,
+            };
+        };
+        let transcript = ledger::read_transcript(&path);
+        let stopped = transcript
+            .items
+            .iter()
+            .any(|item| matches!(item, Item::Note { text, .. } if text == "Stopped"));
+        let phase = if transcript.failed {
+            FixTurnPhase::Failed
+        } else if stopped {
+            FixTurnPhase::Cancelled
+        } else if !transcript.running {
+            FixTurnPhase::Completed
+        } else {
+            FixTurnPhase::Other
+        };
+        let said = transcript
+            .items
+            .iter()
+            .rev()
+            .find_map(|item| match item {
+                Item::Assistant { text, .. } if !text.trim().is_empty() => Some(text.trim()),
+                _ => None,
+            })
+            .map(str::to_owned);
+        let failed = transcript.items.iter().rev().find_map(|item| match item {
+            Item::Note { level, text } if level == "error" && !text.trim().is_empty() => {
+                Some(text.clone())
+            }
+            _ => None,
+        });
+        let asked = said
+            .as_deref()
+            .is_some_and(|s| crate::protocol_tags::parse_decision(s).is_some());
+        FixTurnEnd {
+            phase,
+            said,
+            failed,
+            asked,
+        }
+    }
+
+    fn git(&self, args: &[&str], cwd: &Path) -> Result<String, String> {
+        if let Some(host) = self.host.upgrade()
+            && let Some(hook) = host
+                .git_hook
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
+        {
+            return hook(args, cwd);
+        }
+        default_fix_git(args, cwd)
+    }
+
+    fn now_ms(&self) -> i64 {
+        self.host
+            .upgrade()
+            .map(|h| h.now().timestamp_millis())
+            .unwrap_or_else(|| Local::now().timestamp_millis())
+    }
+}
+
 /// Native `ScoutDeps` implementation backed by `Store`, `engine_api`, `people`, `ledger`,
 /// `edit_check`, `gh`, and `git`.
 pub struct ScoutHostDeps {
     store: Store,
+    self_weak: OnceLock<Weak<Self>>,
+    fixes: OnceLock<Arc<ScoutFixes>>,
+    fix_root_override: Mutex<Option<PathBuf>>,
     folder_override: Mutex<Option<PathBuf>>,
     skew_ms: AtomicI64,
     gh_hook: Mutex<Option<GhHook>>,
@@ -275,8 +471,11 @@ pub struct ScoutHostDeps {
 
 impl ScoutHostDeps {
     pub fn new(store: Store) -> Arc<Self> {
-        Arc::new(Self {
+        let arc = Arc::new(Self {
             store,
+            self_weak: OnceLock::new(),
+            fixes: OnceLock::new(),
+            fix_root_override: Mutex::new(None),
             folder_override: Mutex::new(None),
             skew_ms: AtomicI64::new(0),
             gh_hook: Mutex::new(None),
@@ -284,7 +483,30 @@ impl ScoutHostDeps {
             state_seq: AtomicU64::new(0),
             latest_state: Mutex::new(None),
             pending_notifications: Mutex::new(Vec::new()),
-        })
+        });
+        let _ = arc.self_weak.set(Arc::downgrade(&arc));
+        arc
+    }
+
+    pub fn set_fix_root(&self, root: Option<PathBuf>) {
+        *self
+            .fix_root_override
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = root;
+    }
+
+    pub fn init_fixes(&self, scheduler: Option<Arc<dyn ScoutScheduler>>) -> Arc<ScoutFixes> {
+        self.fixes
+            .get_or_init(|| {
+                let deps = Arc::new(HostFixDeps {
+                    host: self.self_weak.get().cloned().unwrap_or_default(),
+                });
+                match scheduler {
+                    Some(s) => ScoutFixes::with_scheduler(deps, s),
+                    None => ScoutFixes::new(deps),
+                }
+            })
+            .clone()
     }
 
     pub fn state_seq(&self) -> u64 {
@@ -749,24 +971,7 @@ impl ScoutDeps for ScoutHostDeps {
         let folder = self.workspace_folder()?;
         let ws_id = crate::workspace_settings::workspace_id_for(&folder);
         let command = crate::edit_check::check_command_for(&self.store, Some(&ws_id))?;
-        let run = crate::edit_check::run_check_command(
-            &command,
-            &folder,
-            crate::edit_check::CHECK_TIMEOUT_MS,
-        );
-        let lines = if let Some(err) = &run.error {
-            vec![err.clone()]
-        } else if run.timed_out {
-            vec!["The check ran past its time limit and was stopped.".to_owned()]
-        } else {
-            let all = crate::edit_check::comparable_lines(&run.output);
-            let skip = all.len().saturating_sub(CHECK_TAIL_LINES);
-            all.into_iter()
-                .skip(skip)
-                .map(|line| clip_ellipsis(&line, CHECK_LINE_MAX_CHARS))
-                .collect()
-        };
-        let passed = run.error.is_none() && !run.timed_out && run.exit_code == Some(0);
+        let (passed, lines) = run_check_in(&command, &folder);
         Some(FolderCheckResult {
             command,
             passed,
@@ -846,6 +1051,45 @@ impl ScoutDeps for ScoutHostDeps {
             .unwrap_or_else(|e| e.into_inner())
             .push(card.clone());
     }
+
+    fn has_fixes(&self) -> bool {
+        self.has_workspace_folder()
+    }
+
+    fn fix_prepare(&self, req: &FixPrepareReq) -> ScoutFixOutcome {
+        let Some(folder) = self.workspace_folder() else {
+            return ScoutFixOutcome::Unfixed {
+                why: NO_WORKSPACE_MESSAGE.into(),
+                mission_id: None,
+            };
+        };
+        self.init_fixes(None)
+            .prepare(&super::fix::FixPrepareInput {
+                fix_id: req.fix_id.clone(),
+                teammate_id: req.teammate_id.clone(),
+                name: req.name.clone(),
+                command: req.command.clone(),
+                folder,
+            })
+    }
+
+    fn fix_apply(&self, fix_id: &str) -> FixApplyResult {
+        self.init_fixes(None).apply(fix_id)
+    }
+
+    fn fix_discard(&self, fix_id: &str) {
+        self.init_fixes(None).discard(fix_id);
+    }
+
+    fn fix_stop(&self, why: &str) {
+        self.init_fixes(None).stop(why);
+    }
+
+    fn on_fix_run_ended(&self, mission_id: &str) {
+        if let Some(fixes) = self.fixes.get() {
+            fixes.on_run_ended(mission_id);
+        }
+    }
 }
 
 /// When a person sends a turn to Scout's teammate (`askingScout` in `main/index.ts`), it runs
@@ -903,6 +1147,7 @@ impl ScoutHost {
         scheduler: Arc<dyn ScoutScheduler>,
     ) -> Self {
         let deps = ScoutHostDeps::new(store.clone());
+        deps.init_fixes(Some(scheduler.clone()));
         let scout = Scout::with_scheduler(deps.clone(), scheduler);
         register_host(&store, &scout);
         Self { store, deps, scout }

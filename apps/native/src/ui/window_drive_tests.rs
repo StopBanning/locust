@@ -5188,7 +5188,7 @@ fn scout_send_to_starts_teammates_fresh_conversation_and_dismisses_card() {
         at: "2026-04-12T10:00:00.000Z".into(),
         reading: false,
         take: None,
-        raw_fix: None,
+        fix: None,
         fact: locust_core::scout::types::ScoutFact {
             draft: Some(locust_core::scout::types::ScoutDraft {
                 teammate_id: "tm_codec".into(),
@@ -5264,7 +5264,7 @@ fn scout_change_it_first_puts_draft_into_box_and_dismisses_card() {
         at: "2026-04-12T10:00:00.000Z".into(),
         reading: false,
         take: None,
-        raw_fix: None,
+        fix: None,
         fact: locust_core::scout::types::ScoutFact {
             draft: Some(locust_core::scout::types::ScoutDraft {
                 teammate_id: "tm_codec".into(),
@@ -5470,7 +5470,7 @@ fn scout_urgent_card_is_on_board_and_actions_match_home() {
         at: "2026-10-12T10:00:00.000Z".into(),
         reading: false,
         take: None,
-        raw_fix: None,
+        fix: None,
         fact: locust_core::scout::types::ScoutFact {
             draft: Some(locust_core::scout::types::ScoutDraft {
                 teammate_id: "tm_codec".into(),

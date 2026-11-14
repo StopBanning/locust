@@ -3,6 +3,7 @@
 //! Port of Electron's `main/scout.ts`, `main/scout-folder.ts`, `main/scout-github.ts`,
 //! `shared/scout.ts`, and `shared/scout-log.ts`.
 
+pub mod fix;
 pub mod folder;
 pub mod github;
 pub mod host;
@@ -20,6 +21,8 @@ mod runner_tests;
 mod brief_tests;
 #[cfg(test)]
 mod host_tests;
+#[cfg(test)]
+mod fix_tests;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -31,6 +34,7 @@ use serde_json::Value;
 
 use crate::pull_requests::{FolderPullRequest, PullRequestChecks, PullRequestReview, PullRequestState};
 
+use self::fix::{FixApplyResult, ScoutFixOutcome, new_fix_id};
 use self::github::{ScoutGithub, ScoutGithubUnread};
 use self::log::{
     LogGithubReason, LookEntryInput, SCOUT_LOG_DAYS, ScoutAsideWhy, ScoutHeldAlert, ScoutLogAside,
@@ -44,8 +48,8 @@ use self::store::{
 use self::types::{
     AnswerTeammate, BriefCards, BriefCheck, BriefGithubMissed, BriefHeld, BriefPrs, BriefWaiting,
     FailedTurn, FolderCheckResult, LastCheck, MAX_SCOUT_NOTES, MAX_SCOUT_SEEN, PromptTeammate,
-    SCOUT_WAIT_MOST_MS, ScoutAnswer, ScoutCard, ScoutChange, ScoutFact, ScoutOutcome,
-    ScoutSettings, ScoutState, ScoutToday, ScoutWatchKey, ScoutWeek, WaitingCard,
+    SCOUT_WAIT_MOST_MS, ScoutAnswer, ScoutCard, ScoutChange, ScoutFact, ScoutFix, ScoutOutcome,
+    ScoutSettings, ScoutState, ScoutToday, ScoutUrgency, ScoutWatchKey, ScoutWeek, WaitingCard,
     apply_settings_change, brief_fact, brief_span, card_of, check_facts, days_between, empty_week,
     failed_facts, in_quiet_hours, iso_string, notes_from, pull_request_facts, review_facts,
     scout_answers, scout_day, scout_note_of, scout_prompt, waiting_facts, watch_of_key, week_fact,
@@ -93,6 +97,21 @@ pub struct BriefRuns {
     pub finished: u32,
     pub failed: u32,
     pub more: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FixPrepareReq {
+    pub fix_id: String,
+    pub teammate_id: String,
+    pub name: String,
+    pub command: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TodayCount {
+    Looks,
+    Asked,
+    Fixes,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -150,6 +169,21 @@ pub trait ScoutDeps: Send + Sync {
     fn held_alerts(&self, _since_ms: i64) -> Vec<ScoutHeldAlert> {
         Vec::new()
     }
+    fn has_fixes(&self) -> bool {
+        false
+    }
+    fn fix_prepare(&self, _req: &FixPrepareReq) -> ScoutFixOutcome {
+        ScoutFixOutcome::Unfixed {
+            why: "Fixes are not wired.".into(),
+            mission_id: None,
+        }
+    }
+    fn fix_apply(&self, _fix_id: &str) -> FixApplyResult {
+        FixApplyResult::Gone
+    }
+    fn fix_discard(&self, _fix_id: &str) {}
+    fn fix_stop(&self, _why: &str) {}
+    fn on_fix_run_ended(&self, _mission_id: &str) {}
 }
 
 struct PendingLook {
@@ -178,6 +212,7 @@ struct EngineState {
     timer_handle: Option<u64>,
     first_look_handle: Option<u64>,
     deferred_handle: Option<u64>,
+    fixing_fix_id: Option<String>,
 }
 
 impl EngineState {
@@ -197,6 +232,7 @@ impl EngineState {
             timer_handle: None,
             first_look_handle: None,
             deferred_handle: None,
+            fixing_fix_id: None,
         }
     }
 }
@@ -222,7 +258,7 @@ pub struct Scout {
     disposed: AtomicBool,
 }
 
-fn counted(was: Option<&ScoutToday>, at: DateTime<FixedOffset>, asked: bool) -> ScoutToday {
+fn counted(was: Option<&ScoutToday>, at: DateTime<FixedOffset>, kind: TodayCount) -> ScoutToday {
     let day = scout_day(at);
     let mut next = match was {
         Some(prev) if prev.day == day => prev.clone(),
@@ -233,10 +269,10 @@ fn counted(was: Option<&ScoutToday>, at: DateTime<FixedOffset>, asked: bool) -> 
             fixes: None,
         },
     };
-    if asked {
-        next.asked += 1;
-    } else {
-        next.looks += 1;
+    match kind {
+        TodayCount::Looks => next.looks += 1,
+        TodayCount::Asked => next.asked += 1,
+        TodayCount::Fixes => next.fixes = Some(next.fixes.unwrap_or(0) + 1),
     }
     next
 }
@@ -936,7 +972,7 @@ impl Scout {
                 next.last_check = next_check;
                 next.prs = next_prs;
                 next.last_look_at = Some(stamp.clone());
-                next.today = Some(counted(latest.today.as_ref(), at, false));
+                next.today = Some(counted(latest.today.as_ref(), at, TodayCount::Looks));
                 let base_week = if week_due {
                     Some(empty_week(&day))
                 } else {
@@ -978,6 +1014,14 @@ impl Scout {
             .map(|fact| card_of(fact.clone(), new_card_id(), at, for_model(fact)))
             .collect();
 
+        // A check card that goes takes its fix's copy with it (0.828).
+        let outdated_cards: Vec<ScoutCard> = from
+            .cards
+            .iter()
+            .filter(|c| outdated(c))
+            .cloned()
+            .collect();
+        self.let_go_of(&outdated_cards, "The check passes again, so the fix stopped.");
         let next_prs = gathered.prs;
         let next_mark = gathered.folder_mark;
         let next_check = gathered.last_check;
@@ -1004,7 +1048,7 @@ impl Scout {
             }
             next.prs = next_prs;
             next.last_look_at = Some(stamp.clone());
-            next.today = Some(counted(latest.today.as_ref(), at, false));
+            next.today = Some(counted(latest.today.as_ref(), at, TodayCount::Looks));
             let base_week = if week_due {
                 Some(empty_week(&day))
             } else {
@@ -1037,6 +1081,12 @@ impl Scout {
         }
         if state.settings.on && !cards.is_empty() {
             self.deps.raised(&cards);
+        }
+        let failing_re = crate::invariants::regex(r"^check:.*:fails$");
+        if let Some(failing) = cards.iter().find(|c| failing_re.is_match(&c.fact.key))
+            && state.settings.fixes.as_ref().is_some_and(|f| f.on)
+        {
+            self.prepare_fix(&failing.card_id);
         }
 
         let asked_cards: Vec<&ScoutCard> = cards.iter().filter(|c| for_model(&c.fact)).collect();
@@ -1144,14 +1194,14 @@ impl Scout {
                 let start = next.look_ids.len() - MAX_LOOK_IDS;
                 next.look_ids.drain(..start);
             }
-            next.today = Some(counted(latest.today.as_ref(), at, true));
+            next.today = Some(counted(latest.today.as_ref(), at, TodayCount::Asked));
             next.week = Some(week_counted(latest.week.as_ref(), at, true));
             next
         }))
     }
 
     fn stop_looks(&self, why: &str) {
-        let (handles, runs, card_ids) = {
+        let (handles, runs, card_ids, has_fixing) = {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
             let mut handles = Vec::new();
             if let Some(h) = st.first_look_handle.take() {
@@ -1169,7 +1219,7 @@ impl Scout {
                 runs.push(look.run_id);
                 card_ids.extend(look.card_ids);
             }
-            (handles, runs, card_ids)
+            (handles, runs, card_ids, st.fixing_fix_id.is_some())
         };
         for h in handles {
             self.scheduler.cancel(h);
@@ -1179,6 +1229,9 @@ impl Scout {
         }
         if !card_ids.is_empty() {
             let _ = self.settle(&card_ids, None, Some(why));
+        }
+        if has_fixing {
+            self.deps.fix_stop("Scout was turned off, so the fix stopped.");
         }
     }
 
@@ -1345,6 +1398,29 @@ impl Scout {
                 next
             });
         }
+        // A fix that was being prepared when Locust closed (0.828): its copy goes, and the card says so.
+        let cut: Vec<ScoutCard> = from
+            .cards
+            .iter()
+            .filter(|c| matches!(c.fix, Some(ScoutFix::Preparing { .. })))
+            .cloned()
+            .collect();
+        if !cut.is_empty() {
+            self.let_go_of(&cut, "Locust closed while the fix was being prepared.");
+            self.mutate(|latest| {
+                let mut next = latest.clone();
+                for card in &mut next.cards {
+                    if let Some(ScoutFix::Preparing { name, .. }) = &card.fix {
+                        card.fix = Some(ScoutFix::Unfixed {
+                            name: name.clone(),
+                            why: "Locust closed while it was being prepared.".into(),
+                            mission_id: None,
+                        });
+                    }
+                }
+                next
+            });
+        }
         self.restart(&from.settings);
         if from.settings.on && !self.disposed.load(Ordering::SeqCst) {
             let weak: Weak<Self> = Arc::downgrade(self);
@@ -1412,10 +1488,314 @@ impl Scout {
             self.stop_looks(OFF_SAYS);
             return self.state();
         }
+        let before_fixes_on = before.fixes.as_ref().is_some_and(|f| f.on);
+        let after_fixes_on = state.settings.fixes.as_ref().is_some_and(|f| f.on);
+        if before_fixes_on
+            && !after_fixes_on
+            && self
+                .state
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .fixing_fix_id
+                .is_some()
+        {
+            self.deps
+                .fix_stop("Scout was turned off, so the fix stopped.");
+        }
         state
     }
 
+    fn fix_of(
+        &self,
+        card_id: &str,
+        fix: Option<ScoutFix>,
+        count_fix_at: Option<DateTime<FixedOffset>>,
+    ) -> ScoutState {
+        self.mutate(|latest| {
+            let mut next = latest.clone();
+            if let Some(at) = count_fix_at {
+                next.today = Some(counted(latest.today.as_ref(), at, TodayCount::Fixes));
+            }
+            for card in &mut next.cards {
+                if card.card_id == card_id {
+                    card.fix = fix.clone();
+                }
+            }
+            next
+        })
+    }
+
+    fn let_go_of(&self, cards: &[ScoutCard], why: &str) {
+        for card in cards {
+            let Some(fix_id) = card.fix.as_ref().and_then(ScoutFix::fix_id) else {
+                continue;
+            };
+            let active = self
+                .state
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .fixing_fix_id
+                .as_deref()
+                == Some(fix_id);
+            if active {
+                self.deps.fix_stop(why);
+            } else {
+                self.deps.fix_discard(fix_id);
+            }
+        }
+    }
+
+    pub fn prepare_fix(self: &Arc<Self>, card_id: &str) {
+        let from = self.load();
+        let Some(settings) = from.settings.fixes.as_ref() else {
+            return;
+        };
+        let card = from.cards.iter().find(|one| one.card_id == card_id);
+        let failing_re = crate::invariants::regex(r"^check:.*:fails$");
+        if !self.deps.has_fixes()
+            || !settings.on
+            || !from.settings.on
+            || !card.is_some_and(|c| failing_re.is_match(&c.fact.key))
+        {
+            return;
+        }
+        let Some(last_check) = from.last_check.as_ref().filter(|c| !c.passed) else {
+            return;
+        };
+        let Some(command) = last_check.command.clone() else {
+            return;
+        };
+        let mate = self
+            .deps
+            .team()
+            .unwrap_or_default()
+            .into_iter()
+            .find(|one| {
+                Some(&one.teammate_id) == settings.teammate_id.as_ref()
+                    && Some(&one.teammate_id) != from.settings.teammate_id.as_ref()
+            });
+        let Some(mate) = mate else {
+            self.fix_of(
+                card_id,
+                Some(ScoutFix::Held {
+                    why: "No teammate is picked to prepare fixes, so Scout did not prepare one. Pick one in Settings > General, under Scout.".into(),
+                }),
+                None,
+            );
+            return;
+        };
+        let now = self.deps.now();
+        let used = if from.today.as_ref().is_some_and(|t| t.day == scout_day(now)) {
+            from.today.as_ref().and_then(|t| t.fixes).unwrap_or(0)
+        } else {
+            0
+        };
+        if used >= settings.per_day {
+            let word = if settings.per_day == 1 {
+                "fix is".to_owned()
+            } else {
+                format!("{} fixes are", settings.per_day)
+            };
+            self.fix_of(
+                card_id,
+                Some(ScoutFix::Held {
+                    why: format!(
+                        "Today’s {word} used, so Scout did not prepare one. It can again tomorrow, or raise the limit in Settings > General, under Scout."
+                    ),
+                }),
+                None,
+            );
+            return;
+        }
+        let fix_id = new_fix_id();
+        {
+            let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            if st.fixing_fix_id.is_some() {
+                drop(st);
+                self.fix_of(
+                    card_id,
+                    Some(ScoutFix::Held {
+                        why: "Scout is preparing another fix. Press Prepare again when that one is done.".into(),
+                    }),
+                    None,
+                );
+                return;
+            }
+            st.fixing_fix_id = Some(fix_id.clone());
+        }
+        self.fix_of(
+            card_id,
+            Some(ScoutFix::Preparing {
+                fix_id: fix_id.clone(),
+                name: mate.name.clone(),
+                since: iso_string(now),
+            }),
+            Some(now),
+        );
+
+        let weak = Arc::downgrade(self);
+        let card_id_owned = card_id.to_owned();
+        let deps = self.deps.clone();
+        let req = FixPrepareReq {
+            fix_id: fix_id.clone(),
+            teammate_id: mate.teammate_id,
+            name: mate.name.clone(),
+            command,
+        };
+        std::thread::spawn(move || {
+            let outcome = deps.fix_prepare(&req);
+            let Some(me) = weak.upgrade() else {
+                if matches!(outcome, ScoutFixOutcome::Unfixed { .. }) {
+                    deps.fix_discard(&fix_id);
+                }
+                return;
+            };
+            {
+                let mut st = me.state.lock().unwrap_or_else(|e| e.into_inner());
+                if st.fixing_fix_id.as_deref() == Some(fix_id.as_str()) {
+                    st.fixing_fix_id = None;
+                }
+            }
+            let still = me
+                .load()
+                .cards
+                .into_iter()
+                .find(|one| one.card_id == card_id_owned);
+            let still_preparing = still.and_then(|c| c.fix).is_some_and(|f| {
+                matches!(f, ScoutFix::Preparing { fix_id: ref id, .. } if id == &fix_id)
+            });
+            if !still_preparing {
+                deps.fix_discard(&fix_id);
+                return;
+            }
+            // Special case (`scout.ts:940-941`): discard the copy when unfixed, map ready/unfixed onto the card.
+            let next_fix = match outcome {
+                ScoutFixOutcome::Ready {
+                    files,
+                    added,
+                    removed,
+                    mission_id,
+                } => ScoutFix::Ready {
+                    fix_id,
+                    name: mate.name,
+                    files,
+                    added,
+                    removed,
+                    mission_id,
+                },
+                ScoutFixOutcome::Unfixed { why, mission_id } => {
+                    deps.fix_discard(&fix_id);
+                    ScoutFix::Unfixed {
+                        name: mate.name,
+                        why,
+                        mission_id,
+                    }
+                }
+            };
+            me.fix_of(&card_id_owned, Some(next_fix), None);
+        });
+    }
+
+    /// A ready fix into the folder (0.828, scout-fix.ts), beside the person's own edits; refused
+    /// where they changed the same files.
+    pub fn apply_fix(&self, card_id: &str) -> ScoutState {
+        let from = self.load();
+        let card = from.cards.iter().find(|one| one.card_id == card_id);
+        let Some(ScoutFix::Ready {
+            fix_id,
+            name,
+            mission_id,
+            ..
+        }) = card.and_then(|c| c.fix.as_ref())
+        else {
+            return self.state();
+        };
+        if !self.deps.has_fixes() {
+            return self.state();
+        }
+        let fix_id = fix_id.clone();
+        let name = name.clone();
+        let mission_id = mission_id.clone();
+        let brought = self.deps.fix_apply(&fix_id);
+        // Special cases (`scout.ts:1102, 1104, 1106`): map BringIn variants onto applied/stale/unfixed.
+        let next_fix = match brought {
+            FixApplyResult::Brought(files) => ScoutFix::Applied { files },
+            FixApplyResult::YourChanges(files) => ScoutFix::Stale {
+                fix_id,
+                name,
+                files,
+                mission_id,
+            },
+            FixApplyResult::Nothing => ScoutFix::Unfixed {
+                name,
+                why: "Its copy holds no change to apply.".into(),
+                mission_id: Some(mission_id),
+            },
+            FixApplyResult::Gone => ScoutFix::Unfixed {
+                name,
+                why: "Its copy is gone, so there is nothing to apply. Prepare it again.".into(),
+                mission_id: Some(mission_id),
+            },
+        };
+        let applied = matches!(next_fix, ScoutFix::Applied { .. });
+        self.mutate(|latest| {
+            let mut next = latest.clone();
+            for one in &mut next.cards {
+                if one.card_id == card_id {
+                    one.fix = Some(next_fix.clone());
+                    if applied {
+                        one.fact.urgency = ScoutUrgency::Later;
+                    }
+                }
+            }
+            next
+        })
+    }
+
+    /// The fix set aside: its copy goes, and the card stays as Locust wrote it.
+    pub fn skip_fix(&self, card_id: &str) -> ScoutState {
+        let from = self.load();
+        let Some(card) = from.cards.into_iter().find(|one| one.card_id == card_id) else {
+            return self.state();
+        };
+        match card.fix {
+            None | Some(ScoutFix::Preparing { .. }) => self.state(),
+            Some(_) => {
+                let id = card.card_id.clone();
+                self.let_go_of(&[card], "Skipped.");
+                self.fix_of(&id, None, None)
+            }
+        }
+    }
+
+    /// Prepared again from the folder as it is now: after it could not be applied, could not be
+    /// made, or was held.
+    pub fn fix_again(self: &Arc<Self>, card_id: &str) -> ScoutState {
+        let from = self.load();
+        let Some(card) = from.cards.into_iter().find(|one| one.card_id == card_id) else {
+            return self.state();
+        };
+        if !matches!(
+            card.fix,
+            Some(ScoutFix::Stale { .. } | ScoutFix::Unfixed { .. } | ScoutFix::Held { .. })
+        ) {
+            return self.state();
+        }
+        let id = card.card_id.clone();
+        self.let_go_of(&[card], "Prepared again.");
+        self.fix_of(&id, None, None);
+        self.prepare_fix(&id);
+        self.state()
+    }
+
     pub fn dismiss(&self, card_id: &str, how: Option<ScoutOutcome>) -> ScoutState {
+        let doomed: Vec<ScoutCard> = self
+            .load()
+            .cards
+            .into_iter()
+            .filter(|c| c.card_id == card_id)
+            .collect();
+        self.let_go_of(&doomed, "The card was dismissed, so the fix stopped.");
         self.mutate(|latest| {
             let card = latest.cards.iter().find(|one| one.card_id == card_id);
             let mut next = latest.clone();
@@ -1515,6 +1895,7 @@ impl Scout {
     }
 
     pub fn on_run_ended(self: &Arc<Self>, mission_id: &str) {
+        self.deps.on_fix_run_ended(mission_id);
         let is_pending = self
             .state
             .lock()
@@ -1559,13 +1940,14 @@ impl Scout {
 
     pub fn dispose(&self) {
         self.disposed.store(true, Ordering::SeqCst);
-        let (timer, first, deferred, pending_items) = {
+        let (timer, first, deferred, pending_items, has_fixing) = {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (
                 st.timer_handle.take(),
                 st.first_look_handle.take(),
                 st.deferred_handle.take(),
                 st.pending.drain().collect::<Vec<_>>(),
+                st.fixing_fix_id.is_some(),
             )
         };
         if let Some(h) = timer {
@@ -1582,6 +1964,10 @@ impl Scout {
                 self.scheduler.cancel(h);
             }
             self.deps.stop(&look.run_id);
+        }
+        if has_fixing {
+            self.deps
+                .fix_stop("Locust closed while the fix was being prepared.");
         }
     }
 }

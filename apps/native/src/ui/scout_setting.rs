@@ -1051,7 +1051,7 @@ mod tests {
                     at: "2026-10-22T12:00:00.000Z".into(),
                     reading: false,
                     take: None,
-                    raw_fix: None,
+                    fix: None,
                     fact,
                 }];
             },

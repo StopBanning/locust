@@ -1214,7 +1214,7 @@ pub(super) mod tests {
             at: "2026-04-12T10:00:00.000Z".into(),
             reading: false,
             take: None,
-            raw_fix: None,
+            fix: None,
             fact: ScoutFact::simple(id, urgency, said),
         }
     }

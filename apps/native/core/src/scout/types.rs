@@ -87,6 +87,253 @@ impl ScoutQuietHours {
     }
 }
 
+/// A fix on a check's card, as it stands (`ScoutFix`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScoutFix {
+    /// The teammate is working on it, in a copy.
+    Preparing {
+        fix_id: String,
+        name: String,
+        since: String,
+    },
+    /// Done, and the check passes in the copy: Review, Apply or Skip.
+    Ready {
+        fix_id: String,
+        name: String,
+        files: Vec<String>,
+        added: Option<usize>,
+        removed: Option<usize>,
+        mission_id: String,
+    },
+    /// It could not: what was missing, in the teammate's or Locust's words.
+    Unfixed {
+        name: String,
+        why: String,
+        mission_id: Option<String>,
+    },
+    /// Not prepared at all, and why: the day's limit, or no teammate to prepare it.
+    Held { why: String },
+    /// Brought into the folder.
+    Applied { files: Vec<String> },
+    /// The person changed the same files since the copy was made: not applied, and it can be prepared again.
+    Stale {
+        fix_id: String,
+        name: String,
+        files: Vec<String>,
+        mission_id: String,
+    },
+}
+
+impl ScoutFix {
+    pub fn fix_id(&self) -> Option<&str> {
+        match self {
+            Self::Preparing { fix_id, .. }
+            | Self::Ready { fix_id, .. }
+            | Self::Stale { fix_id, .. } => Some(fix_id.as_str()),
+            Self::Unfixed { .. } | Self::Held { .. } | Self::Applied { .. } => None,
+        }
+    }
+
+    pub fn to_json(&self) -> Value {
+        let mut obj = serde_json::Map::new();
+        match self {
+            Self::Preparing { fix_id, name, since } => {
+                obj.insert("state".into(), json!("preparing"));
+                obj.insert("fixId".into(), json!(fix_id));
+                obj.insert("name".into(), json!(name));
+                obj.insert("since".into(), json!(since));
+            }
+            Self::Ready {
+                fix_id,
+                name,
+                files,
+                added,
+                removed,
+                mission_id,
+            } => {
+                obj.insert("state".into(), json!("ready"));
+                obj.insert("fixId".into(), json!(fix_id));
+                obj.insert("name".into(), json!(name));
+                obj.insert("files".into(), json!(files));
+                if let Some(a) = added {
+                    obj.insert("added".into(), json!(a));
+                }
+                if let Some(r) = removed {
+                    obj.insert("removed".into(), json!(r));
+                }
+                obj.insert("missionId".into(), json!(mission_id));
+            }
+            Self::Unfixed {
+                name,
+                why,
+                mission_id,
+            } => {
+                obj.insert("state".into(), json!("unfixed"));
+                obj.insert("name".into(), json!(name));
+                obj.insert("why".into(), json!(why));
+                if let Some(id) = mission_id {
+                    obj.insert("missionId".into(), json!(id));
+                }
+            }
+            Self::Held { why } => {
+                obj.insert("state".into(), json!("held"));
+                obj.insert("why".into(), json!(why));
+            }
+            Self::Applied { files } => {
+                obj.insert("state".into(), json!("applied"));
+                obj.insert("files".into(), json!(files));
+            }
+            Self::Stale {
+                fix_id,
+                name,
+                files,
+                mission_id,
+            } => {
+                obj.insert("state".into(), json!("stale"));
+                obj.insert("fixId".into(), json!(fix_id));
+                obj.insert("name".into(), json!(name));
+                obj.insert("files".into(), json!(files));
+                obj.insert("missionId".into(), json!(mission_id));
+            }
+        }
+        Value::Object(obj)
+    }
+
+    pub fn from_json(v: &Value) -> Option<Self> {
+        let obj = v.as_object()?;
+        let files_of = |key: &str| -> Option<Vec<String>> {
+            Some(
+                obj.get(key)?
+                    .as_array()?
+                    .iter()
+                    .filter_map(|x| x.as_str().map(str::to_owned))
+                    .collect(),
+            )
+        };
+        match obj.get("state")?.as_str()? {
+            "preparing" => Some(Self::Preparing {
+                fix_id: obj.get("fixId")?.as_str()?.to_owned(),
+                name: obj.get("name")?.as_str()?.to_owned(),
+                since: obj.get("since")?.as_str()?.to_owned(),
+            }),
+            "ready" => Some(Self::Ready {
+                fix_id: obj.get("fixId")?.as_str()?.to_owned(),
+                name: obj.get("name")?.as_str()?.to_owned(),
+                files: files_of("files")?,
+                added: obj.get("added").and_then(Value::as_u64).map(|n| n as usize),
+                removed: obj.get("removed").and_then(Value::as_u64).map(|n| n as usize),
+                mission_id: obj.get("missionId")?.as_str()?.to_owned(),
+            }),
+            "unfixed" => Some(Self::Unfixed {
+                name: obj.get("name")?.as_str()?.to_owned(),
+                why: obj.get("why")?.as_str()?.to_owned(),
+                mission_id: obj
+                    .get("missionId")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+            }),
+            "held" => Some(Self::Held {
+                why: obj.get("why")?.as_str()?.to_owned(),
+            }),
+            "applied" => Some(Self::Applied {
+                files: files_of("files")?,
+            }),
+            "stale" => Some(Self::Stale {
+                fix_id: obj.get("fixId")?.as_str()?.to_owned(),
+                name: obj.get("name")?.as_str()?.to_owned(),
+                files: files_of("files")?,
+                mission_id: obj.get("missionId")?.as_str()?.to_owned(),
+            }),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScoutCommentAsk {
+    pub id: String,
+    pub repository: String,
+    pub number: u64,
+    pub url: String,
+    pub message: String,
+    pub named_teammate_id: Option<String>,
+}
+
+impl ScoutCommentAsk {
+    pub fn to_json(&self) -> Value {
+        let mut obj = serde_json::Map::new();
+        obj.insert("id".into(), json!(self.id));
+        obj.insert("repository".into(), json!(self.repository));
+        obj.insert("number".into(), json!(self.number));
+        obj.insert("url".into(), json!(self.url));
+        obj.insert("message".into(), json!(self.message));
+        if let Some(id) = &self.named_teammate_id {
+            obj.insert("namedTeammateId".into(), json!(id));
+        }
+        Value::Object(obj)
+    }
+
+    pub fn from_json(v: &Value) -> Option<Self> {
+        let obj = v.as_object()?;
+        Some(Self {
+            id: obj.get("id")?.as_str()?.to_owned(),
+            repository: obj.get("repository")?.as_str()?.to_owned(),
+            number: obj.get("number")?.as_u64()?,
+            url: obj.get("url")?.as_str()?.to_owned(),
+            message: obj.get("message")?.as_str()?.to_owned(),
+            named_teammate_id: obj
+                .get("namedTeammateId")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScoutPost {
+    pub repository: String,
+    pub number: u64,
+    pub message: String,
+    /// An attempt is saved before gh starts. An uncertain result is never retried.
+    pub attempted: Option<bool>,
+    pub posted_url: Option<String>,
+    pub failed: Option<String>,
+}
+
+impl ScoutPost {
+    pub fn to_json(&self) -> Value {
+        let mut obj = serde_json::Map::new();
+        obj.insert("repository".into(), json!(self.repository));
+        obj.insert("number".into(), json!(self.number));
+        obj.insert("message".into(), json!(self.message));
+        if let Some(attempted) = self.attempted {
+            obj.insert("attempted".into(), json!(attempted));
+        }
+        if let Some(url) = &self.posted_url {
+            obj.insert("postedUrl".into(), json!(url));
+        }
+        if let Some(failed) = &self.failed {
+            obj.insert("failed".into(), json!(failed));
+        }
+        Value::Object(obj)
+    }
+
+    pub fn from_json(v: &Value) -> Option<Self> {
+        let obj = v.as_object()?;
+        Some(Self {
+            repository: obj.get("repository")?.as_str()?.to_owned(),
+            number: obj.get("number")?.as_u64()?,
+            message: obj.get("message")?.as_str()?.to_owned(),
+            attempted: obj.get("attempted").and_then(Value::as_bool),
+            posted_url: obj
+                .get("postedUrl")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            failed: obj.get("failed").and_then(Value::as_str).map(str::to_owned),
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScoutFixSettings {
     pub on: bool,
@@ -441,9 +688,8 @@ pub struct ScoutFact {
     pub teammate_id: Option<String>,
     pub draft: Option<ScoutDraft>,
     pub tune: Option<ScoutTune>,
-    /// Preserved raw JSON for Part-2 fields (`commentAsk`, `post`) when loaded from Electron files.
-    pub raw_comment_ask: Option<Value>,
-    pub raw_post: Option<Value>,
+    pub comment_ask: Option<ScoutCommentAsk>,
+    pub post: Option<ScoutPost>,
 }
 
 impl ScoutFact {
@@ -460,8 +706,8 @@ impl ScoutFact {
             teammate_id: None,
             draft: None,
             tune: None,
-            raw_comment_ask: None,
-            raw_post: None,
+            comment_ask: None,
+            post: None,
         }
     }
 }
@@ -472,8 +718,8 @@ pub struct ScoutCard {
     pub at: String,
     pub reading: bool,
     pub take: Option<String>,
-    /// Preserved raw JSON for Part-2 `fix` field when loaded from Electron files.
-    pub raw_fix: Option<Value>,
+    /// A fix prepared for a failing check (0.828).
+    pub fix: Option<ScoutFix>,
     pub fact: ScoutFact,
 }
 
@@ -510,11 +756,11 @@ impl ScoutCard {
         if let Some(tune) = &self.fact.tune {
             obj.insert("tune".into(), tune.to_json());
         }
-        if let Some(raw) = &self.fact.raw_comment_ask {
-            obj.insert("commentAsk".into(), raw.clone());
+        if let Some(comment_ask) = &self.fact.comment_ask {
+            obj.insert("commentAsk".into(), comment_ask.to_json());
         }
-        if let Some(raw) = &self.fact.raw_post {
-            obj.insert("post".into(), raw.clone());
+        if let Some(post) = &self.fact.post {
+            obj.insert("post".into(), post.to_json());
         }
         obj.insert("cardId".into(), json!(self.card_id));
         obj.insert("at".into(), json!(self.at));
@@ -524,8 +770,8 @@ impl ScoutCard {
         if let Some(take) = &self.take {
             obj.insert("take".into(), json!(take));
         }
-        if let Some(fix) = &self.raw_fix {
-            obj.insert("fix".into(), fix.clone());
+        if let Some(fix) = &self.fix {
+            obj.insert("fix".into(), fix.to_json());
         }
         Value::Object(obj)
     }
@@ -572,15 +818,15 @@ impl ScoutCard {
                 .map(str::to_owned),
             draft: obj.get("draft").and_then(ScoutDraft::from_json),
             tune: obj.get("tune").and_then(ScoutTune::from_json),
-            raw_comment_ask: obj.get("commentAsk").cloned().filter(|v| !v.is_null()),
-            raw_post: obj.get("post").cloned().filter(|v| !v.is_null()),
+            comment_ask: obj.get("commentAsk").and_then(ScoutCommentAsk::from_json),
+            post: obj.get("post").and_then(ScoutPost::from_json),
         };
         Some(Self {
             card_id,
             at,
             reading: obj.get("reading").and_then(Value::as_bool) == Some(true),
             take: obj.get("take").and_then(Value::as_str).map(str::to_owned),
-            raw_fix: obj.get("fix").cloned().filter(|v| !v.is_null()),
+            fix: obj.get("fix").and_then(ScoutFix::from_json),
             fact,
         })
     }
@@ -2012,7 +2258,7 @@ pub fn card_of(
         at: iso_string(at),
         reading,
         take: None,
-        raw_fix: None,
+        fix: None,
         fact,
     }
 }
@@ -2224,4 +2470,56 @@ pub fn apply_settings_change(base: &ScoutSettings, change: &ScoutChange) -> Scou
         obj.insert("fixes".into(), Value::Object(fo));
     }
     scout_settings_from(&Value::Object(obj), base)
+}
+
+/// A person's own comment becomes an urgent ask; its task is drafted without a model.
+pub fn comment_ask_fact(ask: ScoutCommentAsk, title: &str, task: &str) -> ScoutFact {
+    ScoutFact {
+        key: format!("comment:{}:{}", ask.repository, ask.id),
+        urgency: ScoutUrgency::Now,
+        said: format!("You asked on #{} {}: {}", ask.number, title, task),
+        detail: Some(task.to_owned()),
+        open: Some(ScoutOpen::Url {
+            url: ask.url.clone(),
+            label: "Open your comment".into(),
+        }),
+        comment_ask: Some(ask),
+        ..ScoutFact::simple("", ScoutUrgency::Now, "")
+    }
+}
+
+pub fn comment_answer_fact(
+    ask: &ScoutCommentAsk,
+    mission_id: &str,
+    name: &str,
+    answer: Result<&str, &str>,
+) -> ScoutFact {
+    let (said, post) = match answer {
+        Ok(text) => (
+            format!("{name} answered your ask on #{}", ask.number),
+            Some(ScoutPost {
+                repository: ask.repository.clone(),
+                number: ask.number,
+                message: format!("{text}\n\nWritten by {name}, a Locust teammate."),
+                attempted: None,
+                posted_url: None,
+                failed: None,
+            }),
+        ),
+        Err(failed) => (
+            format!("{name}'s turn on #{} failed: {failed}", ask.number),
+            None,
+        ),
+    };
+    ScoutFact {
+        key: format!("comment-answer:{}:{}", ask.repository, ask.id),
+        urgency: ScoutUrgency::Now,
+        said,
+        post,
+        open: Some(ScoutOpen::Conversation {
+            mission_id: mission_id.to_owned(),
+            label: "Open it".into(),
+        }),
+        ..ScoutFact::simple("", ScoutUrgency::Now, "")
+    }
 }
