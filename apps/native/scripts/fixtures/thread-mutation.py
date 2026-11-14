@@ -24,6 +24,10 @@ controls = {
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
 controls.update({
+    'peer-turns': ('core/src/peer_thread.rs', 'turns.iter().enumerate()', 'turns.iter().enumerate().skip(1)', 'draws_the_message_an_earlier_turn_sent_not_only_the_reply'),
+    'peer-placement': ('core/src/peer_thread.rs', 'messages.iter().any(|m| m.direction == "received")', 'false', 'puts_what_a_turn_sent_after_its_work_and_what_it_was_handed_before_it'),
+    'peer-key': ('core/src/peer_thread.rs', 'format!("peer_{turn_index}_{name}")', 'format!("peer_{name}")', 'gives_the_same_peer_a_distinct_key_on_each_turn'),
+
     'ended-question-gate': ('core/src/thread_view.rs', 'if running || !latest_turn', 'if running && !latest_turn', 'is_not_offered_while_the_run_is_still_going'),
     'ended-question-last': ('core/src/thread_view.rs', 'let last_final = items.iter().rev()', 'let last_final = items.iter()', 'reads_the_last_final_message_not_an_earlier_one'),
     'path-workspace': ('core/src/activity_entries.rs', 'relative_path(path, workspace)', 'relative_path(path, workspace.filter(|_| false))', 'counts_a_relative_and_an_absolute_spelling_as_one'),

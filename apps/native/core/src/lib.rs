@@ -150,3 +150,5 @@ pub mod activity_summary;
 pub mod activity_entries;
 pub mod activity_trace;
 pub mod conversation_turns;
+
+pub mod peer_thread;

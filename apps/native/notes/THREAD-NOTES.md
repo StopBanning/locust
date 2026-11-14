@@ -144,3 +144,16 @@ The six focused cases passed without compiler warnings. No does-not-apply cases.
 Both whole-core controls (`ended-question-gate`, `ended-question-last`) failed their named
 assertions and restored. The restored whole-core baseline passed 1,630 tests, 20 ignored,
 with no compiler warnings. Shared-lock waits preceded these completed runs.
+
+`both halves of a teammate exchange are drawn`: five one-to-one cases in
+`peer_thread_tests.rs`. The pure projection retains all turns, groups by the other
+party, sorts messages by time, and supplies distinct turn-scoped keys and before/after
+placement. The window now draws received groups before the work and sent-only groups
+after it, using that projection, without repeating them in a second Handed out card.
+The five focused cases passed without warnings. Three whole-core controls
+(`peer-turns`, `peer-placement`, `peer-key`) failed their named assertions and restored.
+No does-not-apply cases.
+The release workspace build completed with no warnings during the second release attempt;
+its headless desktop tests were interrupted by the outer timeout. A full restored
+workspace pass is still pending. Prior attempts spent 590 seconds waiting for the
+shared lock, or exhausted the remaining time compiling after a long lock wait.

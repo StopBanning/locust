@@ -10,28 +10,19 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
     let (group_joins, group_leavings, active_group_id) = thread_group_lines(s);
     let mut user_index = 0usize;
     let self_teammate_id = selected_conversation(s).map(|(t, _)| t.id.as_str()).unwrap_or("");
-    let emit_turn_peers = |messages: El, turn_idx: usize| -> El {
-        let Some(mission_id) = s
-            .ledger
-            .as_ref()
-            .and_then(|pane| pane.snapshot.turn_metas.get(turn_idx))
-            .map(|m| m.mission_id.as_str())
-        else {
-            return messages;
-        };
-        let peer_msgs = peer_thread::messages_for_mission(s, mission_id);
-        let mut out = messages;
-        if let Some(handed) = peer_thread::handed_out(s, &peer_msgs, p) {
-            out = out.child(handed.key(format!("{mission_id}-handed-out")));
+    let peer_turns = s.ledger.as_ref().map(|pane| pane.snapshot.turn_metas.iter()
+        .map(|meta| peer_thread::messages_for_mission(s, &meta.mission_id)).collect::<Vec<_>>()).unwrap_or_default();
+    let peer_cards = locust_core::peer_thread::thread_peer_cards(&peer_turns);
+    let emit_turn_peers = |mut messages: El, turn_idx: usize, before_work: bool| -> El {
+        let Some(mission_id) = s.ledger.as_ref().and_then(|pane| pane.snapshot.turn_metas.get(turn_idx)).map(|m| m.mission_id.as_str()) else { return messages; };
+        for card in peer_cards.iter().filter(|c| c.turn_index == turn_idx && c.before_work == before_work) {
+            for view in peer_thread::cards_for_mission(s, self_teammate_id, mission_id, &card.messages, p) {
+                messages = messages.child(view.key(card.key.clone()));
+            }
         }
-        for (pi, card) in peer_thread::cards_for_mission(s, self_teammate_id, mission_id, &peer_msgs, p)
-            .into_iter()
-            .enumerate()
-        {
-            out = out.child(card.key(format!("{mission_id}-peer-{pi}")));
-        }
-        out
+        messages
     };
+    messages = emit_turn_peers(messages, 0, true);
     for (index, item) in items.iter().enumerate() {
         for marker in markers.iter().filter(|m| m.before_item == index) {
             messages = messages.child(time_marker::view(marker, p));
@@ -168,7 +159,8 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
                 let ui = user_index;
                 user_index += 1;
                 if ui > 0 {
-                    messages = emit_turn_peers(messages, ui - 1);
+                    messages = emit_turn_peers(messages, ui - 1, false);
+                    messages = emit_turn_peers(messages, ui, true);
                 }
                 if let Some(pane) = s.ledger.as_ref()
                     && let Some(to_meta) = pane.snapshot.turn_metas.get(ui)
@@ -390,9 +382,7 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
         };
         messages = messages.child(content.key(key));
     }
-    if user_index > 0 {
-        messages = emit_turn_peers(messages, user_index - 1);
-    }
+    messages = emit_turn_peers(messages, user_index.saturating_sub(1), false);
     messages = emit_group_lines_at(
         messages,
         &group_joins,

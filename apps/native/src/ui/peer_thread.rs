@@ -1,17 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
-pub(super) struct PeerMsgView {
-    pub message_id: String,
-    pub direction: String,
-    pub from_id: String,
-    pub from_name: String,
-    pub from_mission: Option<String>,
-    pub to_id: String,
-    pub to_name: String,
-    pub text: Option<String>,
-    pub posted_at: String,
-}
+use locust_core::peer_thread::Message as PeerMsgView;
 
 pub(super) fn open_mission_by_id(s: &mut State, mission_id: String, tx: &mut Tx) {
     if let Some(item) = s.recent.iter().find(|r| r.id == mission_id).cloned() {
@@ -134,57 +123,6 @@ pub(super) fn messages_for_mission(s: &State, mission_id: &str) -> Vec<PeerMsgVi
         });
     }
     out
-}
-
-pub(super) fn handed_out(s: &State, msgs: &[PeerMsgView], p: &Palette) -> Option<El> {
-    let posted: Vec<&PeerMsgView> = msgs.iter().filter(|m| m.direction == "posted").collect();
-    if posted.is_empty() {
-        return None;
-    }
-    let l = crate::look::controls::Look::new(p.dark);
-    let received_in = received_in_map(s);
-    let mut card = col()
-        .w_full()
-        .gap(6.0)
-        .padding(10.0)
-        .radius(8.0)
-        .border(1.0, p.hairline)
-        .fill(l.c("bg-raised"))
-        .child(
-            text(format!("Handed out · {}", posted.len()))
-                .font(l.ty.label)
-                .color(l.c("text-muted")),
-        );
-    for msg in posted {
-        let body = msg
-            .text
-            .clone()
-            .unwrap_or_else(|| "This message is no longer in the workroom.".to_owned());
-        let line_text = format!("To {}: {body}", msg.to_name);
-        if let Some(target_mission) = received_in.get(&msg.message_id).cloned() {
-            card = card.child(
-                text(line_text)
-                    .font(l.ty.body)
-                    .color(l.c("text-primary"))
-                    .w_full()
-                    .wrap()
-                    .role("button")
-                    .hover(l.c("hover-surface"))
-                    .on_press_tx(move |s: &mut State, tx| {
-                        open_mission_by_id(s, target_mission.clone(), tx);
-                    }),
-            );
-        } else {
-            card = card.child(
-                text(line_text)
-                    .font(l.ty.body)
-                    .color(l.c("text-primary"))
-                    .w_full()
-                    .wrap(),
-            );
-        }
-    }
-    Some(card)
 }
 
 pub(super) fn cards_for_mission(
