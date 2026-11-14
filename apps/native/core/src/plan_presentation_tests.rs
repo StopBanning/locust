@@ -43,3 +43,17 @@ fn keeps_its_own_item_when_the_run_did_nothing_else() {
     assert!(transcript.items.iter().any(|i| matches!(i, Item::Plan { .. })));
     assert!(!transcript.items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })));
 }
+
+#[test]
+fn a_late_arriving_plan_precedes_the_turns_work_and_reply() {
+    let transcript = fold(vec![
+        event("tool.started", json!({"itemId":"i1","name":"edit","command":"src/notes.ts"})),
+        event("message.delta", json!({"itemId":"answer","text":"Reading the file.","operation":"append","final":true})),
+        event("plan.updated", steps()),
+        event("run.completed", json!({})),
+    ], false);
+    let at = |predicate: fn(&Item) -> bool| transcript.items.iter().position(predicate).expect("projected item");
+    let plan = at(|i| matches!(i, Item::Plan { .. }));
+    assert!(plan < at(|i| matches!(i, Item::Tool { .. })), "the plan precedes the work even when it arrived later");
+    assert!(plan < at(|i| matches!(i, Item::Assistant { .. })), "the plan precedes the reply too");
+}

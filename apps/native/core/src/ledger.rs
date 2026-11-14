@@ -1095,6 +1095,14 @@ impl Transcript {
         // Orphaned parentItemId calls stay nowhere (missionView.ts:3281-3282).
         items
             .retain(|item| !matches!(item, Item::Tool { detail, .. } if !detail.parent.is_empty()));
+        // buildThread puts WHAT before HOW, even when the plan arrived after a tool or reply.
+        // Reorder only the projection; keep the person's prompt first and the ledger untouched.
+        if let Some(at) = items.iter().position(|item| matches!(item, Item::Plan { .. })) {
+            let plan = items.remove(at);
+            let before_work = items.iter().position(|item| !matches!(item, Item::User(_)))
+                .unwrap_or(items.len());
+            items.insert(before_work, plan);
+        }
         fn qualify(item: &mut Item, mission: &str, finished: bool) {
             match item {
                 Item::Tool { detail, .. } => {
