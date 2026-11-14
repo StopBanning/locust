@@ -85,9 +85,43 @@ pub struct SideChatState {
 }
 
 const GOING: &[&str] = &["starting", "running", "cancelling"];
+const ENDED: &[&str] = &["completed", "failed", "cancelled"];
 
 pub fn is_going(phase: &str) -> bool {
     GOING.contains(&phase)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RunLike {
+    pub phase: String,
+    pub data_run_id: Option<String>,
+}
+
+/// Filter approval cards against known runs so finished, failed, or cancelled runs drop their cards.
+///
+/// Returns `None` when every card stays so UI state does not churn; returns `Some(kept)` when one or
+/// more cards belong to an ended run (`completed`, `failed`, or `cancelled`).
+pub fn approvals_of_live_runs(
+    approvals: &[Request],
+    runs: &HashMap<String, RunLike>,
+) -> Option<Vec<Request>> {
+    let kept: Vec<Request> = approvals
+        .iter()
+        .filter(|approval| {
+            let run = runs.get(&approval.mission_id).or_else(|| {
+                runs.values().find(|entry| {
+                    entry.data_run_id.as_deref() == Some(approval.mission_id.as_str())
+                })
+            });
+            run.is_none_or(|r| !ENDED.contains(&r.phase.as_str()))
+        })
+        .cloned()
+        .collect();
+    if kept.len() == approvals.len() {
+        None
+    } else {
+        Some(kept)
+    }
 }
 
 pub fn can_open(runtime: Option<&str>, conversation_id: Option<&str>) -> bool {
@@ -304,11 +338,32 @@ pub(super) fn poll(s: &mut State) -> bool {
             }
         }
     }
-    let waiting: Vec<Request> = side
+    let raw_waiting: Vec<Request> = side
         .turns
         .iter()
         .flat_map(|t| api().waiting_for(&t.mission_id))
         .collect();
+    if apply_waiting_approvals(side, raw_waiting) {
+        changed = true;
+    }
+    changed
+}
+
+fn apply_waiting_approvals(side: &mut SideChatState, raw_waiting: Vec<Request>) -> bool {
+    let runs: HashMap<String, RunLike> = side
+        .turns
+        .iter()
+        .map(|t| {
+            (
+                t.mission_id.clone(),
+                RunLike {
+                    phase: t.phase.clone(),
+                    data_run_id: None,
+                },
+            )
+        })
+        .collect();
+    let waiting = approvals_of_live_runs(&raw_waiting, &runs).unwrap_or(raw_waiting);
     let same_approvals = waiting.len() == side.approvals.len()
         && waiting
             .iter()
@@ -316,9 +371,9 @@ pub(super) fn poll(s: &mut State) -> bool {
             .all(|(a, b)| a.approval_id == b.approval_id);
     if !same_approvals {
         side.approvals = waiting;
-        changed = true;
+        return true;
     }
-    changed
+    false
 }
 
 pub(super) fn header_button(s: &State, p: &Palette) -> Option<El> {
@@ -764,5 +819,83 @@ mod tests {
         let (_, done_labels) = render_texts_and_labels(sample_side("completed", Vec::new()));
         assert!(!done_labels.iter().any(|l| l.as_deref() == Some("Stop this answer")));
         assert!(done_labels.iter().any(|l| l.as_deref() == Some("Ask on the side")));
+    }
+
+    fn card_for(run_id: &str) -> Request {
+        Request {
+            approval_id: format!("ap_{run_id}"),
+            mission_id: run_id.into(),
+            kind: locust_core::approval::Kind::Command,
+            summary: format!("Run something on {run_id}"),
+            detail: String::new(),
+            cwd: None,
+            requested_at: "2026-09-29T12:00:00.000Z".into(),
+            runtime: "codex".into(),
+            always_covers: None,
+            always_key: None,
+            data_sent_says: None,
+            reversible_says: None,
+            patch: None,
+            claude_input: None,
+            questions: Vec::new(),
+        }
+    }
+
+    fn run_like(phase: &str, data_run_id: Option<&str>) -> RunLike {
+        RunLike {
+            phase: phase.into(),
+            data_run_id: data_run_id.map(str::to_owned),
+        }
+    }
+
+    // an-approval-card-goes-with-its-run.test.ts
+    #[test]
+    fn go_when_their_run_is_stopped_fails_or_finishes() {
+        for phase in ["cancelled", "failed", "completed"] {
+            let runs = HashMap::from([(String::from("run_1"), run_like(phase, None))]);
+            let kept = approvals_of_live_runs(&[card_for("run_1")], &runs)
+                .expect("ended run should drop its approval card");
+            assert!(kept.is_empty());
+        }
+        let by_data = HashMap::from([(String::from("pending_2"), run_like("completed", Some("run_2")))]);
+        let kept = approvals_of_live_runs(&[card_for("run_2")], &by_data)
+            .expect("ended run matched by data_run_id should drop its approval card");
+        assert!(kept.is_empty());
+    }
+
+    // an-approval-card-goes-with-its-run.test.ts
+    #[test]
+    fn stay_while_their_run_is_live_found_by_key_or_by_its_run_id() {
+        let runs = HashMap::from([
+            (String::from("run_1"), run_like("running", None)),
+            (String::from("pending_2"), run_like("waiting", Some("run_2"))),
+        ]);
+        let list = vec![card_for("run_1"), card_for("run_2")];
+        assert!(approvals_of_live_runs(&list, &runs).is_none());
+    }
+
+    // an-approval-card-goes-with-its-run.test.ts
+    #[test]
+    fn stay_when_the_window_does_not_know_the_run_yet() {
+        let list = vec![card_for("run_new")];
+        assert!(approvals_of_live_runs(&list, &HashMap::new()).is_none());
+    }
+
+    // an-approval-card-goes-with-its-run.test.ts
+    #[test]
+    fn keeps_the_same_list_when_nothing_changes_so_the_state_does_not_churn() {
+        let runs = HashMap::from([(String::from("run_1"), run_like("running", None))]);
+        let list = vec![card_for("run_1")];
+        assert!(approvals_of_live_runs(&list, &runs).is_none());
+    }
+
+    #[test]
+    fn side_chat_drops_waiting_cards_once_the_turn_ends() {
+        let mut side = sample_side("running", Vec::new());
+        assert!(apply_waiting_approvals(&mut side, vec![card_for("mission_side")]));
+        assert_eq!(side.approvals.len(), 1);
+        side.turns[0].phase = "completed".into();
+        assert!(apply_waiting_approvals(&mut side, vec![card_for("mission_side")]));
+        assert!(side.approvals.is_empty());
     }
 }
