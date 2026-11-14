@@ -154,3 +154,6 @@ pub mod conversation_turns;
 pub mod peer_thread;
 
 pub mod signal_rail;
+
+#[cfg(test)]
+mod assistant_text_tests;
