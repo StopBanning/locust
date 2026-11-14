@@ -390,4 +390,75 @@ mod tests {
         assert!(huge.truncated);
         assert_eq!(huge.added, 40_000);
     }
+
+    #[test]
+    fn the_live_add_content_not_a_hunk_absolute_path_becomes_one_added_file_with_one_hunk() {
+        let patch = unified_patch_text(
+            &[FileChangeRecord {
+                path: r"C:\Users\colin\shop\SMOKE.txt".into(),
+                kind: FileChangeKind::Add,
+                move_path: None,
+                diff: "smoke ok.\n".into(),
+            }],
+            Some(r"C:\Users\colin\shop"),
+        );
+        let parsed = crate::changes::parse(&patch);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].path, "SMOKE.txt");
+        assert_eq!(parsed[0].status, "ADDED");
+        assert_eq!(parsed[0].hunks.len(), 1);
+        let rows: Vec<(char, &str)> = parsed[0].hunks[0]
+            .rows
+            .iter()
+            .map(|r| (r.kind, r.text.as_str()))
+            .collect();
+        assert_eq!(rows, vec![('+', "smoke ok.")]);
+    }
+
+    #[test]
+    fn update_add_delete_and_move_each_keep_their_status_and_path() {
+        let patch = unified_patch_text(
+            &[
+                FileChangeRecord {
+                    path: "src/a.ts".into(),
+                    kind: FileChangeKind::Update,
+                    move_path: None,
+                    diff: HUNK.into(),
+                },
+                FileChangeRecord {
+                    path: "src/new.ts".into(),
+                    kind: FileChangeKind::Add,
+                    move_path: None,
+                    diff: "one\ntwo\n".into(),
+                },
+                FileChangeRecord {
+                    path: "src/old.ts".into(),
+                    kind: FileChangeKind::Delete,
+                    move_path: None,
+                    diff: "bye\n".into(),
+                },
+                FileChangeRecord {
+                    path: "src/moved.ts".into(),
+                    kind: FileChangeKind::Update,
+                    move_path: Some("src/here.ts".into()),
+                    diff: "@@ -1 +1 @@\n-x\n+y".into(),
+                },
+            ],
+            None,
+        );
+        let parsed = crate::changes::parse(&patch);
+        let summary: Vec<(&str, &str)> = parsed
+            .iter()
+            .map(|f| (f.path.as_str(), f.status.as_str()))
+            .collect();
+        assert_eq!(
+            summary,
+            vec![
+                ("src/a.ts", "MODIFIED"),
+                ("src/new.ts", "ADDED"),
+                ("src/old.ts", "DELETED"),
+                ("src/here.ts", "RENAMED"),
+            ]
+        );
+    }
 }

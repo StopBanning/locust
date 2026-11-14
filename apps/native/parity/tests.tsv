@@ -900,7 +900,7 @@ apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx		wait
 apps/desktop/src/renderer/src/answer-state.test.ts		waiting		
 apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts		waiting		
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx		waiting		
-apps/desktop/src/renderer/src/approval-patch.test.ts		waiting		
+apps/desktop/src/renderer/src/approval-patch.test.ts	approvals	carried	core/src/approval_patch.rs, core/src/changes.rs	all 2 tests; RENAMED detection in changes::parse + approval_patch::unified_patch_text round-trip
 apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts		waiting		
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		waiting		
 apps/desktop/src/renderer/src/backupWords.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)

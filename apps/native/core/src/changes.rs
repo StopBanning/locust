@@ -147,7 +147,11 @@ pub fn parse(text: &str) -> Vec<File> {
             if new == "/dev/null" {
                 f.status = "DELETED".into()
             } else {
-                f.path = new.strip_prefix("b/").unwrap_or(new).into()
+                let next = new.strip_prefix("b/").unwrap_or(new);
+                if f.status == "MODIFIED" && !f.path.is_empty() && f.path != next {
+                    f.status = "RENAMED".into();
+                }
+                f.path = next.into();
             }
         }
         if line.starts_with("new file mode ") {
