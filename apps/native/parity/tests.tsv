@@ -1157,10 +1157,10 @@ apps/desktop/src/shared/commit-and-land-from-a-browser.test.ts		waiting
 apps/desktop/src/shared/cursorIgnore.test.ts		waiting		
 apps/desktop/src/shared/decision.test.ts		carried	core/src/protocol_tags.rs	all 6 cases, assertion by assertion, in reads_dashed_numbered_and_asterisk_options and option_named_after_template_uses_note_and_keeps_real_names
 apps/desktop/src/shared/file-menu.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
-apps/desktop/src/shared/handover.test.ts		waiting		
+apps/desktop/src/shared/handover.test.ts	handover	carried	core/src/protocol_tags.rs	All 19 handover.test.ts cases carried 1:1 in protocol_tags::tests plus briefing/relay wiring
 apps/desktop/src/shared/image-files.test.ts		waiting		
 apps/desktop/src/shared/kilo-installs-in-one-click.test.ts		waiting		
-apps/desktop/src/shared/kilo-models.test.ts		waiting		
+apps/desktop/src/shared/kilo-models.test.ts	handover	carried	core/src/kilo_models.rs	All 5 kilo-models.test.ts cases carried 1:1 in kilo_models::tests
 apps/desktop/src/shared/memory.test.ts	P6	partial		`shared/memory.test.ts` | Fenced examples ignored; four-operation cap; named parser form.
 apps/desktop/src/shared/messageFragments.test.ts		waiting		
 apps/desktop/src/shared/peer-share.test.ts	WORKROOM	carried	core/src/peer_share.rs	all 9 cases
@@ -1169,7 +1169,7 @@ apps/desktop/src/shared/protocol-tags.test.ts		carried	core/src/protocol_tags.rs
 apps/desktop/src/shared/room-task.test.ts	ROOMS	partial	core/src/room_task.rs	task block parsing, defanging, task_key normalization, and board section formatting carried; exhaustive edge cases partial
 apps/desktop/src/shared/routine-schedule.test.ts	p11	partial		`shared/routine-schedule.test.ts` | Partially ported: validation, next-run and label cases match; full schedule helper inventory and DST oracle cases remain.
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	p11	waiting		`shared/routines-and-rooms-from-a-browser.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.
-apps/desktop/src/shared/runtime-install.test.ts		waiting		
+apps/desktop/src/shared/runtime-install.test.ts	handover	carried	core/src/agents_tests.rs	All 5 runtime-install.test.ts cases carried 1:1 in agents::tests plus sign_in_opened_line test and connectors_off/agents_section wiring
 apps/desktop/src/shared/scout-notices-what-is-new.test.ts	scout-1	carried	core/src/scout/unit_tests.rs	all 15 cases carried 1:1 with Electron's exact keys, values, and sentences (PRs, issues, reviews, branch runs, waiting, failed turns, scout_prompt, scout_answers, cards, settings) plus new_issues overflow test
 apps/desktop/src/shared/settings-from-a-browser.test.ts		waiting		
 apps/desktop/src/shared/since-you-were-away.test.ts	p12	partial		`shared/since-you-were-away.test.ts` | ran/failed/missed/waiting; awayLine; wasAway 20m; attention mark
