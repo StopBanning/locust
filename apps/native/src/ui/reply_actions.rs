@@ -101,26 +101,53 @@ pub fn file_target(raw: &str) -> Option<FileTarget> {
     })
 }
 
+/// The words of a file the viewer may show: held to the conversation's folder, then read as Electron's text channel
+/// reads one (`locust_core::text_files`): only a kind of file a teammate writes to be read, nothing past a quarter of a
+/// megabyte (refused whole, never cut), and bytes that are not UTF-8 shown as the replacement character.
 pub fn read_file(root: &Path, target: &FileTarget) -> Result<String, String> {
+    use locust_core::text_files;
+    // The kind of file is judged first, by the name the message gave it: nothing on disk is touched for a file the
+    // viewer will not open.
+    if !text_files::is_viewable_text(&target.path) {
+        return Err(text_files::NOT_OPENED.into());
+    }
     let root = root.canonicalize().map_err(|e| e.to_string())?;
-    let path = root
-        .join(&target.path)
-        .canonicalize()
-        .map_err(|e| e.to_string())?;
+    let Ok(path) = root.join(&target.path).canonicalize() else {
+        return Err(text_files::NOT_THERE.into());
+    };
     if !path.starts_with(&root) {
         return Err("This file is outside the conversation's folder.".into());
     }
-    let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    use std::io::Read;
-    let mut bytes = Vec::new();
-    file.by_ref()
-        .take(1_048_577)
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
-    if bytes.len() > 1_048_576 {
-        return Err("This file is too large to show here.".into());
+    text_files::read_viewable_text(&target.path, &path)
+}
+
+/// A csv or tsv file's text, as Electron's text channel reads a sheet before it asks the allowlist (`SHEET_EXTENSIONS`,
+/// `MAX_SHEET_FILE_BYTES`): held to the conversation's folder, refused whole past 8 MB, read as UTF-8 text.
+fn read_sheet_text(root: &Path, target: &FileTarget) -> Result<String, String> {
+    const MAX_SHEET_FILE_BYTES: u64 = 8 * 1024 * 1024;
+    let root = root.canonicalize().map_err(|e| e.to_string())?;
+    let Ok(path) = root.join(&target.path).canonicalize() else {
+        return Err(locust_core::text_files::NOT_THERE.into());
+    };
+    if !path.starts_with(&root) {
+        return Err("This file is outside the conversation's folder.".into());
     }
-    String::from_utf8(bytes).map_err(|_| "This file is not UTF-8 text.".into())
+    let Ok(measured) = std::fs::metadata(&path) else {
+        return Err(locust_core::text_files::NOT_THERE.into());
+    };
+    if !measured.is_file() {
+        return Err("That is a folder, not a file.".into());
+    }
+    if measured.len() > MAX_SHEET_FILE_BYTES {
+        return Err(format!(
+            "That spreadsheet is {}KB, too big to show here. Save a copy and open it in Excel or Sheets.",
+            (measured.len() as f64 / 1024.0 + 0.5).floor()
+        ));
+    }
+    match std::fs::read(&path) {
+        Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
+        Err(_) => Err(locust_core::text_files::NOT_THERE.into()),
+    }
 }
 
 /// CopyButton.tsx: the copy glyph, a check with "Copied" once it lands, "Not copied" in amber if the clipboard refused.
@@ -199,7 +226,7 @@ fn read_document(root: &Path, target: &FileTarget) -> Result<String, String> {
         return Ok(format_workbook(&book));
     }
     if ext == "csv" || ext == "tsv" {
-        let text = read_file(root, target)?;
+        let text = read_sheet_text(root, target)?;
         let book = crate::office::read_csv(&text, ext == "tsv");
         return Ok(format_workbook(&book));
     }
@@ -567,10 +594,18 @@ mod tests {
                 .contains("[package]")
         );
         assert!(read_file(root, &file_target("../native/../../outside.txt").unwrap()).is_err());
+        // The kind of file is judged first, as Electron's text channel judges it: a file with no listed extension is
+        // never opened, wherever it is.
         assert_eq!(
             read_file(root, &file_target("/etc/passwd").unwrap()).unwrap_err(),
-            "This file is outside the conversation's folder."
+            "Locust does not open that kind of file here."
         );
+        // A listed kind that is not in the folder is held out of it.
+        let outside = std::env::temp_dir().join(format!("locust-viewer-outside-{}.txt", locust_core::invariants::unique_nanos()));
+        std::fs::write(&outside, "secret").unwrap();
+        let said = read_file(root, &file_target(&outside.to_string_lossy()).unwrap());
+        let _ = std::fs::remove_file(&outside);
+        assert_eq!(said.unwrap_err(), "This file is outside the conversation's folder.");
         assert!(file_target("file://src/main.rs:3").is_some());
         assert!(file_target("src/main.rs\0:1").is_none());
     }

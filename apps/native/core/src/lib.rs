@@ -20,6 +20,7 @@ pub mod remote_control;
 pub mod agent_accounts;
 pub mod agent_install;
 pub mod teammate_keys;
+pub mod text_files;
 pub mod undone_note;
 pub mod tool_fold;
 pub mod mcp_names;

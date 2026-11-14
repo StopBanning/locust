@@ -27,21 +27,15 @@ fn resolved(s: &mut State, scope: &str, path: &str) -> Option<PathBuf> {
 /// Copy a handed text file's words (Electron's CopyButton on the file): a spreadsheet or a Word file has none to copy.
 fn copy_handed_file(s: &mut State, tx: &mut Tx, scope: &str, path: &str) {
     let Some(file) = resolved(s, scope, path) else { return };
-    let kind = file.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
-    if matches!(kind.as_str(), "xlsx" | "xls" | "csv" | "tsv" | "docx" | "doc" | "pdf" | "pptx") {
-        s.handed_file_refusal = Some((scope.to_owned(), "Only a text file can be copied. Save a copy instead.".into()));
-        return;
-    }
-    let Ok(bytes) = std::fs::read(&file) else {
-        s.handed_file_refusal = Some((scope.to_owned(), "Locust could not reach that file. Nothing was changed.".into()));
-        return;
-    };
-    match Some(bytes).filter(|b| b.len() <= 2 * 1024 * 1024).and_then(|b| String::from_utf8(b).ok()) {
-        Some(text) => {
+    // The same reading as the viewer's (Electron's CopyButton asks `readTextFile`): a spreadsheet or a Word file has no
+    // text to copy as it is; a kind of file a teammate does not write to be read, a folder, a file not there and a file
+    // past a quarter of a megabyte are each refused in the viewer's own words.
+    match locust_core::text_files::read_for_copy(path, &file) {
+        Ok(text) => {
             s.handed_file_refusal = None;
             crate::reply_actions::request_copy(tx, text);
         }
-        None => s.handed_file_refusal = Some((scope.to_owned(), "Only a text file can be copied. Save a copy instead.".into())),
+        Err(why) => s.handed_file_refusal = Some((scope.to_owned(), why)),
     }
 }
 

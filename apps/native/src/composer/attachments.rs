@@ -1,10 +1,7 @@
 //! Attachment preamble / caps — port of `shared/attachments.ts`. The words live in `locust_core::attachments`; what
 //! stays here is the composer's own `attachPaths`.
 
-pub use locust_core::attachments::{
-    ATTACHMENT_DIR, MAX_ATTACHMENTS, MAX_PASTED_BYTES, attachment_label, attachment_preamble, split_attachments, with_attachments,
-    with_attachments_note,
-};
+pub use locust_core::attachments::{MAX_ATTACHMENTS, MAX_PASTED_BYTES, attachment_label, split_attachments, with_attachments};
 
 /// Cap + dedupe paths the way Composer.attachPaths does. Returns (kept, note).
 pub fn attach_paths(current: &[String], added: &[String]) -> (Vec<String>, Option<String>) {
