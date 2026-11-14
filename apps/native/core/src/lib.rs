@@ -163,3 +163,6 @@ mod changed_file_tests;
 
 #[cfg(test)]
 mod typed_prompt_tests;
+
+#[cfg(test)]
+mod plan_payload_tests;
