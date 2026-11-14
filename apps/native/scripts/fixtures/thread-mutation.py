@@ -24,6 +24,9 @@ controls = {
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
 controls.update({
+    'cancellation-planned': ('core/src/cancellation.rs', 'latest.map_or((0, 0, planned_steps),', 'latest.map_or((0, 0, 0),', 'separates_tool_outcomes_and_never_substitutes_them_for_unreported_plan_states'),
+    'cancellation-dedup': ('core/src/cancellation.rs', '!seen.insert(key(name))', '(!seen.insert(key(name)) && name.is_empty())', 'counts_one_file_once_however_each_tool_spelled_its_path'),
+
     'conversation-draw': ('core/src/ledger.rs', '(!stitched || !matches!(item, Item::User(_)))', '(true || !matches!(item, Item::User(_)))', 'the_session_stitches_a_midrun_handoff_but_preserves_a_reply_switch'),
 
     'conversation-walk': ('core/src/conversation_turns.rs', 'turns.reverse();turns', 'turns', 'walks_a_reply_back_to_every_earlier_turn_oldest_first'),

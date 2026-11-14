@@ -18,6 +18,11 @@ pub struct Summary {
 
 /// The turn's items, as the thread holds them; `runtime` the agent that ran it; `workspace` the folder.
 pub fn summary(items: &[Item], runtime: &str, workspace: Option<&str>) -> Summary {
+    summary_with_planned(items, runtime, workspace, 0)
+}
+
+/// An older record may know the planned count without carrying the plan's states.
+pub fn summary_with_planned(items: &[Item], runtime: &str, workspace: Option<&str>, planned_steps: usize) -> Summary {
     let normal = |path: &str| path.replace('\\', "/").trim_end_matches('/').to_lowercase();
     let root = workspace.map(normal);
     let shown = |name: &str| -> String {
@@ -65,7 +70,7 @@ pub fn summary(items: &[Item], runtime: &str, workspace: Option<&str>) -> Summar
         Item::Plan { steps, .. } if !steps.is_empty() => Some(steps),
         _ => None,
     });
-    let (finished, cut_off, total) = latest.map_or((0, 0, 0), |steps| {
+    let (finished, cut_off, total) = latest.map_or((0, 0, planned_steps), |steps| {
         (steps.iter().filter(|s| s.state == "done").count(), steps.iter().filter(|s| s.state == "running").count(), steps.len())
     });
     Summary {
@@ -141,3 +146,6 @@ mod tests {
         assert!(!summary(&[], "codex", None).tools_reported_when_done);
     }
 }
+
+#[cfg(test)]
+#[path = "cancellation_summary_tests.rs"] mod mission_view_tests;
