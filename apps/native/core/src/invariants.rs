@@ -2,7 +2,50 @@
 pub fn regex(pattern: &'static str) -> regex::Regex {
     // Callers supply only source literals (or entries in literal arrays), exercised by tests.
     // A bad pattern is a programming error; no external input can make compilation fail.
-    regex::Regex::new(pattern).expect("valid source regex")
+    //
+    // Built once per thread and handed out as a clone: a Regex's clones share the compiled program, so a clone is a
+    // reference count, where building one parses and compiles the pattern again. This is called from some 340 places,
+    // several of them on every frame or every ledger line, and it used to build the pattern every time.
+    thread_local! {
+        static BUILT: std::cell::RefCell<std::collections::HashMap<&'static str, regex::Regex>> = Default::default();
+    }
+    BUILT.with(|built| {
+        built
+            .borrow_mut()
+            .entry(pattern)
+            .or_insert_with(|| regex::Regex::new(pattern).expect("valid source regex"))
+            .clone()
+    })
+}
+
+#[cfg(test)]
+mod regex_tests {
+    #[test]
+    fn a_pattern_is_built_once_and_its_clones_match_as_the_first_did() {
+        let a = super::regex(r"(?i)\bquota (?:exceeded|exhausted)\b");
+        let b = super::regex(r"(?i)\bquota (?:exceeded|exhausted)\b");
+        assert!(a.is_match("Quota exhausted") && b.is_match("quota exceeded") && !b.is_match("quota resets"));
+        // Two patterns never share an entry.
+        assert!(!super::regex(r"^a$").is_match("b") && super::regex(r"^b$").is_match("b"));
+    }
+
+    #[test]
+    fn building_once_is_much_faster_than_building_every_time() {
+        // A typical pattern from the code (protocol_tags' tag line), 2,000 calls each way.
+        const P: &str = r"(?i)</?(?:locust-share|locust-memory|locust-ask|locust-task|locust-file|locust-tidy|locust-instructions|locust-key|locust-next)\b[^<>]{0,400}>";
+        let built = std::time::Instant::now();
+        for _ in 0..2_000 {
+            assert!(regex::Regex::new(P).unwrap().is_match("<locust-ask>"));
+        }
+        let built = built.elapsed();
+        let cached = std::time::Instant::now();
+        for _ in 0..2_000 {
+            assert!(super::regex(P).is_match("<locust-ask>"));
+        }
+        let cached = cached.elapsed();
+        eprintln!("2,000 calls: built every time {built:?}, built once {cached:?}");
+        assert!(cached * 5 < built, "caching should be far faster: {built:?} vs {cached:?}");
+    }
 }
 pub fn lock<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     // These locks protect internal state. Poison requires an earlier panic during mutation;
