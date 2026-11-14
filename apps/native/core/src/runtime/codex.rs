@@ -4,7 +4,7 @@ use super::{Event, Runtime, Turn, events::Normalizer};
 use crate::approval::{Channel, Mode};
 use serde_json::{Value, json};
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     io::{self, BufReader, Write},
     process::{Child, Command, Stdio},
     sync::{
@@ -33,6 +33,7 @@ pub struct Codex {
     run_id: String,
     mode: Mode,
     approval_lifecycle: ApprovalLifecycle,
+    changes_by_item: Arc<Mutex<HashMap<String, Vec<crate::approval_patch::FileChangeRecord>>>>,
     /// Config for this thread only, laid over the person's own (codex-app-server-run.ts `threadConfig`): Locust's
     /// command guard. Nothing is written to their config.toml.
     thread_config: Option<Value>,
@@ -70,6 +71,9 @@ impl Codex {
         });
         let approval_lifecycle: ApprovalLifecycle = Arc::new(Mutex::new(None));
         let lifecycle = approval_lifecycle.clone();
+        let changes_by_item: Arc<Mutex<HashMap<String, Vec<crate::approval_patch::FileChangeRecord>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let changes_reader = changes_by_item.clone();
         // spawn configured a piped stdout; no prior take occurs.
         let output = child
             .stdout
@@ -88,11 +92,17 @@ impl Codex {
                     Ok(_) if line.len() as u64 > MAX_LINE => {
                         Err(err("Codex JSON-RPC line exceeds 8 MiB"))
                     }
-                    Ok(_) => serde_json::from_slice(&line)
+                    Ok(_) => serde_json::from_slice::<Value>(&line)
                         .map_err(|_| err("Codex sent malformed JSON-RPC")),
                     Err(e) => Err(e),
                 };
                 let terminal = value.is_err();
+                if let Ok(v) = &value
+                    && let Some((id, item)) = crate::approval_patch::item_of(&v["params"])
+                    && let Some(changes) = crate::approval_patch::file_changes_of(&item)
+                {
+                    crate::invariants::lock(&changes_reader).insert(id, changes);
+                }
                 if let Some((channel, mission, thread)) =
                     crate::invariants::lock(&lifecycle).as_ref()
                 {
@@ -137,6 +147,7 @@ impl Codex {
             run_id: String::new(),
             mode: Mode::Ask,
             approval_lifecycle,
+            changes_by_item,
             thread_config: None,
             fork: false,
             slash: None,
@@ -250,7 +261,16 @@ impl Codex {
         };
         let (mission, run, cancel) = (self.mission_id.clone(), self.run_id.clone(), self.cancel.clone());
         let is_cancelled = move || crate::run_cli::interrupted() || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed));
-        match channel.ask_codex(&run, &mission, method, params, wire_id, &is_cancelled) {
+        match channel.ask_codex_with_changes(
+            &run,
+            &mission,
+            "codex",
+            method,
+            params,
+            wire_id,
+            Some(&self.changes_by_item),
+            &is_cancelled,
+        ) {
             Ok(result) => Ok(result),
             Err(message) => {
                 self.queued.push_back(self.normal.diagnostic(method, &message));
@@ -290,7 +310,16 @@ impl Codex {
             crate::run_cli::interrupted()
                 || cancel.as_ref().is_some_and(|f| f.load(Ordering::Relaxed))
         };
-        match channel.ask_codex(&run, &mission, method, params, wire_id, &is_cancelled) {
+        match channel.ask_codex_with_changes(
+            &run,
+            &mission,
+            "codex",
+            method,
+            params,
+            wire_id,
+            Some(&self.changes_by_item),
+            &is_cancelled,
+        ) {
             Ok(result) => Ok(result),
             Err(message) => {
                 self.queued

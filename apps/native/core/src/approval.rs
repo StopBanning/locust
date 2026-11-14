@@ -212,6 +212,7 @@ pub struct Request {
     pub always_key: Option<String>,
     pub data_sent_says: Option<String>,
     pub reversible_says: Option<String>,
+    pub patch: Option<crate::approval_patch::ToolPatch>,
 
     /// Wire id the runtime needs to answer (Codex JSON-RPC id, or Claude request_id).
 
@@ -432,12 +433,12 @@ pub fn describe_claude_tool(
                 a
             }
         };
-        let outside = !file.is_empty() && !cwd.is_empty() && {
-            let path = std::path::Path::new(&file);
-            path.components()
-                .any(|c| c == std::path::Component::ParentDir)
-                || (path.is_absolute() && !path.starts_with(cwd))
+        let relative = if !file.is_empty() && !cwd.is_empty() {
+            crate::approval_rules::inside_folder(&file, cwd)
+        } else {
+            None
         };
+        let outside = !file.is_empty() && !cwd.is_empty() && relative.is_none();
         if outside {
             return (
                 Kind::FileChange,
@@ -450,11 +451,7 @@ pub fn describe_claude_tool(
         return (
             Kind::FileChange,
             "Change 1 file".into(),
-            std::path::Path::new(&file)
-                .strip_prefix(cwd)
-                .ok()
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or(file),
+            relative.unwrap_or(file),
             None,
             None,
         );
@@ -477,7 +474,7 @@ pub fn describe_claude_tool(
     )
 }
 
-fn always_covers(tool: &str) -> String {
+pub fn always_covers(tool: &str) -> String {
     if tool == "Bash" {
         return "every command it runs".into();
     }
@@ -677,34 +674,122 @@ impl Channel {
     /// Raise a Codex approval and block until answered, cancelled, or the turn ends.
     pub fn ask_codex(
         &self,
-        _run_id: &str,
-
+        run_id: &str,
         mission_id: &str,
         method: &str,
         params: &Value,
+        wire_id: Value,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Value, String> {
+        self.ask_codex_with_changes(run_id, mission_id, "codex", method, params, wire_id, None, cancel)
+    }
 
+    /// Raise a Codex/OpenCode-shaped request card, waiting briefly for Codex `item/started` file changes.
+    #[allow(clippy::too_many_arguments)]
+    pub fn ask_codex_with_changes(
+        &self,
+        _run_id: &str,
+        mission_id: &str,
+        runtime: &str,
+        method: &str,
+        params: &Value,
         _wire_id: Value,
+        changes_by_item: Option<
+            &std::sync::Mutex<
+                std::collections::HashMap<String, Vec<crate::approval_patch::FileChangeRecord>>,
+            >,
+        >,
         cancel: &dyn Fn() -> bool,
     ) -> Result<Value, String> {
         let Some((kind, summary, detail, cwd)) = describe_codex(method, params) else {
             return Ok(json!({"decision":"reject"}));
         };
-        let questions = if kind == Kind::Question { questions_of(params) } else { Vec::new() };
+        let questions = if kind == Kind::Question {
+            questions_of(params)
+        } else {
+            Vec::new()
+        };
+        let item_id = params["itemId"].as_str();
+        let read_changes = || {
+            if kind != Kind::FileChange {
+                return None;
+            }
+            let (id, map) = (item_id?, changes_by_item?);
+            crate::invariants::lock(map).get(id).cloned()
+        };
+        let mut changes = read_changes();
+        let runtime = if runtime.is_empty() { "codex" } else { runtime };
+        let codex = runtime == "codex";
+        if codex
+            && kind == Kind::FileChange
+            && item_id.is_some()
+            && changes.is_none()
+            && !params["unifiedDiff"].is_string()
+        {
+            for _ in 0..10 {
+                if cancel() {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+                changes = read_changes();
+                if changes.is_some() {
+                    break;
+                }
+            }
+        }
+        let said = |key: &str| -> Option<String> {
+            params["locustCard"]
+                .get(key)
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned)
+        };
+        let cwd_str = cwd.as_deref().unwrap_or("");
+        let offered = params["unifiedDiff"]
+            .as_str()
+            .and_then(|d| diff_patch_from(d, cwd_str));
+        let patch = changes
+            .as_deref()
+            .and_then(|c| {
+                crate::approval_patch::approval_patch_from(
+                    Some(c),
+                    (!cwd_str.is_empty()).then_some(cwd_str),
+                )
+            })
+            .or_else(|| offered.clone());
+        let summary = if let Some(c) = changes.as_ref().filter(|c| !c.is_empty()) {
+            format!("Change {} file{}", c.len(), if c.len() == 1 { "" } else { "s" })
+        } else {
+            said("summary").unwrap_or_else(|| {
+                if offered.is_some() {
+                    "Change 1 file".into()
+                } else {
+                    summary
+                }
+            })
+        };
+        let always_key = if codex {
+            None
+        } else {
+            params["locustAlwaysKey"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.chars().take(2_000).collect())
+        };
         let request = Request {
             approval_id: new_id(),
-
             mission_id: mission_id.into(),
-            runtime: "codex".into(),
+            runtime: runtime.into(),
             kind,
             summary,
             detail,
             cwd,
             requested_at: now_iso(),
-            always_covers: None,
-            always_key: None,
-            data_sent_says: None,
-            reversible_says: None,
-
+            always_covers: said("alwaysCovers"),
+            always_key,
+            data_sent_says: said("dataSentSays"),
+            reversible_says: said("reversibleSays"),
+            patch,
             claude_input: None,
             questions,
         };
@@ -744,6 +829,7 @@ impl Channel {
             always_key: Some(format!("claude:{tool_name}")),
             data_sent_says: data_sent,
             reversible_says: reversible,
+            patch: None,
 
             claude_input: Some(input.clone()),
 
@@ -845,6 +931,7 @@ impl Channel {
             always_key: target.map(|target| format!("acp:{call_kind}:{target}")),
             data_sent_says: None,
             reversible_says: None,
+            patch: None,
 
             claude_input: None,
 
@@ -863,7 +950,7 @@ impl Channel {
 
     /// Browser actions never inherit a command allow rule or Auto-mode bypass.
     pub fn ask_browser(&self, mission: &str, title: &str, detail: &str, cancel: &dyn Fn() -> bool) -> Result<bool, String> {
-        let request = Request { approval_id: new_id(), mission_id: mission.into(), runtime: "browser".into(), kind: Kind::Connector, summary: whole_detail(title), detail: whole_detail(detail), cwd: None, requested_at: now_iso(), always_covers: None, always_key: None, data_sent_says: None, reversible_says: None, claude_input: None, questions: Vec::new() };
+        let request = Request { approval_id: new_id(), mission_id: mission.into(), runtime: "browser".into(), kind: Kind::Connector, summary: whole_detail(title), detail: whole_detail(detail), cwd: None, requested_at: now_iso(), always_covers: None, always_key: None, data_sent_says: None, reversible_says: None, patch: None, claude_input: None, questions: Vec::new() };
         self.ask(request, cancel).map(|a| matches!(a, Answer::Decision { decision: Decision::ApproveOnce | Decision::ApproveAlways, .. }))
     }
 
@@ -1161,13 +1248,235 @@ pub fn asks_every_time(card: &Request) -> bool {
     card.runtime == "browser" || command_reach_of(card).is_some()
 }
 
+/// `approval-channel.ts:diffPatchFrom`
+pub fn diff_patch_from(diff: &str, cwd: &str) -> Option<crate::approval_patch::ToolPatch> {
+    let cwd = (!cwd.is_empty()).then_some(cwd);
+    let mut out = Vec::new();
+    for line in diff.lines() {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        if line.starts_with("Index: ")
+            || (line.len() >= 10 && line.bytes().all(|b| b == b'='))
+        {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("--- ").or_else(|| line.strip_prefix("+++ ")) {
+            let prefix = &line[..3];
+            let rel = crate::approval_patch::relative_to_folder(rest.trim(), cwd);
+            out.push(format!("{prefix} {rel}"));
+        } else {
+            out.push(line.to_owned());
+        }
+    }
+    let text = out.join("\n").trim().to_owned();
+    text.contains("@@")
+        .then(|| crate::approval_patch::tool_patch_from(&text))
+        .flatten()
+}
+
+/// `approval-channel.ts:openCodePermissionRequest`
+pub fn open_code_permission_request(permission: &Value, cwd: &str) -> Value {
+    const OUTSIDE_NOT_UNDOABLE: &str = "Not from here — it is outside your project folder, so the project’s version control does not hold it.";
+    let perm = permission["permission"].as_str().unwrap_or("unknown");
+    let patterns: Vec<String> = permission["patterns"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect();
+    let always: Vec<String> = permission["always"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect();
+    let said = |key: &str| -> Option<String> {
+        permission["metadata"]
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+    };
+    let always_covers = if always.is_empty() {
+        None
+    } else if always.len() == 1 && always[0] == "*" {
+        Some(match perm {
+            "edit" => "every file change it asks for".into(),
+            "bash" => "every command it asks to run".into(),
+            "webfetch" => "every web page it asks to fetch".into(),
+            "external_directory" => "every place outside the project it asks to reach".into(),
+            other => format!("every “{other}” it asks for"),
+        })
+    } else {
+        Some(format!(
+            "anything matching {}",
+            always
+                .iter()
+                .map(|p| format!("“{p}”"))
+                .collect::<Vec<_>>()
+                .join(" or ")
+        ))
+    };
+    let by = if permission["bySubagent"].as_bool() == Some(true) {
+        ", asked by a subagent it started"
+    } else {
+        ""
+    };
+    let card = |summary_override: Option<&str>,
+                plain: &str,
+                data_sent: Option<&str>,
+                reversible: Option<&str>|
+     -> Value {
+        let mut obj = serde_json::Map::new();
+        let summary = summary_override
+            .or_else(|| (!by.is_empty()).then_some(plain))
+            .map(|s| format!("{s}{by}"));
+        if let Some(s) = summary {
+            obj.insert("summary".into(), json!(s));
+        }
+        if let Some(d) = data_sent {
+            obj.insert("dataSentSays".into(), json!(d));
+        }
+        if let Some(r) = reversible {
+            obj.insert("reversibleSays".into(), json!(r));
+        }
+        if let Some(ac) = &always_covers {
+            obj.insert("alwaysCovers".into(), json!(ac));
+        }
+        Value::Object(obj)
+    };
+    let (method, mut params) = match perm {
+        "bash" => {
+            let cmd = said("command").unwrap_or_else(|| patterns.join(" "));
+            (
+                "item/commandExecution/requestApproval",
+                json!({
+                    "command": cmd,
+                    "cwd": cwd,
+                    "locustCard": card(None, "Run a command", None, None),
+                }),
+            )
+        }
+        "edit" => {
+            let file = said("filepath")
+                .or_else(|| said("filePath"))
+                .unwrap_or_else(|| patterns.join(", "));
+            let diff = said("diff");
+            let outside = !file.is_empty()
+                && !cwd.is_empty()
+                && crate::approval_rules::inside_folder(&file, cwd).is_none();
+            let locust_card = if outside {
+                card(
+                    Some("Change 1 file outside your project folder"),
+                    "Change 1 file",
+                    None,
+                    Some(OUTSIDE_NOT_UNDOABLE),
+                )
+            } else {
+                card(None, "Change 1 file", None, None)
+            };
+            let rel = crate::approval_patch::relative_to_folder(
+                &file,
+                (!cwd.is_empty()).then_some(cwd),
+            );
+            let mut p = json!({
+                "summary": rel,
+                "cwd": cwd,
+                "locustCard": locust_card,
+            });
+            if let Some(d) = diff {
+                p["unifiedDiff"] = json!(d);
+            }
+            ("item/fileChange/requestApproval", p)
+        }
+        "external_directory" => (
+            "item/commandExecution/requestApproval",
+            json!({
+                "command": patterns.join("\n"),
+                "cwd": cwd,
+                "locustCard": card(
+                    Some("Reach files outside your project folder"),
+                    "",
+                    Some("Nothing by this alone: it lets the teammate’s tools read or change these paths on this machine."),
+                    Some("Reading changes nothing. A change there is outside the project’s version control."),
+                ),
+            }),
+        ),
+        "webfetch" => {
+            let address = said("url").unwrap_or_else(|| patterns.join("\n"));
+            (
+                "item/commandExecution/requestApproval",
+                json!({
+                    "command": address,
+                    "cwd": cwd,
+                    "locustCard": card(
+                        Some("Fetch a web page"),
+                        "",
+                        Some("The address above is requested from this machine, and the page it returns goes to the model."),
+                        Some("Nothing on this machine is changed by fetching."),
+                    ),
+                }),
+            )
+        }
+        other => {
+            let filtered: Vec<&str> = patterns
+                .iter()
+                .map(String::as_str)
+                .filter(|p| *p != "*")
+                .collect();
+            (
+                "item/commandExecution/requestApproval",
+                json!({
+                    "command": filtered.join("\n"),
+                    "cwd": cwd,
+                    "locustCard": card(
+                        Some(&format!("Use {other}")),
+                        "",
+                        Some(&format!("Unknown. OpenCode names this “{other}”, and Locust cannot tell what it sends.")),
+                        Some(&format!("Unknown — Locust cannot tell what “{other}” does.")),
+                    ),
+                }),
+            )
+        }
+    };
+    let covers: Vec<String> = if !always.is_empty() {
+        always
+    } else {
+        patterns.into_iter().filter(|p| !p.is_empty()).collect()
+    };
+    if !covers.is_empty() {
+        params["locustAlwaysKey"] = json!(format!("opencode:{perm}:{}", covers.join("\n")));
+    }
+    json!({
+        "id": 0,
+        "method": method,
+        "params": params,
+    })
+}
+
+/// `approval-channel.ts:openCodeReplyFor`
+pub fn open_code_reply_for(result: &Value) -> Value {
+    match result["decision"].as_str() {
+        Some("accept" | "acceptForSession") => json!("once"),
+        _ => match result["reason"].as_str().filter(|r| !r.is_empty()) {
+            Some(reason) => json!({
+                "reply": "reject",
+                "message": format!("The person declined this, and said: {reason}"),
+            }),
+            None => json!("reject"),
+        },
+    }
+}
+
 fn request_view(card: &Request) -> crate::approval_rules::RequestView<'_> {
     crate::approval_rules::RequestView {
         kind: card.kind.as_str(),
         summary: &card.summary,
         detail: &card.detail,
         runtime: Some(card.runtime.as_str()),
-        patch_text: None,
+        patch_text: card.patch.as_ref().map(|p| p.text.as_str()),
     }
 }
 
@@ -1523,6 +1832,7 @@ mod tests {
             always_key: None,
             data_sent_says: None,
             reversible_says: None,
+            patch: None,
 
             claude_input: None,
 
@@ -1766,5 +2076,171 @@ mod tests {
         );
         let denied = handle.join().unwrap().unwrap();
         assert_eq!(denied["behavior"], "deny");
+    }
+
+    #[test]
+    fn says_what_always_lets_through_on_claude_the_one_tool_or_every_command_for_bash() {
+        assert_eq!(
+            always_covers("mcp__github__list_issues"),
+            "list_issues on github again, and no other tool"
+        );
+        assert_eq!(always_covers("Bash"), "every command it runs");
+    }
+
+    #[test]
+    fn carries_opencodes_own_words_to_the_card_a_fetch_and_what_always_matches() {
+        let ch = Channel::new();
+        let ch2 = ch.clone();
+        let asked = open_code_permission_request(
+            &json!({
+                "permission": "webfetch",
+                "patterns": ["https://example.com/"],
+                "always": ["*"],
+                "metadata": {"url": "https://example.com/"},
+            }),
+            "C:/work",
+        );
+        let handle = std::thread::spawn(move || {
+            ch2.ask_codex_with_changes(
+                "run_1",
+                "m_1",
+                "opencode",
+                asked["method"].as_str().unwrap(),
+                &asked["params"],
+                asked["id"].clone(),
+                None,
+                &|| false,
+            )
+        });
+        for _ in 0..100 {
+            if ch.pending_count() == 1 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let raised = ch.waiting();
+        assert_eq!(raised.len(), 1);
+        assert_eq!(raised[0].summary, "Fetch a web page");
+        assert_eq!(raised[0].detail, "https://example.com/");
+        assert_eq!(
+            raised[0].data_sent_says.as_deref(),
+            Some("The address above is requested from this machine, and the page it returns goes to the model.")
+        );
+        assert_eq!(
+            raised[0].always_covers.as_deref(),
+            Some("every web page it asks to fetch")
+        );
+        ch.release("m_1");
+        let _ = handle.join().unwrap();
+    }
+
+    #[test]
+    fn says_when_a_subagent_the_teammate_started_is_the_one_asking() {
+        let bash = open_code_permission_request(
+            &json!({
+                "permission": "bash",
+                "patterns": ["echo FROM-SUBAGENT"],
+                "bySubagent": true,
+                "metadata": {"command": "echo FROM-SUBAGENT"},
+            }),
+            "C:/work",
+        );
+        assert_eq!(bash["params"]["command"], "echo FROM-SUBAGENT");
+        assert_eq!(
+            bash["params"]["locustCard"]["summary"],
+            "Run a command, asked by a subagent it started"
+        );
+        let fetch = open_code_permission_request(
+            &json!({
+                "permission": "webfetch",
+                "patterns": ["https://example.com/"],
+                "bySubagent": true,
+                "metadata": {},
+            }),
+            "C:/work",
+        );
+        assert_eq!(
+            fetch["params"]["locustCard"]["summary"],
+            "Fetch a web page, asked by a subagent it started"
+        );
+        let plain = open_code_permission_request(
+            &json!({
+                "permission": "bash",
+                "patterns": ["ls"],
+                "metadata": {"command": "ls"},
+            }),
+            "C:/work",
+        );
+        assert!(!plain.to_string().contains("subagent"));
+    }
+
+    #[test]
+    fn says_a_claude_write_outside_the_folder_is_outside_it_and_not_undoable_from_here() {
+        let card = describe_claude_tool(
+            "Write",
+            &json!({"file_path": "C:/Windows/System32/drivers/etc/hosts", "content": "x"}),
+            "C:/work",
+        );
+        assert_eq!(card.0, Kind::FileChange);
+        assert_eq!(card.1, "Change 1 file outside your project folder");
+        assert_eq!(card.2, "C:/Windows/System32/drivers/etc/hosts");
+        assert!(card.4.as_deref().unwrap_or("").starts_with("Not from here"));
+        let inside = describe_claude_tool(
+            "Write",
+            &json!({"file_path": "C:/work/notes.txt", "content": "x"}),
+            "C:/work",
+        );
+        assert_eq!(
+            (inside.0, inside.1.as_str(), inside.2.as_str(), inside.3, inside.4),
+            (Kind::FileChange, "Change 1 file", "notes.txt", None, None)
+        );
+    }
+
+    #[test]
+    fn draws_a_codex_file_change_whose_approval_arrived_before_its_item_was_read() {
+        let ch = Channel::new();
+        let ch2 = ch.clone();
+        let changes_by_item = std::sync::Arc::new(std::sync::Mutex::new(
+            std::collections::HashMap::<String, Vec<crate::approval_patch::FileChangeRecord>>::new(),
+        ));
+        let changes_writer = changes_by_item.clone();
+        let handle = std::thread::spawn(move || {
+            ch2.ask_codex_with_changes(
+                "run_2",
+                "m_2",
+                "codex",
+                "item/fileChange/requestApproval",
+                &json!({"itemId": "item_1", "cwd": "C:/work"}),
+                json!(7),
+                Some(&changes_by_item),
+                &|| false,
+            )
+        });
+        std::thread::sleep(Duration::from_millis(5));
+        crate::invariants::lock(&changes_writer).insert(
+            "item_1".into(),
+            vec![crate::approval_patch::FileChangeRecord {
+                path: "C:/work/approved.txt".into(),
+                kind: crate::approval_patch::FileChangeKind::Add,
+                move_path: None,
+                diff: "hello\n".into(),
+            }],
+        );
+        for _ in 0..100 {
+            if ch.pending_count() == 1 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let raised = ch.waiting();
+        assert_eq!(raised.len(), 1);
+        assert_eq!(raised[0].kind, Kind::FileChange);
+        assert_eq!(raised[0].summary, "Change 1 file");
+        assert!(raised[0]
+            .patch
+            .as_ref()
+            .is_some_and(|p| p.text.contains("+hello")));
+        ch.release("m_2");
+        let _ = handle.join().unwrap();
     }
 }
