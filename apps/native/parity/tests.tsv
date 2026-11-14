@@ -1151,7 +1151,7 @@ apps/desktop/src/shared/an-issue-becomes-a-brief.test.ts	ISSUES	carried	core/src
 apps/desktop/src/shared/approval-data.test.ts		waiting		
 apps/desktop/src/shared/approval-rules.test.ts	P8	partial		`shared/approval-rules.test.ts` | Exact/prefix allow; compound never allowed; deny wins; outside paths ask; secret candidate refused
 apps/desktop/src/shared/attachments.test.ts		waiting		
-apps/desktop/src/shared/board-is-not-behind.test.ts		waiting		
+apps/desktop/src/shared/board-is-not-behind.test.ts		carried	core/src/room_task.rs	all 7 cases, exact inputs/words, in board_is_not_behind_* tests
 apps/desktop/src/shared/claim-what-you-start.test.ts		waiting		
 apps/desktop/src/shared/commit-and-land-from-a-browser.test.ts		waiting		
 apps/desktop/src/shared/cursorIgnore.test.ts		waiting		
