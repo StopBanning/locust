@@ -74,6 +74,20 @@ pub(super) fn decide_pending(s: &mut State, decision: approval::Decision) {
     }
 }
 
+fn runtime_display_name(runtime: &str) -> &'static str {
+    match runtime {
+        "claude" => "Claude Code",
+        "acp" => "ACP agent",
+        "opencode" => "OpenCode",
+        "kilo" => "Kilo",
+        "cursor" => "Cursor",
+        "copilot" => "GitHub Copilot",
+        "antigravity" => "Antigravity",
+        "muse" => "Muse Code",
+        _ => "Codex CLI",
+    }
+}
+
 pub(super) fn approval_card(s: &State, p: &Palette) -> El {
     let Some(card) = &s.pending_approval else {
         return col().w_full();
@@ -102,17 +116,7 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
         .child(
             text(format!(
                 "{}{}",
-                match card.runtime.as_str() {
-                    "claude" => "Claude Code",
-                    "acp" => "ACP agent",
-                    "opencode" => "OpenCode",
-                    "kilo" => "Kilo",
-                    "cursor" => "Cursor",
-                    "copilot" => "GitHub Copilot",
-                    "antigravity" => "Antigravity",
-                    "muse" => "Muse Code",
-                    _ => "Codex CLI",
-                },
+                runtime_display_name(&card.runtime),
                 if card.cwd.is_none() {
                     " · this workspace"
                 } else {
@@ -177,6 +181,70 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
                 .w_full()
                 .wrap(),
         );
+    }
+    if let Some(patch) = &card.patch {
+        let who = runtime_display_name(&card.runtime);
+        let mut patch_box = col()
+            .w_full()
+            .gap(4.0)
+            .padding(8.0)
+            .radius(6.0)
+            .fill(p.bg)
+            .border(1.0, p.hairline)
+            .child(
+                row()
+                    .w_full()
+                    .gap(8.0)
+                    .child(
+                        text(format!("The change, as {who} would apply it"))
+                            .font(type_::LABEL)
+                            .color(p.text)
+                            .wrap(),
+                    )
+                    .child(
+                        text(format!("+{} −{}", patch.added, patch.removed))
+                            .font(type_::LABEL)
+                            .color(p.muted),
+                    ),
+            );
+        let files = locust_core::changes::parse(&patch.text);
+        if files.is_empty() {
+            patch_box = patch_box.child(
+                text("Codex sent a change this build could not read as a diff.")
+                    .font(type_::LABEL)
+                    .color(p.muted)
+                    .w_full()
+                    .wrap(),
+            );
+        } else {
+            for file in files {
+                patch_box = patch_box.child(
+                    text(format!("{} · {}", file.path, file.status))
+                        .font(type_::LABEL)
+                        .color(p.secondary)
+                        .w_full()
+                        .wrap_anywhere(),
+                );
+                for hunk in file.hunks {
+                    for row_line in hunk.rows.iter().take(40) {
+                        let prefix = row_line.kind;
+                        let color = match prefix {
+                            '+' => p.green,
+                            '-' => p.red,
+                            _ => p.muted,
+                        };
+                        patch_box = patch_box.child(
+                            text(format!("{prefix}{}", row_line.text))
+                                .font(type_::LABEL)
+                                .color(color)
+                                .w_full()
+                                .wrap_anywhere(),
+                        );
+                    }
+                }
+            }
+        }
+        body = body.child(patch_box);
     }
     let l = crate::look::controls::Look::new(p.dark);
     // A question is answered, never approved: its choices take the buttons' place.
@@ -321,4 +389,69 @@ pub(super) fn approval_card(s: &State, p: &Palette) -> El {
         );
     }
     body
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use locust_core::approval_patch::ToolPatch;
+    use rune::{Env, Runtime};
+
+    fn request(runtime: &str) -> approval::Request {
+        approval::Request {
+            approval_id: "ap_1".into(),
+            mission_id: "mission_1".into(),
+            runtime: runtime.into(),
+            kind: approval::Kind::FileChange,
+            summary: "Edit approval.txt".into(),
+            detail: "approval.txt".into(),
+            cwd: None,
+            requested_at: "2026-09-27T10:00:00.000Z".into(),
+            always_covers: None,
+            always_key: None,
+            data_sent_says: None,
+            reversible_says: None,
+            patch: Some(ToolPatch {
+                text: "--- a/approval.txt\n+++ b/approval.txt\n@@ -1 +1 @@\n-draft\n+keep\n"
+                    .into(),
+                added: 1,
+                removed: 1,
+                truncated: false,
+            }),
+            claude_input: None,
+            questions: Vec::new(),
+        }
+    }
+
+    fn card_text(runtime: &str) -> String {
+        let mut s = State::default();
+        s.pending_approval = Some(request(runtime));
+        let mut rt = Runtime::new(
+            s,
+            |s, _| approval_card(s, &Palette::new(true)),
+            (600.0, 800.0),
+            Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.elements()
+            .into_iter()
+            .filter_map(|e| e.text)
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn is_headed_by_the_runtime_asking_not_by_codex() {
+        let opencode = card_text("opencode");
+        assert!(opencode.contains("The change, as OpenCode would apply it"), "{opencode}");
+        assert!(!opencode.contains("as Codex"), "{opencode}");
+        let claude = card_text("claude");
+        assert!(claude.contains("The change, as Claude Code would apply it"), "{claude}");
+    }
+
+    #[test]
+    fn still_says_codex_for_a_request_recorded_before_runtimes_were_named_on_it() {
+        let recorded = card_text("");
+        assert!(recorded.contains("The change, as Codex CLI would apply it"), "{recorded}");
+    }
 }

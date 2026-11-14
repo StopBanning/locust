@@ -155,20 +155,23 @@ impl Drop for Running {
         }
     }
 }
+pub const COMMAND_OUTPUT_MAX_LINES: usize = 200;
+pub const COMMAND_OUTPUT_MAX_BYTES: usize = 32 * 1024;
+
 /// Last 200 lines and last 32 KiB of those (Electron `capCommandOutput`).
 /// Returns `(text, omitted_lines, omitted_bytes)` over the UTF-8 view of `raw`.
 pub fn cap(raw: &str) -> (String, usize, usize) {
     let normalized = raw.replace("\r\n", "\n").replace('\r', "\n");
     let lines: Vec<_> = normalized.split('\n').collect();
-    let mut count = lines.len().saturating_sub(200);
+    let mut count = lines.len().saturating_sub(COMMAND_OUTPUT_MAX_LINES);
     let mut text = lines[count..].join("\n");
     let mut bytes = normalized.len() - text.len();
-    while text.len() > 32768 {
+    while text.len() > COMMAND_OUTPUT_MAX_BYTES {
         let drop = if let Some(i) = text.find('\n') {
             count += 1;
             i + 1
         } else {
-            let mut n = text.len() - 32768;
+            let mut n = text.len() - COMMAND_OUTPUT_MAX_BYTES;
             while !text.is_char_boundary(n) {
                 n += 1;
             }
@@ -273,5 +276,40 @@ mod tests {
         // SIGKILL from the tree end: the trap never runs and the sleep is gone.
         assert!(!marker.exists());
         let _ = std::fs::remove_file(&marker);
+    }
+    #[test]
+    fn keeps_the_last_200_lines_and_says_how_many_were_left_out() {
+        let lines = (1..=250)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let (text, omitted_lines, omitted_bytes) = cap(&lines);
+        assert_eq!(text.split('\n').count(), 200);
+        assert!(text.starts_with("line 51\n"));
+        assert!(text.ends_with("\nline 250"));
+        assert_eq!(omitted_lines, 50);
+        assert!(omitted_bytes > 0);
+        let note = omitted_note(omitted_lines, omitted_bytes).expect("omitted note");
+        assert!(note.contains("50 lines"));
+        assert!(note.contains("from the start"));
+    }
+    #[test]
+    fn keeps_the_last_32_kb_when_one_line_is_longer_than_that() {
+        const MAX_BYTES: usize = 32 * 1024;
+        let big = "x".repeat(MAX_BYTES + 4096);
+        let (text, omitted_lines, omitted_bytes) = cap(&big);
+        assert_eq!(text.len(), MAX_BYTES);
+        assert_eq!(omitted_bytes, 4096);
+        let note = omitted_note(omitted_lines, omitted_bytes).expect("omitted note");
+        assert!(note.contains("KB"));
+        assert!(note.contains("from the start"));
+    }
+    #[test]
+    fn leaves_a_short_command_untouched() {
+        let (text, omitted_lines, omitted_bytes) = cap("hello\n");
+        assert_eq!(text, "hello\n");
+        assert_eq!(omitted_lines, 0);
+        assert_eq!(omitted_bytes, 0);
+        assert_eq!(omitted_note(omitted_lines, omitted_bytes), None);
     }
 }

@@ -250,7 +250,8 @@ fn card_json(c: &Request) -> Value {
     json!({"approvalId": c.approval_id, "missionId": c.mission_id, "runtime": c.runtime, "kind": c.kind.as_str(),
         "summary": c.summary, "detail": c.detail, "cwd": c.cwd, "requestedAt": c.requested_at,
         "alwaysCovers": c.always_covers, "alwaysKey": c.always_key, "dataSentSays": c.data_sent_says,
-        "reversibleSays": c.reversible_says, "claudeInput": c.claude_input,
+        "reversibleSays": c.reversible_says, "patch": c.patch.as_ref().map(crate::approval_patch::ToolPatch::to_json),
+        "claudeInput": c.claude_input,
         "questions": crate::approval::questions_json(&c.questions)})
 }
 
@@ -268,6 +269,7 @@ fn card_from(v: &Value) -> Result<Request, String> {
         always_key: text(v, "alwaysKey"),
         data_sent_says: text(v, "dataSentSays"),
         reversible_says: text(v, "reversibleSays"),
+        patch: v.get("patch").and_then(crate::approval_patch::ToolPatch::from_json),
         claude_input: Some(v["claudeInput"].clone()).filter(|i| !i.is_null()),
         questions: crate::approval::questions_of(&json!({"questions": v["questions"]})),
     })

@@ -108,11 +108,23 @@ fn the_wire_carries_a_send_an_origin_and_a_card_whole() {
         always_key: Some("edit:/work".into()),
         data_sent_says: None,
         reversible_says: Some("Undo with git".into()),
+        patch: None,
         claude_input: Some(json!({"file_path": "hello.txt"})),
         questions: Vec::new(),
     };
     let c = card_from(&card_json(&card)).unwrap();
     assert_eq!(card_json(&c), card_json(&card));
+    let patched = Request {
+        patch: Some(crate::approval_patch::ToolPatch {
+            text: "--- a/hello.txt\n+++ b/hello.txt\n@@ -1 +1 @@\n-old\n+new\n".into(),
+            added: 1,
+            removed: 1,
+            truncated: false,
+        }),
+        ..card
+    };
+    let patched_back = card_from(&card_json(&patched)).unwrap();
+    assert_eq!(patched_back.patch, patched.patch);
     for d in [Decision::ApproveOnce, Decision::ApproveAlways, Decision::Deny] {
         assert_eq!(decision_from(decision_word(&d)).unwrap(), d);
     }

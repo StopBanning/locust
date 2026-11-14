@@ -1322,6 +1322,7 @@ pub(super) fn board_scene(s: &mut State) {
         always_key: None,
         data_sent_says: None,
         reversible_says: None,
+        patch: None,
         claude_input: None,
         questions: Vec::new(),
     });

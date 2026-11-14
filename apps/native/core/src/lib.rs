@@ -3,6 +3,7 @@
 
 pub mod agents;
 pub mod approval;
+pub mod approval_patch;
 pub mod mode_facts;
 pub mod approval_rule_store;
 pub mod approval_rules;
@@ -50,6 +51,7 @@ pub mod compact_now;
 pub mod connector_reader;
 pub mod connectors_off;
 pub mod context_usage;
+pub mod desk;
 pub mod door;
 pub mod door_tools;
 pub mod edit_check;

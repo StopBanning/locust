@@ -452,6 +452,7 @@ pub(super) fn approval_scene(s: &mut State, light: bool) {
         data_sent_says: None,
         reversible_says: None,
 
+        patch: None,
         claude_input: None,
 
         questions: Vec::new(),

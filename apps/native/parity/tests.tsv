@@ -302,7 +302,7 @@ apps/desktop/src/main/an-app-started-opencode-turn-works-where-it-was-sent.test.
 apps/desktop/src/main/an-app-stops-a-turn-it-started.test.ts		waiting		
 apps/desktop/src/main/an-app-uses-the-team-from-anywhere.test.ts		waiting		
 apps/desktop/src/main/an-app-waits-for-the-answer.test.ts		waiting		
-apps/desktop/src/main/an-approval-says-what-it-allows.test.ts		waiting		
+apps/desktop/src/main/an-approval-says-what-it-allows.test.ts	approvals	carried	core/src/approval.rs, core/src/runtime/codex.rs, core/src/runtime/opencode_serve.rs	all 5 tests; open_code_permission_request, diff_patch_from, 250ms Codex item wait, outsideFolder via inside_folder
 apps/desktop/src/main/an-approval-shows-the-whole-action.test.ts	P8	partial		`main/an-approval-shows-the-whole-action.test.ts` | New detail normalization/counting and long Claude path regression; full tool-input/question matrix still partial.
 apps/desktop/src/main/an-attention-mark-says-when-you-were-last-here.test.ts		waiting		
 apps/desktop/src/main/an-automatic-reply-stays-on-the-model-picked-in-its-conversation.test.ts	RELAY	partial	core/src/relay_tests.rs	conversation_model_is_kept_when_replied_to_and_borrows_when_none + meeting_waits_for_all_recipients_and_closes_once
@@ -336,7 +336,7 @@ apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts		waitin
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts		waiting		
 apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts		waiting		
 apps/desktop/src/main/approval-channel.test.ts		waiting		
-apps/desktop/src/main/approval-patch.test.ts		waiting		
+apps/desktop/src/main/approval-patch.test.ts	approvals	carried	core/src/approval_patch.rs	all 5 tests; item_of, file_changes_of, unified_patch_text, relative_to_folder, tool_patch_from, approval_patch_from
 apps/desktop/src/main/approvals-come-only-from-the-window.test.ts		waiting		
 apps/desktop/src/main/approve-each-reaches-every-start.test.ts		waiting		
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts		waiting		
@@ -877,8 +877,8 @@ apps/desktop/src/renderer/src/an-antigravity-question-is-answered-here.test.tsx	
 apps/desktop/src/renderer/src/an-app-from-anywhere-asks-on-a-card.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-app-from-anywhere-finds-locust-running.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-app-started-conversation-says-so-in-the-sidebar.test.tsx		waiting		
-apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts		waiting		
-apps/desktop/src/renderer/src/an-approval-names-whose-change-it-is.test.tsx		waiting		
+apps/desktop/src/renderer/src/an-approval-card-goes-with-its-run.test.ts	approvals	carried	src/ui/side_chat.rs	all 4 tests; approvals_of_live_runs filters completed/failed/cancelled runs by key or data_run_id and returns None when unchanged
+apps/desktop/src/renderer/src/an-approval-names-whose-change-it-is.test.tsx	approvals	carried	src/ui/approval_card.rs	all 2 tests; patch section rendered with runtime_display_name heading + Codex CLI fallback
 apps/desktop/src/renderer/src/an-earlier-message-can-be-edited.test.tsx	edit	carried	core/src/edit_earlier_tests.rs; src/ui/window_drive_tests.rs a_sent_message_offers_edit_on_each_turn_the_person_typed_and_nothing_while_a_turn_runs_or_on_one_they_did_not_type, editing_puts_the_words_in_the_box_under_a_line_that_says_what_sending_does_and_cancel_lets_go, sending_an_edit_starts_again_from_the_turn_before_says_so_above_it_and_both_versions_stay_reachable	all 10 tests: Edit on every typed turn (not while a turn runs, not on a turn an app or the host started), the started-again note, the box line and Cancel (and nothing of the kind otherwise), and the four version-before cases. Edit sits left of the bubble rather than inside it; "where editing is not offered" is the native-engine gate.
 apps/desktop/src/renderer/src/an-earlier-turn-that-only-messaged-is-not-silent.test.tsx		waiting		
 apps/desktop/src/renderer/src/an-earlier-version-reads-as-it-was.test.ts		waiting		
@@ -900,7 +900,7 @@ apps/desktop/src/renderer/src/an-update-says-it-reopens-by-itself.test.tsx		wait
 apps/desktop/src/renderer/src/answer-state.test.ts		waiting		
 apps/desktop/src/renderer/src/antigravity-rows-read-like-claude.test.ts		waiting		
 apps/desktop/src/renderer/src/antigravity-shows-remaining-not-used.test.tsx		waiting		
-apps/desktop/src/renderer/src/approval-patch.test.ts		waiting		
+apps/desktop/src/renderer/src/approval-patch.test.ts	approvals	carried	core/src/approval_patch.rs, core/src/changes.rs	all 2 tests; RENAMED detection in changes::parse + approval_patch::unified_patch_text round-trip
 apps/desktop/src/renderer/src/ask-for-a-review-is-one-row.test.ts		waiting		
 apps/desktop/src/renderer/src/at-picks-a-file-of-the-project.test.ts		waiting		
 apps/desktop/src/renderer/src/backupWords.test.ts	BACKUP	carried	core/src/profile_backup.rs, core/src/retention.rs tests	carried (Hydrogen; reviewed 12 Nov, see notes/BACKUP-NOTES.md)
@@ -935,7 +935,7 @@ apps/desktop/src/renderer/src/every-face-measures-before-any-face-writes.test.ts
 apps/desktop/src/renderer/src/every-limit-says-what-is-left.test.tsx	P10	partial		`renderer/src/every-limit-says-what-is-left.test.tsx` | plan windows say `% left`
 apps/desktop/src/renderer/src/every-modal-dialog-holds-the-keyboard.test.tsx		waiting		
 apps/desktop/src/renderer/src/every-runtime-keeps-its-output.test.tsx		waiting		
-apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx		waiting		
+apps/desktop/src/renderer/src/every-saved-rule-can-go-at-once.test.tsx	approvals	carried	src/ui/people_panel.rs	all 2 Rune tests; confirming_remove_all flow in Saved approvals tab (Remove all rules, singular/plural confirmation copy, Remove all, Keep them)
 apps/desktop/src/renderer/src/every-teammate-is-a-bot.test.tsx		waiting		
 apps/desktop/src/renderer/src/exchange.test.ts	RELAY	partial	src/ui/exchange_strip.rs	exchange_of_and_exchange_across_walk_component_and_sum_cost_and_hops; empty-roots/Nobody edge cases omitted
 apps/desktop/src/renderer/src/faceState.test.ts		waiting		
@@ -1123,7 +1123,7 @@ apps/desktop/src/renderer/src/your-own-models-can-judge.test.ts		waiting
 apps/desktop/src/renderer/src/your-phone-reaches-locust-from-anywhere.test.tsx		waiting		
 apps/desktop/src/shared/a-block-in-code-is-an-example.test.ts		waiting		
 apps/desktop/src/shared/a-command-file-becomes-a-prompt.test.ts	P9	does-not-apply		shared/a-command-file-becomes-a-prompt.test.ts | Leading bang/escape covered; Markdown templates/frontmatter/positional arguments and slash choice are outside typed-command scope; one-shot Windows/WSL variants do not apply to this macOS pas
-apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	P9	partial	output_tail_and_unicode	shared/a-command-output-keeps-its-tail.test.ts | Partial: Rust output_tail_and_unicode covers last lines/bytes/Unicode; exact omitted-byte matrix remains.
+apps/desktop/src/shared/a-command-output-keeps-its-tail.test.ts	approvals	carried	core/src/own_command.rs	all 3 cases carried: keeps_the_last_200_lines_and_says_how_many_were_left_out, keeps_the_last_32_kb_when_one_line_is_longer_than_that, leaves_a_short_command_untouched
 apps/desktop/src/shared/a-command-reaches-the-next-message-once.test.ts	P9	partial	own_command_carries_once_and_stays_in_its_conversation	shared/a-command-reaches-the-next-message-once.test.ts | Partial: own_command_carries_once_and_stays_in_its_conversation covers carry once, no pending carry, wrong conversation; stopped/running formatting matrix remains.
 apps/desktop/src/shared/a-command-says-what-it-does-in-plain-words.test.ts	P8	partial		`shared/a-command-says-what-it-does-in-plain-words.test.ts` | Push/force/delete/download/looking/silence cases
 apps/desktop/src/shared/a-command-that-reaches-other-programs-is-named.test.ts	P8	partial		`shared/a-command-that-reaches-other-programs-is-named.test.ts` | REACHES / DOES_NOT tables + said sentences
@@ -1177,10 +1177,10 @@ apps/desktop/src/shared/spend.test.ts	P10	partial		`shared/spend.test.ts` (subse
 apps/desktop/src/shared/step-budget.test.ts		waiting		
 apps/desktop/src/shared/text-files.test.ts		waiting		
 apps/desktop/src/shared/the-about-you-line-is-taught-once.test.ts		waiting		
-apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts		waiting		
+apps/desktop/src/shared/the-browser-asks-only-what-it-may.test.ts	approvals	carried	core/src/desk.rs	5 of 7 cases carried (desk::tests: cases 2-5 and 7); cases 1 (desktop-api.ts ipcRenderer static coverage) and 6 (structured-clone Uint8Array/undefined IPC serialization) marked does-not-apply as Electron-only IPC plumbing
 apps/desktop/src/shared/the-example-file-is-never-a-file.test.ts		waiting		
 apps/desktop/src/shared/the-judges-pick-is-marked.test.ts	compare	carried		`compare::tests::the_judges_pick_is_marked`
-apps/desktop/src/shared/the-memories-that-bear-on-the-ask-come-first.test.ts		waiting		
+apps/desktop/src/shared/the-memories-that-bear-on-the-ask-come-first.test.ts	approvals	carried	core/src/people.rs	all 7 tests + brief() prompt recall wiring; briefed_memories/memories_for_brief/MEMORY_BRIEF_LINES_WITH_FILE/MEMORY_BRIEF_BUDGET_WITH_FILE
 apps/desktop/src/shared/the-named-teammate-claims.test.ts		waiting		
 apps/desktop/src/shared/which-notes-bear-on-a-question.test.ts		waiting		
 apps/desktop/test/a-teammate-named-like-an-agent-is-said-as-a-teammate.test.ts		waiting		

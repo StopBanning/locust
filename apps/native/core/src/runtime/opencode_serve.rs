@@ -536,41 +536,64 @@ impl Serve {
             .as_ref()
             .ok_or_else(|| err("Turn has not started"))?;
         let permission = p["permission"].as_str().unwrap_or("unknown");
-        let params = json!({"toolCall":{"toolCallId":id,"title":permission,"kind":if permission=="bash"{"execute"}else if permission=="edit"{"edit"}else{"other"},"rawInput":{"command":p["metadata"]["command"].as_str().map(str::to_owned).unwrap_or_else(||p["patterns"].as_array().into_iter().flatten().filter_map(Value::as_str).collect::<Vec<_>>().join("\n"))}}});
-        let allow = if t.mode == Mode::Auto {
-            true
+        let by_subagent = p["sessionID"]
+            .as_str()
+            .is_some_and(|s| s != self.session && self.children.contains(s));
+        let mut asked = json!({
+            "permission": permission,
+            "patterns": p["patterns"].as_array().cloned().unwrap_or_default(),
+            "metadata": p["metadata"].as_object().map(|m| Value::Object(m.clone())).unwrap_or_else(|| json!({})),
+            "bySubagent": by_subagent,
+        });
+        if p["always"].is_array() {
+            asked["always"] = p["always"].clone();
+        }
+        let folder = t.folder.to_string_lossy().into_owned();
+        let req = crate::approval::open_code_permission_request(&asked, &folder);
+        let reply = if t.mode == Mode::Auto {
+            json!("once")
         } else if t.mode == Mode::ApproveEach {
             if let Some(ch) = &t.approvals {
                 let cancel = self.cancel.clone();
                 let gone = self.stream_ended.clone();
                 let end = self.own_end.clone();
-                ch.ask_acp_runtime(
-                    "opencode",
-                    &t.run_id,
-                    &t.mission_id,
-                    &params,
-                    &t.folder.to_string_lossy(),
-                    &|| {
-                        crate::run_cli::interrupted()
-                            || cancel.load(Ordering::Relaxed)
-                            || gone.load(Ordering::Relaxed)
-                            || end.load(Ordering::Relaxed)
-                    },
-                )
-                .unwrap_or(false)
+                let result = ch
+                    .ask_codex_with_changes(
+                        &t.run_id,
+                        &t.mission_id,
+                        "opencode",
+                        req["method"]
+                            .as_str()
+                            .unwrap_or("item/commandExecution/requestApproval"),
+                        &req["params"],
+                        json!(0),
+                        None,
+                        &|| {
+                            crate::run_cli::interrupted()
+                                || cancel.load(Ordering::Relaxed)
+                                || gone.load(Ordering::Relaxed)
+                                || end.load(Ordering::Relaxed)
+                        },
+                    )
+                    .unwrap_or_else(|_| json!({"decision": "reject"}));
+                crate::approval::open_code_reply_for(&result)
             } else {
-                false
+                json!("reject")
             }
         } else {
-            false
+            json!("reject")
         };
         if self.cancelled() || self.own_end.load(Ordering::Relaxed) {
             return Ok(());
         }
-        let body = if allow {
-            json!({"reply":"once"})
+        let body = if let Some(word) = reply.as_str() {
+            if word == "reject" {
+                json!({"reply":"reject","message":if t.mode==Mode::ApproveEach&&t.approvals.is_some(){"The person declined this in Locust."}else{"Locust refused this without asking anyone: this teammate's mode does not allow it, so nothing was run."}})
+            } else {
+                json!({"reply": word})
+            }
         } else {
-            json!({"reply":"reject","message":if t.mode==Mode::ApproveEach&&t.approvals.is_some(){"The person declined this in Locust."}else{"Locust refused this without asking anyone: this teammate's mode does not allow it, so nothing was run."}})
+            reply
         };
         self.api
             .as_ref()
