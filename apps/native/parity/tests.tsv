@@ -1155,7 +1155,7 @@ apps/desktop/src/shared/board-is-not-behind.test.ts		waiting
 apps/desktop/src/shared/claim-what-you-start.test.ts		waiting		
 apps/desktop/src/shared/commit-and-land-from-a-browser.test.ts		waiting		
 apps/desktop/src/shared/cursorIgnore.test.ts		waiting		
-apps/desktop/src/shared/decision.test.ts		waiting		
+apps/desktop/src/shared/decision.test.ts		carried	core/src/protocol_tags.rs	all 6 cases, assertion by assertion, in reads_dashed_numbered_and_asterisk_options and option_named_after_template_uses_note_and_keeps_real_names
 apps/desktop/src/shared/file-menu.test.ts	p14	partial		`shared/file-menu.test.ts`, `main/reveal-file.test.ts`, `renderer/.../the-file-viewer-renders-and-never-runs.test.tsx` | Partial: menu labels, containment, decide_reveal, relative/system paths; live Finder open, editor launch, “never runs” 
 apps/desktop/src/shared/handover.test.ts		waiting		
 apps/desktop/src/shared/image-files.test.ts		waiting		
@@ -1165,7 +1165,7 @@ apps/desktop/src/shared/memory.test.ts	P6	partial		`shared/memory.test.ts` | Fen
 apps/desktop/src/shared/messageFragments.test.ts		waiting		
 apps/desktop/src/shared/peer-share.test.ts	WORKROOM	carried	core/src/peer_share.rs	all 9 cases
 apps/desktop/src/shared/points-are-drafted.test.ts		waiting		
-apps/desktop/src/shared/protocol-tags.test.ts		waiting		
+apps/desktop/src/shared/protocol-tags.test.ts		carried	core/src/protocol_tags.rs	all 6 cases, one test each (protocol_tags.rs tests); every defang and unwrap reads the one PROTOCOL_TAGS list
 apps/desktop/src/shared/room-task.test.ts	ROOMS	partial	core/src/room_task.rs	task block parsing, defanging, task_key normalization, and board section formatting carried; exhaustive edge cases partial
 apps/desktop/src/shared/routine-schedule.test.ts	p11	partial		`shared/routine-schedule.test.ts` | Partially ported: validation, next-run and label cases match; full schedule helper inventory and DST oracle cases remain.
 apps/desktop/src/shared/routines-and-rooms-from-a-browser.test.ts	p11	waiting		`shared/routines-and-rooms-from-a-browser.test.ts` | Unported and applicable: full scheduler, route, presentation or integration behavior remains; this round does not claim this file passed.

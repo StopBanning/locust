@@ -613,12 +613,12 @@ pub fn change_memory(
     store.save_json("memories.json", &file)
 }
 /// Electron `protocolTags.defangProtocolBlocks`: only protocol tag openers, not every `<`.
+#[cfg(test)]
+pub(crate) fn defang_protocol_for_tests(text: &str) -> String {
+    defang_protocol(text)
+}
 fn defang_protocol(text: &str) -> String {
-    crate::invariants::regex(
-        r"(?i)<(/?)(locust-share|locust-memory|locust-ask|locust-task|locust-file|locust-tidy|locust-instructions|locust-key|locust-next)\b",
-    )
-    .replace_all(text, "‹$1$2")
-    .into_owned()
+    crate::protocol_tags::defang_protocol_blocks(text)
 }
 /// Electron `workspace-brief.whereSection`.
 fn where_section(folder: &Path) -> String {

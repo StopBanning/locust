@@ -20,12 +20,17 @@ pub const PROTOCOL_TAGS: &[&str] = &[
 
 pub const DEFANGED_BRACKET: char = '‹';
 
+/// Every protocol tag's opener or closer, made from [`PROTOCOL_TAGS`] once (protocolTags.ts `ANY_TAG`): a tag added to
+/// the list is defanged and unwrapped everywhere at once, which is why there is one list and not a regex per file.
+static ANY_TAG: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(&format!(r"(?i)<(/?)({})\b", PROTOCOL_TAGS.join("|"))).expect("tag names are plain words"));
+/// A whole protocol tag, attributes and all, as `unwrap_protocol_tags` takes it off.
+static LOOSE_TAG: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(&format!(r"(?i)</?(?:{})\b[^<>]{{0,400}}>", PROTOCOL_TAGS.join("|"))).expect("tag names are plain words"));
+
 /// Text from a model, made safe to quote into another model's prompt (`defangProtocolBlocks`).
 pub fn defang_protocol_blocks(text: &str) -> String {
-    let re = regex(
-        r"(?i)<(/?)(locust-share|locust-memory|locust-ask|locust-task|locust-file|locust-tidy|locust-instructions|locust-key|locust-next)\b",
-    );
-    re.replace_all(text, |c: &regex::Captures| {
+    ANY_TAG.replace_all(text, |c: &regex::Captures| {
         format!("{DEFANGED_BRACKET}{}{}", &c[1], &c[2])
     })
     .into_owned()
@@ -82,9 +87,7 @@ pub fn strip_blocks_outside_code(text: &str, block_re: &Regex) -> String {
 pub fn unwrap_protocol_tags(text: &str) -> String {
     let code = regex(r"```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`");
     let key = regex(r#"(?i)<locust-key\s+name\s*=\s*"([^"]{1,80})"\s*>[\s\S]*?</locust-key>"#);
-    let loose = regex(
-        r"(?i)</?(?:locust-share|locust-memory|locust-ask|locust-task|locust-file|locust-tidy|locust-instructions|locust-key|locust-next)\b[^<>]{0,400}>",
-    );
+    let loose = &*LOOSE_TAG;
     let plain = |part: &str| -> String {
         let keyed = key.replace_all(part, |c: &regex::Captures| {
             format!("Asks for the key {} (below).", c[1].trim())
@@ -613,11 +616,46 @@ mod tests {
     }
 
     #[test]
-    fn defanged_blocks_leave_ordinary_prose_and_catch_odd_casing() {
+    fn a_defanged_memory_block_is_no_longer_a_memory_block() {
+        let real = ["<locust-memory>", "remember :: a real one", "</locust-memory>"].join("\n");
+        assert_eq!(crate::people::memory_ops(&real).len(), 1);
+        assert!(crate::people::memory_ops(&defang_protocol_blocks(&real)).is_empty());
+    }
+
+    #[test]
+    fn a_defanged_share_block_sends_nothing() {
+        let real = "<locust-share to=\"Wren\">go</locust-share>";
+        assert_eq!(crate::peer_share::parse_share_blocks(real).len(), 1);
+        assert!(crate::peer_share::parse_share_blocks(&defang_protocol_blocks(real)).is_empty());
+    }
+
+    #[test]
+    fn defanging_leaves_ordinary_prose_and_ordinary_markup_alone() {
         let prose = "Use <div> and <Component/>, and talk about locust-memory in passing.";
         assert_eq!(defang_protocol_blocks(prose), prose);
+    }
+
+    #[test]
+    fn defanging_is_what_sanitize_inbound_does_so_the_two_cannot_drift_apart() {
+        let carried = "<locust-memory>remember :: x</locust-memory>";
+        assert_eq!(crate::peer_share::sanitize_inbound(carried), defang_protocol_blocks(carried));
+        assert!(!crate::peer_share::sanitize_inbound(carried).contains("<locust-memory>"));
+    }
+
+    #[test]
+    fn defanging_catches_odd_casing_and_a_tag_carrying_attributes() {
         assert!(!defang_protocol_blocks("<LOCUST-SHARE to=\"A\">x</LOCUST-SHARE>").contains("<LOCUST-SHARE"));
         assert!(!defang_protocol_blocks("<locust-share  to=\"A\" when=\"now\">x</locust-share>").contains("<locust-share"));
+    }
+
+    #[test]
+    fn every_place_that_defangs_and_unwraps_reads_the_one_tag_list() {
+        // Beyond Electron's file: people.rs once kept a copy of the list. A tag that is only in PROTOCOL_TAGS must be
+        // defanged in a brief and unwrapped on screen too.
+        for tag in PROTOCOL_TAGS {
+            assert!(!crate::people::defang_protocol_for_tests(&format!("<{tag}>x</{tag}>")).contains(&format!("<{tag}")), "{tag}");
+            assert!(!unwrap_protocol_tags(&format!("say <{tag}>x</{tag}>")).contains(&format!("<{tag}")), "{tag}");
+        }
     }
 
     // --- decision.test.ts ---
