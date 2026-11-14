@@ -1503,7 +1503,7 @@ pub fn part_pieces(parts: &str) -> Vec<&str> {
 
 /// Body color adjusted identically to `Bot.tsx`'s `bodyColorOf` (`SATURATION = 1.15`).
 pub const BOT_SATURATION: f64 = 1.15;
-pub const PALETTE_SATURATION: f64 = 1.1;
+pub const PALETTE_SATURATION: f64 = 1.5;
 
 pub fn body_color_of(bot_type: &str, color: Option<&str>) -> String {
     if is_locust_bot(bot_type) {
