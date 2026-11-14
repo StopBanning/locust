@@ -16,8 +16,36 @@ pub fn files(item: &Item) -> Vec<FileEntry> {
         FileEntry { key: format!("{}/file/{i}", detail.id), file, counts, reported, large: total.0 + total.1 > 200 || patch.truncated }
     }).collect()
 }
-pub fn counts(items: &[Item]) -> (usize, usize) {
-    items.iter().flat_map(files).fold((0,0), |(a,d), f| (a+f.counts.0,d+f.counts.1))
+/// File identity uses the displayed path, status and every hunk/row. Restatements fold;
+/// a later real edit to the same path has different hunks and stays visible.
+pub fn path_key(path: &str, workspace: Option<&str>) -> String {
+    crate::invariants::regex(r"[\\/]+").replace_all(&crate::path_words::relative_path(path, workspace), "/").trim_start_matches("./").to_lowercase()
+}
+pub fn entries(items: &[Item], workspace: Option<&str>) -> Vec<(usize, FileEntry)> {
+    let mut seen = std::collections::HashSet::new();
+    items.iter().enumerate().flat_map(|(i,item)| files(item).into_iter().map(move |f|(i,f))).filter(|(_,f)| {
+        let signature = format!("{}|{}|{:?}", path_key(&f.file.path, workspace), f.file.status, f.file.hunks);
+        seen.insert(signature)
+    }).collect()
+}
+pub fn counts(items: &[Item]) -> (usize, usize) { counts_in(items, None) }
+pub fn counts_in(items: &[Item], workspace: Option<&str>) -> (usize, usize) {
+    entries(items, workspace).iter().fold((0,0), |(a,d), (_,f)| (a+f.counts.0,d+f.counts.1))
+}
+pub fn changed_paths(items: &[Item]) -> Vec<String> {
+    items.iter().flat_map(|item| {
+        let files = files(item);
+        if !files.is_empty() { return files.into_iter().map(|f| f.file.path).collect(); }
+        match item {
+            Item::Tool { summary, name, status, .. } if crate::activity_summary::is_edit(item) && *status != Status::Failed => {
+                (if summary.is_empty() {name} else {summary}).lines().map(str::trim).filter(|p|!p.is_empty()).map(str::to_owned).collect()
+            },
+            _ => vec![],
+        }
+    }).collect()
+}
+pub fn file_count(paths: &[String], workspace: Option<&str>) -> usize {
+    paths.iter().map(|p|path_key(p,workspace)).collect::<std::collections::HashSet<_>>().len()
 }
 pub fn default_open(entries: &[FileEntry]) -> Option<&str> {
     let first = entries.first()?;

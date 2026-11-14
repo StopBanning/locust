@@ -305,13 +305,16 @@ fn plan_card(steps: &[ledger::PlanStep], finished: bool, p: &Palette) -> El {
 }
 
 pub(super) fn activity_item(item: &ledger::Item, p: &Palette, s: &State, scope: &str) -> El {
+    activity_item_with_files(item, p, s, scope, locust_core::activity_entries::files(item))
+}
+fn activity_item_with_files(item: &ledger::Item, p: &Palette, s: &State, scope: &str, files: Vec<locust_core::activity_entries::FileEntry>) -> El {
     let finished = s.ledger.as_ref().is_some_and(|pane| !pane.snapshot.running);
     if let ledger::Item::Plan { steps, finished: ended, .. } = item
         && !steps.is_empty()
     {
         return plan_card(steps, finished || *ended, p);
     }
-    let files = locust_core::activity_entries::files(item);
+    if files.is_empty() && !locust_core::activity_entries::files(item).is_empty() { return col(); }
     if !files.is_empty() {
         let default = locust_core::activity_entries::default_open(&files);
         let mut rows = col().w_full().gap(4.0);
@@ -482,7 +485,9 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
     let outcome = locust_core::command_outcomes::commands_run_text(run, &names);
     let mut words = Vec::new();
     let summary = locust_core::activity_summary::activity_summary(items);
-    let (added, removed) = locust_core::activity_entries::counts(items);
+    let workspace = selected_conversation(s).and_then(|(t,_)| t.folder.as_deref());
+    let entries = locust_core::activity_entries::entries(items, workspace);
+    let (added, removed) = locust_core::activity_entries::counts_in(items, workspace);
     if added + removed > 0 { words.push(format!("+{added} -{removed}")); }
     if summary != "No tool activity" { words.push(summary); }
     let mut label = headline.unwrap_or_else(|| {
@@ -528,7 +533,7 @@ pub(super) fn activity_group(items: &[ledger::Item], p: &Palette, s: &State, sco
                 group = match folded_row {
                     locust_core::tool_fold::Row::One(i) => {
                         let paths = locust_core::activity_summary::unreported_paths(&items[i]);
-                        if paths.is_empty() { group.child(activity_item(&items[i], p, s, scope)) }
+                        if paths.is_empty() { group.child(activity_item_with_files(&items[i], p, s, scope, entries.iter().filter(|(at,_)| *at==i).map(|(_,f)|f.clone()).collect())) }
                         else {
                             let mut rows = col().w_full().gap(4.0);
                             for path in paths { rows = rows.child(text(format!("{} · change not reported", locust_core::path_words::display_path(&path, selected_conversation(s).and_then(|(t, _)| t.folder.as_deref())))).font(type_::LABEL).color(p.muted).w_full().wrap_anywhere()); }
@@ -706,6 +711,20 @@ mod tests {
         assert!(said.contains("src/billing.ts MODIFIED +1 -1"), "{said}");
         assert!(said.contains("old") && said.contains("new"), "{said}");
         assert!(!said.contains("900") && !said.contains("change not reported"), "{said}");
+    }
+
+    #[test]
+    fn repeated_patch_reports_draw_once_and_keep_one_total() {
+        let mut first = sample_tool("t1", "apply_patch", "notes.md", false);
+        if let ledger::Item::Tool { detail, .. } = &mut first {
+            detail.patch = Some(locust_core::activity_entries::Patch { text: "--- a/notes.md\n+++ b/notes.md\n@@ -1 +1,2 @@\n a\n+ALPHA-TOUCHED\n".into(), added:1, removed:0, truncated:false });
+        }
+        let mut second = first.clone();
+        if let ledger::Item::Tool { detail, .. } = &mut second { detail.id="t2".into(); }
+        let mut s=State::default(); s.activity_open.insert("conv/group/t1".into(),true);
+        let said=group_text(&[first,second],&mut s);
+        assert_eq!(said.matches("notes.md MODIFIED +1 -0").count(),1,"{said}");
+        assert!(said.contains("+1 -0"),"{said}"); assert!(!said.contains("+2 -0"),"{said}");
     }
 
 }

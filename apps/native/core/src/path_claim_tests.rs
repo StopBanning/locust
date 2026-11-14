@@ -1,0 +1,18 @@
+use super::*;
+use crate::{activity_entries::{self, Patch}, ledger::ToolDetail};
+use serde_json::json;
+const WORKSPACE:&str="/home/you/locust-sample";
+fn patch_for(path:&str)->Item { Item::Tool{name:"apply_patch".into(),summary:path.into(),status:Status::Done,detail:Box::new(ToolDetail{patch:Some(Patch{text:format!("diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -1 +1,2 @@\n a\n+ALPHA-TOUCHED\n"),added:1,removed:0,truncated:false}),..Default::default()})} }
+fn files_of(items:&[Item])->Option<String>{activity_trace_in(items,&[],"completed",None,Some(WORKSPACE)).segments.into_iter().find(|s|s.key=="files").map(|s|s.text)}
+#[test] fn counts_a_relative_and_an_absolute_spelling_as_one(){assert_eq!(files_of(&[patch_for("README.md"),patch_for("/home/you/locust-sample/README.md")]).as_deref(),Some("1 file"));}
+#[test] fn counts_one_edit_reported_twice_as_one(){let twice=[patch_for("notes.md"),patch_for("notes.md")];assert_eq!(files_of(&twice).as_deref(),Some("1 file"));assert_eq!(activity_entries::counts(&twice),(1,0));assert_eq!(activity_entries::entries(&twice,None).len(),1);}
+#[test] fn counts_one_edit_reported_relatively_and_absolutely_as_one(){let both=[patch_for("notes.md"),patch_for(&format!("{WORKSPACE}/notes.md"))];assert_eq!(files_of(&both).as_deref(),Some("1 file"));assert_eq!(activity_entries::counts_in(&both,Some(WORKSPACE)),(1,0));assert_eq!(activity_entries::entries(&both,Some(WORKSPACE)).len(),1);}
+#[test] fn still_counts_two_real_edits_to_one_file_as_two(){let mut second=patch_for("notes.md");if let Item::Tool{detail,..}=&mut second{detail.patch.as_mut().unwrap().text="diff --git a/notes.md b/notes.md\n--- a/notes.md\n+++ b/notes.md\n@@ -9 +9,2 @@\n c\n+BETA-TOUCHED\n".into();}let two=[patch_for("notes.md"),second];assert_eq!(activity_entries::counts(&two),(2,0));assert_eq!(activity_entries::entries(&two,None).len(),2);}
+#[test] fn still_counts_two_genuinely_different_files_as_two(){assert_eq!(files_of(&[patch_for("README.md"),patch_for("notes.md")]).as_deref(),Some("2 files"));}
+fn trace_of(may_edit:Option<bool>)->Trace{activity_trace_in(&[Item::Tool{name:"Read".into(),summary:"Read".into(),status:Status::Done,detail:Box::default()}],&[json!({"type":"tool.started","payload":{"itemId":"t1","toolKind":"read","name":"Read"}}),json!({"type":"tool.completed","payload":{"itemId":"t1","toolKind":"read","name":"Read"}})],"completed",may_edit,None)}
+#[test] fn states_it_when_the_run_was_allowed_to_change_files(){assert!(trace_of(Some(true)).text().contains("no files changed"));}
+#[test] fn says_nothing_of_the_sort_on_a_read_only_run_where_it_is_the_point(){assert!(!trace_of(Some(false)).text().contains("no files changed"));}
+#[test] fn says_nothing_when_the_caller_does_not_know_what_the_run_was_allowed(){assert!(!trace_of(None).text().contains("no files changed"));}
+#[test] fn is_plain_not_amber_asking_a_question_changes_nothing_either(){assert_eq!(trace_of(Some(true)).segments.iter().find(|s|s.key=="files").unwrap().tone,None);}
+#[test] fn is_withheld_when_the_host_has_said_it_cannot_tell_what_changed(){let events=[json!({"type":"adapter.diagnostic","occurredAt":"2026-09-07T12:00:00.000Z","payload":{"level":"info","code":"host.shared_workspace","message":"Another teammate was working in this folder at the same time."}})];assert!(activity_trace_in(&[],&events,"completed",Some(true),None).segments.iter().all(|s|s.key!="files"));}
+#[test] fn is_still_said_for_a_lone_run_that_genuinely_changed_nothing(){assert_eq!(activity_trace_in(&[],&[],"completed",Some(true),None).segments.iter().find(|s|s.key=="files").unwrap().text,"no files changed");}

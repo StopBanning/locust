@@ -1192,7 +1192,7 @@ impl Transcript {
         self.live = crate::thread_view::live_line(&event_vec, self.running,
             self.metadata.as_ref().map(|m| m.created_at.as_str()).unwrap_or(""), false);
         if items.iter().any(|i| matches!(i, Item::Tool { .. } | Item::Thought { .. })) {
-            let mut trace = crate::activity_trace::activity_trace(&items, &event_vec, crate::activity_trace::outcome(&event_vec, self.running));
+            let mut trace = crate::activity_trace::activity_trace_in(&items, &event_vec, crate::activity_trace::outcome(&event_vec, self.running), self.metadata.as_ref().and_then(|m| match m.sandbox.as_str() { "read-only" => Some(false), "workspace-write" | "full-access" => Some(true), _ => None }), None);
             trace.notices.retain(|n| !items.iter().any(|i| matches!(i, Item::Note { text, .. } if crate::failure_words::same_sentence(text, &n.message))));
             items.push(Item::Trace(trace));
         }

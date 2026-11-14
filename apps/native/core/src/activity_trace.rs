@@ -6,20 +6,23 @@ pub struct Segment { pub key: String, pub text: String, pub tone: Option<String>
 #[derive(Clone, Debug, PartialEq)]
 pub struct Notice { pub level: String, pub message: String, pub source: String }
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Trace { pub segments: Vec<Segment>, pub notices: Vec<Notice> }
+pub struct Trace { pub segments: Vec<Segment>, pub notices: Vec<Notice>, pub changed_paths: Vec<String> }
 impl Trace { pub fn text(&self) -> String { self.segments.iter().map(|s|s.text.as_str()).collect::<Vec<_>>().join(" · ") } }
 pub fn outcome(events: &[Value], running: bool) -> &'static str {
     if events.iter().any(|e|e["type"]=="run.failed") {"failed"} else if events.iter().any(|e|e["type"]=="run.cancelled") {"cancelled"} else if running {"running"} else {"completed"}
 }
 fn stamp(e:&Value)->Option<i64> { chrono::DateTime::parse_from_rfc3339(e["occurredAt"].as_str()?).ok().map(|t|t.timestamp_millis()) }
 pub fn activity_trace(items:&[Item],events:&[Value],outcome:&str)->Trace {
-    let mut out=Trace::default();
+    activity_trace_in(items, events, outcome, None, None)
+}
+pub fn activity_trace_in(items:&[Item],events:&[Value],outcome:&str,may_edit:Option<bool>,workspace:Option<&str>)->Trace {
+    let mut out=Trace { changed_paths: crate::activity_entries::changed_paths(items), ..Default::default() };
     let mut push=|key:&str,text:String,amber:bool| out.segments.push(Segment{key:key.into(),text,tone:amber.then(||"amber".into())});
     let times=events.iter().filter_map(stamp).collect::<Vec<_>>();
     let ms=times.iter().max().zip(times.iter().min()).map_or(0,|(a,b)|(a-b).max(0) as u64);
     let stopped=matches!(outcome,"failed"|"cancelled");
     push("duration",format!("{}{}",if stopped{"stopped at "}else{""},crate::ledger::duration_text(ms)),false);
-    let edits=items.iter().filter(|i|crate::activity_summary::is_edit(i)).count();
+    let edits=crate::activity_entries::file_count(&out.changed_paths, workspace);
     if outcome=="cancelled" && edits==0 {push("nothing","nothing was changed".into(),false);out.segments.last_mut().unwrap().tone=Some("muted".into());}
     let mut thought=0;let mut open=std::collections::HashMap::new();
     for e in events {let p=&e["payload"];let id=p["itemId"].as_str().unwrap_or("reasoning");
@@ -38,8 +41,13 @@ pub fn activity_trace(items:&[Item],events:&[Value],outcome:&str)->Trace {
     let calls=items.iter().filter(|i|matches!(i,Item::Tool{name,status,detail,..} if !detail.helper && !crate::command_outcomes::is_shell(name) && (!crate::activity_summary::is_edit(i) || *status==Status::Failed))).count();
     if calls>0 {push("calls",format!("{calls} {}tool call{}",if shells.is_empty(){""}else{"other "},if calls==1{""}else{"s"}),false);}
     if edits>0 {push("files",format!("{edits} file{}",if edits==1{""}else{"s"}),false);}
+    else if outcome=="completed" && may_edit==Some(true) && !events.iter().any(|e|e["type"]=="adapter.diagnostic" && e["payload"]["code"]=="host.shared_workspace") {
+        push("files","no files changed".into(),false);
+    }
     for state in ["refused","declined"] {let count=items.iter().filter(|i|matches!(i,Item::Tool{detail,..} if detail.runtime_status==state)).count();if count>0 {push(state,format!("{count} {state}"),true);}}
     out.notices=events.iter().filter(|e|e["type"]=="adapter.diagnostic" && !e["payload"]["code"].as_str().unwrap_or("").starts_with("host.") && !e["payload"]["code"].as_str().unwrap_or("").ends_with(".context_compacted")).filter_map(|e| {let p=&e["payload"];let message=p["message"].as_str()?;(!message.is_empty()).then(||Notice{level:p["level"].as_str().unwrap_or("info").into(),message:crate::ledger::scrub(message),source:e["sourceAdapter"].as_str().unwrap_or("").into()})}).collect();
     out
 }
 #[cfg(test)] #[path="activity_trace_tests.rs"] mod tests;
+
+#[cfg(test)] #[path="path_claim_tests.rs"] mod path_claim_tests;

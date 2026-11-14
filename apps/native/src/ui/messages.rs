@@ -61,9 +61,11 @@ pub(super) fn message_column(items: &[ledger::Item], name: &str, p: &Palette, s:
             ledger::Item::Handoff { from, to } => handoff_divider::view(Some(from), to, p).unwrap_or_else(col),
             ledger::Item::Trace(trace) => {
                 let mut line = row().w_full().gap(5.0);
+                let file_count = locust_core::activity_entries::file_count(&trace.changed_paths, selected_conversation(s).and_then(|(t,_)|t.folder.as_deref()));
                 for (i, segment) in trace.segments.iter().enumerate() {
+                    let shown = if segment.key == "files" && file_count > 0 { format!("{file_count} file{}", if file_count==1 {""} else {"s"}) } else {segment.text.clone()};
                     if i > 0 { line = line.child(text("·").font(type_::LABEL).color(p.muted)); }
-                    line = line.child(text(segment.text.clone()).font(type_::LABEL).color(if segment.tone.as_deref() == Some("amber") {p.amber} else {p.muted}));
+                    line = line.child(text(shown).font(type_::LABEL).color(if segment.tone.as_deref() == Some("amber") {p.amber} else {p.muted}));
                 }
                 let mut body = col().w_full().gap(4.0).child(line);
                 if !trace.notices.is_empty() {

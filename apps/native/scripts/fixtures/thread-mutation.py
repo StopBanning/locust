@@ -24,6 +24,11 @@ controls = {
     'command-kinds': ('core/src/command_outcomes.rs', '!heads.contains(&head)', 'head.len() > 0', 'names_each_kind_once_so_twelve_commands_of_two_kinds_read_as_twelve'),
 }
 controls.update({
+    'path-workspace': ('core/src/activity_entries.rs', 'relative_path(path, workspace)', 'relative_path(path, workspace.filter(|_| false))', 'counts_a_relative_and_an_absolute_spelling_as_one'),
+    'path-restatement': ('core/src/activity_entries.rs', 'seen.insert(signature)', 'seen.insert(signature) || true', 'counts_one_edit_reported_twice_as_one'),
+    'path-hunks': ('core/src/activity_entries.rs', 'f.file.hunks);', 'f.file.hunks.len());', 'still_counts_two_real_edits_to_one_file_as_two'),
+    'no-change-permission': ('core/src/activity_trace.rs', 'may_edit==Some(true)', 'may_edit!=Some(false)', 'says_nothing_when_the_caller_does_not_know_what_the_run_was_allowed'),
+    'no-change-overlap': ('core/src/activity_trace.rs', 'e["payload"]["code"]=="host.shared_workspace"', 'e["payload"]["code"]=="missing"', 'is_withheld_when_the_host_has_said_it_cannot_tell_what_changed'),
     'cancellation-planned': ('core/src/cancellation.rs', 'latest.map_or((0, 0, planned_steps),', 'latest.map_or((0, 0, 0),', 'separates_tool_outcomes_and_never_substitutes_them_for_unreported_plan_states'),
     'cancellation-dedup': ('core/src/cancellation.rs', '!seen.insert(key(name))', '(!seen.insert(key(name)) && name.is_empty())', 'counts_one_file_once_however_each_tool_spelled_its_path'),
 
