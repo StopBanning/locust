@@ -370,3 +370,192 @@ section at a time. The start-label projection keeps native's existing English
 short-date/24-hour convention and computes clocks outside drawing; the next nine
 cases use existing folds rather than adding parallel implementations. No new
 Electron-only exemption or durable architecture decision was introduced.
+
+
+## Thread-9 continuation — 14 Nov 2026
+
+One long release workspace run (`thread-9.log`, exit 0) acquired the shared lock
+after 762 seconds and compiled in 6m 24s, with no reported warnings. Final results:
+**1,669 core passed, 20 ignored; 398 headless window passed; zero failures; zero doc tests**.
+The owner-managed landing test passed too. All sixteen inherited case drafts, the
+original-turn cache test and both start-label headless checks passed by name.
+
+Committed separately: assistant text (3), mission start labels (4), changed-file
+counts (5), and typed prompts across route switches (4). Coverage is now 165/264,
+99 remaining, still partial. No does-not-apply exemptions. Assistant/file-count/
+prompt cases pin existing native behavior rather than adding another fold.
+Start labels use the existing English short-date and 24-hour convention; the
+original turn's date is cached while polling, and ended threads refresh on the
+minute clock without disk reads while drawing. That is native's implementation
+of Electron's date rule, rather than copying renderer-time parsing.
+
+Prepared and registered eight next-section cases in file order: OpenCode's real
+plan (2), a standalone plan (2), a peer-only answer (2), and completion-time tool
+targets (2). Their existing native paths were inspected against Electron; no
+production behavior change was needed. They are not counted until the second
+combined release run finishes. Six corresponding break controls are prepared.
+The core/window control fixtures now allow the same long shared-lock wait as the
+handoff's workspace run instead of expiring in the queue after 590 seconds.
+Controls are still individual, restore before exit, and reject a timeout or build
+failure as evidence. All earlier control originals were checked before work.
+
+The first run used the requested command verbatim (the wrapper's default external
+TypeScript reader); the second explicitly selects this workspace's existing
+`dist/thread-7-ts-reader/index.js`. No dependency install or reference-folder edit.
+Final second-run, mutation and application-build results follow below.
+
+The second combined release workspace run (`thread-9-next.log`, exit 0) waited
+240 seconds, compiled in 3m 10s without reported warnings, and passed:
+**1,677 core, 20 ignored; 398 headless window; zero failures; zero doc tests**.
+All eight new cases passed by name in their final form. Each of their four
+sections is now committed separately. Coverage is **173/264**, 91 remaining.
+The next section in file order that is not already carried is **a runtime's
+own helper** (2); later peer messages/reopening handoffs and the rest remain.
+No additional does-not-apply exemption and no production change for these eight.
+
+A sequential, individually restored control batch is now running, with a
+one-hour budget checked only BETWEEN controls; it never interrupts a mutation.
+It covers new section controls first, then the inherited exchange-reading/rail
+backlog and the two headless start-label controls if the budget allows.
+
+The `assistant-append` control was attempted first. Its named test and the
+existing delta-semantics test failed, but a later relay test
+(`relay_prose_return_posts_unanswered_prose_back_to_asker`) panicked while the
+mutation was present; cleanup then hit a poisoned relay lock and aborted the
+process (exit 250), so no full-suite result was produced. The fixture rejected
+this incomplete run: **not counted as a completed control**. It restored the
+source, confirmed byte-for-byte by `git diff --exit-code -- core/src src`.
+The relay implementation and tests are outside this change and were left alone.
+The remaining independent controls continue with restoration checked after each.
+
+### Remaining case mapping after thread-9
+
+These 91 cases are not counted as carried. Some share rules with existing native
+tests, but that mapping has not been reviewed and no additional case is claimed.
+No new Electron-only exemption was made. File order is preserved below.
+
+| Remaining section | Cases |
+| --- | ---: |
+| a runtime's own helper | 2 |
+| peer messages in the thread | 2 |
+| reopening a handed-off mission | 4 |
+| the running step | 1 |
+| runtime notices in the thread | 4 |
+| what a model alias resolved to | 3 |
+| whether a finished run can be replied to | 3 |
+| which words a turn shows | 4 |
+| the routes this person has actually run | 2 |
+| marking time in a long conversation | 3 |
+| a run the host started for a teammate | 6 |
+| what the decision card may say about the workspace | 4 |
+| the waiting line’s clock | 2 |
+| the host's disk observation of a path the runtime named | 4 |
+| the model an alias turned out to mean (0.35.2) | 2 |
+| Cursor reports files from inside its own copy of the project | 4 |
+| an earlier turn says it changed nothing too | 2 |
+| where a turn’s steps are drawn (0.491) | 1 |
+| a turn sent with files attached | 4 |
+| what a command printed | 5 |
+| a shell row and its output | 3 |
+| everything a teammate said in one turn | 4 |
+| a plan does not claim nothing changed when something did | 2 |
+| the group still growing at the end of a running turn (0.584) | 2 |
+| a group the run has moved past (0.594) | 2 |
+| a lone thought on its step line (0.594) | 1 |
+| Cursor's scratch files (0.594) | 1 |
+| a turn with no work still says what the runtime said (0.586) | 4 |
+| the text a file row shows for a path (0.596) | 3 |
+| a named file the host saw change but could not read (0.597) | 1 |
+| the live line while nothing has arrived (0.602) | 2 |
+| a Codex run, said as words | 1 |
+| a tool the app has words for, as a row (0.610) | 1 |
+| Locust’s git tool and OpenCode’s failed tool call, in words (0.818) | 2 |
+
+### Completed control batch
+
+Ten controls completed against the WHOLE core suite, each with its named assertion
+failing, exit 101 and a final suite summary, followed by exact source restoration:
+`assistant-replace`, `assistant-order`, `start-day`, `start-year`, `start-cache`,
+`changed-count`, `changed-refused`, `changed-patch`, `typed-marker`, `typed-prior`.
+Every restoration passed `git diff --exit-code -- core/src src` against the
+committed positive baseline. `assistant-append` remains rejected as described above.
+
+The budget expired between controls. Twenty were NOT run: `plan-content`,
+`plan-state`, `plan-own`, `peer-only-reply`, `late-target`, `late-keep`, `peer-empty`,
+`peer-flat`, `peer-snippet`, `rail-tool`, `rail-words`, `rail-order`, `rail-live`,
+`rail-tone`, `rail-plan`, `rail-once`, `rail-helper`, `rail-cache`, and window
+`draw`/`refresh`. The inherited exchange/rail backlog therefore stays 1/13.
+Together with the rejected append run, 21 requested control verifications remain.
+No incomplete run is counted as a successful control.
+
+### Late-arriving plan ordering
+
+Further review found an ordering gap not covered by the carried literals: native
+kept a plan at its first arrival, while Electron's `buildThread` projects the plan
+before the work and replies even if it arrived later. The earlier "no behavior
+change needed" statement describes the eight exact case inputs only; it does not
+hold for the function's full ordering rule. Added a separate native regression
+check, `a_late_arriving_plan_precedes_the_turns_work_and_reply`, not an additional
+Electron case and not added to the 173 count. Its pre-fix whole-core result and
+the corrected projection's final release verification are recorded below.
+
+The pre-fix whole-core ordering run (`thread-9-plan-order-red.log`) waited 256
+seconds, compiled in 38.45s, then finished with exit 101: **1,677 passed, one
+failed, 20 ignored**. The ONLY failure was the new named ordering check. This
+establishes the missing behavior without accepting a launcher error or abort.
+
+The fix moves the folded plan before the turn's other content, after any leading
+person prompt, before qualification and drawing. It does not reorder or rewrite
+events, timestamps or tool receipts, and performs no disk access. The rest of
+the items keep their relative order. This deliberately follows the full
+`buildThread` rule instead of reproducing native's arrival-order accident.
+Final release suite/build results follow.
+
+The final-form release workspace run (`thread-9-final-workspace.log`, exit 0)
+waited 152 seconds, compiled in 1m 46s without reported warnings, and passed:
+**1,678 core, 20 ignored; 398 headless window; zero failures; zero doc tests**.
+The new ordering check passed by name; the prior whole-core run failed ONLY
+that check before the fix. All carried case ports remained green. The extra
+regression check is native integration coverage, not a 265th Electron case.
+The projection fix and its check are committed as `135c9da6`.
+
+### Source commits in this run
+
+- `deccc368`: Carry the assistant text stream cases into native
+- `d6bff282`: Show a cached mission start date in the native thread
+- `34e41680`: Carry the changed file count cases into native
+- `239e7d70`: Carry typed prompt cases across native route switches
+- `8357e475`: Carry OpenCode plan payload cases into native
+- `17462569`: Carry standalone plan cases into native
+- `d14aa3cc`: Carry peer-only reply cases into native
+- `70dfd755`: Carry completion-time tool target cases into native
+- `135c9da6`: Put late-arriving plans before the native turns work
+
+### Final release build and scope
+
+The separate production `build --release --offline` (`thread-9-final-build.log`,
+exit 0) waited 102 seconds and compiled in 1m 11s under the original 590-second
+outer bound. **No warnings.** It ran after the final-form workspace suite, not
+as a substitute for it. The final driver (`thread-9-final.log`) reports both
+workspace and build exit 0.
+
+`python3 scripts/recount.py` and `--check` passed; generated tables are unchanged
+because missionView remains partial. `git diff --check` passed. Both fixture
+scripts parse; all 83 core and both window control originals are present. After
+the intentional ordering fix was committed, `git diff --exit-code -- core/src src`
+confirmed no uncommitted runtime change or mutation remained.
+
+Final scope: `exec/native-thread`, based on `e8a66f2a`; 24 additional Electron
+case ports (173/264 total), plus original-turn cache, two headless start-label
+checks and the late-plan ordering check. All source sections committed separately.
+No new does-not-apply exemption. Native choices: use the existing ledger folds
+instead of duplicating renderer plumbing, cache local clock words outside drawing,
+and project the plan ahead of the work without rewriting evidence.
+
+Still incomplete: the rejected append control and twenty unrun controls listed
+above (including the inherited 12 exchange/rail controls); 91 Electron cases
+listed in file order above. No real agent or paid turn, visible window, packaged
+UI, other-platform run, push, version/changelog edit, Scout source edit, handoff
+file commit, or reference-folder change. The only TypeScript-reader exception
+was the handoff's verbatim first command; both subsequent full release runs used
+this workspace's existing ignored reader, and no external source was edited.

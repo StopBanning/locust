@@ -2,6 +2,24 @@
 """One restored source mutation against the entire core suite. Run from apps/native."""
 import os, pathlib, subprocess, sys
 controls = {
+    'plan-content': ('core/src/ledger.rs', '["step", "text", "title", "name", "content"]', '["step", "text", "title", "name", "missing-content"]', 'reads_the_steps_their_words_and_their_states'),
+    'plan-state': ('core/src/ledger.rs', 'status.contains("complete") || status == "done"', 'false', 'reads_the_steps_their_words_and_their_states'),
+    'plan-own': ('core/src/ledger.rs', 'steps: read_plan(&p["plan"]),', 'steps: Vec::new(),', 'stands_on_its_own_even_when_the_run_also_did_something'),
+    'peer-only-reply': ('core/src/ledger.rs', '&& !self.peer_links.iter().any(|p| p.direction == "posted")', '&& true', 'is_not_reported_as_a_turn_that_said_nothing'),
+    'late-target': ('core/src/ledger.rs', '} else if summary.is_empty() {', '} else if false {', 'takes_the_target_from_the_completion_when_the_start_had_none'),
+    'late-keep': ('core/src/ledger.rs', '} else if summary.is_empty() {', '} else if true {', 'leaves_a_row_the_start_already_named_alone'),
+
+    'changed-count': ('core/src/activity_entries.rs', 'collect::<std::collections::HashSet<_>>().len()', 'collect::<Vec<_>>().len()', 'counts_two_edits_to_the_same_path_once'),
+    'changed-refused': ('core/src/activity_entries.rs', 'crate::activity_summary::is_edit(item) && *status != Status::Failed', 'crate::activity_summary::is_edit(item)', 'does_not_count_a_refused_write_as_a_changed_file'),
+    'changed-patch': ('core/src/activity_entries.rs', 'if !files.is_empty() { return files.into_iter()', 'if false { return files.into_iter()', 'counts_one_copilot_multiline_patch_as_one_changed_file'),
+    'typed-marker': ('core/src/conversation_turns.rs', 'prompt.rsplit_once(INSTRUCTION_SECTION)', 'prompt.rsplit_once("The person now asks:")', 'does_not_read_the_marker_out_of_a_briefing_that_quotes_the_original_task'),
+    'typed-prior': ('core/src/conversation_turns.rs', 'current=prior;', 'return &current.prompt;', 'still_shows_the_original_words_when_the_switch_carried_no_new_instruction'),
+    'start-day': ('core/src/time_marker.rs', 'if at.date() == now.date() {', 'if true {', 'carries_the_date_once_the_mission_is_not_from_today'),
+    'start-year': ('core/src/time_marker.rs', 'at.year() == now.year()', 'true', 'adds_the_year_only_when_the_mission_is_from_another_one'),
+    'start-cache': ('core/src/ledger.rs', 'if index == 0 {\n                snapshot.started_at', 'if index == usize::MAX {\n                snapshot.started_at', 'mission_start_label_is_cached_from_the_original_turn_even_after_a_handoff'),
+    'assistant-append': ('core/src/ledger.rs', 'let left = MAX_ASSISTANT.saturating_sub(*used);', 'text.clear(); let left = MAX_ASSISTANT.saturating_sub(*used);', 'rebuilds_an_appended_stream_instead_of_keeping_the_last_fragment'),
+    'assistant-replace': ('core/src/ledger.rs', 'if string(p, "operation") == "replace" {', 'if false {', 'honors_a_replace_as_a_replace'),
+    'assistant-order': ('core/src/ledger.rs', 'messages.entry(id.clone()).or_insert_with(|| {', 'messages.entry("all".into()).or_insert_with(|| {', 'keeps_separate_messages_separate_and_in_order'),
     'limit-item': ('core/src/ledger.rs', 'items.push(Item::Limit { kind: string(p, "kind"), text });', 'items.push(Item::Note { level: "warning".into(), text });', 'surfaces_provider_limits_and_diagnostics_as_their_own_items'),
     'temporary-limit': ('core/src/ledger.rs', 'if !finished && p["kind"] != "temporary-rate-limit" {', 'if !finished {', 'surfaces_provider_limits_and_diagnostics_as_their_own_items'),
     'live-cache': ('core/src/ledger.rs', 'live_line(&event_vec, self.running,', 'live_line(&event_vec, !self.running,', 'the_ledger_caches_the_live_projection_when_events_change'),
@@ -90,7 +108,7 @@ log = pathlib.Path('notes/thread-mutation-' + name + '.log')
 try:
     p.write_text(original.replace(old, new, 1))
     with log.open('w') as out:
-        result = subprocess.run(['timeout', '1800', 'python3', 'scripts/gentle-cargo.py', '--timeout', '1780', 'test', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
+        result = subprocess.run(['timeout', '5400', 'python3', 'scripts/gentle-cargo.py', '--timeout', '5380', 'test', '--offline', '-p', 'locust-core'], stdout=out, stderr=subprocess.STDOUT, env=dict(os.environ, CARGO_PROFILE_DEV_OPT_LEVEL='1', CARGO_PROFILE_DEV_DEBUG='0', RUST_TEST_THREADS='4'))
     output = log.read_text()
     assert result.returncode == 101 and ('::' + test + ' ... FAILED') in output and 'test result: FAILED.' in output, (name, result.returncode, output[-3000:])
     print(name + ': named assertion failed across whole core suite')
