@@ -2031,6 +2031,13 @@ textarea {
   color: var(--lc-text-secondary);
 }
 
+/* A step with nothing inside it is a line, not a button (0.875). */
+.lc-steps__line.is-static,
+.lc-steps__line.is-static:hover {
+  cursor: default;
+  color: var(--lc-text-muted);
+}
+
 .lc-steps__line:focus-visible {
   outline: 2px solid var(--lc-focus-ring);
   outline-offset: 2px;

@@ -6,6 +6,7 @@ import { ElsewhereApp } from './ElsewhereApp'
 import { WindowFallback } from './components/WindowFallback'
 import { watchWindowPresence } from './windowPresence'
 import { watchGlassPanel } from './glassPanel'
+import { watchInputModality } from './inputModality'
 import { drawsLiquid } from '../../shared/appearance.js'
 import type { GlassGround } from '../../shared/appearance.js'
 // Tokens first: the shell's palette, type and motion, plus the vendored Geist
@@ -20,6 +21,9 @@ import './shell.css'
  * `#splash` on the URL. One bundle rather than a second entry point, so
  * there is no way for the boot screen to exist in two builds that drift.
  */
+// A button's focus ring only after the keyboard (inputModality.ts).
+watchInputModality(window, document.documentElement)
+
 const isSplash = window.location.hash === '#splash'
 /** This computer's window while Locust is open in a browser (0.830, shared/desk.ts): a cover, with no app behind it. */
 const isElsewhere = new URLSearchParams(window.location.search).get('elsewhere') === '1'

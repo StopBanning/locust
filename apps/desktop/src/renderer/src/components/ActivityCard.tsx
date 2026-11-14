@@ -478,11 +478,28 @@ export function ActivityCard({
   const twice = (path: string): string | undefined => ((named.get(fileName(path).toLowerCase()) ?? 0) > 1 ? folderName(relativePath(path, workspacePath)) : undefined)
   const rowsShown = variant === 'files' ? FILE_ROWS_SHOWN : FOLD_ROWS_SHOWN
   const capped = !verbose && !steps && finished && !showAll && entries.length > rowsShown + 2
-  const shown = capped ? entries.slice(0, rowsShown) : entries
+  /*
+   * A THOUGHT THAT IS ONLY ITS HEADLINE HAS NOTHING TO OPEN ONTO (0.875). Colin's frame, 2026-11-13: "Waiting for
+   * script output" and "Clarifying control 18 source" opened onto an empty quote bar -- the headline is already the
+   * line, and with it taken off nothing was left. Such a thought draws nothing inside a step, and a step with nothing
+   * else inside is a line with no chevron: there is nothing to press for.
+   */
+  const listed = steps ? entries.filter((entry) => entry.kind !== 'thought' || withoutHeadline(entry.text).trim().length > 0) : entries
+  const nothingInside = steps && plan === undefined && listed.length === 0
+  const shown = capped ? listed.slice(0, rowsShown) : listed
 
   return (
     <div className={steps ? 'lc-steps' : 'lc-card'} ref={boxRef}>
-      {steps ? (
+      {steps && nothingInside ? (
+        <div className="lc-steps__line is-static">
+          <span ref={textRef} className={`lc-steps__text${shownTrace?.[0]?.tone === undefined ? '' : ` is-${shownTrace[0]!.tone}`}`} {...(hoverTitle === undefined ? {} : { title: hoverTitle })}>{shownText}</span>
+          {(shownTrace ?? []).slice(1).map((seg) => (
+            <span className={`lc-steps__extra${seg.tone === undefined ? '' : ` is-${seg.tone}`}`} key={seg.key}>
+              {seg.text}
+            </span>
+          ))}
+        </div>
+      ) : steps ? (
         <button type="button" className="lc-steps__line" onClick={() => decide(!open)} aria-expanded={open}>
           {/* The words are shortened to fit, never cut (0.604); what went wrong never gives way. Open, the line may read differently (0.594). */}
           <span ref={textRef} className={`lc-steps__text${shownTrace?.[0]?.tone === undefined ? '' : ` is-${shownTrace[0]!.tone}`}`} {...(hoverTitle === undefined ? {} : { title: hoverTitle })}>{shownText}</span>
@@ -530,9 +547,9 @@ export function ActivityCard({
         * ("Thought for 7s · Considering fallback options"), which opened in
         * turn onto the headline a third time (Colin's frame, 2026-09-30).
         */}
-      {open && steps && entries.length === 1 && entries[0]?.kind === 'thought' && entries[0].text.trim().length > 0 ? (
+      {nothingInside ? null : open && steps && listed.length === 1 && listed[0]?.kind === 'thought' ? (
         <div className="lc-steps__list lc-steps__thought">
-          <AgentText text={withoutHeadline(entries[0].text)} streaming={false} />
+          <AgentText text={withoutHeadline(listed[0].text)} streaming={false} />
         </div>
       ) : open && (
         <div className={steps ? 'lc-steps__list' : 'lc-activity__list'}>
