@@ -3,6 +3,7 @@
 
 pub mod agents;
 pub mod approval;
+pub mod approval_patch;
 pub mod mode_facts;
 pub mod approval_rule_store;
 pub mod approval_rules;

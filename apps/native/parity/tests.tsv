@@ -336,7 +336,7 @@ apps/desktop/src/main/antigravity-usage-does-not-hold-the-models.test.ts		waitin
 apps/desktop/src/main/antigravity-usage-is-read-without-a-turn.test.ts		waiting		
 apps/desktop/src/main/app-server-output-keeps-its-characters.test.ts		waiting		
 apps/desktop/src/main/approval-channel.test.ts		waiting		
-apps/desktop/src/main/approval-patch.test.ts		waiting		
+apps/desktop/src/main/approval-patch.test.ts	approvals	carried	core/src/approval_patch.rs	all 5 tests; item_of, file_changes_of, unified_patch_text, relative_to_folder, tool_patch_from, approval_patch_from
 apps/desktop/src/main/approvals-come-only-from-the-window.test.ts		waiting		
 apps/desktop/src/main/approve-each-reaches-every-start.test.ts		waiting		
 apps/desktop/src/main/ask-asks-before-a-connector.test.ts		waiting		
