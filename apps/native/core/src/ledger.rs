@@ -1423,6 +1423,9 @@ struct Reader {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Snapshot {
+    pub started_label: Option<String>,
+    pub started_at: String,
+    pub started_label_minute: i64,
     pub live: Option<crate::thread_view::LiveLine>,
     pub recovery: Option<crate::recovery::Offer>,
     pub context: Option<crate::context_usage::Reading>,
@@ -1635,6 +1638,12 @@ impl Session {
                 {
                     reader.drained = true;
                 }
+            }
+            if index == 0 {
+                snapshot.started_at = reader.transcript.metadata.as_ref().map(|m| m.created_at.clone()).unwrap_or_default();
+                snapshot.started_label_minute = chrono::Utc::now().timestamp().div_euclid(60);
+                snapshot.started_label = reader.transcript.metadata.as_ref().and_then(|m|
+                    crate::time_marker::started_label(&m.created_at, chrono::Local::now().naive_local()));
             }
             let mut stitched = false;
             if let Some(m) = &reader.transcript.metadata {
@@ -2518,6 +2527,22 @@ mod tests {
             transcript.items.last(),
             Some(Item::Assistant { text, .. }) if text.len() == MAX_ASSISTANT
         ));
+    }
+
+    #[test]
+    fn mission_start_label_is_cached_from_the_original_turn_even_after_a_handoff() {
+        let temp = Temp::new();
+        let mut first = created("m1", "first ask");
+        first["metadata"]["createdAt"] = json!("2025-01-01T09:15:00Z");
+        write(&temp.path("m1"), &[first]);
+        let mut handed = created("m2", "briefing text");
+        handed["metadata"]["createdAt"] = json!("2026-09-02T23:25:00Z");
+        handed["metadata"]["continuesFrom"] = json!({"missionId":"m1","reason":"route-switch"});
+        write(&temp.path("m2"), &[handed]);
+        let snapshot = Session::new(temp.0.clone(), "m2".into()).poll().unwrap();
+        assert_eq!(snapshot.started_label, crate::time_marker::started_label(
+            "2025-01-01T09:15:00Z", chrono::Local::now().naive_local()));
+        assert!(snapshot.started_label.unwrap().contains("2025"));
     }
 
     #[test]

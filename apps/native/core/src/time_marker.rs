@@ -52,6 +52,51 @@ pub fn clock_time(iso: &str) -> String {
     format!("{:02}:{:02}", local.hour(), local.minute())
 }
 
+/// The mission's local start time: older days carry a date and older years a year.
+/// Compute during ledger polling, never while drawing. The explicit clock also makes midnight testable.
+pub fn started_label(iso: &str, now: chrono::NaiveDateTime) -> Option<String> {
+    let at = DateTime::parse_from_rfc3339(iso).ok().map(|at| at.with_timezone(&Local).naive_local())
+        .or_else(|| chrono::NaiveDateTime::parse_from_str(iso, "%Y-%m-%dT%H:%M:%S").ok())?;
+    let time = at.format("%H:%M");
+    if at.date() == now.date() {
+        Some(time.to_string())
+    } else if at.year() == now.year() {
+        Some(format!("{}, {time}", at.format("%b %-d")))
+    } else {
+        Some(format!("{}, {time}", at.format("%b %-d, %Y")))
+    }
+}
+
+#[cfg(test)]
+mod mission_start_tests {
+    use super::*;
+    fn label(iso: &str) -> Option<String> {
+        started_label(iso, chrono::NaiveDateTime::parse_from_str("2026-09-03T14:00:00", "%Y-%m-%dT%H:%M:%S").unwrap())
+    }
+    #[test]
+    fn shows_the_bare_time_for_a_mission_started_today() {
+        let label = label("2026-09-03T09:15:00").unwrap();
+        assert!(label.contains("09:15"));
+        assert!(!label.contains("Sep"));
+        assert!(!label.as_bytes().windows(4).any(|part| part.iter().all(u8::is_ascii_digit)));
+    }
+    #[test]
+    fn carries_the_date_once_the_mission_is_not_from_today() {
+        let label = label("2026-09-02T23:25:00").unwrap();
+        assert!(label.contains("Sep"));
+        assert!(label.contains('2'));
+    }
+    #[test]
+    fn adds_the_year_only_when_the_mission_is_from_another_one() {
+        assert!(label("2025-12-31T23:59:00").unwrap().contains("2025"));
+        assert!(!label("2026-09-01T10:00:00").unwrap().contains("2026"));
+    }
+    #[test]
+    fn says_nothing_for_a_timestamp_it_cannot_read() {
+        assert_eq!(label("not a date"), None);
+    }
+}
+
 /// How far into a conversation a turn is, in units a person thinks in.
 pub fn elapsed_in_label(minutes: i64) -> String {
     let minutes = minutes.max(0);
