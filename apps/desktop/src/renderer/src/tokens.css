@@ -991,6 +991,14 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+/* After a pointer press a button never wears the ring, even where Chromium counted the press as keyboard focus
+   (inputModality.ts). Fields keep theirs: the caret's place is worth showing. */
+:root[data-input='pointer'] button:focus-visible,
+:root[data-input='pointer'] [role='button']:focus-visible,
+:root[data-input='pointer'] [role='menuitem']:focus-visible {
+  outline: none;
+}
+
 @keyframes lcPulse {
   0%,
   100% {
