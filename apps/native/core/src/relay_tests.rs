@@ -494,6 +494,7 @@ fn without_protocol_blocks_strips_every_tag_and_defangs_strays() {
     let cleaned = without_protocol_blocks(input);
     assert!(cleaned.contains("Answer here."));
     assert!(!cleaned.contains("dup"));
+    assert!(!cleaned.contains("a.md"));
     assert!(!cleaned.contains("note</locust-memory>"));
     assert!(cleaned.contains("`‹locust-share>`"));
     assert!(cleaned.contains("‹locust-share dangling"));

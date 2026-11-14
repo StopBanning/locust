@@ -6,6 +6,7 @@
 //! and the last thing a teammate reads before answering is the question.
 
 use crate::peer_share::{SHARE_TAG, sanitize_inbound};
+use crate::protocol_tags::{FILE_BLOCK_EXAMPLE_PATH, FILE_TAG};
 use crate::workroom::Message;
 
 pub const SECTION_GAP: &str = "\n\n";
@@ -14,8 +15,6 @@ pub const MAX_RUNTIME_PROMPT_LENGTH: usize = 12_000;
 /// shared/trailer.ts.
 pub const BLOCK_PLACEMENT: &str = "put it at the end of your reply; if more than one of these blocks applies, put them one after another, in any order";
 const ASK_TAG: &str = "locust-ask";
-const FILE_TAG: &str = "locust-file";
-const FILE_BLOCK_EXAMPLE_PATH: &str = "path/relative/to/the/folder.md";
 const NEXT_TAG: &str = "locust-next";
 const NEXT_PLACEHOLDERS: [&str; 2] = ["<short title>", "<what to do, and what done looks like>"];
 

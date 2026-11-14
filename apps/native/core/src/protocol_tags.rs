@@ -947,22 +947,214 @@ mod tests {
         );
     }
 
+    // --- handover.test.ts (19 cases) ---
+
+    fn dropped_file_count(path: &str) -> usize {
+        parse_file_blocks(&format!("<locust-file>\n{path}\n</locust-file>")).len()
+    }
+
     #[test]
-    fn handover_parses_normalizes_dedups_and_caps() {
+    fn reads_one_file_and_its_note() {
         let files = parse_file_blocks(
-            "Done.\n<locust-file>\n- docs\\a.md :: one\n./docs/a.md :: duplicate\npath/relative/to/the/folder.md\nD:\\work\\review.md :: win\n</locust-file>",
+            "Done.\n<locust-file>\ndocs/report.md :: the rollup you asked for\n</locust-file>",
         );
         assert_eq!(
             files,
+            vec![HandedFile {
+                path: "docs/report.md".into(),
+                note: Some("the rollup you asked for".into()),
+            }]
+        );
+    }
+
+    #[test]
+    fn reads_several_in_the_order_they_were_written_and_the_note_is_optional() {
+        let files = parse_file_blocks("<locust-file>\na.md\nb.md :: second\n</locust-file>");
+        assert_eq!(
+            files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(),
+            vec!["a.md", "b.md"]
+        );
+        assert_eq!(files[0].note, None);
+        assert_eq!(files[1].note.as_deref(), Some("second"));
+    }
+
+    #[test]
+    fn finds_no_files_in_a_reply_that_has_none() {
+        assert!(parse_file_blocks("I wrote docs/report.md for you.").is_empty());
+    }
+
+    #[test]
+    fn takes_a_model_writing_the_list_as_bullets() {
+        let files =
+            parse_file_blocks("<locust-file>\n- docs/a.md :: one\n* docs/b.md\n</locust-file>");
+        assert_eq!(
+            files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(),
+            vec!["docs/a.md", "docs/b.md"]
+        );
+    }
+
+    #[test]
+    fn writes_one_spelling_of_a_path_whichever_the_model_used() {
+        let files =
+            parse_file_blocks("<locust-file>\ndocs\\sub\\report.md\n./notes.md\n</locust-file>");
+        assert_eq!(
+            files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(),
+            vec!["docs/sub/report.md", "notes.md"]
+        );
+    }
+
+    #[test]
+    fn draws_one_button_for_a_file_named_twice() {
+        let files = parse_file_blocks(
+            "<locust-file>\ndocs/a.md :: the report\ndocs/a.md :: also the report\n</locust-file>",
+        );
+        assert_eq!(files.len(), 1);
+        let normalized_and_example = parse_file_blocks(
+            "Done.\n<locust-file>\n- docs\\a.md :: one\n./docs/a.md :: duplicate\npath/relative/to/the/folder.md\nD:\\work\\review.md :: win\n</locust-file>",
+        );
+        assert_eq!(
+            normalized_and_example,
             vec![
                 HandedFile { path: "docs/a.md".into(), note: Some("one".into()) },
                 HandedFile { path: "D:/work/review.md".into(), note: Some("win".into()) },
             ]
         );
+    }
+
+    #[test]
+    fn leaves_a_path_that_climbs_out_of_the_folder_to_the_host_which_knows_the_folders_locust_works_in() {
+        assert_eq!(dropped_file_count("../Documents/repo/docs/report.md"), 1);
+        assert_eq!(dropped_file_count("docs/../../other/report.md"), 1);
+        assert_eq!(dropped_file_count("..rc"), 1);
+    }
+
+    #[test]
+    fn leaves_a_whole_path_to_the_host_too_which_opens_it_only_when_the_teammate_named_it_as_its_own() {
+        assert_eq!(
+            parse_file_blocks(
+                "<locust-file>\nD:\\work\\scratch\\toaster-review2\\Codex.md :: the review\n</locust-file>",
+            ),
+            vec![HandedFile {
+                path: "D:/work/scratch/toaster-review2/Codex.md".into(),
+                note: Some("the review".into()),
+            }]
+        );
+        assert_eq!(dropped_file_count("/Users/someone/notes/report.md"), 1);
+        assert_eq!(dropped_file_count("C:/Users/someone/Desktop/report.md"), 1);
+    }
+
+    #[test]
+    fn drops_a_network_or_device_path_which_would_reach_another_computer_just_by_being_looked_at() {
+        assert_eq!(dropped_file_count("\\\\server\\share\\file.txt"), 0);
+        assert_eq!(dropped_file_count("//server/share/file.txt"), 0);
+        assert_eq!(dropped_file_count("\\\\?\\C:\\Windows\\win.ini"), 0);
+        assert_eq!(dropped_file_count("\\\\.\\pipe\\anything"), 0);
+    }
+
+    #[test]
+    fn drops_a_drive_with_no_folder_which_names_wherever_that_drive_last_was() {
+        assert_eq!(dropped_file_count("D:report.md"), 0);
+    }
+
+    #[test]
+    fn says_under_the_message_what_it_dropped_and_no_longer_says_it_of_a_whole_path() {
+        let block =
+            "<locust-file>\nD:/work/scratch/review/Codex.md\n\\\\server\\share\\file.txt\n</locust-file>";
+        assert_eq!(
+            refused_file_lines(block)
+                .iter()
+                .map(|line| line.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["//server/share/file.txt"]
+        );
+    }
+
+    #[test]
+    fn drops_a_path_carrying_a_control_character() {
+        assert_eq!(dropped_file_count(&format!("docs/report{}.md", '\u{0}')), 0);
+        assert_eq!(dropped_file_count(&format!("docs/report{}[2K.md", char::from(27))), 0);
+    }
+
+    #[test]
+    fn drops_an_empty_line_rather_than_drawing_a_button_to_nothing() {
+        assert!(parse_file_blocks("<locust-file>\n\n\n</locust-file>").is_empty());
+    }
+
+    #[test]
+    fn stops_at_four_files() {
+        let lines = (0..9)
+            .map(|index| format!("docs/file-{index}.md"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let files = parse_file_blocks(&format!("<locust-file>\n{lines}\n</locust-file>"));
+        assert_eq!(files.len(), MAX_FILES_PER_REPLY);
+        assert_eq!(files.len(), 4);
+    }
+
+    #[test]
+    fn bounds_a_note_because_it_is_a_caption_on_a_button() {
+        let note = "x".repeat(400);
+        let files = parse_file_blocks(&format!("<locust-file>\ndocs/a.md :: {note}\n</locust-file>"));
+        let file = files.first().expect("one file");
+        let parsed_note = file.note.as_deref().expect("a note");
+        assert!(parsed_note.chars().count() <= 120);
+        assert_eq!(parsed_note.chars().count(), 120);
+        assert!(parsed_note.ends_with('…'));
+    }
+
+    #[test]
+    fn is_in_the_conversations_folder_for_a_path_in_it_and_the_path_itself_for_a_whole_one() {
+        assert_eq!(
+            handed_file_on_disk("C:/Users/someone/.claude", "docs/report.md"),
+            "C:/Users/someone/.claude/docs/report.md"
+        );
+        assert_eq!(
+            handed_file_on_disk("C:/Users/someone/.claude", "D:/work/scratch/review/Codex.md"),
+            "D:/work/scratch/review/Codex.md"
+        );
+        assert_eq!(
+            handed_file_on_disk("/home/someone/project", "/home/someone/notes.md"),
+            "/home/someone/notes.md"
+        );
+        assert_eq!(handed_file_on_disk("/repo", "docs/a.md"), "/repo/docs/a.md");
+        assert_eq!(handed_file_on_disk("/repo", "/tmp/a.md"), "/tmp/a.md");
+    }
+
+    #[test]
+    fn tells_a_whole_path_from_one_in_the_folder() {
+        assert!(is_whole_path("D:/work/a.md"));
+        assert!(is_whole_path("/home/a.md"));
+        assert!(!is_whole_path("docs/a.md"));
+        assert!(!is_whole_path("../Documents/a.md"));
         assert!(is_whole_path("D:/work/review.md"));
         assert!(is_whole_path("/tmp/a.md"));
         assert!(!is_whole_path("docs/a.md"));
-        assert_eq!(handed_file_on_disk("/repo", "docs/a.md"), "/repo/docs/a.md");
-        assert_eq!(handed_file_on_disk("/repo", "/tmp/a.md"), "/tmp/a.md");
+    }
+
+    #[test]
+    fn shows_the_answer_not_the_protocol() {
+        let said = "Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup\n</locust-file>";
+        assert_eq!(strip_file_blocks(said), "Here is the rollup.");
+        assert!(!strip_file_blocks(said).contains("locust-file"));
+    }
+
+    #[test]
+    fn leaves_a_reply_with_no_block_exactly_as_it_was() {
+        assert_eq!(strip_file_blocks("Nothing to hand over."), "Nothing to hand over.");
+    }
+
+    #[test]
+    fn shown_text_removes_handed_file_blocks_alongside_other_blocks() {
+        let said = "Here is the rollup.\n\n<locust-file>\ndocs/report.md :: the rollup\n</locust-file>";
+        assert_eq!(shown_text(said), "Here is the rollup.");
+    }
+
+    #[test]
+    fn drops_a_path_over_four_hundred_characters() {
+        let long = format!("docs/{}.md", "a".repeat(395));
+        assert_eq!(long.chars().count(), 403);
+        let block = format!("<locust-file>\n{long}\n</locust-file>");
+        assert!(parse_file_blocks(&block).is_empty());
+        assert!(refused_file_lines(&block).is_empty());
     }
 }
