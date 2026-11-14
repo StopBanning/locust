@@ -16,6 +16,10 @@ fn knows_its_file_and_the_line_a_person_reads_the_new_one_or_the_old_one_for_a_r
     assert_eq!((note.path.as_str(), note.line, note.kind, note.code.as_str(), note.text.as_str()), ("src/app.ts", Some(11), '+', "const port = 3001", "read it from PORT"));
     let gone = diff_note_for("src/app.ts", &removed(), "why remove this?");
     assert_eq!((gone.line, gone.kind), (Some(11), '-'));
+    let shifted_del = diff_note_for("src/app.ts", &Row { kind: '-', old: Some(11), new: Some(25), text: "x".into() }, "del prefers old");
+    assert_eq!(shifted_del.line, Some(11));
+    let shifted_ctx = diff_note_for("src/app.ts", &Row { kind: ' ', old: Some(10), new: Some(15), text: "x".into() }, "ctx prefers new");
+    assert_eq!(shifted_ctx.line, Some(15));
     assert_eq!(diff_note_key("src/app.ts", &added()), "src/app.ts:add::11");
 }
 
