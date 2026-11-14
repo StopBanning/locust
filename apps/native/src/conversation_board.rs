@@ -144,6 +144,7 @@ fn conversations_without_rooms(
         .collect()
 }
 
+#[cfg(test)]
 pub fn conversation_board(
     rows: &[SidebarMission],
     rooms: &[BoardRoom],
@@ -196,6 +197,7 @@ pub fn conversation_board_with_extra(
     Some(sections)
 }
 
+#[cfg(test)]
 pub fn board_meta(sections: Option<&[ConversationBoardSection]>) -> String {
     board_meta_with_extra(sections, 0)
 }

@@ -11,9 +11,11 @@ use locust_core::attention;
 use locust_core::connectors_off::free_models_best_first;
 use locust_core::scout::host::ScoutHost;
 use locust_core::scout::types::{
-    ScoutCard, ScoutChange, ScoutDraft, ScoutOpen, ScoutOutcome, ScoutSettings, ScoutState,
-    ScoutTone, ScoutUrgency,
+    ScoutCard, ScoutChange, ScoutDraft, ScoutOpen, ScoutOutcome, ScoutState, ScoutTone,
+    ScoutUrgency,
 };
+#[cfg(test)]
+use locust_core::scout::types::ScoutSettings;
 use locust_core::scout::view::{
     self, SCOUT_INVITE_LEDE, SCOUT_INVITE_NAME, SCOUT_INVITE_ROLE, SCOUT_INVITE_ROUTE,
     SCOUT_INVITE_TITLE, SCOUT_NOT_NOW_LABEL, SCOUT_SAW_PAGE, SCOUT_SHOWN_CARDS,
