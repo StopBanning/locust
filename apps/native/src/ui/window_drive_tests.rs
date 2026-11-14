@@ -5579,6 +5579,7 @@ fn asking_scout_from_window_uses_ask_mode_and_sealed_runtime_even_when_edit_sele
 #[test]
 fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
     let (dirs, store, mut rt) = window();
+    let _g = native::hooks::install(store.clone(), fake("m1-app-server.py", "cards-scout-fix"));
     let folder = dirs.0.join("fix-repo");
     let fix_root = dirs.0.join("scout-fixes-root");
     std::fs::create_dir_all(&folder).unwrap();
@@ -5595,70 +5596,39 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
     locust_core::scout::fix::default_fix_git(&["add", "-A"], &folder).unwrap();
     locust_core::scout::fix::default_fix_git(&["commit", "-m", "init"], &folder).unwrap();
 
-    // Create two real routine copies in our isolated fix_root so real ~/.locust is never touched.
-    let fix_apply_id = locust_core::scout::fix::new_fix_id();
-    let fix_skip_id = locust_core::scout::fix::new_fix_id();
-    let copies = locust_core::routine_copy::RoutineCopies::new(fix_root.clone());
-    let copy_apply = copies.make(&fix_apply_id, &folder).unwrap();
-    std::fs::write(copy_apply.join("answer.txt"), "42\n").unwrap();
-    let copy_skip = copies.make(&fix_skip_id, &folder).unwrap();
-    std::fs::write(copy_skip.join("answer.txt"), "42\n").unwrap();
-
     // Person also has uncommitted changes to a separate file in the project folder.
     std::fs::write(folder.join("notes.md"), "mine edited\n").unwrap();
 
-    let card_apply = locust_core::scout::types::ScoutCard {
-        card_id: "c_apply".into(),
-        at: "2026-10-22T12:00:00.000Z".into(),
-        reading: false,
-        take: None,
-        fix: Some(locust_core::scout::types::ScoutFix::Ready {
-            fix_id: fix_apply_id.clone(),
-            name: "Wren".into(),
-            files: vec!["answer.txt".into()],
-            added: Some(1),
-            removed: Some(1),
-            mission_id: "ms_apply".into(),
-        }),
-        fact: locust_core::scout::types::ScoutFact {
-            draft: Some(locust_core::scout::types::ScoutDraft {
-                teammate_id: "tm_wren".into(),
-                name: "Wren".into(),
-                message: "Fix answer.txt".into(),
+    // Seed Scout + Wren routes in teammates.json so both look and fix-in-copy spawn the fake agent.
+    store
+        .save_json(
+            "teammates.json",
+            &json!({
+                "schemaVersion": 1,
+                "teammates": [
+                    {
+                        "teammateId": "tm_scout",
+                        "name": "Scout",
+                        "hue": "teal",
+                        "role": "Custom",
+                        "roleTitle": "Keeps watch",
+                        "createdAt": "2026-10-01T00:00:00.000Z",
+                        "route": { "runtime": "codex", "model": "synthetic-model", "mode": "ask" }
+                    },
+                    {
+                        "teammateId": "tm_wren",
+                        "name": "Wren",
+                        "hue": "lime",
+                        "role": "Code & Migrations",
+                        "createdAt": "2026-10-01T00:00:00.000Z",
+                        "route": { "runtime": "codex", "model": "synthetic-model", "mode": "accept-edits" }
+                    }
+                ],
+                "missionOwners": {},
+                "settings": {}
             }),
-            ..locust_core::scout::types::ScoutFact::simple(
-                "check:apply",
-                locust_core::scout::types::ScoutUrgency::Now,
-                "Check failed in repo",
-            )
-        },
-    };
-    let card_skip = locust_core::scout::types::ScoutCard {
-        card_id: "c_skip".into(),
-        at: "2026-10-22T11:59:00.000Z".into(),
-        reading: false,
-        take: None,
-        fix: Some(locust_core::scout::types::ScoutFix::Ready {
-            fix_id: fix_skip_id.clone(),
-            name: "Wren".into(),
-            files: vec!["answer.txt".into()],
-            added: Some(1),
-            removed: Some(1),
-            mission_id: "ms_skip".into(),
-        }),
-        fact: locust_core::scout::types::ScoutFact {
-            draft: Some(locust_core::scout::types::ScoutDraft {
-                teammate_id: "tm_wren".into(),
-                name: "Wren".into(),
-                message: "Backup draft when skipped".into(),
-            }),
-            ..locust_core::scout::types::ScoutFact::simple(
-                "check:skip",
-                locust_core::scout::types::ScoutUrgency::Soon,
-                "Second check failed",
-            )
-        },
-    };
+        )
+        .unwrap();
 
     std::fs::create_dir_all(store.root()).unwrap();
     std::fs::write(
@@ -5667,17 +5637,19 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
             "settings": {
                 "on": true,
                 "teammateId": "tm_scout",
-                "watches": { "comments": false, "github": true, "teammates": true, "check": true },
+                "watches": { "comments": false, "github": false, "teammates": false, "check": true },
                 "fixes": { "on": false, "teammateId": "tm_wren", "perDay": 2 }
             },
-            "cards": [card_apply.to_json(true), card_skip.to_json(true)],
+            "cards": []
         }))
         .unwrap(),
     )
     .unwrap();
     let ws_id = locust_core::workspace_settings::workspace_id_for(&folder);
     let mut ws_settings = locust_core::workspace_settings::load(&store).unwrap();
-    ws_settings.check_commands.insert(ws_id, "npm test".into());
+    ws_settings
+        .check_commands
+        .insert(ws_id, "grep -q 42 answer.txt".into());
     locust_core::workspace_settings::save(&store, &ws_settings).unwrap();
 
     // Seed non-Scout teammate and Scout in state + configure isolated folder & fix_root on ScoutHost.
@@ -5685,10 +5657,12 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
         let mut wren = s.teammates[0].clone();
         wren.id = "tm_wren".into();
         wren.name = "Wren".into();
+        wren.runs_in = "edit".into();
         wren.folder = None;
         let mut scout = wren.clone();
         scout.id = "tm_scout".into();
         scout.name = "Scout".into();
+        scout.runs_in = "ask".into();
         apply_team(s, vec![scout, wren]);
         s.home.folder_path = Some(folder.to_string_lossy().into());
         crate::settings_panel::open(s);
@@ -5736,27 +5710,114 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
                 .is_some_and(|f| f.per_day == 3)
     });
 
-    // 2. Open Home: Ready fix shows FixLine and hides draft Send/Change buttons.
+    // 2. Open Home, pause fix completion on a gate, and trigger a real look on the failing check.
+    std::fs::write(fix_root.join("hold.gate"), b"wait\n").unwrap();
     rt.update(|s, _| {
         s.settings_panel.open = false;
         home_panel::open_home(s);
     });
     settle(&mut rt);
-    assert!(rt.find("scout-fix-c_apply").is_some());
-    assert!(rt.find("scout-fix-apply-c_apply").is_some());
-    assert!(rt.find("scout-send-c_apply").is_none());
-    assert!(rt.find("scout-fix-skip-c_skip").is_some());
-    assert!(rt.find("scout-send-c_skip").is_none());
-
-    // 3. Apply c_apply: copy brought into folder beside own edits, draft still hidden.
-    rt.update(|_, tx| tx.scroll_key_to("scout-fix-apply-c_apply", 0.5));
+    // Scout's team card is below the fold on this Home (the folder card sits above it), and Rune presses only what it
+    // drew. The eye's own press is checked in scout_invite_flow_adds_scout_to_team_and_shows_look_now_eye_button; here
+    // the look starts the way the eye starts it, and the fix that follows is the subject.
+    assert!(crate::scout_cards::tests::collect_rt_text(&rt).contains("Look now"), "the eye is on Scout's card");
+    rt.update(|s, _| crate::scout_cards::look_now(s));
+    pump(&mut rt, "preparing fix in isolated copy", |s| {
+        s.scout.state.as_ref().is_some_and(|st| {
+            st.cards.iter().any(|c| {
+                matches!(
+                    c.fix,
+                    Some(locust_core::scout::types::ScoutFix::Preparing { .. })
+                )
+            })
+        })
+    });
     settle(&mut rt);
-    click(&mut rt, "scout-fix-apply-c_apply");
+    let card_apply_id = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| {
+            matches!(
+                c.fix,
+                Some(locust_core::scout::types::ScoutFix::Preparing { .. })
+            )
+        })
+        .unwrap()
+        .card_id
+        .clone();
+    assert!(crate::scout_cards::tests::collect_rt_text(&rt)
+        .contains("Wren is preparing a fix in a copy of the folder…"));
+    assert!(rt.find(&format!("scout-fix-apply-{card_apply_id}")).is_none());
+    assert!(rt.find(&format!("scout-send-{card_apply_id}")).is_none());
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "41\n"
+    );
+
+    // 3. Release the gate: fake agent fixes the copy, check passes there, and Ready appears while folder stays untouched.
+    std::fs::write(fix_root.join("release.gate"), b"go\n").unwrap();
+    pump(&mut rt, "fix ready in copy", |s| {
+        let Some(st) = s.scout.state.as_ref() else {
+            return false;
+        };
+        let Some(card) = st.cards.iter().find(|c| c.card_id == card_apply_id) else {
+            return false;
+        };
+        if let Some(locust_core::scout::types::ScoutFix::Unfixed { why, .. }) = &card.fix {
+            panic!("fix became Unfixed: {why} (model_said={:?})", st.model_said);
+        }
+        !card.reading
+            && matches!(
+                card.fix,
+                Some(locust_core::scout::types::ScoutFix::Ready { .. })
+            )
+    });
+    settle(&mut rt);
+    let ready_fix_id = match rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| c.card_id == card_apply_id)
+        .unwrap()
+        .fix
+        .as_ref()
+        .unwrap()
+    {
+        locust_core::scout::types::ScoutFix::Ready { fix_id, .. } => fix_id.clone(),
+        other => panic!("expected Ready, got {other:?}"),
+    };
+    let copy_apply = fix_root.join(&ready_fix_id);
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "41\n"
+    );
+    assert!(crate::scout_cards::tests::collect_rt_text(&rt).contains("Fix ready: 1 file changed"));
+    assert!(rt.find(&format!("scout-fix-review-{card_apply_id}")).is_some());
+    assert!(rt.find(&format!("scout-fix-apply-{card_apply_id}")).is_some());
+    assert!(rt.find(&format!("scout-fix-skip-{card_apply_id}")).is_some());
+    assert!(rt.find(&format!("scout-send-{card_apply_id}")).is_none());
+
+    // 4. Apply brings the fix into the folder beside uncommitted notes.md, then a passing look clears check state.
+    rt.update(|_, tx| tx.scroll_key_to(&format!("scout-fix-apply-{card_apply_id}"), 0.5));
+    settle(&mut rt);
+    click(&mut rt, &format!("scout-fix-apply-{card_apply_id}"));
     pump(&mut rt, "fix applied into folder", |s| {
         s.scout.state.as_ref().is_some_and(|st| {
             st.cards.iter().any(|c| {
-                c.card_id == "c_apply"
-                    && matches!(c.fix, Some(locust_core::scout::types::ScoutFix::Applied { .. }))
+                c.card_id == card_apply_id
+                    && matches!(
+                        c.fix,
+                        Some(locust_core::scout::types::ScoutFix::Applied { .. })
+                    )
             })
         })
     });
@@ -5769,22 +5830,93 @@ fn scout_fixes_settings_apply_and_skip_work_from_window_in_isolated_fix_root() {
         std::fs::read_to_string(folder.join("notes.md")).unwrap(),
         "mine edited\n"
     );
-    assert!(rt.find("scout-send-c_apply").is_none());
+    assert!(rt.find(&format!("scout-send-{card_apply_id}")).is_none());
     assert!(!copy_apply.exists());
 
-    // 4. Skip c_skip: copy discarded, draft reveals again on card.
-    rt.update(|_, tx| tx.scroll_key_to("scout-fix-skip-c_skip", 0.5));
+    // Look once while passing so last_check becomes true, then break answer.txt again and test Skip.
+    let before_pass_look = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .and_then(|st| st.last_look_at.clone());
+    rt.update(|s, _| crate::scout_cards::look_now(s));
+    pump(&mut rt, "passing check look finishes", |s| {
+        !s.scout.looking
+            && s.scout
+                .state
+                .as_ref()
+                .and_then(|st| st.last_look_at.as_deref())
+                != before_pass_look.as_deref()
+    });
+    std::fs::write(folder.join("answer.txt"), "40\n").unwrap();
+    rt.update(|s, _| crate::scout_cards::look_now(s));
+    pump(&mut rt, "second fix ready for skip", |s| {
+        let Some(st) = s.scout.state.as_ref() else {
+            return false;
+        };
+        for c in st.cards.iter().filter(|c| c.card_id != card_apply_id) {
+            if let Some(locust_core::scout::types::ScoutFix::Unfixed { why, .. }) = &c.fix {
+                panic!("second fix became Unfixed: {why} (model_said={:?})", st.model_said);
+            }
+        }
+        st.cards.iter().any(|c| {
+            c.card_id != card_apply_id
+                && !c.reading
+                && matches!(
+                    c.fix,
+                    Some(locust_core::scout::types::ScoutFix::Ready { .. })
+                )
+        })
+    });
     settle(&mut rt);
-    click(&mut rt, "scout-fix-skip-c_skip");
+    let card_skip = rt
+        .state
+        .scout
+        .state
+        .as_ref()
+        .unwrap()
+        .cards
+        .iter()
+        .find(|c| {
+            matches!(
+                c.fix,
+                Some(locust_core::scout::types::ScoutFix::Ready { .. })
+            )
+        })
+        .unwrap();
+    let card_skip_id = card_skip.card_id.clone();
+    let copy_skip_id = match card_skip.fix.as_ref().unwrap() {
+        locust_core::scout::types::ScoutFix::Ready { fix_id, .. } => fix_id.clone(),
+        _ => unreachable!(),
+    };
+    let copy_skip = fix_root.join(&copy_skip_id);
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "40\n"
+    );
+
+    // 5. Skip discards the copy without changing folder/answer.txt and reveals the draft Send button.
+    rt.update(|_, tx| tx.scroll_key_to(&format!("scout-fix-skip-{card_skip_id}"), 0.5));
+    settle(&mut rt);
+    click(&mut rt, &format!("scout-fix-skip-{card_skip_id}"));
     pump(&mut rt, "fix skipped and draft revealed", |s| {
         s.scout.state.as_ref().is_some_and(|st| {
             st.cards
                 .iter()
-                .any(|c| c.card_id == "c_skip" && c.fix.is_none())
+                .any(|c| c.card_id == card_skip_id && c.fix.is_none())
         })
     });
     settle(&mut rt);
-    assert!(rt.find("scout-send-c_skip").is_some());
+    assert_eq!(
+        std::fs::read_to_string(folder.join("answer.txt")).unwrap(),
+        "40\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(folder.join("notes.md")).unwrap(),
+        "mine edited\n"
+    );
+    assert!(rt.find(&format!("scout-send-{card_skip_id}")).is_some());
     assert!(!copy_skip.exists());
 }
 

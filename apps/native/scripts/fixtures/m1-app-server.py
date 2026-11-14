@@ -25,6 +25,7 @@ sealed_mode = scenario in ('sealed', 'sealed-asking')
 if approving or scenario == 'resume-undone' or rewinding or sealed_mode:
     base = 'success'
 SANDBOX = 'workspace-write' if (approving or scenario == 'cards-edit-check') else 'read-only'
+thread_sandbox = SANDBOX
 POLICY = 'untrusted' if approving else 'never'
 APPROVE_DECISION = 'accept' if scenario == 'approve-allow' else ('reject' if scenario == 'approve-deny' else 'decline')
 PROMPT = 'Synthetic follow-up' if (resuming or rewinding) else 'Synthetic prompt'
@@ -34,15 +35,15 @@ def notify(method, **params):
     send(dict(method=method, params=dict(threadId='thread_fake', **params)))
 def item(done, **fields):
     notify('item/completed' if done else 'item/started', item=fields)
-def check_config(config):
+def check_config(config, sandbox=SANDBOX, sealed=sealed_mode):
     # codex-read-only.ts: only a read-only thread switches off the person's MCP programs (and Codex's plugins); a
     # server reached at an address stays. Any other sandbox keeps their Codex as it is.
     # A sealed run switches off shell, ChatGPT apps, web search, and remote connectors too (codexSealedThreadConfig).
-    if sealed_mode:
+    if sealed:
         assert config['mcp_servers.local.enabled'] is False and config['mcp_servers.remote.enabled'] is False, config
         assert config['features.plugins'] is False and config['features.apps'] is False and config['features.shell_tool'] is False, config
         assert config['web_search'] == 'disabled', config
-    elif SANDBOX == 'read-only':
+    elif sandbox == 'read-only':
         assert config['mcp_servers.local.enabled'] is False and config['features.plugins'] is False, config
         assert 'mcp_servers.remote.enabled' not in config, config
     else:
@@ -74,8 +75,13 @@ for line in sys.stdin:
         send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'thread/start':
         assert not resuming, 'a follow-up must resume, not start a new thread'
-        assert p['sandbox'] == SANDBOX and p['approvalPolicy'] == POLICY, p
-        check_config(p['config'])
+        expected_sandbox = p.get('sandbox') if scenario == 'cards-scout-fix' else SANDBOX
+        if scenario == 'cards-scout-fix':
+            assert expected_sandbox in ('read-only', 'workspace-write'), p
+        thread_sandbox = expected_sandbox
+        assert p['sandbox'] == expected_sandbox and p['approvalPolicy'] == POLICY, p
+        is_sealed = (expected_sandbox == 'read-only') if scenario == 'cards-scout-fix' else sealed_mode
+        check_config(p['config'], expected_sandbox, is_sealed)
         send(dict(id=msg['id'], result={'thread':{'id':'thread_fake'}}))
     elif method == 'turn/start':
         assert p['summary'] == 'detailed' and p['approvalPolicy'] == POLICY, p
@@ -170,6 +176,18 @@ for line in sys.stdin:
                     with open('notes.txt', 'w') as f:
                         f.write('BROKEN\n')
                     reply = 'Wrote notes.txt.'
+            elif scenario == 'cards-scout-fix':
+                if thread_sandbox == 'read-only':
+                    reply = 'ITEM 1\nTAKE: Check failed on answer.txt.\nHAND TO: Wren\nDRAFT: Fix answer.txt so grep passes.'
+                else:
+                    parent = os.path.dirname(os.getcwd())
+                    hold = os.path.join(parent, 'hold.gate')
+                    release = os.path.join(parent, 'release.gate')
+                    while os.path.exists(hold) and not os.path.exists(release):
+                        time.sleep(0.02)
+                    with open('answer.txt', 'w') as f:
+                        f.write('42\n')
+                    reply = 'Fixed answer.txt to 42.'
             else:
                 reply = 'Unknown cards scenario'
             notify('item/agentMessage/delta', itemId='answer', operation='replace', delta=reply)
