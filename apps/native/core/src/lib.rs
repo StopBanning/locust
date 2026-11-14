@@ -159,3 +159,5 @@ pub mod conversation_turns;
 pub mod peer_thread;
 
 pub mod signal_rail;
+
+pub mod bot_spec;
